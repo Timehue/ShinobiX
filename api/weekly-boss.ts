@@ -32,15 +32,20 @@ const WEEKLY_BOSS_DMG_ABSOLUTE_CAP = 20000;
 // duel against an unkillable boss can rack up significantly more damage
 // than a single tap, so this cap is much higher than the per-tap one
 // but still bounded to stop a tampered client from claiming nonsense.
-// Legit late-game attackers top out around 5–7k per attack × ~30 attacks
-// before being KO'd = ~150–200k. 500k is a generous ceiling.
-const WEEKLY_BOSS_LOG_FIGHT_CAP = 500000;
-// Generous max number of attacks per arena fight, used to derive a stat-aware
-// per-fight cap (fair-per-hit × this). A real fight runs ~30 attacks, so 80 is
-// ~2.7× headroom — a legitimate fight is never clipped, but a weak/no-stat
-// account is bounded well below the flat 500k (which a tampered client could
-// otherwise claim to steal MVP share). A maxed attacker still hits the flat cap.
-const WEEKLY_BOSS_LOG_FIGHT_MAX_HITS = 80;
+// There is NO flat per-fight ceiling — a legit fight's FULL damage always records
+// (a big, jutsu-heavy fight is never clipped). The client-reported total is only
+// bounded by a GENEROUS stat-scaled anti-tamper guard (below): so a tampered or
+// weak-stat account can't fabricate a huge score to steal MVP share, but no real
+// fight is ever capped. Admins are uncapped (testing).
+// Generous max attacks per fight (real fights ~30) — headroom, not a balance limit.
+const WEEKLY_BOSS_LOG_FIGHT_MAX_HITS = 100;
+// Per-hit factor: raw offense stat × this approximates a strong jutsu hit (base
+// power + crit + weapon), which the raw stat alone badly understates. Deliberately
+// generous so a legit hit is never under-counted.
+const WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR = 4;
+// Stats unavailable (transient read failure) → a generous fallback bound rather
+// than a tight one, so a legit fight isn't clipped by a fluke.
+const WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP = 5_000_000;
 // Fight window after an admin spawns the boss. Widened 24h → 72h (gameplay-loop
 // audit M-3): the boss is spawned manually (the owner controls cadence — see
 // loadOrInitBoss), so a single 24h window was easy for most of the roster to
@@ -547,8 +552,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // scaled by a generous max-hits-per-fight so a legitimate full
                 // arena fight is never clipped). Bounds a tampered/weak-account
                 // report well below the flat cap; a maxed attacker is unaffected.
-                let perFightCap = WEEKLY_BOSS_LOG_FIGHT_CAP;
+                // Admins uncapped (testing). Everyone else: the GENEROUS stat-scaled
+                // guard only — no flat ceiling, so a legit fight's full damage records.
+                let perFightCap = Number.MAX_SAFE_INTEGER;
                 if (!identity.admin) {
+                    perFightCap = WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP;
                     try {
                         const actorSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
                         const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
@@ -561,10 +569,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             Number(stats.genjutsuOffense ?? 0),
                         );
                         const best = Math.min(2500, rawBest); // matches the per-tap cap's MAX_OFFENSE_STAT_FOR_CAP
-                        const fairPerHit = Math.max(50, Math.floor(best * (1 + level / 100) * 1.4));
-                        perFightCap = Math.min(WEEKLY_BOSS_LOG_FIGHT_CAP, fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS);
+                        const fairPerHit = Math.max(50, Math.floor(best * (1 + level / 100) * WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR));
+                        perFightCap = fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS;
                     } catch {
-                        // Can't load stats — fall back to the flat cap.
+                        // Stats unavailable — keep the generous fallback bound.
                     }
                 }
                 const requested = Math.floor(Number(amount ?? 0));
