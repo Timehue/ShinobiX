@@ -12,6 +12,7 @@ import {
 import { useBoardScale } from "../lib/use-board-scale";
 import { tagMatchesName } from "../lib/tags";
 import { gameConfirm } from "../components/GameAlert";
+import { spireFloorMeta, SPIRE_SHARDS_PER_TIER } from "../lib/spire-catalog";
 import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
 import arenaFloorSnow from "../assets/towers/arena-floor-snow.webp";
 import arenaFloorVolcano from "../assets/towers/arena-floor-volcano.webp";
@@ -83,6 +84,23 @@ const ENEMY_EMOJI: Record<string, string> = {
 };
 const ELEMENT_ICON: Record<string, string> = { Fire: "🔥", Water: "🌊", Earth: "🪨", Wind: "🌪️", Lightning: "⚡" };
 
+// Manifest-chip palette by modifier kind: the Wave-2 keystones (hazard/debuff/healcut) read
+// distinctly from the amber stat chassis (hp/dmg/roundCap/enrageCap → default).
+const MODIFIER_CHIP_COLOR: Record<string, { fg: string; bg: string; border: string }> = {
+    hazard: { fg: "#fca5a5", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.32)" },       // crimson — tile burn
+    debuff: { fg: "#d8b4fe", bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.32)" },     // violet — vulnerability
+    healcut: { fg: "#5eead4", bg: "rgba(20,184,166,0.12)", border: "rgba(20,184,166,0.32)" },    // teal — healing throttle
+    extraPhase: { fg: "#fdba74", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.32)" }, // ember — extra boss phase (W3)
+    objective: { fg: "#7dd3fc", bg: "rgba(56,189,248,0.12)", border: "rgba(56,189,248,0.32)" },  // sky — secondary condition (W3)
+    dualAugment: { fg: "#f0abfc", bg: "rgba(232,121,249,0.12)", border: "rgba(232,121,249,0.34)" }, // fuchsia — keystone synergy (W3)
+    default: { fg: "#f0b27e", bg: "rgba(240,161,90,0.12)", border: "rgba(240,161,90,0.28)" },     // amber — stat chassis
+};
+// Boss portrait for a spire floor (reuses the enemy sprite atlas, keyed by boss key).
+const SPIRE_BOSS_MECHANIC_FLAVOR: Record<string, string> = {
+    bulwark: "hardens its guard!", regen: "digs in and knits its wounds!",
+    summon: "calls reinforcements!", enrage: "swells with fury!",
+};
+
 // Wide top-down battlefield floors, one per biome (swap any file in
 // src/assets/towers/arena-floor-<biome>.webp to re-theme — see the image spec).
 const TOWER_FLOOR: Record<string, string> = {
@@ -101,6 +119,7 @@ const PYLON_COLOR: Record<string, { top: string; bot: string; border: string }> 
 
 export function BattleTowerFight({
     character,
+    updateCharacter,
     sharedImages,
     hostLoadout,
     runId,
@@ -111,6 +130,9 @@ export function BattleTowerFight({
     settleOnAnyDone,
 }: {
     character: Character;
+    /** optimistically mirror a spire unlock onto the client save so the lobby shows
+     *  the next floor immediately (the server is already authoritative via settle) */
+    updateCharacter?: (c: Character) => void;
     sharedImages?: Record<string, string>;
     hostLoadout?: TowerHostLoadout;
     runId: string;
@@ -152,6 +174,39 @@ export function BattleTowerFight({
     const myTurn = session.status === "active" && !!activeActor && activeActor.ai === false && ownedByMe(activeActor.ownerSlug) && activeActor.hp > 0;
     const myActor = activeActor && ownedByMe(activeActor.ownerSlug) ? activeActor : null;
     const bossId = session.phaseState?.bossId;
+
+    // ── Endless Spire theater — boss identity, intro nameplate, phase banners ────
+    const spireTier = Number(session.ascensionTier ?? 0);
+    const isSpire = spireTier > 0;
+    const spireMeta = useMemo(() => (isSpire ? spireFloorMeta(spireTier) : null), [isSpire, spireTier]);
+    const bossPortrait = spireMeta ? ENEMY_SPRITE[spireMeta.boss.key] : undefined;
+
+    // A fresh entry (round 1) into a spire floor gets a ~2.8s cinematic nameplate; a
+    // refresh-resume mid-fight skips it (only shown when initialSession is round ≤ 1).
+    const [showIntro, setShowIntro] = useState(() => isSpire && (initialSession.round ?? 1) <= 1 && initialSession.status === "active");
+    useEffect(() => {
+        if (!showIntro) return;
+        const id = setTimeout(() => setShowIntro(false), 2800);
+        return () => clearTimeout(id);
+    }, [showIntro]);
+
+    // Phase-change banner — when the boss crosses an HP-gate (triggeredPhases grows), flash a
+    // mechanic-flavored banner. Uses a ref so it fires once per crossing, not per re-render.
+    const [phaseBanner, setPhaseBanner] = useState<string | null>(null);
+    const triggeredCountRef = useRef(session.phaseState?.triggeredPhases?.length ?? 0);
+    const triggeredCount = session.phaseState?.triggeredPhases?.length ?? 0;
+    useEffect(() => {
+        if (triggeredCount > triggeredCountRef.current && isSpire && spireMeta) {
+            const flavor = SPIRE_BOSS_MECHANIC_FLAVOR[spireMeta.boss.mechanic] ?? "enters a new phase!";
+            setPhaseBanner(`${spireMeta.boss.name} ${flavor}`);
+        }
+        triggeredCountRef.current = triggeredCount;
+    }, [triggeredCount, isSpire, spireMeta]);
+    useEffect(() => {
+        if (!phaseBanner) return;
+        const id = setTimeout(() => setPhaseBanner(null), 1900);
+        return () => clearTimeout(id);
+    }, [phaseBanner]);
 
     // Live clock for the co-op turn countdown.
     const [nowTick, setNowTick] = useState(() => Date.now());
@@ -211,10 +266,21 @@ export function BattleTowerFight({
         const shouldSettle = settleOnAnyDone ? done : (done && session.winner === "squad");
         if (shouldSettle && !settledRef.current) {
             settledRef.current = true;
-            if (settleFn) void settleFn(runId, me).catch(() => {});
-            else settleTowerRun(runId, me).then(setSettle).catch(() => {});
+            if (settleFn) {
+                void settleFn(runId, me).catch(() => {});
+            } else {
+                settleTowerRun(runId, me).then(setSettle).catch(() => {});
+                // Endless Spire: optimistically mirror the tier unlock onto the client save so the
+                // lobby shows the next floor unlocked the instant you return — no reload/refetch wait.
+                // Server-authoritative via settle; battleTowerAscension is a monotone max, so a local
+                // bump can never be wrong (weekly-best is left to the server refetch, it's display-only).
+                const tier = Number(session.ascensionTier ?? 0);
+                if (tier > 0 && updateCharacter && tier > (character.battleTowerAscension ?? 0)) {
+                    updateCharacter({ ...character, battleTowerAscension: tier });
+                }
+            }
         }
-    }, [session.status, session.winner, runId, me, settleFn, settleOnAnyDone]);
+    }, [session.status, session.winner, runId, me, settleFn, settleOnAnyDone, session.ascensionTier, character, updateCharacter]);
 
     // Reflection log (display-only): record the floor once it resolves (win OR
     // loss) so it shows on Profile → Battles. The squad log names many fighters,
@@ -442,6 +508,23 @@ export function BattleTowerFight({
 
     return (
         <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "#e2e8f0", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${gameBg}) center/cover fixed` }}>
+            {/* Endless Spire — boss intro nameplate (fresh entry only; click to skip) */}
+            {showIntro && spireMeta && (
+                <div className="spire-intro" onClick={() => setShowIntro(false)}>
+                    <div className="spire-intro-card" style={{ ["--boss-accent" as string]: spireMeta.boss.accent, ["--boss-glow" as string]: spireMeta.boss.glow }}>
+                        <div className="spire-intro-band" style={{ color: spireMeta.band.color }}>{spireMeta.band.label} · Floor {spireMeta.tier}</div>
+                        {bossPortrait && <img className="spire-intro-portrait" src={bossPortrait} alt={spireMeta.boss.name} />}
+                        <div className="spire-intro-name" style={{ color: spireMeta.boss.accent }}>{spireMeta.boss.name}</div>
+                        <div className="spire-intro-mech"><b>{spireMeta.boss.mechanicLabel}</b> — {spireMeta.boss.blurb}</div>
+                    </div>
+                </div>
+            )}
+            {/* Endless Spire — phase-change banner (boss crosses an HP gate) */}
+            {phaseBanner && (
+                <div className="spire-phase-banner" style={{ ["--boss-accent" as string]: spireMeta?.boss.accent ?? "#f0a15a" }}>
+                    <span>⚠ {phaseBanner}</span>
+                </div>
+            )}
             <div className="tower-fight-grid">
 
                 {/* Squad rail (+ protect-target allies) */}
@@ -455,7 +538,12 @@ export function BattleTowerFight({
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
                         <strong>Floor {session.floor} · {objective.replace(/-/g, " ")}</strong>
                         <span title="Objective progress" style={{ color: "#fcd34d", fontSize: "0.8rem", fontWeight: 700, whiteSpace: "nowrap" }}>🎯 {objectiveProgress}</span>
-                        <span style={{ color: "#94a3b8", flex: 1, textAlign: "right" }}>Round {session.round}</span>
+                        <span style={{
+                            flex: 1, textAlign: "right", fontWeight: session.roundCap ? 700 : 400,
+                            // Endless Spire: the round cap is a real clear deadline — warn as it nears.
+                            color: session.roundCap && session.round >= session.roundCap - 2 ? "#f87171"
+                                : session.roundCap && session.round >= Math.floor(session.roundCap * 0.66) ? "#facc15" : "#94a3b8",
+                        }}>Round {session.round}{session.roundCap ? `/${session.roundCap}` : ""}</span>
                         {turnLabel && (
                             <span style={{
                                 display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 16, fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap",
@@ -476,6 +564,23 @@ export function BattleTowerFight({
                             >Leave</button>
                         )}
                     </div>
+
+                    {/* Endless Spire — sealed modifier manifest (why the numbers are bigger this floor).
+                        Wave-2 keystones (hazard/debuff/healcut) are colour-coded apart from the stat
+                        chassis (hp/dmg/round/enrage) so tactical demands read at a glance. */}
+                    {Array.isArray(session.modifierStack) && session.modifierStack.length > 0 && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                            {session.modifierStack.map((m, i) => {
+                                const c = MODIFIER_CHIP_COLOR[m.kind] ?? MODIFIER_CHIP_COLOR.default!;
+                                return (
+                                    <span key={i} title={m.label} style={{
+                                        fontSize: "0.72rem", fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                                        color: c.fg, background: c.bg, border: `1px solid ${c.border}`, whiteSpace: "nowrap",
+                                    }}>{m.label}</span>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     <div ref={battlefieldCallbackRef} className="tower-board-area"
                         style={{ flex: 1, position: "relative", overflow: "hidden", borderRadius: 10, border: "2px solid #1f2937", background: `radial-gradient(ellipse at center, rgba(5,12,8,0.05), rgba(4,9,6,0.4)), url(${biomeFloor}) center/cover no-repeat` }}>
@@ -522,6 +627,15 @@ export function BattleTowerFight({
                                     const { left, top } = towerHexPixel(t, w);
                                     return <div key={`burst-${t}`} className="tower-hex-tile" aria-hidden
                                         style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(251,146,60,0.34)", filter: "drop-shadow(0 0 2px rgba(249,115,22,0.95))", zIndex: 3, pointerEvents: "none", animation: "towerZonePulse 1.6s ease-in-out infinite" }} />;
+                                })}
+
+                                {/* Endless Spire hazard telegraph — crimson "this burns at round end" warning so the
+                                    squad can step off before it lands. Exact deterministic hazards only (server omits
+                                    reactive proximity tiles). Absent on story floors. */}
+                                {(session.map.nextRoundHazardTiles ?? []).map(t => {
+                                    const { left, top } = towerHexPixel(t, w);
+                                    return <div key={`haz-${t}`} className="tower-hex-tile" aria-hidden title="Hazard — clears at round end"
+                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(220,38,38,0.32)", filter: "drop-shadow(0 0 3px rgba(239,68,68,0.95))", zIndex: 3, pointerEvents: "none", animation: "towerHazardPulse 1s ease-in-out infinite" }} />;
                                 })}
 
                                 {/* feature markers — one icon at a pylon flower's centre, one per
@@ -724,19 +838,60 @@ export function BattleTowerFight({
             </div>
 
             {/* Result overlay */}
-            {session.status === "done" && (
+            {session.status === "done" && (isSpire && spireMeta ? (
+                // ── Endless Spire — cinematic ascension result ──
+                <div className="spire-result">
+                    <div className={`spire-result-card ${session.winner === "squad" ? "win" : "loss"}`}
+                        style={{ ["--boss-accent" as string]: spireMeta.boss.accent, ["--boss-glow" as string]: spireMeta.boss.glow }}>
+                        {bossPortrait && <img className="spire-result-portrait" src={bossPortrait} alt={spireMeta.boss.name} />}
+                        <div className="spire-result-kicker">Floor {spireMeta.tier} · {spireMeta.boss.name}</div>
+                        {session.winner === "squad" ? (
+                            <>
+                                <h1 className="spire-result-title win">🗼 Floor {spireMeta.tier} Ascended</h1>
+                                {spireMeta.isMilestone && (
+                                    <div className="spire-result-milestone">🏅 Title unlocked — <b>{spireMeta.milestoneTitle}</b></div>
+                                )}
+                                <div className="spire-result-rewards">
+                                    {/* settle.results is keyed by the lowercased ownerSlug (settle.ts),
+                                        not the display name — look it up by meSlug, and only claim a
+                                        banked/paid state once the member's result actually arrives. */}
+                                    {settle?.results[meSlug]
+                                        ? (settle.results[meSlug]!.paid
+                                            ? <span className="spire-reward-shard in">💠 +{SPIRE_SHARDS_PER_TIER} Fate Shards</span>
+                                            : <span className="spire-reward-shard muted in">💠 Weekly best already banked</span>)
+                                        : <span className="spire-reward-shard pending">💠 Settling…</span>}
+                                </div>
+                                <p className="spire-result-sub">
+                                    {spireMeta.tier < 20 ? <>Floor <b>{spireMeta.tier + 1}</b> now open.</> : <>The Spire is conquered — the apex is yours.</>}
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h1 className="spire-result-title loss">Turned Back</h1>
+                                <p className="spire-result-sub">The {spireMeta.boss.name} holds Floor {spireMeta.tier}. Regroup and climb again — retries are free.</p>
+                            </>
+                        )}
+                        <button className="spire-result-btn" onClick={onExit}>
+                            {session.winner === "squad" ? "▲ Return to the Spire" : "↺ Back to the Spire"}
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                // ── Story floors — the original result card ──
                 <div style={{ position: "absolute", inset: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(2,6,14,0.82)" }}>
                     <div className="card" style={{ textAlign: "center", padding: "1.6rem", maxWidth: 420 }}>
                         <h1 style={{ marginTop: 0, color: session.winner === "squad" ? "#4ade80" : "#f87171" }}>
                             {session.winner === "squad" ? "🏆 Floor Cleared!" : "💀 Floor Failed"}
                         </h1>
                         {session.winner === "squad" && (
-                            settle ? <p>Rewards settled. {settle.results[me]?.score ? `Score +${settle.results[me]!.score}` : ""}</p> : <p className="hint">Settling rewards…</p>
+                            settle?.results[meSlug]
+                                ? <p>Rewards settled. {settle.results[meSlug]!.score ? `Score +${settle.results[meSlug]!.score}` : ""}</p>
+                                : <p className="hint">Settling rewards…</p>
                         )}
                         <button style={{ marginTop: 12, padding: "0.7rem 1.4rem" }} onClick={onExit}>Return to the Tower</button>
                     </div>
                 </div>
-            )}
+            ))}
         </div>
     );
 }

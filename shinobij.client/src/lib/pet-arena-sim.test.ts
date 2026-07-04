@@ -309,3 +309,127 @@ test("items: equipping gear changes the deterministic match", () => {
     const without = runPetArenaMatch(roster(COMP), roster(COMP), 7, true);
     assert.notDeepEqual(withGear, without, "equipping attack gear should change the match");
 });
+
+// ── Arena V2 (petArenaV2.v1) ────────────────────────────────────────────────────
+// The 5th arg (v2=true) opts into the excitement ruleset. Load-bearing: v2 stays
+// DETERMINISTic, and v2=false is byte-identical to the default call (instant rollback).
+const V2SEEDS = [1, 7, 2024, 99999];
+const spread = (n: number, m = 41, b = 3) => Array.from({ length: n }, (_, i) => i * m + b);
+
+test("v2 — deterministic replays (same roster + seed + v2)", () => {
+    for (const seed of V2SEEDS) {
+        const a = runPetArenaMatch(roster(COMP), roster(COMP, { attack: 110 }), seed, false, true);
+        const b = runPetArenaMatch(roster(COMP), roster(COMP, { attack: 110 }), seed, false, true);
+        assert.deepEqual(a, b, `v2 seed ${seed} diverged`);
+    }
+});
+
+test("v2 off — the default call is byte-identical to an explicit v2=false (rollback safety)", () => {
+    for (const seed of V2SEEDS) {
+        const def = runPetArenaMatch(roster(COMP), roster(COMP, { attack: 110 }), seed);
+        const off = runPetArenaMatch(roster(COMP), roster(COMP, { attack: 110 }), seed, false, false);
+        assert.deepEqual(def, off, `off parity diverged at seed ${seed}`);
+    }
+});
+
+test("v2 — valid terminating matches with bounded Overdrive/ring/stage readouts", () => {
+    for (const seed of V2SEEDS) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed, false, true);
+        assert.ok(["blue", "red", "draw"].includes(r.winner));
+        assert.ok(r.ticks >= 1 && r.ticks <= ARENA_TPS * MAX_SECONDS, `ticks ${r.ticks}`);
+        assert.equal(r.v2, true);
+        assert.ok([5, 6].includes(r.winScore), `unexpected winScore ${r.winScore}`);
+        assert.ok(["standard", "warden-fury", "scroll-frenzy", "blood-ritual"].includes(r.modifier), `unexpected modifier ${r.modifier}`);
+        for (const s of r.snapshots) {
+            assert.ok(s.momBlue >= 0 && s.momBlue <= 100 && s.momRed >= 0 && s.momRed <= 100, `momentum out of range`);
+            assert.ok(s.ringR >= 0 && s.ringR <= 9.01, `ringR out of range ${s.ringR}`);
+            assert.ok(s.boss.stage >= 0 && s.boss.stage <= 2, `boss stage out of range ${s.boss.stage}`);
+        }
+    }
+});
+
+test("v2 — the Warden enrages (reaches stage 2) and lands damage", () => {
+    let enraged = false, bossDmg = false, stage2 = false;
+    for (const seed of spread(10)) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed, false, true);
+        if (r.events.some((e) => e.type === "bossenrage")) enraged = true;
+        if (r.events.some((e) => e.type === "hit" && e.actorId === "boss")) bossDmg = true;
+        if (r.snapshots.some((s) => s.boss.stage >= 2)) stage2 = true;
+    }
+    assert.ok(enraged, "the Warden never enraged");
+    assert.ok(bossDmg, "the Warden never dealt damage");
+    assert.ok(stage2, "the Warden never reached stage 2");
+});
+
+test("v2 — Overdrive charges from combat and fires a spike", () => {
+    const fired = spread(10).some((seed) =>
+        runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed, false, true).events.some((e) => e.type === "overdrive"));
+    assert.ok(fired, "Overdrive never fired across the spread");
+});
+
+test("v2 — captures (and the Warden) are the ONLY score source; combat charges Overdrive, not points", () => {
+    // Every scoreboard increment must be explained by a capture or bosskill event on that tick —
+    // proving combat feeds Overdrive (a meter), never the score directly.
+    const r = runPetArenaMatch(roster(COMP, { attack: 120 }), roster(COMP, { hp: 400 }), 7, false, true);
+    let prevB = 0, prevR = 0;
+    for (const s of r.snapshots) {
+        if (s.scoreBlue > prevB || s.scoreRed > prevR) {
+            const team = s.scoreBlue > prevB ? "blue" : "red";
+            const explained = r.events.some((e) => e.t === s.t && (e.type === "capture" || e.type === "bosskill") && e.team === team);
+            assert.ok(explained, `${team} score moved at t=${s.t} with no capture/bosskill`);
+        }
+        prevB = s.scoreBlue; prevR = s.scoreRed;
+    }
+});
+
+test("v2 — carry-as-fight-through: a carrier can deal damage (the v1 B1 lockout is lifted)", () => {
+    let found = false;
+    for (const seed of V2SEEDS) {
+        const r = runPetArenaMatch(roster(COMP, { hp: 1200, attack: 150 }), roster(COMP, { hp: 340, attack: 30 }), seed, false, true);
+        for (const e of r.events) {
+            if (e.type !== "hit" || !e.actorId || e.actorId === "boss") continue;
+            const now = r.snapshots[e.t]?.actors.find((a) => a.id === e.actorId);
+            const prev = r.snapshots[e.t - 1]?.actors.find((a) => a.id === e.actorId);
+            if (now?.carrying && prev?.carrying) { found = true; break; }
+        }
+        if (found) break;
+    }
+    assert.ok(found, "no carrier ever dealt damage in v2 — carry-as-fight-through isn't working");
+});
+
+test("v2 — the shrine draws from the relic pool (never the v1 power/mend alternation)", () => {
+    const kinds = new Set<string>();
+    for (const seed of spread(12, 29, 5)) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed, false, true);
+        for (const e of r.events) if (e.type === "shrineclaim" && e.kind) kinds.add(e.kind);
+    }
+    assert.ok(kinds.size > 0, "no shrine was claimed in v2");
+    assert.ok(!kinds.has("power"), "v2 shrine must not use the v1 'power' flavour");
+    for (const k of kinds) assert.ok(["berserk", "bulwark", "edge", "mend", "favor"].includes(k), `unexpected relic kind ${k}`);
+});
+
+test("v2 — the closing ring engages in a long match", () => {
+    let sawRing = false;
+    for (const seed of spread(14, 53, 3)) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed, false, true);
+        if (r.events.some((e) => e.type === "ringclose") && r.snapshots.some((s) => s.ringR > 0 && s.ringR < 9)) { sawRing = true; break; }
+    }
+    assert.ok(sawRing, "the closing ring never engaged in any long match");
+});
+
+test("v2 — balance sanity across a mixed spread (decisive, rarely capped, Warden neither absent nor omnipresent)", () => {
+    const seeds = spread(24, 67, 5);
+    const matchups: Array<[Partial<Pet>, Partial<Pet>]> = [[{ attack: 100 }, {}], [{ attack: 120 }, {}], [{ hp: 1000, attack: 130 }, { hp: 500 }]];
+    let total = 0, capped = 0, decisive = 0, warden = 0;
+    for (const [b, rd] of matchups) for (const seed of seeds) {
+        const r = runPetArenaMatch(roster(COMP, b), roster(COMP, rd), seed, false, true);
+        total++;
+        if (r.ticks >= ARENA_TPS * MAX_SECONDS) capped++;
+        if (r.winner !== "draw") decisive++;
+        if (r.events.some((e) => e.type === "bosskill")) warden++;
+    }
+    assert.ok(capped <= total * 0.15, `${capped}/${total} matches hit the cap — anti-stalemate too weak`);
+    assert.ok(decisive >= total * 0.9, `only ${decisive}/${total} matches were decisive`);
+    const wr = warden / total;
+    assert.ok(wr >= 0.35 && wr <= 0.98, `Warden resolve ${(wr * 100).toFixed(0)}% outside the sane band (35–98%)`);
+});
