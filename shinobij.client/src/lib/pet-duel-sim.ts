@@ -205,6 +205,7 @@ interface Fighter {
     basicRanged: boolean;                    // ranged role pokes with a projectile basic
     abilities: Ability[];
     pendingIdx: number;                      // -1 basic, >=0 ability index, -2 none
+    pendingFeint: boolean;                   // planted: this wind-up is a FEINT (bluff, resolves to no damage)
     pendingTargetId: string | null;
     statuses: Statuses;
     moveDx: number; moveDy: number;          // stored dir for dash/dodge
@@ -292,7 +293,7 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         strafeDir: (slot % 2 === 0 ? 1 : -1) * (team === "player" ? 1 : -1),
         basicRanged: skirmisher,
         abilities,
-        pendingIdx: -2, pendingTargetId: null,
+        pendingIdx: -2, pendingFeint: false, pendingTargetId: null,
         statuses,
         moveDx: 0, moveDy: 0, targetId: null, repositionLeft: 0,
         itemsOn: applyItems,
@@ -478,7 +479,12 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     // melee blow (projectiles shove lighter; push doubles it).
     const dx = tgt.x - att.x, dy = tgt.y - att.y;
     const d = Math.sqrt(dx * dx + dy * dy);
-    const kb = (crit ? 1.7 : 1.1) * (viaProjectile ? 0.4 : 1) * (ab && ab.kind === "push" ? 2 : 1);
+    // Planted MOMENTUM: an OCCASIONAL true-heavy/crit blow shoves the victim back HARDER, so the
+    // spacing resets and the fight ebbs (knock-back) then flows (re-approach). Gated to real heavy
+    // hits only (crit or ≥18% max HP) — a lower threshold fires on nearly every trade and the
+    // constant re-spacing grinds even matchups into the time cap. Symmetric; authoritative → 1.
+    const surge = att.plantedMotion && (crit || dmg >= tgt.maxHp * 0.18) ? 1.6 : 1;
+    const kb = (crit ? 1.7 : 1.1) * (viaProjectile ? 0.4 : 1) * (ab && ab.kind === "push" ? 2 : 1) * surge;
     if (d > 1e-6) { tgt.x += (dx / d) * kb; tgt.y += (dy / d) * kb; }
     if (ab && ab.kind === "pull" && d > 1e-6) { tgt.x -= (dx / d) * 1.2; tgt.y -= (dy / d) * 1.2; }
     if ((tgt.state === "idle" || tgt.state === "dash" || tgt.state === "windup") && tgt.statuses.stunLeft <= 0) {
@@ -705,6 +711,16 @@ function holdNeutral(f: Fighter, target: Fighter, dist: number, inv: number, dx:
  *  spacing while attacks recharge → commit a clear lunge/cast when one is ready
  *  → (after recover + cooldown) drop back to neutral. That cadence is what reads
  *  as fighting instead of a center-pile. */
+/** Planted (casual) FIGHT-PHASE pacing: a cagey/telegraphed opening, then snappier + more
+ *  desperate once a fighter is bloodied — so a long fight ARCS instead of holding one tempo.
+ *  Deterministic (tick count + integer HP compare; NO rng). Returns 1 for authoritative. */
+function plantedPaceMul(f: Fighter, t: number): number {
+    if (!f.plantedMotion) return 1;
+    if (t < DUEL_TPS * 6) return 1.25;       // opening: bigger telegraphs, feeling-out
+    if (f.hp * 3 < f.maxHp) return 0.78;     // bloodied (<33% HP): snappier, desperate
+    return 1;
+}
+
 function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng: () => number, t: number, events: DuelEvent[]) {
     // Support first: heal a hurt ally, or buff/shield if not already. But when the
     // pet has NO living ally but itself (1v1, or its partner has fallen), it used
@@ -806,7 +822,15 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // lunges into melee. (Ranged never melee-lunges → it keeps kiting.)
     const basicRange = f.basicRanged ? RANGED_RANGE * 0.85 : f.reach + 0.05;
     if (f.basicCdLeft <= 0 && f.stamina >= COST_BASIC) {
-        if (dist <= basicRange) { beginCast(f, -1, target.id, t, events); return; }
+        if (dist <= basicRange) {
+            // Planted FEINT: a healthy melee pet occasionally winds up and DOESN'T commit — a
+            // mind-games beat that breaks the trade metronome. NOT when bloodied (<33% HP): a
+            // desperate pet stops bluffing and commits for real, so grindy low-damage matchups
+            // don't feint their way into the 45s cap. rng() is drawn ONLY on the planted path
+            // (the `f.plantedMotion &&` short-circuit), so the authoritative rng stream is byte-identical.
+            if (f.plantedMotion && !f.basicRanged && f.hp * 3 >= f.maxHp && rng() < 0.09) f.pendingFeint = true;
+            beginCast(f, -1, target.id, t, events); return;
+        }
         if (!f.basicRanged) { commitApproach(f, target, dist, inv, f.reach * 0.9, true, t, events); return; }
         // ranged basic but out of poke range → step in a little, no lunge
         moveToward(f, target.x, target.y, effMoveSpeed(f), basicRange * 0.95);
@@ -820,7 +844,7 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
 function beginCast(f: Fighter, idx: number, targetId: string, t: number, events: DuelEvent[]) {
     f.pendingIdx = idx; f.pendingTargetId = targetId;
     f.state = "windup";
-    f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : f.windT;
+    f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : Math.max(1, Math.round(f.windT * plantedPaceMul(f, t)));
     if (idx >= 0 && f.abilities[idx].signature) events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name });
     else if (idx >= 0 && f.abilities[idx].cls === "support") events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: f.abilities[idx].kind, move: f.abilities[idx].name });
     else events.push({ t, type: "windup", side: f.team, actorId: f.id, kind: idx >= 0 ? f.abilities[idx].kind : "damage" });
@@ -830,6 +854,10 @@ function beginCast(f: Fighter, idx: number, targetId: string, t: number, events:
 function resolveCast(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextProjId: { n: number }, rng: () => number, t: number, events: DuelEvent[], accuracyEnabled: boolean) {
     const idx = f.pendingIdx;
     const ab = idx >= 0 ? f.abilities[idx] : null;
+    // FEINT (planted): the wind-up was a bluff — pay the basic cooldown so it isn't free spam,
+    // deal NO damage / spend NO stamina, and skip the strike resolution. The renderer already
+    // played the telegraph; the pet simply swings through and recovers (a pulled/feinted swing).
+    if (f.pendingFeint) { f.pendingFeint = false; f.basicCdLeft = f.basicCdT; return; }
     if (ab) { ab.cdLeft = ab.cdTicks; f.stamina -= ab.cost; } else { f.basicCdLeft = f.basicCdT; f.stamina -= COST_BASIC; }
 
     if (ab && ab.cls === "support") { castSupport(f, ab, fighters, t, events); return; }
@@ -961,7 +989,7 @@ function step(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextPr
         case "strike":
             // Planted adds a short post-strike BREATH so the striker pauses and the
             // exchange visibly alternates (turn-cadence). Integer ticks → determinism-safe.
-            if (--f.stateLeft <= 0) { f.state = "recover"; f.stateLeft = f.recovT + (f.plantedMotion ? Math.round(DUEL_TPS * 0.12) : 0); }
+            if (--f.stateLeft <= 0) { f.state = "recover"; f.stateLeft = Math.max(1, Math.round((f.recovT + (f.plantedMotion ? Math.round(DUEL_TPS * 0.12) : 0)) * plantedPaceMul(f, t))); }
             break;
         case "recover":
             // Planted melee/tank stay engaged and keep trading (no back-off circle);
