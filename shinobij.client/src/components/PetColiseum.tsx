@@ -2555,14 +2555,23 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         }
                     }
                     if (e.type === "ultimate") {
-                        shake.current = Math.max(shake.current, 1.8);
-                        hitStop.current = Math.max(hitStop.current, 0.55);     // FREEZE-FRAME on the unleash
-                        savor(0.22, 0.7);                                      // then deep, HELD slow-mo
-                        zoomKick.current = Math.max(zoomKick.current, 3.0);
-                        onFlash(elementColor(el).glow, 0.42);
-                        lastHeroCut.current = now;
-                        onCutIn(e.actorId, e.move ?? ultById[e.actorId] ?? "");  // anime portrait cut-in
-                        onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
+                        if (now - lastHeroCut.current > 6) {
+                            // THROTTLED so back-to-back unleashes don't stack cut-ins — only the
+                            // spaced-out ones get the full anime freeze-frame + portrait treatment.
+                            lastHeroCut.current = now;
+                            shake.current = Math.max(shake.current, 1.8);
+                            zoomKick.current = Math.max(zoomKick.current, 3.0);
+                            onFlash(elementColor(el).glow, 0.42);
+                            hitStop.current = Math.max(hitStop.current, 0.55);     // FREEZE-FRAME on the unleash
+                            savor(0.22, 0.7);                                      // then deep, HELD slow-mo
+                            onCutIn(e.actorId, e.move ?? ultById[e.actorId] ?? "");  // anime portrait cut-in
+                            onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
+                        } else {
+                            // A quick REPEAT unleash — lighter beat, no cut-in / heavy shake.
+                            shake.current = Math.max(shake.current, 0.6);
+                            onFlash(elementColor(el).glow, 0.18);
+                            savor(0.5, 0.14);
+                        }
                     } else if (e.type === "cast" && e.move && now - lastMoveCall.current > 0.4) {
                         const heroC = heroMoveById[e.actorId];
                         if (heroC && e.move === heroC && now - lastHeroCut.current > 6) {
