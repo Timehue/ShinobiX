@@ -275,6 +275,63 @@ export function pveAiCompetence(level: number, masterAi = false): PveAiCompetenc
     }
 }
 
+// ── Weekly boss: the "defensive grind" mechanic ─────────────────────────────
+// The weekly boss is an UNKILLABLE sentinel-HP damage race (Arena.tsx gates it
+// via isWeeklyBossFight). Design intent (owner, 2026-07): it must NOT be a glass
+// cannon that one-shots — it's a GRIND. So it deals modest, survivable damage and
+// fights DEFENSIVELY: most rounds it holds a "guard" that soaks the bulk of the
+// player's damage, then every few rounds the guard DROPS for an OPEN round where
+// the player lands full + bonus damage. Skilled play = save your burst for the
+// open window instead of wasting it into a raised guard.
+//
+// These are Arena-local clamps layered on top of the shared combat math (which is
+// NEVER touched — combat-math.ts / api/pvp/move.ts are untouched, PvP is safe):
+// the boss's real stats still drive its raw damage; we cap the result on the way
+// TO the player (survivable grind) and scale the player's result on the way TO the
+// boss (guard cycle). Weekly-boss only — routed through isWeeklyBossFight, so no
+// other PvE band, endless, ranked, or PvP is affected. All values are STARTING
+// knobs — tune from playtests.
+
+// Boss → player: survivable grind. Per-HIT ceiling as a fraction of the player's
+// max HP, plus a per-TURN ceiling so a multi-action boss turn can't chain a kill.
+// On a 10k-HP fighter: ≤800 per hit, ≤1,500 per turn — i.e. many rounds of grind
+// instead of the ~9k near-one-shots the raw stat sheet would otherwise deal.
+export const WEEKLY_BOSS_MAX_HIT_FRACTION = 0.08;
+export const WEEKLY_BOSS_MAX_TURN_FRACTION = 0.15;
+
+// Player → boss: the guard cycle. Guarded rounds soak most of the blow; open
+// rounds let the player through for bonus damage.
+export const WEEKLY_BOSS_GUARD_CYCLE = 4;             // one OPEN round per this many
+export const WEEKLY_BOSS_GUARDED_DAMAGE_MULT = 0.30;  // guard up: ~70% of the blow soaked
+export const WEEKLY_BOSS_OPEN_DAMAGE_MULT = 2.0;      // guard down: double damage
+
+// OPEN (guard-down) round test. Offset so turn 1 is OPEN: a strong opening hit
+// teaches the boss CAN be hurt, then the guard raises for the next CYCLE-1 rounds
+// and drops again on the cycle boundary (open on turns 1, 5, 9, … for CYCLE=4).
+export function isWeeklyBossOpenRound(turn: number): boolean {
+    const t = Math.max(1, Math.floor(turn || 1));
+    return (t - 1) % Math.max(1, WEEKLY_BOSS_GUARD_CYCLE) === 0;
+}
+
+// Player → boss damage multiplier for the current round (drives the guard cycle).
+export function weeklyBossDamageMultiplier(turn: number): number {
+    return isWeeklyBossOpenRound(turn) ? WEEKLY_BOSS_OPEN_DAMAGE_MULT : WEEKLY_BOSS_GUARDED_DAMAGE_MULT;
+}
+
+// Boss → player hit clamp. Flat per-hit fraction of the player's max HP, plus a
+// per-turn ceiling (mirrors pveGuardedEnemyHit's structure, but with boss-specific
+// fractions and no band/mercy logic — the boss is high-level but must stay a
+// grind). `dealtThisTurn` is the damage already applied earlier in THIS enemy turn
+// so the per-turn ceiling bounds a chained multi-action turn, not just one hit.
+export function weeklyBossGuardedHit(rawHit: number, playerMaxHp: number, dealtThisTurn: number): number {
+    const hit = Math.max(0, Math.floor(Number.isFinite(rawHit) ? rawHit : 0));
+    const maxHp = Number.isFinite(playerMaxHp) ? Math.max(1, playerMaxHp) : 1;
+    const dealt = Math.max(0, Number.isFinite(dealtThisTurn) ? dealtThisTurn : 0);
+    const perHit = Math.max(1, Math.floor(maxHp * WEEKLY_BOSS_MAX_HIT_FRACTION));
+    const perTurn = Math.max(1, Math.floor(maxHp * WEEKLY_BOSS_MAX_TURN_FRACTION));
+    return Math.max(0, Math.min(hit, perHit, Math.max(0, perTurn - dealt)));
+}
+
 // Scale every numeric combat stat by the difficulty factor, clamped to the stat
 // cap so the peer band tops out at a maxed-player-like profile rather than
 // overshooting. A factor of 1 returns the stats unchanged (no allocation).

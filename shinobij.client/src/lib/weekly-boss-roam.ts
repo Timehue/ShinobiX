@@ -41,7 +41,13 @@ export function isWeeklyBossRoamEnabled(): boolean {
 export function weeklyBossRoamCooldownId(weekKey: string): string {
     return `weeklyboss-${weekKey}`;
 }
-export const WEEKLY_BOSS_ROAM_FIGHT_COOLDOWN_MS = 35 * 60 * 1000; // ~35 min after a fight
+// Brief per-player back-off after engaging (fight OR flee) so the boss doesn't
+// instantly re-lunge and spam the Stand/Flee prompt. Deliberately SHORT: the boss
+// must stay reliably PRESENT in the sector the map points you to — the hard
+// limiter is the server-enforced 3-attempt cap, not a long lockout. (Was 35 min,
+// which hid the boss for the whole visit after a single attempt — players
+// travelled to the highlighted sector and found nothing there.)
+export const WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS = 45 * 1000;
 
 // ── Tuning knobs (see plan; safe to change without touching callers) ──────────
 
@@ -66,6 +72,16 @@ export type WeeklyBossRoamInput = {
     weekKey: string;
     startedAt: number;
     expiresAt?: number;
+};
+
+// The subset of the weekly-boss server state the roam UI needs: the position
+// input (weekKey + startedAt [+ expiresAt]) plus the boss's identity/portrait and
+// per-player attempts. (Formerly declared in WeeklyBossRoamOverlay, which was
+// removed in favour of an in-place highlight on the boss's current sector.)
+export type RoamingBoss = WeeklyBossRoamInput & {
+    aiId: string;
+    bossName?: string;
+    attemptsByPlayer?: Record<string, number>;
 };
 
 export type WeeklyBossRoamState = {
