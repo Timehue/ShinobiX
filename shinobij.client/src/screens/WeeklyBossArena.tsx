@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "react-icons/gi";
 const WB_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { visiblePoll } from "../lib/poll";
+import { isWeeklyBossRoamEnabled, weeklyBossRoamState } from "../lib/weekly-boss-roam";
 import type { Character, PlayerRecord } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
@@ -109,6 +110,13 @@ export function WeeklyBossArena({
         ? "Despawned"
         : `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
 
+    // Roaming mode (weeklyBossRoam.v1): the boss is fought by finding it on the
+    // world map, so this screen becomes a TRACKER — where it's roaming + the
+    // leaderboard + your attempts — rather than a menu fight-launcher. Flag off →
+    // this screen behaves exactly as before.
+    const roaming = isWeeklyBossRoamEnabled();
+    const roam = roaming ? weeklyBossRoamState(bossState, nowMs) : null;
+
     return (
         <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
             <h1 style={{ marginTop: 0 }}><GiOgre style={WB_ICON} />Weekly Boss</h1>
@@ -134,12 +142,19 @@ export function WeeklyBossArena({
                             </span>
                         </div>
                         <p className="hint" style={{ margin: 0, fontSize: "0.78rem" }}>
-                            The boss has no HP cap — it rampages for 72 hours, then despawns. Damage as much as you can to
-                            climb the leaderboard before the timer hits zero.
+                            {roaming
+                                ? "The boss roams the world map for 72 hours. Track it down and challenge it in the sector it's rampaging — every hit climbs the shared leaderboard before the timer hits zero."
+                                : "The boss has no HP cap — it rampages for 72 hours, then despawns. Damage as much as you can to climb the leaderboard before the timer hits zero."}
                         </p>
                     </div>
                 </div>
             </div>
+            {roaming && roam?.active && (
+                <div style={{ background: "rgba(236,91,56,0.12)", border: "1px solid rgba(236,91,56,0.5)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0 0 0.5rem", fontSize: "0.85rem" }}>
+                    🗺️ Now rampaging in <strong>Sector {roam.currentSector}</strong> · moves on in ~{Math.max(1, Math.ceil(roam.nextHopInMs / 60000))}m.
+                    <span style={{ color: "#94a3b8" }}> Find it there on the World Map to challenge it.</span>
+                </div>
+            )}
             <p>
                 Your damage: <strong style={{ color: "#facc15" }}>{myDamage.toLocaleString()}</strong>
                 {myRankDisplay !== null && (
@@ -155,31 +170,47 @@ export function WeeklyBossArena({
                 <div>· Top 25 by damage → <strong style={{ color: "#60a5fa" }}>1 Dungeon Key</strong> each</div>
                 <div>· Every contributor → ryo + XP share by damage (MVP = top 1 gets <strong>×2</strong>)</div>
                 <div style={{ marginTop: 4, color: "#94a3b8" }}>
-                    Each attack launches a full arena fight vs the boss — it has unlimited HP and will eventually
-                    knock you out. Whatever damage you dealt is added to the leaderboard. <strong>3 attempts per spawn.</strong>
+                    {roaming
+                        ? "Find the boss roaming the World Map and challenge it where it stands — each fight adds your damage to the leaderboard. "
+                        : "Each attack launches a full arena fight vs the boss — it has unlimited HP and will eventually knock you out. Whatever damage you dealt is added to the leaderboard. "}
+                    <strong>3 attempts per spawn.</strong>
                 </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", marginTop: "0.6rem" }}>
-                <button
-                    disabled={expired || lockedOut || (character.stamina ?? 0) < 20}
-                    style={{
-                        padding: "0.8rem",
-                        background: expired || lockedOut ? "#333" : "linear-gradient(#7f1d1d,#450a0a)",
-                        borderColor: "#f87171",
-                        fontWeight: 700,
-                        opacity: expired || lockedOut ? 0.6 : 1,
-                    }}
-                    onClick={() => {
-                        if (!bossState) return;
-                        onLaunchFight?.(bossState.aiId, bossState.bossName ?? bossAi?.name);
-                    }}
-                >
-                    {expired
-                        ? <><GiTombstone style={WB_ICON} />Despawned</>
-                        : lockedOut
-                            ? <><GiPadlock style={WB_ICON} />No attempts left</>
-                            : <><GiCrossedSwords style={WB_ICON} />Fight Boss ({attemptsLeft} left · 20 stamina)</>}
-                </button>
+                {roaming ? (
+                    <button
+                        disabled={expired || lockedOut}
+                        style={{ padding: "0.8rem", background: expired || lockedOut ? "#333" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700, opacity: expired || lockedOut ? 0.6 : 1 }}
+                        onClick={() => setScreen("worldMap")}
+                    >
+                        {expired
+                            ? <><GiTombstone style={WB_ICON} />Despawned</>
+                            : lockedOut
+                                ? <><GiPadlock style={WB_ICON} />No attempts left</>
+                                : <><GiCrossedSwords style={WB_ICON} />Hunt it on the World Map</>}
+                    </button>
+                ) : (
+                    <button
+                        disabled={expired || lockedOut || (character.stamina ?? 0) < 20}
+                        style={{
+                            padding: "0.8rem",
+                            background: expired || lockedOut ? "#333" : "linear-gradient(#7f1d1d,#450a0a)",
+                            borderColor: "#f87171",
+                            fontWeight: 700,
+                            opacity: expired || lockedOut ? 0.6 : 1,
+                        }}
+                        onClick={() => {
+                            if (!bossState) return;
+                            onLaunchFight?.(bossState.aiId, bossState.bossName ?? bossAi?.name);
+                        }}
+                    >
+                        {expired
+                            ? <><GiTombstone style={WB_ICON} />Despawned</>
+                            : lockedOut
+                                ? <><GiPadlock style={WB_ICON} />No attempts left</>
+                                : <><GiCrossedSwords style={WB_ICON} />Fight Boss ({attemptsLeft} left · 20 stamina)</>}
+                    </button>
+                )}
                 <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back</button>
             </div>
             <h3 style={{ marginTop: "1.2rem" }}>Top 25 Contributors</h3>
