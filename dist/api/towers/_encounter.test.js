@@ -37,6 +37,25 @@ function build(floor, squad, over = {}) {
         const positions = s.actors.map(a => a.pos);
         node_assert_1.strict.equal(new Set(positions).size, positions.length, 'no spawn overlap');
     });
+    (0, node_test_1.it)('divides the map: squad spawns on the LEFT half, the enemy team on the RIGHT half', () => {
+        const floor = smallFloor({ objective: 'defeat-boss', enemies: [{ aiId: 'grunt-bandit', count: 3 }], boss: { aiId: 'boss-warden', phases: [50] } });
+        const s = build(floor, [strongMember('sq-0'), strongMember('sq-1')]);
+        const W = s.map.width, mid = Math.floor(W / 2);
+        for (const a of s.actors) {
+            const col = a.pos % W;
+            if (a.side === 'squad')
+                node_assert_1.strict.ok(col < mid, `squad ${a.id} on left half (col ${col} < ${mid})`);
+            if (a.side === 'enemy')
+                node_assert_1.strict.ok(col >= mid, `enemy ${a.id} on right half (col ${col} >= ${mid})`);
+        }
+        const pos = s.actors.map(a => a.pos);
+        node_assert_1.strict.equal(new Set(pos).size, pos.length, 'no spawn overlap across the divide');
+    });
+    (0, node_test_1.it)('spawns VARY by seed (random within each half), not a fixed edge-pin', () => {
+        const mk = (seed) => build(smallFloor({ objective: 'defeat-boss', enemies: [{ aiId: 'grunt-bandit', count: 2 }], boss: { aiId: 'boss-warden', phases: [50] } }), [strongMember('sq-0')], { seed });
+        const squadSpawns = new Set([1, 2, 3, 4, 5].map(seed => mk(seed).actors.find(a => a.id === 'sq-0').pos));
+        node_assert_1.strict.ok(squadSpawns.size >= 2, 'squad spawn varies across seeds');
+    });
     (0, node_test_1.it)('runs an end-to-end floor: a strong squad clears defeat-all', () => {
         const s = (0, _engine_js_1.runTowerFloor)(build(smallFloor(), [strongMember('sq-0'), strongMember('sq-1')]), smallFloor(), (0, _sim_js_1.makeRng)(1));
         node_assert_1.strict.equal(s.winner, 'squad');

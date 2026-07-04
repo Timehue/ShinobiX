@@ -87,7 +87,8 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     if (lobby?.state === "running" && lobby.match) {
         return (
             <Suspense fallback={<Overlay><div style={{ color: "#94a3b8" }}>Loading arena…</div></Overlay>}>
-                <PetArenaMatch blue={lobby.match.blue} red={lobby.match.red} seed={lobby.match.seed} sharedImages={sharedImages} onExit={onExit} />
+                {/* Shared replay must be identical on every client — force the canonical V2 ruleset regardless of any local kill-switch. */}
+                <PetArenaMatch blue={lobby.match.blue} red={lobby.match.red} seed={lobby.match.seed} v2 sharedImages={sharedImages} onExit={onExit} />
             </Suspense>
         );
     }

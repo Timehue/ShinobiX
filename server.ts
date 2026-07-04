@@ -76,6 +76,7 @@ import towersStateHandler  from './api/towers/state.js';
 import towersSettleHandler from './api/towers/settle.js';
 import towersMyRunHandler  from './api/towers/my-run.js';
 import towersJoinHandler   from './api/towers/join.js';
+import towersSpireLeaderboardHandler from './api/towers/spire-leaderboard.js';
 import expeditionStartHandler from './api/missions/expedition-start.js';
 import trainingStartHandler from './api/training/start.js';
 import trainingCompleteHandler from './api/training/complete.js';
@@ -630,6 +631,7 @@ route('/towers/state', towersStateHandler);
 route('/towers/settle', towersSettleHandler);
 route('/towers/my-run', towersMyRunHandler);
 route('/towers/join', towersJoinHandler);
+route('/towers/spire-leaderboard', towersSpireLeaderboardHandler);
 // Battle lock — server-side "in a PvE fight" marker (start/resolve/status) so a
 // refresh can't escape a battle; resume-only, pays/punishes nothing (see
 // api/battle/lock.ts).

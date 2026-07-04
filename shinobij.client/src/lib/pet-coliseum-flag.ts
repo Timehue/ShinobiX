@@ -127,3 +127,34 @@ export function petDuelEngineEnabled(): boolean {
 export function setPetDuelEngineEnabled(on: boolean): void {
     try { localStorage.setItem(DUEL_ENGINE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
 }
+
+/*
+ * Tactical Pet Arena "V2" ruleset — now the LIVE arena experience (the excitement
+ * pass; see the pet-arena-excitement plan). V2 runs: a rising-threat enraging Warden
+ * (real damage + shield-pierce + aftershock), an OVERDRIVE momentum meter that combat
+ * charges (captures stay the ONLY score), carry-as-fight-through, a relic-pool shrine,
+ * a Collapse-Call focus telegraph, a late-match closing ring, tighter respawn/scroll
+ * pacing, and a per-match seeded modifier.
+ *
+ * DEFAULT ON — the game is in testing and V2 is the intended arena; balance is tuned
+ * via the V2_* knobs in pet-arena-sim.ts, not by hiding it behind a flag. The flag is
+ * kept only as a one-key kill-switch: force the old v1 arena back with
+ * localStorage.setItem("petArenaV2.v1","0") (e.g. to A/B a balance change mid-playtest).
+ * When OFF, the sim path is byte-identical to the pre-V2 arena. The flag is passed INTO
+ * the deterministic sim as a param (never read inside it) so replays stay pure/testable;
+ * the sim's own default is still v2=false so its golden/back-compat tests stay green.
+ * Per-device persisted.
+ */
+const ARENA_V2_KEY = "petArenaV2.v1";
+
+export function petArenaV2Enabled(): boolean {
+    try {
+        const v = localStorage.getItem(ARENA_V2_KEY);
+        if (v === "0") return false;   // explicit opt-out only (kill-switch)
+        return true;                   // DEFAULT ON — V2 is the live Tactical Arena
+    } catch { return true; }
+}
+
+export function setPetArenaV2Enabled(on: boolean): void {
+    try { localStorage.setItem(ARENA_V2_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}

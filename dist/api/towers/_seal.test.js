@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const node_assert_1 = require("node:assert");
 const _seal_js_1 = require("./_seal.js");
+const _xp_engine_js_1 = require("../_xp-engine.js");
 (0, node_test_1.describe)('Battle Towers fighter sealing (P1.B)', () => {
     (0, node_test_1.it)('clamps tampered stats + vitals to the hard caps', () => {
         const sealed = (0, _seal_js_1.sealTowerFighter)({
@@ -14,7 +15,7 @@ const _seal_js_1 = require("./_seal.js");
         node_assert_1.strict.equal(stats.taijutsuOffense, 2500);
         node_assert_1.strict.equal(stats.willpower, 0);
         node_assert_1.strict.equal(sealed.maxHp, 10000);
-        node_assert_1.strict.equal(sealed.maxChakra, 5000);
+        node_assert_1.strict.equal(sealed.maxChakra, _xp_engine_js_1.COMBAT_RESOURCES_V2 ? 10000 : 5000); // v2 raises the pool cap
         node_assert_1.strict.equal(sealed.bloodlineMult, 3);
         node_assert_1.strict.equal(sealed.specialty, 'Ninjutsu');
     });

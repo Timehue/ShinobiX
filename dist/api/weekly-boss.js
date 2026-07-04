@@ -9,6 +9,7 @@ const _xp_engine_js_1 = require("./_xp-engine.js");
 const _save_version_js_1 = require("./save/_save-version.js");
 const _legacy_track_js_1 = require("./_legacy-track.js");
 const _era_js_1 = require("./_era.js");
+const _announce_js_1 = require("./_announce.js");
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
 // spawn the boss despawns and rewards are auto-distributed:
@@ -31,15 +32,20 @@ const WEEKLY_BOSS_DMG_ABSOLUTE_CAP = 20000;
 // duel against an unkillable boss can rack up significantly more damage
 // than a single tap, so this cap is much higher than the per-tap one
 // but still bounded to stop a tampered client from claiming nonsense.
-// Legit late-game attackers top out around 5–7k per attack × ~30 attacks
-// before being KO'd = ~150–200k. 500k is a generous ceiling.
-const WEEKLY_BOSS_LOG_FIGHT_CAP = 500000;
-// Generous max number of attacks per arena fight, used to derive a stat-aware
-// per-fight cap (fair-per-hit × this). A real fight runs ~30 attacks, so 80 is
-// ~2.7× headroom — a legitimate fight is never clipped, but a weak/no-stat
-// account is bounded well below the flat 500k (which a tampered client could
-// otherwise claim to steal MVP share). A maxed attacker still hits the flat cap.
-const WEEKLY_BOSS_LOG_FIGHT_MAX_HITS = 80;
+// There is NO flat per-fight ceiling — a legit fight's FULL damage always records
+// (a big, jutsu-heavy fight is never clipped). The client-reported total is only
+// bounded by a GENEROUS stat-scaled anti-tamper guard (below): so a tampered or
+// weak-stat account can't fabricate a huge score to steal MVP share, but no real
+// fight is ever capped. Admins are uncapped (testing).
+// Generous max attacks per fight (real fights ~30) — headroom, not a balance limit.
+const WEEKLY_BOSS_LOG_FIGHT_MAX_HITS = 100;
+// Per-hit factor: raw offense stat × this approximates a strong jutsu hit (base
+// power + crit + weapon), which the raw stat alone badly understates. Deliberately
+// generous so a legit hit is never under-counted.
+const WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR = 4;
+// Stats unavailable (transient read failure) → a generous fallback bound rather
+// than a tight one, so a legit fight isn't clipped by a fluke.
+const WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP = 5_000_000;
 // Fight window after an admin spawns the boss. Widened 24h → 72h (gameplay-loop
 // audit M-3): the boss is spawned manually (the owner controls cadence — see
 // loadOrInitBoss), so a single 24h window was easy for most of the roster to
@@ -70,9 +76,32 @@ function defaultBossHp(weekKey) {
     const wk = parseInt(weekKey.split('-W')[1] ?? '1', 10);
     return 50000 + Math.min(53, wk) * 1900;
 }
-async function pickDefaultBossAi() {
-    // The full creator AI registry is in shared:ai-profiles (a JSON list of AIs).
-    // If no list is present (or empty), fall back to a hardcoded sentinel id.
+// Builtin weekly-boss roster — mirrors the client's builtin AIs
+// (shinobij.client/src/lib/combat-ai.ts weeklyBossAis) and the schedule pool
+// (lib/weekly-boss.ts weeklyBossPool). The server only needs each boss's id +
+// name to seal into state; the client resolves the full profile + portrait by
+// id (playableAis includes builtinAis). Kept in sync by hand — a small, rarely
+// changing list. This is what makes "Spawn Now" work with no admin AI setup.
+const BUILTIN_WEEKLY_BOSSES = [
+    { id: 'ashen-dragon', name: 'Ashen Dragon' },
+    { id: 'moonshadow-oni', name: 'Moonshadow Oni' },
+    { id: 'frostfang-warlord', name: 'Frostfang Warlord' },
+    { id: 'stormveil-beast', name: 'Stormveil Beast' },
+    { id: 'deathsgate-revenant', name: 'Deathsgate Revenant' },
+];
+// FNV-1a over the ISO week key — the SAME hash the client schedule uses
+// (lib/weekly-boss.ts seededHash) so the boss the schedule teases for a given
+// week is the one that actually spawns when there's no admin override.
+function seededWeeklyBossIndex(weekKey, len) {
+    let hash = 2166136261;
+    for (let i = 0; i < weekKey.length; i += 1) {
+        hash ^= weekKey.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) % Math.max(1, len);
+}
+async function pickDefaultBossAi(weekKey) {
+    // Prefer admin-authored boss AIs in shared:ai-profiles when present.
     try {
         const list = await _storage_js_1.kv.get('shared:ai-profiles');
         if (Array.isArray(list) && list.length > 0) {
@@ -86,7 +115,10 @@ async function pickDefaultBossAi() {
     catch {
         // ignore
     }
-    return null;
+    // Fall back to the builtin roster, seeded by ISO week so the pick is stable
+    // within a week and matches the client's advertised schedule.
+    const pick = BUILTIN_WEEKLY_BOSSES[seededWeeklyBossIndex(weekKey, BUILTIN_WEEKLY_BOSSES.length)];
+    return { aiId: pick.id, bossName: pick.name };
 }
 async function buildFreshBossState(weekKey) {
     // Honor admin override first.
@@ -94,7 +126,7 @@ async function buildFreshBossState(weekKey) {
     let aiId = overrideId ?? '';
     let bossName;
     if (!aiId) {
-        const pick = await pickDefaultBossAi();
+        const pick = await pickDefaultBossAi(weekKey);
         if (!pick)
             return null;
         aiId = pick.aiId;
@@ -350,6 +382,30 @@ async function handler(req, res) {
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kind, weekKey, amount } = body;
+            // reset CREATES or replaces the boss, so it must run BEFORE the
+            // "no boss spawned" guard below — otherwise the very first spawn on a
+            // fresh server (no state in KV yet) can never bootstrap: loadOrInitBoss
+            // returns null → the guard 409s → the reset branch is never reached.
+            if (kind === 'reset') {
+                if (!identity.admin)
+                    return res.status(403).json({ error: 'Admin only.' });
+                const fresh = await buildFreshBossState(isoWeekKey());
+                if (!fresh)
+                    return res.status(409).json({ error: 'No AI available for reset.' });
+                await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, fresh);
+                // Herald the spawn server-wide: the world news feed AND a World
+                // Herald line in every village chat (importance 'high' always
+                // lands + broadcasts). Best-effort — announce() never throws into
+                // the spawn. Every weekly-boss spawn heralds the hunt.
+                await (0, _announce_js_1.announce)({
+                    type: 'weekly_boss',
+                    importance: 'high',
+                    title: `⚔️ Weekly Boss: ${fresh.bossName ?? 'A great enemy'} has appeared!`,
+                    message: `${fresh.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo and XP. Enter the hunt via Central Hub → Weekly Boss.`,
+                    meta: { aiId: fresh.aiId, weekKey: fresh.weekKey, expiresAt: fresh.expiresAt },
+                });
+                return res.status(200).json({ boss: fresh });
+            }
             let boss = await loadOrInitBoss();
             if (!boss)
                 return res.status(409).json({ error: 'No boss is currently spawned. An admin needs to hit "Spawn Now" in the admin panel.' });
@@ -446,8 +502,11 @@ async function handler(req, res) {
                 // scaled by a generous max-hits-per-fight so a legitimate full
                 // arena fight is never clipped). Bounds a tampered/weak-account
                 // report well below the flat cap; a maxed attacker is unaffected.
-                let perFightCap = WEEKLY_BOSS_LOG_FIGHT_CAP;
+                // Admins uncapped (testing). Everyone else: the GENEROUS stat-scaled
+                // guard only — no flat ceiling, so a legit fight's full damage records.
+                let perFightCap = Number.MAX_SAFE_INTEGER;
                 if (!identity.admin) {
+                    perFightCap = WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP;
                     try {
                         const actorSave = await _storage_js_1.kv.get(`save:${actorName}`);
                         const actorChar = (actorSave?.character ?? null);
@@ -455,11 +514,11 @@ async function handler(req, res) {
                         const level = Math.max(1, Math.min(100, Math.floor(Number(actorChar?.level ?? 1))));
                         const rawBest = Math.max(Number(stats.bukijutsuOffense ?? 0), Number(stats.taijutsuOffense ?? 0), Number(stats.ninjutsuOffense ?? 0), Number(stats.genjutsuOffense ?? 0));
                         const best = Math.min(2500, rawBest); // matches the per-tap cap's MAX_OFFENSE_STAT_FOR_CAP
-                        const fairPerHit = Math.max(50, Math.floor(best * (1 + level / 100) * 1.4));
-                        perFightCap = Math.min(WEEKLY_BOSS_LOG_FIGHT_CAP, fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS);
+                        const fairPerHit = Math.max(50, Math.floor(best * (1 + level / 100) * WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR));
+                        perFightCap = fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS;
                     }
                     catch {
-                        // Can't load stats — fall back to the flat cap.
+                        // Stats unavailable — keep the generous fallback bound.
                     }
                 }
                 const requested = Math.floor(Number(amount ?? 0));
@@ -514,15 +573,6 @@ async function handler(req, res) {
                 if (!entry)
                     return res.status(403).json({ error: 'You did not damage this boss.' });
                 return res.status(200).json({ boss, reward: entry, note: 'Rewards were already credited to your save.' });
-            }
-            if (kind === 'reset') {
-                if (!identity.admin)
-                    return res.status(403).json({ error: 'Admin only.' });
-                const fresh = await buildFreshBossState(isoWeekKey());
-                if (!fresh)
-                    return res.status(409).json({ error: 'No AI available for reset.' });
-                await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, fresh);
-                return res.status(200).json({ boss: fresh });
             }
             return res.status(400).json({ error: 'Unknown kind.' });
         }

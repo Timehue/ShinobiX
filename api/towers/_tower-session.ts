@@ -14,6 +14,7 @@
  */
 import type { PvpStatus, PvpGroundEffect } from '../pvp/session.js';
 import type { TowerFeature } from './_floor-catalog.js';
+import type { TowerModifier } from './_modifiers.js';
 
 export type TowerActorId = string;
 export type TowerSide = 'squad' | 'enemy' | 'npc';
@@ -56,6 +57,11 @@ export type TowerMap = {
      *  (deterministic effects) and the client (rendering). Optional: floors without a
      *  tactical layer omit it and every engine helper treats it as empty. */
     features?: TowerFeature[];
+    /** Endless Spire telegraph: tiles that will be chipped at the END of the CURRENT round
+     *  by ascension hazard keystones (EXACT deterministic hazards only — proximity hazards
+     *  are reactive and intentionally not forecast). Recomputed by the engine each round;
+     *  absent for story runs (no modifierStack) → unchanged wire. Client paints as danger. */
+    nextRoundHazardTiles?: number[];
 };
 
 export type TowerObjectiveState = {
@@ -109,6 +115,28 @@ export type TowerSession = {
     /** wall-clock when the CURRENT human's turn began (handler-set). Drives the co-op
      *  AFK auto-pass so a live run never deadlocks on an absent player. */
     turnStartedAt?: number;
+
+    // ── Endless Spire — sealed ascension state (Wave 1) ──────────────────────────
+    // All optional; every engine read defaults (?? ...) so story/legacy sessions are
+    // byte-identical. Sealed ONCE at spire entry (before the first writeSession), then
+    // read-only — the engine never recomputes them.
+    /** spire tier === floor (1..20); absent for story-floor runs */
+    ascensionTier?: number;
+    /** which of the 4 spire bosses this run features (display/settle) */
+    spireBossId?: string;
+    /** hard round cap; the engine reads this in place of MAX_ROUNDS */
+    roundCap?: number;
+    /** max enrage stacks (spire); absent → uncapped (story enrage unchanged) */
+    enrageCap?: number;
+    /** enemy OUTGOING damage multiplier, folded at the wMult junction for enemy attackers */
+    dmgMult?: number;
+    /** per-round regen flat cap (spire regen boss); absent → uncapped */
+    regenFlatCap?: number;
+    /** sealed modifier list — rendered as manifest chips; (Waves 2/3) consumed by the engine */
+    modifierStack?: TowerModifier[];
+    /** Wave 3 — the HP% gate the boss's one-time desperation blast fires at (injected into
+     *  pendingPhases at creation); absent → no extra phase (story + floors < 15 unchanged) */
+    extraPhaseThreshold?: number;
 };
 
 // ─── accessors / invariants ──────────────────────────────────────────────────
@@ -148,12 +176,33 @@ export type CreateTowerSessionParams = {
     objectiveKind: string;
     bossId?: TowerActorId;
     bossPhases?: number[];
+    /** Endless Spire — sealed ascension modifiers (absent for story runs) */
+    ascension?: import('./_modifiers.js').AscensionSeal;
+    /** Endless Spire — which of the 4 bosses this run features */
+    spireBossId?: string;
+    /** Endless Spire — per-round regen flat cap for the featured boss */
+    regenFlatCap?: number;
     /** wall-clock from the caller (handler) — kept OUT of the deterministic engine */
     now: number;
 };
 
 export function createTowerSession(p: CreateTowerSessionParams): TowerSession {
     const hasNpc = p.actors.some(a => a.side === 'npc');
+    // Wave 3: a sealed 'extraPhase' modifier injects a DESPERATION gate into the boss's
+    // HP-phase ladder. Merge it into the authored phases (deduped) so tickBossPhases fires it
+    // exactly once; seal the threshold so the engine knows WHICH crossing is the blast. Story +
+    // floors < 15 carry no extraPhase modifier → basePhases only, byte-identical.
+    const basePhases = (p.bossPhases ?? []).slice();
+    const extraPhases = (p.ascension?.modifierStack ?? [])
+        .filter(m => m.kind === 'extraPhase')
+        .map(m => Math.max(1, Math.min(99, Math.floor(Number(m.value) || 0))))
+        .filter(v => v > 0);
+    const extraPhaseThreshold = extraPhases.length ? Math.max(...extraPhases) : undefined;
+    // Add only NON-colliding extra gates so a collision fires one gate (native mechanic + blast),
+    // never two; base phases are left byte-for-byte untouched (story runs seal no extraPhases →
+    // basePhases only, identical to the pre-Wave-3 `.slice().sort()`).
+    const extrasToAdd = extraPhases.filter(v => !basePhases.includes(v));
+    const pendingPhases = [...basePhases, ...extrasToAdd].sort((a, b) => b - a);
     return {
         towerId: p.towerId,
         runId: p.runId,
@@ -176,8 +225,9 @@ export function createTowerSession(p: CreateTowerSessionParams): TowerSession {
         },
         phaseState: {
             bossId: p.bossId,
-            // descending so the engine pops the highest threshold first
-            pendingPhases: (p.bossPhases ?? []).slice().sort((a, b) => b - a),
+            // descending so the engine pops the highest threshold first (Wave-3 desperation
+            // gate already merged + deduped into pendingPhases above).
+            pendingPhases,
             triggeredPhases: [],
         },
         status: 'active',
@@ -187,5 +237,16 @@ export function createTowerSession(p: CreateTowerSessionParams): TowerSession {
         log: [],
         createdAt: p.now,
         lastActionAt: p.now,
+        // Endless Spire: seal the ascension modifiers (absent → undefined, story unchanged).
+        ...(p.ascension ? {
+            ascensionTier: p.ascension.ascensionTier,
+            spireBossId: p.spireBossId,
+            roundCap: p.ascension.roundCap,
+            enrageCap: p.ascension.enrageCap,
+            dmgMult: p.ascension.dmgMult,
+            modifierStack: p.ascension.modifierStack,
+            ...(typeof extraPhaseThreshold === 'number' ? { extraPhaseThreshold } : {}),
+            ...(typeof p.regenFlatCap === 'number' ? { regenFlatCap: p.regenFlatCap } : {}),
+        } : {}),
     };
 }

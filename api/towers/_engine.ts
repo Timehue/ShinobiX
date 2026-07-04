@@ -35,6 +35,10 @@ import {
     activeActor,
 } from './_tower-session.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen, v2PoisonOnSpend } from '../_combat-resources.js';
+import {
+    DEBUFF_TAKEN_CAP, HEALCUT_MAX, EXTRA_PHASE_BLAST_PCT, SUDDEN_DEATH_WINDOW, SUDDEN_DEATH_PCT,
+    DUAL_AUGMENT_HAZARD_BONUS, DUAL_AUGMENT_DEBUFF_BONUS, type TowerModifier,
+} from './_modifiers.js';
 
 // ─── Constants (ported from api/pvp/move.ts, verified @ 586f0560) ────────────
 export const BASE_AP = 100;
@@ -204,6 +208,84 @@ function wardDefendMult(session: TowerSession, target: TowerActor): number {
     }
     return Math.max(0, mult);
 }
+/** Endless Spire 'debuff' keystones raise INCOMING damage on a squad target. The summed
+ *  vulnerability is HARD-CAPPED at DEBUFF_TAKEN_CAP — the direct analog of SPIRE_ENRAGE_CAP:
+ *  debuff is a new multiplicative term on the same wMult product as enrage × dmgMult, so an
+ *  uncapped stack could cold-one-shot a maxed squad. 'positional' debuffs are nullified while
+ *  the target stands on a ward (wards are safe tiles); 'flat' always applies. 1 when none. */
+function debuffTakenMult(session: TowerSession, target: TowerActor): number {
+    const stack = session.modifierStack;
+    if (!Array.isArray(stack) || stack.length === 0) return 1;
+    const onWard = wardDefendMult(session, target) < 1;
+    let pct = 0;
+    for (const m of stack) {
+        if (m.kind !== 'debuff') continue;
+        if (m.variant === 'positional' && onWard) continue; // ward tiles negate positional vulnerability
+        pct += Math.max(0, Number(m.value) || 0);
+    }
+    // Wave 3 'Cataclysm' (dualAugment) amplifies the vulnerability — but the DEBUFF_TAKEN_CAP
+    // clamp below still hard-bounds it, so the one-shot ceiling is unchanged.
+    if (pct > 0 && hasDualAugment(session)) pct += DUAL_AUGMENT_DEBUFF_BONUS;
+    return pct > 0 ? 1 + Math.min(pct / 100, DEBUFF_TAKEN_CAP) : 1;
+}
+/** Endless Spire 'healcut' keystones reduce net healing the squad receives (percent, summed,
+ *  clamped to HEALCUT_MAX so it can never invert into a net negative heal). 0 when none. */
+function healcutPct(session: TowerSession): number {
+    const stack = session.modifierStack;
+    if (!Array.isArray(stack) || stack.length === 0) return 0;
+    let pct = 0;
+    for (const m of stack) if (m.kind === 'healcut') pct += Math.max(0, Number(m.value) || 0);
+    return Math.min(pct, HEALCUT_MAX);
+}
+/** Wave 3 'Cataclysm' (dualAugment) — hazard + vulnerability keystones amplify each other. */
+function hasDualAugment(session: TowerSession): boolean {
+    const stack = session.modifierStack;
+    return Array.isArray(stack) && stack.some(m => m.kind === 'dualAugment');
+}
+// ─── Endless Spire hazard keystones (Wave 2) ─────────────────────────────────
+// A modifierStack hazard carries only its variant + percent; the engine owns the tile
+// GEOMETRY (the seal has no map). Every derivation is a pure function of (map, variant,
+// round[, squad positions]) so settle reproduces the run. Story runs have no modifierStack
+// → these never fire → byte-identical.
+/** Which tiles a hazard keystone lights up for `round`. Deterministic per variant. */
+function spireHazardTiles(session: TowerSession, mod: TowerModifier, round: number): number[] {
+    const w = session.map.width, h = session.map.height;
+    const blocked = new Set(session.map.blockedTiles);
+    const cells: number[] = [];
+    switch (mod.variant) {
+        case 'rotating': { // a single column of fire that sweeps across the board each round
+            const hot = ((round % w) + w) % w;
+            for (let i = 0; i < w * h; i++) if (!blocked.has(i) && (i % w) === hot) cells.push(i);
+            break;
+        }
+        case 'escalating': { // a fixed central band whose BITE (not tiles) grows with the round
+            const mid = Math.floor(w / 2);
+            for (let i = 0; i < w * h; i++) if (!blocked.has(i) && Math.abs((i % w) - mid) <= 1) cells.push(i);
+            break;
+        }
+        case 'proximity': { // arcs to any tile touching ≥2 living squad members — punishes clumping
+            const count = new Map<number, number>();
+            for (const s of livingOnSide(session, 'squad'))
+                for (const n of towerNeighbors(s.pos, w, h)) {
+                    if (blocked.has(n)) continue;
+                    count.set(n, (count.get(n) ?? 0) + 1);
+                }
+            for (const [t, c] of count) if (c >= 2) cells.push(t);
+            break;
+        }
+        default: { // 'static' — a central cross of scorched tiles
+            const mc = Math.floor(w / 2), mr = Math.floor(h / 2);
+            for (let i = 0; i < w * h; i++) if (!blocked.has(i) && ((i % w) === mc || Math.floor(i / w) === mr)) cells.push(i);
+        }
+    }
+    return cells;
+}
+/** Effective chip percent for a hazard this round (only 'escalating' grows; capped at 3× base). */
+function spireHazardPct(mod: TowerModifier, round: number): number {
+    const base = Math.max(0, Number(mod.value) || 0);
+    if (mod.variant === 'escalating') return Math.min(base + Math.floor(round / 2), base * 3);
+    return base;
+}
 /** Round-end chip to every living unit standing on a hazard tile. */
 function applyRoundHazards(session: TowerSession): void {
     for (const f of mapFeatures(session)) {
@@ -215,14 +297,57 @@ function applyRoundHazards(session: TowerSession): void {
             session.log.push(`${a.name} takes ${dmg} from ${f.label ?? 'the hazard'} (${a.hp}/${a.maxHp}).`);
         }
     }
+    // Endless Spire ascension hazards: a SQUAD-side tax that pressures positioning (never
+    // chips the boss/adds or the escort). Story runs have no modifierStack → loop is empty.
+    const dualAug = hasDualAugment(session); // Wave 3 'Cataclysm' bumps every hazard chip
+    for (const m of session.modifierStack ?? []) {
+        if (m.kind !== 'hazard') continue;
+        const tiles = new Set(spireHazardTiles(session, m, session.round));
+        if (tiles.size === 0) continue;
+        const pct = spireHazardPct(m, session.round) + (dualAug ? DUAL_AUGMENT_HAZARD_BONUS : 0);
+        for (const a of session.actors) {
+            if (a.hp <= 0 || a.side !== 'squad' || !tiles.has(a.pos)) continue;
+            const dmg = Math.max(1, Math.floor((a.maxHp * pct) / 100));
+            a.hp = Math.max(0, a.hp - dmg);
+            session.log.push(`${a.name} takes ${dmg} from ${m.label ?? 'the hazard'} (${a.hp}/${a.maxHp}).`);
+        }
+    }
+    // Wave 3 'Sudden Death' (objective): in the last SUDDEN_DEATH_WINDOW rounds before the cap,
+    // the arena collapses — a whole-squad chip so running out the clock is fatal, not safe. Only
+    // fires on a spire floor that sealed the 'objective' keystone AND has a roundCap. Bounded %.
+    if (typeof session.roundCap === 'number' && (session.modifierStack ?? []).some(m => m.kind === 'objective')) {
+        const collapseFrom = session.roundCap - SUDDEN_DEATH_WINDOW;
+        if (session.round > collapseFrom) {
+            for (const a of session.actors) {
+                if (a.hp <= 0 || a.side !== 'squad') continue;
+                const dmg = Math.max(1, Math.floor((a.maxHp * SUDDEN_DEATH_PCT) / 100));
+                a.hp = Math.max(0, a.hp - dmg);
+            }
+            session.log.push(`⚠ The floor is collapsing — finish it! (Sudden Death, round ${session.round}/${session.roundCap})`);
+        }
+    }
+}
+/** Telegraph: EXACT tiles that will burn at the END of the current round (proximity hazards
+ *  are reactive → intentionally excluded so the field is a hard guarantee, never an estimate).
+ *  Empty when no deterministic hazard is live (story or sub-tier-9 spire). */
+function computeHazardTelegraph(session: TowerSession): number[] {
+    const out = new Set<number>();
+    for (const m of session.modifierStack ?? []) {
+        if (m.kind !== 'hazard' || m.variant === 'proximity') continue;
+        for (const t of spireHazardTiles(session, m, session.round)) out.add(t);
+    }
+    return [...out].sort((a, b) => a - b);
 }
 
 // ─── Boss mechanics (deterministic; tower-only) ──────────────────────────────
 // Each boss has a signature mechanic that makes the fight distinct + tough. These are
 // pure functions of the session state (no RNG / wall-clock), so settle reproduces them.
-/** Enrage stacks ramp the boss's OUTGOING damage (+35% per stack). */
-function attackerEnrageMult(attacker: TowerActor): number {
-    const e = Number(attacker.character.enrage ?? 0);
+/** Enrage stacks ramp the boss's OUTGOING damage (+35% per stack). The Endless Spire seals a
+ *  stack cap on the session (SPIRE_ENRAGE_CAP) so uncapped enrage × dmgMult can't cold-one-shot
+ *  a maxed squad; story runs leave session.enrageCap unset → uncapped, byte-identical to before. */
+function attackerEnrageMult(session: TowerSession, attacker: TowerActor): number {
+    const cap = Number(session.enrageCap ?? Infinity);
+    const e = Math.min(Number(attacker.character.enrage ?? 0), cap);
     return e > 0 ? 1 + 0.35 * e : 1;
 }
 /** A 'bulwark' boss takes HALF the damage while any of its guards (other enemies) live. */
@@ -271,15 +396,31 @@ function applyBossPhaseMechanic(session: TowerSession, boss: TowerActor): void {
     }
     // 'bulwark' is passive (damage reduction while guards live); 'regen' fires per round.
 }
-/** Per-round heal for a 'regen' boss (7% of max HP). */
+/** Per-round heal for a 'regen' boss (7% of max HP). The Endless Spire seals a FLAT cap
+ *  (session.regenFlatCap) so 7%-of-maxHp can't outrun squad DPS once boss HP is inflated at
+ *  high floors; story runs leave it unset → uncapped, byte-identical to before. */
 function applyBossRegen(session: TowerSession): void {
     const id = session.phaseState.bossId;
     const boss = id ? getActor(session, id) : undefined;
     if (!boss || boss.hp <= 0 || String(boss.character.mechanic ?? '') !== 'regen') return;
-    const heal = Math.max(1, Math.floor(boss.maxHp * 0.07));
+    const cap = Number(session.regenFlatCap ?? Infinity);
+    const heal = Math.min(Math.max(1, Math.floor(boss.maxHp * 0.07)), cap);
     const before = boss.hp;
     boss.hp = Math.min(boss.maxHp, boss.hp + heal);
     if (boss.hp > before) session.log.push(`${boss.name} regenerates ${boss.hp - before} HP.`);
+}
+/** Wave 3 'Second Wind' (extraPhase): a ONE-TIME desperation blast when the boss crosses its
+ *  sealed extra HP-gate — a bounded % chip to every living SQUAD member (never regen/heal, so
+ *  it can't stall past the round cap). Fires once (the gate is popped from pendingPhases once);
+ *  boss/adds/escort are untouched. Story + floors < 15 seal no extraPhaseThreshold → never fires. */
+function applyExtraPhaseShockwave(session: TowerSession, boss: TowerActor): void {
+    session.log.push(`${boss.name} steels itself and unleashes a desperation blast!`);
+    for (const a of session.actors) {
+        if (a.hp <= 0 || a.side !== 'squad') continue;
+        const dmg = Math.max(1, Math.floor((a.maxHp * EXTRA_PHASE_BLAST_PCT) / 100));
+        a.hp = Math.max(0, a.hp - dmg);
+        session.log.push(`${a.name} is caught in the blast for ${dmg} (${a.hp}/${a.maxHp}).`);
+    }
 }
 
 // ─── Targeting / sides ───────────────────────────────────────────────────────
@@ -361,6 +502,19 @@ function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, 
     const res = applyJutsu(sf, of, jutsu as Parameters<typeof applyJutsu>[2], wMult, String(session.map.biome ?? 'central'), session.round);
     writeBackFighter(actor, res.self);
     if (!selfCast) writeBackFighter(target, res.opponent);
+    // Endless Spire heal-cut: throttle net HEALING a squad caster receives (self-heal / Lifesteal
+    // / Siphon all land on res.self → actor.hp). `gained` is the realized post-writeback delta, so
+    // max(0,…) is load-bearing: a Recoil / self-damage cast is a NEGATIVE delta that must NOT be
+    // "cut" upward. Absorb heals the OPPONENT (never the squad caster) and boss regen lives outside
+    // runJutsu, so both are correctly untouched. Story runs have no modifierStack → cut is 0.
+    if (actor.side === 'squad') {
+        const cut = healcutPct(session);
+        const gained = actor.hp - sf.hp;
+        if (cut > 0 && gained > 0) {
+            const removed = gained - Math.floor(gained * (1 - cut / 100));
+            actor.hp = Math.max(0, actor.hp - removed);
+        }
+    }
     session.log.push(...res.lines);
 }
 // Area radius for an AOE / ground / displacement jutsu (0 = single-target). Bloodline/
@@ -456,10 +610,19 @@ function resolveHit(
     jutsu: JutsuLike, cost: number,
 ): void {
     const selfCast = actor.id === target.id;
+    // Endless Spire: enemy attackers hit harder by the sealed ascension dmgMult (the tier's
+    // outgoing-damage spine). Story runs leave session.dmgMult unset → ×1, unchanged.
+    const ascensionDmgMult = actor.side === 'enemy' ? Math.max(1, Number(session.dmgMult ?? 1)) : 1;
+    // Endless Spire vulnerability: a squad target takes MORE damage per the sealed 'debuff'
+    // keystones. Orthogonal to ascensionDmgMult (which scales the ENEMY attacker's output);
+    // this scales what a SQUAD DEFENDER receives, and is capped inside debuffTakenMult so the
+    // combined enrage × dmgMult × debuff product stays under the one-shot ceiling. ×1 for story.
+    const incomingDebuffMult = (!selfCast && target.side === 'squad') ? debuffTakenMult(session, target) : 1;
     const wMult = selfCast ? 1 : (
         pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
-        * attackerEnrageMult(actor) * bulwarkMult(session, target)
+        * attackerEnrageMult(session, actor) * bulwarkMult(session, target)
         * Math.max(0, Number(actor.character.towerDmgScale ?? 1))
+        * ascensionDmgMult * incomingDebuffMult
     );
     const verb = jutsu.id === 'basic-attack' ? 'attacks'
         : jutsu.id === 'weapon' ? `strikes with ${jutsu.name ?? 'a weapon'}`
@@ -562,6 +725,12 @@ export function startRound(session: TowerSession): void {
     rebuildTurnQueue(session);
     session.activeIndex = 0;
     refreshAp(session);
+    // Endless Spire: surface the tiles that will burn at THIS round's end so the squad can
+    // pre-position during their turns. Deterministic hazards only (proximity is reactive).
+    // Story runs (no modifierStack) leave the field undefined → unchanged wire.
+    const tele = computeHazardTelegraph(session);
+    if (tele.length) session.map.nextRoundHazardTiles = tele;
+    else delete session.map.nextRoundHazardTiles;
 }
 
 // ─── Win-check + objectives ──────────────────────────────────────────────────
@@ -633,6 +802,8 @@ function tickBossPhases(session: TowerSession): void {
         session.phaseState.triggeredPhases.push(t);
         session.log.push(`${boss.name} enters a new phase (${t}% HP).`);
         applyBossPhaseMechanic(session, boss); // enrage / summon fire at each gate
+        // Wave 3: the desperation blast fires on the sealed extra gate (once).
+        if (session.extraPhaseThreshold != null && t === session.extraPhaseThreshold) applyExtraPhaseShockwave(session, boss);
     }
 }
 
@@ -683,7 +854,14 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
         if ((actor.cooldowns['basicHeal'] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
         if (actor.chakra < HEAL_CHAKRA) return { applied: false, reason: 'no-chakra' };
         if (!canAct(session, HEAL_AP)) return { applied: false, reason: 'cannot-act' };
-        const healAmt = Math.max(1, Math.floor(actor.maxHp * HEAL_PCT));
+        // Basic Heal restores HP DIRECTLY (not via runJutsu), so the Endless Spire heal-cut
+        // keystone must be applied here too — otherwise a squad could dodge Withering Aura by
+        // spamming Basic Heal. Story runs have no modifierStack → cut is 0, unchanged.
+        let healAmt = Math.max(1, Math.floor(actor.maxHp * HEAL_PCT));
+        if (actor.side === 'squad') {
+            const cut = healcutPct(session);
+            if (cut > 0) healAmt = Math.max(0, Math.floor(healAmt * (1 - cut / 100)));
+        }
         actor.hp = Math.min(actor.maxHp, actor.hp + healAmt);
         actor.chakra = Math.max(0, actor.chakra - HEAL_CHAKRA);
         actor.cooldowns['basicHeal'] = HEAL_CD;
@@ -977,7 +1155,9 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     applyBossRegen(session);    // a 'regen' boss heals each round
     checkTowerWinner(session, floor);
     if (session.status !== 'active') return;
-    if (session.round >= MAX_ROUNDS) {
+    // Endless Spire seals a per-floor roundCap (<= MAX_ROUNDS) as the real clear deadline;
+    // story runs leave it unset → the MAX_ROUNDS engine cap, unchanged.
+    if (session.round >= Math.min(MAX_ROUNDS, Number(session.roundCap ?? MAX_ROUNDS))) {
         // hard timeout: failed to clear in time (survive floors win above before reaching here)
         session.status = 'done';
         session.winner = 'enemy';
