@@ -5861,7 +5861,7 @@ export default function App() {
     // KO/flee — at that point logWeeklyBossFightDamage() POSTs the damage
     // dealt to /api/weekly-boss so it lands on the shared leaderboard.
     const WEEKLY_BOSS_SENTINEL_HP = 99_999_999;
-    function launchWeeklyBossFight(bossAiId: string, bossDisplayName?: string) {
+    function launchWeeklyBossFight(bossAiId: string, bossDisplayName?: string, returnScreen: Screen = "weeklyBoss") {
         if (!character) return;
         const bossAi = playableAis.find(ai => ai.id === bossAiId);
         if (!bossAi) {
@@ -5887,7 +5887,7 @@ export default function App() {
         setRaidBattleKind("none");
         setPendingArenaStoryBattle({
             kind: "weeklyBoss",
-            returnScreen: "weeklyBoss",
+            returnScreen,
             bossInitialHp: WEEKLY_BOSS_SENTINEL_HP,
         });
         setPendingAiProfileId(tempId);
@@ -5925,7 +5925,7 @@ export default function App() {
             setPendingArenaStoryBattle(null);
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");
-            setScreen("weeklyBoss");
+            setScreen(pendingArenaStoryBattle?.returnScreen ?? "weeklyBoss");
         }
     }
 
@@ -8575,6 +8575,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
                     <WorldMap
                         key={worldMapKey}
+                        onLaunchWeeklyBoss={launchWeeklyBossFight}
                         setCurrentBiome={setCurrentBiome}
                         setScreen={navigate}
                         character={character}
