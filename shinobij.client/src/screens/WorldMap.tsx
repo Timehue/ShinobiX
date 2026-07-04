@@ -51,6 +51,8 @@ import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import { SectorPeersLive, type SectorPeer } from "../components/SectorPeers";
+import { WeeklyBossRoamOverlay, type RoamingBoss } from "../components/WeeklyBossRoamOverlay";
+import { isWeeklyBossRoamEnabled } from "../lib/weekly-boss-roam";
 import { playerNameTile } from "../lib/sector-tile";
 import { defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
@@ -566,6 +568,25 @@ export function WorldMap({
         const id = setInterval(load, 20000);
         return () => { alive = false; clearInterval(id); };
     }, [selectedSector, character.name, character.village]);
+
+    // Roaming weekly boss (weeklyBossRoam.v1, default OFF). Poll the boss state
+    // so the overworld can show where it's rampaging. The live sector + countdown
+    // are derived CLIENT-side from startedAt (weeklyBossRoamState), so a slow poll
+    // is plenty — GET /api/weekly-boss is edge-cached (s-maxage=10).
+    const [roamingBoss, setRoamingBoss] = useState<RoamingBoss | null>(null);
+    useEffect(() => {
+        if (!isWeeklyBossRoamEnabled()) return;
+        let alive = true;
+        const load = () => {
+            void fetch("/api/weekly-boss", { method: "GET" })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((data) => { if (alive) setRoamingBoss(data?.boss?.aiId ? (data.boss as RoamingBoss) : null); })
+                .catch(() => { /* best-effort — no marker if the fetch fails */ });
+        };
+        load();
+        const id = setInterval(load, 45000);
+        return () => { alive = false; clearInterval(id); };
+    }, []);
     const mercWanderers = useMemo(() => {
         if (!isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
         const cd = character.wandererCooldowns; const now = Date.now();
@@ -2956,6 +2977,13 @@ export function WorldMap({
                     sector markers. Flag-gated (villageWarMap.v1) + pointer-events:none,
                     so it stays inert/invisible on the default world map. */}
                 {isVillageWarMapEnabled() && <SectorOwnershipOverlay sectorPoints={sectorPoints} />}
+
+                {/* Roaming weekly-boss marker (weeklyBossRoam.v1, default OFF): a
+                    portrait marker on the boss's current sector + telegraphed next
+                    hop + faded trail, riding the same pan/zoom. Click travels there.
+                    Position is derived from weeklyBossRoamState, identical on every
+                    client. Inert until the flag is flipped on. */}
+                {isWeeklyBossRoamEnabled() && <WeeklyBossRoamOverlay boss={roamingBoss} sharedImages={sharedImages} onFocusSector={triggerTravelPoint} />}
 
                 {/* (War Ground beacons were removed from the world map.
                     The Central Hub banner + the explicit Village War
