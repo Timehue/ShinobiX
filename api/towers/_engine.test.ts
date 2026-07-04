@@ -15,6 +15,7 @@ import {
     BASIC_ATTACK_AP,
 } from './_engine.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
+import { hexDistance } from '../pvp/_aoe.js';
 
 const MAP8: TowerMap = { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [] };
 
@@ -770,5 +771,32 @@ describe('Battle Towers basic actions', () => {
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'dash', tile: 3 }, makeRng(1)).applied);
         assert.equal(getActor(s, 'sq-1')!.pos, 3);
         assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'dash', tile: 60 }, makeRng(1)).reason, 'out-of-range');
+    });
+
+    it('Push shoves the target AWAY, Pull drags it TOWARD, Debuff Prevent blocks it (PvP parity)', () => {
+        const shove = (name: 'Push' | 'Pull') => ({ id: name.toLowerCase(), name, type: 'Taijutsu', ap: 40, range: 3, effectPower: 10, tags: [{ name }] });
+        // Attacker centred so the target has room to be shoved either way.
+        const mk = (targetOver: Partial<TowerActor> = {}) => {
+            const s = makeSession([
+                makeActor('sq-1', 'squad', 27, { character: { specialty: 'Taijutsu', stats: {}, jutsu: [shove('Push'), shove('Pull')] } }), // col 3 row 3
+                makeActor('en-1', 'enemy', 29, { hp: 9999, maxHp: 9999, character: { stats: {} }, ...targetOver }),                          // col 5 row 3
+            ]);
+            startRound(s);
+            return s;
+        };
+        const distNow = (s: TowerSession) => hexDistance(getActor(s, 'en-1')!.pos, getActor(s, 'sq-1')!.pos, 8);
+
+        const push = mk(); const beforeP = distNow(push);
+        assert.ok(applyAction(push, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'push', targetId: 'en-1' }, makeRng(1)).applied);
+        assert.ok(distNow(push) > beforeP, `push moved the target away (${distNow(push)} > ${beforeP})`);
+
+        const pull = mk(); const beforeL = distNow(pull);
+        assert.ok(applyAction(pull, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'pull', targetId: 'en-1' }, makeRng(1)).applied);
+        assert.ok(distNow(pull) < beforeL, `pull moved the target closer (${distNow(pull)} < ${beforeL})`);
+
+        const warded = mk({ statuses: [{ name: 'Debuff Prevent', rounds: 2, kind: 'positive' }] });
+        const posBefore = getActor(warded, 'en-1')!.pos;
+        applyAction(warded, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'push', targetId: 'en-1' }, makeRng(1));
+        assert.equal(getActor(warded, 'en-1')!.pos, posBefore, 'Debuff Prevent blocks displacement (PvP parity)');
     });
 });
