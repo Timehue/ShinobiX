@@ -23,12 +23,15 @@ export type WeeklyBossSchedule = {
     status: WeeklyBossStatus;
 };
 
+// Ids + icons mirror the builtin weekly-boss AIs (lib/combat-ai.ts weeklyBossAis)
+// and the server fallback roster (api/weekly-boss.ts BUILTIN_WEEKLY_BOSSES) so the
+// teased boss, the spawned boss, and its portrait all resolve on the same id.
 const weeklyBossPool = [
-    { id: "ashen-dragon", name: "Ashen Dragon", icon: "DR" },
-    { id: "moonshadow-oni", name: "Moonshadow Oni", icon: "ON" },
-    { id: "frostfang-warlord", name: "Frostfang Warlord", icon: "FW" },
-    { id: "stormveil-beast", name: "Stormveil Beast", icon: "SB" },
-    { id: "deathsgate-revenant", name: "Deathsgate Revenant", icon: "DG" },
+    { id: "ashen-dragon", name: "Ashen Dragon", icon: "🐉" },
+    { id: "moonshadow-oni", name: "Moonshadow Oni", icon: "👹" },
+    { id: "frostfang-warlord", name: "Frostfang Warlord", icon: "🐺" },
+    { id: "stormveil-beast", name: "Stormveil Beast", icon: "⚡" },
+    { id: "deathsgate-revenant", name: "Deathsgate Revenant", icon: "💀" },
 ];
 
 function seededHash(input: string) {
