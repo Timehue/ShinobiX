@@ -55,7 +55,7 @@ test('stage 4/5 prestige variants are registered and strict for every legacy', (
 });
 
 test('titles registry covers every legacy + achievement title and flags them', () => {
-    assert.equal(ACHIEVEMENT_TITLES.length, 22, 'mirrors TITLE_ACHIEVEMENT_IDS — update both together');
+    assert.equal(ACHIEVEMENT_TITLES.length, 26, 'mirrors TITLE_ACHIEVEMENT_IDS — update both together');
     for (const d of LEGACY_DEFS) {
         assert.ok(isKnownEarnedTitle(d.title), `legacy title missing from registry: ${d.title}`);
     }

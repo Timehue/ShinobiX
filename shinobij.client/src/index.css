@@ -1594,6 +1594,39 @@ button {
     50% { box-shadow: 0 0 0 5px rgba(220,38,38,.5), 0 0 32px rgba(255,60,0,.85), 0 4px 14px rgba(0,0,0,.7); }
 }
 
+/* Roaming weekly boss — highlights the sector it is CURRENTLY rampaging in
+   (replaces the old floating portrait marker). A warm pulsing ring + a 👹 flag so
+   players can spot which sector to travel into to challenge it. Position updates
+   as the boss hops (WorldMap recomputes weeklyBossRoamState). */
+.atlas-sector-weekly-boss {
+    z-index: 11;
+    border-color: #f97316;
+    box-shadow: 0 0 0 3px rgba(249,115,22,.45), 0 0 20px rgba(249,115,22,.7), 0 4px 10px rgba(0,0,0,.5);
+    animation: weekly-boss-sector-pulse 1.8s ease-in-out infinite;
+}
+.atlas-sector-weekly-boss:hover {
+    transform: translate(-50%, -50%) scale(1.2);
+    box-shadow: 0 0 0 4px rgba(249,115,22,.6), 0 0 30px rgba(255,140,0,.85), 0 4px 14px rgba(0,0,0,.6);
+}
+@keyframes weekly-boss-sector-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(249,115,22,.45), 0 0 18px rgba(249,115,22,.65), 0 4px 10px rgba(0,0,0,.5); }
+    50% { box-shadow: 0 0 0 5px rgba(249,115,22,.6), 0 0 34px rgba(255,120,0,.9), 0 4px 14px rgba(0,0,0,.6); }
+}
+.atlas-boss-flag {
+    position: absolute;
+    top: -13px;
+    left: -13px;
+    font-size: 16px;
+    line-height: 1;
+    pointer-events: none;
+    filter: drop-shadow(0 0 4px #f97316) drop-shadow(0 1px 1px #000);
+    animation: weekly-boss-flag-bob 1.8s ease-in-out infinite;
+}
+@keyframes weekly-boss-flag-bob {
+    0%, 100% { transform: translateY(0) rotate(-6deg); }
+    50% { transform: translateY(-2px) rotate(6deg); }
+}
+
 /* ── World-map zoom mode (worldMapZoom.v1) ────────────────────────────────────
    When <html> carries `.wm-zoom` (set by useWorldMapZoom on narrow / touch
    viewports), the painted map FITS the screen and the player pinch / drag-zooms
@@ -3703,6 +3736,280 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     .tower-hex-tile:hover { filter: drop-shadow(0 0 1.4px rgba(0, 0, 0, 0.85)) drop-shadow(0 2px 1px rgba(0, 0, 0, 0.4)) brightness(1.2); }
 /* Persistent ground-effect zone overlay — a gentle breathing pulse so the lasting hazard reads as active. */
 @keyframes towerZonePulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.95; } }
+/* Endless Spire hazard telegraph — a faster, more urgent pulse than a ground zone. */
+@keyframes towerHazardPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+
+/* ═══ Endless Spire — the ascension ladder (BattleTowersLobby) ═══════════════════ */
+.spire-panel {
+    border-radius: 16px; overflow: hidden; border: 1px solid #3c2614;
+    background:
+        radial-gradient(130% 90% at 50% -20%, rgba(240,161,90,0.12), transparent 55%),
+        linear-gradient(180deg, #18110b 0%, #0d0906 100%);
+    box-shadow: 0 10px 34px rgba(0,0,0,0.5), inset 0 1px 0 rgba(240,161,90,0.08);
+}
+.spire-panel-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    padding: 12px 16px 11px; border-bottom: 1px solid rgba(240,161,90,0.14);
+    background: linear-gradient(180deg, rgba(240,161,90,0.06), transparent);
+}
+/* Cinematic banner header (bespoke Endless Spire key art). */
+.spire-banner {
+    position: relative; min-height: 108px; display: flex; align-items: flex-end;
+    background-size: cover; background-position: center 32%; background-repeat: no-repeat;
+    border-bottom: 1px solid rgba(240,161,90,0.18);
+}
+.spire-banner-overlay {
+    width: 100%; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    padding: 34px 16px 10px;
+    background: linear-gradient(180deg, rgba(11,7,5,0) 0%, rgba(11,7,5,0.5) 52%, rgba(11,7,5,0.92) 100%);
+}
+.spire-banner .spire-title { font-size: 1.34rem; text-shadow: 0 2px 14px rgba(0,0,0,0.9), 0 0 22px rgba(240,161,90,0.35); }
+.spire-title {
+    font-family: var(--font-display, inherit); font-size: 1.16rem; letter-spacing: 0.5px;
+    color: #f4c48a; text-shadow: 0 0 18px rgba(240,161,90,0.4); font-weight: 700;
+}
+.spire-head-stats { display: inline-flex; align-items: baseline; gap: 5px; font-size: 0.78rem; color: #a99e8d; flex-wrap: wrap; }
+.spire-head-dot { color: #57493a; margin: 0 1px; }
+
+/* progress bar */
+.spire-progress { position: relative; height: 6px; margin: 12px 16px 4px; border-radius: 4px; background: #241812; overflow: visible; }
+.spire-progress-fill {
+    height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(0.22,1,0.36,1);
+    background: linear-gradient(90deg, #4ade80 0%, #38bdf8 33%, #a78bfa 66%, #fbbf24 100%);
+    box-shadow: 0 0 12px rgba(240,161,90,0.5);
+}
+.spire-progress-tick {
+    position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%;
+    background: #14100c; border: 1.5px solid #57493a;
+}
+.spire-progress-tick.lit { background: #fbbf24; border-color: #fde68a; box-shadow: 0 0 8px rgba(251,191,36,0.8); }
+
+/* Weekly Blessing strip — a positive, teal-tinted banner (distinct from the amber chassis). */
+.spire-blessing {
+    display: flex; align-items: center; gap: 11px; margin: 10px 16px 2px; padding: 8px 12px; border-radius: 11px;
+    border: 1px solid rgba(94,234,212,0.32); background: linear-gradient(180deg, rgba(20,184,166,0.12), rgba(13,148,136,0.05));
+}
+.spire-blessing-icon { font-size: 1.35rem; line-height: 1; flex-shrink: 0; filter: drop-shadow(0 0 6px rgba(94,234,212,0.5)); }
+.spire-blessing-body { display: flex; flex-direction: column; line-height: 1.2; flex-shrink: 0; }
+.spire-blessing-label { font-size: 0.62rem; letter-spacing: 1px; text-transform: uppercase; color: #5eead4; font-weight: 700; }
+.spire-blessing-name { font-size: 0.92rem; font-weight: 800; color: #a7f3d0; }
+.spire-blessing-blurb { flex: 1; min-width: 0; color: #b9d8d0; font-size: 0.8rem; line-height: 1.35; border-left: 1px solid rgba(94,234,212,0.22); padding-left: 11px; }
+@media (max-width: 560px) {
+    .spire-blessing { flex-wrap: wrap; }
+    .spire-blessing-blurb { border-left: none; padding-left: 0; flex-basis: 100%; }
+}
+
+/* hero card */
+.spire-hero { display: flex; gap: 15px; padding: 15px 16px; align-items: stretch; }
+.spire-hero-portrait {
+    position: relative; width: 118px; height: 118px; flex-shrink: 0; border-radius: 14px; overflow: hidden;
+    border: 2px solid var(--boss-accent, #f0a15a); background: #0b0705;
+    box-shadow: 0 0 26px var(--boss-glow, rgba(240,161,90,0.4)), inset 0 -30px 40px rgba(0,0,0,0.55);
+}
+.spire-hero-portrait img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; }
+.spire-hero-floornum {
+    position: absolute; left: 6px; top: 5px; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem;
+    color: #12100f; background: var(--boss-accent, #f0a15a); box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+.spire-hero-milestone { position: absolute; right: 6px; top: 4px; font-size: 1rem; color: #fde68a; text-shadow: 0 0 8px rgba(251,191,36,0.9); }
+.spire-hero-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.spire-hero-band { font-size: 0.72rem; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; }
+.spire-hero-name { font-family: var(--font-display, inherit); font-size: 1.55rem; line-height: 1; font-weight: 800; text-shadow: 0 2px 10px rgba(0,0,0,0.7); }
+.spire-hero-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.spire-tag {
+    font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid #57493a; color: #c9bdad; background: rgba(0,0,0,0.25); white-space: nowrap;
+}
+.spire-tag.milestone { border-color: rgba(251,191,36,0.6); color: #fde68a; background: rgba(251,191,36,0.1); }
+.spire-tag.reward { border-color: rgba(125,211,252,0.5); color: #7dd3fc; background: rgba(56,189,248,0.08); }
+.spire-hero-blurb { margin: 3px 0 2px; color: #b9ab98; font-size: 0.82rem; line-height: 1.45; }
+
+/* keystone preview */
+.spire-keystones { margin-top: 2px; }
+.spire-keystones-label { font-size: 0.66rem; letter-spacing: 0.8px; text-transform: uppercase; color: #8a7c68; font-weight: 700; }
+.spire-keystones-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.spire-keystone-chip {
+    font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 6px;
+    border: 1px solid #57493a; background: rgba(0,0,0,0.28); white-space: nowrap;
+}
+
+/* CTA row */
+.spire-hero-cta { display: flex; gap: 9px; align-items: center; margin-top: auto; padding-top: 8px; flex-wrap: wrap; }
+.spire-stepper { display: inline-flex; align-items: center; gap: 2px; background: #1a1109; border: 1px solid #3c2614; border-radius: 9px; padding: 2px; }
+.spire-stepper button {
+    width: 30px; height: 30px; border: none; border-radius: 7px; background: transparent; color: #f0a15a;
+    font-size: 1.2rem; font-weight: 800; line-height: 1; cursor: pointer; transition: background 0.12s;
+}
+.spire-stepper button:hover:not(:disabled) { background: rgba(240,161,90,0.14); }
+.spire-stepper button:disabled { color: #57493a; cursor: default; }
+.spire-stepper span { min-width: 76px; text-align: center; font-size: 0.82rem; font-weight: 700; color: #d8c6b0; }
+.spire-ascend {
+    flex: 1; min-width: 190px; padding: 0.66rem 1rem; border-radius: 10px; font-weight: 800; font-size: 0.95rem;
+    cursor: pointer; color: #12100f; border: 1px solid var(--boss-accent, #f0a15a);
+    background: linear-gradient(180deg, var(--boss-accent, #f0a15a), #b0430c);
+    box-shadow: 0 4px 16px rgba(240,161,90,0.28); transition: transform 0.1s, box-shadow 0.2s;
+}
+.spire-ascend:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(240,161,90,0.42); }
+.spire-ascend:disabled { opacity: 0.7; cursor: default; box-shadow: none; }
+.spire-ascend.locked { background: #241812; color: #d4c5b0; border-color: #3c2614; box-shadow: none; }
+
+/* ladder grid */
+.spire-ladder { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 7px; padding: 4px 16px 14px; }
+.spire-rung {
+    position: relative; display: flex; align-items: center; gap: 8px; text-align: left; padding: 6px 8px 6px 9px;
+    border-radius: 9px; overflow: hidden; cursor: pointer; color: #e2d8ca;
+    border: 1px solid #33251a; background: linear-gradient(180deg, #17110c, #0f0a07); transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
+}
+.spire-rung::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--band, #57493a); opacity: 0.8; }
+.spire-rung:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--boss-accent, #f0a15a); }
+.spire-rung.selected { border-color: var(--boss-accent, #f0a15a); box-shadow: 0 0 0 1px var(--boss-accent, #f0a15a), 0 4px 14px rgba(240,161,90,0.25); background: linear-gradient(180deg, #221710, #140d09); }
+.spire-rung.cleared { }
+.spire-rung.cleared .spire-rung-portrait img { filter: saturate(0.75) brightness(0.92); }
+.spire-rung.next { animation: spireNextPulse 2s ease-in-out infinite; border-color: var(--boss-accent, #f0a15a); }
+.spire-rung.locked { cursor: default; opacity: 0.5; }
+.spire-rung.locked .spire-rung-boss, .spire-rung.locked .spire-rung-mech { filter: blur(0.4px); }
+.spire-rung-num { flex-shrink: 0; width: 20px; text-align: center; font-weight: 800; font-size: 0.86rem; color: var(--band, #a99e8d); }
+.spire-rung-portrait {
+    position: relative; flex-shrink: 0; width: 34px; height: 34px; border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--boss-accent, #57493a); background: #0b0705;
+}
+.spire-rung-portrait img { width: 100%; height: 100%; object-fit: cover; object-position: center 15%; }
+.spire-rung-lock { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 0.8rem; }
+.spire-rung-info { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.spire-rung-boss { font-size: 0.74rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spire-rung-mech { font-size: 0.66rem; color: #8a7c68; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spire-rung-star { position: absolute; right: 6px; top: 4px; font-size: 0.72rem; color: #fde68a; text-shadow: 0 0 6px rgba(251,191,36,0.8); }
+.spire-rung-check { position: absolute; right: 6px; bottom: 4px; font-size: 0.72rem; font-weight: 800; color: #4ade80; }
+.spire-rung-next { position: absolute; right: 6px; bottom: 4px; font-size: 0.7rem; color: var(--boss-accent, #f0a15a); }
+@keyframes spireNextPulse {
+    0%, 100% { box-shadow: 0 0 0 1px var(--boss-accent, #f0a15a), 0 0 10px rgba(240,161,90,0.25); }
+    50% { box-shadow: 0 0 0 1px var(--boss-accent, #f0a15a), 0 0 20px rgba(240,161,90,0.55); }
+}
+
+/* leaderboard */
+.spire-board { margin: 2px 16px 16px; padding: 10px 12px; border-radius: 11px; border: 1px solid #2c2116; background: rgba(0,0,0,0.28); }
+.spire-board-head { font-size: 0.78rem; font-weight: 700; color: #f4c48a; margin-bottom: 7px; letter-spacing: 0.3px; }
+.spire-board-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.spire-board-list li { display: flex; align-items: center; gap: 9px; padding: 3px 6px; border-radius: 6px; font-size: 0.8rem; color: #cbbfae; }
+.spire-board-list li.me { background: rgba(240,161,90,0.12); color: #f4c48a; font-weight: 700; }
+.spire-board-list li.distant { margin-top: 3px; border-top: 1px dashed #2c2116; padding-top: 6px; }
+.spire-board-rank { flex-shrink: 0; width: 30px; font-weight: 800; color: #a99e8d; font-variant-numeric: tabular-nums; }
+.spire-board-list li.me .spire-board-rank { color: #facc15; }
+.spire-board-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spire-board-tier { flex-shrink: 0; font-size: 0.74rem; color: #8a7c68; }
+
+@media (max-width: 560px) {
+    .spire-hero { flex-direction: column; gap: 12px; }
+    .spire-hero-portrait { width: 100%; height: 128px; }
+    .spire-hero-portrait img { object-position: center 22%; }
+    .spire-ladder { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+    .spire-ascend { min-width: 0; }
+}
+
+/* ═══ Endless Spire — fight theater (boss intro / phase banner / result) ═════════ */
+.spire-intro {
+    position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(80% 60% at 50% 45%, rgba(4,7,14,0.62), rgba(2,4,10,0.9));
+    animation: spireIntroFade 2.8s ease forwards; cursor: pointer;
+}
+.spire-intro-card { text-align: center; padding: 8px 20px 20px; max-width: 420px; }
+.spire-intro-band {
+    font-size: 0.76rem; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin-bottom: 10px;
+    opacity: 0; animation: spireIntroRise 0.5s 0.15s ease forwards;
+}
+.spire-intro-portrait {
+    width: 152px; height: 152px; border-radius: 18px; object-fit: cover; object-position: center 16%;
+    border: 3px solid var(--boss-accent, #f0a15a); background: #0b0705;
+    box-shadow: 0 0 44px var(--boss-glow, rgba(240,161,90,0.5)), inset 0 -34px 46px rgba(0,0,0,0.55);
+    opacity: 0; transform: scale(0.82); animation: spireIntroPop 0.55s 0.05s cubic-bezier(0.18,1.3,0.4,1) forwards;
+}
+.spire-intro-name {
+    font-family: var(--font-display, inherit); font-size: 2.4rem; font-weight: 800; line-height: 1; margin-top: 14px;
+    text-shadow: 0 3px 18px rgba(0,0,0,0.8); opacity: 0; transform: translateY(10px);
+    animation: spireIntroRise 0.5s 0.28s ease forwards;
+}
+.spire-intro-mech {
+    color: #cbbfae; font-size: 0.9rem; margin-top: 8px; max-width: 380px; margin-inline: auto; line-height: 1.45;
+    opacity: 0; animation: spireIntroRise 0.5s 0.42s ease forwards;
+}
+.spire-intro-mech b { color: var(--boss-accent, #f0a15a); }
+@keyframes spireIntroPop { to { opacity: 1; transform: scale(1); } }
+@keyframes spireIntroRise { to { opacity: 1; transform: translateY(0); } }
+@keyframes spireIntroFade { 0%,78% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+
+.spire-phase-banner {
+    position: absolute; top: 14%; left: 0; right: 0; z-index: 38; display: flex; justify-content: center;
+    pointer-events: none; animation: spirePhaseSlam 1.9s ease forwards;
+}
+.spire-phase-banner span {
+    display: inline-block; padding: 8px 22px; border-radius: 999px; font-weight: 800; font-size: 1.02rem;
+    color: #fff7ed; background: linear-gradient(180deg, rgba(20,12,8,0.95), rgba(12,7,5,0.95));
+    border: 1.5px solid var(--boss-accent, #f0a15a); box-shadow: 0 0 26px var(--boss-accent, #f0a15a), 0 6px 20px rgba(0,0,0,0.6);
+    text-shadow: 0 1px 8px rgba(0,0,0,0.7); letter-spacing: 0.3px;
+}
+@keyframes spirePhaseSlam {
+    0% { opacity: 0; transform: scale(1.3); }
+    12% { opacity: 1; transform: scale(1); }
+    82% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.96); }
+}
+
+.spire-result {
+    position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px;
+    background: radial-gradient(70% 60% at 50% 40%, rgba(6,10,20,0.72), rgba(2,4,10,0.92));
+    animation: spireIntroRise 0.35s ease;
+}
+.spire-result-card {
+    position: relative; text-align: center; width: 100%; max-width: 400px; padding: 20px 22px 22px; border-radius: 18px;
+    border: 1px solid var(--boss-accent, #f0a15a); overflow: hidden;
+    background: linear-gradient(180deg, rgba(24,17,11,0.96), rgba(12,8,6,0.98));
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px var(--boss-glow, rgba(240,161,90,0.28));
+}
+.spire-result-card.loss { border-color: #6b3b3b; box-shadow: 0 20px 60px rgba(0,0,0,0.6); filter: saturate(0.9); }
+.spire-result-portrait {
+    width: 96px; height: 96px; border-radius: 14px; object-fit: cover; object-position: center 16%; margin-bottom: 8px;
+    border: 2px solid var(--boss-accent, #f0a15a); box-shadow: 0 0 28px var(--boss-glow, rgba(240,161,90,0.45));
+}
+.spire-result-card.loss .spire-result-portrait { filter: grayscale(0.6) brightness(0.7); border-color: #6b3b3b; box-shadow: none; }
+.spire-result-kicker { font-size: 0.72rem; letter-spacing: 1.4px; text-transform: uppercase; color: #a99e8d; font-weight: 700; }
+.spire-result-title { font-family: var(--font-display, inherit); font-size: 1.7rem; margin: 4px 0 2px; line-height: 1.05; }
+.spire-result-title.win { color: #fde68a; text-shadow: 0 2px 16px rgba(251,191,36,0.5); }
+.spire-result-title.loss { color: #f87171; }
+.spire-result-milestone {
+    display: inline-block; margin: 8px auto 2px; padding: 5px 14px; border-radius: 999px; font-size: 0.86rem;
+    color: #fde68a; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.5);
+    animation: spireMilestonePulse 1.4s ease-in-out infinite;
+}
+.spire-result-milestone b { color: #fff7cc; }
+.spire-result-rewards { margin: 12px 0 6px; min-height: 32px; display: flex; justify-content: center; }
+.spire-reward-shard {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: 999px; font-weight: 800; font-size: 0.96rem;
+    color: #a5f3fc; background: rgba(34,211,238,0.12); border: 1px solid rgba(34,211,238,0.5);
+}
+.spire-reward-shard.in { animation: spireShardReveal 0.6s cubic-bezier(0.18,1.3,0.4,1); }
+.spire-reward-shard.muted { color: #94a3b8; background: rgba(148,163,184,0.1); border-color: rgba(148,163,184,0.35); font-weight: 600; font-size: 0.82rem; }
+.spire-reward-shard.pending { color: #8a7c68; background: transparent; border-color: #3c2614; }
+.spire-result-sub { color: #c9bdad; font-size: 0.9rem; margin: 4px 0 0; line-height: 1.45; }
+.spire-result-sub b { color: var(--boss-accent, #f0a15a); }
+.spire-result-btn {
+    margin-top: 16px; width: 100%; padding: 0.7rem 1rem; border-radius: 10px; font-weight: 800; font-size: 0.96rem; cursor: pointer;
+    color: #12100f; border: 1px solid var(--boss-accent, #f0a15a);
+    background: linear-gradient(180deg, var(--boss-accent, #f0a15a), #b0430c); box-shadow: 0 4px 16px var(--boss-glow, rgba(240,161,90,0.3));
+}
+.spire-result-card.loss .spire-result-btn { color: #fca5a5; background: transparent; border-color: #6b3b3b; box-shadow: none; }
+@keyframes spireShardReveal { 0% { opacity: 0; transform: scale(0.6) translateY(8px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes spireMilestonePulse { 0%,100% { box-shadow: 0 0 0 rgba(251,191,36,0); } 50% { box-shadow: 0 0 16px rgba(251,191,36,0.5); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .spire-intro, .spire-intro-portrait, .spire-intro-band, .spire-intro-name, .spire-intro-mech,
+    .spire-phase-banner, .spire-reward-shard.in, .spire-result-milestone, .spire-rung.next {
+        animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    }
+    .spire-intro { animation: none; }
+    /* Kill transitions too (hover lifts, progress fill, button presses) for motion-sensitive users. */
+    .spire-progress-fill, .spire-stepper button, .spire-ascend, .spire-rung { transition: none !important; }
+}
 
 /* Battle Tower fight layout: squad rail | board | enemy+log rail on desktop. */
 .tower-fight-grid {

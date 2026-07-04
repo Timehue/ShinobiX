@@ -350,6 +350,32 @@ function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
 }
 export const storyBossAis = Object.entries(storylines).flatMap(([village, steps]) => steps.map((step) => makeStoryBossAi(village, step)));
 
+// -- Weekly world-boss roster --------------------------------------------
+// The five rotating apex bosses the client schedule advertises
+// (lib/weekly-boss.ts weeklyBossPool) and the admin panel spawns. `isBossAi`
+// flags them for the weekly-boss override selector (AdminPanel allAdminAis);
+// `masterAi` forces top-tier tactics. Ids match weeklyBossPool AND the published
+// portraits (asset id `ai:<id>`) so schedule ↔ fight ↔ art all resolve on one id;
+// the emoji icon shows until a portrait is published. The weekly-boss fight
+// overrides HP to an unkillable sentinel (App.launchWeeklyBossFight), so the
+// authored level/statBonus here drive the boss's OFFENSE and the arena challenge
+// — not a kill threshold. Stats mirror the hunt-boss tier (Ember Drake →
+// Worldstorm Dragon) and are tuning knobs. Uses the shared "boss" loadout like
+// every other boss (Ember Drake is a fire dragon on the same mixed kit).
+const WEEKLY_BOSS_DEFS: Array<{ id: string; name: string; icon: string; level: number; village: string; statBonus: number; hp: number }> = [
+    { id: "ashen-dragon", name: "Ashen Dragon", icon: "🐉", level: 72, village: "Emberpeak Caldera", statBonus: 165, hp: 9000 },
+    { id: "moonshadow-oni", name: "Moonshadow Oni", icon: "👹", level: 76, village: "Bloodmoon Rise", statBonus: 175, hp: 9500 },
+    { id: "frostfang-warlord", name: "Frostfang Warlord", icon: "🐺", level: 80, village: "Glacier Wastes", statBonus: 185, hp: 10000 },
+    { id: "stormveil-beast", name: "Stormveil Beast", icon: "⚡", level: 84, village: "Thunderhead Reach", statBonus: 195, hp: 11000 },
+    { id: "deathsgate-revenant", name: "Deathsgate Revenant", icon: "💀", level: 90, village: "Death's Gate", statBonus: 210, hp: 12500 },
+];
+
+export const weeklyBossAis: CreatorAi[] = WEEKLY_BOSS_DEFS.map((b) => ({
+    ...makeBuiltinAi(b.id, b.name, b.icon, b.level, b.village, aiJutsuLoadout("boss"), b.statBonus, b.hp, "boss", true),
+    isBossAi: true,
+    masterAi: true,
+}));
+
 export const builtinAis: CreatorAi[] = [
     // E-Rank Drill foe — the onboarding "guaranteed win" for level 1-5 players.
     // A deliberately gentle, NO-SUSTAIN kit (two plain damage-over-time moves +
@@ -367,6 +393,7 @@ export const builtinAis: CreatorAi[] = [
     makeBuiltinAi("builtin-ai-shadow-weaver", "Shadow Weaver", "SW", 48, "Moonshadow Operative", aiJutsuLoadout("control"), 102, undefined, "control"),
     makeBuiltinAi("builtin-ai-central-champion", "Central Champion", "CC", 70, "Central Arena", aiJutsuLoadout("boss"), 160, undefined, "boss"),
     ...storyBossAis,
+    ...weeklyBossAis,
     // -- Hunt beast AIs ------------------------------------------------------
     makeBuiltinAi("hunt-ai-wild-boar", "Wild Boar", "🐗", 5, "Forest Territory", aiJutsuLoadout("hunter"), 18, 720, "hunter"),
     makeBuiltinAi("hunt-ai-forest-hawk", "Forest Hawk", "🦅", 8, "Forest Territory", aiJutsuLoadout("burst"), 25, 1100, "burst"),

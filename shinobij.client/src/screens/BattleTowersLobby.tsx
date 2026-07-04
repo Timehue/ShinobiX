@@ -1,13 +1,25 @@
 import { useEffect, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
-import { fetchTowerFloors, startTowerRun, fetchMyRun, type TowerFloorMeta, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
+import { fetchTowerFloors, startTowerRun, startSpireRun, fetchMyRun, fetchSpireLeaderboard, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type SpireLeaderboardRow, type SpireWeeklyAffix } from "../lib/towers-api";
+import {
+    allSpireFloors, spireFloorMeta, keystonesUpTo, SPIRE_KEYSTONE_COLOR,
+    SPIRE_SHARDS_PER_TIER, type SpireBossKey,
+} from "../lib/spire-catalog";
 import { battleEntryCost, payBattleEntry, BATTLE_FREE_FLOORS } from "../lib/entry-fee";
 import { subscribeFollowing } from "../lib/friends";
 import { LoadingState } from "../components/ui/LoadingState";
 import spireBanner from "../assets/towers/spire.webp";
+import spireKeyArt from "../assets/towers/spire-banner.webp";
+import wardenPortrait from "../assets/towers/enemies/warden.webp";
+import revenantPortrait from "../assets/towers/enemies/revenant.webp";
+import ravagerPortrait from "../assets/towers/enemies/ravager.webp";
+import sovereignPortrait from "../assets/towers/enemies/sovereign.webp";
 
 const MAX_ALLIES = 3; // you + up to 3 = a 4-player squad
+const SPIRE_PORTRAIT: Record<SpireBossKey, string> = {
+    warden: wardenPortrait, revenant: revenantPortrait, ravager: ravagerPortrait, sovereign: sovereignPortrait,
+};
 
 // ─── Battle Towers Lobby ──────────────────────────────────────────────────────
 // Curated squad tower (lives beside the Endless climb in the Celestial Tower).
@@ -54,6 +66,16 @@ export function BattleTowersLobby({
     const [following, setFollowing] = useState<string[]>([]);
     const [inviteName, setInviteName] = useState("");
     const [pendingRun, setPendingRun] = useState<{ runId: string; session: TowerSession } | null>(null);
+    // Endless Spire (dedicated ascension boss gauntlet). You may enter up to one tier above
+    // your highest cleared; the default selection is the next unlocked floor.
+    const spireUnlocked = character.battleTowerAscension ?? 0;
+    // Admins (the x-admin-password authFetch auto-attaches → server bypasses the unlock gate)
+    // may SELECT any floor to preview/test it; regular players stay capped at unlocked+1.
+    const isAdmin = (() => { try { return !!sessionStorage.getItem("admin:pw"); } catch { return false; } })();
+    const spireMaxSelectable = isAdmin ? SPIRE_MAX_TIER : Math.min(SPIRE_MAX_TIER, spireUnlocked + 1);
+    const [spireTier, setSpireTier] = useState(Math.min(SPIRE_MAX_TIER, spireUnlocked + 1));
+    const [spireBoard, setSpireBoard] = useState<SpireLeaderboardRow[]>([]);
+    const [spireAffix, setSpireAffix] = useState<SpireWeeklyAffix | null>(null);
 
     // Invite any player by name (the server validates the save exists; unknown names are
     // skipped). Deduped case-insensitively against yourself + the existing squad.
@@ -85,6 +107,13 @@ export function BattleTowersLobby({
     // Recruitable allies = the players you follow.
     useEffect(() => subscribeFollowing(me, setFollowing), [me]);
 
+    // Weekly Spire leaderboard (best-effort; refreshes on mount).
+    useEffect(() => {
+        let alive = true;
+        fetchSpireLeaderboard(25).then(b => { if (alive) { setSpireBoard(b.leaderboard); setSpireAffix(b.affix ?? null); } }).catch(() => {});
+        return () => { alive = false; };
+    }, []);
+
     // Co-op: poll for an active run a host invited us into, so we can JOIN it. Re-checks
     // every few seconds so the banner appears shortly after a friend starts the run.
     useEffect(() => {
@@ -112,6 +141,21 @@ export function BattleTowersLobby({
             const { runId, session } = await startTowerRun(me, selected, allies, hostLoadout);
             const paid = payBattleEntry(character);
             if (paid) updateCharacter(paid);
+            onEnter(runId, session);
+        } catch (e) {
+            setError(String((e as Error)?.message ?? e));
+            setStarting(false);
+        }
+    }
+
+    // Endless Spire — fee-exempt (no payBattleEntry); the tier is the escalation, retries are free.
+    async function enterSpire() {
+        if (starting) return;
+        const tier = Math.max(1, Math.min(spireMaxSelectable, spireTier));
+        setStarting(true);
+        setError(null);
+        try {
+            const { runId, session } = await startSpireRun(me, tier, allies, hostLoadout);
             onEnter(runId, session);
         } catch (e) {
             setError(String((e as Error)?.message ?? e));
@@ -156,6 +200,21 @@ export function BattleTowersLobby({
                 <Stat label="Tower rating" value={rating.toLocaleString()} color="#a78bfa" />
                 <Stat label="Floors cleared" value={`${cleared.size}/${floors.length || "—"}`} color="#4ade80" />
             </div>
+
+            {/* ── Endless Spire — dedicated ascension boss gauntlet ── */}
+            <SpireLadder
+                me={me}
+                spireUnlocked={spireUnlocked}
+                spireMaxSelectable={spireMaxSelectable}
+                spireTier={spireTier}
+                setSpireTier={setSpireTier}
+                weeklyBest={character.battleTowerSpireWeeklyBest ?? 0}
+                board={spireBoard}
+                affix={spireAffix}
+                isAdmin={isAdmin}
+                starting={starting}
+                onAscend={enterSpire}
+            />
 
             {/* Squad assembly */}
             <div style={{ padding: "0.8rem 0.9rem", borderRadius: 12, border: "1px solid #293548", background: "linear-gradient(180deg,#0e1626,#0a111f)", marginBottom: 14 }}>
@@ -248,6 +307,181 @@ export function BattleTowersLobby({
                 </button>
                 <button className="back-btn" onClick={onBack}>× Back to Central</button>
             </div>
+        </div>
+    );
+}
+
+// ─── Endless Spire — the ascension ladder (the flagship climb) ────────────────
+// A cinematic hero card for the SELECTED floor (boss portrait, mechanic, keystones,
+// reward) atop a 20-rung ladder that makes the whole climb legible at a glance, plus a
+// weekly leaderboard. All display data comes from lib/spire-catalog (server mirror).
+function SpireLadder({
+    me, spireUnlocked, spireMaxSelectable, spireTier, setSpireTier, weeklyBest, board, affix, isAdmin, starting, onAscend,
+}: {
+    me: string;
+    spireUnlocked: number;
+    spireMaxSelectable: number;
+    spireTier: number;
+    setSpireTier: (t: number) => void;
+    weeklyBest: number;
+    board: SpireLeaderboardRow[];
+    affix: SpireWeeklyAffix | null;
+    isAdmin: boolean;
+    starting: boolean;
+    onAscend: () => void;
+}) {
+    const floors = allSpireFloors();
+    const sel = spireFloorMeta(spireTier);
+    const nextFloor = Math.min(SPIRE_MAX_TIER, spireUnlocked + 1); // real progression frontier
+    const locked = spireTier > spireMaxSelectable;
+    const isNext = spireTier === nextFloor && spireUnlocked < SPIRE_MAX_TIER;
+    const activeKeystones = keystonesUpTo(spireTier);
+    const myRank = board.find(r => r.name.toLowerCase() === me.toLowerCase());
+    const progressPct = Math.round((spireUnlocked / SPIRE_MAX_TIER) * 100);
+    const accent = sel.boss.accent;
+
+    return (
+        <div className="spire-panel" style={{ marginBottom: 14 }}>
+            {/* Cinematic banner header — bespoke Endless Spire key art */}
+            <div className="spire-banner" style={{ backgroundImage: `url(${spireKeyArt})` }}>
+                <div className="spire-banner-overlay">
+                    <span className="spire-title">🗼 The Endless Spire</span>
+                    <span className="spire-head-stats">
+                        <b style={{ color: "#f4c48a" }}>{spireUnlocked}</b><span>/{SPIRE_MAX_TIER} cleared</span>
+                        <span className="spire-head-dot">·</span>
+                        <span>this week</span> <b style={{ color: "#f4c48a" }}>{weeklyBest}</b>
+                        {myRank && <><span className="spire-head-dot">·</span><span>rank</span> <b style={{ color: "#facc15" }}>#{myRank.rank}</b></>}
+                        {isAdmin && <><span className="spire-head-dot">·</span><b style={{ color: "#5eead4" }} title="Admin: every floor unlocked for testing (you don't need to win — enter to view)">🔓 all floors</b></>}
+                    </span>
+                </div>
+            </div>
+
+            {/* Ascension progress bar with milestone ticks */}
+            <div className="spire-progress" title={`${spireUnlocked} of ${SPIRE_MAX_TIER} floors conquered`}>
+                <div className="spire-progress-fill" style={{ width: `${progressPct}%` }} />
+                {[5, 10, 15, 20].map(m => (
+                    <span key={m} className={`spire-progress-tick${spireUnlocked >= m ? " lit" : ""}`} style={{ left: `${(m / SPIRE_MAX_TIER) * 100}%` }} title={`Milestone — Floor ${m}`} />
+                ))}
+            </div>
+
+            {/* Weekly Blessing — this week's player-favourable affix, telegraphed up front */}
+            {affix && (
+                <div className="spire-blessing" title={affix.blurb}>
+                    <span className="spire-blessing-icon">{affix.icon}</span>
+                    <span className="spire-blessing-body">
+                        <span className="spire-blessing-label">This Week's Blessing</span>
+                        <span className="spire-blessing-name">{affix.name}</span>
+                    </span>
+                    <span className="spire-blessing-blurb">{affix.blurb}</span>
+                </div>
+            )}
+
+            {/* Hero — the selected floor's boss */}
+            <div className="spire-hero" style={{ ["--boss-accent" as string]: accent, ["--boss-glow" as string]: sel.boss.glow }}>
+                <div className="spire-hero-portrait">
+                    <img src={SPIRE_PORTRAIT[sel.boss.key]} alt={sel.boss.name} loading="lazy" />
+                    <span className="spire-hero-floornum">{sel.tier}</span>
+                    {sel.isMilestone && <span className="spire-hero-milestone" title={`Clears grant the “${sel.milestoneTitle}” title`}>★</span>}
+                </div>
+                <div className="spire-hero-body">
+                    <div className="spire-hero-band" style={{ color: sel.band.color }}>{sel.band.label} · Floor {sel.tier}</div>
+                    <div className="spire-hero-name" style={{ color: accent }}>{sel.boss.name}</div>
+                    <div className="spire-hero-tags">
+                        <span className="spire-tag" style={{ borderColor: accent, color: accent }}>{sel.boss.mechanicLabel}</span>
+                        {sel.isMilestone && <span className="spire-tag milestone">★ Milestone — {sel.milestoneTitle}</span>}
+                        <span className="spire-tag reward">💠 +{SPIRE_SHARDS_PER_TIER} Fate Shards</span>
+                    </div>
+                    <p className="spire-hero-blurb">{sel.boss.blurb}</p>
+
+                    {activeKeystones.length > 0 && (
+                        <div className="spire-keystones">
+                            <span className="spire-keystones-label">Threats in play</span>
+                            <div className="spire-keystones-chips">
+                                {activeKeystones.map(k => (
+                                    <span key={k.tier} className="spire-keystone-chip" title={k.blurb}
+                                        style={{ color: SPIRE_KEYSTONE_COLOR[k.kind], borderColor: SPIRE_KEYSTONE_COLOR[k.kind] + "55" }}>
+                                        {k.name}{k.tier === sel.tier ? " ⟵ new" : ""}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="spire-hero-cta">
+                        <div className="spire-stepper">
+                            <button onClick={() => setSpireTier(Math.max(1, spireTier - 1))} disabled={spireTier <= 1} aria-label="Lower floor">−</button>
+                            <span>Floor {spireTier}</span>
+                            <button onClick={() => setSpireTier(Math.min(spireMaxSelectable, spireTier + 1))} disabled={spireTier >= spireMaxSelectable} aria-label="Higher floor">+</button>
+                        </div>
+                        {locked ? (
+                            <button className="spire-ascend locked" disabled title={`Clear floor ${spireMaxSelectable} to unlock this`}>
+                                🔒 Clear Floor {spireMaxSelectable} first
+                            </button>
+                        ) : (
+                            <button className="spire-ascend" onClick={onAscend} disabled={starting}
+                                style={{ ["--boss-accent" as string]: accent }}>
+                                {starting ? "Entering…"
+                                    : isNext ? `▲ Ascend — Floor ${spireTier}`
+                                    : spireTier <= spireUnlocked ? `⟳ Re-climb Floor ${spireTier}`
+                                    : `▶ Enter Floor ${spireTier}`}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* The 20-rung ladder */}
+            <div className="spire-ladder">
+                {floors.map(f => {
+                    const cleared = f.tier <= spireUnlocked;
+                    const rungLocked = f.tier > spireMaxSelectable;
+                    const next = f.tier === nextFloor && !cleared;
+                    const state = rungLocked ? "locked" : next ? "next" : cleared ? "cleared" : "open";
+                    return (
+                        <button key={f.tier} className={`spire-rung ${state}${f.tier === spireTier ? " selected" : ""}`}
+                            onClick={() => { if (!rungLocked) setSpireTier(f.tier); }} disabled={rungLocked}
+                            style={{ ["--boss-accent" as string]: f.boss.accent, ["--band" as string]: f.band.color }}
+                            title={`Floor ${f.tier} — ${f.boss.name}${f.isMilestone ? ` (★ ${f.milestoneTitle})` : ""}`}>
+                            <span className="spire-rung-num">{f.tier}</span>
+                            <span className="spire-rung-portrait">
+                                {rungLocked
+                                    ? <span className="spire-rung-lock">🔒</span>
+                                    : <img src={SPIRE_PORTRAIT[f.boss.key]} alt={f.boss.name} loading="lazy" />}
+                            </span>
+                            <span className="spire-rung-info">
+                                <span className="spire-rung-boss">{f.boss.name}</span>
+                                <span className="spire-rung-mech">{f.boss.mechanicLabel}</span>
+                            </span>
+                            {f.isMilestone && <span className="spire-rung-star" title={f.milestoneTitle}>★</span>}
+                            {cleared && <span className="spire-rung-check">✓</span>}
+                            {next && <span className="spire-rung-next">▶</span>}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Weekly leaderboard */}
+            {board.length > 0 && (
+                <div className="spire-board">
+                    <div className="spire-board-head">🏆 This Week's Ascendants</div>
+                    <ol className="spire-board-list">
+                        {board.slice(0, 5).map(r => (
+                            <li key={r.rank} className={r.name.toLowerCase() === me.toLowerCase() ? "me" : ""}>
+                                <span className="spire-board-rank">#{r.rank}</span>
+                                <span className="spire-board-name">{r.name}</span>
+                                <span className="spire-board-tier">Floor {r.tier}</span>
+                            </li>
+                        ))}
+                        {myRank && myRank.rank > 5 && (
+                            <li className="me distant">
+                                <span className="spire-board-rank">#{myRank.rank}</span>
+                                <span className="spire-board-name">{myRank.name}</span>
+                                <span className="spire-board-tier">Floor {myRank.tier}</span>
+                            </li>
+                        )}
+                    </ol>
+                </div>
+            )}
         </div>
     );
 }

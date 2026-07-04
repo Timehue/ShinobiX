@@ -8,7 +8,9 @@ const pet_arena_walkmask_js_1 = require("./pet-arena-walkmask.js");
 const petAccuracyEnabled = () => false; // server: accuracy is passed in explicitly
 const pet_config_js_1 = require("./pet-config.js");
 exports.DUEL_TPS = 30; // sim ticks per second
-const MAX_TICKS = exports.DUEL_TPS * 30; // 30s hard cap
+const MAX_TICKS = exports.DUEL_TPS * 30; // 30s hard cap (authoritative). Planted uses PLANTED_CAP_TICKS.
+const PLANTED_CAP_TICKS = exports.DUEL_TPS * 45; // casual (planted) fights may run up to ~45s
+const PLANTED_TTK_HP = 2.2; // casual HP scale → longer, meatier fights (target ~25-45s). Tunable.
 const Q = 256; // state quantization (1/256 unit)
 const quant = (n) => Math.round(n * Q) / Q;
 const clamp = (n, lo, hi) => (n < lo ? lo : n > hi ? hi : n);
@@ -112,7 +114,7 @@ function statusTicks(ab, rounds) {
 function emptyStatuses() {
     return { burnLeft: 0, burnDmg: 0, halfHeal: false, stunLeft: 0, slowLeft: 0, hasteLeft: 0, rootLeft: 0, shieldHp: 0, buffLeft: 0, buffMag: 0, marked: false, tauntById: null };
 }
-function buildFighter(pet, team, slot, x, y, atkMult = 1, hpMult = 1, reviveOnce = false, applyItems = false) {
+function buildFighter(pet, team, slot, x, y, atkMult = 1, hpMult = 1, reviveOnce = false, applyItems = false, plantedMotion = false) {
     // PvP-ladder items: when applyItems is on, fold the equipped PVP gear's passive
     // stat mods into the fighter (deterministic, same applyPetPvpGear the round
     // engine uses), seed its gear start-shield, and load its reactive consumable
@@ -120,10 +122,32 @@ function buildFighter(pet, team, slot, x, y, atkMult = 1, hpMult = 1, reviveOnce
     const gp = applyItems ? (0, pet_config_js_1.applyPetPvpGear)(pet) : pet;
     const speed = Math.max(0, gp.speed || 0);
     // hpMult applies the PvE-only Toughened Hide mastery; enemies always pass 1.
-    const maxHp = Math.max(1, Math.round((gp.hp || 1) * hpMult));
+    // Planted (casual): scale HP up so fights last longer (target ~25-45s). Symmetric →
+    // no relative-balance shift. Authoritative (plantedMotion=false) keeps the shipped HP.
+    const maxHp = Math.max(1, Math.round((gp.hp || 1) * hpMult * (plantedMotion ? PLANTED_TTK_HP : 1)));
     const trait = gp.trait;
     const moveSpeed = clamp(2.8 + speed * 0.018, 2.8, 6.2) / exports.DUEL_TPS; // deliberate traversal — they MOVE across the map, not teleport
-    const abilities = (gp.jutsus || []).slice(0, 4).map(buildAbility);
+    // Usable abilities: the first 4 jutsus. In PLANTED (casual cinematic) mode, GUARANTEE
+    // the SIGNATURE (authored as the 5th jutsu, so slice(0,4) drops it — that's why pets
+    // never unleashed it / ults were 0%) is among them, by swapping it into the 4th slot,
+    // so pets actually fire their epic move AND the anime signature cut-in plays. Authoritative
+    // paths (plantedMotion=false) keep the shipped first-4 exactly → byte-identical / no shift.
+    let jlist = (gp.jutsus || []).slice(0, 4);
+    if (plantedMotion) {
+        const sigJ = (gp.jutsus || []).find((j) => j.signature);
+        if (sigJ && !jlist.includes(sigJ))
+            jlist = [...jlist.slice(0, 3), sigJ];
+    }
+    const abilities = jlist.map(buildAbility);
+    // Planted: make the swapped-in signature a RARE, epic unleash (a couple per fight),
+    // NOT a spammed nuke — lengthen its cooldown + opening gate. Deterministic (integer ticks).
+    if (plantedMotion) {
+        const sigAb = abilities.find((a) => a.signature);
+        if (sigAb) {
+            sigAb.cdTicks = Math.max(sigAb.cdTicks, Math.round(exports.DUEL_TPS * 9));
+            sigAb.cdLeft = Math.round(exports.DUEL_TPS * 4.5);
+        }
+    }
     const hasMelee = abilities.some((a) => a.cls === "melee");
     const hasRanged = abilities.some((a) => a.cls === "ranged");
     const tanky = trait === "Guardian" || abilities.some((a) => a.kind === "shield" || a.kind === "barrier" || a.kind === "absorb" || a.kind === "taunt");
@@ -132,7 +156,10 @@ function buildFighter(pet, team, slot, x, y, atkMult = 1, hpMult = 1, reviveOnce
     // projectile) and holds a wider neutral — so hybrids fight at range and only
     // dash in for melee abilities, instead of gluing themselves to the foe.
     const skirmisher = hasRanged;
-    const neutralRange = role === "ranged" ? 5.2 : role === "tank" ? 2.5 : skirmisher ? 4.0 : 3.0;
+    // Planted (casual cinematic) melee/tank hold a TIGHTER face-off so they read as
+    // squaring up, not pacing a big field; ranged/skirmishers still keep their kite
+    // distance. Non-planted (authoritative) keeps the shipped values exactly.
+    const neutralRange = role === "ranged" ? 5.2 : role === "tank" ? (plantedMotion ? 2.3 : 2.5) : skirmisher ? 4.0 : (plantedMotion ? 2.6 : 3.0);
     const statuses = emptyStatuses();
     const ch = applyItems ? (0, pet_config_js_1.petConsumableCharges)(gp) : null;
     if (applyItems)
@@ -158,13 +185,13 @@ function buildFighter(pet, team, slot, x, y, atkMult = 1, hpMult = 1, reviveOnce
         dashT: 7, dodgeT: 6,
         dodgeChance: clamp(0.12 + speed * 0.0008 + (trait === "Swift" ? 0.12 : 0), 0.12, 0.6),
         critChance: CRIT_CHANCE + (trait === "Lucky" ? 0.1 : 0),
-        role, neutralRange,
+        role, neutralRange, plantedMotion,
         // Deterministic circling direction: lead/reserve orbit opposite ways,
         // and the two sides counter-rotate, so they wheel around each other.
         strafeDir: (slot % 2 === 0 ? 1 : -1) * (team === "player" ? 1 : -1),
         basicRanged: skirmisher,
         abilities,
-        pendingIdx: -2, pendingTargetId: null,
+        pendingIdx: -2, pendingFeint: false, pendingTargetId: null,
         statuses,
         moveDx: 0, moveDy: 0, targetId: null, repositionLeft: 0,
         itemsOn: applyItems,
@@ -343,7 +370,12 @@ function applyDamage(att, tgt, ab, rng, t, events, viaProjectile) {
     // melee blow (projectiles shove lighter; push doubles it).
     const dx = tgt.x - att.x, dy = tgt.y - att.y;
     const d = Math.sqrt(dx * dx + dy * dy);
-    const kb = (crit ? 1.7 : 1.1) * (viaProjectile ? 0.4 : 1) * (ab && ab.kind === "push" ? 2 : 1);
+    // Planted MOMENTUM: an OCCASIONAL true-heavy/crit blow shoves the victim back HARDER, so the
+    // spacing resets and the fight ebbs (knock-back) then flows (re-approach). Gated to real heavy
+    // hits only (crit or ≥18% max HP) — a lower threshold fires on nearly every trade and the
+    // constant re-spacing grinds even matchups into the time cap. Symmetric; authoritative → 1.
+    const surge = att.plantedMotion && (crit || dmg >= tgt.maxHp * 0.18) ? 1.6 : 1;
+    const kb = (crit ? 1.7 : 1.1) * (viaProjectile ? 0.4 : 1) * (ab && ab.kind === "push" ? 2 : 1) * surge;
     if (d > 1e-6) {
         tgt.x += (dx / d) * kb;
         tgt.y += (dy / d) * kb;
@@ -581,7 +613,10 @@ function effMoveSpeed(f) {
  *  a stamina-burning sprint the whole way. */
 function commitApproach(f, target, dist, inv, stopAt, canDash, t, events) {
     const gap = dist - stopAt;
-    if (canDash && gap > 0.7 && gap < 4.5 && f.stamina >= COST_DASH && f.basicCdLeft <= 0) {
+    // Planted pets NEVER dash — they WALK in and trade in place, so the fight reads as a
+    // planted face-off instead of flinging across the floor toward a target that already
+    // moved ("dashing at nothing"). Only the non-planted (authoritative) engine dashes.
+    if (canDash && !f.plantedMotion && gap > 0.7 && gap < 4.5 && f.stamina >= COST_DASH && f.basicCdLeft <= 0) {
         f.moveDx = (target.x - f.x) * inv;
         f.moveDy = (target.y - f.y) * inv;
         f.stamina -= COST_DASH;
@@ -608,9 +643,13 @@ function holdNeutral(f, target, dist, inv, dx, dy) {
         mx += dx * inv * radial * speed;
         my += dy * inv * radial * speed;
     }
+    // Only RANGED pets keep circling (the kite fantasy); a planted melee/tank holds
+    // ground and squares up (a tiny residual sway so it isn't frozen). Non-planted
+    // keeps the shipped 0.55 orbit for every role.
+    const strafeMag = !f.plantedMotion ? 0.55 : f.role === "ranged" ? 0.45 : 0.12;
     const px = -dy * inv, py = dx * inv; // tangential: circle the foe
-    mx += px * speed * 0.55 * f.strafeDir;
-    my += py * speed * 0.55 * f.strafeDir;
+    mx += px * speed * strafeMag * f.strafeDir;
+    my += py * speed * strafeMag * f.strafeDir;
     mx += -f.x * 0.003; // gentle pull to keep the fight centered
     my += -f.y * 0.003;
     tryMove(f, f.x + mx, f.y + my);
@@ -621,6 +660,18 @@ function holdNeutral(f, target, dist, inv, dx, dy) {
  *  spacing while attacks recharge → commit a clear lunge/cast when one is ready
  *  → (after recover + cooldown) drop back to neutral. That cadence is what reads
  *  as fighting instead of a center-pile. */
+/** Planted (casual) FIGHT-PHASE pacing: a cagey/telegraphed opening, then snappier + more
+ *  desperate once a fighter is bloodied — so a long fight ARCS instead of holding one tempo.
+ *  Deterministic (tick count + integer HP compare; NO rng). Returns 1 for authoritative. */
+function plantedPaceMul(f, t) {
+    if (!f.plantedMotion)
+        return 1;
+    if (t < exports.DUEL_TPS * 6)
+        return 1.25; // opening: bigger telegraphs, feeling-out
+    if (f.hp * 3 < f.maxHp)
+        return 0.78; // bloodied (<33% HP): snappier, desperate
+    return 1;
+}
 function decide(f, fighters, projectiles, rng, t, events) {
     // Support first: heal a hurt ally, or buff/shield if not already. But when the
     // pet has NO living ally but itself (1v1, or its partner has fallen), it used
@@ -676,6 +727,10 @@ function decide(f, fighters, projectiles, rng, t, events) {
         events.push({ t, type: "dodge", side: f.team, actorId: f.id });
         return;
     }
+    // (Turn cadence is carried by the symmetric post-strike recover BREATH in step();
+    // an earlier defender-yield here read the foe's mid-tick state and — because
+    // fighters step in fixed player-first order — gave the right side a ~4pt mirror
+    // edge, so it was removed to keep planted mirrors ~50%.)
     // SIGNATURE / ULTIMATE has priority: once it's off cooldown, commit to it —
     // and if the pet can't afford it yet, HOLD and bank stamina rather than
     // frittering it on basics (otherwise the cheap attack starves the ultimate
@@ -736,6 +791,13 @@ function decide(f, fighters, projectiles, rng, t, events) {
     const basicRange = f.basicRanged ? RANGED_RANGE * 0.85 : f.reach + 0.05;
     if (f.basicCdLeft <= 0 && f.stamina >= COST_BASIC) {
         if (dist <= basicRange) {
+            // Planted FEINT: a healthy melee pet occasionally winds up and DOESN'T commit — a
+            // mind-games beat that breaks the trade metronome. NOT when bloodied (<33% HP): a
+            // desperate pet stops bluffing and commits for real, so grindy low-damage matchups
+            // don't feint their way into the 45s cap. rng() is drawn ONLY on the planted path
+            // (the `f.plantedMotion &&` short-circuit), so the authoritative rng stream is byte-identical.
+            if (f.plantedMotion && !f.basicRanged && f.hp * 3 >= f.maxHp && rng() < 0.09)
+                f.pendingFeint = true;
             beginCast(f, -1, target.id, t, events);
             return;
         }
@@ -754,7 +816,7 @@ function beginCast(f, idx, targetId, t, events) {
     f.pendingIdx = idx;
     f.pendingTargetId = targetId;
     f.state = "windup";
-    f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : f.windT;
+    f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : Math.max(1, Math.round(f.windT * plantedPaceMul(f, t)));
     if (idx >= 0 && f.abilities[idx].signature)
         events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name });
     else if (idx >= 0 && f.abilities[idx].cls === "support")
@@ -766,6 +828,14 @@ function beginCast(f, idx, targetId, t, events) {
 function resolveCast(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled) {
     const idx = f.pendingIdx;
     const ab = idx >= 0 ? f.abilities[idx] : null;
+    // FEINT (planted): the wind-up was a bluff — pay the basic cooldown so it isn't free spam,
+    // deal NO damage / spend NO stamina, and skip the strike resolution. The renderer already
+    // played the telegraph; the pet simply swings through and recovers (a pulled/feinted swing).
+    if (f.pendingFeint) {
+        f.pendingFeint = false;
+        f.basicCdLeft = f.basicCdT;
+        return;
+    }
     if (ab) {
         ab.cdLeft = ab.cdTicks;
         f.stamina -= ab.cost;
@@ -941,15 +1011,19 @@ function step(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnab
             }
             break;
         case "strike":
+            // Planted adds a short post-strike BREATH so the striker pauses and the
+            // exchange visibly alternates (turn-cadence). Integer ticks → determinism-safe.
             if (--f.stateLeft <= 0) {
                 f.state = "recover";
-                f.stateLeft = f.recovT;
+                f.stateLeft = Math.max(1, Math.round((f.recovT + (f.plantedMotion ? Math.round(exports.DUEL_TPS * 0.12) : 0)) * plantedPaceMul(f, t)));
             }
             break;
         case "recover":
+            // Planted melee/tank stay engaged and keep trading (no back-off circle);
+            // ranged still repositions ~0.3s to kite. Non-planted keeps 0.3s for all.
             if (--f.stateLeft <= 0) {
                 f.state = "idle";
-                f.repositionLeft = Math.round(exports.DUEL_TPS * 0.3);
+                f.repositionLeft = (f.plantedMotion && f.role !== "ranged") ? 0 : Math.round(exports.DUEL_TPS * 0.3);
             }
             break;
         case "stagger":
@@ -1008,10 +1082,25 @@ function simulate(fighters, seed, accuracyEnabled) {
     let winner = null;
     for (const f of fighters)
         snapToWalkable(f); // every fighter starts on a walkable path tile
-    for (let t = 0; t < MAX_TICKS; t++) {
+    // Planted (casual cinematic) ALTERNATES the per-tick step order by tick parity so
+    // neither side keeps the fixed player-first "second-mover" reaction edge (the pet
+    // that steps second sees the first's fresh wind-up and can react-dodge it). In the
+    // tight planted melee that edge skewed MIRROR matches ~8pt toward the right side;
+    // alternating averages it out to ~50%. Deterministic (tick parity + a build-time
+    // flag, no rng). Authoritative paths (planted=false) keep the shipped fixed order
+    // → byte-identical, so parity + ranked/sector/ladder outcomes are untouched.
+    const planted = fighters.length > 0 && fighters[0].plantedMotion;
+    const capTicks = planted ? PLANTED_CAP_TICKS : MAX_TICKS; // casual runs to ~45s; authoritative keeps 30s (byte-identical)
+    for (let t = 0; t < capTicks; t++) {
         ticks = t + 1;
-        for (const f of fighters)
-            step(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled);
+        if (planted && (t & 1) === 1) {
+            for (let i = fighters.length - 1; i >= 0; i--)
+                step(fighters[i], fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled);
+        }
+        else {
+            for (const f of fighters)
+                step(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled);
+        }
         stepProjectiles(fighters, projectiles, rng, t, events);
         for (const f of fighters)
             tickStatuses(f);
@@ -1056,7 +1145,7 @@ function simulate(fighters, seed, accuracyEnabled) {
 /** 1v1 — result from the player pet's perspective. Deterministic in (pets, seed).
  *  Spawned at opposite ends of the big map (near their team shrines) so the fight
  *  opens with a real traversal toward each other. */
-function runPetDuel(playerPet, enemyPet, seed, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false, accuracyEnabled = petAccuracyEnabled(), terrain = null) {
+function runPetDuel(playerPet, enemyPet, seed, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false, accuracyEnabled = petAccuracyEnabled(), terrain = null, plantedMotion = false) {
     // Calibrated 1v1 spawns (map-space Blue[1] / Red[1]): blue on the left front
     // path, red on the right front path; they traverse inward — weaving the clump
     // band — to clash in the front-center of the arena.
@@ -1064,26 +1153,31 @@ function runPetDuel(playerPet, enemyPet, seed, playerDamageMult = 1, playerHpMul
     // terrain (sector-war home ground): +10% to whichever pet's element matches the
     // sector terrain — folded into each fighter's damage mult (default null → neutral,
     // so every non-sector-war caller is byte-identical to before).
+    // Planted (casual cinematic) starts the two closer so they clash fast instead of
+    // parading across the field; authoritative paths keep the shipped ±10.2 spawns.
+    const sx = plantedMotion ? 3.6 : 10.2;
     const fighters = [
-        buildFighter(playerPet, "player", 0, -10.2, 2.8, playerDamageMult * terrainPetMult(terrain, playerPet.element), playerHpMult, playerReviveOnce, applyItems),
-        buildFighter(enemyPet, "enemy", 0, 10.2, 2.8, terrainPetMult(terrain, enemyPet.element), 1, false, applyItems),
+        buildFighter(playerPet, "player", 0, -sx, 2.8, playerDamageMult * terrainPetMult(terrain, playerPet.element), playerHpMult, playerReviveOnce, applyItems, plantedMotion),
+        buildFighter(enemyPet, "enemy", 0, sx, 2.8, terrainPetMult(terrain, enemyPet.element), 1, false, applyItems, plantedMotion),
     ];
     return simulate(fighters, seed, accuracyEnabled);
 }
 /** 2v2 — player lead+reserve vs enemy lead+reserve. Reserve may be null (→ 2v1).
  *  Deterministic in (pets, seed); result from the player team's perspective.
  *  Each side spawns spread across its end so the four converge from the corners. */
-function runPetPartyDuel(playerLead, playerReserve, enemyLead, enemyReserve, seed, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false, accuracyEnabled = petAccuracyEnabled()) {
+function runPetPartyDuel(playerLead, playerReserve, enemyLead, enemyReserve, seed, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false, accuracyEnabled = petAccuracyEnabled(), plantedMotion = false) {
     // Two lane duels: the LEAD pair on the FRONT lane (map-space Blue[1]/Red[1]),
     // the RESERVE pair on the BACK lane (Blue[3]/Red[3]) — spread apart so the 2v2
     // reads as two duels, not a clump. Slot targeting pairs lead-v-lead, reserve-v-reserve.
     // Toughened Hide (hpMult) buffs both player pets; Alpha Bond (revive) only the lead.
     // applyItems (PvP ladder) equips every pet's PVP gear + consumables symmetrically.
-    const fighters = [buildFighter(playerLead, "player", 0, -10.2, 2.8, playerDamageMult, playerHpMult, playerReviveOnce, applyItems)];
+    const lx = plantedMotion ? 3.6 : 10.2; // planted → start near the face-off; authoritative → shipped ±10.2 / ±9.6
+    const rx = plantedMotion ? 3.2 : 9.6;
+    const fighters = [buildFighter(playerLead, "player", 0, -lx, 2.8, playerDamageMult, playerHpMult, playerReviveOnce, applyItems, plantedMotion)];
     if (playerReserve)
-        fighters.push(buildFighter(playerReserve, "player", 1, -9.6, -3.0, playerDamageMult, playerHpMult, false, applyItems));
-    fighters.push(buildFighter(enemyLead, "enemy", 0, 10.2, 2.8, 1, 1, false, applyItems));
+        fighters.push(buildFighter(playerReserve, "player", 1, -rx, -3.0, playerDamageMult, playerHpMult, false, applyItems, plantedMotion));
+    fighters.push(buildFighter(enemyLead, "enemy", 0, lx, 2.8, 1, 1, false, applyItems, plantedMotion));
     if (enemyReserve)
-        fighters.push(buildFighter(enemyReserve, "enemy", 1, 9.6, -3.0, 1, 1, false, applyItems));
+        fighters.push(buildFighter(enemyReserve, "enemy", 1, rx, -3.0, 1, 1, false, applyItems, plantedMotion));
     return simulate(fighters, seed, accuracyEnabled);
 }

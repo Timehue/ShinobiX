@@ -5,6 +5,9 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { getFloor, isPublicFloor, MIN_PARTY_SIZE, MAX_PARTY_SIZE } from './_floor-catalog.js';
+import { getSpireFloor, spireBossForFloor, isValidSpireTier, spireRequiresFullSquad } from './_spire-catalog.js';
+import { resolveAscensionModifiers, weeklySpireBlessing, type AscensionSeal } from './_modifiers.js';
+import { weekIndex } from '../missions/_weekly-board.js';
 import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
 import { startRound, runAiUntilHuman } from './_engine.js';
@@ -34,11 +37,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== hostName) return res.status(403).json({ error: 'Can only start your own runs.' });
 
+        // Endless Spire (dedicated ascension boss gauntlet) vs the 10 story floors. Spire
+        // resolves the floor from getSpireFloor(tier) — NEVER the story FLOOR_CATALOG.
+        const mode: 'story' | 'spire' = String(body.mode ?? 'story') === 'spire' ? 'spire' : 'story';
+        const spireTier = Math.floor(Number(body.ascensionTier));
+        if (mode === 'spire' && !isValidSpireTier(spireTier)) return res.status(400).json({ error: 'Invalid spire tier.' });
+
+        // Story floors reject clan-boss floors (reserved id range) — those launch only via
+        // api/clan-boss/assault-start, never the public tower start. Spire uses its own tier.
         const floorNum = Math.floor(Number(body.floor));
-        // Reject clan-boss floors (reserved id range) — those launch only via
-        // api/clan-boss/assault-start, never the public tower start.
-        const floor = isPublicFloor(floorNum) ? getFloor(floorNum) : undefined;
-        if (!floor) return res.status(400).json({ error: 'Unknown floor.' });
+        const floor = mode === 'spire'
+            ? getSpireFloor(spireTier)
+            : (isPublicFloor(floorNum) ? getFloor(floorNum) : undefined);
+        if (!floor) return res.status(400).json({ error: mode === 'spire' ? 'Unknown spire tier.' : 'Unknown floor.' });
 
         // The host's client-computed combat extras the SAVE doesn't persist (pvpItems +
         // equipment-derived passives). Sealed (clamped) into the host fighter only — borrowed
@@ -59,6 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const squad: SquadMemberInput[] = [];
+        let hostAscensionUnlocked = 0; // host's highest spire tier cleared (unlock gate)
         for (let i = 0; i < memberSlugs.length; i++) {
             const slug = memberSlugs[i]!;
             const rec = await kv.get<Record<string, unknown>>(`save:${slug}`);
@@ -67,6 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (slug === hostName) return res.status(400).json({ error: 'Your save was not found.' });
                 continue; // skip a missing/invalid ally
             }
+            if (slug === hostName) hostAscensionUnlocked = Math.max(0, Math.floor(Number(char.battleTowerAscension) || 0));
             squad.push({
                 id: `sq-${i}`,
                 name: String(char.name ?? slug),
@@ -82,10 +95,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (squad.length === 0) return res.status(400).json({ error: 'No valid squad members.' });
 
+        // Endless Spire gates (server-authoritative): you may enter at most one tier above your
+        // highest cleared, and — when the humans-only flag is on — only with a full squad.
+        let ascension: AscensionSeal | undefined;
+        let spireBossId: string | undefined;
+        if (mode === 'spire') {
+            if (!identity.admin && spireTier > hostAscensionUnlocked + 1) {
+                return res.status(403).json({ error: `Spire floor ${spireTier} is locked — clear floor ${hostAscensionUnlocked + 1} first.` });
+            }
+            if (spireRequiresFullSquad() && !identity.admin && squad.length < MAX_PARTY_SIZE) {
+                return res.status(403).json({ error: 'The Endless Spire requires a full squad.' });
+            }
+            spireBossId = spireBossForFloor(spireTier);
+            // Weekly Blessing: a player-favourable affix sealed ONCE at entry from THIS week's index
+            // (handler-side clock; resolveAscensionModifiers stays pure). A run started this week keeps
+            // its blessing across a week rollover, and settle needs no recompute.
+            const blessing = weeklySpireBlessing(weekIndex(Date.now()));
+            ascension = resolveAscensionModifiers(spireTier, spireBossId ?? 'sovereign', floor.roundBudget, blessing.modifier);
+        }
+
         const runId = `tower-${randomUUID().replace(/-/g, '')}`;
         const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
         const now = Date.now();
-        const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now });
+        const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now, ascension, spireBossId });
         startRound(session);
         runAiUntilHuman(session, floor, makeRng(seed)); // advance to the first human's turn (or auto-resolve)
         stampTurnClock(session, now);                   // start the AFK clock for whoever is up
