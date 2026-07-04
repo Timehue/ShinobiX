@@ -10397,6 +10397,53 @@ textarea {
     gap: 4px;
 }
 
+/* Clan-boss party picker — real tap targets (>=40px) + no horizontal overflow on
+   narrow phones (long names truncate rather than pushing the row wide). */
+.clan-boss-party {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 100%;
+}
+
+.clan-boss-party-btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    max-width: 100%;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: #94a3b8;
+    font-size: 0.82rem;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+    .clan-boss-party-btn.selected {
+        border-color: #f5c451;
+        background: rgba(245,196,81,0.15);
+        color: #f5c451;
+    }
+
+/* Clan hall tier illustration (Hall tab) — the generated Camp→Citadel art. */
+.clan-hall-tier-art {
+    width: 118px;
+    height: 118px;
+    flex: none;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 1px solid rgba(250,204,21,0.35);
+    box-shadow: 0 3px 16px rgba(0,0,0,0.5);
+}
+
+@media (max-width: 520px) {
+    .clan-hall-tier-art { width: 88px; height: 88px; }
+}
+
 /* Rank legend */
 .clan-rank-legend {
     margin-top: 10px;
