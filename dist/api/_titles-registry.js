@@ -47,6 +47,10 @@ exports.ACHIEVEMENT_TITLES = [
     'Village Scourge', // raid-250
     'Arena Champion', // tournament-3
     'Tower Survivor', // tower-25
+    'Spire Ascendant', // spire-5
+    'Spire Conqueror', // spire-10
+    'Spire Vanquisher', // spire-15
+    'Spire Immortal', // spire-20
     'Beast Tamer', // pet-100
     'Clan Founder', // clan-founder
     'Encyclopedia', // secret-bestiary-200

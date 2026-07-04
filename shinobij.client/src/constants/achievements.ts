@@ -86,6 +86,11 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     // Trials
     { id: "tournament-3", name: "Arena Champion", desc: "Win 3 tournaments.",          category: "Trials", icon: "🏆", check: c => (c.totalTournamentsCompleted ?? 0) >= 3 },
     { id: "tower-25",     name: "Tower Survivor", desc: "Win 25 Endless Tower runs.",  category: "Trials", icon: "🗼", check: c => (c.totalEndlessTowerWins ?? 0) >= 25 },
+    // Endless Spire milestones — a wearable-title chase up the ascension ladder (floors 5/10/15/20).
+    { id: "spire-5",      name: "Spire Ascendant", desc: "Ascend to Endless Spire floor 5.",  category: "Trials", icon: "🗼", check: c => (c.battleTowerAscension ?? 0) >= 5 },
+    { id: "spire-10",     name: "Spire Conqueror", desc: "Ascend to Endless Spire floor 10.", category: "Trials", icon: "⚔️", check: c => (c.battleTowerAscension ?? 0) >= 10 },
+    { id: "spire-15",     name: "Spire Vanquisher",desc: "Ascend to Endless Spire floor 15.", category: "Trials", icon: "🔥", check: c => (c.battleTowerAscension ?? 0) >= 15 },
+    { id: "spire-20",     name: "Spire Immortal",  desc: "Conquer the Endless Spire — floor 20.", category: "Trials", icon: "👑", check: c => (c.battleTowerAscension ?? 0) >= 20 },
     { id: "pet-100",      name: "Beast Tamer",    desc: "Win 100 pet battles.",        category: "Trials", icon: "🐺", check: c => (c.totalPetWins ?? 0) >= 100 },
 
     // Bloodline
@@ -139,6 +144,7 @@ export const TITLE_ACHIEVEMENT_IDS: ReadonlySet<string> = new Set<string>([
     "ranked-1800", "ranked-2200", "ranked-season-champ",
     "mission-1000", "explore-5000", "ryo-5m", "honor-500", "fate-2500",
     "aura-300", "raid-250", "tournament-3", "tower-25", "pet-100", "clan-founder",
+    "spire-5", "spire-10", "spire-15", "spire-20",
     "secret-bestiary-200", "secret-elements-3", "secret-weekly-bosses-5", "secret-war-vet-50",
 ]);
 

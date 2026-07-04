@@ -538,6 +538,10 @@ export type Character = {
     battleTowerClearedFloors?: number[];        // floor ids first-cleared (permanent; one-time-reward gate)
     battleTowerClaimedRewards?: string[];       // per-floor reward claim-gate keys
     battleTowerAssistRewardsClaimed?: string[]; // borrowed-ally assist claim gates
+    // ── Endless Spire (dedicated ascension boss-gauntlet) ─────────────────────
+    battleTowerAscension?: number;              // highest spire tier cleared (unlock gate: entry <= this + 1)
+    battleTowerSpireWeeklyBest?: number;        // best spire tier cleared this reset-week (weekly leaderboard)
+    battleTowerSpireWeekKey?: string;           // which reset-week battleTowerSpireWeeklyBest belongs to
 };
 
 // ── Player records ────────────────────────────────────────────────────────

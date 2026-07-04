@@ -49,6 +49,10 @@ export type TowerMap = {
     objectiveTiles: number[];
     /** positional battlefield features (pylons/wards/hazards) — drawn on the board */
     features?: TowerFeature[];
+    /** Endless Spire telegraph: tiles that will burn at the END of the current round from
+     *  ascension hazard keystones (exact deterministic hazards only). Painted as a danger
+     *  overlay so the squad can pre-position; absent for story runs. */
+    nextRoundHazardTiles?: number[];
 };
 
 export type TowerObjectiveState = {
@@ -68,6 +72,9 @@ export type TowerGroundEffect = {
     rounds: number;
     tags: Array<{ name: string; percent?: number }>;
 };
+
+/** A sealed Endless Spire modifier (rendered as a pre-fight manifest chip). */
+export type TowerModifier = { kind: string; value: number; label: string; variant?: string };
 
 export type TowerSession = {
     towerId: string;
@@ -91,10 +98,24 @@ export type TowerSession = {
     groundEffects?: TowerGroundEffect[];
     /** wall-clock when the current human's turn began (co-op AFK countdown) */
     turnStartedAt?: number;
+    // ── Endless Spire (sealed at entry; present only on ascension runs) ──────────
+    ascensionTier?: number;
+    spireBossId?: string;
+    /** the hard round cap this floor (drives the round-clock HUD) */
+    roundCap?: number;
+    enrageCap?: number;
+    dmgMult?: number;
+    /** the sealed modifiers, rendered as manifest chips */
+    modifierStack?: TowerModifier[];
 };
 
 /** Mirrors the server TURN_AFK_MS — how long a player has before their turn auto-passes. */
 export const TOWER_TURN_AFK_MS = 75_000;
+
+/** Endless Spire — number of ascension floors (mirrors the server SPIRE_MAX_TIER). */
+export const SPIRE_MAX_TIER = 20;
+/** Milestone floors (title/border unlocks). */
+export const SPIRE_MILESTONE_FLOORS = [5, 10, 15, 20];
 
 export type TowerActionInput =
     | { type: 'move'; tile: number }
@@ -164,6 +185,12 @@ export function startTowerRun(hostName: string, floor: number, allies: string[] 
     return postJson('/api/towers/start', { hostName, floor, allies, hostLoadout });
 }
 
+/** Begin an ENDLESS SPIRE run at the given ascension tier (server clamps to unlocked+1).
+ *  Fee-exempt: the caller does NOT charge the ryo entry toll for spire runs. */
+export function startSpireRun(hostName: string, ascensionTier: number, allies: string[] = [], hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession }> {
+    return postJson('/api/towers/start', { hostName, mode: 'spire', ascensionTier, allies, hostLoadout });
+}
+
 /** Equip the caller's own fighter with their client-computed loadout (pvpItems + passives the
  *  save doesn't persist) — called on entering a run so a joining ally is fully geared like the
  *  host. Best-effort: a failure just means fighting without the bonuses, never a hard error. */
@@ -203,4 +230,26 @@ export async function fetchMyRun(playerName: string): Promise<{ runId: string; s
     if (!res.ok) return null;
     const data = await res.json().catch(() => ({})) as { runId?: string | null; session?: TowerSession };
     return data.runId && data.session ? { runId: data.runId, session: data.session } : null;
+}
+
+// ─── Endless Spire — weekly leaderboard (best tier cleared this week) ─────────
+export type SpireLeaderboardRow = { rank: number; name: string; tier: number; village?: string; level?: number };
+export type SpireWeeklyAffix = { id: string; name: string; blurb: string; icon: string };
+export type SpireLeaderboard = { weekKey: string; total: number; weekEndsAt?: number; affix?: SpireWeeklyAffix; leaderboard: SpireLeaderboardRow[] };
+
+/** Public weekly Spire board + this week's Blessing. Best-effort — a failure yields an empty board. */
+export async function fetchSpireLeaderboard(top = 25): Promise<SpireLeaderboard> {
+    try {
+        const res = await fetch(`/api/towers/spire-leaderboard?top=${top}`);
+        if (!res.ok) return { weekKey: '', total: 0, leaderboard: [] };
+        const data = await res.json().catch(() => ({})) as Partial<SpireLeaderboard>;
+        return {
+            weekKey: data.weekKey ?? '', total: data.total ?? 0,
+            weekEndsAt: typeof data.weekEndsAt === 'number' ? data.weekEndsAt : undefined,
+            affix: data.affix && typeof data.affix === 'object' ? data.affix : undefined,
+            leaderboard: Array.isArray(data.leaderboard) ? data.leaderboard : [],
+        };
+    } catch {
+        return { weekKey: '', total: 0, leaderboard: [] };
+    }
 }
