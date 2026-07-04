@@ -138,19 +138,14 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             {!dead && clanmates.length > 0 && (
                 <div style={{ marginTop: 10 }}>
                     <p className="hint" style={{ fontSize: "0.78rem" }}>Bring up to 2 clanmates as your party (offline members auto-act during the fight):</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    <div className="clan-boss-party">
                         {clanmates.slice(0, 16).map(name => {
                             const on = party.includes(name);
                             return (
                                 <button
                                     key={name}
+                                    className={`clan-boss-party-btn${on ? " selected" : ""}`}
                                     onClick={() => setParty(p => on ? p.filter(n => n !== name) : (p.length >= 2 ? p : [...p, name]))}
-                                    style={{
-                                        padding: "3px 9px", fontSize: "0.78rem", borderRadius: 999,
-                                        border: `1px solid ${on ? "#f5c451" : "#334155"}`,
-                                        background: on ? "rgba(245,196,81,0.15)" : "#0f172a",
-                                        color: on ? "#f5c451" : "#94a3b8", cursor: "pointer",
-                                    }}
                                 >
                                     {on ? "✓ " : ""}{name}
                                 </button>
