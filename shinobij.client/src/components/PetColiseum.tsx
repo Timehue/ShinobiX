@@ -45,13 +45,13 @@ import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../li
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeContactFx, meleeTrailSpec, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
-import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, BASE_SCORE_RANGE, BOSS_RADIUS, BOSS_ATK_RADIUS, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
+import { runPetArenaMatch, ARENA_TPS, BASE_SCORE_RANGE, BOSS_RADIUS, BOSS_ATK_RADIUS, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot, type ShrineKind } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { SceneAmbience } from "./SceneAmbience";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
-import { petBloomEnabled } from "../lib/pet-coliseum-flag";
+import { petBloomEnabled, petArenaV2Enabled } from "../lib/pet-coliseum-flag";
 
 type Vec3 = [number, number, number];
 const FLOOR_Y = 0;
@@ -1574,9 +1574,12 @@ const SHRINE_URLS: Record<"power" | "mend", string> = {
     mend: new URL("../assets/coliseum/shrine-mend.webp", import.meta.url).href,
 };
 const _shrineTex: Partial<Record<"power" | "mend", THREE.Texture>> = {};
-function shrineTexture(kind: "power" | "mend"): THREE.Texture {
-    let t = _shrineTex[kind];
-    if (!t) { t = new THREE.TextureLoader().load(SHRINE_URLS[kind]); t.colorSpace = THREE.SRGBColorSpace; _shrineTex[kind] = t; }
+function shrineTexture(kind: ShrineKind): THREE.Texture {
+    // v2 relics reuse the two base shrine sprites (offensive→power art, sustain→mend art);
+    // their identity is carried by colour + label + claim FX, so no new asset is needed.
+    const key: "power" | "mend" = kind === "mend" || kind === "favor" ? "mend" : "power";
+    let t = _shrineTex[key];
+    if (!t) { t = new THREE.TextureLoader().load(SHRINE_URLS[key]); t.colorSpace = THREE.SRGBColorSpace; _shrineTex[key] = t; }
     return t;
 }
 // The Warden's animation frames (fal Nano-Banana img2img off the base sprite) — a
@@ -2552,14 +2555,23 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         }
                     }
                     if (e.type === "ultimate") {
-                        shake.current = Math.max(shake.current, 1.8);
-                        hitStop.current = Math.max(hitStop.current, 0.55);     // FREEZE-FRAME on the unleash
-                        savor(0.22, 0.7);                                      // then deep, HELD slow-mo
-                        zoomKick.current = Math.max(zoomKick.current, 3.0);
-                        onFlash(elementColor(el).glow, 0.42);
-                        lastHeroCut.current = now;
-                        onCutIn(e.actorId, e.move ?? ultById[e.actorId] ?? "");  // anime portrait cut-in
-                        onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
+                        if (now - lastHeroCut.current > 6) {
+                            // THROTTLED so back-to-back unleashes don't stack cut-ins — only the
+                            // spaced-out ones get the full anime freeze-frame + portrait treatment.
+                            lastHeroCut.current = now;
+                            shake.current = Math.max(shake.current, 1.8);
+                            zoomKick.current = Math.max(zoomKick.current, 3.0);
+                            onFlash(elementColor(el).glow, 0.42);
+                            hitStop.current = Math.max(hitStop.current, 0.55);     // FREEZE-FRAME on the unleash
+                            savor(0.22, 0.7);                                      // then deep, HELD slow-mo
+                            onCutIn(e.actorId, e.move ?? ultById[e.actorId] ?? "");  // anime portrait cut-in
+                            onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
+                        } else {
+                            // A quick REPEAT unleash — lighter beat, no cut-in / heavy shake.
+                            shake.current = Math.max(shake.current, 0.6);
+                            onFlash(elementColor(el).glow, 0.18);
+                            savor(0.5, 0.14);
+                        }
                     } else if (e.type === "cast" && e.move && now - lastMoveCall.current > 0.4) {
                         const heroC = heroMoveById[e.actorId];
                         if (heroC && e.move === heroC && now - lastHeroCut.current > 6) {
@@ -2937,6 +2949,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petCutinBg { 0% { opacity: 0; } 9% { opacity: 1; } 76% { opacity: 1; } 100% { opacity: 0; } }
                 @keyframes petCutinStreak { 0% { opacity: 0; transform: translateX(-28%); } 14% { opacity: 0.95; } 100% { opacity: 0; transform: translateX(18%); } }
                 @keyframes petCutinName { 0% { opacity: 0; transform: translateX(-16%) skewX(-7deg) scale(0.68); } 16% { opacity: 1; transform: translateX(0) skewX(-7deg) scale(1.09); } 30% { transform: translateX(0) skewX(-7deg) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateX(7%) skewX(-7deg) scale(1); } }
+                @keyframes petCutinInL { 0% { opacity: 0; transform: translateY(-50%) translateX(-45%) scale(0.9); } 15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1.05); } 30% { transform: translateY(-50%) translateX(0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(-8%) scale(1); } }
+                @keyframes petCutinInR { 0% { opacity: 0; transform: translateY(-50%) translateX(45%) scale(0.9); } 15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1.05); } 30% { transform: translateY(-50%) translateX(0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(8%) scale(1); } }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
@@ -2988,29 +3002,34 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 </div>
             )}
 
-            {/* Signature ultimate cut-in — anime portrait + move-name slam (reuses
-                the round renderer's .pet-cutin CSS). pointer-events:none so controls
-                stay clickable; auto-clears after the slam. */}
-            {/* Anime signature CUT-IN backdrop — a dark slam + diagonal speed lines + the move
-                name HUGE; the action freeze-frames behind it (hitStop set where the cut-in fires). */}
-            {cutIn && (
-                <div key={`cutin-bg-${cutIn.id}`} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", inset: 0, background: "rgba(3,5,12,0.5)", animation: "petCutinBg 1650ms ease-out forwards" }} />
-                    <div style={{ position: "absolute", inset: "-25%", background: `repeating-linear-gradient(112deg, transparent 0 16px, ${cutIn.side === "player" ? "rgba(96,165,250,0.14)" : "rgba(248,113,113,0.14)"} 16px 21px)`, animation: "petCutinStreak 900ms ease-out forwards" }} />
-                    <div style={{ position: "absolute", left: 0, right: 0, top: "55%", textAlign: "center", font: "900 clamp(38px,8vw,92px)/0.9 Cinzel, serif", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 32px ${cutIn.side === "player" ? "rgba(96,165,250,0.95)" : "rgba(248,113,113,0.95)"}, 0 6px 16px #000`, animation: "petCutinName 1650ms cubic-bezier(.2,.9,.2,1) forwards" }}>{cutIn.move}!</div>
-                </div>
-            )}
-            {cutIn && (
-                <div className={`pet-cutin ${cutIn.side}`} key={`duel-cutin-${cutIn.id}`}>
-                    <div className="pet-cutin-portrait">
-                        <PetBattleAvatar pet={cutIn.pet} side={cutIn.side} active sharedImages={sharedImages} />
+            {/* Anime signature CUT-IN — the action freeze-frames (hitStop) while a dark slam +
+                diagonal speed lines sweep in, the pet's PORTRAIT slams from its side, and the
+                move name lands huge. Self-contained (no external CSS) so it always shows. */}
+            {cutIn && (() => {
+                const isEnemy = cutIn.side === "enemy";
+                const glow = isEnemy ? "rgba(248,113,113,0.95)" : "rgba(96,165,250,0.95)";
+                const streak = isEnemy ? "rgba(248,113,113,0.16)" : "rgba(96,165,250,0.16)";
+                const band = isEnemy ? "rgba(127,29,29,0.6)" : "rgba(30,58,138,0.6)";
+                const portrait = petBattleSprite(cutIn.pet, sharedImages).src;
+                return (
+                    <div key={`cutin-${cutIn.id}`} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 30 }}>
+                        <div style={{ position: "absolute", inset: 0, background: "rgba(3,5,12,0.55)", animation: "petCutinBg 1650ms ease-out forwards" }} />
+                        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(${isEnemy ? 255 : 105}deg, transparent 40%, ${band} 50%, transparent 60%)`, animation: "petCutinBg 1650ms ease-out forwards" }} />
+                        <div style={{ position: "absolute", inset: "-25%", background: `repeating-linear-gradient(112deg, transparent 0 16px, ${streak} 16px 21px)`, animation: "petCutinStreak 900ms ease-out forwards" }} />
+                        {/* BIG portrait slamming in from the pet's side */}
+                        <div style={{ position: "absolute", top: "50%", [isEnemy ? "right" : "left"]: "3%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
+                            {portrait
+                                ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "min(48vh,360px)", width: "auto", objectFit: "contain", filter: `drop-shadow(0 0 26px ${glow}) drop-shadow(0 10px 22px #000)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
+                                : <div style={{ width: "min(30vh,220px)", height: "min(30vh,220px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 64px Cinzel, serif", color: "#fff", boxShadow: `0 0 30px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
+                        </div>
+                        {/* pet name + HUGE move name on the opposite side */}
+                        <div style={{ position: "absolute", [isEnemy ? "left" : "right"]: "6%", top: "33%", maxWidth: "58%", textAlign: isEnemy ? "left" : "right", animation: "petCutinName 1650ms cubic-bezier(.2,.9,.2,1) forwards" }}>
+                            <div style={{ font: "800 clamp(13px,1.8vw,22px) Cinzel, serif", letterSpacing: "0.2em", textTransform: "uppercase", color: isEnemy ? "#fca5a5" : "#93c5fd", textShadow: "0 2px 8px #000" }}>{cutIn.pet.name}</div>
+                            <div style={{ font: "900 clamp(34px,6.5vw,80px)/0.92 Cinzel, serif", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 34px ${glow}, 0 6px 16px #000`, marginTop: 4 }}>{cutIn.move}!</div>
+                        </div>
                     </div>
-                    <div className="pet-cutin-text">
-                        <span className="pet-cutin-pet">{cutIn.pet.name}</span>
-                        <span className="pet-cutin-move">{cutIn.move}!</span>
-                    </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Combat-juice overlays: full-screen element flash, big callout, combo. */}
             {flash && (
@@ -3317,7 +3336,7 @@ function ArenaShrine({ result, clock }: { result: ArenaResult; clock: { current:
     const glowMat = useRef<THREE.MeshBasicMaterial>(null);
     const ringRef = useRef<HTMLDivElement>(null);
     const labelRef = useRef<HTMLDivElement>(null);
-    const [kind, setKind] = useState<"power" | "mend">("power");
+    const [kind, setKind] = useState<ShrineKind>("power");
     const [visible, setVisible] = useState(false);
     const spawnAt = useRef<number | null>(null);
     const prevActive = useRef(false);
@@ -3338,7 +3357,7 @@ function ArenaShrine({ result, clock }: { result: ArenaResult; clock: { current:
         const bob = Math.abs(Math.sin(now * 2)) * 0.08 * p.depth;
         grp.current.position.set(p.wx, p.wy + H * 0.5 * p.depth + bob, p.zo + 0.02);
         grp.current.scale.setScalar(p.depth * (0.55 + 0.45 * sp));   // grow in
-        const color = sh.kind === "power" ? "#fb923c" : "#34d399";
+        const color = RELIC_COLOR[sh.kind] ?? "#fb923c";
         if (mat.current) mat.current.opacity = sp;
         if (glow.current && glowMat.current) {
             const pulse = 0.5 + Math.abs(Math.sin(now * 2.6)) * 0.5;
@@ -3352,7 +3371,7 @@ function ArenaShrine({ result, clock }: { result: ArenaResult; clock: { current:
         if (labelRef.current) labelRef.current.style.color = color;
     });
     if (!visible) return null;
-    const color = kind === "power" ? "#fb923c" : "#34d399";
+    const color = RELIC_COLOR[kind] ?? "#fb923c";
     return (
         <group>
             <mesh ref={glow} renderOrder={-1}><planeGeometry args={[1, 1]} /><meshBasicMaterial ref={glowMat} map={glowTexture()} color={color} transparent opacity={0.4} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
@@ -3361,10 +3380,38 @@ function ArenaShrine({ result, clock }: { result: ArenaResult; clock: { current:
                 <Html center position={[0, H * 0.6, 0]} pointerEvents="none" zIndexRange={[29, 0]}>
                     <div style={{ position: "relative", width: 56, height: 44, display: "grid", placeItems: "center" }}>
                         <div ref={ringRef} style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 26, height: 26, borderRadius: "50%", opacity: 0 }} />
-                        <div ref={labelRef} style={{ position: "absolute", bottom: 0, whiteSpace: "nowrap", font: "800 9px Inter, system-ui, sans-serif", color, textShadow: "0 1px 3px #000" }}>{kind === "power" ? "⚡ Chakra Font" : "✚ Mending Spring"}</div>
+                        <div ref={labelRef} style={{ position: "absolute", bottom: 0, whiteSpace: "nowrap", font: "800 9px Inter, system-ui, sans-serif", color, textShadow: "0 1px 3px #000" }}>{`${RELIC_ICON[kind] ?? "◆"} ${RELIC_LABEL[kind] ?? "Relic"}`}</div>
                     </div>
                 </Html>
             </group>
+        </group>
+    );
+}
+
+/** V2 closing ring — a pulsing purple boundary on the ground that shrinks toward centre
+ *  from ~2:30. Driven entirely by snapshot.ringR (0 when inactive), so a spectator SEES why
+ *  pets stampede inward and why anyone caught outside is taking damage. Purely additive (no
+ *  sim coupling); inert unless the match is v2 and the ring has engaged. */
+function ArenaRing({ result, clock }: { result: ArenaResult; clock: { current: DuelClock } }) {
+    const grp = useRef<THREE.Group>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    useFrame((state) => {
+        if (!grp.current) return;
+        const snaps = result.snapshots;
+        const i = Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)));
+        const rr = result.v2 ? snaps[i].ringR : 0;
+        if (rr <= 0) { grp.current.visible = false; return; }
+        grp.current.visible = true;
+        const c = arenaPlace(result.center[0], result.center[1]);
+        const edge = arenaPlace(result.center[0] + rr, result.center[1]);
+        const worldR = Math.max(0.5, Math.abs(edge.wx - c.wx));
+        grp.current.position.set(c.wx, c.wy, c.zo - 0.05);
+        grp.current.scale.set(worldR, worldR * 0.5, 1);   // squash to sit on the top-down ground plane
+        if (mat.current) mat.current.opacity = 0.22 + Math.abs(Math.sin(state.clock.elapsedTime * 3)) * 0.18;
+    });
+    return (
+        <group ref={grp} visible={false}>
+            <mesh renderOrder={-2}><ringGeometry args={[0.93, 1, 72]} /><meshBasicMaterial ref={mat} color="#a78bfa" transparent opacity={0.3} depthWrite={false} depthTest={false} toneMapped={false} side={THREE.DoubleSide} /></mesh>
         </group>
     );
 }
@@ -3615,7 +3662,7 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                 } else if (e.type === "capture") {
                     const c = e.actorId ? findArenaActor(snapAt, e.actorId) : null;
                     if (c) spawnFx({ x: c.x, z: c.y, key: "power", scale: 4.0, dur: 720 });   // the apex burst at the scoring base
-                    const matchPoint = (e.team === "blue" ? snapAt.scoreBlue : snapAt.scoreRed) >= WIN_SCORE;
+                    const matchPoint = (e.team === "blue" ? snapAt.scoreBlue : snapAt.scoreRed) >= result.winScore;
                     pushFeed(`📜 ${e.team === "blue" ? "Blue" : "Red"} captured the scroll!`, e.team === "blue" ? "#60a5fa" : "#f87171");
                     pushBanner(matchPoint ? `${e.team === "blue" ? "BLUE" : "RED"} WINS! 📜` : `${e.team === "blue" ? "BLUE" : "RED"} SCORES! 📜`, e.team === "blue" ? "#60a5fa" : "#f87171");
                     triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.5)" : "rgba(239,68,68,0.5)");
@@ -3623,16 +3670,16 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                 } else if (e.type === "pickup" && e.actorId) {
                     pushFeed(`📜 ${nameOf(e.actorId)} took the scroll`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
                 } else if (e.type === "shrinespawn") {
-                    const sh = snapAt.shrine; const c = sh.kind === "power" ? "#fb923c" : "#34d399";
-                    spawnFx({ x: sh.x, z: sh.y, key: sh.kind === "power" ? "spark" : "heal", scale: 2.2, dur: 540 });
-                    pushFeed(sh.kind === "power" ? "⚡ A Chakra Font rises" : "✚ A Mending Spring rises", c);
+                    const sh = snapAt.shrine; const isHeal = sh.kind === "mend" || sh.kind === "favor"; const c = isHeal ? "#34d399" : "#fb923c";
+                    spawnFx({ x: sh.x, z: sh.y, key: RELIC_FX[sh.kind] ?? "spark", scale: 2.2, dur: 540 });
+                    pushFeed(`${RELIC_ICON[sh.kind] ?? "◆"} A ${RELIC_LABEL[sh.kind] ?? "relic"} rises`, c);
                 } else if (e.type === "shrineclaim" && e.team) {
-                    // A claimed shrine — a team-colored burst + the flavour's FX. Tactical, not a
+                    // A claimed shrine/relic — a team-colored burst + the flavour's FX. Tactical, not a
                     // score, so a lighter touch than a capture (no banner/slow-mo).
-                    const sh = snapAt.shrine; const c = e.team === "blue" ? "#60a5fa" : "#f87171";
+                    const sh = snapAt.shrine; const c = e.team === "blue" ? "#60a5fa" : "#f87171"; const k = e.kind ?? sh.kind;
                     spawnFx({ x: sh.x, z: sh.y, key: "power", scale: 3.0, dur: 600 });
-                    spawnFx({ x: sh.x, z: sh.y, key: e.kind === "power" ? "spark" : "heal", scale: 2.4, dur: 460 });
-                    pushFeed(`${e.kind === "power" ? "⚡" : "✚"} ${e.team === "blue" ? "Blue" : "Red"} claimed the ${e.kind === "power" ? "Chakra Font" : "Mending Spring"}`, c);
+                    spawnFx({ x: sh.x, z: sh.y, key: RELIC_FX[k] ?? "spark", scale: 2.4, dur: 460 });
+                    pushFeed(`${RELIC_ICON[k] ?? "◆"} ${e.team === "blue" ? "Blue" : "Red"} claimed the ${RELIC_LABEL[k] ?? "relic"}`, c);
                     triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.26)" : "rgba(239,68,68,0.26)");
                     triggerShake(0.55);
                 } else if (e.type === "bossspawn") {
@@ -3667,6 +3714,19 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                     pushBanner(`${e.team === "blue" ? "BLUE" : "RED"} SLAYS THE WARDEN!`, e.team === "blue" ? "#60a5fa" : "#f87171");
                     triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.5)" : "rgba(239,68,68,0.5)");
                     triggerHitstop(110); triggerSlowmo(420, 0.4); triggerShake(1.8);
+                } else if (e.type === "overdrive") {
+                    pushBanner(`${e.team === "blue" ? "BLUE" : "RED"} OVERDRIVE! ⚡`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
+                    pushFeed(`⚡ ${e.team === "blue" ? "Blue" : "Red"} hit Overdrive`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.32)" : "rgba(239,68,68,0.32)"); triggerShake(0.8);
+                } else if (e.type === "rampage") {
+                    pushBanner(`${e.team === "blue" ? "BLUE" : "RED"} RAMPAGE! 🔥`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
+                } else if (e.type === "bossenrage") {
+                    pushFeed(`⛰ The Warden enrages (tier ${e.stage})`, "#fb923c"); triggerShake(0.8);
+                    if (e.stage >= 2) pushBanner("⛰ WARDEN ENRAGED", "#fb923c");
+                } else if (e.type === "ringclose") {
+                    pushFeed("◈ The arena is closing in!", "#a78bfa"); pushBanner("◈ CLOSING RING", "#a78bfa"); triggerShake(0.9);
+                } else if (e.type === "executewindow") {
+                    const a = findArenaActor(snapAt, e.targetId); if (a) spawnFx({ x: a.x, z: a.y, key: "spark", scale: 1.6, dur: 260 });   // "he's going down" flare on the focused target
                 }
             }
             const s = snaps[Math.min(maxT, cur)]; setScore(s.scoreBlue, s.scoreRed);
@@ -3739,6 +3799,10 @@ export type PetArenaMatchProps = {
     /** Fired once when the match concludes (the deterministic result is sealed from
      *  the seed). The Tactical Arena uses this to pay the vs-AI win reward. */
     onResult?: (result: ArenaResult) => void;
+    /** Force the V2 ruleset on/off, overriding the per-device flag. Set for SHARED replays
+     *  (co-op / PvP challenge) so BOTH clients agree regardless of the local kill-switch;
+     *  omit for solo/vs-AI so the local flag (default ON) still applies. */
+    v2?: boolean;
 };
 /** Objective line below the scoreboard — a per-frame readout written via DOM refs
  *  (so it never re-renders the HUD): the scroll-spawn countdown while the scroll is
@@ -3795,8 +3859,34 @@ function ArenaObjectiveHud({ result, clock, textRef, barWrapRef, barRef }: {
     return null;
 }
 
-export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImages = {}, onExit, onResult }: PetArenaMatchProps) {
-    const result = useMemo(() => runPetArenaMatch(blue, red, seed, applyItems), [blue, red, seed, applyItems]);
+const MODIFIER_LABEL: Record<string, string> = { standard: "Standard Bout", "warden-fury": "Warden's Fury", "scroll-frenzy": "Scroll Frenzy", "blood-ritual": "Blood Ritual" };
+const RELIC_LABEL: Record<string, string> = { power: "Chakra Font", mend: "Mending Spring", berserk: "Berserker's Brand", bulwark: "Bulwark Ward", edge: "Executioner's Edge", favor: "Warden's Favor" };
+const RELIC_ICON: Record<string, string> = { power: "⚡", mend: "✚", berserk: "🗡", bulwark: "🛡", edge: "☠", favor: "⛰" };
+const RELIC_FX: Record<string, string> = { power: "spark", mend: "heal", berserk: "spark", bulwark: "eshield", edge: "shadow", favor: "power" };
+const RELIC_COLOR: Record<string, string> = { power: "#fb923c", mend: "#34d399", berserk: "#f87171", bulwark: "#60a5fa", edge: "#a78bfa", favor: "#fbbf24" };
+
+/** V2 (petArenaV2.v1) HUD updater: ref-drives the Overdrive meters + spike glow each frame
+ *  from the snapshot stream (no React re-render). Inert unless the match is v2. */
+function ArenaV2Hud({ result, clock, momBlueRef, momRedRef, odBlueRef, odRedRef }: {
+    result: ArenaResult; clock: { current: DuelClock };
+    momBlueRef: React.MutableRefObject<HTMLDivElement | null>; momRedRef: React.MutableRefObject<HTMLDivElement | null>;
+    odBlueRef: React.MutableRefObject<HTMLSpanElement | null>; odRedRef: React.MutableRefObject<HTMLSpanElement | null>;
+}) {
+    useFrame(() => {
+        if (!result.v2) return;
+        const snaps = result.snapshots; const cur = Math.min(snaps.length - 1, Math.max(0, Math.floor(clock.current.t)));
+        const s = snaps[cur]; if (!s) return;
+        if (momBlueRef.current) { momBlueRef.current.style.width = s.momBlue + "%"; momBlueRef.current.style.filter = s.odBlue > 0 ? "brightness(1.6) drop-shadow(0 0 4px #fde047)" : "none"; }
+        if (momRedRef.current) { momRedRef.current.style.width = s.momRed + "%"; momRedRef.current.style.filter = s.odRed > 0 ? "brightness(1.6) drop-shadow(0 0 4px #fde047)" : "none"; }
+        if (odBlueRef.current) odBlueRef.current.style.opacity = s.odBlue > 0 ? "1" : "0";
+        if (odRedRef.current) odRedRef.current.style.opacity = s.odRed > 0 ? "1" : "0";
+    });
+    return null;
+}
+
+export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImages = {}, onExit, onResult, v2 }: PetArenaMatchProps) {
+    const arenaV2 = useMemo(() => v2 ?? petArenaV2Enabled(), [v2]);   // explicit prop (shared replays) overrides the per-device flag; else read the local flag (default ON)
+    const result = useMemo(() => runPetArenaMatch(blue, red, seed, applyItems, arenaV2), [blue, red, seed, applyItems, arenaV2]);
     const roster = useMemo(() => [
         ...blue.map((s, i) => ({ id: `blue-${i}`, pet: s.pet })),
         ...red.map((s, i) => ({ id: `red-${i}`, pet: s.pet })),
@@ -3819,6 +3909,10 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
     const objTextRef = useRef<HTMLSpanElement | null>(null);   // objective line: scroll-spawn countdown / carrier return progress (ref-driven, no re-render)
     const objBarWrapRef = useRef<HTMLDivElement | null>(null);
     const objBarRef = useRef<HTMLDivElement | null>(null);
+    const momBlueRef = useRef<HTMLDivElement | null>(null);   // V2 Overdrive meters — ref-driven per-frame (no HUD re-render)
+    const momRedRef = useRef<HTMLDivElement | null>(null);
+    const odBlueRef = useRef<HTMLSpanElement | null>(null);
+    const odRedRef = useRef<HTMLSpanElement | null>(null);
     const nameById = useMemo(() => { const m = new Map<string, string>(); roster.forEach((r) => m.set(r.id, r.pet.name)); return m; }, [roster]);
     const nameOf = (id: string) => nameById.get(id) ?? id;
     const setScore = (b: number, r: number) => setScoreState((p) => (p[0] === b && p[1] === r ? p : [b, r]));
@@ -3897,7 +3991,9 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                     <ArenaBoss result={result} clock={clock} />
                     <ArenaShrine result={result} clock={clock} />
                     <ArenaScroll result={result} clock={clock} />
+                    <ArenaRing result={result} clock={clock} />
                     <ArenaObjectiveHud result={result} clock={clock} textRef={objTextRef} barWrapRef={objBarWrapRef} barRef={objBarRef} />
+                    <ArenaV2Hud result={result} clock={clock} momBlueRef={momBlueRef} momRedRef={momRedRef} odBlueRef={odBlueRef} odRedRef={odRedRef} />
                     {fxList.map((fx) => (<FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />))}
                     {shots.map((sh) => (<ArenaShot key={sh.id} from={sh.from} to={sh.to} visual={sh.visual} dur={sh.dur} depth={sh.depth} arc={sh.arc} onDone={() => setShots((p) => p.filter((x) => x.id !== sh.id))} />))}
                     {floaters.map((f) => (<ArenaFloater key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
@@ -3918,10 +4014,22 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
             </div>
 
             {/* Scoreboard */}
-            <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 14, padding: "6px 18px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: 999, font: "800 20px Inter, system-ui, sans-serif" }}>
-                <span style={{ color: "#60a5fa" }}>BLUE {score[0]}</span>
-                <span style={{ color: "#64748b", fontSize: 12, fontWeight: 600 }}>📜 first to {WIN_SCORE}</span>
-                <span style={{ color: "#f87171" }}>{score[1]} RED</span>
+            <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "6px 18px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: arenaV2 ? 14 : 999, font: "800 20px Inter, system-ui, sans-serif" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <span style={{ color: "#60a5fa" }}>BLUE {score[0]}</span>
+                    <span style={{ color: "#64748b", fontSize: 12, fontWeight: 600 }}>📜 first to {result.winScore}</span>
+                    <span style={{ color: "#f87171" }}>{score[1]} RED</span>
+                </div>
+                {/* V2 Overdrive meters — combat charges them; a full bar fires a spike (captures stay the only score). Both grow toward the centre label. */}
+                {arenaV2 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, width: 240 }}>
+                        <span ref={odBlueRef} style={{ opacity: 0, color: "#fde047", font: "900 10px Inter, system-ui, sans-serif", transition: "opacity .15s", width: 12, textAlign: "center" }}>⚡</span>
+                        <div style={{ flex: 1, height: 6, background: "#0b1020", border: "1px solid #000", borderRadius: 4, overflow: "hidden", transform: "scaleX(-1)" }}><div ref={momBlueRef} style={{ width: "0%", height: "100%", background: "linear-gradient(90deg,#1d4ed8,#60a5fa)", transition: "width .12s linear" }} /></div>
+                        <span style={{ color: "#64748b", font: "800 8px Inter, system-ui, sans-serif", letterSpacing: 0.5 }}>OVERDRIVE</span>
+                        <div style={{ flex: 1, height: 6, background: "#0b1020", border: "1px solid #000", borderRadius: 4, overflow: "hidden" }}><div ref={momRedRef} style={{ width: "0%", height: "100%", background: "linear-gradient(90deg,#dc2626,#f87171)", transition: "width .12s linear" }} /></div>
+                        <span ref={odRedRef} style={{ opacity: 0, color: "#fde047", font: "900 10px Inter, system-ui, sans-serif", transition: "opacity .15s", width: 12, textAlign: "center" }}>⚡</span>
+                    </div>
+                )}
             </div>
             {/* Captures-only scoring — make the win condition unmistakable (kills don't score). */}
             {/* Dynamic objective line — scroll-spawn countdown / carrier return-progress,
@@ -3937,7 +4045,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                 <button onClick={onExit} style={duelBtn}>✕ Exit</button>
                 <button onClick={replay} style={duelBtn}>⟲ Replay</button>
             </div>
-            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>🏟️ Arena: capture + deathmatch (beta)</div>
+            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>🏟️ Arena{arenaV2 ? " V2" : ""}{arenaV2 && result.modifier !== "standard" ? ` · ${MODIFIER_LABEL[result.modifier] ?? result.modifier}` : ""} (beta)</div>
 
             {ended && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
