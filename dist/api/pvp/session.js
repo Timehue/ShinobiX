@@ -789,6 +789,19 @@ function normalizeElement(e) {
         return e;
     return '';
 }
+// Map a captured sector's leader-chosen offense stat (territory.terrainBuffStat)
+// to the jutsu TYPE that earns the +10% home-terrain buff. Returns '' for an
+// unknown/empty stat. KEEP IN SYNC with the client (Arena.tsx buffByType) and
+// the applier in api/pvp/move.ts homeTerrainMultiplier.
+function terrainBuffStatToJutsuType(stat) {
+    switch (stat) {
+        case 'bukijutsuOffense': return 'Bukijutsu';
+        case 'taijutsuOffense': return 'Taijutsu';
+        case 'ninjutsuOffense': return 'Ninjutsu';
+        case 'genjutsuOffense': return 'Genjutsu';
+        default: return '';
+    }
+}
 // ── Town Defense guard mitigation (server-authoritative) ─────────────────────
 // A Village Guard's "Town Defense" upgrade is meant to reduce the damage they
 // take "while defending through the Village Guard queue". The AI-fallback path
@@ -1059,10 +1072,36 @@ async function handler(req, res) {
             const sealedBiome = isRankedSession ? 'central' : normalizeBiome(biome);
             const sealedWeatherPos = isRankedSession ? '' : normalizeElement(weatherPositiveElement);
             const sealedWeatherNeg = isRankedSession ? '' : normalizeElement(weatherNegativeElement);
+            // Home-terrain buff (PvE↔PvP parity). On a CASUAL sector fight, members
+            // of the clan that OWNS the reward sector get +10% to the leader-chosen
+            // offense type. Derived server-side from the authoritative territory
+            // record + each fighter's SAVED clan (never the client body) and sealed
+            // onto the fighter as `homeTerrainType` so move.ts can apply it. Ranked
+            // stays neutral. Mirrors the client PvE territoryDamageMultiplier.
+            let p1HomeTerrain = '';
+            let p2HomeTerrain = '';
+            if (!isRankedSession) {
+                const secNum = Math.floor(Number(rewardSector));
+                if (Number.isFinite(secNum) && secNum > 0) {
+                    try {
+                        const territory = await _storage_js_1.kv.get(`world:territory:${secNum}`);
+                        const ownerClan = String(territory?.ownerClan ?? '').trim();
+                        const buffType = ownerClan ? terrainBuffStatToJutsuType(territory?.terrainBuffStat) : '';
+                        if (ownerClan && buffType) {
+                            const clanOf = (save) => String((save?.character ?? null)?.clan ?? '').trim();
+                            if (clanOf(p1Save) === ownerClan)
+                                p1HomeTerrain = buffType;
+                            if (clanOf(p2Save) === ownerClan)
+                                p2HomeTerrain = buffType;
+                        }
+                    }
+                    catch { /* territory read failed — grant no buff (fail-safe; never blocks the fight) */ }
+                }
+            }
             const session = {
                 battleId,
-                p1: makeFighter(finalP1Character, P1_START, useCurrentVitals === true),
-                p2: makeFighter(finalP2Character, P2_START, useCurrentVitals === true),
+                p1: makeFighter(p1HomeTerrain ? { ...finalP1Character, homeTerrainType: p1HomeTerrain } : finalP1Character, P1_START, useCurrentVitals === true),
+                p2: makeFighter(p2HomeTerrain ? { ...finalP2Character, homeTerrainType: p2HomeTerrain } : finalP2Character, P2_START, useCurrentVitals === true),
                 round: 1,
                 activePlayer: firstActor,
                 ap: { p1: 100, p2: 100 },
