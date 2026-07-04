@@ -6,7 +6,8 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { getFloor, MIN_PARTY_SIZE, MAX_PARTY_SIZE } from './_floor-catalog.js';
 import { getSpireFloor, spireBossForFloor, isValidSpireTier, spireRequiresFullSquad } from './_spire-catalog.js';
-import { resolveAscensionModifiers, type AscensionSeal } from './_modifiers.js';
+import { resolveAscensionModifiers, weeklySpireBlessing, type AscensionSeal } from './_modifiers.js';
+import { weekIndex } from '../missions/_weekly-board.js';
 import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
 import { startRound, runAiUntilHuman } from './_engine.js';
@@ -101,7 +102,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(403).json({ error: 'The Endless Spire requires a full squad.' });
             }
             spireBossId = spireBossForFloor(spireTier);
-            ascension = resolveAscensionModifiers(spireTier, spireBossId ?? 'sovereign', floor.roundBudget);
+            // Weekly Blessing: a player-favourable affix sealed ONCE at entry from THIS week's index
+            // (handler-side clock; resolveAscensionModifiers stays pure). A run started this week keeps
+            // its blessing across a week rollover, and settle needs no recompute.
+            const blessing = weeklySpireBlessing(weekIndex(Date.now()));
+            ascension = resolveAscensionModifiers(spireTier, spireBossId ?? 'sovereign', floor.roundBudget, blessing.modifier);
         }
 
         const runId = `tower-${randomUUID().replace(/-/g, '')}`;

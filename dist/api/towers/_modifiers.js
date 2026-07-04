@@ -18,7 +18,8 @@
  * kinds are frozen shapes with no consumer yet (Waves 2/3 add them without re-shaping this).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DUAL_AUGMENT_DEBUFF_BONUS = exports.DUAL_AUGMENT_HAZARD_BONUS = exports.SUDDEN_DEATH_PCT = exports.SUDDEN_DEATH_WINDOW = exports.EXTRA_PHASE_BLAST_PCT = exports.EXTRA_PHASE_THRESHOLD = exports.HEALCUT_MAX = exports.DEBUFF_TAKEN_CAP = exports.SPIRE_ENRAGE_CAP = exports.DMG_MULT_CAP = exports.DMG_STEP = exports.HP_MULT_CAP = exports.HP_STEP = exports.SPIRE_MAX_TIER = void 0;
+exports.SPIRE_WEEKLY_BLESSINGS = exports.DUAL_AUGMENT_DEBUFF_BONUS = exports.DUAL_AUGMENT_HAZARD_BONUS = exports.SUDDEN_DEATH_PCT = exports.SUDDEN_DEATH_WINDOW = exports.EXTRA_PHASE_BLAST_PCT = exports.EXTRA_PHASE_THRESHOLD = exports.HEALCUT_MAX = exports.DEBUFF_TAKEN_CAP = exports.SPIRE_ENRAGE_CAP = exports.DMG_MULT_CAP = exports.DMG_STEP = exports.HP_MULT_CAP = exports.HP_STEP = exports.SPIRE_MAX_TIER = void 0;
+exports.weeklySpireBlessing = weeklySpireBlessing;
 exports.ascensionHpMult = ascensionHpMult;
 exports.ascensionDmgMult = ascensionDmgMult;
 exports.resolveAscensionModifiers = resolveAscensionModifiers;
@@ -64,6 +65,19 @@ const EXTRA_PHASE_TIER = 15; // Second Wind — desperation blast phase (Wave 3)
 const SUDDEN_DEATH_TIER = 17; // Sudden Death — collapsing-floor finale (Wave 3)
 const DUAL_AUGMENT_TIER = 18; // Cataclysm — keystone synergy (Wave 3)
 const HAZARD_ESCALATING_TIER = 19; // Rising Inferno — a central blaze whose bite grows each round
+exports.SPIRE_WEEKLY_BLESSINGS = [
+    { id: 'vigor', name: 'Ancestral Vigor', icon: '⏳', blurb: '+3 rounds on every floor — more time to out-think the boss.', modifier: { kind: 'roundCap', value: 3, label: '✨ Blessing — Ancestral Vigor (+3 rounds)' } },
+    { id: 'falter', name: 'Faltering Foes', icon: '🛡️', blurb: 'Enemies deal 12% less damage this week.', modifier: { kind: 'dmg', value: -0.12, label: '✨ Blessing — Faltering Foes (foes −12% damage)' } },
+    { id: 'trial', name: 'Extended Trial', icon: '🕰️', blurb: '+4 rounds on every floor — a patient week to push deep.', modifier: { kind: 'roundCap', value: 4, label: '✨ Blessing — Extended Trial (+4 rounds)' } },
+    { id: 'waning', name: 'Waning Malice', icon: '🌙', blurb: 'Enemies deal 8% less damage this week.', modifier: { kind: 'dmg', value: -0.08, label: '✨ Blessing — Waning Malice (foes −8% damage)' } },
+    { id: 'tailwind', name: "Climber's Tailwind", icon: '🍃', blurb: 'Enemies deal 15% less damage — a gentle week for new climbers.', modifier: { kind: 'dmg', value: -0.15, label: "✨ Blessing — Climber's Tailwind (foes −15% damage)" } },
+];
+/** PURE. The Weekly Blessing for a reset-week index (deterministic; clock-free). */
+function weeklySpireBlessing(weekIndex) {
+    const n = exports.SPIRE_WEEKLY_BLESSINGS.length;
+    const i = ((Math.floor(Number(weekIndex) || 0) % n) + n) % n;
+    return exports.SPIRE_WEEKLY_BLESSINGS[i];
+}
 function clampTier(tier) {
     return Math.max(1, Math.min(exports.SPIRE_MAX_TIER, Math.floor(Number(tier) || 1)));
 }

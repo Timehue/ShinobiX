@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
-import { fetchTowerFloors, startTowerRun, startSpireRun, fetchMyRun, fetchSpireLeaderboard, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type SpireLeaderboardRow } from "../lib/towers-api";
+import { fetchTowerFloors, startTowerRun, startSpireRun, fetchMyRun, fetchSpireLeaderboard, SPIRE_MAX_TIER, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type SpireLeaderboardRow, type SpireWeeklyAffix } from "../lib/towers-api";
 import {
     allSpireFloors, spireFloorMeta, keystonesUpTo, SPIRE_KEYSTONE_COLOR,
     SPIRE_SHARDS_PER_TIER, type SpireBossKey,
@@ -10,6 +10,7 @@ import { battleEntryCost, payBattleEntry, BATTLE_FREE_FLOORS } from "../lib/entr
 import { subscribeFollowing } from "../lib/friends";
 import { LoadingState } from "../components/ui/LoadingState";
 import spireBanner from "../assets/towers/spire.webp";
+import spireKeyArt from "../assets/towers/spire-banner.webp";
 import wardenPortrait from "../assets/towers/enemies/warden.webp";
 import revenantPortrait from "../assets/towers/enemies/revenant.webp";
 import ravagerPortrait from "../assets/towers/enemies/ravager.webp";
@@ -71,6 +72,7 @@ export function BattleTowersLobby({
     const spireMaxSelectable = Math.min(SPIRE_MAX_TIER, spireUnlocked + 1);
     const [spireTier, setSpireTier] = useState(spireMaxSelectable);
     const [spireBoard, setSpireBoard] = useState<SpireLeaderboardRow[]>([]);
+    const [spireAffix, setSpireAffix] = useState<SpireWeeklyAffix | null>(null);
 
     // Invite any player by name (the server validates the save exists; unknown names are
     // skipped). Deduped case-insensitively against yourself + the existing squad.
@@ -105,7 +107,7 @@ export function BattleTowersLobby({
     // Weekly Spire leaderboard (best-effort; refreshes on mount).
     useEffect(() => {
         let alive = true;
-        fetchSpireLeaderboard(25).then(b => { if (alive) setSpireBoard(b.leaderboard); }).catch(() => {});
+        fetchSpireLeaderboard(25).then(b => { if (alive) { setSpireBoard(b.leaderboard); setSpireAffix(b.affix ?? null); } }).catch(() => {});
         return () => { alive = false; };
     }, []);
 
@@ -202,6 +204,7 @@ export function BattleTowersLobby({
                 setSpireTier={setSpireTier}
                 weeklyBest={character.battleTowerSpireWeeklyBest ?? 0}
                 board={spireBoard}
+                affix={spireAffix}
                 starting={starting}
                 onAscend={enterSpire}
             />
@@ -306,7 +309,7 @@ export function BattleTowersLobby({
 // reward) atop a 20-rung ladder that makes the whole climb legible at a glance, plus a
 // weekly leaderboard. All display data comes from lib/spire-catalog (server mirror).
 function SpireLadder({
-    me, spireUnlocked, spireMaxSelectable, spireTier, setSpireTier, weeklyBest, board, starting, onAscend,
+    me, spireUnlocked, spireMaxSelectable, spireTier, setSpireTier, weeklyBest, board, affix, starting, onAscend,
 }: {
     me: string;
     spireUnlocked: number;
@@ -315,6 +318,7 @@ function SpireLadder({
     setSpireTier: (t: number) => void;
     weeklyBest: number;
     board: SpireLeaderboardRow[];
+    affix: SpireWeeklyAffix | null;
     starting: boolean;
     onAscend: () => void;
 }) {
@@ -329,15 +333,17 @@ function SpireLadder({
 
     return (
         <div className="spire-panel" style={{ marginBottom: 14 }}>
-            {/* Header */}
-            <div className="spire-panel-head">
-                <span className="spire-title">🗼 The Endless Spire</span>
-                <span className="spire-head-stats">
-                    <b style={{ color: "#f4c48a" }}>{spireUnlocked}</b><span>/{SPIRE_MAX_TIER} cleared</span>
-                    <span className="spire-head-dot">·</span>
-                    <span>this week</span> <b style={{ color: "#f4c48a" }}>{weeklyBest}</b>
-                    {myRank && <><span className="spire-head-dot">·</span><span>rank</span> <b style={{ color: "#facc15" }}>#{myRank.rank}</b></>}
-                </span>
+            {/* Cinematic banner header — bespoke Endless Spire key art */}
+            <div className="spire-banner" style={{ backgroundImage: `url(${spireKeyArt})` }}>
+                <div className="spire-banner-overlay">
+                    <span className="spire-title">🗼 The Endless Spire</span>
+                    <span className="spire-head-stats">
+                        <b style={{ color: "#f4c48a" }}>{spireUnlocked}</b><span>/{SPIRE_MAX_TIER} cleared</span>
+                        <span className="spire-head-dot">·</span>
+                        <span>this week</span> <b style={{ color: "#f4c48a" }}>{weeklyBest}</b>
+                        {myRank && <><span className="spire-head-dot">·</span><span>rank</span> <b style={{ color: "#facc15" }}>#{myRank.rank}</b></>}
+                    </span>
+                </div>
             </div>
 
             {/* Ascension progress bar with milestone ticks */}
@@ -347,6 +353,18 @@ function SpireLadder({
                     <span key={m} className={`spire-progress-tick${spireUnlocked >= m ? " lit" : ""}`} style={{ left: `${(m / SPIRE_MAX_TIER) * 100}%` }} title={`Milestone — Floor ${m}`} />
                 ))}
             </div>
+
+            {/* Weekly Blessing — this week's player-favourable affix, telegraphed up front */}
+            {affix && (
+                <div className="spire-blessing" title={affix.blurb}>
+                    <span className="spire-blessing-icon">{affix.icon}</span>
+                    <span className="spire-blessing-body">
+                        <span className="spire-blessing-label">This Week's Blessing</span>
+                        <span className="spire-blessing-name">{affix.name}</span>
+                    </span>
+                    <span className="spire-blessing-blurb">{affix.blurb}</span>
+                </div>
+            )}
 
             {/* Hero — the selected floor's boss */}
             <div className="spire-hero" style={{ ["--boss-accent" as string]: accent, ["--boss-glow" as string]: sel.boss.glow }}>
