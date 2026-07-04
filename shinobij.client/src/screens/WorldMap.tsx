@@ -51,9 +51,8 @@ import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import { SectorPeersLive, type SectorPeer } from "../components/SectorPeers";
-import { WeeklyBossRoamOverlay, type RoamingBoss } from "../components/WeeklyBossRoamOverlay";
 import { SectorWeeklyBossActor } from "../components/SectorWeeklyBossActor";
-import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_FIGHT_COOLDOWN_MS } from "../lib/weekly-boss-roam";
+import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
 import { playerNameTile } from "../lib/sector-tile";
 import { defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
@@ -595,15 +594,24 @@ export function WorldMap({
     }, []);
 
     // ── Roaming weekly boss — in-sector encounter (weeklyBossRoam.v1, Phase 3) ──
-    // A slow tick so the in-sector actor's presence gate (is the boss in THIS
-    // sector right now?) re-evaluates near the ~13-min hop boundaries even when
-    // nothing else re-renders. Only the render matters; the value is unused.
-    const [, setRoamBossTick] = useState(0);
+    // A slow tick so the boss-sector highlight AND the in-sector actor's presence
+    // gate (is the boss in THIS sector right now?) re-evaluate near the ~13-min hop
+    // boundaries even when nothing else re-renders.
+    const [roamBossTick, setRoamBossTick] = useState(0);
     useEffect(() => {
         if (!isWeeklyBossRoamEnabled()) return;
         const id = setInterval(() => setRoamBossTick((t) => t + 1), 15000);
         return () => clearInterval(id);
     }, []);
+    // The sector the boss is rampaging in right now — the world map highlights this
+    // node (a pulsing ring + 👹 flag) instead of a floating portrait marker, per
+    // owner feedback ("the highlighted area it is in is enough"). Recomputes on the
+    // poll (roamingBoss) and the slow tick (roamBossTick).
+    const weeklyBossSector = useMemo(() => {
+        if (!isWeeklyBossRoamEnabled() || !roamingBoss) return null;
+        const r = weeklyBossRoamState(roamingBoss, Date.now());
+        return r?.active ? r.currentSector : null;
+    }, [roamingBoss, roamBossTick]);
     // The Stand/Flee prompt shown when the boss reaches the player in its sector.
     const [bossDialog, setBossDialog] = useState<{ name: string; portrait: string; attemptsUsed: number } | null>(null);
 
@@ -630,17 +638,19 @@ export function WorldMap({
         // once rested.
         if ((character.stamina ?? 0) < 20) {
             alert("You need at least 20 stamina to challenge the boss. It backs off — return once you've rested.");
-            coolWeeklyBoss(WANDERER_FLEE_COOLDOWN_MS);
+            coolWeeklyBoss(WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS);
             return;
         }
-        // Back off so it doesn't immediately re-lunge on return. Only a fight that
-        // logs damage burns one of the 3 attempts (server-enforced). Return to the
-        // world map (currentSector is untouched) so the hunt continues.
-        coolWeeklyBoss(WEEKLY_BOSS_ROAM_FIGHT_COOLDOWN_MS);
+        // Brief back-off (~45s) so it doesn't instantly re-lunge on return — NOT a
+        // long lockout. The boss stays present in its sector for your remaining
+        // attempts (the hard 3-attempt cap is server-enforced). Only a fight that
+        // logs damage burns an attempt. Return to the world map (currentSector is
+        // untouched) so the hunt continues.
+        coolWeeklyBoss(WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS);
         onLaunchWeeklyBoss?.(roamingBoss.aiId, roamingBoss.bossName, "worldMap");
     }
     function fleeBoss() {
-        coolWeeklyBoss(WANDERER_FLEE_COOLDOWN_MS); // free — no attempt spent
+        coolWeeklyBoss(WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS); // free — no attempt spent; brief re-lunge back-off only
         setBossDialog(null);
     }
     const mercWanderers = useMemo(() => {
@@ -3042,9 +3052,10 @@ export function WorldMap({
                     <button
                         key={sector.id}
                         className={
-                            sector.id === 99
+                            (sector.id === 99
                                 ? "atlas-sector atlas-sector-deaths-gate"
-                                : "atlas-sector atlas-sector-" + biomeForSector(sector.id)
+                                : "atlas-sector atlas-sector-" + biomeForSector(sector.id))
+                            + (sector.id === weeklyBossSector ? " atlas-sector-weekly-boss" : "")
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         onClick={() => triggerTravelPoint(sector.id)}
@@ -3065,6 +3076,12 @@ export function WorldMap({
                                 title="A Wandering Sage waits here"
                             />
                         )}
+                        {sector.id === weeklyBossSector && (
+                            <span
+                                className="atlas-boss-flag"
+                                title={`${roamingBoss?.bossName ?? "Weekly Boss"} is rampaging here — travel in to challenge it`}
+                            >👹</span>
+                        )}
                     </button>
                 ); })}
 
@@ -3073,12 +3090,11 @@ export function WorldMap({
                     so it stays inert/invisible on the default world map. */}
                 {isVillageWarMapEnabled() && <SectorOwnershipOverlay sectorPoints={sectorPoints} />}
 
-                {/* Roaming weekly-boss marker (weeklyBossRoam.v1, default OFF): a
-                    portrait marker on the boss's current sector + telegraphed next
-                    hop + faded trail, riding the same pan/zoom. Click travels there.
-                    Position is derived from weeklyBossRoamState, identical on every
-                    client. Inert until the flag is flipped on. */}
-                {isWeeklyBossRoamEnabled() && <WeeklyBossRoamOverlay boss={roamingBoss} sharedImages={sharedImages} onFocusSector={triggerTravelPoint} />}
+                {/* Roaming weekly boss: the boss's current sector NODE is highlighted
+                    in-place (pulsing ring + 👹 flag, see weeklyBossSector above and
+                    .atlas-sector-weekly-boss in index.css) rather than a floating
+                    portrait marker — per owner feedback that the sector highlight
+                    alone is enough. The tracker screen still shows the hop countdown. */}
 
                 {/* (War Ground beacons were removed from the world map.
                     The Central Hub banner + the explicit Village War
