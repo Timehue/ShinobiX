@@ -3170,10 +3170,11 @@ export function AdminPanel({
                     <section className="summary-box">
                         <p className="hint">
                             The weekly boss is <strong>admin-spawned only</strong>. Pick a Boss AI as the override, then hit
-                            <strong> Spawn Now</strong> to summon it. The boss runs for 24h then auto-distributes rewards
+                            <strong> Spawn Now</strong> to summon it. The boss runs for 72h then auto-distributes rewards
                             (Top 10 → Weekly Boss Core, Top 25 → Dungeon Key, MVP → 2× ryo/XP). Spawning again before
-                            24h overwrites the active boss and wipes its leaderboard. Only AIs marked as <strong>Boss AI</strong>
-                            appear here.
+                            72h overwrites the active boss and wipes its leaderboard. With no override, Spawn Now picks
+                            this week's boss from the built-in roster (Ashen Dragon, Moonshadow Oni, Frostfang Warlord,
+                            Stormveil Beast, Deathsgate Revenant). Boss AIs — built-in or your own — appear here.
                         </p>
                         {(() => {
                             const bossAis = allAdminAis.filter(ai => ai.isBossAi);
@@ -3236,7 +3237,7 @@ export function AdminPanel({
                                                         alert(`Spawn failed: ${data?.error ?? "unknown error"}`);
                                                         return;
                                                     }
-                                                    alert(`Boss spawned: ${data?.boss?.bossName ?? data?.boss?.aiId ?? "(unnamed)"}. 24h timer started.`);
+                                                    alert(`Boss spawned: ${data?.boss?.bossName ?? data?.boss?.aiId ?? "(unnamed)"}. 72h timer started.`);
                                                 } catch (err) {
                                                     alert(`Spawn failed: ${err instanceof Error ? err.message : "network error"}`);
                                                 }

@@ -229,7 +229,23 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
     const maxHp = Math.max(1, Math.round((gp.hp || 1) * hpMult));
     const trait = gp.trait;
     const moveSpeed = clamp(2.8 + speed * 0.018, 2.8, 6.2) / DUEL_TPS;   // deliberate traversal — they MOVE across the map, not teleport
-    const abilities = (gp.jutsus || []).slice(0, 4).map(buildAbility);
+    // Usable abilities: the first 4 jutsus. In PLANTED (casual cinematic) mode, GUARANTEE
+    // the SIGNATURE (authored as the 5th jutsu, so slice(0,4) drops it — that's why pets
+    // never unleashed it / ults were 0%) is among them, by swapping it into the 4th slot,
+    // so pets actually fire their epic move AND the anime signature cut-in plays. Authoritative
+    // paths (plantedMotion=false) keep the shipped first-4 exactly → byte-identical / no shift.
+    let jlist = (gp.jutsus || []).slice(0, 4);
+    if (plantedMotion) {
+        const sigJ = (gp.jutsus || []).find((j) => j.signature);
+        if (sigJ && !jlist.includes(sigJ)) jlist = [...jlist.slice(0, 3), sigJ];
+    }
+    const abilities = jlist.map(buildAbility);
+    // Planted: make the swapped-in signature a RARE, epic unleash (a couple per fight),
+    // NOT a spammed nuke — lengthen its cooldown + opening gate. Deterministic (integer ticks).
+    if (plantedMotion) {
+        const sigAb = abilities.find((a) => a.signature);
+        if (sigAb) { sigAb.cdTicks = Math.max(sigAb.cdTicks, Math.round(DUEL_TPS * 6.5)); sigAb.cdLeft = Math.round(DUEL_TPS * 3.5); }
+    }
     const hasMelee = abilities.some((a) => a.cls === "melee");
     const hasRanged = abilities.some((a) => a.cls === "ranged");
     const tanky = trait === "Guardian" || abilities.some((a) => a.kind === "shield" || a.kind === "barrier" || a.kind === "absorb" || a.kind === "taunt");
