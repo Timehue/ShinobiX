@@ -23,17 +23,23 @@ import { kv } from '../_storage.js';
 // power, honouring the balanced-PvP pillar.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Per-clan shared HP pool, scaled by roster size so small clans can finish.
-export const CB_BASE_POOL = 8000;
-export const CB_POOL_PER_MEMBER = 5000;
+// ── The clan's shared boss ─────────────────────────────────────────────────
+// Every clan faces the SAME boss with its OWN persistent HP bar (= this pool),
+// scaled per-capita so a small clan can still finish. This IS the boss's health;
+// parties chip it down across many assaults over the week.
+export const CB_BASE_POOL = 14000;
+export const CB_POOL_PER_MEMBER = 8000;
 export const CB_MEMBER_CAP = 25;           // pool stops scaling past this roster size
 
-// One assault = a party tower fight against a "chunk" of the boss. The chunk's
-// in-run HP (the clan-boss enemy template's hp, api/towers/_enemy-templates.ts) is
-// sized so a party downs it in ~15–20 rounds; banked damage chips the pool. Keep
-// CB_CHUNK_HP in sync with the CLAN_BOSS_TEMPLATE_HP those templates use.
-export const CB_CHUNK_HP = 5000;
-export const CB_ASSAULTS_PER_MEMBER = 3;
+// ── One assault ────────────────────────────────────────────────────────────
+// A party fights the boss at min(remaining pool, CB_ASSAULT_HP_CAP) HP. The cap is
+// set ABOVE what a 3-party can burn down before the boss wears them out, so an
+// assault normally ends in a WIPE (or a round-out) having only CHIPPED the boss —
+// the boss is truly slain only on the FINAL assault, once the remaining pool drops
+// below what a party can finish. So the whole boss takes MANY attempts, and "every
+// challenge ends in a wipe besides the clear." Banked chip-damage is what matters.
+export const CB_ASSAULT_HP_CAP = 12000;
+export const CB_ASSAULTS_PER_MEMBER = 5;
 export const CB_MAX_PARTY = 3;             // host + up to 2 clanmates
 export const CB_ASSAULT_LOG_CAP = 200;
 
@@ -41,14 +47,18 @@ export const CB_ASSAULT_LOG_CAP = 200;
 // public 1..N tower floors (api/towers/_floor-catalog.ts CLAN_BOSS_FLOORS).
 export const CB_FLOOR_BASE = 9001;
 
-// ── Composite score weights (the anti-cheese formula) ──
-export const CB_KILL_BONUS = 10000;        // flat, for depleting the pool
-export const CB_DMG_WEIGHT = 0.30;         // per point of damage dealt to the pool
-export const CB_BREADTH_WEIGHT = 400;      // per DISTINCT member who assaulted
-export const CB_ROUND_PAR = 120;           // "par" total rounds to kill
-export const CB_SPEED_WEIGHT = 40;         // per round UNDER par (killers only)
-export const CB_CLEAN_WEIGHT = 150;        // per assault with no party death
-export const CB_WIPE_PENALTY = 300;        // per party wipe (discourages throwaway runs)
+// ── Composite score (multi-factor; no single axis can be gamed) ──
+// Wiping is the EXPECTED outcome of chipping a boss you can't one-shot, so it is
+// NOT penalised — progress is measured by damage. Efficiency, for the clans that
+// actually SLAY the boss, blends fewest total rounds AND fastest wall-clock time.
+export const CB_KILL_BONUS = 15000;        // flat — slaying the boss is the goal
+export const CB_DMG_WEIGHT = 0.15;         // per point of damage chipped into the boss
+export const CB_BREADTH_WEIGHT = 500;      // per DISTINCT member who joined an assault
+export const CB_ROUND_PAR = 220;           // "par" total combat rounds to the kill
+export const CB_ROUND_WEIGHT = 20;         // per round UNDER par (slayers only)
+export const CB_TIME_PAR_HOURS = 120;      // "par" wall-clock (5 days) from spawn → kill
+export const CB_TIME_WEIGHT = 45;          // per HOUR under par (slayers only) — the speed race
+export const CB_CLEAN_WEIGHT = 400;        // per flawless clear (no party death) — rewards the finisher
 
 // ── Top-3 clan rewards → clan treasury (tunable). Fate Shards / Bone Charms are
 // premium-ish; this is a NEW weekly faucet for them — flagged for review. ──
@@ -114,6 +124,7 @@ export type ClanBossProgress = {
     clanName: string;
     weekId: string;
     bossId: string;
+    weekStartedAt: number;                 // week spawn time — the clock for time-to-kill
     poolMax: number;
     pool: number;                          // HP remaining
     killedAt?: number;
@@ -136,30 +147,40 @@ export function clanBossDamageDealt(p: ClanBossProgress): number {
     return Math.max(0, p.poolMax - p.pool);
 }
 
+/** Hours from the boss spawning to this clan's kill (0 if not killed). */
+export function clanBossHoursToKill(p: ClanBossProgress): number {
+    if (!p.killedAt) return 0;
+    const start = Number(p.weekStartedAt) || 0;   // 0 is a valid start; a missing clock → no time bonus
+    return Math.max(0, (p.killedAt - start) / 3_600_000);
+}
+
 /**
- * The anti-cheese COMPOSITE score. Six independent factors combine so no single
- * axis (fewest rounds, most damage, one carry party…) can win alone:
- *   + kill bonus         — depleting the pool is the achievement
- *   + damage dealt        — the grind-down axis (and the only one for non-killers)
- *   + participation breadth — distinct members who fought (kills the "3 carries" cheese)
- *   + speed under par     — efficiency, but only among clans that actually killed it
- *   + clean assaults      — no-death runs reward skill
- *   − wipes               — throwaway wipe-runs are penalised
+ * The COMPOSITE score — multiple independent factors so no single axis can be
+ * gamed. Wiping is the EXPECTED result of chipping a boss you can't one-shot, so
+ * it is NOT penalised; progress is measured by damage. The efficiency factors
+ * (rounds + time) only reward the clans that actually SLAY the boss:
+ *   + kill bonus            — slaying the boss is the goal
+ *   + damage chipped         — the grind-down axis (the only one for non-slayers)
+ *   + participation breadth  — distinct members who fought (kills the "3 carries" cheese)
+ *   + rounds under par       — efficiency (slayers only)
+ *   + TIME under par         — fastest wall-clock spawn→kill (slayers only)
+ *   + clean clears           — flawless, no-death clears (the finisher)
  */
 export function clanBossScore(p: ClanBossProgress): number {
     const killed = !!p.killedAt;
     const damage = clanBossDamageDealt(p);
     const distinct = p.participants.length;
-    const cleanAssaults = p.assaults.filter(a => a.clean && !a.wiped).length;
-    const wipes = p.assaults.filter(a => a.wiped).length;
+    const cleanClears = p.assaults.filter(a => a.clean && !a.wiped).length;
 
     let score = 0;
     if (killed) score += CB_KILL_BONUS;
     score += damage * CB_DMG_WEIGHT;
     score += distinct * CB_BREADTH_WEIGHT;
-    if (killed) score += Math.max(0, CB_ROUND_PAR - p.totalRounds) * CB_SPEED_WEIGHT;
-    score += cleanAssaults * CB_CLEAN_WEIGHT;
-    score -= wipes * CB_WIPE_PENALTY;
+    if (killed) {
+        score += Math.max(0, CB_ROUND_PAR - p.totalRounds) * CB_ROUND_WEIGHT;
+        score += Math.max(0, CB_TIME_PAR_HOURS - clanBossHoursToKill(p)) * CB_TIME_WEIGHT;
+    }
+    score += cleanClears * CB_CLEAN_WEIGHT;
     return Math.max(0, Math.round(score));
 }
 
@@ -232,6 +253,7 @@ export function newClanBossProgress(clanName: string, week: ClanBossWeek, member
         clanName,
         weekId: week.weekId,
         bossId: week.bossId,
+        weekStartedAt: week.spawnedAt,
         poolMax,
         pool: poolMax,
         totalRounds: 0,

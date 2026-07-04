@@ -14,9 +14,9 @@ import { writeSession, setTowerInvite } from '../towers/_tower-store.js';
 import { stampTurnClock } from '../towers/_tower-mp.js';
 import { saveAssault } from './_assault.js';
 import {
-    CB_MAX_PARTY, CLAN_BOSS_BY_ID, clanBossAttemptsLeft, clanBossPickId, clanBossProgressKey,
-    clanBossWeekId, clanSlug, loadClanBossProgress, loadClanBossWeek, newClanBossProgress,
-    reserveAttempt, saveClanBossProgress,
+    CB_ASSAULT_HP_CAP, CB_MAX_PARTY, CLAN_BOSS_BY_ID, clanBossAttemptsLeft, clanBossPickId,
+    clanBossProgressKey, clanBossWeekId, clanSlug, loadClanBossProgress, loadClanBossWeek,
+    newClanBossProgress, reserveAttempt, saveClanBossProgress,
 } from './_storage.js';
 
 /*
@@ -97,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (clanBossAttemptsLeft(progress, hostName) <= 0) return { ok: false as const, error: 'You\'ve used all your assaults this week.' };
             const next = reserveAttempt(progress, hostName, partySlugs, now);
             await saveClanBossProgress(next);
-            return { ok: true as const };
+            return { ok: true as const, pool: next.pool };
         }, { failClosed: true });
         if (!reserved.ok) return res.status(400).json({ error: reserved.error });
 
@@ -105,6 +105,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const runId = `cboss-${randomUUID().replace(/-/g, '')}`;
         const seed = randomInt(1, 0x7fffffff);
         const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now });
+        // Override the boss's HP to the SHARED pool (capped per assault) so it's the
+        // persistent clan boss being chipped — not a fresh chunk. buildTowerEncounter
+        // already party-scaled the boss's damage; we only replace its HP. The final
+        // assault (small remainder) becomes the killable finisher.
+        const bossHp = Math.max(1, Math.min(reserved.pool, CB_ASSAULT_HP_CAP));
+        const bossActor = session.actors.find(a => a.id === session.phaseState.bossId);
+        if (bossActor) { bossActor.hp = bossHp; bossActor.maxHp = bossHp; }
         startRound(session);
         runAiUntilHuman(session, floor, makeRng(seed));
         stampTurnClock(session, now);

@@ -7,15 +7,17 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     CB_BASE_POOL, CB_POOL_PER_MEMBER, CB_MEMBER_CAP, CB_KILL_BONUS, CB_ASSAULTS_PER_MEMBER,
-    CB_DMG_WEIGHT, CB_BREADTH_WEIGHT, CB_CLEAN_WEIGHT, CB_WIPE_PENALTY, CLAN_BOSSES,
+    CB_DMG_WEIGHT, CB_BREADTH_WEIGHT, CB_CLEAN_WEIGHT, CLAN_BOSSES,
     clanBossPoolMax, clanBossScore, rankClanBoss, clanBossWeekId, clanBossPickId,
     clanBossDamageDealt, clanBossAttemptsLeft, newClanBossProgress, reserveAttempt, bankAssault,
     type ClanBossProgress, type ClanBossWeek,
 } from './_storage.js';
 
+const HOUR = 3_600_000;
+
 function progress(over: Partial<ClanBossProgress> = {}): ClanBossProgress {
     return {
-        clanName: 'X', weekId: '2026-W27', bossId: 'oni-warlord',
+        clanName: 'X', weekId: '2026-W27', bossId: 'oni-warlord', weekStartedAt: 0,
         poolMax: 40000, pool: 40000, totalRounds: 0, participants: [],
         memberAttempts: {}, assaults: [], updatedAt: 0, ...over,
     };
@@ -59,7 +61,7 @@ describe('clanBossScore — composite, cheese-resistant', () => {
         const slowNoKill = progress({ pool: 5000, totalRounds: 100, participants: ['a'] });
         assert.equal(clanBossScore(fastNoKill), clanBossScore(slowNoKill));
     });
-    it('rewards clean assaults and penalises wipes', () => {
+    it('rewards clean clears; does NOT penalise wipes (they are the normal chip)', () => {
         const base = progress({ pool: 20000, participants: ['a'] });
         const clean = progress({ pool: 20000, participants: ['a'], assaults: [
             { runId: '1', by: 'a', party: ['a'], damage: 20000, rounds: 15, wiped: false, clean: true, at: 1 },
@@ -68,7 +70,16 @@ describe('clanBossScore — composite, cheese-resistant', () => {
             { runId: '1', by: 'a', party: ['a'], damage: 20000, rounds: 15, wiped: true, clean: false, at: 1 },
         ] });
         assert.equal(clanBossScore(clean) - clanBossScore(base), CB_CLEAN_WEIGHT);
-        assert.equal(clanBossScore(base) - clanBossScore(wiped), CB_WIPE_PENALTY);
+        assert.equal(clanBossScore(wiped), clanBossScore(base), 'a wipe is not penalised');
+    });
+    it('rewards a faster wall-clock kill — time-to-slay (slayers only)', () => {
+        const fast = progress({ pool: 0, killedAt: 24 * HOUR, weekStartedAt: 0, participants: ['a'] });
+        const slow = progress({ pool: 0, killedAt: 110 * HOUR, weekStartedAt: 0, participants: ['a'] });
+        assert.ok(clanBossScore(fast) > clanBossScore(slow), 'downing the boss sooner scores higher');
+        // Non-slayers get no time credit however "early" it is.
+        const fastNoKill = progress({ pool: 5000, weekStartedAt: 0, updatedAt: 1 * HOUR, participants: ['a'] });
+        const slowNoKill = progress({ pool: 5000, weekStartedAt: 0, updatedAt: 100 * HOUR, participants: ['a'] });
+        assert.equal(clanBossScore(fastNoKill), clanBossScore(slowNoKill));
     });
     it('never goes negative', () => {
         const allWipes = progress({ pool: 40000, participants: [], assaults: [
