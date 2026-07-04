@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors } from '../_utils.js';
 import { kv } from '../_storage.js';
-import { weekKey } from '../missions/_weekly-board.js';
+import { weekKey, weekIndex, weekEndsAt } from '../missions/_weekly-board.js';
+import { weeklySpireBlessing } from './_modifiers.js';
 import { spireLbKey, type SpireBoardEntry } from './_tower-store.js';
 
 /*
@@ -18,15 +19,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
 
     try {
-        const wk = weekKey(Date.now());
+        const now = Date.now();
+        const wk = weekKey(now);
         const topRaw = Number(req.query.top);
         const limit = Number.isInteger(topRaw) && topRaw > 0 && topRaw <= 100 ? topRaw : 25;
         const list = (await kv.get<SpireBoardEntry[]>(spireLbKey(wk))) ?? [];
         const arr = Array.isArray(list) ? list : [];
+        // This week's Blessing (display) so the lobby can telegraph it — same pure selection the
+        // entry handler seals, so what players see is exactly what a new run gets.
+        const b = weeklySpireBlessing(weekIndex(now));
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({
             weekKey: wk,
             total: arr.length,
+            weekEndsAt: weekEndsAt(now),
+            affix: { id: b.id, name: b.name, blurb: b.blurb, icon: b.icon },
             leaderboard: arr.slice(0, limit).map((e, i) => ({
                 rank: i + 1, name: e.name, tier: e.tier, village: e.village, level: e.level,
             })),

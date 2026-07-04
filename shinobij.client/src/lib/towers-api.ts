@@ -234,15 +234,21 @@ export async function fetchMyRun(playerName: string): Promise<{ runId: string; s
 
 // ─── Endless Spire — weekly leaderboard (best tier cleared this week) ─────────
 export type SpireLeaderboardRow = { rank: number; name: string; tier: number; village?: string; level?: number };
-export type SpireLeaderboard = { weekKey: string; total: number; leaderboard: SpireLeaderboardRow[] };
+export type SpireWeeklyAffix = { id: string; name: string; blurb: string; icon: string };
+export type SpireLeaderboard = { weekKey: string; total: number; weekEndsAt?: number; affix?: SpireWeeklyAffix; leaderboard: SpireLeaderboardRow[] };
 
-/** Public weekly Spire board. Best-effort — a failure just yields an empty board. */
+/** Public weekly Spire board + this week's Blessing. Best-effort — a failure yields an empty board. */
 export async function fetchSpireLeaderboard(top = 25): Promise<SpireLeaderboard> {
     try {
         const res = await fetch(`/api/towers/spire-leaderboard?top=${top}`);
         if (!res.ok) return { weekKey: '', total: 0, leaderboard: [] };
         const data = await res.json().catch(() => ({})) as Partial<SpireLeaderboard>;
-        return { weekKey: data.weekKey ?? '', total: data.total ?? 0, leaderboard: Array.isArray(data.leaderboard) ? data.leaderboard : [] };
+        return {
+            weekKey: data.weekKey ?? '', total: data.total ?? 0,
+            weekEndsAt: typeof data.weekEndsAt === 'number' ? data.weekEndsAt : undefined,
+            affix: data.affix && typeof data.affix === 'object' ? data.affix : undefined,
+            leaderboard: Array.isArray(data.leaderboard) ? data.leaderboard : [],
+        };
     } catch {
         return { weekKey: '', total: 0, leaderboard: [] };
     }

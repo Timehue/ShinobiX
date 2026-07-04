@@ -9,6 +9,7 @@ const _storage_js_1 = require("../_storage.js");
 const _floor_catalog_js_1 = require("./_floor-catalog.js");
 const _spire_catalog_js_1 = require("./_spire-catalog.js");
 const _modifiers_js_1 = require("./_modifiers.js");
+const _weekly_board_js_1 = require("../missions/_weekly-board.js");
 const _seal_js_1 = require("./_seal.js");
 const _encounter_js_1 = require("./_encounter.js");
 const _engine_js_1 = require("./_engine.js");
@@ -105,7 +106,11 @@ async function handler(req, res) {
                 return res.status(403).json({ error: 'The Endless Spire requires a full squad.' });
             }
             spireBossId = (0, _spire_catalog_js_1.spireBossForFloor)(spireTier);
-            ascension = (0, _modifiers_js_1.resolveAscensionModifiers)(spireTier, spireBossId ?? 'sovereign', floor.roundBudget);
+            // Weekly Blessing: a player-favourable affix sealed ONCE at entry from THIS week's index
+            // (handler-side clock; resolveAscensionModifiers stays pure). A run started this week keeps
+            // its blessing across a week rollover, and settle needs no recompute.
+            const blessing = (0, _modifiers_js_1.weeklySpireBlessing)((0, _weekly_board_js_1.weekIndex)(Date.now()));
+            ascension = (0, _modifiers_js_1.resolveAscensionModifiers)(spireTier, spireBossId ?? 'sovereign', floor.roundBudget, blessing.modifier);
         }
         const runId = `tower-${(0, node_crypto_1.randomUUID)().replace(/-/g, '')}`;
         const seed = identity.admin ? 12345 : (0, node_crypto_1.randomInt)(1, 0x7fffffff);
