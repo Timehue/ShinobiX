@@ -49,6 +49,10 @@ export type TowerMap = {
     objectiveTiles: number[];
     /** positional battlefield features (pylons/wards/hazards) — drawn on the board */
     features?: TowerFeature[];
+    /** Endless Spire telegraph: tiles that will burn at the END of the current round from
+     *  ascension hazard keystones (exact deterministic hazards only). Painted as a danger
+     *  overlay so the squad can pre-position; absent for story runs. */
+    nextRoundHazardTiles?: number[];
 };
 
 export type TowerObjectiveState = {

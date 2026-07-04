@@ -3703,6 +3703,8 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     .tower-hex-tile:hover { filter: drop-shadow(0 0 1.4px rgba(0, 0, 0, 0.85)) drop-shadow(0 2px 1px rgba(0, 0, 0, 0.4)) brightness(1.2); }
 /* Persistent ground-effect zone overlay — a gentle breathing pulse so the lasting hazard reads as active. */
 @keyframes towerZonePulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.95; } }
+/* Endless Spire hazard telegraph — a faster, more urgent pulse than a ground zone. */
+@keyframes towerHazardPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
 
 /* Battle Tower fight layout: squad rail | board | enemy+log rail on desktop. */
 .tower-fight-grid {

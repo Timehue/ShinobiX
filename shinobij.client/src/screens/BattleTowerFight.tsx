@@ -83,6 +83,15 @@ const ENEMY_EMOJI: Record<string, string> = {
 };
 const ELEMENT_ICON: Record<string, string> = { Fire: "🔥", Water: "🌊", Earth: "🪨", Wind: "🌪️", Lightning: "⚡" };
 
+// Manifest-chip palette by modifier kind: the Wave-2 keystones (hazard/debuff/healcut) read
+// distinctly from the amber stat chassis (hp/dmg/roundCap/enrageCap → default).
+const MODIFIER_CHIP_COLOR: Record<string, { fg: string; bg: string; border: string }> = {
+    hazard: { fg: "#fca5a5", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.32)" },   // crimson — tile burn
+    debuff: { fg: "#d8b4fe", bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.32)" }, // violet — vulnerability
+    healcut: { fg: "#5eead4", bg: "rgba(20,184,166,0.12)", border: "rgba(20,184,166,0.32)" },// teal — healing throttle
+    default: { fg: "#f0b27e", bg: "rgba(240,161,90,0.12)", border: "rgba(240,161,90,0.28)" },// amber — stat chassis
+};
+
 // Wide top-down battlefield floors, one per biome (swap any file in
 // src/assets/towers/arena-floor-<biome>.webp to re-theme — see the image spec).
 const TOWER_FLOOR: Record<string, string> = {
@@ -481,15 +490,20 @@ export function BattleTowerFight({
                         )}
                     </div>
 
-                    {/* Endless Spire — sealed modifier manifest (why the numbers are bigger this floor) */}
+                    {/* Endless Spire — sealed modifier manifest (why the numbers are bigger this floor).
+                        Wave-2 keystones (hazard/debuff/healcut) are colour-coded apart from the stat
+                        chassis (hp/dmg/round/enrage) so tactical demands read at a glance. */}
                     {Array.isArray(session.modifierStack) && session.modifierStack.length > 0 && (
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-                            {session.modifierStack.map((m, i) => (
-                                <span key={i} title={m.label} style={{
-                                    fontSize: "0.72rem", fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-                                    color: "#f0b27e", background: "rgba(240,161,90,0.12)", border: "1px solid rgba(240,161,90,0.28)", whiteSpace: "nowrap",
-                                }}>{m.label}</span>
-                            ))}
+                            {session.modifierStack.map((m, i) => {
+                                const c = MODIFIER_CHIP_COLOR[m.kind] ?? MODIFIER_CHIP_COLOR.default!;
+                                return (
+                                    <span key={i} title={m.label} style={{
+                                        fontSize: "0.72rem", fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                                        color: c.fg, background: c.bg, border: `1px solid ${c.border}`, whiteSpace: "nowrap",
+                                    }}>{m.label}</span>
+                                );
+                            })}
                         </div>
                     )}
 
@@ -538,6 +552,15 @@ export function BattleTowerFight({
                                     const { left, top } = towerHexPixel(t, w);
                                     return <div key={`burst-${t}`} className="tower-hex-tile" aria-hidden
                                         style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(251,146,60,0.34)", filter: "drop-shadow(0 0 2px rgba(249,115,22,0.95))", zIndex: 3, pointerEvents: "none", animation: "towerZonePulse 1.6s ease-in-out infinite" }} />;
+                                })}
+
+                                {/* Endless Spire hazard telegraph — crimson "this burns at round end" warning so the
+                                    squad can step off before it lands. Exact deterministic hazards only (server omits
+                                    reactive proximity tiles). Absent on story floors. */}
+                                {(session.map.nextRoundHazardTiles ?? []).map(t => {
+                                    const { left, top } = towerHexPixel(t, w);
+                                    return <div key={`haz-${t}`} className="tower-hex-tile" aria-hidden title="Hazard — clears at round end"
+                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(220,38,38,0.32)", filter: "drop-shadow(0 0 3px rgba(239,68,68,0.95))", zIndex: 3, pointerEvents: "none", animation: "towerHazardPulse 1s ease-in-out infinite" }} />;
                                 })}
 
                                 {/* feature markers — one icon at a pylon flower's centre, one per
