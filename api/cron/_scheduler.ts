@@ -66,7 +66,8 @@ async function fire(): Promise<void> {
         console.error('[cron-scheduler] ranked-season rollover threw:', (err as Error).message);
     }
     // Weekly Clan Boss Gauntlet: spawn the week's boss (once) + settle/reward any
-    // ended week. No-op unless ENABLE_CLAN_BOSS=1 — server-gated, default OFF.
+    // ended week. ON by default in testing (server.ts sets ENABLE_CLAN_BOSS unless
+    // DISABLE_CLAN_BOSS=1); no-ops if disabled.
     try {
         const cb = await runClanBossWeekly();
         if (cb.enabled && (cb.spawned || cb.settled.length)) {
