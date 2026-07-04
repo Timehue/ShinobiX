@@ -14025,6 +14025,20 @@ button.combat-jutsu-button,
     border-radius: 12px;
 }
 
+/* Clan building emblems: the generated isometric building art reads best a
+   touch larger and un-cropped, so the whole structure shows in the frame. */
+.town-upgrade-icon.clan-upgrade-emblem {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    background: rgba(250, 204, 21, 0.08);
+}
+
+.town-upgrade-icon.clan-upgrade-emblem img {
+    object-fit: contain;
+    border-radius: 8px;
+}
+
 .town-upgrade-topline strong {
     color: #facc15;
 }

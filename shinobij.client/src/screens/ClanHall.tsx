@@ -26,6 +26,7 @@ import { clanMissionProgress } from "../lib/clan-math";
 import { CLAN_DOCTRINES, doctrineName, type ClanDoctrine } from "../lib/clan-doctrines";
 import { DoctrineCrest } from "../components/DoctrineCrest";
 import { ClanHallTierArt } from "../components/ClanHallTierArt";
+import { ClanUpgradeIcon } from "../components/ClanUpgradeIcon";
 import { fetchMentorView, assignStudent, claimMentor, releaseStudent, MENTOR_MILESTONE_LABEL, type MentorView } from "../lib/clan-mentor";
 import { addClanXp, canManageClan, clanBoostTiers, clanContribTotal, clanHallTier, clanMemberBoostPercent, clanRoleOf, clanUpgradeBonus, clanXpNeeded, cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
 import { clanLore } from "../data/clan-lore";
@@ -760,7 +761,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
                 const canAfford = clanData.treasury.ryo >= cost.ryo && clanData.treasury.warSupply >= cost.warSupply;
                 const isLeader = canManageClan(myRole);
                 return <div key={def.key} className={`town-upgrade-card clan-upgrade-card ${level > 0 ? "active" : ""}`}>
-                    <div className="town-upgrade-topline"><span className="town-upgrade-icon">{def.icon}</span><div><strong>{def.name}</strong><p>Level {level}{maxed ? " · Max" : ` / ${CLAN_UPGRADE_MAX_LEVEL}`}</p></div></div>
+                    <div className="town-upgrade-topline"><ClanUpgradeIcon upgradeKey={def.key} icon={def.icon} /><div><strong>{def.name}</strong><p>Level {level}{maxed ? " · Max" : ` / ${CLAN_UPGRADE_MAX_LEVEL}`}</p></div></div>
                     <div className="town-upgrade-bar"><span style={{ width: `${(level / CLAN_UPGRADE_MAX_LEVEL) * 100}%` }} /></div>
                     <p className="town-upgrade-desc">{def.desc}</p>
                     <p className="town-upgrade-bonus">Current: <strong>{def.effectLabel(level)}</strong></p>
