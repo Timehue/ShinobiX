@@ -3017,15 +3017,16 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div style={{ position: "absolute", inset: 0, background: `linear-gradient(${isEnemy ? 255 : 105}deg, transparent 40%, ${band} 50%, transparent 60%)`, animation: "petCutinBg 1650ms ease-out forwards" }} />
                         <div style={{ position: "absolute", inset: "-25%", background: `repeating-linear-gradient(112deg, transparent 0 16px, ${streak} 16px 21px)`, animation: "petCutinStreak 900ms ease-out forwards" }} />
                         {/* BIG portrait slamming in from the pet's side */}
-                        <div style={{ position: "absolute", top: "50%", [isEnemy ? "right" : "left"]: "3%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
+                        <div style={{ position: "absolute", top: "56%", [isEnemy ? "right" : "left"]: "6%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
                             {portrait
-                                ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "min(48vh,360px)", width: "auto", objectFit: "contain", filter: `drop-shadow(0 0 26px ${glow}) drop-shadow(0 10px 22px #000)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
-                                : <div style={{ width: "min(30vh,220px)", height: "min(30vh,220px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 64px Cinzel, serif", color: "#fff", boxShadow: `0 0 30px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
+                                ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "min(38vh,270px)", width: "auto", maxWidth: "40vw", objectFit: "contain", filter: `drop-shadow(0 0 24px ${glow}) drop-shadow(0 10px 20px #000)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
+                                : <div style={{ width: "min(24vh,180px)", height: "min(24vh,180px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 52px Cinzel, serif", color: "#fff", boxShadow: `0 0 30px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
                         </div>
-                        {/* pet name + HUGE move name on the opposite side */}
-                        <div style={{ position: "absolute", [isEnemy ? "left" : "right"]: "6%", top: "33%", maxWidth: "58%", textAlign: isEnemy ? "left" : "right", animation: "petCutinName 1650ms cubic-bezier(.2,.9,.2,1) forwards" }}>
-                            <div style={{ font: "800 clamp(13px,1.8vw,22px) Cinzel, serif", letterSpacing: "0.2em", textTransform: "uppercase", color: isEnemy ? "#fca5a5" : "#93c5fd", textShadow: "0 2px 8px #000" }}>{cutIn.pet.name}</div>
-                            <div style={{ font: "900 clamp(34px,6.5vw,80px)/0.92 Cinzel, serif", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 34px ${glow}, 0 6px 16px #000`, marginTop: 4 }}>{cutIn.move}!</div>
+                        {/* pet name + big move name — CENTERED in a safe zone so it never runs under
+                            the side panels / off-frame, and wraps when the move name is long. */}
+                        <div style={{ position: "absolute", left: 0, right: 0, top: "13%", padding: "0 16%", textAlign: "center", animation: "petCutinName 1650ms cubic-bezier(.2,.9,.2,1) forwards" }}>
+                            <div style={{ font: "800 clamp(12px,1.6vw,20px) Cinzel, serif", letterSpacing: "0.22em", textTransform: "uppercase", color: isEnemy ? "#fca5a5" : "#93c5fd", textShadow: "0 2px 8px #000" }}>{cutIn.pet.name}</div>
+                            <div style={{ font: "900 clamp(26px,4.6vw,56px)/0.95 Cinzel, serif", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 32px ${glow}, 0 6px 16px #000`, marginTop: 6, overflowWrap: "break-word" }}>{cutIn.move}!</div>
                         </div>
                     </div>
                 );
