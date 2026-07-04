@@ -141,3 +141,48 @@ console.log("   strongest:");
 for (const e of ranked.slice(0, 4)) console.log(`     ${fmt(e)}`);
 console.log("   weakest:");
 for (const e of ranked.slice(-4)) console.log(`     ${fmt(e)}`);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLANTED PASS — the casual "cinematic" path (plantedMotion=true). The report
+// above runs the AUTHORITATIVE engine (plantedMotion=false) that ranked/ladder/
+// sector use; it CANNOT see the casual fight-length/fairness the player watches
+// in the coliseum, because planting changes spawn distance, HP scale (PLANTED_TTK_HP),
+// the 45s cap (PLANTED_CAP_TICKS), and the Tier-2 cadence (feint / phase pacing /
+// momentum knockback). This block re-runs the same roster PLANTED so we can gate
+// casual on the design target: median in 25–45s, mirror 42–58%, ults a real %.
+// plantedMotion is the 10th positional arg — undefined keeps every earlier param
+// at its shipped default (incl. accuracyEnabled = petAccuracyEnabled()).
+const PLANTED_CAP_TICKS = DUEL_TPS * 45; // planted casual cap (raised from 30s)
+// Planted fights run to ~45s (vs the 30s authoritative cap), so each duel is ~2× the ticks.
+// A full 8-seed round-robin here would roughly triple total harness time; the planted AGGREGATE
+// (median length, in-window %, mirror fairness) is already stable at 4 seeds over 50×49 pairs.
+const PLANTED_SEEDS = SEEDS.slice(0, 4);
+const runPlanted = (pa: Pet, pb: Pet, seed: number) =>
+    runPetDuel(pa, pb, seed, undefined, undefined, undefined, undefined, undefined, undefined, true);
+
+const pMirror = fresh();
+for (const p of roster) for (const seed of PLANTED_SEEDS) add(pMirror, wOf(runPlanted(p, p, seed).result));
+
+const pPlayerSide = fresh();
+let pMatches = 0, pCapHits = 0, pUltMatches = 0, pInWindow = 0, pKo = 0;
+const pTicksAll: number[] = [];
+for (const pa of roster) for (const pb of roster) {
+    if (pa.id === pb.id) continue;
+    for (const seed of PLANTED_SEEDS) {
+        const r = runPlanted(pa, pb, seed);
+        add(pPlayerSide, wOf(r.result));
+        pMatches++; pTicksAll.push(r.ticks);
+        if (r.ticks >= PLANTED_CAP_TICKS) pCapHits++;
+        if (r.result !== "draw") pKo++;
+        if (r.events.some((e) => e.type === "ultimate")) pUltMatches++;
+        const s = r.ticks / DUEL_TPS;
+        if (s >= 25 && s <= 45) pInWindow++;
+    }
+}
+
+console.log("\n════════ PLANTED (casual cinematic path — plantedMotion=true) ════════");
+console.log(`   mirror player win:  ${pct(pMirror).toFixed(1)}%   (want 42–58%, ${pMirror.n} matches)`);
+console.log(`   round-robin player win:  ${pct(pPlayerSide).toFixed(1)}%   (spawn bias check)`);
+console.log(`   length — avg ${sec(pTicksAll.reduce((s, x) => s + x, 0) / Math.max(1, pMatches))}s   median ${sec(median(pTicksAll))}s`);
+console.log(`   in 25–45s window: ${((pInWindow / Math.max(1, pMatches)) * 100).toFixed(1)}%   cap(45s) hits: ${((pCapHits / Math.max(1, pMatches)) * 100).toFixed(1)}%`);
+console.log(`   decisive (KO, not draw): ${((pKo / Math.max(1, pMatches)) * 100).toFixed(1)}%   ults: ${((pUltMatches / Math.max(1, pMatches)) * 100).toFixed(1)}%`);
