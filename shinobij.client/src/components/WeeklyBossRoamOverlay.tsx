@@ -12,6 +12,9 @@ export type RoamingBoss = {
     expiresAt?: number;
     aiId: string;
     bossName?: string;
+    // Per-player attempts used this spawn (from the server state) — the in-sector
+    // encounter (Phase 3) reads this to stop hunting once the 3-attempt cap is hit.
+    attemptsByPlayer?: Record<string, number>;
 };
 
 /**

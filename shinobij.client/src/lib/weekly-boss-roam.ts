@@ -32,6 +32,16 @@ export function isWeeklyBossRoamEnabled(): boolean {
     try { return window.localStorage?.getItem("weeklyBossRoam.v1") === "on"; } catch { return false; }
 }
 
+// Per-player back-off after a roaming-boss encounter, so it doesn't immediately
+// re-lunge when you re-enter its sector. Stored in `character.wandererCooldowns`
+// under this key (reuses that self-pruning map; keyed by weekKey so it resets
+// each spawn). This is UX pacing only — the hard 3-attempt cap is enforced
+// server-side by /api/weekly-boss.
+export function weeklyBossRoamCooldownId(weekKey: string): string {
+    return `weeklyboss-${weekKey}`;
+}
+export const WEEKLY_BOSS_ROAM_FIGHT_COOLDOWN_MS = 35 * 60 * 1000; // ~35 min after a fight
+
 // ── Tuning knobs (see plan; safe to change without touching callers) ──────────
 
 // ~13 min per sector hop. Long enough to travel and intercept the boss; short
