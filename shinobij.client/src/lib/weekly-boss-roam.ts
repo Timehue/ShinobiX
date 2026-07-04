@@ -24,6 +24,14 @@
 
 import { SECTOR_POINTS } from "../data/sector-points";
 
+// Opt-IN flag (default OFF), so the whole roaming layer ships inert until we
+// flip it — the inverse of wanderers.v1 (which defaults on). Turn on per-device
+// with localStorage `weeklyBossRoam.v1 = "on"`.
+export function isWeeklyBossRoamEnabled(): boolean {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage?.getItem("weeklyBossRoam.v1") === "on"; } catch { return false; }
+}
+
 // ── Tuning knobs (see plan; safe to change without touching callers) ──────────
 
 // ~13 min per sector hop. Long enough to travel and intercept the boss; short
