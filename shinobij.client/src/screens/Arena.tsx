@@ -573,7 +573,13 @@ export function Arena({
     // (a live opponentCharacter is gated out by isStandardPve). See
     // lib/pve-difficulty.ts.
     const isStandardPve = !opponentCharacter && !endlessBattleActive && !rankedBattleActive;
-    const enemyHpDifficultyFactor = isStandardPve ? pveDifficultyHpMultiplier(opponentLevel) : 1;
+    // The weekly boss uses a sentinel HP (99,999,999) as an unkillable damage-race
+    // meter and reports damage as (bossInitialHp - enemyHp), where bossInitialHp is
+    // the RAW sentinel. It must NOT get the PvE band HP multiplier: scaling enemyHp
+    // (but not bossInitialHp) would start enemyHp ~8M below bossInitialHp and inflate
+    // every damage reading by that fixed offset. Keep the boss at its full sentinel HP.
+    const isWeeklyBossFight = pendingStoryBattle?.kind === "weeklyBoss";
+    const enemyHpDifficultyFactor = (isStandardPve && !isWeeklyBossFight) ? pveDifficultyHpMultiplier(opponentLevel) : 1;
     const enemyMaxHp = Math.max(1, Math.floor((opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel)) * enemyHpDifficultyFactor));
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
     const enemyMaxStamina = opponentCharacter?.maxStamina ?? pendingAiProfile?.stamina ?? maxStaminaForLevel(opponentLevel);
