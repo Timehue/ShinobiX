@@ -513,8 +513,10 @@ function writeBackFighter(a, f) {
     a.stamina = Math.max(0, Math.floor(f.stamina));
     a.shield = Math.max(0, Math.floor(f.shield));
     a.statuses = f.statuses;
-    // pos is intentionally NOT written back: Push/Pull/Barrier in applyJutsu use the
-    // PvP grid, and the tower owns positioning — so those displacement tags are inert.
+    // pos is intentionally NOT written back: applyJutsu's Push/Pull/Barrier operate on the PvP
+    // grid, whose coordinates are meaningless on the tower board. Push/Pull are re-applied on the
+    // TOWER grid by applyDisplacement (called from resolveHit); Barrier tile-blocking is not yet
+    // ported (tracked separately).
 }
 /** Resolve one jutsu/weapon/attack from `actor` onto `target` (target===actor for a
  *  self-cast buff/heal) through the PvP resolver, with the tower env multiplier folded in. */
@@ -635,6 +637,41 @@ function applyRoundGroundEffects(session) {
         applyZoneToUnits(session, effect);
     session.groundEffects = (0, move_js_1.tickGroundEffects)(session.groundEffects);
 }
+// PvP-parity displacement: a Push/Pull-tagged jutsu shoves the struck target across the tower hex
+// grid — Push AWAY from the attacker, Pull TOWARD it, by `jutsu.range` tiles (mirrors api/pvp/
+// move.ts:812-813). The PvP-grid pos in applyJutsu's result is meaningless on the tower board (a
+// different grid), so writeBackFighter drops it; THIS re-derives the move on the tower grid with
+// the tower's own neighbour/distance/blocked helpers. Deterministic (first legal neighbour in the
+// fixed towerNeighbors order, like PvP's away[0]/toward[0]); gated on Debuff Prevent like PvP;
+// never displaces on a self-cast. Only the built-in bosses lack Push/Pull — bloodline/creator
+// jutsu carry it, so this brings tower displacement to parity with PvP/PvE.
+function applyDisplacement(session, attacker, target, jutsu) {
+    if (attacker.id === target.id)
+        return;
+    const tags = Array.isArray(jutsu.tags) ? jutsu.tags : [];
+    const isPush = tags.some(t => (0, _tags_js_1.canonicalTagName)(String(t?.name ?? '')) === 'Push');
+    const isPull = tags.some(t => (0, _tags_js_1.canonicalTagName)(String(t?.name ?? '')) === 'Pull');
+    if (!isPush && !isPull)
+        return;
+    if (hasActiveStatus(target, 'Debuff Prevent', session.round))
+        return; // PvP gates displacement on Debuff Prevent
+    const w = session.map.width, h = session.map.height;
+    const dist = Math.max(1, Math.floor(Number(jutsu.range) || 1));
+    const distTo = (t) => (0, _aoe_js_1.hexDistance)(t, attacker.pos, w);
+    let pos = target.pos;
+    for (let step = 0; step < dist; step++) {
+        const here = distTo(pos);
+        const next = towerNeighbors(pos, w, h).find(t => t !== attacker.pos && !isTileBlocked(session, t, target.id) &&
+            (isPush ? distTo(t) > here : distTo(t) < here));
+        if (next === undefined)
+            break; // wall / edge / occupied — can't move further
+        pos = next;
+    }
+    if (pos !== target.pos) {
+        target.pos = pos;
+        session.log.push(`${isPush ? 'Push' : 'Pull'}: ${target.name} is ${isPush ? 'pushed' : 'pulled'} ${dist} tile${dist !== 1 ? 's' : ''}.`);
+    }
+}
 // Shared resolution for attack / jutsu / weapon (and self-cast jutsu). Folds the
 // positional tower multipliers into applyJutsu's wMult (terrain handled by its biome
 // arg), then deducts AP/actions and advances boss phases + the win-check. Resource
@@ -665,6 +702,10 @@ function resolveHit(session, floor, actor, target, jutsu, cost) {
         if (caught.length)
             session.log.push(`The blast also catches ${caught.join(', ')}.`);
     }
+    // Push/Pull displacement resolves AFTER the hit + splash (so the blast still centred on the
+    // struck tile) — moves the primary target on the tower grid to parity with PvP.
+    if (!selfCast)
+        applyDisplacement(session, actor, target, jutsu);
     session.activeAp -= cost;
     session.actionsThisTurn += 1;
     tickBossPhases(session);
