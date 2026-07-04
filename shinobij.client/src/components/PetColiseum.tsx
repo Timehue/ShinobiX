@@ -2471,7 +2471,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         // anime freeze-frame CUT-IN (throttled so it stays special); other named
                         // abilities show the smaller banner. (Signatures also cut in via 'ultimate'.)
                         const hero = heroMoveById[e.actorId];
-                        if (e.move && !isSig && hero && e.move === hero && now - lastHeroCut.current > 6) {
+                        if (e.move && !isSig && hero && e.move === hero && now - lastHeroCut.current > 9) {
                             lastHeroCut.current = now; lastMoveCall.current = now;
                             hitStop.current = Math.max(hitStop.current, 0.5);   // FREEZE-FRAME the impact
                             savor(0.2, 0.7); shake.current = Math.max(shake.current, 1.6);
@@ -2555,7 +2555,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         }
                     }
                     if (e.type === "ultimate") {
-                        if (now - lastHeroCut.current > 6) {
+                        if (now - lastHeroCut.current > 9) {
                             // THROTTLED so back-to-back unleashes don't stack cut-ins — only the
                             // spaced-out ones get the full anime freeze-frame + portrait treatment.
                             lastHeroCut.current = now;
@@ -2574,7 +2574,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         }
                     } else if (e.type === "cast" && e.move && now - lastMoveCall.current > 0.4) {
                         const heroC = heroMoveById[e.actorId];
-                        if (heroC && e.move === heroC && now - lastHeroCut.current > 6) {
+                        if (heroC && e.move === heroC && now - lastHeroCut.current > 9) {
                             // A ranged / support HERO move → the anime cut-in freeze-frame.
                             lastHeroCut.current = now; lastMoveCall.current = now;
                             hitStop.current = Math.max(hitStop.current, 0.45); savor(0.2, 0.7);
