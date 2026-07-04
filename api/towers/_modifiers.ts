@@ -97,6 +97,29 @@ const SUDDEN_DEATH_TIER = 17;     // Sudden Death — collapsing-floor finale (W
 const DUAL_AUGMENT_TIER = 18;     // Cataclysm — keystone synergy (Wave 3)
 const HAZARD_ESCALATING_TIER = 19;// Rising Inferno — a central blaze whose bite grows each round
 
+// ── Weekly Blessing — a rotating, player-FAVOURABLE affix layered on every floor this
+//    reset-week. Deliberately all boons (never punishes) → low friction; it just varies HOW the
+//    week helps (more time vs. softer foes), giving a fresh reason to push your weekly best.
+//    Sealed at ENTRY (the handler computes the week index once and passes .modifier into
+//    resolveAscensionModifiers → folded into dmgMult/roundCap + shown as a chip). PURE + clock-free
+//    here, so a run started mid-week keeps its blessing across a week rollover, and settle needs no
+//    recompute. The engine's `Math.max(1, dmgMult)` floor means a dmg boon can't make foes weaker
+//    than base at the very lowest tiers — fine, those floors are trivial anyway.
+export type SpireWeeklyBlessing = { id: string; name: string; blurb: string; icon: string; modifier: TowerModifier };
+export const SPIRE_WEEKLY_BLESSINGS: readonly SpireWeeklyBlessing[] = [
+    { id: 'vigor',    name: 'Ancestral Vigor',      icon: '⏳', blurb: '+3 rounds on every floor — more time to out-think the boss.',        modifier: { kind: 'roundCap', value: 3,     label: '✨ Blessing — Ancestral Vigor (+3 rounds)' } },
+    { id: 'falter',   name: 'Faltering Foes',       icon: '🛡️', blurb: 'Enemies deal 12% less damage this week.',                            modifier: { kind: 'dmg',      value: -0.12, label: '✨ Blessing — Faltering Foes (foes −12% damage)' } },
+    { id: 'trial',    name: 'Extended Trial',       icon: '🕰️', blurb: '+4 rounds on every floor — a patient week to push deep.',           modifier: { kind: 'roundCap', value: 4,     label: '✨ Blessing — Extended Trial (+4 rounds)' } },
+    { id: 'waning',   name: 'Waning Malice',        icon: '🌙', blurb: 'Enemies deal 8% less damage this week.',                             modifier: { kind: 'dmg',      value: -0.08, label: '✨ Blessing — Waning Malice (foes −8% damage)' } },
+    { id: 'tailwind', name: "Climber's Tailwind",   icon: '🍃', blurb: 'Enemies deal 15% less damage — a gentle week for new climbers.',    modifier: { kind: 'dmg',      value: -0.15, label: "✨ Blessing — Climber's Tailwind (foes −15% damage)" } },
+];
+/** PURE. The Weekly Blessing for a reset-week index (deterministic; clock-free). */
+export function weeklySpireBlessing(weekIndex: number): SpireWeeklyBlessing {
+    const n = SPIRE_WEEKLY_BLESSINGS.length;
+    const i = ((Math.floor(Number(weekIndex) || 0) % n) + n) % n;
+    return SPIRE_WEEKLY_BLESSINGS[i]!;
+}
+
 function clampTier(tier: number): number {
     return Math.max(1, Math.min(SPIRE_MAX_TIER, Math.floor(Number(tier) || 1)));
 }
