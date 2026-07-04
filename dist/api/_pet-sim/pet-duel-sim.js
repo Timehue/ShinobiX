@@ -8,7 +8,9 @@ const pet_arena_walkmask_js_1 = require("./pet-arena-walkmask.js");
 const petAccuracyEnabled = () => false; // server: accuracy is passed in explicitly
 const pet_config_js_1 = require("./pet-config.js");
 exports.DUEL_TPS = 30; // sim ticks per second
-const MAX_TICKS = exports.DUEL_TPS * 30; // 30s hard cap
+const MAX_TICKS = exports.DUEL_TPS * 30; // 30s hard cap (authoritative). Planted uses PLANTED_CAP_TICKS.
+const PLANTED_CAP_TICKS = exports.DUEL_TPS * 45; // casual (planted) fights may run up to ~45s
+const PLANTED_TTK_HP = 2.2; // casual HP scale → longer, meatier fights (target ~25-45s). Tunable.
 const Q = 256; // state quantization (1/256 unit)
 const quant = (n) => Math.round(n * Q) / Q;
 const clamp = (n, lo, hi) => (n < lo ? lo : n > hi ? hi : n);
@@ -120,7 +122,9 @@ function buildFighter(pet, team, slot, x, y, atkMult = 1, hpMult = 1, reviveOnce
     const gp = applyItems ? (0, pet_config_js_1.applyPetPvpGear)(pet) : pet;
     const speed = Math.max(0, gp.speed || 0);
     // hpMult applies the PvE-only Toughened Hide mastery; enemies always pass 1.
-    const maxHp = Math.max(1, Math.round((gp.hp || 1) * hpMult));
+    // Planted (casual): scale HP up so fights last longer (target ~25-45s). Symmetric →
+    // no relative-balance shift. Authoritative (plantedMotion=false) keeps the shipped HP.
+    const maxHp = Math.max(1, Math.round((gp.hp || 1) * hpMult * (plantedMotion ? PLANTED_TTK_HP : 1)));
     const trait = gp.trait;
     const moveSpeed = clamp(2.8 + speed * 0.018, 2.8, 6.2) / exports.DUEL_TPS; // deliberate traversal — they MOVE across the map, not teleport
     // Usable abilities: the first 4 jutsus. In PLANTED (casual cinematic) mode, GUARANTEE
@@ -140,8 +144,8 @@ function buildFighter(pet, team, slot, x, y, atkMult = 1, hpMult = 1, reviveOnce
     if (plantedMotion) {
         const sigAb = abilities.find((a) => a.signature);
         if (sigAb) {
-            sigAb.cdTicks = Math.max(sigAb.cdTicks, Math.round(exports.DUEL_TPS * 6.5));
-            sigAb.cdLeft = Math.round(exports.DUEL_TPS * 3.5);
+            sigAb.cdTicks = Math.max(sigAb.cdTicks, Math.round(exports.DUEL_TPS * 9));
+            sigAb.cdLeft = Math.round(exports.DUEL_TPS * 4.5);
         }
     }
     const hasMelee = abilities.some((a) => a.cls === "melee");
@@ -1054,7 +1058,8 @@ function simulate(fighters, seed, accuracyEnabled) {
     // flag, no rng). Authoritative paths (planted=false) keep the shipped fixed order
     // → byte-identical, so parity + ranked/sector/ladder outcomes are untouched.
     const planted = fighters.length > 0 && fighters[0].plantedMotion;
-    for (let t = 0; t < MAX_TICKS; t++) {
+    const capTicks = planted ? PLANTED_CAP_TICKS : MAX_TICKS; // casual runs to ~45s; authoritative keeps 30s (byte-identical)
+    for (let t = 0; t < capTicks; t++) {
         ticks = t + 1;
         if (planted && (t & 1) === 1) {
             for (let i = fighters.length - 1; i >= 0; i--)
