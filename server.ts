@@ -124,6 +124,9 @@ import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.j
 import clanUpgradePurchaseHandler    from './api/clan/upgrade/purchase.js';
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
 import clanMissionClaimHandler       from './api/clan/mission/claim.js';
+// Clan — text chat (own capped KV key; membership-gated; cheap since-cursor polling)
+import clanChatGetHandler            from './api/clan/chat/get.js';
+import clanChatSendHandler           from './api/clan/chat/send.js';
 // Clan — weekly Clan Boss Gauntlet (server-wide co-op competition, flag-gated)
 import clanBossGetHandler            from './api/clan-boss/get.js';
 import clanBossAssaultStartHandler   from './api/clan-boss/assault-start.js';
@@ -737,6 +740,10 @@ route('/clan/upgrade/purchase', clanUpgradePurchaseHandler);
 // ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
 // GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
 route('/clan/mission/claim', clanMissionClaimHandler);
+
+// ─── Clan chat: membership-gated text chat (GET since-cursor, POST send) ────────
+route('/clan/chat/get',  clanChatGetHandler);
+route('/clan/chat/send', clanChatSendHandler);
 
 // ─── Clan Boss Gauntlet: weekly server-wide co-op competition (404 unless ENABLE_CLAN_BOSS=1) ─
 // get returns the week's boss + clan pool + standings; assault-start mints a co-op
