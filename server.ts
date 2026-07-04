@@ -240,6 +240,10 @@ if (process.env.SENTRY_DSN) {
 // to turn the entire system back off without code changes.
 if (process.env.DISABLE_VILLAGE_WAR !== '1') process.env.ENABLE_VILLAGE_WAR = '1';
 
+// Weekly Clan Boss Gauntlet — ON by default in the testing phase (every clan-boss
+// handler + the cron gate on ENABLE_CLAN_BOSS==='1'). Kill-switch: DISABLE_CLAN_BOSS=1.
+if (process.env.DISABLE_CLAN_BOSS !== '1') process.env.ENABLE_CLAN_BOSS = '1';
+
 const app = express();
 
 // JSON body parsing. The vast majority of routes carry tiny JSON (polls, moves,

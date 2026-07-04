@@ -75,7 +75,8 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
         }
 
         await kv.set(clanBossArchiveKey(week.weekId), {
-            weekId: week.weekId, bossId: week.bossId, endedAt: now, standings: ranked.slice(0, 10),
+            // Keep every clan's placement (small server) so each can see its own result.
+            weekId: week.weekId, bossId: week.bossId, endedAt: now, standings: ranked.slice(0, 50),
         }, { ex: ARCHIVE_TTL_SEC });
 
         const winner = ranked.find(r => r.rank === 1 && r.killed) ?? ranked[0];

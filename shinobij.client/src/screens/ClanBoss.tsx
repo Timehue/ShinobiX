@@ -9,7 +9,8 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import type { Character, BattleHistoryEntry } from "../types/character";
-import type { TowerHostLoadout, TowerSession } from "../lib/towers-api";
+import { fetchMyRun, type TowerHostLoadout, type TowerSession } from "../lib/towers-api";
+import { visiblePoll } from "../lib/poll";
 import { fetchClanBoss, settleClanBossAssault, startClanBossAssault, type ClanBossView } from "../lib/clan-boss-api";
 import { BattleTowerFight } from "./BattleTowerFight";
 
@@ -22,12 +23,27 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
 }) {
     const [view, setView] = useState<ClanBossView | null>(null);
     const [fight, setFight] = useState<{ runId: string; session: TowerSession } | null>(null);
+    const [pendingRun, setPendingRun] = useState<{ runId: string; session: TowerSession } | null>(null);
     const [party, setParty] = useState<string[]>([]);
     const [busy, setBusy] = useState(false);
     const [flash, setFlash] = useState("");
 
     const load = useCallback(async () => { setView(await fetchClanBoss(character.name)); }, [character.name]);
     useEffect(() => { void load(); }, [load]);
+
+    // Co-op queue: poll for an assault a clanmate has invited us into (clan-boss runs
+    // use the `cboss-` runId prefix) so we can JOIN and play our own turns. Offline
+    // invitees still fight — their sealed fighter auto-acts via the AFK auto-pass.
+    useEffect(() => {
+        if (fight) return;
+        let alive = true;
+        const check = () => fetchMyRun(character.name)
+            .then(r => { if (alive) setPendingRun(r && r.runId.startsWith("cboss-") ? r : null); })
+            .catch(() => {});
+        check();
+        const stop = visiblePoll(check, 4000);
+        return () => { alive = false; stop(); };
+    }, [character.name, fight]);
 
     async function assault() {
         if (busy) return;
@@ -51,7 +67,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
                 onRecordBattle={onRecordBattle}
                 settleFn={settleClanBossAssault}
                 settleOnAnyDone
-                onExit={() => { setFight(null); setParty([]); void load(); }}
+                onExit={() => { setFight(null); setParty([]); setFlash("⚔ Assault resolved — your clan's boss pool has been updated below."); void load(); }}
             />
         );
     }
@@ -85,6 +101,15 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             </div>
 
             {flash && <p className="clan-raid-flash">{flash}</p>}
+
+            {pendingRun && (
+                <button
+                    onClick={() => { const p = pendingRun; setPendingRun(null); setFight(p); }}
+                    style={{ marginTop: 8, width: "100%", padding: "0.7rem", borderRadius: 8, background: "linear-gradient(#7f1d1d,#450a0a)", border: "1px solid #f87171", color: "#fecaca", fontWeight: 700, cursor: "pointer" }}
+                >
+                    ⚔ A clanmate is assaulting the boss — Join the fight!
+                </button>
+            )}
 
             <div className="menu" style={{ marginTop: 8 }}>
                 {!dead && (
@@ -123,6 +148,12 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             <p className="hint" style={{ marginTop: 10, fontSize: "0.78rem" }}>
                 Your clan has dealt <strong>{mc.damageDealt.toLocaleString()}</strong> damage with <strong>{mc.participants}</strong> member{mc.participants === 1 ? "" : "s"} fighting. Score blends the kill, damage, how many members join in, speed, and clean runs — the top 3 clans earn treasury rewards when the week ends.
             </p>
+
+            {view.lastWeek && (
+                <p className="hint" style={{ marginTop: 10, fontSize: "0.78rem", color: "#f5c451" }}>
+                    🏆 Last week your clan finished <strong>#{view.lastWeek.rank}</strong>{view.lastWeek.rank <= 3 ? " — top 3! Treasury reward earned." : view.lastWeek.killed ? " — boss slain, participation reward earned." : "."}
+                </p>
+            )}
 
             <h4 style={{ margin: "14px 0 6px" }}>Clan Standings</h4>
             {(!view.standings || view.standings.length === 0) ? (
