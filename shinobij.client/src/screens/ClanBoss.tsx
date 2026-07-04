@@ -13,6 +13,18 @@ import { fetchMyRun, type TowerHostLoadout, type TowerSession } from "../lib/tow
 import { visiblePoll } from "../lib/poll";
 import { fetchClanBoss, settleClanBossAssault, startClanBossAssault, type ClanBossView } from "../lib/clan-boss-api";
 import { BattleTowerFight } from "./BattleTowerFight";
+import oniPortrait from "../assets/clan-boss/clan-boss-oni.webp";
+import leviathanPortrait from "../assets/clan-boss/clan-boss-leviathan.webp";
+import kagePortrait from "../assets/clan-boss/clan-boss-kage.webp";
+import golemPortrait from "../assets/clan-boss/clan-boss-golem.webp";
+
+// Generated boss portraits (gpt-image-1), keyed by CLAN_BOSSES id.
+const BOSS_PORTRAITS: Record<string, string> = {
+    "oni-warlord": oniPortrait,
+    "abyss-leviathan": leviathanPortrait,
+    "fallen-kage": kagePortrait,
+    "stone-golem": golemPortrait,
+};
 
 export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRecordBattle }: {
     character: Character;
@@ -78,6 +90,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
 
     const mc = view.myClan;
     const boss = view.boss;
+    const portrait = boss ? BOSS_PORTRAITS[boss.id] : undefined;
     const hpPct = Math.max(0, Math.min(100, (mc.pool / mc.poolMax) * 100));
     const dead = mc.killed;
     const daysLeft = view.endsAt ? Math.max(0, Math.ceil((view.endsAt - Date.now()) / 86400000)) : 0;
@@ -85,7 +98,9 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
     return (
         <div className="summary-box clan-raid">
             <div className="clan-raid-boss">
-                <span className="clan-raid-boss-icon">{boss?.icon ?? "👹"}</span>
+                {portrait
+                    ? <img className="clan-boss-portrait" src={portrait} alt={boss?.name ?? "Clan boss"} />
+                    : <span className="clan-raid-boss-icon">{boss?.icon ?? "👹"}</span>}
                 <div>
                     <h3 style={{ margin: 0 }}>{boss?.name ?? "Weekly Clan Boss"}</h3>
                     <p className="hint" style={{ margin: "3px 0 0" }}>{boss?.flavor}</p>
