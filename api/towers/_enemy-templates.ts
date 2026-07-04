@@ -72,6 +72,24 @@ const TEMPLATES: Record<string, EnemyTemplate> = {
         name: 'Spire Sovereign', specialty: 'Ninjutsu', level: 80, hp: 6200, visual: 'sovereign', boss: true,
         stats: { ninjutsuOffense: 1500, ninjutsuDefense: 1150, willpower: 550, speed: 350 },
     },
+    // ── Clan Boss chunks (api/clan-boss) — a party-of-3 "chunk" boss (~5k HP) whose
+    // banked damage chips the clan's weekly pool. Reuse the existing boss sprites.
+    'clan-boss-oni': {
+        name: 'The Oni Warlord', specialty: 'Taijutsu', level: 80, hp: 5000, visual: 'ravager', boss: true,
+        stats: { taijutsuOffense: 1350, taijutsuDefense: 1050, strength: 520, speed: 280 },
+    },
+    'clan-boss-leviathan': {
+        name: 'Abyssal Leviathan', specialty: 'Ninjutsu', level: 80, hp: 5000, visual: 'sovereign', boss: true,
+        stats: { ninjutsuOffense: 1400, ninjutsuDefense: 1050, willpower: 500, speed: 300 },
+    },
+    'clan-boss-kage': {
+        name: 'The Fallen Kage', specialty: 'Genjutsu', level: 80, hp: 5000, visual: 'revenant', boss: true,
+        stats: { genjutsuOffense: 1350, genjutsuDefense: 1100, willpower: 520, intelligence: 360 },
+    },
+    'clan-boss-golem': {
+        name: 'Ancient Stone Golem', specialty: 'Taijutsu', level: 80, hp: 5000, visual: 'warden', boss: true,
+        stats: { taijutsuOffense: 1200, taijutsuDefense: 1300, strength: 560, speed: 200 },
+    },
     'npc-genin': {
         name: 'Allied Genin', specialty: 'Taijutsu', level: 40, hp: 600, visual: 'genin',
         stats: { taijutsuOffense: 350, taijutsuDefense: 350 },

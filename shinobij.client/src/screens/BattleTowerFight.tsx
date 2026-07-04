@@ -107,6 +107,8 @@ export function BattleTowerFight({
     initialSession,
     onExit,
     onRecordBattle,
+    settleFn,
+    settleOnAnyDone,
 }: {
     character: Character;
     sharedImages?: Record<string, string>;
@@ -115,6 +117,13 @@ export function BattleTowerFight({
     initialSession: TowerSession;
     onExit: () => void;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
+    // Optional settle override — the Clan Boss reuses this whole fight screen but
+    // banks damage into its weekly pool (api/clan-boss/assault-settle) instead of
+    // paying tower rewards. When set, the tower rewards panel is skipped.
+    settleFn?: (runId: string, playerName: string) => Promise<unknown>;
+    // Clan-boss assaults settle on ANY resolution (a timeout/wipe still banks the
+    // partial damage), not only a squad win.
+    settleOnAnyDone?: boolean;
 }) {
     const [session, setSession] = useState<TowerSession>(initialSession);
     const [mode, setMode] = useState<Mode>("idle");
@@ -195,13 +204,17 @@ export function BattleTowerFight({
         return () => { alive = false; clearInterval(id); };
     }, [session.status, myTurn, runId, me]);
 
-    // Auto-settle once on a squad clear.
+    // Auto-settle once the fight resolves. Towers pay on a squad clear; the Clan
+    // Boss (settleFn + settleOnAnyDone) banks its damage on ANY resolution.
     useEffect(() => {
-        if (session.status === "done" && session.winner === "squad" && !settledRef.current) {
+        const done = session.status === "done";
+        const shouldSettle = settleOnAnyDone ? done : (done && session.winner === "squad");
+        if (shouldSettle && !settledRef.current) {
             settledRef.current = true;
-            settleTowerRun(runId, me).then(setSettle).catch(() => {});
+            if (settleFn) void settleFn(runId, me).catch(() => {});
+            else settleTowerRun(runId, me).then(setSettle).catch(() => {});
         }
-    }, [session.status, session.winner, runId, me]);
+    }, [session.status, session.winner, runId, me, settleFn, settleOnAnyDone]);
 
     // Reflection log (display-only): record the floor once it resolves (win OR
     // loss) so it shows on Profile → Battles. The squad log names many fighters,
