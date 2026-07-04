@@ -3008,6 +3008,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {cutIn && (() => {
                 const isEnemy = cutIn.side === "enemy";
                 const glow = isEnemy ? "rgba(248,113,113,0.95)" : "rgba(96,165,250,0.95)";
+                const glowSoft = isEnemy ? "rgba(248,113,113,0.42)" : "rgba(96,165,250,0.42)";
                 const streak = isEnemy ? "rgba(248,113,113,0.16)" : "rgba(96,165,250,0.16)";
                 const band = isEnemy ? "rgba(127,29,29,0.6)" : "rgba(30,58,138,0.6)";
                 const portrait = petBattleSprite(cutIn.pet, sharedImages).src;
@@ -3017,10 +3018,13 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div style={{ position: "absolute", inset: 0, background: `linear-gradient(${isEnemy ? 255 : 105}deg, transparent 40%, ${band} 50%, transparent 60%)`, animation: "petCutinBg 1650ms ease-out forwards" }} />
                         <div style={{ position: "absolute", inset: "-25%", background: `repeating-linear-gradient(112deg, transparent 0 16px, ${streak} 16px 21px)`, animation: "petCutinStreak 900ms ease-out forwards" }} />
                         {/* BIG portrait slamming in from the pet's side */}
-                        <div style={{ position: "absolute", top: "50%", [isEnemy ? "right" : "left"]: "4%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
+                        {/* radial GLOW behind the portrait so the hero shot pops off the dark scene */}
+                        <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: "82vh", transform: "translateY(-50%)", background: `radial-gradient(ellipse 34% 46% at ${isEnemy ? 74 : 26}% 50%, ${glowSoft} 0%, transparent 65%)`, animation: "petCutinBg 1650ms ease-out forwards" }} />
+                        {/* BIG portrait hero shot — well inside the arena (clear of the side panels) */}
+                        <div style={{ position: "absolute", top: "50%", [isEnemy ? "right" : "left"]: "18%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
                             {portrait
-                                ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "clamp(130px,30vh,215px)", width: "auto", maxWidth: "30vw", objectFit: "contain", filter: `drop-shadow(0 0 24px ${glow}) drop-shadow(0 10px 20px #000)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
-                                : <div style={{ width: "clamp(120px,22vh,170px)", height: "clamp(120px,22vh,170px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 48px Cinzel, serif", color: "#fff", boxShadow: `0 0 30px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
+                                ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "clamp(240px,54vh,430px)", width: "auto", maxWidth: "40vw", objectFit: "contain", filter: `drop-shadow(0 0 38px ${glow}) drop-shadow(0 14px 28px #000) saturate(1.15)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
+                                : <div style={{ width: "clamp(170px,32vh,250px)", height: "clamp(170px,32vh,250px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 68px Cinzel, serif", color: "#fff", boxShadow: `0 0 44px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
                         </div>
                         {/* pet name + big move name — CENTERED in a safe zone so it never runs under
                             the side panels / off-frame, and wraps when the move name is long. */}
