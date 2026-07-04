@@ -13,7 +13,7 @@ import {
 } from './_tower-store.js';
 import { weekKey } from '../missions/_weekly-board.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
-import { runTowerFloor } from './_engine.js';
+import { runTowerFloor, startRound, endTurn, applyAction, type TowerAction } from './_engine.js';
 import { makeRng } from './_sim.js';
 import { getFloor } from './_floor-catalog.js';
 import type { TowerSession, TowerActor } from './_tower-session.js';
@@ -245,5 +245,162 @@ describe('Endless Spire — settleSpireForMember', () => {
         assert.equal(c.battleTowerSpireWeeklyBest, 3);       // reset to this week's clear, not max(15,3)
         assert.equal(c.battleTowerSpireWeekKey, weekKey(NOW));
         assert.equal(c.battleTowerAscension, 15);            // permanent unlock is NEVER reset (max)
+    });
+});
+
+// ─── Wave 2: affix keystones (hazard / debuff / healcut) ─────────────────────
+// The seal EMITS the keystones by tier; the engine CONSUMES them (round-end hazard chip,
+// incoming-damage debuff, healing throttle) — all squad-side, all story-safe.
+describe('Endless Spire — Wave 2 keystone emission', () => {
+    const keystoneKinds = new Set(['hazard', 'debuff', 'healcut']);
+    const stackAt = (tier: number) => resolveAscensionModifiers(tier, 'sovereign', 16).modifierStack;
+    const has = (tier: number, kind: string, variant?: string) =>
+        stackAt(tier).some(m => m.kind === kind && (!variant || m.variant === variant));
+
+    it('emits NO keystones below tier 9 (the chassis-only band)', () => {
+        assert.equal(stackAt(8).filter(m => keystoneKinds.has(m.kind)).length, 0);
+    });
+    it('gates each keystone at its own tier and stacks cumulatively', () => {
+        assert.ok(has(9, 'hazard', 'rotating'));   assert.ok(!has(9, 'debuff') && !has(9, 'healcut'));
+        assert.ok(has(10, 'debuff', 'flat'));      assert.ok(!has(10, 'healcut'));
+        assert.ok(has(11, 'healcut'));
+        assert.ok(has(13, 'hazard', 'proximity'));
+        assert.ok(has(14, 'debuff', 'positional'));
+        assert.ok(has(19, 'hazard', 'escalating'));
+        // tier 20 carries the full set: 3 hazard variants, 2 debuffs, 1 healcut
+        const s20 = stackAt(20);
+        for (const v of ['rotating', 'proximity', 'escalating']) assert.ok(s20.some(m => m.kind === 'hazard' && m.variant === v), `hazard/${v}`);
+        assert.equal(s20.filter(m => m.kind === 'debuff').length, 2);
+        assert.equal(s20.filter(m => m.kind === 'healcut').length, 1);
+    });
+    it('stays PURE with keystones live (deep-equal) and keeps every value modest', () => {
+        assert.deepEqual(resolveAscensionModifiers(14, 'ravager', 14), resolveAscensionModifiers(14, 'ravager', 14));
+        for (const m of stackAt(20)) if (keystoneKinds.has(m.kind)) assert.ok(m.value > 0 && m.value <= 60, `${m.kind}=${m.value}`);
+    });
+});
+
+// Minimal ACTIVE combat session for exercising the engine consumers directly.
+function combatActor(id: string, side: 'squad' | 'enemy', pos: number, over: Partial<TowerActor> = {}): TowerActor {
+    return {
+        id, side, name: id, ownerSlug: side === 'squad' ? id : null, ai: side !== 'squad',
+        hp: 10000, maxHp: 10000, chakra: 100, maxChakra: 2000, stamina: 100, maxStamina: 2000,
+        shield: 0, statuses: [], cooldowns: {}, pos, character: {}, ...over,
+    };
+}
+function activeSpireSession(over: Partial<TowerSession> = {}): TowerSession {
+    return {
+        towerId: 'endless-spire', runId: 'wt', floor: 9, seed: 1, partySize: 1, ascensionTier: 9, spireBossId: 'sovereign',
+        map: { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [] },
+        actors: [], turnQueue: [], activeIndex: 0, round: 3, activeAp: 100, actionsThisTurn: 0,
+        groundEffects: [], objectiveState: { kind: 'defeat-boss', completed: false, failed: false },
+        phaseState: { pendingPhases: [], triggeredPhases: [] },
+        status: 'active', winner: null, recentMoveTokens: [], rewardSettlementState: 'pending',
+        log: [], createdAt: 0, lastActionAt: 0, ...over,
+    };
+}
+const spireFloor = getSpireFloor(9)!;
+
+describe('Endless Spire — Wave 2 hazard telegraph', () => {
+    it('forecasts the EXACT rotating column that will burn this round', () => {
+        const s = activeSpireSession({
+            round: 3, modifierStack: [{ kind: 'hazard', variant: 'rotating', value: 4, label: 'Rolling Cinders' }],
+            actors: [combatActor('sq-0', 'squad', 3)], turnQueue: ['sq-0'],
+        });
+        startRound(s);
+        const expected: number[] = [];
+        for (let i = 0; i < 64; i++) if (i % 8 === 3) expected.push(i); // round 3 → column 3
+        assert.deepEqual(s.map.nextRoundHazardTiles, expected);
+    });
+    it('excludes reactive proximity hazards and leaves story runs undefined', () => {
+        const prox = activeSpireSession({ modifierStack: [{ kind: 'hazard', variant: 'proximity', value: 5, label: 'CL' }], actors: [combatActor('sq-0', 'squad', 3)], turnQueue: ['sq-0'] });
+        startRound(prox);
+        assert.equal(prox.map.nextRoundHazardTiles, undefined); // proximity is not forecast (approximate)
+        const story = activeSpireSession({ actors: [combatActor('sq-0', 'squad', 3)], turnQueue: ['sq-0'] });
+        delete (story as { ascensionTier?: number }).ascensionTier;
+        startRound(story);
+        assert.equal(story.map.nextRoundHazardTiles, undefined); // no modifierStack → unchanged wire
+    });
+});
+
+describe('Endless Spire — Wave 2 hazard chip', () => {
+    it('chips SQUAD units on the hot tile at round end; never the boss (squad-gated)', () => {
+        const s = activeSpireSession({
+            round: 3, modifierStack: [{ kind: 'hazard', variant: 'rotating', value: 4, label: 'Rolling Cinders' }],
+            actors: [combatActor('sq-0', 'squad', 3), combatActor('boss', 'enemy', 11, { hp: 5000, maxHp: 5000 })], // both on column 3
+            turnQueue: ['sq-0'], phaseState: { bossId: 'boss', pendingPhases: [], triggeredPhases: [] },
+        });
+        endTurn(s, spireFloor);
+        assert.equal(s.actors.find(a => a.id === 'sq-0')!.hp, 10000 - 400); // 4% of 10000
+        assert.equal(s.actors.find(a => a.id === 'boss')!.hp, 5000);        // enemy on the same hot column is NOT taxed
+        assert.ok(s.log.some(l => /Rolling Cinders/.test(l)));
+    });
+    it('escalating hazards bite harder on a later round', () => {
+        const esc = (round: number) => {
+            const s = activeSpireSession({
+                round, modifierStack: [{ kind: 'hazard', variant: 'escalating', value: 3, label: 'Rising Inferno' }],
+                actors: [combatActor('sq-0', 'squad', 4), combatActor('boss', 'enemy', 0, { hp: 5000, maxHp: 5000 })], // pos 4 = central column
+                turnQueue: ['sq-0'], phaseState: { bossId: 'boss', pendingPhases: [], triggeredPhases: [] },
+            });
+            endTurn(s, getSpireFloor(19)!);
+            return 10000 - s.actors.find(a => a.id === 'sq-0')!.hp;
+        };
+        assert.ok(esc(8) > esc(2), 'a later round chips more (capped growth)');
+    });
+    it('a STORY session (no modifierStack) takes no ascension hazard damage', () => {
+        const s = activeSpireSession({ round: 3, actors: [combatActor('sq-0', 'squad', 3), combatActor('boss', 'enemy', 0, { hp: 5000, maxHp: 5000 })], turnQueue: ['sq-0'], phaseState: { bossId: 'boss', pendingPhases: [], triggeredPhases: [] } });
+        delete (s as { ascensionTier?: number }).ascensionTier;
+        endTurn(s, spireFloor);
+        assert.equal(s.actors.find(a => a.id === 'sq-0')!.hp, 10000); // untouched
+    });
+});
+
+describe('Endless Spire — Wave 2 heal-cut', () => {
+    const healSession = (modifierStack?: TowerModifier[]) => activeSpireSession({
+        modifierStack, actors: [combatActor('sq-0', 'squad', 0, { hp: 5000, maxHp: 10000 })], turnQueue: ['sq-0'],
+    });
+    const heal: TowerAction = { actorId: 'sq-0', type: 'heal' };
+    it('throttles a squad Basic Heal by the sealed cut; story heals in full', () => {
+        const full = healSession(undefined);
+        applyAction(full, spireFloor, heal, makeRng(1));
+        assert.equal(full.actors[0]!.hp, 5000 + 1000); // 10% of maxHp, uncut
+
+        const cut = healSession([{ kind: 'healcut', variant: 'flat', value: 30, label: 'Withering Aura' }]);
+        applyAction(cut, spireFloor, heal, makeRng(1));
+        assert.equal(cut.actors[0]!.hp, 5000 + 700);   // 30% cut → 700
+    });
+});
+
+describe('Endless Spire — Wave 2 damage-taken debuff', () => {
+    const attackSession = (modifierStack?: TowerModifier[]) => activeSpireSession({
+        modifierStack,
+        actors: [
+            combatActor('en-0', 'enemy', 0, { character: { specialty: 'Taijutsu', stats: { strength: 2500, speed: 2500, taijutsuOffense: 2500, bukijutsuOffense: 2500 } } }),
+            combatActor('sq-0', 'squad', 1, { hp: 200000, maxHp: 200000, character: { specialty: 'Taijutsu', stats: { taijutsuDefense: 100, willpower: 100 } } }),
+        ],
+        turnQueue: ['en-0'], phaseState: { bossId: 'en-0', pendingPhases: [], triggeredPhases: [] },
+    });
+    const attack: TowerAction = { actorId: 'en-0', type: 'attack', targetId: 'sq-0' };
+    const dmgTaken = (s: TowerSession) => 200000 - s.actors.find(a => a.id === 'sq-0')!.hp;
+
+    it('a squad target takes MORE damage under a flat debuff, bounded near +10%', () => {
+        const base = attackSession(undefined);
+        applyAction(base, spireFloor, attack, makeRng(1));
+        const dBase = dmgTaken(base);
+        assert.ok(dBase > 0, `baseline deals damage (${dBase})`);
+
+        const deb = attackSession([{ kind: 'debuff', variant: 'flat', value: 10, label: 'Sundered Guard' }]);
+        applyAction(deb, spireFloor, attack, makeRng(1));
+        const dDeb = dmgTaken(deb);
+        assert.ok(dDeb > dBase, `debuff raises incoming damage (${dDeb} > ${dBase})`);
+        assert.ok(dDeb <= Math.ceil(dBase * 1.10) + 2, `~+10% and capped (${dDeb} vs ${dBase})`);
+    });
+    it('the summed debuff is HARD-CAPPED (anti-one-shot): a huge sealed debuff can never exceed +30%', () => {
+        const base = attackSession(undefined);
+        applyAction(base, spireFloor, attack, makeRng(1));
+        const dBase = dmgTaken(base);
+        // an (impossible) 500% sealed debuff still clamps to DEBUFF_TAKEN_CAP (1.30×)
+        const huge = attackSession([{ kind: 'debuff', variant: 'flat', value: 500, label: 'overflow' }]);
+        applyAction(huge, spireFloor, attack, makeRng(1));
+        assert.ok(dmgTaken(huge) <= Math.ceil(dBase * 1.30) + 2, `clamped to +30% (${dmgTaken(huge)} vs ${dBase})`);
     });
 });

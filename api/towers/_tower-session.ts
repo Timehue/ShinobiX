@@ -57,6 +57,11 @@ export type TowerMap = {
      *  (deterministic effects) and the client (rendering). Optional: floors without a
      *  tactical layer omit it and every engine helper treats it as empty. */
     features?: TowerFeature[];
+    /** Endless Spire telegraph: tiles that will be chipped at the END of the CURRENT round
+     *  by ascension hazard keystones (EXACT deterministic hazards only — proximity hazards
+     *  are reactive and intentionally not forecast). Recomputed by the engine each round;
+     *  absent for story runs (no modifierStack) → unchanged wire. Client paints as danger. */
+    nextRoundHazardTiles?: number[];
 };
 
 export type TowerObjectiveState = {
