@@ -3017,10 +3017,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div style={{ position: "absolute", inset: 0, background: `linear-gradient(${isEnemy ? 255 : 105}deg, transparent 40%, ${band} 50%, transparent 60%)`, animation: "petCutinBg 1650ms ease-out forwards" }} />
                         <div style={{ position: "absolute", inset: "-25%", background: `repeating-linear-gradient(112deg, transparent 0 16px, ${streak} 16px 21px)`, animation: "petCutinStreak 900ms ease-out forwards" }} />
                         {/* BIG portrait slamming in from the pet's side */}
-                        <div style={{ position: "absolute", top: "56%", [isEnemy ? "right" : "left"]: "6%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
+                        <div style={{ position: "absolute", top: "50%", [isEnemy ? "right" : "left"]: "4%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
                             {portrait
-                                ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "min(38vh,270px)", width: "auto", maxWidth: "40vw", objectFit: "contain", filter: `drop-shadow(0 0 24px ${glow}) drop-shadow(0 10px 20px #000)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
-                                : <div style={{ width: "min(24vh,180px)", height: "min(24vh,180px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 52px Cinzel, serif", color: "#fff", boxShadow: `0 0 30px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
+                                ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "clamp(130px,30vh,215px)", width: "auto", maxWidth: "30vw", objectFit: "contain", filter: `drop-shadow(0 0 24px ${glow}) drop-shadow(0 10px 20px #000)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
+                                : <div style={{ width: "clamp(120px,22vh,170px)", height: "clamp(120px,22vh,170px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 48px Cinzel, serif", color: "#fff", boxShadow: `0 0 30px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
                         </div>
                         {/* pet name + big move name — CENTERED in a safe zone so it never runs under
                             the side panels / off-frame, and wraps when the move name is long. */}
