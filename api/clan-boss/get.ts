@@ -3,9 +3,9 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import {
-    CLAN_BOSS_BY_ID, CB_ASSAULTS_PER_MEMBER, clanBossAttemptsLeft, clanBossDamageDealt,
-    clanBossPickId, clanBossProgressKey, clanBossWeekId, clanSlug, loadClanBossProgress,
-    loadClanBossWeek, newClanBossProgress, rankClanBoss, type ClanBossProgress,
+    CLAN_BOSS_BY_ID, CB_ASSAULTS_PER_MEMBER, CB_WEEK_MS, clanBossArchiveKey, clanBossAttemptsLeft,
+    clanBossDamageDealt, clanBossPickId, clanBossProgressKey, clanBossWeekId, clanSlug,
+    loadClanBossProgress, loadClanBossWeek, newClanBossProgress, rankClanBoss, type ClanBossProgress,
 } from './_storage.js';
 
 /*
@@ -65,6 +65,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         }
 
+        // Last week's result for this clan (from the archive) — a "how'd we do" line.
+        let lastWeek: unknown = null;
+        if (clanName) {
+            const prevWeekId = clanBossWeekId(now - CB_WEEK_MS);
+            const archive = await kv.get<{ standings?: Array<{ clanName: string; score: number; killed: boolean; rank: number }> }>(clanBossArchiveKey(prevWeekId));
+            const mine = archive?.standings?.find(s => clanSlug(s.clanName) === clanSlug(clanName));
+            if (mine) lastWeek = { rank: mine.rank, score: mine.score, killed: mine.killed };
+        }
+
         res.setHeader('Cache-Control', 'private, max-age=15');
         return res.status(200).json({
             ok: true, active: true,
@@ -73,6 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             inClan: !!clanName,
             myClan,
             standings,
+            lastWeek,
         });
     } catch (err) {
         console.error('[clan-boss/get]', err);
