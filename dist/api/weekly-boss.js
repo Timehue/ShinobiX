@@ -9,6 +9,7 @@ const _xp_engine_js_1 = require("./_xp-engine.js");
 const _save_version_js_1 = require("./save/_save-version.js");
 const _legacy_track_js_1 = require("./_legacy-track.js");
 const _era_js_1 = require("./_era.js");
+const _announce_js_1 = require("./_announce.js");
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
 // spawn the boss despawns and rewards are auto-distributed:
@@ -70,9 +71,32 @@ function defaultBossHp(weekKey) {
     const wk = parseInt(weekKey.split('-W')[1] ?? '1', 10);
     return 50000 + Math.min(53, wk) * 1900;
 }
-async function pickDefaultBossAi() {
-    // The full creator AI registry is in shared:ai-profiles (a JSON list of AIs).
-    // If no list is present (or empty), fall back to a hardcoded sentinel id.
+// Builtin weekly-boss roster — mirrors the client's builtin AIs
+// (shinobij.client/src/lib/combat-ai.ts weeklyBossAis) and the schedule pool
+// (lib/weekly-boss.ts weeklyBossPool). The server only needs each boss's id +
+// name to seal into state; the client resolves the full profile + portrait by
+// id (playableAis includes builtinAis). Kept in sync by hand — a small, rarely
+// changing list. This is what makes "Spawn Now" work with no admin AI setup.
+const BUILTIN_WEEKLY_BOSSES = [
+    { id: 'ashen-dragon', name: 'Ashen Dragon' },
+    { id: 'moonshadow-oni', name: 'Moonshadow Oni' },
+    { id: 'frostfang-warlord', name: 'Frostfang Warlord' },
+    { id: 'stormveil-beast', name: 'Stormveil Beast' },
+    { id: 'deathsgate-revenant', name: 'Deathsgate Revenant' },
+];
+// FNV-1a over the ISO week key — the SAME hash the client schedule uses
+// (lib/weekly-boss.ts seededHash) so the boss the schedule teases for a given
+// week is the one that actually spawns when there's no admin override.
+function seededWeeklyBossIndex(weekKey, len) {
+    let hash = 2166136261;
+    for (let i = 0; i < weekKey.length; i += 1) {
+        hash ^= weekKey.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) % Math.max(1, len);
+}
+async function pickDefaultBossAi(weekKey) {
+    // Prefer admin-authored boss AIs in shared:ai-profiles when present.
     try {
         const list = await _storage_js_1.kv.get('shared:ai-profiles');
         if (Array.isArray(list) && list.length > 0) {
@@ -86,7 +110,10 @@ async function pickDefaultBossAi() {
     catch {
         // ignore
     }
-    return null;
+    // Fall back to the builtin roster, seeded by ISO week so the pick is stable
+    // within a week and matches the client's advertised schedule.
+    const pick = BUILTIN_WEEKLY_BOSSES[seededWeeklyBossIndex(weekKey, BUILTIN_WEEKLY_BOSSES.length)];
+    return { aiId: pick.id, bossName: pick.name };
 }
 async function buildFreshBossState(weekKey) {
     // Honor admin override first.
@@ -94,7 +121,7 @@ async function buildFreshBossState(weekKey) {
     let aiId = overrideId ?? '';
     let bossName;
     if (!aiId) {
-        const pick = await pickDefaultBossAi();
+        const pick = await pickDefaultBossAi(weekKey);
         if (!pick)
             return null;
         aiId = pick.aiId;
@@ -350,6 +377,30 @@ async function handler(req, res) {
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kind, weekKey, amount } = body;
+            // reset CREATES or replaces the boss, so it must run BEFORE the
+            // "no boss spawned" guard below — otherwise the very first spawn on a
+            // fresh server (no state in KV yet) can never bootstrap: loadOrInitBoss
+            // returns null → the guard 409s → the reset branch is never reached.
+            if (kind === 'reset') {
+                if (!identity.admin)
+                    return res.status(403).json({ error: 'Admin only.' });
+                const fresh = await buildFreshBossState(isoWeekKey());
+                if (!fresh)
+                    return res.status(409).json({ error: 'No AI available for reset.' });
+                await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, fresh);
+                // Herald the spawn server-wide: the world news feed AND a World
+                // Herald line in every village chat (importance 'high' always
+                // lands + broadcasts). Best-effort — announce() never throws into
+                // the spawn. Every weekly-boss spawn heralds the hunt.
+                await (0, _announce_js_1.announce)({
+                    type: 'weekly_boss',
+                    importance: 'high',
+                    title: `⚔️ Weekly Boss: ${fresh.bossName ?? 'A great enemy'} has appeared!`,
+                    message: `${fresh.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo and XP. Enter the hunt via Central Hub → Weekly Boss.`,
+                    meta: { aiId: fresh.aiId, weekKey: fresh.weekKey, expiresAt: fresh.expiresAt },
+                });
+                return res.status(200).json({ boss: fresh });
+            }
             let boss = await loadOrInitBoss();
             if (!boss)
                 return res.status(409).json({ error: 'No boss is currently spawned. An admin needs to hit "Spawn Now" in the admin panel.' });
@@ -514,15 +565,6 @@ async function handler(req, res) {
                 if (!entry)
                     return res.status(403).json({ error: 'You did not damage this boss.' });
                 return res.status(200).json({ boss, reward: entry, note: 'Rewards were already credited to your save.' });
-            }
-            if (kind === 'reset') {
-                if (!identity.admin)
-                    return res.status(403).json({ error: 'Admin only.' });
-                const fresh = await buildFreshBossState(isoWeekKey());
-                if (!fresh)
-                    return res.status(409).json({ error: 'No AI available for reset.' });
-                await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, fresh);
-                return res.status(200).json({ boss: fresh });
             }
             return res.status(400).json({ error: 'Unknown kind.' });
         }
