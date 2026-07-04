@@ -102,6 +102,37 @@ function placeInBand(used: Set<number>, w: number, h: number, col: number, row: 
     return tile;
 }
 
+// A seeded LCG for deterministic-but-varied SPAWNS — its own stream (salted differently from the
+// feature-flower RNG) so spawn layout doesn't correlate with the tactical flowers. Pure: no
+// wall-clock / Math.random, so the encounter is reproducible and the determinism test holds.
+function makeSpawnRng(seed: number): () => number {
+    let s = (((seed >>> 0) ^ 0x85ebca6b) >>> 0) || 1;
+    return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
+}
+
+// Pick a random FREE tile within a COLUMN band [colMin,colMax] × all rows, avoiding used/blocked
+// tiles. Seeded (deterministic). Guaranteed to return a tile: if every random try collides it
+// scans the band, then finally spills to placeInBand — so an actor is never left unplaced. Marks
+// the chosen tile used.
+function placeRandomInBand(
+    rnd: () => number, used: Set<number>, blocked: Set<number>,
+    w: number, h: number, colMin: number, colMax: number, tries = 80,
+): number {
+    const c0 = Math.max(0, Math.min(w - 1, Math.floor(colMin)));
+    const c1 = Math.max(c0, Math.min(w - 1, Math.floor(colMax)));
+    for (let i = 0; i < tries; i++) {
+        const c = c0 + Math.floor(rnd() * (c1 - c0 + 1));
+        const r = Math.floor(rnd() * h);
+        const tile = r * w + c;
+        if (!used.has(tile) && !blocked.has(tile)) { used.add(tile); return tile; }
+    }
+    for (let c = c0; c <= c1; c++) for (let r = 0; r < h; r++) {
+        const tile = r * w + c;
+        if (!used.has(tile) && !blocked.has(tile)) { used.add(tile); return tile; }
+    }
+    return placeInBand(used, w, h, Math.floor((c0 + c1) / 2), Math.floor(h / 2));
+}
+
 function vitals(character: Record<string, unknown>, fallbackHp: number) {
     const maxHp = Math.max(1, Number(character.maxHp ?? fallbackHp) || fallbackHp);
     const maxChakra = Math.max(0, Number(character.maxChakra ?? 50) || 50);
@@ -190,33 +221,34 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
 
     const used = new Set<number>();
     for (const f of map.features ?? []) for (const t of f.tiles) used.add(t);
+    // Reserve an authored npc tile up front so no random spawn lands on it (protect-npc floors).
+    const npcTile = floor.npc && typeof floor.npc.pos === 'number' && floor.npc.pos >= 0 && floor.npc.pos < W * H
+        ? Math.floor(floor.npc.pos) : undefined;
+    if (npcTile !== undefined) used.add(npcTile);
     const actors: TowerActor[] = [];
-    // Squad in a 2-wide LEFT band, spaced every ~3 rows down the middle of the board.
-    squad.forEach((m, i) => actors.push(squadActor(m, placeInBand(used, W, H, i % 2, 3 + i * 3))));
 
-    // Enemies stand in a FORMATION: the boss anchors the back (right edge, centre row),
-    // and the grunts form centred ranks just in front of it. Reserve the boss tile first
-    // so the grunt block builds ahead of it.
+    // ── Two-sided random spawns ──────────────────────────────────────────────
+    // Split the board down the middle: the SQUAD spawns at random free tiles in the LEFT half,
+    // the enemy team (grunts + boss) at random free tiles in the RIGHT half. Seeded (its own LCG
+    // stream) so it's reproducible + the determinism test holds, and collision-free (shared
+    // `used`). Replaces the old fixed edge-bands that left the teams ~a full board apart; each
+    // side still owns its half, but positions vary per run and generally start much closer.
+    const mid = Math.floor(W / 2);
+    const blocked = new Set(map.blockedTiles);
+    const spawnRnd = makeSpawnRng(p.seed);
+    const spawnSquad = () => placeRandomInBand(spawnRnd, used, blocked, W, H, 0, mid - 1);
+    const spawnEnemy = () => placeRandomInBand(spawnRnd, used, blocked, W, H, mid, W - 1);
+
+    squad.forEach(m => actors.push(squadActor(m, spawnSquad())));
+
     let bossId: string | undefined;
     let bossPhases: number[] | undefined;
-    let bossTile = -1;
-    if (floor.boss) bossTile = placeInBand(used, W, H, W - 1, Math.floor(H / 2));
-
-    const gruntCount = floor.enemies.reduce((s, pod) => s + pod.count, 0);
-    const ranks = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(gruntCount))));
-    const rowGap = H >= 14 ? 2 : 1;
-    const files = Math.max(1, Math.ceil(gruntCount / ranks));
-    const blockStart = Math.max(0, Math.floor((H - (files - 1) * rowGap) / 2));
 
     let enemyIdx = 0;
     for (const pod of floor.enemies) {
         const tpl = getEnemyTemplate(pod.aiId);
         for (let k = 0; k < pod.count; k++) {
-            const rank = enemyIdx % ranks;                 // 0 = front rank (closest to the squad)
-            const file = Math.floor(enemyIdx / ranks);
-            const col = (W - 2) - rank;                     // ranks step back toward the boss column
-            const row = blockStart + file * rowGap;
-            actors.push(templateActor(`en-${enemyIdx}`, 'enemy', tpl, placeInBand(used, W, H, col, row)));
+            actors.push(templateActor(`en-${enemyIdx}`, 'enemy', tpl, spawnEnemy()));
             enemyIdx++;
         }
     }
@@ -224,7 +256,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     if (floor.boss) {
         bossId = 'boss';
         bossPhases = floor.boss.phases;
-        const bossActor = templateActor('boss', 'enemy', getEnemyTemplate(floor.boss.aiId), bossTile);
+        const bossActor = templateActor('boss', 'enemy', getEnemyTemplate(floor.boss.aiId), spawnEnemy());
         // Endless Spire: per-floor authored boss HP (overrides the template hp so the same boss
         // is tuned floor-by-floor, sidestepping the HP-scaled-mechanic × big-HP blow-up).
         if (typeof floor.boss.hp === 'number' && floor.boss.hp > 0) {
@@ -244,9 +276,8 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     }
 
     if (floor.npc) {
-        const pos = typeof floor.npc.pos === 'number' && floor.npc.pos >= 0 && floor.npc.pos < map.width * map.height
-            ? floor.npc.pos
-            : placeInBand(used, W, H, 2, Math.floor(H / 2));
+        // The protected npc uses its authored tile (reserved above) or spawns on the SQUAD's side.
+        const pos = npcTile !== undefined ? npcTile : spawnSquad();
         actors.push(templateActor('npc-0', 'npc', getEnemyTemplate(floor.npc.aiId), pos));
     }
 

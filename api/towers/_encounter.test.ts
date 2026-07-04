@@ -38,6 +38,27 @@ describe('Battle Towers encounter builder (P1.B)', () => {
         assert.equal(new Set(positions).size, positions.length, 'no spawn overlap');
     });
 
+    it('divides the map: squad spawns on the LEFT half, the enemy team on the RIGHT half', () => {
+        const floor = smallFloor({ objective: 'defeat-boss', enemies: [{ aiId: 'grunt-bandit', count: 3 }], boss: { aiId: 'boss-warden', phases: [50] } });
+        const s = build(floor, [strongMember('sq-0'), strongMember('sq-1')]);
+        const W = s.map.width, mid = Math.floor(W / 2);
+        for (const a of s.actors) {
+            const col = a.pos % W;
+            if (a.side === 'squad') assert.ok(col < mid, `squad ${a.id} on left half (col ${col} < ${mid})`);
+            if (a.side === 'enemy') assert.ok(col >= mid, `enemy ${a.id} on right half (col ${col} >= ${mid})`);
+        }
+        const pos = s.actors.map(a => a.pos);
+        assert.equal(new Set(pos).size, pos.length, 'no spawn overlap across the divide');
+    });
+
+    it('spawns VARY by seed (random within each half), not a fixed edge-pin', () => {
+        const mk = (seed: number) => build(
+            smallFloor({ objective: 'defeat-boss', enemies: [{ aiId: 'grunt-bandit', count: 2 }], boss: { aiId: 'boss-warden', phases: [50] } }),
+            [strongMember('sq-0')], { seed });
+        const squadSpawns = new Set([1, 2, 3, 4, 5].map(seed => mk(seed).actors.find(a => a.id === 'sq-0')!.pos));
+        assert.ok(squadSpawns.size >= 2, 'squad spawn varies across seeds');
+    });
+
     it('runs an end-to-end floor: a strong squad clears defeat-all', () => {
         const s = runTowerFloor(build(smallFloor(), [strongMember('sq-0'), strongMember('sq-1')]), smallFloor(), makeRng(1));
         assert.equal(s.winner, 'squad');
