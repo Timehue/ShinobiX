@@ -1,0 +1,94 @@
+/* Roaming weekly-boss world-map marker (weeklyBossRoam.v1, Phase 2).
+ * These elements are absolutely positioned as direct children of
+ * .anime-world-map at sector %-coordinates, so they ride the pan/zoom transform
+ * exactly like the sector dots. scale(var(--wm-marker-scale, 1)) keeps them a
+ * constant on-screen size at any zoom — the fallback 1 applies on desktop /
+ * un-zoomed views where the zoom hook sets no variable. */
+
+.wb-roam-marker {
+    position: absolute;
+    z-index: 7;
+    transform: translate(-50%, -62%) scale(var(--wm-marker-scale, 1));
+    transform-origin: center bottom;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    pointer-events: auto;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7));
+}
+
+.wb-roam-portrait {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid #ec5b38;
+    overflow: hidden;
+    background: #1a0a08;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 0 3px rgba(236, 91, 56, 0.26), 0 0 14px rgba(236, 91, 56, 0.6);
+    animation: wb-roam-pulse 1.7s ease-in-out infinite;
+}
+
+.wb-roam-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.wb-roam-emoji {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.wb-roam-label {
+    font: 700 9px/1.15 system-ui, -apple-system, sans-serif;
+    color: #ffd9cc;
+    background: rgba(20, 8, 6, 0.85);
+    border: 1px solid rgba(236, 91, 56, 0.6);
+    padding: 2px 5px;
+    border-radius: 5px;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px #000;
+    pointer-events: none;
+}
+
+.wb-roam-next {
+    position: absolute;
+    z-index: 6;
+    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1));
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px dashed rgba(236, 91, 56, 0.8);
+    background: rgba(236, 91, 56, 0.08);
+    pointer-events: none;
+    animation: wb-roam-pulse 1.7s ease-in-out infinite;
+}
+
+.wb-roam-trail {
+    position: absolute;
+    z-index: 6;
+    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1));
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(236, 91, 56, 0.55);
+    pointer-events: none;
+}
+
+@keyframes wb-roam-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(236, 91, 56, 0.24), 0 0 12px rgba(236, 91, 56, 0.5); }
+    50% { box-shadow: 0 0 0 5px rgba(236, 91, 56, 0.12), 0 0 20px rgba(236, 91, 56, 0.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wb-roam-portrait,
+    .wb-roam-next { animation: none; }
+}
