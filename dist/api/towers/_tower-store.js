@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.inviteKey = exports.SPIRE_SHARDS_PER_TIER = exports.MAX_ASSISTS_PER_DAY = exports.MAX_TOWER_STARTS_PER_DAY = exports.SPIRE_REWARD_TTL = exports.PAID_RECEIPT_TTL = exports.RUN_TOKEN_TTL = exports.TOWER_SESSION_TTL = exports.spireRewardKey = exports.startCountKey = exports.assistCountKey = exports.assistPaidKey = exports.firstClearKey = exports.floorPaidKey = exports.runTokenKey = exports.sessionKey = void 0;
+exports.inviteKey = exports.SPIRE_SHARDS_PER_TIER = exports.MAX_ASSISTS_PER_DAY = exports.MAX_TOWER_STARTS_PER_DAY = exports.SPIRE_REWARD_TTL = exports.PAID_RECEIPT_TTL = exports.RUN_TOKEN_TTL = exports.TOWER_SESSION_TTL = exports.SPIRE_LB_MAX = exports.spireLbKey = exports.spireRewardKey = exports.startCountKey = exports.assistCountKey = exports.assistPaidKey = exports.firstClearKey = exports.floorPaidKey = exports.runTokenKey = exports.sessionKey = void 0;
 exports.isSpireRun = isSpireRun;
 exports.utcDateKey = utcDateKey;
 exports.bumpDailyStartCount = bumpDailyStartCount;
@@ -13,6 +13,7 @@ exports.getTowerInvite = getTowerInvite;
 exports.clearTowerInvite = clearTowerInvite;
 exports.settleFloorForMember = settleFloorForMember;
 exports.settleAssistForAlly = settleAssistForAlly;
+exports.upsertSpireBoard = upsertSpireBoard;
 exports.settleSpireForMember = settleSpireForMember;
 /*
  * Battle Towers — KV storage + server-authoritative reward settlement (Phase 1, P1.B).
@@ -62,6 +63,10 @@ exports.startCountKey = startCountKey;
 // Endless Spire: best-tier-per-week reward receipt (once per tier per reset-week per player).
 const spireRewardKey = (slug, wk, tier) => `tower-spire-reward:${slug}:${wk}:${tier}`;
 exports.spireRewardKey = spireRewardKey;
+// Endless Spire: the maintained weekly leaderboard (best tier per player this reset-week).
+const spireLbKey = (wk) => `tower-spire-lb:${wk}`;
+exports.spireLbKey = spireLbKey;
+exports.SPIRE_LB_MAX = 1000;
 exports.TOWER_SESSION_TTL = 30 * 60; // 30 min (refreshed on every action)
 exports.RUN_TOKEN_TTL = 60 * 60; // 1 h
 exports.PAID_RECEIPT_TTL = 24 * 60 * 60; // 24 h (per-run replay guard)
@@ -300,6 +305,30 @@ function creditSpireClear(char, tier, wk, shards) {
         battleTowerSpireWeekKey: wk,
     };
 }
+/** Upsert one player's best-tier-this-week into the maintained leaderboard (best-per-player,
+ *  ranked tier desc, earliest-reach tiebreak). BEST-EFFORT: a settle NEVER fails because the
+ *  board write did — the board is a display projection, not an authority. Own lock (not nested
+ *  in the save lock) to avoid lock-order coupling. */
+async function upsertSpireBoard(entry, wk, deps = {}) {
+    const kv = deps.kv ?? _storage_js_1.kv;
+    const lock = deps.lock ?? _lock_js_1.withKvLock;
+    try {
+        await lock((0, exports.spireLbKey)(wk), async () => {
+            const list = (await kv.get((0, exports.spireLbKey)(wk))) ?? [];
+            const arr = (Array.isArray(list) ? list : []).filter(e => e && typeof e.slug === 'string');
+            const i = arr.findIndex(e => e.slug === entry.slug);
+            if (i >= 0) {
+                if (entry.tier > arr[i].tier)
+                    arr[i] = entry;
+            } // best-per-week, never a downgrade
+            else
+                arr.push(entry);
+            arr.sort((a, b) => b.tier - a.tier || a.at - b.at);
+            await kv.set((0, exports.spireLbKey)(wk), arr.slice(0, exports.SPIRE_LB_MAX), { ex: exports.SPIRE_REWARD_TTL });
+        });
+    }
+    catch { /* board is best-effort; swallow */ }
+}
 /**
  * Settle an Endless Spire clear for ONE live squad member. Server-authoritative + idempotent:
  * re-verifies the session (done + squad win), reads the SEALED session.ascensionTier (never a
@@ -320,6 +349,8 @@ async function settleSpireForMember(params, deps = {}) {
     if (!(0, _spire_catalog_js_1.isValidSpireTier)(tier))
         return { paid: false, reason: 'not-spire' };
     let result = { paid: false, reason: 'unknown' };
+    let boardEntry = null;
+    let boardWeek = '';
     try {
         await lock(`save:${slug}`, async () => {
             // Per-run replay guard (24h): a given run settles this member at most once.
@@ -355,10 +386,24 @@ async function settleSpireForMember(params, deps = {}) {
                 throw e;
             }
             result = { paid: true, score: tier };
+            // Capture the maintained-leaderboard entry (best tier this week) — written AFTER the
+            // save lock releases so the board lock never nests inside the save lock.
+            boardWeek = wk;
+            boardEntry = {
+                slug,
+                name: String(char.name ?? slug).slice(0, 40),
+                ...(typeof char.village === 'string' ? { village: char.village } : {}),
+                ...(typeof char.level === 'number' ? { level: char.level } : {}),
+                tier: Math.max(tier, num(updated.battleTowerSpireWeeklyBest)),
+                at: now(),
+            };
         }, { failClosed: true });
     }
     catch {
         result = { paid: false, reason: 'contended' };
     }
+    // Best-effort board upsert (outside the save lock; never affects `result`).
+    if (boardEntry)
+        await upsertSpireBoard(boardEntry, boardWeek, deps);
     return result;
 }

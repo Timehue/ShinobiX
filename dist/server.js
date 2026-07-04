@@ -77,6 +77,7 @@ const state_js_1 = __importDefault(require("./api/towers/state.js"));
 const settle_js_1 = __importDefault(require("./api/towers/settle.js"));
 const my_run_js_1 = __importDefault(require("./api/towers/my-run.js"));
 const join_js_1 = __importDefault(require("./api/towers/join.js"));
+const spire_leaderboard_js_1 = __importDefault(require("./api/towers/spire-leaderboard.js"));
 const expedition_start_js_1 = __importDefault(require("./api/missions/expedition-start.js"));
 const start_js_2 = __importDefault(require("./api/training/start.js"));
 const complete_js_1 = __importDefault(require("./api/training/complete.js"));
@@ -575,6 +576,7 @@ route('/towers/state', state_js_1.default);
 route('/towers/settle', settle_js_1.default);
 route('/towers/my-run', my_run_js_1.default);
 route('/towers/join', join_js_1.default);
+route('/towers/spire-leaderboard', spire_leaderboard_js_1.default);
 // Battle lock — server-side "in a PvE fight" marker (start/resolve/status) so a
 // refresh can't escape a battle; resume-only, pays/punishes nothing (see
 // api/battle/lock.ts).

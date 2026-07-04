@@ -18,7 +18,7 @@
  * kinds are frozen shapes with no consumer yet (Waves 2/3 add them without re-shaping this).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HEALCUT_MAX = exports.DEBUFF_TAKEN_CAP = exports.SPIRE_ENRAGE_CAP = exports.DMG_MULT_CAP = exports.DMG_STEP = exports.HP_MULT_CAP = exports.HP_STEP = exports.SPIRE_MAX_TIER = void 0;
+exports.DUAL_AUGMENT_DEBUFF_BONUS = exports.DUAL_AUGMENT_HAZARD_BONUS = exports.SUDDEN_DEATH_PCT = exports.SUDDEN_DEATH_WINDOW = exports.EXTRA_PHASE_BLAST_PCT = exports.EXTRA_PHASE_THRESHOLD = exports.HEALCUT_MAX = exports.DEBUFF_TAKEN_CAP = exports.SPIRE_ENRAGE_CAP = exports.DMG_MULT_CAP = exports.DMG_STEP = exports.HP_MULT_CAP = exports.HP_STEP = exports.SPIRE_MAX_TIER = void 0;
 exports.ascensionHpMult = ascensionHpMult;
 exports.ascensionDmgMult = ascensionDmgMult;
 exports.resolveAscensionModifiers = resolveAscensionModifiers;
@@ -40,12 +40,29 @@ exports.SPIRE_ENRAGE_CAP = 2; // enrage bounded to 2 stacks (1.70×) — the loa
 // vulnerability is hard-clamped here at the seal so a maxed enemy hit can't cold-one-shot.
 exports.DEBUFF_TAKEN_CAP = 0.30; // max +30% incoming damage from all vulnerability keystones combined
 exports.HEALCUT_MAX = 60; // healing-reduction percent is clamped to this (never a net negative heal)
+// ── Wave 3 capstones (floors 15-20) — the apex encounters ──────────────────────
+// Three FROZEN kinds finally get consumers, each bounded + story-safe:
+//   • extraPhase — an extra HP-gate that fires a one-time DESPERATION BLAST to the squad
+//     (bounded % of maxHp, never regen → can't stall past the round cap).
+//   • objective  — "Sudden Death": the arena collapses in the final rounds, chipping the
+//     whole squad so stalling out the clock is fatal (bounded, late-round only).
+//   • dualAugment — "Cataclysm": the hazard + vulnerability keystones amplify each other,
+//     staying UNDER DEBUFF_TAKEN_CAP (the debuff clamp still hard-bounds the one-shot ceiling).
+exports.EXTRA_PHASE_THRESHOLD = 40; // HP% gate the desperation blast fires at (distinct from all boss phases)
+exports.EXTRA_PHASE_BLAST_PCT = 6; // desperation blast = this % of each squad member's maxHp (one-time)
+exports.SUDDEN_DEATH_WINDOW = 3; // collapse chips the squad in the last N rounds before the cap
+exports.SUDDEN_DEATH_PCT = 5; // collapse chip = this % of each squad member's maxHp per round
+exports.DUAL_AUGMENT_HAZARD_BONUS = 1; // +1% to each hazard chip when Cataclysm is live
+exports.DUAL_AUGMENT_DEBUFF_BONUS = 5; // +5% summed vulnerability (still clamped to DEBUFF_TAKEN_CAP)
 // Cumulative tier gates for the keystones (a floor carries every keystone at/under its tier).
 const HAZARD_ROTATING_TIER = 9; // a sweeping column of fire — dodge by moving off it each round
 const DEBUFF_FLAT_TIER = 10; // Sundered Guard — flat +damage-taken, unconditional
 const HEALCUT_TIER = 11; // Withering Aura — squad healing is throttled
 const HAZARD_PROXIMITY_TIER = 13; // Chain Lightning — punishes clustering (≥2 allies adjacent)
 const DEBUFF_POSITIONAL_TIER = 14; // Exposed — +damage-taken UNLESS the target stands on a ward
+const EXTRA_PHASE_TIER = 15; // Second Wind — desperation blast phase (Wave 3)
+const SUDDEN_DEATH_TIER = 17; // Sudden Death — collapsing-floor finale (Wave 3)
+const DUAL_AUGMENT_TIER = 18; // Cataclysm — keystone synergy (Wave 3)
 const HAZARD_ESCALATING_TIER = 19; // Rising Inferno — a central blaze whose bite grows each round
 function clampTier(tier) {
     return Math.max(1, Math.min(exports.SPIRE_MAX_TIER, Math.floor(Number(tier) || 1)));
@@ -89,6 +106,13 @@ function resolveAscensionModifiers(tier, bossId, roundBudget, weekAffix) {
         stack.push({ kind: 'hazard', variant: 'proximity', value: 5, label: 'Chain Lightning — 5% HP where allies cluster' });
     if (t >= DEBUFF_POSITIONAL_TIER)
         stack.push({ kind: 'debuff', variant: 'positional', value: 12, label: 'Exposed — +12% damage taken off-ward' });
+    // Wave 3 capstones (floors 15-20).
+    if (t >= EXTRA_PHASE_TIER)
+        stack.push({ kind: 'extraPhase', value: exports.EXTRA_PHASE_THRESHOLD, label: `Second Wind — a desperation blast at ${exports.EXTRA_PHASE_THRESHOLD}% HP` });
+    if (t >= SUDDEN_DEATH_TIER)
+        stack.push({ kind: 'objective', variant: 'flat', value: exports.SUDDEN_DEATH_WINDOW, label: 'Sudden Death — the floor collapses in the final rounds' });
+    if (t >= DUAL_AUGMENT_TIER)
+        stack.push({ kind: 'dualAugment', value: 1, label: 'Cataclysm — hazards and vulnerability feed each other' });
     if (t >= HAZARD_ESCALATING_TIER)
         stack.push({ kind: 'hazard', variant: 'escalating', value: 3, label: 'Rising Inferno — a central blaze that grows each round' });
     // Weekly affix — a single extra modifier layered on every floor this week. Only the

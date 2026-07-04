@@ -8,8 +8,8 @@ import {
     getSpireFloor, isValidSpireTier, spireBossForFloor, SPIRE_MILESTONE_FLOORS,
 } from './_spire-catalog.js';
 import {
-    settleSpireForMember, isSpireRun, floorPaidKey, spireRewardKey, SPIRE_SHARDS_PER_TIER,
-    type TowerKv, type TowerLock,
+    settleSpireForMember, isSpireRun, floorPaidKey, spireRewardKey, spireLbKey, SPIRE_SHARDS_PER_TIER,
+    type TowerKv, type TowerLock, type SpireBoardEntry,
 } from './_tower-store.js';
 import { weekKey } from '../missions/_weekly-board.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
@@ -236,6 +236,23 @@ describe('Endless Spire — settleSpireForMember', () => {
         assert.equal(r.paid, false);
         assert.equal(r.reason, 'not-spire');
     });
+    it('upserts the weekly leaderboard board (best-per-player, no downgrade)', async () => {
+        const kv = fakeKv(); seedSave(kv, 'hero');
+        await settleSpireForMember({ slug: 'hero', session: spireSession('runA', 8, 'hero') }, { kv, lock: passLock, now });
+        let board = kv.store.get(spireLbKey(weekKey(NOW))) as SpireBoardEntry[];
+        assert.ok(Array.isArray(board) && board.length === 1);
+        assert.equal(board[0]!.slug, 'hero');
+        assert.equal(board[0]!.tier, 8);
+        assert.equal(board[0]!.level, 100);
+        // a HIGHER clear this week raises the board tier
+        await settleSpireForMember({ slug: 'hero', session: spireSession('runB', 11, 'hero') }, { kv, lock: passLock, now });
+        board = kv.store.get(spireLbKey(weekKey(NOW))) as SpireBoardEntry[];
+        assert.equal(board[0]!.tier, 11);
+        // a LOWER re-clear never downgrades the board
+        await settleSpireForMember({ slug: 'hero', session: spireSession('runC', 6, 'hero') }, { kv, lock: passLock, now });
+        board = kv.store.get(spireLbKey(weekKey(NOW))) as SpireBoardEntry[];
+        assert.equal(board[0]!.tier, 11);
+    });
     it('weekly best RESETS when the reset-week rolls over', async () => {
         const kv = fakeKv();
         // pre-seed a stale weekly best from a previous week
@@ -402,5 +419,93 @@ describe('Endless Spire — Wave 2 damage-taken debuff', () => {
         const huge = attackSession([{ kind: 'debuff', variant: 'flat', value: 500, label: 'overflow' }]);
         applyAction(huge, spireFloor, attack, makeRng(1));
         assert.ok(dmgTaken(huge) <= Math.ceil(dBase * 1.30) + 2, `clamped to +30% (${dmgTaken(huge)} vs ${dBase})`);
+    });
+});
+
+// ─── Wave 3: capstones (extraPhase / objective / dualAugment) ─────────────────
+describe('Endless Spire — Wave 3 capstone emission', () => {
+    const stackAt = (tier: number) => resolveAscensionModifiers(tier, 'sovereign', 16).modifierStack;
+    const has = (tier: number, kind: string) => stackAt(tier).some(m => m.kind === kind);
+    it('gates each capstone at its own tier (extraPhase 15 / objective 17 / dualAugment 18)', () => {
+        assert.ok(!has(14, 'extraPhase'));
+        assert.ok(has(15, 'extraPhase'));
+        assert.ok(!has(16, 'objective'));
+        assert.ok(has(17, 'objective'));
+        assert.ok(!has(17, 'dualAugment'));
+        assert.ok(has(18, 'dualAugment'));
+        // tier 20 carries all three capstones on top of the Wave-2 keystones
+        for (const k of ['extraPhase', 'objective', 'dualAugment']) assert.ok(has(20, k), k);
+    });
+});
+
+describe('Endless Spire — Wave 3 extraPhase (desperation blast)', () => {
+    it('injects the sealed 40% gate into the boss phase ladder + seals the threshold', () => {
+        const floor = getSpireFloor(15)!;
+        const seal = resolveAscensionModifiers(15, 'sovereign', floor.roundBudget);
+        const s = buildTowerEncounter({ floor, squad: [squadInput('hero')], runId: 'ep', seed: 1, partySize: 1, now: 0, ascension: seal, spireBossId: 'sovereign' });
+        assert.equal(s.extraPhaseThreshold, 40);
+        assert.ok(s.phaseState.pendingPhases.includes(40), 'desperation gate merged into pendingPhases');
+        // a tier-14 build seals NO extra gate
+        const f14 = getSpireFloor(14)!;
+        const s14 = buildTowerEncounter({ floor: f14, squad: [squadInput('hero')], runId: 'ep2', seed: 1, partySize: 1, now: 0, ascension: resolveAscensionModifiers(14, 'warden', f14.roundBudget), spireBossId: 'warden' });
+        assert.equal(s14.extraPhaseThreshold, undefined);
+        assert.ok(!s14.phaseState.pendingPhases.includes(40));
+    });
+    it('fires a ONE-TIME bounded blast on ALL squad when the boss crosses the gate', () => {
+        const s = activeSpireSession({
+            ascensionTier: 15, extraPhaseThreshold: 40, round: 2,
+            modifierStack: [{ kind: 'extraPhase', value: 40, label: 'Second Wind' }],
+            actors: [
+                combatActor('sq-0', 'squad', 1, { character: { specialty: 'Taijutsu', stats: { strength: 2500, speed: 2500, taijutsuOffense: 2500 } } }),
+                combatActor('sq-1', 'squad', 40, { hp: 10000, maxHp: 10000 }), // bystander far from the boss
+                combatActor('boss', 'enemy', 0, { hp: 405, maxHp: 1000, character: { specialty: 'Taijutsu', stats: { taijutsuDefense: 10 } } }),
+            ],
+            turnQueue: ['sq-0'], phaseState: { bossId: 'boss', pendingPhases: [40], triggeredPhases: [] },
+        });
+        applyAction(s, getSpireFloor(15)!, { actorId: 'sq-0', type: 'attack', targetId: 'boss' }, makeRng(1));
+        // the far bystander took ONLY the blast (6% of maxHp) — isolates it from the attack
+        assert.equal(s.actors.find(a => a.id === 'sq-1')!.hp, 10000 - 600);
+        assert.ok(s.log.some(l => /desperation blast/.test(l)));
+    });
+});
+
+describe('Endless Spire — Wave 3 Sudden Death (objective)', () => {
+    const sdSession = (withObjective: boolean, round: number, roundCap: number) => activeSpireSession({
+        round, roundCap, ascensionTier: 17,
+        modifierStack: withObjective ? [{ kind: 'objective', variant: 'flat', value: 3, label: 'Sudden Death' }] : [],
+        actors: [combatActor('sq-0', 'squad', 3, { hp: 10000, maxHp: 10000 }), combatActor('boss', 'enemy', 40, { hp: 5000, maxHp: 5000 })],
+        turnQueue: ['sq-0'], phaseState: { bossId: 'boss', pendingPhases: [], triggeredPhases: [] },
+    });
+    it('collapses the floor on the whole squad in the final rounds; leaves earlier rounds alone', () => {
+        const late = sdSession(true, 8, 10); // window = last 3 (rounds 8,9,10)
+        endTurn(late, getSpireFloor(17)!);
+        assert.equal(late.actors.find(a => a.id === 'sq-0')!.hp, 10000 - 500); // 5% collapse chip
+        assert.ok(late.log.some(l => /collapsing/.test(l)));
+        const early = sdSession(true, 5, 10); // round 5 < collapseFrom(7) → safe
+        endTurn(early, getSpireFloor(17)!);
+        assert.equal(early.actors.find(a => a.id === 'sq-0')!.hp, 10000);
+    });
+    it('does nothing without the objective keystone (floors < 17 unaffected)', () => {
+        const s = sdSession(false, 9, 10);
+        endTurn(s, getSpireFloor(17)!);
+        assert.equal(s.actors.find(a => a.id === 'sq-0')!.hp, 10000);
+    });
+});
+
+describe('Endless Spire — Wave 3 Cataclysm (dualAugment)', () => {
+    it('amplifies a hazard chip by the sealed bonus when active', () => {
+        const mk = (dual: boolean) => activeSpireSession({
+            round: 3,
+            modifierStack: [
+                { kind: 'hazard', variant: 'rotating', value: 4, label: 'Rolling Cinders' } as TowerModifier,
+                ...(dual ? [{ kind: 'dualAugment', value: 1, label: 'Cataclysm' } as TowerModifier] : []),
+            ],
+            actors: [combatActor('sq-0', 'squad', 3, { hp: 10000, maxHp: 10000 }), combatActor('boss', 'enemy', 40, { hp: 5000, maxHp: 5000 })],
+            turnQueue: ['sq-0'], phaseState: { bossId: 'boss', pendingPhases: [], triggeredPhases: [] },
+        });
+        const base = mk(false); endTurn(base, spireFloor);
+        const cat = mk(true); endTurn(cat, spireFloor);
+        assert.equal(10000 - base.actors.find(a => a.id === 'sq-0')!.hp, 400); // 4%
+        assert.equal(10000 - cat.actors.find(a => a.id === 'sq-0')!.hp, 500);  // (4+1)%
     });
 });
