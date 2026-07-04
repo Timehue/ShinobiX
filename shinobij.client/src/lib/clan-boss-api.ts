@@ -20,12 +20,14 @@ export type ClanBossView = {
     inClan?: boolean;
     myClan?: ClanBossMyClan | null;
     standings?: ClanBossStanding[];
+    lastWeek?: { rank: number; score: number; killed: boolean } | null;
 };
 
-/** UI gate — the Clan Boss tab only shows when this flag is set. Default OFF. */
+/** UI gate for the Clan Boss tab. ON by default in the testing phase — set
+ *  localStorage clanBoss.v1='0' to hide it. */
 export function clanBossEnabled(): boolean {
-    try { return typeof localStorage !== "undefined" && localStorage.getItem("clanBoss.v1") === "1"; }
-    catch { return false; }
+    try { return typeof localStorage === "undefined" || localStorage.getItem("clanBoss.v1") !== "0"; }
+    catch { return true; }
 }
 
 export async function fetchClanBoss(player: string): Promise<ClanBossView | null> {
