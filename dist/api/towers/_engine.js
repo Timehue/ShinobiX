@@ -211,6 +211,10 @@ function debuffTakenMult(session, target) {
             continue; // ward tiles negate positional vulnerability
         pct += Math.max(0, Number(m.value) || 0);
     }
+    // Wave 3 'Cataclysm' (dualAugment) amplifies the vulnerability — but the DEBUFF_TAKEN_CAP
+    // clamp below still hard-bounds it, so the one-shot ceiling is unchanged.
+    if (pct > 0 && hasDualAugment(session))
+        pct += _modifiers_js_1.DUAL_AUGMENT_DEBUFF_BONUS;
     return pct > 0 ? 1 + Math.min(pct / 100, _modifiers_js_1.DEBUFF_TAKEN_CAP) : 1;
 }
 /** Endless Spire 'healcut' keystones reduce net healing the squad receives (percent, summed,
@@ -224,6 +228,11 @@ function healcutPct(session) {
         if (m.kind === 'healcut')
             pct += Math.max(0, Number(m.value) || 0);
     return Math.min(pct, _modifiers_js_1.HEALCUT_MAX);
+}
+/** Wave 3 'Cataclysm' (dualAugment) — hazard + vulnerability keystones amplify each other. */
+function hasDualAugment(session) {
+    const stack = session.modifierStack;
+    return Array.isArray(stack) && stack.some(m => m.kind === 'dualAugment');
 }
 // ─── Endless Spire hazard keystones (Wave 2) ─────────────────────────────────
 // A modifierStack hazard carries only its variant + percent; the engine owns the tile
@@ -294,19 +303,35 @@ function applyRoundHazards(session) {
     }
     // Endless Spire ascension hazards: a SQUAD-side tax that pressures positioning (never
     // chips the boss/adds or the escort). Story runs have no modifierStack → loop is empty.
+    const dualAug = hasDualAugment(session); // Wave 3 'Cataclysm' bumps every hazard chip
     for (const m of session.modifierStack ?? []) {
         if (m.kind !== 'hazard')
             continue;
         const tiles = new Set(spireHazardTiles(session, m, session.round));
         if (tiles.size === 0)
             continue;
-        const pct = spireHazardPct(m, session.round);
+        const pct = spireHazardPct(m, session.round) + (dualAug ? _modifiers_js_1.DUAL_AUGMENT_HAZARD_BONUS : 0);
         for (const a of session.actors) {
             if (a.hp <= 0 || a.side !== 'squad' || !tiles.has(a.pos))
                 continue;
             const dmg = Math.max(1, Math.floor((a.maxHp * pct) / 100));
             a.hp = Math.max(0, a.hp - dmg);
             session.log.push(`${a.name} takes ${dmg} from ${m.label ?? 'the hazard'} (${a.hp}/${a.maxHp}).`);
+        }
+    }
+    // Wave 3 'Sudden Death' (objective): in the last SUDDEN_DEATH_WINDOW rounds before the cap,
+    // the arena collapses — a whole-squad chip so running out the clock is fatal, not safe. Only
+    // fires on a spire floor that sealed the 'objective' keystone AND has a roundCap. Bounded %.
+    if (typeof session.roundCap === 'number' && (session.modifierStack ?? []).some(m => m.kind === 'objective')) {
+        const collapseFrom = session.roundCap - _modifiers_js_1.SUDDEN_DEATH_WINDOW;
+        if (session.round > collapseFrom) {
+            for (const a of session.actors) {
+                if (a.hp <= 0 || a.side !== 'squad')
+                    continue;
+                const dmg = Math.max(1, Math.floor((a.maxHp * _modifiers_js_1.SUDDEN_DEATH_PCT) / 100));
+                a.hp = Math.max(0, a.hp - dmg);
+            }
+            session.log.push(`⚠ The floor is collapsing — finish it! (Sudden Death, round ${session.round}/${session.roundCap})`);
         }
     }
 }
@@ -401,6 +426,20 @@ function applyBossRegen(session) {
     boss.hp = Math.min(boss.maxHp, boss.hp + heal);
     if (boss.hp > before)
         session.log.push(`${boss.name} regenerates ${boss.hp - before} HP.`);
+}
+/** Wave 3 'Second Wind' (extraPhase): a ONE-TIME desperation blast when the boss crosses its
+ *  sealed extra HP-gate — a bounded % chip to every living SQUAD member (never regen/heal, so
+ *  it can't stall past the round cap). Fires once (the gate is popped from pendingPhases once);
+ *  boss/adds/escort are untouched. Story + floors < 15 seal no extraPhaseThreshold → never fires. */
+function applyExtraPhaseShockwave(session, boss) {
+    session.log.push(`${boss.name} steels itself and unleashes a desperation blast!`);
+    for (const a of session.actors) {
+        if (a.hp <= 0 || a.side !== 'squad')
+            continue;
+        const dmg = Math.max(1, Math.floor((a.maxHp * _modifiers_js_1.EXTRA_PHASE_BLAST_PCT) / 100));
+        a.hp = Math.max(0, a.hp - dmg);
+        session.log.push(`${a.name} is caught in the blast for ${dmg} (${a.hp}/${a.maxHp}).`);
+    }
 }
 // ─── Targeting / sides ───────────────────────────────────────────────────────
 function hostileSidesFor(side) {
@@ -809,6 +848,9 @@ function tickBossPhases(session) {
         session.phaseState.triggeredPhases.push(t);
         session.log.push(`${boss.name} enters a new phase (${t}% HP).`);
         applyBossPhaseMechanic(session, boss); // enrage / summon fire at each gate
+        // Wave 3: the desperation blast fires on the sealed extra gate (once).
+        if (session.extraPhaseThreshold != null && t === session.extraPhaseThreshold)
+            applyExtraPhaseShockwave(session, boss);
     }
 }
 // ─── Action application ──────────────────────────────────────────────────────

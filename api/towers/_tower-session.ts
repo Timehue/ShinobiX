@@ -134,6 +134,9 @@ export type TowerSession = {
     regenFlatCap?: number;
     /** sealed modifier list — rendered as manifest chips; (Waves 2/3) consumed by the engine */
     modifierStack?: TowerModifier[];
+    /** Wave 3 — the HP% gate the boss's one-time desperation blast fires at (injected into
+     *  pendingPhases at creation); absent → no extra phase (story + floors < 15 unchanged) */
+    extraPhaseThreshold?: number;
 };
 
 // ─── accessors / invariants ──────────────────────────────────────────────────
@@ -185,6 +188,21 @@ export type CreateTowerSessionParams = {
 
 export function createTowerSession(p: CreateTowerSessionParams): TowerSession {
     const hasNpc = p.actors.some(a => a.side === 'npc');
+    // Wave 3: a sealed 'extraPhase' modifier injects a DESPERATION gate into the boss's
+    // HP-phase ladder. Merge it into the authored phases (deduped) so tickBossPhases fires it
+    // exactly once; seal the threshold so the engine knows WHICH crossing is the blast. Story +
+    // floors < 15 carry no extraPhase modifier → basePhases only, byte-identical.
+    const basePhases = (p.bossPhases ?? []).slice();
+    const extraPhases = (p.ascension?.modifierStack ?? [])
+        .filter(m => m.kind === 'extraPhase')
+        .map(m => Math.max(1, Math.min(99, Math.floor(Number(m.value) || 0))))
+        .filter(v => v > 0);
+    const extraPhaseThreshold = extraPhases.length ? Math.max(...extraPhases) : undefined;
+    // Add only NON-colliding extra gates so a collision fires one gate (native mechanic + blast),
+    // never two; base phases are left byte-for-byte untouched (story runs seal no extraPhases →
+    // basePhases only, identical to the pre-Wave-3 `.slice().sort()`).
+    const extrasToAdd = extraPhases.filter(v => !basePhases.includes(v));
+    const pendingPhases = [...basePhases, ...extrasToAdd].sort((a, b) => b - a);
     return {
         towerId: p.towerId,
         runId: p.runId,
@@ -207,8 +225,9 @@ export function createTowerSession(p: CreateTowerSessionParams): TowerSession {
         },
         phaseState: {
             bossId: p.bossId,
-            // descending so the engine pops the highest threshold first
-            pendingPhases: (p.bossPhases ?? []).slice().sort((a, b) => b - a),
+            // descending so the engine pops the highest threshold first (Wave-3 desperation
+            // gate already merged + deduped into pendingPhases above).
+            pendingPhases,
             triggeredPhases: [],
         },
         status: 'active',
@@ -226,6 +245,7 @@ export function createTowerSession(p: CreateTowerSessionParams): TowerSession {
             enrageCap: p.ascension.enrageCap,
             dmgMult: p.ascension.dmgMult,
             modifierStack: p.ascension.modifierStack,
+            ...(typeof extraPhaseThreshold === 'number' ? { extraPhaseThreshold } : {}),
             ...(typeof p.regenFlatCap === 'number' ? { regenFlatCap: p.regenFlatCap } : {}),
         } : {}),
     };
