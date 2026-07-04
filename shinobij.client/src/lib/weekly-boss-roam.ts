@@ -24,12 +24,13 @@
 
 import { SECTOR_POINTS } from "../data/sector-points";
 
-// Opt-IN flag (default OFF), so the whole roaming layer ships inert until we
-// flip it — the inverse of wanderers.v1 (which defaults on). Turn on per-device
-// with localStorage `weeklyBossRoam.v1 = "on"`.
+// Default ON for everyone (opt-out per-device with localStorage
+// `weeklyBossRoam.v1 = "off"`), matching the wanderers.v1 convention. The whole
+// roaming layer — world-map marker, in-sector encounter, and the tracker reskin —
+// is live: the weekly boss is fought by HUNTING it in the sector it's roaming.
 export function isWeeklyBossRoamEnabled(): boolean {
     if (typeof window === "undefined") return false;
-    try { return window.localStorage?.getItem("weeklyBossRoam.v1") === "on"; } catch { return false; }
+    try { return window.localStorage?.getItem("weeklyBossRoam.v1") !== "off"; } catch { return true; }
 }
 
 // Per-player back-off after a roaming-boss encounter, so it doesn't immediately
