@@ -52,7 +52,8 @@ import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import { SectorPeersLive, type SectorPeer } from "../components/SectorPeers";
 import { WeeklyBossRoamOverlay, type RoamingBoss } from "../components/WeeklyBossRoamOverlay";
-import { isWeeklyBossRoamEnabled } from "../lib/weekly-boss-roam";
+import { SectorWeeklyBossActor } from "../components/SectorWeeklyBossActor";
+import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_FIGHT_COOLDOWN_MS } from "../lib/weekly-boss-roam";
 import { playerNameTile } from "../lib/sector-tile";
 import { defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
@@ -237,6 +238,7 @@ export function WorldMap({
     creatorJutsus: wmCreatorJutsus,
     creatorItems: wmCreatorItems,
     onImmediateSave,
+    onLaunchWeeklyBoss,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -281,6 +283,10 @@ export function WorldMap({
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
     onImmediateSave?: (char: Character) => void;
+    // Launch the REAL weekly-boss fight. The Phase 3 roaming encounter routes
+    // through App's launchWeeklyBossFight so damage → the shared leaderboard and
+    // the 3-attempt cap — same path as the "Fight Boss" button.
+    onLaunchWeeklyBoss?: (bossAiId: string, bossDisplayName?: string, returnScreen?: Screen) => void;
 }) {
     // Live players in the current sector come from the presence store. WorldMap reads
     // the MEMBERSHIP-only snapshot (useLiveSectorRoster) — it re-renders on join/leave
@@ -587,6 +593,56 @@ export function WorldMap({
         const id = setInterval(load, 45000);
         return () => { alive = false; clearInterval(id); };
     }, []);
+
+    // ── Roaming weekly boss — in-sector encounter (weeklyBossRoam.v1, Phase 3) ──
+    // A slow tick so the in-sector actor's presence gate (is the boss in THIS
+    // sector right now?) re-evaluates near the ~13-min hop boundaries even when
+    // nothing else re-renders. Only the render matters; the value is unused.
+    const [, setRoamBossTick] = useState(0);
+    useEffect(() => {
+        if (!isWeeklyBossRoamEnabled()) return;
+        const id = setInterval(() => setRoamBossTick((t) => t + 1), 15000);
+        return () => clearInterval(id);
+    }, []);
+    // The Stand/Flee prompt shown when the boss reaches the player in its sector.
+    const [bossDialog, setBossDialog] = useState<{ name: string; portrait: string; attemptsUsed: number } | null>(null);
+
+    // Per-player back-off, keyed by weekKey in the (self-pruning) wanderer cooldown
+    // map — coolWanderer no-ops relocation for this synthetic id. UX pacing only;
+    // the hard 3-attempt cap is enforced server-side by /api/weekly-boss.
+    function coolWeeklyBoss(ms: number) {
+        if (roamingBoss?.weekKey) coolWanderer(weeklyBossRoamCooldownId(roamingBoss.weekKey), ms);
+    }
+    function handleBossEngage() {
+        if (!roamingBoss?.aiId) return;
+        setBossDialog({
+            name: roamingBoss.bossName ?? "Weekly Boss",
+            portrait: sharedImages["ai:" + roamingBoss.aiId] || "",
+            attemptsUsed: roamingBoss.attemptsByPlayer?.[character.name.toLowerCase()] ?? 0,
+        });
+    }
+    function standBossFight() {
+        setBossDialog(null);
+        if (!roamingBoss?.aiId) return;
+        // launchWeeklyBossFight bails (with an alert) if stamina < 20. Catch that
+        // here FIRST so we don't burn the long fight cooldown for a fight that never
+        // starts — the boss just backs off briefly (like a flee) and you return
+        // once rested.
+        if ((character.stamina ?? 0) < 20) {
+            alert("You need at least 20 stamina to challenge the boss. It backs off — return once you've rested.");
+            coolWeeklyBoss(WANDERER_FLEE_COOLDOWN_MS);
+            return;
+        }
+        // Back off so it doesn't immediately re-lunge on return. Only a fight that
+        // logs damage burns one of the 3 attempts (server-enforced). Return to the
+        // world map (currentSector is untouched) so the hunt continues.
+        coolWeeklyBoss(WEEKLY_BOSS_ROAM_FIGHT_COOLDOWN_MS);
+        onLaunchWeeklyBoss?.(roamingBoss.aiId, roamingBoss.bossName, "worldMap");
+    }
+    function fleeBoss() {
+        coolWeeklyBoss(WANDERER_FLEE_COOLDOWN_MS); // free — no attempt spent
+        setBossDialog(null);
+    }
     const mercWanderers = useMemo(() => {
         if (!isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
         const cd = character.wandererCooldowns; const now = Date.now();
@@ -2175,6 +2231,45 @@ export function WorldMap({
                                     onEngage={handleWandererEngage}
                                 />
                             ))}
+
+                            {/* Roaming weekly boss (weeklyBossRoam.v1): the boss looms in-sector
+                                and bears down on the player when this IS its current sector.
+                                onEngage opens the Stand/Flee telegraph. Gated: flag on, boss
+                                active + here, off cooldown, attempts left. Position derives from
+                                weeklyBossRoamState — identical to the world-map marker. */}
+                            {(() => {
+                                if (!isWeeklyBossRoamEnabled() || !roamingBoss?.aiId || selectedSector == null || !sameSector(currentSector, selectedSector)) return null;
+                                const roam = weeklyBossRoamState(roamingBoss, Date.now());
+                                if (!roam?.active || roam.currentSector !== selectedSector) return null;
+                                if (isWandererOnCooldown(character.wandererCooldowns, weeklyBossRoamCooldownId(roamingBoss.weekKey), Date.now())) return null;
+                                if ((roamingBoss.attemptsByPlayer?.[character.name.toLowerCase()] ?? 0) >= 3) return null;
+                                return (
+                                    <SectorWeeklyBossActor
+                                        playerIndex={sectorPlayerPos}
+                                        biome={ambienceBiomeForSector(selectedSector)}
+                                        portrait={sharedImages["ai:" + roamingBoss.aiId] || ""}
+                                        name={roamingBoss.bossName ?? "Weekly Boss"}
+                                        onEngage={handleBossEngage}
+                                    />
+                                );
+                            })()}
+                            {bossDialog && createPortal(
+                                <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.6)" }} onClick={fleeBoss}>
+                                    <div className="card" style={{ maxWidth: 380, width: "88%", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
+                                        {bossDialog.portrait
+                                            ? <img src={bossDialog.portrait} alt={bossDialog.name} style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />
+                                            : <div style={{ fontSize: 60, lineHeight: 1, margin: "0 0 6px" }}>👹</div>}
+                                        <h3 style={{ margin: "0 0 4px", color: "#ffb4a0" }}>⚔ {bossDialog.name}</h3>
+                                        <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard — or flee (free, no attempt spent).</p>
+                                        <p style={{ fontSize: ".72rem", color: "#facc15", margin: "0 0 12px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
+                                        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                            <button onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>Stand &amp; Fight</button>
+                                            <button onClick={fleeBoss}>Flee</button>
+                                        </div>
+                                    </div>
+                                </div>,
+                                document.body,
+                            )}
                             {sageChoiceOpen && sageOffer && (
                                 <SageOfferModal
                                     offer={sageOffer}
