@@ -1727,6 +1727,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const strikeKind = useRef<"melee" | "ranged">("melee");
     const strikePow = useRef(0.4);
     const strikeCrit = useRef(false);
+    const strikeHeavy = useRef(false);   // rhythm read: this strike is a heavy/charged blow (vs a quick jab)
     const strikeMods = useRef<MoveChoreoMods>(moveChoreoMods("lightMelee"));   // per-move motion tuning (slam/drain/beam/support/…)
     const pulseS = useRef(STRIKE_PULSE_S);
     const recoilPow = useRef(0.55);   // set on stagger-entry from the incoming hit's weight
@@ -1871,8 +1872,13 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             }
             strikeKind.current = kind; strikePow.current = pow; strikeCrit.current = crit;
             const mods = moveChoreoMods(choreo); strikeMods.current = mods;
-            // Heavier moves hold the pulse longer (slam), lighter casts snap (ranged 0.85×).
-            pulseS.current = STRIKE_PULSE_S * (1 + 0.45 * pow) * mods.pulseMul;
+            // RHYTHM VARIETY (R1): a heavy/crit blow reads as a CHARGED slam (longer telegraph +
+            // deep thrust); a light poke as a QUICK jab — so the exchange skeleton isn't uniform.
+            const heavy = crit || pow >= 0.55;
+            const quick = !heavy && pow <= 0.28;
+            strikeHeavy.current = heavy;
+            const rhythmMul = heavy ? 1.5 : quick ? 0.74 : 1.0;
+            pulseS.current = STRIKE_PULSE_S * (1 + 0.45 * pow) * mods.pulseMul * rhythmMul;
         }
         prevSimState.current = a0.state;
         const pe = state.clock.elapsedTime - strikeStart.current;
@@ -1933,9 +1939,19 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // Stand ON the floor: lane position + lunge offset + a tiny run-bob; a gentle
         // idle stance lean + breathe so a waiting pet never just stands stock-still.
         const idling = a0.state === "idle" && !moving;
+        // Low-HP DESPERATION read (R3): below 26% HP a pet breathes harder/faster + gains a
+        // rage aura + red rim (below), so the climax of a long fight actually looks like one.
+        const frac = a0.hp / Math.max(1, a0.maxHp);
+        const desperate = a0.state !== "dead" && frac > 0 && frac < 0.26;
         const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 12 + bobPhase)) * 0.06 : 0;
-        const footwork = idling ? facing * 0.08 + Math.sin(state.clock.elapsedTime * 2.4 + bobPhase) * 0.05 : 0;
-        const breathe = idling ? 1 + Math.abs(Math.sin(state.clock.elapsedTime * 5.2 + bobPhase)) * 0.04 : 1;
+        // NEUTRAL VARIETY (R5): a slow circle-step drift + an occasional feint-lean so the
+        // seconds between exchanges aren't a metronome (per-actor bobPhase de-syncs the pair).
+        const neutralT = state.clock.elapsedTime * 0.6 + bobPhase;
+        const circle = idling ? Math.sin(neutralT) * 0.05 : 0;
+        const feint = idling ? Math.max(0, Math.sin(neutralT * 1.7) - 0.72) * 0.6 * facing : 0;
+        const footwork = idling ? facing * 0.08 + Math.sin(state.clock.elapsedTime * 2.4 + bobPhase) * 0.05 + circle + feint : 0;
+        const bFreq = desperate ? 7.4 : 5.2, bAmp = desperate ? 0.075 : 0.04;
+        const breathe = idling ? 1 + Math.abs(Math.sin(state.clock.elapsedTime * bFreq + bobPhase)) * bAmp : 1;
         g.position.set(wx + choX.current + footwork, FLOOR_Y + Math.max(0, choY.current) + bob, wz);
         pg.scale.set(choSX.current, choSY.current * breathe, 1);
         pg.rotation.z = lerp(pg.rotation.z, choRot.current, 0.4);
@@ -1952,7 +1968,9 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             if (a0.state === "windup") cat = "windup";
             else if (strikeKind.current === "melee" && pe >= 0 && pe < pulseS.current) {
                 const pp = pe / pulseS.current;
-                cat = pp < 0.38 ? "lunge" : pp < 0.72 ? "impact" : "recover";
+                // Heavy blows DWELL on the wind/impact frames; quick jabs blow through them (R1).
+                const p0 = strikeHeavy.current ? 0.30 : 0.42, p1 = strikeHeavy.current ? 0.60 : 0.78;
+                cat = pp < p0 ? "lunge" : pp < p1 ? "impact" : "recover";
             }
         }
         if (moving && poses?.hasRun && (a0.state === "idle" || a0.state === "dash")) {
@@ -1969,6 +1987,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         let fl = flash.current < 0.02 ? 0 : flash.current * 0.9;
         // Power-up GLOW while sizing up — a pulsing brightness so both pets visibly "buff".
         if (sizingUp) fl = Math.max(fl, 0.22 + 0.16 * Math.abs(Math.sin(state.clock.elapsedTime * 6)));
+        // DESPERATION rage aura (R3) — a pulsing glow when a pet is bloodied (< 26% HP).
+        if (desperate) fl = Math.max(fl, 0.10 + 0.10 * Math.abs(Math.sin(state.clock.elapsedTime * 8)));
         // Status TINT (burn = ember-warm, stun = icy-blue) pulses on the sprite so
         // afflictions read at a glance; the stagger hurt-flash deepens it to red.
         const hurt = a0.state === "stagger" ? 0.5 : 0;
@@ -1981,6 +2001,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             tr = 1 - (1 - tr) * pulse; tg = 1 - (1 - tg) * pulse; tb = 1 - (1 - tb) * pulse;
         }
         tg -= 0.3 * hurt; tb -= 0.3 * hurt;
+        if (desperate) { tr = Math.min(1.25, tr + 0.14); tg *= 0.93; tb *= 0.88; }   // bloodied red-rage rim (R3)
         m.color.setRGB(Math.min(2, tr + fl), Math.min(2, Math.max(0, tg) + fl), Math.min(2, Math.max(0, tb) + fl));
         m.opacity = a0.state === "dead" ? lerp(m.opacity, 0.25, 0.1) : 1;
         if (m.map !== useTex) m.map = useTex;
@@ -1990,9 +2011,9 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             deformU.current.uHalfH.value = L.planeH * 0.5;
             deformU.current.uTime.value = state.clock.elapsedTime;
             // Lean into the lunge — clamped so the now-deeper gap-closing reach doesn't shear the sprite.
-            deformU.current.uLean.value = lerp(deformU.current.uLean.value, Math.max(-0.6, Math.min(0.6, choX.current * 0.3)), 0.4);
+            deformU.current.uLean.value = lerp(deformU.current.uLean.value, Math.max(-0.6, Math.min(0.6, choX.current * (strikeHeavy.current ? 0.4 : 0.3))), 0.4);   // heavier lean on a charged blow (R1)
             deformU.current.uArch.value = Math.max(0, choY.current) * 0.5;
-            deformU.current.uWave.value = 0.025 + Math.min(0.14, spd * 2.2) + (pe >= 0 && pe < pulseS.current ? 0.12 : 0);
+            deformU.current.uWave.value = 0.025 + Math.min(0.14, spd * 2.2) + (pe >= 0 && pe < pulseS.current ? 0.12 : 0) + (desperate ? 0.04 : 0);   // bloodied jitter (R3)
         }
 
         // HP bar + dead dim via DOM refs (no React re-render).
@@ -2393,6 +2414,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const camAimHold = useRef(0);      // seconds a cut aim is held before easing back to the midpoint
     const camDolly = useRef(CAM_POS[2]); // eased dolly distance (adaptive on the leads' spread)
     const camDollyBias = useRef(0);    // transient extra push-in during a wind-up cut (decays)
+    const camPosBias = useRef<[number, number, number]>([0, 0, 0]);   // transient eye offset (low crit / overhead KO angle), eases back to 0
     const introLocked = useRef(false); // fires the "lock-in" shake once when the opening charge completes
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
@@ -2485,6 +2507,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         comboT.current = now + 1.1;
                         if (comboN.current >= 2) onCombo(comboN.current);
                         if (e.crit) onCallout("CRITICAL!");
+                        if (e.crit) camPosBias.current[1] = -0.9;   // dip to a low hero angle on a crit (R4), eases back
                         // Crit → a couple of trailing sparks read as a multi-hit flurry.
                         if (e.crit) {
                             const ax = a.x, az = a.y;
@@ -2605,6 +2628,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     hitStop.current = Math.max(hitStop.current, 0.34);
                     savor(0.3, 0.9);   // deep, HELD slow-mo for the finishing blow
                     koPull.current = 3.4;
+                    camPosBias.current[1] = 2.4;   // rise to an overhead angle for the KO reveal (R4)
                     onFlash("#fff7e6", 0.5);
                     onCallout("FINISH!");
                     if (dead) onAnnounce(`${nameById[dead.id] ?? "A fighter"} is down!`, "ko");
@@ -2683,7 +2707,11 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         else if (dollyIntro < 900 && !introLocked.current) { introLocked.current = true; shake.current = Math.max(shake.current, 1.4); }
         camDolly.current = lerp(camDolly.current, dollyTarget, dollyIntro < INTRO_CHARGE_END ? 0.1 : 0.03);
         const db = camDollyBias.current; camDollyBias.current *= 0.9;
-        camera.position.set(CAM_POS[0] + midX * 0.1 + sx, CAM_POS[1] + sy, camDolly.current - zk - db + koPull.current);
+        // Ease the transient angle bias (crit low / KO overhead) back to neutral so it reads as
+        // a deliberate camera MOVE, not a teleport (R4 — angle variety).
+        const pb = camPosBias.current;
+        pb[0] = lerp(pb[0], 0, 0.045); pb[1] = lerp(pb[1], 0, 0.045); pb[2] = lerp(pb[2], 0, 0.045);
+        camera.position.set(CAM_POS[0] + midX * 0.1 + sx + pb[0], CAM_POS[1] + sy + pb[1], camDolly.current - zk - db + koPull.current + pb[2]);
         camera.lookAt(camAim.current[0], camAim.current[1], camAim.current[2]);
         if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
     });
