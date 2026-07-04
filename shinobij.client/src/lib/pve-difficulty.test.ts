@@ -10,6 +10,12 @@ import {
     pveIsBurstJutsuAp,
     pveEasyBandHoldsBurst,
     pveEasyBandAllowsLethal,
+    isWeeklyBossOpenRound,
+    weeklyBossDamageMultiplier,
+    weeklyBossGuardedHit,
+    WEEKLY_BOSS_GUARD_CYCLE,
+    WEEKLY_BOSS_GUARDED_DAMAGE_MULT,
+    WEEKLY_BOSS_OPEN_DAMAGE_MULT,
 } from "./pve-difficulty";
 
 // ── Band brackets (the agreed difficulty curve, inclusive upper bounds) ──────
@@ -157,4 +163,54 @@ test("easy band only goes for the kill when the player is already low", () => {
     // Outside the easy band the AI always plays to win.
     assert.equal(pveEasyBandAllowsLethal(60, 1.0), true);
     assert.equal(pveEasyBandAllowsLethal(95, 1.0), true);
+});
+
+// ── Weekly boss: the "defensive grind" mechanic ─────────────────────────────
+// The weekly boss is a survivable grind, not a glass cannon: it deals modest,
+// capped damage and cycles a guard that soaks most of the player's damage, with a
+// periodic OPEN round for bonus damage. These clamps are weekly-boss-only (routed
+// through isWeeklyBossFight in Arena.tsx) and never touch other PvE/PvP damage.
+
+test("weekly boss opens on turn 1, then re-guards until the next cycle boundary", () => {
+    // Offset so the first round is OPEN (a strong opener that teaches the boss can
+    // be hurt), then guarded for the rest of the cycle. Open on 1, 5, 9, … (CYCLE=4).
+    assert.equal(isWeeklyBossOpenRound(1), true, "turn 1 is an opening");
+    assert.equal(isWeeklyBossOpenRound(2), false, "guard raised");
+    assert.equal(isWeeklyBossOpenRound(3), false);
+    assert.equal(isWeeklyBossOpenRound(4), false);
+    assert.equal(isWeeklyBossOpenRound(1 + WEEKLY_BOSS_GUARD_CYCLE), true, "guard drops again on the cycle boundary");
+    assert.equal(isWeeklyBossOpenRound(1 + WEEKLY_BOSS_GUARD_CYCLE * 2), true);
+    // Junk input never throws and defaults to a valid round.
+    assert.equal(isWeeklyBossOpenRound(0), true);
+    assert.equal(isWeeklyBossOpenRound(Number.NaN), true);
+});
+
+test("weekly boss guard cycle soaks damage most rounds and rewards the open window", () => {
+    // Guarded rounds mitigate the bulk of the blow; the open round pays out extra.
+    assert.equal(weeklyBossDamageMultiplier(1), WEEKLY_BOSS_OPEN_DAMAGE_MULT, "open round = bonus");
+    assert.equal(weeklyBossDamageMultiplier(2), WEEKLY_BOSS_GUARDED_DAMAGE_MULT, "guarded round = soaked");
+    assert.ok(WEEKLY_BOSS_GUARDED_DAMAGE_MULT < 1, "guard actually reduces player damage");
+    assert.ok(WEEKLY_BOSS_OPEN_DAMAGE_MULT > 1, "open window actually rewards a burst");
+});
+
+test("weekly boss hit clamp keeps a 10k-HP fighter alive for a real grind (not a one-shot)", () => {
+    const maxHp = 10_000;
+    // A raw ~9k near-one-shot is clamped to a small chunk of the bar.
+    const oneHit = weeklyBossGuardedHit(9_000, maxHp, 0);
+    assert.ok(oneHit <= maxHp * 0.09, `a single boss hit (${oneHit}) must be a small chunk of a 10k bar`);
+    assert.ok(oneHit >= 1, "still deals something");
+
+    // Per-turn ceiling bounds a chained multi-action boss turn well short of a kill.
+    let dealt = 0;
+    for (let i = 0; i < 5; i++) dealt += weeklyBossGuardedHit(9_000, maxHp, dealt);
+    assert.ok(dealt <= maxHp * 0.16, `a full boss turn (${dealt}) stays a grind, not a kill`);
+    assert.ok(maxHp - dealt >= 1, "the fighter survives the turn");
+});
+
+test("weekly boss hit clamp survives junk input", () => {
+    assert.equal(weeklyBossGuardedHit(Number.NaN, 10_000, 0) >= 0, true);
+    assert.ok(weeklyBossGuardedHit(500, 0, 0) >= 0);
+    assert.ok(weeklyBossGuardedHit(500, Number.NaN, 0) >= 0);
+    // Once the per-turn ceiling is spent, further hits contribute nothing.
+    assert.equal(weeklyBossGuardedHit(9_000, 10_000, 999_999), 0, "turn ceiling already spent → 0");
 });
