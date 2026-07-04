@@ -751,13 +751,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             return res.status(403).json({ error: 'You are not a participant in this sector (no active war with the owner village).' });
                         }
 
-                        // Clan sector CAPTURE gate: taking NEW clan ownership of a
-                        // sector requires a full roster (TERRITORY_CAPTURE_MIN_MEMBERS).
-                        // Fires only when ownerClan flips TO the actor's clan; owning-
-                        // clan reinforcement / terrain edits (claimingClan === prevClan)
-                        // are exempt, so a clan that shrank below the cap can still hold
-                        // and defend its sector. Server mirror of the ClanHall guard.
-                        if (matchesClan && claimingClan && claimingClan !== prevClan) {
+                        // Clan sector CAPTURE gate: ANY write that flips ownerClan to a
+                        // NEW clan is a capture, and it must be performed BY a member of
+                        // that clan whose roster meets TERRITORY_CAPTURE_MIN_MEMBERS.
+                        // Keying on `claimingClan !== prevClan` (NOT on matchesClan)
+                        // closes the spoof where a writer clears the participation gate
+                        // via matchesVillage (their own village) but sets an arbitrary or
+                        // sub-strength ownerClan — which the ownership-flip branch below
+                        // would otherwise persist verbatim once the sector hit 0 HP.
+                        // Reinforcement / terrain edits (claimingClan === prevClan) and
+                        // village-only writes (empty claimingClan) are exempt, so a clan
+                        // that shrank below the cap can still hold and defend its sector.
+                        if (claimingClan && claimingClan !== prevClan) {
+                            if (!matchesClan) {
+                                return res.status(403).json({ error: 'You can only capture a sector for a clan you belong to.' });
+                            }
                             const memberCount = await clanMemberCount(claimingClan);
                             if (memberCount < TERRITORY_CAPTURE_MIN_MEMBERS) {
                                 return res.status(403).json({ error: `Your clan needs at least ${TERRITORY_CAPTURE_MIN_MEMBERS} members to capture a sector (it has ${memberCount}).` });
