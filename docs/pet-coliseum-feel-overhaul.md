@@ -38,6 +38,33 @@ pet-ladder, and clan-war pet duels are byte-identical to before** (see Gating).
 - **Phase 4 — Turn cadence (sim, gated).** A short symmetric post-strike **recover
   breath** so exchanges alternate like turns.
 
+### Tier-2 — cadence variety (sim, gated by `plantedMotion`)
+
+After the fights were lengthened to ~25–45s, a single tempo read as repetitive over
+the longer runtime. Tier-2 adds three planted-only cadence beats so a long fight
+**arcs** instead of holding one metronome. All are determinism-safe (only
+`+ - * / min/max/round/abs`, integer/quantized compares; `rng()` is drawn only behind
+a `plantedMotion &&` short-circuit) and **inert on the authoritative path**, so ranked/
+ladder/sector stay byte-identical (the `default==explicit-off` test still passes):
+
+- **Feint** — a *healthy* melee pet occasionally winds up and doesn't commit
+  (`rng() < 0.09`, skipped once bloodied so a desperate pet commits for real). The
+  wind-up telegraph plays; no `hit` event fires; it pays the basic cooldown but no
+  stamina — a mind-games beat that breaks the trade rhythm.
+- **Fight-phase pacing** (`plantedPaceMul`) — a cagey, bigger-telegraph opening (×1.25
+  for the first 6s), then snappier and more desperate once bloodied (×0.78 under 33% HP).
+  Scales basic wind-up and recover ticks only.
+- **Momentum knockback** — an *occasional true-heavy* blow (crit or ≥18% max HP) shoves
+  the victim back ×1.6 harder, so spacing resets and the fight ebbs and flows. Gated to
+  real heavy hits: a lower threshold fires on nearly every trade and the constant
+  re-spacing grinds even matchups into the time cap.
+
+Tuning note: the momentum threshold (0.18) and feint's bloodied gate matter for *length*.
+An early 0.10 threshold + un-gated feint pushed ~38% of fights to the 45s cap (constant
+re-spacing / feint-stalled grinds); the tuned values keep the median at ~31s with the
+distribution centred in-window. **The 45s cap, HP scale (`PLANTED_TTK_HP`), feint rate,
+and momentum threshold are the length/feel knobs — all planted-gated.**
+
 ### The fairness fix (important)
 
 Planting the pets into tight melee exposed a latent bias: the sim steps fighters in
