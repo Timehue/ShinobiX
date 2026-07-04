@@ -72,23 +72,26 @@ const TEMPLATES: Record<string, EnemyTemplate> = {
         name: 'Spire Sovereign', specialty: 'Ninjutsu', level: 80, hp: 6200, visual: 'sovereign', boss: true,
         stats: { ninjutsuOffense: 1500, ninjutsuDefense: 1150, willpower: 550, speed: 350 },
     },
-    // ── Clan Boss chunks (api/clan-boss) — a party-of-3 "chunk" boss (~5k HP) whose
-    // banked damage chips the clan's weekly pool. Reuse the existing boss sprites.
+    // ── Clan Boss (api/clan-boss) — a tough party-of-3 boss. Its HP is OVERRIDDEN at
+    // assault time to the clan's shared pool (min(pool, cap)), so these hp values are
+    // only a fallback; the stats below drive how hard it HITS (assaults normally end
+    // in a wipe having chipped the boss). Reuse the existing boss sprites. Stats sit
+    // at the level-80 boss ceiling (a stat-cap parity test pins this).
     'clan-boss-oni': {
-        name: 'The Oni Warlord', specialty: 'Taijutsu', level: 80, hp: 5000, visual: 'ravager', boss: true,
-        stats: { taijutsuOffense: 1350, taijutsuDefense: 1050, strength: 520, speed: 280 },
+        name: 'The Oni Warlord', specialty: 'Taijutsu', level: 80, hp: 12000, visual: 'ravager', boss: true,
+        stats: { taijutsuOffense: 1500, taijutsuDefense: 1150, strength: 640, speed: 320 },
     },
     'clan-boss-leviathan': {
-        name: 'Abyssal Leviathan', specialty: 'Ninjutsu', level: 80, hp: 5000, visual: 'sovereign', boss: true,
-        stats: { ninjutsuOffense: 1400, ninjutsuDefense: 1050, willpower: 500, speed: 300 },
+        name: 'Abyssal Leviathan', specialty: 'Ninjutsu', level: 80, hp: 12000, visual: 'sovereign', boss: true,
+        stats: { ninjutsuOffense: 1500, ninjutsuDefense: 1150, willpower: 560, speed: 340 },
     },
     'clan-boss-kage': {
-        name: 'The Fallen Kage', specialty: 'Genjutsu', level: 80, hp: 5000, visual: 'revenant', boss: true,
-        stats: { genjutsuOffense: 1350, genjutsuDefense: 1100, willpower: 520, intelligence: 360 },
+        name: 'The Fallen Kage', specialty: 'Genjutsu', level: 80, hp: 12000, visual: 'revenant', boss: true,
+        stats: { genjutsuOffense: 1500, genjutsuDefense: 1200, willpower: 560, intelligence: 420 },
     },
     'clan-boss-golem': {
-        name: 'Ancient Stone Golem', specialty: 'Taijutsu', level: 80, hp: 5000, visual: 'warden', boss: true,
-        stats: { taijutsuOffense: 1200, taijutsuDefense: 1300, strength: 560, speed: 200 },
+        name: 'Ancient Stone Golem', specialty: 'Taijutsu', level: 80, hp: 12000, visual: 'warden', boss: true,
+        stats: { taijutsuOffense: 1400, taijutsuDefense: 1450, strength: 660, speed: 220 },
     },
     'npc-genin': {
         name: 'Allied Genin', specialty: 'Taijutsu', level: 40, hp: 600, visual: 'genin',

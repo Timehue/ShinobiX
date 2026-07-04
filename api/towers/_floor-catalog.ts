@@ -257,7 +257,7 @@ export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
     {
         id: CLAN_BOSS_FLOOR_BASE + 0, name: 'The Oni Warlord', biome: 'volcano', objective: 'defeat-boss',
         roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
-        enemies: [{ aiId: 'grunt-brute', count: 2 }],
+        enemies: [{ aiId: 'grunt-brute', count: 3 }],
         boss: { aiId: 'clan-boss-oni', phases: [75, 50, 25], mechanic: 'enrage' },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         balanceFor: 3, firstClearReward: {},
@@ -265,7 +265,7 @@ export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
     {
         id: CLAN_BOSS_FLOOR_BASE + 1, name: 'Abyssal Leviathan', biome: 'snow', objective: 'defeat-boss',
         roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
-        enemies: [{ aiId: 'grunt-acolyte', count: 1 }],
+        enemies: [{ aiId: 'grunt-acolyte', count: 2 }],
         boss: { aiId: 'clan-boss-leviathan', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 2 },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), hazard(22, 16)],
         balanceFor: 3, firstClearReward: {},
@@ -273,7 +273,7 @@ export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
     {
         id: CLAN_BOSS_FLOOR_BASE + 2, name: 'The Fallen Kage', biome: 'shadow', objective: 'defeat-boss',
         roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
-        enemies: [{ aiId: 'grunt-acolyte', count: 2 }],
+        enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
         boss: { aiId: 'clan-boss-kage', phases: [66, 33], mechanic: 'regen' },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         balanceFor: 3, firstClearReward: {},
@@ -282,7 +282,7 @@ export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
         id: CLAN_BOSS_FLOOR_BASE + 3, name: 'Ancient Stone Golem', biome: 'central', objective: 'defeat-boss',
         roundBudget: 20, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
         // BULWARK: the golem takes half damage while its guards live — break them first.
-        enemies: [{ aiId: 'grunt-blocker', count: 2 }],
+        enemies: [{ aiId: 'grunt-blocker', count: 3 }],
         boss: { aiId: 'clan-boss-golem', phases: [60, 30], mechanic: 'bulwark' },
         features: [pylon(22, 16), pylon(22, 16), ward(22, 16, 25), ward(22, 16, 25)],
         balanceFor: 3, firstClearReward: {},
