@@ -86,7 +86,8 @@ test("plantedMotion flag: default (off) is byte-identical to explicit off; on st
         const on2 = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false, null, true);
         assert.deepEqual(on1, on2, `seed ${seed}: planted battles must stay deterministic`);
         assert.ok(["win", "loss", "draw"].includes(on1.result), `planted seed ${seed}: bad result`);
-        assert.ok(on1.ticks >= 1 && on1.ticks <= CAP, `planted seed ${seed}: ticks out of range ${on1.ticks}`);
+        // Planted (casual) uses a raised 45s cap (longer, meatier fights) vs the 30s authoritative cap.
+        assert.ok(on1.ticks >= 1 && on1.ticks <= DUEL_TPS * 45, `planted seed ${seed}: ticks out of range ${on1.ticks}`);
         assertAllNumbersFinite(on1, `planted.seed${seed}`);
     }
     // Planted still resolves a REAL fight: spawns apart, closes to melee, ends in a KO.
