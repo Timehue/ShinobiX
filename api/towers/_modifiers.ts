@@ -59,6 +59,26 @@ export const DMG_STEP = 0.06;         // dmgMult = 1 + tier*0.06 (applied to ene
 export const DMG_MULT_CAP = 2.20;
 export const SPIRE_ENRAGE_CAP = 2;    // enrage bounded to 2 stacks (1.70×) — the load-bearing anti-one-shot cap
 
+// ── Wave 2 affix keystones (floors 9-14+) ──────────────────────────────────────
+// Keystones layer a TACTICAL demand on top of the number chassis so mid-Spire floors
+// stop being a pure stat-check. Three consumers, all squad-side and all sealed:
+//   • hazard  — round-end tile chip (engine derives tiles from map geometry + variant)
+//   • debuff  — extra INCOMING damage on squad targets, folded at the wMult junction
+//   • healcut — reduces net healing the squad receives (snapshot-scaled in runJutsu)
+// DEBUFF_TAKEN_CAP is the direct analog of SPIRE_ENRAGE_CAP: debuff is a NEW multiplicative
+// term on the same wMult product as enrage(≤1.70×) × dmgMult(≤2.20×), so the summed
+// vulnerability is hard-clamped here at the seal so a maxed enemy hit can't cold-one-shot.
+export const DEBUFF_TAKEN_CAP = 0.30;   // max +30% incoming damage from all vulnerability keystones combined
+export const HEALCUT_MAX = 60;          // healing-reduction percent is clamped to this (never a net negative heal)
+
+// Cumulative tier gates for the keystones (a floor carries every keystone at/under its tier).
+const HAZARD_ROTATING_TIER = 9;   // a sweeping column of fire — dodge by moving off it each round
+const DEBUFF_FLAT_TIER = 10;      // Sundered Guard — flat +damage-taken, unconditional
+const HEALCUT_TIER = 11;          // Withering Aura — squad healing is throttled
+const HAZARD_PROXIMITY_TIER = 13; // Chain Lightning — punishes clustering (≥2 allies adjacent)
+const DEBUFF_POSITIONAL_TIER = 14;// Exposed — +damage-taken UNLESS the target stands on a ward
+const HAZARD_ESCALATING_TIER = 19;// Rising Inferno — a central blaze whose bite grows each round
+
 function clampTier(tier: number): number {
     return Math.max(1, Math.min(SPIRE_MAX_TIER, Math.floor(Number(tier) || 1)));
 }
@@ -96,6 +116,23 @@ export function resolveAscensionModifiers(
         { kind: 'roundCap', value: roundCap, label: `${roundCap}-round limit` },
         { kind: 'enrageCap', value: SPIRE_ENRAGE_CAP, label: `Enrage cap ${SPIRE_ENRAGE_CAP}` },
     ];
+
+    // Wave 2 keystones — cumulative by tier. Values are percentages (hazard/debuff = % of
+    // squad maxHp / % extra damage-taken; healcut = % healing removed) and stay modest +
+    // playtest-tunable; the engine caps the combined debuff at DEBUFF_TAKEN_CAP. The engine
+    // owns hazard tile geometry — the modifier carries only its variant + percent.
+    if (t >= HAZARD_ROTATING_TIER)
+        stack.push({ kind: 'hazard', variant: 'rotating', value: 4, label: 'Rolling Cinders — 4% HP on the burning column' });
+    if (t >= DEBUFF_FLAT_TIER)
+        stack.push({ kind: 'debuff', variant: 'flat', value: 10, label: 'Sundered Guard — +10% damage taken' });
+    if (t >= HEALCUT_TIER)
+        stack.push({ kind: 'healcut', variant: 'flat', value: 30, label: 'Withering Aura — squad healing −30%' });
+    if (t >= HAZARD_PROXIMITY_TIER)
+        stack.push({ kind: 'hazard', variant: 'proximity', value: 5, label: 'Chain Lightning — 5% HP where allies cluster' });
+    if (t >= DEBUFF_POSITIONAL_TIER)
+        stack.push({ kind: 'debuff', variant: 'positional', value: 12, label: 'Exposed — +12% damage taken off-ward' });
+    if (t >= HAZARD_ESCALATING_TIER)
+        stack.push({ kind: 'hazard', variant: 'escalating', value: 3, label: 'Rising Inferno — a central blaze that grows each round' });
 
     // Weekly affix — a single extra modifier layered on every floor this week. Only the
     // Wave-1 number kinds actually bite; the rest render as a chip until their wave lands.
