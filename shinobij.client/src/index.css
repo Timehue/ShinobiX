@@ -1594,6 +1594,39 @@ button {
     50% { box-shadow: 0 0 0 5px rgba(220,38,38,.5), 0 0 32px rgba(255,60,0,.85), 0 4px 14px rgba(0,0,0,.7); }
 }
 
+/* Roaming weekly boss — highlights the sector it is CURRENTLY rampaging in
+   (replaces the old floating portrait marker). A warm pulsing ring + a 👹 flag so
+   players can spot which sector to travel into to challenge it. Position updates
+   as the boss hops (WorldMap recomputes weeklyBossRoamState). */
+.atlas-sector-weekly-boss {
+    z-index: 11;
+    border-color: #f97316;
+    box-shadow: 0 0 0 3px rgba(249,115,22,.45), 0 0 20px rgba(249,115,22,.7), 0 4px 10px rgba(0,0,0,.5);
+    animation: weekly-boss-sector-pulse 1.8s ease-in-out infinite;
+}
+.atlas-sector-weekly-boss:hover {
+    transform: translate(-50%, -50%) scale(1.2);
+    box-shadow: 0 0 0 4px rgba(249,115,22,.6), 0 0 30px rgba(255,140,0,.85), 0 4px 14px rgba(0,0,0,.6);
+}
+@keyframes weekly-boss-sector-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(249,115,22,.45), 0 0 18px rgba(249,115,22,.65), 0 4px 10px rgba(0,0,0,.5); }
+    50% { box-shadow: 0 0 0 5px rgba(249,115,22,.6), 0 0 34px rgba(255,120,0,.9), 0 4px 14px rgba(0,0,0,.6); }
+}
+.atlas-boss-flag {
+    position: absolute;
+    top: -13px;
+    left: -13px;
+    font-size: 16px;
+    line-height: 1;
+    pointer-events: none;
+    filter: drop-shadow(0 0 4px #f97316) drop-shadow(0 1px 1px #000);
+    animation: weekly-boss-flag-bob 1.8s ease-in-out infinite;
+}
+@keyframes weekly-boss-flag-bob {
+    0%, 100% { transform: translateY(0) rotate(-6deg); }
+    50% { transform: translateY(-2px) rotate(6deg); }
+}
+
 /* ── World-map zoom mode (worldMapZoom.v1) ────────────────────────────────────
    When <html> carries `.wm-zoom` (set by useWorldMapZoom on narrow / touch
    viewports), the painted map FITS the screen and the player pinch / drag-zooms
