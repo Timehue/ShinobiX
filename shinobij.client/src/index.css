@@ -10359,6 +10359,16 @@ textarea {
         flex: none;
     }
 
+    .clan-boss-portrait {
+        width: 84px;
+        height: 84px;
+        flex: none;
+        border-radius: 10px;
+        object-fit: cover;
+        border: 1px solid rgba(245,196,81,0.45);
+        box-shadow: 0 2px 12px rgba(0,0,0,0.45);
+    }
+
 .clan-raid-hp {
     margin-top: 6px;
 }
