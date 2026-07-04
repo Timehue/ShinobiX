@@ -377,6 +377,30 @@ async function handler(req, res) {
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kind, weekKey, amount } = body;
+            // reset CREATES or replaces the boss, so it must run BEFORE the
+            // "no boss spawned" guard below — otherwise the very first spawn on a
+            // fresh server (no state in KV yet) can never bootstrap: loadOrInitBoss
+            // returns null → the guard 409s → the reset branch is never reached.
+            if (kind === 'reset') {
+                if (!identity.admin)
+                    return res.status(403).json({ error: 'Admin only.' });
+                const fresh = await buildFreshBossState(isoWeekKey());
+                if (!fresh)
+                    return res.status(409).json({ error: 'No AI available for reset.' });
+                await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, fresh);
+                // Herald the spawn server-wide: the world news feed AND a World
+                // Herald line in every village chat (importance 'high' always
+                // lands + broadcasts). Best-effort — announce() never throws into
+                // the spawn. Every weekly-boss spawn heralds the hunt.
+                await (0, _announce_js_1.announce)({
+                    type: 'weekly_boss',
+                    importance: 'high',
+                    title: `⚔️ Weekly Boss: ${fresh.bossName ?? 'A great enemy'} has appeared!`,
+                    message: `${fresh.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo and XP. Enter the hunt via Central Hub → Weekly Boss.`,
+                    meta: { aiId: fresh.aiId, weekKey: fresh.weekKey, expiresAt: fresh.expiresAt },
+                });
+                return res.status(200).json({ boss: fresh });
+            }
             let boss = await loadOrInitBoss();
             if (!boss)
                 return res.status(409).json({ error: 'No boss is currently spawned. An admin needs to hit "Spawn Now" in the admin panel.' });
@@ -541,26 +565,6 @@ async function handler(req, res) {
                 if (!entry)
                     return res.status(403).json({ error: 'You did not damage this boss.' });
                 return res.status(200).json({ boss, reward: entry, note: 'Rewards were already credited to your save.' });
-            }
-            if (kind === 'reset') {
-                if (!identity.admin)
-                    return res.status(403).json({ error: 'Admin only.' });
-                const fresh = await buildFreshBossState(isoWeekKey());
-                if (!fresh)
-                    return res.status(409).json({ error: 'No AI available for reset.' });
-                await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, fresh);
-                // Herald the spawn server-wide: the world news feed AND a World
-                // Herald line in every village chat (importance 'high' always
-                // lands + broadcasts). Best-effort — announce() never throws into
-                // the spawn. Every weekly-boss spawn heralds the hunt.
-                await (0, _announce_js_1.announce)({
-                    type: 'weekly_boss',
-                    importance: 'high',
-                    title: `⚔️ Weekly Boss: ${fresh.bossName ?? 'A great enemy'} has appeared!`,
-                    message: `${fresh.bossName ?? 'A fearsome boss'} rampages for 72 hours. Seek it out and deal all the damage you can — the top damagers claim a Weekly Boss Core, Dungeon Keys, ryo and XP. Enter the hunt via Central Hub → Weekly Boss.`,
-                    meta: { aiId: fresh.aiId, weekKey: fresh.weekKey, expiresAt: fresh.expiresAt },
-                });
-                return res.status(200).json({ boss: fresh });
             }
             return res.status(400).json({ error: 'Unknown kind.' });
         }
