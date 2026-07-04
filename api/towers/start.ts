@@ -4,7 +4,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
-import { getFloor, MIN_PARTY_SIZE, MAX_PARTY_SIZE } from './_floor-catalog.js';
+import { getFloor, isPublicFloor, MIN_PARTY_SIZE, MAX_PARTY_SIZE } from './_floor-catalog.js';
 import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
 import { startRound, runAiUntilHuman } from './_engine.js';
@@ -34,7 +34,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== hostName) return res.status(403).json({ error: 'Can only start your own runs.' });
 
-        const floor = getFloor(Math.floor(Number(body.floor)));
+        const floorNum = Math.floor(Number(body.floor));
+        // Reject clan-boss floors (reserved id range) — those launch only via
+        // api/clan-boss/assault-start, never the public tower start.
+        const floor = isPublicFloor(floorNum) ? getFloor(floorNum) : undefined;
         if (!floor) return res.status(400).json({ error: 'Unknown floor.' });
 
         // The host's client-computed combat extras the SAVE doesn't persist (pvpItems +
