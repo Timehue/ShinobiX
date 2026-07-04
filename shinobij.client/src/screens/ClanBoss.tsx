@@ -112,7 +112,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
                 <div className="bar enemy-bar" style={{ background: "#0b1220" }}>
                     <span style={{ width: `${hpPct}%`, background: dead ? "#64748b" : "#ef4444" }} />
                 </div>
-                <div className="clan-raid-hp-label"><span>{dead ? "☠ Defeated" : "Clan boss pool"}</span><span>{mc.pool.toLocaleString()} / {mc.poolMax.toLocaleString()}</span></div>
+                <div className="clan-raid-hp-label"><span>{dead ? "☠ Boss defeated" : "Boss HP (your clan)"}</span><span>{mc.pool.toLocaleString()} / {mc.poolMax.toLocaleString()}</span></div>
             </div>
 
             {flash && <p className="clan-raid-flash">{flash}</p>}
@@ -161,7 +161,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             )}
 
             <p className="hint" style={{ marginTop: 10, fontSize: "0.78rem" }}>
-                Your clan has dealt <strong>{mc.damageDealt.toLocaleString()}</strong> damage with <strong>{mc.participants}</strong> member{mc.participants === 1 ? "" : "s"} fighting. Score blends the kill, damage, how many members join in, speed, and clean runs — the top 3 clans earn treasury rewards when the week ends.
+                Your clan has chipped <strong>{mc.damageDealt.toLocaleString()}</strong> boss HP with <strong>{mc.participants}</strong> member{mc.participants === 1 ? "" : "s"} fighting. This boss is tough — most assaults chip its HP and end in a wipe; the killing blow only lands once it's worn low. Score blends the kill, total damage, how many members join in, and how fast (rounds + time) you slay it — the top 3 clans earn treasury rewards at week's end.
             </p>
 
             {view.lastWeek && (
