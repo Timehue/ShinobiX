@@ -44,6 +44,40 @@ const _floor_catalog_js_1 = require("./_floor-catalog.js");
         node_assert_1.strict.ok((0, _modifiers_js_1.resolveAscensionModifiers)(20, 'sovereign', 20, affix).dmgMult <= _modifiers_js_1.DMG_MULT_CAP);
     });
 });
+// ─── Weekly Blessing (rotating, player-favourable affix) ─────────────────────
+(0, node_test_1.describe)('Endless Spire — weekly blessing', () => {
+    (0, node_test_1.it)('is PURE + deterministic and cycles the pool by week index', () => {
+        node_assert_1.strict.equal((0, _modifiers_js_1.weeklySpireBlessing)(3).id, (0, _modifiers_js_1.weeklySpireBlessing)(3).id);
+        const n = _modifiers_js_1.SPIRE_WEEKLY_BLESSINGS.length;
+        node_assert_1.strict.equal((0, _modifiers_js_1.weeklySpireBlessing)(0).id, (0, _modifiers_js_1.weeklySpireBlessing)(n).id); // wraps
+        node_assert_1.strict.equal((0, _modifiers_js_1.weeklySpireBlessing)(-1).id, (0, _modifiers_js_1.weeklySpireBlessing)(n - 1).id); // negative-safe
+        // every pool entry is reachable across n consecutive weeks
+        const ids = new Set(Array.from({ length: n }, (_, w) => (0, _modifiers_js_1.weeklySpireBlessing)(w).id));
+        node_assert_1.strict.equal(ids.size, n);
+    });
+    (0, node_test_1.it)('every blessing is a BOON (never punishes): more rounds or LESS enemy damage', () => {
+        for (const b of _modifiers_js_1.SPIRE_WEEKLY_BLESSINGS) {
+            if (b.modifier.kind === 'roundCap')
+                node_assert_1.strict.ok(b.modifier.value > 0, `${b.id} roundCap boon`);
+            else if (b.modifier.kind === 'dmg')
+                node_assert_1.strict.ok(b.modifier.value < 0, `${b.id} dmg boon`);
+            else
+                node_assert_1.strict.fail(`${b.id} uses a non-boon kind ${b.modifier.kind}`);
+            node_assert_1.strict.ok(b.name && b.blurb && b.icon, `${b.id} has display fields`);
+        }
+    });
+    (0, node_test_1.it)('folds into the sealed run: a roundCap blessing adds time; a dmg blessing softens foes', () => {
+        const floorRounds = 16;
+        const roundBoon = _modifiers_js_1.SPIRE_WEEKLY_BLESSINGS.find(b => b.modifier.kind === 'roundCap');
+        const withRound = (0, _modifiers_js_1.resolveAscensionModifiers)(20, 'sovereign', floorRounds, roundBoon.modifier);
+        node_assert_1.strict.equal(withRound.roundCap, floorRounds + Math.floor(roundBoon.modifier.value));
+        const dmgBoon = _modifiers_js_1.SPIRE_WEEKLY_BLESSINGS.find(b => b.modifier.kind === 'dmg');
+        const base = (0, _modifiers_js_1.resolveAscensionModifiers)(20, 'sovereign', floorRounds);
+        const withDmg = (0, _modifiers_js_1.resolveAscensionModifiers)(20, 'sovereign', floorRounds, dmgBoon.modifier);
+        node_assert_1.strict.ok(withDmg.dmgMult < base.dmgMult, `dmg boon lowers dmgMult (${withDmg.dmgMult} < ${base.dmgMult})`);
+        node_assert_1.strict.ok(withDmg.modifierStack.some(m => m.label.includes('Blessing')), 'blessing shown as a chip');
+    });
+});
 // ─── getSpireFloor / catalog ─────────────────────────────────────────────────
 (0, node_test_1.describe)('Endless Spire — floor catalog', () => {
     (0, node_test_1.it)('builds exactly SPIRE_MAX_TIER floors; rejects out-of-range tiers', () => {

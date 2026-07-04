@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     resolveAscensionModifiers, ascensionHpMult, ascensionDmgMult,
+    weeklySpireBlessing, SPIRE_WEEKLY_BLESSINGS,
     SPIRE_MAX_TIER, HP_MULT_CAP, DMG_MULT_CAP, SPIRE_ENRAGE_CAP, type TowerModifier,
 } from './_modifiers.js';
 import {
@@ -50,6 +51,38 @@ describe('Endless Spire — resolveAscensionModifiers', () => {
         assert.ok(withAffix.modifierStack.some(m => m.label === 'Blood Moon'));
         // affix never breaks the cap
         assert.ok(resolveAscensionModifiers(20, 'sovereign', 20, affix).dmgMult <= DMG_MULT_CAP);
+    });
+});
+
+// ─── Weekly Blessing (rotating, player-favourable affix) ─────────────────────
+describe('Endless Spire — weekly blessing', () => {
+    it('is PURE + deterministic and cycles the pool by week index', () => {
+        assert.equal(weeklySpireBlessing(3).id, weeklySpireBlessing(3).id);
+        const n = SPIRE_WEEKLY_BLESSINGS.length;
+        assert.equal(weeklySpireBlessing(0).id, weeklySpireBlessing(n).id);       // wraps
+        assert.equal(weeklySpireBlessing(-1).id, weeklySpireBlessing(n - 1).id);  // negative-safe
+        // every pool entry is reachable across n consecutive weeks
+        const ids = new Set(Array.from({ length: n }, (_, w) => weeklySpireBlessing(w).id));
+        assert.equal(ids.size, n);
+    });
+    it('every blessing is a BOON (never punishes): more rounds or LESS enemy damage', () => {
+        for (const b of SPIRE_WEEKLY_BLESSINGS) {
+            if (b.modifier.kind === 'roundCap') assert.ok(b.modifier.value > 0, `${b.id} roundCap boon`);
+            else if (b.modifier.kind === 'dmg') assert.ok(b.modifier.value < 0, `${b.id} dmg boon`);
+            else assert.fail(`${b.id} uses a non-boon kind ${b.modifier.kind}`);
+            assert.ok(b.name && b.blurb && b.icon, `${b.id} has display fields`);
+        }
+    });
+    it('folds into the sealed run: a roundCap blessing adds time; a dmg blessing softens foes', () => {
+        const floorRounds = 16;
+        const roundBoon = SPIRE_WEEKLY_BLESSINGS.find(b => b.modifier.kind === 'roundCap')!;
+        const withRound = resolveAscensionModifiers(20, 'sovereign', floorRounds, roundBoon.modifier);
+        assert.equal(withRound.roundCap, floorRounds + Math.floor(roundBoon.modifier.value));
+        const dmgBoon = SPIRE_WEEKLY_BLESSINGS.find(b => b.modifier.kind === 'dmg')!;
+        const base = resolveAscensionModifiers(20, 'sovereign', floorRounds);
+        const withDmg = resolveAscensionModifiers(20, 'sovereign', floorRounds, dmgBoon.modifier);
+        assert.ok(withDmg.dmgMult < base.dmgMult, `dmg boon lowers dmgMult (${withDmg.dmgMult} < ${base.dmgMult})`);
+        assert.ok(withDmg.modifierStack.some(m => m.label.includes('Blessing')), 'blessing shown as a chip');
     });
 });
 

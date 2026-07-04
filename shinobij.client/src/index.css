@@ -3719,6 +3719,18 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     padding: 12px 16px 11px; border-bottom: 1px solid rgba(240,161,90,0.14);
     background: linear-gradient(180deg, rgba(240,161,90,0.06), transparent);
 }
+/* Cinematic banner header (bespoke Endless Spire key art). */
+.spire-banner {
+    position: relative; min-height: 108px; display: flex; align-items: flex-end;
+    background-size: cover; background-position: center 32%; background-repeat: no-repeat;
+    border-bottom: 1px solid rgba(240,161,90,0.18);
+}
+.spire-banner-overlay {
+    width: 100%; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    padding: 34px 16px 10px;
+    background: linear-gradient(180deg, rgba(11,7,5,0) 0%, rgba(11,7,5,0.5) 52%, rgba(11,7,5,0.92) 100%);
+}
+.spire-banner .spire-title { font-size: 1.34rem; text-shadow: 0 2px 14px rgba(0,0,0,0.9), 0 0 22px rgba(240,161,90,0.35); }
 .spire-title {
     font-family: var(--font-display, inherit); font-size: 1.16rem; letter-spacing: 0.5px;
     color: #f4c48a; text-shadow: 0 0 18px rgba(240,161,90,0.4); font-weight: 700;
@@ -3738,6 +3750,21 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     background: #14100c; border: 1.5px solid #57493a;
 }
 .spire-progress-tick.lit { background: #fbbf24; border-color: #fde68a; box-shadow: 0 0 8px rgba(251,191,36,0.8); }
+
+/* Weekly Blessing strip — a positive, teal-tinted banner (distinct from the amber chassis). */
+.spire-blessing {
+    display: flex; align-items: center; gap: 11px; margin: 10px 16px 2px; padding: 8px 12px; border-radius: 11px;
+    border: 1px solid rgba(94,234,212,0.32); background: linear-gradient(180deg, rgba(20,184,166,0.12), rgba(13,148,136,0.05));
+}
+.spire-blessing-icon { font-size: 1.35rem; line-height: 1; flex-shrink: 0; filter: drop-shadow(0 0 6px rgba(94,234,212,0.5)); }
+.spire-blessing-body { display: flex; flex-direction: column; line-height: 1.2; flex-shrink: 0; }
+.spire-blessing-label { font-size: 0.62rem; letter-spacing: 1px; text-transform: uppercase; color: #5eead4; font-weight: 700; }
+.spire-blessing-name { font-size: 0.92rem; font-weight: 800; color: #a7f3d0; }
+.spire-blessing-blurb { flex: 1; min-width: 0; color: #b9d8d0; font-size: 0.8rem; line-height: 1.35; border-left: 1px solid rgba(94,234,212,0.22); padding-left: 11px; }
+@media (max-width: 560px) {
+    .spire-blessing { flex-wrap: wrap; }
+    .spire-blessing-blurb { border-left: none; padding-left: 0; flex-basis: 100%; }
+}
 
 /* hero card */
 .spire-hero { display: flex; gap: 15px; padding: 15px 16px; align-items: stretch; }
