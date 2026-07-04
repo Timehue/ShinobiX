@@ -89,7 +89,10 @@ export function BattleTowersLobby({
     // every few seconds so the banner appears shortly after a friend starts the run.
     useEffect(() => {
         let alive = true;
-        const check = () => fetchMyRun(me).then(r => { if (alive) setPendingRun(r); }).catch(() => {});
+        // Ignore clan-boss assault runs (`cboss-` prefix) — those settle via the Clan
+        // Boss flow, not the tower settle, so they must only be joined from the Clan
+        // Boss tab. Joining one here would pay the wrong (tower) settle.
+        const check = () => fetchMyRun(me).then(r => { if (alive) setPendingRun(r && !r.runId.startsWith("cboss-") ? r : null); }).catch(() => {});
         check();
         const stop = visiblePoll(check, 4000);
         return () => { alive = false; stop(); };

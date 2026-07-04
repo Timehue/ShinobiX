@@ -79,7 +79,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const char = rec?.character as Record<string, unknown> | undefined;
             if (!char) { if (slug === hostName) return res.status(400).json({ error: 'Your save was not found.' }); continue; }
             squad.push({
-                id: `sq-${i}`, name: String(char.name ?? slug), ownerSlug: slug, ai: false,
+                // Contiguous ids even when an ally save is skipped above.
+                id: `sq-${squad.length}`, name: String(char.name ?? slug), ownerSlug: slug, ai: false,
                 character: sealTowerFighter(char, rec!, slug === hostName ? hostLoadout : {}),
                 itemCharges: sealTowerItemCharges(char),
             });
@@ -108,7 +109,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         runAiUntilHuman(session, floor, makeRng(seed));
         stampTurnClock(session, now);
         await writeSession(session);
-        for (const slug of memberSlugs) if (slug !== hostName) await setTowerInvite(slug, runId).catch(() => undefined);
+        // Invite EVERY party member — incl. the host — so anyone (incl. the host after
+        // an accidental exit) can rediscover + rejoin an unfinished assault via
+        // fetchMyRun, rather than losing the reserved attempt. Clan-boss runs use the
+        // `cboss-` runId prefix, which the Battle Towers lobby filters out so they only
+        // surface in the Clan Boss tab.
+        for (const slug of memberSlugs) await setTowerInvite(slug, runId).catch(() => undefined);
 
         // Tag the run as a clan-boss assault so settle knows where to bank it.
         await saveAssault({ runId, weekId, clanName, host: hostName, party: partySlugs, bossId: boss.id, createdAt: now });
