@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
-import { cors, safeName } from './_utils.js';
+import { cors, safeName, clanRecordKey } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
@@ -22,6 +22,10 @@ function villageWarEnabled(): boolean {
 
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
+// Minimum clan roster size to CAPTURE (take new ownership of) a sector.
+// Server-authoritative mirror of the client rule (shinobij.client/src/
+// constants/game.ts TERRITORY_CAPTURE_MIN_MEMBERS) — keep the two in sync.
+const TERRITORY_CAPTURE_MIN_MEMBERS = 20;
 const VILLAGE_WAR_HP_MAX = 5000;
 const VILLAGE_WAR_GROUND_HP_MAX = 1000;
 const TERRITORY_KEY_PREFIX = 'world:territory:';
@@ -189,6 +193,15 @@ type VillageWar = {
 function clampNumber(value: number, min: number, max: number) {
     if (!Number.isFinite(value)) return min;
     return Math.min(max, Math.max(min, value));
+}
+
+// Roster size of a clan from its authoritative record (save:clan-<slug>).
+// A thrown read propagates to the handler's catch → 500 (so a KV blip doesn't
+// masquerade as "not enough members"). A missing record → 0 (a sector cannot
+// belong to a clan that does not exist).
+async function clanMemberCount(clanName: string): Promise<number> {
+    const rec = await kv.get<Record<string, unknown>>(clanRecordKey(clanName));
+    return Array.isArray(rec?.members) ? (rec!.members as unknown[]).length : 0;
 }
 
 function defaultSectorTerritory(sector: number): SectorTerritory {
@@ -736,6 +749,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const actorInvolved = matchesClan || matchesVillage || actorOwnsPrev || raiderDuringWar;
                         if (!actorInvolved) {
                             return res.status(403).json({ error: 'You are not a participant in this sector (no active war with the owner village).' });
+                        }
+
+                        // Clan sector CAPTURE gate: taking NEW clan ownership of a
+                        // sector requires a full roster (TERRITORY_CAPTURE_MIN_MEMBERS).
+                        // Fires only when ownerClan flips TO the actor's clan; owning-
+                        // clan reinforcement / terrain edits (claimingClan === prevClan)
+                        // are exempt, so a clan that shrank below the cap can still hold
+                        // and defend its sector. Server mirror of the ClanHall guard.
+                        if (matchesClan && claimingClan && claimingClan !== prevClan) {
+                            const memberCount = await clanMemberCount(claimingClan);
+                            if (memberCount < TERRITORY_CAPTURE_MIN_MEMBERS) {
+                                return res.status(403).json({ error: `Your clan needs at least ${TERRITORY_CAPTURE_MIN_MEMBERS} members to capture a sector (it has ${memberCount}).` });
+                            }
                         }
 
                         // Per-request HP delta cap — applies to all non-admin writers.
