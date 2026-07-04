@@ -12,6 +12,7 @@ import {
 import { useBoardScale } from "../lib/use-board-scale";
 import { tagMatchesName } from "../lib/tags";
 import { gameConfirm } from "../components/GameAlert";
+import { spireFloorMeta, SPIRE_SHARDS_PER_TIER } from "../lib/spire-catalog";
 import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
 import arenaFloorSnow from "../assets/towers/arena-floor-snow.webp";
 import arenaFloorVolcano from "../assets/towers/arena-floor-volcano.webp";
@@ -86,10 +87,18 @@ const ELEMENT_ICON: Record<string, string> = { Fire: "🔥", Water: "🌊", Eart
 // Manifest-chip palette by modifier kind: the Wave-2 keystones (hazard/debuff/healcut) read
 // distinctly from the amber stat chassis (hp/dmg/roundCap/enrageCap → default).
 const MODIFIER_CHIP_COLOR: Record<string, { fg: string; bg: string; border: string }> = {
-    hazard: { fg: "#fca5a5", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.32)" },   // crimson — tile burn
-    debuff: { fg: "#d8b4fe", bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.32)" }, // violet — vulnerability
-    healcut: { fg: "#5eead4", bg: "rgba(20,184,166,0.12)", border: "rgba(20,184,166,0.32)" },// teal — healing throttle
-    default: { fg: "#f0b27e", bg: "rgba(240,161,90,0.12)", border: "rgba(240,161,90,0.28)" },// amber — stat chassis
+    hazard: { fg: "#fca5a5", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.32)" },       // crimson — tile burn
+    debuff: { fg: "#d8b4fe", bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.32)" },     // violet — vulnerability
+    healcut: { fg: "#5eead4", bg: "rgba(20,184,166,0.12)", border: "rgba(20,184,166,0.32)" },    // teal — healing throttle
+    extraPhase: { fg: "#fdba74", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.32)" }, // ember — extra boss phase (W3)
+    objective: { fg: "#7dd3fc", bg: "rgba(56,189,248,0.12)", border: "rgba(56,189,248,0.32)" },  // sky — secondary condition (W3)
+    dualAugment: { fg: "#f0abfc", bg: "rgba(232,121,249,0.12)", border: "rgba(232,121,249,0.34)" }, // fuchsia — keystone synergy (W3)
+    default: { fg: "#f0b27e", bg: "rgba(240,161,90,0.12)", border: "rgba(240,161,90,0.28)" },     // amber — stat chassis
+};
+// Boss portrait for a spire floor (reuses the enemy sprite atlas, keyed by boss key).
+const SPIRE_BOSS_MECHANIC_FLAVOR: Record<string, string> = {
+    bulwark: "hardens its guard!", regen: "digs in and knits its wounds!",
+    summon: "calls reinforcements!", enrage: "swells with fury!",
 };
 
 // Wide top-down battlefield floors, one per biome (swap any file in
@@ -156,6 +165,39 @@ export function BattleTowerFight({
     const myTurn = session.status === "active" && !!activeActor && activeActor.ai === false && ownedByMe(activeActor.ownerSlug) && activeActor.hp > 0;
     const myActor = activeActor && ownedByMe(activeActor.ownerSlug) ? activeActor : null;
     const bossId = session.phaseState?.bossId;
+
+    // ── Endless Spire theater — boss identity, intro nameplate, phase banners ────
+    const spireTier = Number(session.ascensionTier ?? 0);
+    const isSpire = spireTier > 0;
+    const spireMeta = useMemo(() => (isSpire ? spireFloorMeta(spireTier) : null), [isSpire, spireTier]);
+    const bossPortrait = spireMeta ? ENEMY_SPRITE[spireMeta.boss.key] : undefined;
+
+    // A fresh entry (round 1) into a spire floor gets a ~2.8s cinematic nameplate; a
+    // refresh-resume mid-fight skips it (only shown when initialSession is round ≤ 1).
+    const [showIntro, setShowIntro] = useState(() => isSpire && (initialSession.round ?? 1) <= 1 && initialSession.status === "active");
+    useEffect(() => {
+        if (!showIntro) return;
+        const id = setTimeout(() => setShowIntro(false), 2800);
+        return () => clearTimeout(id);
+    }, [showIntro]);
+
+    // Phase-change banner — when the boss crosses an HP-gate (triggeredPhases grows), flash a
+    // mechanic-flavored banner. Uses a ref so it fires once per crossing, not per re-render.
+    const [phaseBanner, setPhaseBanner] = useState<string | null>(null);
+    const triggeredCountRef = useRef(session.phaseState?.triggeredPhases?.length ?? 0);
+    const triggeredCount = session.phaseState?.triggeredPhases?.length ?? 0;
+    useEffect(() => {
+        if (triggeredCount > triggeredCountRef.current && isSpire && spireMeta) {
+            const flavor = SPIRE_BOSS_MECHANIC_FLAVOR[spireMeta.boss.mechanic] ?? "enters a new phase!";
+            setPhaseBanner(`${spireMeta.boss.name} ${flavor}`);
+        }
+        triggeredCountRef.current = triggeredCount;
+    }, [triggeredCount, isSpire, spireMeta]);
+    useEffect(() => {
+        if (!phaseBanner) return;
+        const id = setTimeout(() => setPhaseBanner(null), 1900);
+        return () => clearTimeout(id);
+    }, [phaseBanner]);
 
     // Live clock for the co-op turn countdown.
     const [nowTick, setNowTick] = useState(() => Date.now());
@@ -450,6 +492,23 @@ export function BattleTowerFight({
 
     return (
         <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "#e2e8f0", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${gameBg}) center/cover fixed` }}>
+            {/* Endless Spire — boss intro nameplate (fresh entry only; click to skip) */}
+            {showIntro && spireMeta && (
+                <div className="spire-intro" onClick={() => setShowIntro(false)}>
+                    <div className="spire-intro-card" style={{ ["--boss-accent" as string]: spireMeta.boss.accent, ["--boss-glow" as string]: spireMeta.boss.glow }}>
+                        <div className="spire-intro-band" style={{ color: spireMeta.band.color }}>{spireMeta.band.label} · Floor {spireMeta.tier}</div>
+                        {bossPortrait && <img className="spire-intro-portrait" src={bossPortrait} alt={spireMeta.boss.name} />}
+                        <div className="spire-intro-name" style={{ color: spireMeta.boss.accent }}>{spireMeta.boss.name}</div>
+                        <div className="spire-intro-mech"><b>{spireMeta.boss.mechanicLabel}</b> — {spireMeta.boss.blurb}</div>
+                    </div>
+                </div>
+            )}
+            {/* Endless Spire — phase-change banner (boss crosses an HP gate) */}
+            {phaseBanner && (
+                <div className="spire-phase-banner" style={{ ["--boss-accent" as string]: spireMeta?.boss.accent ?? "#f0a15a" }}>
+                    <span>⚠ {phaseBanner}</span>
+                </div>
+            )}
             <div className="tower-fight-grid">
 
                 {/* Squad rail (+ protect-target allies) */}
@@ -763,33 +822,60 @@ export function BattleTowerFight({
             </div>
 
             {/* Result overlay */}
-            {session.status === "done" && (
+            {session.status === "done" && (isSpire && spireMeta ? (
+                // ── Endless Spire — cinematic ascension result ──
+                <div className="spire-result">
+                    <div className={`spire-result-card ${session.winner === "squad" ? "win" : "loss"}`}
+                        style={{ ["--boss-accent" as string]: spireMeta.boss.accent, ["--boss-glow" as string]: spireMeta.boss.glow }}>
+                        {bossPortrait && <img className="spire-result-portrait" src={bossPortrait} alt={spireMeta.boss.name} />}
+                        <div className="spire-result-kicker">Floor {spireMeta.tier} · {spireMeta.boss.name}</div>
+                        {session.winner === "squad" ? (
+                            <>
+                                <h1 className="spire-result-title win">🗼 Floor {spireMeta.tier} Ascended</h1>
+                                {spireMeta.isMilestone && (
+                                    <div className="spire-result-milestone">🏅 Title unlocked — <b>{spireMeta.milestoneTitle}</b></div>
+                                )}
+                                <div className="spire-result-rewards">
+                                    {/* settle.results is keyed by the lowercased ownerSlug (settle.ts),
+                                        not the display name — look it up by meSlug, and only claim a
+                                        banked/paid state once the member's result actually arrives. */}
+                                    {settle?.results[meSlug]
+                                        ? (settle.results[meSlug]!.paid
+                                            ? <span className="spire-reward-shard in">💠 +{SPIRE_SHARDS_PER_TIER} Fate Shards</span>
+                                            : <span className="spire-reward-shard muted in">💠 Weekly best already banked</span>)
+                                        : <span className="spire-reward-shard pending">💠 Settling…</span>}
+                                </div>
+                                <p className="spire-result-sub">
+                                    {spireMeta.tier < 20 ? <>Floor <b>{spireMeta.tier + 1}</b> now open.</> : <>The Spire is conquered — the apex is yours.</>}
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h1 className="spire-result-title loss">Turned Back</h1>
+                                <p className="spire-result-sub">The {spireMeta.boss.name} holds Floor {spireMeta.tier}. Regroup and climb again — retries are free.</p>
+                            </>
+                        )}
+                        <button className="spire-result-btn" onClick={onExit}>
+                            {session.winner === "squad" ? "▲ Return to the Spire" : "↺ Back to the Spire"}
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                // ── Story floors — the original result card ──
                 <div style={{ position: "absolute", inset: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(2,6,14,0.82)" }}>
                     <div className="card" style={{ textAlign: "center", padding: "1.6rem", maxWidth: 420 }}>
                         <h1 style={{ marginTop: 0, color: session.winner === "squad" ? "#4ade80" : "#f87171" }}>
-                            {session.winner === "squad"
-                                ? (session.ascensionTier ? `🗼 Floor ${session.ascensionTier} Ascended!` : "🏆 Floor Cleared!")
-                                : "💀 Floor Failed"}
+                            {session.winner === "squad" ? "🏆 Floor Cleared!" : "💀 Floor Failed"}
                         </h1>
                         {session.winner === "squad" && (
-                            session.ascensionTier ? (
-                                // Endless Spire: show the meaningful outcome — the next floor is now unlocked.
-                                <>
-                                    {settle
-                                        ? <p>{settle.results[me]?.paid ? "Fate Shards claimed. " : ""}{session.ascensionTier < 20 ? `Floor ${session.ascensionTier + 1} unlocked.` : "The Spire is conquered — apex cleared."}</p>
-                                        : <p className="hint">Settling…</p>}
-                                    {[5, 10, 15, 20].includes(session.ascensionTier) && (
-                                        <p style={{ color: "#facc15", fontWeight: 700, margin: "6px 0 0" }}>🏅 Milestone reached — a new title is yours.</p>
-                                    )}
-                                </>
-                            ) : (
-                                settle ? <p>Rewards settled. {settle.results[me]?.score ? `Score +${settle.results[me]!.score}` : ""}</p> : <p className="hint">Settling rewards…</p>
-                            )
+                            settle?.results[meSlug]
+                                ? <p>Rewards settled. {settle.results[meSlug]!.score ? `Score +${settle.results[meSlug]!.score}` : ""}</p>
+                                : <p className="hint">Settling rewards…</p>
                         )}
                         <button style={{ marginTop: 12, padding: "0.7rem 1.4rem" }} onClick={onExit}>Return to the Tower</button>
                     </div>
                 </div>
-            )}
+            ))}
         </div>
     );
 }
