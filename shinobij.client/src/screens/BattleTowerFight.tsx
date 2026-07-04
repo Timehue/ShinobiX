@@ -11,6 +11,7 @@ import {
 } from "../lib/tower-grid";
 import { useBoardScale } from "../lib/use-board-scale";
 import { tagMatchesName } from "../lib/tags";
+import { equipSlotForItem } from "../lib/equipment";
 import { gameConfirm } from "../components/GameAlert";
 import { spireFloorMeta, SPIRE_SHARDS_PER_TIER } from "../lib/spire-catalog";
 import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
@@ -294,22 +295,26 @@ export function BattleTowerFight({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session.status, session.winner]);
 
-    // Full equipped kit (weapons + consumables) from the sealed loadout → cards.
+    // Full equipped kit (weapons + consumables) from the sealed loadout → action cards.
+    // Classify by the CANONICAL equipment slot (equipSlotForItem, the same helper PvP/PvE use)
+    // so ARMOR (body/head/legs/feet/waist) and GLOVES never leak into the action bar and a glove
+    // on the hand slot isn't mistaken for a weapon. Weapons = hand/thrown; consumables = the
+    // spent-on-use combat items + potion (NOT thrown — it's a weapon; NOT any worn slot).
     const loadout = useMemo(() => {
-        const normSlot = (s?: string) => s === "weapon" ? "hand" : s === "armor" ? "body" : s === "accessory" ? "aura" : (s ?? "");
+        const slotOf = (it: ItemLike): string => equipSlotForItem({ slot: (it.slot ?? "") as never, name: it.name ?? "" });
         const items = (Array.isArray(myActor?.character?.pvpItems) ? myActor!.character.pvpItems : []) as ItemLike[];
         const equippedIds = new Set(Object.values((myActor?.character?.equipment ?? {}) as Record<string, string | undefined>).filter(Boolean) as string[]);
         const charges = (myActor?.itemCharges ?? {}) as Record<string, number>;
         const equipped = items.filter(it => it.id && equippedIds.has(it.id));
+        const CONSUMABLE = new Set(["item", "item1", "item2", "item3", "potion"]);
         const weapons = equipped
-            .filter(it => ["hand", "thrown"].includes(normSlot(it.slot)))
+            .filter(it => { const s = slotOf(it); return s === "hand" || s === "thrown"; })
             .map(it => {
-                const thrown = normSlot(it.slot) === "thrown";
+                const thrown = slotOf(it) === "thrown";
                 return { item: it, thrown, range: Math.max(1, Number(it.weaponRange ?? (thrown ? 4 : 1))), left: thrown ? (charges[it.id!] ?? 0) : Infinity };
             });
-        // Consumables = equipped non-weapon, non-armor slots (potion + combat item).
         const consumables = equipped
-            .filter(it => !["hand", "thrown", "body", "aura"].includes(normSlot(it.slot)))
+            .filter(it => CONSUMABLE.has(slotOf(it)))
             .map(it => ({ item: it, left: charges[it.id!] ?? 0 }));
         return { weapons, consumables };
     }, [myActor]);
