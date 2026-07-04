@@ -47,7 +47,7 @@ import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "..
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
 import { cappedPostDamage, gainJutsuXpForRank, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter, v2ResourceRegen, v2PoisonOnSpend, v2JutsuResourceCost, jutsuResourceDisplay } from "../lib/jutsu-scaling";
-import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
+import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence, weeklyBossGuardedHit, weeklyBossDamageMultiplier, isWeeklyBossOpenRound } from "../lib/pve-difficulty";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { jutsuTargetingLabel } from "../lib/jutsu-effects";
@@ -603,6 +603,16 @@ export function Arena({
     // so the per-turn cap bounds a chained turn, not just one hit). Non-standard PvE
     // (live PvP, endless, ranked) bypasses the guard entirely. See pve-difficulty.ts.
     const guardEnemyHit = (rawDamage: number): number => {
+        // Weekly boss is a survivable GRIND, not a glass cannon: clamp its hit to a
+        // small fraction of the player's max HP (per-hit + per-turn ceiling), so a
+        // 10k-HP fighter endures many rounds instead of being ~one-shot by the raw
+        // stat sheet. Tracks enemyTurnDealtRef so the per-turn ceiling bounds a
+        // chained multi-action boss turn. See pve-difficulty.ts weeklyBossGuardedHit.
+        if (isWeeklyBossFight) {
+            const capped = weeklyBossGuardedHit(rawDamage, character.maxHp, enemyTurnDealtRef.current);
+            enemyTurnDealtRef.current += capped;
+            return capped;
+        }
         if (!isStandardPve) return Math.max(0, Math.floor(Number.isFinite(rawDamage) ? rawDamage : 0));
         const guarded = pveGuardedEnemyHit(rawDamage, {
             enemyLevel: opponentLevel,
@@ -943,9 +953,19 @@ export function Arena({
         const reflectPct = sumActiveStatusPct(enemyStatuses, "Reflect");
         const absorbed = absorbPct > 0 ? Math.min(rawDamage, Math.floor(cappedPostDamage(rawDamage, absorbPct))) : 0;
         const reflected = reflectPct > 0 ? Math.floor(cappedPostDamage(rawDamage, reflectPct)) : 0;
+        let net = Math.max(0, rawDamage - absorbed);
+        // Weekly boss GUARD CYCLE: most rounds its guard is up and soaks the brunt
+        // of the blow (net ×0.30); every few rounds the guard drops for an OPEN
+        // round where the player lands double damage (net ×2.0). Pierce already
+        // returned above, so piercing jutsu ignore the guard entirely — a
+        // deliberate counter to the defensive stance. See pve-difficulty.ts
+        // weeklyBossDamageMultiplier. (Never touches other PvE / PvP damage.)
+        if (isWeeklyBossFight && net > 0) {
+            net = Math.max(1, Math.floor(net * weeklyBossDamageMultiplier(turn)));
+        }
         // `absorbed` is returned so callers can LOG it — it used to silently
         // shrink the damage number, which read as "the AI's Absorb did nothing".
-        return { net: Math.max(0, rawDamage - absorbed), reflected, absorbed };
+        return { net, reflected, absorbed };
     }
 
     useEffect(() => {
@@ -1360,6 +1380,27 @@ export function Arena({
         setCombatLog((current) => [`Round ${turn}: ${entry}`, ...current].slice(0, 14));
         setBattleHistory((current) => [{ round: turn, actor, actorRole, actionId, description: entry, actionNumber: (current[0]?.actionNumber ?? 0) + 1, createdAt: Date.now() }, ...current].slice(0, 40));
     }
+
+    // Weekly boss guard-cycle telegraph: announce each round whether the boss's
+    // guard is UP (your blows are soaked) or DOWN (an open round — double damage).
+    // Fires on entry and on every state change so the player can time their burst
+    // for the window. The guard-up line carries the siphon/lifesteal flavor that
+    // gives the boss its defensive identity; the guard-down line is the call to act.
+    const weeklyBossGuardOpenRef = useRef<boolean | null>(null);
+    useEffect(() => {
+        if (!isWeeklyBossFight || !battleStarted || battleEnded) { weeklyBossGuardOpenRef.current = null; return; }
+        const open = isWeeklyBossOpenRound(turn);
+        if (weeklyBossGuardOpenRef.current === open) return;
+        weeklyBossGuardOpenRef.current = open;
+        addCombatLog(
+            open
+                ? `${opponentName}'s guard drops — strike now, this round deals double!`
+                : `${opponentName} raises its guard, siphoning vitality and soaking the brunt of your blows.`,
+            "system",
+            opponentName,
+            "enemy",
+        );
+    }, [turn, isWeeklyBossFight, battleStarted, battleEnded]);
 
     function xy(pos: number) {
         return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) };
@@ -4705,6 +4746,15 @@ export function Arena({
             }
         });
 
+        // The weekly boss guard cycle applies to the player's DoTs on the boss too,
+        // so a poison/bleed build can't bypass the defensive mechanic: the tick is
+        // soaked on guarded rounds and doubled on the open round, exactly like a
+        // direct hit. Chakra drain is a utility effect (not leaderboard damage) and
+        // is left unscaled. Weekly-boss only — no other PvE DoT is touched.
+        if (isWeeklyBossFight && dotDamage > 0) {
+            dotDamage = Math.max(1, Math.floor(dotDamage * weeklyBossDamageMultiplier(turn)));
+        }
+
         if (dotDamage > 0) {
             setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - dotDamage)));
             queueHitFx("e", dotDamage, "damage");
@@ -5392,6 +5442,20 @@ export function Arena({
                         <div className="arena-title-panel">
                             <h2>{biomeLabel(currentBiome)}</h2>
                             <p>Turn {turn} | Shinobi Duel</p>
+                            {isWeeklyBossFight && (
+                                <p style={{
+                                    margin: "4px 0 0",
+                                    fontWeight: 800,
+                                    fontSize: "0.82rem",
+                                    letterSpacing: "0.05em",
+                                    color: isWeeklyBossOpenRound(turn) ? "#ffd166" : "#7fd1ff",
+                                    textShadow: isWeeklyBossOpenRound(turn) ? "0 0 10px rgba(255,209,102,0.55)" : "none",
+                                }}>
+                                    {isWeeklyBossOpenRound(turn)
+                                        ? "💥 GUARD DOWN — STRIKE NOW (2× damage)"
+                                        : "🛡️ GUARD UP — chip away, wait for the opening"}
+                                </p>
+                            )}
                         </div>
                     </div>
 
