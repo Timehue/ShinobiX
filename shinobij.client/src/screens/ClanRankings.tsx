@@ -14,7 +14,8 @@ import type { Character } from "../types/character";
 import type { ClanData, EnhancedClanData } from "../types/clan";
 import { enhanceClanData } from "../lib/clan-math";
 import { cwListWars } from "../lib/clan-war-api";
-import { doctrineIcon, doctrineName } from "../lib/clan-doctrines";
+import { doctrineName } from "../lib/clan-doctrines";
+import { DoctrineCrest } from "../components/DoctrineCrest";
 import { ClanImageMark } from "../components/Marks";
 
 type RankRow = {
@@ -99,7 +100,7 @@ export function ClanRankings({ character }: { character: Character }) {
                             >
                                 {record}
                             </span>
-                            <span className="clan-member-sub" style={{ marginLeft: 4, whiteSpace: "nowrap" }}>{doctrineIcon(row.clan.doctrine ?? "none")} {doctrineName(row.clan.doctrine ?? "none")}</span>
+                            <span className="clan-member-sub" style={{ marginLeft: 4, whiteSpace: "nowrap" }}><DoctrineCrest doctrine={row.clan.doctrine ?? "none"} size={18} /> {doctrineName(row.clan.doctrine ?? "none")}</span>
                         </div>
                     );
                 })}
