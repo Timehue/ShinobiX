@@ -69,8 +69,11 @@ export function BattleTowersLobby({
     // Endless Spire (dedicated ascension boss gauntlet). You may enter up to one tier above
     // your highest cleared; the default selection is the next unlocked floor.
     const spireUnlocked = character.battleTowerAscension ?? 0;
-    const spireMaxSelectable = Math.min(SPIRE_MAX_TIER, spireUnlocked + 1);
-    const [spireTier, setSpireTier] = useState(spireMaxSelectable);
+    // Admins (the x-admin-password authFetch auto-attaches → server bypasses the unlock gate)
+    // may SELECT any floor to preview/test it; regular players stay capped at unlocked+1.
+    const isAdmin = (() => { try { return !!sessionStorage.getItem("admin:pw"); } catch { return false; } })();
+    const spireMaxSelectable = isAdmin ? SPIRE_MAX_TIER : Math.min(SPIRE_MAX_TIER, spireUnlocked + 1);
+    const [spireTier, setSpireTier] = useState(Math.min(SPIRE_MAX_TIER, spireUnlocked + 1));
     const [spireBoard, setSpireBoard] = useState<SpireLeaderboardRow[]>([]);
     const [spireAffix, setSpireAffix] = useState<SpireWeeklyAffix | null>(null);
 
@@ -205,6 +208,7 @@ export function BattleTowersLobby({
                 weeklyBest={character.battleTowerSpireWeeklyBest ?? 0}
                 board={spireBoard}
                 affix={spireAffix}
+                isAdmin={isAdmin}
                 starting={starting}
                 onAscend={enterSpire}
             />
@@ -309,7 +313,7 @@ export function BattleTowersLobby({
 // reward) atop a 20-rung ladder that makes the whole climb legible at a glance, plus a
 // weekly leaderboard. All display data comes from lib/spire-catalog (server mirror).
 function SpireLadder({
-    me, spireUnlocked, spireMaxSelectable, spireTier, setSpireTier, weeklyBest, board, affix, starting, onAscend,
+    me, spireUnlocked, spireMaxSelectable, spireTier, setSpireTier, weeklyBest, board, affix, isAdmin, starting, onAscend,
 }: {
     me: string;
     spireUnlocked: number;
@@ -319,13 +323,15 @@ function SpireLadder({
     weeklyBest: number;
     board: SpireLeaderboardRow[];
     affix: SpireWeeklyAffix | null;
+    isAdmin: boolean;
     starting: boolean;
     onAscend: () => void;
 }) {
     const floors = allSpireFloors();
     const sel = spireFloorMeta(spireTier);
+    const nextFloor = Math.min(SPIRE_MAX_TIER, spireUnlocked + 1); // real progression frontier
     const locked = spireTier > spireMaxSelectable;
-    const isNext = spireTier === spireMaxSelectable && spireUnlocked < SPIRE_MAX_TIER;
+    const isNext = spireTier === nextFloor && spireUnlocked < SPIRE_MAX_TIER;
     const activeKeystones = keystonesUpTo(spireTier);
     const myRank = board.find(r => r.name.toLowerCase() === me.toLowerCase());
     const progressPct = Math.round((spireUnlocked / SPIRE_MAX_TIER) * 100);
@@ -342,6 +348,7 @@ function SpireLadder({
                         <span className="spire-head-dot">·</span>
                         <span>this week</span> <b style={{ color: "#f4c48a" }}>{weeklyBest}</b>
                         {myRank && <><span className="spire-head-dot">·</span><span>rank</span> <b style={{ color: "#facc15" }}>#{myRank.rank}</b></>}
+                        {isAdmin && <><span className="spire-head-dot">·</span><b style={{ color: "#5eead4" }} title="Admin: every floor unlocked for testing (you don't need to win — enter to view)">🔓 all floors</b></>}
                     </span>
                 </div>
             </div>
@@ -410,7 +417,10 @@ function SpireLadder({
                         ) : (
                             <button className="spire-ascend" onClick={onAscend} disabled={starting}
                                 style={{ ["--boss-accent" as string]: accent }}>
-                                {starting ? "Entering…" : isNext ? `▲ Ascend — Floor ${spireTier}` : `⟳ Re-climb Floor ${spireTier}`}
+                                {starting ? "Entering…"
+                                    : isNext ? `▲ Ascend — Floor ${spireTier}`
+                                    : spireTier <= spireUnlocked ? `⟳ Re-climb Floor ${spireTier}`
+                                    : `▶ Enter Floor ${spireTier}`}
                             </button>
                         )}
                     </div>
@@ -422,7 +432,7 @@ function SpireLadder({
                 {floors.map(f => {
                     const cleared = f.tier <= spireUnlocked;
                     const rungLocked = f.tier > spireMaxSelectable;
-                    const next = f.tier === spireMaxSelectable && !cleared;
+                    const next = f.tier === nextFloor && !cleared;
                     const state = rungLocked ? "locked" : next ? "next" : cleared ? "cleared" : "open";
                     return (
                         <button key={f.tier} className={`spire-rung ${state}${f.tier === spireTier ? " selected" : ""}`}
