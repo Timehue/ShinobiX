@@ -167,12 +167,11 @@ export function Missions({
             {/* -- Academy Trial (onboarding, one-time) -- */}
             {showAcademyTrial && (
                 <section
-                    className="mh-section"
-                    style={{ border: "1px solid #facc15", borderRadius: 12, padding: 14, marginBottom: 14, background: "rgba(250,204,21,0.06)" }}
+                    className="mh-section academy-trial-card"
                 >
                     <h3 className="mh-section-title" style={{ marginTop: 0 }}><GiGraduateCap style={MH_ICON} />Academy Trial</h3>
                     <p className="hint" style={{ marginTop: 0 }}>
-                        Your first official mission. You've already done the hard part — claim your reward to graduate the basics.
+                        Your first official mission. Claim this one-time reward, then open your Logbook for the next Academy checklist.
                     </p>
                     <ul style={{ margin: "0 0 12px", paddingLeft: 18, lineHeight: 1.5 }}>
                         <li>✅ Won your first Academy spar</li>
@@ -180,10 +179,10 @@ export function Missions({
                         <li>✅ Unlocked / equipped a jutsu</li>
                     </ul>
                     <p style={{ margin: "0 0 12px", color: "#cbd5e1", fontSize: 13 }}>
-                        Reward: small XP &amp; ryo, a little stamina. (No daily-limit cost.)
+                        Reward: small XP, ryo, and stamina. This does not use one of today's mission slots.
                     </p>
                     <button className="start-primary-btn" onClick={() => { void claimAcademyTrial(); }}>
-                        Claim Academy Trial reward
+                        Claim Academy Trial Reward
                     </button>
                 </section>
             )}

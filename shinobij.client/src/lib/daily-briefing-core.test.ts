@@ -6,6 +6,7 @@ import {
     recommendedMission,
     type RecoInput,
 } from "./daily-briefing-core";
+import { normalizeOnboardingStep } from "./onboarding-step";
 
 // A "nothing pressing" baseline: veteran, healed, all training busy, no slots.
 const SETTLED: RecoInput = {
@@ -49,6 +50,22 @@ test("mid-tutorial pushes the next academy step ahead of generic advice", () => 
     const recos = buildRecommendations({ ...SETTLED, onboardingStep: "jutsu", hasMissionSlot: true });
     assert.equal(recos[0].id, "tutorial");
     assert.equal(recos[0].screen, "jutsuTraining");
+});
+
+test("academy spar recommendation returns to the coach-driven village flow", () => {
+    const recos = buildRecommendations({ ...SETTLED, onboardingStep: "academySpar" });
+    assert.equal(recos[0].id, "tutorial");
+    assert.equal(recos[0].screen, "village");
+    assert.match(recos[0].cta, /spar/i);
+});
+
+test("onboarding step normalization preserves veterans and legacy aliases", () => {
+    assert.equal(normalizeOnboardingStep(undefined), "done");
+    assert.equal(normalizeOnboardingStep(null), "done");
+    assert.equal(normalizeOnboardingStep(""), "done");
+    assert.equal(normalizeOnboardingStep("spar"), "academySpar");
+    assert.equal(normalizeOnboardingStep("tour"), "training");
+    assert.equal(normalizeOnboardingStep("firstMission"), "firstMission");
 });
 
 test("unspent stat points and idle training are surfaced", () => {
