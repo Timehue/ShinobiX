@@ -143,6 +143,27 @@ const charOf = (kv, slug) => kv.store.get(`save:${slug}`).character;
         const retry = await (0, _tower_store_js_1.settleFloorForMember)({ session: makeSession('run1', 1, 'alice'), slug: 'alice' }, { kv, lock: passLock, now });
         node_assert_1.strict.equal(retry.paid, true);
     });
+    (0, node_test_1.it)('deducts server-recorded consumables exactly once from stacks then legacy inventory', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'alice', {
+            itemStacks: [
+                { itemId: 'kunai', count: 2 },
+                { itemId: 'pot', count: 1 },
+            ],
+            inventory: ['kunai', 'pill', 'pill'],
+        });
+        const actor = squadActor('alice');
+        actor.itemsUsed = { kunai: 3, pill: 1, pot: 1 };
+        const session = makeSession('run-items', 1, 'alice', { actors: [actor] });
+        const res = await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        node_assert_1.strict.equal(res.consumed, true);
+        node_assert_1.strict.deepEqual(charOf(kv, 'alice').itemStacks, []);
+        node_assert_1.strict.deepEqual(charOf(kv, 'alice').inventory, ['pill']);
+        node_assert_1.strict.ok(kv.store.has((0, _tower_store_js_1.consumedItemsKey)('run-items', 'alice')));
+        const again = await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        node_assert_1.strict.equal(again.reason, 'already-consumed');
+        node_assert_1.strict.deepEqual(charOf(kv, 'alice').inventory, ['pill'], 'retry did not double-deduct');
+    });
 });
 (0, node_test_1.describe)('Battle Towers borrowed-ally assist (capped, once per run)', () => {
     (0, node_test_1.it)('pays a capped fraction once per run', async () => {

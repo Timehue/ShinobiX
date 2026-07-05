@@ -22,8 +22,8 @@
 import { EP_MULTIPLIER, statFactor } from './_sim.js';
 import { hexDistance, filledDiskTiles } from '../pvp/_aoe.js';
 import { applyJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects } from '../pvp/move.js';
-import { GROUND_EFFECT_TAGS, canonicalTagName } from '../pvp/_tags.js';
-import type { PvpFighter, PvpGroundEffect } from '../pvp/session.js';
+import { GROUND_EFFECT_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
+import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor } from './_floor-catalog.js';
 import {
     type TowerSession,
@@ -86,9 +86,41 @@ type JutsuLike = {
 type PvpItemLike = {
     id?: string; name?: string; slot?: string;
     weaponEp?: number; weaponElement?: string; weaponRange?: number; apCost?: number; weaponCooldown?: number;
-    weaponTags?: unknown[]; weaponEffect?: string; weaponEffectValue?: number;
+    weaponTags?: unknown[]; weaponEffect?: string; weaponEffectValue?: number; weaponEffectTarget?: string;
     restoreChakra?: number; restoreStamina?: number;
 };
+
+const STATUS_DURATIONS_OVERRIDE: Record<string, number> = {
+    'Increase Damage Given': 2,
+    'Increase Damage Taken': 2,
+    'Decrease Damage Given': 2,
+    'Decrease Damage Taken': 2,
+    'Increase Generals': 2,
+    'Increase Discipline': 2,
+};
+function statusDurationFor(name: string, fallback: number = 2): number {
+    return STATUS_DURATIONS_OVERRIDE[name] ?? fallback;
+}
+function towerStatusMatches(name: string, canonicalName: string): boolean {
+    return canonicalTagName(name) === canonicalName;
+}
+function addTowerStatus(actor: TowerActor, status: PvpStatus): void {
+    const name = canonicalTagName(status.name);
+    const adjusted: PvpStatus = { ...status, name, rounds: statusDurationFor(name, status.rounds) };
+    if (STACKABLE_STATUS.has(name)) {
+        actor.statuses = [...actor.statuses, adjusted];
+        return;
+    }
+    actor.statuses = [...actor.statuses.filter(s => !towerStatusMatches(s.name, name)), adjusted];
+}
+function spendItemCharge(actor: TowerActor, itemId: string): boolean {
+    if (!itemId) return true;
+    const have = actor.itemCharges?.[itemId] ?? 0;
+    if (have <= 0) return false;
+    (actor.itemCharges ??= {})[itemId] = Math.max(0, have - 1);
+    (actor.itemsUsed ??= {})[itemId] = Math.max(0, Math.floor(Number(actor.itemsUsed?.[itemId] ?? 0))) + 1;
+    return true;
+}
 
 // ─── Hex geometry (generalized to arbitrary width/height; mirrors move.ts) ───
 function xy(pos: number, w: number) { return { x: pos % w, y: Math.floor(pos / w) }; }
@@ -966,9 +998,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
         if (wCdTurns > 0 && (actor.cooldowns[wCdKey] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
         // Thrown weapons spend from the sealed charge budget; hand weapons are reusable.
         if (slot === 'thrown') {
-            const have = actor.itemCharges?.[item.id!] ?? 0;
-            if (have <= 0) return { applied: false, reason: 'out-of-ammo' };
-            (actor.itemCharges ??= {})[item.id!] = Math.max(0, have - 1);
+            if (!spendItemCharge(actor, item.id ?? '')) return { applied: false, reason: 'out-of-ammo' };
         }
         const weaponTags = Array.isArray(item.weaponTags) ? [...item.weaponTags] : [];
         if (item.weaponEffect && !weaponTags.some(t => (t as { name?: unknown })?.name === item.weaponEffect)) {
@@ -1113,20 +1143,35 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
         const iCdKey = item.id ?? item.name ?? 'item';
         const iCdTurns = Math.max(0, Math.floor(Number(item.weaponCooldown ?? 0)));
         if (iCdTurns > 0 && (actor.cooldowns[iCdKey] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
-        const have = actor.itemCharges?.[item.id!] ?? 0;
-        if (have <= 0) return { applied: false, reason: 'out-of-item' };
+        if (!spendItemCharge(actor, item.id ?? '')) return { applied: false, reason: 'out-of-item' };
         const restoreCk = Math.max(0, Number(item.restoreChakra ?? 0));
         const restoreSt = Math.max(0, Number(item.restoreStamina ?? 0));
         const itemTags: Array<{ name: string; percent?: number }> | null =
             Array.isArray(item.weaponTags) && item.weaponTags.length ? item.weaponTags as Array<{ name: string; percent?: number }>
             : item.weaponEffect ? [{ name: item.weaponEffect, percent: Number(item.weaponEffectValue ?? 0) }]
             : null;
-        (actor.itemCharges ??= {})[item.id!] = have - 1;
         if ((restoreCk > 0 || restoreSt > 0) && !itemTags) {
             // Pure restore potion — refill directly (skip the synth so it never heals HP via a default Heal tag).
             actor.chakra = Math.min(actor.maxChakra, actor.chakra + restoreCk);
             actor.stamina = Math.min(actor.maxStamina, actor.stamina + restoreSt);
             session.log.push(`${actor.name} uses ${item.name ?? 'a potion'} — restores ${restoreCk} chakra, ${restoreSt} stamina.`);
+        } else if (canonicalTagName(String(item.weaponEffect ?? '')) === 'Decrease Damage Given') {
+            // Smoke Bomb-style combat items are field debuffs: the enemy side is always
+            // weakened, and weaponEffectTarget="both" also weakens the user.
+            const pct = Math.max(0, Number(item.weaponEffectValue ?? 0));
+            const status: PvpStatus = { name: 'Decrease Damage Given', rounds: 1, percent: pct, kind: 'negative' };
+            const affected: string[] = [];
+            for (const foe of session.actors) {
+                if (foe.hp <= 0 || !hostileSidesFor(actor.side).includes(foe.side)) continue;
+                if (hasActiveStatus(foe, 'Debuff Prevent', session.round)) continue;
+                addTowerStatus(foe, status);
+                affected.push(foe.name);
+            }
+            if (item.weaponEffectTarget === 'both') {
+                addTowerStatus(actor, status);
+                affected.unshift(actor.name);
+            }
+            session.log.push(`${actor.name} uses ${item.name ?? 'an item'} — smoke weakens ${affected.length ? affected.join(', ') : 'no one'}.`);
         } else {
             // Heal / self-buff consumable → self-cast jutsu (id 'item-' exempts the 40-AP utility rule).
             const itemJutsu: JutsuLike = {

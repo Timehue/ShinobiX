@@ -75,7 +75,16 @@ async function handler(req, res) {
                 },
             };
         }, { failClosed: true });
-        return res.status(outcome.status).json(outcome.body);
+        if (outcome.status !== 200)
+            return res.status(outcome.status).json(outcome.body);
+        const consumables = {};
+        for (const a of session.actors.filter(x => x.side === 'squad')) {
+            const slug = a.ownerSlug;
+            if (!slug)
+                continue;
+            consumables[slug] = await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug });
+        }
+        return res.status(outcome.status).json({ ...outcome.body, consumables });
     }
     catch (err) {
         console.error('[clan-boss/assault-settle]', err);

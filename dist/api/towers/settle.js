@@ -42,17 +42,19 @@ async function handler(req, res) {
         // 10 story floors keep the one-time first-clear channel. All spire members are live humans.
         const spire = (0, _tower_store_js_1.isSpireRun)(session);
         const results = {};
+        const consumables = {};
         for (const a of session.actors.filter(x => x.side === 'squad')) {
             const slug = a.ownerSlug;
             if (!slug)
                 continue;
+            consumables[slug] = await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug });
             results[slug] = spire
                 ? await (0, _tower_store_js_1.settleSpireForMember)({ session, slug })
                 : a.ai
                     ? await (0, _tower_store_js_1.settleAssistForAlly)({ session, slug })
                     : await (0, _tower_store_js_1.settleFloorForMember)({ session, slug });
         }
-        return res.status(200).json({ runId, winner: session.winner, results });
+        return res.status(200).json({ runId, winner: session.winner, results, consumables });
     }
     catch (err) {
         console.error('[towers/settle]', err);

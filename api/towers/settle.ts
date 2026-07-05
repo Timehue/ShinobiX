@@ -2,7 +2,16 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { readSession, settleFloorForMember, settleAssistForAlly, settleSpireForMember, isSpireRun, type SettleResult } from './_tower-store.js';
+import {
+    readSession,
+    settleFloorForMember,
+    settleAssistForAlly,
+    settleSpireForMember,
+    settleConsumedItemsForMember,
+    isSpireRun,
+    type SettleResult,
+    type ConsumedItemsResult,
+} from './_tower-store.js';
 
 /*
  * POST /api/towers/settle — pay out a cleared floor to every squad member.
@@ -38,16 +47,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // 10 story floors keep the one-time first-clear channel. All spire members are live humans.
         const spire = isSpireRun(session);
         const results: Record<string, SettleResult> = {};
+        const consumables: Record<string, ConsumedItemsResult> = {};
         for (const a of session.actors.filter(x => x.side === 'squad')) {
             const slug = a.ownerSlug;
             if (!slug) continue;
+            consumables[slug] = await settleConsumedItemsForMember({ session, slug });
             results[slug] = spire
                 ? await settleSpireForMember({ session, slug })
                 : a.ai
                     ? await settleAssistForAlly({ session, slug })
                     : await settleFloorForMember({ session, slug });
         }
-        return res.status(200).json({ runId, winner: session.winner, results });
+        return res.status(200).json({ runId, winner: session.winner, results, consumables });
     } catch (err) {
         console.error('[towers/settle]', err);
         return res.status(500).json({ error: 'Internal server error.' });

@@ -61,7 +61,7 @@ function isMoveJutsu(j: JutsuLike | null | undefined): boolean {
 function isBurstJutsu(j: JutsuLike | null | undefined): boolean {
     return Boolean(j) && String(j!.method ?? "") === "AOE_BURST";
 }
-type ItemLike = { id?: string; name?: string; slot?: string; weaponEp?: number; weaponRange?: number; apCost?: number; restoreChakra?: number; restoreStamina?: number };
+type ItemLike = { id?: string; name?: string; slot?: string; weaponEp?: number; weaponRange?: number; apCost?: number; restoreChakra?: number; restoreStamina?: number; weaponCooldown?: number };
 
 const ORB = 50;          // squad/enemy orb diameter (scales with the board)
 const BOSS_ORB = 78;     // bosses render larger
@@ -321,17 +321,22 @@ export function BattleTowerFight({
         const items = (Array.isArray(myActor?.character?.pvpItems) ? myActor!.character.pvpItems : []) as ItemLike[];
         const equippedIds = new Set(Object.values((myActor?.character?.equipment ?? {}) as Record<string, string | undefined>).filter(Boolean) as string[]);
         const charges = (myActor?.itemCharges ?? {}) as Record<string, number>;
+        const cooldowns = (myActor?.cooldowns ?? {}) as Record<string, number>;
         const equipped = items.filter(it => it.id && equippedIds.has(it.id));
         const CONSUMABLE = new Set(["item", "item1", "item2", "item3", "potion"]);
         const weapons = equipped
             .filter(it => { const s = slotOf(it); return s === "hand" || s === "thrown"; })
             .map(it => {
                 const thrown = slotOf(it) === "thrown";
-                return { item: it, thrown, range: Math.max(1, Number(it.weaponRange ?? (thrown ? 4 : 1))), left: thrown ? (charges[it.id!] ?? 0) : Infinity };
+                const cdKey = it.id ?? it.name ?? "";
+                return { item: it, thrown, range: Math.max(1, Number(it.weaponRange ?? (thrown ? 4 : 1))), left: thrown ? (charges[it.id!] ?? 0) : Infinity, cd: Number(cooldowns[cdKey] ?? 0) };
             });
         const consumables = equipped
             .filter(it => CONSUMABLE.has(slotOf(it)))
-            .map(it => ({ item: it, left: charges[it.id!] ?? 0 }));
+            .map(it => {
+                const cdKey = it.id ?? it.name ?? "";
+                return { item: it, left: charges[it.id!] ?? 0, cd: Number(cooldowns[cdKey] ?? 0) };
+            });
         return { weapons, consumables };
     }, [myActor]);
     const { weapons: myWeapons, consumables: myConsumables } = loadout;
@@ -791,36 +796,36 @@ export function BattleTowerFight({
                                         );
                                     })}
                                     {/* Weapon cards (green) — hand reusable, thrown spends a charge */}
-                                    {myWeapons.map(({ item: wp, thrown, range, left }) => {
+                                    {myWeapons.map(({ item: wp, thrown, range, left, cd }) => {
                                         const armed = mode === "weapon" && selWeaponId === wp.id;
                                         const ap = Number(wp.apCost ?? 40);
                                         const out = thrown && left <= 0;
                                         return (
                                             <div key={wp.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${armed ? " selected-action" : ""}`}>
                                                 <button type="button"
-                                                    className={`combat-jutsu-button combat-item-button${armed ? " selected-action" : ""}`}
-                                                    title={`${wp.name ?? "Weapon"} | ${ap} AP | R${range}${thrown ? " | Thrown" : ""}`}
+                                                    className={`combat-jutsu-button combat-item-button${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
+                                                    title={`${wp.name ?? "Weapon"} | ${ap} AP | R${range}${thrown ? " | Thrown" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
                                                     onClick={() => { setSelJutsu(null); setSelWeaponId(prev => prev === wp.id ? "" : (wp.id ?? "")); setMode(m => (m === "weapon" && selWeaponId === wp.id) ? "idle" : "weapon"); }}
-                                                    disabled={busy || out || session.activeAp < ap}>
+                                                    disabled={busy || out || cd > 0 || session.activeAp < ap}>
                                                     <span className="combat-jutsu-thumb combat-item-thumb">{itemArt(wp) ? <img src={itemArt(wp)} alt={wp.name ?? ""} /> : <strong>🗡</strong>}</span>
                                                     <span className="combat-jutsu-name">{wp.name ?? "Weapon"}</span>
-                                                    <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left}` : ""}</span>
+                                                    <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left}` : ""} | CD {cd}</span>
                                                 </button>
                                             </div>
                                         );
                                     })}
                                     {/* Consumable cards (red) — potions / combat items, used on self */}
-                                    {myConsumables.map(({ item: cs, left }) => {
+                                    {myConsumables.map(({ item: cs, left, cd }) => {
                                         const ap = Number(cs.apCost ?? 35);
                                         return (
                                             <div key={cs.id} className="combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card">
-                                                <button type="button" className="combat-jutsu-button combat-item-button"
-                                                    title={`${cs.name ?? "Item"} | ${ap} AP | Use`}
+                                                <button type="button" className={`combat-jutsu-button combat-item-button${cd > 0 ? " jutsu-on-cooldown" : ""}`}
+                                                    title={`${cs.name ?? "Item"} | ${ap} AP | Use${cd > 0 ? ` | CD ${cd}` : ""}`}
                                                     onClick={() => void send({ type: "item", itemId: cs.id })}
-                                                    disabled={busy || left <= 0 || session.activeAp < ap}>
+                                                    disabled={busy || left <= 0 || cd > 0 || session.activeAp < ap}>
                                                     <span className="combat-jutsu-thumb combat-item-thumb">{itemArt(cs) ? <img src={itemArt(cs)} alt={cs.name ?? ""} /> : <strong>🧪</strong>}</span>
                                                     <span className="combat-jutsu-name">{cs.name ?? "Item"}</span>
-                                                    <span className="combat-jutsu-info">{ap} AP | Use ×{left}</span>
+                                                    <span className="combat-jutsu-info">{ap} AP | Use ×{left} | CD {cd}</span>
                                                 </button>
                                             </div>
                                         );
