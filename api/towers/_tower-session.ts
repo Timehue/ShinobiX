@@ -43,6 +43,8 @@ export type TowerActor = {
     /** per-fight consumable budget {itemId: charges} sealed from the save (thrown/item/potion).
      *  The engine spends against this deterministically; absent/empty for AI (no items). */
     itemCharges?: Record<string, number>;
+    /** server-recorded consumables spent in this run, deducted from the save at settlement. */
+    itemsUsed?: Record<string, number>;
 };
 
 export type TowerMap = {
