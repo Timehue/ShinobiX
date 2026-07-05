@@ -14,9 +14,10 @@
  * from the client.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PARTY_SCALE_FLOOR = exports.DEFAULT_PARTY_SIZE = exports.MAX_PARTY_SIZE = exports.MIN_PARTY_SIZE = exports.TOWER_FLOOR_COUNT = exports.FLOOR_CATALOG = exports.TOWER_BOSS_MECHANICS = exports.TOWER_BIOMES = exports.OBJECTIVES_NEEDING_GOAL = exports.OBJECTIVES_NEEDING_NPC = exports.OBJECTIVES_NEEDING_BOSS = exports.TOWER_OBJECTIVES = void 0;
+exports.PARTY_SCALE_FLOOR = exports.DEFAULT_PARTY_SIZE = exports.MAX_PARTY_SIZE = exports.MIN_PARTY_SIZE = exports.TOWER_FLOOR_COUNT = exports.CLAN_BOSS_FLOORS = exports.CLAN_BOSS_FLOOR_BASE = exports.FLOOR_CATALOG = exports.TOWER_BOSS_MECHANICS = exports.TOWER_BIOMES = exports.OBJECTIVES_NEEDING_GOAL = exports.OBJECTIVES_NEEDING_NPC = exports.OBJECTIVES_NEEDING_BOSS = exports.TOWER_OBJECTIVES = void 0;
 exports.hexZone = hexZone;
 exports.getFloor = getFloor;
+exports.isPublicFloor = isPublicFloor;
 exports.getFloorBalanceFor = getFloorBalanceFor;
 exports.partyScaleFactor = partyScaleFactor;
 exports.scaleEnemyStat = scaleEnemyStat;
@@ -163,8 +164,56 @@ exports.FLOOR_CATALOG = [
         firstClearReward: { ryo: 6000, xp: 2500, fateShards: 30, milestone: 'tower-floor-10' },
     },
 ];
+// ─── Clan Boss floors (api/clan-boss) ────────────────────────────────────────
+// A SEPARATE registry in a reserved id range (9001+), so the public tower catalog
+// (FLOOR_CATALOG / TOWER_FLOOR_COUNT / the floor-list UI) is untouched. getFloor()
+// resolves these so the shared action/engine loop drives a clan-boss assault; the
+// public /api/towers/start rejects them (isPublicFloor). Order + mechanic MUST match
+// CLAN_BOSSES in api/clan-boss/_storage.ts (a test pins it). balanceFor: 3 (party of
+// 3 clanmates). No firstClearReward — clan-boss rewards are paid weekly by the cron.
+exports.CLAN_BOSS_FLOOR_BASE = 9001;
+exports.CLAN_BOSS_FLOORS = [
+    {
+        id: exports.CLAN_BOSS_FLOOR_BASE + 0, name: 'The Oni Warlord', biome: 'volcano', objective: 'defeat-boss',
+        roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        enemies: [{ aiId: 'grunt-brute', count: 3 }],
+        boss: { aiId: 'clan-boss-oni', phases: [75, 50, 25], mechanic: 'enrage' },
+        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
+        balanceFor: 3, firstClearReward: {},
+    },
+    {
+        id: exports.CLAN_BOSS_FLOOR_BASE + 1, name: 'Abyssal Leviathan', biome: 'snow', objective: 'defeat-boss',
+        roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        enemies: [{ aiId: 'grunt-acolyte', count: 2 }],
+        boss: { aiId: 'clan-boss-leviathan', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 2 },
+        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), hazard(22, 16)],
+        balanceFor: 3, firstClearReward: {},
+    },
+    {
+        id: exports.CLAN_BOSS_FLOOR_BASE + 2, name: 'The Fallen Kage', biome: 'shadow', objective: 'defeat-boss',
+        roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
+        boss: { aiId: 'clan-boss-kage', phases: [66, 33], mechanic: 'regen' },
+        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
+        balanceFor: 3, firstClearReward: {},
+    },
+    {
+        id: exports.CLAN_BOSS_FLOOR_BASE + 3, name: 'Ancient Stone Golem', biome: 'central', objective: 'defeat-boss',
+        roundBudget: 20, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        // BULWARK: the golem takes half damage while its guards live — break them first.
+        enemies: [{ aiId: 'grunt-blocker', count: 3 }],
+        boss: { aiId: 'clan-boss-golem', phases: [60, 30], mechanic: 'bulwark' },
+        features: [pylon(22, 16), pylon(22, 16), ward(22, 16, 25), ward(22, 16, 25)],
+        balanceFor: 3, firstClearReward: {},
+    },
+];
 function getFloor(id) {
-    return exports.FLOOR_CATALOG.find(f => f.id === id);
+    return exports.FLOOR_CATALOG.find(f => f.id === id) ?? exports.CLAN_BOSS_FLOORS.find(f => f.id === id);
+}
+/** True only for the public 1..N tower floors — clan-boss floors are excluded so the
+ *  normal /api/towers/start can't launch a clan-boss assault outside the clan flow. */
+function isPublicFloor(id) {
+    return exports.FLOOR_CATALOG.some(f => f.id === id);
 }
 exports.TOWER_FLOOR_COUNT = exports.FLOOR_CATALOG.length;
 // ─── Party size (2–4 scalable squad) ─────────────────────────────────────────
