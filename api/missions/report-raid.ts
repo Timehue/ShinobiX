@@ -52,9 +52,8 @@ function utcDateKey(): string {
 // raid-start has its own daily cap (30/day), so the AI raid claim ceiling
 // drops from 60/day (rate-limit-only) to 30/day (mint + report coupled).
 //
-// Both paths fall back to the rate-limit-only behaviour when their token
-// is absent — keeps stale clients on the prior build saving normally
-// instead of getting locked out.
+// Rewardful reports must use one of those proof paths. A tokenless fallback
+// would let a client mint Vanguard raid progress without proving a raid.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -93,6 +92,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only report your own raids.' });
+        }
+        if (raidTokenRaw && !raidToken) {
+            return res.status(400).json({ error: 'Invalid raid token.' });
+        }
+        if (!battleId && !raidToken) {
+            return res.status(200).json({
+                ok: true,
+                vanguard: true,
+                reason: 'missing-raid-proof',
+                xpAwarded: 0,
+                missionsCompleted: [],
+                bonusRyo: 0,
+                bonusSeals: 0,
+            });
         }
 
         // ── AI-raid token cross-validation ────────────────────────────

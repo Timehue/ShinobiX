@@ -21,10 +21,6 @@ export function normalizeAnbuAppointees(appointees?: string[]) {
 }
 
 const villageAgendaTaskPool: Omit<VillageAgendaTask, "id">[] = [
-    { kind: "missions", label: "Complete village missions", target: 3 },
-    { kind: "explore", label: "Explore map tiles", target: 20 },
-    { kind: "ai", label: "Defeat AI enemies", target: 3 },
-    { kind: "pet", label: "Win pet battles", target: 1 },
     { kind: "control", label: "Hold controlled sectors", target: 1 },
 ];
 function seededAgendaIndex(seed: string, index: number, size: number) {
@@ -42,7 +38,10 @@ export function makeVillageDailyAgenda(village: string, date = currentDateKey())
     return { date, tasks };
 }
 export function normalizeVillageDailyAgenda(village: string, agenda?: VillageDailyAgenda) {
-    return agenda?.date === currentDateKey() && agenda.tasks?.length === 3 ? agenda : makeVillageDailyAgenda(village);
+    const allowedKinds = new Set(villageAgendaTaskPool.map((task) => task.kind));
+    const validTasks = !!agenda?.tasks?.length
+        && agenda.tasks.every((task) => allowedKinds.has(task.kind));
+    return agenda?.date === currentDateKey() && validTasks ? agenda : makeVillageDailyAgenda(village);
 }
 export const KAGE_CHALLENGE_SUPPORT_REQUIRED = 1;
 export const KAGE_CHALLENGE_CONTRIBUTION_REQUIRED = 10;

@@ -13,19 +13,19 @@ const FAST = { maxAttempts: 2, baseBackoffMs: 1 };
     (0, node_test_1.it)('runs fn and releases the lock when acquisition succeeds', async () => {
         const released = [];
         const prims = {
-            tryAcquire: async () => true,
-            release: async (k) => { released.push(k); },
+            tryAcquire: async () => 'owner-1',
+            release: async (k, token) => { released.push(`${k}:${token}`); },
         };
         let ran = false;
         const result = await (0, _lock_js_1.withLockCore)('clan-foo', async () => { ran = true; return 42; }, prims, FAST);
         node_assert_1.strict.equal(result, 42);
         node_assert_1.strict.equal(ran, true);
-        node_assert_1.strict.deepEqual(released, ['lock:clan-foo']);
+        node_assert_1.strict.deepEqual(released, ['lock:clan-foo:owner-1']);
     });
     (0, node_test_1.it)('falls through and runs fn UNLOCKED when acquisition fails and failClosed is off', async () => {
         const released = [];
         const prims = {
-            tryAcquire: async () => false,
+            tryAcquire: async () => null,
             release: async (k) => { released.push(k); },
         };
         let ran = false;
@@ -36,7 +36,7 @@ const FAST = { maxAttempts: 2, baseBackoffMs: 1 };
     });
     (0, node_test_1.it)('THROWS LockContendedError and does NOT run fn when failClosed and acquisition fails', async () => {
         const prims = {
-            tryAcquire: async () => false,
+            tryAcquire: async () => null,
             release: async () => { throw new Error('release should never be called'); },
         };
         let ran = false;
@@ -56,13 +56,22 @@ const FAST = { maxAttempts: 2, baseBackoffMs: 1 };
         let n = 0;
         const released = [];
         const prims = {
-            tryAcquire: async () => { n++; return n >= 2; }, // fail once, then succeed
-            release: async (k) => { released.push(k); },
+            tryAcquire: async () => { n++; return n >= 2 ? 'owner-2' : null; }, // fail once, then succeed
+            release: async (k, token) => { released.push(`${k}:${token}`); },
         };
         let ran = false;
         const r = await (0, _lock_js_1.withLockCore)('x', async () => { ran = true; return 'done'; }, prims, { maxAttempts: 3, baseBackoffMs: 1, failClosed: true });
         node_assert_1.strict.equal(r, 'done');
         node_assert_1.strict.equal(ran, true);
-        node_assert_1.strict.deepEqual(released, ['lock:x']);
+        node_assert_1.strict.deepEqual(released, ['lock:x:owner-2']);
+    });
+    (0, node_test_1.it)('passes the acquired owner token to release', async () => {
+        let releasedToken = '';
+        const prims = {
+            tryAcquire: async () => 'owner-token',
+            release: async (_k, token) => { releasedToken = token; },
+        };
+        await (0, _lock_js_1.withLockCore)('x', async () => 'ok', prims, FAST);
+        node_assert_1.strict.equal(releasedToken, 'owner-token');
     });
 });

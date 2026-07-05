@@ -7,30 +7,14 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
 
-// Server-authoritative Pet Arena win recorder. Replaces the client-trusted
-// ryo + totalPetWins increment that lived in the PetArena component.
-//
-// Trust model: we don't simulate the battle server-side (the autobattler is
-// 200+ lines of grid pathfinding + jutsu cooldown logic), so the client's
-// "I won" claim is taken on faith — BUT bounded by:
-//   • 5-second per-player rate limit (battles take >30s in practice)
-//   • Daily cap of 100 arena ryo grants per player (legitimate grinders
-//     never come close)
-//   • opponentLevel clamped to [1, 100] before reward math
-//   • Reward formula (level * 2, floor 20) is server-owned; the client just
-//     banks the returned `reward`. Tuned down in the ryo economy rebalance.
-//
-// Combined with the existing per-save ryo cap (1M / save cycle) and rolling
-// gain window, the practical fraud ceiling is meaningfully tight without
-// requiring a full server-side battle simulator.
+// Pet Arena reward recorder. Non-ranked wins require a short-lived start token
+// minted by /api/pet/battle-start for the same reportKey. The battle is still
+// client-resolved, but bare result-only reward posts no longer pay out.
 
 const ARENA_WIN_RATE_LIMIT = 5_000;   // ms — one win per 5s per player
 const DAILY_ARENA_WIN_CAP = 100;       // max server-validated wins per UTC day
-const REPORT_KEY_TTL_SECONDS = 10 * 60; // 10-min dedup window per reportKey
-// Ranked-rating credit receipt window (audit #7 / Stage 3). Longer than the
-// 10-min casual dedup because the rating change is a durable economic credit,
-// not just a ryo grant — a stale tab re-reporting hours later must not
-// re-apply the Elo swing. Matches the 24h receipt in pvp/claim-rewards.ts.
+// Ranked-rating credit receipt window. A stale tab re-reporting hours later
+// must not re-apply the Elo swing. Matches the 24h receipt in pvp/claim-rewards.ts.
 const RANKED_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 
 type PetBattleOutcome = 'win' | 'loss';
@@ -69,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // sealed by the match token) instead of the client self-applying
         // rankedDelta. When absent the casual path below runs unchanged.
         const ranked = body.ranked === true;
-        const opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(body.opponentLevel ?? 1))));
+        let opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(body.opponentLevel ?? 1))));
         // Optional opponent name — used to verify the claimed opponentLevel
         // against the opponent's actual saved level. Stops a level-5 player
         // from claiming wins against level-100 opponents to maximize the
@@ -82,6 +66,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // to alphanumerics + : / - so it can't pollute the keyspace.
         const reportKeyRaw = typeof body.reportKey === 'string' ? body.reportKey.slice(0, 64) : '';
         const reportKey = /^[A-Za-z0-9:_-]+$/.test(reportKeyRaw) ? reportKeyRaw : '';
+        const battleTokenRaw = typeof body.battleToken === 'string' ? body.battleToken.trim() : '';
+        const battleToken = /^[A-Za-z0-9]+$/.test(battleTokenRaw) ? battleTokenRaw : '';
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!outcome) return res.status(400).json({ error: 'Invalid outcome.' });
 
@@ -97,6 +83,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // because losses don't pay out so duplicates are harmless.
         if (outcome === 'win' && !identity.admin && !reportKey) {
             return res.status(400).json({ error: 'Missing or invalid reportKey for win.' });
+        }
+
+        let casualBattleTokenKey: string | null = null;
+        if (outcome === 'win' && !ranked && !identity.admin) {
+            if (!battleToken) return res.status(400).json({ error: 'A valid pet battle start token is required.' });
+            const tokenKey = `pet:battle-token:${playerName}:${battleToken}`;
+            const tokenData = await kv.get<{ playerName?: string; reportKey?: string; opponentLevel?: number }>(tokenKey);
+            if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+                return res.status(200).json({ ok: true, reward: 0, reason: 'invalid-or-spent-pet-battle-token' });
+            }
+            if (tokenData.reportKey !== reportKey) {
+                return res.status(403).json({ error: 'Pet battle token does not match this battle report.' });
+            }
+            opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(tokenData.opponentLevel ?? opponentLevelRaw))));
+            casualBattleTokenKey = tokenKey;
         }
 
         // ── opponentLevel cross-check ─────────────────────────────────
@@ -223,21 +224,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Refresh-replay dedup: NX-reserve the reportKey atomically. If it
-        // was already set, the client has already reported this exact
-        // battle outcome — return 200 alreadyReported so the caller's UI
-        // doesn't error out, but skip the ryo + counter increments.
-        if (reportKey && outcome === 'win') {
-            const dedupKey = `pet:reported:${playerName}:${reportKey}`;
-            const placed = await kv.set(dedupKey, '1', { nx: true, ex: REPORT_KEY_TTL_SECONDS } as never).catch(() => null);
-            if (placed === null) {
-                // KV write errored — fail open to avoid denying real wins.
-            } else if (!placed) {
-                const currentSave = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
-                return res.status(200).json({ ok: true, alreadyReported: true, reward: 0, _saveVersion: Number(currentSave?._saveVersion ?? 0) });
-            }
-        }
-
         // Apply under a per-player lock so simultaneous result POSTs (e.g.
         // double-clicked Confirm) can't both award ryo + increment counters.
         const result = await withKvLock(saveKey, async () => {
@@ -245,6 +231,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!record) return { error: 'no-save' as const };
             const char = record.character as Record<string, unknown> | undefined;
             if (!char) return { error: 'no-character' as const };
+            if (casualBattleTokenKey) {
+                const consumed = await kv.del(casualBattleTokenKey);
+                if (consumed <= 0) {
+                    return {
+                        ok: true,
+                        reward: 0,
+                        reason: 'invalid-or-spent-pet-battle-token',
+                        totalPetWins: Number(char.totalPetWins ?? 0),
+                        dailyPetWins: Number(char.dailyPetWins ?? 0),
+                        _saveVersion: Number(record._saveVersion ?? 0),
+                    };
+                }
+            }
 
             const today = utcDateKey();
             const lastReset = String(char.lastDailyReset ?? '');
@@ -296,7 +295,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 dailyPetWins: updatedChar.dailyPetWins,
                 _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
             };
-        });
+        }, { failClosed: true });
 
         if ('error' in result) {
             const code = result.error === 'no-save' || result.error === 'no-character' ? 404 : 500;

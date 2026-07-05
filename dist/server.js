@@ -177,6 +177,7 @@ const bounty_js_1 = __importDefault(require("./api/pvp/bounty.js"));
 const ranked_queue_js_1 = __importDefault(require("./api/pvp/ranked-queue.js"));
 const pet_ranked_queue_js_1 = __importDefault(require("./api/pvp/pet-ranked-queue.js"));
 // Pet
+const battle_start_js_1 = __importDefault(require("./api/pet/battle-start.js"));
 const battle_result_js_1 = __importDefault(require("./api/pet/battle-result.js"));
 const ranked_start_js_1 = __importDefault(require("./api/pet/ranked-start.js"));
 const evolve_js_1 = __importDefault(require("./api/pet/evolve.js"));
@@ -755,6 +756,7 @@ route('/pvp/bounty', bounty_js_1.default);
 route('/pvp/ranked-queue', ranked_queue_js_1.default);
 route('/pvp/pet-ranked-queue', pet_ranked_queue_js_1.default);
 // ─── Pet battle result ─────────────────────────────────────────────────────────
+route('/pet/battle-start', battle_start_js_1.default);
 route('/pet/battle-result', battle_result_js_1.default);
 route('/pet/ranked-start', ranked_start_js_1.default);
 route('/pet/evolve', evolve_js_1.default);

@@ -34,6 +34,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LockContendedError = void 0;
 exports.withLockCore = withLockCore;
 exports.withKvLock = withKvLock;
+const node_crypto_1 = require("node:crypto");
 const _storage_js_1 = require("./_storage.js");
 /**
  * Thrown by {@link withKvLock} / {@link withLockCore} when `failClosed` is set
@@ -70,13 +71,12 @@ async function withLockCore(target, fn, primitives, opts = {}) {
     const maxAttempts = opts.maxAttempts ?? 5;
     const base = opts.baseBackoffMs ?? 25;
     const lockKey = `lock:${target}`;
-    let acquired = false;
+    let ownerToken = null;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
-            if (await primitives.tryAcquire(lockKey, ttlSec)) {
-                acquired = true;
+            ownerToken = await primitives.tryAcquire(lockKey, ttlSec);
+            if (ownerToken)
                 break;
-            }
         }
         catch {
             // Lock acquire failed (KV hiccup) — fall through, retry
@@ -87,23 +87,30 @@ async function withLockCore(target, fn, primitives, opts = {}) {
     }
     // Critical sections opt into failing closed: abort BEFORE running `fn`
     // (which holds the unlocked RMW) rather than racing.
-    if (!acquired && opts.failClosed) {
+    if (!ownerToken && opts.failClosed) {
         throw new LockContendedError(target);
     }
     try {
         return await fn();
     }
     finally {
-        if (acquired) {
-            await primitives.release(lockKey).catch(() => undefined);
+        if (ownerToken) {
+            await primitives.release(lockKey, ownerToken).catch(() => undefined);
         }
     }
 }
 // Real KV-backed primitives. `kv.set` with {nx} resolves truthy ('OK') only
 // when the key was newly created, i.e. the lock was claimed.
 const kvLockPrimitives = {
-    tryAcquire: async (lockKey, ttlSec) => Boolean(await _storage_js_1.kv.set(lockKey, '1', { nx: true, ex: ttlSec })),
-    release: async (lockKey) => { await _storage_js_1.kv.del(lockKey); },
+    tryAcquire: async (lockKey, ttlSec) => {
+        const ownerToken = (0, node_crypto_1.randomUUID)();
+        return (await _storage_js_1.kv.set(lockKey, ownerToken, { nx: true, ex: ttlSec })) ? ownerToken : null;
+    },
+    release: async (lockKey, ownerToken) => {
+        const current = await _storage_js_1.kv.get(lockKey);
+        if (current === ownerToken)
+            await _storage_js_1.kv.del(lockKey);
+    },
 };
 /**
  * Acquire a short-lived KV lock around `target`, run `fn`, release the lock.

@@ -30,6 +30,7 @@
  * (audit item #10).
  */
 
+import { randomUUID } from 'node:crypto';
 import { kv } from './_storage.js';
 
 export type LockOptions = {
@@ -65,10 +66,10 @@ export class LockContendedError extends Error {
  * {@link withLockCore} is unit-testable without a real KV backend.
  */
 export type LockPrimitives = {
-    /** Attempt to claim `lockKey` with the given TTL. Resolve true iff claimed. */
-    tryAcquire: (lockKey: string, ttlSec: number) => Promise<boolean>;
-    /** Release `lockKey` (best-effort; errors are swallowed by the core). */
-    release: (lockKey: string) => Promise<void>;
+    /** Attempt to claim `lockKey` with the given TTL. Return owner token iff claimed. */
+    tryAcquire: (lockKey: string, ttlSec: number) => Promise<string | null>;
+    /** Release `lockKey` for this owner token (best-effort; errors are swallowed by the core). */
+    release: (lockKey: string, ownerToken: string) => Promise<void>;
 };
 
 function sleep(ms: number): Promise<void> {
@@ -99,10 +100,11 @@ export async function withLockCore<T>(
     const base = opts.baseBackoffMs ?? 25;
     const lockKey = `lock:${target}`;
 
-    let acquired = false;
+    let ownerToken: string | null = null;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
-            if (await primitives.tryAcquire(lockKey, ttlSec)) { acquired = true; break; }
+            ownerToken = await primitives.tryAcquire(lockKey, ttlSec);
+            if (ownerToken) break;
         } catch {
             // Lock acquire failed (KV hiccup) — fall through, retry
         }
@@ -113,15 +115,15 @@ export async function withLockCore<T>(
 
     // Critical sections opt into failing closed: abort BEFORE running `fn`
     // (which holds the unlocked RMW) rather than racing.
-    if (!acquired && opts.failClosed) {
+    if (!ownerToken && opts.failClosed) {
         throw new LockContendedError(target);
     }
 
     try {
         return await fn();
     } finally {
-        if (acquired) {
-            await primitives.release(lockKey).catch(() => undefined);
+        if (ownerToken) {
+            await primitives.release(lockKey, ownerToken).catch(() => undefined);
         }
     }
 }
@@ -129,9 +131,14 @@ export async function withLockCore<T>(
 // Real KV-backed primitives. `kv.set` with {nx} resolves truthy ('OK') only
 // when the key was newly created, i.e. the lock was claimed.
 const kvLockPrimitives: LockPrimitives = {
-    tryAcquire: async (lockKey, ttlSec) =>
-        Boolean(await kv.set(lockKey, '1', { nx: true, ex: ttlSec })),
-    release: async (lockKey) => { await kv.del(lockKey); },
+    tryAcquire: async (lockKey, ttlSec) => {
+        const ownerToken = randomUUID();
+        return (await kv.set(lockKey, ownerToken, { nx: true, ex: ttlSec })) ? ownerToken : null;
+    },
+    release: async (lockKey, ownerToken) => {
+        const current = await kv.get<string>(lockKey);
+        if (current === ownerToken) await kv.del(lockKey);
+    },
 };
 
 /**

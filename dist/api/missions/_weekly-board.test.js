@@ -51,8 +51,8 @@ const _weekly_board_js_1 = require("./_weekly-board.js");
 (0, node_test_1.test)('snapshotCounters captures exactly the tracked counters as numbers', () => {
     const snap = (0, _weekly_board_js_1.snapshotCounters)({ rankedWins: 5, totalAiKills: 9, ryo: 99999, junk: 'x' });
     strict_1.default.equal(snap.rankedWins, 5);
-    strict_1.default.equal(snap.totalAiKills, 9);
-    strict_1.default.equal(snap.totalPetWins, 0); // absent → 0
+    strict_1.default.equal(snap.totalMissionsCompleted, 0);
+    strict_1.default.ok(!('totalAiKills' in snap));
     strict_1.default.equal(Object.keys(snap).length, _weekly_board_js_1.WEEKLY_COUNTERS.length);
     strict_1.default.ok(!('ryo' in snap));
 });

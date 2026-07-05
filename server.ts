@@ -177,6 +177,7 @@ import pvpBountyHandler         from './api/pvp/bounty.js';
 import pvpRankedQueueHandler    from './api/pvp/ranked-queue.js';
 import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
 // Pet
+import petBattleStartHandler from './api/pet/battle-start.js';
 import petBattleResultHandler from './api/pet/battle-result.js';
 import petRankedStartHandler from './api/pet/ranked-start.js';
 import petEvolveHandler from './api/pet/evolve.js';
@@ -818,6 +819,7 @@ route('/pvp/ranked-queue',     pvpRankedQueueHandler);
 route('/pvp/pet-ranked-queue', pvpPetRankedQueueHandler);
 
 // ─── Pet battle result ─────────────────────────────────────────────────────────
+route('/pet/battle-start',  petBattleStartHandler);
 route('/pet/battle-result', petBattleResultHandler);
 route('/pet/ranked-start',  petRankedStartHandler);
 route('/pet/evolve',        petEvolveHandler);
