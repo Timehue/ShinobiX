@@ -164,6 +164,44 @@ const charOf = (kv, slug) => kv.store.get(`save:${slug}`).character;
         node_assert_1.strict.equal(again.reason, 'already-consumed');
         node_assert_1.strict.deepEqual(charOf(kv, 'alice').inventory, ['pill'], 'retry did not double-deduct');
     });
+    (0, node_test_1.it)('deducts used consumables after a wipe without paying floor rewards', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'alice', {
+            itemStacks: [{ itemId: 'smoke', count: 1 }],
+            inventory: ['kunai'],
+        });
+        const actor = squadActor('alice');
+        actor.itemsUsed = { smoke: 1, kunai: 1 };
+        const session = makeSession('run-wipe-items', 1, 'alice', {
+            actors: [actor],
+            winner: 'enemy',
+            objectiveState: { kind: 'defeat-all', completed: false, failed: true },
+        });
+        const consumed = await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        node_assert_1.strict.equal(consumed.consumed, true);
+        node_assert_1.strict.deepEqual(charOf(kv, 'alice').itemStacks, []);
+        node_assert_1.strict.deepEqual(charOf(kv, 'alice').inventory, []);
+        const reward = await (0, _tower_store_js_1.settleFloorForMember)({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        node_assert_1.strict.equal(reward.paid, false);
+        node_assert_1.strict.equal(reward.reason, 'not-cleared');
+        node_assert_1.strict.equal(charOf(kv, 'alice').ryo, 0, 'wipe consumed items but paid no clear reward');
+    });
+    (0, node_test_1.it)('does not finalize consumable spends before the run is done', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'alice', { itemStacks: [{ itemId: 'smoke', count: 1 }] });
+        const actor = squadActor('alice');
+        actor.itemsUsed = { smoke: 1 };
+        const session = makeSession('run-active-items', 1, 'alice', {
+            actors: [actor],
+            status: 'active',
+            winner: null,
+        });
+        const consumed = await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        node_assert_1.strict.equal(consumed.consumed, false);
+        node_assert_1.strict.equal(consumed.reason, 'not-done');
+        node_assert_1.strict.deepEqual(charOf(kv, 'alice').itemStacks, [{ itemId: 'smoke', count: 1 }]);
+        node_assert_1.strict.equal(kv.store.has((0, _tower_store_js_1.consumedItemsKey)('run-active-items', 'alice')), false);
+    });
 });
 (0, node_test_1.describe)('Battle Towers borrowed-ally assist (capped, once per run)', () => {
     (0, node_test_1.it)('pays a capped fraction once per run', async () => {

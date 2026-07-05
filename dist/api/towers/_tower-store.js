@@ -198,6 +198,8 @@ async function settleConsumedItemsForMember(params, deps = {}) {
     const used = usedItemsForMember(session, slug);
     if (!Object.keys(used).length)
         return { consumed: false, reason: 'none', used };
+    if (session.status !== 'done')
+        return { consumed: false, reason: 'not-done', used };
     let result = { consumed: false, reason: 'unknown', used };
     try {
         await lock(`save:${slug}`, async () => {

@@ -144,8 +144,8 @@ export function BattleTowerFight({
     // banks damage into its weekly pool (api/clan-boss/assault-settle) instead of
     // paying tower rewards. When set, the tower rewards panel is skipped.
     settleFn?: (runId: string, playerName: string) => Promise<unknown>;
-    // Clan-boss assaults settle on ANY resolution (a timeout/wipe still banks the
-    // partial damage), not only a squad win.
+    // Some modes settle on ANY resolution: Clan Boss banks partial damage, and
+    // story towers finalize server-recorded consumable/throwable spends on wipes.
     settleOnAnyDone?: boolean;
 }) {
     const [session, setSession] = useState<TowerSession>(initialSession);
@@ -260,8 +260,8 @@ export function BattleTowerFight({
         return () => { alive = false; clearInterval(id); };
     }, [session.status, myTurn, runId, me]);
 
-    // Auto-settle once the fight resolves. Towers pay on a squad clear; the Clan
-    // Boss (settleFn + settleOnAnyDone) banks its damage on ANY resolution.
+    // Auto-settle once the fight resolves. Tower rewards pay only on a squad
+    // clear, but the server can still finalize spent consumables on a wipe.
     useEffect(() => {
         const done = session.status === "done";
         const shouldSettle = settleOnAnyDone ? done : (done && session.winner === "squad");

@@ -14,13 +14,13 @@ import {
 } from './_tower-store.js';
 
 /*
- * POST /api/towers/settle — pay out a cleared floor to every squad member.
+ * POST /api/towers/settle — finalize a completed tower run.
  *
- * Fully server-authoritative + idempotent: settleFloorForMember / settleAssistForAlly each
- * re-verify the session (status 'done' + squad win), resolve the floor from the catalog by
- * id, compute the score, and credit at most once (NX receipts + the permanent first-clear
- * gate). Safe to call repeatedly. Live human members get the full first-clear reward;
- * borrowed AI allies get the capped, daily-bounded assist. Body: { runId, playerName }.
+ * Fully server-authoritative + idempotent: consumable/throwable spends are deducted once for
+ * any done run, while settleFloorForMember / settleAssistForAlly each re-verify the session
+ * (status 'done' + squad win), resolve the floor from the catalog by id, compute the score,
+ * and credit at most once (NX receipts + the permanent first-clear gate). Safe to call
+ * repeatedly. Body: { runId, playerName }.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);

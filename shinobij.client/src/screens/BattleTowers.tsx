@@ -105,6 +105,7 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
                 runId={view.runId}
                 initialSession={view.session}
                 onRecordBattle={onRecordBattle}
+                settleOnAnyDone
                 // Clear the runId synchronously here: the parent's onExit unmounts this
                 // component before the persistence effect could clear it, so without this
                 // the key would linger and trigger a stray "Resuming…" flash next visit.
