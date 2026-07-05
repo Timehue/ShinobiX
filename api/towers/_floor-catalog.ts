@@ -251,8 +251,58 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     },
 ];
 
+// ─── Clan Boss floors (api/clan-boss) ────────────────────────────────────────
+// A SEPARATE registry in a reserved id range (9001+), so the public tower catalog
+// (FLOOR_CATALOG / TOWER_FLOOR_COUNT / the floor-list UI) is untouched. getFloor()
+// resolves these so the shared action/engine loop drives a clan-boss assault; the
+// public /api/towers/start rejects them (isPublicFloor). Order + mechanic MUST match
+// CLAN_BOSSES in api/clan-boss/_storage.ts (a test pins it). balanceFor: 3 (party of
+// 3 clanmates). No firstClearReward — clan-boss rewards are paid weekly by the cron.
+export const CLAN_BOSS_FLOOR_BASE = 9001;
+export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
+    {
+        id: CLAN_BOSS_FLOOR_BASE + 0, name: 'The Oni Warlord', biome: 'volcano', objective: 'defeat-boss',
+        roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        enemies: [{ aiId: 'grunt-brute', count: 3 }],
+        boss: { aiId: 'clan-boss-oni', phases: [75, 50, 25], mechanic: 'enrage' },
+        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
+        balanceFor: 3, firstClearReward: {},
+    },
+    {
+        id: CLAN_BOSS_FLOOR_BASE + 1, name: 'Abyssal Leviathan', biome: 'snow', objective: 'defeat-boss',
+        roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        enemies: [{ aiId: 'grunt-acolyte', count: 2 }],
+        boss: { aiId: 'clan-boss-leviathan', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 2 },
+        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), hazard(22, 16)],
+        balanceFor: 3, firstClearReward: {},
+    },
+    {
+        id: CLAN_BOSS_FLOOR_BASE + 2, name: 'The Fallen Kage', biome: 'shadow', objective: 'defeat-boss',
+        roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
+        boss: { aiId: 'clan-boss-kage', phases: [66, 33], mechanic: 'regen' },
+        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
+        balanceFor: 3, firstClearReward: {},
+    },
+    {
+        id: CLAN_BOSS_FLOOR_BASE + 3, name: 'Ancient Stone Golem', biome: 'central', objective: 'defeat-boss',
+        roundBudget: 20, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        // BULWARK: the golem takes half damage while its guards live — break them first.
+        enemies: [{ aiId: 'grunt-blocker', count: 3 }],
+        boss: { aiId: 'clan-boss-golem', phases: [60, 30], mechanic: 'bulwark' },
+        features: [pylon(22, 16), pylon(22, 16), ward(22, 16, 25), ward(22, 16, 25)],
+        balanceFor: 3, firstClearReward: {},
+    },
+];
+
 export function getFloor(id: number): TowerFloor | undefined {
-    return FLOOR_CATALOG.find(f => f.id === id);
+    return FLOOR_CATALOG.find(f => f.id === id) ?? CLAN_BOSS_FLOORS.find(f => f.id === id);
+}
+
+/** True only for the public 1..N tower floors — clan-boss floors are excluded so the
+ *  normal /api/towers/start can't launch a clan-boss assault outside the clan flow. */
+export function isPublicFloor(id: number): boolean {
+    return FLOOR_CATALOG.some(f => f.id === id);
 }
 
 export const TOWER_FLOOR_COUNT = FLOOR_CATALOG.length;
