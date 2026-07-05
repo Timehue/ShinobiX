@@ -215,6 +215,12 @@ export function clanBossPickId(weekId: string): string {
     return CLAN_BOSSES[h % CLAN_BOSSES.length].id;
 }
 
+/** Resolve the boss stored on the weekly event, with a compatibility fallback for malformed legacy weeks. */
+export function resolveClanBossDef(week: ClanBossWeek | null | undefined): ClanBossDef | null {
+    if (!week) return null;
+    return CLAN_BOSS_BY_ID[week.bossId] ?? CLAN_BOSS_BY_ID[clanBossPickId(week.weekId)] ?? null;
+}
+
 export function clanBossAttemptsLeft(p: ClanBossProgress | null, memberSlug: string): number {
     const used = p?.memberAttempts?.[memberSlug] ?? 0;
     return Math.max(0, CB_ASSAULTS_PER_MEMBER - used);

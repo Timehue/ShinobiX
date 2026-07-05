@@ -481,7 +481,15 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.ok(r.applied, 'weapon attack applied');
         node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').hp < 1_000_000, 'weapon dealt damage');
     });
-    (0, node_test_1.it)('a thrown weapon spends a charge and runs out', () => {
+    (0, node_test_1.it)('weapon use applies PvP-style cooldowns before another swing', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { character: { specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1500 }, pvpItems: [{ id: 'sword', slot: 'hand', weaponEp: 30, weaponRange: 1, apCost: 20, weaponCooldown: 5 }], equipment: { hand: 'sword' } } });
+        const s = makeSession([sq, bigEnemy()]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'sword' }, (0, _sim_js_1.makeRng)(1)).applied);
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').cooldowns.sword, 5);
+        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'sword' }, (0, _sim_js_1.makeRng)(1)).reason, 'on-cooldown');
+    });
+    (0, node_test_1.it)('a thrown weapon spends a charge and respects cooldown before ammo re-check', () => {
         const sq = makeActor('sq-1', 'squad', 0, {
             itemCharges: { kunai: 1 },
             character: { specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1500 }, pvpItems: [{ id: 'kunai', slot: 'thrown', weaponEp: 20, weaponRange: 4, apCost: 40 }], equipment: { thrown: 'kunai' } },
@@ -491,7 +499,16 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.ok((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, (0, _sim_js_1.makeRng)(1)).applied);
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemCharges['kunai'], 0, 'charge spent');
         const out = (0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, (0, _sim_js_1.makeRng)(1));
-        node_assert_1.strict.equal(out.reason, 'out-of-ammo');
+        node_assert_1.strict.equal(out.reason, 'on-cooldown');
+    });
+    (0, node_test_1.it)('a thrown weapon with no sealed charge is rejected before spending', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { kunai: 0 },
+            character: { specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1500 }, pvpItems: [{ id: 'kunai', slot: 'thrown', weaponEp: 20, weaponRange: 4, apCost: 40 }], equipment: { thrown: 'kunai' } },
+        });
+        const s = makeSession([sq, bigEnemy()]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, (0, _sim_js_1.makeRng)(1)).reason, 'out-of-ammo');
     });
     (0, node_test_1.it)('a potion restores chakra/stamina and spends a charge', () => {
         const sq = makeActor('sq-1', 'squad', 0, {
@@ -506,6 +523,19 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').chakra, _combat_resources_js_1.COMBAT_RESOURCES_V2 ? Math.min(100, 10 + (0, _combat_resources_js_1.v2ResourceRegen)(1) + 50) : 60);
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').stamina, _combat_resources_js_1.COMBAT_RESOURCES_V2 ? Math.min(100, 50 + (0, _combat_resources_js_1.v2ResourceRegen)(1) + 20) : 70);
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemCharges['pot'], 1, 'one charge spent');
+    });
+    (0, node_test_1.it)('combat-item cooldowns block reuse without spending an extra charge', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { pill: 2 },
+            character: { specialty: 'Ninjutsu', stats: {}, pvpItems: [{ id: 'pill', slot: 'item', weaponTags: [{ name: 'Increase Damage Given', percent: 15 }], apCost: 20, weaponCooldown: 5 }], equipment: { item: 'pill' } },
+        });
+        const s = makeSession([sq, bigEnemy()]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pill' }, (0, _sim_js_1.makeRng)(1)).applied);
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').cooldowns.pill, 5);
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemCharges.pill, 1);
+        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pill' }, (0, _sim_js_1.makeRng)(1)).reason, 'on-cooldown');
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemCharges.pill, 1, 'cooldown rejection did not spend a charge');
     });
     (0, node_test_1.it)('biome terrain gives the matching discipline +10%', () => {
         const j = { id: 'tj', type: 'Taijutsu', effectPower: 40, ap: 60, range: 1 };

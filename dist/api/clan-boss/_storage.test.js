@@ -116,6 +116,12 @@ function progress(over = {}) {
         node_assert_1.strict.ok(_storage_js_1.CLAN_BOSSES.some(b => b.id === id));
         node_assert_1.strict.equal(id, (0, _storage_js_1.clanBossPickId)('2026-W27'));
     });
+    (0, node_test_1.it)('resolves the stored weekly boss before falling back to the deterministic pick', () => {
+        const stored = _storage_js_1.CLAN_BOSSES.find(b => b.id !== (0, _storage_js_1.clanBossPickId)('2026-W27'));
+        node_assert_1.strict.equal((0, _storage_js_1.resolveClanBossDef)({ weekId: '2026-W27', bossId: stored.id, spawnedAt: 1, endsAt: 2 })?.id, stored.id);
+        node_assert_1.strict.equal((0, _storage_js_1.resolveClanBossDef)({ weekId: '2026-W27', bossId: 'missing-boss', spawnedAt: 1, endsAt: 2 })?.id, (0, _storage_js_1.clanBossPickId)('2026-W27'));
+        node_assert_1.strict.equal((0, _storage_js_1.resolveClanBossDef)(null), null);
+    });
 });
 (0, node_test_1.describe)('applyAssault + newClanBossProgress', () => {
     const week = { weekId: '2026-W27', bossId: 'oni-warlord', spawnedAt: 1000, endsAt: 1000 + 7 * 86400000 };
