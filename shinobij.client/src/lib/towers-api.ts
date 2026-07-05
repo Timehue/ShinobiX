@@ -227,7 +227,8 @@ export async function fetchTowerState(runId: string, playerName: string): Promis
     return data.session;
 }
 
-/** Pay out a cleared floor to every squad member (idempotent; safe to call once on clear). */
+/** Settle a completed run. Rewards pay only on squad clears; recorded consumables
+ *  and throwables are finalized for any completed run. Idempotent. */
 export function settleTowerRun(runId: string, playerName: string): Promise<TowerSettleResponse> {
     return postJson('/api/towers/settle', { runId, playerName });
 }
