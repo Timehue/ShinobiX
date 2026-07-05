@@ -56,8 +56,8 @@ test('computeProgress diffs current vs baseline, floored at 0', () => {
 test('snapshotCounters captures exactly the tracked counters as numbers', () => {
     const snap = snapshotCounters({ rankedWins: 5, totalAiKills: 9, ryo: 99999, junk: 'x' });
     assert.equal(snap.rankedWins, 5);
-    assert.equal(snap.totalAiKills, 9);
-    assert.equal(snap.totalPetWins, 0); // absent → 0
+    assert.equal(snap.totalMissionsCompleted, 0);
+    assert.ok(!('totalAiKills' in snap));
     assert.equal(Object.keys(snap).length, WEEKLY_COUNTERS.length);
     assert.ok(!('ryo' in snap));
 });
