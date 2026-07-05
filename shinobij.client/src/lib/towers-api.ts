@@ -30,6 +30,8 @@ export type TowerActor = {
     character: Record<string, unknown>;
     /** per-fight consumable budget {itemId: charges} — sealed weapons/potions left to use */
     itemCharges?: Record<string, number>;
+    /** server-recorded consumables spent in this run */
+    itemsUsed?: Record<string, number>;
     /** active jutsu cooldowns {jutsuId: turns left} */
     cooldowns?: Record<string, number>;
 };
@@ -145,7 +147,13 @@ export type TowerHostLoadout = {
 
 export type TowerActionResponse = { applied: boolean; reason?: string; session: TowerSession };
 export type TowerSettleResult = { paid: boolean; reason?: string; score?: number };
-export type TowerSettleResponse = { runId: string; winner: TowerSession['winner']; results: Record<string, TowerSettleResult> };
+export type TowerConsumedItemsResult = { consumed: boolean; reason?: string; used?: Record<string, number> };
+export type TowerSettleResponse = {
+    runId: string;
+    winner: TowerSession['winner'];
+    results: Record<string, TowerSettleResult>;
+    consumables?: Record<string, TowerConsumedItemsResult>;
+};
 
 export type TowerFloorMeta = {
     id: number;
