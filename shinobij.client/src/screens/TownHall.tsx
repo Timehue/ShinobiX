@@ -29,8 +29,8 @@ import {
 } from "../App";
 import {
     cleanVillageTreasury,
-    makeVillageDailyAgenda,
     normalizeAnbuAppointees,
+    normalizeVillageDailyAgenda,
 } from "../lib/village-state";
 import { postPlayerChallengeNotice, postVillageTreasuryDonation } from "../lib/player-api";
 import { MERCENARY_TIERS, hiredTiersForWar } from "../lib/mercenaries";
@@ -472,7 +472,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
     const anbuSlots = [...appointedAnbuSlots, ...Array.from({ length: 7 }, (_, index) => earnedAnbuSlots[index] ?? null)];
     const kageChallenge = serverKage?.challenge ?? null;
     const isKageChallenger = !!kageChallenge && kageChallenge.challenger.toLowerCase() === character.name.toLowerCase();
-    const agenda = state.dailyAgenda.date === currentDateKey() ? state.dailyAgenda : makeVillageDailyAgenda(character.village);
+    const agenda = normalizeVillageDailyAgenda(character.village, state.dailyAgenda);
     const ownedVillageSectors = villageOwnedTerritories(character.village);
     function agendaProgress(task: VillageAgendaTask) {
         if (task.kind === "missions") return dailyMissionsCompleted(character);
@@ -485,7 +485,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
     const agendaComplete = agenda.tasks.every(task => agendaProgress(task) >= task.target);
     const agendaClaimed = character.claimedVillageAgendaDate === agenda.date;
     async function claimVillageAgenda() {
-        if (!agendaComplete) return alert("Complete all three village agenda goals first.");
+        if (!agendaComplete) return alert("Complete the village agenda goals first.");
         if (agendaClaimed) return alert("You already claimed today's village agenda.");
         // The shared village-treasury credit is now server-authoritative (fixed
         // amounts, once/day via an NX marker). We re-assert the returned treasury
