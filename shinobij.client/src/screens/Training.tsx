@@ -29,6 +29,7 @@ import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getCharacterElements } from "../lib/elements";
 import { useWarLossDebuff } from "../lib/war-debuff";
+import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { CHARACTER_XP_GAIN_MULTIPLIER, JUTSU_TRAINING_CAP, statCapForLevel } from "../constants/game";
 import { gainXp, getAllJutsus, playerLensDiscipline } from "../App";
 import { TRAINING_TIERS, trainingStatGain } from "../lib/training-config";
@@ -79,6 +80,7 @@ export function Training({ character, updateCharacter, activeTraining, setActive
     const TIMER_ICONS: Record<string, React.ReactNode> = { "15m": <GiStopwatch />, "1h": <GiAlarmClock />, "4h": <GiSandsOfTime />, "8h": <GiNightSleep /> };
     const timers = TRAINING_TIERS.map((tier) => ({ ...tier, icon: TIMER_ICONS[tier.id] }));
     const trainingXpBonus = getTrainingXpBonus(character);
+    const showAcademyTrainingHint = normalizeOnboardingStep(character.onboardingStep) === "training" && !activeTraining;
     // Apply a training reward: the XP trickle (may level up) then the direct stat
     // gain, clamped to the per-rank cap. Returns the points actually applied + the
     // cap (for the "already at rank cap" message).
@@ -174,6 +176,12 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                 </div>
             )}
 
+            {showAcademyTrainingHint && (
+                <div className="academy-inline-callout academy-training-callout">
+                    <strong>Academy Training:</strong> pick any stat and any timer. Short timers are best while learning.
+                </div>
+            )}
+
             <h3>Choose Stat</h3>
             <div className="stat-group-list">
                 {statGroups.map((group) => (
@@ -209,7 +217,7 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                     const effectiveXp = effectiveCharacterXpGain(character, boostedXp);
                     const gain = Math.max(0, Math.round(trainingStatGain(timer, timer.ms, trainingXpBonus) * warDebuff.xpMult));
                     return (
-                        <button key={timer.label} className="location-button" onClick={() => startTraining(timer)}>
+                        <button key={timer.label} className={`location-button${showAcademyTrainingHint ? " academy-timer-target" : ""}`} onClick={() => startTraining(timer)}>
                             <span className="tile-icon">{timer.icon}</span>
                             <span>{timer.label}</span>
                             <small>+{gain} {formatStatName(selectedStat)} · +{effectiveXp} XP</small>
@@ -580,6 +588,7 @@ export function JutsuTrainingHall({
     const selectedDuration = selectedMastery ? jutsuTrainingDuration(selectedMastery.level) : 0;
     const activeRemaining = activeJutsuTraining ? activeJutsuTraining.endsAt - now : 0;
     const tagLensDiscipline = playerLensDiscipline(character);
+    const showAcademyJutsuHint = normalizeOnboardingStep(character.onboardingStep) === "jutsu";
     const queued = activeJutsuTraining?.next ?? null;
     const activeTrainingPanel = activeJutsuTraining ? (
         <div className="summary-box">
@@ -602,6 +611,10 @@ export function JutsuTrainingHall({
                     <p className="hint" style={{ margin: "4px 0 0", fontSize: "0.78rem" }}>Line up a 2nd training (ryo paid now) — it auto-starts when this one ends.</p>
                 </div>
             )}
+        </div>
+    ) : showAcademyJutsuHint ? (
+        <div className="academy-inline-callout academy-jutsu-callout">
+            <strong>Academy Training:</strong> your bloodline gave you starter jutsu. Unlock or equip one more jutsu to finish your starter loadout.
         </div>
     ) : null;
 

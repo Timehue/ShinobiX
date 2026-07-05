@@ -195,6 +195,72 @@
     background: linear-gradient(90deg, #2a5cb8, var(--bsv2-player));
     box-shadow: 0 0 6px rgba(78,168,255,0.5);
 }
+
+.logbook-screen .academy-logbook-panel {
+    background: linear-gradient(180deg, rgba(20,28,46,0.90), rgba(12,18,34,0.92)) !important;
+    border: 1px solid rgba(232,212,150,0.48) !important;
+    border-left: 4px solid #e8d496 !important;
+    border-radius: 8px !important;
+    color: #c8cfdc !important;
+    margin: 8px 0 14px !important;
+    padding: 14px !important;
+}
+
+.logbook-screen .logbook-requirement-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.logbook-screen .logbook-requirement-card {
+    background: linear-gradient(180deg, rgba(15,22,40,0.94), rgba(8,12,24,0.98));
+    border: 1px solid rgba(196,162,90,0.34);
+    border-radius: 6px;
+    color: #e8edf5;
+    padding: 12px;
+}
+
+.logbook-screen .logbook-requirement-card.complete {
+    border-color: rgba(74,222,128,0.48);
+}
+
+.logbook-screen .logbook-requirement-card h4 {
+    align-items: center;
+    color: #e8edf5;
+    display: flex;
+    flex-wrap: wrap;
+    font: 700 12px var(--font-display);
+    gap: 7px;
+    letter-spacing: 0.08em;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+}
+
+.logbook-screen .logbook-requirement-card h4 span {
+    background: rgba(78,168,255,0.14);
+    border: 1px solid rgba(78,168,255,0.36);
+    border-radius: 3px;
+    color: #93c5fd;
+    flex: 0 0 auto;
+    font-size: 9px;
+    padding: 2px 5px;
+}
+
+.logbook-screen .logbook-requirement-card.complete h4 span {
+    background: rgba(74,222,128,0.12);
+    border-color: rgba(74,222,128,0.38);
+    color: #86efac;
+}
+
+.logbook-screen .logbook-requirement-card button {
+    margin-top: 8px;
+}
+
+.logbook-screen .academy-reward-btn {
+    width: 100%;
+}
+
 .logbook-screen .hint {
     color: rgba(196,162,90,0.7) !important;
     font: 400 10px Inter, sans-serif !important;
@@ -284,6 +350,32 @@
 .mission-hall .mh-section {
     margin-bottom: 16px;
 }
+
+.mission-hall .academy-trial-card {
+    background:
+        linear-gradient(135deg, rgba(232,212,150,0.16), rgba(78,168,255,0.10)),
+        linear-gradient(180deg, rgba(15,22,40,0.96), rgba(8,12,24,0.98)) !important;
+    border: 1px solid rgba(232,212,150,0.75) !important;
+    border-left: 4px solid #e8d496 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 0 24px rgba(232,212,150,0.12), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+    margin-bottom: 16px !important;
+    padding: 14px !important;
+}
+
+.mission-hall .academy-trial-card ul {
+    color: #e8edf5;
+    display: grid;
+    gap: 4px;
+    line-height: 1.45;
+    margin: 0 0 12px;
+    padding-left: 18px;
+}
+
+.mission-hall .academy-trial-card .start-primary-btn {
+    width: 100%;
+}
+
 .mission-hall .mh-tag,
 .mission-hall .mh-stat-chip {
     background: rgba(196,162,90,0.1) !important;

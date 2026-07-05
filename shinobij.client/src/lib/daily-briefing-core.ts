@@ -64,12 +64,12 @@ export interface RecoInput {
 const ONBOARDING_TARGET: Record<string, { screen: Screen; label: string }> = {
     academyIntro: { screen: "village", label: "Begin your Academy training" },
     starter: { screen: "pets", label: "Choose your starter companion" },
-    academySpar: { screen: "training", label: "Spar at the Academy" },
-    training: { screen: "training", label: "Train your stats" },
-    jutsu: { screen: "jutsuTraining", label: "Learn a jutsu" },
-    firstMission: { screen: "missions", label: "Take your first mission" },
-    logbook: { screen: "logbook", label: "Check your Logbook" },
-    storyUnlocked: { screen: "storyHall", label: "Begin your story" },
+    academySpar: { screen: "village", label: "Start your Academy spar" },
+    training: { screen: "training", label: "Start stat training" },
+    jutsu: { screen: "jutsuTraining", label: "Finish your starter loadout" },
+    firstMission: { screen: "missions", label: "Claim the Academy Trial" },
+    logbook: { screen: "logbook", label: "Open your Logbook" },
+    storyUnlocked: { screen: "storyHall", label: "Visit Story Hall" },
 };
 
 /**
