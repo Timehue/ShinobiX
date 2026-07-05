@@ -498,6 +498,7 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         (0, _engine_js_1.startRound)(s);
         node_assert_1.strict.ok((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, (0, _sim_js_1.makeRng)(1)).applied);
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemCharges['kunai'], 0, 'charge spent');
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemsUsed['kunai'], 1, 'spent throwable recorded for settlement');
         const out = (0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, (0, _sim_js_1.makeRng)(1));
         node_assert_1.strict.equal(out.reason, 'on-cooldown');
     });
@@ -523,6 +524,7 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').chakra, _combat_resources_js_1.COMBAT_RESOURCES_V2 ? Math.min(100, 10 + (0, _combat_resources_js_1.v2ResourceRegen)(1) + 50) : 60);
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').stamina, _combat_resources_js_1.COMBAT_RESOURCES_V2 ? Math.min(100, 50 + (0, _combat_resources_js_1.v2ResourceRegen)(1) + 20) : 70);
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemCharges['pot'], 1, 'one charge spent');
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemsUsed['pot'], 1, 'spent potion recorded for settlement');
     });
     (0, node_test_1.it)('combat-item cooldowns block reuse without spending an extra charge', () => {
         const sq = makeActor('sq-1', 'squad', 0, {
@@ -534,8 +536,27 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.ok((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pill' }, (0, _sim_js_1.makeRng)(1)).applied);
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').cooldowns.pill, 5);
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemCharges.pill, 1);
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemsUsed.pill, 1);
         node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pill' }, (0, _sim_js_1.makeRng)(1)).reason, 'on-cooldown');
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemCharges.pill, 1, 'cooldown rejection did not spend a charge');
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemsUsed.pill, 1, 'cooldown rejection did not record another spend');
+    });
+    (0, node_test_1.it)('Smoke Bomb applies its both-target damage-given debuff and records the spend', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { smoke: 1 },
+            character: { specialty: 'Ninjutsu', stats: {}, pvpItems: [{ id: 'smoke', name: 'Smoke Bomb', slot: 'item', weaponEffect: 'Decrease Damage Given', weaponEffectValue: 100, weaponEffectTarget: 'both', apCost: 20, weaponCooldown: 9 }], equipment: { item: 'smoke' } },
+        });
+        const en = bigEnemy();
+        const s = makeSession([sq, en]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'smoke' }, (0, _sim_js_1.makeRng)(1)).applied);
+        const actor = (0, _tower_session_js_1.getActor)(s, 'sq-1');
+        const enemy = (0, _tower_session_js_1.getActor)(s, 'en-1');
+        node_assert_1.strict.ok(actor.statuses.some(st => st.name === 'Decrease Damage Given' && st.kind === 'negative' && st.percent === 100), 'user is smoke-debuffed');
+        node_assert_1.strict.ok(enemy.statuses.some(st => st.name === 'Decrease Damage Given' && st.kind === 'negative' && st.percent === 100), 'enemy is smoke-debuffed');
+        node_assert_1.strict.equal(actor.itemCharges.smoke, 0);
+        node_assert_1.strict.equal(actor.itemsUsed.smoke, 1);
+        node_assert_1.strict.equal(actor.cooldowns.smoke, 9);
     });
     (0, node_test_1.it)('biome terrain gives the matching discipline +10%', () => {
         const j = { id: 'tj', type: 'Taijutsu', effectPower: 40, ap: 60, range: 1 };

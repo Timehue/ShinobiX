@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.inviteKey = exports.SPIRE_SHARDS_PER_TIER = exports.MAX_ASSISTS_PER_DAY = exports.MAX_TOWER_STARTS_PER_DAY = exports.SPIRE_REWARD_TTL = exports.PAID_RECEIPT_TTL = exports.RUN_TOKEN_TTL = exports.TOWER_SESSION_TTL = exports.SPIRE_LB_MAX = exports.spireLbKey = exports.spireRewardKey = exports.startCountKey = exports.assistCountKey = exports.assistPaidKey = exports.firstClearKey = exports.floorPaidKey = exports.runTokenKey = exports.sessionKey = void 0;
+exports.inviteKey = exports.SPIRE_SHARDS_PER_TIER = exports.MAX_ASSISTS_PER_DAY = exports.MAX_TOWER_STARTS_PER_DAY = exports.SPIRE_REWARD_TTL = exports.PAID_RECEIPT_TTL = exports.RUN_TOKEN_TTL = exports.TOWER_SESSION_TTL = exports.SPIRE_LB_MAX = exports.spireLbKey = exports.spireRewardKey = exports.startCountKey = exports.assistCountKey = exports.consumedItemsKey = exports.assistPaidKey = exports.firstClearKey = exports.floorPaidKey = exports.runTokenKey = exports.sessionKey = void 0;
 exports.isSpireRun = isSpireRun;
 exports.utcDateKey = utcDateKey;
 exports.bumpDailyStartCount = bumpDailyStartCount;
@@ -11,6 +11,7 @@ exports.writeSession = writeSession;
 exports.setTowerInvite = setTowerInvite;
 exports.getTowerInvite = getTowerInvite;
 exports.clearTowerInvite = clearTowerInvite;
+exports.settleConsumedItemsForMember = settleConsumedItemsForMember;
 exports.settleFloorForMember = settleFloorForMember;
 exports.settleAssistForAlly = settleAssistForAlly;
 exports.upsertSpireBoard = upsertSpireBoard;
@@ -41,6 +42,7 @@ const _lock_js_1 = require("../_lock.js");
 const _utils_js_1 = require("../_utils.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
+const claim_rewards_js_1 = require("../pvp/claim-rewards.js");
 const _tower_rewards_js_1 = require("./_tower-rewards.js");
 const _floor_catalog_js_1 = require("./_floor-catalog.js");
 const _spire_catalog_js_1 = require("./_spire-catalog.js");
@@ -56,6 +58,8 @@ const firstClearKey = (slug, floor) => `tower-firstclear:${slug}:${floor}`;
 exports.firstClearKey = firstClearKey;
 const assistPaidKey = (runId, slug) => `tower-assist-paid:${runId}:${slug}`;
 exports.assistPaidKey = assistPaidKey;
+const consumedItemsKey = (runId, slug) => `tower-items-consumed:${runId}:${slug}`;
+exports.consumedItemsKey = consumedItemsKey;
 const assistCountKey = (slug, dateKey) => `tower-assist-count:${slug}:${dateKey}`;
 exports.assistCountKey = assistCountKey;
 const startCountKey = (host, dateKey) => `tower-start-count:${host}:${dateKey}`;
@@ -165,6 +169,60 @@ function creditFloorClear(char, reward, score, floorId) {
         // guarantees each floor adds exactly once, ever (forgery-proof).
         battleTowerRating: num(char.battleTowerRating) + Math.max(0, Math.floor(score)),
     };
+}
+function usedItemsForMember(session, slug) {
+    const used = {};
+    for (const a of session.actors) {
+        if (a.side !== 'squad' || a.ownerSlug !== slug || !a.itemsUsed)
+            continue;
+        for (const [id, rawN] of Object.entries(a.itemsUsed)) {
+            const n = Math.max(0, Math.floor(Number(rawN) || 0));
+            if (id && n > 0)
+                used[id] = (used[id] ?? 0) + n;
+        }
+    }
+    return used;
+}
+/**
+ * Deduct server-recorded consumables/throwables used in this tower run from one
+ * member's save exactly once. Independent from reward settlement: spent items
+ * should be consumed even if a reward is already claimed or the run was a wipe.
+ */
+async function settleConsumedItemsForMember(params, deps = {}) {
+    const kv = deps.kv ?? _storage_js_1.kv;
+    const lock = deps.lock ?? _lock_js_1.withKvLock;
+    const now = deps.now ?? Date.now;
+    const { session, slug } = params;
+    if (!isSquadMember(session, slug))
+        return { consumed: false, reason: 'not-a-member' };
+    const used = usedItemsForMember(session, slug);
+    if (!Object.keys(used).length)
+        return { consumed: false, reason: 'none', used };
+    let result = { consumed: false, reason: 'unknown', used };
+    try {
+        await lock(`save:${slug}`, async () => {
+            const receipt = (0, exports.consumedItemsKey)(session.runId, slug);
+            if (await kv.get(receipt)) {
+                result = { consumed: false, reason: 'already-consumed', used };
+                return;
+            }
+            const saveKey = `save:${slug}`;
+            const record = await kv.get(saveKey);
+            const char = record?.character;
+            if (!record || !char) {
+                result = { consumed: false, reason: 'no-save', used };
+                return;
+            }
+            const updated = (0, claim_rewards_js_1.deductUsedItems)(char, used);
+            await kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...record, character: updated }), record));
+            await kv.set(receipt, { ts: now(), used }, { ex: exports.PAID_RECEIPT_TTL });
+            result = { consumed: true, used };
+        }, { failClosed: true });
+    }
+    catch {
+        result = { consumed: false, reason: 'contended', used };
+    }
+    return result;
 }
 /**
  * Settle a floor clear for ONE squad member, exactly once + one-time-forever. The handler

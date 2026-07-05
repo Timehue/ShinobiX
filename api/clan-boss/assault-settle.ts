@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
-import { readSession } from '../towers/_tower-store.js';
+import { readSession, settleConsumedItemsForMember, type ConsumedItemsResult } from '../towers/_tower-store.js';
 import { loadAssault, saveAssault, extractAssaultResult } from './_assault.js';
 import {
     bankAssault, clanBossProgressKey, loadClanBossProgress, newClanBossProgress,
@@ -73,7 +73,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         }, { failClosed: true });
 
-        return res.status(outcome.status).json(outcome.body);
+        if (outcome.status !== 200) return res.status(outcome.status).json(outcome.body);
+
+        const consumables: Record<string, ConsumedItemsResult> = {};
+        for (const a of session.actors.filter(x => x.side === 'squad')) {
+            const slug = a.ownerSlug;
+            if (!slug) continue;
+            consumables[slug] = await settleConsumedItemsForMember({ session, slug });
+        }
+
+        return res.status(outcome.status).json({ ...(outcome.body as Record<string, unknown>), consumables });
     } catch (err) {
         console.error('[clan-boss/assault-settle]', err);
         return res.status(500).json({ error: 'Internal server error.' });

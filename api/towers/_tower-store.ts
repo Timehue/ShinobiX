@@ -24,6 +24,7 @@ import { withKvLock as realWithKvLock } from '../_lock.js';
 import { mergePreservingImages } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { gainXp, type XpCharacter } from '../_xp-engine.js';
+import { deductUsedItems } from '../pvp/claim-rewards.js';
 import { computeFloorReward, computeAssistReward, computeFloorClearScore, clearMetrics } from './_tower-rewards.js';
 import { getFloor } from './_floor-catalog.js';
 import { isValidSpireTier } from './_spire-catalog.js';
@@ -47,6 +48,7 @@ export const runTokenKey = (host: string, tokenId: string) => `tower-token:${hos
 export const floorPaidKey = (runId: string, floor: number, slug: string) => `tower-paid:${runId}:${floor}:${slug}`;
 export const firstClearKey = (slug: string, floor: number) => `tower-firstclear:${slug}:${floor}`;
 export const assistPaidKey = (runId: string, slug: string) => `tower-assist-paid:${runId}:${slug}`;
+export const consumedItemsKey = (runId: string, slug: string) => `tower-items-consumed:${runId}:${slug}`;
 export const assistCountKey = (slug: string, dateKey: string) => `tower-assist-count:${slug}:${dateKey}`;
 export const startCountKey = (host: string, dateKey: string) => `tower-start-count:${host}:${dateKey}`;
 // Endless Spire: best-tier-per-week reward receipt (once per tier per reset-week per player).
@@ -176,6 +178,63 @@ function creditFloorClear(
 }
 
 export type SettleResult = { paid: boolean; reason?: string; score?: number };
+export type ConsumedItemsResult = { consumed: boolean; reason?: string; used?: Record<string, number> };
+
+function usedItemsForMember(session: TowerSession, slug: string): Record<string, number> {
+    const used: Record<string, number> = {};
+    for (const a of session.actors) {
+        if (a.side !== 'squad' || a.ownerSlug !== slug || !a.itemsUsed) continue;
+        for (const [id, rawN] of Object.entries(a.itemsUsed)) {
+            const n = Math.max(0, Math.floor(Number(rawN) || 0));
+            if (id && n > 0) used[id] = (used[id] ?? 0) + n;
+        }
+    }
+    return used;
+}
+
+/**
+ * Deduct server-recorded consumables/throwables used in this tower run from one
+ * member's save exactly once. Independent from reward settlement: spent items
+ * should be consumed even if a reward is already claimed or the run was a wipe.
+ */
+export async function settleConsumedItemsForMember(
+    params: { session: TowerSession; slug: string },
+    deps: StoreDeps = {},
+): Promise<ConsumedItemsResult> {
+    const kv = deps.kv ?? realKv;
+    const lock = deps.lock ?? realWithKvLock;
+    const now = deps.now ?? Date.now;
+    const { session, slug } = params;
+
+    if (!isSquadMember(session, slug)) return { consumed: false, reason: 'not-a-member' };
+    const used = usedItemsForMember(session, slug);
+    if (!Object.keys(used).length) return { consumed: false, reason: 'none', used };
+
+    let result: ConsumedItemsResult = { consumed: false, reason: 'unknown', used };
+    try {
+        await lock(`save:${slug}`, async () => {
+            const receipt = consumedItemsKey(session.runId, slug);
+            if (await kv.get(receipt)) {
+                result = { consumed: false, reason: 'already-consumed', used };
+                return;
+            }
+            const saveKey = `save:${slug}`;
+            const record = await kv.get<Record<string, unknown>>(saveKey);
+            const char = record?.character as Record<string, unknown> | undefined;
+            if (!record || !char) {
+                result = { consumed: false, reason: 'no-save', used };
+                return;
+            }
+            const updated = deductUsedItems(char, used);
+            await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
+            await kv.set(receipt, { ts: now(), used }, { ex: PAID_RECEIPT_TTL });
+            result = { consumed: true, used };
+        }, { failClosed: true });
+    } catch {
+        result = { consumed: false, reason: 'contended', used };
+    }
+    return result;
+}
 
 /**
  * Settle a floor clear for ONE squad member, exactly once + one-time-forever. The handler

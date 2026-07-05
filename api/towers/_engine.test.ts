@@ -556,6 +556,7 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         startRound(s);
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, makeRng(1)).applied);
         assert.equal(getActor(s, 'sq-1')!.itemCharges!['kunai'], 0, 'charge spent');
+        assert.equal(getActor(s, 'sq-1')!.itemsUsed!['kunai'], 1, 'spent throwable recorded for settlement');
         const out = applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, makeRng(1));
         assert.equal(out.reason, 'on-cooldown');
     });
@@ -583,6 +584,7 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.equal(getActor(s, 'sq-1')!.chakra, COMBAT_RESOURCES_V2 ? Math.min(100, 10 + v2ResourceRegen(1) + 50) : 60);
         assert.equal(getActor(s, 'sq-1')!.stamina, COMBAT_RESOURCES_V2 ? Math.min(100, 50 + v2ResourceRegen(1) + 20) : 70);
         assert.equal(getActor(s, 'sq-1')!.itemCharges!['pot'], 1, 'one charge spent');
+        assert.equal(getActor(s, 'sq-1')!.itemsUsed!['pot'], 1, 'spent potion recorded for settlement');
     });
 
     it('combat-item cooldowns block reuse without spending an extra charge', () => {
@@ -595,8 +597,28 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pill' }, makeRng(1)).applied);
         assert.equal(getActor(s, 'sq-1')!.cooldowns.pill, 5);
         assert.equal(getActor(s, 'sq-1')!.itemCharges!.pill, 1);
+        assert.equal(getActor(s, 'sq-1')!.itemsUsed!.pill, 1);
         assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pill' }, makeRng(1)).reason, 'on-cooldown');
         assert.equal(getActor(s, 'sq-1')!.itemCharges!.pill, 1, 'cooldown rejection did not spend a charge');
+        assert.equal(getActor(s, 'sq-1')!.itemsUsed!.pill, 1, 'cooldown rejection did not record another spend');
+    });
+
+    it('Smoke Bomb applies its both-target damage-given debuff and records the spend', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { smoke: 1 },
+            character: { specialty: 'Ninjutsu', stats: {}, pvpItems: [{ id: 'smoke', name: 'Smoke Bomb', slot: 'item', weaponEffect: 'Decrease Damage Given', weaponEffectValue: 100, weaponEffectTarget: 'both', apCost: 20, weaponCooldown: 9 }], equipment: { item: 'smoke' } },
+        });
+        const en = bigEnemy();
+        const s = makeSession([sq, en]);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'smoke' }, makeRng(1)).applied);
+        const actor = getActor(s, 'sq-1')!;
+        const enemy = getActor(s, 'en-1')!;
+        assert.ok(actor.statuses.some(st => st.name === 'Decrease Damage Given' && st.kind === 'negative' && st.percent === 100), 'user is smoke-debuffed');
+        assert.ok(enemy.statuses.some(st => st.name === 'Decrease Damage Given' && st.kind === 'negative' && st.percent === 100), 'enemy is smoke-debuffed');
+        assert.equal(actor.itemCharges!.smoke, 0);
+        assert.equal(actor.itemsUsed!.smoke, 1);
+        assert.equal(actor.cooldowns.smoke, 9);
     });
 
     it('biome terrain gives the matching discipline +10%', () => {
