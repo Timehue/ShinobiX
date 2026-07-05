@@ -149,8 +149,8 @@ This pass did not rewrite every combat surface. It shipped the safest server-sid
 - What was broken: Tower/Clan Boss fights spent sealed per-fight charges in the session, but persistent inventory deduction was not wired to PvP's `itemsUsed` settlement model.
 - Expected behavior: A throwable/consumable used in a player combat mode should be removed from inventory exactly once when the fight is settled or otherwise cleaned up.
 - Actual behavior after this pass: Tower actors now record `itemsUsed`; `/api/towers/settle` and `/api/clan-boss/assault-settle` deduct those items from `itemStacks` first, then legacy `inventory[]`, behind a per-run/player receipt.
-- Files involved: `api/towers/_engine.ts`, `api/towers/_tower-session.ts`, `api/towers/_tower-store.ts`, `api/towers/settle.ts`, `api/clan-boss/assault-settle.ts`, `api/pvp/claim-rewards.ts`
-- Remaining caveat: the normal story Tower client currently auto-calls `/api/towers/settle` only on squad clears. Clan Boss already settles on any done result. If failed story Tower attempts should also persistently consume items, the client needs to call settle on any done result or a dedicated cleanup endpoint needs to be added.
+- Follow-up fix: the normal story Tower client now auto-calls `/api/towers/settle` on any completed run, so wipes finalize spent items while the server still refuses clear rewards unless `winner === "squad"`.
+- Files involved: `api/towers/_engine.ts`, `api/towers/_tower-session.ts`, `api/towers/_tower-store.ts`, `api/towers/settle.ts`, `api/clan-boss/assault-settle.ts`, `api/pvp/claim-rewards.ts`, `shinobij.client/src/screens/BattleTowers.tsx`, `shinobij.client/src/screens/BattleTowerFight.tsx`
 - Confidence: High. Unit test added.
 
 #### Fixed: Smoke Bomb/Both-Target Consumable Tags In Towers
@@ -179,7 +179,6 @@ This pass did not rewrite every combat surface. It shipped the safest server-sid
 | Client Arena/PvE | `shinobij.client/src/screens/Arena.tsx` | Large client-side resolver duplicates PvP/tower action math instead of using server PvP/tower rules | AI, mission, story, weekly boss, and some event fights can drift from PvP | Move these modes onto the server tower engine or extract a shared combat reducer used by both server PvP and PvE. Start with one mode and keep compatibility gates | High | High |
 | Weekly world boss | `api/weekly-boss.ts`, `shinobij.client/src/screens/WeeklyBossArena.tsx` | Server trusts capped client-reported fight damage from a client Arena fight | Damage contribution can differ from PvP/tower truth and needs anti-replay/manual cap review | Launch weekly boss as a tower/Clan Boss style server session and bank server-derived boss damage | High | High |
 | Mission combat claims | `api/missions/queue-combat-claim.ts`, `api/missions/claim-mission.ts`, `shinobij.client/src/screens/Missions.tsx` | Server queues/claims reward, but AI fight win remains client-resolved | Combat outcome/reward gate is weaker than PvP/tower | Route built-in combat missions through server tower encounters or a shared server combat session token | High | High |
-| Failed story Tower item cleanup | `shinobij.client/src/screens/BattleTowerFight.tsx`, `api/towers/settle.ts` | The server can deduct used items when settle is called, but the story Tower client only auto-settles squad clears | A failed story Tower may still avoid persistent item consumption unless the client calls settle on done | Call settle on any done result for story Towers or add a dedicated cleanup endpoint | Medium | Medium |
 | Tower consumable enemy-target items beyond Smoke Bomb | `api/towers/_engine.ts` | Smoke Bomb/both-target DDG is handled; future targeted enemy consumables still need an N-actor target contract | Future items with opponent-only semantics may need explicit target selection/all-hostile design | Extend the item action schema if new enemy-target consumables are added | Low | Medium |
 | Tower comment/docs drift | `api/towers/_engine.ts`, `api/towers/_sim.ts` | Some older comments describe tag/status layers as deferred even though `_engine.ts` now reuses PvP `applyJutsu` for many layers | Developer confusion, not direct gameplay | Refresh comments in a documentation-only pass | Low | High |
 | Sector war combat | `api/village/sector-war.ts` | Uses PvP battle result, but sector-specific control damage is separate from combat damage | Allowed mode-specific territory outcome; combat itself is PvP | Keep as is, but add integration tests proving resolve only accepts finished authoritative PvP sessions | Medium | Medium |
@@ -233,6 +232,7 @@ These were discovered but intentionally excluded per the request:
 
 - Run a normal PvP fight with weapon, throwable, potion, combat item, and custom jutsu.
 - Run the same loadout in a Battle Tower fight and compare AP/cooldown/status/damage behavior.
+- In a Battle Tower loss, use a throwable/consumable before wiping and confirm it is removed from inventory exactly once with no floor reward paid.
 - Run the same loadout in Clan Boss and compare the player-side behavior to Battle Towers.
 - Run client Arena AI/story/mission fights and record any difference from PvP/tower; these remain the largest parity gap.
 
@@ -240,8 +240,8 @@ These were discovered but intentionally excluded per the request:
 
 Validation run during this pass:
 
-- `npx tsx --test api/towers/_engine.test.ts api/towers/_tower-store.test.ts` - passed, 69 tests.
+- `npx tsx --test api/towers/_engine.test.ts api/towers/_tower-store.test.ts` - passed, 71 tests.
 - `npx tsx --test scripts/pvp-tags-parity.test.mjs api/pvp/_tags.test.ts api/pvp/_combat-tags.test.ts` - passed, 40 tests.
-- `npm test` - passed, 2264 tests.
+- `npm test` - passed, 2266 tests.
 - `npm run lint` inside `shinobij.client/` - passed.
 - `npm run build` - passed, including server compile, client type-check/bundle, and `verify:dist`.
