@@ -21,7 +21,6 @@ exports.stopSnapshotCron = stopSnapshotCron;
  */
 const snapshot_saves_js_1 = require("./snapshot-saves.js");
 const _ranked_season_js_1 = require("./_ranked-season.js");
-const _clan_boss_weekly_js_1 = require("./_clan-boss-weekly.js");
 const _war_daily_js_1 = require("../_war-daily.js");
 const _merc_auto_js_1 = require("../_merc-auto.js");
 const _era_js_1 = require("../_era.js");
@@ -69,18 +68,6 @@ async function fire() {
     }
     catch (err) {
         console.error('[cron-scheduler] ranked-season rollover threw:', err.message);
-    }
-    // Weekly Clan Boss Gauntlet: spawn the week's boss (once) + settle/reward any
-    // ended week. ON by default in testing (server.ts sets ENABLE_CLAN_BOSS unless
-    // DISABLE_CLAN_BOSS=1); no-ops if disabled.
-    try {
-        const cb = await (0, _clan_boss_weekly_js_1.runClanBossWeekly)();
-        if (cb.enabled && (cb.spawned || cb.settled.length)) {
-            console.log(`[cron-scheduler] clan boss: ${cb.spawned ? `spawned ${cb.spawned}` : 'no spawn'}${cb.settled.length ? `, settled ${cb.settled.join(', ')}` : ''}.`);
-        }
-    }
-    catch (err) {
-        console.error('[cron-scheduler] clan-boss weekly threw:', err.message);
     }
     // Village War Map daily pass (WR accrual + structure upkeep + merc-lease
     // expiry). No-op unless ENABLE_VILLAGE_WAR=1 — server-gated, default OFF.
@@ -137,10 +124,6 @@ function startSnapshotCron() {
             .catch((err) => console.error('[cron-scheduler] merc auto-snipe threw:', err.message));
     }, MERC_TICK_MS);
     _mercInterval.unref?.();
-    // Kick the clan-boss weekly pass once on boot so the current week's boss is live
-    // immediately when the feature is enabled (rather than dark until the next 03:00
-    // tick). No-op unless ENABLE_CLAN_BOSS=1; NX-guarded so it never double-spawns.
-    void (0, _clan_boss_weekly_js_1.runClanBossWeekly)().catch((err) => console.error('[cron-scheduler] clan-boss boot kick threw:', err.message));
     console.log(`[cron-scheduler] daily save-snapshot scheduled in ${Math.round(delay / 60000)} min (03:00 UTC).`);
 }
 /** Stop the scheduler (tests / graceful shutdown). */

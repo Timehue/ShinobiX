@@ -125,13 +125,6 @@ const collect_supply_js_1 = __importDefault(require("./api/clan/territory/collec
 const purchase_js_1 = __importDefault(require("./api/clan/upgrade/purchase.js"));
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
 const claim_js_1 = __importDefault(require("./api/clan/mission/claim.js"));
-// Clan — text chat (own capped KV key; membership-gated; cheap since-cursor polling)
-const get_js_2 = __importDefault(require("./api/clan/chat/get.js"));
-const send_js_1 = __importDefault(require("./api/clan/chat/send.js"));
-// Clan — weekly Clan Boss Gauntlet (server-wide co-op competition, flag-gated)
-const get_js_3 = __importDefault(require("./api/clan-boss/get.js"));
-const assault_start_js_1 = __importDefault(require("./api/clan-boss/assault-start.js"));
-const assault_settle_js_1 = __importDefault(require("./api/clan-boss/assault-settle.js"));
 // Hollow Gate — server-authoritative run token + augments (sealed-bounds payout)
 const start_js_3 = __importDefault(require("./api/hollow-gate/start.js"));
 const choose_augment_js_1 = __importDefault(require("./api/hollow-gate/choose-augment.js"));
@@ -241,10 +234,6 @@ if (process.env.SENTRY_DSN) {
 // to turn the entire system back off without code changes.
 if (process.env.DISABLE_VILLAGE_WAR !== '1')
     process.env.ENABLE_VILLAGE_WAR = '1';
-// Weekly Clan Boss Gauntlet — ON by default in the testing phase (every clan-boss
-// handler + the cron gate on ENABLE_CLAN_BOSS==='1'). Kill-switch: DISABLE_CLAN_BOSS=1.
-if (process.env.DISABLE_CLAN_BOSS !== '1')
-    process.env.ENABLE_CLAN_BOSS = '1';
 const app = (0, express_1.default)();
 // JSON body parsing. The vast majority of routes carry tiny JSON (polls, moves,
 // player actions); only the image-pipe and admin-import routes legitimately POST
@@ -688,16 +677,6 @@ route('/clan/upgrade/purchase', purchase_js_1.default);
 // ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
 // GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
 route('/clan/mission/claim', claim_js_1.default);
-// ─── Clan chat: membership-gated text chat (GET since-cursor, POST send) ────────
-route('/clan/chat/get', get_js_2.default);
-route('/clan/chat/send', send_js_1.default);
-// ─── Clan Boss Gauntlet: weekly server-wide co-op competition (404 unless ENABLE_CLAN_BOSS=1) ─
-// get returns the week's boss + clan pool + standings; assault-start mints a co-op
-// tower session on the clan-boss floor; assault-settle banks the finished fight's
-// server-computed damage into the clan's shared pool. Weekly cron ranks + rewards top 3.
-route('/clan-boss/get', get_js_3.default);
-route('/clan-boss/assault-start', assault_start_js_1.default);
-route('/clan-boss/assault-settle', assault_settle_js_1.default);
 // ─── Hollow Gate: server-authoritative run token + augments ─────────────────────
 // start mints a sealed token (entry snapshot + depth + augment offers) under a
 // server daily-run cap; choose-augment re-seals the pick; settle credits
