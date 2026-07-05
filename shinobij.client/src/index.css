@@ -2240,6 +2240,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     max-width: 720px;
     max-height: calc(100dvh - 32px);
     overflow-y: auto;
+    overflow-x: hidden;
     scrollbar-gutter: stable;
     border-radius: 16px;
     border: 1px solid rgba(250, 204, 21, 0.35);
@@ -2292,7 +2293,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 .daily-briefing-close:hover { background: rgba(220, 38, 38, 0.55); border-color: rgba(248, 113, 113, 0.6); }
 
-.daily-briefing-body { padding: 0 16px 4px; display: flex; flex-direction: column; gap: 14px; }
+.daily-briefing-body { padding: 0 16px 4px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
 /* Login reward strip */
 .db-reward {
@@ -2332,7 +2333,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .db-streak-next { font-size: 0.72rem; color: #cbd5e1; }
 
 /* Sections */
-.db-section { background: rgba(2, 6, 15, 0.55); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px; padding: 12px 14px; }
+.db-section { min-width: 0; background: rgba(2, 6, 15, 0.55); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px; padding: 12px 14px; }
 .db-section > h3 {
     margin: 0 0 10px;
     font-size: 0.72rem;
@@ -2398,12 +2399,15 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .db-objective-cta { align-self: flex-start; margin-top: 2px; }
 
 /* World report */
-.db-wars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.db-wars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.db-wars > li { min-width: 0; }
 .db-war {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     width: 100%;
+    min-width: 0;
     text-align: left;
     padding: 8px 10px;
     border-radius: 9px;
@@ -2416,9 +2420,9 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .db-war-tag { flex: 0 0 auto; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; }
 .db-war-village { background: rgba(190, 18, 60, 0.85); color: #fff; }
 .db-war-clan { background: rgba(124, 58, 237, 0.85); color: #fff; }
-.db-war-vs { flex: 1 1 auto; font-size: 0.85rem; font-weight: 600; }
+.db-war-vs { flex: 1 1 150px; min-width: 0; font-size: 0.85rem; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .db-war-vs em { color: #94a3b8; font-style: normal; padding: 0 3px; }
-.db-war-note { flex: 0 0 auto; font-size: 0.72rem; color: #94a3b8; }
+.db-war-note { flex: 1 1 220px; min-width: 0; font-size: 0.72rem; line-height: 1.28; color: #94a3b8; text-align: right; overflow-wrap: anywhere; white-space: normal; }
 .db-empty { margin: 0; font-size: 0.84rem; color: #94a3b8; font-style: italic; }
 
 /* Footer */
@@ -2442,10 +2446,58 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .db-dismiss:hover { filter: brightness(1.08); }
 
 @media (max-width: 560px) {
+    .daily-briefing-backdrop {
+        align-items: flex-start;
+        padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+    }
+    .daily-briefing-card {
+        max-height: calc(100dvh - 20px);
+        border-radius: 14px;
+    }
+    .daily-briefing-body {
+        padding: 0 10px 4px;
+        gap: 12px;
+    }
     .db-grid { grid-template-columns: 1fr; }
     .daily-briefing-titles h2 { font-size: 1.25rem; }
     .daily-briefing-header { padding: 16px 14px 10px; }
+    .db-section { padding: 10px; border-radius: 10px; }
+    .db-war {
+        display: grid;
+        grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+        align-items: center;
+        gap: 7px 10px;
+        padding: 10px;
+    }
+    .db-war-tag {
+        justify-self: start;
+        align-self: center;
+        max-width: 100%;
+        white-space: normal;
+        text-align: center;
+        line-height: 1.05;
+    }
+    .db-war-vs {
+        grid-column: 2;
+        font-size: 0.82rem;
+    }
+    .db-war-note {
+        grid-column: 2;
+        width: 100%;
+        text-align: left;
+        font-size: 0.72rem;
+    }
     .db-reco-detail { display: none; }
+}
+
+@media (max-width: 380px) {
+    .db-war {
+        grid-template-columns: 1fr;
+    }
+    .db-war-vs,
+    .db-war-note {
+        grid-column: auto;
+    }
 }
 
 /* ===== Story / cinematic ===== */
@@ -20180,11 +20232,34 @@ button.combat-jutsu-button,
     position: fixed;
     inset: 0;
     z-index: 2000;
-    background: rgba(2,6,15,0.97);
+    background:
+      linear-gradient(118deg, transparent 0 18%, rgba(56,189,248,0.08) 18.4% 19.1%, transparent 19.5% 100%),
+      linear-gradient(152deg, transparent 0 58%, rgba(250,204,21,0.08) 58.5% 59.4%, transparent 59.8% 100%),
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 16px),
+      linear-gradient(160deg, rgba(3,7,18,0.99) 0%, rgba(11,18,32,0.99) 42%, rgba(31,12,22,0.99) 100%);
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    box-shadow: inset 0 1px 0 rgba(250,204,21,0.18);
+  }
+
+  .mobile-menu-overlay::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(250,204,21,0.12), transparent 18%, transparent 82%, rgba(239,68,68,0.1)),
+      linear-gradient(180deg, rgba(15,23,42,0.08), rgba(2,6,15,0.55));
+    mix-blend-mode: screen;
+  }
+
+  .mobile-menu-header,
+  .mobile-char-card,
+  .mobile-menu-grid {
+    position: relative;
+    z-index: 1;
   }
 
   .mobile-menu-header {
@@ -20192,13 +20267,17 @@ button.combat-jutsu-button,
     align-items: center;
     justify-content: space-between;
     margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(250,204,21,0.16);
   }
 
   .mobile-menu-title {
     color: #facc15;
     font-size: 18px;
-    font-weight: bold;
+    font-weight: 900;
     letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 0 16px rgba(250,204,21,0.42), 0 2px 0 rgba(69,26,3,0.8);
   }
 
   .mobile-menu-close {
@@ -20207,25 +20286,29 @@ button.combat-jutsu-button,
     min-width: 40px;
     height: 40px;
     border-radius: 50%;
-    border: 1px solid #334155;
-    background: rgba(51,65,85,0.5);
+    border: 1px solid rgba(248,113,113,0.42);
+    background: linear-gradient(145deg, rgba(127,29,29,0.55), rgba(15,23,42,0.82));
     color: #e8eef8;
     font-size: 20px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 0 18px rgba(248,113,113,0.16), inset 0 1px 0 rgba(255,255,255,0.08);
   }
 
   .mobile-char-card {
     display: flex;
     align-items: center;
     gap: 12px;
-    background: rgba(15,23,42,0.9);
-    border: 1px solid rgba(250,204,21,0.25);
+    background:
+      linear-gradient(135deg, rgba(250,204,21,0.13), rgba(14,165,233,0.1) 48%, rgba(190,18,60,0.15)),
+      rgba(15,23,42,0.92);
+    border: 1px solid rgba(250,204,21,0.42);
     border-radius: 12px;
     padding: 12px;
     margin-bottom: 16px;
+    box-shadow: 0 12px 34px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.08);
   }
 
   .mobile-char-avatar {
@@ -20235,7 +20318,7 @@ button.combat-jutsu-button,
     border: 2px solid #facc15;
     object-fit: cover;
     flex-shrink: 0;
-    background: #1e293b;
+    background: linear-gradient(145deg, #111827, #3f1d12);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -20243,6 +20326,7 @@ button.combat-jutsu-button,
     font-weight: bold;
     color: #facc15;
     overflow: hidden;
+    box-shadow: 0 0 0 4px rgba(250,204,21,0.08), 0 0 22px rgba(250,204,21,0.18);
   }
 
   .mobile-char-avatar img {
@@ -20258,31 +20342,37 @@ button.combat-jutsu-button,
 
   .mobile-char-name {
     color: #facc15;
-    font-weight: bold;
+    font-weight: 900;
     font-size: 15px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-shadow: 0 0 12px rgba(250,204,21,0.28);
   }
 
   .mobile-char-sub {
-    color: #94a3b8;
+    color: #cbd5e1;
     font-size: 12px;
     margin-top: 2px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
   }
 
   .mobile-xp-bar-track {
     height: 4px;
-    background: #1e293b;
+    background: rgba(15,23,42,0.9);
     border-radius: 2px;
     margin-top: 6px;
+    border: 1px solid rgba(148,163,184,0.16);
+    overflow: hidden;
   }
 
   .mobile-xp-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #facc15, #f59e0b);
+    background: linear-gradient(90deg, #facc15, #f97316, #ef4444);
     border-radius: 2px;
     transition: width 0.3s;
+    box-shadow: 0 0 12px rgba(250,204,21,0.45);
   }
 
   .mobile-menu-grid {
@@ -20293,35 +20383,100 @@ button.combat-jutsu-button,
   }
 
   .mobile-menu-btn {
+    --menu-accent: #facc15;
+    --menu-accent-glow: rgba(250,204,21,0.22);
+    --menu-accent-border: rgba(250,204,21,0.35);
+    position: relative;
+    overflow: hidden;
     padding: 14px 10px;
     border-radius: 10px;
-    border: 1px solid #334155;
-    background: rgba(15,23,42,0.8);
+    border: 1px solid var(--menu-accent-border);
+    background:
+      linear-gradient(120deg, transparent 0 66%, var(--menu-accent-glow) 66.6% 71%, transparent 71.5% 100%),
+      linear-gradient(135deg, var(--menu-accent-glow), rgba(15,23,42,0.1) 46%),
+      linear-gradient(180deg, rgba(15,23,42,0.96), rgba(3,7,18,0.94));
     color: #e8eef8;
     font-size: 14px;
+    font-weight: 800;
     cursor: pointer;
     text-align: center;
-    transition: background 0.15s, border-color 0.15s;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+    transition: background 0.15s, border-color 0.15s, color 0.15s, filter 0.15s, transform 0.08s;
     min-height: 48px;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 7px;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
   }
-  /* Menu glyphs inherit the button text color, sitting a touch dimmer than the label. */
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+1) {
+    --menu-accent: #facc15;
+    --menu-accent-glow: rgba(250,204,21,0.22);
+    --menu-accent-border: rgba(250,204,21,0.36);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+2) {
+    --menu-accent: #38bdf8;
+    --menu-accent-glow: rgba(56,189,248,0.19);
+    --menu-accent-border: rgba(56,189,248,0.32);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+3) {
+    --menu-accent: #a78bfa;
+    --menu-accent-glow: rgba(167,139,250,0.2);
+    --menu-accent-border: rgba(167,139,250,0.33);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+4) {
+    --menu-accent: #fb7185;
+    --menu-accent-glow: rgba(251,113,133,0.19);
+    --menu-accent-border: rgba(251,113,133,0.32);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+5) {
+    --menu-accent: #34d399;
+    --menu-accent-glow: rgba(52,211,153,0.18);
+    --menu-accent-border: rgba(52,211,153,0.3);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+6) {
+    --menu-accent: #f97316;
+    --menu-accent-glow: rgba(249,115,22,0.2);
+    --menu-accent-border: rgba(249,115,22,0.34);
+  }
+
+  /* Menu glyphs carry each button's accent color. */
   .mobile-menu-btn > svg {
     flex: 0 0 auto;
-    opacity: 0.85;
+    color: var(--menu-accent);
+    opacity: 1;
+    filter: drop-shadow(0 0 8px var(--menu-accent-glow));
+  }
+
+  @media (hover: hover) {
+    .mobile-menu-btn:hover {
+      border-color: var(--menu-accent);
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
   }
 
   .mobile-menu-btn:active {
-    background: rgba(250,204,21,0.15);
-    border-color: rgba(250,204,21,0.4);
-    color: #facc15;
+    background:
+      linear-gradient(120deg, transparent 0 62%, var(--menu-accent-glow) 62.6% 74%, transparent 74.5% 100%),
+      linear-gradient(135deg, var(--menu-accent-glow), rgba(250,204,21,0.1)),
+      linear-gradient(180deg, rgba(30,41,59,0.96), rgba(15,23,42,0.96));
+    border-color: var(--menu-accent);
+    color: #fff7ed;
+    transform: translateY(1px) scale(0.99);
   }
 
   .mobile-menu-btn.danger {
-    border-color: rgba(239,68,68,0.4);
+    --menu-accent: #f87171;
+    --menu-accent-glow: rgba(248,113,113,0.22);
+    --menu-accent-border: rgba(239,68,68,0.4);
     color: #f87171;
   }
 
