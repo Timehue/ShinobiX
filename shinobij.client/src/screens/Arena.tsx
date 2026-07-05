@@ -873,6 +873,10 @@ export function Arena({
         if (rankedBattleActive) return 1;
         const territory = loadSectorTerritory(currentSector);
         if (!territory.ownerClan) return 1;
+        // Owner-clan members only: a fighter earns the home-terrain edge on their
+        // OWN clan's sector (attacking or defending), never while raiding someone
+        // else's land. Mirrors the server seal in api/pvp/session.ts.
+        if (!character.clan || territory.ownerClan !== character.clan) return 1;
         const buffByType: Partial<Record<JutsuType, TerritoryBuffStat>> = {
             Bukijutsu: "bukijutsuOffense",
             Taijutsu: "taijutsuOffense",

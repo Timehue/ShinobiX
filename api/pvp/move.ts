@@ -419,6 +419,18 @@ function terrainMultiplier(jutsu: Jutsu, biome: string): number {
     }
 }
 
+// Home-terrain buff: +10% when the fighter's clan owns the reward sector and the
+// jutsu type matches the clan leader's chosen terrain stat. The matching jutsu
+// TYPE ('Bukijutsu'…'Genjutsu', '' when none) is sealed server-side onto the
+// fighter in api/pvp/session.ts — owner-verified against the authoritative
+// territory record, never read from the client. Mirrors the client PvE
+// territoryDamageMultiplier (shinobij.client/src/screens/Arena.tsx) so a sector
+// fight deals identical damage whether resolved by the PvP or PvE engine.
+function homeTerrainMultiplier(self: PvpFighter, jutsu: Jutsu): number {
+    const homeType = (self.character as Record<string, unknown>).homeTerrainType;
+    return typeof homeType === 'string' && homeType !== '' && jutsu.type === homeType ? 1.1 : 1;
+}
+
 // ─── Fighter helpers ──────────────────────────────────────────────────────────
 function isStatusActive(status: PvpStatus, round: number) {
     return status.activeRound === undefined || status.activeRound <= round;
@@ -688,10 +700,12 @@ function resolveBaseDamage(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
     const itemDamageMult = 1 + Math.max(0, Number((self.character.itemDamagePct as number) ?? 0)) / 100;
     // Terrain bonus: +10% when jutsu type/element matches the current biome
     const tMult = terrainMultiplier(jutsu, biome);
+    // Home-terrain bonus: +10% for the owning clan's chosen terrain type (sealed).
+    const hMult = homeTerrainMultiplier(self, jutsu);
     // v4.3 raw damage = scaledEp × 40 (EP table). Decoupled from maxHp — all max-level players
     // have similar maxHp anyway, and this gives a tunable damage curve independent of HP scaling.
     const baseDmg = Math.max(0, Math.floor(
-        scaledEp * EP_MULTIPLIER * statFactor * wMult * tMult * bloodlineMult * itemDamageMult
+        scaledEp * EP_MULTIPLIER * statFactor * wMult * tMult * hMult * bloodlineMult * itemDamageMult
     ));
     // ── Defensive DR pool (diminishing returns) ───────────────────────────────
     // armorRawDR: raw sum of per-piece reductions (e.g. 7×0.15 + 0.08 Guardian = 1.13).

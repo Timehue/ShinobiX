@@ -28,6 +28,10 @@ function villageWarEnabled() {
 }
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
+// Minimum clan roster size to CAPTURE (take new ownership of) a sector.
+// Server-authoritative mirror of the client rule (shinobij.client/src/
+// constants/game.ts TERRITORY_CAPTURE_MIN_MEMBERS) — keep the two in sync.
+const TERRITORY_CAPTURE_MIN_MEMBERS = 20;
 const VILLAGE_WAR_HP_MAX = 5000;
 const VILLAGE_WAR_GROUND_HP_MAX = 1000;
 const TERRITORY_KEY_PREFIX = 'world:territory:';
@@ -126,6 +130,14 @@ function clampNumber(value, min, max) {
     if (!Number.isFinite(value))
         return min;
     return Math.min(max, Math.max(min, value));
+}
+// Roster size of a clan from its authoritative record (save:clan-<slug>).
+// A thrown read propagates to the handler's catch → 500 (so a KV blip doesn't
+// masquerade as "not enough members"). A missing record → 0 (a sector cannot
+// belong to a clan that does not exist).
+async function clanMemberCount(clanName) {
+    const rec = await _storage_js_1.kv.get((0, _utils_js_1.clanRecordKey)(clanName));
+    return Array.isArray(rec?.members) ? rec.members.length : 0;
 }
 function defaultSectorTerritory(sector) {
     return {
@@ -668,6 +680,26 @@ async function handler(req, res) {
                         const actorInvolved = matchesClan || matchesVillage || actorOwnsPrev || raiderDuringWar;
                         if (!actorInvolved) {
                             return res.status(403).json({ error: 'You are not a participant in this sector (no active war with the owner village).' });
+                        }
+                        // Clan sector CAPTURE gate: ANY write that flips ownerClan to a
+                        // NEW clan is a capture, and it must be performed BY a member of
+                        // that clan whose roster meets TERRITORY_CAPTURE_MIN_MEMBERS.
+                        // Keying on `claimingClan !== prevClan` (NOT on matchesClan)
+                        // closes the spoof where a writer clears the participation gate
+                        // via matchesVillage (their own village) but sets an arbitrary or
+                        // sub-strength ownerClan — which the ownership-flip branch below
+                        // would otherwise persist verbatim once the sector hit 0 HP.
+                        // Reinforcement / terrain edits (claimingClan === prevClan) and
+                        // village-only writes (empty claimingClan) are exempt, so a clan
+                        // that shrank below the cap can still hold and defend its sector.
+                        if (claimingClan && claimingClan !== prevClan) {
+                            if (!matchesClan) {
+                                return res.status(403).json({ error: 'You can only capture a sector for a clan you belong to.' });
+                            }
+                            const memberCount = await clanMemberCount(claimingClan);
+                            if (memberCount < TERRITORY_CAPTURE_MIN_MEMBERS) {
+                                return res.status(403).json({ error: `Your clan needs at least ${TERRITORY_CAPTURE_MIN_MEMBERS} members to capture a sector (it has ${memberCount}).` });
+                            }
                         }
                         // Per-request HP delta cap — applies to all non-admin writers.
                         const prevHp = Number(prev?.hp ?? TERRITORY_HP_MAX);
