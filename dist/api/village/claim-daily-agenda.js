@@ -32,12 +32,10 @@ const _save_version_js_1 = require("../save/_save-version.js");
  * concurrent ryo gains) and re-asserts via autosave; the two converge. The
  * sanitizer stays permissive for these currencies (they have other legit
  * sources — missions/raids/hunts — until later Stage-3 phases move those too).
- * Task COMPLETION is now PARTIALLY re-verified: the server re-derives today's
- * seeded agenda (api/_village-agenda.ts, mirroring the client's seeding) and
- * authoritatively checks any task it can — currently only "control" (sectors
- * held, from world:territory:*, written solely by server endpoints). The other
- * kinds (missions/explore/ai/pet) still live in client-incremented save counters
- * and stay trusted until a server-side daily ledger lands (TODO, Stage-3).
+ * Task COMPLETION is re-verified server-side: the current agenda pool only
+ * contains "control" (sectors held, from world:territory:*, written solely by
+ * server endpoints). Client-incremented daily counters are excluded from the
+ * rewardable pool until server-side ledgers exist for them.
  *
  * Body: { playerName, village }. Caller MUST be the player (or admin) and a
  * member of `village`. Rate-limited 30/min per actor.
@@ -98,14 +96,12 @@ async function handler(req, res) {
         }
         const date = utcDate();
         // ── Server-side task-completion check (verifiable subset) ──────────────
-        // Re-derive today's seeded agenda and authoritatively verify any task the
-        // server can, BEFORE crediting / placing any NX marker. Today that's only
-        // "control" (sectors held): world:territory:* is written solely by server
-        // endpoints, so the count can't be faked (same source as claim-map-
-        // control). missions/explore/ai/pet live in client-incremented save
-        // counters and stay trusted (TODO: server-side daily ledger). Rejecting
-        // here (no marker placed) lets the player re-claim once they genuinely
-        // meet the task. Admins skip — they may test without holding territory.
+        // Re-derive today's seeded agenda and verify it BEFORE crediting or
+        // placing any NX marker. The current pool only contains "control"
+        // (sectors held): world:territory:* is written by server endpoints, so
+        // the count cannot be faked. Rejecting here (no marker placed) lets the
+        // player re-claim once they genuinely meet it. Admins skip - they may
+        // test without holding territory.
         if (!identity.admin) {
             const seededKinds = (0, _village_agenda_js_1.seededVillageAgenda)(village, date).map((task) => task.kind);
             let heldSectors = 0;

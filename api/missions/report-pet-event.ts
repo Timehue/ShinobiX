@@ -132,6 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // minted before the non-Tamer half-rate path redeeming at full Tamer rate.
         let rewardScale = 1;
         let tamerToken = true;
+        let expeditionTokenKey: string | null = null;
         if (event === 'expedition' || event === 'long-expedition') {
             const tokRaw: string | undefined = typeof body.expeditionToken === 'string' && body.expeditionToken.trim() ? body.expeditionToken.trim() : undefined;
             const tok = tokRaw && /^[A-Za-z0-9]+$/.test(tokRaw) ? tokRaw : undefined;
@@ -147,12 +148,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (Date.now() < Number(tokenData.endsAt ?? 0) - 60_000) {
                 return res.status(200).json({ ok: true, petTamer: true, reason: 'expedition-not-complete', ...NO_REWARD });
             }
-            // Atomic single-use consume — delete BEFORE granting so a retry or a
-            // racing duplicate report can't double-claim.
-            const consumed = await kv.del(tokenKey);
-            if (consumed <= 0) {
-                return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
-            }
+            // Remember the token key; it is consumed under the save lock below.
+            expeditionTokenKey = tokenKey;
             // Drive all reward math from the SEALED token values, not the client
             // body — including the expedition/long-expedition split (long fires
             // extra mission progress) which is re-derived from the sealed duration.
@@ -185,6 +182,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let foundAura = 0;
         let foundFate = 0;
         let dailyCapHit = false;
+        let tokenAlreadySpent = false;
         const isExpedition = event === 'expedition' || event === 'long-expedition';
         if (isExpedition && durationMinutes > 0) {
             // ── withKvLock: the daily-cap check + write must be atomic ────
@@ -196,6 +194,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = record?.character as Record<string, unknown> | undefined;
                 if (!char) return; // race: save deleted mid-call
+                if (expeditionTokenKey) {
+                    const consumed = await kv.del(expeditionTokenKey);
+                    if (consumed <= 0) {
+                        tokenAlreadySpent = true;
+                        return;
+                    }
+                }
 
                 const today = utcDateKey();
                 const sameDay = char.lastExpeditionClaimDate === today;
@@ -247,13 +252,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 bumpSaveVersion(updated);
                 await kv.set(saveKey, mergePreservingImages(updated, record));
             }, { failClosed: true });
+            if (tokenAlreadySpent) {
+                return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
+            }
             // failClosed: this credits real currency (ryo/bone/aura/fate), so under
-            // sustained save-lock contention we abort (→ 500) rather than racing an
-            // unlocked credit. Caveat: the single-use token is already consumed above
-            // (kv.del), so a contention throw here forfeits this expedition's reward
-            // on retry. That's rare (only sustained contention trips the retry budget)
-            // and strictly safer than a racing credit; the proper future fix is to
-            // move the token consume inside this lock so the throw precedes it.
+            // sustained save-lock contention we abort before consuming the token.
+            // A retry can then redeem the same completed expedition cleanly.
 
             // Daily cap reached — short-circuit cleanly with the same shape
             // the pre-lock cap check used to return.

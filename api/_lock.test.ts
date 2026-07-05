@@ -13,20 +13,20 @@ describe('withLockCore', () => {
     it('runs fn and releases the lock when acquisition succeeds', async () => {
         const released: string[] = [];
         const prims: LockPrimitives = {
-            tryAcquire: async () => true,
-            release: async (k) => { released.push(k); },
+            tryAcquire: async () => 'owner-1',
+            release: async (k, token) => { released.push(`${k}:${token}`); },
         };
         let ran = false;
         const result = await withLockCore('clan-foo', async () => { ran = true; return 42; }, prims, FAST);
         assert.equal(result, 42);
         assert.equal(ran, true);
-        assert.deepEqual(released, ['lock:clan-foo']);
+        assert.deepEqual(released, ['lock:clan-foo:owner-1']);
     });
 
     it('falls through and runs fn UNLOCKED when acquisition fails and failClosed is off', async () => {
         const released: string[] = [];
         const prims: LockPrimitives = {
-            tryAcquire: async () => false,
+            tryAcquire: async () => null,
             release: async (k) => { released.push(k); },
         };
         let ran = false;
@@ -38,7 +38,7 @@ describe('withLockCore', () => {
 
     it('THROWS LockContendedError and does NOT run fn when failClosed and acquisition fails', async () => {
         const prims: LockPrimitives = {
-            tryAcquire: async () => false,
+            tryAcquire: async () => null,
             release: async () => { throw new Error('release should never be called'); },
         };
         let ran = false;
@@ -66,13 +66,23 @@ describe('withLockCore', () => {
         let n = 0;
         const released: string[] = [];
         const prims: LockPrimitives = {
-            tryAcquire: async () => { n++; return n >= 2; }, // fail once, then succeed
-            release: async (k) => { released.push(k); },
+            tryAcquire: async () => { n++; return n >= 2 ? 'owner-2' : null; }, // fail once, then succeed
+            release: async (k, token) => { released.push(`${k}:${token}`); },
         };
         let ran = false;
         const r = await withLockCore('x', async () => { ran = true; return 'done'; }, prims, { maxAttempts: 3, baseBackoffMs: 1, failClosed: true });
         assert.equal(r, 'done');
         assert.equal(ran, true);
-        assert.deepEqual(released, ['lock:x']);
+        assert.deepEqual(released, ['lock:x:owner-2']);
+    });
+
+    it('passes the acquired owner token to release', async () => {
+        let releasedToken = '';
+        const prims: LockPrimitives = {
+            tryAcquire: async () => 'owner-token',
+            release: async (_k, token) => { releasedToken = token; },
+        };
+        await withLockCore('x', async () => 'ok', prims, FAST);
+        assert.equal(releasedToken, 'owner-token');
     });
 });

@@ -13,7 +13,7 @@ class MemStore {
     clear(): void { this.m.clear(); }
 }
 
-test("aiFightServerAuth: default ON, opt-out only via exactly '0'", () => {
+test("aiFightServerAuth: always ON and ignores stored opt-out values", () => {
     (globalThis as unknown as { localStorage: MemStore }).localStorage = new MemStore();
     try {
         // Unset → ON (the server-authoritative default).
@@ -21,7 +21,7 @@ test("aiFightServerAuth: default ON, opt-out only via exactly '0'", () => {
 
         // Opt out (stored "0", not absent).
         setAiFightServerAuthEnabled(false);
-        assert.equal(aiFightServerAuthEnabled(), false);
+        assert.equal(aiFightServerAuthEnabled(), true);
 
         // Opt back in.
         setAiFightServerAuthEnabled(true);
@@ -31,15 +31,15 @@ test("aiFightServerAuth: default ON, opt-out only via exactly '0'", () => {
         localStorage.setItem("aiFightServerAuth.v1", "false");
         assert.equal(aiFightServerAuthEnabled(), true);
         localStorage.setItem("aiFightServerAuth.v1", "0");
-        assert.equal(aiFightServerAuthEnabled(), false);
+        assert.equal(aiFightServerAuthEnabled(), true);
     } finally {
         delete (globalThis as Partial<{ localStorage: unknown }>).localStorage;
     }
 });
 
-test("aiFightServerAuth: OFF when storage is unavailable (no localStorage)", () => {
+test("aiFightServerAuth: ON when storage is unavailable (no localStorage)", () => {
     // No localStorage global at all → the helper swallows the ReferenceError and
     // reports OFF, so a storage-less/SSR context never accidentally enables it.
     delete (globalThis as Partial<{ localStorage: unknown }>).localStorage;
-    assert.equal(aiFightServerAuthEnabled(), false);
+    assert.equal(aiFightServerAuthEnabled(), true);
 });

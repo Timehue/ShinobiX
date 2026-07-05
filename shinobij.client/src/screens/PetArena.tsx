@@ -440,6 +440,27 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             : p);
     }
 
+    async function mintCasualPetBattleToken(opponent: PetArenaOpponent, reportKey: string, mode: "1v1" | "2v2"): Promise<string | null> {
+        try {
+            const r = await fetch("/api/pet/battle-start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    playerName: character.name,
+                    opponentName: opponent.owner,
+                    opponentLevel: opponent.pet.level,
+                    reportKey,
+                    mode,
+                }),
+            });
+            if (!r.ok) return null;
+            const data = await r.json().catch(() => null) as { token?: unknown } | null;
+            return typeof data?.token === "string" ? data.token : null;
+        } catch {
+            return null;
+        }
+    }
+
     function startBattle(opponentOverride?: PetArenaOpponent) {
         setArenaView("battle"); // any duel (incl. challenge accepts) shows in the battle view
         primePetSfx(); // unlock the audio context inside the click gesture
@@ -511,6 +532,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 enemyReserve = enemyReserveCandidate;
             }
             const seed = opponent.battleSeed ?? Date.now();
+            const reportKey = `${seed}:2v2`;
+            const battleTokenPromise = mintCasualPetBattleToken(opponent, reportKey, "2v2");
             // Spend any battle consumables on the pets that fought (2v2) — both engines.
             if ([myLead, myReserve].some((p) => p.loadout?.consumable)) {
                 updateCharacter({ ...character, pets: clearConsumablePets([myLead.id, myReserve.id]) });
@@ -555,11 +578,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             // a click-stable fallback so honest wins still pay out. Refresh-
             // replay dedup is weakened for unseeded opponents, but the
             // server's 5s/12-per-min/100-per-day caps still bound damage.
-            const partySeed = opponent.battleSeed ?? `party-${opponent.owner}-${opponent.pet.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             for (let i = 0; i < matchesWon; i++) {
-                const reportKey = `${partySeed}:2v2`;
                 void (async () => {
                     try {
+                        const battleToken = await battleTokenPromise;
                         await fetch("/api/pet/battle-result", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -568,6 +590,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 outcome: "win",
                                 opponentLevel: opponent.pet.level,
                                 reportKey,
+                                battleToken,
                             }),
                         });
                     } catch { /* ignore */ }
@@ -678,6 +701,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         }
 
         const seed1v1 = opponent.battleSeed ?? Date.now();
+        const reportKey1v1 = `${seed1v1}:1v1`;
+        const battleTokenPromise1v1 = mintCasualPetBattleToken(opponent, reportKey1v1, "1v1");
         // Spend the battle consumable on the pet that fought.
         if (selectedPet.loadout?.consumable) {
             updateCharacter({ ...character, pets: clearConsumablePets([selectedPet.id]) });
@@ -725,7 +750,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     // click-stable key so the server doesn't 400 — Tier-2
                     // security fix made reportKey REQUIRED for wins. The
                     // server's daily cap + rate limits still bound damage.
-                    const effectiveSeed = opponent.battleSeed ?? `1v1-${opponent.owner}-${opponent.pet.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                    const battleToken = await battleTokenPromise1v1;
                     const r = await fetch("/api/pet/battle-result", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -733,7 +758,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             playerName: character.name,
                             outcome: "win",
                             opponentLevel: opponent.pet.level,
-                            reportKey: `${effectiveSeed}:1v1`,
+                            reportKey: reportKey1v1,
+                            battleToken,
                         }),
                     });
                     if (r.ok) {

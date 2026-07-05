@@ -2920,13 +2920,10 @@ export function Arena({
             // mission no longer counts. raidBattleKind === "none" excludes raids.
             return missionBattleActive && raidBattleKind === "none" ? markMissionCompleted(winCharacter) : winCharacter;
         };
-        // P0.2b: when aiFightServerAuth.v1 is ON, the server keeps an authoritative
-        // per-day AI-win counter and returns the soft-capped XP/ryo the client may
-        // grant; we apply exactly those. The battle-end UI + the territory /
+        // AI XP/ryo is server-capped. The battle-end UI and territory /
         // village-war side effects above already ran synchronously, so only the
-        // reward GRANT defers to the .then. OFF (default) — or any network/endpoint
-        // failure — grants the locally-computed base, so the result is byte-identical
-        // to before the flag existed and a server hiccup never costs the player a win.
+        // XP/ryo grant defers to the endpoint. If the endpoint cannot verify the
+        // reward, the win still resolves locally but grants 0 XP/ryo.
         if (aiFightServerAuthEnabled()) {
             fetch("/api/missions/report-ai-fight", {
                 method: "POST",
@@ -2935,11 +2932,11 @@ export function Arena({
             })
                 .then((r) => (r.ok ? r.json() : null))
                 .then((data: { xp?: unknown; ryo?: unknown } | null) => {
-                    const okXp = typeof data?.xp === "number" ? data.xp : xpGain;
-                    const okRyo = typeof data?.ryo === "number" ? data.ryo : ryoGain;
+                    const okXp = typeof data?.xp === "number" ? data.xp : 0;
+                    const okRyo = typeof data?.ryo === "number" ? data.ryo : 0;
                     updateCharacter(buildWin(okXp, okRyo));
                 })
-                .catch(() => updateCharacter(buildWin(xpGain, ryoGain)));
+                .catch(() => updateCharacter(buildWin(0, 0)));
         } else {
             updateCharacter(buildWin(xpGain, ryoGain));
         }

@@ -1,11 +1,10 @@
 /**
- * Guards the server-side daily-agenda seeding port + the verifiable-subset
- * completion gate (api/_village-agenda.ts) used by claim-daily-agenda.ts.
+ * Guards the server-side daily-agenda seeding port and completion gate
+ * (api/_village-agenda.ts) used by claim-daily-agenda.ts.
  *
- *   - seededVillageAgenda must mirror the client's makeVillageDailyAgenda so the
- *     server re-derives the SAME 3 tasks (deterministic, distinct, from the pool).
+ *   - seededVillageAgenda must mirror the client's makeVillageDailyAgenda.
  *   - verifyAgendaCompletion must reject when the authoritative "control" task is
- *     seeded but unmet, pass when it's met, and never block on the trusted kinds.
+ *     seeded but unmet, pass when it is met, and never reward client counters.
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
@@ -15,11 +14,11 @@ const POOL_KINDS = new Set(VILLAGE_AGENDA_POOL.map((t) => t.kind));
 const VILLAGES = ['Stormveil Village', 'Ashen Leaf Village', 'Frostfang Village', 'Moonshadow Village'];
 
 describe('seededVillageAgenda', () => {
-    it('returns exactly 3 distinct tasks drawn from the pool', () => {
+    it('returns the server-verifiable task drawn from the pool', () => {
         const tasks = seededVillageAgenda('Stormveil Village', '2026-06-16');
-        assert.equal(tasks.length, 3);
+        assert.equal(tasks.length, VILLAGE_AGENDA_POOL.length);
         const kinds = tasks.map((t) => t.kind);
-        assert.equal(new Set(kinds).size, 3, 'the 3 tasks are distinct');
+        assert.equal(new Set(kinds).size, kinds.length, 'tasks are distinct');
         for (const k of kinds) assert.ok(POOL_KINDS.has(k), `${k} is a real pool kind`);
     });
 
@@ -29,18 +28,16 @@ describe('seededVillageAgenda', () => {
         assert.deepEqual(a, b);
     });
 
-    it('varies across villages/dates (not a constant set)', () => {
-        const seen = new Set<string>();
+    it('contains only control tasks until server ledgers exist for client counters', () => {
         for (const v of VILLAGES) {
             for (const d of ['2026-06-16', '2026-06-17', '2026-06-18']) {
-                seen.add(seededVillageAgenda(v, d).map((t) => t.kind).join(','));
+                assert.deepEqual(seededVillageAgenda(v, d).map((t) => t.kind), ['control']);
             }
         }
-        assert.ok(seen.size > 1, 'seeding produces more than one distinct task set');
     });
 });
 
-describe('verifyAgendaCompletion (verifiable subset)', () => {
+describe('verifyAgendaCompletion', () => {
     it('rejects the claim when "control" is seeded but the village holds 0 sectors', () => {
         const r = verifyAgendaCompletion(['missions', 'control', 'pet'], 0);
         assert.equal(r.ok, false);
@@ -51,9 +48,7 @@ describe('verifyAgendaCompletion (verifiable subset)', () => {
         assert.equal(r.ok, true);
     });
 
-    it('does not block on the trusted kinds when "control" is not in today\'s set', () => {
-        // missions/explore/pet are client-trusted — even with 0 held sectors the
-        // gate must pass (the hole here is documented TODO, not a false reject).
-        assert.equal(verifyAgendaCompletion(['missions', 'explore', 'pet'], 0).ok, true);
+    it('does not include client-counter kinds in the rewardable agenda pool', () => {
+        assert.deepEqual(VILLAGE_AGENDA_POOL.map((task) => task.kind), ['control']);
     });
 });
