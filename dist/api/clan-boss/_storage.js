@@ -8,6 +8,7 @@ exports.clanBossScore = clanBossScore;
 exports.rankClanBoss = rankClanBoss;
 exports.clanBossWeekId = clanBossWeekId;
 exports.clanBossPickId = clanBossPickId;
+exports.resolveClanBossDef = resolveClanBossDef;
 exports.clanBossAttemptsLeft = clanBossAttemptsLeft;
 exports.clanSlug = clanSlug;
 exports.clanBossWeekKey = clanBossWeekKey;
@@ -164,6 +165,12 @@ function clanBossPickId(weekId) {
     for (let i = 0; i < weekId.length; i++)
         h = (Math.imul(h, 31) + weekId.charCodeAt(i)) >>> 0;
     return exports.CLAN_BOSSES[h % exports.CLAN_BOSSES.length].id;
+}
+/** Resolve the boss stored on the weekly event, with a compatibility fallback for malformed legacy weeks. */
+function resolveClanBossDef(week) {
+    if (!week)
+        return null;
+    return exports.CLAN_BOSS_BY_ID[week.bossId] ?? exports.CLAN_BOSS_BY_ID[clanBossPickId(week.weekId)] ?? null;
 }
 function clanBossAttemptsLeft(p, memberSlug) {
     const used = p?.memberAttempts?.[memberSlug] ?? 0;

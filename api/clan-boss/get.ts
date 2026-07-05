@@ -3,9 +3,10 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import {
-    CLAN_BOSS_BY_ID, CB_ASSAULTS_PER_MEMBER, CB_WEEK_MS, clanBossArchiveKey, clanBossAttemptsLeft,
-    clanBossDamageDealt, clanBossPickId, clanBossProgressKey, clanBossWeekId, clanSlug,
-    loadClanBossProgress, loadClanBossWeek, newClanBossProgress, rankClanBoss, type ClanBossProgress,
+    CB_ASSAULTS_PER_MEMBER, CB_WEEK_MS, clanBossArchiveKey, clanBossAttemptsLeft,
+    clanBossDamageDealt, clanBossProgressKey, clanBossWeekId, clanSlug,
+    loadClanBossProgress, loadClanBossWeek, newClanBossProgress, rankClanBoss, resolveClanBossDef,
+    type ClanBossProgress,
 } from './_storage.js';
 
 /*
@@ -30,7 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const week = await loadClanBossWeek(weekId);
         if (!week || week.endsAt <= now) return res.status(200).json({ ok: true, active: false });
 
-        const boss = CLAN_BOSS_BY_ID[clanBossPickId(weekId)];
+        const boss = resolveClanBossDef(week);
+        if (!boss) return res.status(500).json({ error: 'Clan boss data missing.' });
 
         // Live standings: scan every clan's progress for the week, rank by composite score.
         const progressKeys = await kv.keys(`clan-boss:progress:${weekId}:*`);
@@ -78,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({
             ok: true, active: true,
             weekId, endsAt: week.endsAt,
-            boss: boss ? { id: boss.id, name: boss.name, icon: boss.icon, flavor: boss.flavor, mechanic: boss.mechanic } : null,
+            boss: { id: boss.id, name: boss.name, icon: boss.icon, flavor: boss.flavor, mechanic: boss.mechanic },
             inClan: !!clanName,
             myClan,
             standings,

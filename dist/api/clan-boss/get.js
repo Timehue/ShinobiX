@@ -32,7 +32,9 @@ async function handler(req, res) {
         const week = await (0, _storage_js_2.loadClanBossWeek)(weekId);
         if (!week || week.endsAt <= now)
             return res.status(200).json({ ok: true, active: false });
-        const boss = _storage_js_2.CLAN_BOSS_BY_ID[(0, _storage_js_2.clanBossPickId)(weekId)];
+        const boss = (0, _storage_js_2.resolveClanBossDef)(week);
+        if (!boss)
+            return res.status(500).json({ error: 'Clan boss data missing.' });
         // Live standings: scan every clan's progress for the week, rank by composite score.
         const progressKeys = await _storage_js_1.kv.keys(`clan-boss:progress:${weekId}:*`);
         const progressList = (progressKeys.length ? await _storage_js_1.kv.mget(...progressKeys) : [])
@@ -76,7 +78,7 @@ async function handler(req, res) {
         return res.status(200).json({
             ok: true, active: true,
             weekId, endsAt: week.endsAt,
-            boss: boss ? { id: boss.id, name: boss.name, icon: boss.icon, flavor: boss.flavor, mechanic: boss.mechanic } : null,
+            boss: { id: boss.id, name: boss.name, icon: boss.icon, flavor: boss.flavor, mechanic: boss.mechanic },
             inClan: !!clanName,
             myClan,
             standings,

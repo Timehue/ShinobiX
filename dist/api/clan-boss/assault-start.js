@@ -57,7 +57,7 @@ async function handler(req, res) {
         const week = await (0, _storage_js_2.loadClanBossWeek)(weekId);
         if (!week || week.endsAt <= now)
             return res.status(400).json({ error: 'No clan boss is active right now.' });
-        const boss = _storage_js_2.CLAN_BOSS_BY_ID[(0, _storage_js_2.clanBossPickId)(weekId)];
+        const boss = (0, _storage_js_2.resolveClanBossDef)(week);
         const floor = boss ? (0, _floor_catalog_js_1.getFloor)(boss.floorId) : undefined;
         if (!boss || !floor)
             return res.status(500).json({ error: 'Clan boss floor missing.' });
