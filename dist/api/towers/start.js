@@ -48,7 +48,12 @@ async function handler(req, res) {
         const spireTier = Math.floor(Number(body.ascensionTier));
         if (mode === 'spire' && !(0, _spire_catalog_js_1.isValidSpireTier)(spireTier))
             return res.status(400).json({ error: 'Invalid spire tier.' });
-        const floor = mode === 'spire' ? (0, _spire_catalog_js_1.getSpireFloor)(spireTier) : (0, _floor_catalog_js_1.getFloor)(Math.floor(Number(body.floor)));
+        // Story floors reject clan-boss floors (reserved id range) — those launch only via
+        // api/clan-boss/assault-start, never the public tower start. Spire uses its own tier.
+        const floorNum = Math.floor(Number(body.floor));
+        const floor = mode === 'spire'
+            ? (0, _spire_catalog_js_1.getSpireFloor)(spireTier)
+            : ((0, _floor_catalog_js_1.isPublicFloor)(floorNum) ? (0, _floor_catalog_js_1.getFloor)(floorNum) : undefined);
         if (!floor)
             return res.status(400).json({ error: mode === 'spire' ? 'Unknown spire tier.' : 'Unknown floor.' });
         // The host's client-computed combat extras the SAVE doesn't persist (pvpItems +
