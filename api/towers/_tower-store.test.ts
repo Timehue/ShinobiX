@@ -189,6 +189,49 @@ describe('Battle Towers per-member settlement (server-authoritative, idempotent)
         assert.equal(again.reason, 'already-consumed');
         assert.deepEqual(charOf(kv, 'alice').inventory, ['pill'], 'retry did not double-deduct');
     });
+
+    it('deducts used consumables after a wipe without paying floor rewards', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'alice', {
+            itemStacks: [{ itemId: 'smoke', count: 1 }],
+            inventory: ['kunai'],
+        });
+        const actor = squadActor('alice');
+        actor.itemsUsed = { smoke: 1, kunai: 1 };
+        const session = makeSession('run-wipe-items', 1, 'alice', {
+            actors: [actor],
+            winner: 'enemy',
+            objectiveState: { kind: 'defeat-all', completed: false, failed: true },
+        });
+
+        const consumed = await settleConsumedItemsForMember({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        assert.equal(consumed.consumed, true);
+        assert.deepEqual(charOf(kv, 'alice').itemStacks, []);
+        assert.deepEqual(charOf(kv, 'alice').inventory, []);
+
+        const reward = await settleFloorForMember({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        assert.equal(reward.paid, false);
+        assert.equal(reward.reason, 'not-cleared');
+        assert.equal(charOf(kv, 'alice').ryo, 0, 'wipe consumed items but paid no clear reward');
+    });
+
+    it('does not finalize consumable spends before the run is done', async () => {
+        const kv = fakeKv();
+        seedSave(kv, 'alice', { itemStacks: [{ itemId: 'smoke', count: 1 }] });
+        const actor = squadActor('alice');
+        actor.itemsUsed = { smoke: 1 };
+        const session = makeSession('run-active-items', 1, 'alice', {
+            actors: [actor],
+            status: 'active',
+            winner: null,
+        });
+
+        const consumed = await settleConsumedItemsForMember({ session, slug: 'alice' }, { kv, lock: passLock, now });
+        assert.equal(consumed.consumed, false);
+        assert.equal(consumed.reason, 'not-done');
+        assert.deepEqual(charOf(kv, 'alice').itemStacks, [{ itemId: 'smoke', count: 1 }]);
+        assert.equal(kv.store.has(consumedItemsKey('run-active-items', 'alice')), false);
+    });
 });
 
 describe('Battle Towers borrowed-ally assist (capped, once per run)', () => {

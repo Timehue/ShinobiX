@@ -209,6 +209,7 @@ export async function settleConsumedItemsForMember(
     if (!isSquadMember(session, slug)) return { consumed: false, reason: 'not-a-member' };
     const used = usedItemsForMember(session, slug);
     if (!Object.keys(used).length) return { consumed: false, reason: 'none', used };
+    if (session.status !== 'done') return { consumed: false, reason: 'not-done', used };
 
     let result: ConsumedItemsResult = { consumed: false, reason: 'unknown', used };
     try {
