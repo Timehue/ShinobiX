@@ -412,16 +412,20 @@ function applyBossPhaseMechanic(session, boss) {
     }
     // 'bulwark' is passive (damage reduction while guards live); 'regen' fires per round.
 }
-/** Per-round heal for a 'regen' boss (7% of max HP). The Endless Spire seals a FLAT cap
- *  (session.regenFlatCap) so 7%-of-maxHp can't outrun squad DPS once boss HP is inflated at
- *  high floors; story runs leave it unset → uncapped, byte-identical to before. */
+/** Per-round heal for a 'regen' boss. In the ENDLESS SPIRE the heal is 7% of CURRENT HP (self-
+ *  limiting), plus the sealed FLAT cap (session.regenFlatCap): a boss near full still drains you
+ *  hard, but a wounded boss heals proportionally LESS, so a competent squad can always finish it —
+ *  this kills the "unkillable regen" DPS-cliff the balance sim exposed (a flat %-of-MAX heal makes
+ *  a regen boss binary: impossible below a DPS threshold, trivial above). STORY runs (no
+ *  ascensionTier) keep the old 7%-of-MAX behaviour → byte-identical. */
 function applyBossRegen(session) {
     const id = session.phaseState.bossId;
     const boss = id ? (0, _tower_session_js_1.getActor)(session, id) : undefined;
     if (!boss || boss.hp <= 0 || String(boss.character.mechanic ?? '') !== 'regen')
         return;
     const cap = Number(session.regenFlatCap ?? Infinity);
-    const heal = Math.min(Math.max(1, Math.floor(boss.maxHp * 0.07)), cap);
+    const regenBase = session.ascensionTier ? boss.hp : boss.maxHp; // spire: % of CURRENT hp; story: % of max
+    const heal = Math.min(Math.max(1, Math.floor(regenBase * 0.07)), cap);
     const before = boss.hp;
     boss.hp = Math.min(boss.maxHp, boss.hp + heal);
     if (boss.hp > before)

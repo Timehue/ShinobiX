@@ -403,6 +403,26 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
             (0, _engine_js_1.endTurn)(s, bossFloor);
         node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'boss').hp > 500, 'regen healed the boss at round end');
     });
+    (0, node_test_1.it)('SPIRE regen scales with CURRENT hp (self-limiting); STORY regen is % of max (byte-identical)', () => {
+        const seal = { ascensionTier: 5, hpMult: 1, dmgMult: 1, roundCap: 20, enrageCap: 2, modifierStack: [] };
+        // One round of pure regen (squad does nothing — endTurn just cycles the queue), measured as the boss's HP gain.
+        const oneRoundHeal = (curHp, spire) => {
+            const boss = makeActor('boss', 'enemy', 40, { hp: curHp, maxHp: 10000, character: { specialty: 'Taijutsu', stats: {}, mechanic: 'regen' } });
+            const s = makeSession([makeActor('sq-1', 'squad', 0, { character: WEAK }), boss], { objectiveKind: 'defeat-boss', bossId: 'boss', ...(spire ? { ascension: seal } : {}) });
+            (0, _engine_js_1.startRound)(s);
+            const r0 = s.round;
+            let g = 0;
+            while (s.round === r0 && s.status === 'active' && g++ < 30)
+                (0, _engine_js_1.endTurn)(s, bossFloor);
+            return (0, _tower_session_js_1.getActor)(s, 'boss').hp - curHp;
+        };
+        const spireLow = oneRoundHeal(1000, true); // spire: 7% of 1000 ≈ 70
+        const spireHigh = oneRoundHeal(9000, true); // spire: 7% of 9000 ≈ 630
+        const storyLow = oneRoundHeal(1000, false); // story: 7% of MAX (10000) ≈ 700 — unchanged
+        node_assert_1.strict.ok(spireHigh > spireLow + 300, `spire regen self-limits with current hp (${spireHigh} >> ${spireLow})`);
+        node_assert_1.strict.ok(spireLow > 0 && spireLow < 200, `a wounded spire boss regens little (${spireLow})`);
+        node_assert_1.strict.ok(storyLow > 600, `story regen stays % of max, byte-identical (${storyLow})`);
+    });
 });
 // ─── Real loadout: resource costs / cooldowns / weapons / consumables / terrain ───
 (0, node_test_1.describe)('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / items)', () => {
