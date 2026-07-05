@@ -149,6 +149,30 @@
 }
 
 /* Timer row — centered 4-up grid */
+.academy-inline-callout {
+    background: linear-gradient(135deg, rgba(232,212,150,0.18), rgba(78,168,255,0.10)) !important;
+    border: 1px solid rgba(232,212,150,0.65) !important;
+    border-left: 4px solid #e8d496 !important;
+    border-radius: 6px !important;
+    color: #eef6ff !important;
+    font: 600 13px/1.45 Inter, sans-serif !important;
+    margin: 12px 0 14px !important;
+    padding: 12px 14px !important;
+    box-shadow: 0 0 18px rgba(232,212,150,0.12), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+}
+
+.academy-inline-callout strong {
+    color: #e8d496 !important;
+}
+
+.card:has(.stat-group-list) .location-button.academy-timer-target {
+    border-color: #e8d496 !important;
+    box-shadow:
+        0 0 0 1px rgba(232,212,150,0.28),
+        0 0 18px rgba(232,212,150,0.24),
+        inset 0 1px 0 rgba(255,255,255,0.08) !important;
+}
+
 .card:has(.stat-group-list) > .location-grid {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;

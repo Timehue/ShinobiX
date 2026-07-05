@@ -23,7 +23,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
-import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { normalizeOnboardingStep, type CanonicalOnboardingStep } from "../lib/onboarding-step";
 import type { Character, Screen } from "../App";
 
 const overlayStyle: React.CSSProperties = {
@@ -36,7 +36,7 @@ const cardStyle: React.CSSProperties = {
     textAlign: "center",
 };
 const bannerStyle: React.CSSProperties = {
-    position: "fixed", left: "50%", bottom: 16, transform: "translateX(-50%)",
+    position: "fixed", left: "50%", bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", transform: "translateX(-50%)",
     maxWidth: 560, width: "calc(100% - 24px)", background: "#1f2937",
     border: "1px solid #facc15", borderRadius: 12, padding: "12px 16px",
     display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10,
@@ -46,6 +46,20 @@ const skipStyle: React.CSSProperties = {
     background: "none", border: "none", color: "#9ca3af",
     textDecoration: "underline", cursor: "pointer", fontSize: 12, marginLeft: "auto",
 };
+
+const stepProgress: Partial<Record<CanonicalOnboardingStep, string>> = {
+    academyIntro: "Academy Training - Step 1/7",
+    academySpar: "Academy Training - Step 2/7",
+    training: "Academy Training - Step 3/7",
+    jutsu: "Academy Training - Step 4/7",
+    firstMission: "Academy Training - Step 5/7",
+    logbook: "Academy Training - Step 6/7",
+    storyUnlocked: "Academy Training - Step 7/7",
+};
+
+function hasStarterLoadoutComplete(character: Character): boolean {
+    return (character.equippedJutsuIds?.length ?? 0) >= 4 || (character.jutsuMastery?.length ?? 0) > 4;
+}
 
 export function OnboardingCoach({
     character, screen, activeTraining, setScreen, updateCharacter, onStartSpar,
@@ -75,6 +89,10 @@ export function OnboardingCoach({
         if (step !== "jutsu") { jutsuBaselineRef.current = null; return; }
         const mastery = character.jutsuMastery?.length ?? 0;
         const equipped = character.equippedJutsuIds?.length ?? 0;
+        if (hasStarterLoadoutComplete(character)) {
+            updateCharacter({ ...character, onboardingStep: "firstMission" });
+            return;
+        }
         if (jutsuBaselineRef.current === null) { jutsuBaselineRef.current = { mastery, equipped }; return; }
         if (mastery > jutsuBaselineRef.current.mastery || equipped > jutsuBaselineRef.current.equipped) {
             updateCharacter({ ...character, onboardingStep: "firstMission" });
@@ -116,16 +134,22 @@ export function OnboardingCoach({
     if (step === "done" || step === "starter") return null;
 
     const skip = () => updateCharacter({ ...character, onboardingStep: "done" });
+    const renderStepLabel = () => stepProgress[step] ? (
+        <div style={{ color: "#facc15", fontWeight: 800, fontSize: 12, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8 }}>
+            {stepProgress[step]}
+        </div>
+    ) : null;
 
     if (step === "academyIntro") {
         return createPortal(
             <div style={overlayStyle}>
                 <div className="card" style={cardStyle}>
-                    <h2 style={{ marginTop: 0 }}>🎓 Welcome to the Academy</h2>
+                    {renderStepLabel()}
+                    <h2 style={{ marginTop: 0 }}>Welcome to the Academy</h2>
                     <p style={{ lineHeight: 1.5 }}>
                         Welcome to Shinobi Journey, {character.name}. Before the village
                         trusts you with real missions, you'll complete <strong>Academy
-                        Training</strong> — learn to fight, train your body, unlock a jutsu,
+                        Training</strong>: learn to fight, train your body, unlock a jutsu,
                         and claim your first mission reward. It only takes a few minutes.
                     </p>
                     <button
@@ -133,7 +157,7 @@ export function OnboardingCoach({
                         style={{ width: "100%" }}
                         onClick={() => updateCharacter({ ...character, onboardingStep: "starter" })}
                     >
-                        Begin Academy Training →
+                        Begin Academy Training
                     </button>
                     <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={skip}>
                         Skip Tutorial
@@ -148,12 +172,13 @@ export function OnboardingCoach({
         return createPortal(
             <div style={overlayStyle}>
                 <div className="card" style={cardStyle}>
-                    <h2 style={{ marginTop: 0 }}>⚔️ Your First Spar</h2>
+                    {renderStepLabel()}
+                    <h2 style={{ marginTop: 0 }}>Your First Spar</h2>
                     <p style={{ lineHeight: 1.5 }}>
                         Time to learn combat. A training dummy is waiting at the Academy.
                         Each turn you spend <strong>AP</strong> (action points): use
                         <strong> Basic Attack</strong> and your <strong>Jutsu</strong> to
-                        deal damage, then <strong>End Turn</strong> when your AP runs low.
+                        deal damage, then press <strong>Wait</strong> when your AP runs low.
                         Drop the dummy's <strong>HP</strong> to zero to win — you've got this.
                     </p>
                     <button
@@ -161,7 +186,7 @@ export function OnboardingCoach({
                         style={{ width: "100%" }}
                         onClick={onStartSpar}
                     >
-                        Begin your first spar ⚔️
+                        Begin Your First Spar
                     </button>
                     <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={skip}>
                         Skip Tutorial
@@ -175,7 +200,7 @@ export function OnboardingCoach({
     if (step === "training") {
         return createPortal(
             <div className="onboarding-coach-banner" style={bannerStyle}>
-                <span>📍 <strong>Academy Goal:</strong> start your first stat training. Pick any stat and timer, then start.</span>
+                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> start your first stat training. Pick any stat and any timer.</span>
                 {screen !== "training" && (
                     <button className="start-primary-btn" onClick={() => setScreen("training")}>Go to Training Grounds</button>
                 )}
@@ -188,7 +213,7 @@ export function OnboardingCoach({
     if (step === "jutsu") {
         return createPortal(
             <div className="onboarding-coach-banner" style={bannerStyle}>
-                <span>📍 <strong>Academy Goal:</strong> unlock or equip a jutsu — your first unlock is free.</span>
+                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> unlock or equip one more jutsu to finish your starter loadout.</span>
                 {screen !== "jutsuTraining" && (
                     <button className="start-primary-btn" onClick={() => setScreen("jutsuTraining")}>Go to Jutsu Training</button>
                 )}
@@ -201,7 +226,7 @@ export function OnboardingCoach({
     if (step === "firstMission") {
         return createPortal(
             <div className="onboarding-coach-banner" style={bannerStyle}>
-                <span>📍 <strong>Academy Goal:</strong> claim your first mission reward at the Mission Hall.</span>
+                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> claim your one-time Academy Trial reward at the Mission Hall.</span>
                 {screen !== "missions" && (
                     <button className="start-primary-btn" onClick={() => setScreen("missions")}>Go to Mission Hall</button>
                 )}
@@ -214,7 +239,7 @@ export function OnboardingCoach({
     if (step === "logbook") {
         return createPortal(
             <div className="onboarding-coach-banner" style={bannerStyle}>
-                <span>📍 <strong>Academy Goal:</strong> open your <strong>Logbook</strong> — your Academy goals live there.</span>
+                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> open your <strong>Logbook</strong> to see your Academy goals.</span>
                 {screen !== "logbook" && (
                     <button className="start-primary-btn" onClick={() => setScreen("logbook")}>Open Logbook</button>
                 )}
@@ -227,7 +252,7 @@ export function OnboardingCoach({
     if (step === "storyUnlocked") {
         return createPortal(
             <div className="onboarding-coach-banner" style={bannerStyle}>
-                <span>📜 <strong>Village Story unlocked!</strong> Visit the Story Hall when you're ready — your village's tale begins.</span>
+                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> your path is open. Visit the Story Hall when you're ready.</span>
                 {screen !== "storyHall" && (
                     <button className="start-primary-btn" onClick={() => setScreen("storyHall")}>Go to Story Hall</button>
                 )}

@@ -23,15 +23,15 @@ export function SparCoach({
 
     let msg: string;
     if (enemyMaxHp > 0 && enemyHp <= enemyMaxHp * 0.25) {
-        msg = "🎯 Almost there — one more hit finishes the dummy!";
+        msg = "Almost there - finish the dummy with Basic Attack or a ready jutsu.";
     } else if (!attacked) {
-        msg = "⚔️ Tap Attack (bottom bar) to strike the training dummy.";
+        msg = "Use Basic Attack from the action bar to strike the training dummy.";
     } else if (!casted) {
-        msg = "🔥 Nice hit! Now use one of your Jutsu from the bar below.";
+        msg = "Nice hit. Now use any ready jutsu from the action bar.";
     } else if (ap < 40) {
-        msg = "⏳ Low on AP — tap Wait to end your turn and recover.";
+        msg = "Low on AP - press Wait. That ends your turn and recovers AP.";
     } else {
-        msg = "💪 Keep attacking — drop the dummy's HP to zero to win.";
+        msg = "Keep attacking - drop the dummy's HP to zero to win.";
     }
 
     return createPortal(
@@ -52,7 +52,7 @@ export function SparCoach({
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                zIndex: 60,
+                zIndex: 9000,
                 boxShadow: "0 6px 24px rgba(0,0,0,0.55)",
                 fontSize: 14,
             }}

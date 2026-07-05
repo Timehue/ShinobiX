@@ -41,6 +41,14 @@ test("claiming the Academy reward hides the checklist", () => {
     assert.equal(currentLogbookObjective(c), null);
 });
 
+test("Academy Training stays top priority while rank exams are also unlocked", () => {
+    const c = makeCharacter({ level: 11, equippedJutsuIds: ["a", "b", "c", "d"] });
+    const objectives = buildLogbookObjectives(c);
+    assert.equal(objectives[0]?.kind, "academy");
+    assert.equal(objectives[1]?.examKey, "genin");
+    assert.equal(currentLogbookObjective(c)?.kind, "academy");
+});
+
 test("rank exams unlock by level and are ordered low to high", () => {
     const examKeys = (c: Character) =>
         buildLogbookObjectives(c).filter((o) => o.kind === "exam").map((o) => o.examKey);
