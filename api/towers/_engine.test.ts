@@ -455,6 +455,25 @@ describe('Battle Towers boss mechanics (bulwark / regen / summon / enrage)', () 
         while (s.round === r0 && s.status === 'active' && guard++ < 20) endTurn(s, bossFloor);
         assert.ok(getActor(s, 'boss')!.hp > 500, 'regen healed the boss at round end');
     });
+
+    it('SPIRE regen scales with CURRENT hp (self-limiting); STORY regen is % of max (byte-identical)', () => {
+        const seal = { ascensionTier: 5, hpMult: 1, dmgMult: 1, roundCap: 20, enrageCap: 2, modifierStack: [] };
+        // One round of pure regen (squad does nothing — endTurn just cycles the queue), measured as the boss's HP gain.
+        const oneRoundHeal = (curHp: number, spire: boolean): number => {
+            const boss = makeActor('boss', 'enemy', 40, { hp: curHp, maxHp: 10000, character: { specialty: 'Taijutsu', stats: {}, mechanic: 'regen' } });
+            const s = makeSession([makeActor('sq-1', 'squad', 0, { character: WEAK }), boss], { objectiveKind: 'defeat-boss', bossId: 'boss', ...(spire ? { ascension: seal } : {}) });
+            startRound(s);
+            const r0 = s.round; let g = 0;
+            while (s.round === r0 && s.status === 'active' && g++ < 30) endTurn(s, bossFloor);
+            return getActor(s, 'boss')!.hp - curHp;
+        };
+        const spireLow = oneRoundHeal(1000, true);   // spire: 7% of 1000 ≈ 70
+        const spireHigh = oneRoundHeal(9000, true);  // spire: 7% of 9000 ≈ 630
+        const storyLow = oneRoundHeal(1000, false);  // story: 7% of MAX (10000) ≈ 700 — unchanged
+        assert.ok(spireHigh > spireLow + 300, `spire regen self-limits with current hp (${spireHigh} >> ${spireLow})`);
+        assert.ok(spireLow > 0 && spireLow < 200, `a wounded spire boss regens little (${spireLow})`);
+        assert.ok(storyLow > 600, `story regen stays % of max, byte-identical (${storyLow})`);
+    });
 });
 
 // ─── Real loadout: resource costs / cooldowns / weapons / consumables / terrain ───
