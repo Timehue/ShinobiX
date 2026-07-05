@@ -538,7 +538,16 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.ok(getActor(s, 'en-1')!.hp < 1_000_000, 'weapon dealt damage');
     });
 
-    it('a thrown weapon spends a charge and runs out', () => {
+    it('weapon use applies PvP-style cooldowns before another swing', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { character: { specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1500 }, pvpItems: [{ id: 'sword', slot: 'hand', weaponEp: 30, weaponRange: 1, apCost: 20, weaponCooldown: 5 }], equipment: { hand: 'sword' } } });
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'sword' }, makeRng(1)).applied);
+        assert.equal(getActor(s, 'sq-1')!.cooldowns.sword, 5);
+        assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'sword' }, makeRng(1)).reason, 'on-cooldown');
+    });
+
+    it('a thrown weapon spends a charge and respects cooldown before ammo re-check', () => {
         const sq = makeActor('sq-1', 'squad', 0, {
             itemCharges: { kunai: 1 },
             character: { specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1500 }, pvpItems: [{ id: 'kunai', slot: 'thrown', weaponEp: 20, weaponRange: 4, apCost: 40 }], equipment: { thrown: 'kunai' } },
@@ -548,7 +557,17 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, makeRng(1)).applied);
         assert.equal(getActor(s, 'sq-1')!.itemCharges!['kunai'], 0, 'charge spent');
         const out = applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, makeRng(1));
-        assert.equal(out.reason, 'out-of-ammo');
+        assert.equal(out.reason, 'on-cooldown');
+    });
+
+    it('a thrown weapon with no sealed charge is rejected before spending', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { kunai: 0 },
+            character: { specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1500 }, pvpItems: [{ id: 'kunai', slot: 'thrown', weaponEp: 20, weaponRange: 4, apCost: 40 }], equipment: { thrown: 'kunai' } },
+        });
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, makeRng(1)).reason, 'out-of-ammo');
     });
 
     it('a potion restores chakra/stamina and spends a charge', () => {
@@ -564,6 +583,20 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         assert.equal(getActor(s, 'sq-1')!.chakra, COMBAT_RESOURCES_V2 ? Math.min(100, 10 + v2ResourceRegen(1) + 50) : 60);
         assert.equal(getActor(s, 'sq-1')!.stamina, COMBAT_RESOURCES_V2 ? Math.min(100, 50 + v2ResourceRegen(1) + 20) : 70);
         assert.equal(getActor(s, 'sq-1')!.itemCharges!['pot'], 1, 'one charge spent');
+    });
+
+    it('combat-item cooldowns block reuse without spending an extra charge', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { pill: 2 },
+            character: { specialty: 'Ninjutsu', stats: {}, pvpItems: [{ id: 'pill', slot: 'item', weaponTags: [{ name: 'Increase Damage Given', percent: 15 }], apCost: 20, weaponCooldown: 5 }], equipment: { item: 'pill' } },
+        });
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pill' }, makeRng(1)).applied);
+        assert.equal(getActor(s, 'sq-1')!.cooldowns.pill, 5);
+        assert.equal(getActor(s, 'sq-1')!.itemCharges!.pill, 1);
+        assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pill' }, makeRng(1)).reason, 'on-cooldown');
+        assert.equal(getActor(s, 'sq-1')!.itemCharges!.pill, 1, 'cooldown rejection did not spend a charge');
     });
 
     it('biome terrain gives the matching discipline +10%', () => {

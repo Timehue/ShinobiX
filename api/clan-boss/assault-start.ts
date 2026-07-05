@@ -14,9 +14,9 @@ import { writeSession, setTowerInvite } from '../towers/_tower-store.js';
 import { stampTurnClock } from '../towers/_tower-mp.js';
 import { saveAssault } from './_assault.js';
 import {
-    CB_ASSAULT_HP_CAP, CB_MAX_PARTY, CLAN_BOSS_BY_ID, clanBossAttemptsLeft, clanBossPickId,
+    CB_ASSAULT_HP_CAP, CB_MAX_PARTY, clanBossAttemptsLeft,
     clanBossProgressKey, clanBossWeekId, clanSlug, loadClanBossProgress, loadClanBossWeek,
-    newClanBossProgress, reserveAttempt, saveClanBossProgress,
+    newClanBossProgress, reserveAttempt, resolveClanBossDef, saveClanBossProgress,
 } from './_storage.js';
 
 /*
@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const week = await loadClanBossWeek(weekId);
         if (!week || week.endsAt <= now) return res.status(400).json({ error: 'No clan boss is active right now.' });
 
-        const boss = CLAN_BOSS_BY_ID[clanBossPickId(weekId)];
+        const boss = resolveClanBossDef(week);
         const floor = boss ? getFloor(boss.floorId) : undefined;
         if (!boss || !floor) return res.status(500).json({ error: 'Clan boss floor missing.' });
 
