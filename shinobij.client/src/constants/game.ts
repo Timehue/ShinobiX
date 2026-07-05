@@ -19,6 +19,11 @@ export const TERRITORY_DAILY_WAR_SUPPLY = 100;
 export const TERRITORY_SUPPLY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // Time-to-recapture after a sector's territory is destroyed.
 export const TERRITORY_REBUILD_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours
+// Minimum clan roster size required to CAPTURE a new (unowned) sector. Holding
+// territory is a big-clan endeavour, so a clan must field a full war party's
+// worth of members before it can plant its banner. Reinforcing/defending an
+// already-owned sector is NOT gated (a clan that shrinks can still hold on).
+export const TERRITORY_CAPTURE_MIN_MEMBERS = 20;
 
 // ── Character progression caps ───────────────────────────────────────────
 export const MAX_LEVEL = 100;

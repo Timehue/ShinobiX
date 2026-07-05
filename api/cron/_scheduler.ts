@@ -17,6 +17,7 @@
  */
 import { runSnapshotSaves } from './snapshot-saves.js';
 import { runRankedSeasonRollover } from './_ranked-season.js';
+import { runClanBossWeekly } from './_clan-boss-weekly.js';
 import { runVillageWarDailyPass } from '../_war-daily.js';
 import { runMercAutoDeploy } from '../_merc-auto.js';
 import { runEraDailyPass } from '../_era.js';
@@ -63,6 +64,17 @@ async function fire(): Promise<void> {
         }
     } catch (err) {
         console.error('[cron-scheduler] ranked-season rollover threw:', (err as Error).message);
+    }
+    // Weekly Clan Boss Gauntlet: spawn the week's boss (once) + settle/reward any
+    // ended week. ON by default in testing (server.ts sets ENABLE_CLAN_BOSS unless
+    // DISABLE_CLAN_BOSS=1); no-ops if disabled.
+    try {
+        const cb = await runClanBossWeekly();
+        if (cb.enabled && (cb.spawned || cb.settled.length)) {
+            console.log(`[cron-scheduler] clan boss: ${cb.spawned ? `spawned ${cb.spawned}` : 'no spawn'}${cb.settled.length ? `, settled ${cb.settled.join(', ')}` : ''}.`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] clan-boss weekly threw:', (err as Error).message);
     }
     // Village War Map daily pass (WR accrual + structure upkeep + merc-lease
     // expiry). No-op unless ENABLE_VILLAGE_WAR=1 — server-gated, default OFF.
@@ -116,6 +128,10 @@ export function startSnapshotCron(): void {
             .catch((err) => console.error('[cron-scheduler] merc auto-snipe threw:', (err as Error).message));
     }, MERC_TICK_MS);
     _mercInterval.unref?.();
+    // Kick the clan-boss weekly pass once on boot so the current week's boss is live
+    // immediately when the feature is enabled (rather than dark until the next 03:00
+    // tick). No-op unless ENABLE_CLAN_BOSS=1; NX-guarded so it never double-spawns.
+    void runClanBossWeekly().catch((err) => console.error('[cron-scheduler] clan-boss boot kick threw:', (err as Error).message));
     console.log(`[cron-scheduler] daily save-snapshot scheduled in ${Math.round(delay / 60000)} min (03:00 UTC).`);
 }
 
