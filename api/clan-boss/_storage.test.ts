@@ -10,7 +10,7 @@ import {
     CB_DMG_WEIGHT, CB_BREADTH_WEIGHT, CB_CLEAN_WEIGHT, CLAN_BOSSES,
     clanBossPoolMax, clanBossScore, rankClanBoss, clanBossWeekId, clanBossPickId,
     clanBossDamageDealt, clanBossAttemptsLeft, newClanBossProgress, reserveAttempt, bankAssault,
-    type ClanBossProgress, type ClanBossWeek,
+    resolveClanBossDef, type ClanBossProgress, type ClanBossWeek,
 } from './_storage.js';
 
 const HOUR = 3_600_000;
@@ -125,6 +125,12 @@ describe('clanBossWeekId / clanBossPickId', () => {
         const id = clanBossPickId('2026-W27');
         assert.ok(CLAN_BOSSES.some(b => b.id === id));
         assert.equal(id, clanBossPickId('2026-W27'));
+    });
+    it('resolves the stored weekly boss before falling back to the deterministic pick', () => {
+        const stored = CLAN_BOSSES.find(b => b.id !== clanBossPickId('2026-W27'))!;
+        assert.equal(resolveClanBossDef({ weekId: '2026-W27', bossId: stored.id, spawnedAt: 1, endsAt: 2 })?.id, stored.id);
+        assert.equal(resolveClanBossDef({ weekId: '2026-W27', bossId: 'missing-boss', spawnedAt: 1, endsAt: 2 })?.id, clanBossPickId('2026-W27'));
+        assert.equal(resolveClanBossDef(null), null);
     });
 });
 

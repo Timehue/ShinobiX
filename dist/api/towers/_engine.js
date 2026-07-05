@@ -1031,6 +1031,10 @@ function applyAction(session, floor, action, rng) {
         const wRange = Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 4 : 1)));
         if ((0, _aoe_js_1.hexDistance)(actor.pos, wTarget.pos, session.map.width) > wRange)
             return { applied: false, reason: 'out-of-range' };
+        const wCdKey = item.id ?? item.name ?? 'weapon';
+        const wCdTurns = Math.max(0, Math.floor(Number(item.weaponCooldown ?? 5)));
+        if (wCdTurns > 0 && (actor.cooldowns[wCdKey] ?? 0) > 0)
+            return { applied: false, reason: 'on-cooldown' };
         // Thrown weapons spend from the sealed charge budget; hand weapons are reusable.
         if (slot === 'thrown') {
             const have = actor.itemCharges?.[item.id] ?? 0;
@@ -1038,12 +1042,18 @@ function applyAction(session, floor, action, rng) {
                 return { applied: false, reason: 'out-of-ammo' };
             (actor.itemCharges ??= {})[item.id] = Math.max(0, have - 1);
         }
+        const weaponTags = Array.isArray(item.weaponTags) ? [...item.weaponTags] : [];
+        if (item.weaponEffect && !weaponTags.some(t => t?.name === item.weaponEffect)) {
+            weaponTags.push({ name: item.weaponEffect, percent: Number(item.weaponEffectValue ?? 0) });
+        }
         const weaponJutsu = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
             isUtility: false, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
-            ...(Array.isArray(item.weaponTags) && item.weaponTags.length ? { tags: item.weaponTags } : {}),
+            ...(weaponTags.length ? { tags: weaponTags } : {}),
         };
         resolveHit(session, floor, actor, wTarget, weaponJutsu, wCost);
+        if (wCdTurns > 0)
+            actor.cooldowns[wCdKey] = wCdTurns;
         return { applied: true };
     }
     // ── self-cast jutsu (target: SELF) — heals/buffs resolve on the caster, no foe needed ──
@@ -1196,6 +1206,10 @@ function applyAction(session, floor, action, rng) {
         const iCost = Math.max(0, Number(item.apCost ?? 35));
         if (!canAct(session, iCost))
             return { applied: false, reason: 'cannot-act' };
+        const iCdKey = item.id ?? item.name ?? 'item';
+        const iCdTurns = Math.max(0, Math.floor(Number(item.weaponCooldown ?? 0)));
+        if (iCdTurns > 0 && (actor.cooldowns[iCdKey] ?? 0) > 0)
+            return { applied: false, reason: 'on-cooldown' };
         const have = actor.itemCharges?.[item.id] ?? 0;
         if (have <= 0)
             return { applied: false, reason: 'out-of-item' };
@@ -1221,6 +1235,8 @@ function applyAction(session, floor, action, rng) {
             session.log.push(`${actor.name} uses ${item.name ?? 'an item'}.`);
             runJutsu(session, actor, actor, itemJutsu, 1);
         }
+        if (iCdTurns > 0)
+            actor.cooldowns[iCdKey] = iCdTurns;
         session.activeAp -= iCost;
         session.actionsThisTurn += 1;
         checkTowerWinner(session, floor);
