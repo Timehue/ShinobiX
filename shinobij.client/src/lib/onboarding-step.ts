@@ -20,7 +20,7 @@ export type OnboardingStep = NonNullable<Character["onboardingStep"]>;
 export type CanonicalOnboardingStep = Exclude<OnboardingStep, "spar" | "tour">;
 
 export function normalizeOnboardingStep(
-    step: Character["onboardingStep"] | null,
+    step: Character["onboardingStep"] | null | "",
 ): CanonicalOnboardingStep {
     if (!step) return "done";
     if (step === "spar") return "academySpar";

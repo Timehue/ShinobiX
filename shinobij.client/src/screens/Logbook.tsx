@@ -220,10 +220,10 @@ export function Logbook({
             ? complete ? "Complete" : "Incomplete"
             : `${Math.min(requirement.progress, requirement.target)}/${requirement.target}`;
         return (
-            <div key={requirement.label} className="summary-box">
-                <h4>{complete ? "Done" : "Open"} - {requirement.label}</h4>
+            <div key={requirement.label} className={`logbook-requirement-card${complete ? " complete" : ""}`}>
+                <h4><span>{complete ? "Done" : "Open"}</span>{requirement.label}</h4>
                 <p>{progressText}{requirement.detail ? ` | ${requirement.detail}` : ""}</p>
-                <div className="mission-progress"><span style={{ width: `${Math.min(100, (requirement.progress / requirement.target) * 100)}%` }}></span></div>
+                <div className="mission-progress" aria-label={`${requirement.label} progress ${progressText}`}><span style={{ width: `${Math.min(100, (requirement.progress / requirement.target) * 100)}%` }}></span></div>
                 {requirement.aiId && !complete && <button onClick={() => startExamFight(requirement.aiId as string)}>Fight {requirement.label.replace("Defeat ", "")}</button>}
                 {requirement.goScreen && !complete && <button onClick={() => setScreen(requirement.goScreen as Screen)}>{requirement.goLabel ?? "Go"}</button>}
             </div>
@@ -247,29 +247,25 @@ export function Logbook({
             {academyChecklist && (
                 <>
                     <h3>Academy Training</h3>
-                    <section className="summary-box mission-board-section">
-                        <p className="hint">New shinobi: complete these to prepare for the Genin Exam.</p>
-                        <div className="location-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
+                    <section className="academy-logbook-panel mission-board-section">
+                        <p className="hint">Complete these goals to learn the core loop and prepare for the Genin Exam.</p>
+                        <div className="logbook-requirement-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
                         {academyComplete && (
                             <div className="menu">
-                                <button onClick={claimAcademyReward}>Claim Academy Reward</button>
+                                <button className="start-primary-btn academy-reward-btn" onClick={claimAcademyReward}>Claim Academy Reward</button>
                             </div>
                         )}
                     </section>
                 </>
             )}
             <details className="summary-box mission-board-section" style={{ marginBottom: 12 }}>
-                <summary style={{ cursor: "pointer", fontWeight: 600 }}>🎓 Academy Help — how the game works</summary>
+                <summary style={{ cursor: "pointer", fontWeight: 600 }}>Academy Help - quick basics</summary>
                 <div style={{ marginTop: 8, lineHeight: 1.5, fontSize: 14 }}>
-                    <p><strong>What should I do next?</strong> Follow your Academy goals above, top to bottom. Each one teaches a system and rewards you.</p>
-                    <p><strong>AP (Action Points).</strong> Each turn in battle you spend AP on Basic Attacks and Jutsu. When AP runs low, press End Turn / Wait to recover it.</p>
-                    <p><strong>Training.</strong> At the Training Grounds you pick a stat and a timer. Short timers are quick active play; long timers keep progressing while you're away.</p>
-                    <p><strong>Jutsu.</strong> Jutsu are your combat identity. Your bloodline gives you a starter set; unlock and equip more, and using them in battle raises their mastery.</p>
-                    <p><strong>Missions.</strong> Accept a mission, complete the task (fight or explore), then return to the Mission Hall and claim the reward. That do → return → claim loop is the core of the game.</p>
-                    <p><strong>Pets.</strong> Your companion fights with you in PvE and the Pet Coliseum. Manage pets, training, and expeditions at the Pet Yard.</p>
-                    <p><strong>Healing.</strong> After a tough fight, visit the Hospital to recover HP.</p>
-                    <p><strong>Story.</strong> Your village story unlocks once you finish Academy Training — then visit the Story Hall.</p>
-                    <p><strong>Reaching Genin.</strong> Level up to 15 and pass the Genin Exam (it appears here in your Logbook) to graduate from Academy Student.</p>
+                    <p><strong>Next step.</strong> Follow the Academy goals above from top to bottom.</p>
+                    <p><strong>Combat.</strong> Spend AP on Basic Attack and Jutsu. When AP runs low, press Wait to end the turn and recover.</p>
+                    <p><strong>Growth.</strong> Training raises stats over time. Jutsu grow from Training Hall levels and battle use.</p>
+                    <p><strong>Missions.</strong> Finish the task, return to Mission Hall, then claim the reward.</p>
+                    <p><strong>Story.</strong> Once the Academy path is complete, visit Story Hall to begin your village story.</p>
                 </div>
             </details>
             {examMissions.length > 0 && (
