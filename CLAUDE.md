@@ -80,7 +80,9 @@ working when changing handlers.
   `dist/` and `shinobij.client/dist/`, the latter force-added past `.gitignore`).
   See `CPANEL_SETUP.md` and `Passengerfile.json`.
 
-(Vercel was the original target and is retired — `vercel.json` is deleted.)
+(Vercel was the original target and is retired. The root `vercel.json` is only
+a tombstone config that disables Vercel/GitHub auto-deploys; do not add Vercel
+routes, builds, env, cron, or runtime settings back to it.)
 
 Note: there is **no folder-convention auto-routing** anymore — every `api/**`
 handler must be imported and `route()`-registered in `server.ts` or it is
