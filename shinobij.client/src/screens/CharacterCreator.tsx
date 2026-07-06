@@ -1,13 +1,5 @@
-import { useState } from "react";
-import {
-    type Character,
-    starterBloodlines,
-    starterBloodlineOffense,
-    starterSavedBloodlines,
-    createCharacter,
-} from "../App";
-import { villages } from "../data/sectors";
-import { playerSlug } from "../lib/utils";
+import { type Character } from "../App";
+import { CharacterCreatorFlow } from "../features/character-creator/CharacterCreatorFlow";
 
 function IconUser() {
     return (
@@ -23,27 +15,6 @@ function IconLock() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="4" y="10" width="16" height="11" rx="2" />
             <path d="M8 10V7a4 4 0 1 1 8 0v3" />
-        </svg>
-    );
-}
-
-function IconBuilding() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M3 21V8l9-5 9 5v13" />
-            <path d="M3 21h18" />
-            <path d="M9 21v-6h6v6" />
-            <path d="M8 11h.01M12 11h.01M16 11h.01" />
-        </svg>
-    );
-}
-
-function IconEye() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="8" r="3" />
-            <path d="M12 4c-4.5 0-8 4-8 4s3.5 4 8 4 8-4 8-4-3.5-4-8-4z" />
-            <circle cx="12" cy="20" r="0.8" fill="currentColor" />
         </svg>
     );
 }
@@ -71,129 +42,10 @@ function IconEyeOff() {
 
 export { IconUser, IconLock, IconEyeOpen, IconEyeOff };
 
-export function CharacterCreator({ onCreate }: { onCreate: (character: Character, password: string) => void }) {
-    const [name, setName] = useState("");
-    const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [showPw, setShowPw] = useState(false);
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [village, setVillage] = useState(villages[0]);
-    const [bloodline, setBloodline] = useState(starterBloodlines[0]);
-
-    function submitCharacter() {
-        if (name.trim().length < 3) return alert("Pick a ninja name with at least 3 characters.");
-        // The account is keyed by the name's slug (letters/digits/_/- only). A name
-        // made entirely of spaces/punctuation/emoji has an empty slug and can't be
-        // saved or logged back into — reject it here with a clear message.
-        if (!playerSlug(name)) return alert("Your name needs at least one letter or number (A–Z or 0–9).");
-        if (password.length < 8) return alert("Create a password with at least 8 characters.");
-        if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
-            return alert("Password must include at least one letter and one number.");
-        }
-        if (password !== confirmPassword) return alert("Passwords do not match.");
-        onCreate(createCharacter(name.trim(), village, starterBloodlineOffense[bloodline] ?? "Ninjutsu", bloodline), password);
-    }
-
-    return (
-        <div className="card creator-card start-card">
-            <h2 className="start-card-title">Character Creator</h2>
-
-            <label className="start-field" htmlFor="cc-name">
-                <span className="start-field-label">
-                    <span className="start-field-icon"><IconUser /></span>
-                    Name
-                </span>
-                <input
-                    id="cc-name"
-                    className="start-input"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your shinobi name"
-                    autoComplete="username"
-                />
-            </label>
-
-            <label className="start-field" htmlFor="cc-password">
-                <span className="start-field-label">
-                    <span className="start-field-icon"><IconLock /></span>
-                    Password
-                </span>
-                <span className="start-input-wrap">
-                    <input
-                        id="cc-password"
-                        className="start-input has-toggle"
-                        type={showPw ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Create a login password"
-                        autoComplete="new-password"
-                    />
-                    <button
-                        type="button"
-                        className="start-eye-btn"
-                        onClick={() => setShowPw(s => !s)}
-                        aria-label={showPw ? "Hide password" : "Show password"}
-                    >
-                        {showPw ? <IconEyeOff /> : <IconEyeOpen />}
-                    </button>
-                </span>
-            </label>
-
-            <label className="start-field" htmlFor="cc-confirm-password">
-                <span className="start-field-label">
-                    <span className="start-field-icon"><IconLock /></span>
-                    Confirm Password
-                </span>
-                <span className="start-input-wrap">
-                    <input
-                        id="cc-confirm-password"
-                        className="start-input has-toggle"
-                        type={showConfirm ? "text" : "password"}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Retype password"
-                        autoComplete="new-password"
-                    />
-                    <button
-                        type="button"
-                        className="start-eye-btn"
-                        onClick={() => setShowConfirm(s => !s)}
-                        aria-label={showConfirm ? "Hide password" : "Show password"}
-                    >
-                        {showConfirm ? <IconEyeOff /> : <IconEyeOpen />}
-                    </button>
-                </span>
-            </label>
-
-            <label className="start-field" htmlFor="cc-village">
-                <span className="start-field-label">
-                    <span className="start-field-icon"><IconBuilding /></span>
-                    Village
-                </span>
-                <select id="cc-village" className="start-input" value={village} onChange={(e) => setVillage(e.target.value)}>
-                    {villages.map((v) => <option key={v}>{v}</option>)}
-                </select>
-            </label>
-
-            <label className="start-field" htmlFor="cc-bloodline">
-                <span className="start-field-label">
-                    <span className="start-field-icon"><IconEye /></span>
-                    Starter Bloodline
-                </span>
-                <select id="cc-bloodline" className="start-input" value={bloodline} onChange={(e) => setBloodline(e.target.value)}>
-                    {starterBloodlines.map((b) => <option key={b} value={b}>{b} ({starterBloodlineOffense[b]})</option>)}
-                </select>
-            </label>
-
-            <p className="hint" style={{ margin: "-6px 0 10px" }}>
-                {(() => {
-                    const element = starterSavedBloodlines.find((b) => b.name === bloodline)?.specialElement;
-                    const offense = starterBloodlineOffense[bloodline] ?? "Ninjutsu";
-                    return `${bloodline}: a ${offense} bloodline${element ? ` (${element} element)` : ""}. You'll start already knowing its jutsu — pick the combat style you want to play.`;
-                })()}
-            </p>
-
-            <button className="start-primary-btn" onClick={submitCharacter}>Begin Your Journey</button>
-        </div>
-    );
+export function CharacterCreator({ onCreate, onBack, bare = false }: {
+    onCreate: (character: Character, password: string) => void | Promise<void>;
+    onBack?: () => void;
+    bare?: boolean;
+}) {
+    return <CharacterCreatorFlow onCreate={onCreate} onBack={onBack} compact={bare} />;
 }
