@@ -18,7 +18,6 @@ import type { Character } from "../types/character";
 import { CARD_CLASH_BOARD_BG } from "../lib/card-clash-art";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { SceneAmbience } from "../components/SceneAmbience";
-import { currentDateKey } from "../lib/utils";
 import {
     toClashCards,
     indexClashCards,
@@ -28,12 +27,12 @@ import {
     playCard,
     endTurn,
     retreat,
-    cardClashReward,
     CARD_CLASH_DECK_SIZE,
     type CardClashCard,
     type CardClashMatchState,
     type CardClashRewardSummary,
 } from "../lib/card-clash";
+import { startCardClashAiMatch, settleCardClashAiMatch } from "../lib/card-clash-ai";
 import { CardClashCollection } from "../components/CardClashCollection";
 import { CardClashDeckBuilder } from "../components/CardClashDeckBuilder";
 import { CardClashBoard } from "../components/CardClashBoard";
@@ -82,6 +81,9 @@ export function CardHall({
     const [deckIds, setDeckIds] = useState<string[]>(() => character.cardClashDeck ?? []);
     const [match, setMatch] = useState<CardClashMatchState | null>(null);
     const [reward, setReward] = useState<CardClashRewardSummary | null>(null);
+    const [aiMatchId, setAiMatchId] = useState<string | null>(null);
+    const [startingMatch, setStartingMatch] = useState(false);
+    const [settlingReward, setSettlingReward] = useState(false);
     const [showTutorial, setShowTutorial] = useState<boolean>(() => !character.cardClashTutorialSeen);
 
     // ── Free-play PvP matchmaking queue ──────────────────────────────────────
@@ -153,27 +155,39 @@ export function CardHall({
     // A short-lived nudge shown when we deal a player in on a starter deck.
     const [starterToast, setStarterToast] = useState(false);
 
-    function beginMatch(deck: string[]) {
+    async function beginMatch(deck: string[]): Promise<boolean> {
+        if (startingMatch) return false;
+        setStartingMatch(true);
+        const start = await startCardClashAiMatch(character.name);
+        setStartingMatch(false);
+        if (!start.ok || !start.matchId) {
+            alert(start.error ?? "Could not start a Card Clash match.");
+            return false;
+        }
+        setAiMatchId(start.matchId);
         setReward(null);
         setMatch(createCardClashMatch(deck, allCards, character.level));
+        return true;
     }
-    function startMatch() {
+    async function startMatch() {
         // Manual "Play" button: bounce to the deck builder if there's no valid deck.
         if (!savedDeckValid) { setTab("deck"); return; }
-        beginMatch(savedDeck);
+        await beginMatch(savedDeck);
     }
 
     // Wanderer "deal me in" → drop straight into a match. If the player has no valid
     // deck yet, deal them in on a legal STARTER deck (built from their cards, padded
     // from the catalog) and toast them to build their own — never bounce to a menu.
-    function autoStartMatch() {
+    async function autoStartMatch() {
         setTab("play");
         if (savedDeckValid) {
-            beginMatch(savedDeck);
+            await beginMatch(savedDeck);
         } else {
-            beginMatch(buildPlayableDeck(character.tileCards ?? [], clashById, clashCards));
-            setStarterToast(true);
-            window.setTimeout(() => setStarterToast(false), 7000);
+            const started = await beginMatch(buildPlayableDeck(character.tileCards ?? [], clashById, clashCards));
+            if (started) {
+                setStarterToast(true);
+                window.setTimeout(() => setStarterToast(false), 7000);
+            }
         }
         onAutoStartConsumed?.();
     }
@@ -182,45 +196,54 @@ export function CardHall({
     // so the set-state-in-effect guard doesn't apply here.
     /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
-        if (autoStart) autoStartMatch();
+        if (autoStart) void autoStartMatch();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [autoStart]);
     /* eslint-enable react-hooks/set-state-in-effect */
 
-    function finalize(next: CardClashMatchState) {
+    async function finalize(next: CardClashMatchState) {
         const winner = next.winner ?? "draw";
-        const today = currentDateKey();
-        const alreadyWonToday = character.cardClashDailyWinDate === today;
-        const summary = cardClashReward(winner, alreadyWonToday);
-        updateCharacter({
-            ...character,
-            ryo: character.ryo + summary.ryo,
-            cardClashWins: (character.cardClashWins ?? 0) + (winner === "player" ? 1 : 0),
-            cardClashLosses: (character.cardClashLosses ?? 0) + (winner === "opponent" ? 1 : 0),
-            cardClashDraws: (character.cardClashDraws ?? 0) + (winner === "draw" ? 1 : 0),
-            cardClashDailyWinDate: summary.dailyBonus ? today : character.cardClashDailyWinDate,
-        });
-        setReward(summary);
+        const matchId = aiMatchId;
+        if (!matchId) {
+            alert("This Card Clash match did not receive a server token, so no reward was paid.");
+            setReward({ result: winner, ryo: 0, baseRyo: 0, dailyBonus: false });
+            return;
+        }
+
+        setSettlingReward(true);
+        const settled = await settleCardClashAiMatch(character.name, matchId, winner);
+        setSettlingReward(false);
+        setAiMatchId(null);
+        if (!settled.ok || !settled.character) {
+            alert(settled.error ?? "Could not settle the Card Clash reward.");
+            setReward({ result: winner, ryo: 0, baseRyo: 0, dailyBonus: false });
+            return;
+        }
+
+        const ryo = settled.ryo ?? 0;
+        const baseRyo = winner === "player" && settled.dailyBonus ? Math.max(0, ryo - 250) : ryo;
+        updateCharacter(settled.character);
+        setReward({ result: winner, ryo, baseRyo, dailyBonus: Boolean(settled.dailyBonus) });
     }
 
     function handlePlayCard(handIndex: number, locationIndex: number) {
-        if (!match) return;
+        if (!match || settlingReward) return;
         const res = playCard(match, "player", handIndex, locationIndex);
         if (!res.error) setMatch(res.state);
     }
 
     function handleEndTurn() {
-        if (!match) return;
+        if (!match || settlingReward || match.status !== "playing") return;
         const next = endTurn(match);
         setMatch(next);
-        if (next.status === "complete") finalize(next);
+        if (next.status === "complete") void finalize(next);
     }
 
     function handleRetreat() {
-        if (!match) return;
+        if (!match || settlingReward || match.status !== "playing") return;
         const next = retreat(match);
         setMatch(next);
-        finalize(next);
+        void finalize(next);
     }
 
     const record = `${character.cardClashWins ?? 0}W · ${character.cardClashLosses ?? 0}L · ${character.cardClashDraws ?? 0}D`;
@@ -279,6 +302,8 @@ export function CardHall({
                     <PlayTab
                         match={match}
                         reward={reward}
+                        startingMatch={startingMatch}
+                        settlingReward={settlingReward}
                         savedDeckValid={savedDeckValid}
                         savedDeckCount={savedDeck.length}
                         ownedCount={ownedCards.length}
@@ -288,7 +313,7 @@ export function CardHall({
                         onEndTurn={handleEndTurn}
                         onRetreat={handleRetreat}
                         onPlayAgain={startMatch}
-                        onExitMatch={() => { setMatch(null); setReward(null); }}
+                        onExitMatch={() => { setMatch(null); setReward(null); setAiMatchId(null); }}
                     />
                 )}
 
@@ -322,10 +347,13 @@ export function CardHall({
 
 function PlayTab({
     match, reward, savedDeckValid, savedDeckCount, ownedCount,
+    startingMatch, settlingReward,
     onStart, onGoToDeck, onPlayCard, onEndTurn, onRetreat, onPlayAgain, onExitMatch,
 }: {
     match: CardClashMatchState | null;
     reward: CardClashRewardSummary | null;
+    startingMatch: boolean;
+    settlingReward: boolean;
     savedDeckValid: boolean;
     savedDeckCount: number;
     ownedCount: number;
@@ -353,6 +381,18 @@ function PlayTab({
                         <button className="cc-btn primary" onClick={onPlayAgain}>Play Again</button>
                         <button className="cc-btn ghost" onClick={onExitMatch}>Back to Hall</button>
                     </div>
+                </div>
+                <CardClashBoard match={match} onPlayCard={onPlayCard} onEndTurn={onEndTurn} onRetreat={onRetreat} />
+            </div>
+        );
+    }
+
+    if (match && match.status === "complete" && settlingReward) {
+        return (
+            <div>
+                <div className="cc-result draw">
+                    <h2>Settling reward...</h2>
+                    <div className="cc-reward">Confirming the match with the server.</div>
                 </div>
                 <CardClashBoard match={match} onPlayCard={onPlayCard} onEndTurn={onEndTurn} onRetreat={onRetreat} />
             </div>
@@ -395,8 +435,10 @@ function PlayTab({
                 and your first win each day pays a bonus.
             </p>
             <div className="cc-controls" style={{ justifyContent: "center" }}>
-                <button className="cc-btn gold" style={{ fontSize: 16, padding: "12px 28px" }} onClick={onStart}>Start Match</button>
-                <button className="cc-btn ghost" onClick={onGoToDeck}>Edit Deck</button>
+                <button className="cc-btn gold" style={{ fontSize: 16, padding: "12px 28px" }} onClick={onStart} disabled={startingMatch}>
+                    {startingMatch ? "Starting..." : "Start Match"}
+                </button>
+                <button className="cc-btn ghost" onClick={onGoToDeck} disabled={startingMatch}>Edit Deck</button>
             </div>
         </div>
     );

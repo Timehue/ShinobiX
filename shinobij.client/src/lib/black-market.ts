@@ -1,10 +1,10 @@
 /*
  * Client wrapper for the Sunscar black-market gamble
  * (api/festival/black-market.ts). The server is fully authoritative: it debits
- * the cost, rolls the payout, and returns the reward. The caller reflects the
- * net delta locally so the autosave converges. KEEP cost/cap in sync with
+ * the cost, rolls the payout, and returns the updated character. KEEP cost/cap in sync with
  * api/festival/_black-market.ts.
  */
+import type { Character } from "../types/character";
 
 export const BLACK_MARKET_COST = 50_000;
 export const BLACK_MARKET_DAILY_CAP = 10;
@@ -27,6 +27,7 @@ export type BlackMarketResult = {
     dailyUsed?: number;
     dailyCap?: number;
     balanceRyo?: number;
+    character?: Character;
 };
 
 export async function pullBlackMarket(playerName: string): Promise<BlackMarketResult> {
