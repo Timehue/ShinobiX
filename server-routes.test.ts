@@ -79,6 +79,9 @@ function isCovered(clientPath: string): boolean {
 // attachSocketServer(), not route().
 
 const API_DIR = join(HERE, 'api');
+// Non-underscore shared modules under api/. These are compiled with the server
+// but are not HTTP endpoints and should not be route() registered.
+const HELPER_DIRS = new Set(['combat-adapters', 'combat-core']);
 
 function httpHandlerFiles(dir = API_DIR, prefix = ''): string[] {
     const out: string[] = [];
@@ -86,6 +89,7 @@ function httpHandlerFiles(dir = API_DIR, prefix = ''): string[] {
         if (entry.startsWith('_')) continue;             // helper file or _realtime/ dir
         const full = join(dir, entry);
         if (statSync(full).isDirectory()) {
+            if (HELPER_DIRS.has(entry)) continue;
             out.push(...httpHandlerFiles(full, `${prefix}${entry}/`));
             continue;
         }
@@ -167,6 +171,22 @@ describe('Express route parity (Railway + cPanel)', () => {
         assert.match(serverSrc, /route\(\s*['"]\/save\/:name['"]/, 'missing /save/:name route');
         assert.match(serverSrc, /route\(\s*['"]\/kv\/:op['"]/, 'missing /kv/:op route');
         assert.match(serverSrc, /app\.all\(\s*paths/, 'route() should mount via app.all() so every method is served');
+    });
+
+    it('serves canonical SEO files and wires duplicate-domain redirects before SPA fallback', () => {
+        assert.match(serverSrc, /app\.get\(\s*['"]\/robots\.txt['"]/, 'server.ts should serve a real /robots.txt before SPA fallback');
+        assert.match(serverSrc, /app\.get\(\s*['"]\/sitemap\.xml['"]/, 'server.ts should serve a real /sitemap.xml before SPA fallback');
+        assert.match(serverSrc, /shouldRedirectToCanonical\(req\.headers\.host,\s*req\.path\)/, 'legacy duplicate host redirect middleware is missing');
+        assert.match(serverSrc, /canonicalRedirectLocation\(req\.originalUrl\)/, 'redirect should preserve path and query via originalUrl');
+        assert.match(serverSrc, /X-Robots-Tag['"],\s*['"]noindex/, 'legacy fallback responses should carry X-Robots-Tag: noindex');
+        assert.ok(
+            serverSrc.indexOf("app.get('/robots.txt'") < serverSrc.indexOf('express.static(staticDir'),
+            '/robots.txt must be registered before express.static',
+        );
+        assert.ok(
+            serverSrc.indexOf('shouldRedirectToCanonical(req.headers.host, req.path)') < serverSrc.indexOf('express.static(staticDir'),
+            'duplicate-domain redirect middleware must run before SPA fallback/static serving',
+        );
     });
 });
 

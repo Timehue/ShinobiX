@@ -16,6 +16,8 @@ import {
 } from './_engine.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import { hexDistance } from '../pvp/_aoe.js';
+import { applyJutsu } from '../pvp/move.js';
+import { towerActorToPvpFighter } from '../combat-adapters/clanBossAdapter.js';
 
 const MAP8: TowerMap = { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [] };
 
@@ -209,6 +211,84 @@ describe('Battle Towers engine (P1.A2)', () => {
         const en2 = getActor(s, 'en-2')!;
         assert.ok(100_000 - en2.hp > 0, 'the touching enemy takes splash damage');
         assert.ok(en2.statuses.some((st) => st.name === 'Wound'), 'the touching enemy ALSO gets the Wound rider tag from the splash');
+    });
+
+    it('tower player-side jutsu action matches PvP resolver plus tower resource/AP/cooldown shell', () => {
+        const stats = {
+            strength: 900,
+            speed: 900,
+            intelligence: 900,
+            willpower: 900,
+            ninjutsuOffense: 900,
+            ninjutsuDefense: 900,
+        };
+        const jutsu = {
+            id: 'tower-parity-blast',
+            name: 'Tower Parity Blast',
+            type: 'Ninjutsu',
+            target: 'OPPONENT',
+            range: 3,
+            ap: 60,
+            cooldown: 3,
+            chakraCost: 25,
+            staminaCost: 15,
+            effectPower: 32,
+            isUtility: false,
+            tags: [{ name: 'Wound', percent: 25 }],
+        };
+        const actor = makeActor('sq-1', 'squad', 0, {
+            hp: 5000,
+            maxHp: 5000,
+            chakra: 1000,
+            maxChakra: 1000,
+            stamina: 1000,
+            maxStamina: 1000,
+            character: {
+                name: 'sq-1',
+                level: 100,
+                specialty: 'Ninjutsu',
+                stats,
+                jutsu: [jutsu],
+                jutsuMastery: [{ jutsuId: 'tower-parity-blast', level: 50 }],
+            },
+        });
+        const target = makeActor('boss', 'enemy', 1, {
+            hp: 6000,
+            maxHp: 6000,
+            character: {
+                name: 'boss',
+                level: 100,
+                specialty: 'Ninjutsu',
+                stats,
+                jutsu: [],
+                jutsuMastery: [],
+            },
+        });
+        const expected = applyJutsu(towerActorToPvpFighter(actor), towerActorToPvpFighter(target), jutsu, 1, 'central', 1);
+
+        const s = makeSession([actor, target]);
+        startRound(s);
+        const applied = applyAction(s, makeFloor('defeat-all'), {
+            actorId: 'sq-1',
+            type: 'jutsu',
+            jutsuId: 'tower-parity-blast',
+            targetId: 'boss',
+        }, makeRng(1));
+
+        assert.equal(applied.applied, true);
+        const afterActor = getActor(s, 'sq-1')!;
+        const afterTarget = getActor(s, 'boss')!;
+        assert.equal(afterTarget.hp, expected.opponent.hp);
+        assert.deepEqual(afterTarget.statuses, expected.opponent.statuses);
+        assert.equal(afterTarget.statuses.filter(status => status.name === 'Wound').length, 1, 'Wound applies once and does not double-tick on cast');
+        assert.equal(afterActor.hp, expected.self.hp);
+        assert.equal(afterActor.chakra, expected.self.chakra - 25);
+        assert.equal(afterActor.stamina, expected.self.stamina - 15);
+        assert.equal(s.activeAp, 40);
+        assert.equal(s.actionsThisTurn, 1);
+        assert.equal(afterActor.cooldowns['tower-parity-blast'], 3);
+        assert.ok(s.log.some(line => line.includes('sq-1 uses Tower Parity Blast')));
+        for (const line of expected.lines) assert.ok(s.log.includes(line), `tower log should include PvP line: ${line}`);
     });
 
     it('move is adjacent-only and blocked by occupants', () => {

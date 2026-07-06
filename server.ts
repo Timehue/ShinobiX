@@ -210,6 +210,13 @@ import { safeEqual } from './api/_auth.js';
 // Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
 import { isAllowedOrigin, isMalformedJsonBodyError, MALFORMED_JSON_BODY_ERROR } from './api/_utils.js';
+import {
+    canonicalRedirectLocation,
+    isLegacyDuplicateHost,
+    robotsTxt,
+    shouldRedirectToCanonical,
+    sitemapXml,
+} from './api/_canonical-domain.js';
 
 // ─── Sentry (optional, env-gated server error reporting) ───────────────────────
 // Activates ONLY when SENTRY_DSN is set. The require is guarded so a cPanel box
@@ -865,6 +872,20 @@ route('/admin/economy', adminEconomyHandler);
 // ─── Static files (React SPA) ─────────────────────────────────────────────────
 // STATIC_DIR env var overrides the default so the same compiled server.js works
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).
+// SEO / canonical-domain files. These must be registered before express.static
+// and the SPA fallback so crawlers do not receive index.html for robots/sitemap.
+app.get('/robots.txt', (_req, res) => {
+    res.type('text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(robotsTxt());
+});
+
+app.get('/sitemap.xml', (_req, res) => {
+    res.type('application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(sitemapXml());
+});
+
 const staticDir = process.env.STATIC_DIR ?? join(__dirname, '..', 'shinobij.client', 'dist');
 
 // Cache-Control for static assets. Cloudflare (the edge cache in front of
@@ -906,6 +927,18 @@ const _HASHED_ASSET_RE = /[\\/]assets[\\/].*-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/i;
 // changes the URL and never waits on this TTL. JS/CSS/JSON are excluded here so no
 // chunk map or data manifest can go stale.
 const _STATIC_MEDIA_RE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf)$/i;
+
+app.use((req, res, next) => {
+    if (shouldRedirectToCanonical(req.headers.host, req.path)) {
+        res.redirect(301, canonicalRedirectLocation(req.originalUrl));
+        return;
+    }
+    if (isLegacyDuplicateHost(req.headers.host)) {
+        res.setHeader('X-Robots-Tag', 'noindex');
+    }
+    next();
+});
+
 app.use(express.static(staticDir, {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('index.html')) {
