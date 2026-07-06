@@ -8416,102 +8416,6 @@ body {
         text-shadow: 0 1px 2px #000;
     }
 
-.village-path-panel {
-    align-items: center;
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(8, 13, 28, 0.84));
-    border: 1px solid rgba(250, 204, 21, 0.38);
-    border-left: 4px solid #facc15;
-    border-radius: 8px;
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.32);
-    color: #e8edf5;
-    display: flex;
-    gap: 14px;
-    justify-content: space-between;
-    left: 14px;
-    max-width: 720px;
-    padding: 12px 14px;
-    position: absolute;
-    right: 14px;
-    top: 14px;
-    z-index: 8;
-}
-
-.village-path-panel h2 {
-    color: #fef3c7;
-    font-family: var(--font-display);
-    font-size: 17px;
-    letter-spacing: 0.08em;
-    margin: 2px 0 4px;
-    text-transform: uppercase;
-}
-
-.village-path-panel p {
-    color: #cbd5e1;
-    font-size: 12px;
-    line-height: 1.35;
-    margin: 0;
-}
-
-.village-path-kicker {
-    color: #facc15;
-    font: 800 10px var(--font-display);
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-}
-
-.village-path-actions {
-    display: flex;
-    flex: 0 0 auto;
-    flex-wrap: wrap;
-    gap: 7px;
-    justify-content: flex-end;
-}
-
-.village-path-actions button {
-    background: rgba(15, 23, 42, 0.88);
-    border: 1px solid rgba(148, 163, 184, 0.38);
-    border-radius: 6px;
-    color: #e2e8f0;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 800;
-    padding: 7px 10px;
-}
-
-.village-path-actions button.primary {
-    background: linear-gradient(180deg, #facc15, #d97706);
-    border-color: rgba(250, 204, 21, 0.68);
-    color: #211500;
-}
-
-.village-marker-tag {
-    background: rgba(2, 6, 23, 0.78);
-    border: 1px solid rgba(148, 163, 184, 0.36);
-    border-radius: 4px;
-    color: #cbd5e1;
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    line-height: 1;
-    padding: 3px 5px;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.village-main-path .village-marker-tag {
-    border-color: rgba(250, 204, 21, 0.52);
-    color: #fde68a;
-}
-
-.village-support-path .village-marker-tag {
-    border-color: rgba(78, 168, 255, 0.42);
-    color: #bfdbfe;
-}
-
-.village-advanced-path .village-marker-tag {
-    border-color: rgba(168, 85, 247, 0.42);
-    color: #ddd6fe;
-}
 /* ===============================
    STORMVEIL VILLAGE CSS
 ================================= */
@@ -20717,30 +20621,6 @@ button.combat-jutsu-button,
 
   /* Keep the inline-style background image visible;
      this pseudo-element darkens it without removing it */
-  .village-path-panel {
-    align-items: stretch !important;
-    flex-direction: column !important;
-    left: auto !important;
-    margin: 10px 10px 8px !important;
-    max-width: none !important;
-    position: relative !important;
-    right: auto !important;
-    top: auto !important;
-  }
-
-  .village-path-panel h2 {
-    font-size: 15px !important;
-  }
-
-  .village-path-actions {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .village-path-actions button {
-    min-height: 38px !important;
-  }
-
   .stormveil-map::before {
     content: '' !important;
     position: absolute !important;
@@ -20780,21 +20660,10 @@ button.combat-jutsu-button,
     transform: none !important;
   }
 
-  .stormveil-map-button span {
-    font-size: 22px !important;
-  }
-
   .stormveil-map-button strong {
     font-size: 10px !important;
     text-align: center !important;
     line-height: 1.2 !important;
-  }
-
-  .village-marker-tag {
-    font-size: 7px !important;
-    max-width: 100% !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
   }
 
   /* Safe-zone badge — sits at the bottom of stormveil-village-screen,
@@ -22959,25 +22828,11 @@ html[data-vp="xxl"] .stormveil-map-button {
     border-radius: 7px !important;
 }
 
-html[data-vp="md"] .stormveil-map-button span,
-html[data-vp="lg"] .stormveil-map-button span,
-html[data-vp="xl"] .stormveil-map-button span,
-html[data-vp="xxl"] .stormveil-map-button span {
-    font-size: 18px !important;
-}
-
 html[data-vp="md"] .stormveil-map-button strong,
 html[data-vp="lg"] .stormveil-map-button strong,
 html[data-vp="xl"] .stormveil-map-button strong,
 html[data-vp="xxl"] .stormveil-map-button strong {
     font-size: 10px !important;
-}
-
-html[data-vp="md"] .stormveil-map-button .village-marker-tag,
-html[data-vp="lg"] .stormveil-map-button .village-marker-tag,
-html[data-vp="xl"] .stormveil-map-button .village-marker-tag,
-html[data-vp="xxl"] .stormveil-map-button .village-marker-tag {
-    font-size: 8px !important;
 }
 
 /* ── xxl: 1440p+ desktop (≥2200px) — comfortable layout ── */
