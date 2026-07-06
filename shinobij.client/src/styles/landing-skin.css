@@ -1220,8 +1220,27 @@
 /* ── Intermediate width: relieve the hero two-column squeeze ────────────── */
 
 @media (max-width: 1120px) and (min-width: 901px) {
+    .landing-hero {
+        padding-top: clamp(42px, 6vh, 60px);
+        padding-inline: clamp(22px, 4vw, 44px);
+    }
     .landing-hero-inner {
-        grid-template-columns: minmax(0, 720px);
+        grid-template-columns: minmax(0, min(100%, 680px));
         gap: 28px;
+    }
+    .landing-hero-copy {
+        max-width: min(100%, 680px);
+        transform: translate(0, -28px);
+    }
+    .landing-logo--hero .landing-logo-art {
+        width: clamp(360px, 46vw, 560px);
+        max-width: 100%;
+    }
+    .landing-tagline {
+        max-width: 44ch;
+        font-size: clamp(15px, 1.9vw, 18px);
+    }
+    .landing-cta {
+        padding-inline: 24px;
     }
 }
