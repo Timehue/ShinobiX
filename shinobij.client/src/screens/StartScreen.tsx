@@ -590,7 +590,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             setError("");
             try {
                 const [rosterRes, gameStateRes] = await Promise.all([
-                    fetch("/api/player/roster"),
+                    fetch("/api/player/roster?leaderboards=1"),
                     fetch("/api/game-state").catch(() => null),
                 ]);
                 if (!rosterRes.ok) throw new Error(`Roster HTTP ${rosterRes.status}`);

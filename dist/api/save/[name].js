@@ -19,6 +19,7 @@ const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _mission_catalog_js_1 = require("../missions/_mission-catalog.js");
 const _save_version_js_1 = require("./_save-version.js");
 const _registry_throttle_js_1 = require("./_registry-throttle.js");
+const _public_index_js_1 = require("../player/_public-index.js");
 const _lock_js_1 = require("../_lock.js");
 const _elapsed_state_js_1 = require("../_elapsed-state.js");
 // Fields stripped from character objects when a non-owner reads another player's save.
@@ -122,7 +123,6 @@ function combatProjection(data) {
     }
     return out;
 }
-const REGISTRY_KEY = 'player:registry';
 // How long the cached player:registry `lastSeen` may drift before a save
 // rewrites it even when no identity field changed. kv.hset re-serializes the
 // entire registry row (one hot row holding every player) on each call — a
@@ -1898,14 +1898,8 @@ async function handler(req, res) {
                         // persisted save was clamped. safeIncoming is what we just
                         // wrote, so the index matches the stored truth.
                         const char = safeIncoming?.character;
-                        const displayName = char?.name || name;
-                        const registryEntry = {
-                            name: displayName,
-                            level: char?.level ?? 1,
-                            village: char?.village ?? '',
-                            specialty: char?.specialty ?? '',
-                            lastSeen: Date.now(),
-                        };
+                        const registryNow = Date.now();
+                        const registryEntry = (0, _public_index_js_1.buildPublicPlayerIndexEntry)(char, name, registryNow);
                         // Throttle the registry rewrite (see REGISTRY_REFRESH_MS +
                         // shouldWriteRegistry). The previous registry write time is carried
                         // in the save blob as `_registryAt` (no extra read); we re-stamp it
@@ -1917,7 +1911,7 @@ async function handler(req, res) {
                             existingChar: (existingObj?.character ?? null),
                             next: registryEntry,
                             prevRegistryAt,
-                            now: Date.now(),
+                            now: registryNow,
                             refreshMs: REGISTRY_REFRESH_MS,
                         });
                         // Stamp when we actually (re)wrote the registry so the next save can
@@ -1926,7 +1920,7 @@ async function handler(req, res) {
                             payload._registryAt = writeRegistry ? Date.now() : prevRegistryAt;
                         await Promise.all([
                             _storage_js_1.kv.set(key, payload),
-                            ...(writeRegistry ? [_storage_js_1.kv.hset(REGISTRY_KEY, { [name]: registryEntry })] : []),
+                            ...(writeRegistry ? [_storage_js_1.kv.hset(_public_index_js_1.REGISTRY_KEY, { [name]: registryEntry })] : []),
                         ]);
                         return res.status(200).json(isClanSave ? { ok: true } : { ok: true, _saveVersion: nextVersion });
                     }, { failClosed: true });
@@ -1954,17 +1948,10 @@ async function handler(req, res) {
                 _saveAt: Date.now(),
             };
             const char = incoming?.character;
-            const displayName = char?.name || name;
-            const registryEntry = {
-                name: displayName,
-                level: char?.level ?? 1,
-                village: char?.village ?? '',
-                specialty: char?.specialty ?? '',
-                lastSeen: Date.now(),
-            };
+            const registryEntry = (0, _public_index_js_1.buildPublicPlayerIndexEntry)(char, name);
             await Promise.all([
                 _storage_js_1.kv.set(key, payload),
-                _storage_js_1.kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
+                _storage_js_1.kv.hset(_public_index_js_1.REGISTRY_KEY, { [name]: registryEntry }),
             ]);
             // Set reset-signal after the new save is committed so the client reloads that exact version.
             await _storage_js_1.kv.set(resetSignalKey, 1, { ex: 300 });
@@ -2016,7 +2003,7 @@ async function handler(req, res) {
             await _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 });
             await Promise.all([
                 _storage_js_1.kv.del(key),
-                _storage_js_1.kv.hdel(REGISTRY_KEY, name),
+                _storage_js_1.kv.hdel(_public_index_js_1.REGISTRY_KEY, name),
                 // Signal the player's client to reload on next heartbeat (5-min TTL)
                 _storage_js_1.kv.set(`reset-signal:${lowered}`, 1, { ex: 300 }),
             ]);

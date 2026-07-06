@@ -8,7 +8,7 @@
  *
  * Rates are a gentle downward slope — shorter tiers are only *slightly* more
  * efficient per hour (kept close together, ~1.15× top-to-bottom, NOT a steep
- * TNR-style curve), so no tier is a trap or a spam meta. Calibrated so a
+ * reference-style curve), so no tier is a trap or a spam meta. Calibrated so a
  * dedicated daily player (~16 effective training-hours/day) fully caps a 12-stat
  * build in ~90 days: 12 × (2500 − 10) ≈ 30,000 pts ÷ (16 h/day × ~20 pts/h) ≈ 94
  * days. Longer tiers win on coverage (they run while you sleep); shorter tiers

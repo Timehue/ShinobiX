@@ -3,8 +3,14 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
-
-const REGISTRY_KEY = 'player:registry';
+import {
+    REGISTRY_KEY,
+    buildPublicPlayerIndexEntry,
+    needsPublicPlayerIndexBackfill,
+    parsePublicPlayerIndexEntry,
+    publicIndexToLeaderboardRosterEntry,
+    type PublicPlayerIndexEntry,
+} from './_public-index.js';
 
 // Fields stripped from EVERY character before the roster goes out the door.
 // Previously this endpoint returned `save.character` verbatim, leaking ryo,
@@ -135,6 +141,49 @@ function normalizeSector(value: unknown, fallback = 40) {
     return Math.max(0, Math.floor(sector));
 }
 
+async function compactLeaderboardRoster(onlineNames: Set<string>) {
+    const rawRegistry = await kv.hgetall<Record<string, unknown>>(REGISTRY_KEY) ?? {};
+    const registryKeys = Object.keys(rawRegistry);
+    const entries = new Map<string, PublicPlayerIndexEntry>();
+    const staleKeys: string[] = [];
+
+    for (const key of registryKeys) {
+        const raw = rawRegistry[key];
+        const parsed = parsePublicPlayerIndexEntry(raw, key);
+        if (parsed) entries.set(key, parsed);
+        if (needsPublicPlayerIndexBackfill(raw)) staleKeys.push(key);
+    }
+
+    if (staleKeys.length > 0) {
+        try {
+            const saves = await kv.mget<Record<string, unknown>[]>(...staleKeys.map((key) => `save:${key}`));
+            const patch: Record<string, PublicPlayerIndexEntry> = {};
+            const now = Date.now();
+            for (let i = 0; i < staleKeys.length; i++) {
+                const key = staleKeys[i]!;
+                const save = saves[i] ?? null;
+                const char = (save?.character ?? null) as Record<string, unknown> | null;
+                if (!char) continue;
+                const prior = entries.get(key);
+                const entry = buildPublicPlayerIndexEntry(char, key, now, prior?.lastSeen ?? 0);
+                entries.set(key, entry);
+                patch[key] = entry;
+            }
+            if (Object.keys(patch).length > 0) {
+                await kv.hset(REGISTRY_KEY, patch).catch((err) => {
+                    console.warn('[roster] public leaderboard index backfill failed', err);
+                });
+            }
+        } catch (err) {
+            console.warn('[roster] public leaderboard backfill read failed', err);
+        }
+    }
+
+    return [...entries.values()].map((entry) => (
+        publicIndexToLeaderboardRosterEntry(entry, onlineNames.has(entry.name.toLowerCase()))
+    ));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -153,6 +202,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const presenceEntries = onlineStore.list();
         const livePresenceByName = new Map(presenceEntries.map(p => [p.name, p]));
         const onlineNames = new Set(livePresenceByName.keys());
+
+        if (req.query.leaderboards === '1') {
+            const players = await compactLeaderboardRoster(onlineNames);
+            res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=10');
+            return res.status(200).json({ players });
+        }
 
         // Primary: persistent registry (every player who ever connected)
         const rawRegistry = await kv.hgetall<Record<string, string>>(REGISTRY_KEY) ?? {};

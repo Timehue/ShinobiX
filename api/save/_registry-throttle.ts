@@ -1,3 +1,5 @@
+import { publicPlayerIndexChanged, type PublicPlayerIndexEntry } from '../player/_public-index.js';
+
 // Decides whether a player save should rewrite the shared `player:registry`
 // row. Extracted as a pure function so the throttle is unit-testable (the save
 // handler itself is too entangled with auth/locks/kv to drive in tests).
@@ -19,15 +21,15 @@ export type RegistryIdentity = {
     level: number;
     village: string;
     specialty: string;
-};
+} & Partial<PublicPlayerIndexEntry>;
 
 export function shouldWriteRegistry(opts: {
     /** Clan saves always rewrite (they're infrequent + keyed differently). */
     isClanSave: boolean;
     /** The previously-stored character, or null for a brand-new save. */
     existingChar: Record<string, unknown> | null;
-    /** Identity derived from the sanitized incoming save. */
-    next: RegistryIdentity;
+    /** Public index row derived from the sanitized incoming save. */
+    next: PublicPlayerIndexEntry;
     /** `_registryAt` carried in the prior save blob (0 if never stamped). */
     prevRegistryAt: number;
     now: number;
@@ -39,12 +41,7 @@ export function shouldWriteRegistry(opts: {
     // list from it). Throttling only ever skips a REFRESH of an existing entry.
     if (isClanSave) return true;
     if (!existingChar) return true;
-    const identityChanged =
-        String(existingChar.name ?? '') !== next.name
-        || Number(existingChar.level ?? -1) !== next.level
-        || String(existingChar.village ?? '') !== next.village
-        || String(existingChar.specialty ?? '') !== next.specialty;
-    if (identityChanged) return true;
+    if (publicPlayerIndexChanged(existingChar, next)) return true;
     // Nothing roster-visible changed — only refresh lastSeen if it would drift.
     return now - prevRegistryAt > refreshMs;
 }
