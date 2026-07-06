@@ -145,11 +145,11 @@ export function OnboardingCoach({
             <div style={overlayStyle}>
                 <div className="card" style={cardStyle}>
                     {renderStepLabel()}
-                    <h2 style={{ marginTop: 0 }}>Welcome to the Academy</h2>
+                    <h2 style={{ marginTop: 0 }}>Welcome to {character.village}</h2>
                     <p style={{ lineHeight: 1.5 }}>
-                        Welcome to Shinobi Journey, {character.name}. Before the village
-                        trusts you with real missions, you'll complete <strong>Academy
-                        Training</strong>: learn to fight, train your body, unlock a jutsu,
+                        Your shinobi path begins here, {character.name}. Before the village
+                        trusts you with field work, <strong>Academy Training</strong> will
+                        teach the first loop: win a spar, train your body, ready a jutsu,
                         and claim your first mission reward. It only takes a few minutes.
                     </p>
                     <button
