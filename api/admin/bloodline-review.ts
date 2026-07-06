@@ -4,6 +4,7 @@ import { cors, safeName } from '../_utils.js';
 import { isAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { recordAudit } from '../_audit.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 
 const APPROVED_BLOODLINES_KEY = 'admin:approvedBloodlines';
 
@@ -122,7 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         });
                     await Promise.all([
                         kv.set(adminLockKey, 1, { ex: 300 }),
-                        kv.set(saveKey, { ...snap, savedBloodlines: nextBloodlines }),
+                        kv.set(saveKey, bumpSaveVersion({ ...snap, savedBloodlines: nextBloodlines })),
                         kv.set(resetSignalKey, 1, { ex: 300 }),
                     ]);
                 }

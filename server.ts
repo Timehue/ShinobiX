@@ -41,6 +41,7 @@ import playerLeaderboardsHandler from './api/player/leaderboards.js';
 import playerTradeHandler from './api/player/trade.js';
 import dailyLoginHandler  from './api/player/daily-login.js';
 import blackMarketHandler from './api/festival/black-market.js';
+import sunscarFestivalHandler from './api/festival/sunscar.js';
 import pvpSessionHandler from './api/pvp/session.js';
 import pvpMoveHandler    from './api/pvp/move.js';
 import imagesHandler     from './api/images.js';
@@ -208,6 +209,7 @@ import adminAssetReportHandler from './api/admin/asset-report.js';
 import adminAuditLogHandler from './api/admin/audit-log.js';
 // Admin: economy telemetry (faucet/sink aggregates + recent txns + anomalies)
 import adminEconomyHandler from './api/admin/economy.js';
+import adminEconomyReconcileHandler from './api/admin/economy-reconcile.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
 import { safeEqual } from './api/_auth.js';
@@ -565,6 +567,7 @@ route('/player/trade',        playerTradeHandler);
 // stamp on the save itself. See api/player/_daily-login.ts.
 route('/player/daily-login',  dailyLoginHandler);
 route('/festival/black-market', blackMarketHandler);
+route('/festival/sunscar', sunscarFestivalHandler);
 
 // PvP
 route('/pvp/session', pvpSessionHandler);
@@ -872,6 +875,7 @@ route('/admin/battle-receipts', adminBattleReceiptsHandler);
 route('/admin/asset-report', adminAssetReportHandler);
 route('/admin/audit-log', adminAuditLogHandler);
 route('/admin/economy', adminEconomyHandler);
+route('/admin/economy-reconcile', adminEconomyReconcileHandler);
 
 // NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
 // `npm test` if the client calls an /api path that isn't registered here, or if
