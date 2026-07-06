@@ -16,6 +16,7 @@ import { masteryBudget, sanitizeMasterySpec } from '../_profession-mastery.js';
 import { combatMissionByKey } from '../missions/_mission-catalog.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
+import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
 
@@ -121,7 +122,6 @@ function combatProjection(data: Record<string, unknown>): Record<string, unknown
     return out;
 }
 
-const REGISTRY_KEY = 'player:registry';
 // How long the cached player:registry `lastSeen` may drift before a save
 // rewrites it even when no identity field changed. kv.hset re-serializes the
 // entire registry row (one hot row holding every player) on each call — a
@@ -1894,14 +1894,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // persisted save was clamped. safeIncoming is what we just
                     // wrote, so the index matches the stored truth.
                     const char = (safeIncoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
-                    const displayName: string = (char?.name as string) || name;
-                    const registryEntry = {
-                        name: displayName,
-                        level: (char?.level as number) ?? 1,
-                        village: (char?.village as string) ?? '',
-                        specialty: (char?.specialty as string) ?? '',
-                        lastSeen: Date.now(),
-                    };
+                    const registryNow = Date.now();
+                    const registryEntry = buildPublicPlayerIndexEntry(char, name, registryNow);
 
                     // Throttle the registry rewrite (see REGISTRY_REFRESH_MS +
                     // shouldWriteRegistry). The previous registry write time is carried
@@ -1914,7 +1908,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         existingChar: (existingObj?.character ?? null) as Record<string, unknown> | null,
                         next: registryEntry,
                         prevRegistryAt,
-                        now: Date.now(),
+                        now: registryNow,
                         refreshMs: REGISTRY_REFRESH_MS,
                     });
                     // Stamp when we actually (re)wrote the registry so the next save can
@@ -1952,14 +1946,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
 
             const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
-            const displayName: string = (char?.name as string) || name;
-            const registryEntry = {
-                name: displayName,
-                level: (char?.level as number) ?? 1,
-                village: (char?.village as string) ?? '',
-                specialty: (char?.specialty as string) ?? '',
-                lastSeen: Date.now(),
-            };
+            const registryEntry = buildPublicPlayerIndexEntry(char, name);
 
             await Promise.all([
                 kv.set(key, payload),

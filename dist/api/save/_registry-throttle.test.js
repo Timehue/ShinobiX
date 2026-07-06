@@ -2,9 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const node_assert_1 = require("node:assert");
+const _public_index_js_1 = require("../player/_public-index.js");
 const _registry_throttle_js_1 = require("./_registry-throttle.js");
 const REFRESH = 60_000;
-const ID = { name: 'Akira', level: 5, village: 'Stormveil', specialty: 'Ninjutsu' };
+const ID = (0, _public_index_js_1.buildPublicPlayerIndexEntry)({
+    name: 'Akira',
+    level: 5,
+    village: 'Stormveil',
+    specialty: 'Ninjutsu',
+}, 'akira', 1_000_000, 1_000_000);
 const base = {
     isClanSave: false,
     existingChar: { name: 'Akira', level: 5, village: 'Stormveil', specialty: 'Ninjutsu' },
@@ -34,6 +40,16 @@ const base = {
     });
     (0, node_test_1.it)('writes when display name changed', () => {
         node_assert_1.strict.equal((0, _registry_throttle_js_1.shouldWriteRegistry)({ ...base, next: { ...ID, name: 'Akira II' } }), true);
+    });
+    (0, node_test_1.it)('writes when a leaderboard field changed', () => {
+        node_assert_1.strict.equal((0, _registry_throttle_js_1.shouldWriteRegistry)({ ...base, next: { ...ID, rankedRating: 1100 } }), true);
+    });
+    (0, node_test_1.it)('treats absent legacy leaderboard fields as their public defaults', () => {
+        node_assert_1.strict.equal((0, _registry_throttle_js_1.shouldWriteRegistry)({
+            ...base,
+            existingChar: { name: 'Akira', level: 5, village: 'Stormveil', specialty: 'Ninjutsu' },
+            next: ID,
+        }), false);
     });
     (0, node_test_1.it)('refreshes lastSeen once the cached stamp drifts past refreshMs', () => {
         // 61s after the last registry write, with no identity change → refresh.
