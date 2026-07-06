@@ -2,11 +2,14 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     PUBLIC_INDEX_VERSION,
+    buildPublicLeaderboards,
     buildPublicPlayerIndexEntry,
+    isPublicPlayerIndexKey,
     needsPublicPlayerIndexBackfill,
     parsePublicPlayerIndexEntry,
     publicIndexToLeaderboardRosterEntry,
     publicPlayerIndexChanged,
+    summarizePublicIndexHealth,
 } from './_public-index.js';
 
 describe('public player index', () => {
@@ -81,5 +84,65 @@ describe('public player index', () => {
         assert.equal(row.name, 'Akira');
         assert.equal(row.character.rankedRating, 1337);
         assert.equal(row.character.clan, 'Crimson Moon');
+    });
+
+    it('builds ranked public boards without admin or clan bookkeeping rows', () => {
+        const akira = buildPublicPlayerIndexEntry({
+            name: 'Akira',
+            level: 14,
+            village: 'Stormveil',
+            clan: 'Crimson Moon',
+            rankedRating: 1200,
+            rankedWins: 1,
+            totalPvpKills: 8,
+        }, 'akira', 5000, 4000);
+        const boro = buildPublicPlayerIndexEntry({
+            name: 'Boro',
+            level: 18,
+            village: 'Ashvale',
+            clan: 'Crimson Moon',
+            rankedRating: 1320,
+            rankedWins: 2,
+        }, 'boro', 5000, 4500);
+        const admin = buildPublicPlayerIndexEntry({ name: 'admin1', rankedRating: 9999 }, 'admin1');
+
+        assert.equal(isPublicPlayerIndexKey('admin1'), false);
+        assert.equal(isPublicPlayerIndexKey('clan-crimson-moon'), false);
+
+        const boards = buildPublicLeaderboards([akira, boro, admin], ['akira'], 10);
+        const ranked = boards.find((board) => board.id === 'ranked');
+        const online = boards.find((board) => board.id === 'online');
+        const clans = boards.find((board) => board.id === 'clans');
+
+        assert.deepEqual(ranked?.rows.map((row) => row.name), ['Boro', 'Akira']);
+        assert.deepEqual(online?.rows.map((row) => row.name), ['Akira']);
+        assert.equal(clans?.rows[0]?.name, 'Crimson Moon');
+        assert.equal(clans?.rows[0]?.members, 2);
+        assert.equal(clans?.rows[0]?.value, 11);
+    });
+
+    it('summarizes registry health and optional save-key parity', () => {
+        const akira = buildPublicPlayerIndexEntry({ name: 'Akira', level: 10 }, 'akira', 5000, 4000);
+        const legacy = { name: 'Legacy', level: 2, village: 'Stormveil', specialty: 'Ninjutsu', lastSeen: 3000 };
+        const health = summarizePublicIndexHealth({
+            akira,
+            legacy,
+            broken: '{nope',
+            admin1: buildPublicPlayerIndexEntry({ name: 'admin1' }, 'admin1'),
+            'clan-crimson-moon': { name: 'clan-crimson-moon' },
+        }, ['save:akira', 'save:legacy', 'save:missing', 'save:admin1', 'save:clan-crimson-moon'], 6000);
+
+        assert.equal(health.totalRegistryEntries, 5);
+        assert.equal(health.publicRegistryEntries, 3);
+        assert.equal(health.validEntries, 2);
+        assert.equal(health.malformedEntries, 1);
+        assert.equal(health.staleEntries, 1);
+        assert.equal(health.adminEntries, 1);
+        assert.equal(health.clanEntries, 1);
+        assert.equal(health.saveKeyCount, 3);
+        assert.equal(health.missingRegistryCount, 1);
+        assert.equal(health.orphanRegistryCount, 1);
+        assert.deepEqual(health.missingRegistryKeys, ['missing']);
+        assert.deepEqual(health.orphanRegistryKeys, ['broken']);
     });
 });

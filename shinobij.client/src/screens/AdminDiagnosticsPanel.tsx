@@ -40,6 +40,35 @@ type AuditEntry = {
     reason?: string; meta?: Record<string, unknown>;
 };
 type AuditDomain = "content" | "reward" | "sector" | "combat" | "legacy";
+type DiagnosticsSection = "assets" | "receipts" | "audit" | "economy" | "index";
+
+type PlayerIndexHealth = {
+    version: number;
+    generatedAt: number;
+    totalRegistryEntries: number;
+    publicRegistryEntries: number;
+    validEntries: number;
+    malformedEntries: number;
+    staleEntries: number;
+    oldVersionEntries: number;
+    missingFieldEntries: number;
+    nonPublicEntries: number;
+    adminEntries: number;
+    clanEntries: number;
+    emptyNameEntries: number;
+    oldestLastSeen: number;
+    newestLastSeen: number;
+    scannedSaves: boolean;
+    saveKeyCount?: number;
+    missingRegistryCount?: number;
+    orphanRegistryCount?: number;
+    missingRegistryKeys: string[];
+    orphanRegistryKeys: string[];
+    sampleMalformed: string[];
+    sampleStale: string[];
+    sampleNonPublic: string[];
+    sampleMissingFields: Array<{ key: string; fields: string[] }>;
+};
 
 // Built-in catalogs whose stored image id is `<cat>:<entityId>`. Cross-referenced
 // against what's actually in storage to find catalog entries with no image.
@@ -60,7 +89,7 @@ const pill: React.CSSProperties = { display: "inline-block", background: "#2a2a3
 const mono: React.CSSProperties = { fontFamily: "monospace", fontSize: "0.82rem" };
 
 export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
-    const [section, setSection] = useState<"assets" | "receipts" | "audit" | "economy">("assets");
+    const [section, setSection] = useState<DiagnosticsSection>("assets");
 
     // ── Battle receipts ──────────────────────────────────────────────────────
     const [battleId, setBattleId] = useState("");
@@ -171,6 +200,32 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
     }, [adminPw]);
     useEffect(() => { if (section === "economy") void loadEconomy(); }, [section, loadEconomy]);
 
+    // Public player index health.
+    const [indexHealth, setIndexHealth] = useState<PlayerIndexHealth | null>(null);
+    const [indexStatus, setIndexStatus] = useState("");
+    const [indexScan, setIndexScan] = useState(false);
+    const [indexBackfilled, setIndexBackfilled] = useState(0);
+    const [indexStaleBeforeBackfill, setIndexStaleBeforeBackfill] = useState(0);
+
+    const loadIndexHealth = useCallback(async (scan = indexScan) => {
+        if (!adminPw) return;
+        setIndexStatus("Loading...");
+        try {
+            const url = scan ? "/api/admin/player-index-health?scan=1" : "/api/admin/player-index-health";
+            const r = await fetch(url, { headers: { "x-admin-password": adminPw } });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+            if (!data.health) throw new Error("Missing index health payload");
+            setIndexHealth(data.health as PlayerIndexHealth);
+            setIndexBackfilled(Number(data.backfilled ?? 0));
+            setIndexStaleBeforeBackfill(Number(data.staleBeforeBackfill ?? 0));
+            setIndexStatus("");
+        } catch (e) {
+            setIndexStatus(`X ${(e as Error).message}`);
+        }
+    }, [adminPw, indexScan]);
+    useEffect(() => { if (section === "index") void loadIndexHealth(indexScan); }, [section, indexScan, loadIndexHealth]);
+
     // ── Render ───────────────────────────────────────────────────────────────
     return (
         <div>
@@ -179,9 +234,9 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                 Read-only operations tools — battle receipts, asset health, and the action audit log.
             </p>
             <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                {(["assets", "receipts", "audit", "economy"] as const).map((s) => (
+                {(["assets", "receipts", "audit", "economy", "index"] as const).map((s) => (
                     <button key={s} className={section === s ? "active" : ""} onClick={() => setSection(s)}>
-                        {s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : "Economy"}
+                        {s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : s === "economy" ? "Economy" : "Player Index"}
                     </button>
                 ))}
             </div>
@@ -366,6 +421,113 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                                     ))}
                                 </div>
                             </div>
+                        </>
+                    )}
+                </div>
+            )}
+
+            {section === "index" && (
+                <div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <button onClick={() => void loadIndexHealth(indexScan)} disabled={!adminPw}>Refresh</button>
+                        <label style={{ color: "#9aa", fontSize: "0.85rem" }}>
+                            <input
+                                type="checkbox"
+                                checked={indexScan}
+                                onChange={(e) => setIndexScan(e.target.checked)}
+                                style={{ marginRight: 6 }}
+                            />
+                            Compare save keys
+                        </label>
+                        {indexStatus && <span style={{ color: "#f88" }}>{indexStatus}</span>}
+                    </div>
+
+                    {indexHealth && (
+                        <>
+                            <div style={box}>
+                                <strong>Public player index v{indexHealth.version}</strong>
+                                <div style={{ marginTop: 6 }}>
+                                    <span style={pill}>registry rows: {indexHealth.totalRegistryEntries.toLocaleString()}</span>
+                                    <span style={pill}>public rows: {indexHealth.publicRegistryEntries.toLocaleString()}</span>
+                                    <span style={pill}>valid: {indexHealth.validEntries.toLocaleString()}</span>
+                                    <span style={pill}>stale: {indexHealth.staleEntries.toLocaleString()}</span>
+                                    <span style={pill}>malformed: {indexHealth.malformedEntries.toLocaleString()}</span>
+                                </div>
+                                <div style={{ marginTop: 6 }}>
+                                    <span style={pill}>backfilled this check: {indexBackfilled.toLocaleString()}</span>
+                                    <span style={pill}>stale before backfill: {indexStaleBeforeBackfill.toLocaleString()}</span>
+                                    <span style={pill}>old version: {indexHealth.oldVersionEntries.toLocaleString()}</span>
+                                    <span style={pill}>missing fields: {indexHealth.missingFieldEntries.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            <div style={box}>
+                                <strong>Non-public registry rows</strong>
+                                <div style={{ marginTop: 6 }}>
+                                    <span style={pill}>non-public: {indexHealth.nonPublicEntries.toLocaleString()}</span>
+                                    <span style={pill}>admin: {indexHealth.adminEntries.toLocaleString()}</span>
+                                    <span style={pill}>clan records: {indexHealth.clanEntries.toLocaleString()}</span>
+                                    <span style={pill}>empty keys: {indexHealth.emptyNameEntries.toLocaleString()}</span>
+                                </div>
+                                {indexHealth.sampleNonPublic.length > 0 && (
+                                    <div style={{ ...mono, marginTop: 6 }}>
+                                        {indexHealth.sampleNonPublic.map((key) => <span key={key} style={pill}>{key}</span>)}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={box}>
+                                <strong>Freshness</strong>
+                                <div style={{ marginTop: 6 }}>
+                                    <span style={pill}>oldest seen: {fmtTime(indexHealth.oldestLastSeen)}</span>
+                                    <span style={pill}>newest seen: {fmtTime(indexHealth.newestLastSeen)}</span>
+                                    <span style={pill}>generated: {fmtTime(indexHealth.generatedAt)}</span>
+                                </div>
+                            </div>
+
+                            {indexHealth.scannedSaves && (
+                                <div style={box}>
+                                    <strong>Save key comparison</strong>
+                                    <div style={{ marginTop: 6 }}>
+                                        <span style={pill}>save keys: {(indexHealth.saveKeyCount ?? 0).toLocaleString()}</span>
+                                        <span style={pill}>missing registry: {(indexHealth.missingRegistryCount ?? 0).toLocaleString()}</span>
+                                        <span style={pill}>orphan registry: {(indexHealth.orphanRegistryCount ?? 0).toLocaleString()}</span>
+                                    </div>
+                                    {indexHealth.missingRegistryKeys.length > 0 && (
+                                        <div style={{ ...mono, marginTop: 6 }}>
+                                            <strong>Missing:</strong>{" "}
+                                            {indexHealth.missingRegistryKeys.map((key) => <span key={key} style={pill}>{key}</span>)}
+                                        </div>
+                                    )}
+                                    {indexHealth.orphanRegistryKeys.length > 0 && (
+                                        <div style={{ ...mono, marginTop: 6 }}>
+                                            <strong>Orphan:</strong>{" "}
+                                            {indexHealth.orphanRegistryKeys.map((key) => <span key={key} style={pill}>{key}</span>)}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {(indexHealth.sampleMalformed.length > 0 || indexHealth.sampleStale.length > 0 || indexHealth.sampleMissingFields.length > 0) && (
+                                <div style={{ ...box, borderColor: "#a63" }}>
+                                    <strong>Samples needing attention</strong>
+                                    {indexHealth.sampleMalformed.length > 0 && (
+                                        <div style={{ ...mono, marginTop: 6 }}>
+                                            malformed: {indexHealth.sampleMalformed.map((key) => <span key={key} style={pill}>{key}</span>)}
+                                        </div>
+                                    )}
+                                    {indexHealth.sampleStale.length > 0 && (
+                                        <div style={{ ...mono, marginTop: 6 }}>
+                                            stale: {indexHealth.sampleStale.map((key) => <span key={key} style={pill}>{key}</span>)}
+                                        </div>
+                                    )}
+                                    {indexHealth.sampleMissingFields.map((sample) => (
+                                        <div key={sample.key} style={{ ...mono, marginTop: 6 }}>
+                                            {sample.key}: {sample.fields.join(", ")}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </>
                     )}
                 </div>

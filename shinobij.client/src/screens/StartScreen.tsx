@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
-import { type Character, type LbTab } from "../App";
+import { type Character } from "../App";
 import { villages } from "../data/sectors";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import { GiRank3, GiDaggers, GiUpgrade, GiBlackFlag, GiPawPrint, GiVortex, GiCrossedSwords, GiTrophy, GiVillage } from "react-icons/gi";
@@ -47,6 +47,42 @@ type PublicTournament = {
     participants?: string[];
     advancedPlayers?: string[];
 } | null;
+
+type PublicLeaderboardBoardId =
+    | "online"
+    | "ranked"
+    | "petRanked"
+    | "level"
+    | "xp"
+    | "kills"
+    | "pets"
+    | "endless"
+    | "villageWars"
+    | "professions"
+    | "battleTower"
+    | "clans";
+type PublicLeaderboardTab = PublicLeaderboardBoardId | "tournament";
+type PublicLeaderboardRow = {
+    rank: number;
+    name: string;
+    value: number;
+    label: string;
+    level?: number;
+    village?: string;
+    specialty?: string;
+    clan?: string;
+    online?: boolean;
+    lastSeenAt?: number;
+    members?: number;
+    onlineMembers?: number;
+};
+type PublicLeaderboardBoard = {
+    id: PublicLeaderboardBoardId;
+    label: string;
+    valueLabel: string;
+    suffix: string;
+    rows: PublicLeaderboardRow[];
+};
 
 // ── Landing feature showcase ─────────────────────────────────────────────
 type LiveStats = { online: number };
@@ -577,8 +613,8 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
 }
 
 function PublicLeaderboard({ onBack }: { onBack: () => void }) {
-    const [tab, setTab] = useState<LbTab>("ranked");
-    const [players, setPlayers] = useState<RosterEntry[]>([]);
+    const [tab, setTab] = useState<PublicLeaderboardTab>("ranked");
+    const [boards, setBoards] = useState<Partial<Record<PublicLeaderboardBoardId, PublicLeaderboardBoard>>>({});
     const [tournament, setTournament] = useState<PublicTournament>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -589,13 +625,19 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             setLoading(true);
             setError("");
             try {
-                const [rosterRes, gameStateRes] = await Promise.all([
-                    fetch("/api/player/roster?leaderboards=1"),
+                const [leaderboardRes, gameStateRes] = await Promise.all([
+                    fetch("/api/player/leaderboards?limit=25"),
                     fetch("/api/game-state").catch(() => null),
                 ]);
-                if (!rosterRes.ok) throw new Error(`Roster HTTP ${rosterRes.status}`);
-                const rosterData = await rosterRes.json() as { players?: RosterEntry[] };
-                if (!cancelled) setPlayers(Array.isArray(rosterData.players) ? rosterData.players : []);
+                if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
+                const leaderboardData = await leaderboardRes.json() as { boards?: PublicLeaderboardBoard[] };
+                if (!cancelled) {
+                    const nextBoards: Partial<Record<PublicLeaderboardBoardId, PublicLeaderboardBoard>> = {};
+                    for (const board of Array.isArray(leaderboardData.boards) ? leaderboardData.boards : []) {
+                        nextBoards[board.id] = board;
+                    }
+                    setBoards(nextBoards);
+                }
 
                 if (gameStateRes && gameStateRes.ok) {
                     const gs = await gameStateRes.json() as { arenaTournament?: PublicTournament };
@@ -610,104 +652,43 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
         return () => { cancelled = true; };
     }, []);
 
-    const tabs: { id: LbTab; label: string; icon: ReactNode }[] = [
+    const tabs: { id: PublicLeaderboardTab; label: string; icon: ReactNode }[] = [
+        { id: "online",      label: "Online",       icon: <GiVillage /> },
         { id: "ranked",      label: "Ranked",       icon: <GiRank3 /> },
+        { id: "petRanked",   label: "Pet Rating",   icon: <GiPawPrint /> },
+        { id: "level",       label: "Level",        icon: <GiVortex /> },
         { id: "kills",       label: "Kill Streaks", icon: <GiDaggers /> },
         { id: "xp",          label: "Most XP",      icon: <GiUpgrade /> },
         { id: "clans",       label: "Top Clans",    icon: <GiBlackFlag /> },
         { id: "pets",        label: "Pet Wins",     icon: <GiPawPrint /> },
         { id: "endless",     label: "Endless",      icon: <GiVortex /> },
         { id: "villageWars", label: "Village Wars", icon: <GiCrossedSwords /> },
+        { id: "professions", label: "Professions",  icon: <GiUpgrade /> },
+        { id: "battleTower", label: "Battle Tower", icon: <GiTrophy /> },
         { id: "tournament",  label: "Tournament",   icon: <GiTrophy /> },
     ];
 
-    function getValue(p: RosterEntry, t: LbTab): number {
-        const c = p.character ?? {};
+    function getLabel(t: PublicLeaderboardTab): string {
+        if (t !== "tournament" && boards[t]?.label) return boards[t]!.label;
         switch (t) {
-            case "ranked": return Number(c.rankedRating ?? 1000);
-            case "kills": return Number(c.totalPvpKills ?? 0);
-            case "xp": return Number(c.xp ?? 0);
-            case "pets": return Number(c.totalPetWins ?? 0);
-            case "endless": return Number(c.totalEndlessTowerWins ?? 0);
-            case "villageWars": return Number(c.totalVillageRaids ?? 0);
-            case "professions": return Number(c.professionXp ?? 0);
-            case "weeklyBoss":
-            case "clans":
-            case "tournament":
-            case "bounties":
-            case "gauntlet":
-            case "legends":
-            case "news":
-            case "eras":
-                return 0;
-        }
-    }
-
-    function getSuffix(t: LbTab): string {
-        switch (t) {
-            case "ranked": return " Elo";
-            case "kills": return " kills";
-            case "xp": return " XP";
-            case "pets": return " wins";
-            case "endless": return " waves";
-            case "villageWars": return " raids";
-            case "weeklyBoss": return " dmg";
-            case "professions": return " XP";
-            case "clans":
-            case "tournament":
-            case "bounties":
-            case "gauntlet":
-            case "legends":
-            case "news":
-            case "eras":
-                return "";
-        }
-    }
-
-    function getLabel(t: LbTab): string {
-        switch (t) {
+            case "online": return "Shinobi Online Now";
             case "ranked": return "Ranked Battle Rating (Elo)";
+            case "petRanked": return "Pet Arena Rating (Elo)";
+            case "level": return "Highest Level";
             case "kills": return "Total PvP Kills";
             case "xp": return "Total XP Earned";
             case "pets": return "Pet Coliseum Wins";
             case "endless": return "Endless Tower — Waves Survived";
             case "villageWars": return "Village War Raids Completed";
-            case "weeklyBoss": return "Weekly Boss — Top Damage";
             case "clans": return "Clan Power (Ranked Wins + PvP Kills)";
             case "tournament": return "Last Tournament";
             case "professions": return "Top Profession XP (all professions)";
-            case "bounties": return "Active Bounties";
-            case "gauntlet": return "Weekly Pet Gauntlet";
-            case "legends": return "Hall of Legends";
-            case "news": return "World News";
-            case "eras": return "World Eras";
+            case "battleTower": return "Battle Tower Best Floor";
         }
     }
 
-    const playersWithChar = players.filter(p => p.character);
-
-    // Player leaderboards (per-stat sort, top 25)
-    const rankedPlayers = (tab === "clans" || tab === "tournament")
-        ? []
-        : [...playersWithChar]
-            .sort((a, b) => getValue(b, tab) - getValue(a, tab))
-            .slice(0, 25);
-
-    // Clan aggregation — matches HallOfLegends logic
-    const clanMap = new Map<string, { score: number; members: number; topVillage: string }>();
-    for (const p of playersWithChar) {
-        const c = p.character ?? {};
-        if (!c.clan) continue;
-        const existing = clanMap.get(c.clan) ?? { score: 0, members: 0, topVillage: p.village };
-        clanMap.set(c.clan, {
-            score: existing.score + Number(c.rankedWins ?? 0) + Number(c.totalPvpKills ?? 0),
-            members: existing.members + 1,
-            topVillage: existing.topVillage,
-        });
-    }
-    const topClans = [...clanMap.entries()]
-        .sort((a, b) => b[1].score - a[1].score)
-        .slice(0, 25);
+    const activeBoard = tab === "tournament" ? null : boards[tab];
+    const activeRows = activeBoard?.rows ?? [];
 
     return (
         <div className="card start-leaderboard">
@@ -742,40 +723,23 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
                     <p className="start-leaderboard-empty">Could not load leaderboard ({error}).</p>
                 )}
 
-                {!loading && !error && tab !== "clans" && tab !== "tournament" && (
-                    rankedPlayers.length === 0
+                {!loading && !error && tab !== "tournament" && (
+                    activeRows.length === 0
                         ? <p className="start-leaderboard-empty">No shinobi have recorded glory yet.</p>
-                        : rankedPlayers.map((p, i) => {
-                            const v = getValue(p, tab);
+                        : activeRows.map((row, i) => {
                             const rankCls = i === 0 ? "top-1" : i === 1 ? "top-2" : i === 2 ? "top-3" : "";
-                            const medal = i < 3 ? ["🥇","🥈","🥉"][i] : `#${i + 1}`;
+                            const medal = `#${row.rank || i + 1}`;
+                            const detail = row.members
+                                ? `${row.members} member${row.members !== 1 ? "s" : ""}${row.onlineMembers ? `, ${row.onlineMembers} online` : ""}`
+                                : row.clan || row.village || "";
                             return (
-                                <div key={p.name} className={`start-leaderboard-row ${rankCls}`}>
+                                <div key={`${tab}:${row.name}`} className={`start-leaderboard-row ${rankCls}`}>
                                     <span className="start-leaderboard-rank">{medal}</span>
                                     <span className="start-leaderboard-name">
-                                        {p.name}
-                                        {p.village ? <span className="start-leaderboard-village"> · {p.village}</span> : null}
+                                        {row.name}
+                                        {detail ? <span className="start-leaderboard-village"> · {detail}</span> : null}
                                     </span>
-                                    <span className="start-leaderboard-value">{v.toLocaleString()}{getSuffix(tab)}</span>
-                                </div>
-                            );
-                        })
-                )}
-
-                {!loading && !error && tab === "clans" && (
-                    topClans.length === 0
-                        ? <p className="start-leaderboard-empty">No clan data available yet.</p>
-                        : topClans.map(([clan, data], i) => {
-                            const rankCls = i === 0 ? "top-1" : i === 1 ? "top-2" : i === 2 ? "top-3" : "";
-                            const medal = i < 3 ? ["🥇","🥈","🥉"][i] : `#${i + 1}`;
-                            return (
-                                <div key={clan} className={`start-leaderboard-row ${rankCls}`}>
-                                    <span className="start-leaderboard-rank">{medal}</span>
-                                    <span className="start-leaderboard-name">
-                                        {clan}
-                                        <span className="start-leaderboard-village"> · {data.members} member{data.members !== 1 ? "s" : ""}</span>
-                                    </span>
-                                    <span className="start-leaderboard-value">{data.score.toLocaleString()} pts</span>
+                                    <span className="start-leaderboard-value">{row.label || row.value.toLocaleString()}</span>
                                 </div>
                             );
                         })

@@ -37,6 +37,7 @@ import sleeperKillHandler from './api/player/sleeper-kill.js';
 import clearAttackHandler from './api/player/clear-attack.js';
 import healHandler       from './api/player/heal.js';
 import rosterHandler     from './api/player/roster.js';
+import playerLeaderboardsHandler from './api/player/leaderboards.js';
 import playerTradeHandler from './api/player/trade.js';
 import dailyLoginHandler  from './api/player/daily-login.js';
 import blackMarketHandler from './api/festival/black-market.js';
@@ -47,6 +48,7 @@ import imgHandler        from './api/img.js';
 import playerAuthHandler from './api/player-auth.js';
 import adminAuthHandler  from './api/admin-auth.js';
 import adminPlayersHandler from './api/admin/players.js';
+import adminPlayerIndexHealthHandler from './api/admin/player-index-health.js';
 import serverResetHandler from './api/admin/server-reset.js';
 import adminRankedSeasonHandler from './api/admin/ranked-season.js';
 import clansListHandler  from './api/clans/list.js';
@@ -555,6 +557,7 @@ route('/player/sleeper-kill', sleeperKillHandler);
 route('/player/clear-attack', clearAttackHandler);
 route('/player/heal',         healHandler);
 route('/player/roster',       rosterHandler);
+route('/player/leaderboards', playerLeaderboardsHandler);
 route('/player/trade',        playerTradeHandler);
 // Daily login-streak reward — server-authoritative ryo + 7-day fate-shard bonus,
 // once per UTC day under the save lock (failClosed), idempotent via the date
@@ -580,6 +583,7 @@ route('/admin-auth',  adminAuthHandler);
 
 // Admin
 route('/admin/players',      adminPlayersHandler);
+route('/admin/player-index-health', adminPlayerIndexHealthHandler);
 route('/admin/server-reset', serverResetHandler);
 route('/admin/ranked-season', adminRankedSeasonHandler);
 
