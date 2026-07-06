@@ -4935,8 +4935,8 @@ export default function App() {
         // (The token captured above is preferred; password is the fallback.)
         setActivePlayer(newCharacter.name, password);
 
-        setCurrentAccountName(newCharacter.name);
-        setCharacter(newCharacter);
+        const characterToCreate = await import("./features/character-creator/starterAvatarPublish").then(({ publishStarterAvatarForCharacter }) => publishStarterAvatarForCharacter(newCharacter, (id, image) => setSharedImages(prev => ({ ...prev, [id]: image })))).catch((error) => { console.warn("[createPlayerAccount] starter avatar publish failed", error); return newCharacter; });
+        setCurrentAccountName(characterToCreate.name); setCharacter(characterToCreate);
         setCurrentBiome("central");
         setActiveTraining(null);
         setActiveJutsuTraining(null);
@@ -4953,7 +4953,7 @@ export default function App() {
         // by setCharacter above), but warn the player so they don't refresh on a
         // dropped connection before the retry lands.
         try {
-            await pushSaveToServer(newCharacter, newCharacter.name);
+            await pushSaveToServer(characterToCreate, characterToCreate.name);
         } catch (err) {
             console.error("[createPlayerAccount] first save failed", err);
             alert("Your character was created, but the first save to the server didn't go through. Keep this tab open — it will retry automatically. Don't refresh yet, or your new character could be lost.");
