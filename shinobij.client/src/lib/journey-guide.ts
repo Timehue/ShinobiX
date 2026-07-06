@@ -30,7 +30,7 @@ function trainedStatPoints(character: Character): number {
 }
 
 function hasStarterLoadout(character: Character): boolean {
-    return (character.equippedJutsuIds?.length ?? 0) >= 4 || (character.jutsuMastery?.length ?? 0) >= 4;
+    return (character.equippedJutsuIds?.length ?? 0) >= 4;
 }
 
 export function buildJourneyGuide(character: Character): JourneyGuideState {
@@ -38,10 +38,10 @@ export function buildJourneyGuide(character: Character): JourneyGuideState {
     const pendingCombatClaim = (character.pendingCombatMissionClaims?.length ?? 0) > 0;
     const step = normalizeOnboardingStep(character.onboardingStep ?? "");
     const startedTraining = trainedPoints > 0 || onboardingStepAtLeast(step, "jutsu");
-    const hasLoadout = hasStarterLoadout(character) || onboardingStepAtLeast(step, "firstMission");
-    const wonFirstFight = (character.totalAiKills ?? 0) > 0 || pendingCombatClaim || onboardingStepAtLeast(step, "training");
+    const hasLoadout = hasStarterLoadout(character) || onboardingStepAtLeast(step, "inventory");
+    const wonFirstFight = (character.totalAiKills ?? 0) > 0 || pendingCombatClaim || onboardingStepAtLeast(step, "cafeteria");
     const claimedFirstMission = Boolean(character.academyTrialClaimed) || onboardingStepAtLeast(step, "logbook") || Math.max(character.totalMissionsCompleted ?? 0, character.clanMissionContrib ?? 0) > 0;
-    const openedLogbook = Boolean(character.academyChecklistClaimed) || onboardingStepAtLeast(step, "storyUnlocked");
+    const openedLogbook = Boolean(character.academyChecklistClaimed) || onboardingStepAtLeast(step, "sectorReturn");
 
     const objectives: JourneyGuideObjective[] = [
         {
