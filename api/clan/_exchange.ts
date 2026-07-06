@@ -316,6 +316,48 @@ function recordPurchase(purchases: ClanExchangePurchases, item: ClanExchangeItem
     return next;
 }
 
+function removePurchase(purchases: ClanExchangePurchases, item: ClanExchangeItemDef, now: Date): ClanExchangePurchases {
+    const next = cleanPurchases(purchases);
+    if (item.limit.kind === 'weekly') {
+        const key = clanPointWeekKey(now);
+        const bucket = { ...(next.weekly?.[key] ?? {}) };
+        const count = floorNonNegative(bucket[item.id]);
+        if (count <= 1) delete bucket[item.id];
+        else bucket[item.id] = count - 1;
+        next.weekly = { ...(next.weekly ?? {}) };
+        if (Object.keys(bucket).length) next.weekly[key] = bucket;
+        else delete next.weekly[key];
+    } else if (item.limit.kind === 'monthly') {
+        const key = clanPointMonthKey(now);
+        const bucket = { ...(next.monthly?.[key] ?? {}) };
+        const count = floorNonNegative(bucket[item.id]);
+        if (count <= 1) delete bucket[item.id];
+        else bucket[item.id] = count - 1;
+        next.monthly = { ...(next.monthly ?? {}) };
+        if (Object.keys(bucket).length) next.monthly[key] = bucket;
+        else delete next.monthly[key];
+    } else {
+        next.oneTime = { ...(next.oneTime ?? {}) };
+        delete next.oneTime[item.id];
+    }
+    return next;
+}
+
+export function refundClanExchangeTreasuryPurchase(args: {
+    character: Record<string, unknown>;
+    itemId: string;
+    now?: Date;
+}): Record<string, unknown> {
+    const item = ITEM_BY_ID.get(args.itemId as ClanExchangeItemId);
+    if (!item || item.reward.kind !== 'treasury') return args.character;
+    const now = args.now ?? new Date();
+    return {
+        ...args.character,
+        clanPoints: floorNonNegative(args.character.clanPoints) + item.cost,
+        clanExchangePurchases: removePurchase(cleanPurchases(args.character.clanExchangePurchases), item, now),
+    };
+}
+
 function addItem(character: Record<string, unknown>, itemId: string, count: number): Record<string, unknown> {
     const n = Math.max(1, Math.floor(count));
     if (STACKABLE_EXCHANGE_ITEM_IDS.has(itemId)) {

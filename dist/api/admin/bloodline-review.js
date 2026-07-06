@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _audit_js_1 = require("../_audit.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const APPROVED_BLOODLINES_KEY = 'admin:approvedBloodlines';
 // Explicit allowlist of fields that can be merged into an existing bloodline
 // via the `update` action. Anything else in the body is ignored. Prevents
@@ -120,7 +121,7 @@ async function handler(req, res) {
                         });
                     await Promise.all([
                         _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 }),
-                        _storage_js_1.kv.set(saveKey, { ...snap, savedBloodlines: nextBloodlines }),
+                        _storage_js_1.kv.set(saveKey, (0, _save_version_js_1.bumpSaveVersion)({ ...snap, savedBloodlines: nextBloodlines })),
                         _storage_js_1.kv.set(resetSignalKey, 1, { ex: 300 }),
                     ]);
                 }

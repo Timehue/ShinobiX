@@ -8,6 +8,7 @@ import {
 } from "react-icons/gi";
 // Inline style for a glyph that prefixes button/heading text — seats it on the baseline.
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
+type WeeklyBossDamageProofEvent = { turn: number; amount: number; source: string };
 import { createPortal } from "react-dom";
 import type { Biome, JutsuElement, JutsuType, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord, BattleHistoryEntry } from "../types/character";
@@ -173,7 +174,7 @@ export function Arena({
     onPendingStoryBattleWin?: (survivingHp: number) => string;
     onPendingStoryBattleContinue?: () => void;
     onDungeonFail?: () => void;
-    onWeeklyBossLogDamage?: (damageDealt: number) => void;
+    onWeeklyBossLogDamage?: (damageDealt: number, damageEvents?: WeeklyBossDamageProofEvent[]) => void;
     onMissionRaidComplete?: (sector: number, battleId?: string) => void;
     onHuntBeastDefeated?: (defeatedAiId: string) => void;
     missionBattleActive?: boolean;
@@ -682,6 +683,16 @@ export function Arena({
     // Set on click, disable the button while true; the handler leaves the screen so
     // no reset is needed.
     const [logging, setLogging] = useState(false);
+    const weeklyBossDamageEventsRef = useRef<WeeklyBossDamageProofEvent[]>([]);
+    function recordWeeklyBossDamage(amount: number, source: string) {
+        if (!isWeeklyBossFight) return;
+        const cleanAmount = Math.max(0, Math.floor(Number(amount) || 0));
+        if (cleanAmount <= 0) return;
+        weeklyBossDamageEventsRef.current = [
+            ...weeklyBossDamageEventsRef.current,
+            { turn: Math.max(1, Math.floor(turn || 1)), amount: cleanAmount, source },
+        ].slice(-120);
+    }
     // True only for an explore-ambush win. winBattle sets it (the exploreAmbushActive
     // prop is cleared by onExploreAmbushWon in the same call, so we capture it here)
     // and the victory overlay reads it to offer a single "Return to Sector" exit
@@ -1645,6 +1656,7 @@ export function Arena({
         }
         const newEnemyHp = Math.max(0, enemyHp - dmg);
         setEnemyHp(newEnemyHp);
+        recordWeeklyBossDamage(dmg, "pet");
         if (dmg > 0) queueHitFx("e", dmg, "damage");
         const critNote = opts.crit ? " — CRITICAL HIT!" : "";
         const line = `${opts.sourceName} ${opts.verb ?? "attacks"} ${opponentName} for ${dmg} damage${critNote}${shieldNote}.`;
@@ -2283,6 +2295,7 @@ export function Arena({
         const basicSelfDamage = recoilDmg + enemyReflected;
         setEnemyShield((s) => Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - enemyNet)));
+        recordWeeklyBossDamage(enemyNet, "basic");
         queueHitFx("e", enemyNet, "damage");
         if (basicHeal > 0 || basicSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + basicHeal - basicSelfDamage)));
         queueHitFx("p", basicSelfDamage, "damage");
@@ -2539,6 +2552,7 @@ export function Arena({
         const wSelfDamage = wRecoilDmg + wEnemyReflected;
         setEnemyShield((shieldValue) => Math.max(0, shieldValue - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - wEnemyNet)));
+        recordWeeklyBossDamage(wEnemyNet, "item");
         queueHitFx("e", wEnemyNet, "damage");
         if (wHeal > 0 || wSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + wHeal - wSelfDamage)));
         queueHitFx("p", wSelfDamage, "damage");
@@ -3496,6 +3510,7 @@ export function Arena({
         const { net: castEnemyNet, reflected: castEnemyReflected, absorbed: castEnemyAbsorbed } = enemyDefenseFor(finalDamage + extraEnemyDamage, pierce);
         setEnemyShield((s) => pierce ? s : Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - castEnemyNet)));
+        recordWeeklyBossDamage(castEnemyNet, "jutsu");
         queueHitFx("e", castEnemyNet, "damage");
         setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + healing - recoilDamage - castEnemyReflected - poisonSpendDmg)));
         queueHitFx("p", recoilDamage + castEnemyReflected + poisonSpendDmg, "damage");
@@ -4218,11 +4233,21 @@ export function Arena({
         queueHitFx("p", playerNetTaken, "damage");
         setEnemyHp((hp) => Math.min(enemyMaxHp, hp + healing));
         queueHitFx("e", healing, "heal");
-        if (pReflected > 0) setEnemyHp((hp) => Math.max(0, hp - pReflected));
+        if (pReflected > 0) {
+            setEnemyHp((hp) => Math.max(0, hp - pReflected));
+            recordWeeklyBossDamage(pReflected, "reflect");
+        }
         queueHitFx("e", pReflected, "damage");
-        if (enemyRecoilDmg > 0) setEnemyHp((hp) => Math.max(0, hp - enemyRecoilDmg));
+        if (enemyRecoilDmg > 0) {
+            setEnemyHp((hp) => Math.max(0, hp - enemyRecoilDmg));
+            recordWeeklyBossDamage(enemyRecoilDmg, "recoil");
+        }
         queueHitFx("e", enemyRecoilDmg, "damage");
-        if (enemyPoisonSpendDmg > 0) { setEnemyHp((hp) => Math.max(0, hp - enemyPoisonSpendDmg)); queueHitFx("e", enemyPoisonSpendDmg, "damage"); }
+        if (enemyPoisonSpendDmg > 0) {
+            setEnemyHp((hp) => Math.max(0, hp - enemyPoisonSpendDmg));
+            recordWeeklyBossDamage(enemyPoisonSpendDmg, "poison");
+            queueHitFx("e", enemyPoisonSpendDmg, "damage");
+        }
         setEnemyShield((s) => s + shield);
         setEnemyJutsuCooldowns((current) => ({ ...current, [jutsu.id]: Math.max(1, jutsu.cooldown || 1) }));
         updateCharacter({ ...character, hp: Math.max(0, playerHp - playerNetTaken) });
@@ -4374,11 +4399,13 @@ export function Arena({
         queueHitFx("p", Math.max(0, finalDamage - absorbed), "damage");
         if (statusReflected > 0) {
             setEnemyHp((hp) => Math.max(0, hp - statusReflected));
+            recordWeeklyBossDamage(statusReflected, "reflect");
             queueHitFx("e", statusReflected, "damage");
             addCombatLog(`Reflect: ${opponentName} takes ${statusReflected} reflected damage.`, "reflect", character.name);
         }
         if (itemReflected > 0) {
             setEnemyHp((hp) => Math.max(0, hp - itemReflected));
+            recordWeeklyBossDamage(itemReflected, "reflect");
             queueHitFx("e", itemReflected, "damage");
             addCombatLog(`Reflect (armor): ${opponentName} takes ${itemReflected} reflected damage.`, "reflect", character.name);
         }
@@ -4392,6 +4419,7 @@ export function Arena({
         const basicEnemyRecoilDmg = (basicEnemyRecoil && finalDamage > 0) ? Math.floor(cappedPostDamage(finalDamage, basicEnemyRecoil.percent ?? 30)) : 0;
         if (basicEnemyRecoilDmg > 0) {
             setEnemyHp((hp) => Math.max(0, hp - basicEnemyRecoilDmg));
+            recordWeeklyBossDamage(basicEnemyRecoilDmg, "recoil");
             queueHitFx("e", basicEnemyRecoilDmg, "damage");
             addCombatLog(`Recoil: ${opponentName} takes ${basicEnemyRecoilDmg} recoil damage.`, "reflect", character.name);
         }
@@ -4774,6 +4802,7 @@ export function Arena({
 
         if (dotDamage > 0) {
             setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - dotDamage)));
+            recordWeeklyBossDamage(dotDamage, "dot");
             queueHitFx("e", dotDamage, "damage");
             if (drainChakra > 0) setEnemyChakra((c) => Math.max(0, c - drainChakra));
             const drainNote = drainChakra > 0 ? ` Drain also removes ${drainChakra} chakra.` : "";
@@ -4815,6 +4844,7 @@ export function Arena({
         setBattleResult(null);
         setSelectedActionId(undefined);
         setPotionUsesThisBattle(0);
+        weeklyBossDamageEventsRef.current = [];
         setSummonedPetId("");
         setPetPos(63);
         setPetHp(0);
@@ -6079,7 +6109,7 @@ export function Arena({
                                         <button
                                             style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#facc15" }}
                                             disabled={logging}
-                                            onClick={() => { setLogging(true); onWeeklyBossLogDamage?.(pendingStoryBattle.bossInitialHp - enemyHp); }}
+                                            onClick={() => { setLogging(true); onWeeklyBossLogDamage?.(pendingStoryBattle.bossInitialHp - enemyHp, weeklyBossDamageEventsRef.current); }}
                                         >
                                             <GiScrollUnfurled style={ARENA_ICON} />Log Damage & Return
                                         </button>
