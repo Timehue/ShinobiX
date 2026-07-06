@@ -178,9 +178,29 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
         aggregates: Record<string, { created: number; destroyed: number; net: number }>;
         recent: Array<{ ts: number; player: string; currency: string; delta: number; source: string }>;
         duplicateTxnIds: string[];
+        economyTx: {
+            recent: EconomyTxRecord[];
+            stuck: EconomyTxRecord[];
+        };
+    };
+    type EconomyTxRecord = {
+        id: string;
+        kind: string;
+        state: "reserved" | "debit-applied" | "credit-applied" | "complete" | "needs-reconcile";
+        debitKey: string;
+        creditKey: string;
+        resource: string;
+        amount: number;
+        createdAt: number;
+        updatedAt: number;
+        completedAt?: number;
+        error?: string;
+        note?: string;
     };
     const [econ, setEcon] = useState<EconSnap | null>(null);
     const [econStatus, setEconStatus] = useState("");
+    const [reconcileStatus, setReconcileStatus] = useState("");
+    const [reconcilingTxId, setReconcilingTxId] = useState("");
     const loadEconomy = useCallback(async () => {
         if (!adminPw) return;
         setEconStatus("Loading…");
@@ -192,6 +212,10 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                 aggregates: data.aggregates ?? {},
                 recent: Array.isArray(data.recent) ? data.recent : [],
                 duplicateTxnIds: Array.isArray(data.duplicateTxnIds) ? data.duplicateTxnIds : [],
+                economyTx: {
+                    recent: Array.isArray(data.economyTx?.recent) ? data.economyTx.recent : [],
+                    stuck: Array.isArray(data.economyTx?.stuck) ? data.economyTx.stuck : [],
+                },
             });
             setEconStatus("");
         } catch (e) {
@@ -199,6 +223,33 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
         }
     }, [adminPw]);
     useEffect(() => { if (section === "economy") void loadEconomy(); }, [section, loadEconomy]);
+
+    const reconcileEconomyTx = useCallback(async (txId: string) => {
+        if (!adminPw) {
+            setReconcileStatus("Admin password missing.");
+            return;
+        }
+        setReconcilingTxId(txId);
+        setReconcileStatus(`Reconciling ${txId}...`);
+        try {
+            const r = await fetch("/api/admin/economy-reconcile", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+                body: JSON.stringify({ txId }),
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+            const credited = Number(data.credited ?? 0);
+            setReconcileStatus(data.alreadyComplete
+                ? `Already complete: ${txId}`
+                : `Reconciled ${txId}${credited ? ` (+${credited.toLocaleString()} ${String(data.tx?.resource ?? "")})` : ""}`);
+            await loadEconomy();
+        } catch (e) {
+            setReconcileStatus(`X ${(e as Error).message}`);
+        } finally {
+            setReconcilingTxId("");
+        }
+    }, [adminPw, loadEconomy]);
 
     // Public player index health.
     const [indexHealth, setIndexHealth] = useState<PlayerIndexHealth | null>(null);
@@ -401,6 +452,49 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                                         <span style={{ ...pill, color: "#e88" }}>−{a.destroyed.toLocaleString()} destroyed</span>
                                     </div>
                                 ))}
+                            </div>
+                            <div style={{ ...box, borderColor: econ.economyTx.stuck.length > 0 ? "#a63" : "#333" }}>
+                                <strong>Transaction outbox</strong>
+                                <span style={{ color: "#9aa", marginLeft: 6 }}>
+                                    {econ.economyTx.stuck.length === 0
+                                        ? "clear"
+                                        : `${econ.economyTx.stuck.length} needs attention`}
+                                </span>
+                                {reconcileStatus && <div style={{ color: reconcileStatus.startsWith("X ") ? "#f88" : "#9fd", marginTop: 6 }}>{reconcileStatus}</div>}
+                                {econ.economyTx.stuck.length > 0 && (
+                                    <div style={{ maxHeight: 260, overflow: "auto", marginTop: 6 }}>
+                                        {econ.economyTx.stuck.map((tx) => {
+                                            const canReconcile = tx.state === "needs-reconcile" && tx.kind === "clan-territory-collect-supply" && tx.resource === "warSupply";
+                                            return (
+                                                <div key={tx.id} style={{ borderBottom: "1px solid #2a2a36", padding: "6px 0", ...mono }}>
+                                                    <div>
+                                                        <span style={pill}>{tx.state}</span>
+                                                        <span style={pill}>{tx.kind}</span>
+                                                        <span style={pill}>{tx.amount.toLocaleString()} {tx.resource}</span>
+                                                        <span style={{ color: "#9aa" }}>{fmtTime(tx.updatedAt)}</span>
+                                                    </div>
+                                                    <div style={{ marginTop: 4 }}>
+                                                        <span style={{ color: "#8cf" }}>{tx.id}</span>
+                                                        {tx.error && <span style={{ color: "#f99", marginLeft: 8 }}>{tx.error}</span>}
+                                                    </div>
+                                                    <div style={{ marginTop: 4, color: "#9aa" }}>
+                                                        <span>debit: {tx.debitKey || "n/a"}</span>{" "}
+                                                        <span>credit: {tx.creditKey || "n/a"}</span>
+                                                    </div>
+                                                    {canReconcile && (
+                                                        <button
+                                                            onClick={() => void reconcileEconomyTx(tx.id)}
+                                                            disabled={!adminPw || reconcilingTxId === tx.id}
+                                                            style={{ marginTop: 6 }}
+                                                        >
+                                                            {reconcilingTxId === tx.id ? "Reconciling..." : "Reconcile"}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                             {econ.duplicateTxnIds.length > 0 && (
                                 <div style={{ ...box, borderColor: "#a33" }}>
