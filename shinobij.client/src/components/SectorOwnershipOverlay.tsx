@@ -18,6 +18,7 @@
  * engine — pure view over the existing server state.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import "../styles/village-war-map-skin.css";
 import { fetchWarMap, villageAccent } from "../lib/village-war-map";
 import { loadSectorTerritory } from "../lib/world-state";
 import { HOME_SECTORS } from "../data/war-map-sectors";

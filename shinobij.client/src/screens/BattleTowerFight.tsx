@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import "../styles/battle-skin.css";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import {

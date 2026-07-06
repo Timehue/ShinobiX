@@ -1,7 +1,6 @@
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
-import "./index.css";
 import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT } from "./authFetch";
 import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAlert";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";

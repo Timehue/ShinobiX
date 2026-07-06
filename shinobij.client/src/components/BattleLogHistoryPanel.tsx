@@ -6,6 +6,7 @@
  * arena/PvP logs use, so a replay reads exactly like the real thing.
  */
 import { useMemo, useState } from "react";
+import "../styles/battle-skin.css";
 import type { BattleHistoryAction, BattleHistoryEntry, Character } from "../types/character";
 import { BattleActionBlock } from "./BattleActionBlock";
 import type { BattleLogAction } from "../lib/battle-log-format";

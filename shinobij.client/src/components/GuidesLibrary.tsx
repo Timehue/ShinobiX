@@ -9,6 +9,7 @@
  * opened from (start-screen main view, or the village).
  */
 import { useState } from "react";
+import "../styles/guides-skin.css";
 import { GUIDES, type Guide, type GuideBlock } from "../data/guides";
 
 const DISCORD_URL = "https://discord.gg/bCQGs8r6SK";

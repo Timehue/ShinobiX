@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, type ReactNode, type CSSProperties } from "react";
+import "../styles/atlas-skin.css";
 // Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import { GiPawPrint, GiChest, GiOpenTreasureChest, GiCardPickup } from "react-icons/gi";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.

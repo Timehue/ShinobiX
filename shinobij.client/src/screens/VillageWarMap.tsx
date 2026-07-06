@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback, useMemo } from "react";
+import "../styles/village-war-map-skin.css";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { visiblePoll } from "../lib/poll";
