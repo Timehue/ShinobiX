@@ -1,9 +1,15 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { shouldWriteRegistry, type RegistryIdentity } from './_registry-throttle.js';
+import { buildPublicPlayerIndexEntry } from '../player/_public-index.js';
+import { shouldWriteRegistry } from './_registry-throttle.js';
 
 const REFRESH = 60_000;
-const ID: RegistryIdentity = { name: 'Akira', level: 5, village: 'Stormveil', specialty: 'Ninjutsu' };
+const ID = buildPublicPlayerIndexEntry({
+    name: 'Akira',
+    level: 5,
+    village: 'Stormveil',
+    specialty: 'Ninjutsu',
+}, 'akira', 1_000_000, 1_000_000);
 const base = {
     isClanSave: false,
     existingChar: { name: 'Akira', level: 5, village: 'Stormveil', specialty: 'Ninjutsu' } as Record<string, unknown>,
@@ -40,6 +46,18 @@ describe('shouldWriteRegistry', () => {
 
     it('writes when display name changed', () => {
         assert.equal(shouldWriteRegistry({ ...base, next: { ...ID, name: 'Akira II' } }), true);
+    });
+
+    it('writes when a leaderboard field changed', () => {
+        assert.equal(shouldWriteRegistry({ ...base, next: { ...ID, rankedRating: 1100 } }), true);
+    });
+
+    it('treats absent legacy leaderboard fields as their public defaults', () => {
+        assert.equal(shouldWriteRegistry({
+            ...base,
+            existingChar: { name: 'Akira', level: 5, village: 'Stormveil', specialty: 'Ninjutsu' },
+            next: ID,
+        }), false);
     });
 
     it('refreshes lastSeen once the cached stamp drifts past refreshMs', () => {

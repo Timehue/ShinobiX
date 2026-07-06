@@ -5,7 +5,7 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
 const _elapsed_state_js_1 = require("../_elapsed-state.js");
-const REGISTRY_KEY = 'player:registry';
+const _public_index_js_1 = require("./_public-index.js");
 // Fields stripped from EVERY character before the roster goes out the door.
 // Previously this endpoint returned `save.character` verbatim, leaking ryo,
 // inventory, equipment, jutsu loadouts, currencies, daily-claim ledgers,
@@ -126,6 +126,47 @@ function normalizeSector(value, fallback = 40) {
         return fallback;
     return Math.max(0, Math.floor(sector));
 }
+async function compactLeaderboardRoster(onlineNames) {
+    const rawRegistry = await _storage_js_1.kv.hgetall(_public_index_js_1.REGISTRY_KEY) ?? {};
+    const registryKeys = Object.keys(rawRegistry);
+    const entries = new Map();
+    const staleKeys = [];
+    for (const key of registryKeys) {
+        const raw = rawRegistry[key];
+        const parsed = (0, _public_index_js_1.parsePublicPlayerIndexEntry)(raw, key);
+        if (parsed)
+            entries.set(key, parsed);
+        if ((0, _public_index_js_1.needsPublicPlayerIndexBackfill)(raw))
+            staleKeys.push(key);
+    }
+    if (staleKeys.length > 0) {
+        try {
+            const saves = await _storage_js_1.kv.mget(...staleKeys.map((key) => `save:${key}`));
+            const patch = {};
+            const now = Date.now();
+            for (let i = 0; i < staleKeys.length; i++) {
+                const key = staleKeys[i];
+                const save = saves[i] ?? null;
+                const char = (save?.character ?? null);
+                if (!char)
+                    continue;
+                const prior = entries.get(key);
+                const entry = (0, _public_index_js_1.buildPublicPlayerIndexEntry)(char, key, now, prior?.lastSeen ?? 0);
+                entries.set(key, entry);
+                patch[key] = entry;
+            }
+            if (Object.keys(patch).length > 0) {
+                await _storage_js_1.kv.hset(_public_index_js_1.REGISTRY_KEY, patch).catch((err) => {
+                    console.warn('[roster] public leaderboard index backfill failed', err);
+                });
+            }
+        }
+        catch (err) {
+            console.warn('[roster] public leaderboard backfill read failed', err);
+        }
+    }
+    return [...entries.values()].map((entry) => ((0, _public_index_js_1.publicIndexToLeaderboardRosterEntry)(entry, onlineNames.has(entry.name.toLowerCase()))));
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -144,8 +185,13 @@ async function handler(req, res) {
         const presenceEntries = online_store_js_1.onlineStore.list();
         const livePresenceByName = new Map(presenceEntries.map(p => [p.name, p]));
         const onlineNames = new Set(livePresenceByName.keys());
+        if (req.query.leaderboards === '1') {
+            const players = await compactLeaderboardRoster(onlineNames);
+            res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=10');
+            return res.status(200).json({ players });
+        }
         // Primary: persistent registry (every player who ever connected)
-        const rawRegistry = await _storage_js_1.kv.hgetall(REGISTRY_KEY) ?? {};
+        const rawRegistry = await _storage_js_1.kv.hgetall(_public_index_js_1.REGISTRY_KEY) ?? {};
         const registryKeys = Object.keys(rawRegistry);
         // Batch-fetch all saves in one command instead of N sequential kv.get() calls.
         const saveKeys = registryKeys.map(k => `save:${k}`);
