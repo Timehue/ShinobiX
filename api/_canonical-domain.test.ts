@@ -4,6 +4,7 @@ import {
     canonicalOrigin,
     canonicalRedirectLocation,
     isCanonicalRedirectExcludedPath,
+    isCanonicalHost,
     isLegacyDuplicateHost,
     robotsTxt,
     shouldRedirectToCanonical,
@@ -20,6 +21,15 @@ test('theravensark duplicate host redirects normal SPA pages to the canonical si
     assert.equal(isLegacyDuplicateHost('theravensark.com'), true);
     assert.equal(isLegacyDuplicateHost('www.theravensark.com:443'), true);
     assert.equal(shouldRedirectToCanonical('theravensark.com', '/profile'), true);
+    assert.equal(canonicalRedirectLocation('/profile?tab=pvp'), 'https://shinobijourney.com/profile?tab=pvp');
+});
+
+test('canonical www duplicate redirects normal SPA pages to the apex canonical site', () => {
+    assert.equal(isCanonicalHost('shinobijourney.com'), true);
+    assert.equal(isCanonicalHost('www.shinobijourney.com:443'), true);
+    assert.equal(shouldRedirectToCanonical('shinobijourney.com', '/'), false);
+    assert.equal(shouldRedirectToCanonical('www.shinobijourney.com', '/'), true);
+    assert.equal(shouldRedirectToCanonical('www.shinobijourney.com', '/profile'), true);
     assert.equal(canonicalRedirectLocation('/profile?tab=pvp'), 'https://shinobijourney.com/profile?tab=pvp');
 });
 
