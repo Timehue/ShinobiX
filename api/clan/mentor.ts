@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { awardClanPointsToPlayerSave } from '../_clan-points.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { canAssignStudent, claimableMilestones, mentorPayout } from './_mentor.js';
 
@@ -167,8 +168,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 200, body: { ok: true, claimed: claimable.length, seals: payout.seals, contrib: payout.contrib, studentRyo: payout.studentRyo, milestones: claimable }, paid: claimable.length };
             }, { failClosed: true });
 
-            if (out.paid) await kv.set(`${AUDIT_PREFIX}claim:${Date.now()}`, { ts: now, sensei: playerName, student: studentName, milestones: out.paid }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-            return res.status(out.status).json(out.body);
+            let awardedCharacter: Record<string, unknown> | undefined;
+            if (out.paid) {
+                await kv.set(`${AUDIT_PREFIX}claim:${Date.now()}`, { ts: now, sensei: playerName, student: studentName, milestones: out.paid }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+                const award = await awardClanPointsToPlayerSave(playerName, 'mentorMilestone', Math.min(100, out.paid * 25), {
+                    eventId: `mentor:${playerName}:${studentName}:${now}`,
+                    student: studentName,
+                    milestones: out.paid,
+                });
+                if (award.found) awardedCharacter = award.character;
+            }
+            return res.status(out.status).json({ ...(out.body as Record<string, unknown>), character: awardedCharacter });
         }
 
         // ── RELEASE (end the pairing) ───────────────────────────────────────────
