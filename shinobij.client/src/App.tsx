@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
 import "./index.css";
@@ -8,6 +8,7 @@ import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { NextGoalPin } from "./components/NextGoalPin";
+import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
@@ -110,13 +111,7 @@ import houseImg from "./assets/house1.webp";
 import moonshadowImage from "./assets/moonshadow.webp";
 import stormveilVillageImg from "./assets/sectors/stormveil-village.webp";
 import shinobiBanner from './assets/shinobi-banner.webp'
-// rightMenuBg + sectorBanner asset imports moved into ./components/RightMenu
-// and ./components/SectorBanner alongside the components that use them.
 import backgroundImage from "./assets/background-image.webp";
-// Route-based code-splitting: heavy/rarely-used screens load on demand so
-// they stay out of the initial JS bundle. The eager imports below are kept
-// for the screens that render on first paint or are tiny / common.
-// (Wrapped in a <Suspense> boundary inside <main> further down.)
 const Inventory = lazyWithRetry(() => import("./screens/Inventory").then(m => ({ default: m.Inventory })));
 const Hospital = lazyWithRetry(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
 const VillageTavern = lazyWithRetry(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
@@ -169,7 +164,6 @@ const DungeonPetBattle = lazyWithRetry(() => import("./screens/Dungeon").then(m 
 import { sharedClanWarCache, cwListWars, type CwChallenge, type CwChallengeResult } from "./lib/clan-war-api";
 const PvpBattleScreen = lazyWithRetry(() => import("./screens/PvpBattleScreen").then(m => ({ default: m.PvpBattleScreen })));
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
-import { JutsuSpriteFx } from "./components/JutsuSpriteFx";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight } from "./lib/screen-guards";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
@@ -181,16 +175,10 @@ import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
 import { registerSectorBattle, resolveSectorBattle } from "./lib/village-war-map";
 import { masteryBonus } from "./lib/profession-mastery";
 import { StartScreen } from "./screens/StartScreen";
-import { PetBattleAvatar } from "./components/PetBattleAvatar";
 import { OnboardingCoach } from "./components/OnboardingCoach";
 import { ScreenHint } from "./components/ScreenHint";
 import { Village } from "./screens/Village";
 
-// ─── Core game types ─────────────────────────────────────────────────────
-// Extracted to src/types/core.ts so screens / components can reach them
-// without dragging in the full App.tsx import surface. We re-export the
-// public ones below so existing `import { Profession } from "../App"` call
-// sites keep resolving identically.
 import {
     type Profession,
     type Screen,
@@ -220,7 +208,6 @@ import {
 import type { CreatorEvent, StoryStep } from "./types/vn";
 import {
     type HollowGateTileKind,
-    type HollowGateTerrain,
     type HollowGateTile,
     type HollowGateShrineRun,
     type EndlessTowerRun,
@@ -238,6 +225,7 @@ import {
     type CreatorMission,
     type CreatorRaid,
 } from "./types/missions";
+import type { PvpSessionState } from "./types/pvp-ui";
 export type {
     Profession,
     Screen,
@@ -256,9 +244,6 @@ export type {
     EndlessTowerRun,
 };
 
-// ─── Game constants ──────────────────────────────────────────────────────
-// Extracted to src/constants/game.ts. Re-exported here so existing
-// "../App" imports keep working.
 import {
     WORLD_STATE_API,
     GAME_STATE_API,
@@ -291,7 +276,6 @@ export {
     LEGENDARY_WAR_CRATE_ID,
 };
 
-// Profession + Vanguard constants extracted to src/constants/profession.ts.
 import {
     VANGUARD_SEALS_PER_KILL,
     VANGUARD_DAILY_SEAL_CAP,
@@ -307,59 +291,25 @@ export {
     PROFESSION_MAX_RANK,
 };
 
-// Hunter rank tables extracted to src/constants/hunter.ts.
 import {
 } from "./constants/hunter";
 
-// Clan-war lookup tables (CW_HP_MAX / CW_DAMAGE) live in src/constants/clan.ts;
-// consumed directly by components/ClanWarsPanel now, no longer by App.
-
-// Achievement table extracted to src/constants/achievements.ts.
 import { type Achievement, ACHIEVEMENTS, achievementReward } from "./constants/achievements";
 import { nextEarnedTitles } from "./lib/earned-titles";
 
-// Pet Arena grid + obstacle layouts + type-effectiveness moved to
-// src/constants/pet-arena.ts.
-import {
-    PET_GRID_COLS,
-    PET_GRID_SIZE,
-    PET_SPAWN_1V1,
-} from "./constants/pet-arena";
-import type { PetArenaFrame, PetBattleRecord, PetFrameStatus } from "./types/pet-arena";
 export type { PetArenaFrame, PetBattleFighter, PetBattleRecord } from "./types/pet-arena";
 
-// Tiny presentational mark / portrait components moved to ./components/Marks.
-
-// Pure element/awakening helpers extracted to ./lib/elements.
 import {
     getCharacterElements,
 } from "./lib/elements";
-// hasCharacterElement is imported above for internal use; external callers
-// (screens/Inventory) now import it directly from ./lib/elements.
 
-// Pure pet helpers extracted to ./lib/pet (imported below for internal use;
-// external callers import petDisplayName directly from ./lib/pet).
 import {
     isPetOnExpedition,
 } from "./lib/pet";
 import { buildAcceptedArenaMatch } from "./lib/arena-challenge";
-import { isPetSfxMuted, setPetSfxMuted } from "./lib/pet-sfx";
 import { stopBattleMusic } from "./lib/pet-music";
-import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey } from "./lib/pet-battle-anim";
-import { petBattleCamera, petCameraHoldMs } from "./lib/pet-battle-camera";
-import { usePetBattleFrameSfx } from "./lib/use-pet-battle-sfx";
-import { PetParticleField, vfxBurstForEvent } from "./lib/pet-vfx-particles";
-import { petFxSpriteKey } from "./lib/jutsu-vfx";
-import { bundledJutsuFxFrames } from "./lib/jutsu-fx-assets";
-import { petArchetypeFor, petTacticalZone, type ArenaTile } from "./lib/pet-tactics";
-import { collectActorStatuses, BATTLE_STATUS_DEFS } from "./lib/pet-moves";
 
-// Pet autobattler simulation engine (BFS pathfinding, action AI, seeded
-// combat math, 1v1 + 2v2 simulators) extracted to ./lib/pet-battle-sim.
-// runPetArenaBattle + petFramePace were exported from App.tsx directly and
-// are consumed by petvfx.tsx via "./App" — re-exported so those keep resolving.
 import {
-    tileDistance,
     petFramePace,
     runPetArenaBattle,
     pickBestPartyOrder,
@@ -367,17 +317,12 @@ import {
 export { runPetArenaBattle, petFramePace };
 export type { PetPartyBattleMatch, PetPartyBattleResult } from "./lib/pet-battle-sim";
 
-// Equipment helpers + tables extracted to ./lib/equipment (imported above for
-// internal use). armorReductionForQuality + consolidateItemBonuses stay
-// re-exported for the screens/Inventory "../App" import site; the slot
-// normalize/label helpers are imported directly from ./lib/equipment.
 import {
     armorReductionForQuality,
     consolidateItemBonuses,
 } from "./lib/equipment";
 export { armorReductionForQuality, consolidateItemBonuses };
 
-// Generic utility helpers (clamp, time format, date keys) extracted to ./lib/utils.
 import {
     clampNumber,
     currentMonthKey,
@@ -386,65 +331,40 @@ import {
     playerSlug,
 } from "./lib/utils";
 
-// XP / ranked progression helpers extracted to ./lib/progression. The
-// bigger gainXp driver stays in App.tsx because it chains through other
-// App-scope helpers (xpNeeded, maxHpForLevel, etc.) not yet extracted.
 import {
     effectiveCharacterXpGain,
     rankedDelta, applyServerBaseReward, type PvpWinBaseSummary,
 } from "./lib/progression";
 
-// All-users directory screen moved to ./screens/UserHub. Lazy-loaded — accessed
-// from the Central Hub menu, not on first paint.
 const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
 const Messages = lazyWithRetry(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
-// Read-only profile screen for viewing other players moved to ./screens/UserView.
-// Lazy-loaded — only mounts when the player clicks into another player's profile.
 const UserView = lazyWithRetry(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
-// Mobile banner timer widget moved to ./components/BannerMobileTimers.
 import { BannerMobileTimers } from "./components/BannerMobileTimers";
-// Mobile-only persistent top status HUD (avatar + bars + Ryo/Shards).
 import { MobileStatusHUD } from "./components/MobileStatusHUD";
-import { HollowGateShardBar } from "./components/HollowGateShardBar";
-// Desktop left-rail profile card moved to ./components/LeftProfileCard.
+import { HollowGateShrineView } from "./features/hollowGate/HollowGateShrineView";
 import { LeftProfileCard } from "./components/LeftProfileCard";
-// Static world-map side banner moved to ./components/SectorBanner.
 import { SectorBanner } from "./components/SectorBanner";
-// Desktop right-rail navigation + mobile bottom nav moved out.
 import { RightMenu } from "./components/RightMenu";
 import { MobileNav } from "./components/MobileNav";
-// Filterable jutsu technique browser moved to ./components/JutsuDropdownList.
-// Triggered visual-novel reader moved to ./components/TriggeredVisualNovel.
 import { TriggeredVisualNovel } from "./components/TriggeredVisualNovel";
-// Hollow Gate atlas tile picker (admin) moved to ./components/KenneyAtlasPicker.
-// Training screens (stat + jutsu training) moved to ./screens/Training.
 const Training = lazyWithRetry(() => import("./screens/Training").then(m => ({ default: m.Training })));
 const JutsuTrainingHall = lazyWithRetry(() => import("./screens/Training").then(m => ({ default: m.JutsuTrainingHall })));
-// Shop / Grand Marketplace / card packs moved to ./components/Shop.
 const Shop = lazyWithRetry(() => import("./components/Shop").then(m => ({ default: m.Shop })));
 const GrandMarketplace = lazyWithRetry(() => import("./components/Shop").then(m => ({ default: m.GrandMarketplace })));
 
-// Canonical game-item catalog moved to ./data/starter-items.
 import { starterItems } from "./data/starter-items";
-// Raw pet templates moved to ./data/pet-pool. The balancer transform that
-// scales them against the global stat caps stays in App.tsx and is
-// applied below where petPool is defined.
 import { rawPetPool } from "./data/pet-pool";
 import { STARTER_PETS } from "./data/starter-pets";
 import { STARTER_EVOLUTIONS } from "./data/pet-evolutions";
-// Per-village storyline arc + milestone constructors moved to ./data/storylines.
 import { storylines, villageBiomeMap, getCurrentStory } from "./data/storylines";
-// Built-in VN event templates moved to ./data/vn-events.
 import {
     awakeningLv2VnEvent,
     auraSphereLv9VnEvent,
     hiddenDungeonVnEvent,
 } from "./data/vn-events";
-// World terrain + weather tables moved to ./data/world.
 import {
     weatherEffects,
 } from "./data/world";
-// Pet config tables (traits, training, expedition, feed items) moved to ./data/pet-config.
 import {
     petRarityOrder,
     petTrainingOptions,
@@ -452,28 +372,12 @@ import {
     stackableItemIds,
     petFeedXpForItem,
 } from "./data/pet-config";
-// Keep external-import compatibility — petTrainingOptions + petFeedXpForItem
-// were previously exported from App.tsx directly and consumed via "../App".
-// petTraitDescriptions is now imported directly from ./data/pet-config by
-// components/PetBattleAvatar.
 export { petTrainingOptions, petFeedXpForItem };
 
-// Hollow Gate atlas configuration moved to ./data/hollow-gate-atlas.
-import {
-    HOLLOW_GATE_ICON_ROLES,
-    HOLLOW_GATE_ICON_KEY,
-} from "./data/hollow-gate-atlas";
-
-
-// weatherForBiome + biomeForWorldSector moved to ./data/sectors. They're
-// pure lookups so they relocate cleanly. weatherForSector stays here
-// because it reads dynamic territory state via loadSectorTerritory.
 import {
     villages,
     weatherForBiome,
 } from "./data/sectors";
-// villages + weatherForBiome imported above for internal use; external callers
-// (screens/CharacterCreator) import villages directly from ./data/sectors.
 
 export type DuelChallenge = {
     id: string;
@@ -664,9 +568,7 @@ export function setHollowGateThreatAmbush(v: number) { HOLLOW_GATE_THREAT_AMBUSH
 // (KenneyAtlasPicker) import hollowGateTileIconForKind directly from the
 // data module.
 import {
-    hollowGateIntroPages,
     hollowGateFlavorFor,
-    hollowGateTileIconForKind,
 } from "./data/hollow-gate-flavor";
 
 // hollowGateReachableSet + bsp* geometry helpers (./lib/hollow-gate-bsp) are
@@ -678,35 +580,14 @@ import {
 // (a live, admin-tunable binding) so the generator stays App-free + testable.
 import {
     generateHollowGateShrineRun,
-    computeHollowGateVisible,
     rollHollowGateAncientChest,
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
-import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop, hollowGateClawBackPreview } from "./lib/hollow-gate-run";
+import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
 import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun } from "./lib/hollow-gate-server";
-import { wingEntryEffect, wingThemeAt, WING_TINT, WING_GLYPH } from "./lib/hollow-gate-wings";
+import { wingEntryEffect } from "./lib/hollow-gate-wings";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
 import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
-// Hollow Gate ASCII layouts + shrine dungeon generators moved to
-// ./lib/hollow-gate-dungeon — imported above.
-
-// hollowGateTileIconForKind moved to ./data/hollow-gate-flavor.
-
-// ── Atlas icon slots ───────────────────────────────────────────────────────
-// Maps a "role" in the dungeon UI to a KV key under which an atlas sprite
-// can be stored. When the renderer / legend find the corresponding image in
-// `sharedImages`, they overlay it instead of the emoji fallback above.
-//
-// Each content role can have multiple variants (battle-1, battle-2, ...) so
-// the dungeon stops looking like 6 photocopies of the same monster. The
-// renderer picks one of the assigned variants deterministically by tile
-// index hash — so each cell is stable across renders, but adjacent cells of
-// the same role show different sprites.
-//
-// Slots are filled via the Atlas Tile Picker (admin panel): the admin
-// selects a slot, clicks a tile in the atlas, and the picker slices that
-// 16×16 tile out of the atlas and publishes it under shrine:icon-<id>.
-
 export type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
 type PendingEventEncounter = {
     event: CreatorEvent;
@@ -827,102 +708,8 @@ export { percentageTags, cappedDamageTags, binaryTags, allTags, tagCapForRank };
 // entry is a 40AP utility pair. Move stays on the two movement jutsu.
 // (starter jutsu/bloodline catalog moved to ./data/jutsu — see note above.)
 
-export const defaultPetEncounterVn: CreatorEvent = {
-    id: "sys-pet-encounter",
-    name: "Pet Encounter",
-    biome: "forest",
-    icon: "⚔",
-    eventKind: "visualNovel",
-    trigger: "manual",
-    levelReq: 1,
-    xpReward: 0,
-    ryoReward: 0,
-    staminaReward: 0,
-    dialogue: [],
-    vnTitle: "A Presence in the Shadows",
-    vnScene: "The rustling of leaves breaks the silence of the sector.",
-    vnSpeaker: "Narrator",
-    vnPages: [
-        {
-            title: "A Presence in the Shadows",
-            scene: "The rustling of leaves breaks the silence of the sector.",
-            speaker: "Narrator",
-            dialogue: [
-                "Narrator: Something stirs at the edge of your senses.",
-                "Narrator: A warmth — not from fire, but from living breath nearby.",
-                "Narrator: You stop moving. So does it.",
-            ],
-            choices: [],
-        },
-        {
-            title: "The Creature Reveals Itself",
-            scene: "A creature emerges from the undergrowth, watching you carefully.",
-            speaker: "Narrator",
-            dialogue: [
-                "Narrator: Eyes catch yours — ancient, curious, unafraid.",
-                "Narrator: It does not run. It does not attack.",
-                "Narrator: It simply waits.",
-            ],
-            choices: [],
-        },
-        {
-            title: "A Choice Before You",
-            scene: "The creature tilts its head as if asking a question only it understands.",
-            speaker: "Narrator",
-            dialogue: [
-                "Narrator: Shinobi learn to read animals the way they read the wind.",
-                "Narrator: This one is not lost. It chose to find you.",
-                "Narrator: The question is — will you let it stay?",
-            ],
-            choices: [],
-        },
-    ],
-};
-
-export const defaultAncientChestVn: CreatorEvent = {
-    id: "sys-ancient-chest",
-    name: "Ancient Chest",
-    biome: "forest",
-    icon: "⚔",
-    eventKind: "visualNovel",
-    trigger: "manual",
-    levelReq: 1,
-    xpReward: 0,
-    ryoReward: 0,
-    staminaReward: 0,
-    dialogue: [],
-    vnTitle: "Something Stirs in the Ruins",
-    vnScene: "Deep within the wilderness, a faint shimmer catches your eye.",
-    vnSpeaker: "Narrator",
-    vnPages: [
-        {
-            title: "Something Stirs in the Ruins",
-            scene: "Deep within the wilderness, a faint shimmer catches your eye.",
-            speaker: "Narrator",
-            dialogue: [
-                "Narrator: You pause. Something between the rubble is glowing.",
-                "Narrator: Half-buried under centuries of earth and stone — an ancient chest.",
-                "Narrator: These runes... pre-war era seals. This thing has been here a long time.",
-                "Narrator: The chakra lock flickers as you approach, as if recognizing your presence.",
-                "Narrator: Whoever left this... they wanted someone strong enough to find it.",
-                "Narrator: You press your hand to the seal. It dissolves at your touch.",
-            ],
-            choices: [],
-        },
-        {
-            title: "The Chest Opens",
-            scene: "Golden light spills from the ancient chest as the seal breaks.",
-            speaker: "Narrator",
-            dialogue: [
-                "Narrator: The lid swings open with a low resonant hum.",
-                "Narrator: Inside — preserved by chakra for decades — the chest reveals its contents.",
-                "Narrator: ...I wasn't expecting this.",
-                "Narrator: The ancient shinobi who sealed this chest left something worth finding.",
-            ],
-            choices: [],
-        },
-    ],
-};
+import { defaultAncientChestVn, defaultPetEncounterVn } from "./data/default-vn-events";
+export { defaultAncientChestVn, defaultPetEncounterVn };
 
 // starterItems moved to ./data/starter-items — imported at the top of this file.
 
@@ -1200,49 +987,11 @@ export function getProfessionRankForXp(profession: Profession, xp: number): numb
 export let HOLLOW_GATE_UNLOCK_COST = 10_000;
 export function setHollowGateUnlockCost(v: number) { HOLLOW_GATE_UNLOCK_COST = v; }
 
-type VillageLeadershipProfile = { kage: string; elders: string[]; atWar: boolean; pastWars: string[] };
-export type VillageLeadershipImages = Record<string, { kage?: string; elders?: string[] }>;
-
-export const villageLeadership: Record<string, VillageLeadershipProfile> = {
-    "Stormveil Village": {
-        kage: "Kage Raiko Veyr",
-        elders: ["Elder Vanta", "Mira Volt", "Tempest Guard Captain"],
-        atWar: false,
-        pastWars: ["Won the Tempest Border War vs Moonshadow", "Lost the Crimson Dock Raid vs Ashen Leaf", "Draw at the Broken Thunder Pass"],
-    },
-    "Ashen Leaf Village": {
-        kage: "Kage Hoshina Enju",
-        elders: ["Elder Mori", "Toma Reed", "Ren Reed"],
-        atWar: false,
-        pastWars: ["Won the Crimson Dock Raid vs Stormveil", "Won the Ember Road Defense vs Frostfang", "Lost the Old Grove Skirmish vs Moonshadow"],
-    },
-    "Frostfang Village": {
-        kage: "Kage Kael Whitefang",
-        elders: ["Elder Sova", "Captain Yura", "Pale Pack Leader"],
-        atWar: false,
-        pastWars: ["Won the White Ridge Siege vs Moonshadow", "Lost the Ember Road Assault vs Ashen Leaf", "Draw at the Frozen Gate"],
-    },
-    "Moonshadow Village": {
-        kage: "Kage Sable Nocturne",
-        elders: ["Shade Master Iro", "Nyx", "Archivist Rei"],
-        atWar: false,
-        pastWars: ["Won the Old Grove Skirmish vs Ashen Leaf", "Lost the White Ridge Siege vs Frostfang", "Lost the Tempest Border War vs Stormveil"],
-    },
-};
+import { normalizeVillageLeadershipImages, villageLeadership, type VillageLeadershipImages } from "./data/village-leadership";
+export { normalizeVillageLeadershipImages, villageLeadership };
+export type { VillageLeadershipImages };
 
 let sharedVillageLeadershipImagesCache: VillageLeadershipImages | null = null;
-
-export function normalizeVillageLeadershipImages(images?: VillageLeadershipImages): VillageLeadershipImages {
-    const normalized: VillageLeadershipImages = {};
-    Object.keys(villageLeadership).forEach((village) => {
-        const source = images?.[village];
-        normalized[village] = {
-            kage: source?.kage ?? "",
-            elders: Array.from({ length: 3 }, (_, index) => source?.elders?.[index] ?? ""),
-        };
-    });
-    return normalized;
-}
 
 export function loadVillageLeadershipImages(): VillageLeadershipImages {
     if (sharedVillageLeadershipImagesCache) return normalizeVillageLeadershipImages(sharedVillageLeadershipImagesCache);
@@ -1925,7 +1674,7 @@ export default function App() {
     // Any component (Hospital heal response, DailyProfessionMissions poll,
     // handlePvpWin) emits a `profession-mission-complete` CustomEvent; we
     // collect and render them with the same auto-dismiss as achievements.
-    const [missionToasts, setMissionToasts] = useState<Array<{ id: string; name: string; xp: number; profession?: string; label?: string }>>([]);
+    const [missionToasts, setMissionToasts] = useState<MissionToast[]>([]);
     useEffect(() => {
         function handler(e: Event) {
             const detail = (e as CustomEvent<{ name: string; xp: number; profession?: string; label?: string }>).detail;
@@ -7380,6 +7129,38 @@ export default function App() {
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
         ...(temporaryStoryAi ? [temporaryStoryAi] : []),
     ];
+    function searchHollowGateHiddenChamber() {
+        if (!hollowGateHiddenChamber || !character) return;
+        const xp = 60 + Math.floor(Math.random() * 50);
+        const dust = 10 + Math.floor(Math.random() * 15);
+        const leveled = gainXp(character, xp);
+        setCharacter({ ...leveled, auraDust: (leveled.auraDust ?? 0) + dust });
+        pushHollowGateLog(`You decipher the Ancient Tablet. +${effectiveCharacterXpGain(character, xp)} XP, +${dust} Aura Dust.`);
+        setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, searched: true });
+    }
+
+    function takeHollowGateHiddenChamberRelic() {
+        if (!hollowGateHiddenChamber || !hollowGateRun || !character) return;
+        const rawHonor = 15 + Math.floor(Math.random() * 20);
+        const honor = vanguardOnlyHonorSeals(character, rawHonor);
+        const charms = nonVanguardCharmSubstitute(character, rawHonor);
+        const shardSub = nonVanguardShardSubstitute(character, rawHonor);
+        const fate = (Math.random() < 0.5 ? 1 : 0) + shardSub;
+        // Grant the Veil of the Hollow as a real inventory item
+        // (stacking duplicates is allowed - chamber relics are
+        // a meta progression resource, like dungeon relics).
+        const next = addInventoryItems({
+            ...character,
+            honorSeals: (character.honorSeals ?? 0) + honor,
+            boneCharms: (character.boneCharms ?? 0) + charms,
+            fateShards: (character.fateShards ?? 0) + fate,
+        }, [VEIL_OF_THE_HOLLOW_ID]);
+        setCharacter(next);
+        setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
+        pushHollowGateLog(`You claim the Veil of the Hollow.${honor > 0 ? ` +${honor} Honor Seals` : charms > 0 ? ` +${charms} Bone Charms` : ""}${fate ? `, +${fate} Fate Shard${fate === 1 ? "" : "s"}` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
+        setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, relicTaken: true });
+    }
+
     const hideBattleChrome = shouldHideBattleChrome({ screen, arenaBattleActive, petBattleActive });
 
     return (
@@ -7832,646 +7613,26 @@ export default function App() {
                     />
                 )}
 
-                {/* ═══════════════════════════════════════════════════════════
-                    ⛩  HOLLOW GATE SHRINE VIEW  (start)
-                    ═══════════════════════════════════════════════════════════
-                    Inline view because it closes over many App-scoped values
-                    (state setters, helper functions, sharedImages, character).
-                    A true file extraction would require exporting 15+ types
-                    and helpers from App — deferred to avoid that churn.
-                    Sections inside this block:
-                      • Intro VN overlay (first-time-only)
-                      • Header (floor, threat, keys, torch)
-                      • Grid + side panel (objectives, legend, pet status)
-                      • Movement controls
-                      • Event log
-                      • Event modal overlay (per-tile)
-                      • Hidden Chamber overlay
-                    ═══════════════════════════════════════════════════════════ */}
-                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && (() => {
-                    const run = hollowGateRun;
-                    const pet = character.pets.find(p => p.id === character.activePetId);
-                    const petEligible = isActivePetEligibleForHollowGate();
-                    // Image keys served from the shared KV by the Hollow Gate admin tab.
-                    const shrineBg = sharedImages["shrine:hollow-gate-background"];
-                    const cardBackground = shrineBg
-                        ? `linear-gradient(180deg, rgba(15,9,28,0.78), rgba(8,4,18,0.88)), url(${shrineBg}) center/cover no-repeat`
-                        : "linear-gradient(180deg, rgba(15,9,28,0.92), rgba(8,4,18,0.95))";
-                    return (
-                        <div className="card hollow-gate-shrine" style={{ background: cardBackground, color: "#e9d5ff", padding: 16, borderRadius: 12 }}>
-                            {/* First-entry Intro VN overlay — blocks interaction until dismissed. */}
-                            {hollowGateIntroPage !== null && (() => {
-                                const page = hollowGateIntroPages[hollowGateIntroPage] ?? hollowGateIntroPages[0];
-                                const introImage = sharedImages[page.imageKey];
-                                const isLast = hollowGateIntroPage >= hollowGateIntroPages.length - 1;
-                                return (
-                                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.86)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1100, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }}>
-                                        <div style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 24, maxWidth: 640, width: "92%", color: "#e9d5ff", boxShadow: "0 0 70px rgba(168,85,247,0.4)" }}>
-                                            <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HOLLOW GATE — INTRODUCTION</p>
-                                            <h2 style={{ margin: "0 0 12px", color: "#faf5ff" }}>{page.title}</h2>
-                                            {introImage && (
-                                                <img src={introImage} alt={page.title} style={{ width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 8, marginBottom: 12 }} />
-                                            )}
-                                            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-                                                {page.lines.map((line, i) => (
-                                                    <p key={i} style={{ margin: 0, lineHeight: 1.55 }}>{line}</p>
-                                                ))}
-                                            </div>
-                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                <small style={{ color: "#a78bfa" }}>Page {hollowGateIntroPage + 1} / {hollowGateIntroPages.length}</small>
-                                                <div style={{ display: "flex", gap: 8 }}>
-                                                    {hollowGateIntroPage > 0 && (
-                                                        <button onClick={() => setHollowGateIntroPage(hollowGateIntroPage - 1)}>Back</button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => {
-                                                            if (isLast) setHollowGateIntroPage(null);
-                                                            else setHollowGateIntroPage(hollowGateIntroPage + 1);
-                                                        }}
-                                                        style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", borderColor: "#c4b5fd" }}
-                                                    >
-                                                        {isLast ? "Enter the Shrine" : "Next"}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-                                <div>
-                                    <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>⛩ HOLLOW GATE SHRINE</p>
-                                    <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {HOLLOW_GATE_MAX_FLOOR} · {run.completed ? "Warden Defeated" : "Shadow Miasma"}</h2>
-                                </div>
-                                <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                                    <div style={{ minWidth: 200 }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, alignItems: "center" }}>
-                                            <span>Threat{run.threat >= 80 && (
-                                                <span style={{
-                                                    marginLeft: 6,
-                                                    fontSize: 11,
-                                                    color: "#fda4af",
-                                                    fontWeight: 700,
-                                                    animation: "hgPulse 1s ease-in-out infinite",
-                                                }}>⚠ AMBUSH IMMINENT</span>
-                                            )}</span>
-                                            <span style={{ color: run.threat >= 80 ? "#fda4af" : "#c4b5fd" }}>{run.threat}%</span>
-                                        </div>
-                                        <div style={{
-                                            height: 8,
-                                            background: "rgba(168,85,247,0.18)",
-                                            borderRadius: 4,
-                                            overflow: "hidden",
-                                            border: run.threat >= 80 ? "1px solid #fda4af" : undefined,
-                                            boxShadow: run.threat >= 80 ? "0 0 8px rgba(248,113,113,0.55)" : undefined,
-                                        }}>
-                                            <div style={{ width: `${run.threat}%`, height: "100%", background: run.threat >= 80 ? "linear-gradient(90deg,#a855f7,#fda4af)" : "linear-gradient(90deg,#7c3aed,#a855f7)" }} />
-                                        </div>
-                                        <style>{`@keyframes hgPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }`}</style>
-                                    </div>
-                                    <div style={{ fontSize: 13 }}>
-                                        <span title="Shrine Keys">🔑 {run.keys}</span>
-                                        <span style={{ marginLeft: 12 }} title="Torch of Reiki">🔥 {run.torch}/10</span>
-                                        <span style={{ marginLeft: 12 }} title="Banked Hollow Shards">💎 {character.hollowShards ?? 0}</span>
-                                        {(() => { const ar = hollowGateClawBackPreview(character, run); const rr = ar.ryo ?? 0; const rs = ar.hollowShards ?? 0; return (rr || rs) ? <span style={{ marginLeft: 12, color: "#fda4af" }} title="Lost if you die now — Sanctify Loot to protect it">⚠ {[rr ? `${rr} ryo` : "", rs ? `${rs}💎` : ""].filter(Boolean).join(" · ")} at risk</span> : null; })()}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 16 }}>
-                                {/* Grid: room-flood visibility lights the room you're in; walls always
-                                    read as stone; surprise tiles stay disguised until stepped on. */}
-                                {(() => {
-                                    // Room-flood visibility (whole floor when Diviner's Eye is active).
-                                    const visibleSet = run.diviner
-                                        ? new Set(run.tiles.map((_, i) => i))   // Diviner's Eye — whole floor lit
-                                        : computeHollowGateVisible(run);
-                                    // Pull all admin-generated terrain textures once per render. Each is
-                                    // optional — the renderer falls through to a CSS gradient if missing.
-                                    const doorTexture = sharedImages["shrine:tile-door"];
-                                    // Variant texture banks: per-terrain arrays. The atlas slicer fills
-                                    // `shrine:tile-X-0..N` entries; this fallback gathers them. If only
-                                    // the base (no -0 suffix) exists, we use that single tile everywhere.
-                                    function gatherVariants(prefix: string, limit = 4): string[] {
-                                        const variants: string[] = [];
-                                        for (let i = 0; i < limit; i += 1) {
-                                            const v = sharedImages[`${prefix}-${i}`];
-                                            if (v) variants.push(v);
-                                        }
-                                        if (variants.length === 0) {
-                                            const base = sharedImages[prefix];
-                                            if (base) variants.push(base);
-                                        }
-                                        return variants;
-                                    }
-                                    const wallVariants = gatherVariants("shrine:tile-wall", 4);
-                                    const roomFloorVariants = gatherVariants("shrine:tile-room-floor", 4);
-                                    const corridorFloorVariants = gatherVariants("shrine:tile-corridor-floor", 4);
-                                    // Decoration sprites — sprinkled on top of room floors by the generator.
-                                    // Legacy 4 atlas decos (shrine:deco-0..3) — kept for back-compat with old
-                                    // saved runs that stored a 0-3 decoration index on tiles. New runs use
-                                    // the combined pool below.
-                                    const legacyDecorations = [
-                                        sharedImages["shrine:deco-0"],
-                                        sharedImages["shrine:deco-1"],
-                                        sharedImages["shrine:deco-2"],
-                                        sharedImages["shrine:deco-3"],
-                                    ];
-                                    // User-picker decorations (shrine:icon-deco-1..8) — always available.
-                                    const userDecorations: string[] = [];
-                                    for (let i = 1; i <= 8; i += 1) {
-                                        const v = sharedImages[HOLLOW_GATE_ICON_KEY(`deco-${i}`)];
-                                        if (v) userDecorations.push(v);
-                                    }
-                                    // Per-theme decorations — preferred when the tile sits in a themed room.
-                                    function themedDecorations(theme: string | undefined): string[] {
-                                        if (!theme) return [];
-                                        const out: string[] = [];
-                                        for (const role of ["deco-1", "deco-2"]) {
-                                            const v = sharedImages[`shrine:icon-theme-${theme}-${role}`];
-                                            if (v) out.push(v);
-                                        }
-                                        return out;
-                                    }
-                                    // Build the decoration pool for a given cell: themed first (so themed
-                                    // rooms feel cohesive), then user picks, then atlas defaults. Returns
-                                    // the chosen image url or undefined if no decoration art exists at all.
-                                    function pickDecorationFor(idx: number, theme: string | undefined, hintIndex: number): string | undefined {
-                                        const pool = [
-                                            ...themedDecorations(theme),
-                                            ...userDecorations,
-                                            ...legacyDecorations.filter((x): x is string => Boolean(x)),
-                                        ];
-                                        if (pool.length === 0) return undefined;
-                                        // Mix the tile index with the legacy hint so old runs (which stamped
-                                        // a 0-3 index per tile) still get stable picks; new runs just pass 0.
-                                        const seed = ((idx * 2654435761) ^ (hintIndex * 16777619)) >>> 0;
-                                        return pool[seed % pool.length];
-                                    }
-                                    // Deterministic cell-index hash so a given cell always picks the same
-                                    // variant (no flicker between renders). Standard 32-bit mixing constant.
-                                    function variantPick(idx: number, count: number): number {
-                                        if (count <= 1) return 0;
-                                        return ((idx * 2654435761) >>> 0) % count;
-                                    }
-                                    // Helper: layered background for a terrain texture (returns CSS string).
-                                    function bgFromTexture(image: string | undefined, fallback: string, overlay = "rgba(15,9,28,0.35)") {
-                                        return image
-                                            ? `linear-gradient(135deg, ${overlay}, rgba(8,4,18,0.55)), url(${image}) center/cover no-repeat`
-                                            : fallback;
-                                    }
-                                    // Room theme tile lookup. Each room has a theme stamped on it; for a
-                                    // given (theme, role) try shrine:icon-theme-<theme>-<role>. If absent
-                                    // we fall back to the base atlas tile. Themes only apply to tiles that
-                                    // belong to a room (room_floor + doors); corridors stay default.
-                                    function themedTileFor(role: "wall" | "floor" | "corridor" | "door", theme: string | undefined): string | undefined {
-                                        if (!theme) return undefined;
-                                        return sharedImages[`shrine:icon-theme-${theme}-${role}`];
-                                    }
-                                    function bgForTerrain(terrainKind: HollowGateTerrain, idx: number, theme?: string): string {
-                                        if (terrainKind === "wall") {
-                                            const themed = themedTileFor("wall", theme);
-                                            const v = themed ?? wallVariants[variantPick(idx, wallVariants.length)];
-                                            return v
-                                                ? `linear-gradient(135deg, rgba(15,9,28,0.35), rgba(8,4,18,0.55)), url(${v}) center/cover no-repeat`
-                                                : "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)";
-                                        }
-                                        if (terrainKind === "corridor_floor") {
-                                            const themed = themedTileFor("corridor", theme);
-                                            const v = themed ?? corridorFloorVariants[variantPick(idx, corridorFloorVariants.length)];
-                                            return bgFromTexture(v, "linear-gradient(135deg, rgba(40,28,72,0.7), rgba(28,18,54,0.85))");
-                                        }
-                                        if (terrainKind === "door") {
-                                            const themed = themedTileFor("door", theme);
-                                            return bgFromTexture(themed ?? doorTexture, "linear-gradient(135deg, rgba(120,72,32,0.5), rgba(64,40,18,0.75))", "rgba(40,20,8,0.3)");
-                                        }
-                                        // room_floor (default)
-                                        const themed = themedTileFor("floor", theme);
-                                        const v = themed ?? roomFloorVariants[variantPick(idx, roomFloorVariants.length)];
-                                        return bgFromTexture(v, "linear-gradient(135deg, rgba(50,38,82,0.7), rgba(34,24,60,0.85))");
-                                    }
-                                    // Per-cell theme resolver — null roomId (wall / corridor outside a room)
-                                    // gets the room theme of the nearest 4-neighbour room cell, so walls
-                                    // bordering a themed room pick up that theme. Falls back to "" if no
-                                    // neighbour has a theme.
-                                    function tileTheme(idx: number): string | undefined {
-                                        const tile = run.tiles[idx];
-                                        if (!tile) return undefined;
-                                        if (tile.roomId != null && run.roomThemes) return run.roomThemes[tile.roomId];
-                                        if (!run.roomThemes) return undefined;
-                                        // Look at 4-cardinal neighbours; first room neighbour wins.
-                                        const cx = idx % run.width;
-                                        const cy = Math.floor(idx / run.width);
-                                        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-                                            const nx = cx + dx, ny = cy + dy;
-                                            if (nx < 0 || ny < 0 || nx >= run.width || ny >= run.height) continue;
-                                            const nTile = run.tiles[ny * run.width + nx];
-                                            if (nTile?.roomId != null && run.roomThemes[nTile.roomId]) {
-                                                return run.roomThemes[nTile.roomId];
-                                            }
-                                        }
-                                        return undefined;
-                                    }
-                                    // Variant-aware icon lookup for a content role (chest, battle, etc.).
-                                    // Tries shrine:icon-<role>-1..N in deterministic hash order, falls back
-                                    // to shrine:icon-<role> (legacy single-icon assignments).
-                                    function pickRoleIconImage(role: string, idx: number): string | undefined {
-                                        const cfg = HOLLOW_GATE_ICON_ROLES[role];
-                                        if (!cfg) return undefined;
-                                        if (cfg.count === 1) return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
-                                        const assigned: string[] = [];
-                                        for (let i = 1; i <= cfg.count; i += 1) {
-                                            const v = sharedImages[HOLLOW_GATE_ICON_KEY(`${role}-${i}`)];
-                                            if (v) assigned.push(v);
-                                        }
-                                        if (assigned.length === 0) return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
-                                        return assigned[variantPick(idx, assigned.length)];
-                                    }
-                                    return (
-                                <div className="hollow-gate-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${run.width}, 1fr)`, gap: 3, background: "rgba(0,0,0,0.55)", padding: 8, borderRadius: 8 }}>
-                                    {run.tiles.map((tile, i) => {
-                                        const x = i % run.width;
-                                        const y = Math.floor(i / run.width);
-                                        const isPlayer = x === run.playerX && y === run.playerY;
-                                        const revealed = tile.revealed;
-                                        // Lit when the room-flood visibility set includes this index.
-                                        const visible = visibleSet.has(i);
-                                        // Wall test prefers terrain; falls back to kind for legacy runs.
-                                        const wall = tile.terrain === "wall" || (tile.terrain == null && tile.kind === "wall");
-                                        const terrainKind: HollowGateTerrain =
-                                            tile.terrain ?? (tile.kind === "wall" ? "wall" : "room_floor");
-
-                                        // Background by tile state: only currently-visible tiles draw
-                                        // their terrain (via bgForTerrain variant banks); the rest = fog.
-                                        const cellTheme = tileTheme(i);
-                                        let bg: string;
-                                        if (wall) {
-                                            bg = visible ? bgForTerrain("wall", i, cellTheme) : "rgba(7,4,15,0.92)";
-                                        } else if (isPlayer) {
-                                            bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
-                                        } else if (visible) {
-                                            // Terrain base layer, then optional decoration sprite, then content tint.
-                                            let terrainBase = bgForTerrain(terrainKind, i, cellTheme);
-                                            // Wing color-coding: tint floors/doors by their wing (Treasure/Beast/Trial).
-                                            const wTheme = wingThemeAt(run, i);
-                                            if (wTheme && WING_TINT[wTheme]) terrainBase = `linear-gradient(${WING_TINT[wTheme]}, ${WING_TINT[wTheme]}), ${terrainBase}`;
-                                            if (tile.decoration != null) {
-                                                const decoImg = pickDecorationFor(i, cellTheme, tile.decoration);
-                                                if (decoImg) {
-                                                    terrainBase = `url(${decoImg}) center/80% no-repeat, ${terrainBase}`;
-                                                }
-                                            }
-                                            // Surprise tiles (trap/battle/elite/pet) stay disguised as
-                                            // floor until actually stepped on (revealed) — tint hidden.
-                                            const isSurpriseKind = tile.kind === "trap"
-                                                || tile.kind === "battle"
-                                                || tile.kind === "elite"
-                                                || tile.kind === "pet_event"
-                                                || tile.kind === "pet_battle";
-                                            const hideContent = isSurpriseKind && !revealed;
-                                            const contentTint = hideContent ? null
-                                                : tile.kind === "boss" ? "linear-gradient(135deg, rgba(127,29,29,0.7), rgba(185,28,28,0.7))"
-                                                : tile.kind === "trap" ? "rgba(239,68,68,0.22)"
-                                                : tile.kind === "chest" ? "rgba(234,179,8,0.22)"
-                                                : tile.kind === "shrine" ? "rgba(168,85,247,0.26)"
-                                                : tile.kind === "exit" ? "rgba(34,197,94,0.22)"
-                                                : tile.kind === "locked" ? "rgba(148,163,184,0.22)"
-                                                : tile.kind === "npc" ? "rgba(56,189,248,0.22)"
-                                                : tile.kind === "descend" ? "rgba(192,132,252,0.26)"
-                                                : tile.kind === "battle" ? "rgba(248,113,113,0.18)"
-                                                : tile.kind === "elite" ? "rgba(220,38,38,0.26)"
-                                                : tile.kind === "pet_event" ? "rgba(96,165,250,0.18)"
-                                                : tile.kind === "pet_battle" ? "rgba(251,146,60,0.24)"  // beast orange
-                                                : tile.kind === "tile_game" ? "rgba(45,212,191,0.22)"   // tile-game teal
-                                                : tile.kind === "story" ? "rgba(250,204,21,0.18)"
-                                                : tile.kind === "shard_vein" ? "rgba(167,139,250,0.24)"
-                                                : null;
-                                            bg = contentTint
-                                                ? `linear-gradient(${contentTint}, ${contentTint}), ${terrainBase}`
-                                                : terrainBase;
-                                        } else {
-                                            bg = "rgba(7,4,15,0.92)"; // deep fog
-                                        }
-
-                                        // Wall styling: brick-ish pattern via inset shadow.
-                                        // Only walls that are CURRENTLY visible (perimeter of the lit
-                                        // room) get the shadow detail — fog walls stay flat dark.
-                                        const wallShadow = wall && visible ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
-
-                                        // Icon shows only on visible tiles; surprise tiles also need
-                                        // `revealed` (stay disguised as floor until stepped on).
-                                        const isSurpriseKind = tile.kind === "trap"
-                                            || tile.kind === "battle"
-                                            || tile.kind === "elite"
-                                            || tile.kind === "pet_event"
-                                            || tile.kind === "pet_battle";
-                                        // Icon = atlas image (shrine:icon-<slot>) if assigned, else emoji.
-                                        // Slot id mirrors HOLLOW_GATE_ICON_SLOTS (a few kinds remap below).
-                                        function iconSlotIdFor(k: HollowGateTileKind): string | null {
-                                            if (k === "pet_event") return "pet";
-                                            if (k === "pet_battle") return "petbattle";
-                                            if (k === "tile_game") return "tilegame";
-                                            if (k === "shard_vein") return "shardvein";
-                                            if (k === "empty" || k === "wall") return null;
-                                            return k;
-                                        }
-                                        const showIcon =
-                                            isPlayer ? true
-                                            : wall ? false
-                                            : !visible ? false
-                                            : isSurpriseKind && !revealed ? false
-                                            : true;
-                                        const iconSlotId = isPlayer ? "you" : iconSlotIdFor(tile.kind);
-                                        // Variant-aware icon pick (shrine:icon-<role>-1..N). Player tile
-                                        // falls back to the player's own avatar if no "you" slot is assigned.
-                                        const playerAvatar = isPlayer
-                                            ? (character.avatarImage || sharedImages[`avatar:${character.name.toLowerCase()}`])
-                                            : undefined;
-                                        const iconImage = showIcon && iconSlotId
-                                            ? (pickRoleIconImage(iconSlotId, i) ?? playerAvatar)
-                                            : undefined;
-                                        let icon: string;
-                                        if (!showIcon) icon = !visible && !wall ? "·" : "";       // fog dot or blank
-                                        else if (isPlayer) icon = "🥷";
-                                        else {
-                                            icon = hollowGateTileIconForKind(tile.kind);
-                                            // Label wing doors with their destination (🏆/🐺/⚔) for an informed choice.
-                                            if (tile.terrain === "door") { const dt = wingThemeAt(run, i); if (dt && WING_GLYPH[dt]) icon = WING_GLYPH[dt]; }
-                                        }
-
-                                        // Opacity: player = full, visible cells = full so the lit
-                                        // room reads clearly, anything else = dim fog dot.
-                                        const iconOpacity = isPlayer || visible ? 1 : 0.30;
-
-                                        return (
-                                            <div
-                                                key={i}
-                                                title={wall ? "Wall" : visible ? tile.kind : "Out of sight"}
-                                                style={{
-                                                    aspectRatio: "1 / 1",
-                                                    background: bg,
-                                                    border: isPlayer ? "2px solid #60a5fa"
-                                                        : wall && visible ? "1px solid rgba(0,0,0,0.5)"
-                                                        : visible ? "1px solid rgba(168,85,247,0.5)"
-                                                        : "1px solid rgba(168,85,247,0.08)",
-                                                    borderRadius: 4,
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    fontSize: "clamp(16px, 2.6vw, 28px)",
-                                                    color: isPlayer || visible ? "#f5f3ff" : "rgba(196,181,253,0.85)",
-                                                    opacity: iconOpacity,
-                                                    boxShadow: isPlayer ? "0 0 12px rgba(96,165,250,0.6)" : wallShadow,
-                                                    transition: "background 200ms, opacity 200ms",
-                                                }}
-                                            >
-                                                {iconImage ? (
-                                                    <img
-                                                        src={iconImage}
-                                                        alt={iconSlotId ?? ""}
-                                                        style={{
-                                                            width: "78%",
-                                                            height: "78%",
-                                                            objectFit: "contain",
-                                                            imageRendering: "pixelated",
-                                                            filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.7))",
-                                                            pointerEvents: "none",
-                                                        }}
-                                                    />
-                                                ) : icon}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                    );
-                                })()}
-
-                                {/* Side panel */}
-                                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                    {/* Objectives panel — updates as the run progresses. */}
-                                    {(() => {
-                                        const reachedFloor5 = run.floor >= HOLLOW_GATE_MAX_FLOOR;
-                                        const wardenDefeated = Boolean(run.completed) || run.tiles.some(t => t.kind === "boss" && t.resolved);
-                                        const hiddenChamberFound = run.tiles.some(t => t.kind === "shrine" && t.resolved);
-                                        const objectives = [
-                                            { label: "Reach Floor 5", done: reachedFloor5 },
-                                            { label: "Defeat the Hollow Gate Warden", done: wardenDefeated },
-                                            { label: "Find a Hidden Chamber (optional)", done: hiddenChamberFound },
-                                        ];
-                                        return (
-                                            <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
-                                                <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Objectives</h4>
-                                                {objectives.map((obj, i) => (
-                                                    <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>
-                                                        <span style={{ color: obj.done ? "#86efac" : "#fda4af" }}>{obj.done ? "✓" : "○"}</span>
-                                                        <span style={{ textDecoration: obj.done ? "line-through" : undefined, color: obj.done ? "#86efac" : "#e9d5ff" }}>{obj.label}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        );
-                                    })()}
-                                    <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
-                                        <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Map Legend</h4>
-                                        {/* Legend uses the same atlas icon as the dungeon when the admin
-                                            assigned one via the Atlas Tile Picker. Falls back to the
-                                            emoji glyph from hollowGateTileIconForKind otherwise. The
-                                            "wall" slot uses the room-floor/wall atlas tile instead since
-                                            walls render as terrain, not an icon. */}
-                                        {(() => {
-                                            // Map slot id → emoji fallback. Keeps the legend self-contained.
-                                            const fallbackEmoji: Record<string, string> = {
-                                                you: "🥷", battle: "⚔", elite: "☠", boss: "👹", trap: "▲",
-                                                chest: "▣", shrine: "⛩", story: "📜", pet: "🐾", petbattle: "🐺",
-                                                tilegame: "🀄", npc: "👤",
-                                                descend: "▼", exit: "⇩", locked: "🔒", wall: "▦",
-                                            };
-                                            // Walls use the atlas wall tile (terrain), not an icon slot.
-                                            const wallTileImg = sharedImages["shrine:tile-wall"] ?? sharedImages["shrine:tile-wall-0"];
-                                            // Legend picks any-variant: shrine:icon-<role>-1 first, then
-                                            // shrine:icon-<role>-2..N, then the legacy un-suffixed key.
-                                            // This way the legend reflects "an assignment exists" without
-                                            // caring which specific variant the admin filled.
-                                            const anyAssignedVariant = (role: string): string | undefined => {
-                                                const cfg = HOLLOW_GATE_ICON_ROLES[role];
-                                                if (cfg && cfg.count > 1) {
-                                                    for (let i = 1; i <= cfg.count; i += 1) {
-                                                        const v = sharedImages[HOLLOW_GATE_ICON_KEY(`${role}-${i}`)];
-                                                        if (v) return v;
-                                                    }
-                                                }
-                                                return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
-                                            };
-                                            const legendCell = (slotId: string, label: string) => {
-                                                const img = slotId === "wall" ? wallTileImg : anyAssignedVariant(slotId);
-                                                return (
-                                                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                                        {img ? (
-                                                            <img src={img} alt="" style={{ width: 18, height: 18, objectFit: "contain", imageRendering: "pixelated" }} />
-                                                        ) : (
-                                                            <span style={{ width: 18, textAlign: "center" }}>{fallbackEmoji[slotId]}</span>
-                                                        )}
-                                                        <span>{label}</span>
-                                                    </span>
-                                                );
-                                            };
-                                            return (
-                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                                                    {legendCell("you",     "You")}      {legendCell("battle",  "Battle")}
-                                                    {legendCell("elite",   "Elite")}    {legendCell("boss",    "Boss")}
-                                                    {legendCell("trap",    "Trap")}     {legendCell("chest",   "Chest")}
-                                                    {legendCell("shrine",  "Shrine")}   {legendCell("story",   "Story")}
-                                                    {legendCell("pet",      "Pet")}        {legendCell("petbattle", "Hollow Beast")}
-                                                    {legendCell("tilegame", "Tile Game")}  {legendCell("npc",       "Keeper")}
-                                                    {legendCell("descend",  "Descend")}    {legendCell("exit",      "Leave")}
-                                                    {legendCell("locked",   "Locked Door")}{legendCell("wall",      "Wall")}
-                                                    <span>· Unexplored</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
-                                                </div>
-                                            );
-                                        })()}
-                                        <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(168,85,247,0.2)", fontSize: 11, color: "#a78bfa" }}>
-                                            Layout: rooms connected by corridors; loot &amp; NPCs in rooms, ambushes in corridors.
-                                        </div>
-                                    </div>
-                                    <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
-                                        <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Active Pet</h4>
-                                        {pet ? (
-                                            <>
-                                                <div><strong>{pet.name}</strong> · Lv. {pet.level}</div>
-                                                <div style={{ color: petEligible ? "#86efac" : "#fda4af" }}>
-                                                    {petEligible ? "Joins shrine battles" : isPetOnExpedition(pet) ? "On expedition" : "Not PvE-ready (needs Lv. 50)"}
-                                                </div>
-                                            </>
-                                        ) : <div className="hint">No active pet selected.</div>}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Movement controls — note: there is no voluntary "Leave Shrine"
-                                button. You can only exit by stepping on the Exit (Leave) tile
-                                or by dying. Each entry consumes 1 Hollow Gate Key. */}
-                            <div style={{ marginTop: 12, display: "flex", justifyContent: "center", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-                                <div style={{ fontSize: 12, color: "#c4b5fd" }}>WASD / Arrow Keys to move · or tap:</div>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 44px)", gap: 4 }}>
-                                    <div />
-                                    <button onClick={() => moveHollowGatePlayer(0, -1)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▲</button>
-                                    <div />
-                                    <button onClick={() => moveHollowGatePlayer(-1, 0)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>◀</button>
-                                    <div />
-                                    <button onClick={() => moveHollowGatePlayer(1, 0)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▶</button>
-                                    <div />
-                                    <button onClick={() => moveHollowGatePlayer(0, 1)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▼</button>
-                                    <div />
-                                </div>
-                                <div style={{ fontSize: 11, color: "#fda4af", textAlign: "center" }}>
-                                    No retreat. Reach the<br/>Leave tile (⇩) or die.
-                                </div>
-                            </div>
-
-                            <HollowGateShardBar run={run} character={character} setRun={setHollowGateRun} setCharacter={setCharacter} pushLog={pushHollowGateLog} />
-
-                            {/* Event log */}
-                            <div style={{ marginTop: 12, background: "rgba(0,0,0,0.45)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 8, padding: 10, maxHeight: 140, overflowY: "auto", fontSize: 13 }}>
-                                <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Event Log</h4>
-                                {hollowGateLog.length === 0 ? <p className="hint">The shrine watches in silence.</p> : hollowGateLog.map((line, i) => (
-                                    <p key={i} style={{ margin: "2px 0" }}>• {line}</p>
-                                ))}
-                            </div>
-
-                            {/* Event modal overlay — shows a generated tile image header
-                                when the relevant 'shrine:tile-*' key has art. */}
-                            {hollowGateEvent && (() => {
-                                const tileImageKey =
-                                    hollowGateEvent.kind === "trap" ? "shrine:tile-trap"
-                                    : hollowGateEvent.kind === "chest" ? "shrine:tile-ancient-chest"
-                                    : hollowGateEvent.kind === "pet_event" ? "shrine:tile-pet-encounter"
-                                    : hollowGateEvent.kind === "pet_battle" ? "shrine:tile-hollow-beast"
-                                    : hollowGateEvent.kind === "tile_game" ? "shrine:tile-tile-game"
-                                    : hollowGateEvent.kind === "locked" ? "shrine:tile-sealed-door"
-                                    : hollowGateEvent.kind === "npc" ? "shrine:tile-shrine-keeper"
-                                    : hollowGateEvent.kind === "story" ? "shrine:tile-story"
-                                    : hollowGateEvent.kind === "battle" || hollowGateEvent.kind === "elite" ? "shrine:tile-corrupted-shinobi"
-                                    : null;
-                                const tileImage = tileImageKey ? sharedImages[tileImageKey] : null;
-                                return (
-                                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }} onClick={() => {}}>
-                                        <div style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.5)", borderRadius: 12, padding: 24, maxWidth: 520, width: "90%", color: "#e9d5ff" }}>
-                                            {tileImage && (
-                                                <img src={tileImage} alt={hollowGateEvent.title} style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8, marginBottom: 12 }} />
-                                            )}
-                                            <h3 style={{ margin: "0 0 12px", color: "#faf5ff" }}>{hollowGateEvent.title}</h3>
-                                            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{hollowGateEvent.body}</p>
-                                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
-                                                {hollowGateEvent.choices.map((c, i) => (
-                                                    <button key={i} className={c.tone === "danger" ? "danger-button" : ""} onClick={c.onSelect}>{c.label}</button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Hidden Chamber overlay — wears the chamber background art if generated. */}
-                            {hollowGateHiddenChamber && (() => {
-                                const chamberBg = sharedImages["shrine:hidden-chamber-background"];
-                                const chamberStyle = chamberBg
-                                    ? `linear-gradient(180deg, rgba(30,15,50,0.82), rgba(15,5,30,0.92)), url(${chamberBg}) center/cover no-repeat`
-                                    : "linear-gradient(180deg, rgba(30,15,50,0.97), rgba(15,5,30,0.99))";
-                                return (
-                                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1001, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }}>
-                                    <div style={{ background: chamberStyle, border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 28, maxWidth: 620, width: "92%", color: "#e9d5ff", boxShadow: "0 0 50px rgba(168,85,247,0.35)" }}>
-                                        <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HIDDEN CHAMBER</p>
-                                        <h2 style={{ margin: "0 0 12px", color: "#faf5ff" }}>Secret Area Discovered</h2>
-                                        <p style={{ lineHeight: 1.6 }}>A ritual circle pulses violet at the chamber's center. Spirit lanterns hover above a cracked altar. An ancient tablet hums with sealed chakra, and a shrine relic floats untouched within the seal.</p>
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, margin: "16px 0", fontSize: 13 }}>
-                                            <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Shrine Relic</strong><br/>{hollowGateHiddenChamber.relicTaken ? "Claimed" : "Available"}</div>
-                                            <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Spirit Lantern</strong><br/>Active</div>
-                                            <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Ancient Tablet</strong><br/>{hollowGateHiddenChamber.searched ? "Read" : "Readable"}</div>
-                                        </div>
-                                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                            <button disabled={hollowGateHiddenChamber.searched} onClick={() => {
-                                                if (!hollowGateHiddenChamber) return;
-                                                const xp = 60 + Math.floor(Math.random() * 50);
-                                                const dust = 10 + Math.floor(Math.random() * 15);
-                                                const leveled = gainXp(character, xp);
-                                                setCharacter({ ...leveled, auraDust: (leveled.auraDust ?? 0) + dust });
-                                                pushHollowGateLog(`You decipher the Ancient Tablet. +${effectiveCharacterXpGain(character, xp)} XP, +${dust} Aura Dust.`);
-                                                setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, searched: true });
-                                            }}>🔍 Search Chamber</button>
-                                            <button disabled={hollowGateHiddenChamber.relicTaken} onClick={() => {
-                                                if (!hollowGateHiddenChamber || !hollowGateRun) return;
-                                                const rawHonor = 15 + Math.floor(Math.random() * 20);
-                                                const honor = vanguardOnlyHonorSeals(character, rawHonor);
-                                                const charms = nonVanguardCharmSubstitute(character, rawHonor);
-                                                const shardSub = nonVanguardShardSubstitute(character, rawHonor);
-                                                const fate = (Math.random() < 0.5 ? 1 : 0) + shardSub;
-                                                // Grant the Veil of the Hollow as a real inventory item
-                                                // (stacking duplicates is allowed — chamber relics are
-                                                // a meta progression resource, like dungeon relics).
-                                                const next = addInventoryItems({
-                                                    ...character,
-                                                    honorSeals: (character.honorSeals ?? 0) + honor,
-                                                    boneCharms: (character.boneCharms ?? 0) + charms,
-                                                    fateShards: (character.fateShards ?? 0) + fate,
-                                                }, [VEIL_OF_THE_HOLLOW_ID]);
-                                                setCharacter(next);
-                                                setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
-                                                pushHollowGateLog(`You claim the Veil of the Hollow.${honor > 0 ? ` +${honor} Honor Seals` : charms > 0 ? ` +${charms} Bone Charms` : ""}${fate ? `, +${fate} Fate Shard${fate === 1 ? "" : "s"}` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
-                                                setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, relicTaken: true });
-                                            }}>🏺 Take Relic</button>
-                                            <button onClick={() => setHollowGateHiddenChamber(null)} className="danger-button">Return to Shrine</button>
-                                        </div>
-                                    </div>
-                                </div>
-                                );
-                            })()}
-                        </div>
-                    );
-                })()}
-                {/* ═══════════════════════════════════════════════════════════
-                    ⛩  HOLLOW GATE SHRINE VIEW  (end)
-                    ═══════════════════════════════════════════════════════════ */}
-
-                {!activeTriggeredEvent && screen === "villageLore" && character && (
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && (
+                    <HollowGateShrineView
+                        character={character}
+                        hollowGateRun={hollowGateRun}
+                        hollowGateLog={hollowGateLog}
+                        sharedImages={sharedImages}
+                        hollowGateIntroPage={hollowGateIntroPage}
+                        setHollowGateIntroPage={setHollowGateIntroPage}
+                        hollowGateEvent={hollowGateEvent}
+                        hollowGateHiddenChamber={hollowGateHiddenChamber}
+                        moveHollowGatePlayer={moveHollowGatePlayer}
+                        setHollowGateRun={setHollowGateRun}
+                        setCharacter={setCharacter}
+                        pushHollowGateLog={pushHollowGateLog}
+                        petEligible={isActivePetEligibleForHollowGate()}
+                        onSearchHiddenChamber={searchHollowGateHiddenChamber}
+                        onTakeHiddenChamberRelic={takeHollowGateHiddenChamberRelic}
+                        onCloseHiddenChamber={() => setHollowGateHiddenChamber(null)}
+                    />
+                )}                {!activeTriggeredEvent && screen === "villageLore" && character && (
                     <VillageLoreScreen
                         character={character}
                         onBack={() => {
@@ -9219,59 +8380,12 @@ export default function App() {
                 </Suspense>
             </main>
 
-            {achievementToasts.length > 0 && (
-                <div className="achievement-toast-stack">
-                    {achievementToasts.slice(0, 3).map((a, i) => (
-                        <div
-                            key={`${a.id}-${i}`}
-                            className={`achievement-toast ${a.hidden ? "secret" : ""}`}
-                            onClick={() => setAchievementToasts(prev => prev.filter(x => x !== a))}
-                        >
-                            <div className="achievement-toast-icon">
-                                <img
-                                    src={`/badges/${a.id}.png`}
-                                    alt=""
-                                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
-                                />
-                                <span className="achievement-toast-emoji" aria-hidden>{a.icon}</span>
-                            </div>
-                            <div className="achievement-toast-body">
-                                <span className="achievement-toast-label">
-                                    {a.hidden ? "Secret Unlocked" : "Achievement Unlocked"}
-                                </span>
-                                <strong>{a.name}</strong>
-                                <small>{a.desc}</small>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-            {missionToasts.length > 0 && (
-                <div className="achievement-toast-stack" style={{ bottom: 80 }}>
-                    {missionToasts.slice(0, 3).map((t) => {
-                        const accent = t.profession === "healer" ? "#22d3ee" : t.profession === "vanguard" ? "#f97316" : "#facc15";
-                        return (
-                            <div
-                                key={t.id}
-                                className="achievement-toast"
-                                style={{ borderColor: accent, boxShadow: `0 0 20px ${accent}55` }}
-                                onClick={() => setMissionToasts(prev => prev.filter(x => x.id !== t.id))}
-                            >
-                                <div className="achievement-toast-icon">
-                                    <span className="achievement-toast-emoji" aria-hidden style={{ color: accent }}>📜</span>
-                                </div>
-                                <div className="achievement-toast-body">
-                                    <span className="achievement-toast-label" style={{ color: accent }}>
-                                        {t.label ?? "Mission Complete"}
-                                    </span>
-                                    <strong>{t.name}</strong>
-                                    {t.xp > 0 && <small>+{t.xp} {t.profession ? `${t.profession.charAt(0).toUpperCase() + t.profession.slice(1)} ` : ""}XP</small>}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+            <ToastStacks
+                achievementToasts={achievementToasts}
+                missionToasts={missionToasts}
+                onDismissAchievement={(achievement) => setAchievementToasts(prev => prev.filter(x => x !== achievement))}
+                onDismissMission={(id) => setMissionToasts(prev => prev.filter(x => x.id !== id))}
+            />
         </div>
     );
 }
@@ -9280,858 +8394,5 @@ export default function App() {
    Shown in the top-right corner of the journey banner on xs/sm screens
    only. Desktop already has the left profile card for this information.
    ──────────────────────────────────────────────────────────────────── */
-// BannerMobileTimers moved to ./components/BannerMobileTimers.
-
-// LeftProfileCard moved to ./components/LeftProfileCard.
-
-// SectorBanner moved to ./components/SectorBanner.
-
-// RightMenu + MobileNav moved to ./components/RightMenu and ./components/MobileNav.
-
-// TriggeredVisualNovel moved to ./components/TriggeredVisualNovel (imported back near the top).
-
-// Pet arena frame/fighter types moved to ./types/pet-arena and are re-exported above.
-
-// PET_GRID_COLS / ROWS / SIZE / PET_OBSTACLE_LAYOUTS moved to ./constants/pet-arena.
-
-// Pet autobattler simulation engine (BFS, action AI, seeded combat math,
-// 1v1 + 2v2 simulators) moved to ./lib/pet-battle-sim — imported at top.
-
-export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, recentFrames, result, obstacles, tiles, onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; playerReservePet?: Pet; enemyReservePet?: Pet; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; tiles?: ArenaTile[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string>; playerRecord?: PetBattleRecord; enemyRecord?: PetBattleRecord }) {
-    // Tactical tile-type lookup (Phases 5-6). Built once per tiles change so the
-    // grid renderer can tint cover / hazard / healing / slow tiles.
-    const tileTypeByIndex = useMemo(() => {
-        const m = new Map<number, ArenaTile["type"]>();
-        for (const t of tiles ?? []) m.set(t.row * PET_GRID_COLS + t.col, t.type);
-        return m;
-    }, [tiles]);
-    const playerHp = frame?.playerHp ?? playerPet.hp;
-    const enemyHp  = frame?.enemyHp  ?? enemyPet.hp;
-    const playerPercent = Math.max(0, Math.min(100, (playerHp / Math.max(1, playerPet.hp)) * 100));
-    const enemyPercent  = Math.max(0, Math.min(100, (enemyHp  / Math.max(1, enemyPet.hp))  * 100));
-    const [playerShake, setPlayerShake] = useState(false);
-    const [enemyShake,  setEnemyShake]  = useState(false);
-    // Pre-fight 5-second countdown for the face-off overlay. Starts at 5 when an
-    // isPrefight frame is current and ticks 5→4→3→2→1→"FIGHT!"; the overlay's
-    // own 5s fade then dismisses it. Cosmetic only — drives no battle logic.
-    const [prefightCount, setPrefightCount] = useState<number | null>(null);
-    useEffect(() => {
-        if (!frame?.isPrefight) { setPrefightCount(null); return; }
-        setPrefightCount(5);
-        const id = window.setInterval(() => {
-            setPrefightCount((c) => (c === null || c <= 0 ? c : c - 1));
-        }, 1000);
-        return () => window.clearInterval(id);
-    }, [frame?.isPrefight, frame?.message]);
-
-    // ── Movement glide (FLIP) ───────────────────────────────────────────────
-    // The simulator already relocates pets between grid tiles on "move" frames
-    // (BFS pathfinding around obstacles), but the renderer mounts each avatar
-    // fresh in its new tile cell — so without this the pet teleports. After
-    // every frame we compare each pet's tile to its previous tile; if it moved
-    // we measure the old + new cell centres and play a FLIP: snap the mover to
-    // where it came from, then transition to zero so the pet visibly walks
-    // across the board. The tile is lifted in z during transit so the gliding
-    // pet passes OVER intervening tiles. Prefight frames just record positions
-    // (no glide) so a replay doesn't slingshot from the previous fight's end.
-    const petArenaGridRef = useRef<HTMLDivElement>(null);
-    const moverPrevTile = useRef<Map<string, number>>(new Map());
-    // Canvas particle layer (Phase A "juice") — sits over the stage and sprays
-    // sparks/embers/shards on impact/KO/charge. Cosmetic-only; it never reads or
-    // affects the sim, so its particle RNG can't desync a ranked replay.
-    const vfxCanvasRef = useRef<HTMLCanvasElement>(null);
-    const vfxFieldRef = useRef<PetParticleField | null>(null);
-    useEffect(() => {
-        const canvas = vfxCanvasRef.current;
-        if (!canvas) return;
-        let field: PetParticleField | null = null;
-        try { field = new PetParticleField(canvas); } catch { return; }
-        vfxFieldRef.current = field;
-        const onResize = () => field?.resize();
-        window.addEventListener("resize", onResize);
-        return () => { window.removeEventListener("resize", onResize); field?.dispose(); vfxFieldRef.current = null; };
-    }, []);
-    // Elemental sprite-effect overlay (CC0 frames) played on the focal tile for
-    // elemental hit/beam/status beats — layered OVER the particle burst. Purely
-    // cosmetic; resolved from the active beat's vfxKey, never the pet art (pets
-    // keep their existing portraits/sprites). Falls back to particles when the
-    // element has no bundled sprite (poison/shadow/chakra/blood/none).
-    const petSpriteFxSeq = useRef(0);
-    const [petSpriteFx, setPetSpriteFx] = useState<{ id: number; frames: string[]; x: number; y: number; variant?: string } | null>(null);
-    useLayoutEffect(() => {
-        const grid = petArenaGridRef.current;
-        if (!grid) return;
-        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-        grid.querySelectorAll<HTMLElement>(".pet-avatar-mover[data-petid]").forEach((mover) => {
-            const petId = mover.dataset.petid;
-            if (!petId) return;
-            const tileEl = mover.closest<HTMLElement>(".pet-park-tile");
-            const curIdx = tileEl?.dataset.tile != null ? Number(tileEl.dataset.tile) : NaN;
-            if (Number.isNaN(curIdx)) return;
-            const prevIdx = moverPrevTile.current.get(petId);
-            moverPrevTile.current.set(petId, curIdx);
-            if (reduce || frame?.isPrefight || prevIdx === undefined || prevIdx === curIdx || !tileEl) return;
-            const oldTile = grid.querySelector<HTMLElement>(`.pet-park-tile[data-tile="${prevIdx}"]`);
-            if (!oldTile) return;
-            const o = oldTile.getBoundingClientRect();
-            const n = tileEl.getBoundingClientRect();
-            const dx = (o.left + o.right - n.left - n.right) / 2;
-            const dy = (o.top + o.bottom - n.top - n.bottom) / 2;
-            if (!dx && !dy) return;
-            tileEl.style.zIndex = "8";
-            mover.style.transition = "none";
-            mover.style.transform = `translate(${dx}px, ${dy}px)`;
-            void mover.offsetWidth; // force reflow so the start transform applies before the glide
-            mover.style.transition = "transform 520ms cubic-bezier(.34, .1, .2, 1)";
-            mover.style.transform = "translate(0px, 0px)";
-            const done = () => { tileEl.style.zIndex = ""; mover.removeEventListener("transitionend", done); };
-            mover.addEventListener("transitionend", done);
-        });
-    }, [frame?.message]);
-
-    useEffect(() => {
-        if (!frame?.damage) return;
-        const hitPlayer = frame.actor === "enemy";
-        if (hitPlayer) { setPlayerShake(true); const t = window.setTimeout(() => setPlayerShake(false), 420); return () => window.clearTimeout(t); }
-        else           { setEnemyShake(true);  const t = window.setTimeout(() => setEnemyShake(false),  420); return () => window.clearTimeout(t); }
-    }, [frame?.message]);
-
-    // ── Battle sound — one synthesized SFX per frame. Extracted to a shared hook
-    // (lib/use-pet-battle-sfx) so the HD-2D PetColiseum renderer reuses the exact
-    // same picker. Covers every caller of this component (Pet Arena, Hollow Gate
-    // beast duels, PvP). Behaviour unchanged from the old inline effect.
-    const [sfxMuted, setSfxMuted] = useState(isPetSfxMuted());
-    usePetBattleFrameSfx(frame, sfxMuted);
-
-    const playerPos = frame?.playerPos ?? PET_SPAWN_1V1.player;
-    const enemyPos  = frame?.enemyPos  ?? PET_SPAWN_1V1.enemy;
-
-    const selfTile   = frame?.actor === "enemy" ? enemyPos : playerPos;
-    const targetTile = frame?.actor === "enemy" ? playerPos : enemyPos;
-    const effectTile =
-        frame?.actionKind === "buff"      ? selfTile   :
-        frame?.actionKind === "heal"      ? selfTile   :
-        frame?.actionKind === "barrier"   ? selfTile   :
-        frame?.actionKind === "shield"    ? selfTile   :
-        frame?.actionKind === "absorb"    ? selfTile   :
-        frame?.actionKind === "damage"    ? targetTile :
-        frame?.actionKind === "basic"     ? targetTile :
-        frame?.actionKind === "lifesteal" ? targetTile :
-        frame?.actionKind === "debuff"    ? targetTile :
-        frame?.actionKind === "dot"       ? targetTile :
-        frame?.actionKind === "movelock"  ? targetTile :
-        frame?.actionKind === "result"    ? selfTile   : -1;
-    const effectLabel =
-        frame?.actionKind === "buff"      ? "⬆️ Boost!"    :
-        frame?.actionKind === "basic"     ? (frame.damage ? `-${frame.damage}` : "👊 Hit!") :
-        frame?.actionKind === "damage"    ? (frame.crit ? `💥 ${frame.damage}!` : frame.damage ? `-${frame.damage}` : "💥 Strike!") :
-        frame?.actionKind === "lifesteal" ? (frame.damage ? `-${frame.damage}` : "🩸 Drain!") :
-        frame?.actionKind === "heal"      ? "💚 Heal!"    :
-        frame?.actionKind === "dot"       ? "☠️ Poison!"   :
-        frame?.actionKind === "move"      ? "💨 Dash!"    :
-        frame?.actionKind === "barrier"   ? "🛡️ Barrier!" :
-        frame?.actionKind === "shield"    ? "🛡️ Shield!"  :
-        frame?.actionKind === "absorb"    ? "🌀 Absorb!"  :
-        frame?.actionKind === "movelock"  ? "⛓️ Root!"    :
-        frame?.actionKind === "debuff"    ? "⬇️ Weaken!"  :
-        frame?.actionKind === "result"    ? result        : "";
-    // User-facing floating-number / text-pop class for the per-tile label, so
-    // damage / heal / shield / status numbers read in their own color near the
-    // target sprite (not only in the log). Crit damage also gets the crit-text
-    // class for the gold punch styling.
-    const effectNumberClass =
-        (frame?.actionKind === "damage" || frame?.actionKind === "basic" || frame?.actionKind === "lifesteal")
-            ? (frame?.crit ? "damage-number crit-text" : "damage-number")
-        : frame?.actionKind === "heal" ? "heal-number"
-        : (frame?.actionKind === "shield" || frame?.actionKind === "barrier" || frame?.actionKind === "absorb") ? "shield-number"
-        : (frame?.actionKind === "dot" || frame?.actionKind === "debuff" || frame?.actionKind === "movelock") ? "status-pop"
-        : "";
-
-    const winnerPet   = result === "Victory" ? playerPet : result === "Defeat" ? enemyPet : null;
-    const winnerSide: "player" | "enemy" = result === "Victory" ? "player" : "enemy";
-    const winnerOwner = result === "Victory" ? "You" : enemyOwner;
-    // Element-typed impact VFX: tint the impact flash to the acting pet's chakra
-    // nature, and surface the sim's already-applied "Super effective!" matchup
-    // (read from the frame message) as a slam banner. Visual only.
-    const actingElement = frame?.actor === "player" ? playerPet.element : frame?.actor === "enemy" ? enemyPet.element : undefined;
-    const elName = actingElement ? String(actingElement).toLowerCase() : "";
-    const elClass = elName && elName !== "none" && elName !== "neutral" ? ` pet-el-${elName}` : "";
-    const superEffective = !!frame && !winnerPet && /super effective/i.test(frame.message ?? "") && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal");
-
-    // Trait flash label (also carries reactive battle-consumable flashes).
-    const traitLabel =
-        frame?.traitFlash?.trait === "Lucky"      ? "🍀 LUCKY DODGE!"      :
-        frame?.traitFlash?.trait === "Aggressive" ? "🔥 AGGRESSIVE CRIT!"  :
-        frame?.traitFlash?.trait === "Guardian"   ? "🛡️ GUARDIAN BLOCK!"  :
-        frame?.traitFlash?.trait === "guardBlock" ? "🛡️ BLOCK!"           :
-        frame?.traitFlash?.trait === "Battleborn" ? "⚔️ BATTLEBORN BONUS!" :
-        frame?.traitFlash?.trait === "Swift"      ? "⚡ SWIFT STRIKE!"     :
-        frame?.traitFlash?.trait === "petEvade"       ? "⚡ EVADED!"        :
-        frame?.traitFlash?.trait === "consumDodge"    ? "💨 DODGED!"        :
-        frame?.traitFlash?.trait === "consumBlock"    ? "🛡️ SMOKE SCREEN!"  :
-        frame?.traitFlash?.trait === "consumReflect"  ? "🌵 THORNS!"        :
-        frame?.traitFlash?.trait === "consumEndure"   ? "💪 SECOND WIND!"   :
-        frame?.traitFlash?.trait === "consumLifeline" ? "✨ LIFELINE!"      :
-        frame?.traitFlash?.trait === "consumCleanse"  ? "🧹 CLEANSED!"      : "";
-
-    // Float color class — lifesteal shows a green +drain on the attacker's bar
-    const playerFloatClass =
-        frame?.actor === "enemy" && frame.damage && frame.actionKind !== "lifesteal"
-            ? ` pet-damage-float${frame.crit ? " crit" : ""}${frame.actionKind === "dot" ? " dot" : ""}`
-        : frame?.actor === "player" && frame.actionKind === "heal" ? " pet-damage-float heal"
-        : frame?.actor === "player" && frame.actionKind === "lifesteal" ? " pet-damage-float lifesteal"
-        : "";
-    const enemyFloatClass =
-        frame?.actor === "player" && frame.damage && frame.actionKind !== "lifesteal"
-            ? ` pet-damage-float${frame.crit ? " crit" : ""}${frame.actionKind === "dot" ? " dot" : ""}`
-        : frame?.actor === "enemy" && frame.actionKind === "heal" ? " pet-damage-float heal"
-        : frame?.actor === "enemy" && frame.actionKind === "lifesteal" ? " pet-damage-float lifesteal"
-        : "";
-
-    // ── Commentator — a reactive hype caller for the dramatic beats. Empty on
-    // routine frames so it only shouts when something worth shouting happens. ──
-    const commentary: string = (() => {
-        if (!frame || frame.isPrefight || frame.actionKind === "result") return "";
-        if (frame.isKO) return "DOWN IT GOES!";
-        if (frame.signatureMove) return "SIGNATURE MOVE!";
-        if (/endures at 1 HP/.test(frame.message)) return "IT REFUSES TO FALL!";
-        if (/Lifeline heals/.test(frame.message)) return "CLUTCH RECOVERY!";
-        if (/dodges|evades/.test(frame.message)) return "NOTHING BUT AIR!";
-        if (frame.crit) return "CRITICAL HIT!";
-        if ((frame.combo ?? 0) >= 3) return `COMBO ×${frame.combo}!`;
-        const low = Math.min(playerPercent, enemyPercent);
-        if (low <= 12) return "ONE HIT FROM DEFEAT!";
-        if (low <= 30) return "ON THE ROPES!";
-        if (Math.abs(playerPercent - enemyPercent) <= 8 && (frame.round ?? 0) >= 3) return "NECK AND NECK!";
-        return "";
-    })();
-
-    // ── Tension flags + momentum (HP tug-of-war) ──
-    // In 2v2 the legacy playerHp/enemyHp track the PRIMARY fighter, which
-    // stays pinned at 0 after it's KO'd — so the brink warning would stick
-    // forever once one pet falls. Base the warning on LIVING fighters only:
-    // a knocked-out slot (already dead) must not keep "ONE HIT LEFT" lit.
-    const lowestPct = (() => {
-        if (frame?.party4v4) {
-            const p = frame.party4v4;
-            const living = [p.playerLead, p.playerReserve, p.enemyLead, p.enemyReserve]
-                .filter(s => s && !s.ko)
-                .map(s => (s.hp / Math.max(1, s.maxHp)) * 100);
-            return living.length ? Math.min(...living) : 100;
-        }
-        return Math.min(playerPercent, enemyPercent);
-    })();
-    const dangerZone = lowestPct <= 25 && !winnerPet;   // red vignette + heartbeat
-    const oneHitWarn = lowestPct <= 12 && !winnerPet;   // "1 HIT LEFT" pulse
-    const momentumPlayer = (playerPercent / Math.max(1, playerPercent + enemyPercent)) * 100;
-
-    // ── Phase 2: animation event queue ──────────────────────────────────────
-    // Combat is no longer shown by sliding one avatar into the other. Each
-    // resolved frame is turned into an ordered queue of presentation events
-    // (windup → lunge / rangedCast → projectile → impact → recoil; guard,
-    // dodge, charge, KO, victory). A lightweight scheduler walks the queue
-    // within the frame's pacing budget, and every pet sprite holds the pose of
-    // whichever event is currently playing. Purely derived from the (already
-    // deterministic) frame, so ranked replays animate identically and no
-    // balance/RNG/clock is touched.
-    const battleDist = tileDistance(playerPos, enemyPos);
-    const animVfxKey = elementVfxKey(actingElement);
-    const slotPetId = (slot?: string): string =>
-        slot === "playerLead" ? playerPet.id
-        : slot === "playerReserve" ? (playerReservePet?.id ?? "")
-        : slot === "enemyLead" ? enemyPet.id
-        : slot === "enemyReserve" ? (enemyReservePet?.id ?? "")
-        : "";
-    const animActorId = frame?.party4v4?.actorSlot
-        ? slotPetId(frame.party4v4.actorSlot)
-        : frame?.actor === "enemy" ? enemyPet.id : playerPet.id;
-    const animTargetId = frame?.party4v4?.targetSlot
-        ? slotPetId(frame.party4v4.targetSlot)
-        : frame?.actor === "enemy" ? playerPet.id : enemyPet.id;
-    const resolvedWinnerId = winnerPet ? (winnerSide === "player" ? playerPet.id : enemyPet.id) : null;
-    const animEvents = useMemo(() => {
-        if (!frame) return [];
-        return buildPetAnimationEvents({
-            frame: {
-                actor: frame.actor,
-                actionKind: frame.actionKind,
-                damage: frame.damage,
-                crit: frame.crit,
-                isKO: frame.isKO,
-                isPrefight: frame.isPrefight,
-                message: frame.message,
-                signatureMove: frame.signatureMove ?? null,
-            },
-            dist: battleDist,
-            actorId: animActorId,
-            targetId: animTargetId,
-            vfxKey: animVfxKey,
-            isResultFrame: frame.actionKind === "result" && !frame.isKO,
-            winnerId: resolvedWinnerId,
-            loserId: animTargetId,
-        });
-    }, [frame?.message]);
-
-    const [animIdx, setAnimIdx] = useState(0);
-    useEffect(() => {
-        setAnimIdx(0);
-        if (animEvents.length <= 1) return;
-        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-        if (reduce) { setAnimIdx(animEvents.length - 1); return; }
-        const pace = petFramePace(frame);
-        const total = animEvents.reduce((sum, e) => sum + e.durationMs, 0) || 1;
-        // Hit-stop: freeze the timeline a beat on the heaviest blows. We RESERVE
-        // budget for the holds out of the per-frame pace so the base beats just
-        // compress to fit the remainder — the whole queue still finishes within
-        // pace*0.9, keeping the outer frame cadence (and ranked sync) untouched.
-        const hVictimMaxHp = Math.max(1, frame?.actor === "enemy" ? playerPet.hp : enemyPet.hp);
-        const holdOpts = { crit: !!frame?.crit, signature: !!frame?.signatureMove, isKO: !!frame?.isKO, heavyHit: !!frame?.damage && frame.damage >= hVictimMaxHp * 0.18 };
-        const rawHolds = animEvents.map((e) => petCameraHoldMs(e.type, holdOpts));
-        const rawHoldTotal = rawHolds.reduce((sum, h) => sum + h, 0);
-        const holdBudget = Math.min(pace * 0.35, rawHoldTotal);
-        const holdScale = rawHoldTotal > 0 ? holdBudget / rawHoldTotal : 0;
-        const scale = Math.min(1, Math.max(0, pace * 0.9 - holdBudget) / total);
-        const timers: number[] = [];
-        let acc = 0;
-        for (let i = 1; i < animEvents.length; i++) {
-            acc += animEvents[i - 1].durationMs * scale + rawHolds[i - 1] * holdScale;
-            timers.push(window.setTimeout(() => setAnimIdx(i), acc));
-        }
-        return () => timers.forEach((t) => window.clearTimeout(t));
-    }, [animEvents]);
-    const activeAnimEvent = animEvents[animIdx];
-
-    // ── Camera + background (stage-level) ───────────────────────────────────
-    // Screen shake is reserved for crits / heavy hits / KO (never routine
-    // hits). A signature charge dims + zooms the stage while the wind-up glow
-    // plays, then releases with a heavy shake on impact.
-    const victimMaxHp = Math.max(1, frame?.actor === "enemy" ? playerPet.hp : enemyPet.hp);
-    const heavyHit = !!frame?.damage && frame.damage >= victimMaxHp * 0.18;
-    // Stage camera treatment (shake / focus+dim) for this beat — centralized in
-    // the pure, tested pet-battle-camera director (which also drives hit-stop).
-    const camera = petBattleCamera({
-        resolved: !!winnerPet,
-        isKO: !!frame?.isKO,
-        crit: !!frame?.crit,
-        signature: !!frame?.signatureMove,
-        heavyHit,
-        activeType: activeAnimEvent?.type,
-        sigCharge: !!frame?.signatureMove && activeAnimEvent?.type === "charge",
-    });
-    const cameraClass = camera.className ? ` ${camera.className}` : "";
-
-    // Fire a particle burst at the active beat's focal tile (target for a hit,
-    // self for a charge). Positions read from the live tile DOM rect — same
-    // approach the FLIP glide uses. Skipped under reduced-motion + once resolved.
-    useEffect(() => {
-        if (winnerPet || !activeAnimEvent) return;
-        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-        const grid = petArenaGridRef.current;
-        const canvas = vfxCanvasRef.current;
-        if (!grid || !canvas) return;
-        const focusTile = activeAnimEvent.type === "charge" ? selfTile : (effectTile >= 0 ? effectTile : selfTile);
-        if (focusTile < 0) return;
-        const tileEl = grid.querySelector<HTMLElement>(`.pet-park-tile[data-tile="${focusTile}"]`);
-        if (!tileEl) return;
-        const t = tileEl.getBoundingClientRect();
-        const c = canvas.getBoundingClientRect();
-        const cx = (t.left + t.right) / 2 - c.left;
-        const cy = (t.top + t.bottom) / 2 - c.top;
-        // Particle burst (Phase A).
-        const field = vfxFieldRef.current;
-        if (field) {
-            const spec = vfxBurstForEvent(activeAnimEvent, { crit: !!frame?.crit, isKO: !!frame?.isKO, signature: !!frame?.signatureMove, flagship: !!frame?.signatureMove?.flagship });
-            if (spec.kind !== "none") field.burst(cx, cy, spec);
-        }
-        // Sprite overlay (CC0 frames), chosen by beat × ability-kind × element via
-        // the shared petFxSpriteKey picker so each ability reads distinctly: basics
-        // slash; elemental/DoT hits use their own sheet (blood/shadow/poison now
-        // have folders); heals/buffs/shields their support sheets; and KOs +
-        // signature unleashes get the cinematic kaboom/charge tier. Beats with no
-        // bundled sheet fall back to the particle burst above.
-        const beat = activeAnimEvent.type;
-        const sigSide = frame?.signatureMove?.side;
-        const actorElement = (sigSide ?? frame?.actor) === "enemy" ? enemyPet.element : playerPet.element;
-        const pick = petFxSpriteKey({
-            beat,
-            actionKind: frame?.actionKind,
-            vfxKey: activeAnimEvent.vfxKey,
-            signature: !!frame?.signatureMove,
-            flagship: !!frame?.signatureMove?.flagship,
-            element: actorElement,
-            isKO: !!frame?.isKO,
-        });
-        if (pick.key) {
-            const frames = bundledJutsuFxFrames(pick.key);
-            if (frames) setPetSpriteFx({ id: petSpriteFxSeq.current++, frames, x: cx, y: cy, variant: pick.variant });
-        }
-    }, [animIdx, frame?.message]);
-
-    // Status badges near the HP bar (Phases 7-9): the BattleStatusId set via the
-    // shared registry (icon + remaining rounds), plus the value/flag badges
-    // (ATK/DEF buff, shield amount, absorb, brace) that fall outside that set.
-    const statusBadges = (st?: PetFrameStatus) => (
-        <>
-            {collectActorStatuses({ ...(st ?? {}), shield: undefined }).map((s) => {
-                const def = BATTLE_STATUS_DEFS[s.id];
-                return (
-                    <span key={s.id} className={`pet-status-badge pet-status-${def.kind}`} title={`${def.label} — ${def.description}`}>
-                        {def.icon}{s.rounds > 1 ? `×${s.rounds}` : ""}
-                    </span>
-                );
-            })}
-            {st?.atkBuff   && <span className="pet-status-badge atk" title="Attack up">⚔️ATK↑</span>}
-            {st?.defBuff   && <span className="pet-status-badge def" title="Defense up">🛡️DEF↑</span>}
-            {st?.shield    && <span className="pet-status-badge shield" title="Shield — absorbs damage before HP">🔰{st.shield}</span>}
-            {st?.absorbing && <span className="pet-status-badge absorb" title="Absorb stance">✨ABSORB</span>}
-            {st?.bracing   && <span className="pet-status-badge" title="Bracing — resists knockback and crits">🧱</span>}
-        </>
-    );
-
-    return (
-        <section className="pet-arena-battlefield">
-            {/* Pre-fight face-off overlay — sprites flank the VS badge for a
-                cinematic intro instead of a bare text "Pet A VS Pet B" line.
-                Sliding-in avatars + a tagline make the start of a fight feel
-                like an actual event. The overlay's existing 1.4s fade keeps
-                it from blocking the battle. */}
-            {frame?.isPrefight && (
-                <div className="pet-prefight-overlay">
-                    <div className="pet-prefight-vs">
-                        <div className="pet-prefight-side player">
-                            <div className="pet-prefight-portrait">
-                                <PetBattleAvatar pet={playerPet} side="player" active sharedImages={sharedImages} />
-                            </div>
-                            <div className="pet-prefight-name player">{playerPet.name}</div>
-                            <div className="pet-prefight-sub">Lv {playerPet.level} · {playerPet.rarity}{playerPet.element && playerPet.element !== "None" ? ` · ${playerPet.element}` : ""}</div>
-                            <div className="pet-prefight-archetype">{petArchetypeFor(playerPet)}</div>
-                            <div className="pet-prefight-stats">
-                                <span>❤ {playerPet.hp}</span><span>⚔ {playerPet.attack}</span><span>🛡 {playerPet.defense}</span><span>⚡ {playerPet.speed}</span>
-                            </div>
-                            {playerRecord && (
-                                <div className="pet-prefight-record">
-                                    {playerRecord.wins !== undefined && <><span className="rec-w">{playerRecord.wins}W</span> <span className="rec-l">{playerRecord.losses ?? 0}L</span></>}
-                                    {playerRecord.rating !== undefined && <span className="rec-elo">{playerRecord.wins !== undefined ? " · " : ""}{playerRecord.rating} Elo</span>}
-                                </div>
-                            )}
-                        </div>
-                        <span className="pet-prefight-vs-label">VS</span>
-                        <div className="pet-prefight-side enemy">
-                            <div className="pet-prefight-portrait">
-                                <PetBattleAvatar pet={enemyPet} side="enemy" active sharedImages={sharedImages} />
-                            </div>
-                            <div className="pet-prefight-name enemy">{enemyPet.name}</div>
-                            <div className="pet-prefight-sub">Lv {enemyPet.level} · {enemyPet.rarity}{enemyPet.element && enemyPet.element !== "None" ? ` · ${enemyPet.element}` : ""}</div>
-                            <div className="pet-prefight-archetype">{petArchetypeFor(enemyPet)}</div>
-                            <div className="pet-prefight-stats">
-                                <span>❤ {enemyPet.hp}</span><span>⚔ {enemyPet.attack}</span><span>🛡 {enemyPet.defense}</span><span>⚡ {enemyPet.speed}</span>
-                            </div>
-                            {enemyRecord && (
-                                <div className="pet-prefight-record">
-                                    {enemyRecord.wins !== undefined && <><span className="rec-w">{enemyRecord.wins}W</span> <span className="rec-l">{enemyRecord.losses ?? 0}L</span></>}
-                                    {enemyRecord.rating !== undefined && <span className="rec-elo">{enemyRecord.wins !== undefined ? " · " : ""}{enemyRecord.rating} Elo</span>}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="pet-prefight-tagline">
-                        {prefightCount !== null && prefightCount > 0
-                            ? <span className="pet-prefight-count" key={prefightCount}>{prefightCount}</span>
-                            : <span className="pet-prefight-go">FIGHT!</span>}
-                    </div>
-                </div>
-            )}
-
-            {/* Trait flash banner */}
-            {frame?.traitFlash && traitLabel && (
-                <div key={frame.message} className={`pet-trait-flash ${frame.traitFlash.actor}`}>{traitLabel}</div>
-            )}
-
-            {/* Combo counter */}
-            {frame?.combo && frame.combo >= 3 && (
-                <div key={`combo-${frame.message}`} className={`pet-combo-counter ${frame.actor}`}>COMBO ×{frame.combo}</div>
-            )}
-
-            {/* Momentum tug-of-war — who's winning at a glance (player HP share). */}
-            {!frame?.isPrefight && (
-                <div className="pet-momentum-bar" aria-label="Momentum">
-                    <div className="pet-momentum-fill-player" style={{ width: `${momentumPlayer}%` }} />
-                    <div className="pet-momentum-fill-enemy" style={{ width: `${100 - momentumPlayer}%` }} />
-                    <span className="pet-momentum-label player">{playerPet.name}</span>
-                    <span className="pet-momentum-label enemy">{enemyPet.name}</span>
-                </div>
-            )}
-
-            {/* Commentator — hype caller for the dramatic beats. */}
-            {commentary && (
-                <div key={`comm-${frame?.round}-${frame?.message}`} className="pet-commentary">{commentary}</div>
-            )}
-
-            {/* "1 HIT LEFT" — flashes when a fighter is on the brink. */}
-            {oneHitWarn && <div className="pet-onehit-warn">⚠ ONE HIT LEFT ⚠</div>}
-
-            {/* HP bars with status badges. 4-pet mode (simultaneous 2v2)
-                renders four compact bars (lead + reserve per side). 1v1
-                mode keeps the original two big bars below. */}
-            {frame?.party4v4 ? (
-                <div className="pet-arena-bars" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                    <div style={{ display: "grid", gap: "0.3rem" }}>
-                        {([
-                            { slot: "playerLead",    pet: playerPet,        snap: frame.party4v4.playerLead },
-                            { slot: "playerReserve", pet: playerReservePet, snap: frame.party4v4.playerReserve },
-                        ] as const).map(({ slot, pet, snap }) => pet && (
-                            <div key={slot} className={`pet-arena-fighter-bar${snap.ko ? " pet-arena-fighter-bar-ko" : ""}`} style={snap.ko ? { opacity: 0.45 } : undefined}>
-                                <strong>{pet.name}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}{snap.ko ? " 💀" : ""}</strong>
-                                <div className="pet-status-badges">
-                                    {snap.status.poisoned && <span className="pet-status-badge poison">☠️×{snap.status.poisoned}</span>}
-                                    {snap.status.burn     && <span className="pet-status-badge poison">🔥×{snap.status.burn}</span>}
-                                    {snap.status.freeze   && <span className="pet-status-badge movelock">🧊×{snap.status.freeze}</span>}
-                                    {snap.status.confuse  && <span className="pet-status-badge movelock">🌀×{snap.status.confuse}</span>}
-                                    {snap.status.stun     && <span className="pet-status-badge movelock">💤×{snap.status.stun}</span>}
-                                    {snap.status.shield   && <span className="pet-status-badge shield">🔰{snap.status.shield}</span>}
-                                    {snap.status.absorbing && <span className="pet-status-badge absorb">✨ABSORB</span>}
-                                </div>
-                                <span>{snap.hp}/{snap.maxHp} HP</span>
-                                <div className={`pet-arena-hpbar${!winnerPet && (snap.hp / snap.maxHp * 100) <= 30 ? " pet-arena-hpbar-low" : ""}`}>
-                                    <i style={{ width: `${Math.max(0, Math.min(100, (snap.hp / snap.maxHp) * 100))}%` }} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div style={{ display: "grid", gap: "0.3rem" }}>
-                        {([
-                            { slot: "enemyLead",    pet: enemyPet,        snap: frame.party4v4.enemyLead },
-                            { slot: "enemyReserve", pet: enemyReservePet, snap: frame.party4v4.enemyReserve },
-                        ] as const).map(({ slot, pet, snap }) => pet && (
-                            <div key={slot} className={`pet-arena-fighter-bar enemy${snap.ko ? " pet-arena-fighter-bar-ko" : ""}`} style={snap.ko ? { opacity: 0.45 } : undefined}>
-                                <strong>{enemyOwner}: {pet.name}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}{snap.ko ? " 💀" : ""}</strong>
-                                <div className="pet-status-badges">
-                                    {snap.status.poisoned && <span className="pet-status-badge poison">☠️×{snap.status.poisoned}</span>}
-                                    {snap.status.burn     && <span className="pet-status-badge poison">🔥×{snap.status.burn}</span>}
-                                    {snap.status.freeze   && <span className="pet-status-badge movelock">🧊×{snap.status.freeze}</span>}
-                                    {snap.status.confuse  && <span className="pet-status-badge movelock">🌀×{snap.status.confuse}</span>}
-                                    {snap.status.stun     && <span className="pet-status-badge movelock">💤×{snap.status.stun}</span>}
-                                    {snap.status.shield   && <span className="pet-status-badge shield">🔰{snap.status.shield}</span>}
-                                    {snap.status.absorbing && <span className="pet-status-badge absorb">✨ABSORB</span>}
-                                </div>
-                                <span>{snap.hp}/{snap.maxHp} HP</span>
-                                <div className={`pet-arena-hpbar${!winnerPet && (snap.hp / snap.maxHp * 100) <= 30 ? " pet-arena-hpbar-low" : ""}`}>
-                                    <i style={{ width: `${Math.max(0, Math.min(100, (snap.hp / snap.maxHp) * 100))}%` }} />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            ) : (
-            <div className="pet-arena-bars">
-                <div className={`pet-arena-fighter-bar${playerShake ? " pet-hp-shaking" : ""}`}>
-                    <strong>{playerPet.name}</strong>
-                    <div className="pet-status-badges">{statusBadges(frame?.playerStatus)}</div>
-                    <span>{playerHp}/{playerPet.hp} HP</span>
-                    <div className={`pet-arena-hpbar${!winnerPet && playerPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
-                        <i style={{ width: `${playerPercent}%` }} />
-                        {playerFloatClass && frame && (
-                            <span key={frame.message} className={playerFloatClass}>
-                                {frame.actionKind === "lifesteal" ? `🩸 +${frame.damage}` : frame.crit ? `💥 CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠️ -${frame.damage}` : frame.actionKind === "heal" ? `💚 +${frame.damage ?? "heal"}` : `-${frame.damage}`}
-                            </span>
-                        )}
-                    </div>
-                </div>
-
-                <div className={`pet-arena-fighter-bar enemy${enemyShake ? " pet-hp-shaking" : ""}`}>
-                    <strong>{enemyOwner}: {enemyPet.name}</strong>
-                    <div className="pet-status-badges">{statusBadges(frame?.enemyStatus)}</div>
-                    <span>{enemyHp}/{enemyPet.hp} HP</span>
-                    <div className={`pet-arena-hpbar${!winnerPet && enemyPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
-                        <i style={{ width: `${enemyPercent}%` }} />
-                        {enemyFloatClass && frame && (
-                            <span key={frame.message} className={enemyFloatClass}>
-                                {frame.actionKind === "lifesteal" ? `🩸 +${frame.damage}` : frame.crit ? `💥 CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠️ -${frame.damage}` : frame.actionKind === "heal" ? `💚 +${frame.damage ?? "heal"}` : `-${frame.damage}`}
-                            </span>
-                        )}
-                    </div>
-                </div>
-            </div>
-            )}
-
-            <div className={`pet-park-stage${cameraClass}${dangerZone ? " pet-stage-danger" : ""}`}>
-                {/* Particle VFX layer (Phase A) — overlays the stage; driven by
-                    the animation-event queue via vfxFieldRef. Cosmetic only. */}
-                <canvas ref={vfxCanvasRef} className="pet-vfx-canvas" aria-hidden="true" />
-                {/* Elemental sprite effect (CC0 frames) over the struck tile, above
-                    the particle canvas. Re-keyed per beat so it restarts cleanly.
-                    Pets themselves are untouched — this is an effect overlay only. */}
-                {petSpriteFx && (
-                    <JutsuSpriteFx
-                        key={petSpriteFx.id}
-                        frames={petSpriteFx.frames}
-                        single={false}
-                        x={petSpriteFx.x}
-                        y={petSpriteFx.y}
-                        variant={petSpriteFx.variant}
-                        onDone={() => setPetSpriteFx((s) => (s && s.id === petSpriteFx.id ? null : s))}
-                    />
-                )}
-                {/* Mute toggle for the synthesized battle SFX. */}
-                <button
-                    type="button"
-                    className="pet-sfx-toggle"
-                    onClick={() => { const next = !sfxMuted; setSfxMuted(next); setPetSfxMuted(next); }}
-                    title={sfxMuted ? "Unmute battle sounds" : "Mute battle sounds"}
-                    aria-label={sfxMuted ? "Unmute battle sounds" : "Mute battle sounds"}
-                >{sfxMuted ? "🔇" : "🔊"}</button>
-                {/* Impact flash — a brief full-stage colour pop at the moment of
-                    contact. Keyed per frame so it restarts on every blow even
-                    when two hits of the same kind land back-to-back. */}
-                {frame && !winnerPet && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal" || frame.isKO) && (
-                    <div
-                        key={`flash-${frame.message}`}
-                        className={`pet-impact-flash${frame.isKO ? " ko" : frame.crit ? " crit" : ""}${frame.isKO ? "" : elClass}`}
-                        aria-hidden="true"
-                    />
-                )}
-                {/* Super-effective slam — surfaces the element matchup the sim already applied. */}
-                {superEffective && (
-                    <div key={`se-${frame!.message}`} className="pet-super-effective" aria-hidden="true">Super Effective!</div>
-                )}
-                {/* Low-HP danger vignette — red pulse closes in as a fighter nears death. */}
-                {dangerZone && <div className="pet-danger-vignette" aria-hidden="true" />}
-                {/* Signature jutsu cut-in — anime-style portrait + move-name slam. */}
-                {frame?.signatureMove && (
-                    <div className={`pet-cutin ${frame.signatureMove.side}`} key={`cutin-${frame.round}-${frame.message}`}>
-                        <div className="pet-cutin-portrait">
-                            <PetBattleAvatar pet={frame.signatureMove.side === "player" ? playerPet : enemyPet} side={frame.signatureMove.side} active sharedImages={sharedImages} />
-                        </div>
-                        <div className="pet-cutin-text">
-                            <span className="pet-cutin-pet">{frame.signatureMove.petName}</span>
-                            <span className="pet-cutin-move">{frame.signatureMove.name}!</span>
-                        </div>
-                    </div>
-                )}
-                {/* Move-name callout — brief banner as a (non-signature) move
-                    fires; the signature cut-in above announces its own name. */}
-                {!winnerPet && activeAnimEvent?.type === "moveCallout" && activeAnimEvent.text && (
-                    <div className="move-callout" key={`callout-${frame?.message}-${animIdx}`}>{activeAnimEvent.text}</div>
-                )}
-                {/* KO freeze overlay */}
-                {frame?.isKO && !winnerPet && (
-                    <div className="pet-ko-overlay">K.O. ??</div>
-                )}
-
-                <div ref={petArenaGridRef} className={`pet-park-grid pet-vfx-${winnerPet ? "idle" : (frame?.actionKind ?? "idle")} pet-vfx-actor-${frame?.actor ?? "system"}`} aria-label="Pet arena park battlefield">
-                    {(() => {
-                        // 4-pet mode: build a position→pet map covering all
-                        // living party members. 1v1 mode keeps the old 2-pet
-                        // layout via playerPos / enemyPos.
-                        // isTarget flags the pet receiving an incoming hit
-                        // so PetBattleAvatar can play the recoil/flash. For
-                        // 2v2 the simulator names a slot via party4v4.targetSlot;
-                        // for 1v1 the target is just the opposite side of the
-                        // actor on damage-class actions.
-                        const HIT_ACTIONS = new Set(["damage", "basic", "dot", "lifesteal"] as const);
-                        const isHitFrame = !!frame?.actionKind && (HIT_ACTIONS as Set<string>).has(frame.actionKind);
-                        type GridPet = { pet: Pet; side: "player" | "enemy"; ko: boolean; isActor: boolean; isTarget: boolean };
-                        const positionMap = new Map<number, GridPet>();
-                        if (frame?.party4v4) {
-                            const p4 = frame.party4v4;
-                            // Place ALL fielded party pets — including KO'd ones,
-                            // which stay on the grid toppled/greyed (see `faint`
-                            // below) instead of vanishing. This is what 1v1
-                            // already does for the loser, and it means a 2v2
-                            // always shows both pets per side, not just the
-                            // survivor. Each entry carries its OWN ko flag so a
-                            // downed ally never drags its still-standing partner
-                            // into the faint pose.
-                            const partySlots = [
-                                { pet: playerPet,        side: "player" as const, slot: "playerLead"    as const, snap: p4.playerLead },
-                                { pet: playerReservePet, side: "player" as const, slot: "playerReserve" as const, snap: p4.playerReserve },
-                                { pet: enemyPet,         side: "enemy"  as const, slot: "enemyLead"     as const, snap: p4.enemyLead },
-                                { pet: enemyReservePet,  side: "enemy"  as const, slot: "enemyReserve"  as const, snap: p4.enemyReserve },
-                            ];
-                            // Two passes: add KO'd pets first, living pets second,
-                            // so a living pet that has stepped onto a freed square
-                            // wins the cell instead of being hidden under a corpse.
-                            for (const koPass of [true, false]) {
-                                for (const s of partySlots) {
-                                    if (!s.pet || s.snap.ko !== koPass) continue;
-                                    positionMap.set(s.snap.pos, { pet: s.pet, side: s.side, ko: s.snap.ko, isActor: p4.actorSlot === s.slot, isTarget: isHitFrame && p4.targetSlot === s.slot });
-                                }
-                            }
-                        } else {
-                            positionMap.set(playerPos, { pet: playerPet, side: "player", ko: false, isActor: frame?.actor === "player", isTarget: isHitFrame && frame?.actor === "enemy" });
-                            positionMap.set(enemyPos,  { pet: enemyPet,  side: "enemy",  ko: false, isActor: frame?.actor === "enemy",  isTarget: isHitFrame && frame?.actor === "player" });
-                        }
-                        return Array.from({ length: PET_GRID_SIZE }, (_, index) => {
-                            const here = positionMap.get(index);
-                            // Tactical tile type (Phases 5-6). Blocked + cover are both
-                            // impassable obstacles (pets path around them); cover renders
-                            // as a lower wall. Hazard / healing / slow are passable but
-                            // tinted. Falls back to the legacy obstacles list (all blocked).
-                            const tileType = tileTypeByIndex.get(index);
-                            const isCover     = tileType === "cover";
-                            const isObstacle  = isCover || tileType === "blocked" || (tileTypeByIndex.size === 0 && (obstacles ?? []).includes(index));
-                            const tileFxClass = tileType === "hazard" ? " pet-tile-hazard" : tileType === "healing" ? " pet-tile-healing" : tileType === "slow" ? " pet-tile-slow" : "";
-                            // Tactical zone (Phase 10-14) — a faint highlight on the
-                            // contested centre columns focuses the eye on where pets
-                            // actually fight, without using the whole oversized grid.
-                            const zoneClass = !isObstacle && petTacticalZone(index % PET_GRID_COLS, tileType) === "frontline" ? " pet-zone-frontline" : "";
-                            // Target-tile highlight during an offensive beat.
-                            const isTargetTile = !winnerPet && index === targetTile && (frame?.actionKind === "damage" || frame?.actionKind === "basic" || frame?.actionKind === "lifesteal" || frame?.actionKind === "dot" || frame?.actionKind === "debuff" || frame?.actionKind === "movelock");
-                            const isTrail     = index >= 42 && index <= 55; // row 3 of 14-col, 7-row grid (centre lane)
-                            // Once a winner is decided, stop firing per-tile glows and
-                            // the centre-tile vfx burst. Otherwise the result frame's
-                            // tile pulse + victory ring + sparks fire UNDER the winner
-                            // card, which reads as a broken end-of-fight flicker.
-                            const isActionTile = !winnerPet && frame?.actionKind && !!here;
-                            const hasEffect   = !winnerPet && index === effectTile && frame?.actionKind;
-                            // Pseudo-3D depth + loser faint ride a wrapper BETWEEN the
-                            // glide-mover and the avatar, so neither collides with the
-                            // FLIP translate (mover) nor the lunge/walk (avatar). Depth:
-                            // scale/brighten by grid row so up-field reads as farther
-                            // (row 3 = centre lane = neutral 1.0). Faint: the pet that
-                            // just hit 0 HP topples, sinks, and desaturates in place.
-                            const depthRow = Math.floor(index / PET_GRID_COLS);
-                            const depthScale = 1 + (depthRow - 3) * 0.04;
-                            // In 2v2 the side-wide playerHp/enemyHp track only the
-                            // lead pet, so they can't decide faint per pet — a downed
-                            // lead would otherwise topple its living reserve too
-                            // (the "2nd pet glitches after a KO" bug). Use the slot's
-                            // own KO flag in party mode; in 1v1 there's a single pet
-                            // per side, so the side HP is the right signal.
-                            const faint = !!here && (frame?.party4v4 ? here.ko : (here.side === "player" ? (frame?.playerHp ?? 1) <= 0 : (frame?.enemyHp ?? 1) <= 0));
-                            const depthStyle: React.CSSProperties = {
-                                transform: faint
-                                    ? `scale(${depthScale}) translateY(15px) rotate(${here!.side === "player" ? -68 : 68}deg)`
-                                    : `scale(${depthScale})`,
-                                filter: faint ? "grayscale(0.85) brightness(0.5)" : `brightness(${(1 + (depthRow - 3) * 0.03).toFixed(3)})`,
-                                opacity: faint ? 0.62 : 1,
-                            };
-                            return (
-                                <div
-                                    key={index}
-                                    data-tile={index}
-                                    className={`pet-park-tile${isObstacle ? " pet-obstacle" : ""}${isCover ? " pet-tile-cover" : ""}${tileFxClass}${zoneClass}${isTargetTile && !isObstacle ? " pet-target-tile" : ""}${isTrail && !isObstacle ? " pet-path" : ""}${isActionTile && !isObstacle ? " pet-action-tile" : ""}${hasEffect && !isObstacle ? ` pet-vfx-tile pet-vfx-tile-${frame?.actionKind}` : ""}${here && !isObstacle ? " pet-occupied" : ""}`}
-                                >
-                                    {isObstacle && (
-                                        <div className={`pet-obstacle-block${isCover ? " pet-obstacle-cover" : ""}`}>
-                                            <div className="pet-obstacle-top" />
-                                            <div className="pet-obstacle-face" />
-                                            <div className="pet-obstacle-side" />
-                                        </div>
-                                    )}
-                                    {hasEffect && (
-                                        <span className={`pet-battle-vfx${frame?.crit ? " crit" : ""}${frame?.isKO ? " ko" : ""}${frame?.isKO ? "" : elClass}`} key={`${frame?.message}-${index}`}>
-                                            <i />
-                                            <b className={effectNumberClass}>{effectLabel}</b>
-                                            <em />
-                                        </span>
-                                    )}
-                                    {/* Grounding — an impact ring expands on the floor at the
-                                        moment of contact (Phase A increment 2). Fires on the
-                                        impact beat at the struck tile; element-tinted, brighter
-                                        on a crit. Sits on the ground plane (tile-local). */}
-                                    {!winnerPet && activeAnimEvent?.type === "impact" && index === effectTile && !isObstacle && (
-                                        <span className={`pet-impact-ring${frame?.crit ? " crit" : ""}${elClass}`} key={`ring-${frame?.message}-${animIdx}`} aria-hidden="true" />
-                                    )}
-                                    {/* Per-frame key forces a fresh mount each tick so the
-                                        CSS lunge / hit animations restart cleanly on every
-                                        successive blow — without this, two back-to-back
-                                        damage frames against the same target would only
-                                        animate once (CSS quirk: animation-name doesn't
-                                        restart when the same class persists). */}
-                                    {here && (
-                                        <div className="pet-avatar-mover" data-petid={here.pet.id}>
-                                            <div className={`pet-avatar-depth${faint ? " pet-fainted" : ""}`} style={depthStyle}>
-                                                <PetBattleAvatar key={`${here.pet.id}-${frame?.message ?? "idle"}`} pet={here.pet} side={here.side} active={here.isActor} hit={here.isTarget && !faint} status={here.side === "player" ? frame?.playerStatus : frame?.enemyStatus} sharedImages={sharedImages} visualState={petPoseForAvatar(activeAnimEvent, here.pet.id, !!winnerPet && here.side === winnerSide, faint)} />
-                                            </div>
-                                        </div>
-                                    )}
-                                    {/* Ranged projectile — fired from the acting pet's tile
-                                        toward its target across `--pdist` tile-widths. Keyed
-                                        per event so it restarts; player fires right (+1),
-                                        enemy fires left (−1). Element drives the VFX look. */}
-                                    {here && !winnerPet && activeAnimEvent && (activeAnimEvent.type === "projectile" || activeAnimEvent.type === "beam") && activeAnimEvent.actorId === here.pet.id && (
-                                        <span
-                                            key={`proj-${frame?.message ?? ""}-${animIdx}`}
-                                            className={`pet-projectile pet-proj-${activeAnimEvent.type} ${
-                                                activeAnimEvent.vfxKey === "fire"      ? "vfx-fire-projectile" :
-                                                activeAnimEvent.vfxKey === "shadow"    ? "vfx-shadow-slash" :
-                                                activeAnimEvent.vfxKey === "lightning" ? "vfx-lightning-bolt" :
-                                                activeAnimEvent.vfxKey === "poison"    ? "vfx-poison-cloud" :
-                                                `pet-pvfx-${activeAnimEvent.vfxKey ?? "none"}`
-                                            }`}
-                                            style={{ ["--face" as string]: here.side === "player" ? 1 : -1, ["--pdist" as string]: Math.max(1, Math.min(11, battleDist)) }}
-                                            aria-hidden="true"
-                                        />
-                                    )}
-                                    {/* Localized VFX layer — impact flash + dust on the target,
-                                        shield aura / heal glow on the actor, status pop on the
-                                        afflicted pet, DODGE text on the dodger. Event-driven, so
-                                        each beat fires at its moment in the timeline. */}
-                                    {here && !winnerPet && activeAnimEvent && (() => {
-                                        const ae = activeAnimEvent;
-                                        const evtActor = ae.actorId === here.pet.id;
-                                        const evtTarget = ae.targetId === here.pet.id;
-                                        const k = `${frame?.message ?? ""}-${animIdx}`;
-                                        return (
-                                            <>
-                                                {ae.type === "impact" && evtTarget && <span key={`imp-${k}`} className="vfx-impact-flash" aria-hidden="true" />}
-                                                {ae.type === "impact" && evtTarget && <span key={`dust-${k}`} className="vfx-dust-burst" aria-hidden="true" />}
-                                                {ae.type === "guard" && evtActor && <span key={`shld-${k}`} className="vfx-shield-aura" aria-hidden="true" />}
-                                                {ae.type === "charge" && evtActor && ae.vfxKey === "chakra" && <span key={`heal-${k}`} className="vfx-heal-glow" aria-hidden="true" />}
-                                                {ae.type === "statusApply" && evtTarget && <span key={`stat-${k}`} className="vfx-status-pop" aria-hidden="true" />}
-                                                {ae.type === "dodge" && evtActor && <span key={`dodge-${k}`} className="dodge-text">DODGE</span>}
-                                            </>
-                                        );
-                                    })()}
-                                </div>
-                            );
-                        });
-                    })()}
-                </div>
-
-                {winnerPet && (
-                    <div className={`pet-victory-screen ${winnerSide}`}>
-                        {/* Removed the rotating <pet-victory-burst /> sparkle ring —
-                            its 1.8s infinite spin read as a broken-looking flicker
-                            against the static winner card. The card now sits calm. */}
-                        <PetBattleAvatar pet={winnerPet} side={winnerSide} active sharedImages={sharedImages} visualState="victory" />
-                        <div>
-                            <span>Arena Winner</span>
-                            <strong>{winnerPet.name}</strong>
-                            <p>{winnerOwner} wins the match.</p>
-                        </div>
-                        <div className="pet-victory-actions">
-                            <button type="button" onClick={onFightAgain}>Fight Again</button>
-                            <button type="button" className="danger-button" onClick={onExit}>Exit</button>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Round event ticker — last 3 non-system events */}
-            {recentFrames && recentFrames.length > 0 && (
-                <div className="pet-event-ticker">
-                    {[...recentFrames].reverse().map((f, i) => (
-                        <span key={`${f.message}-${i}`} className={`pet-event-chip ${f.actor} ${f.actionKind ?? ""} ${i === 0 ? "latest" : ""}`}>
-                            {f.actionKind === "dot" ? "☠" : f.actionKind === "buff" ? "⬆" : f.actionKind === "heal" ? "✚" : f.actionKind === "move" ? "➡" : f.actionKind === "debuff" ? "⬇" : f.actionKind === "lifesteal" ? "🧛" : f.actionKind === "shield" ? "🛡" : f.actionKind === "absorb" ? "🌀" : f.actionKind === "barrier" ? "◇" : f.actionKind === "movelock" ? "⛓" : f.crit ? "💥" : "⚔"}
-                            {" "}{f.message.replace(/^Round \d+: /, "").slice(0, 42)}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            <div className={`pet-arena-current-action ${frame?.actor ?? "system"}`}>
-                <span>{frame?.round ? `Round ${frame.round}` : "Ready"}</span>
-                <strong>{frame?.message ?? "Pick two pets and start the match."}</strong>
-                {result && frame?.actionKind === "result" && <button onClick={onReplay}>Replay</button>}
-            </div>
-        </section>
-    );
-}
-
-// PvP-battle + leaderboard/tavern shared UI types moved to ./types/pvp-ui.
-// FestivalPortrait moved to ./components/Pills.
-import type { PvpSessionState } from "./types/pvp-ui";
-export type { LbTab, TavernMessage, PvpGroundEffectState } from "./types/pvp-ui";
-export type { PvpSessionState };
+export { PetArenaBattlefield } from "./components/PetArenaBattlefield";
+export type { LbTab, TavernMessage, PvpGroundEffectState, PvpSessionState } from "./types/pvp-ui";
