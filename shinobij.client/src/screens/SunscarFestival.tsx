@@ -54,22 +54,13 @@ export function SunscarFestival({
         setBmBusy(true);
         const res = await pullBlackMarket(character.name);
         setBmBusy(false);
-        if (!res.ok || !res.reward) {
+        if (!res.ok || !res.reward || !res.character) {
             if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
             setFestivalLog(`The Broker: ${res.error ?? "Not today."}`);
             return;
         }
         const reward = res.reward;
-        // Server already debited the cost + credited the payout. Apply the same
-        // net delta locally so the autosave converges.
-        updateCharacter(prev => prev ? ({
-            ...prev,
-            ryo: prev.ryo - (res.cost ?? BLACK_MARKET_COST) + reward.ryo,
-            fateShards: (prev.fateShards ?? 0) + reward.fateShards,
-            boneCharms: (prev.boneCharms ?? 0) + reward.boneCharms,
-            auraStones: (prev.auraStones ?? 0) + reward.auraStones,
-            mythicSeals: (prev.mythicSeals ?? 0) + reward.mythicSeals,
-        }) : prev);
+        updateCharacter(res.character);
         if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
         setBmReveal(reward); // tap-to-open crate reveal
         const flourish = reward.tier === "jackpot" ? "💥 " : "";

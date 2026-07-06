@@ -71,9 +71,22 @@ async function handler(req, res) {
                 auraStones: num(char.auraStones) + reward.auraStones,
                 mythicSeals: num(char.mythicSeals) + reward.mythicSeals,
             };
-            await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar }), rec));
+            const updatedRecord = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
+            await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(updatedRecord, rec));
             await _storage_js_1.kv.set(countKey, used + 1, { ex: COUNT_TTL_SECONDS });
-            return { status: 200, body: { ok: true, cost: _black_market_js_1.BLACK_MARKET_COST, reward, dailyUsed: used + 1, dailyCap: _black_market_js_1.BLACK_MARKET_DAILY_CAP, balanceRyo: num(nextChar.ryo) } };
+            return {
+                status: 200,
+                body: {
+                    ok: true,
+                    cost: _black_market_js_1.BLACK_MARKET_COST,
+                    reward,
+                    dailyUsed: used + 1,
+                    dailyCap: _black_market_js_1.BLACK_MARKET_DAILY_CAP,
+                    balanceRyo: num(nextChar.ryo),
+                    character: nextChar,
+                    _saveVersion: Number(updatedRecord._saveVersion ?? 0),
+                },
+            };
         }, { failClosed: true });
         if (out.status === 200) {
             await _storage_js_1.kv.set(`audit:black-market:${now}`, { ts: now, player: playerName, cost: _black_market_js_1.BLACK_MARKET_COST, reward: out.body.reward }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);

@@ -37,6 +37,7 @@ const attack_js_1 = __importDefault(require("./api/player/attack.js"));
 const sleeper_kill_js_1 = __importDefault(require("./api/player/sleeper-kill.js"));
 const clear_attack_js_1 = __importDefault(require("./api/player/clear-attack.js"));
 const heal_js_1 = __importDefault(require("./api/player/heal.js"));
+const cafeteria_js_1 = __importDefault(require("./api/player/cafeteria.js"));
 const roster_js_1 = __importDefault(require("./api/player/roster.js"));
 const leaderboards_js_1 = __importDefault(require("./api/player/leaderboards.js"));
 const trade_js_1 = __importDefault(require("./api/player/trade.js"));
@@ -115,6 +116,8 @@ const tilecards_js_1 = __importDefault(require("./api/clan/war/tilecards.js"));
 // Card Clash — free-play PvP (open matchmaking + server-authoritative match)
 const queue_js_2 = __importDefault(require("./api/card-clash/queue.js"));
 const match_js_1 = __importDefault(require("./api/card-clash/match.js"));
+const ai_start_js_1 = __importDefault(require("./api/card-clash/ai-start.js"));
+const ai_settle_js_1 = __importDefault(require("./api/card-clash/ai-settle.js"));
 // Clan — seal pool
 const get_js_1 = __importDefault(require("./api/clan/seal-pool/get.js"));
 const donate_js_2 = __importDefault(require("./api/clan/seal-pool/donate.js"));
@@ -525,6 +528,7 @@ route('/player/attack', attack_js_1.default);
 route('/player/sleeper-kill', sleeper_kill_js_1.default);
 route('/player/clear-attack', clear_attack_js_1.default);
 route('/player/heal', heal_js_1.default);
+route('/player/cafeteria', cafeteria_js_1.default);
 route('/player/roster', roster_js_1.default);
 route('/player/leaderboards', leaderboards_js_1.default);
 route('/player/trade', trade_js_1.default);
@@ -683,6 +687,8 @@ route('/clan/war/tilecards', tilecards_js_1.default);
 // ─── Card Clash: free-play PvP ─────────────────────────────────────────────────
 route('/card-clash/queue', queue_js_2.default);
 route('/card-clash/match', match_js_1.default);
+route('/card-clash/ai-start', ai_start_js_1.default);
+route('/card-clash/ai-settle', ai_settle_js_1.default);
 // ─── Clan: seal pool ───────────────────────────────────────────────────────────
 route('/clan/seal-pool/get', get_js_1.default);
 route('/clan/seal-pool/donate', donate_js_2.default);
