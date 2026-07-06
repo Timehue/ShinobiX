@@ -45,6 +45,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     const selectedPet = character.pets.find((p) => p.id === selectedPetId) ?? character.pets[0] ?? null;
     const petXpBonus = getPetXpBonus(character);
     const canOfferEscort = character.profession === "petTamer" && !!character.clan;
+    const showStarterPetNote = character.level < 20 && character.pets.length > 0 && !(character.examsPassed ?? []).includes("genin");
 
     useEffect(() => {
         if (!canOfferEscort) return;
@@ -630,6 +631,17 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                         <p className="hint">2v2 Partner: {character.pets.find((p) => p.id === character.activePetId2v2)?.name ?? "—"}</p>
                     )}
                 </div>
+
+                {showStarterPetNote && (
+                    <section className="pet-starter-note">
+                        <div>
+                            <span className="pet-starter-kicker">Starter companion</span>
+                            <h3>Your companion grows beside you</h3>
+                            <p>Set an active pet and use short training while you work through Missions, Training, and Jutsu. Pet battles and long expeditions can wait.</p>
+                        </div>
+                        <button onClick={() => setScreen("logbook")}>Open Logbook</button>
+                    </section>
+                )}
 
                 <div className="pet-slots-row">
                     {Array.from({ length: 5 }, (_, i) => {

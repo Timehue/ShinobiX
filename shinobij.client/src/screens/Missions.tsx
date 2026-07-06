@@ -132,6 +132,7 @@ export function Missions({
     const todayMissions = dailyMissionsCompleted(character);
     // Tab state: default to Profession for players who have one, Combat otherwise.
     const hasProfession = !!character.profession;
+    const showRookieOrders = character.level < 20 && !(character.examsPassed ?? []).includes("genin");
     const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field" | "weekly" | "wandering">(
         hasProfession ? "profession" : "combat"
     );
@@ -184,6 +185,26 @@ export function Missions({
                     <button className="start-primary-btn" onClick={() => { void claimAcademyTrial(); }}>
                         Claim Academy Trial Reward
                     </button>
+                </section>
+            )}
+
+            {showRookieOrders && !showAcademyTrial && (
+                <section className="mh-section rookie-orders-card">
+                    <h3 className="mh-section-title" style={{ marginTop: 0 }}><GiGraduateCap style={MH_ICON} />Rookie Orders</h3>
+                    <p className="hint" style={{ marginTop: 0 }}>
+                        Build toward the level-20 Genin Exam hold with repeatable work: win combat missions, claim rewards here, then spend gains in Training and Jutsu.
+                    </p>
+                    <div className="rookie-orders-actions">
+                        <button className="start-primary-btn" onClick={() => setActiveMissionTab("combat")}>
+                            <GiCrossedSwords style={MH_ICON} />Combat Missions
+                        </button>
+                        <button onClick={() => setActiveMissionTab("field")}>
+                            <GiPositionMarker style={MH_ICON} />Field Missions
+                        </button>
+                        <button onClick={() => setScreen("logbook")}>
+                            <GiOpenBook style={MH_ICON} />Logbook
+                        </button>
+                    </div>
                 </section>
             )}
 

@@ -36,14 +36,25 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
     const [dismissedId, setDismissedId] = useState<string | null>(readDismissed);
     const objective = currentLogbookObjective(character);
     if (!objective) return null;
-    if (dismissedId === objective.title) return null;
-    const req = objective.requirements.find((r) => r.progress < r.target);
+    if (dismissedId === objective.id || dismissedId === objective.title) return null;
+    const req = objective.requirements.find((r) => r.progress < r.target) ?? (
+        objective.kind === "academy" && !character.academyChecklistClaimed
+            ? {
+                label: "Claim Academy Reward",
+                progress: 0,
+                target: 1,
+                detail: "Open the Logbook and claim your Academy reward.",
+                goScreen: "logbook" as Screen,
+                goLabel: "Open Logbook",
+            }
+            : null
+    );
     if (!req) return null;
     const pct = req.target > 0 ? Math.min(100, Math.round((req.progress / req.target) * 100)) : 0;
 
     const dismiss = () => {
-        try { localStorage.setItem(DISMISS_KEY, objective.title); } catch { /* private mode — just hide for the session */ }
-        setDismissedId(objective.title);
+        try { localStorage.setItem(DISMISS_KEY, objective.id); } catch { /* private mode — just hide for the session */ }
+        setDismissedId(objective.id);
     };
     const closeBtn = (size: number) => (
         <button

@@ -8570,7 +8570,7 @@ export default function App() {
 
                 {!activeTriggeredEvent && screen === "village" && character && (<>
                     <NextGoalPin character={character} navigate={navigate} />
-                    <Village characterVillage={character.village} setScreen={navigate} />
+                    <Village character={character} setScreen={navigate} />
                 </>)}
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
                     <WorldMap
