@@ -201,7 +201,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // permanently squatting.
             await kv.set(dailyKey, reportedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
             return { capped: false as const };
-        });
+        }, { failClosed: true });
         if (capCheck.capped) {
             return res.status(200).json({
                 ok: true,
@@ -258,7 +258,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                     bumpSaveVersion(updated);
                     await kv.set(saveKey, mergePreservingImages(updated, fresh));
-                });
+                }, { failClosed: true });
             }
         }
 
