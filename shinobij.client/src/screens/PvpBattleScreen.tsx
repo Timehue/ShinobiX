@@ -28,6 +28,7 @@ import { useBattleTabs } from "../lib/use-battle-tabs";
 import { hexLineTiles } from "../lib/hex-path";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { safeCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
+import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import {
     normalizeCharacter,
     playerLensDiscipline,
@@ -1240,12 +1241,16 @@ export function PvpBattleScreen({
         const centers = combatVfxCenters(fx);
         const avg = centers.reduce((acc, c) => ({ x: acc.x + c.x, y: acc.y + c.y }), { x: 0, y: 0 });
         const center = { x: avg.x / centers.length, y: avg.y / centers.length };
-        const baseClass = `pvp-combat-vfx pvp-vfx-${fx.spec.key} pvp-vfx-${fx.spec.intensity}${liteFx ? " pvp-vfx-lite" : ""}`;
+        const asset = combatVfxAssetFor(fx.spec.key);
+        const baseClass = `pvp-combat-vfx pvp-vfx-${fx.spec.key} pvp-vfx-${fx.spec.intensity} pvp-vfx-has-asset pvp-vfx-plane-${asset.plane}${liteFx ? " pvp-vfx-lite" : ""}`;
         const styleFor = (point: { x: number; y: number }, scale = 1) => ({
             left: `${point.x}px`,
             top: `${point.y}px`,
             "--vfx-duration": `${fx.spec.durationMs}ms`,
             "--vfx-scale": scale,
+            "--vfx-asset-scale": asset.assetScale,
+            "--vfx-asset-lift": `${asset.liftPx}px`,
+            "--vfx-asset-opacity": asset.opacity,
         } as React.CSSProperties);
         return (
             <div key={fx.id} className="pvp-combat-vfx-group" aria-hidden="true">
@@ -1255,6 +1260,7 @@ export function PvpBattleScreen({
                     </span>
                 ))}
                 <span className={`${baseClass} pvp-combat-vfx-burst`} style={styleFor(center, fx.spec.intensity === "finisher" ? 1.45 : fx.spec.intensity === "heavy" ? 1.18 : 1)}>
+                    <img className={`pvp-vfx-asset pvp-vfx-asset-${asset.plane}`} src={asset.url} alt="" draggable={false} />
                     <i className="pvp-vfx-ring" />
                     <i className="pvp-vfx-core" />
                     <i className="pvp-vfx-cut" />

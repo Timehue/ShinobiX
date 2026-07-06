@@ -1,11 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import {
     COMBAT_VFX_REGISTRY,
     resolveCombatVfxSpec,
     safeCombatVfxSpec,
     type CombatVfxKey,
 } from "./combat-vfx.ts";
+import { COMBAT_VFX_ASSETS } from "./combat-vfx-assets.ts";
 import type { JutsuTag } from "../types/combat.ts";
 
 const tag = (name: string): JutsuTag => ({ name, percent: 30 });
@@ -110,4 +112,43 @@ test("registry exposes only the supported generic combat VFX keys", () => {
         "buff", "debuff", "throwable", "weapon", "namedWeapon", "heavy", "ko",
     ]);
     assert.deepEqual(new Set(Object.keys(COMBAT_VFX_REGISTRY)), supported);
+});
+
+test("asset manifest covers every combat VFX key with a shipped plate", () => {
+    assert.deepEqual(
+        Object.keys(COMBAT_VFX_ASSETS).sort(),
+        Object.keys(COMBAT_VFX_REGISTRY).sort(),
+    );
+    for (const [key, asset] of Object.entries(COMBAT_VFX_ASSETS)) {
+        assert.match(asset.filename, /^[a-z0-9-]+\.webp$/, key);
+        assert.equal(asset.url, `/combat-vfx/${asset.filename}`, key);
+        assert.ok(asset.tags.length > 0, key);
+        assert.ok(existsSync(new URL(`../../public/combat-vfx/${asset.filename}`, import.meta.url)), key);
+    }
+});
+
+test("asset manifest keeps element, offense discipline, and tag lanes distinct", () => {
+    for (const key of ["fire", "water", "wind", "lightning", "earth", "blood", "shadow", "poison", "magma", "metal"] as const) {
+        assert.equal(COMBAT_VFX_ASSETS[key].role, "element", key);
+        assert.equal(COMBAT_VFX_ASSETS[key].discipline, "ninjutsu", key);
+        assert.ok(COMBAT_VFX_ASSETS[key].tags.some(tag => tag.startsWith("Element:")), key);
+    }
+    for (const key of ["slash", "impact", "heavy"] as const) {
+        assert.equal(COMBAT_VFX_ASSETS[key].role, "physical-offense", key);
+        assert.equal(COMBAT_VFX_ASSETS[key].discipline, "taijutsu", key);
+    }
+    for (const key of ["pierce", "throwable", "weapon", "namedWeapon"] as const) {
+        assert.equal(COMBAT_VFX_ASSETS[key].role, "weapon-offense", key);
+        assert.equal(COMBAT_VFX_ASSETS[key].discipline, "bukijutsu", key);
+    }
+    for (const key of ["heal", "shield", "reflect", "absorb", "cleanse", "buff"] as const) {
+        assert.equal(COMBAT_VFX_ASSETS[key].role, "support", key);
+        assert.equal(COMBAT_VFX_ASSETS[key].discipline, "support", key);
+    }
+    assert.equal(COMBAT_VFX_ASSETS.seal.discipline, "genjutsu");
+    assert.equal(COMBAT_VFX_ASSETS.debuff.discipline, "genjutsu");
+    assert.equal(COMBAT_VFX_ASSETS.wound.discipline, "status");
+    assert.equal(COMBAT_VFX_ASSETS.burn.discipline, "status");
+    assert.equal(COMBAT_VFX_ASSETS.poisonCloud.discipline, "status");
+    assert.equal(COMBAT_VFX_ASSETS.ko.role, "finisher");
 });

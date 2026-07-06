@@ -25621,6 +25621,12 @@ textarea:focus-visible,
     animation: pvp-vfx-pop var(--vfx-duration, 680ms) ease-out forwards;
     will-change: transform, opacity, filter;
 }
+.pvp-vfx-has-asset {
+    opacity: 1;
+    animation: none;
+    filter: none;
+    will-change: auto;
+}
 .pvp-combat-vfx-tile {
     width: calc(58px * var(--vfx-scale, 1));
     height: calc(58px * var(--vfx-scale, 1));
@@ -25633,6 +25639,44 @@ textarea:focus-visible,
     position: absolute;
     inset: 0;
     border-radius: inherit;
+    z-index: 2;
+}
+.pvp-vfx-asset {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 158%;
+    height: 158%;
+    object-fit: contain;
+    border: 0;
+    pointer-events: none;
+    user-select: none;
+    mix-blend-mode: screen;
+    opacity: 0;
+    z-index: 1;
+    filter: saturate(1.12) contrast(1.08);
+    transform-origin: center center;
+    animation: pvp-vfx-asset-bloom var(--vfx-duration, 680ms) ease-out forwards;
+}
+.pvp-vfx-asset-burst {
+    transform: translate(-50%, calc(-50% + var(--vfx-asset-lift, 0px))) scale(var(--vfx-asset-scale, 1.42));
+}
+.pvp-vfx-asset-ground {
+    top: 54%;
+    width: 166%;
+    height: 166%;
+    transform: translate(-50%, calc(-50% + var(--vfx-asset-lift, 0px))) perspective(360px) rotateX(11deg) scale(var(--vfx-asset-scale, 1.42));
+}
+.pvp-vfx-asset-slash {
+    width: 170%;
+    height: 170%;
+    transform: translate(-50%, calc(-50% + var(--vfx-asset-lift, 0px))) rotate(-5deg) scale(var(--vfx-asset-scale, 1.42));
+}
+.pvp-vfx-asset-ward {
+    top: 52%;
+    width: 172%;
+    height: 172%;
+    transform: translate(-50%, calc(-52% + var(--vfx-asset-lift, 0px))) scale(var(--vfx-asset-scale, 1.42));
 }
 .pvp-vfx-ring {
     border: 3px solid var(--vfx-a);
@@ -25660,6 +25704,35 @@ textarea:focus-visible,
     opacity: 0.55;
     filter: blur(0.2px);
 }
+.pvp-vfx-has-asset .pvp-vfx-ring {
+    --vfx-layer-opacity: 0.48;
+    opacity: 0;
+}
+.pvp-vfx-has-asset .pvp-vfx-core {
+    --vfx-layer-opacity: 0.32;
+    opacity: 0;
+    filter: blur(1.4px);
+}
+.pvp-vfx-has-asset .pvp-vfx-cut {
+    --vfx-layer-opacity: 0.58;
+    opacity: 0;
+}
+.pvp-vfx-has-asset .pvp-vfx-sparks {
+    --vfx-layer-opacity: 0.34;
+    opacity: 0;
+}
+.pvp-vfx-has-asset .pvp-vfx-ring,
+.pvp-vfx-has-asset .pvp-vfx-core,
+.pvp-vfx-has-asset .pvp-vfx-cut,
+.pvp-vfx-has-asset .pvp-vfx-sparks {
+    animation: pvp-vfx-layer-pop var(--vfx-duration, 680ms) ease-out forwards;
+}
+.pvp-vfx-plane-ward .pvp-vfx-ring {
+    --vfx-layer-opacity: 0.64;
+}
+.pvp-vfx-plane-ground .pvp-vfx-ring {
+    transform: perspective(320px) rotateX(38deg) scale(1.08);
+}
 .pvp-vfx-fire { --vfx-a: #fb923c; --vfx-b: #ef4444; --vfx-c: rgba(251, 146, 60, 0.24); }
 .pvp-vfx-water { --vfx-a: #38bdf8; --vfx-b: #14b8a6; --vfx-c: rgba(56, 189, 248, 0.24); }
 .pvp-vfx-wind { --vfx-a: #86efac; --vfx-b: #22d3ee; --vfx-c: rgba(134, 239, 172, 0.22); }
@@ -25677,9 +25750,9 @@ textarea:focus-visible,
 .pvp-vfx-metal,
 .pvp-vfx-pierce { --vfx-a: #cbd5e1; --vfx-b: #64748b; --vfx-c: rgba(203, 213, 225, 0.22); }
 .pvp-vfx-heal { --vfx-a: #6ee7b7; --vfx-b: #22c55e; --vfx-c: rgba(110, 231, 183, 0.24); }
-.pvp-vfx-shield,
-.pvp-vfx-reflect,
-.pvp-vfx-absorb { --vfx-a: #67e8f9; --vfx-b: #818cf8; --vfx-c: rgba(103, 232, 249, 0.24); }
+.pvp-vfx-shield { --vfx-a: #67e8f9; --vfx-b: #818cf8; --vfx-c: rgba(103, 232, 249, 0.24); }
+.pvp-vfx-reflect { --vfx-a: #c084fc; --vfx-b: #67e8f9; --vfx-c: rgba(192, 132, 252, 0.24); }
+.pvp-vfx-absorb { --vfx-a: #5eead4; --vfx-b: #22c55e; --vfx-c: rgba(94, 234, 212, 0.24); }
 .pvp-vfx-drain { --vfx-a: #a78bfa; --vfx-b: #0f172a; --vfx-c: rgba(167, 139, 250, 0.24); }
 .pvp-vfx-cleanse,
 .pvp-vfx-buff { --vfx-a: #bae6fd; --vfx-b: #fef08a; --vfx-c: rgba(186, 230, 253, 0.22); }
@@ -25701,6 +25774,16 @@ textarea:focus-visible,
 .pvp-combat-vfx-tile .pvp-vfx-cut,
 .pvp-combat-vfx-tile .pvp-vfx-sparks {
     display: none;
+}
+.pvp-vfx-has-asset .pvp-vfx-cut {
+    display: none;
+}
+.pvp-vfx-has-asset.pvp-vfx-slash .pvp-vfx-cut,
+.pvp-vfx-has-asset.pvp-vfx-weapon .pvp-vfx-cut,
+.pvp-vfx-has-asset.pvp-vfx-namedWeapon .pvp-vfx-cut,
+.pvp-vfx-has-asset.pvp-vfx-throwable .pvp-vfx-cut,
+.pvp-vfx-has-asset.pvp-vfx-pierce .pvp-vfx-cut {
+    display: block;
 }
 .pvp-vfx-slash .pvp-vfx-ring,
 .pvp-vfx-weapon .pvp-vfx-ring,
@@ -25729,6 +25812,17 @@ textarea:focus-visible,
     18% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); filter: blur(0); }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(1.65); filter: blur(5px); }
 }
+@keyframes pvp-vfx-layer-pop {
+    0% { opacity: 0; transform: scale(0.42); filter: blur(3px); }
+    18% { opacity: var(--vfx-layer-opacity, 0.48); transform: scale(1.04); filter: blur(0); }
+    100% { opacity: 0; transform: scale(1.65); filter: blur(5px); }
+}
+@keyframes pvp-vfx-asset-bloom {
+    0% { opacity: 0; filter: blur(3px) saturate(1.2) contrast(1.12); }
+    16% { opacity: var(--vfx-asset-opacity, 0.88); filter: blur(0) saturate(1.18) contrast(1.12); }
+    72% { opacity: 0.68; }
+    100% { opacity: 0; filter: blur(4px) saturate(1.08) contrast(1.04); }
+}
 @keyframes pvp-vfx-tile-pulse {
     0% { opacity: 0; transform: translate(-50%, -50%) scale(0.72); }
     20% { opacity: 0.85; }
@@ -25738,6 +25832,9 @@ textarea:focus-visible,
     .pvp-guard-aura { animation: none; opacity: 0.78; }
     .pvp-combat-vfx {
         animation: pvp-vfx-fade var(--vfx-duration, 680ms) ease-out forwards;
+    }
+    .pvp-vfx-asset {
+        animation: pvp-vfx-asset-bloom var(--vfx-duration, 680ms) ease-out forwards;
     }
     .pvp-vfx-sparks { display: none; }
     @keyframes pvp-vfx-fade {
