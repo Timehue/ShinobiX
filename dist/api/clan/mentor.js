@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
+const _clan_points_js_1 = require("../_clan-points.js");
 const _player_ips_js_1 = require("../_player-ips.js");
 const _mentor_js_1 = require("./_mentor.js");
 const AUDIT_PREFIX = 'audit:clan-mentor:';
@@ -158,9 +159,18 @@ async function handler(req, res) {
                 }, { failClosed: true });
                 return { status: 200, body: { ok: true, claimed: claimable.length, seals: payout.seals, contrib: payout.contrib, studentRyo: payout.studentRyo, milestones: claimable }, paid: claimable.length };
             }, { failClosed: true });
-            if (out.paid)
+            let awardedCharacter;
+            if (out.paid) {
                 await _storage_js_1.kv.set(`${AUDIT_PREFIX}claim:${Date.now()}`, { ts: now, sensei: playerName, student: studentName, milestones: out.paid }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-            return res.status(out.status).json(out.body);
+                const award = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(playerName, 'mentorMilestone', Math.min(100, out.paid * 25), {
+                    eventId: `mentor:${playerName}:${studentName}:${now}`,
+                    student: studentName,
+                    milestones: out.paid,
+                });
+                if (award.found)
+                    awardedCharacter = award.character;
+            }
+            return res.status(out.status).json({ ...out.body, character: awardedCharacter });
         }
         // ── RELEASE (end the pairing) ───────────────────────────────────────────
         if (action === 'release') {

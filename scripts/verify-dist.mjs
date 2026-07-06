@@ -12,7 +12,7 @@
  * non-trivial in size, and contains the expected Express wiring markers.
  */
 
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -45,15 +45,8 @@ if (missing.length) {
     fail(`dist/server.js is missing expected markers: ${missing.join(', ')}. The compile is incomplete.`);
 }
 
-let vercelConfig;
-try {
-    vercelConfig = JSON.parse(readFileSync(vercelJson, 'utf8'));
-} catch {
-    fail('vercel.json must exist as a tombstone config with git.deploymentEnabled:false so the retired Vercel integration cannot auto-deploy.');
+if (existsSync(vercelJson)) {
+    fail('vercel.json must not be present. Vercel is retired for this project.');
 }
 
-if (vercelConfig?.git?.deploymentEnabled !== false || vercelConfig?.github?.enabled !== false) {
-    fail('vercel.json must keep Vercel auto-deploys disabled: git.deploymentEnabled:false and github.enabled:false.');
-}
-
-console.log(`[verify:dist] OK — dist/server.js present (${(st.size / 1024).toFixed(1)} KB), Express wiring intact, Vercel auto-deploy disabled.`);
+console.log(`[verify:dist] OK — dist/server.js present (${(st.size / 1024).toFixed(1)} KB), Express wiring intact, Vercel config absent.`);
