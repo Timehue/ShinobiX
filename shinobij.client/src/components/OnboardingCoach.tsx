@@ -1,24 +1,23 @@
 /*
- * OnboardingCoach — the forced first-session "Academy Path" shown to brand-new
+ * OnboardingCoach - the forced first-session "Academy Path" shown to brand-new
  * shinobi. Every beat advances on the REAL action (teach-by-doing), never a
  * click-through, and the player can always Skip. Canonical flow:
  *
- *   academyIntro  → framing modal ("Begin Academy Training" / "Skip Tutorial")
- *   starter       → choose-your-companion (handled by StarterPetSelect overlay)
- *   academySpar   → "Your First Spar" modal; the win advances to "training"
- *                   (the in-battle SparCoach guides the fight itself)
- *   training      → "start your first training"; advances when activeTraining set
- *   jutsu         → "unlock or equip a jutsu"; advances when jutsuMastery OR
- *                   equippedJutsuIds grows
- *   firstMission  → "claim your first mission"; advances when academyTrialClaimed
- *   logbook       → "open your Logbook"; advances when the Logbook is opened
- *   storyUnlocked → "village story unlocked"; advances when Story Hall is opened
- *                   (or the player dismisses) → "done"
+ *   academyIntro  -> framing modal ("Begin Academy Training" / "Skip Tutorial")
+ *   starter       -> choose-your-companion (handled by StarterPetSelect overlay)
+ *   training      -> start first stat training; advances when activeTraining set
+ *   jutsu         -> train a jutsu; advances when jutsuMastery grows
+ *   jutsuLoadout  -> equip that jutsu; advances when equippedJutsuIds grows
+ *   inventory     -> equip starter gear; advances when any equipment slot is filled
+ *   academySpar   -> first spar; the win advances to "cafeteria"
+ *   cafeteria     -> "you've been hurt, heal yourself"; advances at full HP
+ *   firstMission  -> claim first mission; advances when academyTrialClaimed
+ *   logbook       -> open Logbook; advances when the Logbook is opened
+ *   sectorReturn  -> visit any sector, then return to the village -> "done"
  *
  * State lives on character.onboardingStep (persisted, normalized via
- * normalizeOnboardingStep so legacy "spar"/"tour" saves keep working). Rendered
- * as an overlay alongside the ProfessionPicker in App.tsx; inline styles so it
- * has no CSS-class dependency.
+ * normalizeOnboardingStep so legacy "spar"/"tour"/"storyUnlocked" saves keep
+ * working). Rendered as an overlay alongside the ProfessionPicker in App.tsx.
  */
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -27,54 +26,101 @@ import { normalizeOnboardingStep, type CanonicalOnboardingStep } from "../lib/on
 import type { Character, Screen } from "../App";
 
 const overlayStyle: React.CSSProperties = {
-    position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    zIndex: 9000, padding: 16,
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.72)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9000,
+    padding: 16,
 };
+
 const cardStyle: React.CSSProperties = {
-    maxWidth: 460, width: "100%", maxHeight: "86vh", overflowY: "auto",
+    maxWidth: 460,
+    width: "100%",
+    maxHeight: "86vh",
+    overflowY: "auto",
     textAlign: "center",
 };
+
 const bannerStyle: React.CSSProperties = {
-    position: "fixed", left: "50%", bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", transform: "translateX(-50%)",
-    maxWidth: 560, width: "calc(100% - 24px)", background: "#1f2937",
-    border: "1px solid #facc15", borderRadius: 12, padding: "12px 16px",
-    display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10,
-    zIndex: 9000, boxShadow: "0 6px 24px rgba(0,0,0,0.5)",
+    position: "fixed",
+    left: "50%",
+    bottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
+    transform: "translateX(-50%)",
+    maxWidth: 560,
+    width: "calc(100% - 24px)",
+    background: "#1f2937",
+    border: "1px solid #facc15",
+    borderRadius: 12,
+    padding: "12px 16px",
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 10,
+    zIndex: 9000,
+    boxShadow: "0 6px 24px rgba(0,0,0,0.5)",
 };
+
 const skipStyle: React.CSSProperties = {
-    background: "none", border: "none", color: "#9ca3af",
-    textDecoration: "underline", cursor: "pointer", fontSize: 12, marginLeft: "auto",
+    background: "none",
+    border: "none",
+    color: "#9ca3af",
+    textDecoration: "underline",
+    cursor: "pointer",
+    fontSize: 12,
+    marginLeft: "auto",
 };
 
 const stepProgress: Partial<Record<CanonicalOnboardingStep, string>> = {
-    academyIntro: "Academy Training - Step 1/7",
-    academySpar: "Academy Training - Step 2/7",
-    training: "Academy Training - Step 3/7",
-    jutsu: "Academy Training - Step 4/7",
-    firstMission: "Academy Training - Step 5/7",
-    logbook: "Academy Training - Step 6/7",
-    storyUnlocked: "Academy Training - Step 7/7",
+    academyIntro: "Academy Training - Step 1/10",
+    training: "Academy Training - Step 2/10",
+    jutsu: "Academy Training - Step 3/10",
+    jutsuLoadout: "Academy Training - Step 4/10",
+    inventory: "Academy Training - Step 5/10",
+    academySpar: "Academy Training - Step 6/10",
+    cafeteria: "Academy Training - Step 7/10",
+    firstMission: "Academy Training - Step 8/10",
+    logbook: "Academy Training - Step 9/10",
+    sectorReturn: "Academy Training - Step 10/10",
 };
 
+function hasTrainedStarterJutsu(character: Character): boolean {
+    return (character.jutsuMastery?.length ?? 0) >= 4;
+}
+
 function hasStarterLoadoutComplete(character: Character): boolean {
-    return (character.equippedJutsuIds?.length ?? 0) >= 4 || (character.jutsuMastery?.length ?? 0) >= 4;
+    return (character.equippedJutsuIds?.length ?? 0) >= 4;
+}
+
+function equippedItemCount(character: Character): number {
+    return Object.values(character.equipment ?? {}).filter(Boolean).length;
 }
 
 export function OnboardingCoach({
-    character, screen, activeTraining, setScreen, updateCharacter, onStartSpar,
+    character,
+    screen,
+    activeTraining,
+    currentSector,
+    setScreen,
+    updateCharacter,
+    onStartSpar,
 }: {
     character: Character;
     screen: Screen;
     activeTraining: unknown;
+    currentSector: number;
     setScreen: (s: Screen) => void;
     updateCharacter: (c: Character) => void;
     onStartSpar: () => void;
 }) {
     const step = normalizeOnboardingStep(character.onboardingStep);
-    const jutsuBaselineRef = useRef<{ mastery: number; equipped: number } | null>(null);
+    const jutsuBaselineRef = useRef<number | null>(null);
+    const loadoutBaselineRef = useRef<number | null>(null);
+    const equipmentBaselineRef = useRef<number | null>(null);
+    const sectorVisitedRef = useRef(false);
 
-    // Advance the "training" beat once the player has actually started a training.
     useEffect(() => {
         if (step === "training" && activeTraining) {
             updateCharacter({ ...character, onboardingStep: "jutsu" });
@@ -82,26 +128,73 @@ export function OnboardingCoach({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, activeTraining]);
 
-    // Capture the jutsu-mastery + equipped counts when the "jutsu" beat starts,
-    // then advance to "firstMission" once EITHER grows (the player unlocked a new
-    // jutsu — the free Flicker — or equipped their 4th loadout slot).
     useEffect(() => {
-        if (step !== "jutsu") { jutsuBaselineRef.current = null; return; }
-        const mastery = character.jutsuMastery?.length ?? 0;
-        const equipped = character.equippedJutsuIds?.length ?? 0;
-        if (hasStarterLoadoutComplete(character)) {
-            updateCharacter({ ...character, onboardingStep: "firstMission" });
+        if (step !== "jutsu") {
+            jutsuBaselineRef.current = null;
             return;
         }
-        if (jutsuBaselineRef.current === null) { jutsuBaselineRef.current = { mastery, equipped }; return; }
-        if (mastery > jutsuBaselineRef.current.mastery || equipped > jutsuBaselineRef.current.equipped) {
+        const mastery = character.jutsuMastery?.length ?? 0;
+        if (hasTrainedStarterJutsu(character)) {
+            updateCharacter({ ...character, onboardingStep: "jutsuLoadout" });
+            return;
+        }
+        if (jutsuBaselineRef.current === null) {
+            jutsuBaselineRef.current = mastery;
+            return;
+        }
+        if (mastery > jutsuBaselineRef.current) {
+            updateCharacter({ ...character, onboardingStep: "jutsuLoadout" });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, character.jutsuMastery]);
+
+    useEffect(() => {
+        if (step !== "jutsuLoadout") {
+            loadoutBaselineRef.current = null;
+            return;
+        }
+        const equipped = character.equippedJutsuIds?.length ?? 0;
+        if (hasStarterLoadoutComplete(character)) {
+            updateCharacter({ ...character, onboardingStep: "inventory" });
+            return;
+        }
+        if (loadoutBaselineRef.current === null) {
+            loadoutBaselineRef.current = equipped;
+            return;
+        }
+        if (equipped > loadoutBaselineRef.current) {
+            updateCharacter({ ...character, onboardingStep: "inventory" });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, character.equippedJutsuIds]);
+
+    useEffect(() => {
+        if (step !== "inventory") {
+            equipmentBaselineRef.current = null;
+            return;
+        }
+        const equipped = equippedItemCount(character);
+        if (equipped > 0) {
+            updateCharacter({ ...character, onboardingStep: "academySpar" });
+            return;
+        }
+        if (equipmentBaselineRef.current === null) {
+            equipmentBaselineRef.current = equipped;
+            return;
+        }
+        if (equipped > equipmentBaselineRef.current) {
+            updateCharacter({ ...character, onboardingStep: "academySpar" });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, character.equipment]);
+
+    useEffect(() => {
+        if (step === "cafeteria" && character.hp >= character.maxHp) {
             updateCharacter({ ...character, onboardingStep: "firstMission" });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [step, character.jutsuMastery, character.equippedJutsuIds]);
+    }, [step, character.hp, character.maxHp]);
 
-    // Advance the "firstMission" beat once the Academy Trial is claimed (the claim
-    // is server-authoritative and sets academyTrialClaimed on the returned save).
     useEffect(() => {
         if (step === "firstMission" && character.academyTrialClaimed) {
             updateCharacter({ ...character, onboardingStep: "logbook" });
@@ -109,28 +202,29 @@ export function OnboardingCoach({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, character.academyTrialClaimed]);
 
-    // Open the Logbook (where the Academy Training checklist lives) → reveal the
-    // village story as the final beat.
     useEffect(() => {
         if (step === "logbook" && screen === "logbook") {
-            updateCharacter({ ...character, onboardingStep: "storyUnlocked" });
+            updateCharacter({ ...character, onboardingStep: "sectorReturn" });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, screen]);
 
-    // Finish onboarding once the player visits the Story Hall (or dismisses the
-    // final banner via "Got it").
     useEffect(() => {
-        if (step === "storyUnlocked" && screen === "storyHall") {
+        if (step !== "sectorReturn") {
+            sectorVisitedRef.current = false;
+            return;
+        }
+        if (screen === "worldMap" && currentSector >= 1) {
+            sectorVisitedRef.current = true;
+        }
+        if (sectorVisitedRef.current && screen === "village") {
             updateCharacter({ ...character, onboardingStep: "done" });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [step, screen]);
+    }, [step, screen, currentSector]);
 
-    // The "academyIntro" and "academySpar" beats are full-screen modals; lock scroll.
     useBodyScrollLock(step === "academyIntro" || step === "academySpar");
 
-    // "starter" is handled by the StarterPetSelect overlay; "done" needs no coach.
     if (step === "done" || step === "starter") return null;
 
     const skip = () => updateCharacter({ ...character, onboardingStep: "done" });
@@ -147,10 +241,11 @@ export function OnboardingCoach({
                     {renderStepLabel()}
                     <h2 style={{ marginTop: 0 }}>Welcome to {character.village}</h2>
                     <p style={{ lineHeight: 1.5 }}>
-                        Your shinobi path begins here, {character.name}. Before the village
-                        trusts you with field work, <strong>Academy Training</strong> will
-                        teach the first loop: win a spar, train your body, ready a jutsu,
-                        and claim your first mission reward. It only takes a few minutes.
+                        Welcome to Shinobi Journey, {character.name}. Before the village
+                        trusts you with real missions, you&apos;ll complete <strong>Academy
+                        Training</strong>: train your body, prepare your jutsu loadout,
+                        equip starter gear, learn to fight, recover, and take your first
+                        step beyond the village. It only takes a few minutes.
                     </p>
                     <button
                         className="start-primary-btn"
@@ -158,35 +253,6 @@ export function OnboardingCoach({
                         onClick={() => updateCharacter({ ...character, onboardingStep: "starter" })}
                     >
                         Begin Academy Training
-                    </button>
-                    <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={skip}>
-                        Skip Tutorial
-                    </button>
-                </div>
-            </div>,
-            document.body,
-        );
-    }
-
-    if (step === "academySpar") {
-        return createPortal(
-            <div style={overlayStyle}>
-                <div className="card" style={cardStyle}>
-                    {renderStepLabel()}
-                    <h2 style={{ marginTop: 0 }}>Your First Spar</h2>
-                    <p style={{ lineHeight: 1.5 }}>
-                        Time to learn combat. A training dummy is waiting at the Academy.
-                        Each turn you spend <strong>AP</strong> (action points): use
-                        <strong> Basic Attack</strong> and your <strong>Jutsu</strong> to
-                        deal damage, then press <strong>Wait</strong> when your AP runs low.
-                        Drop the dummy's <strong>HP</strong> to zero to win — you've got this.
-                    </p>
-                    <button
-                        className="start-primary-btn"
-                        style={{ width: "100%" }}
-                        onClick={onStartSpar}
-                    >
-                        Begin Your First Spar
                     </button>
                     <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={skip}>
                         Skip Tutorial
@@ -213,9 +279,77 @@ export function OnboardingCoach({
     if (step === "jutsu") {
         return createPortal(
             <div className="onboarding-coach-banner" style={bannerStyle}>
-                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> unlock or equip one more jutsu to finish your starter loadout.</span>
+                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> train one more jutsu. Pick an untrained jutsu and use the free Level 1 unlock.</span>
                 {screen !== "jutsuTraining" && (
                     <button className="start-primary-btn" onClick={() => setScreen("jutsuTraining")}>Go to Jutsu Training</button>
+                )}
+                <button style={skipStyle} onClick={skip}>Skip</button>
+            </div>,
+            document.body,
+        );
+    }
+
+    if (step === "jutsuLoadout") {
+        return createPortal(
+            <div className="onboarding-coach-banner" style={bannerStyle}>
+                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> put that trained jutsu in your loadout from Profile so it appears in battle.</span>
+                {screen !== "profile" && (
+                    <button className="start-primary-btn" onClick={() => setScreen("profile")}>Open Profile</button>
+                )}
+                <button style={skipStyle} onClick={skip}>Skip</button>
+            </div>,
+            document.body,
+        );
+    }
+
+    if (step === "inventory") {
+        return createPortal(
+            <div className="onboarding-coach-banner" style={bannerStyle}>
+                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> equip a starter item from your Inventory. Your kunai or vest will help in the spar.</span>
+                {screen !== "inventory" && (
+                    <button className="start-primary-btn" onClick={() => setScreen("inventory")}>Open Inventory</button>
+                )}
+                <button style={skipStyle} onClick={skip}>Skip</button>
+            </div>,
+            document.body,
+        );
+    }
+
+    if (step === "academySpar") {
+        return createPortal(
+            <div style={overlayStyle}>
+                <div className="card" style={cardStyle}>
+                    {renderStepLabel()}
+                    <h2 style={{ marginTop: 0 }}>Your First Spar</h2>
+                    <p style={{ lineHeight: 1.5 }}>
+                        Time to test the loadout you prepared. A training dummy is waiting
+                        at the Academy. Each turn you spend <strong>AP</strong> (action
+                        points): use <strong>Basic Attack</strong> and your <strong>Jutsu</strong>
+                        to deal damage, then press <strong>Wait</strong> when your AP runs low.
+                        Drop the dummy&apos;s <strong>HP</strong> to zero to win.
+                    </p>
+                    <button
+                        className="start-primary-btn"
+                        style={{ width: "100%" }}
+                        onClick={onStartSpar}
+                    >
+                        Begin Your First Spar
+                    </button>
+                    <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={skip}>
+                        Skip Tutorial
+                    </button>
+                </div>
+            </div>,
+            document.body,
+        );
+    }
+
+    if (step === "cafeteria") {
+        return createPortal(
+            <div className="onboarding-coach-banner" style={bannerStyle}>
+                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> oh, you&apos;ve been hurt. Heal yourself in the Cafeteria before moving on.</span>
+                {screen !== "cafeteria" && (
+                    <button className="start-primary-btn" onClick={() => setScreen("cafeteria")}>Go to Cafeteria</button>
                 )}
                 <button style={skipStyle} onClick={skip}>Skip</button>
             </div>,
@@ -249,14 +383,18 @@ export function OnboardingCoach({
         );
     }
 
-    if (step === "storyUnlocked") {
+    if (step === "sectorReturn") {
+        const visitedSector = screen === "worldMap" && currentSector >= 1;
         return createPortal(
             <div className="onboarding-coach-banner" style={bannerStyle}>
-                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> your path is open. Visit the Story Hall when you're ready.</span>
-                {screen !== "storyHall" && (
-                    <button className="start-primary-btn" onClick={() => setScreen("storyHall")}>Go to Story Hall</button>
+                <span style={{ flex: "1 1 260px", lineHeight: 1.4 }}><strong>{stepProgress[step]}:</strong> {visitedSector ? "good. Return to the village to complete Academy Training." : "open the World Map and travel to any numbered sector."}</span>
+                {!visitedSector && screen !== "worldMap" && (
+                    <button className="start-primary-btn" onClick={() => setScreen("worldMap")}>Open World Map</button>
                 )}
-                <button style={skipStyle} onClick={() => updateCharacter({ ...character, onboardingStep: "done" })}>Got it</button>
+                {visitedSector && (
+                    <button className="start-primary-btn" onClick={() => setScreen("village")}>Return to Village</button>
+                )}
+                <button style={skipStyle} onClick={skip}>Skip</button>
             </div>,
             document.body,
         );

@@ -157,11 +157,11 @@ test("Journey Guide treats pending combat mission claims as a completed first fi
 test("Journey Guide treats the completed Academy spar as the first fight", () => {
     const guide = buildJourneyGuide(makeCharacter({
         level: 3,
-        onboardingStep: "training",
+        onboardingStep: "cafeteria",
     }));
 
     assert.equal(guide.objectives.find((objective) => objective.id === "combat")?.complete, true);
-    assert.equal(guide.primaryObjective?.id, "training");
+    assert.equal(guide.primaryObjective?.id, "mission");
 });
 
 test("Journey Guide follows the Academy coach after training starts", () => {
@@ -171,7 +171,7 @@ test("Journey Guide follows the Academy coach after training starts", () => {
     }));
 
     assert.equal(guide.objectives.find((objective) => objective.id === "training")?.complete, true);
-    assert.equal(guide.objectives.find((objective) => objective.id === "combat")?.complete, true);
+    assert.equal(guide.objectives.find((objective) => objective.id === "combat")?.complete, false);
     assert.equal(guide.primaryObjective?.id, "jutsu");
 });
 
@@ -199,9 +199,10 @@ test("Journey Guide closes once the coach has unlocked the story beat", () => {
 });
 
 test("onboarding step ordering keeps legacy aliases comparable", () => {
-    assert.equal(onboardingStepAtLeast("spar", "training"), false);
+    assert.equal(onboardingStepAtLeast("spar", "training"), true);
     assert.equal(onboardingStepAtLeast("tour", "training"), true);
     assert.equal(onboardingStepAtLeast("firstMission", "jutsu"), true);
+    assert.equal(onboardingStepAtLeast("storyUnlocked", "sectorReturn"), true);
     assert.equal(onboardingStepAtLeast("", "academyIntro"), true);
 });
 
