@@ -4,6 +4,8 @@ import { cors, safeName, clanRecordKey } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
+import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
+import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
 
 /*
  * /api/clan/treasury/transfer — POST only
@@ -100,6 +102,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rlName = identity.admin ? undefined : identity.name;
     if (!identity.admin && !(await enforceRateLimitKv(req, res, 'clan-treasury-transfer', 30, 60_000, rlName))) return;
 
+    let txId: string | null = null;
+    let txState: 'reserved' | 'credit-applied' | 'complete' | null = null;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const clanName = typeof body.clanName === 'string' ? body.clanName.trim() : '';
@@ -130,6 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (clanKey === recipientKey) {
             return res.status(400).json({ error: 'Invalid recipient.' });
         }
+        txId = makeEconomyTxId('clan-treasury-transfer');
 
         // Lock BOTH rows (clan record + recipient save) in deterministic key
         // order so two transfers — or a transfer vs. the recipient's autosave —
@@ -172,9 +177,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Credit recipient first, then deduct — a credit failure can't
                 // leave the treasury short (both are under the same locks here).
                 const nextChar = { ...recipientChar, [c]: Math.max(0, Number(recipientChar[c] ?? 0)) + amount };
-                await kv.set(recipientKey, { ...recipientSave, character: nextChar });
+                await reserveEconomyTx({
+                    id: txId!,
+                    kind: 'clan-treasury-transfer',
+                    debitKey: clanKey,
+                    creditKey: recipientKey,
+                    resource: c,
+                    amount,
+                    meta: { clanName, recipientName },
+                });
+                txState = 'reserved';
+                const written = await writeVersionedPlayerSave(recipientKey, recipientSave, nextChar);
+                await markEconomyTx(txId!, 'credit-applied');
+                txState = 'credit-applied';
                 await kv.set(clanKey, { ...rec, treasury: { ...treasury, [c]: available - amount } });
-                return { ok: true as const, currency: c, amount };
+                await completeEconomyTx(txId!);
+                txState = 'complete';
+                return { ok: true as const, currency: c, amount, _saveVersion: written._saveVersion };
             }
 
             // Item transfer.
@@ -184,9 +203,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { ok: false as const, status: 400, error: 'Item not in clan treasury.' };
             }
             const nextInv = Array.isArray(recipientChar.inventory) ? [...recipientChar.inventory, itemId!] : [itemId!];
-            await kv.set(recipientKey, { ...recipientSave, character: { ...recipientChar, inventory: nextInv } });
+            await reserveEconomyTx({
+                id: txId!,
+                kind: 'clan-treasury-transfer',
+                debitKey: clanKey,
+                creditKey: recipientKey,
+                resource: `item:${itemId}`,
+                amount: 1,
+                meta: { clanName, recipientName },
+            });
+            txState = 'reserved';
+            const written = await writeVersionedPlayerSave(recipientKey, recipientSave, { ...recipientChar, inventory: nextInv });
+            await markEconomyTx(txId!, 'credit-applied');
+            txState = 'credit-applied';
             await kv.set(clanKey, { ...rec, treasury: { ...treasury, items: removeOneItem(items, itemId!) } });
-            return { ok: true as const, itemId };
+            await completeEconomyTx(txId!);
+            txState = 'complete';
+            return { ok: true as const, itemId, _saveVersion: written._saveVersion };
         }, { failClosed: true }), { failClosed: true });
 
         if (!result.ok) {
@@ -205,6 +238,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json(result);
     } catch (err) {
+        if (txId && txState && txState !== 'complete') {
+            await failEconomyTx(txId, err).catch(() => undefined);
+        }
         console.error('[clan/treasury-transfer]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

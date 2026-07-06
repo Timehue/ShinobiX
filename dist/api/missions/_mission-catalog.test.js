@@ -19,21 +19,21 @@ const C_COMBAT = [
     { key: 'combat-s-crisis', min: 70, xp: 700, ryo: 600, territoryScrolls: 1, aiProfileId: 'builtin-ai-central-champion' },
 ];
 const C_FIELD = [
-    { id: 'hunt-wild-boar', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, currencyRewards: {}, itemRewards: ['hunt-beast-meat', 'hunt-beast-meat', 'hunt-torn-hide'] },
-    { id: 'hunt-forest-hawk', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, currencyRewards: {}, itemRewards: ['hunt-beast-meat', 'hunt-wild-feather', 'hunt-small-fang'] },
-    { id: 'hunt-frost-wolf', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, currencyRewards: {}, itemRewards: ['hunt-wolf-fang', 'hunt-wolf-fang', 'hunt-frost-pelt'] },
-    { id: 'hunt-ash-lizard', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, currencyRewards: {}, itemRewards: ['hunt-ash-scale', 'hunt-ash-scale', 'hunt-cracked-horn'] },
-    { id: 'hunt-shadow-panther', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, itemRewards: ['hunt-shadow-pelt', 'hunt-shadow-claw', 'hunt-shadow-claw'] },
-    { id: 'hunt-ironback-bear', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, itemRewards: ['hunt-beast-meat', 'hunt-beast-meat', 'hunt-cracked-horn', 'hunt-cracked-horn'] },
-    { id: 'hunt-ember-drake', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, itemRewards: ['hunt-ash-scale', 'hunt-ash-scale', 'hunt-ember-scale', 'hunt-wolf-fang'] },
-    { id: 'hunt-moon-serpent', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, itemRewards: ['hunt-shadow-pelt', 'hunt-shadow-pelt', 'hunt-shadow-claw', 'hunt-shadow-claw'] },
-    { id: 'hunt-ancient-chakra-beast', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, itemRewards: ['hunt-legendary-material', 'hunt-legendary-material', 'hunt-ancient-beast-core'] },
-    { id: 'hunt-worldstorm-dragon', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, itemRewards: ['hunt-legendary-material', 'hunt-legendary-material', 'hunt-titan-bone'] },
-    { id: 'fetch-d-supply-trail', levelReq: 1, xpReward: 90, ryoReward: 75, staminaReward: 8, currencyRewards: {} },
-    { id: 'fetch-c-border-scout', levelReq: 15, xpReward: 240, ryoReward: 190, staminaReward: 14, currencyRewards: {} },
-    { id: 'fetch-b-enemy-cache', levelReq: 30, xpReward: 520, ryoReward: 420, staminaReward: 22, currencyRewards: { boneCharms: 1 } },
-    { id: 'fetch-a-black-route', levelReq: 50, xpReward: 1100, ryoReward: 900, staminaReward: 32, currencyRewards: { boneCharms: 2, auraDust: 20 } },
-    { id: 'fetch-s-shadow-front', levelReq: 70, xpReward: 2400, ryoReward: 2100, staminaReward: 45, currencyRewards: { boneCharms: 3, auraDust: 45, fateShards: 1 } },
+    { id: 'hunt-wild-boar', exploreCount: 3, levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, currencyRewards: {}, itemRewards: ['hunt-beast-meat', 'hunt-beast-meat', 'hunt-torn-hide'] },
+    { id: 'hunt-forest-hawk', exploreCount: 3, levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, currencyRewards: {}, itemRewards: ['hunt-beast-meat', 'hunt-wild-feather', 'hunt-small-fang'] },
+    { id: 'hunt-frost-wolf', exploreCount: 4, levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, currencyRewards: {}, itemRewards: ['hunt-wolf-fang', 'hunt-wolf-fang', 'hunt-frost-pelt'] },
+    { id: 'hunt-ash-lizard', exploreCount: 4, levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, currencyRewards: {}, itemRewards: ['hunt-ash-scale', 'hunt-ash-scale', 'hunt-cracked-horn'] },
+    { id: 'hunt-shadow-panther', exploreCount: 4, levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, itemRewards: ['hunt-shadow-pelt', 'hunt-shadow-claw', 'hunt-shadow-claw'] },
+    { id: 'hunt-ironback-bear', exploreCount: 5, levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, itemRewards: ['hunt-beast-meat', 'hunt-beast-meat', 'hunt-cracked-horn', 'hunt-cracked-horn'] },
+    { id: 'hunt-ember-drake', exploreCount: 5, levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, itemRewards: ['hunt-ash-scale', 'hunt-ash-scale', 'hunt-ember-scale', 'hunt-wolf-fang'] },
+    { id: 'hunt-moon-serpent', exploreCount: 5, levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, itemRewards: ['hunt-shadow-pelt', 'hunt-shadow-pelt', 'hunt-shadow-claw', 'hunt-shadow-claw'] },
+    { id: 'hunt-ancient-chakra-beast', exploreCount: 6, levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, itemRewards: ['hunt-legendary-material', 'hunt-legendary-material', 'hunt-ancient-beast-core'] },
+    { id: 'hunt-worldstorm-dragon', exploreCount: 6, levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, itemRewards: ['hunt-legendary-material', 'hunt-legendary-material', 'hunt-titan-bone'] },
+    { id: 'fetch-d-supply-trail', exploreCount: 3, raidCount: 1, levelReq: 1, xpReward: 90, ryoReward: 75, staminaReward: 8, currencyRewards: {} },
+    { id: 'fetch-c-border-scout', exploreCount: 5, raidCount: 2, levelReq: 15, xpReward: 240, ryoReward: 190, staminaReward: 14, currencyRewards: {} },
+    { id: 'fetch-b-enemy-cache', exploreCount: 7, raidCount: 3, levelReq: 30, xpReward: 520, ryoReward: 420, staminaReward: 22, currencyRewards: { boneCharms: 1 } },
+    { id: 'fetch-a-black-route', exploreCount: 9, raidCount: 4, levelReq: 50, xpReward: 1100, ryoReward: 900, staminaReward: 32, currencyRewards: { boneCharms: 2, auraDust: 20 } },
+    { id: 'fetch-s-shadow-front', exploreCount: 12, raidCount: 5, levelReq: 70, xpReward: 2400, ryoReward: 2100, staminaReward: 45, currencyRewards: { boneCharms: 3, auraDust: 45, fateShards: 1 } },
 ];
 (0, node_test_1.describe)('mission catalog matches the client reward tables', () => {
     (0, node_test_1.it)('COMBAT_MISSIONS — same set, same rewards, same AI', () => {
@@ -49,6 +49,8 @@ const C_FIELD = [
         for (const want of C_FIELD) {
             const got = (0, _mission_catalog_js_1.fieldMissionById)(want.id);
             node_assert_1.strict.ok(got, `missing field mission ${want.id}`);
+            node_assert_1.strict.equal(got.exploreCount, want.exploreCount, `${want.id} exploreCount`);
+            node_assert_1.strict.equal(got.raidCount ?? 0, want.raidCount ?? 0, `${want.id} raidCount`);
             node_assert_1.strict.equal(got.levelReq, want.levelReq, `${want.id} levelReq`);
             node_assert_1.strict.equal(got.xpReward, want.xpReward, `${want.id} xpReward`);
             node_assert_1.strict.equal(got.ryoReward, want.ryoReward, `${want.id} ryoReward`);

@@ -115,6 +115,9 @@ export function claimReasonMessage(reason: string): string {
     switch (reason) {
         case "daily-cap": return "Daily mission limit reached (20/20). Resets at midnight UTC.";
         case "not-queued": return "Win this mission's battle first.";
+        case "missing-progress-receipt":
+        case "incomplete-progress-receipt": return "Finish this mission's required field progress first.";
+        case "missing-hunt-kill-receipt": return "Track and defeat this hunt target first.";
         case "level": return "You don't meet the level requirement.";
         case "already-claimed": return "You've already claimed this.";
         case "already-claimed-today": return "You've already claimed this today. Resets at midnight UTC.";

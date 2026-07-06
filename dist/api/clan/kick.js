@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _storage_js_2 = require("./war/_storage.js");
 const _kick_core_js_1 = require("./_kick-core.js");
+const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
 /*
  * /api/clan/kick — POST only
  *
@@ -92,7 +93,7 @@ async function handler(req, res) {
                     delete nextChar.clan;
                     nextChar.clanFounder = false;
                     nextChar.guardQueued = false;
-                    await _storage_js_1.kv.set(targetSaveKey, { ...targetRec, character: nextChar });
+                    await (0, _mutate_player_save_js_1.writeVersionedPlayerSave)(targetSaveKey, targetRec, nextChar);
                 }
             }, { failClosed: true });
             await _storage_js_1.kv.set(clanSaveKey, {

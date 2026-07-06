@@ -532,6 +532,7 @@ export type PendingArenaStoryBattle =
         kind: "weeklyBoss";
         returnScreen: Screen;
         bossInitialHp: number;
+        weeklyBossToken?: string;
     }
     | {
         // Academy Sparring Match — the onboarding "guaranteed first win".
@@ -5010,6 +5011,17 @@ export default function App() {
         setScreen("start");
     }
 
+    function recordBuiltInMissionProgress(missionId: string, kind: "field-explore" | "field-raid" | "hunt-track" | "hunt-kill") {
+        if (!character?.name) return;
+        void fetch("/api/missions/record-progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerName: character.name, missionId, kind }),
+        }).catch(() => {
+            /* local progress remains the optimistic UI; claim will reconcile */
+        });
+    }
+
     function recordMissionExplore(sector: number) {
         const matchingMissions = allProgressMissions(creatorMissions).filter((mission) =>
             acceptedMissionIds.includes(mission.id) &&
@@ -5023,6 +5035,7 @@ export default function App() {
         setMissionProgress((current) => {
             const next = { ...current };
             matchingMissions.forEach((mission) => {
+                recordBuiltInMissionProgress(mission.id, "field-explore");
                 next[mission.id] = Math.min(mission.exploreCount, (next[mission.id] ?? 0) + 1);
             });
             return next;
@@ -5043,7 +5056,10 @@ export default function App() {
         // dying or fleeing the beast. Flush the completion to the server NOW: it
         // lives only in the client missionProgress map, so a save-conflict refetch
         // before the 3–15s autosave would revert it below required and hide Claim.
-        if ((missionProgress[mission.id] ?? 0) >= required - 1) flushSaveRef.current = true;
+        if ((missionProgress[mission.id] ?? 0) >= required - 1) {
+            flushSaveRef.current = true;
+            recordBuiltInMissionProgress(mission.id, "hunt-kill");
+        }
         setMissionProgress((current) =>
             (current[mission.id] ?? 0) >= required - 1
                 ? { ...current, [mission.id]: required }
@@ -5066,6 +5082,7 @@ export default function App() {
                 const next = { ...current };
                 matchingMissions.forEach((mission) => {
                     const key = missionRaidProgressKey(mission.id);
+                    recordBuiltInMissionProgress(mission.id, "field-raid");
                     next[key] = Math.min(missionRaidRequirement(mission), (next[key] ?? 0) + 1);
                 });
                 return next;
@@ -5610,7 +5627,7 @@ export default function App() {
     // KO/flee — at that point logWeeklyBossFightDamage() POSTs the damage
     // dealt to /api/weekly-boss so it lands on the shared leaderboard.
     const WEEKLY_BOSS_SENTINEL_HP = 99_999_999;
-    function launchWeeklyBossFight(bossAiId: string, bossDisplayName?: string, returnScreen: Screen = "weeklyBoss") {
+    async function launchWeeklyBossFight(bossAiId: string, bossDisplayName?: string, returnScreen: Screen = "weeklyBoss") {
         if (!character) return;
         const bossAi = playableAis.find(ai => ai.id === bossAiId);
         if (!bossAi) {
@@ -5619,6 +5636,24 @@ export default function App() {
         }
         if ((character.stamina ?? 0) < 20) {
             alert("You need at least 20 stamina to challenge the weekly boss.");
+            return;
+        }
+        let weeklyBossToken: string;
+        try {
+            const r = await fetch("/api/weekly-boss", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ kind: "startFight" }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok || typeof data?.token !== "string") {
+                alert(data?.error ?? "The weekly boss fight could not be reserved. Try again.");
+                return;
+            }
+            weeklyBossToken = data.token;
+        } catch (err) {
+            console.warn("[weekly-boss] startFight error:", err);
+            alert("The weekly boss fight could not be reserved. Try again.");
             return;
         }
         const tempId = `temp-weekly-boss-${Date.now()}`;
@@ -5638,6 +5673,7 @@ export default function App() {
             kind: "weeklyBoss",
             returnScreen,
             bossInitialHp: WEEKLY_BOSS_SENTINEL_HP,
+            weeklyBossToken,
         });
         setPendingAiProfileId(tempId);
         // Weekly boss fight uses central neutral terrain — matches the
@@ -5654,7 +5690,11 @@ export default function App() {
             const r = await fetch("/api/weekly-boss", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ kind: "logFight", amount: Math.floor(damageDealt) }),
+                body: JSON.stringify({
+                    kind: "logFight",
+                    amount: Math.floor(damageDealt),
+                    weeklyBossToken: pendingArenaStoryBattle?.kind === "weeklyBoss" ? pendingArenaStoryBattle.weeklyBossToken : undefined,
+                }),
             });
             const data = await r.json();
             if (!r.ok) {
@@ -7753,6 +7793,7 @@ export default function App() {
                         setPendingPetBattleOpponent={setPendingPetBattleOpponent}
                         requestCardChallenge={() => setCardAutoStart(true)}
                         recordMissionExplore={recordMissionExplore}
+                        recordMissionProgress={recordBuiltInMissionProgress}
                         setPendingExploreSector={setPendingExploreSector}
                         playableAis={playableAis}
                         setCurrentWeather={setCurrentWeather}
