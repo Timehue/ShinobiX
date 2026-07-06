@@ -1,0 +1,1 @@
+import{t as e}from"./react-vendor-ircjLqzo.js";var t=e();function n({children:e=`Loading…`,className:n=``}){return(0,t.jsxs)(`div`,{className:`ui-loading ${n}`.trim(),role:`status`,"aria-live":`polite`,children:[(0,t.jsx)(`div`,{className:`ui-spinner`,"aria-hidden":`true`}),(0,t.jsx)(`p`,{className:`ui-empty-msg`,children:e})]})}export{n as t};

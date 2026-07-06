@@ -114,6 +114,44 @@
         0 0 16px rgba(78,168,255,0.45),
         inset 0 1px 0 rgba(255,255,255,0.1);
 }
+/* Rookie fight coaching for early PvE mission battles. */
+.arena-fullscreen .rookie-combat-tip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 6px;
+    padding: 9px 11px;
+    border: 1px solid rgba(232,212,150,0.45);
+    border-left: 4px solid var(--bsv2-gold-bright);
+    border-radius: 6px;
+    background: linear-gradient(135deg, rgba(232,212,150,0.12), rgba(78,168,255,0.08));
+    color: #dbeafe;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.arena-fullscreen .rookie-combat-tip strong {
+    flex: 0 0 auto;
+    color: var(--bsv2-gold-bright);
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.arena-fullscreen .rookie-combat-tip span {
+    min-width: 0;
+    color: #cbd5e1;
+}
+
+@media (max-width: 800px) {
+    .arena-fullscreen .rookie-combat-tip {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+    }
+}
+
 /* Compact mobile status strip (MobileEffectsStrip). Hidden on desktop (the
    verbose Buffs/Debuffs columns are shown there); a mobile media query swaps
    them — see index.css. Green = buff, red = debuff, neutral = "+N more". */

@@ -20,6 +20,7 @@ import {
 import { loadArenaTournament, loadWarStandings, type WarStandingRecord } from "../lib/world-state";
 import { WORLD_STATE_API } from "../constants/game";
 import { fetchBountyBoard, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
+import { bountyBackerLabel, formatBountyAge, formatReputationNumber, sortBountiesByAmount } from "../lib/reputation-profile";
 import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
 import { RankBadge } from "../components/RankBadge";
 import { fetchHallOfLegends, fetchAnnouncements, fetchEras, isLegacyEnabled, type HallEntryView, type AnnouncementView, type EraView } from "../lib/legacy";
@@ -125,7 +126,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         }
         return () => { alive = false; };
     }, [tab]);
-    const [bounties, setBounties] = useState<BountyEntry[]>([]);
+    const [bounties, setBounties] = useState<BountyEntry[] | null>(null);
     const [bountyTarget, setBountyTarget] = useState("");
     const [bountyAmount, setBountyAmount] = useState(5000);
     useEffect(() => {
@@ -559,11 +560,26 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                             <input type="number" min={1000} step={1000} value={bountyAmount} onChange={e => setBountyAmount(Math.max(0, Math.floor(Number(e.target.value) || 0)))} />
                             <div className="menu"><button onClick={() => void submitBounty()}>Place Bounty</button></div>
                         </div>
-                        {bounties.length === 0
-                            ? <p className="hol-empty">No bounties on anyone's head yet.</p>
-                            : [...bounties].sort((a, b) => b.amount - a.amount).map((b, i) => (
-                                <Row key={b.target} rank={i + 1} name={b.target} value={b.amount} suffix=" ryo" />
-                            ))}
+                        <div className="hol-bounty-note">
+                            Claimed bounty hunter history is not public yet, so this board shows active contracts only.
+                        </div>
+                        {bounties === null
+                            ? <p className="hol-empty">Checking the bounty ledger...</p>
+                            : bounties.length === 0
+                            ? <p className="hol-empty">No active bounties are posted.</p>
+                            : sortBountiesByAmount(bounties).map((b, i) => {
+                                const isMe = b.target.toLowerCase() === me.toLowerCase();
+                                return (
+                                    <div className={`hol-bounty-row ${isMe ? "hol-row-me" : ""}`} key={b.target}>
+                                        <span className="hol-rank-num">{i + 1 <= 3 ? ["#1", "#2", "#3"][i] : `#${i + 1}`}</span>
+                                        <div className="hol-bounty-main">
+                                            <strong>{b.target}</strong>
+                                            <small>{bountyBackerLabel(b)} / updated {formatBountyAge(b.updatedAt)}</small>
+                                        </div>
+                                        <span className="hol-bounty-amount">{formatReputationNumber(b.amount)} ryo</span>
+                                    </div>
+                                );
+                            })}
                     </>
                 )}
                 {tab === "legends" && (

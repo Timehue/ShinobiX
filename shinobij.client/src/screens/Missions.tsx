@@ -92,7 +92,7 @@ export function Missions({
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
     function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
-    function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds((prev) => [...prev, mission.id]); setMissionProgress((prev) => ({ ...prev, [mission.id]: prev[mission.id] ?? 0, [raidKey]: prev[raidKey] ?? 0 })); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`); }
+    function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds((prev) => [...prev, mission.id]); setMissionProgress((prev) => ({ ...prev, [mission.id]: prev[mission.id] ?? 0, [raidKey]: prev[raidKey] ?? 0 })); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}, then return to the Mission Hall to claim the posted reward.`); }
     // Server-authoritative for built-in field missions; creator-authored missions
     // (not in the server catalog) fall back to the legacy client payout via the
     // clientFallback signal.
@@ -243,17 +243,19 @@ export function Missions({
             {activeMissionTab === "combat" && (
             <section className="mh-section">
                 <h3 className="mh-section-title"><GiCrossedSwords style={MH_ICON} />Combat Missions</h3>
-                <p className="hint">Defeat the assigned enemy, then return here to claim your reward. No shortcuts.</p>
+                <p className="hint">Defeat the assigned enemy, then return here to claim your reward. New shinobi should start with the E-Rank Drill.</p>
                 <div className="mh-combat-grid">
                     {COMBAT_MISSIONS.map((mission) => {
                         const ai = creatorAis.find((c) => c.id === mission.aiProfileId);
                         const locked = character.level < mission.min;
                         const claimable = (character.pendingCombatMissionClaims ?? []).includes(mission.key);
+                        const recommended = showRookieOrders && mission.key === "combat-e-drill" && !claimable;
                         return (
-                            <div key={mission.key} className={`mh-combat-card${locked ? " mh-locked" : ""}${claimable ? " mh-fetch-complete" : ""}`}>
+                            <div key={mission.key} className={`mh-combat-card${locked ? " mh-locked" : ""}${claimable ? " mh-fetch-complete" : ""}${recommended ? " mh-recommended-card" : ""}`}>
                                 <div className="mh-combat-rank" style={{ background: rankColor[mission.rank + " Rank"] ?? "#475569" }}>
                                     {mission.rank}-Rank
                                 </div>
+                                {recommended && <span className="mh-recommended-badge">Recommended First Mission</span>}
                                 <div className="mh-combat-avatar">
                                     {ai?.image
                                         ? <img src={ai.image} alt={ai.name} />
@@ -308,8 +310,9 @@ export function Missions({
                                     const totalProgress = Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress);
                                     const progressPct = Math.min(100, (totalProgress / Math.max(1, totalRequired)) * 100);
                                     const missionAi = mission.aiProfileId ? creatorAis.find((c) => c.id === mission.aiProfileId) : undefined;
+                                    const recommended = showRookieOrders && mission.id === "fetch-d-supply-trail" && !accepted;
                                     return (
-                                        <div key={mission.id} className={`mh-fetch-card${complete && accepted ? " mh-fetch-complete" : ""}`}>
+                                        <div key={mission.id} className={`mh-fetch-card${complete && accepted ? " mh-fetch-complete" : ""}${recommended ? " mh-recommended-card" : ""}`}>
                                             <div className="mh-fetch-top">
                                                 <div className="mh-fetch-avatar">
                                                     {missionAi?.image
@@ -318,6 +321,7 @@ export function Missions({
                                                 </div>
                                                 <div className="mh-fetch-info">
                                                     <strong>{mission.name}</strong>
+                                                    {recommended && <span className="mh-recommended-badge">Recommended First Field Mission</span>}
                                                     <span className="mh-fetch-meta">Sector {mission.targetSector} · Lv {mission.levelReq}+</span>
                                                     <span className="mh-fetch-meta">{mission.description}</span>
                                                 </div>

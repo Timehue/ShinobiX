@@ -5243,6 +5243,12 @@ export function Arena({
         else groups.push({ round: entry.round, entries: [entry] });
         return groups;
     }, []);
+    const showRookieCombatTip = battleStarted
+        && !battleEnded
+        && !isAcademySpar
+        && (missionBattleActive || directCombat)
+        && character.level < 20
+        && ((character.totalAiKills ?? 0) < 3);
     // activeJutsuRangeTiles / activeJutsuAoeTiles / activeWeaponRangeTiles /
     // activeGroundAffectedTiles are now memoized above (before the
     // !battleStarted early return) so they're not rebuilt on every commit.
@@ -5674,6 +5680,13 @@ export function Arena({
                     </div>
 
                     <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
+
+                    {showRookieCombatTip && (
+                        <div className="rookie-combat-tip">
+                            <strong>First Fight Plan</strong>
+                            <span>Spend AP on Attack or jutsu, click highlighted targets, then Wait when AP runs low. The Battle Log records every result.</span>
+                        </div>
+                    )}
 
                     <div className="basic-action-bar shinobi-command-bar">
                         {/* Affordance feedback: each action disables when it can't be
