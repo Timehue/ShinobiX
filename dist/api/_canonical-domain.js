@@ -5,6 +5,7 @@ exports.canonicalOrigin = canonicalOrigin;
 exports.hostWithoutPort = hostWithoutPort;
 exports.legacyDuplicateHosts = legacyDuplicateHosts;
 exports.canonicalHost = canonicalHost;
+exports.isCanonicalWwwDuplicateHost = isCanonicalWwwDuplicateHost;
 exports.isCanonicalHost = isCanonicalHost;
 exports.isLegacyDuplicateHost = isLegacyDuplicateHost;
 exports.isCanonicalRedirectExcludedPath = isCanonicalRedirectExcludedPath;
@@ -58,10 +59,15 @@ function legacyDuplicateHosts(env = process.env) {
 function canonicalHost(env = process.env) {
     return new URL(canonicalOrigin(env)).host.toLowerCase();
 }
+function isCanonicalWwwDuplicateHost(hostHeader, env = process.env) {
+    const host = hostWithoutPort(hostHeader);
+    const canonical = canonicalHost(env);
+    return !canonical.startsWith('www.') && host === `www.${canonical}`;
+}
 function isCanonicalHost(hostHeader, env = process.env) {
     const host = hostWithoutPort(hostHeader);
     const canonical = canonicalHost(env);
-    return host === canonical || host === `www.${canonical}`;
+    return host === canonical || isCanonicalWwwDuplicateHost(host, env);
 }
 function isLegacyDuplicateHost(hostHeader, env = process.env) {
     const host = hostWithoutPort(hostHeader);
@@ -75,7 +81,8 @@ function isCanonicalRedirectExcludedPath(pathname) {
     return STATIC_OR_OPERATIONAL_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 function shouldRedirectToCanonical(hostHeader, pathname, env = process.env) {
-    return isLegacyDuplicateHost(hostHeader, env) && !isCanonicalRedirectExcludedPath(pathname);
+    return (isLegacyDuplicateHost(hostHeader, env) || isCanonicalWwwDuplicateHost(hostHeader, env))
+        && !isCanonicalRedirectExcludedPath(pathname);
 }
 function canonicalRedirectLocation(originalUrl, env = process.env) {
     const pathAndQuery = originalUrl.startsWith('/') ? originalUrl : `/${originalUrl}`;

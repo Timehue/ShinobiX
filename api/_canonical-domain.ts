@@ -49,10 +49,16 @@ export function canonicalHost(env: NodeJS.ProcessEnv = process.env): string {
     return new URL(canonicalOrigin(env)).host.toLowerCase();
 }
 
+export function isCanonicalWwwDuplicateHost(hostHeader: string | string[] | undefined, env: NodeJS.ProcessEnv = process.env): boolean {
+    const host = hostWithoutPort(hostHeader);
+    const canonical = canonicalHost(env);
+    return !canonical.startsWith('www.') && host === `www.${canonical}`;
+}
+
 export function isCanonicalHost(hostHeader: string | string[] | undefined, env: NodeJS.ProcessEnv = process.env): boolean {
     const host = hostWithoutPort(hostHeader);
     const canonical = canonicalHost(env);
-    return host === canonical || host === `www.${canonical}`;
+    return host === canonical || isCanonicalWwwDuplicateHost(host, env);
 }
 
 export function isLegacyDuplicateHost(hostHeader: string | string[] | undefined, env: NodeJS.ProcessEnv = process.env): boolean {
@@ -67,7 +73,8 @@ export function isCanonicalRedirectExcludedPath(pathname: string): boolean {
 }
 
 export function shouldRedirectToCanonical(hostHeader: string | string[] | undefined, pathname: string, env: NodeJS.ProcessEnv = process.env): boolean {
-    return isLegacyDuplicateHost(hostHeader, env) && !isCanonicalRedirectExcludedPath(pathname);
+    return (isLegacyDuplicateHost(hostHeader, env) || isCanonicalWwwDuplicateHost(hostHeader, env))
+        && !isCanonicalRedirectExcludedPath(pathname);
 }
 
 export function canonicalRedirectLocation(originalUrl: string, env: NodeJS.ProcessEnv = process.env): string {
