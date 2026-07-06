@@ -14,6 +14,12 @@ import { legacyEnabled } from '../_legacy-track.js';
 import { KNOWN_TAG_NAMES, canonicalTagName } from '../pvp/_tags.js';
 import { masteryBudget, sanitizeMasterySpec } from '../_profession-mastery.js';
 import { combatMissionByKey } from '../missions/_mission-catalog.js';
+import {
+    isHighRiskTileCardId,
+    isServerOwnedItemId,
+    preserveEntitledStacks,
+    preserveEntitledStringArray,
+} from './_entitlement-guard.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
@@ -716,6 +722,8 @@ export function sanitizeCharacterSave(
     if (Array.isArray(char.inventory) && (char.inventory as unknown[]).length > INVENTORY_CAP) {
         char.inventory = (char.inventory as unknown[]).slice(0, INVENTORY_CAP);
     }
+    const entitledInventory = preserveEntitledStringArray(char.inventory, exChar.inventory, isServerOwnedItemId);
+    if (entitledInventory) char.inventory = entitledInventory;
     // Counted stacks for bulk consumables (client lib/inventory.ts moves
     // stackable ids out of inventory[] into here, which is what keeps the cap
     // above from overflowing for hoarders). Validate structurally so a tampered
@@ -750,6 +758,8 @@ export function sanitizeCharacterSave(
         char.itemStacks = [...counts.entries()]
             .slice(0, ITEM_STACK_KEY_CAP)
             .map(([itemId, count]) => ({ itemId, count }));
+        const entitledStacks = preserveEntitledStacks(char.itemStacks, exChar.itemStacks, isServerOwnedItemId);
+        if (entitledStacks) char.itemStacks = entitledStacks;
     }
     // ─── examsPassed validation ───────────────────────────────────────────────
     // Rank exams: genin/chunin/jonin/specialJonin gate level progression
@@ -1040,6 +1050,8 @@ export function sanitizeCharacterSave(
     if (Array.isArray(char.tileCards) && (char.tileCards as unknown[]).length > TILE_CARD_CAP) {
         char.tileCards = (char.tileCards as unknown[]).slice(0, TILE_CARD_CAP);
     }
+    const entitledTileCards = preserveEntitledStringArray(char.tileCards, exChar.tileCards, isHighRiskTileCardId);
+    if (entitledTileCards) char.tileCards = entitledTileCards;
 
     // ─── battleHistory caps ───────────────────────────────────────────────────
     // Display-only "recent fights" reflection log (Profile → Battles). Carries no

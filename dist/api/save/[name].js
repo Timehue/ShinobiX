@@ -17,6 +17,7 @@ const _legacy_track_js_1 = require("../_legacy-track.js");
 const _tags_js_1 = require("../pvp/_tags.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _mission_catalog_js_1 = require("../missions/_mission-catalog.js");
+const _entitlement_guard_js_1 = require("./_entitlement-guard.js");
 const _save_version_js_1 = require("./_save-version.js");
 const _registry_throttle_js_1 = require("./_registry-throttle.js");
 const _public_index_js_1 = require("../player/_public-index.js");
@@ -709,6 +710,9 @@ function sanitizeCharacterSave(incoming, existing) {
     if (Array.isArray(char.inventory) && char.inventory.length > INVENTORY_CAP) {
         char.inventory = char.inventory.slice(0, INVENTORY_CAP);
     }
+    const entitledInventory = (0, _entitlement_guard_js_1.preserveEntitledStringArray)(char.inventory, exChar.inventory, _entitlement_guard_js_1.isServerOwnedItemId);
+    if (entitledInventory)
+        char.inventory = entitledInventory;
     // Counted stacks for bulk consumables (client lib/inventory.ts moves
     // stackable ids out of inventory[] into here, which is what keeps the cap
     // above from overflowing for hoarders). Validate structurally so a tampered
@@ -746,6 +750,9 @@ function sanitizeCharacterSave(incoming, existing) {
         char.itemStacks = [...counts.entries()]
             .slice(0, ITEM_STACK_KEY_CAP)
             .map(([itemId, count]) => ({ itemId, count }));
+        const entitledStacks = (0, _entitlement_guard_js_1.preserveEntitledStacks)(char.itemStacks, exChar.itemStacks, _entitlement_guard_js_1.isServerOwnedItemId);
+        if (entitledStacks)
+            char.itemStacks = entitledStacks;
     }
     // ─── examsPassed validation ───────────────────────────────────────────────
     // Rank exams: genin/chunin/jonin/specialJonin gate level progression
@@ -1053,6 +1060,9 @@ function sanitizeCharacterSave(incoming, existing) {
     if (Array.isArray(char.tileCards) && char.tileCards.length > TILE_CARD_CAP) {
         char.tileCards = char.tileCards.slice(0, TILE_CARD_CAP);
     }
+    const entitledTileCards = (0, _entitlement_guard_js_1.preserveEntitledStringArray)(char.tileCards, exChar.tileCards, _entitlement_guard_js_1.isHighRiskTileCardId);
+    if (entitledTileCards)
+        char.tileCards = entitledTileCards;
     // ─── battleHistory caps ───────────────────────────────────────────────────
     // Display-only "recent fights" reflection log (Profile → Battles). Carries no
     // rewards, so it needs no reward gating — just bound the size so a forged

@@ -7,6 +7,8 @@ const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
 const _treasury_donate_js_1 = require("../../_treasury-donate.js");
+const _mutate_player_save_js_1 = require("../../save/_mutate-player-save.js");
+const _economy_tx_js_1 = require("../../_economy-tx.js");
 /*
  * /api/clan/treasury/donate  — POST only
  *
@@ -69,6 +71,8 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
+    let txId = null;
+    let txState = null;
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {}));
         const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
@@ -93,6 +97,7 @@ async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = `save:clan-${targetSlug}`;
         const donorSaveKey = `save:${playerName}`;
+        txId = (0, _economy_tx_js_1.makeEconomyTxId)('clan-treasury-donate');
         // ── Atomic donate ──────────────────────────────────────────────
         // Lock the clan save row (the shared, contended resource) first,
         // then the donor save row. The donor debit is COMMITTED before the
@@ -105,11 +110,7 @@ async function handler(req, res) {
             const clanRec = await _storage_js_1.kv.get(clanSaveKey);
             if (!clanRec)
                 return { ok: false, status: 404, error: 'Clan not found.' };
-            const debit = await (0, _lock_js_1.withKvLock)(donorSaveKey, async () => {
-                const donorRec = await _storage_js_1.kv.get(donorSaveKey);
-                const donorChar = (donorRec?.character ?? null);
-                if (!donorChar)
-                    return { ok: false, status: 404, error: 'Donor save not found.' };
+            const debit = await (0, _mutate_player_save_js_1.mutatePlayerSave)(playerName, async ({ character: donorChar }) => {
                 // Membership: donor's character.clan must resolve to this clan.
                 if (!identity.admin) {
                     const donorClanSlug = clanSlugBare(String(donorChar.clan ?? ''));
@@ -120,15 +121,28 @@ async function handler(req, res) {
                 const outcome = (0, _treasury_donate_js_1.applyTreasuryDonation)(clanRec.treasury, donorChar, donation, { allowedCurrencies: CLAN_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP });
                 if (!outcome.ok)
                     return outcome;
-                // Commit donor debit first.
-                await _storage_js_1.kv.set(donorSaveKey, { ...donorRec, character: outcome.nextDonorChar });
-                return { ok: true, nextTreasury: outcome.nextTreasury };
-            }, { failClosed: true });
+                const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
+                await (0, _economy_tx_js_1.reserveEconomyTx)({
+                    id: txId,
+                    kind: 'clan-treasury-donate',
+                    debitKey: donorSaveKey,
+                    creditKey: clanSaveKey,
+                    resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
+                    amount,
+                    meta: { clan, playerName },
+                });
+                txState = 'reserved';
+                return { ok: true, character: outcome.nextDonorChar, value: { nextTreasury: outcome.nextTreasury } };
+            });
             if (!debit.ok)
                 return debit;
+            await (0, _economy_tx_js_1.markEconomyTx)(txId, 'debit-applied');
+            txState = 'debit-applied';
             // Credit the clan treasury (donor debit is already committed).
-            await _storage_js_1.kv.set(clanSaveKey, { ...clanRec, treasury: debit.nextTreasury });
-            return { ok: true, treasury: debit.nextTreasury };
+            await _storage_js_1.kv.set(clanSaveKey, { ...clanRec, treasury: debit.value.nextTreasury });
+            await (0, _economy_tx_js_1.completeEconomyTx)(txId);
+            txState = 'complete';
+            return { ok: true, treasury: debit.value.nextTreasury, _saveVersion: debit._saveVersion };
         }, { failClosed: true });
         if (!result.ok)
             return res.status(result.status).json({ error: result.error });
@@ -141,9 +155,12 @@ async function handler(req, res) {
                 ? { currency: donation.currency, amount: Math.floor(donation.amount) }
                 : { itemId: donation.itemId, count: Math.floor(donation.count) }),
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-        return res.status(200).json({ ok: true, treasury: result.treasury });
+        return res.status(200).json({ ok: true, treasury: result.treasury, _saveVersion: result._saveVersion });
     }
     catch (err) {
+        if (txId && txState && txState !== 'complete') {
+            await (0, _economy_tx_js_1.failEconomyTx)(txId, err).catch(() => undefined);
+        }
         console.error('[clan/treasury/donate]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

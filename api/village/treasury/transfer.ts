@@ -4,6 +4,8 @@ import { cors, safeName } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
+import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
+import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
 
 /*
  * /api/village/treasury/transfer  — POST only
@@ -123,6 +125,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const rlName = identity.admin ? undefined : identity.name;
     if (!identity.admin && !(await enforceRateLimitKv(req, res, 'village-treasury-transfer', 30, 60_000, rlName))) return;
 
+    let txId: string | null = null;
+    let txState: 'reserved' | 'credit-applied' | 'complete' | null = null;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const village = typeof body.village === 'string' ? body.village.trim() : '';
@@ -179,6 +183,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const villageStateKey = `${VILLAGE_STATE_PREFIX}${villageSlug(village)}`;
+        txId = makeEconomyTxId('village-treasury-transfer');
 
         // ── Atomic transfer ────────────────────────────────────────────
         // We lock the village state row first (the contended resource),
@@ -203,29 +208,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 // Credit recipient under the save lock to prevent racing
                 // with the recipient's own autosave.
-                const creditOk = await withKvLock(recipientSaveKey, async () => {
+                await reserveEconomyTx({
+                    id: txId!,
+                    kind: 'village-treasury-transfer',
+                    debitKey: villageStateKey,
+                    creditKey: recipientSaveKey,
+                    resource: c,
+                    amount,
+                    meta: { village, recipientName },
+                });
+                txState = 'reserved';
+                const credit = await withKvLock(recipientSaveKey, async () => {
                     const fresh = await kv.get<Record<string, unknown>>(recipientSaveKey);
                     const freshChar = (fresh?.character ?? null) as CharacterRow | null;
-                    if (!freshChar) return false;
+                    if (!fresh || !freshChar) return { ok: false as const };
                     const nextChar = {
                         ...freshChar,
                         [c]: Math.max(0, Number(freshChar[c] ?? 0)) + amount,
                     };
-                    await kv.set(recipientSaveKey, { ...fresh, character: nextChar });
-                    return true;
+                    const written = await writeVersionedPlayerSave(recipientSaveKey, fresh, nextChar);
+                    return { ok: true as const, _saveVersion: written._saveVersion };
                 }, { failClosed: true });
-                if (!creditOk) {
+                if (!credit.ok) {
                     return { ok: false as const, status: 500, error: 'Failed to credit recipient.' };
                 }
 
                 // Deduct from treasury — done AFTER the credit succeeds so
                 // a credit failure can't leave the treasury short.
+                await markEconomyTx(txId!, 'credit-applied');
+                txState = 'credit-applied';
                 const nextState: VillageStateRow = {
                     ...state,
                     treasury: { ...treasury, [c]: available - amount },
                 };
                 await kv.set(villageStateKey, nextState);
-                return { ok: true as const, currency: c, amount };
+                await completeEconomyTx(txId!);
+                txState = 'complete';
+                return { ok: true as const, currency: c, amount, _saveVersion: credit._saveVersion };
             } else {
                 // Item transfer — find the stack in the treasury.
                 const items = Array.isArray(treasury.items) ? treasury.items : [];
@@ -234,28 +253,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { ok: false as const, status: 400, error: 'Item not in village treasury.' };
                 }
 
-                const creditOk = await withKvLock(recipientSaveKey, async () => {
+                await reserveEconomyTx({
+                    id: txId!,
+                    kind: 'village-treasury-transfer',
+                    debitKey: villageStateKey,
+                    creditKey: recipientSaveKey,
+                    resource: `item:${itemId}`,
+                    amount: 1,
+                    meta: { village, recipientName },
+                });
+                txState = 'reserved';
+                const credit = await withKvLock(recipientSaveKey, async () => {
                     const fresh = await kv.get<Record<string, unknown>>(recipientSaveKey);
                     const freshChar = (fresh?.character ?? null) as CharacterRow | null;
-                    if (!freshChar) return false;
+                    if (!fresh || !freshChar) return { ok: false as const };
                     const nextInv = Array.isArray(freshChar.inventory)
                         ? [...freshChar.inventory, itemId!]
                         : [itemId!];
                     const nextChar = { ...freshChar, inventory: nextInv };
-                    await kv.set(recipientSaveKey, { ...fresh, character: nextChar });
-                    return true;
+                    const written = await writeVersionedPlayerSave(recipientSaveKey, fresh, nextChar);
+                    return { ok: true as const, _saveVersion: written._saveVersion };
                 }, { failClosed: true });
-                if (!creditOk) {
+                if (!credit.ok) {
                     return { ok: false as const, status: 500, error: 'Failed to credit recipient.' };
                 }
 
+                await markEconomyTx(txId!, 'credit-applied');
+                txState = 'credit-applied';
                 const nextItems = removeOneItem(items, itemId!);
                 const nextState: VillageStateRow = {
                     ...state,
                     treasury: { ...treasury, items: nextItems },
                 };
                 await kv.set(villageStateKey, nextState);
-                return { ok: true as const, itemId };
+                await completeEconomyTx(txId!);
+                txState = 'complete';
+                return { ok: true as const, itemId, _saveVersion: credit._saveVersion };
             }
         }, { failClosed: true });
 
@@ -280,6 +313,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // `result` already includes `ok: true` plus the currency / item payload.
         return res.status(200).json(result);
     } catch (err) {
+        if (txId && txState && txState !== 'complete') {
+            await failEconomyTx(txId, err).catch(() => undefined);
+        }
         console.error('[village/treasury-transfer]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

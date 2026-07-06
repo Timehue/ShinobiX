@@ -6,6 +6,8 @@ const _utils_js_1 = require("../../_utils.js");
 const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
+const _mutate_player_save_js_1 = require("../../save/_mutate-player-save.js");
+const _economy_tx_js_1 = require("../../_economy-tx.js");
 /*
  * /api/village/treasury/transfer  — POST only
  *
@@ -87,6 +89,8 @@ async function handler(req, res) {
     const rlName = identity.admin ? undefined : identity.name;
     if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'village-treasury-transfer', 30, 60_000, rlName)))
         return;
+    let txId = null;
+    let txState = null;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const village = typeof body.village === 'string' ? body.village.trim() : '';
@@ -139,6 +143,7 @@ async function handler(req, res) {
             return res.status(403).json({ error: 'Recipient is not a member of this village.' });
         }
         const villageStateKey = `${VILLAGE_STATE_PREFIX}${villageSlug(village)}`;
+        txId = (0, _economy_tx_js_1.makeEconomyTxId)('village-treasury-transfer');
         // ── Atomic transfer ────────────────────────────────────────────
         // We lock the village state row first (the contended resource),
         // then read + mutate the recipient under its own save lock. The
@@ -158,29 +163,43 @@ async function handler(req, res) {
                 }
                 // Credit recipient under the save lock to prevent racing
                 // with the recipient's own autosave.
-                const creditOk = await (0, _lock_js_1.withKvLock)(recipientSaveKey, async () => {
+                await (0, _economy_tx_js_1.reserveEconomyTx)({
+                    id: txId,
+                    kind: 'village-treasury-transfer',
+                    debitKey: villageStateKey,
+                    creditKey: recipientSaveKey,
+                    resource: c,
+                    amount,
+                    meta: { village, recipientName },
+                });
+                txState = 'reserved';
+                const credit = await (0, _lock_js_1.withKvLock)(recipientSaveKey, async () => {
                     const fresh = await _storage_js_1.kv.get(recipientSaveKey);
                     const freshChar = (fresh?.character ?? null);
-                    if (!freshChar)
-                        return false;
+                    if (!fresh || !freshChar)
+                        return { ok: false };
                     const nextChar = {
                         ...freshChar,
                         [c]: Math.max(0, Number(freshChar[c] ?? 0)) + amount,
                     };
-                    await _storage_js_1.kv.set(recipientSaveKey, { ...fresh, character: nextChar });
-                    return true;
+                    const written = await (0, _mutate_player_save_js_1.writeVersionedPlayerSave)(recipientSaveKey, fresh, nextChar);
+                    return { ok: true, _saveVersion: written._saveVersion };
                 }, { failClosed: true });
-                if (!creditOk) {
+                if (!credit.ok) {
                     return { ok: false, status: 500, error: 'Failed to credit recipient.' };
                 }
                 // Deduct from treasury — done AFTER the credit succeeds so
                 // a credit failure can't leave the treasury short.
+                await (0, _economy_tx_js_1.markEconomyTx)(txId, 'credit-applied');
+                txState = 'credit-applied';
                 const nextState = {
                     ...state,
                     treasury: { ...treasury, [c]: available - amount },
                 };
                 await _storage_js_1.kv.set(villageStateKey, nextState);
-                return { ok: true, currency: c, amount };
+                await (0, _economy_tx_js_1.completeEconomyTx)(txId);
+                txState = 'complete';
+                return { ok: true, currency: c, amount, _saveVersion: credit._saveVersion };
             }
             else {
                 // Item transfer — find the stack in the treasury.
@@ -189,28 +208,42 @@ async function handler(req, res) {
                 if (!stack || stack.count < 1) {
                     return { ok: false, status: 400, error: 'Item not in village treasury.' };
                 }
-                const creditOk = await (0, _lock_js_1.withKvLock)(recipientSaveKey, async () => {
+                await (0, _economy_tx_js_1.reserveEconomyTx)({
+                    id: txId,
+                    kind: 'village-treasury-transfer',
+                    debitKey: villageStateKey,
+                    creditKey: recipientSaveKey,
+                    resource: `item:${itemId}`,
+                    amount: 1,
+                    meta: { village, recipientName },
+                });
+                txState = 'reserved';
+                const credit = await (0, _lock_js_1.withKvLock)(recipientSaveKey, async () => {
                     const fresh = await _storage_js_1.kv.get(recipientSaveKey);
                     const freshChar = (fresh?.character ?? null);
-                    if (!freshChar)
-                        return false;
+                    if (!fresh || !freshChar)
+                        return { ok: false };
                     const nextInv = Array.isArray(freshChar.inventory)
                         ? [...freshChar.inventory, itemId]
                         : [itemId];
                     const nextChar = { ...freshChar, inventory: nextInv };
-                    await _storage_js_1.kv.set(recipientSaveKey, { ...fresh, character: nextChar });
-                    return true;
+                    const written = await (0, _mutate_player_save_js_1.writeVersionedPlayerSave)(recipientSaveKey, fresh, nextChar);
+                    return { ok: true, _saveVersion: written._saveVersion };
                 }, { failClosed: true });
-                if (!creditOk) {
+                if (!credit.ok) {
                     return { ok: false, status: 500, error: 'Failed to credit recipient.' };
                 }
+                await (0, _economy_tx_js_1.markEconomyTx)(txId, 'credit-applied');
+                txState = 'credit-applied';
                 const nextItems = removeOneItem(items, itemId);
                 const nextState = {
                     ...state,
                     treasury: { ...treasury, items: nextItems },
                 };
                 await _storage_js_1.kv.set(villageStateKey, nextState);
-                return { ok: true, itemId };
+                await (0, _economy_tx_js_1.completeEconomyTx)(txId);
+                txState = 'complete';
+                return { ok: true, itemId, _saveVersion: credit._saveVersion };
             }
         }, { failClosed: true });
         if (!result.ok) {
@@ -233,6 +266,9 @@ async function handler(req, res) {
         return res.status(200).json(result);
     }
     catch (err) {
+        if (txId && txState && txState !== 'complete') {
+            await (0, _economy_tx_js_1.failEconomyTx)(txId, err).catch(() => undefined);
+        }
         console.error('[village/treasury-transfer]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

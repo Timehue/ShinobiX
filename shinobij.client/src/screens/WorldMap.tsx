@@ -210,6 +210,7 @@ export function WorldMap({
     setPendingPetBattleOpponent,
     requestCardChallenge,
     recordMissionExplore,
+    recordMissionProgress,
     setPendingExploreSector,
     playableAis,
     setCurrentWeather,
@@ -255,6 +256,7 @@ export function WorldMap({
     setPendingPetBattleOpponent: (o: PetArenaOpponent | null) => void;
     requestCardChallenge: () => void;
     recordMissionExplore: (sector: number) => void;
+    recordMissionProgress?: (missionId: string, kind: "field-explore" | "field-raid" | "hunt-track" | "hunt-kill") => void;
     setPendingExploreSector: (sector: number | null) => void;
     playableAis: CreatorAi[];
     setCurrentWeather: (weather: WeatherType) => void;
@@ -1713,6 +1715,7 @@ export function WorldMap({
         const nextProgress = Math.min(requiredTracks, currentProgress + 1);
 
         if (nextProgress < requiredTracks) {
+            recordMissionProgress?.(activeHuntMission.id, "hunt-track");
             // Still gathering tracks — advance the tracking counter and stop.
             setMissionProgress((current) => ({
                 ...current,

@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { collectTerritorySupply } from '../../_territory-supply.js';
+import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
 
 /*
  * /api/clan/territory/collect-supply  — POST only
@@ -41,6 +42,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
+    let txId: string | null = null;
+    let txState: 'reserved' | 'debit-applied' | 'complete' | null = null;
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const playerName = safeName(String(body.playerName ?? ''));
@@ -86,6 +89,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? ((await kv.mget<Record<string, unknown>[]>(...territoryKeys)).filter(Boolean) as Record<string, unknown>[])
             : [];
         const owned = territories.filter((t) => String(t.ownerClan ?? '') === clan);
+        if (owned.length > 0) {
+            txId = makeEconomyTxId('clan-territory-collect-supply');
+            await reserveEconomyTx({
+                id: txId,
+                kind: 'clan-territory-collect-supply',
+                debitKey: `${TERRITORY_KEY_PREFIX}*`,
+                creditKey: clanSaveKey,
+                resource: 'warSupply',
+                amount: 0,
+                meta: { clan, sectors: owned.map((t) => Number(t.sector)).filter(Number.isFinite) },
+            });
+            txState = 'reserved';
+        }
 
         // ── Phase 1 (debit): zero each owned sector under its own lock,
         // recomputing accrual from the freshly-read record so a concurrent
@@ -107,6 +123,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Apply the Treasury Vault collection bonus to the raw collected total.
         const credited = total > 0 ? Math.floor(total * (1 + collectionBonusPct / 100)) : 0;
+        if (txId) {
+            await markEconomyTx(txId, 'debit-applied', {
+                amount: credited,
+                meta: { clan, base: total, bonusPct: collectionBonusPct, sectors: owned.length },
+            });
+            txState = 'debit-applied';
+        }
 
         // ── Phase 2 (credit): add the collected total to the clan treasury under
         // the clan-save lock. Re-read so we don't clobber a concurrent clan write.
@@ -137,6 +160,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     sectors: owned.length,
                     error: creditErr instanceof Error ? creditErr.message : String(creditErr),
                 }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
+                if (txId) {
+                    await failEconomyTx(txId, creditErr, {
+                        amount: credited,
+                        meta: { clan, base: total, bonusPct: collectionBonusPct, sectors: owned.length },
+                    }).catch(() => undefined);
+                    txState = 'debit-applied';
+                }
                 return res.status(503).json({
                     ok: false,
                     error: 'Supply was collected from your sectors but the treasury credit could not be saved. An admin can reconcile it — please do not retry.',
@@ -152,12 +182,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 bonusPct: collectionBonusPct,
                 sectors: owned.length,
             }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            if (txId) {
+                await completeEconomyTx(txId, {
+                    amount: credited,
+                    meta: { clan, base: total, bonusPct: collectionBonusPct, sectors: owned.length },
+                });
+                txState = 'complete';
+            }
         } else {
             treasury = (clanRec.treasury ?? {}) as Record<string, unknown>;
+            if (txId) {
+                await completeEconomyTx(txId, {
+                    amount: 0,
+                    meta: { clan, base: 0, bonusPct: collectionBonusPct, sectors: owned.length },
+                    note: 'No supply available to collect.',
+                });
+                txState = 'complete';
+            }
         }
 
         return res.status(200).json({ ok: true, treasury, collected: credited });
     } catch (err) {
+        if (txId && txState && txState !== 'complete') {
+            await failEconomyTx(txId, err).catch(() => undefined);
+        }
         console.error('[clan/territory/collect-supply]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

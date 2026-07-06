@@ -8,6 +8,8 @@ const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
 const _treasury_donate_js_1 = require("../../_treasury-donate.js");
 const _legacy_track_js_1 = require("../../_legacy-track.js");
+const _mutate_player_save_js_1 = require("../../save/_mutate-player-save.js");
+const _economy_tx_js_1 = require("../../_economy-tx.js");
 /*
  * /api/village/treasury/donate  — POST only
  *
@@ -65,6 +67,8 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
+    let txId = null;
+    let txState = null;
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {}));
         const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
@@ -89,6 +93,7 @@ async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid village name.' });
         const villageStateKey = `${VILLAGE_STATE_PREFIX}${slug}`;
         const donorSaveKey = `save:${playerName}`;
+        txId = (0, _economy_tx_js_1.makeEconomyTxId)('village-treasury-donate');
         // ── Atomic donate ──────────────────────────────────────────────
         // Village-state row locked first (shared resource), donor save row
         // inner. Donor debit committed before the treasury credit — same
@@ -96,11 +101,7 @@ async function handler(req, res) {
         // can't mint free treasury.
         const result = await (0, _lock_js_1.withKvLock)(villageStateKey, async () => {
             const stateRec = (await _storage_js_1.kv.get(villageStateKey)) ?? {};
-            const debit = await (0, _lock_js_1.withKvLock)(donorSaveKey, async () => {
-                const donorRec = await _storage_js_1.kv.get(donorSaveKey);
-                const donorChar = (donorRec?.character ?? null);
-                if (!donorChar)
-                    return { ok: false, status: 404, error: 'Donor save not found.' };
+            const debit = await (0, _mutate_player_save_js_1.mutatePlayerSave)(playerName, async ({ character: donorChar }) => {
                 // Membership: donor must belong to this village.
                 if (!identity.admin && String(donorChar.village ?? '').trim() !== village) {
                     return { ok: false, status: 403, error: 'You are not a member of this village.' };
@@ -108,14 +109,28 @@ async function handler(req, res) {
                 const outcome = (0, _treasury_donate_js_1.applyTreasuryDonation)(stateRec.treasury, donorChar, donation, { allowedCurrencies: VILLAGE_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP });
                 if (!outcome.ok)
                     return outcome;
-                await _storage_js_1.kv.set(donorSaveKey, { ...donorRec, character: outcome.nextDonorChar });
-                return { ok: true, nextTreasury: outcome.nextTreasury };
-            }, { failClosed: true });
+                const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
+                await (0, _economy_tx_js_1.reserveEconomyTx)({
+                    id: txId,
+                    kind: 'village-treasury-donate',
+                    debitKey: donorSaveKey,
+                    creditKey: villageStateKey,
+                    resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
+                    amount,
+                    meta: { village, playerName },
+                });
+                txState = 'reserved';
+                return { ok: true, character: outcome.nextDonorChar, value: { nextTreasury: outcome.nextTreasury } };
+            });
             if (!debit.ok)
                 return debit;
+            await (0, _economy_tx_js_1.markEconomyTx)(txId, 'debit-applied');
+            txState = 'debit-applied';
             // Credit ONLY the treasury; preserve every other village-state field.
-            await _storage_js_1.kv.set(villageStateKey, { ...stateRec, treasury: debit.nextTreasury });
-            return { ok: true, treasury: debit.nextTreasury };
+            await _storage_js_1.kv.set(villageStateKey, { ...stateRec, treasury: debit.value.nextTreasury });
+            await (0, _economy_tx_js_1.completeEconomyTx)(txId);
+            txState = 'complete';
+            return { ok: true, treasury: debit.value.nextTreasury, _saveVersion: debit._saveVersion };
         }, { failClosed: true });
         if (!result.ok)
             return res.status(result.status).json({ error: result.error });
@@ -134,9 +149,12 @@ async function handler(req, res) {
                 ? Math.max(0, Math.floor(donation.amount))
                 : Math.max(0, Math.floor(donation.count)) * 500,
         });
-        return res.status(200).json({ ok: true, treasury: result.treasury });
+        return res.status(200).json({ ok: true, treasury: result.treasury, _saveVersion: result._saveVersion });
     }
     catch (err) {
+        if (txId && txState && txState !== 'complete') {
+            await (0, _economy_tx_js_1.failEconomyTx)(txId, err).catch(() => undefined);
+        }
         console.error('[village/treasury/donate]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }
