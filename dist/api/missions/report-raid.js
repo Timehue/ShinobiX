@@ -200,7 +200,7 @@ async function handler(req, res) {
             // permanently squatting.
             await _storage_js_1.kv.set(dailyKey, reportedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
             return { capped: false };
-        });
+        }, { failClosed: true });
         if (capCheck.capped) {
             return res.status(200).json({
                 ok: true,
@@ -256,7 +256,7 @@ async function handler(req, res) {
                     };
                     (0, _save_version_js_1.bumpSaveVersion)(updated);
                     await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
-                });
+                }, { failClosed: true });
             }
         }
         const finalRecord = await _storage_js_1.kv.get(`save:${playerName}`);

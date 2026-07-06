@@ -100,7 +100,7 @@ async function awardProfessionXp(playerName, profession, amount) {
         (0, _save_version_js_1.bumpSaveVersion)(updated);
         await _storage_js_1.kv.set(saveKey, updated);
         return { xp: nextXp, rank: nextRank };
-    });
+    }, { failClosed: true });
 }
 function dailyKey(playerName) {
     return `missions:daily:${playerName}`;
@@ -192,7 +192,7 @@ async function reportMissionEvent(opts) {
             await _storage_js_1.kv.set(dKey, { ...state, missions: next }, { ex: 36 * 60 * 60 });
         }
         return { xpAwarded, missionsCompleted: completed };
-    });
+    }, { failClosed: true });
     // Auto-grant mission XP onto the player's character. awardProfessionXp
     // takes its own lock on save:<player> so we don't nest locks here.
     if (result.xpAwarded > 0) {
@@ -250,7 +250,7 @@ async function awardNewbieRyo(playerName, amount) {
         };
         (0, _save_version_js_1.bumpSaveVersion)(updated);
         await _storage_js_1.kv.set(saveKey, updated);
-    });
+    }, { failClosed: true });
 }
 // Progress the new-shinobi dailies for a matching event kind. No-op for players
 // who have a profession. Auto-grants ryo on completion (same model as the
@@ -286,7 +286,7 @@ async function reportNewbieEvent(opts) {
         if (changed)
             await _storage_js_1.kv.set(dKey, { ...state, missions: next }, { ex: 36 * 60 * 60 });
         return { ryoAwarded, completed };
-    });
+    }, { failClosed: true });
     if (result.ryoAwarded > 0) {
         await awardNewbieRyo(playerName, result.ryoAwarded);
     }
