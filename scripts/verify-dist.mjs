@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const serverJs = join(root, 'dist', 'server.js');
+const vercelJson = join(root, 'vercel.json');
 
 function fail(msg) {
     console.error(`\n[verify:dist] FAILED — ${msg}\n`);
@@ -44,4 +45,15 @@ if (missing.length) {
     fail(`dist/server.js is missing expected markers: ${missing.join(', ')}. The compile is incomplete.`);
 }
 
-console.log(`[verify:dist] OK — dist/server.js present (${(st.size / 1024).toFixed(1)} KB), Express wiring intact.`);
+let vercelConfig;
+try {
+    vercelConfig = JSON.parse(readFileSync(vercelJson, 'utf8'));
+} catch {
+    fail('vercel.json must exist as a tombstone config with git.deploymentEnabled:false so the retired Vercel integration cannot auto-deploy.');
+}
+
+if (vercelConfig?.git?.deploymentEnabled !== false || vercelConfig?.github?.enabled !== false) {
+    fail('vercel.json must keep Vercel auto-deploys disabled: git.deploymentEnabled:false and github.enabled:false.');
+}
+
+console.log(`[verify:dist] OK — dist/server.js present (${(st.size / 1024).toFixed(1)} KB), Express wiring intact, Vercel auto-deploy disabled.`);
