@@ -522,11 +522,12 @@ export type Character = {
     // others are one-time "seen/claimed" gates matching the hollowGateIntroSeen
     // convention. Canonical order:
     //   "academyIntro" (framing modal) → "starter" (choose-your-companion) →
-    //   "academySpar" (guaranteed first-win spar) → "training" → "jutsu" →
+    //   "training" → "jutsu" → "jutsuLoadout" → "inventory" →
+    //   "academySpar" (guaranteed first-win spar) → "cafeteria" →
     //   "firstMission" (claim the Academy Trial) → "logbook" (open the goals) →
-    //   "storyUnlocked" (village story now available) → "done". Each beat
+    //   "sectorReturn" (visit a sector, return home) → "done". Each beat
     //   advances on the real action.
-    // Legacy values "spar"/"tour" still appear in older saves and are mapped via
+    // Legacy values "spar"/"tour"/"storyUnlocked" still appear in older saves and are mapped via
     // normalizeOnboardingStep() (lib/onboarding-step.ts) — never compare against
     // them directly for routing; normalize first.
     onboardingStep?:
@@ -535,8 +536,13 @@ export type Character = {
         | "academySpar"
         | "training"
         | "jutsu"
+        | "jutsuLoadout"
+        | "inventory"
+        | "cafeteria"
         | "firstMission"
         | "logbook"
+        | "sectorReturn"
+        // legacy final tutorial step, normalized to "sectorReturn"
         | "storyUnlocked"
         | "done"
         // legacy (older saves) — normalized away by normalizeOnboardingStep()

@@ -6,7 +6,7 @@ import {
     recommendedMission,
     type RecoInput,
 } from "./daily-briefing-core";
-import { normalizeOnboardingStep } from "./onboarding-step";
+import { normalizeOnboardingStep, onboardingStepAtLeast } from "./onboarding-step";
 
 // A "nothing pressing" baseline: veteran, healed, all training busy, no slots.
 const SETTLED: RecoInput = {
@@ -59,13 +59,35 @@ test("academy spar recommendation returns to the coach-driven village flow", () 
     assert.match(recos[0].cta, /spar/i);
 });
 
+test("new tutorial equipment beats point to the correct screens", () => {
+    const loadout = buildRecommendations({ ...SETTLED, onboardingStep: "jutsuLoadout" });
+    assert.equal(loadout[0].id, "tutorial");
+    assert.equal(loadout[0].screen, "profile");
+
+    const inventory = buildRecommendations({ ...SETTLED, onboardingStep: "inventory" });
+    assert.equal(inventory[0].id, "tutorial");
+    assert.equal(inventory[0].screen, "inventory");
+
+    const fieldTrip = buildRecommendations({ ...SETTLED, onboardingStep: "sectorReturn" });
+    assert.equal(fieldTrip[0].id, "tutorial");
+    assert.equal(fieldTrip[0].screen, "worldMap");
+});
+
 test("onboarding step normalization preserves veterans and legacy aliases", () => {
     assert.equal(normalizeOnboardingStep(undefined), "done");
     assert.equal(normalizeOnboardingStep(null), "done");
     assert.equal(normalizeOnboardingStep(""), "done");
     assert.equal(normalizeOnboardingStep("spar"), "academySpar");
     assert.equal(normalizeOnboardingStep("tour"), "training");
+    assert.equal(normalizeOnboardingStep("storyUnlocked"), "sectorReturn");
     assert.equal(normalizeOnboardingStep("firstMission"), "firstMission");
+});
+
+test("onboarding step ordering follows the academy path", () => {
+    assert.equal(onboardingStepAtLeast("jutsuLoadout", "inventory"), false);
+    assert.equal(onboardingStepAtLeast("inventory", "jutsuLoadout"), true);
+    assert.equal(onboardingStepAtLeast("cafeteria", "academySpar"), true);
+    assert.equal(onboardingStepAtLeast("storyUnlocked", "sectorReturn"), true);
 });
 
 test("unspent stat points and idle training are surfaced", () => {
