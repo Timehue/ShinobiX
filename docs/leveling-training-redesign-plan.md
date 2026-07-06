@@ -1,8 +1,8 @@
 # Leveling / Stat / Training Redesign Plan
 
 **Status:** PLAN ONLY — no code written. Synthesized from (a) a read-only map of
-our current system and (b) a code-level teardown of the third-party reference, our
-open-source competitor at `the third-party reference`.
+our current system and (b) a code-level teardown of an external browser-RPG
+reference implementation.
 
 **The complaint that started this:** *"our stat/xp level-up system isn't very
 good right now, the idle trainer doesn't even earn stats."*
@@ -19,7 +19,7 @@ exactly why the trainer prints "~0 stat points" — it's honestly reporting that
 training barely moves the budget. The "CHOOSE STAT" picker is nearly decorative
 because the budget it feeds is generic and near-frozen.
 
-the third-party reference does the opposite and it works: **training *is* the stat engine.** You pick a
+The reference model does the opposite and it works: **training *is* the stat engine.** You pick a
 stat, real time elapses (fully offline/idle), and on collection the gain is added
 **directly to that stat**, bounded only by a **per-rank cap**. Leveling doesn't
 hand out stat points at all — it raises the caps + your HP/CP/SP pools + unlocks
@@ -35,7 +35,7 @@ re-spending (50 Shards, nothing lost); training keeps a modest XP trickle
 **near-flat per-hour tiers** (20–23/hr, gentle slope, ~1.15× spread). The plan is
 implementation-ready.
 
-**Recommendation:** adopt the third-party reference's **two-axis** model, adapted to our numbers and
+**Recommendation:** adopt the reference **two-axis** model, adapted to our numbers and
 our stricter balanced-PvP pillar:
 
 - **Axis A — Rank/Level (the "how far" axis):** XP from combat/missions raises
@@ -109,11 +109,9 @@ Current end-to-end (file refs from the code map):
 
 ---
 
-## 2. How the third-party reference does it (reference, read from their source)
+## 2. How The Reference Model Handles It
 
-Source: `the third-party reference` — `app/src/libs/train.ts`,
-`app/src/server/api/routers/train.ts`, `app/src/libs/profile.ts`,
-`app/drizzle/constants.ts`.
+Source reviewed: external browser-RPG training/profile modules and constants.
 
 - **Same 12 stats** (4 general + 4 offence + 4 defence). Each stored separately,
   floor 10, **per-rank hard caps** (Student 20k → Genin 60k → Chunin+ 450k
@@ -161,7 +159,7 @@ sets the *ceiling*; training-time + combat-use *fill toward it*.
 
 1. **Balanced PvP is the foundation. Power is gated by *skill*, never bought,
    grinded, or RNG'd.** The endgame ceiling is universal and reachable; nobody
-   out-*powers* you, they out-*play* you. (This is stricter than the third-party reference and shapes
+   out-*powers* you, they out-*play* you. (This is stricter than the reference model and shapes
    our calibration — see §6.)
 2. **Never trust the client for rewards/currency/stats.** New stat sources must
    be server-authoritative (recompute or sealed-token). We are *upgrading* the
@@ -226,7 +224,7 @@ into the chosen stat; combat's free share is hand-placed here.)
 **Target (user, 2026-07-01): a dedicated daily player fully caps all 12 stats in
 ~90 days.** Full cap = 12 × (2500 − 10) ≈ **30,000 stat points**. We use a
 **near-flat per-hour rate with a gentle slope** — shorter tiers are only *slightly*
-more efficient per hour, kept much closer together than the third-party reference's 100→50 spread. That
+more efficient per hour, kept much closer together than the reference model's steeper spread. That
 gives the tiers a little character without making any one a trap, and keeps pacing
 governed by *time trained* (protecting the 90-day anchor, no spam / captcha meta).
 
@@ -241,7 +239,7 @@ stat[chosen] += applied
 
 - **`RATE_PER_HOUR` by tier (base, no bonuses):** 15 min = **23/hr** · 1 hr =
   **22/hr** · 4 hr = **21/hr** · 8 hr = **20/hr** → per full session **≈6 / 22 /
-  84 / 160**. Top-to-bottom spread is only **~1.15×** (vs the third-party reference's 2×): shorter tiers
+  84 / 160**. Top-to-bottom spread is only **~1.15×** (vs the reference model's 2×): shorter tiers
   give a mild edge for babysitting, the idle 8 hr tier stays fully viable.
 - **Why it self-balances:** long idle tiers win on *coverage* (they run while you
   sleep); short tiers win slightly on *rate* but you can't run them while away — so
@@ -287,7 +285,7 @@ stat[chosen] += applied
   Arena win-claim flush) to close the ~3s fast-refresh race.
 - **Gain is computed from server time on collect** (Stage 2), from `startedAt` →
   now, clamped to the tier duration. Leaving it past the tier wastes nothing and
-  gains nothing extra (the third-party reference behavior). Truly idle: start it, close the tab, collect
+  gains nothing extra (reference behavior). Truly idle: start it, close the tab, collect
   later.
 - **Optional throughput:** a village/clan upgrade that unlocks a **2nd concurrent
   training slot** (we already have precedent: the `jutsu-training-queue` 2nd-slot
@@ -310,7 +308,7 @@ move server-side using our **existing sealed-token pattern** (see
   elapsed time, applies the gain **under `withKvLock` on the player's save** with
   `{ failClosed: true }`, writes a `trainingLog` audit row, returns the new stat.
   Cancel = same math with `elapsedFrac < 1` (prorated), no stamina refund.
-- **Daily cap** (analog of the third-party reference's 64/day) to bound throughput; optional
+- **Daily cap** (analog of the reference model's daily cap) to bound throughput; optional
   soft-throttle instead of captchas.
 - **Wiring:** both handlers must be imported + `route()`-registered in
   `server.ts` (no auto-routing), and `dist/` rebuilt + committed for cPanel
@@ -343,7 +341,7 @@ character.unspentStats += freeShare
   the panel pool for free placement. This one dial reconciles both combat
   decisions (1.0 = pure auto-to-used, 0.0 = pure manual pool).
 - **`BASE_FIGHT_STAT ≈ 8`, ELO-scaled to ~2–16 pts/win.** PvE/arena pay less;
-  **ranked pays 0** (skill-pure, as the third-party reference does).
+  **ranked pays 0** (skill-pure, matching the reference model).
 - **`DAILY_COMBAT_STAT_CAP ≈ 60 pts/day`** — combat is a *bonus*, not the anchor.
   Capped at ~20% of training's ~320/day so it **cannot break the 90-day target**;
   heavy fighters finish ~10–15 days sooner, not months.
@@ -557,7 +555,7 @@ real recommendation.
 - Anti-cheat pattern to copy: `docs/auth-and-anti-cheat-patterns.md`;
   `expedition-start`/`report-pet-event`, `raid-start`/`report-raid`.
 
-**the third-party reference (reference, `the third-party reference`, branch `main`):**
+**External reference model:**
 - `app/src/libs/train.ts` — tier efficiency/multiplier, energy.
 - `app/src/server/api/routers/train.ts` — the `stopTraining` mutation.
 - `app/src/libs/profile.ts` — level curve, caps, pools, soft-cap.
