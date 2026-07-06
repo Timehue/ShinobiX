@@ -1,1 +1,0 @@
-var e=`/assets/coliseum-bg-6COjE3Sb.webp`,t=`/assets/tactical-hero-Oeb26UDh.webp`;export{e as n,t};
