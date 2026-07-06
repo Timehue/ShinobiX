@@ -20,6 +20,8 @@ const HDR_ICON = { verticalAlign: "-0.12em", marginRight: "0.35rem" } as const;
 // Small inline glyph for currency/cost lines.
 const COST_ICON = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import { visiblePoll } from "../lib/poll";
+import { fetchBountyBoard, type BountyEntry } from "../lib/pvp-bounty";
+import { buildReputationProfile, findBountyForTarget, formatReputationNumber, sortBountiesByAmount } from "../lib/reputation-profile";
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { ArmorQuality, EquipmentSlot, GameItem, ReviewBloodline, SavedBloodline } from "../types/combat";
@@ -134,6 +136,7 @@ export function CentralHub({
     // war (different war.id) gets a fresh banner that hasn't been
     // dismissed yet. Storage key holds a JSON array of war IDs.
     const [activeWarBanner, setActiveWarBanner] = useState<VillageWarRecord | null>(null);
+    const [hubBounties, setHubBounties] = useState<BountyEntry[] | null>(null);
     const [dismissedWarIds, setDismissedWarIds] = useState<Set<string>>(() => {
         try {
             const raw = localStorage.getItem("dismissedWarBanners.v1");
@@ -142,6 +145,13 @@ export function CentralHub({
             return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
         } catch { return new Set(); }
     });
+    useEffect(() => {
+        let alive = true;
+        void fetchBountyBoard().then((entries) => {
+            if (alive) setHubBounties(entries);
+        });
+        return () => { alive = false; };
+    }, []);
     function dismissWarBanner(warId: string) {
         const next = new Set(dismissedWarIds);
         next.add(warId);
@@ -696,6 +706,13 @@ export function CentralHub({
             action: () => setShowCelestialPanel(true),
         },
     ];
+    const sortedHubBounties = sortBountiesByAmount(hubBounties ?? []);
+    const topBounty = sortedHubBounties[0] ?? null;
+    const selfBounty = findBountyForTarget(hubBounties ?? [], character.name);
+    const reputationProfile = buildReputationProfile(character, { bounty: selfBounty });
+    const reputationMetrics = reputationProfile.metrics.filter((metric) =>
+        metric.id === "ranked" || metric.id === "pvp" || metric.id === "bounty" || metric.id === "war"
+    );
 
     return (
         <div className="central-hub">
@@ -718,6 +735,44 @@ export function CentralHub({
             <div className="central-log">
                 {centralLog}
             </div>
+
+            <section className="reputation-snapshot" aria-label="Reputation snapshot">
+                <div className="reputation-snapshot-heading">
+                    <div>
+                        <p className="rep-kicker">Reputation</p>
+                        <h2>{character.name}</h2>
+                        <span>{reputationProfile.subtitle}</span>
+                    </div>
+                    <div className="rep-actions">
+                        <button type="button" onClick={() => setScreen("profile")}>Profile</button>
+                        <button type="button" onClick={() => setScreen("hallOfLegends")}>Hall</button>
+                    </div>
+                </div>
+                <div className="rep-snapshot-grid">
+                    {reputationMetrics.map((metric) => (
+                        <div className={`rep-snapshot-stat rep-tone-${metric.tone ?? "neutral"}`} key={metric.id}>
+                            <span>{metric.label}</span>
+                            <strong>{metric.value}</strong>
+                            {metric.detail ? <small>{metric.detail}</small> : null}
+                        </div>
+                    ))}
+                </div>
+                <div className="rep-public-board">
+                    <span className="rep-board-label">Most Wanted</span>
+                    {hubBounties === null ? (
+                        <strong>Checking bounty board...</strong>
+                    ) : topBounty ? (
+                        <strong>{topBounty.target} - {formatReputationNumber(topBounty.amount)} ryo</strong>
+                    ) : (
+                        <strong>No active bounties</strong>
+                    )}
+                    <small>
+                        {selfBounty
+                            ? `Your bounty: ${formatReputationNumber(selfBounty.amount)} ryo`
+                            : "Only active public bounty contracts are shown."}
+                    </small>
+                </div>
+            </section>
 
             {/* Active-war alert: only renders when the player's village
                 is in an active war and the banner hasn't been dismissed

@@ -153,6 +153,159 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* Shinobi identity card */
+.profile-page-card .shinobi-identity-card {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+    color: #e8edf5;
+    background: linear-gradient(135deg, rgba(12,18,34,0.92), rgba(8,12,24,0.96));
+    border: 1px solid var(--bsv2-gold-faint);
+    border-radius: 6px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.35);
+}
+.profile-page-card .sic-hero {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+}
+.profile-page-card .sic-avatar {
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    color: var(--bsv2-gold-bright);
+    font: 700 28px var(--font-display);
+    background: rgba(0,0,0,0.35);
+    border: 2px solid var(--bsv2-gold-soft);
+    box-shadow: 0 0 0 3px rgba(196,162,90,0.1);
+}
+.profile-page-card .sic-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.profile-page-card .sic-copy {
+    min-width: 0;
+}
+.profile-page-card .sic-kicker,
+.profile-page-card .sic-section-label {
+    margin: 0 0 4px;
+    font: 700 10px var(--font-display);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold-bright);
+}
+.profile-page-card .sic-name-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.profile-page-card .sic-name-row h3 {
+    margin: 0;
+    color: #f8fafc;
+    font: 700 24px/1.15 var(--font-display);
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.profile-page-card .sic-title {
+    font-weight: 800;
+    font-size: 0.92rem;
+}
+.profile-page-card .sic-subtitle {
+    margin: 4px 0 10px;
+    color: #9aa4b2;
+    font-size: 0.86rem;
+}
+.profile-page-card .sic-chip-row,
+.profile-page-card .sic-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.profile-page-card .sic-chip,
+.profile-page-card .sic-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 800;
+    line-height: 1.25;
+    color: #cbd5e1;
+    background: rgba(148,163,184,0.1);
+    border: 1px solid rgba(148,163,184,0.22);
+}
+.profile-page-card .sic-chip small,
+.profile-page-card .sic-badge small {
+    color: #94a3b8;
+    font-weight: 600;
+}
+.profile-page-card .sic-tone-gold { color: #facc15; border-color: rgba(250,204,21,0.42); background: rgba(250,204,21,0.11); }
+.profile-page-card .sic-tone-danger { color: #fca5a5; border-color: rgba(248,113,113,0.42); background: rgba(127,29,29,0.18); }
+.profile-page-card .sic-tone-legacy { color: #d8b4fe; border-color: rgba(192,132,252,0.42); background: rgba(88,28,135,0.18); }
+.profile-page-card .sic-tone-village { color: #93c5fd; border-color: rgba(96,165,250,0.42); background: rgba(30,64,175,0.15); }
+.profile-page-card .sic-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+.profile-page-card .sic-stat {
+    min-width: 0;
+    min-height: 86px;
+    padding: 10px;
+    border-radius: 6px;
+    background: rgba(3,7,18,0.44);
+    border: 1px solid rgba(148,163,184,0.18);
+}
+.profile-page-card .sic-stat span,
+.profile-page-card .sic-stat small,
+.profile-page-card .sic-ledger small,
+.profile-page-card .sic-empty {
+    display: block;
+    color: #94a3b8;
+    font-size: 0.72rem;
+    line-height: 1.35;
+}
+.profile-page-card .sic-stat strong {
+    display: block;
+    margin: 4px 0 2px;
+    color: #f8fafc;
+    font: 800 1rem/1.1 var(--font-display);
+    overflow-wrap: anywhere;
+}
+.profile-page-card .sic-footer-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.8fr);
+    gap: 8px;
+}
+.profile-page-card .sic-ledger {
+    min-width: 0;
+    padding: 10px;
+    border-radius: 6px;
+    background: rgba(3,7,18,0.3);
+    border: 1px solid rgba(148,163,184,0.14);
+}
+.profile-page-card .sic-ledger > strong {
+    display: block;
+    color: #e8edf5;
+    font-size: 0.9rem;
+    margin-bottom: 3px;
+}
+.profile-page-card .sic-rival-active {
+    color: #fca5a5 !important;
+}
+
 /* -------- Stat allocation cards -------- */
 .stat-grid {
     display: grid !important;
@@ -698,6 +851,22 @@
 }
 
 @media (max-width: 900px) {
+    .profile-page-card .sic-hero {
+        grid-template-columns: 1fr !important;
+        justify-items: center;
+        text-align: center;
+    }
+    .profile-page-card .sic-name-row {
+        justify-content: center;
+    }
+    .profile-page-card .sic-chip-row,
+    .profile-page-card .sic-badge-row {
+        justify-content: center;
+    }
+    .profile-page-card .sic-stat-grid,
+    .profile-page-card .sic-footer-grid {
+        grid-template-columns: 1fr !important;
+    }
     .profile-page-card .profile-overview-panel {
         grid-template-columns: 1fr !important;
         justify-items: center;

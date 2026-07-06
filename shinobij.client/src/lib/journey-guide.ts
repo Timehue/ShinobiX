@@ -1,0 +1,110 @@
+import type { Screen } from "../types/core";
+import type { Character } from "../types/character";
+import { baseStats, rankFromLevel } from "./stats";
+import { normalizeOnboardingStep } from "./onboarding-step";
+
+export type JourneyGuideObjective = {
+    id: "training" | "jutsu" | "combat" | "mission" | "logbook";
+    title: string;
+    detail: string;
+    actionLabel: string;
+    screen: Screen;
+    complete: boolean;
+};
+
+export type JourneyGuideState = {
+    shouldShow: boolean;
+    objectives: JourneyGuideObjective[];
+    completedCount: number;
+    totalCount: number;
+    primaryObjective: JourneyGuideObjective | null;
+};
+
+function trainedStatPoints(character: Character): number {
+    if (typeof character.totalStatsTrained === "number") {
+        return Math.max(0, Math.floor(character.totalStatsTrained));
+    }
+    const baseline = Object.values(baseStats()).reduce((sum, value) => sum + value, 0);
+    const current = Object.values(character.stats ?? baseStats()).reduce((sum, value) => sum + value, 0);
+    return Math.max(0, current - baseline);
+}
+
+function hasStarterLoadout(character: Character): boolean {
+    return (character.equippedJutsuIds?.length ?? 0) >= 4 || (character.jutsuMastery?.length ?? 0) >= 4;
+}
+
+export function buildJourneyGuide(character: Character): JourneyGuideState {
+    const trainedPoints = trainedStatPoints(character);
+    const pendingCombatClaim = (character.pendingCombatMissionClaims?.length ?? 0) > 0;
+    const wonFirstFight = (character.totalAiKills ?? 0) > 0 || pendingCombatClaim;
+    const claimedFirstMission = Boolean(character.academyTrialClaimed) || Math.max(character.totalMissionsCompleted ?? 0, character.clanMissionContrib ?? 0) > 0;
+    const step = normalizeOnboardingStep(character.onboardingStep ?? "");
+
+    const objectives: JourneyGuideObjective[] = [
+        {
+            id: "training",
+            title: "Complete your first training session",
+            detail: trainedPoints > 0
+                ? `${trainedPoints} stat point${trainedPoints === 1 ? "" : "s"} trained. Keep raising your core stats between missions.`
+                : "Start with Strength or Speed if you are unsure. Short timers are easiest while learning.",
+            actionLabel: trainedPoints > 0 ? "Train Again" : "Begin Training",
+            screen: "training",
+            complete: trainedPoints > 0,
+        },
+        {
+            id: "jutsu",
+            title: "Ready your jutsu loadout",
+            detail: hasStarterLoadout(character)
+                ? "Your starter loadout is ready for rookie fights."
+                : "Unlock or equip enough jutsu to keep a full starter loadout.",
+            actionLabel: "Open Jutsu Hall",
+            screen: "jutsuTraining",
+            complete: hasStarterLoadout(character),
+        },
+        {
+            id: "combat",
+            title: "Win your first fight",
+            detail: pendingCombatClaim
+                ? "Victory is recorded. Return to the Mission Hall to claim the reward."
+                : wonFirstFight
+                    ? "First combat cleared. The battle log shows what happened each turn."
+                    : "Use the E-Rank Drill when you are ready: Attack or jutsu, then Wait when AP runs low.",
+            actionLabel: pendingCombatClaim ? "Claim Mission" : "Find First Fight",
+            screen: "missions",
+            complete: wonFirstFight,
+        },
+        {
+            id: "mission",
+            title: "Claim a first mission reward",
+            detail: claimedFirstMission
+                ? "You have claimed an early mission reward. Repeat missions for XP and ryo."
+                : "After a mission fight, come back to the Mission Hall and claim the posted reward.",
+            actionLabel: "Open Mission Hall",
+            screen: "missions",
+            complete: claimedFirstMission,
+        },
+        {
+            id: "logbook",
+            title: "Open your Logbook",
+            detail: character.academyChecklistClaimed
+                ? "Academy checklist claimed. Your next rank goals live in the Logbook."
+                : "The Logbook tracks the next unlocks without forcing you through a tutorial.",
+            actionLabel: "Open Logbook",
+            screen: "logbook",
+            complete: Boolean(character.academyChecklistClaimed) || step === "storyUnlocked" || step === "done",
+        },
+    ];
+
+    const completedCount = objectives.filter((objective) => objective.complete).length;
+    const primaryObjective = objectives.find((objective) => !objective.complete) ?? null;
+    const academyRank = rankFromLevel(character.level) === "Academy Student";
+    const shouldShow = academyRank && step !== "done" && Boolean(primaryObjective);
+
+    return {
+        shouldShow,
+        objectives,
+        completedCount,
+        totalCount: objectives.length,
+        primaryObjective,
+    };
+}
