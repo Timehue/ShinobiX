@@ -25571,3 +25571,182 @@ textarea:focus-visible,
         100% { opacity: 0; transform: translate(-50%, -90%); }
     }
 }
+
+/* Live PvP combat VFX: display-only procedural shapes keyed by action intent. */
+.arena-fullscreen .avatar-orb:has(.pvp-guard-aura) {
+    overflow: visible;
+}
+.pvp-guard-aura {
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 2px solid rgba(125, 211, 252, 0.86);
+    background: radial-gradient(circle, rgba(125, 211, 252, 0.22), transparent 64%);
+    box-shadow: 0 0 18px rgba(125, 211, 252, 0.75), inset 0 0 18px rgba(255, 255, 255, 0.2);
+    pointer-events: none;
+    z-index: 0;
+    animation: pvp-ward-pulse 1.7s ease-in-out infinite;
+}
+.pvp-guard-reflect {
+    border-color: rgba(216, 180, 254, 0.92);
+    background: radial-gradient(circle, rgba(168, 85, 247, 0.22), transparent 64%);
+    box-shadow: 0 0 18px rgba(168, 85, 247, 0.78), inset 0 0 18px rgba(255, 255, 255, 0.22);
+}
+.pvp-guard-absorb {
+    border-color: rgba(45, 212, 191, 0.92);
+    background: radial-gradient(circle, rgba(20, 184, 166, 0.24), transparent 64%);
+    box-shadow: 0 0 18px rgba(20, 184, 166, 0.78), inset 0 0 18px rgba(255, 255, 255, 0.22);
+}
+@keyframes pvp-ward-pulse {
+    0%, 100% { transform: scale(0.96); opacity: 0.72; }
+    50% { transform: scale(1.08); opacity: 1; }
+}
+.pvp-combat-vfx-group {
+    position: absolute;
+    inset: 0;
+    z-index: 32;
+    pointer-events: none;
+}
+.pvp-combat-vfx {
+    --vfx-a: #f8fafc;
+    --vfx-b: #94a3b8;
+    --vfx-c: rgba(248, 250, 252, 0.18);
+    position: absolute;
+    width: calc(78px * var(--vfx-scale, 1));
+    height: calc(78px * var(--vfx-scale, 1));
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    animation: pvp-vfx-pop var(--vfx-duration, 680ms) ease-out forwards;
+    will-change: transform, opacity, filter;
+}
+.pvp-combat-vfx-tile {
+    width: calc(58px * var(--vfx-scale, 1));
+    height: calc(58px * var(--vfx-scale, 1));
+    animation-name: pvp-vfx-tile-pulse;
+}
+.pvp-vfx-ring,
+.pvp-vfx-core,
+.pvp-vfx-cut,
+.pvp-vfx-sparks {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+.pvp-vfx-ring {
+    border: 3px solid var(--vfx-a);
+    box-shadow: 0 0 18px var(--vfx-a), inset 0 0 18px var(--vfx-c);
+}
+.pvp-vfx-core {
+    inset: 18%;
+    background: radial-gradient(circle, rgba(255,255,255,0.9), var(--vfx-a) 18%, var(--vfx-b) 48%, transparent 72%);
+    filter: blur(0.5px);
+    opacity: 0.84;
+}
+.pvp-vfx-cut {
+    top: 48%;
+    left: -10%;
+    right: -10%;
+    height: 8px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, #fff, var(--vfx-a), transparent);
+    box-shadow: 0 0 14px var(--vfx-a);
+    transform: rotate(-22deg);
+}
+.pvp-vfx-sparks {
+    background:
+        conic-gradient(from 12deg, transparent 0 10%, var(--vfx-a) 11% 13%, transparent 14% 24%, var(--vfx-b) 25% 27%, transparent 28% 45%, var(--vfx-a) 46% 48%, transparent 49% 100%);
+    opacity: 0.55;
+    filter: blur(0.2px);
+}
+.pvp-vfx-fire { --vfx-a: #fb923c; --vfx-b: #ef4444; --vfx-c: rgba(251, 146, 60, 0.24); }
+.pvp-vfx-water { --vfx-a: #38bdf8; --vfx-b: #14b8a6; --vfx-c: rgba(56, 189, 248, 0.24); }
+.pvp-vfx-wind { --vfx-a: #86efac; --vfx-b: #22d3ee; --vfx-c: rgba(134, 239, 172, 0.22); }
+.pvp-vfx-lightning,
+.pvp-vfx-spark { --vfx-a: #fef08a; --vfx-b: #60a5fa; --vfx-c: rgba(250, 204, 21, 0.24); }
+.pvp-vfx-earth { --vfx-a: #d97706; --vfx-b: #78716c; --vfx-c: rgba(217, 119, 6, 0.24); }
+.pvp-vfx-blood,
+.pvp-vfx-wound { --vfx-a: #f43f5e; --vfx-b: #7f1d1d; --vfx-c: rgba(244, 63, 94, 0.24); }
+.pvp-vfx-shadow,
+.pvp-vfx-seal { --vfx-a: #c084fc; --vfx-b: #312e81; --vfx-c: rgba(192, 132, 252, 0.24); }
+.pvp-vfx-poison,
+.pvp-vfx-poisonCloud { --vfx-a: #4ade80; --vfx-b: #365314; --vfx-c: rgba(74, 222, 128, 0.24); }
+.pvp-vfx-magma,
+.pvp-vfx-burn { --vfx-a: #f97316; --vfx-b: #b91c1c; --vfx-c: rgba(249, 115, 22, 0.26); }
+.pvp-vfx-metal,
+.pvp-vfx-pierce { --vfx-a: #cbd5e1; --vfx-b: #64748b; --vfx-c: rgba(203, 213, 225, 0.22); }
+.pvp-vfx-heal { --vfx-a: #6ee7b7; --vfx-b: #22c55e; --vfx-c: rgba(110, 231, 183, 0.24); }
+.pvp-vfx-shield,
+.pvp-vfx-reflect,
+.pvp-vfx-absorb { --vfx-a: #67e8f9; --vfx-b: #818cf8; --vfx-c: rgba(103, 232, 249, 0.24); }
+.pvp-vfx-drain { --vfx-a: #a78bfa; --vfx-b: #0f172a; --vfx-c: rgba(167, 139, 250, 0.24); }
+.pvp-vfx-cleanse,
+.pvp-vfx-buff { --vfx-a: #bae6fd; --vfx-b: #fef08a; --vfx-c: rgba(186, 230, 253, 0.22); }
+.pvp-vfx-debuff { --vfx-a: #f0abfc; --vfx-b: #7e22ce; --vfx-c: rgba(240, 171, 252, 0.22); }
+.pvp-vfx-slash,
+.pvp-vfx-impact,
+.pvp-vfx-weapon,
+.pvp-vfx-throwable,
+.pvp-vfx-heavy { --vfx-a: #f8fafc; --vfx-b: #f59e0b; --vfx-c: rgba(248, 250, 252, 0.2); }
+.pvp-vfx-namedWeapon,
+.pvp-vfx-ko { --vfx-a: #fde68a; --vfx-b: #f43f5e; --vfx-c: rgba(253, 230, 138, 0.28); }
+.pvp-vfx-heal .pvp-vfx-cut,
+.pvp-vfx-shield .pvp-vfx-cut,
+.pvp-vfx-reflect .pvp-vfx-cut,
+.pvp-vfx-absorb .pvp-vfx-cut,
+.pvp-vfx-buff .pvp-vfx-cut,
+.pvp-vfx-cleanse .pvp-vfx-cut,
+.pvp-combat-vfx-tile .pvp-vfx-core,
+.pvp-combat-vfx-tile .pvp-vfx-cut,
+.pvp-combat-vfx-tile .pvp-vfx-sparks {
+    display: none;
+}
+.pvp-vfx-slash .pvp-vfx-ring,
+.pvp-vfx-weapon .pvp-vfx-ring,
+.pvp-vfx-namedWeapon .pvp-vfx-ring,
+.pvp-vfx-throwable .pvp-vfx-ring,
+.pvp-vfx-pierce .pvp-vfx-ring {
+    border-color: transparent;
+    box-shadow: none;
+}
+.pvp-vfx-throwable .pvp-vfx-cut { transform: rotate(-8deg); }
+.pvp-vfx-pierce .pvp-vfx-cut { height: 5px; left: -22%; right: -22%; transform: rotate(0deg); }
+.pvp-vfx-shield .pvp-vfx-core,
+.pvp-vfx-reflect .pvp-vfx-core,
+.pvp-vfx-absorb .pvp-vfx-core {
+    inset: 10%;
+    background: radial-gradient(circle, transparent 38%, var(--vfx-c) 40%, transparent 68%);
+    border: 2px solid var(--vfx-a);
+}
+.pvp-vfx-heavy,
+.pvp-vfx-ko,
+.pvp-vfx-finisher {
+    filter: saturate(1.3) brightness(1.12);
+}
+@keyframes pvp-vfx-pop {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.34); filter: blur(3px); }
+    18% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); filter: blur(0); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.65); filter: blur(5px); }
+}
+@keyframes pvp-vfx-tile-pulse {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.72); }
+    20% { opacity: 0.85; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .pvp-guard-aura { animation: none; opacity: 0.78; }
+    .pvp-combat-vfx {
+        animation: pvp-vfx-fade var(--vfx-duration, 680ms) ease-out forwards;
+    }
+    .pvp-vfx-sparks { display: none; }
+    @keyframes pvp-vfx-fade {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
+        20% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+    }
+}
+.lite-fx .pvp-vfx-sparks,
+.pvp-vfx-lite .pvp-vfx-sparks {
+    display: none;
+}

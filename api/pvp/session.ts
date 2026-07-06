@@ -158,9 +158,55 @@ export type PvpSession = {
     // never reads these back.
     fx?: HitFxTarget[];
     fxSeq?: number;
+    // Optional visual-only action effects for the LAST resolved action / DoT tick.
+    // Kept separate from numeric fx so existing floating-number events stay stable.
+    vfx?: CombatVfxTarget[];
+    vfxSeq?: number;
 };
 // A single floating-number event, already mapped to a concrete fighter slot.
 export type HitFxTarget = { target: 'p1' | 'p2'; amount: number; kind: 'damage' | 'heal' };
+export type CombatVfxKey =
+    | 'fire'
+    | 'water'
+    | 'wind'
+    | 'lightning'
+    | 'earth'
+    | 'blood'
+    | 'shadow'
+    | 'poison'
+    | 'magma'
+    | 'metal'
+    | 'slash'
+    | 'impact'
+    | 'pierce'
+    | 'heal'
+    | 'shield'
+    | 'reflect'
+    | 'absorb'
+    | 'spark'
+    | 'seal'
+    | 'wound'
+    | 'burn'
+    | 'poisonCloud'
+    | 'drain'
+    | 'cleanse'
+    | 'buff'
+    | 'debuff'
+    | 'throwable'
+    | 'weapon'
+    | 'namedWeapon'
+    | 'heavy'
+    | 'ko';
+export type CombatVfxTarget = {
+    target: 'p1' | 'p2';
+    key: CombatVfxKey;
+    anchor: 'caster' | 'target' | 'tile' | 'area';
+    intensity: 'minor' | 'normal' | 'heavy' | 'finisher';
+    durationMs: number;
+    persistent?: boolean;
+    maxParticles?: number;
+    tiles?: number[];
+};
 export const PVP_MOVE_TOKEN_HISTORY = 20;
 
 // Shorter TTL than the 60-min ceiling — most PvP matches finish in 5-15

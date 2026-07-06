@@ -339,6 +339,10 @@ test('basic attack spends only AP and stamina and emits matching damage fx', asy
     assert.ok(after.log.some((line) => line.includes('alice uses Basic Attack')));
     const damageFx = after.fx?.find((fx) => fx.target === 'p2' && fx.kind === 'damage');
     assert.ok(damageFx, 'basic attack should expose server-resolved damage fx');
+    const attackVfx = after.vfx?.find((fx) => fx.target === 'p2' && fx.key === 'impact');
+    assert.ok(attackVfx, 'basic attack should expose enemy-targeted combat vfx');
+    assert.equal(attackVfx.anchor, 'target');
+    assert.equal(after.vfxSeq, 1);
     assert.ok(after.log.some((line) => line.includes(`${damageFx.amount} damage`)));
 });
 
@@ -422,6 +426,9 @@ const goldenReplays: ReplayCase[] = [
             assert.equal(final.p1.chakra, 1000);
             assert.equal(final.p1.stamina, 990);
             assert.deepEqual(final.fx, [{ target: 'p2', amount: 192, kind: 'damage' }]);
+            assert.equal(final.vfx?.[0]?.target, 'p2');
+            assert.equal(final.vfx?.[0]?.key, 'impact');
+            assert.equal(final.vfx?.[0]?.anchor, 'target');
             assert.ok(final.log.some((line) => line.includes('192 damage')));
         },
     },
@@ -440,6 +447,9 @@ const goldenReplays: ReplayCase[] = [
             assert.equal(final.p1.chakra, 995);
             assert.equal(final.cooldowns.p1.support, 2);
             assert.deepEqual(final.fx, [{ target: 'p1', amount: 750, kind: 'heal' }]);
+            assert.equal(final.vfx?.[0]?.target, 'p1');
+            assert.equal(final.vfx?.[0]?.key, 'heal');
+            assert.equal(final.vfx?.[0]?.anchor, 'caster');
             assert.ok(final.log.some((line) => line.includes('Heal: alice restores 750 HP.')));
             assert.ok(final.log.some((line) => line.includes('Shield: alice gains 750 shield.')));
             assert.equal(final.log.some((line) => line.includes('damage to bob')), false);
