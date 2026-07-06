@@ -58,7 +58,7 @@ const stepProgress: Partial<Record<CanonicalOnboardingStep, string>> = {
 };
 
 function hasStarterLoadoutComplete(character: Character): boolean {
-    return (character.equippedJutsuIds?.length ?? 0) >= 4 || (character.jutsuMastery?.length ?? 0) > 4;
+    return (character.equippedJutsuIds?.length ?? 0) >= 4 || (character.jutsuMastery?.length ?? 0) >= 4;
 }
 
 export function OnboardingCoach({

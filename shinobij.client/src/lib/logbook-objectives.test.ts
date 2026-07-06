@@ -8,6 +8,7 @@ import {
     objectiveComplete,
 } from "./logbook-objectives";
 import { buildJourneyGuide } from "./journey-guide";
+import { onboardingStepAtLeast } from "./onboarding-step";
 
 // A minimal but type-complete save: only the fields the objective builder reads
 // matter; everything else is filled to satisfy the Character shape loosely via a
@@ -151,6 +152,57 @@ test("Journey Guide treats pending combat mission claims as a completed first fi
     }));
     assert.equal(guide.objectives.find((objective) => objective.id === "combat")?.complete, true);
     assert.equal(guide.primaryObjective?.id, "mission");
+});
+
+test("Journey Guide treats the completed Academy spar as the first fight", () => {
+    const guide = buildJourneyGuide(makeCharacter({
+        level: 3,
+        onboardingStep: "training",
+    }));
+
+    assert.equal(guide.objectives.find((objective) => objective.id === "combat")?.complete, true);
+    assert.equal(guide.primaryObjective?.id, "training");
+});
+
+test("Journey Guide follows the Academy coach after training starts", () => {
+    const guide = buildJourneyGuide(makeCharacter({
+        level: 3,
+        onboardingStep: "jutsu",
+    }));
+
+    assert.equal(guide.objectives.find((objective) => objective.id === "training")?.complete, true);
+    assert.equal(guide.objectives.find((objective) => objective.id === "combat")?.complete, true);
+    assert.equal(guide.primaryObjective?.id, "jutsu");
+});
+
+test("Journey Guide does not repeat stale loadout steps after the coach reaches missions", () => {
+    const guide = buildJourneyGuide(makeCharacter({
+        level: 3,
+        onboardingStep: "firstMission",
+    }));
+
+    assert.equal(guide.objectives.find((objective) => objective.id === "training")?.complete, true);
+    assert.equal(guide.objectives.find((objective) => objective.id === "jutsu")?.complete, true);
+    assert.equal(guide.objectives.find((objective) => objective.id === "combat")?.complete, true);
+    assert.equal(guide.primaryObjective?.id, "mission");
+});
+
+test("Journey Guide closes once the coach has unlocked the story beat", () => {
+    const guide = buildJourneyGuide(makeCharacter({
+        level: 3,
+        onboardingStep: "storyUnlocked",
+    }));
+
+    assert.equal(guide.primaryObjective, null);
+    assert.equal(guide.shouldShow, false);
+    assert.equal(guide.completedCount, guide.totalCount);
+});
+
+test("onboarding step ordering keeps legacy aliases comparable", () => {
+    assert.equal(onboardingStepAtLeast("spar", "training"), false);
+    assert.equal(onboardingStepAtLeast("tour", "training"), true);
+    assert.equal(onboardingStepAtLeast("firstMission", "jutsu"), true);
+    assert.equal(onboardingStepAtLeast("", "academyIntro"), true);
 });
 
 test("Journey Guide hides once every first step is complete", () => {
