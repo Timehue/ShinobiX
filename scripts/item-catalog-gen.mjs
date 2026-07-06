@@ -39,10 +39,12 @@ const OUT = join(ROOT, "api", "pvp", "_item-catalog.ts");
 //   • weapon  (the full weapon field set) so equipped weapons resolve to the
 //     SAME pvpItem the client's getPvpItemLoadout would build, for
 //     api/pvp/move.ts equippedPvpItem + the weapon-jutsu synth.
-// Cosmetic fields (rarity / cost / description / image / flavorText / levelReq)
-// are dropped — the server never renders or gates combat on them.
+// Cosmetic-only fields (cost / image / flavorText / levelReq) are dropped.
+// Rarity is intentionally kept: non-combat reward systems such as Clan Exchange
+// caches need to roll from real Epic/Legendary catalog pools without trusting
+// client-supplied item data.
 function pickCombatFields(item) {
-    const out = { id: item.id, name: item.name, slot: item.slot };
+    const out = { id: item.id, name: item.name, slot: item.slot, rarity: item.rarity };
     if (item.armorQuality != null) out.armorQuality = item.armorQuality;
     if (item.weaponElement != null) out.weaponElement = item.weaponElement;
     if (item.weaponRange != null) out.weaponRange = item.weaponRange;
@@ -115,6 +117,7 @@ export type CatalogItem = {
     id: string;
     name: string;
     slot: string;
+    rarity: string;
     armorQuality?: string;
     weaponElement?: string;
     weaponRange?: number;

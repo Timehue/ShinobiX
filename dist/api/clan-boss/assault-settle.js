@@ -4,6 +4,7 @@ exports.default = handler;
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _lock_js_1 = require("../_lock.js");
+const _clan_points_js_1 = require("../_clan-points.js");
 const _tower_store_js_1 = require("../towers/_tower-store.js");
 const _assault_js_1 = require("./_assault.js");
 const _storage_js_1 = require("./_storage.js");
@@ -84,7 +85,45 @@ async function handler(req, res) {
                 continue;
             consumables[slug] = await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug });
         }
-        return res.status(outcome.status).json({ ...outcome.body, consumables });
+        let awardedCharacter;
+        const outcomeBody = outcome.body;
+        if (!outcomeBody.alreadySettled) {
+            const party = [...new Set(assault.party.map((name) => (0, _utils_js_1.safeName)(name)).filter(Boolean))].slice(0, 4);
+            const others = party.filter((name) => name !== playerName);
+            await Promise.allSettled(others.map((member) => (0, _clan_points_js_1.awardClanPointsToPlayerSave)(member, 'clanBossParticipation', 60, {
+                eventId: `clanBoss:${assault.weekId}:${runId}:participation:${member}`,
+                runId,
+                clan: assault.clanName,
+                damage: result.damage,
+            })));
+            if (party.includes(playerName)) {
+                const participation = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(playerName, 'clanBossParticipation', 60, {
+                    eventId: `clanBoss:${assault.weekId}:${runId}:participation:${playerName}`,
+                    runId,
+                    clan: assault.clanName,
+                    damage: result.damage,
+                });
+                if (participation.found)
+                    awardedCharacter = participation.character;
+            }
+            if (outcomeBody.justKilled) {
+                await Promise.allSettled(others.map((member) => (0, _clan_points_js_1.awardClanPointsToPlayerSave)(member, 'clanBossDefeat', 50, {
+                    eventId: `clanBoss:${assault.weekId}:${runId}:defeat:${member}`,
+                    runId,
+                    clan: assault.clanName,
+                })));
+                if (party.includes(playerName)) {
+                    const defeat = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(playerName, 'clanBossDefeat', 50, {
+                        eventId: `clanBoss:${assault.weekId}:${runId}:defeat:${playerName}`,
+                        runId,
+                        clan: assault.clanName,
+                    });
+                    if (defeat.found)
+                        awardedCharacter = defeat.character;
+                }
+            }
+        }
+        return res.status(outcome.status).json({ ...outcome.body, consumables, character: awardedCharacter });
     }
     catch (err) {
         console.error('[clan-boss/assault-settle]', err);
