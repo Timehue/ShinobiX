@@ -73,6 +73,53 @@
     letter-spacing: 0.04em;
 }
 
+.pet-yard-screen .pet-starter-note {
+    align-items: center;
+    background: linear-gradient(135deg, rgba(78,168,255,0.16), rgba(196,162,90,0.12)), rgba(8,12,24,0.92);
+    border: 1px solid rgba(78,168,255,0.38);
+    border-left: 4px solid var(--bsv2-player);
+    border-radius: 8px;
+    color: #dbeafe;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+}
+
+.pet-yard-screen .pet-starter-note h3 {
+    margin: 2px 0 4px !important;
+}
+
+.pet-yard-screen .pet-starter-note p {
+    color: #c8cfdc;
+    font-size: 12px;
+    line-height: 1.45;
+    margin: 0;
+}
+
+.pet-yard-screen .pet-starter-kicker {
+    color: var(--bsv2-gold-bright);
+    font: 700 9px var(--font-display);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.pet-yard-screen .pet-starter-note button {
+    flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+    .pet-yard-screen .pet-starter-note {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .pet-yard-screen .pet-starter-note button {
+        width: 100%;
+    }
+}
+
 /* ----- Pet slots row ----- */
 .pet-yard-screen .pet-slots-row {
     display: grid !important;

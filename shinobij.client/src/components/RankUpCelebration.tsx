@@ -77,6 +77,9 @@ export function RankUpCelebration({ character }: { character: Character }) {
     const prevRank = band.index > 0 ? RANK_BANDS[band.index - 1].rank : null;
     const uncapped = band.statCap >= MAX_STAT;
     const lite = isLowEndMobile();
+    const rankFlavor = band.rank === "Genin"
+        ? "You graduated from the Academy. The village now trusts you with real shinobi work."
+        : null;
 
     return createPortal(
         <div className={`rankup-backdrop${lite ? " rankup-lite" : ""}`} role="dialog" aria-modal="true" aria-label={`Rank up: ${band.rank}`} onClick={() => setBand(null)}>
@@ -91,6 +94,7 @@ export function RankUpCelebration({ character }: { character: Character }) {
                         ? "Your full stats now apply in combat — no rank cap."
                         : <>Combat stat cap raised to <strong>{band.statCap.toLocaleString()}</strong></>}
                 </p>
+                {rankFlavor && <p className="rankup-flavor">{rankFlavor}</p>}
                 <button type="button" className="rankup-continue" onClick={() => setBand(null)} autoFocus>Continue</button>
             </div>
         </div>,

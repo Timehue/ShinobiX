@@ -95,6 +95,13 @@
 }
 .rankup-cap strong { color: #4ea8ff; font-weight: var(--fw-bold); }
 
+.rankup-flavor {
+    margin: 2px 0 0;
+    color: #fde68a;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-base);
+}
+
 .rankup-continue {
     margin-top: var(--sp-3);
     color: var(--text-on-accent);
