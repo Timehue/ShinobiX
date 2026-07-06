@@ -38,6 +38,7 @@ const sleeper_kill_js_1 = __importDefault(require("./api/player/sleeper-kill.js"
 const clear_attack_js_1 = __importDefault(require("./api/player/clear-attack.js"));
 const heal_js_1 = __importDefault(require("./api/player/heal.js"));
 const roster_js_1 = __importDefault(require("./api/player/roster.js"));
+const leaderboards_js_1 = __importDefault(require("./api/player/leaderboards.js"));
 const trade_js_1 = __importDefault(require("./api/player/trade.js"));
 const daily_login_js_1 = __importDefault(require("./api/player/daily-login.js"));
 const black_market_js_1 = __importDefault(require("./api/festival/black-market.js"));
@@ -48,6 +49,7 @@ const img_js_1 = __importDefault(require("./api/img.js"));
 const player_auth_js_1 = __importDefault(require("./api/player-auth.js"));
 const admin_auth_js_1 = __importDefault(require("./api/admin-auth.js"));
 const players_js_1 = __importDefault(require("./api/admin/players.js"));
+const player_index_health_js_1 = __importDefault(require("./api/admin/player-index-health.js"));
 const server_reset_js_1 = __importDefault(require("./api/admin/server-reset.js"));
 const ranked_season_js_1 = __importDefault(require("./api/admin/ranked-season.js"));
 const list_js_1 = __importDefault(require("./api/clans/list.js"));
@@ -521,6 +523,7 @@ route('/player/sleeper-kill', sleeper_kill_js_1.default);
 route('/player/clear-attack', clear_attack_js_1.default);
 route('/player/heal', heal_js_1.default);
 route('/player/roster', roster_js_1.default);
+route('/player/leaderboards', leaderboards_js_1.default);
 route('/player/trade', trade_js_1.default);
 // Daily login-streak reward — server-authoritative ryo + 7-day fate-shard bonus,
 // once per UTC day under the save lock (failClosed), idempotent via the date
@@ -542,6 +545,7 @@ route('/player-auth', player_auth_js_1.default);
 route('/admin-auth', admin_auth_js_1.default);
 // Admin
 route('/admin/players', players_js_1.default);
+route('/admin/player-index-health', player_index_health_js_1.default);
 route('/admin/server-reset', server_reset_js_1.default);
 route('/admin/ranked-season', ranked_season_js_1.default);
 // Clans
