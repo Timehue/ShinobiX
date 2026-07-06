@@ -5,6 +5,7 @@
  * extracted TownHall/ClanHall screens).
  */
 import type { DuelChallenge } from "../App";
+import type { Character } from "../types/character";
 
 export async function postPlayerChallengeNotice(targetName: string, challenge: DuelChallenge) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -104,18 +105,57 @@ export async function postClanMissionClaim(
     playerName: string,
     clan: string,
     missionKey: string,
-): Promise<{ treasury: Record<string, unknown>; xp: number; level: number; claimed: string[] } | null> {
+): Promise<{ treasury: Record<string, unknown>; xp: number; level: number; claimed: string[]; character?: Character } | null> {
     try {
         const res = await fetch("/api/clan/mission/claim", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, clan, missionKey }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; xp?: number; level?: number; claimed?: string[] };
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; xp?: number; level?: number; claimed?: string[]; character?: Character };
         if (!res.ok || !data.ok || !data.treasury) { alert(data.error || "Claim failed. Please try again."); return null; }
-        return { treasury: data.treasury, xp: data.xp ?? 0, level: data.level ?? 1, claimed: Array.isArray(data.claimed) ? data.claimed : [] };
+        return { treasury: data.treasury, xp: data.xp ?? 0, level: data.level ?? 1, claimed: Array.isArray(data.claimed) ? data.claimed : [], character: data.character };
     } catch {
         alert("Claim failed. Please try again.");
+        return null;
+    }
+}
+
+export type ClanExchangePurchaseResponse = {
+    character: Character;
+    clan?: { xp?: number; level?: number; treasury?: Record<string, unknown> };
+    item: Record<string, unknown>;
+    purchaseCount: number;
+    remaining: number;
+    reveal?: { kind: "item"; itemId: string; name: string; rarity: string; slot: string };
+};
+
+export async function postClanExchangePurchase(
+    playerName: string,
+    clan: string,
+    itemId: string,
+): Promise<ClanExchangePurchaseResponse | null> {
+    try {
+        const res = await fetch("/api/clan/exchange/purchase", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerName, clan, itemId }),
+        });
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string } & Partial<ClanExchangePurchaseResponse>;
+        if (!res.ok || !data.ok || !data.character) {
+            alert(data.error || "Exchange purchase failed. Please try again.");
+            return null;
+        }
+        return {
+            character: data.character,
+            clan: data.clan,
+            item: data.item ?? {},
+            purchaseCount: data.purchaseCount ?? 0,
+            remaining: data.remaining ?? 0,
+            reveal: data.reveal,
+        };
+    } catch {
+        alert("Exchange purchase failed. Please try again.");
         return null;
     }
 }

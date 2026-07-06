@@ -6,6 +6,7 @@ const _utils_js_1 = require("../../_utils.js");
 const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
+const _clan_points_js_1 = require("../../_clan-points.js");
 const _mission_catalog_js_1 = require("../_mission-catalog.js");
 /*
  * /api/clan/mission/claim
@@ -31,6 +32,52 @@ const AUDIT_LOG_PREFIX = 'audit:clan-mission-claim:';
 const CLAIM_TTL = 400 * 24 * 60 * 60; // ~13 months — effectively permanent latch.
 function claimedSetKey(slug) { return `clan:missions-claimed:${slug}`; }
 function claimLatchKey(slug, key) { return `clan:mission-claimed:${slug}:${key}`; }
+const CLAN_MISSION_POINT_AMOUNTS = {
+    battle: 40,
+    mission: 50,
+    guard: 35,
+    anbu: 40,
+    raid: 75,
+};
+function pointEligibleMembers(clanRec, clanName, territories, missionKey) {
+    const amount = CLAN_MISSION_POINT_AMOUNTS[missionKey];
+    if (!amount)
+        return [];
+    const members = Array.isArray(clanRec.members) ? clanRec.members : [];
+    const guardNames = new Set();
+    for (const territory of territories) {
+        if (String(territory.ownerClan ?? '') !== clanName || !Array.isArray(territory.guards))
+            continue;
+        for (const guard of territory.guards) {
+            const name = typeof guard === 'string'
+                ? guard
+                : String(guard?.name ?? '');
+            const slug = (0, _utils_js_1.safeName)(name);
+            if (slug)
+                guardNames.add(slug);
+        }
+    }
+    const names = [];
+    for (const member of members) {
+        const name = (0, _utils_js_1.safeName)(String(member.name ?? ''));
+        if (!name)
+            continue;
+        const battle = Number(member.battleContrib ?? 0) || 0;
+        const mission = Number(member.missionContrib ?? 0) || 0;
+        const event = Number(member.eventContrib ?? 0) || 0;
+        const level = Number(member.level ?? 0) || 0;
+        const eligible = (missionKey === 'battle' && battle > 0)
+            || (missionKey === 'mission' && mission > 0)
+            || (missionKey === 'guard' && (level >= 5 || guardNames.has(name)))
+            || (missionKey === 'anbu' && (battle > 0 || event > 0 || guardNames.has(name)))
+            || (missionKey === 'raid' && event > 0);
+        if (eligible && !names.includes(name))
+            names.push(name);
+        if (names.length >= 50)
+            break;
+    }
+    return names;
+}
 async function readClaimed(slug) {
     const raw = await _storage_js_1.kv.get(claimedSetKey(slug)).catch(() => null);
     if (!Array.isArray(raw))
@@ -113,7 +160,14 @@ async function handler(req, res) {
                 nextTreasury[cur] = (Number(nextTreasury[cur] ?? 0) || 0) + Number(amt);
             }
             await _storage_js_1.kv.set(clanSaveKey, { ...clanRec, xp: leveled.xp, level: leveled.level, treasury: nextTreasury });
-            return { ok: true, xp: leveled.xp, level: leveled.level, treasury: nextTreasury };
+            return {
+                ok: true,
+                xp: leveled.xp,
+                level: leveled.level,
+                treasury: nextTreasury,
+                pointAmount: CLAN_MISSION_POINT_AMOUNTS[missionKey] ?? 0,
+                pointMembers: pointEligibleMembers(clanRec, String(clanRec.name ?? clan), territories, missionKey),
+            };
         }, { failClosed: true });
         if (!outcome.ok)
             return res.status(outcome.status).json({ error: outcome.error });
@@ -129,6 +183,36 @@ async function handler(req, res) {
             missionKey,
             reward,
         }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
+        let awardedCharacter;
+        const pointAmount = Number(outcome.pointAmount ?? 0) || 0;
+        const pointMembers = Array.isArray(outcome.pointMembers) ? outcome.pointMembers : [];
+        if (pointAmount > 0 && pointMembers.length > 0) {
+            const actor = playerName;
+            const others = pointMembers.filter((name) => name !== actor);
+            await Promise.allSettled(others.map((member) => (0, _clan_points_js_1.awardClanPointsToPlayerSave)(member, 'clanMissionContribution', pointAmount, {
+                eventId: `mission:${slug}:${missionKey}:contribution:${member}`,
+                clan,
+                missionKey,
+            })));
+            if (pointMembers.includes(actor)) {
+                const contribution = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(actor, 'clanMissionContribution', pointAmount, {
+                    eventId: `mission:${slug}:${missionKey}:contribution:${actor}`,
+                    clan,
+                    missionKey,
+                });
+                if (contribution.found)
+                    awardedCharacter = contribution.character;
+            }
+        }
+        if (pointAmount > 0) {
+            const claimAward = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(playerName, 'clanMissionClaim', 25, {
+                eventId: `mission:${slug}:${missionKey}:claim:${playerName}`,
+                clan,
+                missionKey,
+            });
+            if (claimAward.found)
+                awardedCharacter = claimAward.character;
+        }
         return res.status(200).json({
             ok: true,
             missionKey,
@@ -136,6 +220,7 @@ async function handler(req, res) {
             xp: outcome.xp,
             level: outcome.level,
             treasury: outcome.treasury,
+            character: awardedCharacter,
             claimed: claimed.includes(missionKey) ? claimed : [...claimed, missionKey],
         });
     }

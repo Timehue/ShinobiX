@@ -163,6 +163,21 @@ export type RewardCurrencyKey =
 
 export type CurrencyRewards = Partial<Record<RewardCurrencyKey, number>>;
 
+export type ClanPointHistoryEntry = {
+    id: string;
+    ts: number;
+    source: string;
+    amount: number;
+    weekKey: string;
+    metadata?: Record<string, unknown>;
+};
+
+export type ClanExchangePurchases = {
+    weekly?: Record<string, Record<string, number>>;
+    monthly?: Record<string, Record<string, number>>;
+    oneTime?: Record<string, boolean>;
+};
+
 // ── Battle history (reflection log) ────────────────────────────────────────
 // A capped, display-only record of your recent fights so you can re-read the
 // combat log on the Profile "Battles" tab. Carries NO rewards/currency — purely
@@ -291,6 +306,12 @@ export type Character = {
     mythicSeals: number;
     clan?: string;
     clanFounder?: boolean;
+    clanPoints?: number;
+    weeklyClanPoints?: number;
+    weeklyClanPointsWeek?: string;
+    lifetimeClanPoints?: number;
+    clanPointHistory?: ClanPointHistoryEntry[];
+    clanExchangePurchases?: ClanExchangePurchases;
     profession?: Profession;
     professionRank?: number;
     professionXp?: number;

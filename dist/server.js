@@ -127,6 +127,7 @@ const collect_supply_js_1 = __importDefault(require("./api/clan/territory/collec
 const purchase_js_1 = __importDefault(require("./api/clan/upgrade/purchase.js"));
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
 const claim_js_1 = __importDefault(require("./api/clan/mission/claim.js"));
+const purchase_js_2 = __importDefault(require("./api/clan/exchange/purchase.js"));
 // Clan — text chat (own capped KV key; membership-gated; cheap since-cursor polling)
 const get_js_2 = __importDefault(require("./api/clan/chat/get.js"));
 const send_js_1 = __importDefault(require("./api/clan/chat/send.js"));
@@ -696,6 +697,7 @@ route('/clan/upgrade/purchase', purchase_js_1.default);
 // ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
 // GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
 route('/clan/mission/claim', claim_js_1.default);
+route('/clan/exchange/purchase', purchase_js_2.default);
 // ─── Clan chat: membership-gated text chat (GET since-cursor, POST send) ────────
 route('/clan/chat/get', get_js_2.default);
 route('/clan/chat/send', send_js_1.default);

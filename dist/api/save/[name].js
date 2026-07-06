@@ -28,6 +28,8 @@ const _elapsed_state_js_1 = require("../_elapsed-state.js");
 const PRIVATE_CHAR_FIELDS = [
     'ryo', 'bankedRyo', 'inventory', 'itemStacks', 'missions', 'missionLog',
     'completedMissions', 'activeMissions', 'questLog', 'bankLog',
+    'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
+    'clanPointHistory', 'clanExchangePurchases',
 ];
 // Public-safe subset used when ANY player reads another player's save.
 // Avoids leaking PvP loadout (jutsu, equipment, computed combat multipliers)
@@ -92,6 +94,8 @@ const COMBAT_STRIP_CHAR_FIELDS = [
     'lastBankInterestAt', 'bankRyo',
     'villageWarMissionDate', 'villageWarRaidProgress', 'villageWarMissionsCompleted',
     'clanBattleContrib', 'clanEventContrib', 'clanMissionContrib', 'clanContribMonth',
+    'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
+    'clanPointHistory', 'clanExchangePurchases',
     'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
     'lastExpeditionClaimDate', 'expeditionsClaimedToday',
     'dailyDonatedSeals', 'dailyDonationDate',
@@ -153,6 +157,14 @@ const CURRENCY_CAPS = {
     // inside the shrine, so a tampered pile has a small blast radius.
     hollowShards: 200,
 };
+const SERVER_OWNED_CLAN_POINT_FIELDS = [
+    'clanPoints',
+    'weeklyClanPoints',
+    'weeklyClanPointsWeek',
+    'lifetimeClanPoints',
+    'clanPointHistory',
+    'clanExchangePurchases',
+];
 const MAX_STAT_GAIN = 500; // per individual stat per save cycle
 // Total stat-points (sum across all 12 stats) a single save can grant.
 // Without this, the per-stat cap could be multiplied by 12 stats = 6000
@@ -451,6 +463,16 @@ function sanitizeCharacterSave(incoming, existing) {
         const exVal = Math.max(0, Number(exChar[key] ?? 0));
         const inVal = Math.max(0, Number(char[key] ?? 0));
         char[key] = Math.min(inVal, exVal + maxGain);
+    }
+    // Personal Clan Points are server-issued only. Activity endpoints and the
+    // Clan Exchange purchase path write these fields under the save lock and
+    // bump _saveVersion; normal player autosaves may only re-assert the stored
+    // values. This prevents both minting and stale autosaves erasing a reward.
+    for (const field of SERVER_OWNED_CLAN_POINT_FIELDS) {
+        if (exChar[field] !== undefined)
+            char[field] = exChar[field];
+        else
+            delete char[field];
     }
     // Hollow Gate Shrine Attunement: node ranks. Anti-tamper — clamp every rank
     // to its catalog maxRank (mirrors ATTUNEMENT_NODES in

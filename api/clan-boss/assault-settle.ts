@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
+import { awardClanPointsToPlayerSave } from '../_clan-points.js';
 import { readSession, settleConsumedItemsForMember, type ConsumedItemsResult } from '../towers/_tower-store.js';
 import { loadAssault, saveAssault, extractAssaultResult } from './_assault.js';
 import {
@@ -82,7 +83,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             consumables[slug] = await settleConsumedItemsForMember({ session, slug });
         }
 
-        return res.status(outcome.status).json({ ...(outcome.body as Record<string, unknown>), consumables });
+        let awardedCharacter: Record<string, unknown> | undefined;
+        const outcomeBody = outcome.body as Record<string, unknown>;
+        if (!outcomeBody.alreadySettled) {
+            const party = [...new Set(assault.party.map((name) => safeName(name)).filter(Boolean))].slice(0, 4);
+            const others = party.filter((name) => name !== playerName);
+            await Promise.allSettled(others.map((member) => awardClanPointsToPlayerSave(member, 'clanBossParticipation', 60, {
+                eventId: `clanBoss:${assault.weekId}:${runId}:participation:${member}`,
+                runId,
+                clan: assault.clanName,
+                damage: result.damage,
+            })));
+            if (party.includes(playerName)) {
+                const participation = await awardClanPointsToPlayerSave(playerName, 'clanBossParticipation', 60, {
+                    eventId: `clanBoss:${assault.weekId}:${runId}:participation:${playerName}`,
+                    runId,
+                    clan: assault.clanName,
+                    damage: result.damage,
+                });
+                if (participation.found) awardedCharacter = participation.character;
+            }
+            if (outcomeBody.justKilled) {
+                await Promise.allSettled(others.map((member) => awardClanPointsToPlayerSave(member, 'clanBossDefeat', 50, {
+                    eventId: `clanBoss:${assault.weekId}:${runId}:defeat:${member}`,
+                    runId,
+                    clan: assault.clanName,
+                })));
+                if (party.includes(playerName)) {
+                    const defeat = await awardClanPointsToPlayerSave(playerName, 'clanBossDefeat', 50, {
+                        eventId: `clanBoss:${assault.weekId}:${runId}:defeat:${playerName}`,
+                        runId,
+                        clan: assault.clanName,
+                    });
+                    if (defeat.found) awardedCharacter = defeat.character;
+                }
+            }
+        }
+
+        return res.status(outcome.status).json({ ...(outcome.body as Record<string, unknown>), consumables, character: awardedCharacter });
     } catch (err) {
         console.error('[clan-boss/assault-settle]', err);
         return res.status(500).json({ error: 'Internal server error.' });

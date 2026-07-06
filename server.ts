@@ -127,6 +127,7 @@ import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.j
 import clanUpgradePurchaseHandler    from './api/clan/upgrade/purchase.js';
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
 import clanMissionClaimHandler       from './api/clan/mission/claim.js';
+import clanExchangePurchaseHandler   from './api/clan/exchange/purchase.js';
 // Clan — text chat (own capped KV key; membership-gated; cheap since-cursor polling)
 import clanChatGetHandler            from './api/clan/chat/get.js';
 import clanChatSendHandler           from './api/clan/chat/send.js';
@@ -756,6 +757,7 @@ route('/clan/upgrade/purchase', clanUpgradePurchaseHandler);
 // ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
 // GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
 route('/clan/mission/claim', clanMissionClaimHandler);
+route('/clan/exchange/purchase', clanExchangePurchaseHandler);
 
 // ─── Clan chat: membership-gated text chat (GET since-cursor, POST send) ────────
 route('/clan/chat/get',  clanChatGetHandler);
