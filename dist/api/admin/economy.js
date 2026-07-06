@@ -5,6 +5,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _economy_js_1 = require("../_economy.js");
+const _economy_tx_js_1 = require("../_economy-tx.js");
 const _war_telemetry_js_1 = require("../_war-telemetry.js");
 const _war_map_sectors_js_1 = require("../_war-map-sectors.js");
 // Admin-only economy telemetry reader (docs/economy-telemetry-plan.md).
@@ -37,9 +38,10 @@ async function handler(req, res) {
         : (req.body ?? {});
     const limit = Math.max(1, Math.min(Number(req.query?.limit ?? body?.limit ?? 200) || 200, 5000));
     const snapshot = await (0, _economy_js_1.readEconomySnapshot)(limit);
+    const economyTx = await (0, _economy_tx_js_1.readEconomyTxSnapshot)(limit);
     // Village-War economy telemetry (Phase 8) — per-village WR/seal faucet-vs-sink,
     // tax split, maintenance, dormancy. Empty until ENABLE_VILLAGE_WAR is on.
     const war = await (0, _war_telemetry_js_1.readWarEcoSnapshot)(_war_map_sectors_js_1.WAR_VILLAGES, limit);
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({ ok: true, ...snapshot, war });
+    return res.status(200).json({ ok: true, ...snapshot, economyTx, war });
 }

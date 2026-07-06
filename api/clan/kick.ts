@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { loadClanContext, canActAsClanLeadership } from './war/_storage.js';
 import { resolveClanKick, clanSlugBare } from './_kick-core.js';
+import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 
 /*
  * /api/clan/kick — POST only
@@ -94,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     delete nextChar.clan;
                     nextChar.clanFounder = false;
                     nextChar.guardQueued = false;
-                    await kv.set(targetSaveKey, { ...targetRec, character: nextChar });
+                    await writeVersionedPlayerSave(targetSaveKey, targetRec, nextChar);
                 }
             }, { failClosed: true });
 

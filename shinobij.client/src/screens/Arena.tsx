@@ -2925,12 +2925,28 @@ export function Arena({
         // XP/ryo grant defers to the endpoint. If the endpoint cannot verify the
         // reward, the win still resolves locally but grants 0 XP/ryo.
         if (aiFightServerAuthEnabled()) {
-            fetch("/api/missions/report-ai-fight", {
+            const rewardPayload = {
+                playerName: character.name,
+                opponentId: pendingAiProfile?.id ?? "",
+                opponentLevel: aiLevel,
+                xp: xpGain,
+                ryo: ryoGain,
+            };
+            fetch("/api/missions/ai-fight-start", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ playerName: character.name, xp: xpGain, ryo: ryoGain }),
+                body: JSON.stringify(rewardPayload),
             })
                 .then((r) => (r.ok ? r.json() : null))
+                .then((start: { token?: unknown } | null) => {
+                    const aiFightToken = typeof start?.token === "string" ? start.token : "";
+                    if (!aiFightToken) return null;
+                    return fetch("/api/missions/report-ai-fight", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ ...rewardPayload, aiFightToken }),
+                    }).then((r) => (r.ok ? r.json() : null));
+                })
                 .then((data: { xp?: unknown; ryo?: unknown } | null) => {
                     const okXp = typeof data?.xp === "number" ? data.xp : 0;
                     const okRyo = typeof data?.ryo === "number" ? data.ryo : 0;

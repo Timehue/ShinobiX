@@ -6,6 +6,8 @@ import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-donate.js';
 import { bumpLegacyStats } from '../../_legacy-track.js';
+import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
+import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
 
 /*
  * /api/village/treasury/donate  — POST only
@@ -69,6 +71,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
+    let txId: string | null = null;
+    let txState: 'reserved' | 'debit-applied' | 'complete' | null = null;
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const playerName = safeName(String(body.playerName ?? ''));
@@ -93,6 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!slug) return res.status(400).json({ error: 'Invalid village name.' });
         const villageStateKey = `${VILLAGE_STATE_PREFIX}${slug}`;
         const donorSaveKey = `save:${playerName}`;
+        txId = makeEconomyTxId('village-treasury-donate');
 
         // ── Atomic donate ──────────────────────────────────────────────
         // Village-state row locked first (shared resource), donor save row
@@ -102,11 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await withKvLock(villageStateKey, async () => {
             const stateRec = (await kv.get<Record<string, unknown>>(villageStateKey)) ?? {};
 
-            const debit = await withKvLock(donorSaveKey, async () => {
-                const donorRec = await kv.get<Record<string, unknown>>(donorSaveKey);
-                const donorChar = (donorRec?.character ?? null) as Record<string, unknown> | null;
-                if (!donorChar) return { ok: false as const, status: 404, error: 'Donor save not found.' };
-
+            const debit = await mutatePlayerSave(playerName, async ({ character: donorChar }) => {
                 // Membership: donor must belong to this village.
                 if (!identity.admin && String(donorChar.village ?? '').trim() !== village) {
                     return { ok: false as const, status: 403, error: 'You are not a member of this village.' };
@@ -120,14 +121,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 );
                 if (!outcome.ok) return outcome;
 
-                await kv.set(donorSaveKey, { ...donorRec, character: outcome.nextDonorChar });
-                return { ok: true as const, nextTreasury: outcome.nextTreasury };
-            }, { failClosed: true });
+                const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
+                await reserveEconomyTx({
+                    id: txId!,
+                    kind: 'village-treasury-donate',
+                    debitKey: donorSaveKey,
+                    creditKey: villageStateKey,
+                    resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
+                    amount,
+                    meta: { village, playerName },
+                });
+                txState = 'reserved';
+                return { ok: true as const, character: outcome.nextDonorChar, value: { nextTreasury: outcome.nextTreasury } };
+            });
             if (!debit.ok) return debit;
 
+            await markEconomyTx(txId!, 'debit-applied');
+            txState = 'debit-applied';
             // Credit ONLY the treasury; preserve every other village-state field.
-            await kv.set(villageStateKey, { ...stateRec, treasury: debit.nextTreasury });
-            return { ok: true as const, treasury: debit.nextTreasury };
+            await kv.set(villageStateKey, { ...stateRec, treasury: debit.value.nextTreasury });
+            await completeEconomyTx(txId!);
+            txState = 'complete';
+            return { ok: true as const, treasury: debit.value.nextTreasury, _saveVersion: debit._saveVersion };
         }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -148,8 +163,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? Math.max(0, Math.floor(donation.amount))
                 : Math.max(0, Math.floor(donation.count)) * 500,
         });
-        return res.status(200).json({ ok: true, treasury: result.treasury });
+        return res.status(200).json({ ok: true, treasury: result.treasury, _saveVersion: result._saveVersion });
     } catch (err) {
+        if (txId && txState && txState !== 'complete') {
+            await failEconomyTx(txId, err).catch(() => undefined);
+        }
         console.error('[village/treasury/donate]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

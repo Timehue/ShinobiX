@@ -5,6 +5,8 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-donate.js';
+import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
+import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
 
 /*
  * /api/clan/treasury/donate  — POST only
@@ -72,6 +74,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
+    let txId: string | null = null;
+    let txState: 'reserved' | 'debit-applied' | 'complete' | null = null;
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const playerName = safeName(String(body.playerName ?? ''));
@@ -96,6 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = `save:clan-${targetSlug}`;
         const donorSaveKey = `save:${playerName}`;
+        txId = makeEconomyTxId('clan-treasury-donate');
 
         // ── Atomic donate ──────────────────────────────────────────────
         // Lock the clan save row (the shared, contended resource) first,
@@ -109,11 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
             if (!clanRec) return { ok: false as const, status: 404, error: 'Clan not found.' };
 
-            const debit = await withKvLock(donorSaveKey, async () => {
-                const donorRec = await kv.get<Record<string, unknown>>(donorSaveKey);
-                const donorChar = (donorRec?.character ?? null) as Record<string, unknown> | null;
-                if (!donorChar) return { ok: false as const, status: 404, error: 'Donor save not found.' };
-
+            const debit = await mutatePlayerSave(playerName, async ({ character: donorChar }) => {
                 // Membership: donor's character.clan must resolve to this clan.
                 if (!identity.admin) {
                     const donorClanSlug = clanSlugBare(String(donorChar.clan ?? ''));
@@ -130,15 +131,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 );
                 if (!outcome.ok) return outcome;
 
-                // Commit donor debit first.
-                await kv.set(donorSaveKey, { ...donorRec, character: outcome.nextDonorChar });
-                return { ok: true as const, nextTreasury: outcome.nextTreasury };
-            }, { failClosed: true });
+                const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
+                await reserveEconomyTx({
+                    id: txId!,
+                    kind: 'clan-treasury-donate',
+                    debitKey: donorSaveKey,
+                    creditKey: clanSaveKey,
+                    resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
+                    amount,
+                    meta: { clan, playerName },
+                });
+                txState = 'reserved';
+                return { ok: true as const, character: outcome.nextDonorChar, value: { nextTreasury: outcome.nextTreasury } };
+            });
             if (!debit.ok) return debit;
 
+            await markEconomyTx(txId!, 'debit-applied');
+            txState = 'debit-applied';
             // Credit the clan treasury (donor debit is already committed).
-            await kv.set(clanSaveKey, { ...clanRec, treasury: debit.nextTreasury });
-            return { ok: true as const, treasury: debit.nextTreasury };
+            await kv.set(clanSaveKey, { ...clanRec, treasury: debit.value.nextTreasury });
+            await completeEconomyTx(txId!);
+            txState = 'complete';
+            return { ok: true as const, treasury: debit.value.nextTreasury, _saveVersion: debit._saveVersion };
         }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -153,8 +167,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : { itemId: donation.itemId, count: Math.floor(donation.count) }),
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
 
-        return res.status(200).json({ ok: true, treasury: result.treasury });
+        return res.status(200).json({ ok: true, treasury: result.treasury, _saveVersion: result._saveVersion });
     } catch (err) {
+        if (txId && txState && txState !== 'complete') {
+            await failEconomyTx(txId, err).catch(() => undefined);
+        }
         console.error('[clan/treasury/donate]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

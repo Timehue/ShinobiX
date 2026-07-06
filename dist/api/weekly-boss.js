@@ -10,6 +10,9 @@ const _save_version_js_1 = require("./save/_save-version.js");
 const _legacy_track_js_1 = require("./_legacy-track.js");
 const _era_js_1 = require("./_era.js");
 const _announce_js_1 = require("./_announce.js");
+const node_crypto_1 = require("node:crypto");
+const _single_use_token_js_1 = require("./_single-use-token.js");
+const _weekly_boss_fight_token_js_1 = require("./_weekly-boss-fight-token.js");
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
 // spawn the boss despawns and rewards are auto-distributed:
@@ -46,6 +49,7 @@ const WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR = 4;
 // Stats unavailable (transient read failure) → a generous fallback bound rather
 // than a tight one, so a legit fight isn't clipped by a fluke.
 const WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP = 5_000_000;
+const WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS = 2 * 60 * 60;
 // Fight window after an admin spawns the boss. Widened 24h → 72h (gameplay-loop
 // audit M-3): the boss is spawned manually (the owner controls cadence — see
 // loadOrInitBoss), so a single 24h window was easy for most of the roster to
@@ -165,6 +169,23 @@ async function loadOrInitBoss() {
         existing.expiresAt = (existing.startedAt ?? Date.now()) + WEEKLY_BOSS_LIFETIME_MS;
     }
     return existing;
+}
+async function weeklyBossLogFightCap(actorName, isAdminActor) {
+    if (isAdminActor)
+        return Number.MAX_SAFE_INTEGER;
+    try {
+        const actorSave = await _storage_js_1.kv.get(`save:${actorName}`);
+        const actorChar = (actorSave?.character ?? null);
+        const stats = (actorChar?.stats ?? {});
+        const level = Math.max(1, Math.min(100, Math.floor(Number(actorChar?.level ?? 1))));
+        const rawBest = Math.max(Number(stats.bukijutsuOffense ?? 0), Number(stats.taijutsuOffense ?? 0), Number(stats.ninjutsuOffense ?? 0), Number(stats.genjutsuOffense ?? 0));
+        const best = Math.min(2500, rawBest);
+        const fairPerHit = Math.max(50, Math.floor(best * (1 + level / 100) * WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR));
+        return fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS;
+    }
+    catch {
+        return WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP;
+    }
 }
 // Distribute rewards once 24h has elapsed. Idempotent + crash-resumable
 // (audit #25):
@@ -418,6 +439,26 @@ async function handler(req, res) {
                 return res.status(409).json({ error: 'Boss despawned. Rewards have been distributed.', boss });
             }
             const actorName = identity.admin ? 'admin' : identity.name;
+            if (kind === 'startFight') {
+                if (!identity.admin) {
+                    const used = boss.attemptsByPlayer?.[actorName] ?? 0;
+                    if (used >= WEEKLY_BOSS_MAX_ATTEMPTS) {
+                        return res.status(429).json({ error: `Locked out â€” you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` });
+                    }
+                }
+                const token = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
+                const maxDamage = await weeklyBossLogFightCap(actorName, identity.admin);
+                const record = {
+                    playerName: actorName,
+                    weekKey: boss.weekKey,
+                    aiId: boss.aiId,
+                    bossStartedAt: boss.startedAt,
+                    maxDamage,
+                    mintedAt: Date.now(),
+                };
+                await _storage_js_1.kv.set((0, _weekly_boss_fight_token_js_1.weeklyBossFightTokenKey)(actorName, boss.weekKey, token), record, { ex: WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS });
+                return res.status(200).json({ ok: true, token, maxDamage, expiresInSeconds: WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS });
+            }
             if (kind === 'damage') {
                 // Per-player cooldown — prevents loop spamming damage POSTs.
                 if (!identity.admin) {
@@ -525,7 +566,24 @@ async function handler(req, res) {
                 if (!Number.isFinite(requested) || requested < 0) {
                     return res.status(400).json({ error: 'Invalid damage amount.' });
                 }
-                const logged = Math.min(perFightCap, Math.max(0, requested));
+                let logged = identity.admin ? Math.min(perFightCap, Math.max(0, requested)) : 0;
+                if (!identity.admin) {
+                    const token = (0, _weekly_boss_fight_token_js_1.cleanWeeklyBossFightToken)(body.weeklyBossToken ?? body.token);
+                    if (!token) {
+                        return res.status(200).json({ boss, dealt: 0, attemptsUsed: boss.attemptsByPlayer?.[actorName] ?? 0, reason: 'missing-weekly-boss-token' });
+                    }
+                    const tokenData = await (0, _single_use_token_js_1.consumeSingleUseToken)(_storage_js_1.kv, (0, _weekly_boss_fight_token_js_1.weeklyBossFightTokenKey)(actorName, boss.weekKey, token));
+                    const claim = (0, _weekly_boss_fight_token_js_1.validateWeeklyBossFightClaim)(tokenData, {
+                        playerName: actorName,
+                        weekKey: boss.weekKey,
+                        aiId: boss.aiId,
+                        bossStartedAt: boss.startedAt,
+                    }, requested);
+                    if (!claim.ok) {
+                        return res.status(200).json({ boss, dealt: 0, attemptsUsed: boss.attemptsByPlayer?.[actorName] ?? 0, reason: claim.reason });
+                    }
+                    logged = claim.damage;
+                }
                 const result = await (0, _lock_js_1.withKvLock)(WEEKLY_BOSS_STATE_KEY, async () => {
                     const fresh = await _storage_js_1.kv.get(WEEKLY_BOSS_STATE_KEY) ?? boss;
                     if (fresh.weekKey !== boss.weekKey)

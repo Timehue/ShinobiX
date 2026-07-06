@@ -5,13 +5,21 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { aiFightReward, AI_FIGHT_DAILY_COUNT_TTL_SECONDS, AI_FIGHT_SOFT_CAP_PER_DAY } from './_ai-fight-reward.js';
 import { legacyEnabled, bumpLegacyStats, type LegacyStatDeltas } from '../_legacy-track.js';
+import { consumeSingleUseToken } from '../_single-use-token.js';
+import {
+    aiFightTokenKey,
+    cleanAiFightToken,
+    validateAiFightRewardClaim,
+    type AiFightToken,
+} from './_ai-fight-token.js';
 
 // P0.2b — server-authoritative daily SOFT-CAP for AI-fight XP/ryo.
 //
-// The client reports the base XP/ryo it computed for an AI win; the server applies
-// the soft-cap using an AUTHORITATIVE per-day counter (atomic incr, so a client
-// can't fake its running daily total) and RETURNS the allowed amounts. The client
-// then grants exactly that, inside its single save write.
+// The client reports the base XP/ryo it computed for an AI win with a single-use
+// token minted by /api/missions/ai-fight-start. The server validates the claim
+// against that sealed token, applies the authoritative daily soft-cap, and returns
+// the allowed amounts. The client then grants exactly that, inside its single save
+// write.
 //
 // Why return-only (not credit-on-the-server): the AI-win grant is entangled — the
 // client must still write territory/kills/crates/missions to the save — so if this
@@ -48,9 +56,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'report-ai-fight', 30, 60_000, identity.name))) return;
 
+        const aiFightToken = cleanAiFightToken(body.aiFightToken ?? body.token);
+        if (!aiFightToken) {
+            return res.status(200).json({ ok: true, xp: 0, ryo: 0, capped: false, dailyCount: null, reason: 'missing-ai-fight-token' });
+        }
+        const tokenData = await consumeSingleUseToken<AiFightToken>(kv, aiFightTokenKey(playerName, aiFightToken));
+        if (!tokenData) {
+            return res.status(200).json({ ok: true, xp: 0, ryo: 0, capped: false, dailyCount: null, reason: 'invalid-or-spent-ai-fight-token' });
+        }
+        if ((tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+            return res.status(403).json({ error: 'AI fight token does not belong to this player.' });
+        }
+        const claim = validateAiFightRewardClaim(tokenData, body.xp, body.ryo);
+        if (!claim.ok) {
+            return res.status(200).json({ ok: true, xp: 0, ryo: 0, capped: false, dailyCount: null, reason: claim.reason });
+        }
+
         // Authoritative running daily count (atomic; TTL so date keys self-evict).
         const dailyCount = await kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
-        const reward = aiFightReward(body.xp, body.ryo, dailyCount);
+        const reward = aiFightReward(claim.xp, claim.ryo, dailyCount);
 
         // Legacy tracking (ENABLE_LEGACY): PvE kill credit follows the same
         // daily soft cap as the reward — grinding past it stops feeding Legacy

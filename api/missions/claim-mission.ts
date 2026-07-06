@@ -11,6 +11,11 @@ import { recordEconomyTxn } from '../_economy.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 import {
+    cleanMissionProgressReceipt,
+    missionProgressReceiptKey,
+    validateMissionProgressReceipt,
+} from './_mission-progress-receipt.js';
+import {
     combatMissionByKey,
     fieldMissionById,
     huntMissionById,
@@ -146,6 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let completion: 'daily' | 'total' | 'none' | 'hunt' = 'daily';
             let academyTrialClaimed = false;
             let academyChecklistClaimed = false;
+            let progressReceiptKeyToClear: string | null = null;
 
             if (missionType === 'combat') {
                 const def = combatMissionByKey(missionId);
@@ -181,6 +187,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!def) return { applied: false, reason: 'unknown-mission', clientFallback: true };
                 if (Number(char.level ?? 1) < def.levelReq) return { applied: false, reason: 'level' };
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
+                const progressKey = missionProgressReceiptKey(playerName, missionId);
+                const progress = validateMissionProgressReceipt(
+                    cleanMissionProgressReceipt(await kv.get(progressKey).catch(() => null)),
+                    { playerName, missionId, missionType: 'field', mission: def },
+                );
+                if (!progress.ok) return { applied: false, reason: progress.reason };
+                progressReceiptKeyToClear = progressKey;
                 baseXp = def.xpReward; baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 scrolls = FIELD_MISSION_SCROLLS; currencyBase = def.currencyRewards;
                 completion = 'daily';
@@ -191,6 +204,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!def) return { applied: false, reason: 'unknown-mission', clientFallback: true };
                 if (Number(char.level ?? 1) < def.levelReq) return { applied: false, reason: 'level' };
                 if (!hasDailyHuntSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
+                const progressKey = missionProgressReceiptKey(playerName, missionId);
+                const progress = validateMissionProgressReceipt(
+                    cleanMissionProgressReceipt(await kv.get(progressKey).catch(() => null)),
+                    { playerName, missionId, missionType: 'hunt', mission: def },
+                );
+                if (!progress.ok) return { applied: false, reason: progress.reason };
+                progressReceiptKeyToClear = progressKey;
                 baseXp = def.xpReward; baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 scrolls = HUNT_MISSION_SCROLLS; currencyBase = def.currencyRewards;
                 items = def.itemRewards ?? [];
@@ -284,6 +304,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const updated: Record<string, unknown> = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
             bumpSaveVersion(updated);
             await kv.set(saveKey, mergePreservingImages(updated, record));
+            if (progressReceiptKeyToClear) {
+                await kv.del(progressReceiptKeyToClear).catch(() => 0);
+            }
 
             return {
                 applied: true,

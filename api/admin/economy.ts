@@ -3,6 +3,7 @@ import { cors } from '../_utils.js';
 import { isAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { readEconomySnapshot } from '../_economy.js';
+import { readEconomyTxSnapshot } from '../_economy-tx.js';
 import { readWarEcoSnapshot } from '../_war-telemetry.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
 
@@ -29,9 +30,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const limit = Math.max(1, Math.min(Number(req.query?.limit ?? body?.limit ?? 200) || 200, 5000));
 
     const snapshot = await readEconomySnapshot(limit);
+    const economyTx = await readEconomyTxSnapshot(limit);
     // Village-War economy telemetry (Phase 8) — per-village WR/seal faucet-vs-sink,
     // tax split, maintenance, dormancy. Empty until ENABLE_VILLAGE_WAR is on.
     const war = await readWarEcoSnapshot(WAR_VILLAGES, limit);
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({ ok: true, ...snapshot, war });
+    return res.status(200).json({ ok: true, ...snapshot, economyTx, war });
 }
