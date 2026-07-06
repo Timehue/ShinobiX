@@ -5695,7 +5695,7 @@ export default function App() {
         setScreen("arena");
     }
 
-    async function logWeeklyBossFightDamage(damageDealt: number) {
+    async function logWeeklyBossFightDamage(damageDealt: number, damageEvents?: Array<{ turn: number; amount: number; source?: string }>) {
         if (!character || damageDealt < 0) return;
         try {
             const r = await fetch("/api/weekly-boss", {
@@ -5704,6 +5704,7 @@ export default function App() {
                 body: JSON.stringify({
                     kind: "logFight",
                     amount: Math.floor(damageDealt),
+                    damageEvents: Array.isArray(damageEvents) ? damageEvents : [],
                     weeklyBossToken: pendingArenaStoryBattle?.kind === "weeklyBoss" ? pendingArenaStoryBattle.weeklyBossToken : undefined,
                 }),
             });

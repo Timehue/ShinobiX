@@ -32,12 +32,23 @@ async function commitPlayerPurchase(args) {
         if ((0, _utils_js_1.clanBareSlug)(String(character.clan ?? '')) !== args.targetSlug) {
             return { ok: false, status: 403, error: 'You are not a member of this clan.' };
         }
-        const result = (0, _exchange_js_1.buyClanExchangeItem)({ character, clanData: args.clanRec, itemId: args.itemId });
+        const result = (0, _exchange_js_1.buyClanExchangeItem)({ character, clanData: args.clanRec, itemId: args.itemId, now: args.now });
         if (!result.ok) {
             return { ok: false, status: FAILURE_STATUS[result.code] ?? 400, error: result.error };
         }
         await _storage_js_1.kv.set(args.playerSaveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...playerRec, character: result.character }), playerRec));
         return { ok: true, result };
+    }, { failClosed: true });
+}
+async function refundPlayerTreasuryPurchase(args) {
+    return await (0, _lock_js_1.withKvLock)(args.playerSaveKey, async () => {
+        const playerRec = await _storage_js_1.kv.get(args.playerSaveKey);
+        const character = (playerRec?.character ?? null);
+        if (!playerRec || !character)
+            return false;
+        const refunded = (0, _exchange_js_1.refundClanExchangeTreasuryPurchase)({ character, itemId: args.itemId, now: args.now });
+        await _storage_js_1.kv.set(args.playerSaveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...playerRec, character: refunded }), playerRec));
+        return true;
     }, { failClosed: true });
 }
 /*
@@ -77,20 +88,30 @@ async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = (0, _utils_js_1.clanRecordKey)(clan);
         const playerSaveKey = `save:${playerName}`;
+        const purchaseNow = new Date();
         const creditsTreasury = exchangeItemCreditsTreasury(itemId);
         const purchase = creditsTreasury
             ? await (0, _lock_js_1.withKvLock)(clanSaveKey, async () => {
                 const clanRec = await _storage_js_1.kv.get(clanSaveKey);
                 if (!clanRec)
                     return { ok: false, status: 404, error: 'Clan not found.' };
-                const playerResult = await commitPlayerPurchase({ playerSaveKey, playerName, targetSlug, clanRec, itemId });
+                const playerResult = await commitPlayerPurchase({ playerSaveKey, playerName, targetSlug, clanRec, itemId, now: purchaseNow });
                 if (!playerResult.ok)
                     return playerResult;
                 try {
                     await _storage_js_1.kv.set(clanSaveKey, playerResult.result.clanData);
                 }
                 catch (creditErr) {
-                    console.error(`[clan/exchange/purchase] TREASURY CREDIT FAILED after point spend - ${itemId} for ${playerName} in clan "${clan}":`, creditErr);
+                    console.error(`[clan/exchange/purchase] TREASURY CREDIT FAILED after point spend - refunding ${itemId} for ${playerName} in clan "${clan}":`, creditErr);
+                    let refunded = false;
+                    let refundError;
+                    try {
+                        refunded = await refundPlayerTreasuryPurchase({ playerSaveKey, itemId, now: purchaseNow });
+                    }
+                    catch (refundErr) {
+                        refundError = refundErr instanceof Error ? refundErr.message : String(refundErr);
+                        console.error(`[clan/exchange/purchase] TREASURY CREDIT REFUND FAILED - ${itemId} for ${playerName} in clan "${clan}":`, refundErr);
+                    }
                     await _storage_js_1.kv.set(`${AUDIT_LOG_PREFIX}LOSS:${targetSlug}:${playerName}:${Date.now()}`, {
                         ts: Date.now(),
                         actor: identity.admin ? 'admin' : identity.name,
@@ -99,12 +120,16 @@ async function handler(req, res) {
                         itemId,
                         cost: item.cost,
                         reward: item.reward,
+                        refunded,
+                        refundError,
                         error: creditErr instanceof Error ? creditErr.message : String(creditErr),
                     }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
                     return {
                         ok: false,
                         status: 503,
-                        error: 'Clan Points were spent, but the clan treasury credit could not be saved. An admin can reconcile it; please do not retry this purchase.',
+                        error: refunded
+                            ? 'The clan treasury credit could not be saved, so your Clan Points were refunded. Please retry in a moment.'
+                            : 'Clan Points were spent, but the clan treasury credit could not be saved. An admin can reconcile it; please do not retry this purchase.',
                     };
                 }
                 return playerResult;
@@ -113,7 +138,7 @@ async function handler(req, res) {
                 const clanRec = await _storage_js_1.kv.get(clanSaveKey);
                 if (!clanRec)
                     return { ok: false, status: 404, error: 'Clan not found.' };
-                return await commitPlayerPurchase({ playerSaveKey, playerName, targetSlug, clanRec, itemId });
+                return await commitPlayerPurchase({ playerSaveKey, playerName, targetSlug, clanRec, itemId, now: purchaseNow });
             })();
         if (!purchase.ok)
             return res.status(purchase.status).json({ error: purchase.error });

@@ -11,6 +11,7 @@ import { announce } from './_announce.js';
 import { randomUUID } from 'node:crypto';
 import { consumeSingleUseToken } from './_single-use-token.js';
 import {
+    cleanWeeklyBossDamageEvents,
     cleanWeeklyBossFightToken,
     validateWeeklyBossFightClaim,
     weeklyBossFightTokenKey,
@@ -219,8 +220,8 @@ async function loadOrInitBoss(): Promise<WeeklyBossState | null> {
     return existing;
 }
 
-async function weeklyBossLogFightCap(actorName: string, isAdminActor: boolean): Promise<number> {
-    if (isAdminActor) return Number.MAX_SAFE_INTEGER;
+async function weeklyBossLogFightCaps(actorName: string, isAdminActor: boolean): Promise<{ maxDamage: number; perHitCap: number; maxHits: number }> {
+    if (isAdminActor) return { maxDamage: Number.MAX_SAFE_INTEGER, perHitCap: Number.MAX_SAFE_INTEGER, maxHits: WEEKLY_BOSS_LOG_FIGHT_MAX_HITS };
     try {
         const actorSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
         const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
@@ -234,9 +235,17 @@ async function weeklyBossLogFightCap(actorName: string, isAdminActor: boolean): 
         );
         const best = Math.min(2500, rawBest);
         const fairPerHit = Math.max(50, Math.floor(best * (1 + level / 100) * WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR));
-        return fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS;
+        return {
+            maxDamage: fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS,
+            perHitCap: fairPerHit,
+            maxHits: WEEKLY_BOSS_LOG_FIGHT_MAX_HITS,
+        };
     } catch {
-        return WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP;
+        return {
+            maxDamage: WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP,
+            perHitCap: Math.max(50, Math.floor(WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP / WEEKLY_BOSS_LOG_FIGHT_MAX_HITS)),
+            maxHits: WEEKLY_BOSS_LOG_FIGHT_MAX_HITS,
+        };
     }
 }
 
@@ -502,17 +511,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
                 const token = randomUUID().replace(/-/g, '');
-                const maxDamage = await weeklyBossLogFightCap(actorName, identity.admin);
+                const caps = await weeklyBossLogFightCaps(actorName, identity.admin);
                 const record: WeeklyBossFightToken = {
                     playerName: actorName,
                     weekKey: boss.weekKey,
                     aiId: boss.aiId,
                     bossStartedAt: boss.startedAt,
-                    maxDamage,
+                    maxDamage: caps.maxDamage,
+                    perHitCap: caps.perHitCap,
+                    maxHits: caps.maxHits,
                     mintedAt: Date.now(),
                 };
                 await kv.set(weeklyBossFightTokenKey(actorName, boss.weekKey, token), record, { ex: WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS });
-                return res.status(200).json({ ok: true, token, maxDamage, expiresInSeconds: WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS });
+                return res.status(200).json({ ok: true, token, maxDamage: caps.maxDamage, expiresInSeconds: WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS });
             }
 
             if (kind === 'damage') {
@@ -642,7 +653,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         weekKey: boss.weekKey,
                         aiId: boss.aiId,
                         bossStartedAt: boss.startedAt,
-                    }, requested);
+                    }, requested, cleanWeeklyBossDamageEvents(body.damageEvents ?? body.events));
                     if (!claim.ok) {
                         return res.status(200).json({ boss, dealt: 0, attemptsUsed: boss.attemptsByPlayer?.[actorName] ?? 0, reason: claim.reason });
                     }

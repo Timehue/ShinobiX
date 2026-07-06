@@ -7,11 +7,10 @@ const SF_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import type { Character } from "../types/character";
 import { type TileCard } from "../data/tile-cards";
 import { FestivalPortrait } from "../components/Pills";
-import { currentDateKey } from "../lib/utils";
 import { effectiveCharacterXpGain } from "../lib/progression";
-import { gainXp } from "../App";
 import { CardClashDuel } from "./CardClashDuel";
 import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from "../lib/black-market";
+import { FATE_DICE_GLYPHS, rollFateDice, settleMiraaWager, type MiraaOutcome } from "../lib/sunscar-festival";
 import { BlackMarketCrate } from "../components/BlackMarketCrate";
 import festBg from "../assets/festival/fest-bg.webp";
 import kaelArt from "../assets/festival/fest-kael.webp";
@@ -43,6 +42,7 @@ export function SunscarFestival({
     const [bmBusy, setBmBusy] = useState(false);
     const [bmUsed, setBmUsed] = useState<number | null>(null);
     const [bmReveal, setBmReveal] = useState<BlackMarketReward | null>(null);
+    const [diceBusy, setDiceBusy] = useState(false);
 
     async function pullBlackMarketGamble() {
         if (bmBusy) return;
@@ -76,90 +76,26 @@ export function SunscarFestival({
         setFestivalLog(`The Broker: ${flourish}${reward.label} — ${describeReward(reward)}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? BLACK_MARKET_DAILY_CAP} pulls today)`);
     }
 
-    const symbols = ["🦂", "🪙", "👁️", "⚔️", "🌙", "⭐"];
-
-    function rollDice() {
-        const cost = 25;
-        const dailySpins = character.dailyFateSpins ?? 0;
-        if (dailySpins >= 5) {
-            setFestivalLog("Kael: The dice grow cold. Your fate is spent for today — return at midnight UTC.");
+    async function rollDice() {
+        if (diceBusy) return;
+        setDiceBusy(true);
+        const res = await rollFateDice(character.name);
+        setDiceBusy(false);
+        if (!res.ok || !res.reward || !res.roll || !res.character) {
+            setFestivalLog(`Kael: ${res.error ?? "The dice refuse to roll."}`);
             return;
         }
-
-        if (character.ryo < cost) {
-            setFestivalLog("Kael: No coin, no fate. Come back with more ryo.");
-            return;
-        }
-
-        const roll = Array.from({ length: 3 }).map(
-            () => symbols[Math.floor(Math.random() * symbols.length)]
-        );
-
-        let rewardRyo = 0;
-        let rewardXp = 0;
-        let rewardStamina = 0;
-        let rewardBoneCharms = 0;
-        let rewardFateShards = 0;
-        let rewardAuraStones = 0;
-        let message: string;
-
-        const same = roll[0] === roll[1] && roll[1] === roll[2];
-
-        if (same && roll[0] === "👁️") {
-            rewardBoneCharms = 10;
-            rewardFateShards = 5;
-            rewardAuraStones = 5;
-            message = "LEGENDARY FATE! The Eye of the Dunes opens — rare currencies pour from the heavens.";
-        } else if (same) {
-            rewardBoneCharms = Math.floor(Math.random() * 5) + 1; // 1–5
-            rewardFateShards = Math.floor(Math.random() * 3) + 1; // 1–3
-            message = `Triple ${roll[0]}! The dice bless you with rare spoils.`;
-        } else if (roll.includes("🦂")) {
-            rewardRyo = 10;
-            rewardXp = 15;
-            message = "The scorpion strikes. A harsh lesson — you walk away with scraps.";
-        } else if (roll.includes("🪙")) {
-            rewardRyo = 100;
-            rewardXp = 20;
-            message = "Coins flash beneath the desert sun. Fortune smiles on you.";
-        } else if (roll.includes("⚔️")) {
-            rewardStamina = 30;
-            rewardXp = 25;
-            message = "Blade omen. Your body surges with fighting spirit.";
-        } else if (roll.includes("🌙")) {
-            rewardXp = 75;
-            rewardRyo = 25;
-            message = "Moon omen. A strange luck follows you through the night.";
-        } else {
-            rewardRyo = 40;
-            rewardXp = 10;
-            message = "Small fortune. The sands give a little back.";
-        }
-
-        const paidCharacter = { ...character, ryo: character.ryo - cost };
-        const leveled = gainXp(paidCharacter, rewardXp);
-
-        updateCharacter({
-            ...leveled,
-            ryo: leveled.ryo + rewardRyo,
-            stamina: Math.min(leveled.maxStamina, leveled.stamina + rewardStamina),
-            boneCharms: (leveled.boneCharms ?? 0) + rewardBoneCharms,
-            fateShards: (leveled.fateShards ?? 0) + rewardFateShards,
-            auraStones: (leveled.auraStones ?? 0) + rewardAuraStones,
-            dailyFateSpins: dailySpins + 1,
-            lastDailyReset: currentDateKey(),
-        });
-
-        setDiceResult(roll);
+        updateCharacter(res.character);
+        setDiceResult(res.roll.map((symbol) => FATE_DICE_GLYPHS[symbol]));
         const parts = [
-            rewardBoneCharms > 0 && `+${rewardBoneCharms} Bone Charms`,
-            rewardFateShards > 0 && `+${rewardFateShards} Fate Shards`,
-            rewardAuraStones > 0 && `+${rewardAuraStones} Aura Stones`,
-            rewardRyo > 0 && `+${rewardRyo} ryo`,
-            rewardXp > 0 && `+${effectiveCharacterXpGain(character, rewardXp)} XP`,
-            rewardStamina > 0 && `+${rewardStamina} stamina`,
+            res.reward.boneCharms > 0 && `+${res.reward.boneCharms} Bone Charms`,
+            res.reward.fateShards > 0 && `+${res.reward.fateShards} Fate Shards`,
+            res.reward.auraStones > 0 && `+${res.reward.auraStones} Aura Stones`,
+            res.reward.ryo > 0 && `+${res.reward.ryo} ryo`,
+            res.reward.xp > 0 && `+${effectiveCharacterXpGain(character, res.reward.xp)} XP`,
+            res.reward.stamina > 0 && `+${res.reward.stamina} stamina`,
         ].filter(Boolean).join(", ");
-        setFestivalLog(`Kael: ${message} ${parts}. (${dailySpins + 1}/5 spins today)`);
+        setFestivalLog(`Kael: ${res.message ?? "The dice settle."} ${parts}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? 5} spins today)`);
     }
 
     // -- Card Clash wager vs Miraa --------------------------------------------
@@ -185,8 +121,14 @@ export function SunscarFestival({
     }
 
     if (duelPhase === "playing") {
-        const settle = (delta: number, log: string) => {
-            if (delta !== 0) updateCharacter({ ...character, ryo: character.ryo + delta });
+        const settle = async (outcome: MiraaOutcome, log: string) => {
+            const res = await settleMiraaWager(character.name, duelBet, outcome);
+            if (!res.ok || !res.character) {
+                setFestivalLog(`Miraa: ${res.error ?? "The wager slips into the sand. Try again."}`);
+                setDuelPhase("idle");
+                return;
+            }
+            updateCharacter(res.character);
             setFestivalLog(`Miraa: ${log}`);
             setDuelPhase("idle");
         };
@@ -195,10 +137,10 @@ export function SunscarFestival({
                 character={character}
                 creatorCards={creatorCards}
                 tileDifficulty="normal"
-                onDungeonWin={() => settle(duelBet * 2, `"You read the sands well." You win ${duelBet * 2} ryo.`)}
-                onDungeonLose={() => settle(-duelBet, `"The desert claims the weak." You lose ${duelBet} ryo.`)}
-                onDungeonDraw={() => settle(0, `"Even fate blinks." A draw — your ${duelBet} ryo is returned.`)}
-                onDungeonLeave={() => settle(-duelBet, `"You fold — the wager is mine." You forfeit ${duelBet} ryo.`)}
+                onDungeonWin={() => void settle("win", `"You read the sands well." You win ${duelBet * 2} ryo.`)}
+                onDungeonLose={() => void settle("loss", `"The desert claims the weak." You lose ${duelBet} ryo.`)}
+                onDungeonDraw={() => void settle("draw", `"Even fate blinks." A draw — your ${duelBet} ryo is returned.`)}
+                onDungeonLeave={() => void settle("forfeit", `"You fold — the wager is mine." You forfeit ${duelBet} ryo.`)}
             />
         );
     }
@@ -241,8 +183,8 @@ export function SunscarFestival({
                         ))}
                     </div>
 
-                    <button className="sunscar-roll-button" onClick={rollDice}>
-                        Roll Dice of Fate
+                    <button className="sunscar-roll-button" onClick={rollDice} disabled={diceBusy}>
+                        {diceBusy ? "Rolling..." : "Roll Dice of Fate"}
                     </button>
 
                     <div className="sunscar-log">{festivalLog}</div>

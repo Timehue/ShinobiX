@@ -645,6 +645,15 @@ export default defineConfig({
                     if (id.includes('node_modules/react-dom/') || id.includes('node_modules/react/')) {
                         return 'react-vendor';
                     }
+                    if (id.includes('node_modules/react-icons/')) {
+                        return 'icons-vendor';
+                    }
+                    if (id.includes('node_modules/@sentry/')) {
+                        return 'sentry-vendor';
+                    }
+                    if (id.includes('node_modules/@supabase/') || id.includes('node_modules/socket.io-client/')) {
+                        return 'network-vendor';
+                    }
                     // Group the heavy 3D stack (three.js + three-stdlib + the
                     // @react-three/* renderer + postprocessing) into ONE cacheable
                     // vendor chunk. It's imported only by lazy 3D screens, so it

@@ -9,12 +9,17 @@ const _ai_fight_token_js_1 = require("./_ai-fight-token.js");
         const token = (0, _ai_fight_token_js_1.createAiFightTokenRecord)('Player', 'abc123', 12345, {
             opponentId: 'forest-ai:1',
             opponentLevel: 42.9,
+            baseXp: 125,
+            baseRyo: 90,
         });
         node_assert_1.strict.equal(token.playerName, 'Player');
         node_assert_1.strict.equal(token.tokenId, 'abc123');
         node_assert_1.strict.equal(token.mintedAt, 12345);
         node_assert_1.strict.equal(token.maxXp, _ai_fight_reward_js_1.MAX_AI_FIGHT_XP);
         node_assert_1.strict.equal(token.maxRyo, _ai_fight_reward_js_1.MAX_AI_FIGHT_RYO);
+        node_assert_1.strict.equal(token.baseXp, 125);
+        node_assert_1.strict.equal(token.baseRyo, 90);
+        node_assert_1.strict.equal(token.rewardSource, 'server-save');
         node_assert_1.strict.equal(token.opponentId, 'forest-ai:1');
         node_assert_1.strict.equal(token.opponentLevel, 42);
     });
@@ -27,6 +32,15 @@ const _ai_fight_token_js_1 = require("./_ai-fight-token.js");
         const token = (0, _ai_fight_token_js_1.createAiFightTokenRecord)('Player', 'abc123');
         node_assert_1.strict.deepEqual((0, _ai_fight_token_js_1.validateAiFightRewardClaim)(token, 125.9, 90.1), { ok: true, xp: 125, ryo: 90 });
         node_assert_1.strict.deepEqual((0, _ai_fight_token_js_1.validateAiFightRewardClaim)(token, -10, 'x'), { ok: true, xp: 0, ryo: 0 });
+    });
+    (0, node_test_1.it)('uses server-sealed rewards when present instead of client-submitted amounts', () => {
+        const token = (0, _ai_fight_token_js_1.createAiFightTokenRecord)('Player', 'abc123', 123, { baseXp: 100, baseRyo: 75 });
+        node_assert_1.strict.deepEqual((0, _ai_fight_token_js_1.validateAiFightRewardClaim)(token, 999, 999), { ok: true, xp: 100, ryo: 75 });
+    });
+    (0, node_test_1.it)('computes AI fight base rewards from the active pet trait', () => {
+        node_assert_1.strict.deepEqual((0, _ai_fight_token_js_1.computeAiFightBaseReward)({ activePetId: 'p1', pets: [{ id: 'p1', trait: 'Swift' }] }), { xp: 125, ryo: 75, trait: 'Swift' });
+        node_assert_1.strict.deepEqual((0, _ai_fight_token_js_1.computeAiFightBaseReward)({ activePetId: 'p1', pets: [{ id: 'p1', trait: 'Lucky' }] }), { xp: 100, ryo: 90, trait: 'Lucky' });
+        node_assert_1.strict.deepEqual((0, _ai_fight_token_js_1.computeAiFightBaseReward)({ activePetId: 'p2', pets: [{ id: 'p1', trait: 'Swift' }] }), { xp: 100, ryo: 75, trait: null });
     });
     (0, node_test_1.it)('rejects claims that exceed the sealed ceiling', () => {
         const token = (0, _ai_fight_token_js_1.createAiFightTokenRecord)('Player', 'abc123');

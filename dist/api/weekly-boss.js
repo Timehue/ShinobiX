@@ -170,9 +170,9 @@ async function loadOrInitBoss() {
     }
     return existing;
 }
-async function weeklyBossLogFightCap(actorName, isAdminActor) {
+async function weeklyBossLogFightCaps(actorName, isAdminActor) {
     if (isAdminActor)
-        return Number.MAX_SAFE_INTEGER;
+        return { maxDamage: Number.MAX_SAFE_INTEGER, perHitCap: Number.MAX_SAFE_INTEGER, maxHits: WEEKLY_BOSS_LOG_FIGHT_MAX_HITS };
     try {
         const actorSave = await _storage_js_1.kv.get(`save:${actorName}`);
         const actorChar = (actorSave?.character ?? null);
@@ -181,10 +181,18 @@ async function weeklyBossLogFightCap(actorName, isAdminActor) {
         const rawBest = Math.max(Number(stats.bukijutsuOffense ?? 0), Number(stats.taijutsuOffense ?? 0), Number(stats.ninjutsuOffense ?? 0), Number(stats.genjutsuOffense ?? 0));
         const best = Math.min(2500, rawBest);
         const fairPerHit = Math.max(50, Math.floor(best * (1 + level / 100) * WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR));
-        return fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS;
+        return {
+            maxDamage: fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS,
+            perHitCap: fairPerHit,
+            maxHits: WEEKLY_BOSS_LOG_FIGHT_MAX_HITS,
+        };
     }
     catch {
-        return WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP;
+        return {
+            maxDamage: WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP,
+            perHitCap: Math.max(50, Math.floor(WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP / WEEKLY_BOSS_LOG_FIGHT_MAX_HITS)),
+            maxHits: WEEKLY_BOSS_LOG_FIGHT_MAX_HITS,
+        };
     }
 }
 // Distribute rewards once 24h has elapsed. Idempotent + crash-resumable
@@ -447,17 +455,19 @@ async function handler(req, res) {
                     }
                 }
                 const token = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
-                const maxDamage = await weeklyBossLogFightCap(actorName, identity.admin);
+                const caps = await weeklyBossLogFightCaps(actorName, identity.admin);
                 const record = {
                     playerName: actorName,
                     weekKey: boss.weekKey,
                     aiId: boss.aiId,
                     bossStartedAt: boss.startedAt,
-                    maxDamage,
+                    maxDamage: caps.maxDamage,
+                    perHitCap: caps.perHitCap,
+                    maxHits: caps.maxHits,
                     mintedAt: Date.now(),
                 };
                 await _storage_js_1.kv.set((0, _weekly_boss_fight_token_js_1.weeklyBossFightTokenKey)(actorName, boss.weekKey, token), record, { ex: WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS });
-                return res.status(200).json({ ok: true, token, maxDamage, expiresInSeconds: WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS });
+                return res.status(200).json({ ok: true, token, maxDamage: caps.maxDamage, expiresInSeconds: WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS });
             }
             if (kind === 'damage') {
                 // Per-player cooldown — prevents loop spamming damage POSTs.
@@ -578,7 +588,7 @@ async function handler(req, res) {
                         weekKey: boss.weekKey,
                         aiId: boss.aiId,
                         bossStartedAt: boss.startedAt,
-                    }, requested);
+                    }, requested, (0, _weekly_boss_fight_token_js_1.cleanWeeklyBossDamageEvents)(body.damageEvents ?? body.events));
                     if (!claim.ok) {
                         return res.status(200).json({ boss, dealt: 0, attemptsUsed: boss.attemptsByPlayer?.[actorName] ?? 0, reason: claim.reason });
                     }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buyClanExchangeItem, eligibleCacheItems } from './_exchange.js';
+import { buyClanExchangeItem, eligibleCacheItems, refundClanExchangeTreasuryPurchase } from './_exchange.js';
 import type { CatalogItem } from '../pvp/_item-catalog.js';
 
 function clan(level = 10) {
@@ -35,6 +35,23 @@ test('buyClanExchangeItem can credit clan treasury without using treasury as cos
     if (!result.ok) return;
     assert.equal(result.character.clanPoints, 250);
     assert.equal((result.clanData.treasury as Record<string, unknown>).warSupply, 510);
+});
+
+test('refundClanExchangeTreasuryPurchase restores points and purchase limit', () => {
+    const now = new Date('2026-01-01T12:00:00Z');
+    const purchased = buyClanExchangeItem({ character: character(4000), clanData: clan(10), itemId: 'greaterWarSupplyGrant', now });
+    assert.equal(purchased.ok, true);
+    if (!purchased.ok) return;
+
+    const blocked = buyClanExchangeItem({ character: purchased.character, clanData: clan(10), itemId: 'greaterWarSupplyGrant', now });
+    assert.equal(blocked.ok, false);
+    if (!blocked.ok) assert.equal(blocked.code, 'limit-reached');
+
+    const refunded = refundClanExchangeTreasuryPurchase({ character: purchased.character, itemId: 'greaterWarSupplyGrant', now });
+    assert.equal(refunded.clanPoints, 4000);
+
+    const retry = buyClanExchangeItem({ character: refunded, clanData: clan(10), itemId: 'greaterWarSupplyGrant', now });
+    assert.equal(retry.ok, true);
 });
 
 test('buyClanExchangeItem enforces weekly purchase limits', () => {

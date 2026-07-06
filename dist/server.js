@@ -42,6 +42,7 @@ const leaderboards_js_1 = __importDefault(require("./api/player/leaderboards.js"
 const trade_js_1 = __importDefault(require("./api/player/trade.js"));
 const daily_login_js_1 = __importDefault(require("./api/player/daily-login.js"));
 const black_market_js_1 = __importDefault(require("./api/festival/black-market.js"));
+const sunscar_js_1 = __importDefault(require("./api/festival/sunscar.js"));
 const session_js_1 = __importDefault(require("./api/pvp/session.js"));
 const move_js_1 = __importDefault(require("./api/pvp/move.js"));
 const images_js_1 = __importDefault(require("./api/images.js"));
@@ -208,6 +209,7 @@ const asset_report_js_1 = __importDefault(require("./api/admin/asset-report.js")
 const audit_log_js_1 = __importDefault(require("./api/admin/audit-log.js"));
 // Admin: economy telemetry (faucet/sink aggregates + recent txns + anomalies)
 const economy_js_1 = __importDefault(require("./api/admin/economy.js"));
+const economy_reconcile_js_1 = __importDefault(require("./api/admin/economy-reconcile.js"));
 // Shared auth helper — constant-time compare for the restart endpoint.
 const _auth_js_1 = require("./api/_auth.js");
 // CORS origin predicate — single source of truth, shared with cors() and the
@@ -531,6 +533,7 @@ route('/player/trade', trade_js_1.default);
 // stamp on the save itself. See api/player/_daily-login.ts.
 route('/player/daily-login', daily_login_js_1.default);
 route('/festival/black-market', black_market_js_1.default);
+route('/festival/sunscar', sunscar_js_1.default);
 // PvP
 route('/pvp/session', session_js_1.default);
 route('/pvp/move', move_js_1.default);
@@ -794,6 +797,7 @@ route('/admin/battle-receipts', battle_receipts_js_1.default);
 route('/admin/asset-report', asset_report_js_1.default);
 route('/admin/audit-log', audit_log_js_1.default);
 route('/admin/economy', economy_js_1.default);
+route('/admin/economy-reconcile', economy_reconcile_js_1.default);
 // NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
 // `npm test` if the client calls an /api path that isn't registered here, or if
 // an api/** handler file is never wired in. There is no folder-convention

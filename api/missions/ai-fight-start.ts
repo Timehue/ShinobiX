@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import {
     AI_FIGHT_TOKEN_TTL_SECONDS,
     aiFightTokenKey,
+    computeAiFightBaseReward,
     createAiFightTokenRecord,
 } from './_ai-fight-token.js';
 
@@ -35,10 +36,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'ai-fight-start', 30, 60_000, identity.name))) return;
 
+        const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        const character = (save?.character ?? null) as Record<string, unknown> | null;
+        if (!save || !character) return res.status(404).json({ error: 'Player save not found.' });
+        const reward = computeAiFightBaseReward(character);
+
         const token = randomUUID().replace(/-/g, '');
         const record = createAiFightTokenRecord(playerName, token, Date.now(), {
             opponentId: body.opponentId,
             opponentLevel: body.opponentLevel,
+            baseXp: reward.xp,
+            baseRyo: reward.ryo,
         });
         await kv.set(aiFightTokenKey(playerName, token), record, { ex: AI_FIGHT_TOKEN_TTL_SECONDS });
 
@@ -48,6 +56,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             expiresInSeconds: AI_FIGHT_TOKEN_TTL_SECONDS,
             maxXp: record.maxXp,
             maxRyo: record.maxRyo,
+            baseXp: record.baseXp,
+            baseRyo: record.baseRyo,
+            trait: reward.trait,
         });
     } catch (err) {
         console.error('[missions/ai-fight-start]', err);

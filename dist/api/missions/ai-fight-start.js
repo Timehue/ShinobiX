@@ -33,10 +33,17 @@ async function handler(req, res) {
         }
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'ai-fight-start', 30, 60_000, identity.name)))
             return;
+        const save = await _storage_js_1.kv.get(`save:${playerName}`);
+        const character = (save?.character ?? null);
+        if (!save || !character)
+            return res.status(404).json({ error: 'Player save not found.' });
+        const reward = (0, _ai_fight_token_js_1.computeAiFightBaseReward)(character);
         const token = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
         const record = (0, _ai_fight_token_js_1.createAiFightTokenRecord)(playerName, token, Date.now(), {
             opponentId: body.opponentId,
             opponentLevel: body.opponentLevel,
+            baseXp: reward.xp,
+            baseRyo: reward.ryo,
         });
         await _storage_js_1.kv.set((0, _ai_fight_token_js_1.aiFightTokenKey)(playerName, token), record, { ex: _ai_fight_token_js_1.AI_FIGHT_TOKEN_TTL_SECONDS });
         return res.status(200).json({
@@ -45,6 +52,9 @@ async function handler(req, res) {
             expiresInSeconds: _ai_fight_token_js_1.AI_FIGHT_TOKEN_TTL_SECONDS,
             maxXp: record.maxXp,
             maxRyo: record.maxRyo,
+            baseXp: record.baseXp,
+            baseRyo: record.baseRyo,
+            trait: reward.trait,
         });
     }
     catch (err) {
