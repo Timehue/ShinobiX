@@ -99,7 +99,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             unlockLevel: 1,
             requirements: [
                 { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "Free roll at Level 2", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
-                { label: "Equip your jutsu loadout", progress: character.equippedJutsuIds.length, target: 4, detail: "Add a 4th jutsu", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
+                { label: "Equip your jutsu loadout", progress: character.equippedJutsuIds.length, target: 4, detail: "Add a 4th jutsu", goScreen: "profile", goLabel: "Open Profile" },
                 { label: "Win your first battle", progress: totalAiKills, target: 1, detail: "Fight in the Arena or a hunt", goScreen: "battleArena", goLabel: "Go Arena" },
                 { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds", goScreen: "training", goLabel: "Go Train" },
                 { label: "Complete your first mission", progress: totalMissionsCompleted, target: 1, detail: "Accept a D-rank mission below", goScreen: "missions", goLabel: "Go to Mission Hall" },

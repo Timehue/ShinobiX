@@ -43,9 +43,8 @@ export function StoryHall({
     const current = getCurrentStory(character);
     const [lineIndex, setLineIndex] = useState(0);
     // Gate the village story behind tutorial completion (matches the auto-trigger
-    // gate in App.tsx). "storyUnlocked" is allowed — that beat is actively sending
-    // the player here, and visiting flips onboarding to "done".
-    const storyTutorialLocked = !["done", "storyUnlocked"].includes(normalizeOnboardingStep(character.onboardingStep));
+    // gate in App.tsx). Story Hall is no longer part of the Academy tutorial.
+    const storyTutorialLocked = normalizeOnboardingStep(character.onboardingStep) !== "done";
     if (storyTutorialLocked) {
         return (
             <div className="card cinematic-card">

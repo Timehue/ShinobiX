@@ -538,7 +538,7 @@ export type PendingArenaStoryBattle =
         // Academy Sparring Match — the onboarding "guaranteed first win".
         // A deliberately weak Lv-1 training dummy (low HP, Lv-1 offense) so a
         // combat-ready new player wins in a few hits. On win the spar branch in
-        // completePendingArenaStoryBattle advances onboardingStep → "training".
+        // completePendingArenaStoryBattle advances onboardingStep -> "cafeteria".
         kind: "academySparring";
         returnScreen: Screen;
     };
@@ -5418,7 +5418,7 @@ export default function App() {
             }
         }
 
-        if (character && screen === "village" && nextScreen !== "village") {
+        if (character && screen === "village" && nextScreen !== "village" && normalizeOnboardingStep(character.onboardingStep) === "done") {
             // Built-in: Awakening Stone VN fires first time leaving village at level 2+
             if (character.level >= 2 && !triggeredEvents.includes(AWAKENING_VN_ID)) {
                 setTriggeredEvents((ids) => [...ids, AWAKENING_VN_ID]);
@@ -5556,7 +5556,7 @@ export default function App() {
     // deliberately weak Lv-1 training dummy via the existing story-battle infra
     // (temporaryStoryAi + pendingArenaStoryBattle). The dummy has tiny HP and
     // Lv-1 offense, so a new player (who spawns combat-ready with 3 bloodline
-    // jutsu) wins in a few hits. The win advances onboardingStep → "training" in
+    // jutsu) wins in a few hits. The win advances onboardingStep -> "cafeteria" in
     // completePendingArenaStoryBattle; a loss just returns to the village and
     // re-prompts. Fully client-side (AI fight) — no server/PvP path.
     function startAcademySparringMatch() {
@@ -5838,20 +5838,22 @@ export default function App() {
         }
 
         if (pendingArenaStoryBattle.kind === "academySparring") {
-            // First-win dopamine: modest one-time XP/ryo + full heal, then go train.
+            // First-win dopamine: modest one-time XP/ryo, then route to the
+            // Cafeteria. Leave a small, non-lethal injury so the heal step is real.
             const SPAR_XP = 60;
             const leveled = gainXp({ ...character, hp: survivingHp }, SPAR_XP);
+            const postSparHp = Math.max(1, leveled.maxHp - 25);
             setCharacter({
                 ...leveled,
                 ryo: leveled.ryo + 30,
-                hp: leveled.maxHp,
+                hp: postSparHp,
                 stamina: leveled.maxStamina,
                 chakra: leveled.maxChakra,
-                onboardingStep: "training",
+                onboardingStep: "cafeteria",
             });
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");
-            return `Sparring match won! You bested the Academy training dummy. +${effectiveCharacterXpGain(character, SPAR_XP)} XP, +30 ryo. Time to start your training.`;
+            return `Sparring match won! You bested the Academy training dummy. +${effectiveCharacterXpGain(character, SPAR_XP)} XP, +30 ryo. You were clipped in the exchange; heal up at the Cafeteria.`;
         }
 
         if (pendingArenaStoryBattle.kind === "hollowGateShrine") {
@@ -7719,9 +7721,9 @@ export default function App() {
                                 ...character,
                                 pets: [...character.pets, granted],
                                 activePetId: granted.id,
-                                // Hand off to the guaranteed-first-win spar; the spar
-                                // win advances to the first stat-training objective.
-                                onboardingStep: "academySpar",
+                                // Hand off to stat training first; jutsu/loadout and
+                                // inventory prep now happen before the first spar.
+                                onboardingStep: "training",
                             };
                             setCharacter(updated);
                             // Push immediately so the starter isn't lost on a fast refresh
@@ -7769,6 +7771,7 @@ export default function App() {
                         character={character}
                         screen={screen}
                         activeTraining={activeTraining}
+                        currentSector={currentSector}
                         setScreen={navigate}
                         updateCharacter={setCharacter}
                         onStartSpar={startAcademySparringMatch}

@@ -639,7 +639,7 @@ export function JutsuTrainingHall({
         </div>
     ) : showAcademyJutsuHint ? (
         <div className="academy-inline-callout academy-jutsu-callout">
-            <strong>Academy Training:</strong> your bloodline gave you starter jutsu. Unlock or equip one more jutsu to finish your starter loadout.
+            <strong>Academy Training:</strong> your bloodline gave you starter jutsu. Unlock one more here, then equip it from Profile so it appears in your battle loadout.
         </div>
     ) : null;
 
