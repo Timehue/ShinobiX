@@ -1,18 +1,11 @@
 @import "./styles/tokens.css";
 @import "./styles/ui.css";
-@import "./styles/battle-skin.css";
 @import "./styles/profile-skin.css";
-@import "./styles/training-skin.css";
 @import "./styles/central-skin.css";
 @import "./styles/hub-screens-skin.css";
 @import "./styles/banner-skin.css";
-@import "./styles/pet-skin.css";
-@import "./styles/atlas-skin.css";
 @import "./styles/start-skin.css";
 @import "./styles/landing-skin.css";
-@import "./styles/card-clash-skin.css";
-@import "./styles/guides-skin.css";
-@import "./styles/village-war-map-skin.css";
 
 * {
     box-sizing: border-box;

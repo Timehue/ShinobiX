@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import "../styles/pet-skin.css";
 import type { Character, PlayerRecord, ServerPlayerSummary } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen, JutsuElement } from "../types/core";

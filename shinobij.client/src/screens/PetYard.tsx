@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
+import "../styles/pet-skin.css";
 import type { Character } from "../types/character";
 import type { Pet, PetExpeditionType, PetTrainingType } from "../types/pet";
 import type { Screen } from "../types/core";
