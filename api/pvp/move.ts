@@ -7,12 +7,57 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus, HitFxTarget } from './session.js';
 import { trimPvpLog, PVP_MOVE_TOKEN_HISTORY } from './session.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen, v2PoisonOnSpend } from '../_combat-resources.js';
+import { GRID_H, GRID_W, MAX_ACTIONS, MAX_ROUNDS, SESSION_TTL, SPIRAL_RADIUS } from '../combat-core/constants.js';
+import { hexDistance as distance, hexNeighbors, nextStepToward } from '../combat-core/grid.js';
+import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
+import { adjustedApCost } from '../combat-core/resources.js';
+import { resolveJutsu as resolveCoreJutsu } from '../combat-core/resolveJutsu.js';
+import {
+    DISCIPLINE_OFFENSE_FIELD,
+    DRAIN_BASE_TICK,
+    MAX_WOUND_STACKS,
+    STUN_AP_PENALTY,
+    ampMultiplierFromStatuses,
+    armorRawDrFromCharacter,
+    disciplineBonusesFromStatuses,
+    dotMitigationFromRawDr,
+    drainTick,
+    drContributionFromStatuses,
+    getOffense,
+    generalsBonusFromStatuses,
+    directDamageBaseFormula,
+    directDamageNumberFormula,
+    healMultiplierFromStatuses,
+    healAmountForMastery,
+    jutsuLevelCapForLevel,
+    perRankStatCap,
+    postDamageFormula,
+    postDamagePercentAmount,
+    scaledTagPercent as scaleCombatTagPercent,
+    shieldAmountForMastery,
+    statusDurationFor,
+    weatherMultiplier,
+    withDisciplineBonuses,
+    withGeneralsBonus,
+    woundAmountForFinalDamage,
+} from '../combat-core/formulas.js';
+import {
+    activeCombatStatuses,
+    addCombatStatus,
+    capCombatStatusStacks,
+    countActiveCombatStatuses,
+    hasCombatStatus,
+    isCombatStatusActive,
+    sumActiveCombatStatusPercent,
+    tickCombatStatuses,
+} from '../combat-core/statuses.js';
+import type { CombatFxEvent, CombatTag } from '../combat-core/types.js';
 
 // Internal floating-number event before it's mapped to a concrete fighter slot.
 // `self` = the caster / ticking fighter, `opp` = the opponent — resolved to
 // p1/p2 by the handler (which knows the acting role). Mirrors the log line that
 // is pushed alongside it, so the flying number equals the logged damage/heal.
-type HitFxEvent = { who: 'self' | 'opp'; amount: number; kind: 'damage' | 'heal' };
+type HitFxEvent = CombatFxEvent;
 function pushFx(fx: HitFxEvent[], who: 'self' | 'opp', amount: number, kind: 'damage' | 'heal') {
     if (amount > 0) fx.push({ who, amount: Math.round(amount), kind });
 }
@@ -46,178 +91,10 @@ async function saveSession(
     await kv.set(key, next, { ex: opts.ex ?? SESSION_TTL });
 }
 
-// ─── Grid constants (match arena exactly) ─────────────────────────────────────
-const GRID_W = 12;
-const GRID_H = 10;
-const MAX_ROUNDS = 25;
-const MAX_ACTIONS = 5;
-// AOE_SPIRAL ground-nova footprint radius (filled hex disk around the landing
-// tile). Bigger than INSTANT_EFFECT's radius-1 zone. Mirror in the client
-// preview (shinobij.client/src/screens/PvpBattleScreen.tsx PVP_SPIRAL_RADIUS).
-const SPIRAL_RADIUS = 2;
-// Must match session.ts. 15 min covers the live fight; every move resets
-// the TTL via writeSession, so an active match never expires — only
-// abandoned ones (a tab closed mid-fight) decay quickly.
-const SESSION_TTL = 15 * 60;
+// Combat formula constants and pure numeric helpers live in combat-core/formulas.
+// move.ts keeps PvP session/API glue, tag aliases, grid mutation, and log wording.
 
-// ─── Combat formula constants (v4.3) ──────────────────────────────────────────
-const MAX_STAT = 2500;
-// Raw dmg = scaledEp × 32. Calibrated so a round-1 standard 60-AP jutsu
-// (EP 40) at A-rank vs A-rank with full Legendary armor + Void Sovereign
-// damage set lands at ~1,150 (in the ~875-1,150 target band depending on
-// bloodline and armor-set pairing).
-const EP_MULTIPLIER = 32;
-// Mastery → jutsu DAMAGE ramp (mirrors client combat-math.ts; parity test pins
-// these equal). An untrained jutsu deals MASTERY_MIN_DAMAGE_FRAC of its fully-
-// mastered damage, scaling to 100% at JUTSU_MAX_LEVEL. The MAXED value is
-// unchanged, so max-mastery PvP balance is preserved — only under-leveled jutsu
-// hit softer.
-const JUTSU_MAX_LEVEL = 50;
-const MASTERY_MIN_DAMAGE_FRAC = 0.3;
-// Per-rank jutsu mastery-level cap (anti-twink). Mirrors
-// shinobij.client/src/constants/game.ts jutsuLevelCapForLevel (parity-pinned by
-// api/_combat-formula-parity.test.ts). The EFFECTIVE mastery used for EP/tag/
-// drain/pierce scaling is clamped to the caster's rank ceiling, so a low-rank
-// player who grinds one jutsu to 50 can't break their bracket. Only bites
-// Academy/Genin/Chunin; Jonin+ (level ≥ 50) get the global max. Save-safe: the
-// STORED mastery is never touched, so ranking up restores the full level.
-const JUTSU_LEVEL_CAP_ACADEMY = 10;
-const JUTSU_LEVEL_CAP_GENIN = 20;
-const JUTSU_LEVEL_CAP_CHUNIN = 30;
-const JUTSU_LEVEL_CAP_JONIN = 50;      // Jonin (50–79) + Special Jonin (80+) = global max
-function jutsuLevelCapForLevel(level: number): number {
-    const lvl = Math.max(1, Math.floor(Number(level) || 1));
-    if (lvl >= 50) return JUTSU_LEVEL_CAP_JONIN;
-    if (lvl >= 30) return JUTSU_LEVEL_CAP_CHUNIN;
-    if (lvl >= 15) return JUTSU_LEVEL_CAP_GENIN;
-    return JUTSU_LEVEL_CAP_ACADEMY;
-}
-// Per-rank STAT cap (anti-twink) — the stat analogue of jutsuLevelCapForLevel.
-// Mirrors shinobij.client/src/constants/game.ts (parity-pinned by
-// api/_combat-formula-parity.test.ts). Clamps the value the damage/defense formula
-// READS for each of the 12 stats, never the stored/sealed stat. Special Jonin (80+)
-// = MAX_STAT, so endgame PvP is unchanged.
-const STAT_CAP_ACADEMY = 350;
-const STAT_CAP_GENIN = 700;
-const STAT_CAP_CHUNIN = 1300;
-const STAT_CAP_JONIN = 2100;
-const STAT_CAP_SPECIAL_JONIN = 2500;
-const STAT_CAP_FIELDS = [
-    'strength', 'speed', 'intelligence', 'willpower',
-    'bukijutsuOffense', 'bukijutsuDefense', 'taijutsuOffense', 'taijutsuDefense',
-    'genjutsuOffense', 'genjutsuDefense', 'ninjutsuOffense', 'ninjutsuDefense',
-];
-function statCapForLevel(level: number): number {
-    const lvl = Math.max(1, Math.floor(Number(level) || 1));
-    if (lvl >= 80) return STAT_CAP_SPECIAL_JONIN;
-    if (lvl >= 50) return STAT_CAP_JONIN;
-    if (lvl >= 30) return STAT_CAP_CHUNIN;
-    if (lvl >= 15) return STAT_CAP_GENIN;
-    return STAT_CAP_ACADEMY;
-}
-function perRankStatCap(stats: Record<string, number>, level: number): Record<string, number> {
-    const cap = statCapForLevel(level);
-    const out: Record<string, number> = { ...stats };
-    for (const k of STAT_CAP_FIELDS) {
-        if (typeof out[k] === 'number') out[k] = Math.min(out[k], cap);
-    }
-    return out;
-}
-const K_DR = 0.5;                      // DR pool soft cap: effDR = raw / (raw + K_DR)
-// Damage-amplification soft-cap pool. Mirrors K_DR: IDG (attacker), IDT
-// (defender), and Ignition (defender) all feed one pool with diminishing
-// returns, so 4 stacks of 35% multiply by ~1.74× instead of ~3.32×.
-const K_AMP = 0.5;
-// Increase Generals soft-cap pool. The tag raises str/spd/int/wil, which feed
-// BOTH offense and defense composites (getOffense/getDefense) — so it rides
-// statFactor, a multiplier with no pool of its own. Left un-pooled, linear
-// stacking would race to the [0.35,1.85] statFactor clamp (3× 30% ≈ maxes
-// offense AND floors incoming). So the stacks' summed percent is soft-capped the
-// same way the amp tags are: effFrac = rawFrac/(rawFrac+K_GENERALS); the per-stat
-// bonus is effFrac × MAX_STAT, added ABOVE the per-rank stat cap. Mirrors the
-// client (combat-math.ts generalsBonusFromStatuses) — KEEP IN SYNC (parity test).
-const K_GENERALS = 0.5;
-const GENERAL_STAT_FIELDS = ['strength', 'speed', 'intelligence', 'willpower'] as const;
-// Increase Discipline soft-cap pool (legacy signature jutsu): the style-locked
-// sibling of Increase Generals. Where Generals lifts all four generals (two of
-// which feed EVERY composite), Discipline lifts exactly ONE discipline's offense
-// stat — so the ×2 scale makes an X% stack match the OFFENSIVE half of an X%
-// Generals stack on that one discipline (a composite reads two generals), and
-// nothing else: no defense side, no other styles. Mirrors the client
-// (combat-math.ts disciplineBonusFromStatuses) — KEEP IN SYNC (parity test).
-const K_DISCIPLINE = 0.5;
-const DISCIPLINE_BONUS_SCALE = 2;
-const DISCIPLINE_OFFENSE_FIELD: Record<string, string> = {
-    Taijutsu: 'taijutsuOffense',
-    Bukijutsu: 'bukijutsuOffense',
-    Genjutsu: 'genjutsuOffense',
-    Ninjutsu: 'ninjutsuOffense',
-};
-const DR_DOT_SCALE = 0.5;              // DR mitigation against DoT ticks (0..1)
-const HEAL_FLAT = 750;                 // Heal tag value at max jutsu mastery
-const SHIELD_FLAT = 750;               // Shield tag value at max jutsu mastery
-// Drain: single-stack, scales with attacker mastery → 50..300 per tick
-const DRAIN_BASE_TICK = 50;
-const DRAIN_PER_LEVEL = 5;
-const DRAIN_MAX_TICK = 300;
-// Wound: per-instance tick amount = finalDmg × min(tag.pct, rank_cap, hard_cap) / 100
-const WOUND_CAP_BY_RANK: Record<string, number> = {
-    basic: 25,    // basic / non-bloodline jutsus
-    AB:    30,    // A and B rank bloodline jutsus
-    S:     35,    // S rank bloodline jutsus
-};
-const WOUND_HARD_CAP_PCT = 60;
-// Hard ceiling for the Town Defense guard mitigation. api/pvp/session.ts seals
-// the real value (≤5%, recomputed from the defending guard's Town Defense
-// upgrade) onto the defender's character.guardDefensePct; this cap is pure
-// defense-in-depth so a tampered / legacy session value can never make a guard
-// meaningfully unkillable. Pierce (true damage) bypasses the mitigation.
-const GUARD_DEFENSE_MAX_MIT = 0.5;
-// AP penalty applied when a Stunned fighter starts their turn. Server-side
-// this lives at the next-turn setup in endTurn (baseAp = 100 - STUN_AP_PENALTY).
-// Client mirrors via shinobij.client/src/constants/game.ts STUN_AP_PENALTY.
-// Pinned by the combat-formula-parity test so this can never drift again.
-const STUN_AP_PENALTY = 40;
-// Buff/debuff durations: amps run 2 rounds to match the in-game tag tooltips.
-const STATUS_DURATIONS_OVERRIDE: Record<string, number> = {
-    'Increase Damage Given':  2,
-    'Increase Damage Taken':  2,
-    'Decrease Damage Given':  2,
-    'Decrease Damage Taken':  2,
-    'Increase Generals':      2,
-    'Increase Discipline':    2,
-};
-function statusDurationFor(name: string, fallback: number = 2): number {
-    return STATUS_DURATIONS_OVERRIDE[name] ?? fallback;
-}
-// Statuses that allow multiple coexisting instances live in the shared tag
-// contract (STACKABLE_STATUS from ./_tags). Everything else replaces on re-apply.
-
-// ─── Grid helpers (exact match to arena geometry) ─────────────────────────────
-function xy(pos: number) { return { x: pos % GRID_W, y: Math.floor(pos / GRID_W) }; }
-function posFromXY(x: number, y: number): number {
-    if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return -1;
-    return y * GRID_W + x;
-}
-function axial(pos: number) {
-    const { x, y } = xy(pos);
-    return { q: x, r: y - ((x - (x & 1)) / 2) };
-}
-function distance(a: number, b: number): number {
-    const A = axial(a); const B = axial(b);
-    return (Math.abs(A.q - B.q) + Math.abs(A.q + A.r - B.q - B.r) + Math.abs(A.r - B.r)) / 2;
-}
-function hexNeighbors(pos: number): number[] {
-    const { x, y } = xy(pos);
-    const even = x % 2 === 0;
-    const deltas = even
-        ? [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [0, 1]]
-        : [[1, 1], [1, 0], [0, -1], [-1, 0], [-1, 1], [0, 1]];
-    return deltas.map(([dx, dy]) => posFromXY(x + dx!, y + dy!)).filter(n => n >= 0);
-}
-function nextStepToward(from: number, to: number): number {
-    return hexNeighbors(from).sort((a, b) => distance(a, to) - distance(b, to))[0] ?? from;
-}
+// ─── Tile helpers ─────────────────────────────────────────────────────────────
 function barrierTiles(...fighters: PvpFighter[]): number[] {
     return fighters.flatMap(f => f.statuses.filter(s => s.name === 'Barrier' && typeof s.amount === 'number').map(s => s.amount!));
 }
@@ -225,7 +102,7 @@ function tileBlocked(tile: number, ...fighters: PvpFighter[]) {
     return barrierTiles(...fighters).includes(tile);
 }
 // ─── Jutsu types ──────────────────────────────────────────────────────────────
-type JutsuTag = { name: string; percent?: number; amount?: number };
+type JutsuTag = CombatTag;
 type PvpItem = {
     id?: string;
     name?: string;
@@ -265,15 +142,6 @@ type Jutsu = {
     battleDescription?: string;
 };
 
-// Utility jutsu = no damage (status/buff/debuff only). Prefers the explicit
-// `isUtility` flag; falls back to the legacy 40-AP convention when absent so
-// existing content is unchanged (40-AP jutsu still deal zero damage).
-function isZeroDamageFortyApJutsu(jutsu: Pick<Jutsu, 'id' | 'ap' | 'isUtility'>): boolean {
-    if (jutsu.isUtility === true) return true;
-    if (jutsu.isUtility === false) return false;
-    return jutsu.ap === 40 && jutsu.id !== 'basic-attack' && !jutsu.id.startsWith('item-');
-}
-
 // Canonicalize a tag name via the shared alias map (./_tags). Sessions are
 // sealed with canonical names already; this stays as a defensive normalizer so
 // applyJutsu also works on raw/un-sanitized inputs (e.g. the engine tests).
@@ -309,134 +177,19 @@ function equippedPvpItem(fighter: PvpFighter, itemId?: string, itemName?: string
 }
 
 // ─── Stat helpers ─────────────────────────────────────────────────────────────
-function getOffense(stats: Record<string, number>, type: string): number {
-    if (type === 'Taijutsu') return (stats.taijutsuOffense ?? 0) + (stats.strength ?? 0) + (stats.speed ?? 0);
-    if (type === 'Bukijutsu') return (stats.bukijutsuOffense ?? 0) + (stats.intelligence ?? 0) + (stats.strength ?? 0);
-    if (type === 'Genjutsu') return (stats.genjutsuOffense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0);
-    return (stats.ninjutsuOffense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0);
-}
-function getDefense(stats: Record<string, number>, type: string): number {
-    if (type === 'Taijutsu') return (stats.taijutsuDefense ?? 0) + (stats.strength ?? 0) + (stats.speed ?? 0);
-    if (type === 'Bukijutsu') return (stats.bukijutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.strength ?? 0);
-    if (type === 'Genjutsu') return (stats.genjutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0);
-    return (stats.ninjutsuDefense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0);
-}
-// Flat per-general bonus from a fighter's active Increase Generals stacks, soft-
-// capped through the K_GENERALS pool (diminishing returns), applied ABOVE the
-// per-rank stat cap. Bloodline Seal suppresses it entirely — parallel to how Seal
-// zeroes the bloodline damage multiplier (resolveBaseDamage). Because generals
-// feed both offense and defense, this one number lifts the fighter's damage dealt
-// AND lowers damage taken. Mirrors client combat-math generalsBonusFromStatuses.
 function generalsBonus(f: PvpFighter, round: number): number {
-    if (hasStatus(f, 'Bloodline Seal', round)) return 0;
-    let rawFrac = 0;
-    for (const s of activeStatuses(f, round)) {
-        if (s.name === 'Increase Generals') rawFrac += (s.percent ?? 0) / 100;
-    }
-    if (rawFrac <= 0) return 0;
-    const effFrac = rawFrac / (rawFrac + K_GENERALS);
-    return Math.floor(effFrac * MAX_STAT);
+    return generalsBonusFromStatuses(activeStatuses(f, round), nameMatches);
 }
-// Add a flat bonus to the four general stats (post-cap copy). No-op at bonus ≤ 0.
-function withGeneralsBonus(stats: Record<string, number>, bonus: number): Record<string, number> {
-    if (bonus <= 0) return stats;
-    const out = { ...stats };
-    for (const k of GENERAL_STAT_FIELDS) out[k] = (out[k] ?? 0) + bonus;
-    return out;
-}
-// Flat per-discipline offense bonuses from a fighter's active Increase Discipline
-// stacks (legacy signature jutsu). Pooled PER DISCIPLINE through K_DISCIPLINE and
-// scaled ×2 (see DISCIPLINE_BONUS_SCALE) so an X% stack equals the offensive half
-// of an X% Increase Generals on that one style. Bloodline Seal suppresses it,
-// parallel to generalsBonus. Returns { '<disc>Offense': flat } — folding into the
-// stat record means getOffense (statFactor AND Pierce) picks it up only for casts
-// of the buffed discipline; getDefense never reads *Offense, so no defense side.
-// Mirrors client combat-math disciplineBonusFromStatuses — KEEP IN SYNC.
+
 function disciplineBonuses(f: PvpFighter, round: number): Record<string, number> {
-    if (hasStatus(f, 'Bloodline Seal', round)) return {};
-    const rawFrac: Record<string, number> = {};
-    for (const s of activeStatuses(f, round)) {
-        if (s.name !== 'Increase Discipline') continue;
-        const field = DISCIPLINE_OFFENSE_FIELD[s.discipline ?? ''];
-        if (field) rawFrac[field] = (rawFrac[field] ?? 0) + (s.percent ?? 0) / 100;
-    }
-    const out: Record<string, number> = {};
-    for (const [field, raw] of Object.entries(rawFrac)) {
-        if (raw <= 0) continue;
-        const effFrac = raw / (raw + K_DISCIPLINE);
-        out[field] = Math.floor(effFrac * MAX_STAT * DISCIPLINE_BONUS_SCALE);
-    }
-    return out;
+    return disciplineBonusesFromStatuses(activeStatuses(f, round), nameMatches);
 }
-// Add the per-discipline offense bonuses to the (post-cap) stat copy.
-function withDisciplineBonuses(stats: Record<string, number>, bonuses: Record<string, number>): Record<string, number> {
-    const entries = Object.entries(bonuses);
-    if (!entries.length) return stats;
-    const out = { ...stats };
-    for (const [field, bonus] of entries) out[field] = (out[field] ?? 0) + bonus;
-    return out;
-}
-
-function cappedPostDamage(damage: number, percent: number): number {
-    return Math.floor(Math.min(damage * (percent / 100), damage * 0.6));
-}
-// v4.3 Wound rank caps. Bloodline rank string → max allowed Wound percent.
-// Basic / non-bloodline = 25, A/B rank bloodline = 30, S rank = 35.
-function woundCapForJutsu(jutsu: { bloodlineRank?: string }): number {
-    const rank = (jutsu.bloodlineRank ?? '').trim();
-    if (/^S/i.test(rank)) return WOUND_CAP_BY_RANK.S;
-    if (/^[AB]/i.test(rank)) return WOUND_CAP_BY_RANK.AB;
-    return WOUND_CAP_BY_RANK.basic;
-}
-// Pierce v3: stat-scaled true damage with hard cap.
-// True damage bypasses DR, shield, absorb, reflect — replaces normal damage.
-// Coef tuned so mid-build (composite offense ~3000) caps at 900; low builds get a floor of 100.
-function pierceTrueDamage(offenseComposite: number, jutsuAp: number, masteryLevel: number): number {
-    const apFactor      = Math.max(0.5, (jutsuAp || 60) / 60);
-    const masteryFactor = 1 + Math.max(0, Math.min(50, masteryLevel)) * 0.005;  // +25% at level 50
-    const raw           = offenseComposite * 0.35 * apFactor * masteryFactor;
-    return Math.floor(Math.max(100, Math.min(900, raw)));
-}
-function weatherMultiplier(element: string | undefined, positiveEl: string, negativeEl: string): number {
-    if (!element || (!positiveEl && !negativeEl)) return 1;
-    if (positiveEl && element === positiveEl) return 1.05;
-    if (negativeEl && element === negativeEl) return 0.98;
-    return 1;
-}
-// Terrain bonuses - match the terrainEffects table on the client exactly:
-//   forest  -> +10% Taijutsu
-//   snow    -> +10% Bukijutsu
-//   volcano -> +10% Ninjutsu
-//   shadow  -> +10% Genjutsu
-//   central -> no bonus
-function terrainMultiplier(jutsu: Jutsu, biome: string): number {
-    switch (biome) {
-        case 'forest':  return jutsu.type === 'Taijutsu'  ? 1.1 : 1;
-        case 'snow':    return jutsu.type === 'Bukijutsu' ? 1.1 : 1;
-        case 'volcano': return jutsu.type === 'Ninjutsu'  ? 1.1 : 1;
-        case 'shadow':  return jutsu.type  === 'Genjutsu'   ? 1.1 : 1;
-        default:        return 1;
-    }
-}
-
-// Home-terrain buff: +10% when the fighter's clan owns the reward sector and the
-// jutsu type matches the clan leader's chosen terrain stat. The matching jutsu
-// TYPE ('Bukijutsu'…'Genjutsu', '' when none) is sealed server-side onto the
-// fighter in api/pvp/session.ts — owner-verified against the authoritative
-// territory record, never read from the client. Mirrors the client PvE
-// territoryDamageMultiplier (shinobij.client/src/screens/Arena.tsx) so a sector
-// fight deals identical damage whether resolved by the PvP or PvE engine.
-function homeTerrainMultiplier(self: PvpFighter, jutsu: Jutsu): number {
-    const homeType = (self.character as Record<string, unknown>).homeTerrainType;
-    return typeof homeType === 'string' && homeType !== '' && jutsu.type === homeType ? 1.1 : 1;
-}
-
 // ─── Fighter helpers ──────────────────────────────────────────────────────────
 function isStatusActive(status: PvpStatus, round: number) {
-    return status.activeRound === undefined || status.activeRound <= round;
+    return isCombatStatusActive(status, round);
 }
 function activeStatuses(f: PvpFighter, round: number) {
-    return f.statuses.filter(status => isStatusActive(status, round));
+    return activeCombatStatuses(f.statuses, round);
 }
 // `round` is REQUIRED: a status scheduled for a future round (activeRound =
 // round + 1) must never read as active in the current turn. Defaulting the
@@ -444,27 +197,28 @@ function activeStatuses(f: PvpFighter, round: number) {
 // if a caller forgot to pass it — so the type now forces every call site to be
 // explicit about which round it's asking about.
 function hasStatus(f: PvpFighter, name: string, round: number) {
-    return activeStatuses(f, round).some(s => nameMatches(s.name, name));
+    return hasCombatStatus(f.statuses, name, round, nameMatches);
 }
 function addStatus(f: PvpFighter, s: PvpStatus): PvpFighter {
     // v4.3: apply duration override (IDG/IDT/DDG/DDT → 2 rounds), then either stack or replace.
-    const adjusted: PvpStatus = { ...s, rounds: statusDurationFor(s.name, s.rounds) };
-    if (STACKABLE_STATUS.has(adjusted.name)) {
-        return { ...f, statuses: [...f.statuses, adjusted] };
-    }
-    return { ...f, statuses: [...f.statuses.filter(x => !nameMatches(x.name, adjusted.name)), adjusted] };
+    return {
+        ...f,
+        statuses: addCombatStatus(f.statuses, s, {
+            durationFor: statusDurationFor,
+            isStackable: name => STACKABLE_STATUS.has(name),
+            nameMatches,
+        }),
+    };
 }
 function countActive(f: PvpFighter, name: string, round: number): number {
-    return activeStatuses(f, round).filter(s => nameMatches(s.name, name)).length;
+    return countActiveCombatStatuses(f.statuses, name, round, nameMatches);
 }
 // Sum the percents of every active stack of a status. Used by the post-damage
 // defensive tags (Absorb/Reflect/Lifesteal): they stack additively and the
 // total is hard-capped at 60% downstream by cappedPostDamage. A single stack
 // sums to itself, so this is behaviour-preserving for the common case.
 function sumActivePct(f: PvpFighter, name: string, round: number, fallback = 30): number {
-    return activeStatuses(f, round)
-        .filter(st => st.name === name)
-        .reduce((sum, st) => sum + (st.percent ?? fallback), 0);
+    return sumActiveCombatStatusPercent(f.statuses, name, round, fallback);
 }
 // Tags resolve next round for ALL jutsus (bloodline or not) except INSTANT_EFFECT
 // ground-zone jutsus where the enemy is standing in the zone on cast.
@@ -485,17 +239,9 @@ function addJutsuStatus(f: PvpFighter, jutsu: Pick<Jutsu, 'bloodlineRank' | 'tar
 // MAX_WOUND_STACKS highest-amount ones (ties → most-recently-applied wins, so a
 // re-cast refreshes rather than being dropped). Mirrors client combat-math
 // capWoundStacks — KEEP IN SYNC (parity test).
-const MAX_WOUND_STACKS = 2;
 function capWoundStacks(f: PvpFighter): PvpFighter {
-    const wounds = f.statuses.filter(s => s.name === 'Wound');
-    if (wounds.length <= MAX_WOUND_STACKS) return f;
-    const keep = new Set(
-        wounds.map((s, i) => ({ s, i }))
-            .sort((a, b) => ((b.s.amount ?? 0) - (a.s.amount ?? 0)) || (b.i - a.i))
-            .slice(0, MAX_WOUND_STACKS)
-            .map(o => o.s),
-    );
-    return { ...f, statuses: f.statuses.filter(s => s.name !== 'Wound' || keep.has(s)) };
+    const statuses = capCombatStatusStacks(f.statuses, 'Wound', MAX_WOUND_STACKS);
+    return statuses === f.statuses ? f : { ...f, statuses: statuses as PvpStatus[] };
 }
 function groundEffectTiles(center: number): number[] {
     return [center, ...hexNeighbors(center)];
@@ -576,30 +322,16 @@ export function tickGroundEffects(effects: PvpGroundEffect[] | undefined): PvpGr
 // can expire statuses with the IDENTICAL active-round / decrement semantics. Pure
 // function; exporting it changes zero PvP behaviour.
 export function tickStatuses(f: PvpFighter, round: number): PvpFighter {
-    return {
-        ...f,
-        statuses: f.statuses
-            .map(s => isStatusActive(s, round) ? { ...s, rounds: s.rounds - 1 } : s)
-            .filter(s => s.rounds > 0),
-    };
+    return { ...f, statuses: tickCombatStatuses(f.statuses, round) };
 }
 function tickCooldowns(cds: Record<string, number>): Record<string, number> {
-    const next: Record<string, number> = {};
-    for (const [k, v] of Object.entries(cds)) if (v > 1) next[k] = v - 1;
-    return next;
+    return tickCombatCooldowns(cds);
 }
 // Raw DR contribution from defensive status effects.
 // v4.3: DDT/DDG are stackable; each instance contributes its percent to the DR pool.
 // Soft-capped via K_DR so stacking always helps but with diminishing returns.
 function drContributionFor(attacker: PvpFighter, defender: PvpFighter, round: number): number {
-    let dr = 0;
-    for (const s of activeStatuses(attacker, round)) {
-        if (s.name === 'Decrease Damage Given') dr += (s.percent ?? 0) / 100;
-    }
-    for (const s of activeStatuses(defender, round)) {
-        if (s.name === 'Decrease Damage Taken') dr += (s.percent ?? 0) / 100;
-    }
-    return dr;
+    return drContributionFromStatuses(activeStatuses(attacker, round), activeStatuses(defender, round));
 }
 // Amplifiers (offensive / vulnerability buffs). All amp tags feed a single
 // diminishing-returns pool, mirroring K_DR for defensive stacks:
@@ -609,39 +341,19 @@ function drContributionFor(attacker: PvpFighter, defender: PvpFighter, round: nu
 // Stack 1 of 35% gives ~1.41×; stack 4 of 35% gives ~1.74× (was ~3.32×).
 // Also stops the IDG-+-Ignition combo from compounding past the soft cap.
 function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter, round: number): number {
-    let rawAmp = 0;
-    for (const s of activeStatuses(attacker, round)) {
-        if (s.name === 'Increase Damage Given') rawAmp += (s.percent ?? 0) / 100;
-    }
-    for (const s of activeStatuses(defender, round)) {
-        if (s.name === 'Increase Damage Taken')       rawAmp += (s.percent ?? 0) / 100;
-        else if (nameMatches(s.name, 'Ignition'))     rawAmp += (s.percent ?? 0) / 100;
-    }
-    if (rawAmp <= 0) return 1;
-    return 1 + rawAmp / (rawAmp + K_AMP);
+    return ampMultiplierFromStatuses(activeStatuses(attacker, round), activeStatuses(defender, round), nameMatches);
 }
 
 // Amp/DR tags whose percent is rank-capped (CAPPED_AMP_TAGS from ./_tags —
 // mirrors the client's `cappedDamageTags`). Wound is NOT in that set (it has its
 // own rank cap via woundCapForJutsu).
 // Rank → max amp-tag percent. Mirrors client tagCapForRank (S 40 / A·B 35 / else 30).
-function ampTagCapForRank(rank?: string | null): number {
-    const r = (rank ?? '').trim();
-    if (/^S/i.test(r)) return 40;
-    if (/^[AB]/i.test(r)) return 35;
-    return 30;
-}
 // Scale a tag percent by mastery level — mirrors the client's effectiveTagPercent logic:
 //   level 50 = full stored value, each level below 50 subtracts 0.2 from the raw percent.
 // For amp/DR tags, then clamp to the bloodline rank cap (parity with PvE, which
 // caps these via effectiveTagPercent — previously PvP applied no cap).
 function scaledTagPercent(rawPct: number, masteryLevel: number, tagName?: string, bloodlineRank?: string | null): number {
-    const raw = rawPct > 0 ? rawPct : 30;
-    const levelScaled = Math.max(0, raw - (50 - masteryLevel) * 0.2);
-    if (tagName && CAPPED_AMP_TAGS.has(tagName)) {
-        return Math.min(levelScaled, ampTagCapForRank(bloodlineRank));
-    }
-    return levelScaled;
+    return scaleCombatTagPercent(rawPct, masteryLevel, tagName, bloodlineRank, CAPPED_AMP_TAGS);
 }
 
 // ─── Jutsu application — resolved in explicit, fixed-order phases ─────────────
@@ -670,64 +382,29 @@ type JutsuDamageSetup = { baseDmg: number; effectiveDR: number; offStats: Record
 // to 100% at JUTSU_MAX_LEVEL. Applied to Heal/Shield (hard-capped at the FLAT ceiling)
 // it leaves maxed play byte-identical while damping low-mastery heal/shield spam.
 // Mirrors client combat-math.ts masteryDamageFrac — KEEP IN SYNC (parity test).
-function masteryDamageFrac(masteryLevel: number): number {
-    return MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (Math.max(0, Math.min(JUTSU_MAX_LEVEL, masteryLevel)) / JUTSU_MAX_LEVEL);
-}
-
 // Phase 1 — EP scaling → base damage, plus the defender's diminishing-returns DR pool.
 function resolveBaseDamage(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult: number, biome: string, round: number, masteryLevel: number): JutsuDamageSetup {
-    // Steep mastery → damage ramp (mirrors client combat-math.ts). epAtMax is the
-    // unchanged fully-mastered value; an untrained jutsu deals MASTERY_MIN_DAMAGE_FRAC
-    // of it, scaling to 100% at JUTSU_MAX_LEVEL — so maxed PvP is identical to before.
-    const epAtMax = (jutsu.effectPower ?? 20) + JUTSU_MAX_LEVEL * 0.2;
-    const masteryFrac = masteryDamageFrac(masteryLevel);
-    const scaledEp = isZeroDamageFortyApJutsu(jutsu) ? 0 : Math.max(0, epAtMax * masteryFrac);
     const offStats = (self.character.stats as Record<string, number>) ?? {};
     const defStats = (opponent.character.stats as Record<string, number>) ?? {};
-    // statFactor = 1 + (off - def) * 0.85 / (MAX_STAT * 2), clamped [0.35, 1.85].
-    // Identity at off == def (so maxed-vs-maxed stays balanced at 1.0× exactly,
-    // matching the previous v4.3 max-stat assumption). Mirrors the client's
-    // calculateDamage() in App.tsx so the displayed damage preview agrees with
-    // the server-resolved damage outside max-vs-max matchups.
-    const offense = getOffense(offStats, jutsu.type);
-    const defense = getDefense(defStats, jutsu.type);
-    const statFactor = Math.max(0.35, Math.min(1.85, 1 + ((offense - defense) / (MAX_STAT * 2)) * 0.85));
-    // Bloodline mult: pre-computed on the client (1.0 if absent). v4.3 keeps the
-    // seal interaction. Statuses are stored canonically ('Bloodline Seal'), and
-    // hasStatus is alias-aware, so a single canonical check covers Seal/Bloodline Seal.
-    const bloodlineMult = hasStatus(self, 'Bloodline Seal', round) ? 1.0 : Math.max(1.0, Number((self.character.bloodlineMult as number) ?? 1.0));
-    // Item damage bonus.
-    const itemDamageMult = 1 + Math.max(0, Number((self.character.itemDamagePct as number) ?? 0)) / 100;
-    // Terrain bonus: +10% when jutsu type/element matches the current biome
-    const tMult = terrainMultiplier(jutsu, biome);
-    // Home-terrain bonus: +10% for the owning clan's chosen terrain type (sealed).
-    const hMult = homeTerrainMultiplier(self, jutsu);
-    // v4.3 raw damage = scaledEp × 40 (EP table). Decoupled from maxHp — all max-level players
-    // have similar maxHp anyway, and this gives a tunable damage curve independent of HP scaling.
-    const baseDmg = Math.max(0, Math.floor(
-        scaledEp * EP_MULTIPLIER * statFactor * wMult * tMult * hMult * bloodlineMult * itemDamageMult
-    ));
-    // ── Defensive DR pool (diminishing returns) ───────────────────────────────
-    // armorRawDR: raw sum of per-piece reductions (e.g. 7×0.15 + 0.08 Guardian = 1.13).
-    // Falls back to deriving from old armorFactor for sessions created before this update.
-    const armorRawDR = (opponent.character.armorRawDR !== undefined && opponent.character.armorRawDR !== null)
-        ? Math.min(1.5, Math.max(0, Number(opponent.character.armorRawDR)))
-        : Math.max(0, 1 - Math.min(1.0, Math.max(0.25, Number((opponent.character.armorFactor as number) ?? 1.0))));
-    // Status DR feeds the same pool — every point still reduces damage, just with diminishing returns.
-    const rawStatusDR = drContributionFor(self, opponent, round);
-    const rawTotalDR = armorRawDR + rawStatusDR;
-    // effectiveDR = rawTotal / (rawTotal + K_DR)  →  always < 1, always grows with more DR
-    const effectiveDR = rawTotalDR > 0 ? rawTotalDR / (rawTotalDR + K_DR) : 0;
-    return { baseDmg, effectiveDR, offStats };
+    return directDamageBaseFormula({
+        jutsu,
+        attackerStats: offStats,
+        defenderStats: defStats,
+        attackerCharacter: self.character as Record<string, unknown>,
+        defenderCharacter: opponent.character as Record<string, unknown>,
+        masteryLevel,
+        wMult,
+        biome,
+        rawStatusDR: drContributionFor(self, opponent, round),
+        hasBloodlineSeal: hasStatus(self, 'Bloodline Seal', round),
+    });
 }
 
 // Heal-amplification multiplier from the caster's ACTIVE Increase Heal statuses.
 // (An Increase Heal applied THIS cast is deferred to next round, so it doesn't
 // boost the same-turn Heal/Siphon — matching the old in-line computation.)
 function increaseHealMult(fighter: PvpFighter, round: number): number {
-    return fighter.statuses
-        .filter(st => isStatusActive(st, round) && st.name === 'Increase Heal')
-        .reduce((mult, st) => mult * (1 + (st.percent ?? 0) / 100), 1);
+    return healMultiplierFromStatuses(activeStatuses(fighter, round));
 }
 
 type StatusPhaseResult = { s: PvpFighter; o: PvpFighter; lines: string[]; damage: number; healing: number; shieldGain: number; pierce: boolean };
@@ -747,7 +424,6 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     // Flat Heal/Shield ramp by the same mastery fraction as damage, hard-capped at
     // the FLAT ceiling — maxed casts stay exactly HEAL_FLAT/SHIELD_FLAT, low-mastery
     // ones heal/shield proportionally less (curbs early heal-spam). See masteryDamageFrac.
-    const magnitudeFrac = masteryDamageFrac(masteryLevel);
 
     for (const tag of tags) {
         // Branch on the CANONICAL name only — sessions are sealed canonical, and
@@ -755,8 +431,8 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // (engine tests, NPC payloads) resolve aliases the same way.
         const tagName = normalizeTagName(tag.name);
         const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, masteryLevel, tagName, jutsu.bloodlineRank));
-        if (tagName === 'Heal') { const healAmt = Math.min(HEAL_FLAT, Math.floor(HEAL_FLAT * magnitudeFrac * healBoost)); healing += healAmt; damage = 0; lines.push(`Heal: ${s.name} restores ${healAmt} HP.`); continue; }
-        if (tagName === 'Shield') { const shieldAmt = Math.min(SHIELD_FLAT, Math.floor(SHIELD_FLAT * magnitudeFrac)); shieldGain += shieldAmt; damage = 0; lines.push(`Shield: ${s.name} gains ${shieldAmt} shield.`); continue; }
+        if (tagName === 'Heal') { const healAmt = healAmountForMastery(masteryLevel, healBoost); healing += healAmt; damage = 0; lines.push(`Heal: ${s.name} restores ${healAmt} HP.`); continue; }
+        if (tagName === 'Shield') { const shieldAmt = shieldAmountForMastery(masteryLevel); shieldGain += shieldAmt; damage = 0; lines.push(`Shield: ${s.name} gains ${shieldAmt} shield.`); continue; }
         if (tagName === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addStatus(s, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); damage = 0; continue; }
         if (tagName === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
         if (tagName === 'Stun') { if (!hasStatus(o, 'Debuff Prevent', round) && !hasStatus(o, 'Stun Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }
@@ -765,9 +441,9 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
             // v4.3: Drain is single-stack (addStatus replaces on re-apply) and scales with attacker mastery.
             // Tick = clamp(50 + masteryLevel × 5, 50, 300). At mastery 50: 300/tick.
             if (!hasStatus(o, 'Debuff Prevent', round)) {
-                const drainTick = Math.max(DRAIN_BASE_TICK, Math.min(DRAIN_MAX_TICK, DRAIN_BASE_TICK + masteryLevel * DRAIN_PER_LEVEL));
-                o = addJutsuStatus(o, jutsu, { name: 'Drain', rounds: 2, amount: drainTick, kind: 'negative' }, round);
-                lines.push(`Drain: ${o.name} loses ${drainTick} HP+chakra/turn for 2 turns.`);
+                const drainTickAmount = drainTick(masteryLevel);
+                o = addJutsuStatus(o, jutsu, { name: 'Drain', rounds: 2, amount: drainTickAmount, kind: 'negative' }, round);
+                lines.push(`Drain: ${o.name} loses ${drainTickAmount} HP+chakra/turn for 2 turns.`);
             }
             continue;
         }
@@ -845,23 +521,16 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
 // reduced by the DR pool and amplified by the IDG/IDT/Ignition amp pool. Amp/DR
 // read the ORIGINAL fighters so a buff applied THIS cast can't feed back in.
 function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, round: number, masteryLevel: number, offStats: Record<string, number>, damageIn: number, pierce: boolean, effectiveDR: number): number {
-    if (pierce) {
-        // v3: replaces the old binary "900 if ap≥60 else 0" with offense-scaled true damage.
-        // True damage bypasses DR, shield, absorb, reflect (the post-damage phase skips those paths).
-        return pierceTrueDamage(getOffense(offStats, jutsu.type), jutsu.ap ?? 40, masteryLevel);
-    }
-    // Amplifiers (Increase Damage Given, Increase Damage Taken, Ignition) apply at full value.
-    const ampMult = ampMultiplierFor(self, opponent, round);
-    // effectiveDR ∈ [0, 1): armor, DDT, and DDG all fed one pool — more always
-    // helps, but with diminishing returns.
-    const base = Math.max(0, Math.floor(damageIn * (1 - effectiveDR) * ampMult));
-    // Town Defense guard mitigation — a queued Village Guard's sealed bonus
-    // (api/pvp/session.ts, ≤5%) shaves a flat % off direct damage. Folded in
-    // AFTER the DR/amp pools so it stays a small, predictable reduction rather
-    // than being diluted through the diminishing-returns DR soft-cap. Pierce
-    // bypasses it above, consistent with every other defensive source.
-    const guardMit = Math.min(GUARD_DEFENSE_MAX_MIT, Math.max(0, Number((opponent.character.guardDefensePct as number) ?? 0) / 100));
-    return guardMit > 0 ? Math.max(0, Math.floor(base * (1 - guardMit))) : base;
+    return directDamageNumberFormula({
+        damageIn,
+        pierce,
+        offenseComposite: getOffense(offStats, jutsu.type),
+        jutsuAp: jutsu.ap ?? 40,
+        masteryLevel,
+        effectiveDR,
+        ampMultiplier: ampMultiplierFor(self, opponent, round),
+        guardDefensePct: opponent.character.guardDefensePct,
+    });
 }
 
 // Phase 4 — the post-damage consequence pipeline. Resolution order is LOAD-BEARING
@@ -884,24 +553,28 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
     let s = sIn;
     let o = oIn;
 
-    const blocked = pierce ? 0 : Math.min(o.shield, damage);
-    const finalDmg = Math.max(0, damage - blocked);
     // Absorb/Reflect stack additively across active stacks (hard-capped at 60%
     // by cappedPostDamage), matching Lifesteal below. Was first-stack-only (.find).
     const reflectPct = sumActivePct(o, 'Reflect', round);
-    const reflectedDmg = reflectPct > 0 && !pierce ? cappedPostDamage(finalDmg, reflectPct) : 0;
     const absorbPct = sumActivePct(o, 'Absorb', round);
-    const absorbHeal = absorbPct > 0 && !pierce ? cappedPostDamage(finalDmg, absorbPct) : 0;
-
-    // Named-armor passives (stack with status-based versions above).
-    // Percentages are clamped to [0, 100] at session merge; pierce
-    // jutsus bypass them all the same way they bypass DR / shield.
-    const itemAbsorbPct    = Math.max(0, Math.min(100, Number((o.character.itemAbsorbPct    as number) ?? 0)));
-    const itemReflectPct   = Math.max(0, Math.min(100, Number((o.character.itemReflectPct   as number) ?? 0)));
-    const itemLifeStealPct = Math.max(0, Math.min(100, Number((s.character.itemLifeStealPct as number) ?? 0)));
-    const itemAbsorbHeal    = !pierce && itemAbsorbPct    > 0 ? Math.floor(cappedPostDamage(finalDmg, itemAbsorbPct))    : 0;
-    const itemReflectedDmg  = !pierce && itemReflectPct   > 0 ? Math.floor(cappedPostDamage(finalDmg, itemReflectPct))   : 0;
-    const itemLifeStealHeal = !pierce && itemLifeStealPct > 0 ? Math.floor(cappedPostDamage(finalDmg, itemLifeStealPct)) : 0;
+    const {
+        blocked,
+        finalDmg,
+        reflectedDmg,
+        absorbHeal,
+        itemAbsorbHeal,
+        itemReflectedDmg,
+        itemLifeStealHeal,
+    } = postDamageFormula({
+        damage,
+        shield: o.shield,
+        pierce,
+        reflectPct,
+        absorbPct,
+        itemAbsorbPct: o.character.itemAbsorbPct,
+        itemReflectPct: o.character.itemReflectPct,
+        itemLifeStealPct: s.character.itemLifeStealPct,
+    });
 
     o = { ...o, hp: Math.max(0, o.hp - finalDmg), shield: Math.max(0, o.shield - damage) };
     if (absorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + absorbHeal) };
@@ -920,28 +593,38 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
         if (tagName === 'Wound' && !hasStatus(o, 'Debuff Prevent', round)) {
             // v4.3: Wound bleeds finalDmg × min(tag.pct, rank_cap, 60%) per tick.
             // Basic jutsus cap at 25%, A/B-rank bloodline at 30%, S-rank at 35%.
-            const rankCap = woundCapForJutsu(jutsu);
-            const effectivePct = Math.min(pct || 30, rankCap, WOUND_HARD_CAP_PCT);
-            const amt = cappedPostDamage(finalDmg, effectivePct);
+            const amt = woundAmountForFinalDamage(finalDmg, pct, jutsu);
             o = capWoundStacks(addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round));
             lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
         }
         // Recoil debuff application happens in the status phase so it applies even
         // on zero-damage utility jutsu. (Self-recoil damage is resolved below,
         // gated on finalDmg.)
-        if (tagName === 'Siphon') { const h = Math.floor(cappedPostDamage(finalDmg, pct || 30) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Siphon: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
+        if (tagName === 'Siphon') { const h = postDamagePercentAmount(finalDmg, pct, healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Siphon: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
     }
 
     const recoilStatus = activeStatuses(s, round).find(st => st.name === 'Recoil');
-    if (recoilStatus && finalDmg > 0) { const rc = cappedPostDamage(finalDmg, recoilStatus.percent ?? 30); s = { ...s, hp: Math.max(0, s.hp - rc) }; lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`); pushFx(fx, 'self', rc, 'damage'); }
+    if (recoilStatus && finalDmg > 0) { const rc = postDamagePercentAmount(finalDmg, recoilStatus.percent ?? 30); s = { ...s, hp: Math.max(0, s.hp - rc) }; lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`); pushFx(fx, 'self', rc, 'damage'); }
 
     // Sum all active Lifesteal stacks' percents (capped at 60% by
     // cappedPostDamage), matching PvE — was first-stack-only (.find).
     const lsPct = activeStatuses(s, round).filter(st => st.name === 'Lifesteal').reduce((sum, st) => sum + (st.percent ?? 0), 0);
-    if (lsPct > 0 && finalDmg > 0) { const h = Math.floor(cappedPostDamage(finalDmg, lsPct) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Lifesteal: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
+    if (lsPct > 0 && finalDmg > 0) { const h = postDamagePercentAmount(finalDmg, lsPct, healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Lifesteal: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
 
     return { s, o, lines, fx };
 }
+
+const pvpResolveJutsuPhases = {
+    resolveBaseDamage,
+    resolveTagStatuses,
+    resolveDamageNumber,
+    resolvePostDamage,
+    applyHealing: (fighter: PvpFighter, amount: number): PvpFighter => ({ ...fighter, hp: Math.min(fighter.maxHp, fighter.hp + amount) }),
+    applyShield: (fighter: PvpFighter, amount: number): PvpFighter => ({ ...fighter, shield: fighter.shield + amount }),
+    makeHitFx: (who: 'self' | 'opp', amount: number, kind: 'damage' | 'heal'): HitFxEvent | undefined => (
+        amount > 0 ? { who, amount: Math.round(amount), kind } : undefined
+    ),
+};
 
 // Exported for the Lifesteal/tag-lifecycle regression test (_lifesteal.test.ts)
 // and the characterization snapshot (_applyjutsu-characterization.test.ts), which
@@ -969,32 +652,21 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
     const cappedSelf = { ...self, character: { ...self.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((self.character.stats as Record<string, number>) ?? {}, Number(self.character.level) || 1), generalsBonus(self, round)), disciplineBonuses(self, round)) } };
     const cappedOpp = { ...opponent, character: { ...opponent.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((opponent.character.stats as Record<string, number>) ?? {}, Number(opponent.character.level) || 1), generalsBonus(opponent, round)), disciplineBonuses(opponent, round)) } };
 
-    // Phase 1 — base damage + defensive DR pool (reads the rank-capped fighters).
-    const { baseDmg, effectiveDR, offStats } = resolveBaseDamage(cappedSelf, cappedOpp, jutsu, wMult, biome, round, masteryLevel);
-    const healBoost = increaseHealMult(self, round);
+    const resolved = resolveCoreJutsu({
+        self,
+        opponent,
+        formulaSelf: cappedSelf,
+        formulaOpponent: cappedOpp,
+        jutsu,
+        wMult,
+        biome,
+        round,
+        masteryLevel,
+        healBoost: increaseHealMult(self, round),
+        phases: pvpResolveJutsuPhases,
+    });
 
-    // Phase 2 — statuses + instant movement; surfaces healing/shield/pierce.
-    const status = resolveTagStatuses(self, opponent, jutsu, round, masteryLevel, baseDmg, healBoost);
-    let { s, o } = status;
-    const lines = status.lines;
-    const fx: HitFxEvent[] = [];
-
-    // Phase 3 — final damage number (pierce true-damage OR base × (1−DR) × amp).
-    const damage = resolveDamageNumber(self, opponent, jutsu, round, masteryLevel, offStats, status.damage, status.pierce, effectiveDR);
-
-    // Phase 4 — post-damage consequences (only when something actually landed).
-    if (damage > 0) {
-        const post = resolvePostDamage(s, o, jutsu, round, damage, status.pierce, healBoost);
-        s = post.s;
-        o = post.o;
-        lines.push(...post.lines);
-        fx.push(...post.fx);
-    }
-
-    // Phase 5 — apply the pending self heal / shield queued in the status phase.
-    if (status.healing > 0) { s = { ...s, hp: Math.min(s.maxHp, s.hp + status.healing) }; pushFx(fx, 'self', status.healing, 'heal'); }
-    if (status.shieldGain > 0) s = { ...s, shield: s.shield + status.shieldGain };
-    return { self: s, opponent: o, lines, fx };
+    return { self: resolved.self, opponent: resolved.opponent, lines: resolved.logLines, fx: resolved.hitFx };
 }
 
 // ─── DoTs applied at start of each turn ───────────────────────────────────────
@@ -1007,15 +679,12 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
     const fx: HitFxEvent[] = [];
     let f = { ...fighter };
     // Compute own DR pool against incoming DoT.
-    const ownArmor = (f.character.armorRawDR !== undefined && f.character.armorRawDR !== null)
-        ? Math.min(1.5, Math.max(0, Number(f.character.armorRawDR)))
-        : Math.max(0, 1 - Math.min(1.0, Math.max(0.25, Number((f.character.armorFactor as number) ?? 1.0))));
+    const ownArmor = armorRawDrFromCharacter(f.character as Record<string, unknown>);
     let ownStatusDR = 0;
     for (const s of activeStatuses(f, round)) {
         if (s.name === 'Decrease Damage Taken') ownStatusDR += (s.percent ?? 0) / 100;
     }
-    const ownEffDR = (ownArmor + ownStatusDR) > 0 ? (ownArmor + ownStatusDR) / ((ownArmor + ownStatusDR) + K_DR) : 0;
-    const dotMitigation = Math.max(0, 1 - ownEffDR * DR_DOT_SCALE);
+    const dotMitigation = dotMitigationFromRawDr(ownArmor, ownStatusDR);
     const mit = (raw: number) => Math.max(0, Math.floor(raw * dotMitigation));
 
     for (const s of activeStatuses(f, round)) {
@@ -1319,12 +988,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Apply Lag (costs more) and Overclock (costs less) to AP
         function adjustedCost(base: number): number {
-            let cost = base;
             const compression = activeStatuses(me, session.round).find(st => nameMatches(st.name, 'Lag'));
             const dilation = activeStatuses(me, session.round).find(st => nameMatches(st.name, 'Overclock'));
-            if (compression) cost = Math.ceil(cost * (1 + (compression.percent ?? 20) / 100));
-            if (dilation) cost = Math.floor(cost * (1 - (dilation.percent ?? 20) / 100));
-            return Math.max(1, cost);
+            return adjustedApCost(base, {
+                lagPct: compression ? compression.percent ?? 20 : null,
+                overclockPct: dilation ? dilation.percent ?? 20 : null,
+            });
         }
         function canAct(cost: number) { return myAp >= adjustedCost(cost) && session.actionsThisTurn < MAX_ACTIONS; }
 

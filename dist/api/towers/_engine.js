@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MASTERY_MIN_DAMAGE_FRAC = exports.JUTSU_MAX_LEVEL = exports.K_DR = exports.CLEANSE_CD = exports.CLEANSE_AP = exports.CLEAR_CD = exports.CLEAR_AP = exports.HEAL_PCT = exports.HEAL_CD = exports.HEAL_CHAKRA = exports.HEAL_AP = exports.DASH_RANGE = exports.DASH_AP = exports.BASIC_ATTACK_AP = exports.MOVE_AP = exports.STUN_AP_PENALTY = exports.MAX_ROUNDS = exports.MAX_ACTIONS = exports.BASE_AP = void 0;
+exports.CLEANSE_CD = exports.CLEANSE_AP = exports.CLEAR_CD = exports.CLEAR_AP = exports.HEAL_PCT = exports.HEAL_CD = exports.HEAL_CHAKRA = exports.HEAL_AP = exports.DASH_RANGE = exports.DASH_AP = exports.BASIC_ATTACK_AP = exports.MOVE_AP = exports.STUN_AP_PENALTY = exports.MAX_ROUNDS = exports.MAX_ACTIONS = exports.BASE_AP = void 0;
 exports.towerNeighbors = towerNeighbors;
 exports.computeDamage = computeDamage;
 exports.startRound = startRound;
@@ -32,9 +32,10 @@ exports.runAiUntilHuman = runAiUntilHuman;
  * mechanics, and the kill-adds-first / break-objective / defeat-all-then-boss gating
  * (these currently resolve as "all enemies dead"; the v1 catalog ships none of them).
  */
-const _sim_js_1 = require("./_sim.js");
 const _aoe_js_1 = require("../pvp/_aoe.js");
 const move_js_1 = require("../pvp/move.js");
+const clanBossAdapter_js_1 = require("../combat-adapters/clanBossAdapter.js");
+const formulas_js_1 = require("../combat-core/formulas.js");
 const _tags_js_1 = require("../pvp/_tags.js");
 const _floor_catalog_js_1 = require("./_floor-catalog.js");
 const _tower_session_js_1 = require("./_tower-session.js");
@@ -58,9 +59,6 @@ exports.CLEAR_AP = 60;
 exports.CLEAR_CD = 10;
 exports.CLEANSE_AP = 60;
 exports.CLEANSE_CD = 10;
-exports.K_DR = 0.5;
-exports.JUTSU_MAX_LEVEL = 50;
-exports.MASTERY_MIN_DAMAGE_FRAC = 0.3;
 const STATUS_DURATIONS_OVERRIDE = {
     'Increase Damage Given': 2,
     'Increase Damage Taken': 2,
@@ -136,60 +134,26 @@ function nextStepToward(session, from, to, ignoreId) {
     return best;
 }
 // ─── Damage (faithful port of resolveBaseDamage core; deterministic) ─────────
-function getOffense(stats, type) {
-    if (type === 'Taijutsu')
-        return (stats.taijutsuOffense ?? 0) + (stats.strength ?? 0) + (stats.speed ?? 0);
-    if (type === 'Bukijutsu')
-        return (stats.bukijutsuOffense ?? 0) + (stats.intelligence ?? 0) + (stats.strength ?? 0);
-    if (type === 'Genjutsu')
-        return (stats.genjutsuOffense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0);
-    return (stats.ninjutsuOffense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0);
-}
-function getDefense(stats, type) {
-    if (type === 'Taijutsu')
-        return (stats.taijutsuDefense ?? 0) + (stats.strength ?? 0) + (stats.speed ?? 0);
-    if (type === 'Bukijutsu')
-        return (stats.bukijutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.strength ?? 0);
-    if (type === 'Genjutsu')
-        return (stats.genjutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0);
-    return (stats.ninjutsuDefense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0);
-}
-function clampMastery(n) { return Math.max(0, Math.min(exports.JUTSU_MAX_LEVEL, Number(n) || 0)); }
-// Utility jutsu = zero DIRECT damage (status/buff/debuff only — its value is its tags).
-// Ported verbatim from api/pvp/move.ts isZeroDamageFortyApJutsu: prefer the explicit
-// `isUtility` flag, else the legacy 40-AP convention (synthesized weapon/item ids exempt).
-// NOTE: the tag layer is deferred (Phase 3) — so a utility jutsu currently lands no effect
-// in towers; this guard at least stops it dealing phantom damage.
-function isZeroDamageUtility(jutsu) {
-    if (jutsu.isUtility === true)
-        return true;
-    if (jutsu.isUtility === false)
-        return false;
-    const id = String(jutsu.id ?? '');
-    return jutsu.ap === 40 && id !== 'basic-attack' && !id.startsWith('item-');
-}
 function computeDamage(attacker, defender, jutsu, masteryLevel) {
-    if (isZeroDamageUtility(jutsu))
-        return 0;
-    const ep = Number(jutsu.effectPower ?? 20);
-    const epAtMax = ep + exports.JUTSU_MAX_LEVEL * 0.2;
-    const masteryFrac = exports.MASTERY_MIN_DAMAGE_FRAC + (1 - exports.MASTERY_MIN_DAMAGE_FRAC) * (clampMastery(masteryLevel) / exports.JUTSU_MAX_LEVEL);
-    const scaledEp = Math.max(0, epAtMax * masteryFrac);
-    const type = String(jutsu.type ?? 'Taijutsu');
     const offStats = attacker.character.stats ?? {};
     const defStats = defender.character.stats ?? {};
-    const sf = (0, _sim_js_1.statFactor)(getOffense(offStats, type), getDefense(defStats, type));
-    const bloodlineMult = Math.max(1, Number(attacker.character.bloodlineMult ?? 1));
-    const itemDamageMult = 1 + Math.max(0, Number(attacker.character.itemDamagePct ?? 0)) / 100;
-    // Party-scale on enemy damage (set by applyPartyScaling for smaller parties; 1 otherwise).
-    const partyDmgScale = Math.max(0, Number(attacker.character.towerDmgScale ?? 1));
-    const baseDmg = Math.max(0, Math.floor(scaledEp * _sim_js_1.EP_MULTIPLIER * sf * bloodlineMult * itemDamageMult * partyDmgScale));
-    // Armor DR pool (status DR is the deferred tag layer): effectiveDR = raw/(raw+K_DR).
-    const armorRawDR = (defender.character.armorRawDR != null)
-        ? Math.min(1.5, Math.max(0, Number(defender.character.armorRawDR)))
-        : Math.max(0, 1 - Math.min(1.0, Math.max(0.25, Number(defender.character.armorFactor ?? 1.0))));
-    const effectiveDR = armorRawDR > 0 ? armorRawDR / (armorRawDR + exports.K_DR) : 0;
-    return Math.max(0, Math.floor(baseDmg * (1 - effectiveDR)));
+    const attackerCharacter = { ...attacker.character, homeTerrainType: undefined };
+    const result = (0, formulas_js_1.directDamageBaseFormula)({
+        jutsu: {
+            id: String(jutsu.id ?? ''),
+            type: String(jutsu.type ?? 'Taijutsu'),
+            ap: jutsu.ap,
+            effectPower: jutsu.effectPower,
+            isUtility: jutsu.isUtility,
+        },
+        attackerStats: offStats,
+        defenderStats: defStats,
+        attackerCharacter,
+        defenderCharacter: defender.character,
+        masteryLevel,
+        partyDamageScale: Math.max(0, Number(attacker.character.towerDmgScale ?? 1)),
+    });
+    return Math.max(0, Math.floor(result.baseDmg * (1 - result.effectiveDR)));
 }
 // ─── Positional battlefield features (deterministic; position-based) ─────────
 // A light tactical layer (a couple tiles per floor): pylons boost/weaken an
@@ -528,15 +492,16 @@ function equippedItem(actor, itemId) {
     const equippedIds = new Set(Object.values(equipment).filter((id) => Boolean(id)));
     return items.find(it => Boolean(it.id) && equippedIds.has(it.id) && (!itemId || it.id === itemId)) ?? null;
 }
-// ─── PvP-engine reuse: full tag/status combat via api/pvp/move.ts applyJutsu ──
+// ─── Player-combat reuse: tower/clan-boss adapter → PvP source → combat-core ──
 // A TowerActor is structurally a PvpFighter superset (same name/hp/chakra/stamina/
 // shield/statuses/character/pos, and the SAME PvpStatus shape). So instead of
 // re-implementing the intricate, load-bearing tag pipeline (Heal/Shield/Pierce/Stun/
 // Poison/Drain/Absorb/Reflect/Lifesteal/IDG/IDT/DDG/DDT/Wound/Recoil/…), the tower
-// adapts each attacker→target pair to PvpFighters and calls the EXACT PvP resolver.
-// applyJutsu is deterministic (no RNG / wall-clock) so the settle recompute still
+// adapts each attacker→target pair and calls the shared player-side resolver path.
+// The underlying PvP resolver now delegates phase order to combat-core resolveJutsu;
+// it remains deterministic (no RNG / wall-clock), so settle recompute still
 // reproduces a run byte-for-byte. Positional tower features (pylons/wards/enrage/
-// bulwark/party-scale) are folded into applyJutsu's `wMult`; terrain via its `biome`.
+// bulwark/party-scale) are folded into `wMult`; terrain via the session biome.
 function actorToFighter(a) {
     return {
         name: a.name, hp: a.hp, maxHp: a.maxHp, chakra: a.chakra, maxChakra: a.maxChakra,
@@ -560,8 +525,14 @@ function writeBackFighter(a, f) {
 function runJutsu(session, actor, target, jutsu, wMult) {
     const selfCast = actor.id === target.id;
     const sf = actorToFighter(actor);
-    const of = selfCast ? actorToFighter(actor) : actorToFighter(target);
-    const res = (0, move_js_1.applyJutsu)(sf, of, jutsu, wMult, String(session.map.biome ?? 'central'), session.round);
+    const res = (0, clanBossAdapter_js_1.resolveTowerPlayerJutsu)({
+        session,
+        actor,
+        target: selfCast ? actor : target,
+        jutsu: jutsu,
+        wMult,
+        resolver: move_js_1.applyJutsu,
+    });
     writeBackFighter(actor, res.self);
     if (!selfCast)
         writeBackFighter(target, res.opponent);
@@ -607,11 +578,17 @@ function jutsuAreaRadius(jutsu) {
 function applyAoeSplash(session, actor, primary, jutsu, wMult, radius) {
     const area = new Set((0, _aoe_js_1.filledDiskTiles)(primary.pos, radius, session.map.width, session.map.height));
     const caught = [];
-    const biome = String(session.map.biome ?? 'central');
     for (const e of session.actors) {
         if (e.id === primary.id || e.hp <= 0 || !hostileSidesFor(actor.side).includes(e.side) || !area.has(e.pos))
             continue;
-        const res = (0, move_js_1.applyJutsu)(actorToFighter(actor), actorToFighter(e), jutsu, wMult, biome, session.round);
+        const res = (0, clanBossAdapter_js_1.resolveTowerPlayerJutsu)({
+            session,
+            actor,
+            target: e,
+            jutsu: jutsu,
+            wMult,
+            resolver: move_js_1.applyJutsu,
+        });
         writeBackFighter(e, res.opponent); // only the victim — caster effects already applied on the primary
         caught.push(e.name);
     }

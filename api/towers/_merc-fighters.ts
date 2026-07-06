@@ -18,17 +18,7 @@ import { createTowerSession, type TowerActor } from './_tower-session.js';
 import { runTowerFloor } from './_engine.js';
 import { makeRng } from './_sim.js';
 import type { TowerFloor } from './_floor-catalog.js';
-
-// Per-rank stat cap (mirrors api/pvp/move.ts statCapForLevel, which isn't exported;
-// the engine clamps to this anyway). A peak merc fills every stat to its cap.
-function statCapForLevel(level: number): number {
-    const lvl = Math.max(1, Math.floor(Number(level) || 1));
-    if (lvl >= 80) return 2500;
-    if (lvl >= 50) return 2100;
-    if (lvl >= 30) return 1300;
-    if (lvl >= 15) return 700;
-    return 350;
-}
+import { statCapForLevel } from '../combat-core/formulas.js';
 
 // A peak merc's max HP, scaled by tier level. Tunable.
 function mercMaxHp(level: number): number {

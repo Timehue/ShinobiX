@@ -31,6 +31,9 @@ export function makeRng(seed: number): () => number {
 }
 
 // ─── Ported combat-math constants (api/pvp/move.ts, verified @ 586f0560) ──────
+// COMBAT_FORMULA_DUPLICATION_EXCEPTION: this deterministic Phase 0 spike sim is
+// intentionally frozen as a historical replay fixture, not the live player-side
+// jutsu path. The real tower engine uses combat-core formulas.
 export const EP_MULTIPLIER = 32; // move.ts:58
 export const MAX_STAT = 2500; // move.ts:53
 export const SIM_MAX_ROUNDS = 25; // mirrors move.ts MAX_ROUNDS

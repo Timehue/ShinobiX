@@ -24,6 +24,7 @@ import { join } from 'node:path';
 
 const ROOT = process.cwd();
 const SERVER = readFileSync(join(ROOT, 'api', 'pvp', 'move.ts'), 'utf8');
+const SERVER_FORMULAS = readFileSync(join(ROOT, 'api', 'combat-core', 'formulas.ts'), 'utf8');
 // The canonical tag registries (STACKABLE_STATUS etc.) were centralized into
 // api/pvp/_tags.ts; move.ts imports them. Read the set literals from there.
 const SERVER_TAGS = readFileSync(join(ROOT, 'api', 'pvp', '_tags.ts'), 'utf8');
@@ -97,17 +98,17 @@ const PAIRS: Array<[string, string]> = [
 describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     for (const [s, c] of PAIRS) {
         it(`${s} (server) === ${c} (client)`, () => {
-            assert.equal(num(SERVER, s), num(CLIENT, c), `${s} and ${c} diverged — PvE and PvP damage would no longer match`);
+            assert.equal(num(SERVER_FORMULAS, s), num(CLIENT, c), `${s} and ${c} diverged — PvE and PvP damage would no longer match`);
         });
     }
     it('WOUND_CAP_BY_RANK matches (basic / AB / S)', () => {
-        assert.deepEqual(woundCaps(SERVER), woundCaps(CLIENT), 'wound rank caps diverged between server and client');
+        assert.deepEqual(woundCaps(SERVER_FORMULAS), woundCaps(CLIENT), 'wound rank caps diverged between server and client');
     });
     // Wound STACK cap (2026-07-01). Per-hit Wound magnitude is rank-capped above; this
     // bounds the concurrent STACK COUNT so repeated Wound casts can't compound bleed.
     // Both engines must cap at the same number or PvE and PvP bleed diverge.
     it('MAX_WOUND_STACKS (server) === MAX_WOUND_STACKS_PVE (client) + both engines cap at apply', () => {
-        assert.equal(num(SERVER, 'MAX_WOUND_STACKS'), num(CLIENT, 'MAX_WOUND_STACKS_PVE'), 'Wound stack cap diverged between server and client');
+        assert.equal(num(SERVER_FORMULAS, 'MAX_WOUND_STACKS'), num(CLIENT, 'MAX_WOUND_STACKS_PVE'), 'Wound stack cap diverged between server and client');
         assert.match(SERVER, /function capWoundStacks/, 'move.ts lost capWoundStacks');
         assert.match(CLIENT, /export function capWoundStacks/, 'combat-math.ts lost capWoundStacks');
         assert.match(SERVER, /capWoundStacks\(addJutsuStatus/, 'move.ts no longer caps Wound stacks at apply');
@@ -120,7 +121,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // identical.
     it('STUN_AP_PENALTY (server) === STUN_AP_PENALTY (client constants/game.ts)', () => {
         assert.equal(
-            num(SERVER, 'STUN_AP_PENALTY'),
+            num(SERVER_FORMULAS, 'STUN_AP_PENALTY'),
             num(CLIENT_GAME_CONSTS, 'STUN_AP_PENALTY'),
             'STUN_AP_PENALTY diverged between server move.ts and client constants/game.ts',
         );
@@ -144,7 +145,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         const ampNames = ['Increase Damage Given', 'Increase Damage Taken', 'Decrease Damage Given', 'Decrease Damage Taken'];
         const clientAmp = num(CLIENT, 'AMP_STATUS_ROUNDS_PVE');
         for (const name of ampNames) {
-            const m = SERVER.match(new RegExp(`'${name}':\\s*([0-9]+)`));
+            const m = SERVER_FORMULAS.match(new RegExp(`'${name}':\\s*([0-9]+)`));
             assert.ok(m, `server STATUS_DURATIONS_OVERRIDE missing "${name}"`);
             assert.equal(Number(m![1]), clientAmp, `${name} duration (${m![1]}) != AMP_STATUS_ROUNDS_PVE (${clientAmp})`);
         }
@@ -216,7 +217,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // the server and client, or PvE and PvP damage diverge below max mastery.
     it('MASTERY_MIN_DAMAGE_FRAC (server) === MASTERY_MIN_DAMAGE_FRAC (client constants/game.ts)', () => {
         assert.equal(
-            num(SERVER, 'MASTERY_MIN_DAMAGE_FRAC'),
+            num(SERVER_FORMULAS, 'MASTERY_MIN_DAMAGE_FRAC'),
             num(CLIENT_GAME_CONSTS, 'MASTERY_MIN_DAMAGE_FRAC'),
             'MASTERY_MIN_DAMAGE_FRAC diverged between server move.ts and client constants/game.ts',
         );
@@ -226,21 +227,23 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // the FLAT ceiling on BOTH engines — so a low-mastery heal/shield is identical in
     // PvE and PvP, and a maxed one is exactly HEAL_FLAT/SHIELD_FLAT as before.
     it('Heal/Shield ramp by masteryDamageFrac + hard-cap (server move.ts ⇄ client Arena.tsx)', () => {
-        assert.match(SERVER, /function masteryDamageFrac/, 'move.ts lost the masteryDamageFrac helper');
+        assert.match(SERVER_FORMULAS, /function masteryDamageFrac/, 'combat-core/formulas.ts lost the masteryDamageFrac helper');
         assert.match(CLIENT, /export function masteryDamageFrac/, 'combat-math.ts lost the masteryDamageFrac export');
-        for (const src of [SERVER, CLIENT]) {
+        for (const src of [SERVER_FORMULAS, CLIENT]) {
             assert.match(src, /MASTERY_MIN_DAMAGE_FRAC \+ \(1 - MASTERY_MIN_DAMAGE_FRAC\)/, 'masteryDamageFrac formula drifted between engines');
         }
         // Server (move.ts): Heal/Shield = min(FLAT, floor(FLAT × magnitudeFrac × …)).
-        assert.match(SERVER, /Math\.min\(HEAL_FLAT,[^)]*magnitudeFrac/, 'move.ts Heal no longer ramps + hard-caps by mastery');
-        assert.match(SERVER, /Math\.min\(SHIELD_FLAT,[^)]*magnitudeFrac/, 'move.ts Shield no longer ramps + hard-caps by mastery');
+        assert.match(SERVER_FORMULAS, /function healAmountForMastery/, 'combat-core/formulas.ts lost Heal mastery helper');
+        assert.match(SERVER, /healAmountForMastery\(masteryLevel, healBoost\)/, 'move.ts Heal no longer consumes the combat-core mastery helper');
+        assert.match(SERVER_FORMULAS, /function shieldAmountForMastery/, 'combat-core/formulas.ts lost Shield mastery helper');
+        assert.match(SERVER, /shieldAmountForMastery\(masteryLevel\)/, 'move.ts Shield no longer consumes the combat-core mastery helper');
         // Client PvE engine (Arena.tsx): same cap via the shared masteryDamageFrac.
         assert.match(CLIENT_APP, /Math\.min\(HEAL_FLAT_PVE,[^)]*masteryDamageFrac/, 'Arena.tsx Heal no longer ramps + hard-caps by mastery');
         assert.match(CLIENT_APP, /Math\.min\(SHIELD_FLAT_PVE,[^)]*masteryDamageFrac/, 'Arena.tsx Shield no longer ramps + hard-caps by mastery');
     });
     it('JUTSU_MAX_LEVEL (server) === JUTSU_MAX_LEVEL (client constants/game.ts)', () => {
         assert.equal(
-            num(SERVER, 'JUTSU_MAX_LEVEL'),
+            num(SERVER_FORMULAS, 'JUTSU_MAX_LEVEL'),
             num(CLIENT_GAME_CONSTS, 'JUTSU_MAX_LEVEL'),
             'JUTSU_MAX_LEVEL diverged between server move.ts and client constants/game.ts — the mastery ramp denominators would differ',
         );
@@ -252,7 +255,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     for (const cap of ['JUTSU_LEVEL_CAP_ACADEMY', 'JUTSU_LEVEL_CAP_GENIN', 'JUTSU_LEVEL_CAP_CHUNIN', 'JUTSU_LEVEL_CAP_JONIN']) {
         it(`${cap} (server) === ${cap} (client constants/game.ts)`, () => {
             assert.equal(
-                num(SERVER, cap),
+                num(SERVER_FORMULAS, cap),
                 num(CLIENT_GAME_CONSTS, cap),
                 `${cap} diverged between server move.ts and client constants/game.ts — PvE and PvP would cap jutsu mastery differently by rank`,
             );
@@ -265,7 +268,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     for (const cap of ['STAT_CAP_ACADEMY', 'STAT_CAP_GENIN', 'STAT_CAP_CHUNIN', 'STAT_CAP_JONIN', 'STAT_CAP_SPECIAL_JONIN']) {
         it(`${cap} (server) === ${cap} (client constants/game.ts)`, () => {
             assert.equal(
-                num(SERVER, cap),
+                num(SERVER_FORMULAS, cap),
                 num(CLIENT_GAME_CONSTS, cap),
                 `${cap} diverged between server move.ts and client constants/game.ts — PvE and PvP would cap stats differently by rank`,
             );
@@ -276,7 +279,10 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // fighters into resolveBaseDamage; PvE wraps the combat-stat objects in Arena.tsx.
     it('per-rank stat cap is consumed on both sides (not dead)', () => {
         assert.match(CLIENT_GAME_CONSTS, /export function perRankStatCap/, 'perRankStatCap missing from constants/game.ts');
-        assert.ok(SERVER.includes('resolveBaseDamage(cappedSelf'), 'move.ts no longer feeds rank-capped fighters into resolveBaseDamage — the PvP stat cap is dead');
+        assert.ok(
+            SERVER.includes('formulaSelf: cappedSelf') && SERVER.includes('formulaOpponent: cappedOpp'),
+            'move.ts no longer feeds rank-capped fighters into the combat-core resolveJutsu base-damage phase — the PvP stat cap is dead',
+        );
         assert.ok(CLIENT_APP.includes('perRankStatCap('), 'Arena.tsx no longer calls perRankStatCap — the PvE stat cap is dead');
     });
 });
