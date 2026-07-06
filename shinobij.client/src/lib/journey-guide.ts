@@ -1,7 +1,7 @@
 import type { Screen } from "../types/core";
 import type { Character } from "../types/character";
 import { baseStats, rankFromLevel } from "./stats";
-import { normalizeOnboardingStep } from "./onboarding-step";
+import { normalizeOnboardingStep, onboardingStepAtLeast } from "./onboarding-step";
 
 export type JourneyGuideObjective = {
     id: "training" | "jutsu" | "combat" | "mission" | "logbook";
@@ -36,30 +36,35 @@ function hasStarterLoadout(character: Character): boolean {
 export function buildJourneyGuide(character: Character): JourneyGuideState {
     const trainedPoints = trainedStatPoints(character);
     const pendingCombatClaim = (character.pendingCombatMissionClaims?.length ?? 0) > 0;
-    const wonFirstFight = (character.totalAiKills ?? 0) > 0 || pendingCombatClaim;
-    const claimedFirstMission = Boolean(character.academyTrialClaimed) || Math.max(character.totalMissionsCompleted ?? 0, character.clanMissionContrib ?? 0) > 0;
     const step = normalizeOnboardingStep(character.onboardingStep ?? "");
+    const startedTraining = trainedPoints > 0 || onboardingStepAtLeast(step, "jutsu");
+    const hasLoadout = hasStarterLoadout(character) || onboardingStepAtLeast(step, "firstMission");
+    const wonFirstFight = (character.totalAiKills ?? 0) > 0 || pendingCombatClaim || onboardingStepAtLeast(step, "training");
+    const claimedFirstMission = Boolean(character.academyTrialClaimed) || onboardingStepAtLeast(step, "logbook") || Math.max(character.totalMissionsCompleted ?? 0, character.clanMissionContrib ?? 0) > 0;
+    const openedLogbook = Boolean(character.academyChecklistClaimed) || onboardingStepAtLeast(step, "storyUnlocked");
 
     const objectives: JourneyGuideObjective[] = [
         {
             id: "training",
-            title: "Complete your first training session",
+            title: "Start your first training session",
             detail: trainedPoints > 0
                 ? `${trainedPoints} stat point${trainedPoints === 1 ? "" : "s"} trained. Keep raising your core stats between missions.`
+                : startedTraining
+                    ? "Training started. Collect it when the timer finishes; you can keep learning meanwhile."
                 : "Start with Strength or Speed if you are unsure. Short timers are easiest while learning.",
-            actionLabel: trainedPoints > 0 ? "Train Again" : "Begin Training",
+            actionLabel: startedTraining ? "View Training" : "Begin Training",
             screen: "training",
-            complete: trainedPoints > 0,
+            complete: startedTraining,
         },
         {
             id: "jutsu",
             title: "Ready your jutsu loadout",
-            detail: hasStarterLoadout(character)
+            detail: hasLoadout
                 ? "Your starter loadout is ready for rookie fights."
                 : "Unlock or equip enough jutsu to keep a full starter loadout.",
             actionLabel: "Open Jutsu Hall",
             screen: "jutsuTraining",
-            complete: hasStarterLoadout(character),
+            complete: hasLoadout,
         },
         {
             id: "combat",
@@ -91,7 +96,7 @@ export function buildJourneyGuide(character: Character): JourneyGuideState {
                 : "The Logbook tracks the next unlocks without forcing you through a tutorial.",
             actionLabel: "Open Logbook",
             screen: "logbook",
-            complete: Boolean(character.academyChecklistClaimed) || step === "storyUnlocked" || step === "done",
+            complete: openedLogbook,
         },
     ];
 
