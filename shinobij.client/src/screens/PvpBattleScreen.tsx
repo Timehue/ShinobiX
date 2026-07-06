@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import "../styles/battle-skin.css";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { GameItem, Jutsu } from "../types/combat";

@@ -14,6 +14,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import "../styles/card-clash-skin.css";
 import type { Character } from "../types/character";
 import { CARD_CLASH_BOARD_BG } from "../lib/card-clash-art";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";

@@ -1,5 +1,6 @@
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
+import "../styles/card-clash-skin.css";
 import { CardClashDuelScreen, type CardClashDuelConfig } from "./ClanWarTileCardDuel";
 
 // Free-play Shinobi Card Clash PvP — the interactive duel pointed at the open
