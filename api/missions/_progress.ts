@@ -122,7 +122,7 @@ export async function awardProfessionXp(
         bumpSaveVersion(updated);
         await kv.set(saveKey, updated);
         return { xp: nextXp, rank: nextRank };
-    });
+    }, { failClosed: true });
 }
 
 function dailyKey(playerName: string): string {
@@ -233,7 +233,7 @@ export async function reportMissionEvent(opts: {
             await kv.set(dKey, { ...state, missions: next }, { ex: 36 * 60 * 60 });
         }
         return { xpAwarded, missionsCompleted: completed };
-    });
+    }, { failClosed: true });
 
     // Auto-grant mission XP onto the player's character. awardProfessionXp
     // takes its own lock on save:<player> so we don't nest locks here.
@@ -321,7 +321,7 @@ async function awardNewbieRyo(playerName: string, amount: number): Promise<void>
         };
         bumpSaveVersion(updated);
         await kv.set(saveKey, updated);
-    });
+    }, { failClosed: true });
 }
 
 export type NewbieCompletedInfo = { id: string; name: string; ryoReward: number };
@@ -363,7 +363,7 @@ export async function reportNewbieEvent(opts: {
         });
         if (changed) await kv.set(dKey, { ...state, missions: next }, { ex: 36 * 60 * 60 });
         return { ryoAwarded, completed };
-    });
+    }, { failClosed: true });
 
     if (result.ryoAwarded > 0) {
         await awardNewbieRyo(playerName, result.ryoAwarded);
