@@ -7,6 +7,7 @@ import {
     currentLogbookObjective,
     objectiveComplete,
 } from "./logbook-objectives";
+import { buildJourneyGuide } from "./journey-guide";
 
 // A minimal but type-complete save: only the fields the objective builder reads
 // matter; everything else is filled to satisfy the Character shape loosely via a
@@ -126,4 +127,43 @@ test("Special Jonin 'Become Kage or Elder' honors the env context", () => {
 
     const asKage = currentLogbookObjective(base, { isKage: true });
     assert.ok(objectiveComplete(asKage!), "seated Kage satisfies the standing requirement");
+});
+
+test("Journey Guide starts fresh Academy players at training", () => {
+    const guide = buildJourneyGuide(makeCharacter({ level: 3, onboardingStep: "academyIntro" }));
+    assert.equal(guide.shouldShow, true);
+    assert.equal(guide.primaryObjective?.id, "training");
+    assert.equal(guide.completedCount, 0);
+});
+
+test("Journey Guide does not replay for legacy saves with no onboarding step", () => {
+    const guide = buildJourneyGuide(makeCharacter({ level: 3 }));
+    assert.equal(guide.shouldShow, false);
+});
+
+test("Journey Guide treats pending combat mission claims as a completed first fight", () => {
+    const guide = buildJourneyGuide(makeCharacter({
+        level: 3,
+        onboardingStep: "training",
+        totalStatsTrained: 1,
+        equippedJutsuIds: ["strike", "guard", "dash", "focus"],
+        pendingCombatMissionClaims: ["combat-e-drill"],
+    }));
+    assert.equal(guide.objectives.find((objective) => objective.id === "combat")?.complete, true);
+    assert.equal(guide.primaryObjective?.id, "mission");
+});
+
+test("Journey Guide hides once every first step is complete", () => {
+    const guide = buildJourneyGuide(makeCharacter({
+        level: 3,
+        onboardingStep: "logbook",
+        totalStatsTrained: 1,
+        equippedJutsuIds: ["strike", "guard", "dash", "focus"],
+        totalAiKills: 1,
+        totalMissionsCompleted: 1,
+        academyChecklistClaimed: true,
+    }));
+    assert.equal(guide.primaryObjective, null);
+    assert.equal(guide.shouldShow, false);
+    assert.equal(guide.completedCount, guide.totalCount);
 });

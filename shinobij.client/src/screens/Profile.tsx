@@ -13,6 +13,7 @@ import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { NindoEditor } from "../components/NindoEditor";
 import { ProgressionPanel } from "../components/ProgressionPanel";
+import { ShinobiIdentityCard } from "../components/ShinobiIdentityCard";
 import { LegacyPanel } from "./LegacyPanel";
 import { BattleLogHistoryPanel } from "../components/BattleLogHistoryPanel";
 import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, isLegacyServerLive, isLegacyEnabled } from "../lib/legacy";
@@ -355,6 +356,14 @@ export function Profile({
                     <p>An overview of your shinobi.</p>
                 </div>
             </div>
+
+            <ShinobiIdentityCard
+                character={character}
+                avatarSrc={character.avatarImage}
+                avatarClassName={auraBonuses.avatarAura ? "aura-sphere-avatar" : ""}
+                bloodlineName={equippedBloodline?.name || character.bloodline}
+                elements={ownedElements}
+            />
 
             <section className="profile-overview-panel">
                 <div className="profile-avatar-upload-box">

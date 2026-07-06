@@ -81,6 +81,7 @@ export function Training({ character, updateCharacter, activeTraining, setActive
     const timers = TRAINING_TIERS.map((tier) => ({ ...tier, icon: TIMER_ICONS[tier.id] }));
     const trainingXpBonus = getTrainingXpBonus(character);
     const showAcademyTrainingHint = normalizeOnboardingStep(character.onboardingStep) === "training" && !activeTraining;
+    const selectedStatLabel = STAT_LABELS[selectedStat]?.label ?? formatStatName(selectedStat);
     // Apply a training reward: the XP trickle (may level up) then the direct stat
     // gain, clamped to the per-rank cap. Returns the points actually applied + the
     // cap (for the "already at rank cap" message).
@@ -164,6 +165,16 @@ export function Training({ character, updateCharacter, activeTraining, setActive
             <h2>Training Grounds</h2>
             <p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall XP Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong>{CHARACTER_XP_GAIN_MULTIPLIER !== 1 ? <> · Testing XP: <strong>{CHARACTER_XP_GAIN_MULTIPLIER}x</strong></> : null}</p>
 
+            <div className="training-guide-panel">
+                <strong>Training Plan</strong>
+                <ul>
+                    <li>Training raises the selected stat and grants a small amount of character XP.</li>
+                    <li>Start with Strength or Speed if you want a simple first pick.</li>
+                    <li>Choose 15m while learning; longer timers run longer and show their exact gain below.</li>
+                    <li>You can return to the village while training runs, then come back to collect.</li>
+                </ul>
+            </div>
+
             {activeTraining && (
                 <div className="summary-box">
                     <h3>Active Training</h3>
@@ -171,6 +182,7 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                     <p>{trainingReady
                         ? <strong style={{ color: "#4ade80" }}>Ready to collect!</strong>
                         : <>Time remaining: <strong>{formatTrainingRemaining(remainingMs)}</strong> · ends {new Date(activeTraining.endsAt).toLocaleTimeString()}</>}</p>
+                    <p className="hint">Next: collect this training, then spend your new strength on an E-Rank Drill or rookie mission.</p>
                     <button onClick={completeTraining} disabled={!trainingReady}>{trainingReady ? "Collect Training" : "Training…"}</button>
                     <button onClick={cancelTraining} style={{ marginLeft: 8 }}>Cancel (keep prorated stats)</button>
                 </div>
@@ -198,6 +210,8 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                                         key={stat}
                                         className={`location-button${selectedStat === stat ? " selected" : ""}`}
                                         onClick={() => setSelectedStat(stat)}
+                                        aria-pressed={selectedStat === stat}
+                                        title={`${info?.label ?? stat}: train this stat next.`}
                                     >
                                         <span className="tile-icon">{info?.icon ?? "?"}</span>
                                         <span>{info?.label ?? stat}</span>
@@ -216,10 +230,21 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                     const boostedXp = Math.max(0, Math.round(boostAmount(timer.xp, trainingXpBonus) * warDebuff.xpMult));
                     const effectiveXp = effectiveCharacterXpGain(character, boostedXp);
                     const gain = Math.max(0, Math.round(trainingStatGain(timer, timer.ms, trainingXpBonus) * warDebuff.xpMult));
+                    const disabledReason = activeTraining
+                        ? "A training session is already active."
+                        : character.stamina < timer.staminaCost
+                            ? `Need ${timer.staminaCost} stamina.`
+                            : "";
                     return (
-                        <button key={timer.label} className={`location-button${showAcademyTrainingHint ? " academy-timer-target" : ""}`} onClick={() => startTraining(timer)}>
+                        <button
+                            key={timer.label}
+                            className={`location-button${showAcademyTrainingHint ? " academy-timer-target" : ""}`}
+                            onClick={() => startTraining(timer)}
+                            disabled={!!disabledReason}
+                            title={disabledReason || `Start ${timer.label} ${selectedStatLabel} training.`}
+                        >
                             <span className="tile-icon">{timer.icon}</span>
-                            <span>{timer.label}</span>
+                            <span>Start {timer.label}</span>
                             <small>+{gain} {formatStatName(selectedStat)} · +{effectiveXp} XP</small>
                         </button>
                     );
