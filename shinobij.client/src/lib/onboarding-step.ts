@@ -27,3 +27,23 @@ export function normalizeOnboardingStep(
     if (step === "tour") return "training";
     return step;
 }
+
+export const ONBOARDING_STEP_ORDER: Record<CanonicalOnboardingStep, number> = {
+    academyIntro: 0,
+    starter: 1,
+    academySpar: 2,
+    training: 3,
+    jutsu: 4,
+    firstMission: 5,
+    logbook: 6,
+    storyUnlocked: 7,
+    done: 8,
+};
+
+export function onboardingStepAtLeast(
+    step: Character["onboardingStep"] | null | "",
+    target: CanonicalOnboardingStep,
+): boolean {
+    const normalized = normalizeOnboardingStep(step);
+    return ONBOARDING_STEP_ORDER[normalized] >= ONBOARDING_STEP_ORDER[target];
+}
