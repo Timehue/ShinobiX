@@ -13,7 +13,7 @@ import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { clampNumber, currentDateKey } from "../lib/utils";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
-import { buildLogbookObjectives, objectiveComplete, type LogbookObjective, type ObjectiveRequirement } from "../lib/logbook-objectives";
+import { buildLogbookObjectives, currentLogbookObjective, objectiveComplete, type LogbookObjective, type ObjectiveRequirement } from "../lib/logbook-objectives";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { weatherForBiome } from "../data/sectors";
 import {
@@ -85,17 +85,23 @@ export function Logbook({
     // built by the shared lib so the Daily Briefing surfaces the same data and
     // the requirement definitions live in one place. Only the env facts the pure
     // builder can't derive from the save are supplied here.
-    const objectives = buildLogbookObjectives(character, {
+    const objectiveContext = {
         examProctorExists: creatorAis.some((ai) => ai.id === "builtin-ai-exam-proctor"),
         rogueNinjaExists: creatorAis.some((ai) => ai.id === "builtin-ai-rogue-ninja"),
         isKage: character.level >= 80 && loadVillageState(character.village).seatedKage?.toLowerCase() === character.name.toLowerCase(),
         isElder: Boolean(character.elderFocus),
-    });
+    };
+    const objectives = buildLogbookObjectives(character, objectiveContext);
+    const currentObjective = currentLogbookObjective(character, objectiveContext);
     const academyChecklist = objectives.find((o) => o.kind === "academy") ?? null;
     const academyComplete = academyChecklist ? objectiveComplete(academyChecklist) : false;
+    const chapterObjectives = objectives.filter((o) => o.kind === "chapter");
     const examMissions = objectives.filter(
         (o): o is LogbookObjective & { examKey: string } => o.kind === "exam" && o.examKey !== undefined,
     );
+    const ceremonyBody = ceremonyTitle === "Genin Exam"
+        ? "You graduated from the Academy. The village now trusts you with real shinobi work."
+        : `Congratulations, ${character.name}. Your next shinobi path is open.`;
 
     // Server-authoritative for built-in field missions; creator-authored missions
     // fall back to the legacy client payout (clientFallback). Mirrors Missions.claimFetchMission.
@@ -211,7 +217,7 @@ export function Logbook({
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
         const shards = result.reward.currency?.fateShards ?? 0;
-        alert(`Academy Training complete! +${result.reward.xpBoosted} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina${shards ? `, +${shards} Fate Shards` : ""}. You're ready for the Genin Exam.`);
+        alert(`Academy Training complete! +${result.reward.xpBoosted} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina${shards ? `, +${shards} Fate Shards` : ""}. Keep following your Logbook path toward Genin.`);
     }
 
     function renderRequirement(requirement: ObjectiveRequirement) {
@@ -238,7 +244,7 @@ export function Logbook({
                     <div className="card" style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
                         <div style={{ fontSize: 48, marginBottom: 4 }}>🎉</div>
                         <h2 style={{ marginTop: 0 }}>{ceremonyTitle} Passed!</h2>
-                        <p>Congratulations, {character.name} — you've been promoted. Your level cap is lifted and new content awaits.</p>
+                        <p>{ceremonyBody}</p>
                         <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setCeremonyTitle(null)}>Continue →</button>
                     </div>
                 </div>
@@ -248,13 +254,37 @@ export function Logbook({
                 <>
                     <h3>Academy Training</h3>
                     <section className="academy-logbook-panel mission-board-section">
-                        <p className="hint">Complete these goals to learn the core loop and prepare for the Genin Exam.</p>
+                        <p className="hint">Complete these goals to learn the core loop, then follow the Path to Genin chapters.</p>
                         <div className="logbook-requirement-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
                         {academyComplete && (
                             <div className="menu">
                                 <button className="start-primary-btn academy-reward-btn" onClick={claimAcademyReward}>Claim Academy Reward</button>
                             </div>
                         )}
+                    </section>
+                </>
+            )}
+            {chapterObjectives.length > 0 && (
+                <>
+                    <h3>Path to Genin</h3>
+                    <section className="academy-logbook-panel chapter-logbook-panel mission-board-section">
+                        <p className="hint">Follow these chapters after the tutorial. The real Genin Exam appears at the level-20 hold.</p>
+                        {chapterObjectives.map((chapter) => {
+                            const complete = objectiveComplete(chapter);
+                            const active = currentObjective?.id === chapter.id;
+                            return (
+                                <div key={chapter.id} className={`logbook-chapter-card${complete ? " complete" : ""}${active ? " active" : ""}`}>
+                                    <div className="logbook-chapter-header">
+                                        <div>
+                                            <h4>{chapter.title}</h4>
+                                            {chapter.summary && <p className="hint">{chapter.summary}</p>}
+                                        </div>
+                                        <span>{complete ? "Complete" : active ? "Current" : `Lvl ${chapter.unlockLevel}+`}</span>
+                                    </div>
+                                    <div className="logbook-requirement-grid">{chapter.requirements.map(renderRequirement)}</div>
+                                </div>
+                            );
+                        })}
                     </section>
                 </>
             )}
@@ -277,9 +307,10 @@ export function Logbook({
                         const gate = EXAM_LEVEL_GATES.find(g => g.exam === exam.examKey);
                         const isBlocking = !passed && character.level >= (gate?.level ?? 999);
                         return (
-                            <section className="summary-box mission-board-section" key={exam.title}>
+                            <section className="summary-box mission-board-section" key={exam.id}>
                                 <h3>{exam.title} {passed ? "✓" : ""}</h3>
-                                <p className="hint">Unlocked at level {exam.unlockLevel}. Status: <strong>{passed ? "Passed" : complete ? "Ready to pass" : "In progress"}</strong></p>
+                                {exam.summary && <p className="hint">{exam.summary}</p>}
+                                <p className="hint">Gate: level {gate?.level ?? exam.unlockLevel}. Status: <strong>{passed ? "Passed" : complete ? "Ready to pass" : "In progress"}</strong></p>
                                 {isBlocking && !complete && <p style={{ color: "#f87171", fontWeight: "bold" }}>You cannot level past {gate!.level} until you pass this exam.</p>}
                                 <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
                                 {!passed && <div className="menu">

@@ -1,12 +1,15 @@
 import { type Screen, villagePageImage } from "../App";
 import type { Biome, WeatherType } from "../types/core";
+import type { Character } from "../types/character";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
+import { currentLogbookObjective } from "../lib/logbook-objectives";
+import { rankFromLevel } from "../lib/stats";
 
 // Bespoke pixel-art building icons (generated via scripts/gen-asset.mjs, then
 // committed as bundle assets). One biome-neutral set reused across all four
-// villages — the marker chip tint carries the per-village flavor.
+// villages; the marker chip tint carries the per-village flavor.
 import battleArenaIcon from "../assets/village-icons/battle-arena.webp";
 import storyHallIcon from "../assets/village-icons/story-hall.webp";
 import townHallIcon from "../assets/village-icons/townhall.webp";
@@ -24,9 +27,26 @@ import petYardIcon from "../assets/village-icons/pet-yard.webp";
 import cardHallIcon from "../assets/village-icons/card-hall.webp";
 import type { CSSProperties } from "react";
 
+type VillageLocationTier = "main" | "support" | "advanced";
+
+interface VillageLocation {
+    name: string;
+    img: string;
+    screen: Screen;
+    x: string;
+    y: string;
+    tier: VillageLocationTier;
+}
+
+const TIER_LABELS: Record<VillageLocationTier, string> = {
+    main: "Main Path",
+    support: "Support",
+    advanced: "Later",
+};
+
 // Per-village accent for the marker chip (label border + hover glow). The
-// object icons are warm/neutral, so this tint is what gives each village its
-// biome flavour without needing a separate icon set per village.
+// object icons are warm/neutral, so this tint gives each village its flavor
+// without needing a separate icon set per village.
 const VILLAGE_ACCENT: Record<string, { border: string; glow: string }> = {
     "Frostfang Village": { border: "rgba(125, 211, 252, 0.55)", glow: "rgba(125, 211, 252, 0.7)" },
     "Stormveil Village": { border: "rgba(134, 239, 172, 0.55)", glow: "rgba(74, 222, 128, 0.7)" },
@@ -44,25 +64,35 @@ const VILLAGE_AMBIENCE: Record<string, { biome: Biome; weather?: WeatherType }> 
     "Moonshadow Village": { biome: "shadow" },
 };
 
-export function Village({ characterVillage, setScreen }: { characterVillage: string; setScreen: (screen: Screen) => void }) {
-    // `saveMsg` was destructured without a setter and stayed "" forever —
-    // the conditional render at line 28 was dead code. Removed.
-    const locations = [
-        { name: "Battle Arena", img: battleArenaIcon, screen: "battleArena" as Screen, x: "10%", y: "31%" },
-        { name: "Story Hall", img: storyHallIcon, screen: "storyHall" as Screen, x: "29%", y: "33%" },
-        { name: "Town Hall", img: townHallIcon, screen: "townHall" as Screen, x: "50%", y: "22%" },
-        { name: "Bank", img: bankIcon, screen: "bank" as Screen, x: "68%", y: "31%" },
-        { name: "Shop", img: shopIcon, screen: "shop" as Screen, x: "18%", y: "79%" },
-        { name: "Clan Hall", img: clanHallIcon, screen: "clan" as Screen, x: "13%", y: "57%" },
-        { name: "Hospital", img: hospitalIcon, screen: "hospital" as Screen, x: "66%", y: "56%" },
-        { name: "Mission Hall", img: missionHallIcon, screen: "missions" as Screen, x: "68%", y: "75%" },
-        { name: "Cafeteria", img: cafeteriaIcon, screen: "cafeteria" as Screen, x: "82%", y: "45%" },
-        { name: "Tavern", img: tavernIcon, screen: "tavern" as Screen, x: "82%", y: "63%" },
-        { name: "Stat Training", img: statTrainingIcon, screen: "training" as Screen, x: "83%", y: "25%" },
-        { name: "Jutsu Training", img: jutsuTrainingIcon, screen: "jutsuTraining" as Screen, x: "80%", y: "81%" },
-        { name: "World Map", img: worldMapIcon, screen: "worldMap" as Screen, x: "45%", y: "68%" },
-        { name: "Pet Yard", img: petYardIcon, screen: "pets" as Screen, x: "32%", y: "55%" },
-        { name: "Card Hall", img: cardHallIcon, screen: "shinobiTiles" as Screen, x: "52%", y: "55%" },
+const LOCATIONS: VillageLocation[] = [
+    { name: "Battle Arena", img: battleArenaIcon, screen: "battleArena", x: "10%", y: "31%", tier: "main" },
+    { name: "Story Hall", img: storyHallIcon, screen: "storyHall", x: "29%", y: "33%", tier: "support" },
+    { name: "Town Hall", img: townHallIcon, screen: "townHall", x: "50%", y: "22%", tier: "support" },
+    { name: "Bank", img: bankIcon, screen: "bank", x: "68%", y: "31%", tier: "support" },
+    { name: "Shop", img: shopIcon, screen: "shop", x: "18%", y: "79%", tier: "support" },
+    { name: "Clan Hall", img: clanHallIcon, screen: "clan", x: "13%", y: "57%", tier: "support" },
+    { name: "Hospital", img: hospitalIcon, screen: "hospital", x: "66%", y: "56%", tier: "support" },
+    { name: "Mission Hall", img: missionHallIcon, screen: "missions", x: "68%", y: "75%", tier: "main" },
+    { name: "Cafeteria", img: cafeteriaIcon, screen: "cafeteria", x: "82%", y: "45%", tier: "support" },
+    { name: "Tavern", img: tavernIcon, screen: "tavern", x: "82%", y: "63%", tier: "support" },
+    { name: "Stat Training", img: statTrainingIcon, screen: "training", x: "83%", y: "25%", tier: "main" },
+    { name: "Jutsu Training", img: jutsuTrainingIcon, screen: "jutsuTraining", x: "80%", y: "81%", tier: "main" },
+    { name: "World Map", img: worldMapIcon, screen: "worldMap", x: "45%", y: "68%", tier: "main" },
+    { name: "Pet Yard", img: petYardIcon, screen: "pets", x: "32%", y: "55%", tier: "support" },
+    { name: "Card Hall", img: cardHallIcon, screen: "shinobiTiles", x: "52%", y: "55%", tier: "advanced" },
+];
+
+export function Village({ character, setScreen }: { character: Character; setScreen: (screen: Screen) => void }) {
+    const characterVillage = character.village;
+    const currentObjective = currentLogbookObjective(character);
+    const currentRequirement = currentObjective?.requirements.find((requirement) => requirement.progress < requirement.target);
+    const currentRank = rankFromLevel(character.level);
+    const pathActions: Array<{ label: string; screen: Screen; emphasis?: boolean }> = [
+        { label: "Logbook", screen: "logbook", emphasis: true },
+        { label: "Missions", screen: "missions" },
+        { label: "Training", screen: "training" },
+        { label: "Jutsu", screen: "jutsuTraining" },
+        { label: "World Map", screen: "worldMap" },
     ];
 
     const accent = VILLAGE_ACCENT[characterVillage] ?? VILLAGE_ACCENT["Frostfang Village"];
@@ -71,8 +101,23 @@ export function Village({ characterVillage, setScreen }: { characterVillage: str
     return (
         <div className="stormveil-village-screen">
             <div className="village-save-bar">
-                <div className="village-safe-zone">🛡️ SAFE ZONE</div>
+                <div className="village-safe-zone">SAFE ZONE</div>
             </div>
+
+            <section className="village-path-panel">
+                <div>
+                    <span className="village-path-kicker">{currentRank} route</span>
+                    <h2>{currentObjective?.title ?? "Village Route"}</h2>
+                    <p>{currentRequirement ? currentRequirement.label : "Pick up the next Logbook goal when you are ready."}</p>
+                </div>
+                <div className="village-path-actions">
+                    {pathActions.map((action) => (
+                        <button key={action.screen} className={action.emphasis ? "primary" : ""} onClick={() => setScreen(action.screen)}>
+                            {action.label}
+                        </button>
+                    ))}
+                </div>
+            </section>
 
             <div
                 className="stormveil-map"
@@ -82,16 +127,13 @@ export function Village({ characterVillage, setScreen }: { characterVillage: str
                     "--village-glow": accent.glow,
                 } as CSSProperties}
             >
-                {/* Living village: time-of-day wash, drifting biome ambience, and
-                    wildlife (birds by day, fireflies after dark) behind the building
-                    markers (all z-index below the z-4 map buttons). */}
                 <DayNightSky className="amb-under" />
                 <SceneAmbience className="amb-under" biome={ambience.biome} weather={ambience.weather} />
                 <SceneCritters className="amb-under" biome={ambience.biome} density={0.9} />
-                {locations.map((location) => (
+                {LOCATIONS.map((location) => (
                     <button
                         key={location.name}
-                        className="stormveil-map-button"
+                        className={`stormveil-map-button village-${location.tier}-path`}
                         style={{
                             left: location.x,
                             top: location.y,
@@ -100,6 +142,7 @@ export function Village({ characterVillage, setScreen }: { characterVillage: str
                     >
                         <img className="stormveil-map-icon" src={location.img} alt="" draggable={false} />
                         <strong>{location.name}</strong>
+                        <span className="village-marker-tag">{TIER_LABELS[location.tier]}</span>
                     </button>
                 ))}
             </div>
