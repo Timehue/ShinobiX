@@ -36,6 +36,7 @@ import attackHandler     from './api/player/attack.js';
 import sleeperKillHandler from './api/player/sleeper-kill.js';
 import clearAttackHandler from './api/player/clear-attack.js';
 import healHandler       from './api/player/heal.js';
+import cafeteriaHandler  from './api/player/cafeteria.js';
 import rosterHandler     from './api/player/roster.js';
 import playerLeaderboardsHandler from './api/player/leaderboards.js';
 import playerTradeHandler from './api/player/trade.js';
@@ -115,6 +116,8 @@ import clanWarTilecardsHandler from './api/clan/war/tilecards.js';
 // Card Clash — free-play PvP (open matchmaking + server-authoritative match)
 import cardClashQueueHandler   from './api/card-clash/queue.js';
 import cardClashMatchHandler   from './api/card-clash/match.js';
+import cardClashAiStartHandler from './api/card-clash/ai-start.js';
+import cardClashAiSettleHandler from './api/card-clash/ai-settle.js';
 // Clan — seal pool
 import clanSealPoolGetHandler        from './api/clan/seal-pool/get.js';
 import clanSealPoolDonateHandler     from './api/clan/seal-pool/donate.js';
@@ -559,6 +562,7 @@ route('/player/attack',       attackHandler);
 route('/player/sleeper-kill', sleeperKillHandler);
 route('/player/clear-attack', clearAttackHandler);
 route('/player/heal',         healHandler);
+route('/player/cafeteria',    cafeteriaHandler);
 route('/player/roster',       rosterHandler);
 route('/player/leaderboards', playerLeaderboardsHandler);
 route('/player/trade',        playerTradeHandler);
@@ -738,6 +742,8 @@ route('/clan/war/tilecards', clanWarTilecardsHandler);
 // ─── Card Clash: free-play PvP ─────────────────────────────────────────────────
 route('/card-clash/queue', cardClashQueueHandler);
 route('/card-clash/match', cardClashMatchHandler);
+route('/card-clash/ai-start', cardClashAiStartHandler);
+route('/card-clash/ai-settle', cardClashAiSettleHandler);
 
 // ─── Clan: seal pool ───────────────────────────────────────────────────────────
 route('/clan/seal-pool/get',        clanSealPoolGetHandler);

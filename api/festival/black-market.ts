@@ -73,10 +73,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 auraStones: num(char.auraStones) + reward.auraStones,
                 mythicSeals: num(char.mythicSeals) + reward.mythicSeals,
             };
-            await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: nextChar }), rec));
+            const updatedRecord = bumpSaveVersion<Record<string, unknown>>({ ...rec, character: nextChar });
+            await kv.set(`save:${playerName}`, mergePreservingImages(updatedRecord, rec));
             await kv.set(countKey, used + 1, { ex: COUNT_TTL_SECONDS } as never);
 
-            return { status: 200, body: { ok: true, cost: BLACK_MARKET_COST, reward, dailyUsed: used + 1, dailyCap: BLACK_MARKET_DAILY_CAP, balanceRyo: num(nextChar.ryo) } };
+            return {
+                status: 200,
+                body: {
+                    ok: true,
+                    cost: BLACK_MARKET_COST,
+                    reward,
+                    dailyUsed: used + 1,
+                    dailyCap: BLACK_MARKET_DAILY_CAP,
+                    balanceRyo: num(nextChar.ryo),
+                    character: nextChar,
+                    _saveVersion: Number(updatedRecord._saveVersion ?? 0),
+                },
+            };
         }, { failClosed: true });
 
         if (out.status === 200) {
