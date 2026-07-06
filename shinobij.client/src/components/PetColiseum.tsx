@@ -19,6 +19,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import "../styles/pet-skin.css";
 import { GameIcon } from "./icons/GameIcon";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";

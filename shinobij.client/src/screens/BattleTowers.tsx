@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "../styles/battle-skin.css";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import { BattleTowersLobby } from "./BattleTowersLobby";
 import { BattleTowerFight } from "./BattleTowerFight";

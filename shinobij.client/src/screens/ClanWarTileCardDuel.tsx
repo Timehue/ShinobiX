@@ -15,6 +15,7 @@
  */
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import type { CSSProperties } from "react";
+import "../styles/card-clash-skin.css";
 import type { Character } from "../types/character";
 import { CARD_CLASH_BOARD_BG, CARD_CLASH_LOCATION_ART } from "../lib/card-clash-art";
 import type { Screen } from "../types/core";

@@ -1,4 +1,5 @@
 import { useState, useEffect, type ChangeEvent } from "react";
+import "../styles/training-skin.css";
 import type { Character } from "../types/character";
 // Currency lines reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
