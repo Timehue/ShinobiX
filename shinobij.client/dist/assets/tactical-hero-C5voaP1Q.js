@@ -1,0 +1,1 @@
+var e=`/assets/tactical-hero-Oeb26UDh.webp`;export{e as t};
