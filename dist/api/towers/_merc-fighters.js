@@ -21,20 +21,7 @@ exports.resolveMercBattle = resolveMercBattle;
 const _tower_session_js_1 = require("./_tower-session.js");
 const _engine_js_1 = require("./_engine.js");
 const _sim_js_1 = require("./_sim.js");
-// Per-rank stat cap (mirrors api/pvp/move.ts statCapForLevel, which isn't exported;
-// the engine clamps to this anyway). A peak merc fills every stat to its cap.
-function statCapForLevel(level) {
-    const lvl = Math.max(1, Math.floor(Number(level) || 1));
-    if (lvl >= 80)
-        return 2500;
-    if (lvl >= 50)
-        return 2100;
-    if (lvl >= 30)
-        return 1300;
-    if (lvl >= 15)
-        return 700;
-    return 350;
-}
+const formulas_js_1 = require("../combat-core/formulas.js");
 // A peak merc's max HP, scaled by tier level. Tunable.
 function mercMaxHp(level) {
     return Math.round(2200 + Math.max(1, level) * 28); // L75 ≈ 4300, L100 ≈ 5000
@@ -66,7 +53,7 @@ function mercJutsuKit() {
  *  a max-mastery Taijutsu kit + a basic weapon/armor. No bloodline / item-damage
  *  bonus → a credible but beatable threat. Tunable. */
 function buildMercCharacter(level) {
-    const cap = statCapForLevel(level);
+    const cap = (0, formulas_js_1.statCapForLevel)(level);
     const stats = {};
     for (const k of STAT_KEYS)
         stats[k] = cap;

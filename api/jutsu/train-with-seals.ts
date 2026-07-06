@@ -6,6 +6,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { masteryBonus } from '../_profession-mastery.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { jutsuLevelCapForLevel } from '../combat-core/formulas.js';
 
 // jutsuId must be a sane slug — lowercase letters/digits/dashes only, length-
 // bounded. Stops injection of weird KV keys or path-traversal-ish values.
@@ -29,18 +30,8 @@ const SEAL_COSTS_BY_FROM_LEVEL: Record<number, number> = {
 const MIN_LEVEL = 30;
 const MAX_LEVEL = 40; // Seal path stops at 40 — 40→50 still requires PvP.
 
-// Per-rank jutsu mastery-level cap (anti-twink) — mirrors api/pvp/move.ts
-// jutsuLevelCapForLevel, the authoritative combat clamp (parity-pinned to the
-// client). Seal training must respect it so a player can't spend Seals raising a
-// jutsu above what their rank can actually use in combat (Chunin caps at 30, so
-// only Jonin+ can Seal-train the 30→40 band).
-function jutsuLevelCapForLevel(level: number): number {
-    const lvl = Math.max(1, Math.floor(Number(level) || 1));
-    if (lvl >= 50) return 50;   // Jonin (50–79) + Special Jonin (80+)
-    if (lvl >= 30) return 30;   // Chunin
-    if (lvl >= 15) return 20;   // Genin
-    return 10;                  // Academy Student
-}
+// Seal training uses combat-core's per-rank jutsu mastery cap, the same clamp
+// PvP uses when resolving damage/tags, so Seals cannot buy unusable mastery.
 
 // Vanguard Rank 8+ pays 90% of the listed cost (10% discount).
 const VANGUARD_RANK_FOR_DISCOUNT = 8;
