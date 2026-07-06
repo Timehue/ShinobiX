@@ -206,6 +206,54 @@
     padding: 14px !important;
 }
 
+.logbook-screen .chapter-logbook-panel {
+    display: grid;
+    gap: 12px;
+}
+
+.logbook-screen .logbook-chapter-card {
+    background: linear-gradient(135deg, rgba(78,168,255,0.12), rgba(15,22,40,0.88));
+    border: 1px solid rgba(78,168,255,0.26);
+    border-radius: 7px;
+    padding: 12px;
+}
+
+.logbook-screen .logbook-chapter-card.active {
+    border-color: rgba(232,212,150,0.72);
+    box-shadow: 0 0 18px rgba(232,212,150,0.12);
+}
+
+.logbook-screen .logbook-chapter-card.complete {
+    border-color: rgba(74,222,128,0.42);
+}
+
+.logbook-screen .logbook-chapter-header {
+    align-items: flex-start;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+}
+
+.logbook-screen .logbook-chapter-header h4 {
+    color: #e8d496;
+    font: 700 13px var(--font-display);
+    letter-spacing: 0.14em;
+    margin: 0 0 4px;
+    text-transform: uppercase;
+}
+
+.logbook-screen .logbook-chapter-header > span {
+    background: rgba(2,6,23,0.62);
+    border: 1px solid rgba(232,212,150,0.34);
+    border-radius: 4px;
+    color: #facc15;
+    flex: 0 0 auto;
+    font: 700 10px var(--font-display);
+    letter-spacing: 0.1em;
+    padding: 4px 8px;
+    text-transform: uppercase;
+}
+
 .logbook-screen .logbook-requirement-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -374,6 +422,28 @@
 
 .mission-hall .academy-trial-card .start-primary-btn {
     width: 100%;
+}
+
+.mission-hall .rookie-orders-card {
+    background:
+        linear-gradient(135deg, rgba(78,168,255,0.16), rgba(232,212,150,0.10)),
+        linear-gradient(180deg, rgba(15,22,40,0.96), rgba(8,12,24,0.98)) !important;
+    border: 1px solid rgba(78,168,255,0.54) !important;
+    border-left: 4px solid #4ea8ff !important;
+    border-radius: 8px !important;
+    margin-bottom: 16px !important;
+    padding: 14px !important;
+}
+
+.mission-hall .rookie-orders-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.mission-hall .rookie-orders-actions button {
+    flex: 1 1 150px;
 }
 
 .mission-hall .mh-tag,
