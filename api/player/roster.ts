@@ -3,14 +3,8 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
-import {
-    REGISTRY_KEY,
-    buildPublicPlayerIndexEntry,
-    needsPublicPlayerIndexBackfill,
-    parsePublicPlayerIndexEntry,
-    publicIndexToLeaderboardRosterEntry,
-    type PublicPlayerIndexEntry,
-} from './_public-index.js';
+import { REGISTRY_KEY, isPublicPlayerIndexKey, publicIndexKey, publicIndexToLeaderboardRosterEntry } from './_public-index.js';
+import { readPublicPlayerIndex } from './_public-index-store.js';
 
 // Fields stripped from EVERY character before the roster goes out the door.
 // Previously this endpoint returned `save.character` verbatim, leaking ryo,
@@ -142,46 +136,12 @@ function normalizeSector(value: unknown, fallback = 40) {
 }
 
 async function compactLeaderboardRoster(onlineNames: Set<string>) {
-    const rawRegistry = await kv.hgetall<Record<string, unknown>>(REGISTRY_KEY) ?? {};
-    const registryKeys = Object.keys(rawRegistry);
-    const entries = new Map<string, PublicPlayerIndexEntry>();
-    const staleKeys: string[] = [];
-
-    for (const key of registryKeys) {
-        const raw = rawRegistry[key];
-        const parsed = parsePublicPlayerIndexEntry(raw, key);
-        if (parsed) entries.set(key, parsed);
-        if (needsPublicPlayerIndexBackfill(raw)) staleKeys.push(key);
-    }
-
-    if (staleKeys.length > 0) {
-        try {
-            const saves = await kv.mget<Record<string, unknown>[]>(...staleKeys.map((key) => `save:${key}`));
-            const patch: Record<string, PublicPlayerIndexEntry> = {};
-            const now = Date.now();
-            for (let i = 0; i < staleKeys.length; i++) {
-                const key = staleKeys[i]!;
-                const save = saves[i] ?? null;
-                const char = (save?.character ?? null) as Record<string, unknown> | null;
-                if (!char) continue;
-                const prior = entries.get(key);
-                const entry = buildPublicPlayerIndexEntry(char, key, now, prior?.lastSeen ?? 0);
-                entries.set(key, entry);
-                patch[key] = entry;
-            }
-            if (Object.keys(patch).length > 0) {
-                await kv.hset(REGISTRY_KEY, patch).catch((err) => {
-                    console.warn('[roster] public leaderboard index backfill failed', err);
-                });
-            }
-        } catch (err) {
-            console.warn('[roster] public leaderboard backfill read failed', err);
-        }
-    }
-
-    return [...entries.values()].map((entry) => (
-        publicIndexToLeaderboardRosterEntry(entry, onlineNames.has(entry.name.toLowerCase()))
-    ));
+    const { entries } = await readPublicPlayerIndex({ backfill: true, logContext: 'roster' });
+    return [...entries.entries()]
+        .filter(([key, entry]) => isPublicPlayerIndexKey(key) && isPublicPlayerIndexKey(entry.name))
+        .map(([, entry]) => (
+            publicIndexToLeaderboardRosterEntry(entry, onlineNames.has(publicIndexKey(entry.name)))
+        ));
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
