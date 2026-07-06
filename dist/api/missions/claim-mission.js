@@ -13,6 +13,7 @@ const _progress_js_1 = require("./_progress.js");
 const _economy_js_1 = require("../_economy.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
 const _era_js_1 = require("../_era.js");
+const _mission_progress_receipt_js_1 = require("./_mission-progress-receipt.js");
 const _mission_catalog_js_1 = require("./_mission-catalog.js");
 // Server-authoritative mission claim. Replaces the old client-side reward math
 // for built-in COMBAT, FIELD and HUNT missions and the onboarding ACADEMY-TRIAL:
@@ -105,6 +106,7 @@ async function handler(req, res) {
             let completion = 'daily';
             let academyTrialClaimed = false;
             let academyChecklistClaimed = false;
+            let progressReceiptKeyToClear = null;
             if (missionType === 'combat') {
                 const def = (0, _mission_catalog_js_1.combatMissionByKey)(missionId);
                 if (!def)
@@ -150,6 +152,11 @@ async function handler(req, res) {
                     return { applied: false, reason: 'level' };
                 if (!(0, _mission_catalog_js_1.hasDailyMissionSlot)(char, todayKey))
                     return { applied: false, reason: 'daily-cap' };
+                const progressKey = (0, _mission_progress_receipt_js_1.missionProgressReceiptKey)(playerName, missionId);
+                const progress = (0, _mission_progress_receipt_js_1.validateMissionProgressReceipt)((0, _mission_progress_receipt_js_1.cleanMissionProgressReceipt)(await _storage_js_1.kv.get(progressKey).catch(() => null)), { playerName, missionId, missionType: 'field', mission: def });
+                if (!progress.ok)
+                    return { applied: false, reason: progress.reason };
+                progressReceiptKeyToClear = progressKey;
                 baseXp = def.xpReward;
                 baseRyo = def.ryoReward;
                 baseStamina = def.staminaReward;
@@ -167,6 +174,11 @@ async function handler(req, res) {
                     return { applied: false, reason: 'level' };
                 if (!(0, _mission_catalog_js_1.hasDailyHuntSlot)(char, todayKey))
                     return { applied: false, reason: 'daily-cap' };
+                const progressKey = (0, _mission_progress_receipt_js_1.missionProgressReceiptKey)(playerName, missionId);
+                const progress = (0, _mission_progress_receipt_js_1.validateMissionProgressReceipt)((0, _mission_progress_receipt_js_1.cleanMissionProgressReceipt)(await _storage_js_1.kv.get(progressKey).catch(() => null)), { playerName, missionId, missionType: 'hunt', mission: def });
+                if (!progress.ok)
+                    return { applied: false, reason: progress.reason };
+                progressReceiptKeyToClear = progressKey;
                 baseXp = def.xpReward;
                 baseRyo = def.ryoReward;
                 baseStamina = def.staminaReward;
@@ -270,6 +282,9 @@ async function handler(req, res) {
             const updated = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
             (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
+            if (progressReceiptKeyToClear) {
+                await _storage_js_1.kv.del(progressReceiptKeyToClear).catch(() => 0);
+            }
             return {
                 applied: true,
                 saveVersion: Number(updated._saveVersion ?? 0),

@@ -6,6 +6,8 @@ const _utils_js_1 = require("../../_utils.js");
 const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
+const _mutate_player_save_js_1 = require("../../save/_mutate-player-save.js");
+const _economy_tx_js_1 = require("../../_economy-tx.js");
 /*
  * /api/clan/treasury/transfer — POST only
  *
@@ -91,6 +93,8 @@ async function handler(req, res) {
     const rlName = identity.admin ? undefined : identity.name;
     if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'clan-treasury-transfer', 30, 60_000, rlName)))
         return;
+    let txId = null;
+    let txState = null;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const clanName = typeof body.clanName === 'string' ? body.clanName.trim() : '';
@@ -121,6 +125,7 @@ async function handler(req, res) {
         if (clanKey === recipientKey) {
             return res.status(400).json({ error: 'Invalid recipient.' });
         }
+        txId = (0, _economy_tx_js_1.makeEconomyTxId)('clan-treasury-transfer');
         // Lock BOTH rows (clan record + recipient save) in deterministic key
         // order so two transfers — or a transfer vs. the recipient's autosave —
         // can't deadlock. failClosed: a contention abort writes nothing and the
@@ -158,9 +163,23 @@ async function handler(req, res) {
                 // Credit recipient first, then deduct — a credit failure can't
                 // leave the treasury short (both are under the same locks here).
                 const nextChar = { ...recipientChar, [c]: Math.max(0, Number(recipientChar[c] ?? 0)) + amount };
-                await _storage_js_1.kv.set(recipientKey, { ...recipientSave, character: nextChar });
+                await (0, _economy_tx_js_1.reserveEconomyTx)({
+                    id: txId,
+                    kind: 'clan-treasury-transfer',
+                    debitKey: clanKey,
+                    creditKey: recipientKey,
+                    resource: c,
+                    amount,
+                    meta: { clanName, recipientName },
+                });
+                txState = 'reserved';
+                const written = await (0, _mutate_player_save_js_1.writeVersionedPlayerSave)(recipientKey, recipientSave, nextChar);
+                await (0, _economy_tx_js_1.markEconomyTx)(txId, 'credit-applied');
+                txState = 'credit-applied';
                 await _storage_js_1.kv.set(clanKey, { ...rec, treasury: { ...treasury, [c]: available - amount } });
-                return { ok: true, currency: c, amount };
+                await (0, _economy_tx_js_1.completeEconomyTx)(txId);
+                txState = 'complete';
+                return { ok: true, currency: c, amount, _saveVersion: written._saveVersion };
             }
             // Item transfer.
             const items = Array.isArray(treasury.items) ? treasury.items : [];
@@ -169,9 +188,23 @@ async function handler(req, res) {
                 return { ok: false, status: 400, error: 'Item not in clan treasury.' };
             }
             const nextInv = Array.isArray(recipientChar.inventory) ? [...recipientChar.inventory, itemId] : [itemId];
-            await _storage_js_1.kv.set(recipientKey, { ...recipientSave, character: { ...recipientChar, inventory: nextInv } });
+            await (0, _economy_tx_js_1.reserveEconomyTx)({
+                id: txId,
+                kind: 'clan-treasury-transfer',
+                debitKey: clanKey,
+                creditKey: recipientKey,
+                resource: `item:${itemId}`,
+                amount: 1,
+                meta: { clanName, recipientName },
+            });
+            txState = 'reserved';
+            const written = await (0, _mutate_player_save_js_1.writeVersionedPlayerSave)(recipientKey, recipientSave, { ...recipientChar, inventory: nextInv });
+            await (0, _economy_tx_js_1.markEconomyTx)(txId, 'credit-applied');
+            txState = 'credit-applied';
             await _storage_js_1.kv.set(clanKey, { ...rec, treasury: { ...treasury, items: removeOneItem(items, itemId) } });
-            return { ok: true, itemId };
+            await (0, _economy_tx_js_1.completeEconomyTx)(txId);
+            txState = 'complete';
+            return { ok: true, itemId, _saveVersion: written._saveVersion };
         }, { failClosed: true }), { failClosed: true });
         if (!result.ok) {
             return res.status(result.status).json({ error: result.error });
@@ -188,6 +221,9 @@ async function handler(req, res) {
         return res.status(200).json(result);
     }
     catch (err) {
+        if (txId && txState && txState !== 'complete') {
+            await (0, _economy_tx_js_1.failEconomyTx)(txId, err).catch(() => undefined);
+        }
         console.error('[clan/treasury-transfer]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }
