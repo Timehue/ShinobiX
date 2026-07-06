@@ -133,7 +133,9 @@ import { readFileSync } from "node:fs";
 // screen (+2). All feature logic — building/capping the entry, the reflection panel,
 // and the shared log renderer — lives in lib/battle-log-history.ts +
 // components/{BattleLogHistoryPanel,BattleActionBlock}.tsx, NOT here.
-const MAX_LINES = 10_137;
+// -> 8,398 (drained PetArenaBattlefield, HollowGateShrineView, default VN data,
+// village-leadership data, toast stacks, and stale migration breadcrumbs out of App.tsx).
+const MAX_LINES = 8_500;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
