@@ -8,14 +8,15 @@
  * training faucet and can't break the ~90-day-to-cap anchor. Ranked PvP grants
  * ZERO (skill-pure) — the caller simply doesn't invoke this for ranked wins.
  *
- * Pure + dependency-free so it unit-tests cleanly and is shared by the AI-fight
- * and (later) PvP-win reward endpoints. statCapForLevel mirrors the canonical
- * table in api/pvp/move.ts + constants/game.ts; pinned by api/_stat-growth.test.ts.
+ * Pure so it unit-tests cleanly and is shared by the AI-fight and (later)
+ * PvP-win reward endpoints. Rank cap lookup comes from combat-core so
+ * progression rewards cannot drift from the combat resolver's caps.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.COMBAT_USED_STAT_RATIO = exports.DAILY_COMBAT_STAT_CAP = exports.PVP_CASUAL_STAT_POINTS_PER_WIN = exports.AI_FIGHT_STAT_POINTS_PER_WIN = exports.STAT_GROWTH_KEYS = void 0;
-exports.statCapForLevel = statCapForLevel;
+exports.COMBAT_USED_STAT_RATIO = exports.DAILY_COMBAT_STAT_CAP = exports.PVP_CASUAL_STAT_POINTS_PER_WIN = exports.AI_FIGHT_STAT_POINTS_PER_WIN = exports.STAT_GROWTH_KEYS = exports.statCapForLevel = void 0;
 exports.computeCombatStatGrowth = computeCombatStatGrowth;
+const formulas_js_1 = require("./combat-core/formulas.js");
+Object.defineProperty(exports, "statCapForLevel", { enumerable: true, get: function () { return formulas_js_1.statCapForLevel; } });
 exports.STAT_GROWTH_KEYS = [
     'strength', 'speed', 'intelligence', 'willpower',
     'bukijutsuOffense', 'bukijutsuDefense', 'taijutsuOffense', 'taijutsuDefense',
@@ -32,20 +33,6 @@ exports.DAILY_COMBAT_STAT_CAP = 60;
 // 60% auto-grows the stats you use; 40% drops into the pool to hand-allocate.
 exports.COMBAT_USED_STAT_RATIO = 0.6;
 const STAT_BASE = 10;
-// Per-rank stat ceiling — mirror of api/pvp/move.ts statCapForLevel (350/700/
-// 1300/2100/2500 at levels 1/15/30/50/80). Pinned by api/_stat-growth.test.ts.
-function statCapForLevel(level) {
-    const lvl = Math.max(1, Math.floor(Number(level) || 1));
-    if (lvl >= 80)
-        return 2500;
-    if (lvl >= 50)
-        return 2100;
-    if (lvl >= 30)
-        return 1300;
-    if (lvl >= 15)
-        return 700;
-    return 350;
-}
 // Weight each stat by how far it's invested above base — a proxy for "how the
 // player fights." Returns the keys sorted by descending investment (stable: ties
 // keep canonical STAT order).
@@ -71,7 +58,7 @@ function computeCombatStatGrowth(stats, level, perWin, remainingDaily) {
         return { allocated: {}, unspentGain: 0, spent: 0 };
     const usedShare = Math.round(earned * exports.COMBAT_USED_STAT_RATIO);
     let freeShare = earned - usedShare;
-    const cap = statCapForLevel(level);
+    const cap = (0, formulas_js_1.statCapForLevel)(level);
     const order = statsByInvestment(stats);
     // Distribute across the INVESTED stats (proxy for "the stats you used"); if the
     // player has no build yet, fall back to the canonical order.

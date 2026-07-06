@@ -7,6 +7,8 @@ const _tower_session_js_1 = require("./_tower-session.js");
 const _engine_js_1 = require("./_engine.js");
 const _combat_resources_js_1 = require("../_combat-resources.js");
 const _aoe_js_1 = require("../pvp/_aoe.js");
+const move_js_1 = require("../pvp/move.js");
+const clanBossAdapter_js_1 = require("../combat-adapters/clanBossAdapter.js");
 const MAP8 = { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [] };
 function makeActor(id, side, pos, over = {}) {
     return {
@@ -179,6 +181,82 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         const en2 = (0, _tower_session_js_1.getActor)(s, 'en-2');
         node_assert_1.strict.ok(100_000 - en2.hp > 0, 'the touching enemy takes splash damage');
         node_assert_1.strict.ok(en2.statuses.some((st) => st.name === 'Wound'), 'the touching enemy ALSO gets the Wound rider tag from the splash');
+    });
+    (0, node_test_1.it)('tower player-side jutsu action matches PvP resolver plus tower resource/AP/cooldown shell', () => {
+        const stats = {
+            strength: 900,
+            speed: 900,
+            intelligence: 900,
+            willpower: 900,
+            ninjutsuOffense: 900,
+            ninjutsuDefense: 900,
+        };
+        const jutsu = {
+            id: 'tower-parity-blast',
+            name: 'Tower Parity Blast',
+            type: 'Ninjutsu',
+            target: 'OPPONENT',
+            range: 3,
+            ap: 60,
+            cooldown: 3,
+            chakraCost: 25,
+            staminaCost: 15,
+            effectPower: 32,
+            isUtility: false,
+            tags: [{ name: 'Wound', percent: 25 }],
+        };
+        const actor = makeActor('sq-1', 'squad', 0, {
+            hp: 5000,
+            maxHp: 5000,
+            chakra: 1000,
+            maxChakra: 1000,
+            stamina: 1000,
+            maxStamina: 1000,
+            character: {
+                name: 'sq-1',
+                level: 100,
+                specialty: 'Ninjutsu',
+                stats,
+                jutsu: [jutsu],
+                jutsuMastery: [{ jutsuId: 'tower-parity-blast', level: 50 }],
+            },
+        });
+        const target = makeActor('boss', 'enemy', 1, {
+            hp: 6000,
+            maxHp: 6000,
+            character: {
+                name: 'boss',
+                level: 100,
+                specialty: 'Ninjutsu',
+                stats,
+                jutsu: [],
+                jutsuMastery: [],
+            },
+        });
+        const expected = (0, move_js_1.applyJutsu)((0, clanBossAdapter_js_1.towerActorToPvpFighter)(actor), (0, clanBossAdapter_js_1.towerActorToPvpFighter)(target), jutsu, 1, 'central', 1);
+        const s = makeSession([actor, target]);
+        (0, _engine_js_1.startRound)(s);
+        const applied = (0, _engine_js_1.applyAction)(s, makeFloor('defeat-all'), {
+            actorId: 'sq-1',
+            type: 'jutsu',
+            jutsuId: 'tower-parity-blast',
+            targetId: 'boss',
+        }, (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.equal(applied.applied, true);
+        const afterActor = (0, _tower_session_js_1.getActor)(s, 'sq-1');
+        const afterTarget = (0, _tower_session_js_1.getActor)(s, 'boss');
+        node_assert_1.strict.equal(afterTarget.hp, expected.opponent.hp);
+        node_assert_1.strict.deepEqual(afterTarget.statuses, expected.opponent.statuses);
+        node_assert_1.strict.equal(afterTarget.statuses.filter(status => status.name === 'Wound').length, 1, 'Wound applies once and does not double-tick on cast');
+        node_assert_1.strict.equal(afterActor.hp, expected.self.hp);
+        node_assert_1.strict.equal(afterActor.chakra, expected.self.chakra - 25);
+        node_assert_1.strict.equal(afterActor.stamina, expected.self.stamina - 15);
+        node_assert_1.strict.equal(s.activeAp, 40);
+        node_assert_1.strict.equal(s.actionsThisTurn, 1);
+        node_assert_1.strict.equal(afterActor.cooldowns['tower-parity-blast'], 3);
+        node_assert_1.strict.ok(s.log.some(line => line.includes('sq-1 uses Tower Parity Blast')));
+        for (const line of expected.lines)
+            node_assert_1.strict.ok(s.log.includes(line), `tower log should include PvP line: ${line}`);
     });
     (0, node_test_1.it)('move is adjacent-only and blocked by occupants', () => {
         const s = makeSession(frontline());

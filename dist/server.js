@@ -209,6 +209,7 @@ const _auth_js_1 = require("./api/_auth.js");
 // Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
 const _utils_js_1 = require("./api/_utils.js");
+const _canonical_domain_js_1 = require("./api/_canonical-domain.js");
 // ─── Sentry (optional, env-gated server error reporting) ───────────────────────
 // Activates ONLY when SENTRY_DSN is set. The require is guarded so a cPanel box
 // whose node_modules predates this dependency still boots — the cPanel auto-deploy
@@ -791,6 +792,18 @@ route('/admin/economy', economy_js_1.default);
 // ─── Static files (React SPA) ─────────────────────────────────────────────────
 // STATIC_DIR env var overrides the default so the same compiled server.js works
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).
+// SEO / canonical-domain files. These must be registered before express.static
+// and the SPA fallback so crawlers do not receive index.html for robots/sitemap.
+app.get('/robots.txt', (_req, res) => {
+    res.type('text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send((0, _canonical_domain_js_1.robotsTxt)());
+});
+app.get('/sitemap.xml', (_req, res) => {
+    res.type('application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send((0, _canonical_domain_js_1.sitemapXml)());
+});
 const staticDir = process.env.STATIC_DIR ?? (0, node_path_1.join)(__dirname, '..', 'shinobij.client', 'dist');
 // Cache-Control for static assets. Cloudflare (the edge cache in front of
 // Railway) only caches what the origin marks cacheable, so without these
@@ -831,6 +844,16 @@ const _HASHED_ASSET_RE = /[\\/]assets[\\/].*-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/i;
 // changes the URL and never waits on this TTL. JS/CSS/JSON are excluded here so no
 // chunk map or data manifest can go stale.
 const _STATIC_MEDIA_RE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf)$/i;
+app.use((req, res, next) => {
+    if ((0, _canonical_domain_js_1.shouldRedirectToCanonical)(req.headers.host, req.path)) {
+        res.redirect(301, (0, _canonical_domain_js_1.canonicalRedirectLocation)(req.originalUrl));
+        return;
+    }
+    if ((0, _canonical_domain_js_1.isLegacyDuplicateHost)(req.headers.host)) {
+        res.setHeader('X-Robots-Tag', 'noindex');
+    }
+    next();
+});
 app.use(express_1.default.static(staticDir, {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('index.html')) {
