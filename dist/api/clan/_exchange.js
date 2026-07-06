@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CLAN_EXCHANGE_ITEMS = exports.CLAN_EXCHANGE_WEEKLY_CAP = void 0;
+exports.refundClanExchangeTreasuryPurchase = refundClanExchangeTreasuryPurchase;
 exports.eligibleCacheItems = eligibleCacheItems;
 exports.buyClanExchangeItem = buyClanExchangeItem;
 const _item_catalog_js_1 = require("../pvp/_item-catalog.js");
@@ -231,6 +232,53 @@ function recordPurchase(purchases, item, now) {
         next.oneTime = { ...(next.oneTime ?? {}), [item.id]: true };
     }
     return next;
+}
+function removePurchase(purchases, item, now) {
+    const next = cleanPurchases(purchases);
+    if (item.limit.kind === 'weekly') {
+        const key = (0, _clan_points_js_1.clanPointWeekKey)(now);
+        const bucket = { ...(next.weekly?.[key] ?? {}) };
+        const count = floorNonNegative(bucket[item.id]);
+        if (count <= 1)
+            delete bucket[item.id];
+        else
+            bucket[item.id] = count - 1;
+        next.weekly = { ...(next.weekly ?? {}) };
+        if (Object.keys(bucket).length)
+            next.weekly[key] = bucket;
+        else
+            delete next.weekly[key];
+    }
+    else if (item.limit.kind === 'monthly') {
+        const key = (0, _clan_points_js_1.clanPointMonthKey)(now);
+        const bucket = { ...(next.monthly?.[key] ?? {}) };
+        const count = floorNonNegative(bucket[item.id]);
+        if (count <= 1)
+            delete bucket[item.id];
+        else
+            bucket[item.id] = count - 1;
+        next.monthly = { ...(next.monthly ?? {}) };
+        if (Object.keys(bucket).length)
+            next.monthly[key] = bucket;
+        else
+            delete next.monthly[key];
+    }
+    else {
+        next.oneTime = { ...(next.oneTime ?? {}) };
+        delete next.oneTime[item.id];
+    }
+    return next;
+}
+function refundClanExchangeTreasuryPurchase(args) {
+    const item = ITEM_BY_ID.get(args.itemId);
+    if (!item || item.reward.kind !== 'treasury')
+        return args.character;
+    const now = args.now ?? new Date();
+    return {
+        ...args.character,
+        clanPoints: floorNonNegative(args.character.clanPoints) + item.cost,
+        clanExchangePurchases: removePurchase(cleanPurchases(args.character.clanExchangePurchases), item, now),
+    };
 }
 function addItem(character, itemId, count) {
     const n = Math.max(1, Math.floor(count));

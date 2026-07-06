@@ -17,6 +17,14 @@ const _canonical_domain_js_1 = require("./_canonical-domain.js");
     strict_1.default.equal((0, _canonical_domain_js_1.shouldRedirectToCanonical)('theravensark.com', '/profile'), true);
     strict_1.default.equal((0, _canonical_domain_js_1.canonicalRedirectLocation)('/profile?tab=pvp'), 'https://shinobijourney.com/profile?tab=pvp');
 });
+(0, node_test_1.default)('canonical www duplicate redirects normal SPA pages to the apex canonical site', () => {
+    strict_1.default.equal((0, _canonical_domain_js_1.isCanonicalHost)('shinobijourney.com'), true);
+    strict_1.default.equal((0, _canonical_domain_js_1.isCanonicalHost)('www.shinobijourney.com:443'), true);
+    strict_1.default.equal((0, _canonical_domain_js_1.shouldRedirectToCanonical)('shinobijourney.com', '/'), false);
+    strict_1.default.equal((0, _canonical_domain_js_1.shouldRedirectToCanonical)('www.shinobijourney.com', '/'), true);
+    strict_1.default.equal((0, _canonical_domain_js_1.shouldRedirectToCanonical)('www.shinobijourney.com', '/profile'), true);
+    strict_1.default.equal((0, _canonical_domain_js_1.canonicalRedirectLocation)('/profile?tab=pvp'), 'https://shinobijourney.com/profile?tab=pvp');
+});
 (0, node_test_1.default)('API, storage, health, robots, sitemap, and static paths are not redirected', () => {
     for (const pathname of [
         '/api/kv/get',

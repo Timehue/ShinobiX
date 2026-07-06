@@ -37,6 +37,21 @@ const testCatalog = {
     strict_1.default.equal(result.character.clanPoints, 250);
     strict_1.default.equal(result.clanData.treasury.warSupply, 510);
 });
+(0, node_test_1.default)('refundClanExchangeTreasuryPurchase restores points and purchase limit', () => {
+    const now = new Date('2026-01-01T12:00:00Z');
+    const purchased = (0, _exchange_js_1.buyClanExchangeItem)({ character: character(4000), clanData: clan(10), itemId: 'greaterWarSupplyGrant', now });
+    strict_1.default.equal(purchased.ok, true);
+    if (!purchased.ok)
+        return;
+    const blocked = (0, _exchange_js_1.buyClanExchangeItem)({ character: purchased.character, clanData: clan(10), itemId: 'greaterWarSupplyGrant', now });
+    strict_1.default.equal(blocked.ok, false);
+    if (!blocked.ok)
+        strict_1.default.equal(blocked.code, 'limit-reached');
+    const refunded = (0, _exchange_js_1.refundClanExchangeTreasuryPurchase)({ character: purchased.character, itemId: 'greaterWarSupplyGrant', now });
+    strict_1.default.equal(refunded.clanPoints, 4000);
+    const retry = (0, _exchange_js_1.buyClanExchangeItem)({ character: refunded, clanData: clan(10), itemId: 'greaterWarSupplyGrant', now });
+    strict_1.default.equal(retry.ok, true);
+});
 (0, node_test_1.default)('buyClanExchangeItem enforces weekly purchase limits', () => {
     let c = character(2000);
     for (let i = 0; i < 5; i += 1) {

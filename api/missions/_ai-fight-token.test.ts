@@ -4,6 +4,7 @@ import { MAX_AI_FIGHT_RYO, MAX_AI_FIGHT_XP } from './_ai-fight-reward.js';
 import {
     aiFightTokenKey,
     cleanAiFightToken,
+    computeAiFightBaseReward,
     createAiFightTokenRecord,
     validateAiFightRewardClaim,
 } from './_ai-fight-token.js';
@@ -13,12 +14,17 @@ describe('_ai-fight-token', () => {
         const token = createAiFightTokenRecord('Player', 'abc123', 12345, {
             opponentId: 'forest-ai:1',
             opponentLevel: 42.9,
+            baseXp: 125,
+            baseRyo: 90,
         });
         assert.equal(token.playerName, 'Player');
         assert.equal(token.tokenId, 'abc123');
         assert.equal(token.mintedAt, 12345);
         assert.equal(token.maxXp, MAX_AI_FIGHT_XP);
         assert.equal(token.maxRyo, MAX_AI_FIGHT_RYO);
+        assert.equal(token.baseXp, 125);
+        assert.equal(token.baseRyo, 90);
+        assert.equal(token.rewardSource, 'server-save');
         assert.equal(token.opponentId, 'forest-ai:1');
         assert.equal(token.opponentLevel, 42);
     });
@@ -33,6 +39,17 @@ describe('_ai-fight-token', () => {
         const token = createAiFightTokenRecord('Player', 'abc123');
         assert.deepEqual(validateAiFightRewardClaim(token, 125.9, 90.1), { ok: true, xp: 125, ryo: 90 });
         assert.deepEqual(validateAiFightRewardClaim(token, -10, 'x'), { ok: true, xp: 0, ryo: 0 });
+    });
+
+    it('uses server-sealed rewards when present instead of client-submitted amounts', () => {
+        const token = createAiFightTokenRecord('Player', 'abc123', 123, { baseXp: 100, baseRyo: 75 });
+        assert.deepEqual(validateAiFightRewardClaim(token, 999, 999), { ok: true, xp: 100, ryo: 75 });
+    });
+
+    it('computes AI fight base rewards from the active pet trait', () => {
+        assert.deepEqual(computeAiFightBaseReward({ activePetId: 'p1', pets: [{ id: 'p1', trait: 'Swift' }] }), { xp: 125, ryo: 75, trait: 'Swift' });
+        assert.deepEqual(computeAiFightBaseReward({ activePetId: 'p1', pets: [{ id: 'p1', trait: 'Lucky' }] }), { xp: 100, ryo: 90, trait: 'Lucky' });
+        assert.deepEqual(computeAiFightBaseReward({ activePetId: 'p2', pets: [{ id: 'p1', trait: 'Swift' }] }), { xp: 100, ryo: 75, trait: null });
     });
 
     it('rejects claims that exceed the sealed ceiling', () => {
