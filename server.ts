@@ -220,6 +220,7 @@ import { safeEqual } from './api/_auth.js';
 // Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
 import { isAllowedOrigin, isMalformedJsonBodyError, MALFORMED_JSON_BODY_ERROR } from './api/_utils.js';
+import { publicErrorPayload, securityHeaders } from './api/_http-security.js';
 import {
     canonicalRedirectLocation,
     isLegacyDuplicateHost,
@@ -267,6 +268,13 @@ if (process.env.DISABLE_VILLAGE_WAR !== '1') process.env.ENABLE_VILLAGE_WAR = '1
 if (process.env.DISABLE_CLAN_BOSS !== '1') process.env.ENABLE_CLAN_BOSS = '1';
 
 const app = express();
+
+app.use((_req: Request, res: Response, next: NextFunction) => {
+    for (const [name, value] of Object.entries(securityHeaders())) {
+        res.setHeader(name, value);
+    }
+    next();
+});
 
 // JSON body parsing. The vast majority of routes carry tiny JSON (polls, moves,
 // player actions); only the image-pipe and admin-import routes legitimately POST
@@ -999,7 +1007,7 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     if (!res.headersSent) {
         // Echo the correlation id so a player can quote it in a bug report and an
         // admin can grep the exact server log line.
-        res.status(500).json({ error: String(err), requestId: reqId });
+        res.status(500).json(publicErrorPayload(err, reqId));
     }
 });
 

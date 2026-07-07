@@ -16,7 +16,7 @@ mkdir -p ~/apps
 cd ~/apps
 git clone https://github.com/Timehue/ShinobiX.git shinobix
 cd shinobix
-npm install
+npm ci
 ```
 
 ### 2. Register the Node.js app in cPanel
@@ -25,7 +25,7 @@ Go to **Software → Setup Node.js App → Create Application**:
 
 | Field | Value |
 |---|---|
-| Node.js version | 20 or 22 (latest available) |
+| Node.js version | 22 (required) |
 | Application mode | Production |
 | Application root | `apps/shinobix` |
 | Application URL | `fatedreunion.com` (or subdomain) |
@@ -56,14 +56,17 @@ RESTART_TOKEN        = <random secret for POST /api/restart — see note below>
 > Send it in the `x-kv-token` (or `x-restart-token`) header. The compare is
 > constant-time and the endpoint is rate-limited + audit-logged.
 
-### 4. Run npm install (in App Manager)
+### 4. Install from lockfile
 
-Click **Run NPM Install** in the Application Manager, or in Terminal:
+Use Terminal/SSH so cPanel installs exactly the committed lockfile:
 
 ```bash
 cd ~/apps/shinobix
-npm install
+npm ci
 ```
+
+If you use the Application Manager's **Run NPM Install** button, confirm it uses
+Node 22 and does not rewrite `package-lock.json`.
 
 ### 5. Start the app
 

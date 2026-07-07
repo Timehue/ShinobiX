@@ -62,7 +62,7 @@ The server side is done (`api/missions/report-ai-fight.ts`, **return-only**, rac
 - **Root dist churn:** `npm run build:server` (tsc) rewrites ~all dist line-endings. Stage only real changes with `git -c core.autocrlf=true add dist/` (excludes CRLF/LF churn); confirm with `git -c core.autocrlf=true diff --numstat dist/ | awk '($1+$2)>0'`. After a failed build that followed a client import, delete any stray `dist/shinobij.client/`.
 - **Bracketed files** (`api/save/[name].ts`): brackets are git pathspec globs — stage via directory add (`git add -A api/`), not explicit bracketed paths.
 - **Parity tests that IMPORT a client module** (e.g. `_jutsu-points-parity.test.ts`) must be in `tsconfig.cpanel.json` `exclude` (precedent: `_card-catalog.test.ts`) or `build:server` fails on the client's extensionless imports. They still run under tsx.
-- After any `api/`/`server.ts` change → rebuild + commit dist (cPanel serves committed dist; Railway self-builds). Worktree needed `npm install --no-package-lock` in both root and `shinobij.client/`.
+- After any `api/`/`server.ts` change → rebuild + commit dist (cPanel serves committed dist; Railway self-builds). Worktrees should use `npm ci` in both root and `shinobij.client/`.
 - New endpoint → create `api/**` handler AND `route()`-register in `server.ts` (route-parity test enforces). Keep CORS (`_utils.ts` ⇄ `server.ts`) synced.
 
 ## 7. Design pillar (READ before any balance/economy change)

@@ -20,7 +20,7 @@ Because the image is a plain `Dockerfile`, the exact same setup also deploys to
   the server uses the direct Postgres pool (`api/_storage.ts:712`) — the same
   code path cPanel uses. Point it at your existing Supabase Postgres.
 - **No `app.js`.** The Dockerfile runs `node dist/server.js` directly. The
-  DNS/IPv4 hardcoding in `app.js` is cPanel-only and is skipped here.
+  cPanel-only DNS/IPv4 bypass in `app.js` is skipped here.
 - **Health check.** `railway.json` points Railway's health check at `/health`
   (defined in `server.ts:204`).
 
@@ -147,6 +147,9 @@ add that origin to `ALLOWED_ORIGINS` in **both** `server.ts` **and**
   - **Verify after every deploy:** `GET /api/health?deep=1` returns a `saveStore`
     field (`disk` / `remote-proxy` / `base-store`). On a save-serving host it must
     NOT be `base-store`.
+  - **Automated staging gate:** run
+    `EXPECTED_SAVE_STORE=remote-proxy node scripts/release-health-check.mjs https://<domain>`
+    before opening the build to players.
 - **Ephemeral filesystem.** Railway containers reset their disk on every deploy,
   so never use `DISK_KV_DIR` there — reach the cPanel disk via `KV_PROXY_*`
   (mode B) instead. `DISK_KV_DIR` is correct only on the cPanel box, whose disk

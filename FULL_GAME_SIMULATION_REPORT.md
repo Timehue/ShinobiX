@@ -23,7 +23,7 @@ The harness does not use production credentials, production data, external APIs,
 | --- | --- |
 | `node --version` | `v24.15.0` |
 | `npm --version` | `11.12.1` |
-| `npm install --no-package-lock` | Pass, root dependencies installed |
+| Root dependency install | Historical pass; current release flow uses committed lockfiles with `npm ci` |
 | `cd shinobij.client; npm ci` | Pass, initially reported 6 audit findings: 1 low, 2 moderate, 3 high |
 | `cd shinobij.client; npm audit fix` | Pass, updated `shinobij.client/package-lock.json`, 0 vulnerabilities remaining |
 | `cd shinobij.client; npm ci` after audit fix | Pass, clean install from lockfile, 0 vulnerabilities |
