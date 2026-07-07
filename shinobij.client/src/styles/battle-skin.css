@@ -986,51 +986,20 @@ body:has(.arena-fullscreen) .left-profile-card,
 }
 
 /* =========================================================================
-   Jutsu combat VFX (cosmetic) — particle canvas + sprite overlay + impact flash
-   Cosmetic only; never affects balance/outcomes. See App.tsx Arena combatFx.
+   Combat VFX (cosmetic) — 2.5D plate overlay + impact flash
+   Cosmetic only; never affects balance/outcomes.
    ========================================================================= */
 
-/* Particle layer: fills the battlefield, sits above the board, no clicks. */
-.arena-fullscreen .combat-vfx-canvas {
+/* Plate layer: fills the battlefield, sits above the board, no clicks. */
+.arena-fullscreen .arena-combat-vfx-layer {
     position: absolute;
     inset: 0;
-    width: 100%;
-    height: 100%;
     pointer-events: none;
-    z-index: 15;
+    overflow: visible;
+    z-index: 16;
 }
 
-/* Sprite-sheet effect frame, centred on the struck tile, above the particles.
-   Pixel art is scaled up crisply (nearest-neighbour). Height-driven so source
-   frames of any width keep their aspect. */
-.arena-fullscreen .jutsu-sprite-fx {
-    position: absolute;
-    height: 92px;
-    width: auto;
-    transform: translate(-50%, -50%);
-    image-rendering: pixelated;
-    pointer-events: none;
-    z-index: 16;
-    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.45));
-    /* Every cast pops in instead of snapping a static frame — cheap life on the
-       baseline hit. The heavy/KO tiers below override this with a bigger pop. */
-    animation: jutsuArenaIn 0.20s ease-out both;
-}
-@keyframes jutsuArenaIn {
-    0%   { transform: translate(-50%, -50%) scale(0.72); opacity: 0.5; }
-    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-}
-/* Tint variants (recolour-free drop-shadow glows, matching the pet arena): a
-   green restorative wisp for heals, a toxic green puff for poison DoTs — so a
-   support/DoT cast no longer reads like a neutral elemental hit. */
-.arena-fullscreen .jutsu-sprite-fx.fx-heal {
-    filter: drop-shadow(0 0 7px #34d399) drop-shadow(0 0 3px #6ee7b7);
-}
-.arena-fullscreen .jutsu-sprite-fx.fx-poison {
-    filter: drop-shadow(0 0 7px #4ade80) drop-shadow(0 0 3px #a3e635);
-}
-/* Brief bright pop on the tile a jutsu lands on (element colour comes from the
-   particles; this is a neutral flash for punch). Added/removed via JS. */
+/* Brief bright pop on the tile a combat plate lands on. */
 .arena-fullscreen .hex-tile.jutsu-impact-flash {
     animation: jutsu-impact-flash 0.42s ease-out;
 }
@@ -1040,9 +1009,7 @@ body:has(.arena-fullscreen) .left-profile-card,
     100% { box-shadow: inset 0 0 0 rgba(255, 255, 255, 0); filter: brightness(1); }
 }
 
-/* Respect reduced-motion: the JS already skips bursts, but make sure the flash
-   and sprite pop-in don't run either. */
+/* Respect reduced-motion. */
 @media (prefers-reduced-motion: reduce) {
     .arena-fullscreen .hex-tile.jutsu-impact-flash { animation: none; }
-    .arena-fullscreen .jutsu-sprite-fx { animation: none; }
 }
