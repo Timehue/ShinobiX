@@ -24,6 +24,52 @@ function pushFx(fx, who, amount, kind) {
     if (amount > 0)
         fx.push({ who, amount: Math.round(amount), kind });
 }
+const VFX_DEFAULTS = {
+    fire: { durationMs: 680, maxParticles: 20 },
+    water: { durationMs: 720, maxParticles: 18 },
+    wind: { durationMs: 620, maxParticles: 16 },
+    lightning: { durationMs: 560, maxParticles: 18 },
+    earth: { durationMs: 720, maxParticles: 16 },
+    blood: { durationMs: 680, maxParticles: 18 },
+    shadow: { durationMs: 740, maxParticles: 16 },
+    poison: { durationMs: 760, maxParticles: 16 },
+    magma: { durationMs: 760, maxParticles: 22 },
+    metal: { durationMs: 640, maxParticles: 14 },
+    slash: { durationMs: 420, maxParticles: 8 },
+    impact: { durationMs: 460, maxParticles: 10 },
+    pierce: { durationMs: 460, maxParticles: 10 },
+    heal: { durationMs: 820, maxParticles: 16 },
+    shield: { durationMs: 900, maxParticles: 14 },
+    reflect: { durationMs: 820, maxParticles: 14 },
+    absorb: { durationMs: 820, maxParticles: 14 },
+    spark: { durationMs: 560, maxParticles: 18 },
+    seal: { durationMs: 760, maxParticles: 14 },
+    wound: { durationMs: 620, maxParticles: 12 },
+    burn: { durationMs: 720, maxParticles: 18 },
+    poisonCloud: { durationMs: 900, maxParticles: 18 },
+    drain: { durationMs: 840, maxParticles: 16 },
+    cleanse: { durationMs: 760, maxParticles: 14 },
+    buff: { durationMs: 820, maxParticles: 14 },
+    debuff: { durationMs: 760, maxParticles: 14 },
+    throwable: { durationMs: 520, maxParticles: 10 },
+    weapon: { durationMs: 440, maxParticles: 8 },
+    namedWeapon: { durationMs: 620, maxParticles: 14 },
+    heavy: { durationMs: 620, maxParticles: 16 },
+    ko: { durationMs: 980, maxParticles: 24 },
+};
+function vfxEvent(who, key, anchor, intensity = 'normal', patch = {}) {
+    const defaults = VFX_DEFAULTS[key] ?? VFX_DEFAULTS.impact;
+    return {
+        who,
+        key,
+        anchor,
+        intensity,
+        durationMs: patch.durationMs ?? defaults.durationMs,
+        persistent: patch.persistent,
+        maxParticles: patch.maxParticles ?? defaults.maxParticles,
+        tiles: patch.tiles?.slice(0, 18),
+    };
+}
 const _vanguard_rewards_js_1 = require("./_vanguard-rewards.js");
 const _receipts_js_1 = require("../_receipts.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
@@ -81,6 +127,149 @@ function equippedPvpItem(fighter, itemId, itemName) {
     return items.find(item => Boolean(item.id) &&
         equippedIds.has(item.id) &&
         ((itemId && item.id === itemId) || (!itemId && itemName && item.name === itemName))) ?? null;
+}
+const VFX_SUPPORT_TAGS = new Set([
+    'Heal',
+    'Shield',
+    'Barrier',
+    'Reflect',
+    'Absorb',
+    'Lifesteal',
+    'Increase Damage Given',
+    'Increase Generals',
+    'Increase Discipline',
+    'Increase Heal',
+    'Decrease Damage Taken',
+    'Debuff Prevent',
+    'Stun Prevent',
+    'Overclock',
+]);
+const VFX_DEBUFF_TAGS = new Set([
+    'Decrease Damage Given',
+    'Increase Damage Taken',
+    'Buff Prevent',
+    'Cleanse Prevent',
+    'Clear Prevent',
+    'Lag',
+    'Recoil',
+]);
+const VFX_CONTROL_TAGS = new Set(['Stun', 'Lag', 'Overclock']);
+const VFX_SEAL_TAGS = new Set(['Bloodline Seal', 'Elemental Seal']);
+function vfxTagNames(tags) {
+    return (tags ?? []).map(tag => normalizeTagName(String(tag.name ?? ''))).filter(Boolean);
+}
+function vfxHas(tags, name) {
+    return tags.includes(name);
+}
+function vfxHasAny(tags, names) {
+    for (const name of names)
+        if (tags.includes(name))
+            return true;
+    return false;
+}
+function elementVfxKey(element) {
+    switch (String(element ?? '').trim().toLowerCase()) {
+        case 'fire': return 'fire';
+        case 'water': return 'water';
+        case 'wind': return 'wind';
+        case 'lightning': return 'lightning';
+        case 'earth': return 'earth';
+        case 'blood': return 'blood';
+        case 'shadow': return 'shadow';
+        case 'poison': return 'poison';
+        case 'lava':
+        case 'magma':
+            return 'magma';
+        case 'iron':
+        case 'metal':
+            return 'metal';
+        default:
+            return null;
+    }
+}
+function keyForJutsuTags(tags, ground = false) {
+    if (vfxHas(tags, 'Heal'))
+        return 'heal';
+    if (vfxHas(tags, 'Barrier') || vfxHas(tags, 'Shield'))
+        return 'shield';
+    if (vfxHas(tags, 'Reflect'))
+        return 'reflect';
+    if (vfxHas(tags, 'Absorb'))
+        return 'absorb';
+    if (vfxHasAny(tags, VFX_CONTROL_TAGS))
+        return 'spark';
+    if (vfxHasAny(tags, VFX_SEAL_TAGS))
+        return 'seal';
+    if (vfxHas(tags, 'Wound'))
+        return 'wound';
+    if (vfxHas(tags, 'Ignition'))
+        return 'burn';
+    if (vfxHas(tags, 'Poison'))
+        return ground ? 'poisonCloud' : 'poison';
+    if (vfxHas(tags, 'Drain') || vfxHas(tags, 'Siphon'))
+        return 'drain';
+    if (vfxHas(tags, 'Pierce'))
+        return 'pierce';
+    if (vfxHasAny(tags, VFX_DEBUFF_TAGS))
+        return 'debuff';
+    if (vfxHasAny(tags, VFX_SUPPORT_TAGS))
+        return 'buff';
+    return null;
+}
+function jutsuVisualKey(jutsu, opts = {}) {
+    if (opts.ko)
+        return 'ko';
+    const tags = vfxTagNames(jutsu.tags);
+    return keyForJutsuTags(tags, !!opts.ground) ?? elementVfxKey(jutsu.element) ?? (opts.heavy ? 'heavy' : 'impact');
+}
+function jutsuVisualAnchor(jutsu, key, opts = {}) {
+    const tags = vfxTagNames(jutsu.tags);
+    const method = normalizeJutsuMethod(jutsu.method);
+    if (opts.area || method === 'AOE_CIRCLE' || method === 'AOE_SPIRAL')
+        return 'area';
+    if (opts.ground || jutsu.target === 'EMPTY_GROUND' || method === 'INSTANT_EFFECT')
+        return 'tile';
+    if (jutsu.target === 'SELF' || key === 'heal' || key === 'shield' || key === 'reflect' || key === 'absorb' || key === 'buff')
+        return 'caster';
+    if (vfxHasAny(tags, VFX_SUPPORT_TAGS) && !vfxHasAny(tags, VFX_DEBUFF_TAGS) && !vfxHasAny(tags, VFX_CONTROL_TAGS) && !vfxHasAny(tags, VFX_SEAL_TAGS)) {
+        return 'caster';
+    }
+    return 'target';
+}
+function strongestDamageRatio(fx, self, opponent) {
+    let ratio = 0;
+    for (const event of fx ?? []) {
+        if (event.kind !== 'damage')
+            continue;
+        const maxHp = event.who === 'self' ? self.maxHp : opponent.maxHp;
+        ratio = Math.max(ratio, event.amount / Math.max(1, maxHp));
+    }
+    return ratio;
+}
+function intensityFromHit(fx, self, opponent, ko = false) {
+    if (ko)
+        return 'finisher';
+    return strongestDamageRatio(fx, self, opponent) >= 0.18 ? 'heavy' : 'normal';
+}
+function vfxForJutsu(jutsu, self, opponent, fx, opts = {}) {
+    const intensity = intensityFromHit(fx, self, opponent, !!opts.ko);
+    const key = jutsuVisualKey(jutsu, { ground: opts.ground || opts.area, heavy: intensity === 'heavy', ko: opts.ko });
+    const anchor = jutsuVisualAnchor(jutsu, key, opts);
+    const who = opts.who ?? (anchor === 'caster' ? 'self' : 'opp');
+    return vfxEvent(who, key, anchor, intensity, {
+        persistent: opts.persistent,
+        tiles: opts.tiles,
+    });
+}
+function reactionVfx(beforeDefender, afterDefender, fx) {
+    const out = [];
+    if (beforeDefender.shield > afterDefender.shield)
+        out.push(vfxEvent('opp', 'shield', 'target', 'minor'));
+    if ((fx ?? []).some(event => event.who === 'self' && event.kind === 'damage'))
+        out.push(vfxEvent('opp', 'reflect', 'target', 'minor'));
+    if ((fx ?? []).some(event => event.who === 'opp' && event.kind === 'heal'))
+        out.push(vfxEvent('opp', 'absorb', 'target', 'minor'));
+    return out;
 }
 // ─── Stat helpers ─────────────────────────────────────────────────────────────
 function generalsBonus(f, round) {
@@ -769,6 +958,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
 function applyDoTs(fighter, round) {
     const lines = [];
     const fx = [];
+    const vfx = [];
     let f = { ...fighter };
     // Compute own DR pool against incoming DoT.
     const ownArmor = (0, formulas_js_1.armorRawDrFromCharacter)(f.character);
@@ -785,6 +975,7 @@ function applyDoTs(fighter, round) {
             f = { ...f, hp: Math.max(0, f.hp - dmg) };
             lines.push(`${f.name} bleeds ${dmg} (Wound).`);
             pushFx(fx, 'self', dmg, 'damage');
+            vfx.push(vfxEvent('self', 'wound', 'target', 'minor'));
         }
         if (s.name === 'Poison' && !_combat_resources_js_1.COMBAT_RESOURCES_V2) {
             // Legacy poison: an HP-only DoT = a % of the victim's max chakra (does
@@ -796,15 +987,17 @@ function applyDoTs(fighter, round) {
             f = { ...f, hp: Math.max(0, f.hp - dmg) };
             lines.push(`${f.name} takes ${dmg} Poison damage.`);
             pushFx(fx, 'self', dmg, 'damage');
+            vfx.push(vfxEvent('self', 'poisonCloud', 'target', 'minor'));
         }
         if (s.name === 'Drain') {
             const amt = mit(s.amount ?? formulas_js_1.DRAIN_BASE_TICK);
             f = { ...f, hp: Math.max(0, f.hp - amt), chakra: Math.max(0, f.chakra - amt) };
             lines.push(`${f.name} drained ${amt} HP+chakra.`);
             pushFx(fx, 'self', amt, 'damage');
+            vfx.push(vfxEvent('self', 'drain', 'target', 'minor'));
         }
     }
-    return { fighter: f, lines, fx };
+    return { fighter: f, lines, fx, vfx };
 }
 // ─── Win check ────────────────────────────────────────────────────────────────
 function applyQueuedMovement(target, source, round) {
@@ -918,7 +1111,20 @@ function endTurn(session) {
     // number (true amount, matching the log) with a bumped fxSeq so the client
     // renders it exactly once.
     const dotFx = dots.fx.map((e) => ({ target: next, amount: e.amount, kind: e.kind }));
-    const fxPatch = dotFx.length ? { fx: dotFx, fxSeq: (session.fxSeq ?? 0) + 1 } : {};
+    const dotVfx = dots.vfx.map((e) => ({
+        target: next,
+        key: e.key,
+        anchor: e.anchor,
+        intensity: e.intensity,
+        durationMs: e.durationMs,
+        persistent: e.persistent,
+        maxParticles: e.maxParticles,
+        tiles: e.tiles,
+    }));
+    const fxPatch = {
+        ...(dotFx.length ? { fx: dotFx, fxSeq: (session.fxSeq ?? 0) + 1 } : {}),
+        ...(dotVfx.length ? { vfx: dotVfx, vfxSeq: (session.vfxSeq ?? 0) + 1 } : {}),
+    };
     s = checkWinner({ ...s, round: newRound, log: lines.length ? [...s.log, ...lines] : s.log, ...fxPatch });
     if (s.status === 'done')
         return s;
@@ -1098,7 +1304,7 @@ async function handler(req, res) {
             });
         }
         function canAct(cost) { return myAp >= adjustedCost(cost) && session.actionsThisTurn < constants_js_1.MAX_ACTIONS; }
-        function commit(updMe, updOpp, apCost, cd, extra, fx) {
+        function commit(updMe, updOpp, apCost, cd, extra, fx, visualFx) {
             let s = { ...session, ...extra };
             if (updMe)
                 s = role === 'p1' ? { ...s, p1: updMe } : { ...s, p2: updMe };
@@ -1116,6 +1322,20 @@ async function handler(req, res) {
                 const otherRole = role === 'p1' ? 'p2' : 'p1';
                 const mapped = fx.map((e) => ({ target: e.who === 'self' ? role : otherRole, amount: e.amount, kind: e.kind }));
                 s = { ...s, fx: mapped, fxSeq: (session.fxSeq ?? 0) + 1 };
+            }
+            if (visualFx && visualFx.length) {
+                const otherRole = role === 'p1' ? 'p2' : 'p1';
+                const mapped = visualFx.map((e) => ({
+                    target: e.who === 'self' ? role : otherRole,
+                    key: e.key,
+                    anchor: e.anchor,
+                    intensity: e.intensity,
+                    durationMs: e.durationMs,
+                    persistent: e.persistent,
+                    maxParticles: e.maxParticles,
+                    tiles: e.tiles,
+                }));
+                s = { ...s, vfx: mapped, vfxSeq: (session.vfxSeq ?? 0) + 1 };
             }
             // Stamp lastMoveAt + reset this player's AFK counter (any real
             // action ends the streak of skipped rounds). Both are read by
@@ -1225,7 +1445,9 @@ async function handler(req, res) {
                 lines.push(`${me.name} uses Basic Attack:`);
                 const atk = applyJutsu(me, opp, basicJutsu, 1, biome, session.round);
                 lines.push(...atk.lines);
-                result = commit({ ...atk.self, stamina: Math.max(0, atk.self.stamina - 10) }, atk.opponent, 40, undefined, undefined, atk.fx);
+                const basicIntensity = intensityFromHit(atk.fx, atk.self, atk.opponent, atk.opponent.hp <= 0);
+                const basicKey = basicIntensity === 'finisher' ? 'ko' : basicIntensity === 'heavy' ? 'heavy' : 'impact';
+                result = commit({ ...atk.self, stamina: Math.max(0, atk.self.stamina - 10) }, atk.opponent, 40, undefined, undefined, atk.fx, [vfxEvent('opp', basicKey, 'target', basicIntensity), ...reactionVfx(opp, atk.opponent, atk.fx)]);
                 break;
             }
             case 'basicHeal': {
@@ -1234,7 +1456,7 @@ async function handler(req, res) {
                 const healAmt = Math.max(1, Math.floor(me.maxHp * 0.1));
                 const healFx = [{ who: 'self', amount: healAmt, kind: 'heal' }];
                 lines.push(`${me.name} uses Basic Heal, restoring ${healAmt} HP.`);
-                result = commit({ ...me, hp: Math.min(me.maxHp, me.hp + healAmt), chakra: Math.max(0, me.chakra - 10) }, null, 60, { basicHeal: 5 }, undefined, healFx);
+                result = commit({ ...me, hp: Math.min(me.maxHp, me.hp + healAmt), chakra: Math.max(0, me.chakra - 10) }, null, 60, { basicHeal: 5 }, undefined, healFx, [vfxEvent('self', 'heal', 'caster')]);
                 break;
             }
             case 'clear': {
@@ -1242,12 +1464,12 @@ async function handler(req, res) {
                     return finish(withRejected(session, 'Clear isn\'t ready — out of AP/actions, or on cooldown.'));
                 if (hasStatus(opp, 'Clear Prevent', session.round)) {
                     lines.push(`${opp.name}'s Clear Prevent blocks the clear.`);
-                    result = commit(null, null, 60, { clear: 10 });
+                    result = commit(null, null, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'shield', 'target', 'minor')]);
                 }
                 else {
                     const removed = opp.statuses.filter(s => s.kind === 'positive').map(s => s.name);
                     lines.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${opp.name}.`);
-                    result = commit(null, { ...opp, statuses: opp.statuses.filter(s => s.kind !== 'positive') }, 60, { clear: 10 });
+                    result = commit(null, { ...opp, statuses: opp.statuses.filter(s => s.kind !== 'positive') }, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'cleanse', 'target')]);
                 }
                 break;
             }
@@ -1256,12 +1478,12 @@ async function handler(req, res) {
                     return finish(withRejected(session, 'Cleanse isn\'t ready — out of AP/actions, or on cooldown.'));
                 if (hasStatus(me, 'Cleanse Prevent', session.round)) {
                     lines.push(`${me.name}'s Cleanse Prevent blocks the cleanse.`);
-                    result = commit(null, null, 60, { cleanse: 10 });
+                    result = commit(null, null, 60, { cleanse: 10 }, undefined, undefined, [vfxEvent('self', 'seal', 'caster', 'minor')]);
                 }
                 else {
                     const removed = me.statuses.filter(s => s.kind === 'negative').map(s => s.name);
                     lines.push(`Cleanse: removed ${removed.length ? removed.join(', ') : 'no negative effects'} from ${me.name}.`);
-                    result = commit({ ...me, statuses: me.statuses.filter(s => s.kind !== 'negative') }, null, 60, { cleanse: 10 });
+                    result = commit({ ...me, statuses: me.statuses.filter(s => s.kind !== 'negative') }, null, 60, { cleanse: 10 }, undefined, undefined, [vfxEvent('self', 'cleanse', 'caster')]);
                 }
                 break;
             }
@@ -1305,10 +1527,12 @@ async function handler(req, res) {
                 // via paySpendPoison. 0 when the flag is off / not poisoned / free jutsu.
                 const jPoisonPct = _combat_resources_js_1.COMBAT_RESOURCES_V2 ? sumActivePct(me, 'Poison', session.round, 6) : 0;
                 const poisonSpendDmg = jPoisonPct > 0 ? (0, _combat_resources_js_1.v2PoisonOnSpend)(jChakraCost + jStaminaCost, jPoisonPct) : 0;
+                const spendPoisonVfx = [];
                 const paySpendPoison = (self) => {
                     if (poisonSpendDmg <= 0)
                         return self;
                     lines.push(`${self.name} takes ${poisonSpendDmg} Poison damage from exertion.`);
+                    spendPoisonVfx.push(vfxEvent('self', 'poisonCloud', 'caster', 'minor'));
                     return { ...self, hp: Math.max(0, self.hp - poisonSpendDmg) };
                 };
                 const tags = jutsu.tags ?? [];
@@ -1355,8 +1579,7 @@ async function handler(req, res) {
                     lines.push(`${me.name} dashes to hex ${destTile}.`);
                     if (jutsuMethod === 'AOE_SPIRAL') {
                         // Dash in, then erupt a spiral ground nova centred on the
-                        // landing tile (faithful port of the reference's spiral AOE;
-                        // tile math in api/pvp/_aoe.ts). The filled hex disk becomes a
+                        // landing tile. The filled hex disk becomes a
                         // 2-round ground zone carrying this jutsu's ground tags; the
                         // enemy takes the effect immediately if caught inside it and
                         // again each round they stand in the zone.
@@ -1375,7 +1598,10 @@ async function handler(req, res) {
                         lines.push(`${jutsu.name} erupts in a spiral, blanketing ${groundEffect.tiles.length} hexes for 2 rounds.`);
                         const spiralGround = applyGroundEffectToFighter(opp, groundEffect, session.round);
                         lines.push(...spiralGround.lines);
-                        result = commit(movedSelf, spiralGround.fighter, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] });
+                        result = commit(movedSelf, spiralGround.fighter, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] }, undefined, [
+                            vfxForJutsu(jutsu, movedSelf, spiralGround.fighter, undefined, { area: true, tiles: groundEffect.tiles, persistent: true, who: 'opp' }),
+                            ...spendPoisonVfx,
+                        ]);
                         break;
                     }
                     const ring = (0, grid_js_1.hexNeighbors)(destTile);
@@ -1385,14 +1611,24 @@ async function handler(req, res) {
                         const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult, biome, session.round);
                         lines.push(`Ring impact catches ${opp.name}!`);
                         lines.push(...jr.lines);
-                        result = commit(jr.self, jr.opponent, apCost, cd, undefined, jr.fx);
+                        result = commit(jr.self, jr.opponent, apCost, cd, undefined, jr.fx, [
+                            vfxForJutsu(damageJutsu, jr.self, jr.opponent, jr.fx, { area: true, tiles: [destTile, ...ring], ko: jr.opponent.hp <= 0, who: 'opp' }),
+                            ...reactionVfx(opp, jr.opponent, jr.fx),
+                            ...spendPoisonVfx,
+                        ]);
                     }
                     else if (jutsuMethod === 'AOE_CIRCLE') {
                         lines.push(`${opp.name} is outside the impact area.`);
-                        result = commit(movedSelf, null, apCost, cd);
+                        result = commit(movedSelf, null, apCost, cd, undefined, undefined, [
+                            vfxForJutsu(jutsu, movedSelf, opp, undefined, { area: true, tiles: [destTile, ...ring], who: 'opp' }),
+                            ...spendPoisonVfx,
+                        ]);
                     }
                     else {
-                        result = commit(movedSelf, null, apCost, cd);
+                        result = commit(movedSelf, null, apCost, cd, undefined, undefined, [
+                            vfxForJutsu(jutsu, movedSelf, opp, undefined, { tiles: [destTile], who: 'self' }),
+                            ...spendPoisonVfx,
+                        ]);
                     }
                     break;
                 }
@@ -1426,7 +1662,10 @@ async function handler(req, res) {
                         lines.push(`${jutsu.name} creates a ground effect for 2 rounds.`);
                         const instantGround = applyGroundEffectToFighter(opp, groundEffect, session.round);
                         lines.push(...instantGround.lines);
-                        result = commit(paidSelf, instantGround.fighter, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] });
+                        result = commit(paidSelf, instantGround.fighter, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] }, undefined, [
+                            vfxForJutsu(jutsu, paidSelf, instantGround.fighter, undefined, { ground: true, tiles: zoneTiles, persistent: true, who: 'opp' }),
+                            ...spendPoisonVfx,
+                        ]);
                         break;
                     }
                     const ring = (0, grid_js_1.hexNeighbors)(targetTile);
@@ -1436,11 +1675,18 @@ async function handler(req, res) {
                         const jr = applyJutsu(paidSelf, opp, jutsu, jWMult, biome, session.round);
                         lines.push(`Area burst catches ${opp.name}!`);
                         lines.push(...jr.lines);
-                        result = commit(jr.self, jr.opponent, apCost, cd, undefined, jr.fx);
+                        result = commit(jr.self, jr.opponent, apCost, cd, undefined, jr.fx, [
+                            vfxForJutsu(jutsu, jr.self, jr.opponent, jr.fx, { area: true, tiles: [targetTile, ...ring], ko: jr.opponent.hp <= 0, who: 'opp' }),
+                            ...reactionVfx(opp, jr.opponent, jr.fx),
+                            ...spendPoisonVfx,
+                        ]);
                     }
                     else {
                         lines.push(`${opp.name} is outside the impact area.`);
-                        result = commit(paidSelf, null, apCost, cd);
+                        result = commit(paidSelf, null, apCost, cd, undefined, undefined, [
+                            vfxForJutsu(jutsu, paidSelf, opp, undefined, { area: jutsuMethod === 'AOE_CIRCLE', tiles: [targetTile, ...ring], who: 'opp' }),
+                            ...spendPoisonVfx,
+                        ]);
                     }
                     break;
                 }
@@ -1451,7 +1697,11 @@ async function handler(req, res) {
                     stamina: Math.max(0, jr.self.stamina - jStaminaCost),
                 });
                 lines.push(...jr.lines);
-                result = commit(jUpdatedSelf, jr.opponent, apCost, cd, undefined, jr.fx);
+                result = commit(jUpdatedSelf, jr.opponent, apCost, cd, undefined, jr.fx, [
+                    vfxForJutsu(jutsu, jUpdatedSelf, jr.opponent, jr.fx, { ko: jr.opponent.hp <= 0 }),
+                    ...reactionVfx(opp, jr.opponent, jr.fx),
+                    ...spendPoisonVfx,
+                ]);
                 break;
             }
             case 'weapon': {
@@ -1517,7 +1767,17 @@ async function handler(req, res) {
                 const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome, session.round);
                 lines.push(...wr.lines);
                 const wCd = wCdTurns > 0 ? { [wCdKey]: wCdTurns } : undefined;
-                result = commit(wr.self, wr.opponent, wApCost, wCd, wChargePatch, wr.fx);
+                const wIntensity = intensityFromHit(wr.fx, wr.self, wr.opponent, wr.opponent.hp <= 0);
+                const namedWeapon = wSlot === 'hand' && (Boolean(serverItem.weaponEffect) || (serverItem.weaponTags?.length ?? 0) > 0);
+                const wVisualKey = wIntensity === 'finisher' ? 'ko' :
+                    wSlot === 'thrown' ? 'throwable' :
+                        namedWeapon ? 'namedWeapon' :
+                            wIntensity === 'heavy' ? 'heavy' :
+                                'weapon';
+                result = commit(wr.self, wr.opponent, wApCost, wCd, wChargePatch, wr.fx, [
+                    vfxEvent('opp', wVisualKey, 'target', wIntensity),
+                    ...reactionVfx(opp, wr.opponent, wr.fx),
+                ]);
                 break;
             }
             case 'item': {
@@ -1557,7 +1817,7 @@ async function handler(req, res) {
                         stamina: Math.min(me.maxStamina, me.stamina + iRestoreSt),
                     };
                     lines.push(`${me.name} uses ${serverItem.name ?? 'Potion'}: restores ${iRestoreCk} chakra and ${iRestoreSt} stamina.`);
-                    result = commit(restoredMe, null, iApCost, iCd, iSpend.patch);
+                    result = commit(restoredMe, null, iApCost, iCd, iSpend.patch, undefined, [vfxEvent('self', 'buff', 'caster')]);
                     break;
                 }
                 const iTags = serverItem.weaponTags?.length
@@ -1585,7 +1845,15 @@ async function handler(req, res) {
                     ir.lines.push(`Smoke: ${irSelf.name} also deals ${ddgPct}% less damage for 1 round.`);
                 }
                 lines.push(...ir.lines);
-                result = commit(irSelf, ir.opponent, iApCost, iCd, iSpend.patch, ir.fx);
+                const iVisualTags = vfxTagNames(iTags);
+                const iVisualKey = keyForJutsuTags(iVisualTags, false) ?? 'buff';
+                const iIntensity = intensityFromHit(ir.fx, irSelf, ir.opponent, ir.opponent.hp <= 0);
+                const iKey = iIntensity === 'finisher' ? 'ko' : iVisualKey;
+                const iVisualSelf = iVisualKey === 'heal' || iVisualKey === 'buff' || iVisualKey === 'shield' || iVisualKey === 'cleanse';
+                result = commit(irSelf, ir.opponent, iApCost, iCd, iSpend.patch, ir.fx, [
+                    vfxEvent(iVisualSelf ? 'self' : 'opp', iKey, iVisualSelf ? 'caster' : 'target', iIntensity),
+                    ...reactionVfx(opp, ir.opponent, ir.fx),
+                ]);
                 break;
             }
             case 'flee': {
