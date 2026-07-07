@@ -4,8 +4,6 @@
    Scoped under .arena-fullscreen so nothing else is affected.
    To revert: delete this block.
    ========================================================================= */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&display=swap');
-
 .arena-fullscreen {
     --bsv2-gold:        #c4a25a;
     --bsv2-gold-bright: #e8d496;
@@ -411,23 +409,45 @@
 .arena-fullscreen .combat-main-area > * + * {
     margin-top: 8px;
 }
-/* Battle Skin v2 — biome backdrop neutralization
-   Replaces the harsh biome edge colors with a unified dark navy,
-   then layers a soft biome-tinted radial so the biome still reads. */
-.arena-fullscreen.arena-bg-snow,
-.arena-fullscreen.arena-bg-volcano,
-.arena-fullscreen.arena-bg-forest,
-.arena-fullscreen.arena-bg-shadow,
-.arena-fullscreen.arena-bg-central,
-.arena-fullscreen.arena-bg-deathsgate {
-    background-color: #050912 !important;
+/* Keep the biome scene visible behind the arena chrome. battle-skin.css loads
+   after index.css for the lazy battle screen, so these must preserve the image
+   layers instead of replacing them with a flat tint. */
+.arena-fullscreen.arena-bg-snow {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.58), rgba(15,23,42,.48)),
+        url('/arena-snow.webp') center center / cover no-repeat !important;
+    background-color: #1e3a5f !important;
 }
-.arena-fullscreen.arena-bg-snow      { background-image: radial-gradient(ellipse at center, rgba(78,168,255,0.18) 0%, transparent 60%) !important; }
-.arena-fullscreen.arena-bg-volcano   { background-image: radial-gradient(ellipse at center, rgba(220,38,38,0.22) 0%, transparent 60%) !important; }
-.arena-fullscreen.arena-bg-forest    { background-image: radial-gradient(ellipse at center, rgba(74,222,128,0.18) 0%, transparent 60%) !important; }
-.arena-fullscreen.arena-bg-shadow    { background-image: radial-gradient(ellipse at center, rgba(167,139,250,0.22) 0%, transparent 60%) !important; }
-.arena-fullscreen.arena-bg-central   { background-image: radial-gradient(ellipse at center, rgba(148,163,184,0.18) 0%, transparent 60%) !important; }
-.arena-fullscreen.arena-bg-deathsgate{ background-image: radial-gradient(ellipse at center, rgba(134,239,172,0.22) 0%, transparent 60%) !important; }
+.arena-fullscreen.arena-bg-volcano {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.6), rgba(39,10,10,.5)),
+        url('/arena-volcano.webp') center center / cover no-repeat !important;
+    background-color: #4a0e0e !important;
+}
+.arena-fullscreen.arena-bg-forest {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.58), rgba(8,35,20,.48)),
+        url('/arena-forest.webp') center center / cover no-repeat !important;
+    background-color: #0f3d1e !important;
+}
+.arena-fullscreen.arena-bg-shadow {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.6), rgba(31,20,56,.52)),
+        url('/arena-shadow.webp') center center / cover no-repeat !important;
+    background-color: #2d1654 !important;
+}
+.arena-fullscreen.arena-bg-central {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.58), rgba(15,23,42,.48)),
+        url('/arena-central.webp') center center / cover no-repeat !important;
+    background-color: #1e293b !important;
+}
+.arena-fullscreen.arena-bg-deathsgate {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.62), rgba(8,40,18,.52)),
+        url('/deathsgate-arena.webp') center center / cover no-repeat !important;
+    background-color: #0a1f0f !important;
+}
 
 /* Tame the hex-battlefield border so it sits flush with the arena art
    instead of glowing past the painted stone walls. */
