@@ -16,9 +16,14 @@
  * See also docs/sector-wanderers-content.md for the written character voice.
  */
 
-export type WandererVerb = "attack" | "gift" | "gamble" | "petDuel" | "quest" | "legacyQuest";
+export type WandererVerb =
+    | "attack" | "gift" | "gamble" | "petDuel" | "quest"
+    | "merchant" | "medic" | "patrol" | "tracker" | "courier" | "bountyHunter"
+    | "legacyQuest";
 export type WandererArchetypeId =
-    | "bandit" | "gambler" | "pilgrim" | "beast" | "sage" | "wanderingSage"
+    | "bandit" | "gambler" | "pilgrim" | "beast" | "sage"
+    | "merchant" | "medic" | "patrol" | "tracker" | "courier" | "bountyHunter"
+    | "wanderingSage"
     // The eight Legacy Emissaries (lib/legacy-emissaries.ts) — weight-0 like the
     // Sage: never rolled into the natural cast, synthed per-player per window.
     | "storm-caller-ryn" | "veil-mother-suzu" | "iron-pilgrim-daigo" | "blade-keeper-hana"
@@ -42,6 +47,13 @@ export interface Wanderer {
     tellTint: string;
     /** which face from the existing NPC art pool to wear (mapped in the component) */
     avatarKey: WandererArchetypeId;
+    /** Optional synthetic metadata for chained encounters. */
+    targetName?: string;
+    bountyAmount?: number;
+    originSector?: number;
+    targetSector?: number;
+    expiresAt?: number;
+    factionVillage?: string;
 }
 
 const GRID = 12;
@@ -112,6 +124,68 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
             "Walk with purpose — I've a task that needs doing.",
         ],
     },
+    merchant: {
+        verb: "merchant",
+        weight: 0.12,
+        tellTint: "#fbbf24",
+        names: ["Miko of the Pack", "Suri Lantern-Hands", "Jin the Mule", "Tama Roadstall"],
+        greetings: [
+            "Road prices, road risks. I have charms if your purse has weight.",
+            "Keep your blade low and your coins ready.",
+            "A fair trade travels farther than a threat.",
+        ],
+    },
+    medic: {
+        verb: "medic",
+        weight: 0.1,
+        tellTint: "#67e8f9",
+        names: ["Nurse Enka", "Field Medic Ren", "Old Stitch", "Sister Koma"],
+        greetings: [
+            "You look like the road has been chewing on you.",
+            "Bandage, tonic, steady hands. Sit if you need mending.",
+            "I do not ask who hit first. I patch what is bleeding.",
+        ],
+    },
+    patrol: {
+        verb: "patrol",
+        weight: 0.12,
+        tellTint: "#93c5fd",
+        names: ["Storm Road Patrol", "Ashen Border Patrol", "Frostfang Scout", "Moonshadow Sentry"],
+        greetings: [
+            "State your village and your business.",
+            "These roads are watched. Choose your words cleanly.",
+            "Patrol passing through. Trouble follows careless steps.",
+        ],
+    },
+    tracker: {
+        verb: "tracker",
+        weight: 0.1,
+        tellTint: "#a7f3d0",
+        names: ["Ibo the Tracker", "Kana Reed-Eyes", "Old Pawprint", "Shin of the Bent Grass"],
+        greetings: [
+            "Fresh tracks cross this dirt. Something bold is nearby.",
+            "The wilds are talking. Most people forget to listen.",
+            "I can point you toward teeth, coin, or trouble. Sometimes all three.",
+        ],
+    },
+    courier: {
+        verb: "courier",
+        weight: 0,
+        tellTint: "#fde68a",
+        names: ["Road Courier"],
+        greetings: [
+            "Package sealed. Name checked. You made good time.",
+        ],
+    },
+    bountyHunter: {
+        verb: "bountyHunter",
+        weight: 0,
+        tellTint: "#f87171",
+        names: ["Contract Hunter"],
+        greetings: [
+            "Your face matches the bounty slip.",
+        ],
+    },
     // The Legacy system's Wandering Sage (lib/legacy.ts synthSageWanderer).
     // weight 0 = never rolled into the natural cast; spawned server-side only,
     // per-player, when a Legacy offer is waiting (api/legacy/sage.ts).
@@ -147,11 +221,11 @@ export function isWanderersEnabled(): boolean {
 }
 
 // ── Per-NPC anti-spam cooldown ───────────────────────────────────────────────
-// After a player takes a REPEATABLE reward from a wanderer (fight a bandit, take a
-// pilgrim's gift, duel a beast/gambler), that specific NPC goes on cooldown so it
-// can't be farmed — it vanishes from the sector for a few hours. Sages (quests) are
-// NOT cooled: a quest is one-at-a-time already, and you need a sage to continue an
-// active epic. Keyed by the wanderer's stable id → expiry ms.
+// After a player uses a natural road wanderer (fight a bandit, take a pilgrim's
+// gift, duel a beast/gambler, or accept/claim from a non-legacy quest sage), that
+// specific NPC goes on cooldown so it can't be farmed. Legacy Sage/emissary NPCs
+// are synthetic and stay out of this path. Keyed by the wanderer's stable id ->
+// expiry ms.
 export const WANDERER_NPC_COOLDOWN_MS = 3 * 60 * 60 * 1000; // a few hours
 // A SHORTER "back off" cooldown for when you FLEE/decline a bandit instead of
 // fighting it. You took no reward, so it shouldn't vanish for the full anti-farm

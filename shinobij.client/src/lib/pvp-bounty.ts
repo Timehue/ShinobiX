@@ -50,3 +50,32 @@ export async function claimBountyOnWin(playerName: string, battleId: string): Pr
         return null;
     }
 }
+
+export async function startBountyHunter(playerName: string, hunterId: string): Promise<{ ok: boolean; error?: string; reason?: string; bounty?: BountyEntry }> {
+    try {
+        const res = await fetch("/api/pvp/bounty", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "ai-hunter-start", playerName, hunterId }),
+        });
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; reason?: string; bounty?: BountyEntry };
+        if (!res.ok || !data.ok) return { ok: false, error: data.error || "The hunter lost the trail.", reason: data.reason };
+        return { ok: true, bounty: data.bounty };
+    } catch {
+        return { ok: false, error: "The hunter lost the trail." };
+    }
+}
+
+export async function claimBountyHunterKill(playerName: string, hunterId: string, hunterName: string): Promise<{ amount: number; target: string } | null> {
+    try {
+        const res = await fetch("/api/pvp/bounty", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "ai-hunter-claim", playerName, hunterId, hunterName }),
+        });
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; amount?: number; target?: string };
+        return data.ok && (data.amount ?? 0) > 0 ? { amount: data.amount!, target: data.target ?? playerName } : null;
+    } catch {
+        return null;
+    }
+}

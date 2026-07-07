@@ -100,6 +100,7 @@ export function placeBounty(input: PlaceInput, now: number): PlaceResult {
 }
 
 export type ClaimResult = { ok: false; reason: string } | { ok: true; board: BountyBoard; amount: number };
+export type AiClaimResult = { ok: false; reason: string } | { ok: true; board: BountyBoard; amount: number; bounty: Bounty };
 
 /**
  * Remove the target's bounty from the board and return the pool to pay the
@@ -112,4 +113,15 @@ export function claimBounty(board: BountyBoard, targetName: string): ClaimResult
     if (!existing || existing.amount <= 0) return { ok: false, reason: 'There is no bounty on that player.' };
     const bounties = board.bounties.filter((b) => b !== existing);
     return { ok: true, board: { bounties }, amount: existing.amount };
+}
+
+/**
+ * Remove a bounty because a server-spawned hunter killed the target. The pool is
+ * intentionally not credited to any player: this is the bounty-board ryo sink.
+ */
+export function claimBountyByAi(board: BountyBoard, targetName: string): AiClaimResult {
+    const existing = findBounty(board, targetName);
+    if (!existing || existing.amount <= 0) return { ok: false, reason: 'There is no bounty on that player.' };
+    const bounties = board.bounties.filter((b) => b !== existing);
+    return { ok: true, board: { bounties }, amount: existing.amount, bounty: { ...existing, contributors: [...existing.contributors] } };
 }

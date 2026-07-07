@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _player_ips_js_1 = require("../_player-ips.js");
+const _announce_js_1 = require("../_announce.js");
 const _bounty_js_1 = require("./_bounty.js");
 /*
  * /api/pvp/bounty — GET (board) + POST (place / claim)
@@ -30,10 +31,34 @@ const _bounty_js_1 = require("./_bounty.js");
 const BOUNTY_KEY = 'pvp:bounties';
 const SESSION_REPLAY_WINDOW_MS = 2 * 60 * 60 * 1000;
 const CLAIM_TTL_SECONDS = 24 * 60 * 60;
+const AI_HUNTER_TTL_SECONDS = 30 * 60;
 const AUDIT_PREFIX = 'audit:pvp-bounty:';
 function num(v) {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
+}
+function aiHunterKey(playerName, hunterId) {
+    return `pvp:bounty-ai:${playerName}:${hunterId}`;
+}
+function cleanHunterName(v) {
+    const s = String(v ?? '').replace(/[^\w .'-]/g, '').trim().slice(0, 48);
+    return s || 'a bounty hunter';
+}
+async function notifyBountyContributors(bounty, hunterName) {
+    const contributors = Array.from(new Set((bounty.contributors ?? []).map((c) => (0, _utils_js_1.safeName)(c)).filter(Boolean)));
+    await Promise.all(contributors.map(async (slug) => {
+        try {
+            const rec = await _storage_js_1.kv.get(`save:${slug}`);
+            const char = (rec?.character ?? null);
+            const village = typeof char?.village === 'string' ? char.village : '';
+            if (!village)
+                return;
+            await (0, _announce_js_1.postVillageHerald)(village, 'Bounty collected', `${bounty.target} was killed by ${hunterName}. The ${bounty.amount.toLocaleString()} ryo bounty has left the board.`);
+        }
+        catch {
+            /* best-effort per contributor */
+        }
+    }));
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -125,6 +150,76 @@ async function handler(req, res) {
             return res.status(out.status).json(out.body);
         }
         // ── CLAIM ──────────────────────────────────────────────────────────────
+        if (action === 'ai-hunter-start') {
+            const hunterId = typeof body.hunterId === 'string' ? body.hunterId.trim().slice(0, 140) : '';
+            if (!/^[A-Za-z0-9:_-]{8,140}$/.test(hunterId)) {
+                return res.status(400).json({ error: 'Missing hunterId.' });
+            }
+            const board = (0, _bounty_js_1.normalizeBoard)(await _storage_js_1.kv.get(BOUNTY_KEY));
+            const bounty = (0, _bounty_js_1.findBounty)(board, playerName);
+            if (!bounty)
+                return res.status(200).json({ ok: false, reason: 'no-bounty' });
+            const token = {
+                target: playerName,
+                hunterId,
+                amount: bounty.amount,
+                updatedAt: bounty.updatedAt,
+                contributors: bounty.contributors,
+                ts: now,
+            };
+            const started = await _storage_js_1.kv.set(aiHunterKey(playerName, hunterId), token, { nx: true, ex: AI_HUNTER_TTL_SECONDS });
+            return res.status(200).json({
+                ok: true,
+                alreadyStarted: !started,
+                bounty: { target: bounty.target, amount: bounty.amount, contributors: bounty.contributors, updatedAt: bounty.updatedAt },
+                ttlSeconds: AI_HUNTER_TTL_SECONDS,
+            });
+        }
+        if (action === 'ai-hunter-claim') {
+            const hunterId = typeof body.hunterId === 'string' ? body.hunterId.trim().slice(0, 140) : '';
+            if (!/^[A-Za-z0-9:_-]{8,140}$/.test(hunterId)) {
+                return res.status(400).json({ error: 'Missing hunterId.' });
+            }
+            const hunterName = cleanHunterName(body.hunterName);
+            const key = aiHunterKey(playerName, hunterId);
+            const out = await (0, _lock_js_1.withKvLock)(BOUNTY_KEY, async () => {
+                const token = await _storage_js_1.kv.get(key);
+                if (!token || token.target !== playerName || token.hunterId !== hunterId) {
+                    return { status: 200, body: { ok: false, reason: 'expired' } };
+                }
+                const board = (0, _bounty_js_1.normalizeBoard)(await _storage_js_1.kv.get(BOUNTY_KEY));
+                const current = (0, _bounty_js_1.findBounty)(board, playerName);
+                if (!current) {
+                    await _storage_js_1.kv.del(key).catch(() => undefined);
+                    return { status: 200, body: { ok: true, amount: 0, target: playerName } };
+                }
+                const claimKey = `pvp:bounty-ai-claimed:${playerName}:${hunterId}:${current.updatedAt}`;
+                const placed = await _storage_js_1.kv.set(claimKey, { ts: now }, { nx: true, ex: CLAIM_TTL_SECONDS });
+                if (!placed)
+                    return { status: 200, body: { ok: true, alreadyClaimed: true, amount: 0 } };
+                const result = (0, _bounty_js_1.claimBountyByAi)(board, playerName);
+                if (!result.ok)
+                    return { status: 200, body: { ok: true, amount: 0 } };
+                await _storage_js_1.kv.set(BOUNTY_KEY, result.board);
+                await _storage_js_1.kv.del(key).catch(() => undefined);
+                return {
+                    status: 200,
+                    body: { ok: true, amount: result.amount, target: result.bounty.target },
+                    burned: result.bounty,
+                };
+            }, { failClosed: true });
+            if (out.burned) {
+                await notifyBountyContributors(out.burned, hunterName);
+                await _storage_js_1.kv.set(`${AUDIT_PREFIX}ai-claim:${Date.now()}`, {
+                    ts: now,
+                    target: playerName,
+                    hunterId,
+                    hunterName,
+                    amount: out.burned.amount,
+                }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            }
+            return res.status(out.status).json(out.body);
+        }
         if (action === 'claim') {
             const battleId = typeof body.battleId === 'string' ? body.battleId.trim() : '';
             if (!battleId)
