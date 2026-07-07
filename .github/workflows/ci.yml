@@ -22,18 +22,15 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
-      - name: Root tests
-        run: |
-          if ! npm test; then
-            node scripts/ci-diagnose-tests.mjs
-          fi
-
-      - name: Root build
-        run: npm run build
-
       - name: Install client dependencies
         working-directory: shinobij.client
         run: npm ci
+
+      - name: Root tests
+        run: npm test
+
+      - name: Root build
+        run: npm run build
 
       - name: Client lint
         working-directory: shinobij.client
