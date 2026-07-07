@@ -14,6 +14,7 @@
 // Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
+import "../styles/profile-skin.css";
 import type { PlayerRecord, ServerPlayerSummary } from "../types/character";
 import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 

@@ -378,7 +378,7 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
                 <BoardScene result={result} round={round} spriteMap={spriteMap} stars={stars} />
             </Canvas>
 
-            <div style={{ position: "absolute", top: "5%", left: 0, right: 0, textAlign: "center", color: "#fcd34d", font: "800 clamp(15px,2.4vw,22px) Cinzel, serif", textShadow: "0 2px 8px #000", pointerEvents: "none" }}>
+            <div style={{ position: "absolute", top: "5%", left: 0, right: 0, textAlign: "center", color: "#fcd34d", font: "800 clamp(15px,2.4vw,22px) var(--font-display)", textShadow: "0 2px 8px #000", pointerEvents: "none" }}>
                 ⚔️ Round {Math.min(round, result.rounds)} / {result.rounds}
             </div>
             {/* client-build tag — confirms the live board is running the latest code */}
