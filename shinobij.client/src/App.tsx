@@ -176,6 +176,7 @@ import { masteryBonus } from "./lib/profession-mastery";
 import { StartScreen } from "./screens/StartScreen";
 import { OnboardingCoach } from "./components/OnboardingCoach";
 import { ScreenHint } from "./components/ScreenHint";
+import { ReleaseReadinessNotice } from "./components/ReleaseReadinessNotice";
 import { Village } from "./screens/Village";
 
 import {
@@ -7781,6 +7782,10 @@ export default function App() {
                 {/* One-time contextual hints for free-roam systems (post-onboarding). */}
                 {character && character.name !== "Admin 1" && character.name !== "Admin 2" && (
                     <ScreenHint screen={screen} character={character} updateCharacter={setCharacter} />
+                )}
+
+                {character && !isAdminAccountName(character.name) && !activeTriggeredEvent && (
+                    <ReleaseReadinessNotice screen={screen} />
                 )}
 
                 {!activeTriggeredEvent && screen === "village" && character && (<>

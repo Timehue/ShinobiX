@@ -3,6 +3,7 @@ import { cors, parseJsonBody, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { kv } from './_storage.js';
+import { PLAYER_AI_IMAGE_GENERATION_DISABLED_REASON, playerAiImageGenerationEnabled } from './_release-flags.js';
 
 // Hard ceiling on user-provided prompt + label lengths. Anything past 1000
 // chars is either a prompt-injection payload or wasted tokens.
@@ -64,6 +65,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // and would be trivially abused if left open.
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+
+    // Public beta default: content admins can fill missing assets, but ordinary
+    // player generation stays closed unless an operator intentionally accepts
+    // the spend/moderation risk.
+    if (!identity.admin && !playerAiImageGenerationEnabled()) {
+        return res.status(403).json({
+            error: 'Player AI image generation is disabled during public beta. Upload an image instead, or ask an admin to enable ENABLE_PLAYER_AI_IMAGE_GENERATION=1.',
+            reason: PLAYER_AI_IMAGE_GENERATION_DISABLED_REASON,
+        });
+    }
 
     // 2 images per 60 s per authenticated identity. Tight limit because each
     // call costs real money ($0.02-0.04/image at gpt-image-1 low quality).
