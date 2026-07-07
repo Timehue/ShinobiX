@@ -15,7 +15,7 @@ export type WandererServiceResult = {
     moveToSector?: number;
 };
 
-export async function useWandererService(body: Record<string, unknown>): Promise<WandererServiceResult> {
+export async function postWandererService(body: Record<string, unknown>): Promise<WandererServiceResult> {
     try {
         const res = await fetch("/api/sector/wanderer-service", {
             method: "POST",

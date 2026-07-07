@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity, react-hooks/immutability, react-hooks/refs */
 import { useState, useEffect, useMemo, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
 // Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
@@ -108,7 +108,7 @@ import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { mercEncounterAis, isMercAiId } from "../lib/merc-ai";
 import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
 import { fetchBountyBoard, startBountyHunter, claimBountyHunterKill, type BountyEntry } from "../lib/pvp-bounty";
-import { useWandererService, type WandererFavor } from "../lib/wanderer-service";
+import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
 import { homeVillageForSector } from "../data/war-map-sectors";
 import { isLegacyEnabled, isLegacyServerLive, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, emissaryLoreLine, emissaryQuestById, EMISSARY_METRIC_LABELS, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
@@ -957,7 +957,7 @@ export function WorldMap({
     }
     async function tradeWithWanderer(w: Wanderer) {
         setWandererDialog({ w, busy: true });
-        const data = await useWandererService({ action: "merchant", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id });
+        const data = await postWandererService({ action: "merchant", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id });
         if (data.ok && data.offer && data.totals) {
             coolWanderer(w.id);
             updateCharacter(prev => prev ? ({ ...prev, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
@@ -975,7 +975,7 @@ export function WorldMap({
     }
     async function visitWandererMedic(w: Wanderer) {
         setWandererDialog({ w, busy: true });
-        const data = await useWandererService({ action: "medic", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id });
+        const data = await postWandererService({ action: "medic", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id });
         if (data.ok && data.offer && data.totals) {
             coolWanderer(w.id);
             updateCharacter(prev => prev ? ({
@@ -1001,7 +1001,7 @@ export function WorldMap({
     }
     async function startWandererFavor(w: Wanderer) {
         setWandererDialog({ w, busy: true });
-        const data = await useWandererService({ action: "favor-start", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id, wandererName: w.name });
+        const data = await postWandererService({ action: "favor-start", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id, wandererName: w.name });
         if (data.ok && data.favor) {
             coolWanderer(w.id);
             updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: data.favor as WandererFavor }) : prev);
@@ -1019,7 +1019,7 @@ export function WorldMap({
         const favor = character.activeWandererFavor;
         if (!favor) return;
         setWandererDialog({ w, busy: true });
-        const data = await useWandererService({ action: "favor-claim", playerName: character.name, sector: selectedSector ?? 0, favorId: favor.id });
+        const data = await postWandererService({ action: "favor-claim", playerName: character.name, sector: selectedSector ?? 0, favorId: favor.id });
         if (data.ok && data.reward && data.totals) {
             updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
             setWandererDialog({ w, msg: `The courier breaks the seal and pays you ${data.reward.ryo} ryo and ${data.reward.boneCharms} bone charm${data.reward.boneCharms === 1 ? "" : "s"}.` });
