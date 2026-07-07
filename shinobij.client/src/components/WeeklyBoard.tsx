@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from "react";
 import type { Character } from "../types/character";
-import { fetchWeeklyBoard, claimWeeklyMission, rewardText, type WeeklyBoard as Board } from "../lib/weekly-board";
+import { fetchWeeklyBoard, claimWeeklyMission, rewardText, weeklyClaimErrorText, type WeeklyBoard as Board } from "../lib/weekly-board";
 
 export function WeeklyBoard({ character, updateCharacter }: { character: Character; updateCharacter: (c: Character | ((prev: Character | null) => Character | null)) => void }) {
     const [board, setBoard] = useState<Board | null>(null);
@@ -24,7 +24,7 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
         setBusy(missionId);
         const res = await claimWeeklyMission(character.name, missionId);
         setBusy(null);
-        if (!res.ok) { alert(res.error || "Could not claim."); return; }
+        if (!res.ok) { alert(weeklyClaimErrorText(res)); return; }
         if (res.reward) {
             const reward = res.reward;
             updateCharacter((prev) => {

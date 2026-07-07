@@ -16,15 +16,14 @@ import {
     GiCalendar, GiCompass, GiTreasureMap, GiOpenBook,
 } from "react-icons/gi";
 import { GameIcon } from "../components/icons/GameIcon";
-import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
+import { rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
-import { dailyMissionsCompleted, hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
+import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-progress";
 import { displayCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
 import { gainXp } from "../App";
-import { grantTerritoryScrolls } from "../lib/world-state";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { questbookEntry, questbookStage, metricLabel } from "../lib/questbook";
@@ -93,9 +92,8 @@ export function Missions({
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
     function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds((prev) => [...prev, mission.id]); setMissionProgress((prev) => ({ ...prev, [mission.id]: prev[mission.id] ?? 0, [raidKey]: prev[raidKey] ?? 0 })); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}, then return to the Mission Hall to claim the posted reward.`); }
-    // Server-authoritative for built-in field missions; creator-authored missions
-    // (not in the server catalog) fall back to the legacy client payout via the
-    // clientFallback signal.
+    // Server-authoritative field claims. Unknown/creator-authored mission ids are
+    // rejected by the server instead of paid locally.
     async function claimFetchMission(mission: CreatorMission) {
         const progress = missionProgress[mission.id] ?? 0;
         const raidReq = missionRaidRequirement(mission);
@@ -112,19 +110,7 @@ export function Missions({
             alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
             return;
         }
-        if (result.applied === false && !result.clientFallback) return alert(claimReasonMessage(result.reason));
-        // Legacy client payout for creator-authored missions only.
-        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
-        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
-        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
-        updateCharacter((prev) => {
-            if (!prev) return prev;
-            const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(prev, boostedXp), mission.currencyRewards), 3);
-            return markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) });
-        });
-        setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
-        setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-        alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character, { territoryScrolls: 3 })}.`);
+        if (result.applied === false) return alert(claimReasonMessage(result.reason, result));
     }
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);

@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _mission_catalog_js_1 = require("./_mission-catalog.js");
+const _eligibility_js_1 = require("./_eligibility.js");
 const _mission_progress_receipt_js_1 = require("./_mission-progress-receipt.js");
 const PROGRESS_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 async function handler(req, res) {
@@ -46,6 +47,12 @@ async function handler(req, res) {
         }
         if (missionType === 'field' && (0, _mission_catalog_js_1.huntMissionById)(missionId)) {
             return res.status(200).json({ ok: true, recorded: false, reason: 'wrong-mission-type' });
+        }
+        const record = await _storage_js_1.kv.get(`save:${playerName}`);
+        const char = record?.character;
+        const eligibility = (0, _eligibility_js_1.canPlayerReceiveMission)(char ?? {}, mission);
+        if (!eligibility.ok) {
+            return res.status(403).json({ ok: false, recorded: false, ...(0, _eligibility_js_1.missionEligibilityFailureBody)(eligibility) });
         }
         const key = (0, _mission_progress_receipt_js_1.missionProgressReceiptKey)(playerName, missionId);
         const receipt = await (0, _lock_js_1.withKvLock)(key, async () => {

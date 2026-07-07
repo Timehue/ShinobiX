@@ -12,7 +12,7 @@ import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { clampNumber, currentDateKey } from "../lib/utils";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
-import { hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
+import { hasDailyMissionSlot } from "../lib/character-progress";
 import { buildLogbookObjectives, currentLogbookObjective, objectiveComplete, type LogbookObjective, type ObjectiveRequirement } from "../lib/logbook-objectives";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { weatherForBiome } from "../data/sectors";
@@ -20,7 +20,7 @@ import {
     gainXp,
     type CreatorEvent,
 } from "../App";
-import { activeVillageWarsFor, claimVillageWarDailyMission, grantTerritoryScrolls, loadVillageState, weatherForSector, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
+import { activeVillageWarsFor, claimVillageWarDailyMission, loadVillageState, weatherForSector, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
 
 export function Logbook({
     character,
@@ -103,8 +103,8 @@ export function Logbook({
         ? "You graduated from the Academy. The village now trusts you with real shinobi work."
         : `Congratulations, ${character.name}. Your next shinobi path is open.`;
 
-    // Server-authoritative for built-in field missions; creator-authored missions
-    // fall back to the legacy client payout (clientFallback). Mirrors Missions.claimFetchMission.
+    // Server-authoritative field claims. Unknown/creator-authored mission ids are
+    // rejected by the server instead of paid locally.
     async function claimMission(mission: CreatorMission) {
         const progress = missionProgress[mission.id] ?? 0;
         const raidReq = missionRaidRequirement(mission);
@@ -121,23 +121,7 @@ export function Logbook({
             alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
             return;
         }
-        if (result.applied === false && !result.clientFallback) return alert(claimReasonMessage(result.reason));
-        // Legacy client payout for creator-authored missions only.
-        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
-        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
-        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
-        updateCharacter(prev => {
-            if (!prev) return prev;
-            const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(prev, boostedXp), mission.currencyRewards), 3);
-            return markMissionCompleted({
-                ...leveled,
-                ryo: leveled.ryo + boostedRyo,
-                stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina),
-            });
-        });
-        setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
-        setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-        alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character, { territoryScrolls: 3 })}.`);
+        if (result.applied === false) return alert(claimReasonMessage(result.reason, result));
     }
 
     function acceptMission(mission: CreatorMission) {
