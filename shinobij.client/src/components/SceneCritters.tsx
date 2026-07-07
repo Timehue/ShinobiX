@@ -41,7 +41,7 @@ interface Recipe {
 
 // The full cast. Biomes pick a subset for day vs night below.
 const RECIPES: Record<string, Recipe> = {
-    bird:      { behavior: "glide",  count: 3, colors: ["#27313f", "#1d2530", "#39434f"], size: [7, 12],  band: [0.06, 0.42], speed: [38, 74] },
+    bird:      { behavior: "glide",  count: 3, colors: ["rgba(39,49,63,0.76)", "rgba(57,67,79,0.7)", "rgba(88,105,124,0.66)"], size: [8, 13],  band: [0.06, 0.42], speed: [38, 74] },
     raven:     { behavior: "glide",  count: 3, colors: ["#0f1217", "#1a1f29"],            size: [8, 13],  band: [0.08, 0.46], speed: [46, 86] },
     butterfly: { behavior: "flutter",count: 5, colors: ["#f9a8d4", "#fcd34d", "#a5f3fc", "#c084fc", "#fb923c"], size: [4, 7], band: [0.44, 0.9] },
     moth:      { behavior: "flutter",count: 4, colors: ["#fde68a", "#fca5a5", "#fdba74"], size: [3.5, 6], band: [0.4, 0.9] },
@@ -177,15 +177,53 @@ export function SceneCritters({
         function drawBird(p: C) {
             const a = (Math.sin(p.flap) + 1) / 2;           // 0..1 wingbeat
             const wing = p.size;
-            const dip = wing * (0.18 + a * 0.55);
+            const lift = wing * (0.14 + a * 0.44);
+            const body = Math.max(2, p.size * 0.23);
+            ctx!.save();
+            ctx!.translate(p.x, p.y);
+            ctx!.scale(p.dir, 1);
+            ctx!.fillStyle = p.color;
             ctx!.strokeStyle = p.color;
-            ctx!.lineWidth = Math.max(1.1, p.size * 0.17);
+            ctx!.lineWidth = Math.max(0.8, p.size * 0.08);
+            ctx!.lineJoin = "round";
             ctx!.lineCap = "round";
+
             ctx!.beginPath();
-            ctx!.moveTo(p.x - wing, p.y + dip);
-            ctx!.quadraticCurveTo(p.x, p.y - dip * 0.5, p.x, p.y);
-            ctx!.quadraticCurveTo(p.x, p.y - dip * 0.5, p.x + wing, p.y + dip);
+            ctx!.moveTo(-body * 0.2, -body * 0.2);
+            ctx!.quadraticCurveTo(-wing * 0.55, -lift, -wing, lift * 0.22);
+            ctx!.quadraticCurveTo(-wing * 0.5, -lift * 0.32, -body * 0.25, body * 0.08);
+            ctx!.closePath();
+            ctx!.fill();
+
+            ctx!.beginPath();
+            ctx!.moveTo(body * 0.2, -body * 0.2);
+            ctx!.quadraticCurveTo(wing * 0.55, -lift, wing, lift * 0.22);
+            ctx!.quadraticCurveTo(wing * 0.5, -lift * 0.32, body * 0.25, body * 0.08);
+            ctx!.closePath();
+            ctx!.fill();
+
+            ctx!.beginPath();
+            ctx!.ellipse(0, 0, body * 1.18, body * 0.46, 0, 0, Math.PI * 2);
+            ctx!.fill();
+
+            ctx!.beginPath();
+            ctx!.arc(body * 1.12, -body * 0.1, Math.max(0.9, body * 0.34), 0, Math.PI * 2);
+            ctx!.fill();
+
+            ctx!.beginPath();
+            ctx!.moveTo(-body * 1.0, -body * 0.24);
+            ctx!.lineTo(-body * 1.8, -body * 0.62);
+            ctx!.lineTo(-body * 1.55, 0);
+            ctx!.lineTo(-body * 1.8, body * 0.62);
+            ctx!.lineTo(-body * 1.0, body * 0.24);
+            ctx!.closePath();
+            ctx!.fill();
+
+            ctx!.beginPath();
+            ctx!.moveTo(-wing * 0.75, lift * 0.18);
+            ctx!.quadraticCurveTo(0, -lift * 0.45, wing * 0.75, lift * 0.18);
             ctx!.stroke();
+            ctx!.restore();
         }
 
         function drawButterfly(p: C) {
