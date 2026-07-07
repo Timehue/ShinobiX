@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import type { ReactElement } from "react";
 import { createPortal } from "react-dom";
+import "../styles/central-skin.css";
 // Fantasy location glyphs (game-icons.net, CC BY 3.0 — attributed in the nav footer).
 import {
     GiCrossedSwords, GiGreekTemple, GiShop, GiDragonHead, GiTrophy, GiBookshelf,
