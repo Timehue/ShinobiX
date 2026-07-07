@@ -270,19 +270,67 @@ function vfxHasAny(tags: string[], names: Iterable<string>): boolean {
 }
 function elementVfxKey(element?: string | null): CombatVfxKey | null {
     switch (String(element ?? '').trim().toLowerCase()) {
-        case 'fire': return 'fire';
-        case 'water': return 'water';
-        case 'wind': return 'wind';
-        case 'lightning': return 'lightning';
-        case 'earth': return 'earth';
-        case 'blood': return 'blood';
-        case 'shadow': return 'shadow';
-        case 'poison': return 'poison';
+        case 'fire':
+        case 'flame':
+        case 'ember':
+        case 'ash':
+        case 'smoke':
+        case 'sun':
+        case 'solar':
+            return 'fire';
+        case 'water':
+        case 'ice':
+        case 'frost':
+        case 'snow':
+        case 'mist':
+        case 'steam':
+            return 'water';
+        case 'wind':
+        case 'air':
+        case 'gale':
+            return 'wind';
+        case 'lightning':
+        case 'storm':
+        case 'thunder':
+        case 'shock':
+        case 'plasma':
+        case 'tempest':
+            return 'lightning';
+        case 'earth':
+        case 'stone':
+        case 'rock':
+        case 'sand':
+        case 'mud':
+        case 'wood':
+        case 'plant':
+            return 'earth';
+        case 'blood':
+        case 'crimson':
+            return 'blood';
+        case 'shadow':
+        case 'dark':
+        case 'darkness':
+        case 'void':
+        case 'night':
+        case 'moon':
+        case 'illusion':
+            return 'shadow';
+        case 'poison':
+        case 'venom':
+        case 'toxin':
+        case 'acid':
+            return 'poison';
         case 'lava':
         case 'magma':
+        case 'molten':
             return 'magma';
         case 'iron':
         case 'metal':
+        case 'steel':
+        case 'crystal':
+        case 'glass':
+        case 'diamond':
+        case 'magnet':
             return 'metal';
         default:
             return null;
@@ -301,6 +349,9 @@ function keyForJutsuTags(tags: string[], ground = false): CombatVfxKey | null {
     if (vfxHas(tags, 'Heal')) return 'heal';
     if (vfxHasAny(tags, VFX_CONTROL_TAGS)) return 'spark';
     if (vfxHasAny(tags, VFX_SEAL_TAGS)) return 'seal';
+    if (vfxHas(tags, 'Copy')) return 'reflect';
+    if (vfxHas(tags, 'Mirror')) return 'debuff';
+    if (vfxHas(tags, 'Push') || vfxHas(tags, 'Pull')) return 'wind';
     if (vfxHas(tags, 'Wound')) return 'wound';
     if (vfxHas(tags, 'Ignition')) return 'burn';
     if (vfxHas(tags, 'Poison')) return ground ? 'poisonCloud' : 'poison';

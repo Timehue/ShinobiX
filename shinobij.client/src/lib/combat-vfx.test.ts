@@ -27,6 +27,11 @@ test("bloodline element jutsu map to distinct combat VFX", () => {
     assert.equal(keyForElement("Shadow"), "shadow");
     assert.equal(keyForElement("Lava"), "magma");
     assert.equal(keyForElement("Iron"), "metal");
+    assert.equal(keyForElement("Crystal"), "metal");
+    assert.equal(keyForElement("Storm"), "lightning");
+    assert.equal(keyForElement("Ice"), "water");
+    assert.equal(keyForElement("Venom"), "poison");
+    assert.equal(keyForElement("Void"), "shadow");
 });
 
 test("heal, shield, and buff self-casts target the caster", () => {
@@ -41,6 +46,8 @@ test("heal, shield, and buff self-casts target the caster", () => {
     });
     assert.equal(resolveCombatVfxSpec({ action: "jutsu", target: "SELF", tags: [tag("Shield")] }).target, "caster");
     assert.equal(resolveCombatVfxSpec({ action: "jutsu", target: "SELF", tags: [tag("Increase Generals")] }).target, "caster");
+    assert.equal(resolveCombatVfxSpec({ action: "basicHeal" }).key, "heal");
+    assert.equal(resolveCombatVfxSpec({ action: "basicHeal" }).target, "caster");
 });
 
 test("offensive jutsu target the enemy", () => {
@@ -77,10 +84,21 @@ test("status and damage-over-time tags map distinctly", () => {
         ["Poison", "poison"],
         ["Drain", "drain"],
         ["Siphon", "drain"],
+        ["Push", "wind"],
+        ["Pull", "wind"],
+        ["Copy", "reflect"],
+        ["Mirror", "debuff"],
     ];
     for (const [name, key] of pairs) {
         assert.equal(resolveCombatVfxSpec({ action: "jutsu", tags: [tag(name)] }).key, key);
     }
+});
+
+test("bloodline utility tags target the correct side", () => {
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", tags: [tag("Push")], target: "OPPONENT" }).target, "target");
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", tags: [tag("Pull")], target: "OPPONENT" }).target, "target");
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", tags: [tag("Copy")], target: "OPPONENT" }).target, "caster");
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", tags: [tag("Mirror")], target: "OPPONENT" }).target, "target");
 });
 
 test("mixed hostile tags win over incidental guard tags", () => {
@@ -142,7 +160,8 @@ test("KO and heavy hits escalate intensity", () => {
 
 test("missing or unknown combat actions fall back safely", () => {
     assert.equal(resolveCombatVfxSpec({ action: "unknown" }).key, "impact");
-    assert.equal(resolveCombatVfxSpec({ action: "jutsu", element: "Glass" }).key, "impact");
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", element: "Glass" }).key, "metal");
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", element: "Prism" }).key, "impact");
     assert.equal(safeCombatVfxSpec({ key: "not-real" as CombatVfxKey }).key, "impact");
 });
 
