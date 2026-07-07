@@ -59,6 +59,7 @@ export interface RecoInput {
     hasJutsu: boolean;
     petTrainingIdle: boolean;
     hasPets: boolean;
+    examsPassed?: readonly string[];
 }
 
 const ONBOARDING_TARGET: Record<string, { screen: Screen; label: string }> = {
@@ -100,6 +101,25 @@ export function buildRecommendations(i: RecoInput): Recommendation[] {
         out.push({ id: "training", icon: "💪", title: "Training grounds are idle", detail: "Start a timed session — your stats keep growing while you're away.", cta: "Start training", screen: "training" });
     }
 
+    const examsPassed = new Set(i.examsPassed ?? []);
+    if (!i.hasProfession && i.level >= 13) {
+        out.push({ id: "profession", icon: "🛠️", title: "Choose a profession", detail: "Level 13 unlocks Healer, Vanguard, or Pet Tamer paths before Genin prep gets serious.", cta: "Pick a profession", screen: "professionPicker" });
+    }
+
+    if (i.level >= 20 && !examsPassed.has("genin")) {
+        out.push({ id: "genin-exam", icon: "🎓", title: "Pass the Genin Exam", detail: "Level 20 is an XP hold. Clear the Logbook exam to keep leveling toward Chunin.", cta: "Open Logbook", screen: "logbook" });
+    } else if (i.level >= 15 && i.level < 20 && !examsPassed.has("genin")) {
+        out.push({ id: "genin-prep", icon: "📘", title: "Prepare for the Genin Exam", detail: "You are Genin now. Train, claim missions, and watch the level-20 exam gate.", cta: "Review Logbook", screen: "logbook" });
+    } else if (i.level >= 13 && i.level < 15) {
+        out.push({ id: "genin-rank", icon: "📘", title: "Genin begins at level 15", detail: "Choose a profession, keep your loadout full, then push through the last Academy levels.", cta: "Review Logbook", screen: "logbook" });
+    }
+
+    if (i.level >= 39 && examsPassed.has("genin") && !examsPassed.has("chunin")) {
+        out.push({ id: "chunin-exam", icon: "📜", title: "Pass the Chunin Exam", detail: "Level 39 is an XP hold. Finish the Chunin requirements to keep advancing.", cta: "Open Logbook", screen: "logbook" });
+    } else if (i.level >= 37 && examsPassed.has("genin") && !examsPassed.has("chunin")) {
+        out.push({ id: "chunin-prep", icon: "📜", title: "Chunin gate is close", detail: "Level 39 holds XP until the Chunin Exam is done, so check the requirements now.", cta: "Review Logbook", screen: "logbook" });
+    }
+
     if (i.hasMissionSlot && !i.hospitalized) {
         const m = i.recommendedMissionName;
         out.push({ id: "mission", icon: "📜", title: m ? `Recommended: ${m}` : "Run a mission", detail: `You've done ${i.missionsDone}/${i.missionCap} missions today — there's XP and ryo waiting.`, cta: "Go to Missions", screen: "missions" });
@@ -113,7 +133,7 @@ export function buildRecommendations(i: RecoInput): Recommendation[] {
         out.push({ id: "pet", icon: "🐾", title: "A companion is idle", detail: "Send a pet to train while you're out adventuring.", cta: "Pet yard", screen: "pets" });
     }
 
-    if (!i.hasProfession && i.level >= 10) {
+    if (!i.hasProfession && i.level >= 13 && !out.some((r) => r.id === "profession")) {
         out.push({ id: "profession", icon: "🛠️", title: "Choose a profession", detail: "Unlock a dedicated path — Healer, Vanguard, or Pet Tamer.", cta: "Pick a profession", screen: "professionPicker" });
     }
 

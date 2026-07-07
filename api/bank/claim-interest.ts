@@ -7,6 +7,7 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeBankInterest, BANK_INTEREST_WINDOW_MS } from '../_bank-interest.js';
 import { recordEconomyTxn } from '../_economy.js';
+import { recordBetaMetric } from '../_beta-metrics.js';
 
 /*
  * /api/bank/claim-interest  — POST only
@@ -54,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         type Out =
             | { error: 'no-save' }
             | { credited: false; reason: string; nextClaimAt: number; saveVersion: number }
-            | { credited: true; interest: number; bankRyo: number; nextClaimAt: number; saveVersion: number };
+            | { credited: true; interest: number; bankRyo: number; nextClaimAt: number; saveVersion: number; level: number };
         let out: Out;
         try {
             out = await withKvLock(saveKey, async (): Promise<Out> => {
@@ -69,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const nextChar = { ...char, bankRyo: nextBankRyo, lastBankInterestAt: now };
                 const nextRecord = bumpSaveVersion({ ...rec, character: nextChar });
                 await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
-                return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + BANK_INTEREST_WINDOW_MS, saveVersion: Number((nextRecord as Record<string, unknown>)._saveVersion ?? 0) };
+                return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + BANK_INTEREST_WINDOW_MS, saveVersion: Number((nextRecord as Record<string, unknown>)._saveVersion ?? 0), level: Number(char.level ?? 0) };
             }, { failClosed: true });
         } catch (e) {
             console.error('[bank/claim-interest] credit failed', e);
@@ -89,6 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Economy telemetry — bank interest is the top inflation faucet, so log it.
         await recordEconomyTxn({ txnId: `bank-interest:${playerName}:${now}`, player: playerName, currency: 'ryo', delta: out.interest, source: 'bank.interest', balanceAfter: out.bankRyo });
+        await recordBetaMetric({ event: 'bank.interest.claimed', playerName, level: out.level, source: 'bank', ryo: out.interest });
 
         return res.status(200).json({
             ok: true,

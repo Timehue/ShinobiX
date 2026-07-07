@@ -19,7 +19,7 @@ import { GameIcon } from "../components/icons/GameIcon";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
-import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
+import { displayCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
@@ -78,7 +78,7 @@ export function Missions({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
-        alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo. +${result.reward.territoryScrolls} Territory Control Scroll${result.reward.territoryScrolls === 1 ? "" : "s"}.`);
+        alert(`${mission.name} complete! ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
     }
     // Onboarding "Academy Trial" — a one-time, server-authoritative, off-the-daily-cap
     // reward that teaches the do→return→claim loop. Sets academyTrialClaimed, which
@@ -88,7 +88,7 @@ export function Missions({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
-        alert(`Academy Trial complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina. Now open your Logbook to see your goals.`);
+        alert(`Academy Trial complete! ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character)}. Now open your Logbook to see your goals.`);
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
     function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
@@ -109,7 +109,7 @@ export function Missions({
             updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-            alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, mission.currencyRewards, character)}. +${result.reward.territoryScrolls} Territory Control Scrolls.`);
+            alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls })}.`);
             return;
         }
         if (result.applied === false && !result.clientFallback) return alert(claimReasonMessage(result.reason));
@@ -124,7 +124,7 @@ export function Missions({
         });
         setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
         setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
-        alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`);
+        alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character, { territoryScrolls: 3 })}.`);
     }
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);

@@ -1,6 +1,6 @@
 import type { Achievement } from "../constants/achievements";
 
-export type MissionToast = { id: string; name: string; xp: number; profession?: string; label?: string };
+export type MissionToast = { id: string; name: string; xp: number; profession?: string; label?: string; summary?: string };
 
 type ToastStacksProps = {
     achievementToasts: Achievement[];
@@ -43,6 +43,8 @@ export function ToastStacks({ achievementToasts, missionToasts, onDismissAchieve
                 <div className="achievement-toast-stack" style={{ bottom: 80 }}>
                     {missionToasts.slice(0, 3).map((t) => {
                         const accent = t.profession === "healer" ? "#22d3ee" : t.profession === "vanguard" ? "#f97316" : "#facc15";
+                        const xpLine = t.xp > 0 ? `+${t.xp} ${t.profession ? `${t.profession.charAt(0).toUpperCase() + t.profession.slice(1)} ` : ""}XP` : "";
+                        const detail = t.summary ?? xpLine;
                         return (
                             <div
                                 key={t.id}
@@ -58,7 +60,7 @@ export function ToastStacks({ achievementToasts, missionToasts, onDismissAchieve
                                         {t.label ?? "Mission Complete"}
                                     </span>
                                     <strong>{t.name}</strong>
-                                    {t.xp > 0 && <small>+{t.xp} {t.profession ? `${t.profession.charAt(0).toUpperCase() + t.profession.slice(1)} ` : ""}XP</small>}
+                                    {detail && <small>{detail}</small>}
                                 </div>
                             </div>
                         );
