@@ -94,13 +94,13 @@ import {
     gainXp,
     getPvpJutsuLoadout,
     normalizeCharacter,
-    villagePageImage,
     type CreatorEvent,
     type DuelChallenge,
     type EventEncounterBattle,
     type PvpSessionState,
     type SharedPvpBattleContext,
 } from "../App";
+import { villagePageImage } from "../lib/village-page-image";
 import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useWorldMapZoom } from "../lib/use-world-map-zoom";
