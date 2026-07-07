@@ -17,6 +17,10 @@ import {
     weeklyBossFightTokenKey,
     type WeeklyBossFightToken,
 } from './_weekly-boss-fight-token.js';
+import {
+    WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
+    weeklyBossClientDamageEnabled,
+} from './_release-flags.js';
 
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
@@ -457,7 +461,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // 24h mark passed. Distribution is a no-op if already done.
         if (boss) boss = await distributeRewardsIfExpired(boss);
         res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate=5');
-        return res.status(200).json({ boss });
+        const fightEnabled = weeklyBossClientDamageEnabled();
+        return res.status(200).json({
+            boss,
+            fightEnabled,
+            fightDisabledReason: fightEnabled ? null : WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
+        });
     }
 
     if (req.method === 'POST') {
@@ -502,6 +511,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             const actorName = identity.admin ? 'admin' : identity.name;
+            const clientDamageKind = kind === 'startFight' || kind === 'damage' || kind === 'logFight';
+            if (clientDamageKind && !identity.admin && !weeklyBossClientDamageEnabled()) {
+                return res.status(503).json({
+                    error: 'Weekly Boss contribution is disabled for public beta until server-authoritative settlement is live.',
+                    code: WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
+                    fightEnabled: false,
+                });
+            }
 
             if (kind === 'startFight') {
                 if (!identity.admin) {

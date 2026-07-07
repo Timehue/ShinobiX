@@ -1,7 +1,7 @@
 # Shinobi Journey — Pre-Launch Audit & Fix Plan (2026-06-04)
 
 Whole-game audit from six parallel subsystem audits + direct verification of the
-load-bearing claims and a live Supabase inspection (project `soaychxshtbgwujhytsf`).
+load-bearing claims and a live Supabase inspection (production project).
 
 > **STATUS — Tier 0 (blockers) + Tier 1 (high) IMPLEMENTED 2026-06-04.**
 > Code changes verified: backend `tsc` clean, 470/470 tests pass, client `tsc`
@@ -12,7 +12,7 @@ load-bearing claims and a live Supabase inspection (project `soaychxshtbgwujhyts
 > **Remaining operator actions (cannot be done from code):**
 > 1. Set `REQUIRE_DISK_OVERLAY=1` on Railway **and** cPanel (any instance serving `/api/save/*`).
 > 2. Run the full `npm run build` and commit both `dist/` dirs for cPanel (Railway self-builds), then redeploy so the code fixes go live. The live DB fixes are already in effect.
-> 3. (Optional) Set `SUPABASE_HARDCODED_IP` on cPanel if Supabase ever rotates the CDN IP.
+> 3. (Optional) Set both `SUPABASE_DNS_HOST` and `SUPABASE_HARDCODED_IP` on cPanel if CageFS needs the DNS bypass.
 >
 > **Deferred follow-ups (Tier 1-adjacent, scoped out for risk/size):** add a
 > `pet-battle-sim.test.ts` regression test locking in the three pet fixes; sweep
@@ -105,8 +105,8 @@ seeded RNG, pure AI/animation layers, NaN-guarded). These three change outcomes:
 - **Fix:** Add the existing `onError` hide/placeholder pattern to content-image sites — ideally a shared `<GameImg>` wrapper with a built-in placeholder to cover all 80+ at once.
 
 ### 1.7 — Deployment fragility
-- **Hardcoded Supabase IP `172.64.149.246`** (`app.js:17`, `_storage.ts:255-263`) is a Cloudflare anycast IP for `*.supabase.co` (DNS bypass for CageFS). If it rotates, cPanel's KV-proxy + base reads break. **Fix:** make it an env var (`SUPABASE_HARDCODED_IP`) so it's a config change, not a code+rebuild+redeploy; and/or pin it in the cPanel box's `/etc/hosts`. Blast radius is the disk overlay (cPanel), not the game API.
-- **Committed-`dist/` staleness + no `npm install` on cPanel auto-deploy** — a forgotten rebuild ships stale frontend; a newly-added dep crash-loops Passenger. The `.cpanel.yml` guard catches a missing bundle but not a missing dependency. **Action:** enforce the "rebuild + commit BOTH dist dirs + Run NPM Install on cPanel after any new dep" checklist for launch. (Railway self-builds, immune.)
+- **Supabase DNS bypass must remain env-driven** (`app.js`, `cpanel-dns.cjs`). cPanel's KV-proxy/base reads depend on current `SUPABASE_DNS_HOST` + `SUPABASE_HARDCODED_IP` values when CageFS DNS fails. Blast radius is the disk overlay (cPanel), not the game API.
+- **Committed-`dist` staleness + lockfile install discipline** - a forgotten rebuild ships stale frontend; a newly-added dep needs `npm ci` from the committed lockfile. The `.cpanel.yml` guard catches a missing bundle but not a missing dependency. **Action:** enforce the "rebuild + commit BOTH dist dirs + run `npm ci` on cPanel after any new dep" checklist for launch. (Railway self-builds, immune.)
 - **Single-replica is a hard invariant** (`railway.json:13` + in-memory presence/game-loop/rate-limit). **Do not** scale Railway horizontally without a Redis-backed store first; vertical scaling is the only safe lever. Consider a boot-time assertion that refuses to serve game routes if a replica-count env > 1.
 
 ---

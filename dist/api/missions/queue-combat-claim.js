@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _mission_catalog_js_1 = require("./_mission-catalog.js");
+const _release_flags_js_1 = require("../_release-flags.js");
 /*
  * /api/missions/queue-combat-claim — POST only
  *
@@ -75,6 +76,13 @@ async function handler(req, res) {
         // the legacy claim path still pays creator missions.
         if (!def)
             return res.status(200).json({ ok: true, queued: false, reason: 'unknown-mission' });
+        if (!(0, _release_flags_js_1.clientTrustedCombatMissionRewardAllowed)(def)) {
+            return res.status(200).json({
+                ok: true,
+                queued: false,
+                reason: _release_flags_js_1.COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON,
+            });
+        }
         const saveKey = `save:${playerName}`;
         // Read-modify-write of the save goes under the same lock the save
         // endpoint uses so a concurrent autosave can't clobber the queued flag.

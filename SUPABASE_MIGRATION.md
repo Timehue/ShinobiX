@@ -52,7 +52,7 @@ select public.kv_delete_expired();
 In `/home/fatedreu/shinobix-api/.env`:
 
 ```env
-SUPABASE_URL=https://soaychxshtbgwujhytsf.supabase.co
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 ADMIN_PASSWORD=your-admin-password
 OPENAI_API_KEY=sk-...        # only needed for /generate-image
@@ -157,7 +157,7 @@ cd "C:\Users\Tyler R\source\repos\NinjaK"
 
 $env:UPSTASH_REDIS_REST_URL   = "https://your-db.upstash.io"
 $env:UPSTASH_REDIS_REST_TOKEN = "AXxx..."
-$env:SUPABASE_URL             = "https://soaychxshtbgwujhytsf.supabase.co"
+$env:SUPABASE_URL             = "https://YOUR_PROJECT_REF.supabase.co"
 $env:SUPABASE_SERVICE_ROLE_KEY= "eyJ..."
 # optional: $env:KEY_PATTERN = "save:*"   # migrate only player saves
 
@@ -168,7 +168,7 @@ node scripts\migrate-upstash-to-supabase.mjs
 ```bash
 UPSTASH_REDIS_REST_URL="https://your-db.upstash.io" \
 UPSTASH_REDIS_REST_TOKEN="AXxx..." \
-SUPABASE_URL="https://soaychxshtbgwujhytsf.supabase.co" \
+SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co" \
 SUPABASE_SERVICE_ROLE_KEY="eyJ..." \
 node scripts/migrate-upstash-to-supabase.mjs
 ```

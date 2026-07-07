@@ -138,7 +138,7 @@ pacing → explicit owner sign-off + tests before any edit. Held until Phases 1�
 
 - Frontend change → `npm run lint` + `vite build`. Backend/`api` change → `npm test` (root)
   + `npm run build` + **commit `dist/`** (cPanel serves committed `dist/`; Railway self-builds).
-- Root `npm test` needs root `node_modules` (not installed in this worktree) — `npm install`
+- Root `npm test` needs root `node_modules` (not installed in this worktree) - `npm ci`
   first when a phase touches `api/`.
 - Client `dist/` rebuilt in a worktree diverges (rolldown-vite) — keep frontend-only commits
   **source-only**; let Railway rebuild.

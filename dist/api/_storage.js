@@ -229,6 +229,36 @@ const pgKv = {
 // ─── Supabase REST backend (Vercel / serverless) ──────────────────────────────
 const supabase_js_1 = require("@supabase/supabase-js");
 let _supabase = null;
+function _cleanDnsHost(value) {
+    const host = (value ?? '').trim().toLowerCase();
+    if (!host)
+        return null;
+    if (!/^[a-z0-9.-]+$/.test(host) || host.startsWith('.') || host.endsWith('.') || !host.includes('.')) {
+        throw new Error('[kv] SUPABASE_DNS_HOST must be a bare hostname such as project.supabase.co.');
+    }
+    return host;
+}
+function _cleanIpv4(value) {
+    const ip = (value ?? '').trim();
+    if (!ip)
+        return null;
+    const parts = ip.split('.');
+    if (parts.length !== 4 || parts.some((part) => !/^\d{1,3}$/.test(part) || Number(part) > 255)) {
+        throw new Error('[kv] SUPABASE_HARDCODED_IP must be a valid IPv4 address.');
+    }
+    return ip;
+}
+function _buildSupabaseDnsMap(env) {
+    const explicitlyEnabled = env.SUPABASE_DNS_BYPASS === '1';
+    const host = _cleanDnsHost(env.SUPABASE_DNS_HOST);
+    const ip = _cleanIpv4(env.SUPABASE_HARDCODED_IP);
+    if (!explicitlyEnabled && !host && !ip)
+        return {};
+    if (!host || !ip) {
+        throw new Error('[kv] SUPABASE_DNS_BYPASS requires both SUPABASE_DNS_HOST and SUPABASE_HARDCODED_IP.');
+    }
+    return { [host]: ip };
+}
 function getSupabase() {
     if (_supabase)
         return _supabase;
@@ -236,27 +266,15 @@ function getSupabase() {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key)
         throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
-    // Build a base fetch that hardcodes the Supabase IPv4 address.
-    // CloudLinux CageFS jails block outbound DNS (port 53), so getaddrinfo
-    // always fails. We bypass DNS entirely by hardcoding the known IPv4 address
-    // (Cloudflare CDN) and passing a custom lookup to the undici Agent.
-    // Resolved externally: nslookup soaychxshtbgwujhytsf.supabase.co 8.8.8.8
-    // The IP is a Cloudflare CDN anycast address that Supabase can rotate; keep
-    // it overridable via SUPABASE_HARDCODED_IP so a rotation is a config change
-    // (env edit + restart) instead of a code+rebuild+redeploy. Falls back to the
-    // last-known-good IP when the env var is unset (current behaviour preserved).
-    const _HARDCODED_IP = process.env.SUPABASE_HARDCODED_IP || '172.64.149.246';
-    const _HARDCODED_IPS = {
-        'soaychxshtbgwujhytsf.supabase.co': _HARDCODED_IP,
-    };
+    // Optional cPanel-only DNS bypass. Configure BOTH SUPABASE_DNS_HOST and
+    // SUPABASE_HARDCODED_IP when CageFS cannot resolve the Supabase hostname.
+    // No project hostname or fallback IP is embedded here because Supabase's
+    // Cloudflare address can rotate and is deployment-specific.
+    const _DNS_MAP = _buildSupabaseDnsMap(process.env);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function _hardcodedLookup(hostname, options, callback) {
-        if (_HARDCODED_IPS[hostname])
-            return callback(null, _HARDCODED_IPS[hostname], 4);
-        // Fallback: any *.supabase.co host hits the same Cloudflare CDN —
-        // CageFS blocks DNS so dns.lookup would fail anyway.
-        if (hostname.endsWith('.supabase.co'))
-            return callback(null, _HARDCODED_IP, 4);
+    function _envDnsLookup(hostname, options, callback) {
+        if (_DNS_MAP[hostname])
+            return callback(null, _DNS_MAP[hostname], 4);
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         require('dns').lookup(hostname, options, callback);
     }
@@ -264,9 +282,11 @@ function getSupabase() {
     try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
         const undici = require('undici');
-        const agent = new undici.Agent({ connect: { family: 4, lookup: _hardcodedLookup } });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        baseFetch = (input, init) => undici.fetch(input, { ...(init ?? {}), dispatcher: agent });
+        if (Object.keys(_DNS_MAP).length > 0) {
+            const agent = new undici.Agent({ connect: { family: 4, lookup: _envDnsLookup } });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            baseFetch = (input, init) => undici.fetch(input, { ...(init ?? {}), dispatcher: agent });
+        }
     }
     catch {
         // undici not available — fall back to global fetch

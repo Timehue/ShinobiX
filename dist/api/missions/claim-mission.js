@@ -14,6 +14,7 @@ const _economy_js_1 = require("../_economy.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
 const _era_js_1 = require("../_era.js");
 const _mission_progress_receipt_js_1 = require("./_mission-progress-receipt.js");
+const _release_flags_js_1 = require("../_release-flags.js");
 const _mission_catalog_js_1 = require("./_mission-catalog.js");
 // Server-authoritative mission claim. Replaces the old client-side reward math
 // for built-in COMBAT, FIELD and HUNT missions and the onboarding ACADEMY-TRIAL:
@@ -111,6 +112,9 @@ async function handler(req, res) {
                 const def = (0, _mission_catalog_js_1.combatMissionByKey)(missionId);
                 if (!def)
                     return { applied: false, reason: 'unknown-mission', clientFallback: true };
+                if (!(0, _release_flags_js_1.clientTrustedCombatMissionRewardAllowed)(def)) {
+                    return { applied: false, reason: _release_flags_js_1.COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
+                }
                 if (Number(char.level ?? 1) < def.min)
                     return { applied: false, reason: 'level' };
                 // Server-authoritative claim gate: the single-use token minted by
