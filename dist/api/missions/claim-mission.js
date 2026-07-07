@@ -11,6 +11,7 @@ const _xp_engine_js_1 = require("../_xp-engine.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _progress_js_1 = require("./_progress.js");
 const _economy_js_1 = require("../_economy.js");
+const _beta_metrics_js_1 = require("../_beta-metrics.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
 const _era_js_1 = require("../_era.js");
 const _mission_progress_receipt_js_1 = require("./_mission-progress-receipt.js");
@@ -38,6 +39,15 @@ const _mission_catalog_js_1 = require("./_mission-catalog.js");
 // Unknown / creator-authored mission ids are not in the catalog → the response
 // signals clientFallback so the (unchanged) client path can still pay those.
 const monthKeyOf = () => new Date().toISOString().slice(0, 7);
+function betaEventForMissionType(missionType) {
+    if (missionType === 'hunt')
+        return 'hunt.claimed';
+    if (missionType === 'academy-trial')
+        return 'academy.trial.claimed';
+    if (missionType === 'academy-checklist')
+        return 'academy.checklist.claimed';
+    return 'mission.claimed';
+}
 function applyClaimedMissionState(record, missionType, missionId) {
     if (missionType !== 'field' && missionType !== 'hunt')
         return record;
@@ -347,6 +357,19 @@ async function handler(req, res) {
                     await (0, _economy_js_1.recordEconomyTxn)({ txnId: `mission:${missionType}:${missionId}:${cur}:${todayKey}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
             }
             const finalRecord = await _storage_js_1.kv.get(saveKey).catch(() => null);
+            const finalChar = (finalRecord?.character ?? null);
+            await (0, _beta_metrics_js_1.recordBetaMetric)({
+                event: betaEventForMissionType(missionType),
+                playerName,
+                level: Number(finalChar?.level ?? 0),
+                source: missionType,
+                xp: r.xpBoosted,
+                ryo: r.ryo,
+                stamina: r.stamina,
+                territoryScrolls: r.territoryScrolls,
+                itemCount: r.items.length,
+                currencies: r.currency,
+            });
             finalSaveVersion = Number(finalRecord?._saveVersion ?? finalSaveVersion);
         }
         if (outcome.applied) {

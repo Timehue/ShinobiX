@@ -65,6 +65,27 @@ test("early chapters guide Academy to Genin without unlocking exams early", () =
     assert.equal(currentLogbookObjective(c)?.id, "first-steps");
 });
 
+test("Ready for Genin includes the level-13 profession checkpoint", () => {
+    const ready = buildLogbookObjectives(makeCharacter({
+        level: 13,
+        academyChecklistClaimed: true,
+        totalMissionsCompleted: 7,
+        totalAiKills: 7,
+    })).find((o) => o.id === "ready-for-genin");
+    const profession = ready?.requirements.find((r) => r.label === "Choose a profession");
+    assert.equal(profession?.target, 1);
+    assert.equal(profession?.goScreen, "professionPicker");
+
+    const withProfession = buildLogbookObjectives(makeCharacter({
+        level: 13,
+        academyChecklistClaimed: true,
+        totalMissionsCompleted: 7,
+        totalAiKills: 7,
+        profession: "healer",
+    })).find((o) => o.id === "ready-for-genin");
+    assert.equal(withProfession?.requirements.find((r) => r.label === "Choose a profession")?.progress, 1);
+});
+
 test("rank exams unlock by level and are ordered low to high", () => {
     const examKeys = (c: Character) =>
         buildLogbookObjectives(c).filter((o) => o.kind === "exam").map((o) => o.examKey);

@@ -1689,7 +1689,7 @@ export default function App() {
     const [missionToasts, setMissionToasts] = useState<MissionToast[]>([]);
     useEffect(() => {
         function handler(e: Event) {
-            const detail = (e as CustomEvent<{ name: string; xp: number; profession?: string; label?: string }>).detail;
+            const detail = (e as CustomEvent<{ name: string; xp: number; profession?: string; label?: string; summary?: string }>).detail;
             if (!detail?.name) return;
             setMissionToasts(prev => [...prev, {
                 id: `${detail.name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -1697,6 +1697,7 @@ export default function App() {
                 xp: detail.xp ?? 0,
                 profession: detail.profession,
                 label: detail.label,
+                summary: detail.summary,
             }]);
         }
         window.addEventListener('profession-mission-complete', handler);

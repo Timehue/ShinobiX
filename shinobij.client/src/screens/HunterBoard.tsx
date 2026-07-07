@@ -9,7 +9,6 @@ import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyHuntsCompleted, hasDailyHuntSlot, markHuntCompleted } from "../lib/character-progress";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
-import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
 import { builtinHuntMissions } from "../data/missions";
@@ -73,9 +72,8 @@ export function HunterBoard({
         alert(`${mission.name} accepted. Head to Sector ${mission.targetSector} and use Hunt ${mission.exploreCount} time(s) to track the beast.`);
     }
 
-    function materialNamesLine(itemIds: string[]): string {
-        const names = itemIds.map((id) => starterItems.find((i) => i.id === id)?.name ?? id);
-        return names.length ? ` Materials: ${names.join(", ")}.` : "";
+    function materialNames(itemIds: string[]): string[] {
+        return itemIds.map((id) => starterItems.find((i) => i.id === id)?.name ?? id);
     }
 
     async function claimHunt(mission: CreatorMission) {
@@ -93,7 +91,7 @@ export function HunterBoard({
             updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-            alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina.${materialNamesLine(result.reward.items ?? [])}`);
+            alert(`${mission.name} complete! ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
             return;
         }
         if (result.applied === false && !result.clientFallback) {
@@ -119,7 +117,7 @@ export function HunterBoard({
         });
         setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
         setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-        alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, boostedXp)} XP, +${boostedRyo} ryo, +${boostedStamina} stamina.${materialNamesLine(mission.itemRewards ?? [])}`);
+        alert(`${mission.name} complete! ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character, { territoryScrolls: 3, items: materialNames(mission.itemRewards ?? []) })}.`);
     }
 
     const missionRanks: MissionRank[] = ["D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];

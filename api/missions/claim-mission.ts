@@ -8,6 +8,7 @@ import { gainXp } from '../_xp-engine.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { utcDateKey, reportNewbieEvent } from './_progress.js';
 import { recordEconomyTxn } from '../_economy.js';
+import { recordBetaMetric, type BetaMetricEvent } from '../_beta-metrics.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 import {
@@ -62,6 +63,13 @@ import {
 // signals clientFallback so the (unchanged) client path can still pay those.
 
 const monthKeyOf = (): string => new Date().toISOString().slice(0, 7);
+
+function betaEventForMissionType(missionType: string): BetaMetricEvent {
+    if (missionType === 'hunt') return 'hunt.claimed';
+    if (missionType === 'academy-trial') return 'academy.trial.claimed';
+    if (missionType === 'academy-checklist') return 'academy.checklist.claimed';
+    return 'mission.claimed';
+}
 
 type SaveChar = Record<string, unknown>;
 
@@ -368,6 +376,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (amt) await recordEconomyTxn({ txnId: `mission:${missionType}:${missionId}:${cur}:${todayKey}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
             }
             const finalRecord = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
+            const finalChar = (finalRecord?.character ?? null) as Record<string, unknown> | null;
+            await recordBetaMetric({
+                event: betaEventForMissionType(missionType),
+                playerName,
+                level: Number(finalChar?.level ?? 0),
+                source: missionType,
+                xp: r.xpBoosted,
+                ryo: r.ryo,
+                stamina: r.stamina,
+                territoryScrolls: r.territoryScrolls,
+                itemCount: r.items.length,
+                currencies: r.currency,
+            });
             finalSaveVersion = Number(finalRecord?._saveVersion ?? finalSaveVersion);
         }
 

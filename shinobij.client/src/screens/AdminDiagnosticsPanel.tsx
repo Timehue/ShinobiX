@@ -40,7 +40,7 @@ type AuditEntry = {
     reason?: string; meta?: Record<string, unknown>;
 };
 type AuditDomain = "content" | "reward" | "sector" | "combat" | "legacy";
-type DiagnosticsSection = "assets" | "receipts" | "audit" | "economy" | "index";
+type DiagnosticsSection = "assets" | "receipts" | "audit" | "economy" | "beta" | "index";
 
 type PlayerIndexHealth = {
     version: number;
@@ -68,6 +68,26 @@ type PlayerIndexHealth = {
     sampleStale: string[];
     sampleNonPublic: string[];
     sampleMissingFields: Array<{ key: string; fields: string[] }>;
+};
+
+type BetaMetricDay = {
+    date: string;
+    updatedAt: number;
+    events: Record<string, number>;
+    levelBands: Record<string, number>;
+    sources: Record<string, number>;
+    rewardTotals: Record<string, number>;
+};
+type BetaMetricsSnapshot = {
+    generatedAt: number;
+    days: number;
+    daily: BetaMetricDay[];
+    totals: {
+        events: Record<string, number>;
+        levelBands: Record<string, number>;
+        sources: Record<string, number>;
+        rewardTotals: Record<string, number>;
+    };
 };
 
 // Built-in catalogs whose stored image id is `<cat>:<entityId>`. Cross-referenced
@@ -251,6 +271,35 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
         }
     }, [adminPw, loadEconomy]);
 
+    // Beta readiness telemetry (new accounts, onboarding claims, reward flow).
+    const [betaDays, setBetaDays] = useState(14);
+    const [betaMetrics, setBetaMetrics] = useState<BetaMetricsSnapshot | null>(null);
+    const [betaStatus, setBetaStatus] = useState("");
+    const loadBetaMetrics = useCallback(async () => {
+        if (!adminPw) return;
+        setBetaStatus("Loading...");
+        try {
+            const r = await fetch(`/api/admin/beta-metrics?days=${betaDays}`, { headers: { "x-admin-password": adminPw } });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+            setBetaMetrics({
+                generatedAt: Number(data.generatedAt ?? 0),
+                days: Number(data.days ?? betaDays),
+                daily: Array.isArray(data.daily) ? data.daily : [],
+                totals: {
+                    events: data.totals?.events ?? {},
+                    levelBands: data.totals?.levelBands ?? {},
+                    sources: data.totals?.sources ?? {},
+                    rewardTotals: data.totals?.rewardTotals ?? {},
+                },
+            });
+            setBetaStatus("");
+        } catch (e) {
+            setBetaStatus(`X ${(e as Error).message}`);
+        }
+    }, [adminPw, betaDays]);
+    useEffect(() => { if (section === "beta") void loadBetaMetrics(); }, [section, loadBetaMetrics]);
+
     // Public player index health.
     const [indexHealth, setIndexHealth] = useState<PlayerIndexHealth | null>(null);
     const [indexStatus, setIndexStatus] = useState("");
@@ -277,17 +326,21 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
     }, [adminPw, indexScan]);
     useEffect(() => { if (section === "index") void loadIndexHealth(indexScan); }, [section, indexScan, loadIndexHealth]);
 
+    const betaCount = (key: string): number => betaMetrics?.totals.events[key] ?? 0;
+    const betaTopEntries = (values: Record<string, number>, limit = 12): Array<[string, number]> =>
+        Object.entries(values).sort((a, b) => b[1] - a[1]).slice(0, limit);
+
     // ── Render ───────────────────────────────────────────────────────────────
     return (
         <div>
             <h3>🛠️ Diagnostics</h3>
             <p style={{ color: "#9aa", fontSize: "0.85rem", marginTop: 0 }}>
-                Read-only operations tools — battle receipts, asset health, and the action audit log.
+                Read-only operations tools — assets, battle receipts, audit log, economy, beta telemetry, and player index health.
             </p>
             <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                {(["assets", "receipts", "audit", "economy", "index"] as const).map((s) => (
+                {(["assets", "receipts", "audit", "economy", "beta", "index"] as const).map((s) => (
                     <button key={s} className={section === s ? "active" : ""} onClick={() => setSection(s)}>
-                        {s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : s === "economy" ? "Economy" : "Player Index"}
+                        {s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : s === "economy" ? "Economy" : s === "beta" ? "Beta" : "Player Index"}
                     </button>
                 ))}
             </div>
@@ -513,6 +566,89 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                                             <span style={{ color: "#caa" }}>{t.source}</span>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
+
+            {section === "beta" && (
+                <div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <button onClick={() => void loadBetaMetrics()} disabled={!adminPw}>Refresh</button>
+                        <label style={{ color: "#9aa", fontSize: "0.85rem" }}>
+                            Window
+                            <select value={betaDays} onChange={(e) => setBetaDays(Number(e.target.value))} style={{ marginLeft: 6 }}>
+                                {[7, 14, 30, 60].map((days) => <option key={days} value={days}>{days} days</option>)}
+                            </select>
+                        </label>
+                        {betaStatus && <span style={{ color: "#f88" }}>{betaStatus}</span>}
+                    </div>
+
+                    {betaMetrics && (
+                        <>
+                            <div style={box}>
+                                <strong>Beta funnel ({betaMetrics.days} days)</strong>
+                                <div style={{ marginTop: 6 }}>
+                                    <span style={pill}>accounts: {betaCount("account.registered").toLocaleString()}</span>
+                                    <span style={pill}>academy trial: {betaCount("academy.trial.claimed").toLocaleString()}</span>
+                                    <span style={pill}>academy checklist: {betaCount("academy.checklist.claimed").toLocaleString()}</span>
+                                    <span style={pill}>missions: {betaCount("mission.claimed").toLocaleString()}</span>
+                                    <span style={pill}>hunts: {betaCount("hunt.claimed").toLocaleString()}</span>
+                                    <span style={pill}>pvp: {betaCount("pvp.settled").toLocaleString()}</span>
+                                    <span style={pill}>bank interest: {betaCount("bank.interest.claimed").toLocaleString()}</span>
+                                </div>
+                                <div style={{ marginTop: 6, color: "#9aa", fontSize: "0.8rem" }}>
+                                    Generated {fmtTime(betaMetrics.generatedAt)}
+                                </div>
+                            </div>
+
+                            <div style={box}>
+                                <strong>Level bands</strong>
+                                {betaTopEntries(betaMetrics.totals.levelBands).length === 0 && <span style={{ color: "#9aa" }}> - no level data yet.</span>}
+                                <div style={{ marginTop: 6 }}>
+                                    {betaTopEntries(betaMetrics.totals.levelBands).map(([band, n]) => (
+                                        <span key={band} style={pill}>{band}: {n.toLocaleString()}</span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={box}>
+                                <strong>Reward totals</strong>
+                                {betaTopEntries(betaMetrics.totals.rewardTotals).length === 0 && <span style={{ color: "#9aa" }}> - no rewards logged yet.</span>}
+                                <div style={{ marginTop: 6 }}>
+                                    {betaTopEntries(betaMetrics.totals.rewardTotals).map(([name, n]) => (
+                                        <span key={name} style={pill}>{name}: {n.toLocaleString()}</span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={box}>
+                                <strong>Sources</strong>
+                                {betaTopEntries(betaMetrics.totals.sources).length === 0 && <span style={{ color: "#9aa" }}> - no source data yet.</span>}
+                                <div style={{ marginTop: 6 }}>
+                                    {betaTopEntries(betaMetrics.totals.sources).map(([name, n]) => (
+                                        <span key={name} style={pill}>{name}: {n.toLocaleString()}</span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={box}>
+                                <strong>Daily activity</strong>
+                                <div style={{ maxHeight: 300, overflow: "auto", marginTop: 6 }}>
+                                    {betaMetrics.daily.map((day) => {
+                                        const totalEvents = Object.values(day.events).reduce((sum, value) => sum + value, 0);
+                                        return (
+                                            <div key={day.date} style={{ borderBottom: "1px solid #2a2a36", padding: "5px 0", ...mono }}>
+                                                <span style={{ color: "#9aa" }}>{day.date}</span>{" "}
+                                                <span style={pill}>{totalEvents.toLocaleString()} events</span>
+                                                {betaTopEntries(day.events, 6).map(([name, n]) => (
+                                                    <span key={name} style={pill}>{name}: {n.toLocaleString()}</span>
+                                                ))}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </>

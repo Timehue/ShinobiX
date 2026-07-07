@@ -15,6 +15,7 @@ const _utils_js_1 = require("./_utils.js");
 const _ratelimit_js_1 = require("./_ratelimit.js");
 const _auth_js_1 = require("./_auth.js");
 const moderation_js_1 = require("./admin/moderation.js");
+const _beta_metrics_js_1 = require("./_beta-metrics.js");
 const crypto_1 = __importDefault(require("crypto"));
 // Usernames reserved for the protected admin account. New `register` requests
 // for these names are refused unless the caller passes the admin password via
@@ -189,6 +190,7 @@ async function handler(req, res) {
             }
             const salt = newSalt();
             await _storage_js_1.kv.set(key, { hash: hashPw(password, salt), salt });
+            await (0, _beta_metrics_js_1.recordBetaMetric)({ event: 'account.registered', playerName: (0, _utils_js_1.safeName)(name), source: 'auth' });
         }
         catch (err) {
             console.error('[player-auth register]', String(err));

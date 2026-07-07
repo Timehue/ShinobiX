@@ -14,6 +14,7 @@ const _reward_farm_js_1 = require("./_reward-farm.js");
 const _player_ips_js_1 = require("../_player-ips.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _stat_growth_js_1 = require("../_stat-growth.js");
+const _beta_metrics_js_1 = require("../_beta-metrics.js");
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
 // the evidence by 23+ hours. 2 hours gives players with bad connections,
@@ -357,6 +358,15 @@ async function handler(req, res) {
                     note: creditBase ? 'base ryo+XP credited to winner' : undefined,
                 });
                 const finalSave = await _storage_js_1.kv.get(`save:${playerName}`).catch(() => null);
+                const finalChar = (finalSave?.character ?? null);
+                if (!out.already) {
+                    await (0, _beta_metrics_js_1.recordBetaMetric)({
+                        event: 'pvp.settled',
+                        playerName,
+                        level: Number(finalChar?.level ?? 0),
+                        source: `${session.ranked ? `ranked-${session.rankedKind ?? 'player'}` : session.baseRewards ? 'base' : 'verified'}:${outcome}`,
+                    });
+                }
                 return res.status(200).json({
                     ok: true,
                     alreadyClaimed: out.already,
@@ -390,6 +400,15 @@ async function handler(req, res) {
             const placed = await _storage_js_1.kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS });
             alreadyClaimed = !placed;
             const finalSave = await _storage_js_1.kv.get(`save:${playerName}`).catch(() => null);
+            const finalChar = (finalSave?.character ?? null);
+            if (!alreadyClaimed) {
+                await (0, _beta_metrics_js_1.recordBetaMetric)({
+                    event: 'pvp.settled',
+                    playerName,
+                    level: Number(finalChar?.level ?? 0),
+                    source: `casual:${outcome}`,
+                });
+            }
             return res.status(200).json({ ok: true, alreadyClaimed, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
         }
         catch (reserveErr) {

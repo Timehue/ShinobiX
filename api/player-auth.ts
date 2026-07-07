@@ -4,6 +4,7 @@ import { cors, safeName } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { safeEqual, issuePlayerToken } from './_auth.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
+import { recordBetaMetric } from './_beta-metrics.js';
 import crypto from 'crypto';
 
 // Usernames reserved for the protected admin account. New `register` requests
@@ -201,6 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const salt = newSalt();
             await kv.set(key, { hash: hashPw(password, salt), salt });
+            await recordBetaMetric({ event: 'account.registered', playerName: safeName(name), source: 'auth' });
         } catch (err) {
             console.error('[player-auth register]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });

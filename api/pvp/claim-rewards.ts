@@ -11,6 +11,7 @@ import { recordPairWinAndDecay } from './_reward-farm.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
+import { recordBetaMetric } from '../_beta-metrics.js';
 import type { PvpSession } from './session.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
@@ -362,6 +363,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     note: creditBase ? 'base ryo+XP credited to winner' : undefined,
                 });
                 const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
+                const finalChar = (finalSave?.character ?? null) as Record<string, unknown> | null;
+                if (!out.already) {
+                    await recordBetaMetric({
+                        event: 'pvp.settled',
+                        playerName,
+                        level: Number(finalChar?.level ?? 0),
+                        source: `${session.ranked ? `ranked-${session.rankedKind ?? 'player'}` : session.baseRewards ? 'base' : 'verified'}:${outcome}`,
+                    });
+                }
                 return res.status(200).json({
                     ok: true,
                     alreadyClaimed: out.already,
@@ -395,6 +405,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const placed = await kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
             alreadyClaimed = !placed;
             const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
+            const finalChar = (finalSave?.character ?? null) as Record<string, unknown> | null;
+            if (!alreadyClaimed) {
+                await recordBetaMetric({
+                    event: 'pvp.settled',
+                    playerName,
+                    level: Number(finalChar?.level ?? 0),
+                    source: `casual:${outcome}`,
+                });
+            }
             return res.status(200).json({ ok: true, alreadyClaimed, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
         } catch (reserveErr) {
             console.error('[pvp/claim-rewards] reserve failed (fail-open)', reserveErr);

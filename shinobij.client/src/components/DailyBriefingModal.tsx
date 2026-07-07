@@ -182,6 +182,7 @@ export function DailyBriefingModal({
         hasJutsu: (character.jutsuMastery?.length ?? 0) > 0,
         petTrainingIdle: petTimers.length === 0,
         hasPets: (character.pets?.length ?? 0) > 0,
+        examsPassed: character.examsPassed ?? [],
     }).slice(0, 3);
 
     const wars = worldReport(now);
