@@ -11,6 +11,20 @@ import type { CurrencyRewards } from "./character";
 
 export type MissionRank = "Daily" | "D Rank" | "C Rank" | "B Rank" | "A Rank" | "S Rank";
 
+export type CreatorMissionEligibility = {
+    minLevel?: number;
+    maxLevel?: number;
+    requiredSystem?: "pvp" | "ranked" | "hollowGate" | "legacy" | "clanBoss" | "villageWar" | "pet" | "expedition" | "cardClash";
+    requiresClan?: boolean;
+    requiresVillage?: boolean;
+    requiresPet?: boolean;
+    requiresPvpUnlocked?: boolean;
+    requiresRankedUnlocked?: boolean;
+    requiresHollowGateUnlocked?: boolean;
+    requiresLegacyUnlocked?: boolean;
+    requiresClanBossUnlocked?: boolean;
+};
+
 export type CreatorMission = {
     id: string;
     name: string;
@@ -29,6 +43,7 @@ export type CreatorMission = {
     staminaReward: number;
     currencyRewards?: CurrencyRewards;
     itemRewards?: string[];
+    eligibility?: CreatorMissionEligibility;
 };
 
 export type CreatorRaid = {

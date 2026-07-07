@@ -25,6 +25,7 @@ import { jutsuElements, jutsuMethods, jutsuTargets, rebalanceNonBloodlineJutsu, 
 import { auraSphereLv9VnEvent, awakeningLv2VnEvent, craftDungeonEvents, hiddenDungeonVnEvent } from "../data/vn-events";
 import { getAllTileCards, shinobiTileCards, type TileCard } from "../data/tile-cards";
 import { mergeBuiltinMissions, missionRaidRequirement } from "../data/missions";
+import { creatorMissionEligibility, validateCreatorMissionEligibility } from "../lib/creator-mission-eligibility";
 import { petRarityOrder } from "../data/pet-config";
 import { STARTER_EVOLUTIONS } from "../data/pet-evolutions";
 import { isWildSpawnable } from "../lib/pet-balance";
@@ -1771,12 +1772,12 @@ export function AdminPanel({
     }
 
     function missionFromForm(id = `mission-${makeId()}`): CreatorMission {
-        return {
+        const mission = {
             id,
             name: missionName.trim() || "Sector Fetch Mission",
             rank: missionRank,
             description: missionDescription.trim() || "Explore the assigned sector and return to claim the reward.",
-            type: "fetchExplore",
+            type: "fetchExplore" as const,
             aiProfileId: missionAiProfileId || undefined,
             targetSector: Math.max(1, Math.min(99, Number(missionTargetSector))),
             tileX: Math.floor(Math.random() * 144),
@@ -1789,6 +1790,7 @@ export function AdminPanel({
             staminaReward: Math.max(0, Number(missionStamina)),
             currencyRewards: singleCurrencyReward(missionRewardCurrency, missionRewardCurrencyAmount),
         };
+        return { ...mission, eligibility: creatorMissionEligibility(mission) };
     }
 
     function loadAdminMission(mission: CreatorMission) {
@@ -1813,6 +1815,8 @@ export function AdminPanel({
         // Auto-set target sector to current sector
         setMissionTargetSector(currentSector);
         const mission = missionFromForm();
+        const eligibility = validateCreatorMissionEligibility(mission);
+        if (!eligibility.ok) return alert(eligibility.message);
         setCreatorMissions([...creatorMissions, mission]);
         alert(`${mission.name} created and added to Mission Hall.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
@@ -1821,6 +1825,8 @@ export function AdminPanel({
     function saveAdminMissionEdit() {
         if (!editingMissionId) return alert("Load an existing mission first.");
         const mission = missionFromForm(editingMissionId);
+        const eligibility = validateCreatorMissionEligibility(mission);
+        if (!eligibility.ok) return alert(eligibility.message);
         setCreatorMissions(creatorMissions.some((existing) => existing.id === mission.id)
             ? creatorMissions.map((existing) => existing.id === mission.id ? mission : existing)
             : [...creatorMissions, mission]);

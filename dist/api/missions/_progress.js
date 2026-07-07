@@ -6,6 +6,7 @@ exports.healerHealXpBonusPct = healerHealXpBonusPct;
 exports.healerPerTargetCooldownMs = healerPerTargetCooldownMs;
 exports.utcDateKey = utcDateKey;
 exports.awardProfessionXp = awardProfessionXp;
+exports.repairDailyMissionsForEligibility = repairDailyMissionsForEligibility;
 exports.loadOrIssueDailyMissions = loadOrIssueDailyMissions;
 exports.reportMissionEvent = reportMissionEvent;
 exports.loadOrIssueNewbieDailies = loadOrIssueNewbieDailies;
@@ -14,6 +15,7 @@ const _storage_js_1 = require("../_storage.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _pool_js_1 = require("./_pool.js");
+const _eligibility_js_1 = require("./_eligibility.js");
 // Healer uses a 1.5× XP curve; baseline used by Vanguard. Keep in sync with
 // the client-side getProfessionRankForXp in shinobij.client/src/App.tsx.
 const XP_BASELINE = [0, 100, 350, 850, 1850, 3850, 7350, 12850, 20850, 32850, Infinity];
@@ -116,25 +118,90 @@ function fromTemplate(t, dateKey) {
         progress: 0,
         uniqueTargets: (t.kind === 'healer-heal-unique' || t.kind === 'vanguard-pvp-unique') ? [] : undefined,
         xpReward: t.xpReward,
+        eligibility: t.eligibility,
         completedAt: null,
         claimed: false,
     };
+}
+function missionTemplateForDaily(mission) {
+    return (0, _pool_js_1.getMissionTemplateById)(mission.templateId);
+}
+function dailyMissionEligibilityInput(mission) {
+    return missionTemplateForDaily(mission) ?? mission;
+}
+function repairDailyMissionsForEligibility(opts) {
+    const candidateTemplates = (0, _pool_js_1.pickDailyMissionsForPlayer)({
+        profession: opts.state.profession,
+        playerName: opts.playerName,
+        dateKey: opts.today,
+        count: getMissionPoolSafeCount(opts.state.profession),
+        character: opts.character,
+    });
+    const used = new Set(opts.state.missions.map((m) => m.templateId));
+    const replacements = [];
+    const missions = opts.state.missions.map((mission) => {
+        if (mission.completedAt || mission.claimed)
+            return mission;
+        const check = (0, _eligibility_js_1.canPlayerReceiveMission)(opts.character, dailyMissionEligibilityInput(mission));
+        if (check.ok)
+            return mission;
+        const replacement = candidateTemplates.find((template) => !used.has(template.templateId));
+        if (!replacement)
+            return mission;
+        used.delete(mission.templateId);
+        used.add(replacement.templateId);
+        replacements.push({
+            replacedMissionId: mission.id,
+            replacedTemplateId: mission.templateId,
+            replacementTemplateId: replacement.templateId,
+            reason: check.reason ?? 'not-yet-unlocked',
+        });
+        return fromTemplate(replacement, opts.today);
+    });
+    return {
+        state: {
+            ...opts.state,
+            missions: missions.slice(0, opts.slotCount),
+            ...(replacements.length > 0 ? { replacements } : {}),
+        },
+        replacements,
+    };
+}
+function getMissionPoolSafeCount(profession) {
+    // Keep this local to avoid exposing a second "all eligible" picker surface.
+    if (profession === 'vanguard')
+        return 12;
+    if (profession === 'healer')
+        return 8;
+    if (profession === 'petTamer')
+        return 8;
+    return 3;
 }
 // Load (or issue) today's missions for a player. Returns null if profession
 // doesn't have missions. Vanguard Rank 6+ gets 4 missions instead of 3
 // (the Rank 6 even-rank perk).
 async function loadOrIssueDailyMissions(playerName, profession, now = new Date()) {
     const today = utcDateKey(now);
-    const existing = await _storage_js_1.kv.get(dailyKey(playerName));
-    if (existing && existing.date === today && existing.profession === profession) {
-        return existing;
-    }
     // Look up current rank to determine daily mission slot count.
     const record = await _storage_js_1.kv.get(`save:${playerName}`);
     const char = record?.character;
     const currentRank = Number(char?.professionRank ?? 1);
     const slotCount = (profession === 'vanguard' && currentRank >= 6) ? 4 : 3;
-    const picks = (0, _pool_js_1.pickDailyMissions)(profession, playerName, today, slotCount);
+    const existing = await _storage_js_1.kv.get(dailyKey(playerName));
+    if (existing && existing.date === today && existing.profession === profession) {
+        if (!char)
+            return existing;
+        const repaired = repairDailyMissionsForEligibility({ state: existing, playerName, today, slotCount, character: char });
+        if (repaired.replacements.length > 0) {
+            await _storage_js_1.kv.set(dailyKey(playerName), repaired.state, { ex: 36 * 60 * 60 });
+            console.warn('[missions/daily] replaced ineligible stored missions', {
+                playerName,
+                replacements: repaired.replacements,
+            });
+        }
+        return repaired.state;
+    }
+    const picks = (0, _pool_js_1.pickDailyMissionsForPlayer)({ profession, playerName, dateKey: today, count: slotCount, character: char ?? {} });
     if (picks.length === 0)
         return null;
     const state = {
@@ -151,6 +218,8 @@ async function loadOrIssueDailyMissions(playerName, profession, now = new Date()
 async function reportMissionEvent(opts) {
     const { playerName, profession, kind, targetName } = opts;
     const now = opts.now ?? new Date();
+    const save = await _storage_js_1.kv.get(`save:${playerName}`);
+    const char = (save?.character ?? {});
     // Lock the daily-missions key for the entire read-modify-write so two
     // concurrent reports for the same player can't both read progress=N,
     // both increment to N+1, and the second write clobber the first.
@@ -164,6 +233,8 @@ async function reportMissionEvent(opts) {
         let changed = false;
         const next = state.missions.map(m => {
             if (m.kind !== kind || m.completedAt)
+                return m;
+            if (!(0, _eligibility_js_1.canPlayerReceiveMission)(char, dailyMissionEligibilityInput(m)).ok)
                 return m;
             // Unique-target dedup.
             let nextProgress = m.progress;

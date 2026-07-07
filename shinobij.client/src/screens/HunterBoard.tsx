@@ -5,15 +5,14 @@ import type { CreatorMission } from "../types/missions";
 import type { Screen } from "../types/core";
 import { DAILY_HUNT_LIMIT } from "../constants/game";
 import { HUNTER_RANKUP, HUNTER_RANK_COLORS, HUNTER_RANK_LABELS, HUNT_MATERIAL_NAMES, HUNT_MIN_RANK, type MissionRank } from "../constants/hunter";
-import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
+import { rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
-import { dailyHuntsCompleted, hasDailyHuntSlot, markHuntCompleted } from "../lib/character-progress";
+import { dailyHuntsCompleted, hasDailyHuntSlot } from "../lib/character-progress";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
 import { builtinHuntMissions } from "../data/missions";
 import { gainXp } from "../App";
-import { grantTerritoryScrolls } from "../lib/world-state";
 
 export function HunterBoard({
     character,
@@ -84,7 +83,7 @@ export function HunterBoard({
         // Server-authoritative for built-in hunts (audit M-1): the server resolves
         // the reward from its trusted catalog, enforces the daily hunt cap, and
         // grants the material drops so none of it can be minted client-side.
-        // Creator-authored hunts aren't in the catalog → clientFallback below.
+        // Unknown/creator-authored hunt ids are rejected instead of paid locally.
         const result = await postClaimMission(character.name, "hunt", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === true) {
@@ -94,30 +93,15 @@ export function HunterBoard({
             alert(`${mission.name} complete! ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, result.reward.currency, character, { territoryScrolls: result.reward.territoryScrolls, items: materialNames(result.reward.items ?? []) })}.`);
             return;
         }
-        if (result.applied === false && !result.clientFallback) {
+        if (result.applied === false) {
             if (result.reason === "already-claimed-today" || result.reason === "already-claimed") {
                 // Server already paid this hunt today — reconcile the local board so a
                 // desynced client stops showing a dead Claim button on a done contract.
                 setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
                 setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
             }
-            return alert(claimReasonMessage(result.reason));
+            return alert(claimReasonMessage(result.reason, result));
         }
-
-        // Legacy client payout for creator-authored hunts only.
-        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
-        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
-        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
-        updateCharacter((prev) => {
-            if (!prev) return prev;
-            const withCurrencies = applyCurrencyRewards(gainXp(prev, boostedXp), mission.currencyRewards);
-            const withItems = { ...withCurrencies, inventory: [...withCurrencies.inventory, ...(mission.itemRewards ?? [])] };
-            const leveled = grantTerritoryScrolls(withItems, 3);
-            return markHuntCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) });
-        });
-        setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
-        setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-        alert(`${mission.name} complete! ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character, { territoryScrolls: 3, items: materialNames(mission.itemRewards ?? []) })}.`);
     }
 
     const missionRanks: MissionRank[] = ["D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];

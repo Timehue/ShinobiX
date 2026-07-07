@@ -46,6 +46,7 @@ async function handler(req, res) {
             profession: state.profession,
             date: state.date,
             missions: state.missions,
+            replacements: state.replacements ?? [],
         });
     }
     catch (err) {
