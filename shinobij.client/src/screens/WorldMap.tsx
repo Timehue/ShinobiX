@@ -2,7 +2,17 @@
 import { useState, useEffect, useMemo, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
 // Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
-import { GiPawPrint, GiChest, GiOpenTreasureChest, GiCardPickup } from "react-icons/gi";
+import {
+    GiCardPickup,
+    GiChest,
+    GiCompass,
+    GiCrossedSwords,
+    GiExitDoor,
+    GiHealthPotion,
+    GiOpenTreasureChest,
+    GiPawPrint,
+    GiShield,
+} from "react-icons/gi";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
@@ -2136,16 +2146,23 @@ export function WorldMap({
             ? sectorMapUrl(ambienceBiomeForSector(selectedSector), selectedSector)
             : undefined;
         const sectorMapMode = !!sectorMapSrc;
+        const sectorTileCol = (sectorPlayerPos % 12) + 1;
+        const sectorTileRow = Math.floor(sectorPlayerPos / 12) + 1;
+        const sectorOwnerLabel = territory.ownerClan ? `${territory.ownerClan} (${territory.ownerVillage})` : "Unclaimed";
+        const sectorIsCurrent = sameSector(currentSector, selectedSector);
 
         return (
             <div className="map-instance">
-                <div className="instance-frame">
+                <div className="instance-frame sector-instance-frame">
                     
 
-                    <main className="tile-scene">
-                        <div className="scene-title">
-                            <strong>Sector {selectedSector}</strong>
-                            <span>{biomeLabel(biome)} | {weatherEffects[sectorWeather].name}</span>
+                    <main className="tile-scene sector-stage-panel">
+                        <div className="scene-title sector-scene-title">
+                            <div>
+                                <strong>Sector {selectedSector}</strong>
+                                <span>{biomeLabel(biome)} | {weatherEffects[sectorWeather].name}</span>
+                            </div>
+                            <small>R{sectorTileRow} C{sectorTileCol}{sectorIsCurrent ? " | Present" : " | Scouting"}</small>
                         </div>
 
                         <div className="pixel-map walkable-sector-map sector-image-map">
@@ -2190,14 +2207,18 @@ export function WorldMap({
                             <SceneCritters biome={ambienceBiomeForSector(selectedSector)} />
                             {Array.from({ length: 144 }).map((_, index) => {
                                 const isPlayer = index === sectorPlayerPos;
+                                const tileCol = (index % 12) + 1;
+                                const tileRow = Math.floor(index / 12) + 1;
                                 // With the live-peer overlay on, peers are drawn by <SectorPeers>
                                 // at their real tile, so suppress the in-tile dots here.
                                 const otherHere = livePeersOn ? [] : sectorPlayers.filter(p => playerNameTile(p.name) === index);
 
                                 return (
                                     <button
+                                        type="button"
                                         key={index}
                                         title={otherHere.length > 0 ? otherHere.map(p => `${p.name} (Lv ${p.level})`).join(", ") : undefined}
+                                        aria-label={isPlayer ? `Current tile row ${tileRow} column ${tileCol}` : `Move to tile row ${tileRow} column ${tileCol}`}
                                         className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
                                         onClick={() => setSectorPlayerPos(index)}
                                     >
@@ -2600,30 +2621,64 @@ export function WorldMap({
                         </div>
                     </main>
 
-                    <aside className="instance-actions">
-                        <h3>Sector {selectedSector}</h3>
-                        <p>{weatherEffects[sectorWeather].effect}</p>
-                        <section className="summary-box">
-                            <h4>Territory Control</h4>
-                            <p><strong>Owner:</strong> {territory.ownerClan ? `${territory.ownerClan} (${territory.ownerVillage})` : "Unclaimed"}</p>
+                    <aside className="instance-actions sector-command-panel" aria-label={`Sector ${selectedSector} command panel`}>
+                        <header className="sector-panel-heading">
+                            <div className="sector-panel-kicker">
+                                <span className={`sector-biome-token sector-biome-${biome}`}>{biomeLabel(biome)}</span>
+                                <span>{weatherEffects[sectorWeather].name}</span>
+                            </div>
+                            <h3>Sector {selectedSector}</h3>
+                            <p>{weatherEffects[sectorWeather].effect}</p>
+                        </header>
+
+                        <section className="summary-box sector-panel-card sector-territory-card">
+                            <div className="sector-panel-card-head">
+                                <h4><GiShield aria-hidden="true" />Territory</h4>
+                                <span className={`sector-status-pill ${territory.ownerClan ? "is-owned" : ""}`}>{territory.ownerClan ? "Owned" : "Open"}</span>
+                            </div>
+                            <p className="sector-owner-line"><strong>Owner</strong><span>{sectorOwnerLabel}</span></p>
                             {!territory.ownerClan && territory.rebuiltAt && (() => {
                                 const msLeft = TERRITORY_REBUILD_COOLDOWN_MS - (Date.now() - territory.rebuiltAt);
                                 if (msLeft <= 0) return null;
                                 const minsLeft = Math.ceil(msLeft / 60000);
-                                return <p style={{ color: "#e88", fontWeight: 600 }}>⏳ Recovering — capturable in {minsLeft}m</p>;
+                                return <p className="sector-rebuild-note">Recovering: capturable in {minsLeft}m</p>;
                             })()}
-                            <div className="town-upgrade-bar"><span style={{ width: `${(territory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div>
-                            <p>Control: {territory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p>
-                            <div className="bar enemy-bar"><span style={{ width: `${(territory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div>
-                            <p>HP: {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p>
-                            <p>Guards: {territory.guards.length ? territory.guards.join(", ") : "None"}</p>
+                            <div className="sector-meter-block">
+                                <div className="sector-meter-row">
+                                    <span>Control</span>
+                                    <strong>{territory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</strong>
+                                </div>
+                                <div className="sector-meter sector-meter-control"><span style={{ width: `${(territory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div>
+                            </div>
+                            <div className="sector-meter-block">
+                                <div className="sector-meter-row">
+                                    <span>HP</span>
+                                    <strong>{territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</strong>
+                                </div>
+                                <div className="sector-meter sector-meter-hp"><span style={{ width: `${(territory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div>
+                            </div>
+                            <p className="sector-guard-list"><strong>Guards</strong><span>{territory.guards.length ? territory.guards.join(", ") : "None"}</span></p>
                             {villageWar && (
-                                <div className="summary-box">
-                                    <h4>Village War Ground</h4>
+                                <div className="summary-box sector-panel-card sector-war-card">
+                                    <div className="sector-panel-card-head">
+                                        <h4><GiCrossedSwords aria-hidden="true" />War Ground</h4>
+                                    </div>
                                     <p>{character.village} vs {villageWarEnemy}</p>
-                                    <p>War Ground HP: {villageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p>
-                                    <p>{villageWarEnemy} HP: {villageWarEnemy ? villageWar.hp[villageWarEnemy].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p>
-                                    <button className="danger-button" disabled={villageWar.warGroundHp <= 0 || Boolean(villageWar.endedAt)} onClick={() => {
+                                    <div className="sector-meter-block">
+                                        <div className="sector-meter-row">
+                                            <span>Ground HP</span>
+                                            <strong>{villageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</strong>
+                                        </div>
+                                        <div className="sector-meter sector-meter-hp"><span style={{ width: `${(villageWar.warGroundHp / VILLAGE_WAR_GROUND_HP_MAX) * 100}%` }} /></div>
+                                    </div>
+                                    <div className="sector-meter-block">
+                                        <div className="sector-meter-row">
+                                            <span>{villageWarEnemy ?? "Enemy"} HP</span>
+                                            <strong>{villageWarEnemy ? villageWar.hp[villageWarEnemy].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</strong>
+                                        </div>
+                                        <div className="sector-meter sector-meter-hp"><span style={{ width: `${((villageWarEnemy ? villageWar.hp[villageWarEnemy] : 0) / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div>
+                                    </div>
+                                    <button type="button" className="danger-button sector-action-btn is-danger" disabled={villageWar.warGroundHp <= 0 || Boolean(villageWar.endedAt)} onClick={() => {
                                         const guard = sectorEnemyGuards[0];
                                         if (guard) {
                                             fetchSavedPlayerCharacter(guard.name).then((guardCharacter) => {
@@ -2646,12 +2701,13 @@ export function WorldMap({
                                         setCurrentWeather(sectorWeather);
                                         setScreen("arena");
                                     }}>
-                                        Raid Enemy Village
+                                        <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
+                                        <span>Raid Enemy Village</span>
                                     </button>
                                 </div>
                             )}
                             {territory.ownerClan && territory.ownerClan !== character.clan && (
-                                <button className="danger-button" onClick={() => {
+                                <button type="button" className="danger-button sector-action-btn is-danger" onClick={() => {
                                     setPendingPvpOpponent(null);
                                     setPendingAiProfileId(pickGuardAi(character.level));
                                     setRaidBattleKind("raidAi");
@@ -2660,32 +2716,47 @@ export function WorldMap({
                                     setCurrentWeather(sectorWeather);
                                     setScreen("arena");
                                 }}>
-                                    Raid Controlled Sector
+                                    <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
+                                    <span>Raid Controlled Sector</span>
                                 </button>
                             )}
                         </section>
-                        <section className="sector-presence">
-                            <h4>Players Here {livePlayersHere.length > 0 && <span className="live-badge">LIVE</span>}</h4>
+                        <section className="sector-presence sector-panel-card">
+                            <div className="sector-panel-card-head">
+                                <h4>Players Here</h4>
+                                {livePlayersHere.length > 0 && <span className="live-badge">LIVE</span>}
+                            </div>
                             {sectorPlayers.length === 0 ? (
-                                <span>No other players in this sector.</span>
+                                <span className="sector-empty-note">No other players in this sector.</span>
                             ) : (
                                 sectorPlayers.map((player) => {
                                     const isSleeping = Boolean(player.__sleeping);
                                     const isTravelingTarget = Boolean(player.travelingUntil && player.travelingUntil > Date.now());
                                     const isInBattleTarget = Boolean(player.inBattle);
                                     const targetUnavailable = isTravelingTarget || isInBattleTarget;
+                                    const playerAvatarSrc = sharedImages['avatar:' + player.name.toLowerCase()] || (player.character.avatarImage as string) || "";
+                                    const playerStatus = isSleeping ? "Sleeping" : (isTravelingTarget ? "Traveling" : (isInBattleTarget ? "Fighting" : "Ready"));
                                     return (
                                     <div className="sector-player-card" key={player.name}>
+                                        <div className="sector-player-avatar" aria-hidden="true">
+                                            {playerAvatarSrc
+                                                ? <img className="sector-player-avatar-img" src={playerAvatarSrc} alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                                : <span className="sector-player-avatar-emoji">{player.name.slice(0, 2).toUpperCase()}</span>}
+                                        </div>
                                         <div className="sector-player-info">
-                                            <strong>{player.name}{isSleeping ? " 💤" : ""}</strong>
-                                            <small>Level {player.level}{isSleeping ? " | Sleeping" : (isTravelingTarget ? " | Traveling" : (isInBattleTarget ? " | Fighting" : ""))}</small>
+                                            <strong>{player.name}</strong>
+                                            <small>Level {player.level}</small>
+                                            <span className={`sector-status-pill is-${playerStatus.toLowerCase()}`}>{playerStatus}</span>
                                         </div>
                                         {isSleeping ? (
                                             // Logged-out target standing in the sector — a server-resolved
                                             // KO (no interactive fight). Sends them to the hospital + village.
-                                            <button className="danger-button" onClick={() => attackSleeper(player)}>💤 Strike Down</button>
+                                            <button type="button" className="danger-button sector-player-action" onClick={() => attackSleeper(player)}>
+                                                <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
+                                                <span>Strike Down</span>
+                                            </button>
                                         ) : (
-                                        <button className="danger-button" disabled={targetUnavailable} onClick={() => {
+                                        <button type="button" className="danger-button sector-player-action" disabled={targetUnavailable} onClick={() => {
                                             if (isTravelingTarget) {
                                                 alert(`${player.name} is traveling and cannot be attacked right now.`);
                                                 return;
@@ -2705,21 +2776,36 @@ export function WorldMap({
                                             // arena mount could clobber the pvpBattle context) while
                                             // the session POST was in flight.
                                             sectorAttackPlayer(player);
-                                        }}>{isTravelingTarget ? "Traveling" : (isInBattleTarget ? "Fighting" : "⚔️ Attack")}</button>
+                                        }}>
+                                            <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
+                                            <span>{isTravelingTarget ? "Traveling" : (isInBattleTarget ? "Fighting" : "Attack")}</span>
+                                        </button>
                                         )}
                                     </div>
                                     );
                                 })
                             )}
                         </section>
-                        <button onClick={() => exploreSector(selectedSector)}>Explore Tile</button>
-                        {activeHuntMissionForSector && (
-                            <button onClick={() => huntSector(selectedSector)}>
-                                Hunt {activeHuntAiForSector?.name ?? "Beast"}
+                        <div className="sector-action-grid" aria-label="Sector actions">
+                            <button type="button" className="sector-action-btn is-primary" onClick={() => exploreSector(selectedSector)}>
+                                <span className="sector-action-icon" aria-hidden="true"><GiCompass /></span>
+                                <span>Explore</span>
                             </button>
-                        )}
-                        <button onClick={() => restInSector(selectedSector)}>Recover</button>
-                        <button onClick={() => setSelectedSector(null)}>Leave</button>
+                            {activeHuntMissionForSector && (
+                                <button type="button" className="sector-action-btn" onClick={() => huntSector(selectedSector)}>
+                                    <span className="sector-action-icon" aria-hidden="true"><GiPawPrint /></span>
+                                    <span>Hunt {activeHuntAiForSector?.name ?? "Beast"}</span>
+                                </button>
+                            )}
+                            <button type="button" className="sector-action-btn" onClick={() => restInSector(selectedSector)}>
+                                <span className="sector-action-icon" aria-hidden="true"><GiHealthPotion /></span>
+                                <span>Recover</span>
+                            </button>
+                            <button type="button" className="sector-action-btn is-ghost" onClick={() => setSelectedSector(null)}>
+                                <span className="sector-action-icon" aria-hidden="true"><GiExitDoor /></span>
+                                <span>Leave</span>
+                            </button>
+                        </div>
                     </aside>
                 </div>
             </div>
