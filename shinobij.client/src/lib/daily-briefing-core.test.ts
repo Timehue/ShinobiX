@@ -24,6 +24,7 @@ const SETTLED: RecoInput = {
     hasJutsu: true,
     petTrainingIdle: false,
     hasPets: true,
+    examsPassed: ["genin", "chunin"],
 };
 
 test("dailyLoginRyo mirrors the server curve (modest, capped)", () => {
@@ -107,11 +108,21 @@ test("a recommended mission names the specific hunt", () => {
     assert.equal(mission!.screen, "missions");
 });
 
-test("no-profession prompt only appears at level 10+", () => {
-    const low = buildRecommendations({ ...SETTLED, hasProfession: false, level: 8 });
+test("no-profession prompt appears at the level-13 profession unlock", () => {
+    const low = buildRecommendations({ ...SETTLED, hasProfession: false, level: 12 });
     assert.ok(!low.some((r) => r.id === "profession"));
-    const high = buildRecommendations({ ...SETTLED, hasProfession: false, level: 20 });
+    const high = buildRecommendations({ ...SETTLED, hasProfession: false, level: 13 });
     assert.ok(high.some((r) => r.id === "profession"));
+});
+
+test("rank gate recommendations call out the level-20 and level-39 holds", () => {
+    const geninHold = buildRecommendations({ ...SETTLED, level: 20, examsPassed: [], hasMissionSlot: true });
+    assert.equal(geninHold.find((r) => r.id === "genin-exam")?.screen, "logbook");
+    assert.ok(geninHold.findIndex((r) => r.id === "genin-exam") < geninHold.findIndex((r) => r.id === "mission"));
+
+    const chuninHold = buildRecommendations({ ...SETTLED, level: 39, examsPassed: ["genin"], hasMissionSlot: true });
+    assert.equal(chuninHold.find((r) => r.id === "chunin-exam")?.screen, "logbook");
+    assert.ok(chuninHold.findIndex((r) => r.id === "chunin-exam") < chuninHold.findIndex((r) => r.id === "mission"));
 });
 
 test("falls back to explore when nothing is pressing", () => {
