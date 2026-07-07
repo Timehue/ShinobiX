@@ -213,6 +213,7 @@ const audit_log_js_1 = __importDefault(require("./api/admin/audit-log.js"));
 // Admin: economy telemetry (faucet/sink aggregates + recent txns + anomalies)
 const economy_js_1 = __importDefault(require("./api/admin/economy.js"));
 const economy_reconcile_js_1 = __importDefault(require("./api/admin/economy-reconcile.js"));
+const beta_metrics_js_1 = __importDefault(require("./api/admin/beta-metrics.js"));
 // Shared auth helper — constant-time compare for the restart endpoint.
 const _auth_js_1 = require("./api/_auth.js");
 // CORS origin predicate — single source of truth, shared with cors() and the
@@ -811,6 +812,7 @@ route('/admin/asset-report', asset_report_js_1.default);
 route('/admin/audit-log', audit_log_js_1.default);
 route('/admin/economy', economy_js_1.default);
 route('/admin/economy-reconcile', economy_reconcile_js_1.default);
+route('/admin/beta-metrics', beta_metrics_js_1.default);
 // NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
 // `npm test` if the client calls an /api path that isn't registered here, or if
 // an api/** handler file is never wired in. There is no folder-convention

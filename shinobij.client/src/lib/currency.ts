@@ -55,6 +55,54 @@ export function formatCurrencyRewards(rewards?: CurrencyRewards): string {
         .join(" / ");
 }
 
-export function rewardSummary(xp: number, ryo: number, stamina: number, rewards?: CurrencyRewards, character?: Pick<Character, "elderFocus">): string {
-    return [`+${displayCharacterXpGain(xp, character)} XP`, `+${ryo} ryo`, `+${stamina} stamina`, formatCurrencyRewards(rewards)].filter(Boolean).join(" / ");
+export interface RewardSummaryOptions {
+    territoryScrolls?: number;
+    items?: readonly string[];
+    itemCount?: number;
+    includeZero?: boolean;
+}
+
+function rewardAmount(value: unknown): number {
+    const n = Math.floor(Number(value) || 0);
+    return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
+export function rewardSummaryParts(
+    xp: number,
+    ryo: number,
+    stamina: number,
+    rewards?: CurrencyRewards,
+    character?: Pick<Character, "elderFocus">,
+    options: RewardSummaryOptions = {},
+): string[] {
+    const parts: string[] = [];
+    const xpShown = displayCharacterXpGain(xp, character);
+    if (options.includeZero || rewardAmount(xpShown) > 0) parts.push(`+${xpShown} XP`);
+    if (options.includeZero || rewardAmount(ryo) > 0) parts.push(`+${rewardAmount(ryo)} ryo`);
+    if (options.includeZero || rewardAmount(stamina) > 0) parts.push(`+${rewardAmount(stamina)} stamina`);
+    const currency = formatCurrencyRewards(rewards);
+    if (currency) parts.push(currency);
+    const scrolls = rewardAmount(options.territoryScrolls);
+    if (scrolls > 0) parts.push(`+${scrolls} Territory Control Scroll${scrolls === 1 ? "" : "s"}`);
+    const itemCount = rewardAmount(options.itemCount ?? options.items?.length ?? 0);
+    if (itemCount > 0) {
+        const namedItems = options.items?.filter(Boolean).slice(0, 3) ?? [];
+        const itemLabel = namedItems.length > 0
+            ? namedItems.join(", ") + (itemCount > namedItems.length ? ` +${itemCount - namedItems.length} more` : "")
+            : `${itemCount} item${itemCount === 1 ? "" : "s"}`;
+        parts.push(`+${itemLabel}`);
+    }
+    return parts;
+}
+
+export function rewardSummary(
+    xp: number,
+    ryo: number,
+    stamina: number,
+    rewards?: CurrencyRewards,
+    character?: Pick<Character, "elderFocus">,
+    options: RewardSummaryOptions = {},
+): string {
+    const parts = rewardSummaryParts(xp, ryo, stamina, rewards, character, options);
+    return parts.length > 0 ? parts.join(" / ") : "No direct reward";
 }

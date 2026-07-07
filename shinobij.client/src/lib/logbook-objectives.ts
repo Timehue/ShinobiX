@@ -166,10 +166,11 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                     id: "ready-for-genin",
                     kind: "chapter",
                     title: "Ready for Genin",
-                    summary: "Genin is the first real graduation milestone. Build enough fundamentals to pass the capstone.",
+                    summary: "Pick a profession at level 13, reach Genin rank at level 15, then prepare for the level-20 exam hold.",
                     unlockLevel: 10,
                     requirements: [
-                        { label: "Reach level 15", progress: character.level, target: 15, detail: "Level 15 changes your rank to Genin", goScreen: "missions", goLabel: "Earn XP" },
+                        { label: "Choose a profession", progress: character.profession ? 1 : 0, target: 1, detail: "Unlocks at level 13: Healer, Vanguard, or Pet Tamer", goScreen: "professionPicker", goLabel: "Pick Path" },
+                        { label: "Reach level 15", progress: character.level, target: 15, detail: "Level 15 changes your rank to Genin; level 20 is the first exam hold", goScreen: "missions", goLabel: "Earn XP" },
                         { label: "Complete 10 missions", progress: totalMissionsCompleted, target: 10, detail: "Claim rewards back at Mission Hall", goScreen: "missions", goLabel: "Go Missions" },
                         { label: "Win 10 AI battles", progress: totalAiKills, target: 10, detail: "Rookie combat missions are safe practice", goScreen: "missions", goLabel: "Go Combat" },
                         { label: "Train 120 stat points", progress: statsTrained, target: 120, detail: "Short or long timers both count", goScreen: "training", goLabel: "Go Train" },
@@ -187,7 +188,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             id: "exam-genin",
             kind: "exam",
             title: "Genin Exam",
-            summary: "You are at the level-20 hold. Pass this exam to continue leveling as a trusted Genin.",
+            summary: "You are at the level-20 XP hold. Pass this exam to keep leveling toward Chunin.",
             examKey: "genin",
             unlockLevel: 20,
             requirements: [
@@ -206,7 +207,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             id: "exam-chunin",
             kind: "exam",
             title: "Chunin Exam",
-            summary: "You are at the level-39 hold. Pass this exam to continue leveling toward Jonin.",
+            summary: "You are at the level-39 XP hold. Pass this exam to continue leveling toward Jonin.",
             examKey: "chunin",
             unlockLevel: 39,
             requirements: [

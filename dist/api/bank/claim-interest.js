@@ -9,6 +9,7 @@ const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _bank_interest_js_1 = require("../_bank-interest.js");
 const _economy_js_1 = require("../_economy.js");
+const _beta_metrics_js_1 = require("../_beta-metrics.js");
 /*
  * /api/bank/claim-interest  — POST only
  *
@@ -66,7 +67,7 @@ async function handler(req, res) {
                 const nextChar = { ...char, bankRyo: nextBankRyo, lastBankInterestAt: now };
                 const nextRecord = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
                 await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(nextRecord, rec));
-                return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + _bank_interest_js_1.BANK_INTEREST_WINDOW_MS, saveVersion: Number(nextRecord._saveVersion ?? 0) };
+                return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + _bank_interest_js_1.BANK_INTEREST_WINDOW_MS, saveVersion: Number(nextRecord._saveVersion ?? 0), level: Number(char.level ?? 0) };
             }, { failClosed: true });
         }
         catch (e) {
@@ -85,6 +86,7 @@ async function handler(req, res) {
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
         // Economy telemetry — bank interest is the top inflation faucet, so log it.
         await (0, _economy_js_1.recordEconomyTxn)({ txnId: `bank-interest:${playerName}:${now}`, player: playerName, currency: 'ryo', delta: out.interest, source: 'bank.interest', balanceAfter: out.bankRyo });
+        await (0, _beta_metrics_js_1.recordBetaMetric)({ event: 'bank.interest.claimed', playerName, level: out.level, source: 'bank', ryo: out.interest });
         return res.status(200).json({
             ok: true,
             eligible: true,

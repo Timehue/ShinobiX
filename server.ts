@@ -213,6 +213,7 @@ import adminAuditLogHandler from './api/admin/audit-log.js';
 // Admin: economy telemetry (faucet/sink aggregates + recent txns + anomalies)
 import adminEconomyHandler from './api/admin/economy.js';
 import adminEconomyReconcileHandler from './api/admin/economy-reconcile.js';
+import adminBetaMetricsHandler from './api/admin/beta-metrics.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
 import { safeEqual } from './api/_auth.js';
@@ -890,6 +891,7 @@ route('/admin/asset-report', adminAssetReportHandler);
 route('/admin/audit-log', adminAuditLogHandler);
 route('/admin/economy', adminEconomyHandler);
 route('/admin/economy-reconcile', adminEconomyReconcileHandler);
+route('/admin/beta-metrics', adminBetaMetricsHandler);
 
 // NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
 // `npm test` if the client calls an /api path that isn't registered here, or if
