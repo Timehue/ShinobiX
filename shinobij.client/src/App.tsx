@@ -6,16 +6,15 @@ import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAl
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
-import { NextGoalPin } from "./components/NextGoalPin";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
-import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { payEndlessEntry, endlessEntryCost } from "./lib/entry-fee";
 import { warnLocalSaveUnavailable } from "./lib/recovery";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
-import { connectRealtime, disconnectRealtime, updatePresence, onSector as onPresenceSector, onGone as onPresenceGone, onKick as onPresenceKick, onStatus as onPresenceStatus } from "./lib/presence-socket";
-import { pushLiveSectorPlayers, removeLiveSectorPlayers, resetLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
+import { lazyWithRetry } from "./lib/lazyWithRetry";
+import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
+import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
 import { presenceCharacter } from "./lib/presence-character";
 import {
     percentageTags,
@@ -105,10 +104,6 @@ import {
 // every fetch('/api/...') call automatically picks up x-player-name and
 // x-player-password from the active session (managed via setActivePlayer).
 installAuthFetch();
-import castleImg from "./assets/castle.webp";
-import houseImg from "./assets/house1.webp";
-import moonshadowImage from "./assets/moonshadow.webp";
-import stormveilVillageImg from "./assets/sectors/stormveil-village.webp";
 import shinobiBanner from './assets/shinobi-banner.webp'
 import backgroundImage from "./assets/background-image.webp";
 import { academyTrainingDummyImg, withAcademySparringPortrait } from "./lib/academy-ai-art";
@@ -146,7 +141,7 @@ import { postPlayerChallengeNotice } from "./lib/player-api";
 import { EXAM_LEVEL_GATES } from "./constants/game";
 const WorldMap = lazyWithRetry(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
-import { lazyWithRetry } from "./lib/lazyWithRetry"; const CentralHub = lazyWithRetry(() => import("./screens/CentralHub").then(m => ({ default: m.CentralHub })));
+const CentralHub = lazyWithRetry(() => import("./screens/CentralHub").then(m => ({ default: m.CentralHub })));
 const BattleTowers = lazyWithRetry(() => import("./screens/BattleTowers").then(m => ({ default: m.BattleTowers })));
 const SunscarFestival = lazyWithRetry(() => import("./screens/SunscarFestival").then(m => ({ default: m.SunscarFestival })));
 const PetArena = lazyWithRetry(() => import("./screens/PetArena").then(m => ({ default: m.PetArena })));
@@ -175,11 +170,12 @@ import { applyWarCrateGrants, claimPendingWarCrates, claimServerWarCrates, damag
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
 import { registerSectorBattle, resolveSectorBattle } from "./lib/village-war-map";
 import { masteryBonus } from "./lib/profession-mastery";
-import { StartScreen } from "./screens/StartScreen";
-import { OnboardingCoach } from "./components/OnboardingCoach";
-import { ScreenHint } from "./components/ScreenHint";
-import { ReleaseReadinessNotice } from "./components/ReleaseReadinessNotice";
-import { Village } from "./screens/Village";
+const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
+const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach").then(m => ({ default: m.OnboardingCoach })));
+const ScreenHint = lazyWithRetry(() => import("./components/ScreenHint").then(m => ({ default: m.ScreenHint })));
+const ReleaseReadinessNotice = lazyWithRetry(() => import("./components/ReleaseReadinessNotice").then(m => ({ default: m.ReleaseReadinessNotice })));
+const NextGoalPin = lazyWithRetry(() => import("./components/NextGoalPin").then(m => ({ default: m.NextGoalPin })));
+const Village = lazyWithRetry(() => import("./screens/Village").then(m => ({ default: m.Village })));
 
 import {
     type Profession,
@@ -311,12 +307,6 @@ import {
 import { buildAcceptedArenaMatch } from "./lib/arena-challenge";
 import { stopBattleMusic } from "./lib/pet-music";
 
-import {
-    petFramePace,
-    runPetArenaBattle,
-    pickBestPartyOrder,
-} from "./lib/pet-battle-sim";
-export { runPetArenaBattle, petFramePace };
 export type { PetPartyBattleMatch, PetPartyBattleResult } from "./lib/pet-battle-sim";
 
 import {
@@ -341,18 +331,18 @@ import {
 const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
 const Messages = lazyWithRetry(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
 const UserView = lazyWithRetry(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
-import { BannerMobileTimers } from "./components/BannerMobileTimers";
-import { MobileStatusHUD } from "./components/MobileStatusHUD";
-import { HollowGateShrineView } from "./features/hollowGate/HollowGateShrineView";
-import { LeftProfileCard } from "./components/LeftProfileCard";
-import { SectorBanner } from "./components/SectorBanner";
-import { RightMenu } from "./components/RightMenu";
-import { MobileNav } from "./components/MobileNav";
-import { TriggeredVisualNovel } from "./components/TriggeredVisualNovel";
+const BannerMobileTimers = lazyWithRetry(() => import("./components/BannerMobileTimers").then(m => ({ default: m.BannerMobileTimers })));
+const MobileStatusHUD = lazyWithRetry(() => import("./components/MobileStatusHUD").then(m => ({ default: m.MobileStatusHUD })));
+const HollowGateShrineView = lazyWithRetry(() => import("./features/hollowGate/HollowGateShrineView").then(m => ({ default: m.HollowGateShrineView })));
+const LeftProfileCard = lazyWithRetry(() => import("./components/LeftProfileCard").then(m => ({ default: m.LeftProfileCard })));
+const SectorBanner = lazyWithRetry(() => import("./components/SectorBanner").then(m => ({ default: m.SectorBanner })));
+const TriggeredVisualNovel = lazyWithRetry(() => import("./components/TriggeredVisualNovel").then(m => ({ default: m.TriggeredVisualNovel })));
 const Training = lazyWithRetry(() => import("./screens/Training").then(m => ({ default: m.Training })));
 const JutsuTrainingHall = lazyWithRetry(() => import("./screens/Training").then(m => ({ default: m.JutsuTrainingHall })));
 const Shop = lazyWithRetry(() => import("./components/Shop").then(m => ({ default: m.Shop })));
 const GrandMarketplace = lazyWithRetry(() => import("./components/Shop").then(m => ({ default: m.GrandMarketplace })));
+const RightMenu = lazyWithRetry(() => import("./components/RightMenu").then(m => ({ default: m.RightMenu })));
+const MobileNav = lazyWithRetry(() => import("./components/MobileNav").then(m => ({ default: m.MobileNav })));
 
 import { starterItems } from "./data/starter-items";
 import { rawPetPool } from "./data/pet-pool";
@@ -621,15 +611,8 @@ import {
 // ./lib/jutsu-scaling.
 
 // villages + villageOutskirtsSectorNumber + villageForOutskirtsSector moved
-// to ./data/sectors. villagePageImage stays here because it pulls in image
-// asset imports that the lib shouldn't pollute.
-export function villagePageImage(villageName: string): string {
-    if (villageName === "Stormveil Village") return stormveilVillageImg;
-    if (villageName === "Ashen Leaf Village") return houseImg;
-    if (villageName === "Frostfang Village") return castleImg;
-    if (villageName === "Moonshadow Village") return moonshadowImage;
-    return stormveilVillageImg;
-}
+// to ./data/sectors. villagePageImage lives in ./lib/village-page-image so the
+// panorama assets sit behind lazy village/world-map screens.
 
 const ARENA_ART_BY_BIOME: Record<Biome, readonly [string, string]> = {
     forest: ["/arena-forest.webp", "/arena-forest-floor.webp"],
@@ -654,8 +637,7 @@ function preloadBattleEntryAssets(biome: Biome, sector: number) {
     urls.forEach(preloadBattleArtUrl);
 }
 // villageLore lives in ./data/village-lore; screens/VillageLoreScreen imports
-// it directly from there. villagePageImage above stays — it pulls in
-// image-asset imports the data module shouldn't.
+// it directly from there.
 // specialties + jutsuElements live in ./data/jutsu (imported above for internal
 // use; JutsuDropdownList imports them directly from ./data/jutsu).
 // adminIconOptions moved to ./data/admin-icons; re-exported for existing importers.
@@ -2168,23 +2150,36 @@ export default function App() {
     // since those need separate logic; this is a parallel low-latency
     // channel just for incoming challenges.
     useEffect(() => {
-        if (!character?.name || !realtimeAvailable()) return;
+        if (!character?.name) return;
+        let alive = true;
+        let unsubscribe: (() => void) | null = null;
+        const characterName = character.name;
         // Must match the server's `challenges:<safeName slug>` key (heartbeat /
         // player-challenge write it through safeName), so subscribe via playerSlug.
-        const myKey = `challenges:${playerSlug(character.name)}`;
-        const unsubscribe = subscribeKvKey<DuelChallenge[]>(myKey, (next) => {
-            if (!Array.isArray(next)) return;
-            const myNameLower = character.name.toLowerCase();
-            const incoming = next
-                .filter((c) => (c?.toName ?? "").toLowerCase() === myNameLower)
-                .filter((c) => !dismissedChallengeIdsRef.current.has(c.id))
-                .map((c) => ({ ...c, challenger: normalizeCharacter(c.challenger) }));
-            setDuelChallenges((current) => {
-                const merged = current.filter((existing) => !incoming.some((c) => c.id === existing.id));
-                return [...merged, ...incoming];
+        const myKey = `challenges:${playerSlug(characterName)}`;
+
+        void import("./lib/realtime").then(({ realtimeAvailable, subscribeKvKey }) => {
+            if (!alive || !realtimeAvailable()) return;
+            unsubscribe = subscribeKvKey<DuelChallenge[]>(myKey, (next) => {
+                if (!alive) return;
+                if (!Array.isArray(next)) return;
+                const myNameLower = characterName.toLowerCase();
+                const incoming = next
+                    .filter((c) => (c?.toName ?? "").toLowerCase() === myNameLower)
+                    .filter((c) => !dismissedChallengeIdsRef.current.has(c.id))
+                    .map((c) => ({ ...c, challenger: normalizeCharacter(c.challenger) }));
+                setDuelChallenges((current) => {
+                    const merged = current.filter((existing) => !incoming.some((c) => c.id === existing.id));
+                    return [...merged, ...incoming];
+                });
             });
+        }).catch(() => {
+            /* no realtime fallback needed: heartbeat still polls challenges */
         });
-        return () => { if (unsubscribe) unsubscribe(); };
+        return () => {
+            alive = false;
+            if (unsubscribe) unsubscribe();
+        };
     }, [character?.name]);
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
@@ -2572,7 +2567,7 @@ export default function App() {
             // the socket isn't connected). Because a sector change re-runs this
             // effect and fires heartbeat() immediately, the move propagates to
             // sector-mates instantly; the 20s+ keepalive ping rides along too.
-            updatePresence({
+            updateRealtimePresence({
                 sector: currentSector,
                 character: presenceBody.character,
                 travelingUntil: presenceBody.travelingUntil,
@@ -2708,48 +2703,14 @@ export default function App() {
         arenaBattleActive, petBattleActive,
     ]);
 
-    // Step 3 realtime: open the Socket.IO presence channel for the logged-in
-    // player and wire its pushes into the same state the HTTP heartbeat feeds.
-    // Connects once per login (deps: character?.name) and lets the heartbeat keep
-    // the presence frame fresh via updatePresence(). All four subscriptions are
-    // additive — if the socket never connects, these simply never fire and the
-    // HTTP heartbeat path is unchanged.
-    useEffect(() => {
-        if (!character?.name) return;
-        const char = characterRef.current;
-        if (!char) return;
-        const inBattleNow = isPresenceBattleActive();
-        // Place us immediately; the heartbeat (which fires now and on every sector
-        // change) supersedes this frame with the authoritative travel/battle state.
-        connectRealtime({
-            sector: currentSectorRef.current,
-            character: presenceCharacter(char),
-            travelingUntil: 0,
-            inBattle: inBattleNow,
-            displayName: char.name,
-            tile: getLocalSectorTile(),
-        });
-        const offStatus = onPresenceStatus((connected) => setSocketConnected(connected));
-        const offSector = onPresenceSector((sector, players) => {
-            // Only adopt a snapshot for the sector we're actually standing in.
-            if (sector === currentSectorRef.current) pushLiveSectorPlayers(players, sector);
-        });
-        const offGone = onPresenceGone((names) => {
-            removeLiveSectorPlayers(names);
-        });
-        // A kick means an attack/challenge is queued — run an immediate off-cycle
-        // heartbeat (the authoritative carrier) so it lands without poll latency.
-        const offKick = onPresenceKick(() => { heartbeatRef.current?.(); });
-        return () => {
-            offStatus();
-            offSector();
-            offGone();
-            offKick();
-            disconnectRealtime();
-            resetLiveSectorPlayers();
-            setSocketConnected(false);
-        };
-    }, [character?.name]);
+    usePresenceSocket({
+        characterName: character?.name,
+        characterRef,
+        currentSectorRef,
+        heartbeatRef,
+        getPresenceBattleActive: isPresenceBattleActive,
+        setSocketConnected,
+    });
 
     async function clearChallengeOnServer(challenge: DuelChallenge) {
         await fetch('/api/player/challenge', {
@@ -2821,7 +2782,13 @@ export default function App() {
                 // ratio × element edge × trait counter penalty). Falls back to
                 // top-2-by-level if the picker can't decide (shouldn't happen
                 // with 2+ available pets).
-                const smart = pickBestPartyOrder(myAvailable, challengerParty);
+                let smart: [Pet, Pet] | null = null;
+                try {
+                    const { pickBestPartyOrder } = await import("./lib/pet-battle-sim");
+                    smart = pickBestPartyOrder(myAvailable, challengerParty);
+                } catch {
+                    smart = null;
+                }
                 if (smart) {
                     myParty = smart;
                 } else {
@@ -7339,6 +7306,7 @@ export default function App() {
             {character &&
                 screen !== "start" &&
                 !hideBattleChrome && (
+                    <Suspense fallback={null}>
                     <LeftProfileCard
                         character={character}
                         updateCharacter={setCharacter}
@@ -7347,31 +7315,35 @@ export default function App() {
                         activeTraining={activeTraining}
                         activeJutsuTraining={activeJutsuTraining}
                     />
+                    </Suspense>
                 )}
 
             {/* Portal target for battle HUD — rendered outside center-game to escape stacking context */}
             <div id="battle-hud-portal" />
 
-            {screen !== "start" && character && (screen === "arena" || screen === "storyBoss") && <SectorBanner />}
-
-            {screen !== "start" && character && (
-                <RightMenu
-                    navigate={stableNavigate}
-                    adminLoggedIn={adminLoggedIn}
-                    logoutPlayer={stableLogout}
-                    characterName={character?.name ?? ""}
-                    characterVillage={character?.village ?? ""} characterClan={character?.clan ?? ""}
-                    profession={character?.profession ?? null}
-                    screen={screen}
-                />
+            {screen !== "start" && character && (screen === "arena" || screen === "storyBoss") && (
+                <Suspense fallback={null}>
+                    <SectorBanner />
+                </Suspense>
             )}
 
             {screen !== "start" && character && (
-                <MobileNav
-                    navigate={stableNavigate} adminLoggedIn={adminLoggedIn} logoutPlayer={stableLogout}
-                    character={character} updateCharacter={setCharacter} currentSector={currentSector}
-                    activeTraining={activeTraining} activeJutsuTraining={activeJutsuTraining} screen={screen}
-                />
+                <Suspense fallback={null}>
+                    <RightMenu
+                        navigate={stableNavigate}
+                        adminLoggedIn={adminLoggedIn}
+                        logoutPlayer={stableLogout}
+                        characterName={character?.name ?? ""}
+                        characterVillage={character?.village ?? ""} characterClan={character?.clan ?? ""}
+                        profession={character?.profession ?? null}
+                        screen={screen}
+                    />
+                    <MobileNav
+                        navigate={stableNavigate} adminLoggedIn={adminLoggedIn} logoutPlayer={stableLogout}
+                        character={character} updateCharacter={setCharacter} currentSector={currentSector}
+                        activeTraining={activeTraining} activeJutsuTraining={activeJutsuTraining} screen={screen}
+                    />
+                </Suspense>
             )}
 
             {incomingAttackBanner && (
@@ -7433,23 +7405,25 @@ export default function App() {
                     already show the player's HP/chakra/stamina, so the top status bar
                     is redundant there and just costs vertical space. */}
                 {character && screen !== "start" && !hideBattleChrome && (
+                    <Suspense fallback={null}>
                     <MobileStatusHUD
                         character={character}
                         onBack={canGoBack ? goBack : undefined}
                     />
+                    </Suspense>
                 )}
-                <div
-                    className="journey-banner"
-                    style={{ backgroundImage: `url(${shinobiBanner})` }}
-                >
-                    {character && screen !== "start" && (
+                {character && screen !== "start" && (
+                    <div
+                        className="journey-banner"
+                        style={{ backgroundImage: `url(${shinobiBanner})` }}
+                    >
+                        <Suspense fallback={null}>
                         <BannerMobileTimers
                             activeTraining={activeTraining}
                             activeJutsuTraining={activeJutsuTraining}
                             pets={character.pets ?? []}
                         />
-                    )}
-                    {character && (
+                        </Suspense>
                         <div className="journey-live-stats">
                             <div className="stat-box">
                                 <span>RANK</span>
@@ -7479,8 +7453,8 @@ export default function App() {
                                 <strong>{character.fateShards}</strong>
                             </div>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
 
                 {screen === "start" && restoringSession && (
                     <div className="start-screen">
@@ -7809,6 +7783,7 @@ export default function App() {
                     && character.name !== "Admin 1"
                     && character.name !== "Admin 2"
                     && (
+                    <Suspense fallback={null}>
                     <OnboardingCoach
                         character={character}
                         screen={screen}
@@ -7818,19 +7793,26 @@ export default function App() {
                         updateCharacter={setCharacter}
                         onStartSpar={startAcademySparringMatch}
                     />
+                    </Suspense>
                 )}
 
                 {/* One-time contextual hints for free-roam systems (post-onboarding). */}
                 {character && character.name !== "Admin 1" && character.name !== "Admin 2" && (
+                    <Suspense fallback={null}>
                     <ScreenHint screen={screen} character={character} updateCharacter={setCharacter} />
+                    </Suspense>
                 )}
 
                 {character && !isAdminAccountName(character.name) && !activeTriggeredEvent && (
+                    <Suspense fallback={null}>
                     <ReleaseReadinessNotice screen={screen} />
+                    </Suspense>
                 )}
 
                 {!activeTriggeredEvent && screen === "village" && character && (<>
-                    <NextGoalPin character={character} navigate={navigate} />
+                    <Suspense fallback={null}>
+                        <NextGoalPin character={character} navigate={navigate} />
+                    </Suspense>
                     <Village character={character} setScreen={navigate} />
                 </>)}
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
@@ -8495,5 +8477,4 @@ export default function App() {
    Shown in the top-right corner of the journey banner on xs/sm screens
    only. Desktop already has the left profile card for this information.
    ──────────────────────────────────────────────────────────────────── */
-export { PetArenaBattlefield } from "./components/PetArenaBattlefield";
 export type { LbTab, TavernMessage, PvpGroundEffectState, PvpSessionState } from "./types/pvp-ui";

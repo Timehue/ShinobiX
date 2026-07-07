@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, type CSSProperties } from "react";
+import "../styles/profile-skin.css";
 import type { Character, ServerPlayerSummary, PlayerRecord } from "../types/character";
 import type { SavedBloodline, Jutsu } from "../types/combat";
 import { type Achievement, ACHIEVEMENTS } from "../constants/achievements";

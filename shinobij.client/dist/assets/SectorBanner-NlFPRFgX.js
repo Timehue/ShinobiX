@@ -1,0 +1,1 @@
+import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{a as t,t as n}from"./react-vendor-aeed46m5.js";var r=e(t(),1),i=`/assets/sectorbanner-CFMfVUIJ.webp`,a=n(),o=(0,r.memo)(function(){return(0,a.jsx)(`aside`,{className:`sector-banner-panel`,children:(0,a.jsx)(`img`,{src:i,alt:`Sector Banner`,className:`sector-banner-img`})})});export{o as SectorBanner};
