@@ -3024,9 +3024,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {intro && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "clamp(12px,3vw,40px)", padding: "0 5%" }}>
-                        <span style={{ flex: 1, textAlign: "right", font: "800 clamp(18px,3vw,38px) Cinzel, serif", color: "#93c5fd", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out both" }}>{playerPet.name}</span>
-                        <span style={{ font: "900 clamp(44px,9vw,104px) Cinzel, serif", color: "#fff", letterSpacing: "0.02em", textShadow: "0 0 26px rgba(250,204,21,0.9), 0 4px 12px #000", animation: "petDuelVs 700ms cubic-bezier(.2,.9,.2,1) both" }}>VS</span>
-                        <span style={{ flex: 1, textAlign: "left", font: "800 clamp(18px,3vw,38px) Cinzel, serif", color: "#fca5a5", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out 120ms both" }}>{enemyPet.name}</span>
+                        <span style={{ flex: 1, textAlign: "right", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#93c5fd", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out both" }}>{playerPet.name}</span>
+                        <span style={{ font: "900 clamp(44px,9vw,104px) var(--font-display)", color: "#fff", letterSpacing: "0.02em", textShadow: "0 0 26px rgba(250,204,21,0.9), 0 4px 12px #000", animation: "petDuelVs 700ms cubic-bezier(.2,.9,.2,1) both" }}>VS</span>
+                        <span style={{ flex: 1, textAlign: "left", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#fca5a5", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out 120ms both" }}>{enemyPet.name}</span>
                     </div>
                 </div>
             )}
@@ -3053,13 +3053,13 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div style={{ position: "absolute", top: "50%", [isEnemy ? "right" : "left"]: "18%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
                             {portrait
                                 ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "clamp(240px,54vh,430px)", width: "auto", maxWidth: "40vw", objectFit: "contain", filter: `drop-shadow(0 0 38px ${glow}) drop-shadow(0 14px 28px #000) saturate(1.15)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
-                                : <div style={{ width: "clamp(170px,32vh,250px)", height: "clamp(170px,32vh,250px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 68px Cinzel, serif", color: "#fff", boxShadow: `0 0 44px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
+                                : <div style={{ width: "clamp(170px,32vh,250px)", height: "clamp(170px,32vh,250px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 68px var(--font-display)", color: "#fff", boxShadow: `0 0 44px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
                         </div>
                         {/* pet name + big move name — CENTERED in a safe zone so it never runs under
                             the side panels / off-frame, and wraps when the move name is long. */}
                         <div style={{ position: "absolute", left: 0, right: 0, top: "13%", padding: "0 16%", textAlign: "center", animation: "petCutinName 1650ms cubic-bezier(.2,.9,.2,1) forwards" }}>
-                            <div style={{ font: "800 clamp(12px,1.6vw,20px) Cinzel, serif", letterSpacing: "0.22em", textTransform: "uppercase", color: isEnemy ? "#fca5a5" : "#93c5fd", textShadow: "0 2px 8px #000" }}>{cutIn.pet.name}</div>
-                            <div style={{ font: "900 clamp(26px,4.6vw,56px)/0.95 Cinzel, serif", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 32px ${glow}, 0 6px 16px #000`, marginTop: 6, overflowWrap: "break-word" }}>{cutIn.move}!</div>
+                            <div style={{ font: "800 clamp(12px,1.6vw,20px) var(--font-display)", letterSpacing: "0.22em", textTransform: "uppercase", color: isEnemy ? "#fca5a5" : "#93c5fd", textShadow: "0 2px 8px #000" }}>{cutIn.pet.name}</div>
+                            <div style={{ font: "900 clamp(26px,4.6vw,56px)/0.95 var(--font-display)", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 32px ${glow}, 0 6px 16px #000`, marginTop: 6, overflowWrap: "break-word" }}>{cutIn.move}!</div>
                         </div>
                     </div>
                 );
@@ -3070,7 +3070,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 <div key={`flash-${flash.id}`} style={{ position: "absolute", inset: 0, background: flash.color, opacity: 0, mixBlendMode: "screen", pointerEvents: "none", animation: "petDuelFlash 340ms ease-out forwards", ["--fp" as string]: flash.intensity } as React.CSSProperties} />
             )}
             {callout && (
-                <div key={`callout-${callout.id}`} style={{ position: "absolute", top: "28%", left: 0, right: 0, textAlign: "center", pointerEvents: "none", font: "900 clamp(34px,7vw,72px)/1 Cinzel, serif", color: "#fff", letterSpacing: "0.05em", textShadow: "0 0 18px rgba(250,204,21,0.9), 0 4px 10px #000", animation: "petDuelCallout 740ms cubic-bezier(.2,.9,.2,1) forwards" }}>{callout.text}</div>
+                <div key={`callout-${callout.id}`} style={{ position: "absolute", top: "28%", left: 0, right: 0, textAlign: "center", pointerEvents: "none", font: "900 clamp(34px,7vw,72px)/1 var(--font-display)", color: "#fff", letterSpacing: "0.05em", textShadow: "0 0 18px rgba(250,204,21,0.9), 0 4px 10px #000", animation: "petDuelCallout 740ms cubic-bezier(.2,.9,.2,1) forwards" }}>{callout.text}</div>
             )}
             {combo && combo.n >= 2 && (
                 <div key={`combo-${combo.id}`} style={{ position: "absolute", top: "20%", right: "8%", pointerEvents: "none", textAlign: "center", font: "900 clamp(30px,5vw,58px)/1 Inter, system-ui, sans-serif", color: "#fde68a", textShadow: "0 0 14px rgba(245,158,11,0.85), 0 3px 8px #000", animation: "petDuelCombo 700ms ease-out forwards" }}>{combo.n}<span style={{ fontSize: "0.45em", letterSpacing: "0.15em", display: "block" }}>HIT COMBO</span></div>
@@ -3078,12 +3078,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {/* Named-move flash — the ability's name slams in on cast/hit (signatures
                 use the bigger cut-in instead), side-tinted blue (you) / red (foe). */}
             {moveCallout && (
-                <div key={`move-${moveCallout.id}`} style={{ position: "absolute", left: "50%", top: "40%", transform: "translateX(-50%)", pointerEvents: "none", padding: "4px 20px", borderRadius: 6, border: `2px solid ${moveCallout.side === "player" ? "#60a5fa" : "#f87171"}`, background: "rgba(8,11,22,0.55)", color: moveCallout.side === "player" ? "#dbeafe" : "#fee2e2", font: "900 clamp(20px,3.4vw,40px)/1 Cinzel, serif", letterSpacing: "0.04em", textShadow: "0 2px 10px #000", whiteSpace: "nowrap", animation: "petDuelMove 1000ms cubic-bezier(.2,.9,.2,1) forwards" }}>{moveCallout.text}</div>
+                <div key={`move-${moveCallout.id}`} style={{ position: "absolute", left: "50%", top: "40%", transform: "translateX(-50%)", pointerEvents: "none", padding: "4px 20px", borderRadius: 6, border: `2px solid ${moveCallout.side === "player" ? "#60a5fa" : "#f87171"}`, background: "rgba(8,11,22,0.55)", color: moveCallout.side === "player" ? "#dbeafe" : "#fee2e2", font: "900 clamp(20px,3.4vw,40px)/1 var(--font-display)", letterSpacing: "0.04em", textShadow: "0 2px 10px #000", whiteSpace: "nowrap", animation: "petDuelMove 1000ms cubic-bezier(.2,.9,.2,1) forwards" }}>{moveCallout.text}</div>
             )}
             {/* Play-by-play broadcast line (lower-third) — narrates the swings:
                 a fighter on the ropes, a reversal, an ultimate, the finish. */}
             {announce && !ended && (
-                <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", maxWidth: "84vw", pointerEvents: "none", padding: "7px 22px", borderRadius: 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : "#fecaca", font: "800 clamp(15px,2.6vw,24px)/1.1 Cinzel, serif", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
+                <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", maxWidth: "84vw", pointerEvents: "none", padding: "7px 22px", borderRadius: 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : "#fecaca", font: "800 clamp(15px,2.6vw,24px)/1.1 var(--font-display)", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
             )}
 
             <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
