@@ -642,17 +642,19 @@ export default defineConfig({
                 // changes constantly; React itself rarely does, so users
                 // re-download a much smaller diff between deploys.
                 manualChunks(id: string) {
-                    if (id.includes('node_modules/react-dom/') || id.includes('node_modules/react/')) {
+                    const normalizedId = id.replace(/\\/g, '/');
+                    // Keep Vite/Rolldown's dynamic-import preload helper out of
+                    // large lazy vendor chunks. If it gets co-located with
+                    // Supabase/Socket.IO, the entry has to preload that whole
+                    // network stack just to warm route chunks.
+                    if (normalizedId.includes('vite/preload-helper') || normalizedId.includes('importAnalysisBuild')) {
+                        return 'preload-helper';
+                    }
+                    if (normalizedId.includes('node_modules/react-dom/') || normalizedId.includes('node_modules/react/')) {
                         return 'react-vendor';
                     }
-                    if (id.includes('node_modules/react-icons/')) {
-                        return 'icons-vendor';
-                    }
-                    if (id.includes('node_modules/@sentry/')) {
+                    if (normalizedId.includes('node_modules/@sentry/')) {
                         return 'sentry-vendor';
-                    }
-                    if (id.includes('node_modules/@supabase/') || id.includes('node_modules/socket.io-client/')) {
-                        return 'network-vendor';
                     }
                     // Group the heavy 3D stack (three.js + three-stdlib + the
                     // @react-three/* renderer + postprocessing) into ONE cacheable
@@ -660,9 +662,9 @@ export default defineConfig({
                     // stays out of the initial bundle; a single shared chunk avoids
                     // re-downloading three across screens and on every app-code deploy.
                     if (
-                        id.includes('node_modules/three') ||
-                        id.includes('node_modules/@react-three/') ||
-                        id.includes('node_modules/postprocessing/')
+                        normalizedId.includes('node_modules/three') ||
+                        normalizedId.includes('node_modules/@react-three/') ||
+                        normalizedId.includes('node_modules/postprocessing/')
                     ) {
                         return 'three-vendor';
                     }

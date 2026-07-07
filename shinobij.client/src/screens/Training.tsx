@@ -9,6 +9,7 @@
 import type React from "react";
 import { useState, useEffect } from "react";
 import "../styles/training-skin.css";
+import "../styles/hub-screens-skin.css";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";

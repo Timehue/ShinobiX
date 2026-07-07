@@ -737,7 +737,7 @@ const ABOUT: Guide = {
                 { type: "h", text: "Icons" },
                 { type: "p", text: "Menu and interface icons are from game-icons.net, used under the Creative Commons Attribution 3.0 Unported license (CC BY 3.0). See game-icons.net for the full author list and the license text." },
                 { type: "h", text: "Fonts" },
-                { type: "p", text: "Display headings use Cinzel, served via Google Fonts under the SIL Open Font License." },
+                { type: "p", text: "Display headings use a Cinzel-first local/system fallback stack for faster, more reliable loading." },
                 { type: "h", text: "Built With" },
                 { type: "p", text: "React, Vite, three.js, react-icons, Supabase, and other open-source software." },
             ],
