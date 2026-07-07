@@ -5,6 +5,7 @@ const _utils_js_1 = require("./_utils.js");
 const _auth_js_1 = require("./_auth.js");
 const _ratelimit_js_1 = require("./_ratelimit.js");
 const _storage_js_1 = require("./_storage.js");
+const _release_flags_js_1 = require("./_release-flags.js");
 // Hard ceiling on user-provided prompt + label lengths. Anything past 1000
 // chars is either a prompt-injection payload or wasted tokens.
 const MAX_USER_INPUT_CHARS = 1000;
@@ -63,6 +64,15 @@ async function handler(req, res) {
     const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
     if (!identity)
         return res.status(401).json({ error: 'Authentication required.' });
+    // Public beta default: content admins can fill missing assets, but ordinary
+    // player generation stays closed unless an operator intentionally accepts
+    // the spend/moderation risk.
+    if (!identity.admin && !(0, _release_flags_js_1.playerAiImageGenerationEnabled)()) {
+        return res.status(403).json({
+            error: 'Player AI image generation is disabled during public beta. Upload an image instead, or ask an admin to enable ENABLE_PLAYER_AI_IMAGE_GENERATION=1.',
+            reason: _release_flags_js_1.PLAYER_AI_IMAGE_GENERATION_DISABLED_REASON,
+        });
+    }
     // 2 images per 60 s per authenticated identity. Tight limit because each
     // call costs real money ($0.02-0.04/image at gpt-image-1 low quality).
     // KV-backed so a stateless lambda hop can't reset the counter.
