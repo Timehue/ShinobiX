@@ -1,6 +1,7 @@
+import type { ReactNode } from "react";
 import type { Character } from "../types/character";
 import type { BountyEntry } from "../lib/pvp-bounty";
-import { buildReputationProfile } from "../lib/reputation-profile";
+import { buildReputationProfile, type ReputationBadge } from "../lib/reputation-profile";
 import { titleStyleColor } from "../lib/legacy";
 
 type ShinobiIdentityCardProps = {
@@ -11,6 +12,9 @@ type ShinobiIdentityCardProps = {
     bounty?: BountyEntry | null;
     elements?: string[];
     heading?: string;
+    summary?: string;
+    extraChips?: ReputationBadge[];
+    avatarAction?: ReactNode;
 };
 
 export function ShinobiIdentityCard({
@@ -21,8 +25,12 @@ export function ShinobiIdentityCard({
     bounty,
     elements = [],
     heading = "Shinobi Identity",
+    summary,
+    extraChips = [],
+    avatarAction,
 }: ShinobiIdentityCardProps) {
     const profile = buildReputationProfile(character, { bloodlineName, bounty, elements });
+    const identityChips = [...profile.identityChips, ...extraChips];
     const initials = character.name.slice(0, 2).toUpperCase();
     const legacyStage = Math.min(5, character.legacy?.stage ?? 0);
     const avatarClasses = [
@@ -34,16 +42,19 @@ export function ShinobiIdentityCard({
     return (
         <section className="shinobi-identity-card" aria-label={`${character.name} identity and reputation`}>
             <div className="sic-hero">
-                <div className={avatarClasses}>
-                    {avatarSrc ? (
-                        <img
-                            src={avatarSrc}
-                            alt={`${character.name} avatar`}
-                            onError={(event) => { (event.currentTarget as HTMLImageElement).style.display = "none"; }}
-                        />
-                    ) : (
-                        <span>{initials}</span>
-                    )}
+                <div className="sic-avatar-stack">
+                    <div className={avatarClasses}>
+                        {avatarSrc ? (
+                            <img
+                                src={avatarSrc}
+                                alt={`${character.name} avatar`}
+                                onError={(event) => { (event.currentTarget as HTMLImageElement).style.display = "none"; }}
+                            />
+                        ) : (
+                            <span>{initials}</span>
+                        )}
+                    </div>
+                    {avatarAction ? <div className="sic-avatar-action">{avatarAction}</div> : null}
                 </div>
                 <div className="sic-copy">
                     <p className="sic-kicker">{heading}</p>
@@ -56,8 +67,9 @@ export function ShinobiIdentityCard({
                         )}
                     </div>
                     <p className="sic-subtitle">{profile.subtitle}</p>
+                    {summary ? <p className="sic-summary">{summary}</p> : null}
                     <div className="sic-chip-row">
-                        {profile.identityChips.slice(0, 9).map((chip) => (
+                        {identityChips.slice(0, 11).map((chip) => (
                             <span className={`sic-chip sic-tone-${chip.tone ?? "neutral"}`} key={chip.id}>
                                 {chip.label}{chip.detail ? <small>{chip.detail}</small> : null}
                             </span>
