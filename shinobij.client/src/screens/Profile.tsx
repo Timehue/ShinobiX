@@ -315,12 +315,11 @@ export function Profile({
     const equippedBloodlineName = equippedBloodline?.name || character.bloodline || "No bloodline";
     const disciplineLabel = playerLensDiscipline(character);
     const elementsLabel = ownedElements.length ? ownedElements.join(" / ") : "Not awakened";
-    const displayTitle = character.customTitle || character.storyTitle || character.rankTitle;
+    const currentTitleLabel = character.customTitle || character.storyTitle || "";
     const xpLabel = character.level >= MAX_LEVEL ? "MAX" : `${formatAmount(character.xp)}/${formatAmount(xpNeeded(character.level))}`;
     const profileSummary = [
-        `${character.name} is a level ${character.level} ${character.rankTitle} from ${character.village}, carrying ${equippedBloodlineName} and a ${disciplineLabel} specialty.`,
-        ownedElements.length ? `Element access: ${elementsLabel}.` : "No elements awakened yet.",
-        displayTitle ? `Public title: ${displayTitle}.` : "",
+        `${equippedBloodlineName} defines this shinobi's combat identity.`,
+        `${disciplineLabel}-focused build${ownedElements.length ? ` with ${elementsLabel} element access` : ""}.`,
         character.clan ? `Clan standing: ${character.clan}${character.clanFounder ? " founder" : " member"}.` : "",
     ].filter(Boolean).join(" ");
     const identityExtraChips = [
@@ -333,7 +332,7 @@ export function Profile({
         {
             title: "Progress",
             rows: [
-                { label: "Level", value: `${formatAmount(character.level)}/${MAX_LEVEL}`, detail: `XP ${xpLabel}`, tone: "gold" },
+                { label: "XP", value: xpLabel, detail: character.level >= MAX_LEVEL ? "level cap reached" : "toward next level", tone: "gold" },
                 ...(CHARACTER_XP_GAIN_MULTIPLIER !== 1
                     ? [{ label: "Testing XP", value: `${CHARACTER_XP_GAIN_MULTIPLIER}x`, detail: "active", tone: "danger" as const }]
                     : []),
@@ -361,7 +360,7 @@ export function Profile({
             ],
         },
         {
-            title: "Lineage",
+            title: "Build",
             rows: [
                 { label: "Bloodline", value: equippedBloodlineName, detail: equippedBloodline?.rank ? `${equippedBloodline.rank} rank` : "active identity", tone: "legacy" },
                 { label: "Specialty", value: disciplineLabel, detail: "effect lens" },
@@ -435,6 +434,10 @@ export function Profile({
                 elements={ownedElements}
                 summary={profileSummary}
                 extraChips={identityExtraChips}
+                showIdentityChips={false}
+                metricIds={["ranked", "pvp", "bounty", "war", "tower", "pets", "clan"]}
+                showTitleBadges={false}
+                showRivalry={Boolean(character.wandererNemesis)}
                 avatarAction={(
                     <label className="sic-avatar-upload-button">
                         Upload Avatar
@@ -457,7 +460,7 @@ export function Profile({
                                     </div>
                                 ))}
                             </div>
-                            {section.title === "Lineage" && equippedBloodline?.image && (
+                            {section.title === "Build" && equippedBloodline?.image && (
                                 <div className="profile-lineage-preview">
                                     <img src={equippedBloodline.image} alt={equippedBloodline.name} />
                                 </div>
@@ -533,8 +536,19 @@ export function Profile({
                 )}
             </section>
 
-            <section className="summary-box profile-title-panel">
-                <div>
+            <details className="summary-box profile-title-panel profile-title-manager">
+                <summary className="profile-title-manager-summary">
+                    <span>
+                        <strong>Title Manager</strong>
+                        <small>Wear earned titles or edit the title shown beside your name.</small>
+                    </span>
+                    <em>
+                        {character.customTitle
+                            ? <>Current: <span style={{ color: titleStyleColor(character.customTitleStyle) }}>{character.customTitleIcon ? `${character.customTitleIcon} ` : ""}{character.customTitle}</span></>
+                            : currentTitleLabel ? <>Current: <span>{currentTitleLabel}</span></> : "No public title selected"}
+                    </em>
+                </summary>
+                <div className="profile-title-manager-body">
                     {(character.earnedTitles?.length ?? 0) > 0 && (
                         <div style={{ marginBottom: 16 }}>
                             <p className="act-label">Earned Titles</p>
@@ -620,7 +634,7 @@ export function Profile({
                         </div>
                     )}
                 </div>
-            </section>
+            </details>
 
             {/* Nindo — the player's customizable profile creed. Replaces the old
                 Profession/Mastery panel, which now lives solely on the Professions

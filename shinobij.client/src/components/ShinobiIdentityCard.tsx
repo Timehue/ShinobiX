@@ -15,6 +15,11 @@ type ShinobiIdentityCardProps = {
     summary?: string;
     extraChips?: ReputationBadge[];
     avatarAction?: ReactNode;
+    showIdentityChips?: boolean;
+    metricIds?: string[];
+    showMetrics?: boolean;
+    showTitleBadges?: boolean;
+    showRivalry?: boolean;
 };
 
 export function ShinobiIdentityCard({
@@ -28,9 +33,17 @@ export function ShinobiIdentityCard({
     summary,
     extraChips = [],
     avatarAction,
+    showIdentityChips = true,
+    metricIds,
+    showMetrics = true,
+    showTitleBadges = true,
+    showRivalry = true,
 }: ShinobiIdentityCardProps) {
     const profile = buildReputationProfile(character, { bloodlineName, bounty, elements });
     const identityChips = [...profile.identityChips, ...extraChips];
+    const metrics = metricIds
+        ? profile.metrics.filter((metric) => metricIds.includes(metric.id))
+        : profile.metrics;
     const initials = character.name.slice(0, 2).toUpperCase();
     const legacyStage = Math.min(5, character.legacy?.stage ?? 0);
     const avatarClasses = [
@@ -68,18 +81,21 @@ export function ShinobiIdentityCard({
                     </div>
                     <p className="sic-subtitle">{profile.subtitle}</p>
                     {summary ? <p className="sic-summary">{summary}</p> : null}
-                    <div className="sic-chip-row">
-                        {identityChips.slice(0, 11).map((chip) => (
-                            <span className={`sic-chip sic-tone-${chip.tone ?? "neutral"}`} key={chip.id}>
-                                {chip.label}{chip.detail ? <small>{chip.detail}</small> : null}
-                            </span>
-                        ))}
-                    </div>
+                    {showIdentityChips && identityChips.length > 0 ? (
+                        <div className="sic-chip-row">
+                            {identityChips.slice(0, 11).map((chip) => (
+                                <span className={`sic-chip sic-tone-${chip.tone ?? "neutral"}`} key={chip.id}>
+                                    {chip.label}{chip.detail ? <small>{chip.detail}</small> : null}
+                                </span>
+                            ))}
+                        </div>
+                    ) : null}
                 </div>
             </div>
 
+            {showMetrics && metrics.length > 0 ? (
             <div className="sic-stat-grid">
-                {profile.metrics.map((metric) => (
+                {metrics.map((metric) => (
                     <div className={`sic-stat sic-tone-${metric.tone ?? "neutral"}`} key={metric.id}>
                         <span>{metric.label}</span>
                         <strong>{metric.value}</strong>
@@ -87,8 +103,11 @@ export function ShinobiIdentityCard({
                     </div>
                 ))}
             </div>
+            ) : null}
 
-            <div className="sic-footer-grid">
+            {(showTitleBadges || showRivalry) ? (
+            <div className={`sic-footer-grid ${!showTitleBadges || !showRivalry ? "sic-footer-grid-single" : ""}`}>
+                {showTitleBadges ? (
                 <div className="sic-ledger">
                     <p className="sic-section-label">Titles and Badges</p>
                     {profile.titleBadges.length > 0 ? (
@@ -103,12 +122,16 @@ export function ShinobiIdentityCard({
                         <p className="sic-empty">No public titles recorded yet.</p>
                     )}
                 </div>
+                ) : null}
+                {showRivalry ? (
                 <div className="sic-ledger">
                     <p className="sic-section-label">Rivalry</p>
                     <strong className={profile.rivalry.kind === "npc" ? "sic-rival-active" : ""}>{profile.rivalry.label}</strong>
                     <small>{profile.rivalry.detail}</small>
                 </div>
+                ) : null}
             </div>
+            ) : null}
         </section>
     );
 }
