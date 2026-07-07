@@ -1,28 +1,31 @@
 /*
- * ScreenHint — one-time, dismissible contextual tips that replace the old
- * overwhelming village-menu tour. The first time a player opens one of the
- * mapped systems (Shop, Hospital, World Map, Pet Yard, Clan, Town Hall) they get
- * a single short line explaining it; "Got it" records the dismissal in
- * character.seenHints (persisted via the normal save).
+ * ScreenHint - one-time, dismissible contextual tips for major screens.
  *
- * Driven from ONE mount in App.tsx keyed on the current `screen`. Only shows
- * once onboarding is finished (or skipped) so it never collides with the
- * OnboardingCoach banner during the guided Academy Path — and those guided beats
- * already cover Training/Jutsu/Missions/Logbook/Story, leaving exactly these six
- * "free roam" systems for ambient hints. Pinned bottom (reuses the coach
- * banner's mobile safe-area offset); never blocks interaction.
+ * The guided Academy path covers the first-session loop; after that, these
+ * small hints explain what a newly opened system is for without blocking play.
+ * Dismissals live in character.seenHints and persist with the normal save.
  */
 import { createPortal } from "react-dom";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import type { Character, Screen } from "../App";
 
 const HINTS: Partial<Record<Screen, string>> = {
-    shop: "🛒 Shop — buy gear and consumables here with ryo.",
-    hospital: "🏥 Hospital — heal up here after a hard fight.",
-    worldMap: "🗺️ World Map — explore sectors for missions, pets, and materials.",
-    pets: "🐾 Pet Yard — manage pets, expeditions, and your active companion.",
-    clan: "🤝 Clan Hall — join a clan later when you want group progression.",
-    townHall: "🏯 Town Hall — village upgrades improve your rewards and services.",
+    battleArena: "Battle Arena - practice combat here. Start with AI or mission fights before challenging real players.",
+    bank: "Bank - store spare ryo and claim interest once per day. Keep enough cash on hand for healing and gear.",
+    cafeteria: "Cafeteria - quick recovery food for early play. Use Hospital for serious injuries.",
+    clan: "Clan Hall - join or found a clan when you want group goals; village war content is best after the basics.",
+    grandMarketplace: "Grand Marketplace - advanced trading and crafting options. Check costs before spending rare materials.",
+    hallOfLegends: "Hall of Legends - long-term records live here. Early progress still comes from missions, training, and Logbook goals.",
+    hospital: "Hospital - recover here after a hard fight. If admitted, you must discharge before leaving.",
+    jutsuTraining: "Jutsu Hall - unlock and sharpen jutsu, then equip them from your Character screen so they appear in battle.",
+    missions: "Mission Hall - accept work, finish the objective, then return here to claim the posted reward.",
+    pets: "Pet Yard - manage companions, expeditions, and your active pet. Deep pet battles can wait until you know your main loop.",
+    professions: "Professions - choose a long-term role once it unlocks. The choice shapes rewards, not your basic combat controls.",
+    shop: "Shop - buy gear and consumables with ryo. Early armor and a backup item are worth more than hoarding cash.",
+    shinobiTiles: "Card Hall - a beta side mode. Treat it as variety after your training, missions, and Logbook are moving.",
+    townHall: "Town Hall - village upgrades improve services and rewards. War controls are advanced beta systems.",
+    training: "Training Grounds - start a timed stat session whenever idle. Training keeps working while you play elsewhere.",
+    worldMap: "World Map - explore sectors for missions, encounters, pets, and materials. Return to the village before pushing too far.",
 };
 
 const bannerStyle: React.CSSProperties = {
@@ -66,3 +69,4 @@ export function ScreenHint({
         document.body,
     );
 }
+

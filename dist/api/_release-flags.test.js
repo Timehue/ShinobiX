@@ -21,4 +21,9 @@ const _release_flags_js_1 = require("./_release-flags.js");
         const sRank = _mission_catalog_js_1.COMBAT_MISSIONS.find((m) => m.key === 'combat-s-crisis');
         node_assert_1.strict.equal((0, _release_flags_js_1.clientTrustedCombatMissionRewardAllowed)(sRank, { ENABLE_CLIENT_TRUSTED_COMBAT_MISSION_REWARDS: '1' }), true);
     });
+    (0, node_test_1.it)('keeps player AI image generation admin-only unless explicitly enabled', () => {
+        node_assert_1.strict.equal((0, _release_flags_js_1.playerAiImageGenerationEnabled)({}), false);
+        node_assert_1.strict.equal((0, _release_flags_js_1.playerAiImageGenerationEnabled)({ ENABLE_PLAYER_AI_IMAGE_GENERATION: '0' }), false);
+        node_assert_1.strict.equal((0, _release_flags_js_1.playerAiImageGenerationEnabled)({ ENABLE_PLAYER_AI_IMAGE_GENERATION: '1' }), true);
+    });
 });
