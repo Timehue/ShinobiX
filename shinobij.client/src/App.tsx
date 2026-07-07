@@ -111,8 +111,7 @@ import moonshadowImage from "./assets/moonshadow.webp";
 import stormveilVillageImg from "./assets/sectors/stormveil-village.webp";
 import shinobiBanner from './assets/shinobi-banner.webp'
 import backgroundImage from "./assets/background-image.webp";
-import academySparringPartnerImg from "./assets/academy/academy-sparring-partner.webp";
-import academyTrainingDummyImg from "./assets/academy/academy-training-dummy.webp";
+import { academyTrainingDummyImg, withAcademySparringPortrait } from "./lib/academy-ai-art";
 const Inventory = lazyWithRetry(() => import("./screens/Inventory").then(m => ({ default: m.Inventory })));
 const Hospital = lazyWithRetry(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
 const VillageTavern = lazyWithRetry(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
@@ -7221,11 +7220,7 @@ export default function App() {
     }
 
     const playableAis = [
-        ...builtinAis.map((builtin) => {
-            const o = creatorAis.find((ai) => ai.id === builtin.id);
-            const ai = o ? { ...builtin, image: o.image ?? builtin.image } : builtin;
-            return ai.id === "builtin-ai-academy-sparring" && !ai.image ? { ...ai, image: academySparringPartnerImg } : ai;
-        }), // built-in/story AIs source-authoritative; same-id override = image only (see AdminPanel allAdminAis)
+        ...builtinAis.map((builtin) => { const o = creatorAis.find((ai) => ai.id === builtin.id); return withAcademySparringPortrait(o ? { ...builtin, image: o.image ?? builtin.image } : builtin); }), // built-in/story AIs source-authoritative; same-id override = image only (see AdminPanel allAdminAis)
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
         ...(temporaryStoryAi ? [temporaryStoryAi] : []),
     ];
