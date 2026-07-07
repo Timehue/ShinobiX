@@ -10,6 +10,7 @@ import {
     clientTrustedCombatMissionRewardAllowed,
     COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON,
 } from '../_release-flags.js';
+import { canPlayerReceiveMission, missionEligibilityFailureBody } from './_eligibility.js';
 
 /*
  * /api/missions/queue-combat-claim — POST only
@@ -95,7 +96,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const record = await kv.get<Record<string, unknown>>(saveKey);
             const char = record?.character as SaveChar | undefined;
             if (!record || !char) return { queued: false, reason: 'no-save' };
-            if (Number(char.level ?? 1) < def.min) return { queued: false, reason: 'level' };
+            const eligibility = canPlayerReceiveMission(char, def);
+            if (!eligibility.ok) return { queued: false, reason: missionEligibilityFailureBody(eligibility).reason };
 
             const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims as string[] : [];
             const nextPending = pending.includes(def.key) ? pending : [...pending, def.key];

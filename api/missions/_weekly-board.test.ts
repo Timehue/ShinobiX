@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    weekIndex, weekKey, weekEndsAt, pickWeeklyBoard, computeProgress, snapshotCounters,
-    WEEKLY_CATALOG, WEEKLY_BOARD_SIZE, WEEK_EPOCH_MS, WEEK_MS, WEEKLY_COUNTERS,
+    weekIndex, weekKey, weekEndsAt, pickWeeklyBoard, pickWeeklyBoardForPlayer, computeProgress, snapshotCounters,
+    WEEKLY_CATALOG, WEEKLY_CLAIMABLE_CATALOG, WEEKLY_BOARD_SIZE, WEEK_EPOCH_MS, WEEK_MS, WEEKLY_COUNTERS,
 } from './_weekly-board.js';
+import { canPlayerReceiveMission } from './_eligibility.js';
 
 test('weekKey is stable within a week and advances across the Monday boundary', () => {
     const base = WEEK_EPOCH_MS + WEEK_MS * 100; // some Monday 00:00 UTC
@@ -33,7 +34,7 @@ test('different weeks generally yield different boards', () => {
 });
 
 test('every board mission references a real tracked counter', () => {
-    for (const m of WEEKLY_CATALOG) {
+    for (const m of WEEKLY_CLAIMABLE_CATALOG) {
         assert.ok((WEEKLY_COUNTERS as string[]).includes(m.counter), `${m.id} has untracked counter ${m.counter}`);
         assert.ok(m.target > 0);
         const r = m.reward;
@@ -41,6 +42,36 @@ test('every board mission references a real tracked counter', () => {
         // No aura stones anywhere (owner constraint).
         assert.ok(!('auraStones' in r));
     }
+});
+
+test('low-level players are never assigned Hollow Gate Warden missions', () => {
+    const lowLevel = { level: 20, village: 'Leaf', rankTitle: 'Genin' };
+    for (let i = 0; i < 100; i += 1) {
+        const board = pickWeeklyBoardForPlayer(`w${i}`, lowLevel, WEEKLY_BOARD_SIZE, { systems: { hollowGate: false } });
+        assert.equal(board.some((mission) => mission.id === 'wk-hollow-warden' || /hollow gate warden/i.test(mission.name)), false, `w${i} assigned Warden`);
+        for (const mission of board) assert.equal(canPlayerReceiveMission(lowLevel, mission, { systems: { hollowGate: false } }).ok, true, `${mission.id} should be eligible`);
+    }
+});
+
+test('low-level players get eligible weekly replacements and fallbacks', () => {
+    const wk = Array.from({ length: 100 }, (_, i) => `w${i}`).find((key) => pickWeeklyBoard(key).some((mission) => mission.id === 'wk-hollow-warden'));
+    assert.ok(wk, 'test needs a week whose raw board includes Warden');
+    const lowLevel = { level: 5, village: 'Leaf', rankTitle: 'Academy Student' };
+    const board = pickWeeklyBoardForPlayer(wk, lowLevel, WEEKLY_BOARD_SIZE, { systems: { hollowGate: false, ranked: false } });
+    assert.equal(board.length, WEEKLY_BOARD_SIZE);
+    assert.equal(board.some((mission) => mission.id === 'wk-hollow-warden'), false);
+    assert.ok(board.some((mission) => mission.id.startsWith('wk-safe-')), 'expected a safe fallback mission');
+    for (const mission of board) assert.equal(canPlayerReceiveMission(lowLevel, mission, { systems: { hollowGate: false, ranked: false } }).ok, true);
+});
+
+test('level 100 players can see Hollow Gate Warden if Hollow Gate is unlocked', () => {
+    const board = pickWeeklyBoardForPlayer(
+        'w-endgame',
+        { level: 100, village: 'Leaf', rankTitle: 'Kage' },
+        WEEKLY_CLAIMABLE_CATALOG.length,
+        { systems: { hollowGate: true, ranked: true } },
+    );
+    assert.ok(board.some((mission) => mission.id === 'wk-hollow-warden'));
 });
 
 test('computeProgress diffs current vs baseline, floored at 0', () => {

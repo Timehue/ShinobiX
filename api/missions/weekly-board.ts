@@ -5,28 +5,46 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { pickWeeklyBoard, weekKey, weekEndsAt, computeProgress, snapshotCounters, type WeeklyMission } from './_weekly-board.js';
-
-/*
- * /api/missions/weekly-board — GET (board + your progress) + POST (claim)
- *
- * A weekly, GLOBAL board of cross-system missions (same for everyone, seeded by
- * the week). Progress is the rise of an existing lifetime counter since a
- * per-week BASELINE snapshot — no new action hooks. Server-authoritative claim:
- * the reward is recomputed from the SAVED counter vs the saved baseline, paid
- * under the save lock, and is idempotent per (week, mission).
- *
- *   GET  ?playerName=        → { weekKey, endsAt, missions:[{...,progress,complete,claimed}] }
- *   POST { playerName, missionId } → { ok, reward } | { ok, alreadyClaimed }
- */
+import {
+    WEEKLY_CLAIMABLE_CATALOG,
+    pickWeeklyBoardForPlayer,
+    weekKey,
+    weekEndsAt,
+    computeProgress,
+    snapshotCounters,
+    type WeeklyMission,
+} from './_weekly-board.js';
+import { canPlayerClaimMission, missionEligibilityFailureBody } from './_eligibility.js';
 
 const RECORD_PREFIX = 'weekly-board:';
 const RECORD_TTL_SECONDS = 16 * 24 * 60 * 60;
 
 type WeeklyRecord = { baseline: Record<string, number>; claimed: string[] };
 
-function num(v: unknown): number { const n = Number(v); return Number.isFinite(n) ? n : 0; }
-function recordKey(slug: string, wk: string): string { return `${RECORD_PREFIX}${slug}:${wk}`; }
+function num(v: unknown): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function recordKey(slug: string, wk: string): string {
+    return `${RECORD_PREFIX}${slug}:${wk}`;
+}
+
+function villageStateKey(village: unknown): string {
+    return `game:village-state:${String(village ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+}
+
+async function missionEligibilityContextFor(char: Record<string, unknown>, now: number) {
+    const village = String(char.village ?? '');
+    const villageState = village ? await kv.get<Record<string, unknown>>(villageStateKey(village)).catch(() => null) : null;
+    const hollowGateUntil = Number(villageState?.hollowGateUnlockedUntil ?? 0);
+    return {
+        systems: {
+            hollowGate: hollowGateUntil > now,
+        },
+        now,
+    };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -47,12 +65,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const now = Date.now();
         const wk = weekKey(now);
         const key = recordKey(playerName, wk);
-        const board = pickWeeklyBoard(wk);
 
-        // ── GET: board + progress (lazily snapshots the week baseline) ──────────
         if (isGet) {
             const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const char = (save?.character ?? {}) as Record<string, unknown>;
+            const eligibilityContext = await missionEligibilityContextFor(char, now);
+            const board = pickWeeklyBoardForPlayer(wk, char, undefined, eligibilityContext);
             let record = await kv.get<WeeklyRecord>(key);
             if (!record) {
                 const fresh: WeeklyRecord = { baseline: snapshotCounters(char), claimed: [] };
@@ -70,19 +88,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (req.method !== 'POST') return res.status(405).end();
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'weekly-board-claim', 30, 60_000, identity.name))) return;
 
-        const missionId = typeof (body as Record<string, unknown>).missionId === 'string' ? (body as Record<string, unknown>).missionId as string : '';
-        const mission: WeeklyMission | undefined = board.find((m) => m.id === missionId);
-        if (!mission) return res.status(400).json({ error: 'That mission is not on this week\'s board.' });
+        const missionId = typeof (body as Record<string, unknown>).missionId === 'string'
+            ? (body as Record<string, unknown>).missionId as string
+            : '';
+        const requestedCatalogMission = WEEKLY_CLAIMABLE_CATALOG.find((m) => m.id === missionId);
+        if (!requestedCatalogMission) return res.status(400).json({ error: 'That mission is not on this week\'s board.' });
 
         const out = await withKvLock<{ status: number; body: Record<string, unknown> }>(`save:${playerName}`, async () => {
             const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const char = (save?.character ?? null) as Record<string, unknown> | null;
             if (!save || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+
+            const eligibilityContext = await missionEligibilityContextFor(char, now);
+            const board = pickWeeklyBoardForPlayer(wk, char, undefined, eligibilityContext);
+            const mission: WeeklyMission | undefined = board.find((m) => m.id === missionId);
+            if (!mission) {
+                const check = canPlayerClaimMission(char, requestedCatalogMission, eligibilityContext);
+                if (!check.ok) return { status: 403, body: missionEligibilityFailureBody(check) };
+                return { status: 400, body: { error: 'That mission is not on this week\'s board.' } };
+            }
+            const claimEligibility = canPlayerClaimMission(char, mission, eligibilityContext);
+            if (!claimEligibility.ok) return { status: 403, body: missionEligibilityFailureBody(claimEligibility) };
+
             let record = await kv.get<WeeklyRecord>(key);
-            if (!record) { record = { baseline: snapshotCounters(char), claimed: [] }; }
-            if (record.claimed.includes(mission.id)) return { status: 200, body: { ok: true, alreadyClaimed: true, _saveVersion: Number(save._saveVersion ?? 0) } };
+            if (!record) record = { baseline: snapshotCounters(char), claimed: [] };
+            if (record.claimed.includes(mission.id)) {
+                return { status: 200, body: { ok: true, alreadyClaimed: true, _saveVersion: Number(save._saveVersion ?? 0) } };
+            }
             const progress = computeProgress(mission, record.baseline, char);
-            if (progress < mission.target) return { status: 400, body: { error: 'That mission is not complete yet.', progress, target: mission.target } };
+            if (progress < mission.target) {
+                return { status: 400, body: { error: 'That mission is not complete yet.', progress, target: mission.target } };
+            }
 
             const r = mission.reward;
             const nextChar: Record<string, unknown> = {
@@ -99,7 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true });
 
         if (out.status === 200 && out.body.ok && !out.body.alreadyClaimed) {
-            await kv.set(`audit:weekly-board:${now}`, { ts: now, player: playerName, wk, missionId: mission.id, reward: mission.reward }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            await kv.set(`audit:weekly-board:${now}`, { ts: now, player: playerName, wk, missionId: out.body.missionId, reward: out.body.reward }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
         }
         return res.status(out.status).json(out.body);
     } catch (err) {

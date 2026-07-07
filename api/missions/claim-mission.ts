@@ -20,6 +20,7 @@ import {
     clientTrustedCombatMissionRewardAllowed,
     COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON,
 } from '../_release-flags.js';
+import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
 import {
     combatMissionByKey,
     fieldMissionById,
@@ -59,8 +60,8 @@ import {
 //                    (explore count) stays client-tracked like field missions.
 //   • academy-trial— one-time (character.academyTrialClaimed). OFF the daily cap.
 //
-// Unknown / creator-authored mission ids are not in the catalog → the response
-// signals clientFallback so the (unchanged) client path can still pay those.
+// Unknown / creator-authored mission ids are not paid here. Rewarded missions
+// must be in the server catalog so eligibility and payout are authoritative.
 
 const monthKeyOf = (): string => new Date().toISOString().slice(0, 7);
 
@@ -74,7 +75,17 @@ function betaEventForMissionType(missionType: string): BetaMetricEvent {
 type SaveChar = Record<string, unknown>;
 
 type ClaimOutcome =
-    | { applied: false; reason: string; clientFallback?: boolean }
+    | {
+        applied: false;
+        reason: string;
+        clientFallback?: boolean;
+        error?: string;
+        requiredLevel?: number;
+        playerLevel?: number;
+        requiredSystem?: string;
+        requiredProfession?: string;
+        requiredProfessionRank?: number;
+    }
     | {
         applied: true;
         saveVersion: number;
@@ -113,6 +124,20 @@ export function applyClaimedMissionState(
     }
 
     return updated;
+}
+
+function eligibilityFailure(check: MissionEligibilityResult): Extract<ClaimOutcome, { applied: false }> {
+    const body = missionEligibilityFailureBody(check);
+    return {
+        applied: false,
+        reason: String(body.reason ?? 'not-yet-unlocked'),
+        error: String(body.error ?? 'mission_not_eligible'),
+        requiredLevel: body.requiredLevel,
+        playerLevel: body.playerLevel,
+        requiredSystem: body.requiredSystem,
+        requiredProfession: body.requiredProfession,
+        requiredProfessionRank: body.requiredProfessionRank,
+    };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -167,11 +192,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (missionType === 'combat') {
                 const def = combatMissionByKey(missionId);
-                if (!def) return { applied: false, reason: 'unknown-mission', clientFallback: true };
+                if (!def) return { applied: false, reason: 'unknown-mission' };
                 if (!clientTrustedCombatMissionRewardAllowed(def)) {
                     return { applied: false, reason: COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
                 }
-                if (Number(char.level ?? 1) < def.min) return { applied: false, reason: 'level' };
+                const eligibility = canPlayerClaimMission(char, def);
+                if (!eligibility.ok) return eligibilityFailure(eligibility);
                 // Server-authoritative claim gate: the single-use token minted by
                 // /api/missions/queue-combat-claim when the fight was won. Preferred
                 // over the pendingCombatMissionClaims flag because the client can't
@@ -199,8 +225,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 completion = 'daily';
             } else if (missionType === 'field') {
                 const def = fieldMissionById(missionId);
-                if (!def) return { applied: false, reason: 'unknown-mission', clientFallback: true };
-                if (Number(char.level ?? 1) < def.levelReq) return { applied: false, reason: 'level' };
+                if (!def) return { applied: false, reason: 'unknown-mission' };
+                const eligibility = canPlayerClaimMission(char, def);
+                if (!eligibility.ok) return eligibilityFailure(eligibility);
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
                 const progressKey = missionProgressReceiptKey(playerName, missionId);
                 const progress = validateMissionProgressReceipt(
@@ -214,10 +241,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 completion = 'daily';
             } else if (missionType === 'hunt') {
                 // Hunter Guild contract — own daily pool, grants material drops.
-                // Creator-authored hunts aren't in the catalog → clientFallback.
+                // Creator-authored hunts aren't in the catalog and are not paid.
                 const def = huntMissionById(missionId);
-                if (!def) return { applied: false, reason: 'unknown-mission', clientFallback: true };
-                if (Number(char.level ?? 1) < def.levelReq) return { applied: false, reason: 'level' };
+                if (!def) return { applied: false, reason: 'unknown-mission' };
+                const eligibility = canPlayerClaimMission(char, def);
+                if (!eligibility.ok) return eligibilityFailure(eligibility);
                 if (!hasDailyHuntSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
                 const progressKey = missionProgressReceiptKey(playerName, missionId);
                 const progress = validateMissionProgressReceipt(

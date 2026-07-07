@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const node_assert_1 = require("node:assert");
+const _eligibility_js_1 = require("./_eligibility.js");
 const _pool_js_1 = require("./_pool.js");
 (0, node_test_1.describe)('getMissionPool', () => {
     (0, node_test_1.it)('healer pool has at least 8 missions', () => {
@@ -51,6 +52,65 @@ const _pool_js_1 = require("./_pool.js");
         const a = (0, _pool_js_1.pickDailyMissions)('healer', 'alice', '2026-05-25').map(m => m.templateId);
         const b = (0, _pool_js_1.pickDailyMissions)('healer', 'eve', '2026-05-25').map(m => m.templateId);
         node_assert_1.strict.notDeepEqual(a, b);
+    });
+});
+(0, node_test_1.describe)('pickDailyMissionsForPlayer eligibility filtering', () => {
+    (0, node_test_1.it)('level 1 players cannot receive profession daily objectives', () => {
+        const picks = (0, _pool_js_1.pickDailyMissionsForPlayer)({
+            profession: 'healer',
+            playerName: 'academy',
+            dateKey: '2026-05-25',
+            character: { level: 1, profession: 'healer', professionRank: 1 },
+        });
+        node_assert_1.strict.equal(picks.length, 0);
+    });
+    (0, node_test_1.it)('rank 1 healers get eligible fallback picks instead of high-rank objectives', () => {
+        const character = { level: 13, profession: 'healer', professionRank: 1 };
+        const picks = (0, _pool_js_1.pickDailyMissionsForPlayer)({
+            profession: 'healer',
+            playerName: 'jun',
+            dateKey: '2026-05-25',
+            character,
+            count: 3,
+        });
+        node_assert_1.strict.equal(picks.length, 3);
+        for (const pick of picks) {
+            node_assert_1.strict.equal((0, _eligibility_js_1.canPlayerReceiveMission)(character, pick).ok, true);
+            node_assert_1.strict.equal(pick.eligibility.minProfessionRank ?? 1, 1);
+        }
+    });
+    (0, node_test_1.it)('players without pets cannot receive pet-training missions', () => {
+        const picks = (0, _pool_js_1.pickDailyMissionsForPlayer)({
+            profession: 'petTamer',
+            playerName: 'no-pet',
+            dateKey: '2026-05-25',
+            character: { level: 30, profession: 'petTamer', professionRank: 10, pets: [] },
+            context: { systems: { expedition: true } },
+            count: 8,
+        });
+        node_assert_1.strict.ok(picks.length > 0);
+        node_assert_1.strict.equal(picks.some((pick) => pick.kind === 'pet-tamer-pet-train'), false);
+    });
+    (0, node_test_1.it)('players without PvP unlock cannot receive Vanguard missions', () => {
+        const picks = (0, _pool_js_1.pickDailyMissionsForPlayer)({
+            profession: 'vanguard',
+            playerName: 'no-pvp',
+            dateKey: '2026-05-25',
+            character: { level: 30, profession: 'vanguard', professionRank: 10 },
+            context: { systems: { pvp: false } },
+            count: 4,
+        });
+        node_assert_1.strict.equal(picks.length, 0);
+    });
+    (0, node_test_1.it)('profession mismatch cannot receive another profession pool', () => {
+        const picks = (0, _pool_js_1.pickDailyMissionsForPlayer)({
+            profession: 'healer',
+            playerName: 'wrong-job',
+            dateKey: '2026-05-25',
+            character: { level: 30, profession: 'vanguard', professionRank: 10 },
+            count: 3,
+        });
+        node_assert_1.strict.equal(picks.length, 0);
     });
 });
 (0, node_test_1.describe)('pickNewbieMissions', () => {

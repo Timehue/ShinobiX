@@ -8,6 +8,7 @@ import {
     fieldMissionById,
     huntMissionById,
 } from './_mission-catalog.js';
+import { canPlayerReceiveMission, missionEligibilityFailureBody } from './_eligibility.js';
 import {
     applyMissionProgressEvent,
     cleanMissionProgressEventKind,
@@ -48,6 +49,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (missionType === 'field' && huntMissionById(missionId)) {
             return res.status(200).json({ ok: true, recorded: false, reason: 'wrong-mission-type' });
+        }
+        const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        const char = record?.character as Record<string, unknown> | undefined;
+        const eligibility = canPlayerReceiveMission(char ?? {}, mission);
+        if (!eligibility.ok) {
+            return res.status(403).json({ ok: false, recorded: false, ...missionEligibilityFailureBody(eligibility) });
         }
 
         const key = missionProgressReceiptKey(playerName, missionId);

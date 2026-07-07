@@ -40,7 +40,17 @@ export type ClaimMissionResult =
         academyChecklistClaimed?: boolean;
         _saveVersion?: number;
     }
-    | { ok: true; applied: false; reason: string; clientFallback?: boolean }
+    | {
+        ok: true;
+        applied: false;
+        reason: string;
+        error?: string;
+        requiredLevel?: number;
+        playerLevel?: number;
+        requiredSystem?: string;
+        requiredProfession?: string;
+        requiredProfessionRank?: number;
+    }
     | null;
 
 export async function postClaimMission(
@@ -111,7 +121,7 @@ export function applyServerMissionReward(
     return next;
 }
 
-export function claimReasonMessage(reason: string): string {
+export function claimReasonMessage(reason: string, result?: Extract<ClaimMissionResult, { applied: false }>): string {
     switch (reason) {
         case "daily-cap": return "Daily mission limit reached (20/20). Resets at midnight UTC.";
         case "not-queued": return "Win this mission's battle first.";
@@ -119,9 +129,35 @@ export function claimReasonMessage(reason: string): string {
         case "incomplete-progress-receipt": return "Finish this mission's required field progress first.";
         case "missing-hunt-kill-receipt": return "Track and defeat this hunt target first.";
         case "level": return "You don't meet the level requirement.";
+        case "level-too-low": return result?.requiredLevel ? `Unlocks at Level ${result.requiredLevel}.` : "You don't meet this mission's level requirement.";
+        case "rank-too-low": return "You don't meet this mission's rank requirement.";
+        case "profession-mismatch": return result?.requiredProfession ? `Requires ${result.requiredProfession} profession.` : "This mission requires a different profession.";
+        case "profession-rank-too-low": return result?.requiredProfessionRank ? `Requires profession rank ${result.requiredProfessionRank}.` : "Your profession rank is too low for this mission.";
+        case "system-locked": return systemLockedMessage(result?.requiredSystem);
+        case "missing-clan": return "Requires joining a clan.";
+        case "missing-village": return "Requires joining a village.";
+        case "missing-pet": return "Requires a pet.";
+        case "feature-disabled": return "This mission's feature is not enabled right now.";
+        case "not-yet-unlocked": return "This mission is not unlocked for your character yet.";
+        case "unknown-mission": return "This mission is not available for server-authoritative rewards.";
         case "already-claimed": return "You've already claimed this.";
         case "already-claimed-today": return "You've already claimed this today. Resets at midnight UTC.";
         case "no-save": return "Could not load your save. Try again.";
         default: return "Could not claim this mission right now. Try again.";
+    }
+}
+
+function systemLockedMessage(system?: string): string {
+    switch (system) {
+        case "hollowGate": return "Requires Hollow Gate access.";
+        case "ranked": return "Requires ranked PvP.";
+        case "pvp": return "Requires PvP access.";
+        case "clanBoss": return "Requires clan boss access.";
+        case "villageWar": return "Requires an active village war.";
+        case "legacy": return "Requires Legacy access.";
+        case "pet":
+        case "expedition": return "Requires a pet.";
+        case "cardClash": return "Requires Card Clash access.";
+        default: return "This mission requires a system your character has not unlocked yet.";
     }
 }

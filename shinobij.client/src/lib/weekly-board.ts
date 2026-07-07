@@ -17,6 +17,15 @@ export type WeeklyBoardMission = {
     claimed: boolean;
 };
 export type WeeklyBoard = { weekKey: string; endsAt: number; missions: WeeklyBoardMission[] };
+export type WeeklyClaimResult = {
+    ok: boolean;
+    error?: string;
+    reason?: string;
+    requiredLevel?: number;
+    requiredSystem?: string;
+    reward?: WeeklyBoardReward;
+    alreadyClaimed?: boolean;
+};
 
 export async function fetchWeeklyBoard(playerName: string): Promise<WeeklyBoard | null> {
     try {
@@ -29,19 +38,32 @@ export async function fetchWeeklyBoard(playerName: string): Promise<WeeklyBoard 
     }
 }
 
-export async function claimWeeklyMission(playerName: string, missionId: string): Promise<{ ok: boolean; error?: string; reward?: WeeklyBoardReward; alreadyClaimed?: boolean }> {
+export async function claimWeeklyMission(playerName: string, missionId: string): Promise<WeeklyClaimResult> {
     try {
         const res = await fetch('/api/missions/weekly-board', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ playerName, missionId }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; reward?: WeeklyBoardReward; alreadyClaimed?: boolean };
-        if (!res.ok || !data.ok) return { ok: false, error: data.error || 'Could not claim.' };
+        const data = await res.json().catch(() => ({})) as WeeklyClaimResult;
+        if (!res.ok || !data.ok) return { ok: false, error: data.error || 'Could not claim.', reason: data.reason, requiredLevel: data.requiredLevel, requiredSystem: data.requiredSystem };
         return { ok: true, reward: data.reward, alreadyClaimed: data.alreadyClaimed };
     } catch {
         return { ok: false, error: 'Could not claim. Try again.' };
     }
+}
+
+export function weeklyClaimErrorText(result: WeeklyClaimResult): string {
+    if (result.reason === "level-too-low") return result.requiredLevel ? `Unlocks at Level ${result.requiredLevel}.` : "You do not meet this mission's level requirement.";
+    if (result.reason === "system-locked") {
+        if (result.requiredSystem === "hollowGate") return "Requires Hollow Gate access.";
+        if (result.requiredSystem === "ranked") return "Requires ranked PvP.";
+        return "This mission requires a system your character has not unlocked yet.";
+    }
+    if (result.reason === "missing-clan") return "Requires joining a clan.";
+    if (result.reason === "missing-pet") return "Requires a pet.";
+    if (result.error === "mission_not_eligible") return "This mission is not unlocked for your character yet.";
+    return result.error || "Could not claim.";
 }
 
 export function rewardText(r: WeeklyBoardReward): string {

@@ -7,9 +7,11 @@ import {
     type MissionTemplate,
     type NewbieMissionKind,
     type NewbieMissionTemplate,
-    pickDailyMissions,
+    getMissionTemplateById,
+    pickDailyMissionsForPlayer,
     pickNewbieMissions,
 } from './_pool.js';
+import { canPlayerReceiveMission, type MissionEligibility } from './_eligibility.js';
 
 export type DailyMission = {
     id: string;
@@ -21,14 +23,23 @@ export type DailyMission = {
     progress: number;
     uniqueTargets?: string[];
     xpReward: number;
+    eligibility?: MissionEligibility;
     completedAt: number | null;
     claimed: boolean;
+};
+
+export type DailyMissionReplacement = {
+    replacedMissionId: string;
+    replacedTemplateId: string;
+    replacementTemplateId: string;
+    reason: string;
 };
 
 export type DailyMissionsState = {
     date: string;            // "YYYY-MM-DD" UTC
     profession: Profession;
     missions: DailyMission[];
+    replacements?: DailyMissionReplacement[];
 };
 
 // Healer uses a 1.5× XP curve; baseline used by Vanguard. Keep in sync with
@@ -140,9 +151,71 @@ function fromTemplate(t: MissionTemplate, dateKey: string): DailyMission {
         progress: 0,
         uniqueTargets: (t.kind === 'healer-heal-unique' || t.kind === 'vanguard-pvp-unique') ? [] : undefined,
         xpReward: t.xpReward,
+        eligibility: t.eligibility,
         completedAt: null,
         claimed: false,
     };
+}
+
+function missionTemplateForDaily(mission: DailyMission): MissionTemplate | undefined {
+    return getMissionTemplateById(mission.templateId);
+}
+
+function dailyMissionEligibilityInput(mission: DailyMission): DailyMission | MissionTemplate {
+    return missionTemplateForDaily(mission) ?? mission;
+}
+
+export function repairDailyMissionsForEligibility(opts: {
+    state: DailyMissionsState;
+    playerName: string;
+    today: string;
+    slotCount: number;
+    character: Record<string, unknown>;
+}): { state: DailyMissionsState; replacements: DailyMissionReplacement[] } {
+    const candidateTemplates = pickDailyMissionsForPlayer({
+        profession: opts.state.profession,
+        playerName: opts.playerName,
+        dateKey: opts.today,
+        count: getMissionPoolSafeCount(opts.state.profession),
+        character: opts.character,
+    });
+    const used = new Set(opts.state.missions.map((m) => m.templateId));
+    const replacements: DailyMissionReplacement[] = [];
+
+    const missions = opts.state.missions.map((mission) => {
+        if (mission.completedAt || mission.claimed) return mission;
+        const check = canPlayerReceiveMission(opts.character, dailyMissionEligibilityInput(mission));
+        if (check.ok) return mission;
+
+        const replacement = candidateTemplates.find((template) => !used.has(template.templateId));
+        if (!replacement) return mission;
+        used.delete(mission.templateId);
+        used.add(replacement.templateId);
+        replacements.push({
+            replacedMissionId: mission.id,
+            replacedTemplateId: mission.templateId,
+            replacementTemplateId: replacement.templateId,
+            reason: check.reason ?? 'not-yet-unlocked',
+        });
+        return fromTemplate(replacement, opts.today);
+    });
+
+    return {
+        state: {
+            ...opts.state,
+            missions: missions.slice(0, opts.slotCount),
+            ...(replacements.length > 0 ? { replacements } : {}),
+        },
+        replacements,
+    };
+}
+
+function getMissionPoolSafeCount(profession: Profession): number {
+    // Keep this local to avoid exposing a second "all eligible" picker surface.
+    if (profession === 'vanguard') return 12;
+    if (profession === 'healer') return 8;
+    if (profession === 'petTamer') return 8;
+    return 3;
 }
 
 // Load (or issue) today's missions for a player. Returns null if profession
@@ -154,17 +227,27 @@ export async function loadOrIssueDailyMissions(
     now = new Date(),
 ): Promise<DailyMissionsState | null> {
     const today = utcDateKey(now);
-    const existing = await kv.get<DailyMissionsState>(dailyKey(playerName));
-    if (existing && existing.date === today && existing.profession === profession) {
-        return existing;
-    }
     // Look up current rank to determine daily mission slot count.
     const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
     const char = record?.character as Record<string, unknown> | undefined;
     const currentRank = Number(char?.professionRank ?? 1);
     const slotCount = (profession === 'vanguard' && currentRank >= 6) ? 4 : 3;
 
-    const picks = pickDailyMissions(profession, playerName, today, slotCount);
+    const existing = await kv.get<DailyMissionsState>(dailyKey(playerName));
+    if (existing && existing.date === today && existing.profession === profession) {
+        if (!char) return existing;
+        const repaired = repairDailyMissionsForEligibility({ state: existing, playerName, today, slotCount, character: char });
+        if (repaired.replacements.length > 0) {
+            await kv.set(dailyKey(playerName), repaired.state, { ex: 36 * 60 * 60 });
+            console.warn('[missions/daily] replaced ineligible stored missions', {
+                playerName,
+                replacements: repaired.replacements,
+            });
+        }
+        return repaired.state;
+    }
+
+    const picks = pickDailyMissionsForPlayer({ profession, playerName, dateKey: today, count: slotCount, character: char ?? {} });
     if (picks.length === 0) return null;
     const state: DailyMissionsState = {
         date: today,
@@ -194,6 +277,8 @@ export async function reportMissionEvent(opts: {
 }): Promise<{ xpAwarded: number; missionsCompleted: CompletedMissionInfo[] }> {
     const { playerName, profession, kind, targetName } = opts;
     const now = opts.now ?? new Date();
+    const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+    const char = (save?.character ?? {}) as Record<string, unknown>;
     // Lock the daily-missions key for the entire read-modify-write so two
     // concurrent reports for the same player can't both read progress=N,
     // both increment to N+1, and the second write clobber the first.
@@ -208,6 +293,7 @@ export async function reportMissionEvent(opts: {
 
         const next = state.missions.map(m => {
             if (m.kind !== kind || m.completedAt) return m;
+            if (!canPlayerReceiveMission(char, dailyMissionEligibilityInput(m)).ok) return m;
             // Unique-target dedup.
             let nextProgress = m.progress;
             let nextUnique = m.uniqueTargets;
