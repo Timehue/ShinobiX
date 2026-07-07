@@ -188,6 +188,20 @@ describe('Express route parity (Railway + cPanel)', () => {
             'duplicate-domain redirect middleware must run before SPA fallback/static serving',
         );
     });
+
+    it('404s missing static asset URLs before the SPA fallback', () => {
+        assert.match(serverSrc, /_STATIC_ASSET_URL_RE/, 'missing static asset URL guard');
+        assert.match(serverSrc, /Static asset not found/, 'missing asset guard should return a clear 404 body');
+        assert.match(serverSrc, /res\.setHeader\(['"]Cache-Control['"],\s*['"]no-store['"]\)/, 'missing asset guard must not be cacheable');
+        assert.ok(
+            serverSrc.indexOf('app.use(express.static(staticDir') < serverSrc.indexOf('app.get(_STATIC_ASSET_URL_RE'),
+            'asset guard should run after express.static so real files still serve',
+        );
+        assert.ok(
+            serverSrc.indexOf('app.get(_STATIC_ASSET_URL_RE') < serverSrc.indexOf('app.get(/(.*)/'),
+            'asset guard must run before SPA fallback so missing chunks do not receive index.html',
+        );
+    });
 });
 
 describe('handler wiring (no orphaned endpoints)', () => {
