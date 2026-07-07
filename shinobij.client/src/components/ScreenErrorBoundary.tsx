@@ -14,6 +14,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RecoveryActions } from "./RecoveryActions";
 import { reportError } from "../lib/sentry";
+import { isChunkLoadError, reloadOnceForChunkLoadError } from "../lib/chunk-load-recovery";
 
 type Props = { children: ReactNode };
 type State = { error: Error | null };
@@ -27,17 +28,24 @@ export class ScreenErrorBoundary extends Component<Props, State> {
 
     componentDidCatch(error: Error, info: ErrorInfo): void {
         console.error("[ScreenErrorBoundary]", error, info?.componentStack);
+        if (isChunkLoadError(error)) {
+            reloadOnceForChunkLoadError(error);
+            return;
+        }
         reportError(error, { componentStack: info?.componentStack, scope: "screen" });
     }
 
     render(): ReactNode {
         if (!this.state.error) return this.props.children;
+        const chunk = isChunkLoadError(this.state.error);
         return (
             <div role="alert" style={{ padding: "2rem 1.25rem", maxWidth: 520, margin: "1.5rem auto", textAlign: "center", background: "#0b1120", border: "1px solid rgba(250,204,21,0.35)", borderRadius: 14 }}>
                 <div style={{ fontSize: 30, marginBottom: 8 }} aria-hidden>忍</div>
-                <h2 style={{ fontSize: 18, color: "#facc15", margin: "0 0 6px" }}>This screen hit a snag</h2>
+                <h2 style={{ fontSize: 18, color: "#facc15", margin: "0 0 6px" }}>{chunk ? "A new version is available" : "This screen hit a snag"}</h2>
                 <p style={{ fontSize: 14, lineHeight: 1.5, color: "#94a3b8", margin: "0 0 18px" }}>
-                    Something went wrong drawing this view. Use the menu to go somewhere else, or reload — your progress is saved.
+                    {chunk
+                        ? "The game was updated while you were playing. Reload to get the latest version — your progress is saved."
+                        : "Something went wrong drawing this view. Use the menu to go somewhere else, or reload — your progress is saved."}
                 </p>
                 <RecoveryActions />
                 <button

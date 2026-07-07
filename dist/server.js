@@ -875,6 +875,7 @@ const _HASHED_ASSET_RE = /[\\/]assets[\\/].*-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/i;
 // changes the URL and never waits on this TTL. JS/CSS/JSON are excluded here so no
 // chunk map or data manifest can go stale.
 const _STATIC_MEDIA_RE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf)$/i;
+const _STATIC_ASSET_URL_RE = /^\/(?:assets|badges|music|sfx|sector-map|scenes)\/.+\.[a-z0-9]+$/i;
 app.use((req, res, next) => {
     if ((0, _canonical_domain_js_1.shouldRedirectToCanonical)(req.headers.host, req.path)) {
         res.redirect(301, (0, _canonical_domain_js_1.canonicalRedirectLocation)(req.originalUrl));
@@ -898,6 +899,14 @@ app.use(express_1.default.static(staticDir, {
         }
     },
 }));
+// If a browser has an old Vite chunk URL after a deploy, do not let the SPA
+// fallback serve index.html at that .js/.css URL. Module scripts require a JS
+// MIME type; caching HTML under a chunk URL strands players until the bad cache
+// entry expires. Real client routes still fall through to the SPA fallback.
+app.get(_STATIC_ASSET_URL_RE, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(404).type('text/plain').send('Static asset not found');
+});
 // SPA fallback — any non-API path serves index.html so React Router handles it.
 // no-cache so a deploy never serves a stale chunk map (matches express.static above).
 app.get(/(.*)/, (_req, res) => {

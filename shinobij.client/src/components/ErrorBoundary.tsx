@@ -18,18 +18,15 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RecoveryActions } from "./RecoveryActions";
 import { reportError } from "../lib/sentry";
+import {
+    clearChunkReloadFlag,
+    isChunkLoadError,
+    reloadClearingChunkFlag,
+    reloadOnceForChunkLoadError,
+} from "../lib/chunk-load-recovery";
 
 type Props = { children: ReactNode };
 type State = { error: Error | null };
-
-const RELOAD_FLAG = "__sj_chunk_reloaded";
-
-function isChunkLoadError(err: Error): boolean {
-    const msg = `${err?.name ?? ""} ${err?.message ?? ""}`;
-    return /ChunkLoadError|Loading chunk|dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(
-        msg,
-    );
-}
 
 export class ErrorBoundary extends Component<Props, State> {
     state: State = { error: null };
@@ -42,11 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
         // App mounted cleanly — clear the one-shot reload guard so a future
         // (genuinely new) stale-chunk error is allowed to auto-reload again.
         if (!this.state.error) {
-            try {
-                sessionStorage.removeItem(RELOAD_FLAG);
-            } catch {
-                /* sessionStorage unavailable (private mode / blocked) — ignore */
-            }
+            clearChunkReloadFlag();
         }
     }
 
@@ -56,14 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
             // Benign: a stale deploy left this tab pointing at 404'd chunk URLs.
             // Auto-reload once to pull the fresh build; do NOT report it — it's
             // expected churn, not a bug, and would only burn the event quota.
-            try {
-                if (!sessionStorage.getItem(RELOAD_FLAG)) {
-                    sessionStorage.setItem(RELOAD_FLAG, "1");
-                    window.location.reload();
-                }
-            } catch {
-                /* fall through to the manual reload card */
-            }
+            reloadOnceForChunkLoadError(error);
             return;
         }
         // Genuine render crash — report it so we hear about it from tooling, not
@@ -72,12 +58,7 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     private reload = (): void => {
-        try {
-            sessionStorage.removeItem(RELOAD_FLAG);
-        } catch {
-            /* ignore */
-        }
-        window.location.reload();
+        reloadClearingChunkFlag();
     };
 
     render(): ReactNode {
