@@ -35,6 +35,7 @@ const LINGER_MS = 2500;
 
 let liveArr: PlayerRecord[] = [];
 let liveSig = "";
+let liveSector: number | null = null;
 // Membership/display-only snapshot (NO within-sector tile): its reference changes
 // only when WHO is in the sector or their display fields change — NOT when a peer
 // walks to a new tile. The "Players Here" panel + sleeper logic subscribe to this
@@ -63,6 +64,43 @@ export function getLocalSectorTile(): number {
     return localTile;
 }
 
+function normalizedSector(value: unknown): number | null {
+    const sector = Number(value);
+    if (!Number.isFinite(sector)) return null;
+    return Math.max(0, Math.floor(sector));
+}
+
+function playerSector(p: PlayerRecord): number | null {
+    return normalizedSector(p.currentSector ?? (p as { sector?: unknown }).sector);
+}
+
+function normalizePlayerRecord(p: PlayerRecord): PlayerRecord {
+    const sector = playerSector(p);
+    if (sector == null || p.currentSector === sector) return p;
+    return { ...p, currentSector: sector };
+}
+
+function clearLiveSectorPlayers(notifySubscribers: boolean): void {
+    const hadState = liveArr.length > 0 || rosterArr.length > 0 || lingerUntil.size > 0 || liveSig !== "" || rosterSig !== "";
+    liveArr = [];
+    liveSig = "";
+    rosterArr = [];
+    rosterSig = "";
+    lingerUntil.clear();
+    if (notifySubscribers && hadState) notify();
+}
+
+/**
+ * Tell the store which sector the viewer is currently standing in. This lets us
+ * reject late HTTP/socket snapshots from the sector the player just left.
+ */
+export function setLiveSectorContext(sector: number | null): void {
+    const nextSector = normalizedSector(sector);
+    if (nextSector === liveSector) return;
+    liveSector = nextSector;
+    clearLiveSectorPlayers(true);
+}
+
 // lastSeenAt advances every beat, so including it raw would defeat the
 // short-circuit (every beat would look "changed"). Bucket it to 30s instead: the
 // roster still refreshes at least every ~30s, which keeps the Scout Network
@@ -83,7 +121,7 @@ export function presenceSignature(list: PlayerRecord[]): string {
     const now = Date.now();
     return list
         .map((p) =>
-            `${p.name.toLowerCase()}:${p.level ?? ""}:${p.currentSector ?? ""}:${p.village ?? ""}:${p.clan ?? ""}:${(p.travelingUntil ?? 0) > now ? 1 : 0}:${Math.floor((p.lastSeenAt ?? 0) / SEEN_BUCKET_MS)}`,
+            `${p.name.toLowerCase()}:${p.level ?? ""}:${p.currentSector ?? ""}:${p.village ?? ""}:${p.clan ?? ""}:${p.inBattle ? 1 : 0}:${(p.travelingUntil ?? 0) > now ? 1 : 0}:${Math.floor((p.lastSeenAt ?? 0) / SEEN_BUCKET_MS)}`,
         )
         .sort()
         .join("|");
@@ -104,7 +142,14 @@ function notify(): void {
  * socket `presence:sector` push). Applies the 2B linger merge, the signature
  * short-circuit, and the avatar prefetch.
  */
-export function pushLiveSectorPlayers(next: PlayerRecord[]): void {
+export function pushLiveSectorPlayers(next: PlayerRecord[], sector?: number): void {
+    const snapshotSector = normalizedSector(sector);
+    next = next.map(normalizePlayerRecord);
+    if (snapshotSector != null) {
+        if (liveSector != null && snapshotSector !== liveSector) return;
+        liveSector = snapshotSector;
+        next = next.filter((p) => playerSector(p) === snapshotSector);
+    }
     const now = Date.now();
     const nextNames = new Set(next.map((p) => p.name.toLowerCase()));
     // Anyone present in this snapshot is unambiguously here — clear their linger.
@@ -159,13 +204,9 @@ export function removeLiveSectorPlayers(names: string[]): void {
 
 /** Clear everything (logout / account switch) so no roster bleeds across sessions. */
 export function resetLiveSectorPlayers(): void {
-    if (!liveArr.length && !lingerUntil.size) return;
-    liveArr = [];
-    liveSig = "";
-    rosterArr = [];
-    rosterSig = "";
-    lingerUntil.clear();
-    notify();
+    if (!liveArr.length && !lingerUntil.size && liveSector == null) return;
+    liveSector = null;
+    clearLiveSectorPlayers(true);
 }
 
 /** Non-reactive snapshot read. Returns a STABLE reference until contents change. */
