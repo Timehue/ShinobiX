@@ -20635,7 +20635,7 @@ button.combat-jutsu-button,
 .tavern-avatar {
     width: 52px;
     height: 52px;
-    border-radius: 50%;
+    border-radius: 11px;
     background: linear-gradient(135deg, #1c1409, #2d1f0a);
     border: 2px solid #44403c;
     overflow: hidden;
@@ -20657,6 +20657,7 @@ button.combat-jutsu-button,
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 11px;
 }
 
 .tavern-level-badge {

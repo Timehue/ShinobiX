@@ -174,7 +174,7 @@
 .profile-page-card .sic-avatar {
     width: 104px;
     height: 104px;
-    border-radius: 50%;
+    border-radius: 11px;
     overflow: hidden;
     display: grid;
     place-items: center;
@@ -189,6 +189,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 11px;
     display: block;
 }
 .profile-page-card .sic-copy {
@@ -288,6 +289,9 @@
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.8fr);
     gap: 8px;
+}
+.profile-page-card .sic-footer-grid-single {
+    grid-template-columns: minmax(0, 1fr);
 }
 .profile-page-card .sic-ledger {
     min-width: 0;
@@ -1054,6 +1058,74 @@
 .profile-page-card .profile-dossier-legacy-hide {
     display: none !important;
 }
+.profile-page-card .profile-title-manager {
+    padding: 0 !important;
+    overflow: hidden;
+}
+.profile-page-card .profile-title-manager-summary {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 56px;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+    border-bottom: 1px solid transparent;
+}
+.profile-page-card .profile-title-manager-summary::-webkit-details-marker {
+    display: none;
+}
+.profile-page-card .profile-title-manager-summary::after {
+    content: "+";
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #93c5fd;
+    border: 1px solid rgba(78,168,255,0.35);
+    background: rgba(78,168,255,0.08);
+    font: 800 15px/1 Inter, sans-serif;
+}
+.profile-page-card .profile-title-manager[open] .profile-title-manager-summary {
+    border-bottom-color: rgba(196,162,90,0.18);
+}
+.profile-page-card .profile-title-manager[open] .profile-title-manager-summary::after {
+    content: "-";
+}
+.profile-page-card .profile-title-manager-summary span {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+}
+.profile-page-card .profile-title-manager-summary strong {
+    color: var(--bsv2-gold-bright);
+    font: 700 11px var(--font-display);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+.profile-page-card .profile-title-manager-summary small {
+    color: #94a3b8;
+    font-size: 0.78rem;
+}
+.profile-page-card .profile-title-manager-summary em {
+    margin-left: auto;
+    color: #94a3b8;
+    font-style: normal;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+.profile-page-card .profile-title-manager-summary em span {
+    display: inline;
+    color: #fde68a;
+    font-weight: 800;
+}
+.profile-page-card .profile-title-manager-body {
+    padding: 14px;
+}
 
 @media (max-width: 1180px) {
     .profile-page-card .profile-dossier-grid {
@@ -1084,6 +1156,20 @@
             "label"
             "value"
             "detail";
+    }
+    .profile-page-card .profile-title-manager-summary {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .profile-page-card .profile-title-manager-summary::after {
+        position: absolute;
+        right: 14px;
+        top: 14px;
+    }
+    .profile-page-card .profile-title-manager-summary em {
+        margin-left: 0;
+        white-space: normal;
+        padding-right: 34px;
     }
 }
 
@@ -1750,7 +1836,7 @@
     width: 48px;
     height: 48px;
     flex: 0 0 48px;
-    border-radius: 50%;
+    border-radius: 11px;
     overflow: hidden;
     background: rgba(15,23,42,0.92);
     border: 1px solid rgba(196,162,90,0.45);
@@ -1763,6 +1849,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 11px;
 }
 .user-hub-screen .user-hub-meta {
     flex: 1 1 auto;
