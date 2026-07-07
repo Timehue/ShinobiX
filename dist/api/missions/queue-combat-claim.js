@@ -9,6 +9,7 @@ const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _mission_catalog_js_1 = require("./_mission-catalog.js");
 const _release_flags_js_1 = require("../_release-flags.js");
+const _eligibility_js_1 = require("./_eligibility.js");
 /*
  * /api/missions/queue-combat-claim — POST only
  *
@@ -91,8 +92,9 @@ async function handler(req, res) {
             const char = record?.character;
             if (!record || !char)
                 return { queued: false, reason: 'no-save' };
-            if (Number(char.level ?? 1) < def.min)
-                return { queued: false, reason: 'level' };
+            const eligibility = (0, _eligibility_js_1.canPlayerReceiveMission)(char, def);
+            if (!eligibility.ok)
+                return { queued: false, reason: (0, _eligibility_js_1.missionEligibilityFailureBody)(eligibility).reason };
             const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims : [];
             const nextPending = pending.includes(def.key) ? pending : [...pending, def.key];
             const nextChar = { ...char, pendingCombatMissionClaims: nextPending };

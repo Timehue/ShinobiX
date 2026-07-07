@@ -48,6 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             profession: state.profession,
             date: state.date,
             missions: state.missions,
+            replacements: state.replacements ?? [],
         });
     } catch (err) {
         // Structured log so a Railway/cPanel 500 here is diagnosable without a
