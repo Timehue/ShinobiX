@@ -1599,6 +1599,11 @@ button {
     transform: translate(-50%, -50%) scale(1.2);
     box-shadow: 0 0 0 4px rgba(249,115,22,.6), 0 0 30px rgba(255,140,0,.85), 0 4px 14px rgba(0,0,0,.6);
 }
+.atlas-sector-hunt-trail {
+    z-index: 10;
+    border-color: #fde68a;
+    box-shadow: 0 0 0 3px rgba(250,204,21,.35), 0 0 18px rgba(250,204,21,.55), 0 4px 10px rgba(0,0,0,.45);
+}
 @keyframes weekly-boss-sector-pulse {
     0%, 100% { box-shadow: 0 0 0 3px rgba(249,115,22,.45), 0 0 18px rgba(249,115,22,.65), 0 4px 10px rgba(0,0,0,.5); }
     50% { box-shadow: 0 0 0 5px rgba(249,115,22,.6), 0 0 34px rgba(255,120,0,.9), 0 4px 14px rgba(0,0,0,.6); }
@@ -1616,6 +1621,26 @@ button {
 @keyframes weekly-boss-flag-bob {
     0%, 100% { transform: translateY(0) rotate(-6deg); }
     50% { transform: translateY(-2px) rotate(6deg); }
+}
+.atlas-hunt-flag {
+    position: absolute;
+    right: -12px;
+    bottom: -12px;
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #451a03;
+    background: linear-gradient(180deg, #fde68a, #f59e0b);
+    border: 1px solid rgba(120,53,15,.85);
+    pointer-events: none;
+    filter: drop-shadow(0 0 4px rgba(250,204,21,.9)) drop-shadow(0 1px 1px #000);
+    animation: weekly-boss-flag-bob 1.8s ease-in-out infinite;
+}
+.atlas-hunt-flag svg {
+    width: 12px;
+    height: 12px;
 }
 
 /* ── World-map zoom mode (worldMapZoom.v1) ────────────────────────────────────
