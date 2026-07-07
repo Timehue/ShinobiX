@@ -139,6 +139,22 @@ const supportJutsu = {
     tags: [{ name: 'Heal' }, { name: 'Shield' }],
 };
 
+const buffedElementAttack = {
+    id: 'buffed-element',
+    name: 'Buffed Element',
+    type: 'Ninjutsu',
+    element: 'Lava',
+    target: 'OPPONENT',
+    range: 1,
+    ap: 60,
+    cooldown: 3,
+    chakraCost: 25,
+    staminaCost: 15,
+    effectPower: 30,
+    isUtility: false,
+    tags: [{ name: 'Increase Damage Given', percent: 20 }],
+};
+
 function fighter(name: string, pos: number, patch: Partial<PvpFighter> = {}): PvpFighter {
     return {
         name,
@@ -160,6 +176,21 @@ function fighter(name: string, pos: number, patch: Partial<PvpFighter> = {}): Pv
         },
         pos,
         ...patch,
+    };
+}
+
+function withEquippedItem(base: PvpFighter, item: Record<string, unknown>, slotKey: string): PvpFighter {
+    const character = base.character as Record<string, unknown>;
+    return {
+        ...base,
+        character: {
+            ...character,
+            pvpItems: [...((character.pvpItems as unknown[] | undefined) ?? []), item],
+            equipment: {
+                ...((character.equipment as Record<string, string | undefined> | undefined) ?? {}),
+                [slotKey]: String(item.id),
+            },
+        },
     };
 }
 
@@ -344,6 +375,86 @@ test('basic attack spends only AP and stamina and emits matching damage fx', asy
     assert.equal(attackVfx.anchor, 'target');
     assert.equal(after.vfxSeq, 1);
     assert.ok(after.log.some((line) => line.includes(`${damageFx.amount} damage`)));
+});
+
+test('damaging jutsu with incidental support tags keeps its elemental VFX', async () => {
+    seed(session('element-vfx', {
+        p1: withExtraJutsu(fighter('alice', 0), buffedElementAttack),
+    }));
+
+    const out = await postMove('alice', {
+        battleId: 'element-vfx',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'buffed-element',
+        moveToken: 'element-vfx-token',
+    });
+
+    assert.equal(out.statusCode, 200);
+    const after = storedSession('element-vfx');
+    assert.equal(after.vfx?.[0]?.key, 'magma');
+    assert.equal(after.vfx?.[0]?.target, 'p2');
+    assert.equal(after.vfx?.[0]?.anchor, 'target');
+});
+
+test('thrown status weapons layer delivery VFX with their status effect', async () => {
+    const serpentDust = {
+        id: 'test-serpent-dust',
+        name: 'Serpent Dust',
+        slot: 'thrown',
+        weaponRange: 4,
+        weaponCooldown: 0,
+        weaponEp: 0,
+        weaponEffect: 'Poison',
+        weaponEffectValue: 55,
+        apCost: 20,
+    };
+    seed(session('throw-status-vfx', {
+        p1: withEquippedItem(fighter('alice', 0), serpentDust, 'thrown'),
+    }));
+
+    const out = await postMove('alice', {
+        battleId: 'throw-status-vfx',
+        role: 'p1',
+        action: 'weapon',
+        itemId: 'test-serpent-dust',
+        moveToken: 'throw-status-vfx-token',
+    });
+
+    assert.equal(out.statusCode, 200);
+    const after = storedSession('throw-status-vfx');
+    assert.equal(after.vfx?.[0]?.key, 'throwable');
+    assert.equal(after.vfx?.[0]?.target, 'p2');
+    assert.ok(after.vfx?.some(vfx => vfx.key === 'poison' && vfx.target === 'p2' && vfx.anchor === 'target' && vfx.intensity === 'minor'));
+});
+
+test('both-target consumables emit matching self and opponent VFX', async () => {
+    const smokeBomb = {
+        id: 'test-smoke-bomb',
+        name: 'Smoke Bomb',
+        slot: 'item',
+        weaponCooldown: 0,
+        weaponEffect: 'Decrease Damage Given',
+        weaponEffectValue: 100,
+        weaponEffectTarget: 'both',
+        apCost: 20,
+    };
+    seed(session('smoke-vfx', {
+        p1: withEquippedItem(fighter('alice', 0), smokeBomb, 'item1'),
+    }));
+
+    const out = await postMove('alice', {
+        battleId: 'smoke-vfx',
+        role: 'p1',
+        action: 'item',
+        itemId: 'test-smoke-bomb',
+        moveToken: 'smoke-vfx-token',
+    });
+
+    assert.equal(out.statusCode, 200);
+    const after = storedSession('smoke-vfx');
+    assert.ok(after.vfx?.some(vfx => vfx.key === 'debuff' && vfx.target === 'p2' && vfx.anchor === 'target'));
+    assert.ok(after.vfx?.some(vfx => vfx.key === 'debuff' && vfx.target === 'p1' && vfx.anchor === 'caster' && vfx.intensity === 'minor'));
 });
 
 test('cooldown is applied on cast and ticks when that fighter ends turn', async () => {

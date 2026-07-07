@@ -83,6 +83,58 @@ test("status and damage-over-time tags map distinctly", () => {
     }
 });
 
+test("mixed hostile tags win over incidental guard tags", () => {
+    const burn = resolveCombatVfxSpec({
+        action: "jutsu",
+        target: "OPPONENT",
+        tags: [tag("Ignition"), tag("Absorb")],
+    });
+    assert.equal(burn.key, "burn");
+    assert.equal(burn.target, "target");
+
+    const drain = resolveCombatVfxSpec({
+        action: "jutsu",
+        target: "OPPONENT",
+        tags: [tag("Absorb"), tag("Drain")],
+    });
+    assert.equal(drain.key, "drain");
+    assert.equal(drain.target, "target");
+
+    const overclock = resolveCombatVfxSpec({
+        action: "jutsu",
+        target: "OPPONENT",
+        tags: [tag("Increase Generals"), tag("Overclock")],
+    });
+    assert.equal(overclock.key, "buff");
+    assert.equal(overclock.target, "caster");
+});
+
+test("movement, element, and discipline fallbacks stay semantically paired", () => {
+    const move = resolveCombatVfxSpec({
+        action: "jutsu",
+        discipline: "Taijutsu",
+        element: "None",
+        target: "EMPTY_GROUND",
+        tags: [tag("Move"), tag("Reflect")],
+    });
+    assert.equal(move.key, "spark");
+    assert.equal(move.target, "tile");
+
+    const elementalDamage = resolveCombatVfxSpec({
+        action: "jutsu",
+        discipline: "Ninjutsu",
+        element: "Lava",
+        target: "OPPONENT",
+        effectPower: 30,
+        tags: [tag("Increase Damage Given")],
+    });
+    assert.equal(elementalDamage.key, "magma");
+    assert.equal(elementalDamage.target, "target");
+
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", discipline: "Bukijutsu", target: "OPPONENT", effectPower: 30 }).key, "slash");
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", discipline: "Genjutsu", target: "OPPONENT", effectPower: 30 }).key, "debuff");
+});
+
 test("cleanse, buff, and debuff actions are visually distinct", () => {
     assert.equal(resolveCombatVfxSpec({ action: "cleanse" }).key, "cleanse");
     assert.equal(resolveCombatVfxSpec({ action: "consumable", tags: [tag("Increase Damage Given")] }).key, "buff");
@@ -130,14 +182,14 @@ test("asset manifest covers every combat VFX key with a shipped plate", () => {
 test("asset manifest keeps element, offense discipline, and tag lanes distinct", () => {
     for (const key of ["fire", "water", "wind", "lightning", "earth", "blood", "shadow", "poison", "magma", "metal"] as const) {
         assert.equal(COMBAT_VFX_ASSETS[key].role, "element", key);
-        assert.equal(COMBAT_VFX_ASSETS[key].discipline, "ninjutsu", key);
+        assert.equal(COMBAT_VFX_ASSETS[key].discipline, "elemental", key);
         assert.ok(COMBAT_VFX_ASSETS[key].tags.some(tag => tag.startsWith("Element:")), key);
     }
-    for (const key of ["slash", "impact", "heavy"] as const) {
+    for (const key of ["impact", "heavy"] as const) {
         assert.equal(COMBAT_VFX_ASSETS[key].role, "physical-offense", key);
         assert.equal(COMBAT_VFX_ASSETS[key].discipline, "taijutsu", key);
     }
-    for (const key of ["pierce", "throwable", "weapon", "namedWeapon"] as const) {
+    for (const key of ["slash", "pierce", "throwable", "weapon", "namedWeapon"] as const) {
         assert.equal(COMBAT_VFX_ASSETS[key].role, "weapon-offense", key);
         assert.equal(COMBAT_VFX_ASSETS[key].discipline, "bukijutsu", key);
     }

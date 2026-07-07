@@ -62,6 +62,9 @@ export type CombatVfxAction =
 export type CombatVfxIntent = {
     action?: CombatVfxAction;
     element?: string | null;
+    discipline?: string | null;
+    effectPower?: number | null;
+    isUtility?: boolean | null;
     tags?: Array<Pick<JutsuTag, "name">> | null;
     target?: Pick<Jutsu, "target">["target"] | "OPPONENT" | string | null;
     method?: Pick<Jutsu, "method">["method"] | string | null;
@@ -141,8 +144,9 @@ const DEBUFF_TAGS = new Set([
     "Recoil",
 ]);
 
-const CONTROL_TAGS = new Set(["Stun", "Lag", "Overclock"]);
+const CONTROL_TAGS = new Set(["Stun", "Lag", "Move"]);
 const SEAL_TAGS = new Set(["Bloodline Seal", "Elemental Seal"]);
+const CASTER_WARD_KEYS = new Set<CombatVfxKey>(["heal", "shield", "reflect", "absorb", "buff", "cleanse"]);
 
 function tagsFor(intent: CombatVfxIntent): string[] {
     return (intent.tags ?? [])
@@ -182,6 +186,16 @@ function elementKey(element?: string | null): CombatVfxKey | null {
     }
 }
 
+function disciplineKey(discipline?: string | null): CombatVfxKey | null {
+    switch (String(discipline ?? "").trim().toLowerCase()) {
+        case "taijutsu": return "impact";
+        case "bukijutsu": return "slash";
+        case "genjutsu": return "debuff";
+        default:
+            return null;
+    }
+}
+
 function normalizedMethod(method?: string | null): string {
     return method === "AOE_LINE" ? "INSTANT_EFFECT" : String(method ?? "SINGLE");
 }
@@ -193,15 +207,20 @@ function intensityFor(intent: CombatVfxIntent, key: CombatVfxKey): CombatVfxInte
     return "normal";
 }
 
+function isDamagingIntent(intent: CombatVfxIntent): boolean {
+    return Number(intent.effectPower ?? 0) > 0 && intent.target !== "SELF" && intent.isUtility !== true;
+}
+
 function targetFor(intent: CombatVfxIntent, key: CombatVfxKey, tags: string[]): CombatVfxTarget {
     const method = normalizedMethod(intent.method);
     const isArea = intent.area || method === "AOE_CIRCLE" || method === "AOE_SPIRAL";
     if (isArea) return "area";
     if (intent.ground || intent.target === "EMPTY_GROUND" || method === "INSTANT_EFFECT") return "tile";
-    if (intent.target === "SELF" || key === "heal" || key === "shield" || key === "reflect" || key === "absorb" || key === "buff" || key === "cleanse") {
+    if (intent.action === "weapon" || intent.action === "throwable" || intent.action === "basicAttack") return "target";
+    if (intent.target === "SELF" || CASTER_WARD_KEYS.has(key)) {
         return "caster";
     }
-    if (hasAny(tags, SUPPORT_TAGS) && !hasAny(tags, DEBUFF_TAGS) && !hasAny(tags, CONTROL_TAGS) && !hasAny(tags, SEAL_TAGS)) {
+    if (key === "buff" && !isDamagingIntent(intent) && hasAny(tags, SUPPORT_TAGS) && !hasAny(tags, DEBUFF_TAGS) && !hasAny(tags, CONTROL_TAGS) && !hasAny(tags, SEAL_TAGS)) {
         return "caster";
     }
     return "target";
@@ -209,10 +228,7 @@ function targetFor(intent: CombatVfxIntent, key: CombatVfxKey, tags: string[]): 
 
 function keyFromTags(tags: string[], intent: CombatVfxIntent): CombatVfxKey | null {
     if (has(tags, "Heal")) return "heal";
-    if (has(tags, "Barrier") || has(tags, "Shield")) return "shield";
-    if (has(tags, "Reflect")) return "reflect";
-    if (has(tags, "Absorb")) return "absorb";
-    if (has(tags, "Stun") || has(tags, "Lag") || has(tags, "Overclock")) return "spark";
+    if (hasAny(tags, CONTROL_TAGS)) return "spark";
     if (hasAny(tags, SEAL_TAGS)) return "seal";
     if (has(tags, "Wound")) return "wound";
     if (has(tags, "Ignition")) return "burn";
@@ -220,8 +236,18 @@ function keyFromTags(tags: string[], intent: CombatVfxIntent): CombatVfxKey | nu
     if (has(tags, "Drain") || has(tags, "Siphon")) return "drain";
     if (has(tags, "Pierce")) return "pierce";
     if (hasAny(tags, DEBUFF_TAGS)) return "debuff";
+    if (has(tags, "Barrier") || has(tags, "Shield")) return "shield";
+    if (has(tags, "Reflect")) return "reflect";
+    if (has(tags, "Absorb")) return "absorb";
     if (hasAny(tags, SUPPORT_TAGS)) return "buff";
     return null;
+}
+
+function jutsuKey(intent: CombatVfxIntent, tags: string[]): CombatVfxKey {
+    const tagKey = keyFromTags(tags, intent);
+    const materialKey = elementKey(intent.element) ?? disciplineKey(intent.discipline);
+    if (tagKey && !(isDamagingIntent(intent) && CASTER_WARD_KEYS.has(tagKey))) return tagKey;
+    return materialKey ?? tagKey ?? (intent.heavy ? "heavy" : "impact");
 }
 
 function keyForIntent(intent: CombatVfxIntent, tags: string[]): CombatVfxKey {
@@ -235,10 +261,7 @@ function keyForIntent(intent: CombatVfxIntent, tags: string[]): CombatVfxKey {
         case "weapon": return intent.named ? "namedWeapon" : intent.heavy ? "heavy" : "weapon";
         case "consumable": return keyFromTags(tags, intent) ?? "buff";
         case "dot": return keyFromTags(tags, intent) ?? "impact";
-        case "jutsu":
-            return keyFromTags(tags, intent)
-                ?? elementKey(intent.element)
-                ?? (intent.heavy ? "heavy" : "impact");
+        case "jutsu": return jutsuKey(intent, tags);
         default:
             return "impact";
     }

@@ -254,8 +254,9 @@ const VFX_DEBUFF_TAGS = new Set([
     'Lag',
     'Recoil',
 ]);
-const VFX_CONTROL_TAGS = new Set(['Stun', 'Lag', 'Overclock']);
+const VFX_CONTROL_TAGS = new Set(['Stun', 'Lag', 'Move']);
 const VFX_SEAL_TAGS = new Set(['Bloodline Seal', 'Elemental Seal']);
+const VFX_CASTER_WARD_KEYS = new Set<CombatVfxKey>(['heal', 'shield', 'reflect', 'absorb', 'buff', 'cleanse']);
 
 function vfxTagNames(tags?: JutsuTag[]): string[] {
     return (tags ?? []).map(tag => normalizeTagName(String(tag.name ?? ''))).filter(Boolean);
@@ -287,11 +288,17 @@ function elementVfxKey(element?: string | null): CombatVfxKey | null {
             return null;
     }
 }
+function disciplineVfxKey(discipline?: string | null): CombatVfxKey | null {
+    switch (String(discipline ?? '').trim().toLowerCase()) {
+        case 'taijutsu': return 'impact';
+        case 'bukijutsu': return 'slash';
+        case 'genjutsu': return 'debuff';
+        default:
+            return null;
+    }
+}
 function keyForJutsuTags(tags: string[], ground = false): CombatVfxKey | null {
     if (vfxHas(tags, 'Heal')) return 'heal';
-    if (vfxHas(tags, 'Barrier') || vfxHas(tags, 'Shield')) return 'shield';
-    if (vfxHas(tags, 'Reflect')) return 'reflect';
-    if (vfxHas(tags, 'Absorb')) return 'absorb';
     if (vfxHasAny(tags, VFX_CONTROL_TAGS)) return 'spark';
     if (vfxHasAny(tags, VFX_SEAL_TAGS)) return 'seal';
     if (vfxHas(tags, 'Wound')) return 'wound';
@@ -300,24 +307,39 @@ function keyForJutsuTags(tags: string[], ground = false): CombatVfxKey | null {
     if (vfxHas(tags, 'Drain') || vfxHas(tags, 'Siphon')) return 'drain';
     if (vfxHas(tags, 'Pierce')) return 'pierce';
     if (vfxHasAny(tags, VFX_DEBUFF_TAGS)) return 'debuff';
+    if (vfxHas(tags, 'Barrier') || vfxHas(tags, 'Shield')) return 'shield';
+    if (vfxHas(tags, 'Reflect')) return 'reflect';
+    if (vfxHas(tags, 'Absorb')) return 'absorb';
     if (vfxHasAny(tags, VFX_SUPPORT_TAGS)) return 'buff';
     return null;
+}
+function isDamagingVisualJutsu(jutsu: Jutsu): boolean {
+    return Number(jutsu.effectPower ?? 0) > 0 && jutsu.target !== 'SELF' && jutsu.isUtility !== true;
 }
 function jutsuVisualKey(jutsu: Jutsu, opts: { ground?: boolean; heavy?: boolean; ko?: boolean } = {}): CombatVfxKey {
     if (opts.ko) return 'ko';
     const tags = vfxTagNames(jutsu.tags);
-    return keyForJutsuTags(tags, !!opts.ground) ?? elementVfxKey(jutsu.element) ?? (opts.heavy ? 'heavy' : 'impact');
+    const tagKey = keyForJutsuTags(tags, !!opts.ground);
+    const materialKey = elementVfxKey(jutsu.element) ?? disciplineVfxKey(jutsu.type);
+    if (tagKey && !(isDamagingVisualJutsu(jutsu) && VFX_CASTER_WARD_KEYS.has(tagKey))) return tagKey;
+    return materialKey ?? tagKey ?? (opts.heavy ? 'heavy' : 'impact');
 }
 function jutsuVisualAnchor(jutsu: Jutsu, key: CombatVfxKey, opts: { ground?: boolean; area?: boolean } = {}): CombatVfxTarget['anchor'] {
     const tags = vfxTagNames(jutsu.tags);
     const method = normalizeJutsuMethod(jutsu.method);
     if (opts.area || method === 'AOE_CIRCLE' || method === 'AOE_SPIRAL') return 'area';
     if (opts.ground || jutsu.target === 'EMPTY_GROUND' || method === 'INSTANT_EFFECT') return 'tile';
-    if (jutsu.target === 'SELF' || key === 'heal' || key === 'shield' || key === 'reflect' || key === 'absorb' || key === 'buff') return 'caster';
-    if (vfxHasAny(tags, VFX_SUPPORT_TAGS) && !vfxHasAny(tags, VFX_DEBUFF_TAGS) && !vfxHasAny(tags, VFX_CONTROL_TAGS) && !vfxHasAny(tags, VFX_SEAL_TAGS)) {
+    if (jutsu.target === 'SELF' || VFX_CASTER_WARD_KEYS.has(key)) return 'caster';
+    if (key === 'buff' && !isDamagingVisualJutsu(jutsu) && vfxHasAny(tags, VFX_SUPPORT_TAGS) && !vfxHasAny(tags, VFX_DEBUFF_TAGS) && !vfxHasAny(tags, VFX_CONTROL_TAGS) && !vfxHasAny(tags, VFX_SEAL_TAGS)) {
         return 'caster';
     }
     return 'target';
+}
+function vfxForTagEffect(tags: JutsuTag[] | undefined, intensity: CombatVfxTarget['intensity'] = 'minor'): RelativeVfxEvent[] {
+    const key = keyForJutsuTags(vfxTagNames(tags), false);
+    if (!key) return [];
+    const selfVisual = VFX_CASTER_WARD_KEYS.has(key);
+    return [vfxEvent(selfVisual ? 'self' : 'opp', key, selfVisual ? 'caster' : 'target', intensity)];
 }
 function strongestDamageRatio(fx: HitFxEvent[] | undefined, self: PvpFighter, opponent: PvpFighter): number {
     let ratio = 0;
@@ -1739,6 +1761,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     namedWeapon ? 'namedWeapon' :
                     wIntensity === 'heavy' ? 'heavy' :
                     'weapon';
+                const wEffectVfx = wIntensity === 'finisher' ? [] : vfxForTagEffect(wTags, 'minor');
                 result = commit(
                     wr.self,
                     wr.opponent,
@@ -1748,6 +1771,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     wr.fx,
                     [
                         vfxEvent('opp', wVisualKey, 'target', wIntensity),
+                        ...wEffectVfx,
                         ...reactionVfx(opp, wr.opponent, wr.fx),
                     ],
                 );
@@ -1821,7 +1845,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const iVisualKey = keyForJutsuTags(iVisualTags, false) ?? 'buff';
                 const iIntensity = intensityFromHit(ir.fx, irSelf, ir.opponent, ir.opponent.hp <= 0);
                 const iKey: CombatVfxKey = iIntensity === 'finisher' ? 'ko' : iVisualKey;
-                const iVisualSelf = iVisualKey === 'heal' || iVisualKey === 'buff' || iVisualKey === 'shield' || iVisualKey === 'cleanse';
+                const iVisualSelf = VFX_CASTER_WARD_KEYS.has(iVisualKey);
+                const iBothTargetVfx = serverItem.weaponEffectTarget === 'both' && !iVisualSelf && iKey !== 'ko'
+                    ? [vfxEvent('self', iVisualKey, 'caster', 'minor')]
+                    : [];
                 result = commit(
                     irSelf,
                     ir.opponent,
@@ -1831,6 +1858,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ir.fx,
                     [
                         vfxEvent(iVisualSelf ? 'self' : 'opp', iKey, iVisualSelf ? 'caster' : 'target', iIntensity),
+                        ...iBothTargetVfx,
                         ...reactionVfx(opp, ir.opponent, ir.fx),
                     ],
                 );
