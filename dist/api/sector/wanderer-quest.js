@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _wanderer_quest_js_1 = require("./_wanderer-quest.js");
+const _wanderer_encounter_js_1 = require("./_wanderer-encounter.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
 const _era_js_1 = require("../_era.js");
 /*
@@ -36,6 +37,9 @@ async function handler(req, res) {
         const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
         if (!playerName)
             return res.status(400).json({ error: 'Missing playerName.' });
+        const wandererId = typeof body.wandererId === 'string' ? body.wandererId.trim() : '';
+        const naturalWanderer = (0, _wanderer_encounter_js_1.parseNaturalWandererId)(wandererId);
+        const sector = Math.max(1, Math.min(60, Math.floor(Number(body.sector ?? 0)) || 0));
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, playerName);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
@@ -58,6 +62,7 @@ async function handler(req, res) {
             }
             const def = _wanderer_quest_js_1.WANDERER_QUESTS[questId];
             const out = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
+                const now = Date.now();
                 const existing = await _storage_js_1.kv.get(questKey);
                 if (existing)
                     return { status: 200, body: { ok: false, reason: 'busy' } };
@@ -65,18 +70,31 @@ async function handler(req, res) {
                 const char = (rec?.character ?? null);
                 if (!rec || !char)
                     return { status: 404, body: { error: 'Your save was not found.' } };
+                if (naturalWanderer) {
+                    const cooldownUntil = (0, _wanderer_encounter_js_1.currentWandererCooldownUntil)(char, wandererId, now);
+                    if (cooldownUntil)
+                        return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil } };
+                }
                 const baseline = num(char[def.metric]);
                 await _storage_js_1.kv.set(questKey, { id: questId, baseline, at: Date.now() }, { ex: QUEST_TTL_SECONDS });
                 // Display mirror on the save (server never trusts this back).
-                const updated = { ...char, activeWandererQuest: { id: questId, target: def.target, baseline } };
+                let updated = { ...char, activeWandererQuest: { id: questId, target: def.target, baseline } };
+                const body = { ok: true, id: questId, target: def.target, baseline };
+                if (naturalWanderer) {
+                    const used = (0, _wanderer_encounter_js_1.withWandererUseState)(updated, wandererId, now, sector);
+                    updated = used.character;
+                    body.cooldownUntil = used.cooldownUntil;
+                    body.moveToSector = used.moveToSector;
+                }
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
-                return { status: 200, body: { ok: true, id: questId, target: def.target, baseline } };
+                return { status: 200, body };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }
         // ── CLAIM ────────────────────────────────────────────────────────────
         if (action === 'claim') {
             const out = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
+                const now = Date.now();
                 const sealed = await _storage_js_1.kv.get(questKey);
                 if (!sealed || !(0, _wanderer_quest_js_1.isWandererQuestId)(sealed.id)) {
                     await _storage_js_1.kv.del(questKey).catch(() => undefined);
@@ -87,6 +105,11 @@ async function handler(req, res) {
                 const char = (rec?.character ?? null);
                 if (!rec || !char)
                     return { status: 404, body: { error: 'Your save was not found.' } };
+                if (naturalWanderer) {
+                    const cooldownUntil = (0, _wanderer_encounter_js_1.currentWandererCooldownUntil)(char, wandererId, now);
+                    if (cooldownUntil)
+                        return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil } };
+                }
                 const current = num(char[def.metric]);
                 if (!(0, _wanderer_quest_js_1.wandererQuestComplete)(num(sealed.baseline), current, def.target)) {
                     return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - num(sealed.baseline)), target: def.target } };
@@ -96,9 +119,16 @@ async function handler(req, res) {
                     return { status: 200, body: { ok: false, reason: 'none' } };
                 const reward = (0, _wanderer_quest_js_1.wandererQuestRyo)(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + reward;
-                const updated = { ...char, ryo: totalRyo, activeWandererQuest: null };
+                let updated = { ...char, ryo: totalRyo, activeWandererQuest: null };
+                const body = { ok: true, ryo: reward, totalRyo };
+                if (naturalWanderer) {
+                    const used = (0, _wanderer_encounter_js_1.withWandererUseState)(updated, wandererId, now, sector);
+                    updated = used.character;
+                    body.cooldownUntil = used.cooldownUntil;
+                    body.moveToSector = used.moveToSector;
+                }
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
-                return { status: 200, body: { ok: true, ryo: reward, totalRyo } };
+                return { status: 200, body };
             }, { failClosed: true });
             // Legacy tracking (ENABLE_LEGACY): AFTER the fail-closed save lock
             // releases — bumpLegacyStats takes its own lock, and nesting it

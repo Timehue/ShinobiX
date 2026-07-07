@@ -185,13 +185,13 @@ describe("wanderer relocation", () => {
 
 function assertValidWanderer(w: Wanderer): void {
     assert.ok(w.name.length > 0);
-    assert.ok(["attack", "gift", "gamble", "petDuel", "quest"].includes(w.verb));
-    assert.ok(["bandit", "gambler", "pilgrim", "beast", "sage"].includes(w.archetype));
+    assert.ok(["attack", "gift", "gamble", "petDuel", "quest", "merchant", "medic", "patrol", "tracker"].includes(w.verb));
+    assert.ok(["bandit", "gambler", "pilgrim", "beast", "sage", "merchant", "medic", "patrol", "tracker"].includes(w.archetype));
     assert.ok(w.level >= 3 && w.level <= 95);
     assert.ok(onGrid(w.homeTile), `home ${w.homeTile}`);
     assert.ok(w.waypoints.length >= 1 && w.waypoints.every(onGrid), "waypoints on grid");
     assert.ok(w.greeting.length > 0);
     assert.ok(/^#/.test(w.tellTint));
-    // attacker-archetype invariant: bandits attack, others don't
+    // natural attacker-archetype invariant: bandits attack, others do not
     assert.equal(w.verb === "attack", w.archetype === "bandit");
 }

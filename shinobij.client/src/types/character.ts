@@ -345,6 +345,9 @@ export type Character = {
     // Active sector-wanderer quest (display mirror; server seals the real baseline
     // + reward in KV). Additive/optional — old saves read it as "no quest".
     activeWandererQuest?: { id: string; target: number; baseline: number } | null;
+    // Active courier favor picked up from a road wanderer. Display mirror only;
+    // api/sector/wanderer-service.ts seals the destination/reward in KV.
+    activeWandererFavor?: { id: string; originSector: number; targetSector: number; giver: string; expiresAt: number } | null;
     // Consecutive sector-wanderer robbers fended off. At 5 the next bandit springs
     // an ambush (3 robbers + a boss); resets to 0 on a loss or after the ambush.
     robberStreak?: number;
@@ -374,6 +377,9 @@ export type Character = {
     // reappear in the SAME sector when its cooldown lifts — it wanders off to the
     // recorded sector instead. Additive/optional; self-clears each 6h roster window.
     wandererMoves?: Record<string, number>;
+    // Lightweight flavor memory for repeated road encounters by archetype/id.
+    // Cosmetic only; no rewards or authority depend on this client mirror.
+    wandererMemories?: Record<string, number>;
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;
