@@ -2776,19 +2776,16 @@ export default function App() {
             const ch2 = challenge.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id)
                 ?? challenge.challenger.pets.find(p => p.id !== ch1.id);
             if (ch1 && ch2) {
-                challengerParty = [ch1, ch2] as [Pet, Pet];
+                const selectedChallengerParty = [ch1, ch2] as [Pet, Pet];
+                challengerParty = selectedChallengerParty;
                 // Smart 2v2 picker: given the challenger's locked-in lead+reserve,
                 // pick MY lead+reserve to maximize summed matchup score (stat
                 // ratio × element edge × trait counter penalty). Falls back to
                 // top-2-by-level if the picker can't decide (shouldn't happen
                 // with 2+ available pets).
-                let smart: [Pet, Pet] | null = null;
-                try {
-                    const { pickBestPartyOrder } = await import("./lib/pet-battle-sim");
-                    smart = pickBestPartyOrder(myAvailable, challengerParty);
-                } catch {
-                    smart = null;
-                }
+                const smart = await import("./lib/pet-battle-sim")
+                    .then(({ pickBestPartyOrder }) => pickBestPartyOrder(myAvailable, selectedChallengerParty))
+                    .catch((): [Pet, Pet] | null => null);
                 if (smart) {
                     myParty = smart;
                 } else {
