@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent } from "react";
+import { useState, useEffect, type ChangeEvent, type ReactNode } from "react";
 import "../styles/training-skin.css";
 import type { Character } from "../types/character";
 // Currency lines reuse the game's own emblem set so they match the HUD.
@@ -28,6 +28,18 @@ import { getCharacterElements } from "../lib/elements";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { getAllJutsus, playerLensDiscipline } from "../App";
+
+type ProfileDossierRow = {
+    label: string;
+    value: ReactNode;
+    detail?: ReactNode;
+    tone?: "neutral" | "gold" | "danger" | "village" | "legacy";
+};
+
+type ProfileDossierSection = {
+    title: string;
+    rows: ProfileDossierRow[];
+};
 
 export function Profile({
     character,
@@ -297,6 +309,70 @@ export function Profile({
         },
     ];
 
+    const formatAmount = (value: number | undefined) => (
+        Number.isFinite(value) ? Math.max(0, Math.floor(value as number)).toLocaleString() : "0"
+    );
+    const equippedBloodlineName = equippedBloodline?.name || character.bloodline || "No bloodline";
+    const disciplineLabel = playerLensDiscipline(character);
+    const elementsLabel = ownedElements.length ? ownedElements.join(" / ") : "Not awakened";
+    const displayTitle = character.customTitle || character.storyTitle || character.rankTitle;
+    const xpLabel = character.level >= MAX_LEVEL ? "MAX" : `${formatAmount(character.xp)}/${formatAmount(xpNeeded(character.level))}`;
+    const profileSummary = [
+        `${character.name} is a level ${character.level} ${character.rankTitle} from ${character.village}, carrying ${equippedBloodlineName} and a ${disciplineLabel} specialty.`,
+        ownedElements.length ? `Element access: ${elementsLabel}.` : "No elements awakened yet.",
+        displayTitle ? `Public title: ${displayTitle}.` : "",
+        character.clan ? `Clan standing: ${character.clan}${character.clanFounder ? " founder" : " member"}.` : "",
+    ].filter(Boolean).join(" ");
+    const identityExtraChips = [
+        { id: "specialty", label: disciplineLabel, detail: "Specialty" },
+        ...(equippedBloodline?.specialElement
+            ? [{ id: "bloodline-element", label: equippedBloodline.specialElement, detail: "Bloodline element", tone: "legacy" as const }]
+            : []),
+    ];
+    const profileDossierSections: ProfileDossierSection[] = [
+        {
+            title: "Progress",
+            rows: [
+                { label: "Level", value: `${formatAmount(character.level)}/${MAX_LEVEL}`, detail: `XP ${xpLabel}`, tone: "gold" },
+                ...(CHARACTER_XP_GAIN_MULTIPLIER !== 1
+                    ? [{ label: "Testing XP", value: `${CHARACTER_XP_GAIN_MULTIPLIER}x`, detail: "active", tone: "danger" as const }]
+                    : []),
+                { label: "Jutsu", value: `${formatAmount(character.equippedJutsuIds.length)}/15`, detail: "equipped loadout", tone: character.equippedJutsuIds.length > 0 ? "village" : "neutral" },
+                { label: "Equipment", value: formatAmount(equippedItems.length), detail: "equipped items" },
+            ],
+        },
+        {
+            title: "Economy",
+            rows: [
+                { label: "Ryo", value: formatAmount(character.ryo), detail: "on hand", tone: "gold" },
+                { label: "Bank", value: formatAmount(character.bankRyo), detail: "stored ryo" },
+                { label: "Honor Seals", value: <><GameIcon name="medal" size={14} style={PF_COST} />{formatAmount(character.honorSeals)}</>, detail: "village currency", tone: "gold" },
+                { label: "Fate Shards", value: <><GameIcon name="shard" size={14} style={PF_COST} />{formatAmount(character.fateShards)}</>, detail: "legacy currency", tone: "legacy" },
+                { label: "Aura Dust", value: <><GameIcon name="sparkle" size={14} style={PF_COST} />{formatAmount(character.auraDust)}</>, detail: "aura growth", tone: "gold" },
+            ],
+        },
+        {
+            title: "Combat Pools",
+            rows: [
+                { label: "HP", value: `${formatAmount(character.hp)}/${formatAmount(character.maxHp)}`, detail: "health" },
+                { label: "Chakra", value: `${formatAmount(character.chakra)}/${formatAmount(character.maxChakra)}`, detail: "jutsu resource", tone: "village" },
+                { label: "Stamina", value: `${formatAmount(character.stamina)}/${formatAmount(character.maxStamina)}`, detail: "action resource", tone: "gold" },
+                { label: "Regen", value: `+${formatAmount(1 + auraBonuses.regen)}/sec`, detail: "outside battle", tone: auraBonuses.regen > 0 ? "gold" : "neutral" },
+            ],
+        },
+        {
+            title: "Lineage",
+            rows: [
+                { label: "Bloodline", value: equippedBloodlineName, detail: equippedBloodline?.rank ? `${equippedBloodline.rank} rank` : "active identity", tone: "legacy" },
+                { label: "Specialty", value: disciplineLabel, detail: "effect lens" },
+                { label: "Elements", value: elementsLabel, detail: ownedElements.length ? `${ownedElements.length} awakened` : "not awakened" },
+                ...(equippedBloodline?.specialElement
+                    ? [{ label: "Bloodline Element", value: equippedBloodline.specialElement, detail: "special affinity", tone: "legacy" as const }]
+                    : []),
+            ],
+        },
+    ];
+
     function renderStatCard(stat: keyof Stats) {
         const value = character.stats[stat];
         const pct = Math.round((value / MAX_STAT) * 100);
@@ -351,66 +427,45 @@ export function Profile({
 
             {/* ── Overview tab ─────────────────────────── */}
             <div className={mobileTab !== 'overview' ? 'profile-tab-hidden' : ''}>
-            <div className="profile-page-header">
-                <div>
-                    <h2>Profile</h2>
-                    <p>An overview of your shinobi.</p>
-                </div>
-            </div>
-
             <ShinobiIdentityCard
                 character={character}
                 avatarSrc={character.avatarImage}
                 avatarClassName={auraBonuses.avatarAura ? "aura-sphere-avatar" : ""}
                 bloodlineName={equippedBloodline?.name || character.bloodline}
                 elements={ownedElements}
-            />
-
-            <section className="profile-overview-panel">
-                <div className="profile-avatar-upload-box">
-                    <div className={`profile-big-avatar ${auraBonuses.avatarAura ? "aura-sphere-avatar" : ""}${(character.legacy?.stage ?? 0) >= 2 ? ` legacy-aura-s${character.legacy!.stage}` : ""}`}>
-                        {character.avatarImage ? (
-                            <img src={character.avatarImage} alt="Avatar" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                        ) : (
-                            <span>{character.name.slice(0, 2).toUpperCase()}</span>
-                        )}
-                    </div>
-
-                    <label className="avatar-upload-button">
+                summary={profileSummary}
+                extraChips={identityExtraChips}
+                avatarAction={(
+                    <label className="sic-avatar-upload-button">
                         Upload Avatar
                         <input type="file" accept="image/*" onChange={uploadAvatar} />
                     </label>
-                </div>
+                )}
+            />
 
-                <div className="profile-info-grid">
-                    <div>
-                        <h3>General</h3>
-                        <p><strong>Name:</strong> {character.name}</p>
-                        <p><strong>Village:</strong> {character.village}</p>
-                        <p><strong>Rank:</strong> {character.rankTitle}</p>
-                        {character.customTitle && <p><strong>Title:</strong> <span style={{ color: "#facc15" }}>{character.customTitle}</span></p>}
-                        <p><strong>Level:</strong> {character.level}/100</p>
-                        <p><strong>Bloodline:</strong> {equippedBloodline?.name || character.bloodline}</p>
-                        <p><strong>Specialty:</strong> {playerLensDiscipline(character)}</p>
-                        <p><strong>Elements:</strong> {ownedElements.length ? ownedElements.join(" / ") : "Not awakened"}</p>
-                        {equippedBloodline?.specialElement && <p><strong>Bloodline Element:</strong> {equippedBloodline.specialElement}</p>}
-                        {equippedBloodline?.image && <div className="admin-event-list-preview"><img src={equippedBloodline.image} alt={equippedBloodline.name} /></div>}
-                    </div>
+            <section className="profile-overview-panel profile-dossier-panel" aria-label="Profile dossier">
+                <div className="profile-dossier-grid">
+                    {profileDossierSections.map((section) => (
+                        <section className="profile-dossier-section" key={section.title}>
+                            <h3>{section.title}</h3>
+                            <div className="profile-dossier-rows">
+                                {section.rows.map((row) => (
+                                    <div className={`profile-dossier-row tone-${row.tone ?? "neutral"}`} key={`${section.title}-${row.label}`}>
+                                        <span>{row.label}</span>
+                                        <strong>{row.value}</strong>
+                                        {row.detail ? <small>{row.detail}</small> : null}
+                                    </div>
+                                ))}
+                            </div>
+                            {section.title === "Lineage" && equippedBloodline?.image && (
+                                <div className="profile-lineage-preview">
+                                    <img src={equippedBloodline.image} alt={equippedBloodline.name} />
+                                </div>
+                            )}
+                        </section>
+                    ))}
 
-                    <div>
-                        <h3>Activity</h3>
-                        <p><strong>XP:</strong> {character.level >= MAX_LEVEL ? "MAX" : `${character.xp}/${xpNeeded(character.level)}`}</p>
-                        {CHARACTER_XP_GAIN_MULTIPLIER !== 1 && <p><strong>Testing XP:</strong> {CHARACTER_XP_GAIN_MULTIPLIER}x active</p>}
-                        <p><strong>Ryo:</strong> {character.ryo}</p>
-                        <p><strong style={{ color: "#facc15" }}><GameIcon name="medal" size={14} style={PF_COST} />Honor Seals:</strong> <span style={{ color: "#facc15" }}>{character.honorSeals ?? 0}</span></p>
-                        <p><strong style={{ color: "#fef3c7" }}><GameIcon name="sparkle" size={14} style={PF_COST} />Aura Dust:</strong> <span style={{ color: "#fef3c7" }}>{character.auraDust ?? 0}</span></p>
-                        <p><strong>Bank:</strong> {character.bankRyo}</p>
-                        <p><strong style={{ color: "#ce93d8" }}><GameIcon name="shard" size={14} style={PF_COST} />Fate Shards:</strong> <span style={{ color: "#ce93d8" }}>{character.fateShards}</span></p>
-                        <p><strong>Jutsu:</strong> {character.equippedJutsuIds.length}/15</p>
-                        <p><strong>Equipment:</strong> {equippedItems.length} equipped</p>
-                    </div>
-
-                    <div>
+                    <div className="profile-dossier-legacy-hide">
                         <h3>Resources</h3>
                         <p><strong>HP:</strong> {character.hp}/{character.maxHp}</p>
                         <p><strong>Chakra:</strong> {character.chakra}/{character.maxChakra}</p>
@@ -446,6 +501,36 @@ export function Profile({
                         )}
                     </div>
                 </div>
+
+                {auraSphereEquipped && (
+                    <div className="aura-sphere-inline profile-dossier-aura">
+                        <div>
+                            <p className="act-label">Aura Sphere</p>
+                            <h4>{auraBonuses.rankName}</h4>
+                            <p className="aura-sphere-inline-level">
+                                Level {character.auraSphereLevel}/300 · Aura Dust {formatAmount(character.auraDust)}/{formatAmount(auraDustNeeded)}
+                            </p>
+                        </div>
+                        <div className="aura-sphere-inline-buffs">
+                            {auraBonuses.regen > 0 && <span>Regen +{auraBonuses.regen}</span>}
+                            {auraBonuses.missionRewardPercent > 0 && <span>Mission Rewards +{auraBonuses.missionRewardPercent}%</span>}
+                            {auraBonuses.jutsuTrainingSpeedPercent > 0 && <span>Jutsu Training +{auraBonuses.jutsuTrainingSpeedPercent}%</span>}
+                            {auraBonuses.jutsuXpPercent > 0 && <span>Jutsu XP +{auraBonuses.jutsuXpPercent}%</span>}
+                            {auraBonuses.avatarAura && <span>Golden Avatar Aura</span>}
+                            {auraBonuses.pveDamagePercent > 0 && <span>PvE Damage +{auraBonuses.pveDamagePercent}%</span>}
+                        </div>
+                        <button
+                            className="aura-sphere-inline-button"
+                            onClick={feedAuraSphere}
+                            disabled={character.auraSphereLevel >= 300 || character.auraDust < auraDustNeeded}
+                        >
+                            {character.auraSphereLevel >= 300 ? "Eternal Aura Reached" : `Feed ${auraDustNeeded} Aura Dust`}
+                        </button>
+                        <p className="hint aura-sphere-inline-hint">
+                            Aura Dust drops from PvP, village raids, boss wins, war contribution, and ancient chests.
+                        </p>
+                    </div>
+                )}
             </section>
 
             <section className="summary-box profile-title-panel">

@@ -876,6 +876,217 @@
     }
 }
 
+/* Profile dossier: one identity module, then operational details grouped by use. */
+.profile-page-card .shinobi-identity-card {
+    position: relative;
+    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 14px !important;
+    padding: 16px !important;
+    margin-bottom: 14px !important;
+    background:
+        linear-gradient(90deg, rgba(78,168,255,0.08), transparent 42%),
+        linear-gradient(135deg, rgba(12,18,34,0.96), rgba(5,10,22,0.98)) !important;
+}
+.profile-page-card .shinobi-identity-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(78,168,255,0.8), rgba(232,212,150,0.72), transparent);
+    opacity: 0.8;
+}
+.profile-page-card .sic-hero {
+    grid-template-columns: 128px minmax(0, 1fr) !important;
+    align-items: start !important;
+}
+.profile-page-card .sic-avatar-stack {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+}
+.profile-page-card .sic-avatar {
+    width: 112px !important;
+    height: 112px !important;
+}
+.profile-page-card .sic-avatar-action {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+.profile-page-card .sic-avatar-upload-button {
+    width: 112px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(78,168,255,0.55);
+    color: #eef6ff;
+    background: linear-gradient(180deg, #1e3a8a, #172554);
+    box-shadow: 0 0 10px rgba(78,168,255,0.22);
+    cursor: pointer;
+    text-align: center;
+    font: 700 9px var(--font-display);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+.profile-page-card .sic-avatar-upload-button:hover {
+    border-color: rgba(147,197,253,0.9);
+    box-shadow: 0 0 14px rgba(78,168,255,0.36);
+}
+.profile-page-card .sic-avatar-upload-button input {
+    display: none;
+}
+.profile-page-card .sic-summary {
+    max-width: 92ch;
+    margin: 8px 0 12px;
+    color: #d7dfed;
+    font: 500 0.88rem/1.55 Inter, sans-serif;
+}
+.profile-page-card .profile-dossier-panel {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.profile-page-card .profile-dossier-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+}
+.profile-page-card .profile-dossier-section {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(148,163,184,0.18);
+    background: linear-gradient(180deg, rgba(10,16,32,0.86), rgba(3,7,18,0.72));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 18px rgba(0,0,0,0.22);
+}
+.profile-page-card .profile-dossier-section h3 {
+    margin: 0;
+    padding-bottom: 7px;
+    border-bottom: 1px solid rgba(196,162,90,0.22);
+    color: var(--bsv2-gold-bright) !important;
+    font: 700 11px var(--font-display) !important;
+    letter-spacing: 0.2em !important;
+    text-transform: uppercase;
+}
+.profile-page-card .profile-dossier-rows {
+    display: grid;
+    gap: 7px;
+}
+.profile-page-card .profile-dossier-row {
+    display: grid;
+    grid-template-columns: minmax(72px, 0.62fr) minmax(0, 1fr);
+    grid-template-areas:
+        "label value"
+        "label detail";
+    gap: 2px 10px;
+    min-height: 42px;
+    align-items: center;
+    padding: 7px 8px;
+    border-radius: 5px;
+    border: 1px solid rgba(148,163,184,0.12);
+    background: rgba(2,6,23,0.35);
+}
+.profile-page-card .profile-dossier-row span {
+    grid-area: label;
+    color: #93a1b8;
+    font: 700 10px Inter, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.profile-page-card .profile-dossier-row strong {
+    grid-area: value;
+    min-width: 0;
+    color: #f8fafc;
+    font: 800 0.95rem/1.15 var(--font-display);
+    overflow-wrap: anywhere;
+}
+.profile-page-card .profile-dossier-row small {
+    grid-area: detail;
+    color: #8e99ac;
+    font-size: 0.72rem;
+    line-height: 1.25;
+}
+.profile-page-card .profile-dossier-row.tone-gold strong { color: #fde68a; }
+.profile-page-card .profile-dossier-row.tone-village strong { color: #93c5fd; }
+.profile-page-card .profile-dossier-row.tone-legacy strong { color: #d8b4fe; }
+.profile-page-card .profile-dossier-row.tone-danger strong { color: #fca5a5; }
+.profile-page-card .profile-dossier-row strong svg {
+    vertical-align: -2px;
+}
+.profile-page-card .profile-lineage-preview {
+    overflow: hidden;
+    border-radius: 5px;
+    border: 1px solid rgba(196,162,90,0.22);
+    background: rgba(0,0,0,0.24);
+    aspect-ratio: 16 / 7;
+}
+.profile-page-card .profile-lineage-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.profile-page-card .profile-dossier-aura {
+    margin: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) auto !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 12px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(250,204,21,0.3) !important;
+    background: linear-gradient(90deg, rgba(120,53,15,0.28), rgba(2,6,23,0.72)) !important;
+}
+.profile-page-card .profile-dossier-aura h4 {
+    margin: 2px 0 4px;
+}
+.profile-page-card .profile-dossier-aura .aura-sphere-inline-hint {
+    grid-column: 1 / -1;
+    margin: 0 !important;
+}
+.profile-page-card .profile-dossier-legacy-hide {
+    display: none !important;
+}
+
+@media (max-width: 1180px) {
+    .profile-page-card .profile-dossier-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    .profile-page-card .profile-dossier-aura {
+        grid-template-columns: 1fr !important;
+        align-items: start !important;
+    }
+}
+
+@media (max-width: 700px) {
+    .profile-page-card .sic-hero {
+        grid-template-columns: 1fr !important;
+        justify-items: center;
+        text-align: center;
+    }
+    .profile-page-card .sic-summary {
+        max-width: 100%;
+        font-size: 0.82rem;
+    }
+    .profile-page-card .profile-dossier-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .profile-page-card .profile-dossier-row {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "label"
+            "value"
+            "detail";
+    }
+}
+
 /* Tabs as page switchers: hide non-active tab content at every viewport.
    Previously .profile-tab-hidden lived only inside @media (max-width:800px). */
 .profile-page-card .profile-tab-hidden {
