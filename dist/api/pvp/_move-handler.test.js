@@ -312,6 +312,10 @@ function storedSession(battleId) {
     strict_1.default.ok(after.log.some((line) => line.includes('alice uses Basic Attack')));
     const damageFx = after.fx?.find((fx) => fx.target === 'p2' && fx.kind === 'damage');
     strict_1.default.ok(damageFx, 'basic attack should expose server-resolved damage fx');
+    const attackVfx = after.vfx?.find((fx) => fx.target === 'p2' && fx.key === 'impact');
+    strict_1.default.ok(attackVfx, 'basic attack should expose enemy-targeted combat vfx');
+    strict_1.default.equal(attackVfx.anchor, 'target');
+    strict_1.default.equal(after.vfxSeq, 1);
     strict_1.default.ok(after.log.some((line) => line.includes(`${damageFx.amount} damage`)));
 });
 (0, node_test_1.test)('cooldown is applied on cast and ticks when that fighter ends turn', async () => {
@@ -378,6 +382,9 @@ const goldenReplays = [
             strict_1.default.equal(final.p1.chakra, 1000);
             strict_1.default.equal(final.p1.stamina, 990);
             strict_1.default.deepEqual(final.fx, [{ target: 'p2', amount: 192, kind: 'damage' }]);
+            strict_1.default.equal(final.vfx?.[0]?.target, 'p2');
+            strict_1.default.equal(final.vfx?.[0]?.key, 'impact');
+            strict_1.default.equal(final.vfx?.[0]?.anchor, 'target');
             strict_1.default.ok(final.log.some((line) => line.includes('192 damage')));
         },
     },
@@ -396,6 +403,9 @@ const goldenReplays = [
             strict_1.default.equal(final.p1.chakra, 995);
             strict_1.default.equal(final.cooldowns.p1.support, 2);
             strict_1.default.deepEqual(final.fx, [{ target: 'p1', amount: 750, kind: 'heal' }]);
+            strict_1.default.equal(final.vfx?.[0]?.target, 'p1');
+            strict_1.default.equal(final.vfx?.[0]?.key, 'heal');
+            strict_1.default.equal(final.vfx?.[0]?.anchor, 'caster');
             strict_1.default.ok(final.log.some((line) => line.includes('Heal: alice restores 750 HP.')));
             strict_1.default.ok(final.log.some((line) => line.includes('Shield: alice gains 750 shield.')));
             strict_1.default.equal(final.log.some((line) => line.includes('damage to bob')), false);

@@ -27,6 +27,8 @@ import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { hexLineTiles } from "../lib/hex-path";
 import { prefersLiteCombatFx } from "../lib/device-tier";
+import { safeCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
+import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import {
     normalizeCharacter,
     playerLensDiscipline,
@@ -202,11 +204,14 @@ export function PvpBattleScreen({
     // Live HP-delta floating numbers (RTX-1): make an opponent's offense legible
     // in real time instead of only as a silently-dropping HP bar.
     const [pvpHitFx, setPvpHitFx] = useState<PvpHitFx[]>([]);
+    const [pvpCombatVfx, setPvpCombatVfx] = useState<PvpCombatVfx[]>([]);
     const previousPvpHpRef = useRef<{ p1: number; p2: number } | null>(null);
     // Last server fx batch already rendered (see the hit-fx effect). `undefined`
     // until the first session is observed, so a reload / spectator join never
     // replays the latest batch.
     const lastFxSeqRef = useRef<number | undefined>(undefined);
+    const lastVfxSeqRef = useRef<number | undefined>(undefined);
+    const hasObservedVfxSessionRef = useRef(false);
 
     // Grid helpers — exact match to arena
     function pvpXY(pos: number) { return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) }; }
@@ -504,6 +509,40 @@ export function PvpBattleScreen({
         previousPvpHpRef.current = current;
         return spawnHitFx(nextFx);
     }, [session?.fxSeq, session?.p1.hp, session?.p2.hp]);
+
+    const spawnCombatVfx = (nextFx: PvpCombatVfx[]) => {
+        if (!nextFx.length) return undefined;
+        setPvpCombatVfx((existing) => [...existing, ...nextFx].slice(liteFx ? -6 : -14));
+        const lifetime = Math.max(...nextFx.map((fx) => fx.spec.durationMs), 900);
+        const timeout = window.setTimeout(() => {
+            setPvpCombatVfx((existing) => existing.filter((fx) => !nextFx.some((added) => added.id === fx.id)));
+        }, lifetime + 80);
+        return () => window.clearTimeout(timeout);
+    };
+    useEffect(() => {
+        if (!session) return;
+        const watchedFromStart = hasObservedVfxSessionRef.current;
+        hasObservedVfxSessionRef.current = true;
+        const seq = session.vfxSeq;
+        if (seq == null) return;
+        const last = lastVfxSeqRef.current;
+        lastVfxSeqRef.current = seq;
+        if (seq === last) return;
+        if (last === undefined && !watchedFromStart) return;
+        const events = session.vfx ?? [];
+        return spawnCombatVfx(events.map((ev, i) => {
+            const spec = safeCombatVfxSpec({
+                key: ev.key,
+                target: ev.anchor,
+                intensity: ev.intensity,
+                durationMs: ev.durationMs,
+                persistent: ev.persistent,
+                maxParticles: liteFx ? Math.min(4, ev.maxParticles ?? 0) : ev.maxParticles,
+                tiles: ev.tiles,
+            });
+            return { id: `${ev.target}-vfx-${seq}-${i}`, target: ev.target, spec };
+        }));
+    }, [session?.vfxSeq, session?.p1.pos, session?.p2.pos]);
 
     // Prefight countdown — fires once when the session first loads
     // (skipped for spectators, who join mid-fight). Shows the "VS"
@@ -1184,6 +1223,52 @@ export function PvpBattleScreen({
 
     const fallbackIcon = (j: Jutsu) =>
         j.type === "Taijutsu" ? "👊" : j.type === "Bukijutsu" ? "⚔" : j.type === "Genjutsu" ? "👁" : "🌀";
+    const pvpWardKey = (fighter: { shield: number; statuses: Array<{ name: string }> }) => {
+        if (fighter.shield > 0 || fighter.statuses.some(st => statusMatchesName(st, "Shield") || statusMatchesName(st, "Barrier"))) return "shield";
+        if (fighter.statuses.some(st => statusMatchesName(st, "Reflect"))) return "reflect";
+        if (fighter.statuses.some(st => statusMatchesName(st, "Absorb"))) return "absorb";
+        return "";
+    };
+    const combatVfxCenters = (fx: PvpCombatVfx) => {
+        const tiles = (fx.spec.tiles ?? [])
+            .filter(tile => tile >= 0 && tile < gridWidth * gridHeight)
+            .slice(0, liteFx ? 7 : 14);
+        if (tiles.length) return tiles.map(pvpTileCenter);
+        const fighter = fx.target === "p1" ? session.p1 : session.p2;
+        return [pvpTileCenter(fighter.pos)];
+    };
+    const renderCombatVfx = (fx: PvpCombatVfx) => {
+        const centers = combatVfxCenters(fx);
+        const avg = centers.reduce((acc, c) => ({ x: acc.x + c.x, y: acc.y + c.y }), { x: 0, y: 0 });
+        const center = { x: avg.x / centers.length, y: avg.y / centers.length };
+        const asset = combatVfxAssetFor(fx.spec.key);
+        const baseClass = `pvp-combat-vfx pvp-vfx-${fx.spec.key} pvp-vfx-${fx.spec.intensity} pvp-vfx-has-asset pvp-vfx-plane-${asset.plane}${liteFx ? " pvp-vfx-lite" : ""}`;
+        const styleFor = (point: { x: number; y: number }, scale = 1) => ({
+            left: `${point.x}px`,
+            top: `${point.y}px`,
+            "--vfx-duration": `${fx.spec.durationMs}ms`,
+            "--vfx-scale": scale,
+            "--vfx-asset-scale": asset.assetScale,
+            "--vfx-asset-lift": `${asset.liftPx}px`,
+            "--vfx-asset-opacity": asset.opacity,
+        } as React.CSSProperties);
+        return (
+            <div key={fx.id} className="pvp-combat-vfx-group" aria-hidden="true">
+                {centers.length > 1 && centers.map((point, idx) => (
+                    <span key={`${fx.id}-tile-${idx}`} className={`${baseClass} pvp-combat-vfx-tile`} style={styleFor(point, 0.72)}>
+                        <i className="pvp-vfx-ring" />
+                    </span>
+                ))}
+                <span className={`${baseClass} pvp-combat-vfx-burst`} style={styleFor(center, fx.spec.intensity === "finisher" ? 1.45 : fx.spec.intensity === "heavy" ? 1.18 : 1)}>
+                    <img className={`pvp-vfx-asset pvp-vfx-asset-${asset.plane}`} src={asset.url} alt="" draggable={false} />
+                    <i className="pvp-vfx-ring" />
+                    <i className="pvp-vfx-core" />
+                    <i className="pvp-vfx-cut" />
+                    {!liteFx && <i className="pvp-vfx-sparks" />}
+                </span>
+            </div>
+        );
+    };
     const myAvatar = (me.character?.avatarImage as string) || sharedImages['avatar:' + me.name.toLowerCase()] || "";
     const oppAvatar = (opp.character?.avatarImage as string) || sharedImages['avatar:' + opp.name.toLowerCase()] || "";
 
@@ -1345,13 +1430,14 @@ export function PvpBattleScreen({
                                 left: "0", top: "0",
                             }}>
                                 {(() => {
-                                    const orbForPos = (animPos: number, isOpp: boolean, imgSrc: string, altName: string) => {
+                                    const orbForPos = (animPos: number, isOpp: boolean, imgSrc: string, altName: string, fighter: { shield: number; statuses: Array<{ name: string }> }) => {
                                         const pos = animPos >= 0 ? animPos : (isOpp ? oppPos : myPos);
                                         const row = Math.floor(pos / gridWidth);
                                         const col = pos % gridWidth;
                                         const ox = col * X_STEP + HEX_W / 2 - ORB / 2;
                                         const oy = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB;
                                         const isImg = imgSrc.startsWith("data:image") || imgSrc.startsWith("blob:") || imgSrc.startsWith("/api/img");
+                                        const ward = pvpWardKey(fighter);
                                         return (
                                             // Walk the hex path between cells instead of snapping (Move / Dash /
                                             // Flicker / Push / Pull / ground relocation) so units read as travelling,
@@ -1361,6 +1447,7 @@ export function PvpBattleScreen({
                                             <div key={isOpp ? "opp-orb" : "me-orb"}
                                                 className={`avatar-orb ${isOpp ? "enemy-orb" : ""}`}
                                                 style={{ position: "absolute", left: ox, top: oy, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: ORB_PATH_TRANSITION }}>
+                                                {ward && <span className={`pvp-guard-aura pvp-guard-${ward}`} aria-hidden="true" />}
                                                 {isImg
                                                     ? <img className="tiny-map-avatar" src={imgSrc} alt={altName} />
                                                     : <span style={{ fontSize: 28, lineHeight: 1 }} role="img" aria-label={altName}>🥷</span>}
@@ -1390,8 +1477,8 @@ export function PvpBattleScreen({
                                     };
                                     return (
                                         <>
-                                            {orbForPos(myPathPos, false, myAvatar, me.name)}
-                                            {orbForPos(oppPathPos, true, oppAvatar, opp.name)}
+                                            {orbForPos(myPathPos, false, myAvatar, me.name, me)}
+                                            {orbForPos(oppPathPos, true, oppAvatar, opp.name, opp)}
                                             {hpBadgeFor(myPathPos, false, me.hp, me.maxHp)}
                                             {hpBadgeFor(oppPathPos, true, opp.hp, opp.maxHp)}
                                         </>
@@ -1433,6 +1520,8 @@ export function PvpBattleScreen({
                                         </div>
                                     );
                                 })}
+
+                                {pvpCombatVfx.map(renderCombatVfx)}
 
                                 {pvpHitFx.map((fx) => {
                                     const center = pvpTileCenter(fx.fighter === "p1" ? session.p1.pos : session.p2.pos);
@@ -1892,4 +1981,10 @@ type PvpHitFx = {
     fighter: "p1" | "p2";
     amount: number;
     kind: "damage" | "heal";
+};
+
+type PvpCombatVfx = {
+    id: string;
+    target: "p1" | "p2";
+    spec: CombatVfxSpec;
 };

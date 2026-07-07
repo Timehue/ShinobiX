@@ -11,6 +11,7 @@
 
 import type { JutsuTag } from "./combat";
 import type { Biome } from "./core";
+import type { CombatVfxKey, CombatVfxSpec } from "../lib/combat-vfx";
 
 export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "gauntlet" | "endless" | "villageWars" | "weeklyBoss" | "tournament" | "professions" | "bounties" | "legends" | "news" | "eras";
 
@@ -81,4 +82,11 @@ export type PvpSessionState = {
     // each batch exactly once. Mirror of PvpSession.fx in api/pvp/session.ts.
     fx?: { target: "p1" | "p2"; amount: number; kind: "damage" | "heal" }[];
     fxSeq?: number;
+    // Visual-only action effects for the last resolved action / DoT tick.
+    vfx?: Array<Omit<CombatVfxSpec, "target" | "key"> & {
+        target: "p1" | "p2";
+        key: CombatVfxKey;
+        anchor: CombatVfxSpec["target"];
+    }>;
+    vfxSeq?: number;
 };
