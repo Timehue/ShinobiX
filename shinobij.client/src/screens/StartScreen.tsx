@@ -49,7 +49,6 @@ type PublicTournament = {
 } | null;
 
 type PublicLeaderboardBoardId =
-    | "online"
     | "ranked"
     | "petRanked"
     | "level"
@@ -214,14 +213,30 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     if (view === "login") {
         return (
             <div className="start-screen landing-subscreen landing-login-screen">
-                <button type="button" className="start-back-button" onClick={() => setView("main")}>Back</button>
-                <LoginPanel
-                    onLogin={onLogin}
-                    onAdmin={onAdmin}
-                    initialName={initialName}
-                    notice={notice}
-                    onCreateAccount={() => setView("create")}
-                />
+                <div className="landing-login-frame">
+                    <button type="button" className="start-back-button landing-login-back" onClick={() => setView("main")}>Back</button>
+                    <div className="landing-login-shell">
+                        <section className="landing-login-copy" aria-label="Return briefing">
+                            <p className="landing-kicker">Village Gates Open</p>
+                            <h1 className="landing-login-title">Your shinobi story is still moving.</h1>
+                            <p className="landing-login-lead">
+                                Step back into missions, rival clans, pet battles, world records, and the next chapter of your shinobi legend.
+                            </p>
+                            <div className="landing-login-highlights" aria-label="World activity">
+                                <span><GiCrossedSwords /> Clan wars</span>
+                                <span><GiPawPrint /> Pet arena</span>
+                                <span><GiTrophy /> Hall records</span>
+                            </div>
+                        </section>
+                        <LoginPanel
+                            onLogin={onLogin}
+                            onAdmin={onAdmin}
+                            initialName={initialName}
+                            notice={notice}
+                            onCreateAccount={() => setView("create")}
+                        />
+                    </div>
+                </div>
             </div>
         );
     }
@@ -281,9 +296,13 @@ function LoginPanel({ onLogin, onAdmin, initialName, notice, onCreateAccount }: 
     return (
         <div className="landing-auth-card landing-login-card start-card">
             <div className="landing-login-head">
-                <p className="landing-kicker">Returning Shinobi</p>
-                <h2 className="start-card-title">Log In</h2>
-                <p className="start-hint landing-login-subtitle">Restore your save and continue from your village.</p>
+                <div className="landing-login-art">
+                    <img src="/login-shinobi-legacy.webp" alt="" aria-hidden="true" />
+                    <div className="landing-login-art-copy">
+                        <p className="landing-kicker">Returning Shinobi</p>
+                        <h2 className="start-card-title landing-login-art-title">Continue Your Legacy</h2>
+                    </div>
+                </div>
             </div>
 
             {notice && <p className="start-hint landing-auth-notice">{notice}</p>}
@@ -330,16 +349,12 @@ function LoginPanel({ onLogin, onAdmin, initialName, notice, onCreateAccount }: 
                 </label>
 
                 <button
-                    className="start-primary-btn"
+                    className="start-primary-btn landing-login-primary"
                     onClick={submitLogin}
                     disabled={!!loginStatus}
                 >
-                    {loginStatus || "Log Back In"}
+                    {loginStatus || "Enter Village"}
                 </button>
-
-                <p className="start-hint">
-                    Logging in automatically restores your full save including images.
-                </p>
 
                 <button type="button" className="landing-auth-secondary" onClick={onCreateAccount}>
                     Create a New Shinobi
@@ -653,7 +668,6 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
     }, []);
 
     const tabs: { id: PublicLeaderboardTab; label: string; icon: ReactNode }[] = [
-        { id: "online",      label: "Online",       icon: <GiVillage /> },
         { id: "ranked",      label: "Ranked",       icon: <GiRank3 /> },
         { id: "petRanked",   label: "Pet Rating",   icon: <GiPawPrint /> },
         { id: "level",       label: "Level",        icon: <GiVortex /> },
@@ -671,7 +685,6 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
     function getLabel(t: PublicLeaderboardTab): string {
         if (t !== "tournament" && boards[t]?.label) return boards[t]!.label;
         switch (t) {
-            case "online": return "Shinobi Online Now";
             case "ranked": return "Ranked Battle Rating (Elo)";
             case "petRanked": return "Pet Arena Rating (Elo)";
             case "level": return "Highest Level";

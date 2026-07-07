@@ -44,6 +44,7 @@
 }
 
 .landing-login-screen {
+    position: relative;
     width: 100%;
     max-width: none;
     min-height: 100dvh;
@@ -54,8 +55,99 @@
     gap: 16px;
     padding: clamp(18px, 4vw, 40px) !important;
     background:
-        linear-gradient(90deg, rgba(4, 7, 14, 0.96), rgba(4, 7, 14, 0.72)),
+        linear-gradient(90deg, rgba(3, 6, 13, 0.98) 0%, rgba(3, 6, 13, 0.84) 34%, rgba(3, 6, 13, 0.42) 66%, rgba(3, 6, 13, 0.76) 100%),
+        linear-gradient(180deg, rgba(3, 6, 13, 0.58), rgba(3, 6, 13, 0.18) 42%, rgba(3, 6, 13, 0.92)),
         url("/landing-hero-village.webp") center / cover no-repeat;
+    overflow: hidden;
+}
+
+.landing-login-screen::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(115deg, transparent 0 28%, rgba(250, 204, 21, 0.10) 29%, transparent 42%),
+        linear-gradient(180deg, transparent 0 54%, rgba(3, 7, 18, 0.72) 100%);
+    pointer-events: none;
+}
+
+.landing-login-frame {
+    position: relative;
+    z-index: 1;
+    width: min(1120px, 100%);
+    display: grid;
+    gap: 18px;
+}
+
+.landing-login-back {
+    justify-self: start;
+}
+
+.landing-login-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+    gap: clamp(26px, 5vw, 64px);
+    align-items: center;
+}
+
+.landing-login-copy {
+    max-width: 650px;
+    color: #edf6ff;
+    text-shadow: 0 3px 20px rgba(0, 0, 0, 0.78);
+}
+
+.landing-login-title {
+    max-width: 12ch;
+    margin: 0 0 16px;
+    color: #fff7d6;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(42px, 6.4vw, 82px);
+    line-height: 0.98;
+    letter-spacing: 0;
+    text-transform: none;
+    border: 0;
+    padding: 0;
+    text-shadow: 0 0 34px rgba(250, 204, 21, 0.22), 0 8px 34px rgba(0, 0, 0, 0.86);
+}
+
+.landing-login-lead {
+    max-width: 48ch;
+    margin: 0 0 24px;
+    color: #d8dfeb;
+    font-size: clamp(15px, 1.7vw, 19px);
+    line-height: 1.55;
+}
+
+.landing-login-highlights {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.landing-login-highlights span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 8px 13px;
+    border-radius: 999px;
+    border: 1px solid rgba(250, 204, 21, 0.34);
+    background: rgba(2, 6, 23, 0.46);
+    color: #fde68a;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    backdrop-filter: blur(4px);
+}
+
+.landing-login-highlights svg {
+    width: 17px;
+    height: 17px;
+    color: #fbbf24;
+    filter: drop-shadow(0 0 7px rgba(250, 204, 21, 0.5));
 }
 
 /* ── Sticky top bar ─────────────────────────────────────────────────────── */
@@ -375,16 +467,128 @@
 }
 
 .landing-login-card {
-    margin: 0 auto;
+    position: relative;
+    isolation: isolate;
+    margin: 0;
+    max-width: 460px !important;
+    overflow: hidden;
+    background:
+        linear-gradient(155deg, rgba(15, 23, 42, 0.96), rgba(5, 8, 18, 0.96) 58%, rgba(31, 13, 5, 0.94)) !important;
+    border-color: rgba(250, 204, 21, 0.48) !important;
+    box-shadow:
+        0 0 0 1px rgba(250, 204, 21, 0.10) inset,
+        0 28px 70px rgba(0, 0, 0, 0.70),
+        0 0 42px rgba(202, 138, 4, 0.13) !important;
+}
+
+.landing-login-card::before {
+    z-index: 2;
+}
+
+.landing-login-card::after {
+    z-index: 2;
+}
+
+.landing-login-card > * {
+    position: relative;
+    z-index: 1;
 }
 
 .landing-login-head {
-    margin-bottom: 16px;
+    display: grid;
+    justify-items: center;
+    margin-bottom: 18px;
+    text-align: center;
 }
 
-.landing-login-subtitle {
-    text-align: left !important;
-    margin: -4px 0 0 !important;
+.landing-login-art {
+    position: relative;
+    width: min(100%, 388px);
+    height: 236px;
+    margin: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid rgba(250, 204, 21, 0.38);
+    background: rgba(2, 6, 23, 0.84);
+    box-shadow:
+        0 0 0 1px rgba(250, 204, 21, 0.10) inset,
+        0 18px 38px rgba(0, 0, 0, 0.38),
+        0 0 34px rgba(202, 138, 4, 0.13);
+}
+
+.landing-login-art img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 28%;
+    filter: saturate(0.96) contrast(1.05);
+}
+
+.landing-login-art::before,
+.landing-login-art::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+}
+
+.landing-login-art::before {
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% 32%, rgba(250, 204, 21, 0.05), transparent 42%),
+        linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.32) 48%, rgba(2, 6, 23, 0.96));
+}
+
+.landing-login-art::after {
+    inset: 10px;
+    border: 1px solid rgba(250, 204, 21, 0.18);
+    border-radius: 6px;
+}
+
+.landing-login-art-copy {
+    position: absolute;
+    right: 16px;
+    bottom: 14px;
+    left: 16px;
+    z-index: 1;
+    display: grid;
+    justify-items: center;
+    text-align: center;
+}
+
+.landing-login-art-copy .landing-kicker {
+    margin: 0 0 7px;
+    color: #f0b75b;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-shadow: 0 0 12px rgba(0, 0, 0, 0.85);
+}
+
+.landing-login-art-title {
+    margin: 0 !important;
+    max-width: 17ch;
+    color: #fff2b8 !important;
+    font-size: 16px !important;
+    line-height: 1.28;
+    letter-spacing: 0.24em !important;
+    text-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.92),
+        0 0 18px rgba(250, 204, 21, 0.32) !important;
+}
+
+.landing-login-art-title::before,
+.landing-login-art-title::after {
+    display: none;
+}
+
+.landing-login-primary {
+    min-height: 48px;
+    background: linear-gradient(180deg, #f59e0b, #8a3b0d) !important;
+    color: #fff7d6 !important;
+    box-shadow:
+        0 0 0 1px rgba(250, 204, 21, 0.20) inset,
+        0 12px 34px rgba(120, 53, 15, 0.55),
+        0 0 30px rgba(250, 204, 21, 0.18) !important;
 }
 
 .landing-auth-secondary {
@@ -946,6 +1150,41 @@
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
+    .landing-login-screen {
+        justify-content: flex-start;
+        padding-top: clamp(18px, 4vw, 32px) !important;
+        background:
+            linear-gradient(180deg, rgba(3, 6, 13, 0.74), rgba(3, 6, 13, 0.50) 34%, rgba(3, 6, 13, 0.96)),
+            url("/landing-hero-village.webp") 58% center / cover no-repeat;
+    }
+    .landing-login-shell {
+        grid-template-columns: 1fr;
+        gap: 22px;
+    }
+    .landing-login-copy {
+        max-width: 720px;
+        text-align: center;
+        margin: 0 auto;
+    }
+    .landing-login-title {
+        max-width: 12ch;
+        margin-inline: auto;
+        font-size: clamp(36px, 9vw, 58px);
+    }
+    .landing-login-lead {
+        margin-inline: auto;
+    }
+    .landing-login-highlights {
+        justify-content: center;
+    }
+    .landing-login-card {
+        margin: 0 auto;
+        width: min(100%, 460px);
+    }
+    .landing-login-art {
+        width: min(100%, 372px);
+        height: 220px;
+    }
     .landing-hero {
         min-height: auto;
         padding-top: 34px;
@@ -998,6 +1237,34 @@
 }
 
 @media (max-width: 560px) {
+    .landing-login-screen {
+        padding-inline: 12px !important;
+    }
+    .landing-login-frame {
+        gap: 12px;
+    }
+    .landing-login-highlights {
+        gap: 8px;
+    }
+    .landing-login-highlights span {
+        flex: 1 1 148px;
+        justify-content: center;
+        padding-inline: 9px;
+        letter-spacing: 0.04em;
+    }
+    .landing-login-art {
+        width: min(100%, 322px);
+        height: 190px;
+    }
+    .landing-login-art-copy {
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+    }
+    .landing-login-art-title {
+        font-size: 14px !important;
+        letter-spacing: 0.18em !important;
+    }
     .landing-topbar-inner {
         flex-wrap: wrap;
         gap: 8px;
