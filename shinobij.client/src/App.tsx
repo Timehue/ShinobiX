@@ -161,7 +161,8 @@ import { buildPlayableDeck, deriveCardClashCard, validateDeck as validateClashDe
 const DungeonEncounter = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonEncounter })));
 const DungeonPetBattle = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonPetBattle })));
 import { sharedClanWarCache, cwListWars, type CwChallenge, type CwChallengeResult } from "./lib/clan-war-api";
-const PvpBattleScreen = lazyWithRetry(() => import("./screens/PvpBattleScreen").then(m => ({ default: m.PvpBattleScreen })));
+const loadPvpBattleScreen = () => import("./screens/PvpBattleScreen").then(m => ({ default: m.PvpBattleScreen }));
+const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight } from "./lib/screen-guards";
@@ -627,6 +628,29 @@ export function villagePageImage(villageName: string): string {
     if (villageName === "Frostfang Village") return castleImg;
     if (villageName === "Moonshadow Village") return moonshadowImage;
     return stormveilVillageImg;
+}
+
+const ARENA_ART_BY_BIOME: Record<Biome, readonly [string, string]> = {
+    forest: ["/arena-forest.webp", "/arena-forest-floor.webp"],
+    snow: ["/arena-snow.webp", "/arena-snow-floor.webp"],
+    volcano: ["/arena-volcano.webp", "/arena-volcano-floor.webp"],
+    shadow: ["/arena-shadow.webp", "/arena-shadow-floor.webp"],
+    central: ["/arena-central.webp", "/arena-central-floor.webp"],
+};
+const DEATHSGATE_ARENA_ART = ["/deathsgate-arena.webp", "/deathsgate-arena-floor.webp"] as const;
+const preloadedBattleArt = new Set<string>();
+
+function preloadBattleArtUrl(url: string) {
+    if (preloadedBattleArt.has(url)) return;
+    preloadedBattleArt.add(url);
+    const img = new Image();
+    img.decoding = "async";
+    img.src = url;
+}
+
+function preloadBattleEntryAssets(biome: Biome, sector: number) {
+    const urls = sector === 99 ? DEATHSGATE_ARENA_ART : ARENA_ART_BY_BIOME[biome];
+    urls.forEach(preloadBattleArtUrl);
 }
 // villageLore lives in ./data/village-lore; screens/VillageLoreScreen imports
 // it directly from there. villagePageImage above stays — it pulls in
@@ -2067,6 +2091,17 @@ export default function App() {
     const [bloodlineMakerRankLocked, setBloodlineMakerRankLocked] = useState(false);
     const [bloodlineMakerEditingBloodline, setBloodlineMakerEditingBloodline] = useState<SavedBloodline | null>(null);
     const [currentSector, setCurrentSector] = useState(40);
+
+    useEffect(() => {
+        if (!character?.name && !restoringSession) return;
+        const biome = pvpSeedSession?.biome ?? currentBiome;
+        const delayMs = screen === "pvpBattle" ? 0 : 650;
+        const timer = window.setTimeout(() => {
+            void loadPvpBattleScreen().catch(() => {});
+            preloadBattleEntryAssets(biome, currentSector);
+        }, delayMs);
+        return () => window.clearTimeout(timer);
+    }, [character?.name, restoringSession, currentBiome, currentSector, pvpSeedSession?.biome, screen]);
 
     // Mint a raid token when an AI raid kicks off. Watches raidBattleKind
     // transitions to "raidAi". Falls back to a null token on network errors

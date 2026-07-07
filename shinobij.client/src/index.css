@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&display=swap');
 @import "./styles/tokens.css";
 @import "./styles/ui.css";
 @import "./styles/profile-skin.css";
@@ -23601,7 +23602,9 @@ html[data-vp="lg"] .arena-fullscreen .hex-battlefield {
     width: 100% !important;
     max-width: 100% !important;
     overflow: hidden !important;
-    background-size: auto calc(100% + 48px) !important;
+    /* Wide PvP layouts are wider than the painted arena art's aspect ratio.
+       Cover fills the container; height-based sizing left black side bands. */
+    background-size: cover !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
     padding: 6px 4px !important;
