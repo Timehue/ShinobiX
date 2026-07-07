@@ -13,6 +13,7 @@ import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
 import { builtinHuntMissions } from "../data/missions";
 import { gainXp } from "../App";
+import { huntReadyForFight, huntRequiredTracks, huntTrailSector } from "../lib/hunt-trail";
 
 export function HunterBoard({
     character,
@@ -68,7 +69,7 @@ export function HunterBoard({
         // Reset tracking to 0 on accept — never inherit a stale value left in the
         // shared map, which would make the contract instantly (falsely) claimable.
         setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
-        alert(`${mission.name} accepted. Head to Sector ${mission.targetSector} and use Hunt ${mission.exploreCount} time(s) to track the beast.`);
+        alert(`${mission.name} accepted. Start in Sector ${mission.targetSector}; the trail may shift to nearby sectors before the fight.`);
     }
 
     function materialNames(itemIds: string[]): string[] {
@@ -77,7 +78,15 @@ export function HunterBoard({
 
     async function claimHunt(mission: CreatorMission) {
         const progress = missionProgress[mission.id] ?? 0;
-        if (progress < mission.exploreCount) return alert(`Hunt the beast ${mission.exploreCount - progress} more time(s) in Sector ${mission.targetSector}.`);
+        const requiredTracks = huntRequiredTracks(mission);
+        if (progress < requiredTracks) {
+            if (huntReadyForFight(mission, progress)) {
+                const fightSector = huntTrailSector(mission, progress, character.name);
+                return alert(`Defeat the beast in Sector ${fightSector} before claiming this hunt.`);
+            }
+            const trailSector = huntTrailSector(mission, progress, character.name);
+            return alert(`Follow the active trail in Sector ${trailSector}.`);
+        }
         if (!hasDailyHuntSlot(character)) return alert(`Daily hunt limit reached (${DAILY_HUNT_LIMIT}/${DAILY_HUNT_LIMIT}). Resets at midnight UTC.`);
 
         // Server-authoritative for built-in hunts (audit M-1): the server resolves
@@ -156,7 +165,12 @@ export function HunterBoard({
                                 {missions.map((mission) => {
                                     const accepted = acceptedMissionIds.includes(mission.id);
                                     const progress = missionProgress[mission.id] ?? 0;
-                                    const complete = progress >= mission.exploreCount;
+                                    const requiredTracks = huntRequiredTracks(mission);
+                                    const trackingSteps = Math.max(1, requiredTracks - 1);
+                                    const trailSector = huntTrailSector(mission, progress, character.name);
+                                    const complete = progress >= requiredTracks;
+                                    const readyForFight = accepted && !complete && huntReadyForFight(mission, progress);
+                                    const trackProgress = complete ? trackingSteps : Math.min(progress, trackingSteps);
                                     const beastAi = creatorAis.find((a) => a.id === mission.aiProfileId);
                                     return (
                                         <div key={mission.id} className="hunt-contract-card">
@@ -173,9 +187,15 @@ export function HunterBoard({
                                             {accepted && (
                                                 <>
                                                     <div className="hunt-progress-bar">
-                                                        <div className="hunt-progress-fill" style={{ width: `${Math.min(100, (progress / mission.exploreCount) * 100)}%` }} />
+                                                        <div className="hunt-progress-fill" style={{ width: `${complete ? 100 : Math.min(100, (trackProgress / trackingSteps) * 100)}%` }} />
                                                     </div>
-                                                    <span className="hunt-progress-label">Hunted {progress}/{mission.exploreCount}</span>
+                                                    <span className="hunt-progress-label">
+                                                        {complete
+                                                            ? "Defeated"
+                                                            : readyForFight
+                                                                ? `Trail hot - fight in Sector ${trailSector}`
+                                                                : `Trail ${trackProgress}/${trackingSteps} - Sector ${trailSector}`}
+                                                    </span>
                                                 </>
                                             )}
                                             <div className="menu">
@@ -183,7 +203,7 @@ export function HunterBoard({
                                                     ? <button onClick={() => acceptHunt(mission)}>Accept Hunt</button>
                                                     : complete
                                                         ? <button onClick={() => claimHunt(mission)}>Claim Reward</button>
-                                                        : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>
+                                                        : <button onClick={() => setScreen("worldMap")}>{readyForFight ? "Go Fight" : "Go To Trail"} Sector {trailSector}</button>
                                                 }
                                             </div>
                                         </div>
