@@ -77,6 +77,22 @@ function placeInput(over = {}) {
         node_assert_1.strict.equal((0, _bounty_js_1.claimBounty)((0, _bounty_js_1.emptyBoard)(), 'Ghost').ok, false);
     });
 });
+(0, node_test_1.describe)('claimBountyByAi', () => {
+    (0, node_test_1.it)('burns the pool, removes the head, and preserves contributor metadata', () => {
+        const placed = (0, _bounty_js_1.placeBounty)(placeInput({ amount: 20_000 }), NOW);
+        node_assert_1.strict.ok(placed.ok);
+        if (!placed.ok)
+            return;
+        const r = (0, _bounty_js_1.claimBountyByAi)(placed.board, 'Kenji');
+        node_assert_1.strict.equal(r.ok, true);
+        if (!r.ok)
+            return;
+        node_assert_1.strict.equal(r.amount, 20_000);
+        node_assert_1.strict.equal(r.bounty.target, 'Kenji');
+        node_assert_1.strict.deepEqual(r.bounty.contributors, ['rill']);
+        node_assert_1.strict.equal((0, _bounty_js_1.findBounty)(r.board, 'Kenji'), undefined, 'AI claim clears the head');
+    });
+});
 (0, node_test_1.describe)('normalizeBoard', () => {
     (0, node_test_1.it)('repairs malformed/zero entries and caps the list', () => {
         const board = (0, _bounty_js_1.normalizeBoard)({ bounties: [

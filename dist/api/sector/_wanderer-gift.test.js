@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const node_assert_1 = require("node:assert");
 const _wanderer_gift_js_1 = require("./_wanderer-gift.js");
+const _wanderer_encounter_js_1 = require("./_wanderer-encounter.js");
 (0, node_test_1.describe)("rollWandererGift", () => {
     (0, node_test_1.it)("rolls 0–1 fate shards, 1–5 bone charms, and positive ryo across the rng range", () => {
         for (const r of [() => 0, () => 0.5, () => 0.999]) {
@@ -35,5 +36,51 @@ const _wanderer_gift_js_1 = require("./_wanderer-gift.js");
         node_assert_1.strict.equal(d.ok, false);
         if (!d.ok)
             node_assert_1.strict.equal(d.reason, "daily-cap");
+    });
+});
+(0, node_test_1.describe)("wanderer encounter cooldown", () => {
+    (0, node_test_1.it)("recognizes only natural road wanderer ids", () => {
+        node_assert_1.strict.deepEqual((0, _wanderer_encounter_js_1.parseNaturalWandererId)("w-12-345-1"), { sector: 12, dayBucket: 345, index: 1 });
+        node_assert_1.strict.equal((0, _wanderer_encounter_js_1.parseNaturalWandererId)("legacy-sage"), null);
+        node_assert_1.strict.equal((0, _wanderer_encounter_js_1.parseNaturalWandererId)("legacy-emissary-hollow-warden"), null);
+        node_assert_1.strict.equal((0, _wanderer_encounter_js_1.parseNaturalWandererId)("merc-abc"), null);
+    });
+    (0, node_test_1.it)("moves a used wanderer to a different sector and stamps the save cooldown", () => {
+        const now = 10_000;
+        const used = (0, _wanderer_encounter_js_1.withWandererUseState)({ wandererCooldowns: { stale: now - 1 } }, "w-7-1-0", now, 7);
+        node_assert_1.strict.equal(used.cooldownUntil, now + _wanderer_encounter_js_1.WANDERER_ENCOUNTER_COOLDOWN_MS);
+        node_assert_1.strict.equal((0, _wanderer_encounter_js_1.currentWandererCooldownUntil)(used.character, "w-7-1-0", now), used.cooldownUntil);
+        node_assert_1.strict.notEqual(used.moveToSector, 7);
+        node_assert_1.strict.equal(used.character.wandererMoves["w-7-1-0"], used.moveToSector);
+        node_assert_1.strict.equal("stale" in used.character.wandererCooldowns, false);
+    });
+    (0, node_test_1.it)("relocation is deterministic and never chooses the source sector", () => {
+        const a = (0, _wanderer_encounter_js_1.wandererRelocationSector)("w-7-1-0", 12);
+        const b = (0, _wanderer_encounter_js_1.wandererRelocationSector)("w-7-1-0", 12);
+        node_assert_1.strict.equal(a, b);
+        node_assert_1.strict.ok(a >= 1 && a <= 60);
+        node_assert_1.strict.notEqual(a, 12);
+    });
+    (0, node_test_1.it)("hard cooldown claim blocks replay of the same wanderer id", async () => {
+        const store = new Map();
+        const kv = {
+            async get(key) { return (store.get(key) ?? null); },
+            async set(key, value, opts) {
+                if (opts?.nx && store.has(key))
+                    return null;
+                store.set(key, value);
+                return "OK";
+            },
+        };
+        const first = await (0, _wanderer_encounter_js_1.claimWandererUseCooldown)(kv, "aki", "w-7-1-0", 1_000);
+        node_assert_1.strict.equal(first.ok, true);
+        const second = await (0, _wanderer_encounter_js_1.claimWandererUseCooldown)(kv, "aki", "w-7-1-0", 1_001);
+        node_assert_1.strict.equal(second.ok, false);
+        if (!second.ok)
+            node_assert_1.strict.equal(second.reason, "cooldown");
+        const legacy = await (0, _wanderer_encounter_js_1.claimWandererUseCooldown)(kv, "aki", "legacy-sage", 1_002);
+        node_assert_1.strict.equal(legacy.ok, false);
+        if (!legacy.ok)
+            node_assert_1.strict.equal(legacy.reason, "invalid-wanderer");
     });
 });

@@ -18,6 +18,7 @@ exports.normalizeBoard = normalizeBoard;
 exports.findBounty = findBounty;
 exports.placeBounty = placeBounty;
 exports.claimBounty = claimBounty;
+exports.claimBountyByAi = claimBountyByAi;
 exports.BOUNTY_MIN_PLACE = 1_000; // min ryo per placement
 exports.BOUNTY_MAX_PLACE = 1_000_000; // max ryo per single placement
 exports.BOUNTY_MAX_PER_TARGET = 10_000_000; // cap on a single head's pool
@@ -99,4 +100,15 @@ function claimBounty(board, targetName) {
         return { ok: false, reason: 'There is no bounty on that player.' };
     const bounties = board.bounties.filter((b) => b !== existing);
     return { ok: true, board: { bounties }, amount: existing.amount };
+}
+/**
+ * Remove a bounty because a server-spawned hunter killed the target. The pool is
+ * intentionally not credited to any player: this is the bounty-board ryo sink.
+ */
+function claimBountyByAi(board, targetName) {
+    const existing = findBounty(board, targetName);
+    if (!existing || existing.amount <= 0)
+        return { ok: false, reason: 'There is no bounty on that player.' };
+    const bounties = board.bounties.filter((b) => b !== existing);
+    return { ok: true, board: { bounties }, amount: existing.amount, bounty: { ...existing, contributors: [...existing.contributors] } };
 }

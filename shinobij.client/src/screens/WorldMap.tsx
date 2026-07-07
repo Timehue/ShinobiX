@@ -107,6 +107,8 @@ import { useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { mercEncounterAis, isMercAiId } from "../lib/merc-ai";
 import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
+import { fetchBountyBoard, startBountyHunter, claimBountyHunterKill, type BountyEntry } from "../lib/pvp-bounty";
+import { useWandererService, type WandererFavor } from "../lib/wanderer-service";
 import { homeVillageForSector } from "../data/war-map-sectors";
 import { isLegacyEnabled, isLegacyServerLive, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, emissaryLoreLine, emissaryQuestById, EMISSARY_METRIC_LABELS, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
@@ -203,6 +205,27 @@ function ambienceBiomeForSector(sector: number): Biome {
 // "Return to the sector you were in" after an explore ambush is a one-shot latch
 // in ../lib/sector-return (shared so the Hospital can clear it on a KO). See that
 // module for the full lifecycle.
+
+function bountyHunterLevel(playerLevel: number, amount: number): number {
+    const bountyPressure = Math.min(12, Math.floor(Math.max(0, amount) / 75_000));
+    return Math.max(1, Math.min(100, Math.round(playerLevel + 4 + bountyPressure)));
+}
+
+function bountyHunterIdFor(playerName: string, bounty: BountyEntry): string {
+    const slug = playerName.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 32) || "target";
+    return `bounty-hunter-${slug}-${Math.floor(bounty.updatedAt || 0)}`;
+}
+
+function interiorTileFromKey(key: string): number {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < key.length; i += 1) {
+        h ^= key.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    const col = 2 + ((h >>> 0) % 8);
+    const row = 2 + (((h >>> 5) >>> 0) % 8);
+    return row * 12 + col;
+}
 
 export function WorldMap({
     setCurrentBiome,
@@ -557,13 +580,12 @@ export function WorldMap({
             const cd = character.wandererCooldowns;
             const moves = character.wandererMoves;
             const bucket = wandererDayBucket(new Date());
-            // Hide NPCs you've already taken a reward from (fight/gift/pet/card) for a
-            // few hours so they can't be farmed, AND hide ones that have since wandered
-            // off to another sector so they don't reappear here when the cooldown lifts.
-            // Sages (quests) are never cooled or moved — a quest is one-at-a-time already
-            // and you need a sage to continue an epic.
+            // Hide natural road NPCs you've already used for a few hours, AND hide
+            // ones that have since wandered off to another sector so they don't
+            // reappear here when the cooldown lifts. Legacy Sage/emissaries render
+            // from their own arrays below and stay exempt.
             const natives = rollWanderers(selectedSector, bucket)
-                .filter(w => w.verb === "quest" || (!isWandererOnCooldown(cd, w.id, now) && !hasWandererRelocated(moves, w.id)));
+                .filter(w => !isWandererOnCooldown(cd, w.id, now) && !hasWandererRelocated(moves, w.id));
             // Plus any wanderers that have wandered INTO this sector from elsewhere and
             // whose cooldown has now lifted — they're findable again, just somewhere new.
             const visitors = wanderersVisitingSector(selectedSector, bucket, moves, cd, now);
@@ -571,6 +593,61 @@ export function WorldMap({
         },
         [selectedSector, character.wandererCooldowns, character.wandererMoves],
     );
+    const [bountyBoard, setBountyBoard] = useState<BountyEntry[]>([]);
+    useEffect(() => {
+        let alive = true;
+        const load = () => {
+            void fetchBountyBoard().then((board) => { if (alive) setBountyBoard(board); }).catch(() => { /* best-effort */ });
+        };
+        load();
+        const id = setInterval(load, 45000);
+        return () => { alive = false; clearInterval(id); };
+    }, [character.name]);
+    const selfBounty = useMemo(
+        () => bountyBoard.find((b) => b.target.trim().toLowerCase() === character.name.trim().toLowerCase()) ?? null,
+        [bountyBoard, character.name],
+    );
+    const bountyHunterWanderers = useMemo<Wanderer[]>(() => {
+        if (!isWanderersEnabled() || selectedSector == null || !selfBounty) return [];
+        const id = bountyHunterIdFor(character.name, selfBounty);
+        if (isWandererOnCooldown(character.wandererCooldowns, id, Date.now())) return [];
+        const home = interiorTileFromKey(`${id}:${selectedSector}`);
+        const level = bountyHunterLevel(character.level, selfBounty.amount);
+        return [{
+            id,
+            name: "Contract Hunter",
+            archetype: "bountyHunter",
+            verb: "bountyHunter",
+            level,
+            homeTile: home,
+            waypoints: [home],
+            greeting: `${character.name}, your bounty is worth ${selfBounty.amount.toLocaleString()} ryo. Stand still.`,
+            tellTint: "#f87171",
+            avatarKey: "bountyHunter",
+            targetName: character.name,
+            bountyAmount: selfBounty.amount,
+        }];
+    }, [selectedSector, selfBounty, character.name, character.level, character.wandererCooldowns]);
+    const courierWanderers = useMemo<Wanderer[]>(() => {
+        const favor = character.activeWandererFavor;
+        if (!isWanderersEnabled() || selectedSector == null || !favor || favor.targetSector !== selectedSector || Date.now() > favor.expiresAt) return [];
+        const home = interiorTileFromKey(`${favor.id}:${selectedSector}`);
+        return [{
+            id: `courier-${favor.id}`,
+            name: "Road Courier",
+            archetype: "courier",
+            verb: "courier",
+            level: Math.max(1, Math.min(100, character.level)),
+            homeTile: home,
+            waypoints: [home],
+            greeting: `${favor.giver} said you might come through. Hand it over.`,
+            tellTint: "#fde68a",
+            avatarKey: "courier",
+            originSector: favor.originSector,
+            targetSector: favor.targetSector,
+            expiresAt: favor.expiresAt,
+        }];
+    }, [selectedSector, character.activeWandererFavor, character.level]);
     // Roaming mercenaries (Phase 5) — a hired enemy band patrols this sector as
     // hostile, wanderer-shaped NPCs. The roster is SERVER-sourced (which bands roam
     // here keys off live wars + leases); the fight is server-resolved. villageWarMap.v1 only.
@@ -790,6 +867,11 @@ export function WorldMap({
             return { ...prev, wandererCooldowns: cooldowns, wandererMoves: moves };
         });
     }
+    function coolNaturalWanderer(w: Wanderer, ms?: number) {
+        if (w.id === LEGACY_SAGE_WANDERER_ID || w.verb === "legacyQuest") return;
+        if (!parseWandererId(w.id)) return;
+        coolWanderer(w.id, ms);
+    }
     // ── Bandit fights, level-scaling, streak & ambush ────────────────────────
     // All wanderer combat scales to the PLAYER's level (never impossible). Fending
     // off robbers builds character.robberStreak; at 5, the next bandit springs an
@@ -811,7 +893,7 @@ export function WorldMap({
         ai.image = WANDERER_BOSS_PORTRAIT;
         return ai;
     }
-    function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush" | "questboss", stage: number, sector: number, extra: Record<string, unknown> = {}) {
+    function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush" | "questboss" | "patrol" | "bountyHunter", stage: number, sector: number, extra: Record<string, unknown> = {}) {
         const b = biomeForSector(sector);
         registerWandererAi(ai);
         setCurrentSector(sector);
@@ -845,6 +927,144 @@ export function WorldMap({
         ai.image = nem ? WANDERER_NEMESIS_PORTRAIT : wandererAvatar(w.avatarKey);
         launchWandererArenaFight(ai, "single", 0, selectedSector, { name, level: lvl, nemesis: !!nem });
     }
+    function roadRumorFor(w: Wanderer): string {
+        const favor = character.activeWandererFavor;
+        if (selfBounty) return `${w.name} lowers their voice: "Your face is on the board for ${selfBounty.amount.toLocaleString()} ryo. Hunters will smell that ink."`;
+        if (favor) return `${w.name} taps the map: "A courier is waiting in ${sectorRegionName(favor.targetSector)} - sector ${favor.targetSector}. Do not let the seal go cold."`;
+        if (weeklyBossSector) return `${w.name} points toward ${sectorRegionName(weeklyBossSector)}: "Something huge is moving through sector ${weeklyBossSector}."`;
+        const wars = activeVillageWarsFor(character.village);
+        if (wars.length > 0) return `${w.name} says, "Patrols are tight while your village is at war. Watch border roads and mercenary colors."`;
+        if (sageOffer) return `${w.name} smiles faintly: "Old wisdom waits in sector ${sageOffer.sector}. That kind of meeting does not happen twice by accident."`;
+        return `${w.name} studies the road dust: "${sectorRegionName(selectedSector ?? 1)} is quiet for now. Quiet roads usually mean someone is choosing the hour."`;
+    }
+    function askRoadRumor(w: Wanderer) {
+        rememberWanderer(w);
+        setWandererDialog({ w, msg: roadRumorFor(w) });
+    }
+    function rememberWanderer(w: Wanderer) {
+        const key = w.archetype;
+        updateCharacter(prev => {
+            if (!prev) return prev;
+            const memories = prev.wandererMemories ?? {};
+            return { ...prev, wandererMemories: { ...memories, [key]: Math.min(999, (memories[key] ?? 0) + 1) } };
+        });
+    }
+    function wandererMemoryLine(w: Wanderer): string | null {
+        const met = character.wandererMemories?.[w.archetype] ?? 0;
+        if (met >= 3) return "They recognize your stance before you speak.";
+        if (met >= 1) return "Their eyes linger - this is not your first meeting with their kind.";
+        return null;
+    }
+    async function tradeWithWanderer(w: Wanderer) {
+        setWandererDialog({ w, busy: true });
+        const data = await useWandererService({ action: "merchant", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id });
+        if (data.ok && data.offer && data.totals) {
+            coolWanderer(w.id);
+            updateCharacter(prev => prev ? ({ ...prev, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
+            const offer = data.offer as { cost?: number; boneCharms?: number };
+            setWandererDialog({ w, msg: `${w.name} trades ${offer.boneCharms ?? 0} bone charm${offer.boneCharms === 1 ? "" : "s"} for ${offer.cost ?? 0} ryo, then packs up for another road.` });
+        } else if (data.reason === "no-ryo") {
+            const offer = data.offer as { cost?: number } | undefined;
+            setWandererDialog({ w, msg: `"Come back with ${offer?.cost ?? "more"} ryo, and we can talk."` });
+        } else if (data.reason === "cooldown") {
+            coolWanderer(w.id);
+            setWandererDialog({ w, msg: "They have already moved on. Search another sector." });
+        } else {
+            setWandererDialog({ w, msg: data.error ?? "The trade falls through." });
+        }
+    }
+    async function visitWandererMedic(w: Wanderer) {
+        setWandererDialog({ w, busy: true });
+        const data = await useWandererService({ action: "medic", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id });
+        if (data.ok && data.offer && data.totals) {
+            coolWanderer(w.id);
+            updateCharacter(prev => prev ? ({
+                ...prev,
+                ryo: data.totals!.ryo ?? prev.ryo,
+                hp: data.totals!.hp ?? prev.hp,
+                chakra: data.totals!.chakra ?? prev.chakra,
+                stamina: data.totals!.stamina ?? prev.stamina,
+            }) : prev);
+            const offer = data.offer as { cost?: number };
+            setWandererDialog({ w, msg: `${w.name} patches you up for ${offer.cost ?? 0} ryo. Your body remembers how to breathe again.` });
+        } else if (data.reason === "already-well") {
+            setWandererDialog({ w, msg: `"You are already steady. Save your ryo for worse days."` });
+        } else if (data.reason === "no-ryo") {
+            const offer = data.offer as { cost?: number } | undefined;
+            setWandererDialog({ w, msg: `"Treatment costs ${offer?.cost ?? "more"} ryo. I cannot spend medicine on promises."` });
+        } else if (data.reason === "cooldown") {
+            coolWanderer(w.id);
+            setWandererDialog({ w, msg: "They have already moved on. Search another sector." });
+        } else {
+            setWandererDialog({ w, msg: data.error ?? "The medic cannot treat you right now." });
+        }
+    }
+    async function startWandererFavor(w: Wanderer) {
+        setWandererDialog({ w, busy: true });
+        const data = await useWandererService({ action: "favor-start", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id, wandererName: w.name });
+        if (data.ok && data.favor) {
+            coolWanderer(w.id);
+            updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: data.favor as WandererFavor }) : prev);
+            setWandererDialog({ w, msg: `${w.name} gives you a sealed favor. Deliver it in ${sectorRegionName(data.favor.targetSector)} - sector ${data.favor.targetSector}.` });
+        } else if (data.reason === "busy" && data.favor) {
+            setWandererDialog({ w, msg: `You already carry a sealed favor for sector ${data.favor.targetSector}. Finish that road first.` });
+        } else if (data.reason === "cooldown") {
+            coolWanderer(w.id);
+            setWandererDialog({ w, msg: "They have already moved on. Search another sector." });
+        } else {
+            setWandererDialog({ w, msg: data.error ?? "They decide not to trust the package to you." });
+        }
+    }
+    async function claimWandererFavor(w: Wanderer) {
+        const favor = character.activeWandererFavor;
+        if (!favor) return;
+        setWandererDialog({ w, busy: true });
+        const data = await useWandererService({ action: "favor-claim", playerName: character.name, sector: selectedSector ?? 0, favorId: favor.id });
+        if (data.ok && data.reward && data.totals) {
+            updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null, ryo: data.totals!.ryo ?? prev.ryo, boneCharms: data.totals!.boneCharms ?? prev.boneCharms }) : prev);
+            setWandererDialog({ w, msg: `The courier breaks the seal and pays you ${data.reward.ryo} ryo and ${data.reward.boneCharms} bone charm${data.reward.boneCharms === 1 ? "" : "s"}.` });
+        } else if (data.reason === "wrong-sector" && data.favor) {
+            setWandererDialog({ w, msg: `Wrong road. The delivery belongs in sector ${data.favor.targetSector}.` });
+        } else {
+            updateCharacter(prev => prev ? ({ ...prev, activeWandererFavor: null }) : prev);
+            setWandererDialog({ w, msg: "The courier checks the seal and shakes their head. This favor is gone." });
+        }
+    }
+    function startPatrolFight(w: Wanderer) {
+        if (selectedSector == null) return;
+        coolWanderer(w.id);
+        const hostile = activeVillageWarsFor(character.village).length > 0;
+        const lvl = Math.max(1, Math.min(100, character.level + (hostile ? 3 : 1)));
+        const ai = makeBuiltinAi(`wanderer-patrol-${w.id}`, hostile ? `${w.name} Captain` : w.name, "PT", lvl, "Road Patrol", [], hostile ? 7 : 3, undefined, hostile ? "defender" : "balanced");
+        ai.image = wandererAvatar(w.avatarKey);
+        setWandererDialog(null);
+        launchWandererArenaFight(ai, "patrol", 0, selectedSector, { hostile });
+    }
+    function followTracker(w: Wanderer) {
+        setWandererDialog({ w, msg: `${w.name} leads you to claw marks, snapped brush, and a beast that wants to test your companion.` });
+        setTimeout(() => startWandererPetDuel(w), 450);
+    }
+    async function startBountyHunterFight(w: Wanderer) {
+        if (selectedSector == null) return;
+        setWandererDialog({ w, busy: true });
+        const gate = await startBountyHunter(character.name, w.id);
+        if (!gate.ok) {
+            if (gate.reason === "no-bounty") {
+                setBountyBoard(prev => prev.filter(b => b.target.trim().toLowerCase() !== character.name.trim().toLowerCase()));
+                setWandererDialog({ w, msg: "The hunter checks the board slip, curses, and walks away. The bounty is gone." });
+            } else {
+                setWandererDialog({ w, msg: gate.error ?? "The hunter loses the trail." });
+            }
+            return;
+        }
+        coolWanderer(w.id, 30 * 60 * 1000);
+        const amount = w.bountyAmount ?? gate.bounty?.amount ?? selfBounty?.amount ?? 0;
+        const lvl = bountyHunterLevel(character.level, amount);
+        const ai = makeBuiltinAi(`bounty-ai-${w.id}`, w.name, "BH", lvl, "Bounty Board", [], Math.min(18, 8 + Math.floor(amount / 100_000)), undefined, "boss");
+        ai.image = wandererAvatar("bountyHunter");
+        setWandererDialog(null);
+        launchWandererArenaFight(ai, "bountyHunter", 0, selectedSector, { hunterId: w.id, hunterName: w.name, bountyAmount: amount });
+    }
     function launchAmbushStage(stage: number, sector: number) {
         // Robbers at the player's level (+0/+1/+2); the boss a few levels above —
         // scaled to the player so the gauntlet is hard, not impossible.
@@ -867,8 +1087,28 @@ export function WorldMap({
         updateCharacter(prev => prev ? ({ ...prev, robberStreak: 0 }) : prev);
         setTimeout(() => alert("You broke the ambush and felled their warlord! The roads are yours again."), 40);
     }
-    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; name?: string; level?: number; nemesis?: boolean }) {
+    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number }) {
         const won = (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
+        if (p.mode === "patrol") {
+            if (won) setTimeout(() => alert(p.hostile ? "You broke the patrol's line and sent them running." : "The patrol yields after a clean spar."), 40);
+            else setTimeout(() => alert(p.hostile ? "The patrol overwhelms you and leaves you for the healers." : "The patrol drops you, then drags you clear of the road."), 40);
+            return;
+        }
+        if (p.mode === "bountyHunter") {
+            if (won) {
+                setTimeout(() => alert(`You survived ${p.hunterName ?? "the bounty hunter"}. The bounty remains on the board.`), 40);
+            } else if (p.hunterId) {
+                void claimBountyHunterKill(character.name, p.hunterId, p.hunterName ?? "Contract Hunter").then((claim) => {
+                    if (claim) {
+                        setBountyBoard(prev => prev.filter(b => b.target.trim().toLowerCase() !== claim.target.trim().toLowerCase()));
+                        setTimeout(() => alert(`${p.hunterName ?? "The bounty hunter"} collected the contract. ${claim.amount.toLocaleString()} ryo leaves the bounty board.`), 40);
+                    } else {
+                        setTimeout(() => alert(`${p.hunterName ?? "The bounty hunter"} put you down, but the bounty could not be settled.`), 40);
+                    }
+                });
+            }
+            return;
+        }
         if (p.mode === "single") {
             if (won) {
                 if (p.nemesis) {
@@ -930,7 +1170,7 @@ export function WorldMap({
         let raw: string | null;
         try { raw = localStorage.getItem(WANDERER_PENDING_KEY); if (raw) localStorage.removeItem(WANDERER_PENDING_KEY); } catch { return; }
         if (!raw) return;
-        let p: { mode: string; stage: number; sector: number; baselineKills: number; at: number; name?: string; level?: number; nemesis?: boolean };
+        let p: { mode: string; stage: number; sector: number; baselineKills: number; at: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number };
         try { p = JSON.parse(raw); } catch { return; }
         if (!p || Date.now() - (p.at || 0) > 30 * 60 * 1000) return;
         resolveWandererFight(p);
@@ -941,6 +1181,7 @@ export function WorldMap({
     type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean; nemesis?: boolean; standingLine?: string; peace?: boolean };
     const [wandererDialog, setWandererDialog] = useState<WandererDialog | null>(null);
     function handleWandererEngage(w: Wanderer) {
+        rememberWanderer(w);
         // The Wandering Sage opens his Legacy-offer VN instead of the dialog.
         if (w.id === LEGACY_SAGE_WANDERER_ID) {
             if (sageOffer) {
@@ -952,6 +1193,10 @@ export function WorldMap({
         }
         // A roaming mercenary doesn't parley — it forces a server-resolved fight.
         if (isMercAiId(w.id)) { void engageRoamingMerc(w); return; }
+        if (w.verb === "bountyHunter") {
+            setWandererDialog({ w });
+            return;
+        }
         // A bandit you face while you have a rival has a chance of BEING that rival,
         // back for more.
         if (w.verb === "attack" && character.wandererNemesis && Math.random() < 0.45) {
@@ -998,7 +1243,7 @@ export function WorldMap({
     // (`msg`) dialogs just close; the cooldown was set when the action ran.
     function dismissWandererDialog() {
         const d = wandererDialog;
-        if (d && !d.msg && d.w.verb === "attack") coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
+        if (d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter")) coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
         setWandererDialog(null);
     }
     async function claimWandererGift(w: Wanderer) {
@@ -1007,7 +1252,7 @@ export function WorldMap({
             const res = await fetch("/api/sector/wanderer-gift", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ playerName: character.name, sector: selectedSector ?? 0 }),
+                body: JSON.stringify({ playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id }),
             });
             const data = await res.json() as {
                 ok?: boolean; reason?: string;
@@ -1023,6 +1268,10 @@ export function WorldMap({
                 setWandererDialog({ w, msg: `${w.name} presses a small bundle into your hand: ${parts.join(", ")}.` });
             } else if (data.reason === "daily-cap") {
                 setWandererDialog({ w, msg: "“I've nothing left to give today, friend.”" });
+            } else if (data.reason === "cooldown") {
+                setWandererDialog({ w, msg: "They have already moved on. Search another sector." });
+            } else if (data.reason === "invalid-wanderer") {
+                setWandererDialog({ w, msg: "The road shifts; this wanderer is no longer here." });
             } else {
                 setWandererDialog({ w, msg: "They turn away, empty-handed." });
             }
@@ -1075,14 +1324,18 @@ export function WorldMap({
             const res = await fetch("/api/sector/wanderer-quest", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "accept", playerName: character.name, questId: def.id }),
+                body: JSON.stringify({ action: "accept", playerName: character.name, questId: def.id, sector: selectedSector ?? 0, wandererId: w.id }),
             });
             const data = await res.json() as { ok?: boolean; reason?: string; baseline?: number; target?: number };
             if (data.ok && typeof data.baseline === "number") {
+                coolNaturalWanderer(w);
                 updateCharacter(prev => prev ? ({ ...prev, activeWandererQuest: { id: def.id, target: def.target, baseline: data.baseline! } }) : prev);
                 setWandererDialog({ w, msg: `Quest accepted — ${def.label.toLowerCase()}. Return when it's done.` });
             } else if (data.reason === "busy") {
                 setWandererDialog({ w, msg: "“Finish the task you already carry first.”" });
+            } else if (data.reason === "cooldown") {
+                coolNaturalWanderer(w);
+                setWandererDialog({ w, msg: "They have already moved on. Search another sector." });
             } else {
                 setWandererDialog({ w, msg: "They reconsider, and say nothing." });
             }
@@ -1096,14 +1349,18 @@ export function WorldMap({
             const res = await fetch("/api/sector/wanderer-quest", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "claim", playerName: character.name }),
+                body: JSON.stringify({ action: "claim", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id }),
             });
             const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number };
             if (data.ok && typeof data.totalRyo === "number") {
+                coolNaturalWanderer(w);
                 updateCharacter(prev => prev ? ({ ...prev, ryo: data.totalRyo!, activeWandererQuest: null }) : prev);
                 setWandererDialog({ w, msg: `“Well done.” You receive ${data.ryo} ryo.` });
             } else if (data.reason === "incomplete") {
                 setWandererDialog({ w, msg: "“Not yet. The roads are still dangerous.”" });
+            } else if (data.reason === "cooldown") {
+                coolNaturalWanderer(w);
+                setWandererDialog({ w, msg: "They have already moved on. Search another sector." });
             } else {
                 setWandererDialog({ w, msg: "“You carry no task of mine.”" });
             }
@@ -1130,6 +1387,7 @@ export function WorldMap({
             const data = await res.json() as { ok?: boolean; reason?: string; target?: number; deadline?: number | null };
             const entry = questbookEntry(questId);
             if (data.ok && entry) {
+                coolNaturalWanderer(w);
                 const s0 = entry.stages[0];
                 updateCharacter(prev => prev ? ({ ...prev, activeQuestbook: { id: questId, stage: 0, baseline: (prev[s0.metric] as number | undefined) ?? 0, target: s0.count, deadline: data.deadline ?? null, choices: {} } }) : prev);
                 setWandererDialog({ w, msg: `Epic begun — “${entry.title}.” Your journal is open.` });
@@ -1189,6 +1447,7 @@ export function WorldMap({
             });
             const data = await res.json() as { ok?: boolean; reason?: string; chose?: string; advanced?: boolean; readyToClaim?: boolean; stage?: number; target?: number; deadline?: number | null };
             if (data.ok) {
+                coolNaturalWanderer(w);
                 const nextChoices = { ...(cur.choices ?? {}), [curKey]: optionKey };
                 if (data.advanced && typeof data.stage === "number") {
                     const entry = questbookEntry(cur.id);
@@ -1216,6 +1475,7 @@ export function WorldMap({
             });
             const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number; fateShards?: number; title?: string; clearedRivalry?: boolean };
             if (data.ok && typeof data.totalRyo === "number") {
+                coolNaturalWanderer(w);
                 updateCharacter(prev => {
                     if (!prev) return prev;
                     const titles = prev.questTitles ?? [];
@@ -1269,6 +1529,7 @@ export function WorldMap({
         }
         const ai = makeBuiltinAi(`questboss-${stage.bossId}`, bossName, spec.icon, lvl, "Wandering Road", [], bonus, undefined, spec.loadoutId, !!spec.boss);
         ai.image = questBossPortrait(stage.bossId) ?? epicBossPortrait(spec.portraitKey);
+        coolNaturalWanderer(w);
         setWandererDialog(null);
         launchWandererArenaFight(ai, "questboss", 0, selectedSector, { questbook: true });
     }
@@ -2257,7 +2518,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers].map(w => (
+                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}
@@ -2354,6 +2615,7 @@ export function WorldMap({
                                         <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.nemesis && character.wandererNemesis ? character.wandererNemesis.name : wandererDialog.w.name}</h3>
                                         <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? `⚔ Your rival · Lv ${Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}` : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
                                         <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time — you won't this time."` : wandererDialog.w.greeting)}</p>
+                                        {!wandererDialog.msg && wandererMemoryLine(wandererDialog.w) && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{wandererMemoryLine(wandererDialog.w)}</p>}
                                         {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "#86efac" : "#cbd5e1", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
                                         {!wandererDialog.msg && wandererDialog.w.verb === "attack" ? (
                                             wandererDialog.peace ? (
@@ -2367,19 +2629,57 @@ export function WorldMap({
                                                     <button onClick={dismissWandererDialog}>Flee</button>
                                                 </div>
                                             )
+                                        ) : !wandererDialog.msg && wandererDialog.w.verb === "bountyHunter" ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                                                <button disabled={wandererDialog.busy} onClick={() => startBountyHunterFight(wandererDialog.w)} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>{wandererDialog.busy ? "..." : "Stand & Fight"}</button>
+                                                <button onClick={dismissWandererDialog}>Flee</button>
+                                            </div>
+                                        ) : !wandererDialog.msg && wandererDialog.w.verb === "merchant" ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                                                <button disabled={wandererDialog.busy} onClick={() => tradeWithWanderer(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Trade"}</button>
+                                                <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
+                                                <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                            </div>
+                                        ) : !wandererDialog.msg && wandererDialog.w.verb === "medic" ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                                                <button disabled={wandererDialog.busy} onClick={() => visitWandererMedic(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Treat wounds"}</button>
+                                                <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
+                                                <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                            </div>
+                                        ) : !wandererDialog.msg && wandererDialog.w.verb === "patrol" ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                                                <button onClick={() => startPatrolFight(wandererDialog.w)}>Stand your ground</button>
+                                                <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
+                                                <button onClick={() => setWandererDialog(null)}>Move along</button>
+                                            </div>
+                                        ) : !wandererDialog.msg && wandererDialog.w.verb === "tracker" ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                                                <button onClick={() => followTracker(wandererDialog.w)}>Follow tracks</button>
+                                                <button disabled={wandererDialog.busy} onClick={() => startWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Take a favor"}</button>
+                                                <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
+                                                <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                            </div>
+                                        ) : !wandererDialog.msg && wandererDialog.w.verb === "courier" ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                                                <button disabled={wandererDialog.busy} onClick={() => claimWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Deliver favor"}</button>
+                                                <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                            </div>
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
-                                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                                 <button disabled={wandererDialog.busy} onClick={() => claimWandererGift(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Take it"}</button>
+                                                <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                                                 <button onClick={() => setWandererDialog(null)}>Leave</button>
                                             </div>
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "petDuel" ? (
-                                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                                 <button onClick={() => startWandererPetDuel(wandererDialog.w)}>Send out your pet</button>
+                                                <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                                                 <button onClick={() => setWandererDialog(null)}>Leave</button>
                                             </div>
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "gamble" ? (
-                                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                                 <button onClick={() => startWandererCardDuel(wandererDialog.w)}>Deal me in</button>
+                                                <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                                                 <button onClick={() => setWandererDialog(null)}>Leave</button>
                                             </div>
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "quest" ? (() => {

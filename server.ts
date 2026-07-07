@@ -164,6 +164,7 @@ import missionsRecordProgressHandler from './api/missions/record-progress.js';
 import sectorWandererGiftHandler      from './api/sector/wanderer-gift.js';
 import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
 import sectorWandererAmbushHandler    from './api/sector/wanderer-ambush.js';
+import sectorWandererServiceHandler   from './api/sector/wanderer-service.js';
 import sectorQuestbookHandler         from './api/sector/questbook.js';
 import sectorMercRoamHandler          from './api/sector/merc-roam.js';
 // Legacy system (ENABLE_LEGACY) — earned identity paths + Wandering Sage
@@ -824,6 +825,7 @@ route('/missions/record-progress',  missionsRecordProgressHandler);
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
 route('/sector/wanderer-quest',     sectorWandererQuestHandler);
 route('/sector/wanderer-ambush',    sectorWandererAmbushHandler);
+route('/sector/wanderer-service',   sectorWandererServiceHandler);
 route('/sector/questbook',          sectorQuestbookHandler);
 route('/sector/merc-roam',          sectorMercRoamHandler);
 
