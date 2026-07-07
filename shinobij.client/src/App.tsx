@@ -15,7 +15,7 @@ import { payEndlessEntry, endlessEntryCost } from "./lib/entry-fee";
 import { warnLocalSaveUnavailable } from "./lib/recovery";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { connectRealtime, disconnectRealtime, updatePresence, onSector as onPresenceSector, onGone as onPresenceGone, onKick as onPresenceKick, onStatus as onPresenceStatus } from "./lib/presence-socket";
-import { pushLiveSectorPlayers, removeLiveSectorPlayers, resetLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile } from "./lib/presence-store";
+import { pushLiveSectorPlayers, removeLiveSectorPlayers, resetLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
 import { presenceCharacter } from "./lib/presence-character";
 import {
     percentageTags,
@@ -2445,6 +2445,7 @@ export default function App() {
     //     sector change from a real user-initiated one.
     const currentSectorRef = useRef(currentSector);
     useEffect(() => { currentSectorRef.current = currentSector; }, [currentSector]);
+    useEffect(() => { setLiveSectorContext(currentSector); }, [currentSector]);
     const lastLocalSectorChangeRef = useRef(0);
     const lastSnapshotAppliedSectorRef = useRef<number | null>(null);
     // (The save-dirty effect that consumes these refs is defined further
@@ -2586,7 +2587,9 @@ export default function App() {
                 }
                 // Live sector-mates → the presence store (external store) so the ~1s
                 // heartbeat updates only the sector view, not all of App (Phase 1A).
-                if (data.sectorMates) pushLiveSectorPlayers(data.sectorMates);
+                if (data.sectorMates && currentSectorRef.current === presenceBody.sector) {
+                    pushLiveSectorPlayers(data.sectorMates, presenceBody.sector);
+                }
                 // Roster feeds non-urgent social screens (search/spar/pet arena), never
                 // combat (which re-hydrates from save:<name>). Throttle the ingest — the
                 // per-beat path normalizes up to 100 characters + re-renders all of App,
@@ -2693,7 +2696,7 @@ export default function App() {
         const offStatus = onPresenceStatus((connected) => setSocketConnected(connected));
         const offSector = onPresenceSector((sector, players) => {
             // Only adopt a snapshot for the sector we're actually standing in.
-            if (sector === currentSectorRef.current) pushLiveSectorPlayers(players);
+            if (sector === currentSectorRef.current) pushLiveSectorPlayers(players, sector);
         });
         const offGone = onPresenceGone((names) => {
             removeLiveSectorPlayers(names);

@@ -2672,20 +2672,26 @@ export function WorldMap({
                                 sectorPlayers.map((player) => {
                                     const isSleeping = Boolean(player.__sleeping);
                                     const isTravelingTarget = Boolean(player.travelingUntil && player.travelingUntil > Date.now());
+                                    const isInBattleTarget = Boolean(player.inBattle);
+                                    const targetUnavailable = isTravelingTarget || isInBattleTarget;
                                     return (
                                     <div className="sector-player-card" key={player.name}>
                                         <div className="sector-player-info">
                                             <strong>{player.name}{isSleeping ? " 💤" : ""}</strong>
-                                            <small>Level {player.level}{isSleeping ? " | Sleeping" : (isTravelingTarget ? " | Traveling" : "")}</small>
+                                            <small>Level {player.level}{isSleeping ? " | Sleeping" : (isTravelingTarget ? " | Traveling" : (isInBattleTarget ? " | Fighting" : ""))}</small>
                                         </div>
                                         {isSleeping ? (
                                             // Logged-out target standing in the sector — a server-resolved
                                             // KO (no interactive fight). Sends them to the hospital + village.
                                             <button className="danger-button" onClick={() => attackSleeper(player)}>💤 Strike Down</button>
                                         ) : (
-                                        <button className="danger-button" disabled={isTravelingTarget} onClick={() => {
+                                        <button className="danger-button" disabled={targetUnavailable} onClick={() => {
                                             if (isTravelingTarget) {
                                                 alert(`${player.name} is traveling and cannot be attacked right now.`);
+                                                return;
+                                            }
+                                            if (isInBattleTarget) {
+                                                alert(`${player.name} is already in a battle.`);
                                                 return;
                                             }
                                             setCurrentSector(selectedSector!);
@@ -2699,7 +2705,7 @@ export function WorldMap({
                                             // arena mount could clobber the pvpBattle context) while
                                             // the session POST was in flight.
                                             sectorAttackPlayer(player);
-                                        }}>{isTravelingTarget ? "Traveling" : "⚔️ Attack"}</button>
+                                        }}>{isTravelingTarget ? "Traveling" : (isInBattleTarget ? "Fighting" : "⚔️ Attack")}</button>
                                         )}
                                     </div>
                                     );
