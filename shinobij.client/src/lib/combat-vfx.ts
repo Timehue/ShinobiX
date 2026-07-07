@@ -144,7 +144,7 @@ const DEBUFF_TAGS = new Set([
     "Recoil",
 ]);
 
-const CONTROL_TAGS = new Set(["Stun", "Lag", "Move"]);
+const CONTROL_TAGS = new Set(["Stun", "Lag"]);
 const SEAL_TAGS = new Set(["Bloodline Seal", "Elemental Seal"]);
 const CASTER_WARD_KEYS = new Set<CombatVfxKey>(["heal", "shield", "reflect", "absorb", "buff", "cleanse"]);
 

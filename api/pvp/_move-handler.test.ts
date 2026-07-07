@@ -155,6 +155,22 @@ const buffedElementAttack = {
     tags: [{ name: 'Increase Damage Given', percent: 20 }],
 };
 
+const flickerJutsu = {
+    id: 'flicker',
+    name: 'Flicker',
+    type: 'Taijutsu',
+    element: 'None',
+    target: 'EMPTY_GROUND',
+    range: 5,
+    ap: 20,
+    cooldown: 2,
+    chakraCost: 25,
+    staminaCost: 25,
+    effectPower: 1,
+    method: 'SINGLE',
+    tags: [{ name: 'Move', percent: 0 }],
+};
+
 function fighter(name: string, pos: number, patch: Partial<PvpFighter> = {}): PvpFighter {
     return {
         name,
@@ -395,6 +411,27 @@ test('damaging jutsu with incidental support tags keeps its elemental VFX', asyn
     assert.equal(after.vfx?.[0]?.key, 'magma');
     assert.equal(after.vfx?.[0]?.target, 'p2');
     assert.equal(after.vfx?.[0]?.anchor, 'target');
+});
+
+test('pure movement jutsu leaves combat VFX empty so the board trail owns the read', async () => {
+    seed(session('flicker-vfx', {
+        p1: withExtraJutsu(fighter('alice', 0), flickerJutsu),
+    }));
+
+    const out = await postMove('alice', {
+        battleId: 'flicker-vfx',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'flicker',
+        tile: 12,
+        moveToken: 'flicker-vfx-token',
+    });
+
+    assert.equal(out.statusCode, 200);
+    const after = storedSession('flicker-vfx');
+    assert.equal(after.p1.pos, 12);
+    assert.equal(after.vfx, undefined);
+    assert.equal(after.vfxSeq, undefined);
 });
 
 test('thrown status weapons layer delivery VFX with their status effect', async () => {

@@ -254,7 +254,7 @@ const VFX_DEBUFF_TAGS = new Set([
     'Lag',
     'Recoil',
 ]);
-const VFX_CONTROL_TAGS = new Set(['Stun', 'Lag', 'Move']);
+const VFX_CONTROL_TAGS = new Set(['Stun', 'Lag']);
 const VFX_SEAL_TAGS = new Set(['Bloodline Seal', 'Elemental Seal']);
 const VFX_CASTER_WARD_KEYS = new Set<CombatVfxKey>(['heal', 'shield', 'reflect', 'absorb', 'buff', 'cleanse']);
 
@@ -1459,6 +1459,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 const tags = jutsu.tags ?? [];
                 const moveTag = tags.some(t => normalizeTagName(t.name) === 'Move');
+                const pureMoveJutsu = moveTag && tags.every(t => normalizeTagName(t.name) === 'Move');
                 const groundTarget = jutsu.target === 'EMPTY_GROUND';
                 const needsGroundTile = groundTarget || moveTag;
                 const selfTarget = jutsu.target === 'SELF';
@@ -1571,6 +1572,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             ],
                         );
                     } else {
+                        const movementVfx = pureMoveJutsu
+                            ? (spendPoisonVfx.length ? spendPoisonVfx : undefined)
+                            : [
+                                vfxForJutsu(jutsu, movedSelf, opp, undefined, { tiles: [destTile], who: 'self' }),
+                                ...spendPoisonVfx,
+                            ];
                         result = commit(
                             movedSelf,
                             null,
@@ -1578,10 +1585,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             cd,
                             undefined,
                             undefined,
-                            [
-                                vfxForJutsu(jutsu, movedSelf, opp, undefined, { tiles: [destTile], who: 'self' }),
-                                ...spendPoisonVfx,
-                            ],
+                            movementVfx,
                         );
                     }
                     break;

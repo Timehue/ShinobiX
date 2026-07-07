@@ -109,17 +109,7 @@ test("mixed hostile tags win over incidental guard tags", () => {
     assert.equal(overclock.target, "caster");
 });
 
-test("movement, element, and discipline fallbacks stay semantically paired", () => {
-    const move = resolveCombatVfxSpec({
-        action: "jutsu",
-        discipline: "Taijutsu",
-        element: "None",
-        target: "EMPTY_GROUND",
-        tags: [tag("Move"), tag("Reflect")],
-    });
-    assert.equal(move.key, "spark");
-    assert.equal(move.target, "tile");
-
+test("element and discipline fallbacks stay semantically paired", () => {
     const elementalDamage = resolveCombatVfxSpec({
         action: "jutsu",
         discipline: "Ninjutsu",

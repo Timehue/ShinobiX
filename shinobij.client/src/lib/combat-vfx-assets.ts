@@ -74,7 +74,7 @@ export const COMBAT_VFX_ASSETS: Record<CombatVfxKey, CombatVfxAssetSpec> = {
     shield: asset("shield.webp", "support", "support", "ward", ["Tag: Shield", "Tag: Barrier"], 1.46, -8, 0.86),
     reflect: asset("reflect.webp", "support", "support", "ward", ["Tag: Reflect", "Support: Guard"], 1.46, -8, 0.86),
     absorb: asset("absorb.webp", "support", "support", "ward", ["Tag: Absorb", "Support: Guard"], 1.46, -8, 0.86),
-    spark: asset("spark.webp", "genjutsu", "control", "ground", ["Tag: Stun", "Tag: Lag", "Tag: Move"], 1.4, 0),
+    spark: asset("spark.webp", "genjutsu", "control", "ground", ["Tag: Stun", "Tag: Lag"], 1.4, 0),
     seal: asset("seal.webp", "genjutsu", "control", "ward", ["Tag: Bloodline Seal", "Tag: Elemental Seal"], 1.44, -5, 0.86),
     wound: asset("wound.webp", "status", "status", "burst", ["Tag: Wound", "Status: Damage over time"], 1.38, -2, 0.84),
     burn: asset("burn.webp", "status", "status", "ground", ["Tag: Ignition", "Status: Burn"], 1.42, 0, 0.86),
