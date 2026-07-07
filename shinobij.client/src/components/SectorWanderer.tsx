@@ -147,7 +147,7 @@ export function SectorWanderer({
             // Bandits HUNT: once armed they path to the player from anywhere in the
             // sector and confront them. Everyone else is passive — they only turn
             // toward you once you come close, then greet.
-            const isHunter = wanderer.verb === "attack";
+            const isHunter = wanderer.verb === "attack" || wanderer.verb === "bountyHunter";
             // Slipping out of notice range re-arms the meeting, so a hunter you've
             // outrun can confront you again when it catches back up.
             if (distPlayer > NOTICE_TILES) greetedRef.current = false;
@@ -162,7 +162,7 @@ export function SectorWanderer({
                         greetedRef.current = true;
                         // A bandit confronts you (opens the Fight/Flee dialog);
                         // everyone else just greets — you click to interact.
-                        if (wanderer.verb === "attack") onEngageRef.current(wanderer);
+                        if (isHunter) onEngageRef.current(wanderer);
                         else speak(wanderer.greeting);
                     }
                     rafRef.current = requestAnimationFrame(tick); // hold adjacent

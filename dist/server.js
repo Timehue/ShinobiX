@@ -164,6 +164,7 @@ const record_progress_js_1 = __importDefault(require("./api/missions/record-prog
 const wanderer_gift_js_1 = __importDefault(require("./api/sector/wanderer-gift.js"));
 const wanderer_quest_js_1 = __importDefault(require("./api/sector/wanderer-quest.js"));
 const wanderer_ambush_js_1 = __importDefault(require("./api/sector/wanderer-ambush.js"));
+const wanderer_service_js_1 = __importDefault(require("./api/sector/wanderer-service.js"));
 const questbook_js_1 = __importDefault(require("./api/sector/questbook.js"));
 const merc_roam_js_1 = __importDefault(require("./api/sector/merc-roam.js"));
 // Legacy system (ENABLE_LEGACY) — earned identity paths + Wandering Sage
@@ -757,6 +758,7 @@ route('/missions/record-progress', record_progress_js_1.default);
 route('/sector/wanderer-gift', wanderer_gift_js_1.default);
 route('/sector/wanderer-quest', wanderer_quest_js_1.default);
 route('/sector/wanderer-ambush', wanderer_ambush_js_1.default);
+route('/sector/wanderer-service', wanderer_service_js_1.default);
 route('/sector/questbook', questbook_js_1.default);
 route('/sector/merc-roam', merc_roam_js_1.default);
 // ─── Legacy system (ENABLE_LEGACY) ─────────────────────────────────────────────

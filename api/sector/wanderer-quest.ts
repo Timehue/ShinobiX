@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete } from './_wanderer-quest.js';
+import { currentWandererCooldownUntil, parseNaturalWandererId, withWandererUseState } from './_wanderer-encounter.js';
 import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 
@@ -35,6 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const action = typeof body.action === 'string' ? body.action : '';
         const playerName = safeName(String(body.playerName ?? ''));
         if (!playerName) return res.status(400).json({ error: 'Missing playerName.' });
+        const wandererId = typeof body.wandererId === 'string' ? body.wandererId.trim() : '';
+        const naturalWanderer = parseNaturalWandererId(wandererId);
+        const sector = Math.max(1, Math.min(60, Math.floor(Number(body.sector ?? 0)) || 0));
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -58,19 +62,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const def = WANDERER_QUESTS[questId];
 
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
+                const now = Date.now();
                 const existing = await kv.get<{ id: string; baseline: number }>(questKey);
                 if (existing) return { status: 200, body: { ok: false, reason: 'busy' } };
 
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+                if (naturalWanderer) {
+                    const cooldownUntil = currentWandererCooldownUntil(char, wandererId, now);
+                    if (cooldownUntil) return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil } };
+                }
 
                 const baseline = num(char[def.metric]);
                 await kv.set(questKey, { id: questId, baseline, at: Date.now() }, { ex: QUEST_TTL_SECONDS });
                 // Display mirror on the save (server never trusts this back).
-                const updated = { ...char, activeWandererQuest: { id: questId, target: def.target, baseline } };
+                let updated: Record<string, unknown> = { ...char, activeWandererQuest: { id: questId, target: def.target, baseline } };
+                const body: Record<string, unknown> = { ok: true, id: questId, target: def.target, baseline };
+                if (naturalWanderer) {
+                    const used = withWandererUseState(updated, wandererId, now, sector);
+                    updated = used.character;
+                    body.cooldownUntil = used.cooldownUntil;
+                    body.moveToSector = used.moveToSector;
+                }
                 await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
-                return { status: 200, body: { ok: true, id: questId, target: def.target, baseline } };
+                return { status: 200, body };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
@@ -79,6 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ── CLAIM ────────────────────────────────────────────────────────────
         if (action === 'claim') {
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
+                const now = Date.now();
                 const sealed = await kv.get<{ id: string; baseline: number }>(questKey);
                 if (!sealed || !isWandererQuestId(sealed.id)) {
                     await kv.del(questKey).catch(() => undefined);
@@ -89,6 +106,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+                if (naturalWanderer) {
+                    const cooldownUntil = currentWandererCooldownUntil(char, wandererId, now);
+                    if (cooldownUntil) return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil } };
+                }
 
                 const current = num(char[def.metric]);
                 if (!wandererQuestComplete(num(sealed.baseline), current, def.target)) {
@@ -100,9 +121,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 const reward = wandererQuestRyo(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + reward;
-                const updated = { ...char, ryo: totalRyo, activeWandererQuest: null };
+                let updated: Record<string, unknown> = { ...char, ryo: totalRyo, activeWandererQuest: null };
+                const body: Record<string, unknown> = { ok: true, ryo: reward, totalRyo };
+                if (naturalWanderer) {
+                    const used = withWandererUseState(updated, wandererId, now, sector);
+                    updated = used.character;
+                    body.cooldownUntil = used.cooldownUntil;
+                    body.moveToSector = used.moveToSector;
+                }
                 await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
-                return { status: 200, body: { ok: true, ryo: reward, totalRyo } };
+                return { status: 200, body };
             }, { failClosed: true });
 
             // Legacy tracking (ENABLE_LEGACY): AFTER the fail-closed save lock
