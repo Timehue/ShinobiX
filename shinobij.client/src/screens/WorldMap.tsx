@@ -1180,6 +1180,9 @@ export function WorldMap({
     // server-authoritative.
     type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean; nemesis?: boolean; standingLine?: string; peace?: boolean };
     const [wandererDialog, setWandererDialog] = useState<WandererDialog | null>(null);
+    function requiresWandererChoice(d: WandererDialog | null) {
+        return !!d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter");
+    }
     function handleWandererEngage(w: Wanderer) {
         rememberWanderer(w);
         // The Wandering Sage opens his Legacy-offer VN instead of the dialog.
@@ -1245,6 +1248,10 @@ export function WorldMap({
         const d = wandererDialog;
         if (d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter")) coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
         setWandererDialog(null);
+    }
+    function handleWandererBackdropClick() {
+        if (requiresWandererChoice(wandererDialog)) return;
+        dismissWandererDialog();
     }
     async function claimWandererGift(w: Wanderer) {
         setWandererDialog({ w, busy: true });
@@ -2550,7 +2557,7 @@ export function WorldMap({
                                 );
                             })()}
                             {bossDialog && createPortal(
-                                <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.6)" }} onClick={fleeBoss}>
+                                <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.6)" }}>
                                     <div className="card" style={{ maxWidth: 380, width: "88%", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
                                         {bossDialog.portrait
                                             ? <img src={bossDialog.portrait} alt={bossDialog.name} style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />
@@ -2604,7 +2611,7 @@ export function WorldMap({
                             {wandererDialog && createPortal(
                                 <div
                                     style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.55)" }}
-                                    onClick={dismissWandererDialog}
+                                    onClick={handleWandererBackdropClick}
                                 >
                                     <div className="card" style={{ maxWidth: 360, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 16 }} onClick={(e) => e.stopPropagation()}>
                                         <img
