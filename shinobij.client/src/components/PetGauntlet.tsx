@@ -321,7 +321,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
             {/* Hero header — generated banner (fal Flux) under a dark gradient for text legibility. */}
             <div style={{ borderRadius: 12, padding: "22px 20px", border: "1px solid #3b2f55", backgroundImage: `linear-gradient(105deg, rgba(8,11,22,0.86), rgba(8,11,22,0.4) 70%), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center 38%" }}>
-                <h3 style={{ margin: 0, font: "800 1.15rem Cinzel, serif", color: "#fcd34d" }}>🗡️ Pet Gauntlet</h3>
+                <h3 style={{ margin: 0, font: "800 1.15rem var(--font-display)", color: "#fcd34d" }}>🗡️ Pet Gauntlet</h3>
                 <p className="hint" style={{ margin: "4px 0 0" }}>
                     Draft a run-only squad from a <strong style={{ color: "#c4b5fd" }}>randomized</strong> shop, chase element &amp; role synergies, and survive {run.maxRounds} escalating rounds.
                     Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "#fcd34d" }}>Ryo</strong>, and the deepest clears
@@ -530,7 +530,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                             {/* Title bar (transparent — the panel backdrop shows the shopkeeper) */}
                             <div style={{ position: "relative", padding: "16px 20px 10px", flexShrink: 0 }}>
                                 <button type="button" onClick={() => setShopOpen(false)} aria-label="Close shop" style={{ position: "absolute", top: 8, right: 10, width: 30, height: 30, borderRadius: 8, border: "1px solid #475569", background: "rgba(15,23,42,0.85)", color: "#e2e8f0", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}>✕</button>
-                                <strong style={{ color: "#fcd34d", font: "800 1.15rem Cinzel, serif", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}>🛒 The Beastmaster's Bazaar</strong>
+                                <strong style={{ color: "#fcd34d", font: "800 1.15rem var(--font-display)", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}>🛒 The Beastmaster's Bazaar</strong>
                                 <p className="hint" style={{ margin: "4px 0 8px", fontStyle: "italic", color: "#f1e7c6", maxWidth: 460, textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}>“{NPC_LINES[(run.round - 1) % NPC_LINES.length]}”</p>
                                 <span title="Valor — the run-only shop currency (not your Ryo)" style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, background: "rgba(0,0,0,0.6)", border: "1px solid rgba(252,211,77,0.5)", color: "#fcd34d", fontWeight: 800 }}>✦ {run.valor} Valor</span>
                             </div>

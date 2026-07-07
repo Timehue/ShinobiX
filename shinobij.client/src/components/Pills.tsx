@@ -5,12 +5,11 @@
  *   • VillagePill — village panorama thumbnail + name on a dark capsule,
  *     used in the Shinobi Council Hall war cards.
  *
- * Pure presentational. VillagePill depends on villagePageImage which still
- * lives in App.tsx as a const exported function; we import it from there.
+ * Pure presentational. VillagePill depends on the shared village image helper.
  * No closures captured.
  */
 
-import { villagePageImage } from "../App";
+import { villagePageImage } from "../lib/village-page-image";
 
 export function FestivalPortrait({
     image,
