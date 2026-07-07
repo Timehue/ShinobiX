@@ -36,7 +36,6 @@ import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
-import { JutsuSpriteFx } from "../components/JutsuSpriteFx";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
@@ -46,8 +45,8 @@ import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
 import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
-import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
-import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
+import { resolveCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
+import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import { cappedPostDamage, gainJutsuXpForRank, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter, v2ResourceRegen, v2PoisonOnSpend, v2JutsuResourceCost, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence, weeklyBossGuardedHit, weeklyBossDamageMultiplier, isWeeklyBossOpenRound } from "../lib/pve-difficulty";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
@@ -69,7 +68,6 @@ import { makeId } from "../lib/utils";
 import { useBoardScale } from "../lib/use-board-scale";
 import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
 import { ROLE_RANGE, petRoleOf } from "../lib/pet-roles";
-import { PetParticleField } from "../lib/pet-vfx-particles";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
@@ -336,17 +334,10 @@ export function Arena({
     };
 
     // ── Combat VFX (cosmetic only) ───────────────────────────────────────────
-    // An elemental particle burst on each jutsu cast, drawn on a <canvas> that
-    // overlays the hex board. Reuses the pet arena's PetParticleField engine.
-    // The main Arena fight is computed client-side with NO ranked-replay /
-    // determinism constraint (unlike the pet sim and live PvP), so this layer is
-    // purely visual and can never affect balance, rewards, or outcomes.
-    // Weak phones AND weak desktops skip the heavy combat VFX (rAF particle
-    // canvas + per-cast sprite-frame swaps) that lags low-end hardware; only the
-    // cheap tile hit-flash stays. Computed once (cached in device-tier).
+    // Arena combat VFX are cosmetic only and share the PvP 2.5D plate renderer.
+    // Lite mode keeps the plates but drops extra spark layers through CSS.
     const liteFx = useMemo(() => prefersLiteCombatFx(), []);
-    const combatVfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
-    const combatVfxFieldRef = useRef<PetParticleField | null>(null);
+    const combatVfxLayerRef = useRef<HTMLDivElement | null>(null);
     // Floating ±damage/heal numbers over a fighter on every HP change (D3 — PvE
     // parity with PvP's pvp-hit-fx). Purely cosmetic overlay; reuses the same CSS
     // classes/palette. Per-HP refs dedup so each transition fires once.
@@ -378,93 +369,169 @@ export function Arena({
     useEffect(() => { combatFastRef.current = combatFast; }, [combatFast]);
     useEffect(() => { try { setCombatFast(localStorage.getItem("combatFast.v1") === "1"); } catch { /* ignore */ } }, []);
     const combatFxSeq = useRef(0);
-    const [combatFx, setCombatFx] = useState<{ id: number; focusPos: number; spec: ReturnType<typeof jutsuVfxBurst>; frames: string[] | null; single: boolean; variant?: string } | null>(null);
-    // The currently-playing sprite-sheet FX overlay. Resolved from combatFx in
-    // the burst effect (its on-screen x/y is read from the live tile DOM rect).
-    const [combatSpriteFx, setCombatSpriteFx] = useState<{ id: number; frames: string[]; single: boolean; x: number; y: number; variant?: string } | null>(null);
-    // Queue a baseline cosmetic burst at a board tile for a cast jutsu (called
-    // from castJutsu and the enemy AI turn). The old heavy/KO escalation tier
-    // (scaled drop-shadow sprite + whole-board screen shake) was removed: it was
-    // GPU-expensive and froze older iPhones / budget Androids on damage casts.
-    // `heavy`/`isKO` are still accepted from callers but no longer change the
-    // visuals — every cast uses the cheap baseline burst. focusPos < 0 → skip.
+    type ArenaCombatVfx = { id: number; points: Array<{ x: number; y: number }>; spec: CombatVfxSpec };
+    const [combatVfx, setCombatVfx] = useState<ArenaCombatVfx[]>([]);
+
+    const combatTilePoint = (tile: number): { x: number; y: number } | null => {
+        const board = battlefieldRef.current;
+        const layer = combatVfxLayerRef.current;
+        if (!board || !layer || tile < 0) return null;
+        const tileEl = board.querySelector<HTMLElement>(`.hex-tile[data-tile="${tile}"]`);
+        if (!tileEl) return null;
+        const tileRect = tileEl.getBoundingClientRect();
+        const layerRect = layer.getBoundingClientRect();
+        return {
+            x: (tileRect.left + tileRect.right) / 2 - layerRect.left,
+            y: (tileRect.top + tileRect.bottom) / 2 - layerRect.top,
+        };
+    };
+
+    const flashCombatTiles = (tiles: number[]) => {
+        const board = battlefieldRef.current;
+        if (!board || !tiles.length) return;
+        const uniqueTiles = Array.from(new Set(tiles)).slice(0, liteFx ? 7 : 14);
+        for (const tile of uniqueTiles) {
+            const tileEl = board.querySelector<HTMLElement>(`.hex-tile[data-tile="${tile}"]`);
+            if (!tileEl) continue;
+            tileEl.classList.add("jutsu-impact-flash");
+            window.setTimeout(() => tileEl.classList.remove("jutsu-impact-flash"), 460);
+        }
+    };
+
+    const spawnCombatVfx = (events: Array<{ focusPos: number; spec: CombatVfxSpec }>) => {
+        const next = events.flatMap((event): ArenaCombatVfx[] => {
+            if (event.focusPos < 0) return [];
+            const candidateTiles = event.spec.tiles?.length ? event.spec.tiles : [event.focusPos];
+            flashCombatTiles(candidateTiles);
+            const points = candidateTiles
+                .slice(0, liteFx ? 7 : 14)
+                .map(combatTilePoint)
+                .filter((point): point is { x: number; y: number } => Boolean(point));
+            return points.length ? [{ id: combatFxSeq.current++, points, spec: event.spec }] : [];
+        });
+        if (!next.length) return;
+        setCombatVfx((current) => [...current, ...next].slice(liteFx ? -4 : -10));
+        const longest = Math.max(...next.map((fx) => fx.spec.durationMs), 520);
+        const ids = new Set(next.map((fx) => fx.id));
+        window.setTimeout(() => setCombatVfx((current) => current.filter((fx) => !ids.has(fx.id))), longest + 180);
+    };
+
+    const tagEffectSpec = (tags: Array<Pick<JutsuTag, "name" | "percent">>, target: Jutsu["target"] = "OPPONENT"): CombatVfxSpec | null => {
+        const meaningfulTags = tags.filter((tag) => !tagMatchesName(tag.name, "Damage") && !tagMatchesName(tag.name, "Move"));
+        if (!meaningfulTags.length) return null;
+        const spec = resolveCombatVfxSpec({ action: "jutsu", tags: meaningfulTags, target });
+        if (spec.key === "impact") return null;
+        return {
+            ...spec,
+            intensity: "minor",
+            durationMs: Math.max(420, Math.round(spec.durationMs * 0.82)),
+            maxParticles: Math.max(6, Math.round((spec.maxParticles ?? 10) * 0.7)),
+        };
+    };
+
+    const affectedCombatTiles = (jutsu: Jutsu, focusPos: number) => {
+        if (focusPos < 0) return undefined;
+        if (jutsu.method === "AOE_CIRCLE" || jutsu.method === "INSTANT_EFFECT" || jutsu.method === "AOE_SPIRAL" || jutsu.method === "AOE_BURST") {
+            return [focusPos, ...hexNeighbors(focusPos)];
+        }
+        return undefined;
+    };
+    // Queue a resolver-backed combat plate at the caster, target, or affected tile.
     const triggerCombatFx = (
         jutsu: Jutsu,
-        opts: { selfCast: boolean; focusPos: number; heavy?: boolean; isKO?: boolean },
+        opts: { selfCast: boolean; focusPos: number; heavy?: boolean; isKO?: boolean; ground?: boolean; area?: boolean },
     ) => {
         // Combat SFX — reuse the pet sound engine, which routes through the global
         // master mute (so it's SILENT by default / whenever audio is muted, and the
         // one mute button covers it). Plays for player + enemy casts; deliberately
         // NOT gated by reduced-motion (that's a motion preference, not audio).
+        const onlyMoves = jutsu.tags.length > 0 && jutsu.tags.every((tag) => tagMatchesName(tag.name, "Move") || tagMatchesName(tag.name, "Damage"));
+        if (isMoveJutsu(jutsu) && Number(jutsu.effectPower ?? 0) <= 0 && onlyMoves) return;
         playPetSfx(opts.isKO ? "ko" : opts.selfCast ? "buff" : opts.heavy ? "crit" : "hit");
         if (opts.focusPos < 0) return;
-        const spec = jutsuVfxBurst({ element: jutsu.element, selfCast: opts.selfCast });
-        // Sprite layer: a KV override (jutsufx:<id> / jutsufx:<element>, which may
-        // be an animated GIF/WebP) wins; else the bundled CC0 frame sequence picked
-        // by intent/discipline/element (jutsuFxSpriteKey, not element alone, so a
-        // heal/shield/debuff/DoT no longer all flash the same element explosion);
-        // else null → particle burst only. On weak devices the whole sprite/particle
-        // layer is gated off (only the cheap tile flash plays), so skip resolving it.
-        let frames: string[] | null = null;
-        let single = false;
-        let variant: string | undefined;
-        if (!liteFx) {
-            const elKey = String(jutsu.element ?? "").toLowerCase();
-            const kvFx = sharedImages[`jutsufx:${jutsu.id}`] || sharedImages[`jutsufx:${elKey}`] || "";
-            const pick = jutsuFxSpriteKey(jutsu, {});
-            frames = kvFx ? [kvFx] : bundledJutsuFxFrames(pick.key);
-            single = !!kvFx;
-            variant = kvFx ? undefined : pick.variant;
-        }
-        setCombatFx({ id: combatFxSeq.current++, focusPos: opts.focusPos, spec, frames, single, variant });
+        const spec = resolveCombatVfxSpec({
+            action: "jutsu",
+            element: jutsu.element,
+            discipline: jutsu.type,
+            effectPower: jutsu.effectPower,
+            isUtility: jutsu.isUtility,
+            method: jutsu.method,
+            target: jutsu.target,
+            tags: jutsu.tags,
+            heavy: opts.heavy,
+            ko: opts.isKO,
+            ground: opts.ground,
+            area: opts.area,
+            tiles: opts.area || opts.ground ? affectedCombatTiles(jutsu, opts.focusPos) : undefined,
+        });
+        spawnCombatVfx([{ focusPos: opts.focusPos, spec }]);
     };
-    // Spin up / tear down the canvas particle field when the battlefield mounts.
-    // Skipped entirely on weak devices — no canvas, no rAF loop, no lag.
-    useEffect(() => {
-        if (!battleStarted || liteFx) return;
-        const canvas = combatVfxCanvasRef.current;
-        if (!canvas) return;
-        let field: PetParticleField | null = null;
-        try { field = new PetParticleField(canvas); } catch { return; }
-        combatVfxFieldRef.current = field;
-        const onResize = () => field?.resize();
-        window.addEventListener("resize", onResize);
-        return () => { window.removeEventListener("resize", onResize); field?.dispose(); combatVfxFieldRef.current = null; };
-    }, [battleStarted]);
-    // Keep the canvas backing store matched to the board as it resizes / zooms.
-    useEffect(() => { combatVfxFieldRef.current?.resize(); }, [boardContainerSize, effectiveScale, battleStarted]);
-    // Fire the queued burst at its focal tile (target for a hit, caster for a
-    // self-buff), reading the live tile DOM rect so it stays correct under the
-    // board's scale transform. Also pulses a brief flash on the struck tile.
-    // Skipped under prefers-reduced-motion.
-    useEffect(() => {
-        if (!combatFx) return;
-        const board = battlefieldRef.current;
-        if (!board) return;
-        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-        const tileEl = board.querySelector<HTMLElement>(`.hex-tile[data-tile="${combatFx.focusPos}"]`);
-        if (!tileEl) return;
-        // Lightweight impact feedback — the cheap tile flash plays on EVERY device
-        // (this is the "impact" kept when the heavy layer is gated off on weak HW).
-        tileEl.classList.add("jutsu-impact-flash");
-        const clear = window.setTimeout(() => tileEl.classList.remove("jutsu-impact-flash"), 460);
-        // Heavy cosmetic layer — particle burst + sprite-sheet overlay. The field
-        // is never created on weak devices (see the mount effect above), so this
-        // whole block is naturally skipped there.
-        const field = combatVfxFieldRef.current;
-        const canvas = combatVfxCanvasRef.current;
-        if (field && canvas) {
-            const t = tileEl.getBoundingClientRect();
-            const c = canvas.getBoundingClientRect();
-            const cx = (t.left + t.right) / 2 - c.left;
-            const cy = (t.top + t.bottom) / 2 - c.top;
-            field.burst(cx, cy, combatFx.spec);
-            if (combatFx.frames && combatFx.frames.length) {
-                setCombatSpriteFx({ id: combatFx.id, frames: combatFx.frames, single: combatFx.single, x: cx, y: cy, variant: combatFx.variant });
-            }
-        }
-        return () => { window.clearTimeout(clear); };
-    }, [combatFx]);
+    const triggerBasicHealFx = (focusPos: number) => {
+        playPetSfx("buff");
+        spawnCombatVfx([{ focusPos, spec: resolveCombatVfxSpec({ action: "basicHeal", target: "SELF" }) }]);
+    };
+
+    const triggerConsumableCombatFx = (item: GameItem, focusPos: number, hints: { heal?: boolean; shield?: boolean } = {}) => {
+        const tags: Array<Pick<JutsuTag, "name" | "percent">> = [...(item.weaponTags ?? [])];
+        if (hints.heal) tags.unshift({ name: "Heal", percent: 100 });
+        if (hints.shield) tags.push({ name: "Shield", percent: 100 });
+        if (item.weaponEffect) tags.push({ name: item.weaponEffect, percent: item.weaponEffectValue ?? 0 });
+        const spec = resolveCombatVfxSpec({ action: "consumable", tags, target: "SELF" });
+        playPetSfx(spec.key === "debuff" ? "hit" : "buff");
+        spawnCombatVfx([{ focusPos, spec }]);
+    };
+
+    const triggerWeaponCombatFx = (
+        item: GameItem,
+        opts: { focusPos: number; casterPos: number; heavy?: boolean; isKO?: boolean },
+    ) => {
+        const slot = normalizeEquipmentSlot(item.slot);
+        const tags: Array<Pick<JutsuTag, "name" | "percent">> = [...(item.weaponTags ?? [])];
+        if (item.weaponEffect) tags.push({ name: item.weaponEffect, percent: item.weaponEffectValue ?? 0 });
+        const named = slot === "hand" && tags.some((tag) => !tagMatchesName(tag.name, "Damage"));
+        const delivery = resolveCombatVfxSpec({
+            action: slot === "thrown" ? "throwable" : "weapon",
+            named,
+            heavy: opts.heavy,
+            ko: opts.isKO,
+        });
+        const tagSpec = tagEffectSpec(tags, "OPPONENT");
+        const events = [{ focusPos: opts.focusPos, spec: delivery }];
+        if (tagSpec) events.push({ focusPos: tagSpec.target === "caster" ? opts.casterPos : opts.focusPos, spec: tagSpec });
+        playPetSfx(opts.isKO ? "ko" : opts.heavy || named ? "crit" : "hit");
+        spawnCombatVfx(events);
+    };
+    const renderArenaCombatVfx = (fx: ArenaCombatVfx) => {
+        const avg = fx.points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 });
+        const center = { x: avg.x / fx.points.length, y: avg.y / fx.points.length };
+        const asset = combatVfxAssetFor(fx.spec.key);
+        const baseClass = `pvp-combat-vfx pvp-vfx-${fx.spec.key} pvp-vfx-${fx.spec.intensity} pvp-vfx-has-asset pvp-vfx-plane-${asset.plane}${liteFx ? " pvp-vfx-lite" : ""}`;
+        const styleFor = (point: { x: number; y: number }, scale = 1) => ({
+            left: `${point.x}px`,
+            top: `${point.y}px`,
+            "--vfx-duration": `${fx.spec.durationMs}ms`,
+            "--vfx-scale": scale,
+            "--vfx-asset-scale": asset.assetScale,
+            "--vfx-asset-lift": `${asset.liftPx}px`,
+            "--vfx-asset-opacity": asset.opacity,
+        } as React.CSSProperties);
+        return (
+            <div key={fx.id} className="pvp-combat-vfx-group" aria-hidden="true">
+                {fx.points.length > 1 && fx.points.map((point, idx) => (
+                    <span key={`${fx.id}-tile-${idx}`} className={`${baseClass} pvp-combat-vfx-tile`} style={styleFor(point, 0.72)}>
+                        <i className="pvp-vfx-ring" />
+                    </span>
+                ))}
+                <span className={`${baseClass} pvp-combat-vfx-burst`} style={styleFor(center, fx.spec.intensity === "finisher" ? 1.45 : fx.spec.intensity === "heavy" ? 1.18 : 1)}>
+                    <img className={`pvp-vfx-asset pvp-vfx-asset-${asset.plane}`} src={asset.url} alt="" draggable={false} />
+                    <i className="pvp-vfx-ring" />
+                    <i className="pvp-vfx-core" />
+                    <i className="pvp-vfx-cut" />
+                    {!liteFx && <i className="pvp-vfx-sparks" />}
+                </span>
+            </div>
+        );
+    };
 
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
@@ -2558,6 +2625,12 @@ export function Arena({
         if (wHeal > 0 || wSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + wHeal - wSelfDamage)));
         queueHitFx("p", wSelfDamage, "damage");
         queueHitFx("p", wHeal, "heal");
+        triggerWeaponCombatFx(item, {
+            focusPos: enemyPos,
+            casterPos: playerPos,
+            heavy: wEnemyNet >= enemyMaxHp * 0.18,
+            isKO: enemyHp - wEnemyNet <= 0,
+        });
         // Spend one thrown weapon from inventory on the throw (melee weapons aren't consumed).
         const afterThrow = isThrown ? removeItem(character, item.id, 1) : character;
         const postThrowCharacter: Character = { ...afterThrow, stamina: Math.max(0, afterThrow.stamina - staminaCost) };
@@ -2666,6 +2739,7 @@ export function Arena({
         ].filter(Boolean);
 
         const summary = effects.length ? effects.join(", ") : "steadies your stance but has no active combat effect";
+        triggerConsumableCombatFx(item, playerPos, { heal: heal > 0, shield: shield + focus > 0 || item.weaponEffect === "Shield" });
         setLog(`${item.name}: ${summary}.`);
         addCombatLog(`${item.name}: ${character.name} uses equipped item and ${summary}.`, item.id, character.name);
     }
@@ -2701,6 +2775,7 @@ export function Arena({
         setPlayerHp((hp) => Math.min(character.maxHp, hp + healAmount));
         setCooldowns((c) => ({ ...c, basicHeal: 5 }));
         updateCharacter({ ...character, chakra: Math.max(0, character.chakra - 10) });
+        triggerBasicHealFx(playerPos);
         setLog(`Basic Heal restored ${healAmount} HP.`);
         addCombatLog(`${character.name} uses Basic Heal and restores ${healAmount} HP. Basic Heal cooldown: 5 rounds.`, "basicHeal", character.name);
     }
@@ -3569,6 +3644,8 @@ export function Arena({
                 : (groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE")) ? targetTile : enemyPos,
             heavy: totalDamage >= enemyMaxHp * 0.18,
             isKO: enemyHp - castEnemyNet <= 0,
+            ground: groundTargeted,
+            area: groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE"),
         });
 
         if (enemyHp - castEnemyNet <= 0) return winBattle(postJutsuCharacter);
@@ -4277,6 +4354,8 @@ export function Arena({
             focusPos: isSelfSupportJutsu(jutsu) ? enemyPos : playerPos,
             heavy: playerNetTaken >= Math.max(1, character.maxHp) * 0.18,
             isKO: playerHp - playerNetTaken <= 0,
+            area: jutsu.method === "AOE_CIRCLE" || jutsu.method === "AOE_SPIRAL" || jutsu.method === "AOE_BURST",
+            ground: jutsu.target === "EMPTY_GROUND",
         });
         setLog(`${opponentName} used ${jutsu.name}.`);
 
@@ -5710,20 +5789,11 @@ export function Arena({
                         {/* Cosmetic elemental cast/impact particles (jutsu VFX). Sits
                             above the board, never intercepts clicks. Skipped on weak
                             devices (no canvas → no rAF particle loop). */}
-                        {!liteFx && <canvas ref={combatVfxCanvasRef} className="combat-vfx-canvas" aria-hidden="true" />}
+                        <div ref={combatVfxLayerRef} className="arena-combat-vfx-layer" aria-hidden="true">
+                            {combatVfx.map(renderArenaCombatVfx)}
+                        </div>
                         {/* Sprite-sheet effect overlay (CC0 art / KV override), above
                             the particles. Re-keyed per cast so it restarts cleanly. */}
-                        {combatSpriteFx && (
-                            <JutsuSpriteFx
-                                key={combatSpriteFx.id}
-                                frames={combatSpriteFx.frames}
-                                single={combatSpriteFx.single}
-                                x={combatSpriteFx.x}
-                                y={combatSpriteFx.y}
-                                variant={combatSpriteFx.variant}
-                                onDone={() => setCombatSpriteFx((s) => (s && s.id === combatSpriteFx.id ? null : s))}
-                            />
-                        )}
                     </div>
 
                     <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
