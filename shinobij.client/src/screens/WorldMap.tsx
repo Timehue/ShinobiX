@@ -19,7 +19,7 @@ import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
 import { gameConfirm } from "../components/GameAlert";
 import type { CreatorAi } from "../types/creator-ai";
-import type { CreatorRaid } from "../types/missions";
+import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import type { Pet } from "../types/pet";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
@@ -47,6 +47,7 @@ import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { HollowGateAttunement } from "../components/HollowGateAttunement";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { WorldToast } from "../components/WorldToast";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_MAP } from "../data/sector-map-manifest";
 import { SECTOR_POINTS } from "../data/sector-points";
@@ -117,6 +118,7 @@ import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorFo
 import { SageWhisper } from "../components/SageWhisper";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { SageOfferModal } from "../components/SageOfferModal";
+import { huntReadyForFight, huntRequiredTracks, huntTrailSector } from "../lib/hunt-trail";
 
 
 // Which scene-image theme each sector shows. Single source of truth shared by
@@ -227,6 +229,9 @@ function interiorTileFromKey(key: string): number {
     return row * 12 + col;
 }
 
+type ActiveHuntTrail = { mission: CreatorMission; sector: number; progress: number; requiredTracks: number };
+type HuntToast = { id: number; kicker: string; text: string };
+
 export function WorldMap({
     setCurrentBiome,
     setScreen,
@@ -333,6 +338,24 @@ export function WorldMap({
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
     const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
+    const [huntToast, setHuntToast] = useState<HuntToast | null>(null);
+    const activeHuntTrails = useMemo<ActiveHuntTrail[]>(() => (
+        builtinHuntMissions
+            .filter((mission) => acceptedMissionIds.includes(mission.id) && Boolean(mission.aiProfileId))
+            .map((mission) => {
+                const progress = missionProgress[mission.id] ?? 0;
+                const requiredTracks = huntRequiredTracks(mission);
+                if (progress >= requiredTracks) return null;
+                return {
+                    mission,
+                    sector: huntTrailSector(mission, progress, character.name),
+                    progress,
+                    requiredTracks,
+                };
+            })
+            .filter((trail): trail is ActiveHuntTrail => Boolean(trail))
+    ), [acceptedMissionIds, missionProgress, character.name]);
+    const huntTrailForSector = (sector: number) => activeHuntTrails.find((trail) => trail.sector === sector);
 
     // Returning from an explore ambush: reopen the sector detail the player was in
     // (set by exploreSector before the fight). One-shot — consumed on this mount so
@@ -1977,42 +2000,16 @@ export function WorldMap({
         setCurrentWeather(weatherForSector(sector, biome));
         setCurrentSector(sector);
 
-        const activeHuntMission = builtinHuntMissions.find(
-            (mission) =>
-                acceptedMissionIds.includes(mission.id) &&
-                mission.targetSector === sector &&
-                mission.aiProfileId
-        );
-
-        if (!activeHuntMission) {
-            alert(`No accepted hunt contract is active in Sector ${sector}.`);
+        const activeTrail = huntTrailForSector(sector);
+        if (!activeTrail) {
+            setHuntToast({
+                id: Date.now(),
+                kicker: "No active trail",
+                text: `No accepted hunt trail is active in Sector ${sector}. Check the paw marker on the world map for your current lead.`,
+            });
             return;
         }
-
-        const requiredTracks = activeHuntMission.exploreCount ?? 1;
-        const currentProgress = missionProgress[activeHuntMission.id] ?? 0;
-        const nextProgress = Math.min(requiredTracks, currentProgress + 1);
-
-        if (nextProgress < requiredTracks) {
-            recordMissionProgress?.(activeHuntMission.id, "hunt-track");
-            // Still gathering tracks — advance the tracking counter and stop.
-            setMissionProgress((current) => ({
-                ...current,
-                [activeHuntMission.id]: Math.max(nextProgress, current[activeHuntMission.id] ?? 0),
-            }));
-            alert(`${activeHuntMission.name}: tracks found in Sector ${sector}. ${nextProgress}/${requiredTracks}`);
-            return;
-        }
-
-        // Final track = the kill attempt. Do NOT complete progress here — that
-        // is what let a player claim the hunt reward after dying/fleeing. Hold
-        // the counter at requiredTracks-1; winBattle() completes it on an actual
-        // kill via onHuntBeastDefeated. Losing leaves it here so the beast can be
-        // re-engaged without re-tracking.
-        setMissionProgress((current) => ({
-            ...current,
-            [activeHuntMission.id]: Math.max(requiredTracks - 1, current[activeHuntMission.id] ?? 0),
-        }));
+        const activeHuntMission = activeTrail.mission;
 
         const huntAi = playableAis.find((ai) => ai.id === activeHuntMission.aiProfileId);
         if (!huntAi) {
@@ -2020,7 +2017,50 @@ export function WorldMap({
             return;
         }
 
-        alert(`You've tracked down the ${huntAi.name}! Prepare to fight!`);
+        const requiredTracks = activeTrail.requiredTracks;
+        const currentProgress = activeTrail.progress;
+        const nextProgress = Math.min(requiredTracks, currentProgress + 1);
+
+        if (!huntReadyForFight(activeHuntMission, currentProgress)) {
+            recordMissionProgress?.(activeHuntMission.id, "hunt-track");
+            // Advance the sealed track counter. The kill still has to happen in Arena.
+            setMissionProgress((current) => ({
+                ...current,
+                [activeHuntMission.id]: Math.max(nextProgress, current[activeHuntMission.id] ?? 0),
+            }));
+            const nextSector = huntTrailSector(activeHuntMission, nextProgress, character.name);
+            const finalTrackFound = huntReadyForFight(activeHuntMission, nextProgress);
+            setHuntToast({
+                id: Date.now(),
+                kicker: finalTrackFound ? "The trail closes" : "Fresh tracks",
+                text: finalTrackFound
+                    ? `${huntAi.name} circles back toward ${sectorRegionName(nextSector)}, Sector ${nextSector}. Follow the trail there to force the fight.`
+                    : `The sign cuts toward ${sectorRegionName(nextSector)}, Sector ${nextSector}. Trail ${nextProgress}/${Math.max(1, requiredTracks - 1)}.`,
+            });
+            if (nextSector !== sector) {
+                beginSectorTravel(nextSector, () => {
+                    const nextBiome = biomeForSector(nextSector);
+                    setCurrentBiome(nextBiome);
+                    setCurrentWeather(weatherForSector(nextSector, nextBiome));
+                    setCurrentSector(nextSector);
+                    setSelectedSector(nextSector);
+                });
+            }
+            return;
+        }
+
+        // Do not complete progress here; onHuntBeastDefeated does that only after
+        // Arena reports a real win. Losing leaves the trail hot for a rematch.
+        setMissionProgress((current) => ({
+            ...current,
+            [activeHuntMission.id]: Math.max(requiredTracks - 1, current[activeHuntMission.id] ?? 0),
+        }));
+
+        setHuntToast({
+            id: Date.now(),
+            kicker: "Fight sprung",
+            text: `${huntAi.name} breaks cover in Sector ${sector}.`,
+        });
         setPendingAiProfileId(huntAi.id);
         setRaidBattleKind("raidAi");
         setScreen("arena");
@@ -2396,16 +2436,16 @@ export function WorldMap({
                 avatar: sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '',
             }))
             : [];
-        const activeHuntMissionForSector = selectedSector >= 1 && selectedSector <= 60
-            ? builtinHuntMissions.find((mission) =>
-                acceptedMissionIds.includes(mission.id) &&
-                mission.targetSector === selectedSector &&
-                mission.aiProfileId
-            )
+        const activeHuntTrailForSector = selectedSector >= 1 && selectedSector <= 60
+            ? huntTrailForSector(selectedSector)
             : undefined;
+        const activeHuntMissionForSector = activeHuntTrailForSector?.mission;
         const activeHuntAiForSector = activeHuntMissionForSector?.aiProfileId
             ? playableAis.find((ai) => ai.id === activeHuntMissionForSector.aiProfileId)
             : undefined;
+        const activeHuntReadyForFight = activeHuntMissionForSector
+            ? huntReadyForFight(activeHuntMissionForSector, activeHuntTrailForSector?.progress ?? 0)
+            : false;
 
         // New sector look: a painted top-down adventure MAP behind the grid (flag-gated,
         // off by default). Replaces the 2D vista stack when active. Custom-territory
@@ -2599,6 +2639,15 @@ export function WorldMap({
                                         try { window.localStorage?.removeItem("legacy.sage.lastOffer"); } catch { /* best-effort */ }
                                         updateCharacter(prev => prev ? { ...prev, legacy } : prev);
                                     }}
+                                />
+                            )}
+                            {huntToast && (
+                                <WorldToast
+                                    key={huntToast.id}
+                                    kicker={huntToast.kicker}
+                                    text={huntToast.text}
+                                    icon={<GiPawPrint size={22} />}
+                                    onClose={() => setHuntToast(null)}
                                 />
                             )}
                             {whisper && (
@@ -3093,6 +3142,25 @@ export function WorldMap({
                                 })
                             )}
                         </section>
+                        {activeHuntMissionForSector && activeHuntTrailForSector && (
+                            <section className="sector-presence sector-panel-card">
+                                <div className="sector-panel-card-head">
+                                    <h4><GiPawPrint aria-hidden="true" />Hunt Trail</h4>
+                                    <span className={`sector-status-pill ${activeHuntReadyForFight ? "is-owned" : ""}`}>
+                                        {activeHuntReadyForFight ? "Fight" : "Tracking"}
+                                    </span>
+                                </div>
+                                <p className="sector-owner-line">
+                                    <strong>{activeHuntAiForSector?.name ?? "Target"}</strong>
+                                    <span>{Math.min(activeHuntTrailForSector.progress, Math.max(0, activeHuntTrailForSector.requiredTracks - 1))}/{Math.max(1, activeHuntTrailForSector.requiredTracks - 1)} trail</span>
+                                </p>
+                                <p className="sector-empty-note">
+                                    {activeHuntReadyForFight
+                                        ? "The trail is hot. Start the fight from this sector."
+                                        : "Search the sign here; the trail may move before the target shows itself."}
+                                </p>
+                            </section>
+                        )}
                         <div className="sector-action-grid" aria-label="Sector actions">
                             <button type="button" className="sector-action-btn is-primary" onClick={() => exploreSector(selectedSector)}>
                                 <span className="sector-action-icon" aria-hidden="true"><GiCompass /></span>
@@ -3101,7 +3169,7 @@ export function WorldMap({
                             {activeHuntMissionForSector && (
                                 <button type="button" className="sector-action-btn" onClick={() => huntSector(selectedSector)}>
                                     <span className="sector-action-icon" aria-hidden="true"><GiPawPrint /></span>
-                                    <span>Hunt {activeHuntAiForSector?.name ?? "Beast"}</span>
+                                    <span>{activeHuntReadyForFight ? "Fight" : "Track"} {activeHuntAiForSector?.name ?? "Target"}</span>
                                 </button>
                             )}
                             <button type="button" className="sector-action-btn" onClick={() => restInSector(selectedSector)}>
@@ -3451,6 +3519,12 @@ export function WorldMap({
                 <div className="atlas-region-label label-fire">Land of Fire</div>
                 <div className="atlas-region-label label-ice">Land of Glaciers</div>
                 {sectorPoints.map((sector) => {
+                    const huntTrail = huntTrailForSector(sector.id);
+                    const sectorTitle = sector.id === 99
+                        ? "Death's Gate - PvP zone: 2x XP, Ryo & Jutsu XP, 5% Bone Charm on win"
+                        : huntTrail
+                            ? `${huntTrail.mission.name} trail | Sector ${sector.id}`
+                            : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`;
                     return (
                     <button
                         key={sector.id}
@@ -3459,10 +3533,11 @@ export function WorldMap({
                                 ? "atlas-sector atlas-sector-deaths-gate"
                                 : "atlas-sector atlas-sector-" + biomeForSector(sector.id))
                             + (sector.id === weeklyBossSector ? " atlas-sector-weekly-boss" : "")
+                            + (huntTrail ? " atlas-sector-hunt-trail" : "")
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         onClick={() => triggerTravelPoint(sector.id)}
-                        title={sector.id === 99 ? "Death's Gate — PvP zone: 2× XP, Ryo & Jutsu XP · 5% Bone Charm on win" : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`}
+                        title={sectorTitle}
                     >
                         {sector.id === 99 ? "💀" : sector.id === 35 ? "☀️" : sector.id}
                         {scoutedSectors.has(sector.id) && (
@@ -3484,6 +3559,12 @@ export function WorldMap({
                                 className="atlas-boss-flag"
                                 title={`${roamingBoss?.bossName ?? "Weekly Boss"} is rampaging here — travel in to challenge it`}
                             >👹</span>
+                        )}
+                        {huntTrail && (
+                            <span
+                                className="atlas-hunt-flag"
+                                title={`${huntTrail.mission.name} trail is active here`}
+                            ><GiPawPrint /></span>
                         )}
                     </button>
                 ); })}
@@ -3690,6 +3771,15 @@ export function WorldMap({
                 roll + rumor effects fire on mount, before a sector is opened
                 (final-gate finding). SageWhisper portals to <body>, so this
                 mount and the sector-view mount can never double-render. */}
+            {huntToast && (
+                <WorldToast
+                    key={huntToast.id}
+                    kicker={huntToast.kicker}
+                    text={huntToast.text}
+                    icon={<GiPawPrint size={22} />}
+                    onClose={() => setHuntToast(null)}
+                />
+            )}
             {whisper && (
                 <SageWhisper
                     text={whisper.text}
