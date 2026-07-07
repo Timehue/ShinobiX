@@ -1,4 +1,5 @@
-import { type Screen, villagePageImage } from "../App";
+import type { Screen } from "../types/core";
+import { villagePageImage } from "../lib/village-page-image";
 import type { Biome, WeatherType } from "../types/core";
 import type { Character } from "../types/character";
 import { SceneAmbience } from "../components/SceneAmbience";

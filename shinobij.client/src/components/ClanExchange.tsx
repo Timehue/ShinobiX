@@ -1,6 +1,5 @@
 import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
-import { GiCastle, GiCrossedSwords, GiLaurelsTrophy, GiShield, GiTreasureMap } from "react-icons/gi";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import { ClanImageMark } from "./Marks";
 import type { Character } from "../types/character";
@@ -123,7 +122,7 @@ function ExchangeRewardIcon({ item }: { item: ExchangeItem }) {
     const reward = item.reward;
     if (reward.kind === "currency") return <GameIcon name={currencyIcon(reward.currency)} size={34} />;
     if (reward.kind === "item") return <GameIcon name="scroll" size={34} />;
-    if (reward.kind === "treasury") return <GiCastle />;
+    if (reward.kind === "treasury") return <GameIcon name="sigil" size={34} />;
     if (reward.kind === "cache" && reward.cache === "weapon") return <GameIcon name="sword" size={34} />;
     if (reward.kind === "cache" && reward.cache === "armor") return <GameIcon name="shield" size={34} />;
     return <GameIcon name="sparkle" size={34} />;
@@ -251,7 +250,7 @@ export function ClanExchange({
                     </div>
                 </div>
                 <div className="clan-exchange-level">
-                    <GiLaurelsTrophy />
+                    <GameIcon name="medal" size={35} />
                     <div>
                         <span>Clan Level {clanData.level}</span>
                         <div><i style={{ width: `${Math.min(100, (clanData.xp / xpNeed) * 100)}%` }} /></div>
@@ -265,7 +264,7 @@ export function ClanExchange({
                         <span>Featured requisitions</span>
                         <h4>High-value clan rewards</h4>
                     </div>
-                    <GiTreasureMap />
+                    <GameIcon name="map" size={27} />
                 </div>
                 <div className="clan-exchange-feature-grid">
                     {featured.map((item) => <ExchangeCard key={item.id} item={item} character={character} clanData={clanData} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}
@@ -279,7 +278,7 @@ export function ClanExchange({
                             <span>Tier {index + 1}</span>
                             <h4>{index === 0 ? "Member issue" : index === 1 ? "Officer stores" : "Elite vault"}</h4>
                         </div>
-                        {index === 0 ? <GameIcon name="scroll" size={26} /> : index === 1 ? <GiShield /> : <GiCrossedSwords />}
+                        {index === 0 ? <GameIcon name="scroll" size={26} /> : index === 1 ? <GameIcon name="shield" size={27} /> : <GameIcon name="sword" size={27} />}
                     </div>
                     <div className="clan-exchange-grid">
                         {items.map((item) => <ExchangeCard key={item.id} item={item} character={character} clanData={clanData} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "../styles/hub-screens-skin.css";
 import type React from "react";
 import type { Biome, WeatherType, Screen } from "../types/core";
 import type { Character } from "../types/character";

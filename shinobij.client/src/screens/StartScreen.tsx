@@ -1,17 +1,11 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { type Character } from "../App";
 import { villages } from "../data/sectors";
-// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
-import { GiRank3, GiDaggers, GiUpgrade, GiBlackFlag, GiPawPrint, GiVortex, GiCrossedSwords, GiTrophy, GiVillage } from "react-icons/gi";
-const SS_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
-import {
-    CharacterCreator,
-    IconUser,
-    IconLock,
-    IconEyeOpen,
-    IconEyeOff,
-} from "./CharacterCreator";
+import { GameIcon } from "../components/icons/GameIcon";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
+
+const CharacterCreator = lazyWithRetry(() => import("./CharacterCreator").then(m => ({ default: m.CharacterCreator })));
+const PublicLeaderboard = lazyWithRetry(() => import("./PublicLeaderboard").then(m => ({ default: m.PublicLeaderboard })));
 
 // Feature-showcase art — real in-game scenes, so the landing sells the actual
 // game rather than stock art. Bundled from src/assets (Vite-hashed); the two
@@ -27,6 +21,45 @@ const GuidesLibrary = lazyWithRetry(() => import("../components/GuidesLibrary").
 // "discord.gg/shinobi-journey" vanity link did not resolve.
 const DISCORD_URL = "https://discord.gg/bCQGs8r6SK";
 
+function IconUser() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />
+        </svg>
+    );
+}
+
+function IconLock() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="4" y="10" width="16" height="11" rx="2" />
+            <path d="M8 10V7a4 4 0 1 1 8 0v3" />
+        </svg>
+    );
+}
+
+function IconEyeOpen() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+            <circle cx="12" cy="12" r="3" />
+        </svg>
+    );
+}
+
+function IconEyeOff() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a19.55 19.55 0 0 1 4.06-5.06" />
+            <path d="M22.54 12.88A19.5 19.5 0 0 0 23 12s-4-7-11-7a10.74 10.74 0 0 0-4.06.76" />
+            <path d="M9.9 4.24A9.6 9.6 0 0 1 12 4" />
+            <path d="M1 1l22 22" />
+            <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
+        </svg>
+    );
+}
+
 type StartView = "main" | "create" | "login" | "leaderboard" | "guides";
 
 type RosterEntry = {
@@ -36,51 +69,6 @@ type RosterEntry = {
     specialty: string;
     online: boolean;
     character?: Partial<Character>;
-};
-
-type PublicTournament = {
-    id?: string;
-    name?: string;
-    createdBy?: string;
-    startsAt?: number;
-    endsAt?: number;
-    participants?: string[];
-    advancedPlayers?: string[];
-} | null;
-
-type PublicLeaderboardBoardId =
-    | "ranked"
-    | "petRanked"
-    | "level"
-    | "xp"
-    | "kills"
-    | "pets"
-    | "endless"
-    | "villageWars"
-    | "professions"
-    | "battleTower"
-    | "clans";
-type PublicLeaderboardTab = PublicLeaderboardBoardId | "tournament";
-type PublicLeaderboardRow = {
-    rank: number;
-    name: string;
-    value: number;
-    label: string;
-    level?: number;
-    village?: string;
-    specialty?: string;
-    clan?: string;
-    online?: boolean;
-    lastSeenAt?: number;
-    members?: number;
-    onlineMembers?: number;
-};
-type PublicLeaderboardBoard = {
-    id: PublicLeaderboardBoardId;
-    label: string;
-    valueLabel: string;
-    suffix: string;
-    rows: PublicLeaderboardRow[];
 };
 
 // ── Landing feature showcase ─────────────────────────────────────────────
@@ -155,10 +143,10 @@ const GUIDE_SPOTLIGHTS = [
 ];
 
 const PATH_HIGHLIGHTS: { label: string; icon: ReactNode }[] = [
-    { label: `${villages.length} rival villages`, icon: <GiVillage /> },
-    { label: "jutsu combat", icon: <GiCrossedSwords /> },
-    { label: "long-term progression", icon: <GiVortex /> },
-    { label: "public leaderboards", icon: <GiTrophy /> },
+    { label: `${villages.length} rival villages`, icon: <GameIcon name="map" /> },
+    { label: "jutsu combat", icon: <GameIcon name="sword" /> },
+    { label: "long-term progression", icon: <GameIcon name="chakra" /> },
+    { label: "public leaderboards", icon: <GameIcon name="medal" /> },
 ];
 
 type BrandLockupVariant = "nav" | "hero" | "footer";
@@ -191,7 +179,9 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     if (view === "leaderboard") {
         return (
             <div className="start-screen landing-subscreen">
-                <PublicLeaderboard onBack={() => setView("main")} />
+                <Suspense fallback={<div className="card start-leaderboard"><p className="start-leaderboard-empty">Loading leaderboard...</p></div>}>
+                    <PublicLeaderboard onBack={() => setView("main")} />
+                </Suspense>
             </div>
         );
     }
@@ -207,7 +197,11 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     }
 
     if (view === "create") {
-        return <CharacterCreator onCreate={onCreate} onBack={() => setView("main")} />;
+        return (
+            <Suspense fallback={<div className="start-screen"><div className="start-card">Loading creator...</div></div>}>
+                <CharacterCreator onCreate={onCreate} onBack={() => setView("main")} />
+            </Suspense>
+        );
     }
 
     if (view === "login") {
@@ -223,9 +217,9 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
                                 Step back into missions, rival clans, pet battles, world records, and the next chapter of your shinobi legend.
                             </p>
                             <div className="landing-login-highlights" aria-label="World activity">
-                                <span><GiCrossedSwords /> Clan wars</span>
-                                <span><GiPawPrint /> Pet arena</span>
-                                <span><GiTrophy /> Hall records</span>
+                                <span><GameIcon name="sword" /> Clan wars</span>
+                                <span><GameIcon name="paw" /> Pet arena</span>
+                                <span><GameIcon name="medal" /> Hall records</span>
                             </div>
                         </section>
                         <LoginPanel
@@ -368,7 +362,7 @@ function FeatureCard({ feature }: { feature: Feature }) {
     return (
         <article className="landing-feature-card">
             <div className="landing-feature-media">
-                <img src={feature.img} alt={feature.title} decoding="async" />
+                <img src={feature.img} alt={feature.title} loading="lazy" decoding="async" />
                 <span className="landing-feature-tag">{feature.tag}</span>
             </div>
             <div className="landing-feature-text">
@@ -519,7 +513,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
             <section className="landing-clan">
                 <div className="landing-clan-inner">
                     <div className="landing-clan-media">
-                        <img src={CLAN_IMG} alt="Rival shinobi clans muster for war beneath their banners" decoding="async" />
+                        <img src={CLAN_IMG} alt="Rival shinobi clans muster for war beneath their banners" loading="lazy" decoding="async" />
                     </div>
                     <div className="landing-clan-copy">
                         <p className="landing-kicker">✦ Stronger Together ✦</p>
@@ -538,7 +532,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
             <section className="landing-clan landing-clan--reverse">
                 <div className="landing-clan-inner">
                     <div className="landing-clan-media">
-                        <img src={LEGACY_IMG} alt="An ancient path of torii gates leading toward legend" decoding="async" />
+                        <img src={LEGACY_IMG} alt="An ancient path of torii gates leading toward legend" loading="lazy" decoding="async" />
                     </div>
                     <div className="landing-clan-copy">
                         <p className="landing-kicker">✦ Your Legend Awaits ✦</p>
@@ -627,160 +621,3 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
     );
 }
 
-function PublicLeaderboard({ onBack }: { onBack: () => void }) {
-    const [tab, setTab] = useState<PublicLeaderboardTab>("ranked");
-    const [boards, setBoards] = useState<Partial<Record<PublicLeaderboardBoardId, PublicLeaderboardBoard>>>({});
-    const [tournament, setTournament] = useState<PublicTournament>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
-
-    useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            setLoading(true);
-            setError("");
-            try {
-                const [leaderboardRes, gameStateRes] = await Promise.all([
-                    fetch("/api/player/leaderboards?limit=25"),
-                    fetch("/api/game-state").catch(() => null),
-                ]);
-                if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
-                const leaderboardData = await leaderboardRes.json() as { boards?: PublicLeaderboardBoard[] };
-                if (!cancelled) {
-                    const nextBoards: Partial<Record<PublicLeaderboardBoardId, PublicLeaderboardBoard>> = {};
-                    for (const board of Array.isArray(leaderboardData.boards) ? leaderboardData.boards : []) {
-                        nextBoards[board.id] = board;
-                    }
-                    setBoards(nextBoards);
-                }
-
-                if (gameStateRes && gameStateRes.ok) {
-                    const gs = await gameStateRes.json() as { arenaTournament?: PublicTournament };
-                    if (!cancelled) setTournament(gs.arenaTournament ?? null);
-                }
-            } catch (err) {
-                if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load leaderboard");
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        })();
-        return () => { cancelled = true; };
-    }, []);
-
-    const tabs: { id: PublicLeaderboardTab; label: string; icon: ReactNode }[] = [
-        { id: "ranked",      label: "Ranked",       icon: <GiRank3 /> },
-        { id: "petRanked",   label: "Pet Rating",   icon: <GiPawPrint /> },
-        { id: "level",       label: "Level",        icon: <GiVortex /> },
-        { id: "kills",       label: "Kill Streaks", icon: <GiDaggers /> },
-        { id: "xp",          label: "Most XP",      icon: <GiUpgrade /> },
-        { id: "clans",       label: "Top Clans",    icon: <GiBlackFlag /> },
-        { id: "pets",        label: "Pet Wins",     icon: <GiPawPrint /> },
-        { id: "endless",     label: "Endless",      icon: <GiVortex /> },
-        { id: "villageWars", label: "Village Wars", icon: <GiCrossedSwords /> },
-        { id: "professions", label: "Professions",  icon: <GiUpgrade /> },
-        { id: "battleTower", label: "Battle Tower", icon: <GiTrophy /> },
-        { id: "tournament",  label: "Tournament",   icon: <GiTrophy /> },
-    ];
-
-    function getLabel(t: PublicLeaderboardTab): string {
-        if (t !== "tournament" && boards[t]?.label) return boards[t]!.label;
-        switch (t) {
-            case "ranked": return "Ranked Battle Rating (Elo)";
-            case "petRanked": return "Pet Arena Rating (Elo)";
-            case "level": return "Highest Level";
-            case "kills": return "Total PvP Kills";
-            case "xp": return "Total XP Earned";
-            case "pets": return "Pet Coliseum Wins";
-            case "endless": return "Endless Tower — Waves Survived";
-            case "villageWars": return "Village War Raids Completed";
-            case "clans": return "Clan Power (Ranked Wins + PvP Kills)";
-            case "tournament": return "Last Tournament";
-            case "professions": return "Top Profession XP (all professions)";
-            case "battleTower": return "Battle Tower Best Floor";
-        }
-    }
-
-    const activeBoard = tab === "tournament" ? null : boards[tab];
-    const activeRows = activeBoard?.rows ?? [];
-
-    return (
-        <div className="card start-leaderboard">
-            <div className="start-back-row">
-                <button className="start-back-button" onClick={onBack}>← Back</button>
-            </div>
-
-            <div className="start-leaderboard-header">
-                <div style={{ flex: 1 }}>
-                    <h2><GiTrophy style={SS_ICON} />Hall of Legends</h2>
-                    <p className="start-leaderboard-subtitle">Eternal records of the world's greatest shinobi.</p>
-                </div>
-            </div>
-
-            <div className="start-leaderboard-tabs">
-                {tabs.map(t => (
-                    <button
-                        key={t.id}
-                        className={`start-leaderboard-tab ${tab === t.id ? "is-active" : ""}`}
-                        onClick={() => setTab(t.id)}
-                    >
-                        {t.icon} {t.label}
-                    </button>
-                ))}
-            </div>
-
-            <div className="start-leaderboard-board">
-                <p className="start-leaderboard-board-label">{getLabel(tab)}</p>
-
-                {loading && <p className="start-leaderboard-empty">Summoning legends...</p>}
-                {!loading && error && (
-                    <p className="start-leaderboard-empty">Could not load leaderboard ({error}).</p>
-                )}
-
-                {!loading && !error && tab !== "tournament" && (
-                    activeRows.length === 0
-                        ? <p className="start-leaderboard-empty">No shinobi have recorded glory yet.</p>
-                        : activeRows.map((row, i) => {
-                            const rankCls = i === 0 ? "top-1" : i === 1 ? "top-2" : i === 2 ? "top-3" : "";
-                            const medal = `#${row.rank || i + 1}`;
-                            const detail = row.members
-                                ? `${row.members} member${row.members !== 1 ? "s" : ""}${row.onlineMembers ? `, ${row.onlineMembers} online` : ""}`
-                                : row.clan || row.village || "";
-                            return (
-                                <div key={`${tab}:${row.name}`} className={`start-leaderboard-row ${rankCls}`}>
-                                    <span className="start-leaderboard-rank">{medal}</span>
-                                    <span className="start-leaderboard-name">
-                                        {row.name}
-                                        {detail ? <span className="start-leaderboard-village"> · {detail}</span> : null}
-                                    </span>
-                                    <span className="start-leaderboard-value">{row.label || row.value.toLocaleString()}</span>
-                                </div>
-                            );
-                        })
-                )}
-
-                {!loading && !error && tab === "tournament" && (
-                    !tournament
-                        ? <p className="start-leaderboard-empty">No tournament has been held yet.</p>
-                        : (
-                            <div className="start-tournament-card">
-                                <h3>{tournament.name ?? "Arena Tournament"}</h3>
-                                {tournament.createdBy && <p><strong>Hosted by:</strong> {tournament.createdBy}</p>}
-                                <p>
-                                    <strong>Participants ({tournament.participants?.length ?? 0}):</strong>{" "}
-                                    {(tournament.participants ?? []).join(", ") || "—"}
-                                </p>
-                                {tournament.advancedPlayers && tournament.advancedPlayers.length > 0 && (
-                                    <p><strong>Advanced Players:</strong> {tournament.advancedPlayers.join(", ")}</p>
-                                )}
-                                {tournament.endsAt && (
-                                    <p className="start-tournament-ended">
-                                        Ended {new Date(tournament.endsAt).toLocaleDateString()}
-                                    </p>
-                                )}
-                            </div>
-                        )
-                )}
-            </div>
-        </div>
-    );
-}
