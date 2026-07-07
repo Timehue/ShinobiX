@@ -6,6 +6,10 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { combatMissionByKey } from './_mission-catalog.js';
+import {
+    clientTrustedCombatMissionRewardAllowed,
+    COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON,
+} from '../_release-flags.js';
 
 /*
  * /api/missions/queue-combat-claim — POST only
@@ -75,6 +79,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // (not an error): the client keeps its local flag + autosave fallback and
         // the legacy claim path still pays creator missions.
         if (!def) return res.status(200).json({ ok: true, queued: false, reason: 'unknown-mission' });
+        if (!clientTrustedCombatMissionRewardAllowed(def)) {
+            return res.status(200).json({
+                ok: true,
+                queued: false,
+                reason: COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON,
+            });
+        }
 
         const saveKey = `save:${playerName}`;
 

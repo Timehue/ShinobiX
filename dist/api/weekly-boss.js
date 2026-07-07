@@ -13,6 +13,7 @@ const _announce_js_1 = require("./_announce.js");
 const node_crypto_1 = require("node:crypto");
 const _single_use_token_js_1 = require("./_single-use-token.js");
 const _weekly_boss_fight_token_js_1 = require("./_weekly-boss-fight-token.js");
+const _release_flags_js_1 = require("./_release-flags.js");
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
 // spawn the boss despawns and rewards are auto-distributed:
@@ -402,7 +403,12 @@ async function handler(req, res) {
         if (boss)
             boss = await distributeRewardsIfExpired(boss);
         res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate=5');
-        return res.status(200).json({ boss });
+        const fightEnabled = (0, _release_flags_js_1.weeklyBossClientDamageEnabled)();
+        return res.status(200).json({
+            boss,
+            fightEnabled,
+            fightDisabledReason: fightEnabled ? null : _release_flags_js_1.WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
+        });
     }
     if (req.method === 'POST') {
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
@@ -447,6 +453,14 @@ async function handler(req, res) {
                 return res.status(409).json({ error: 'Boss despawned. Rewards have been distributed.', boss });
             }
             const actorName = identity.admin ? 'admin' : identity.name;
+            const clientDamageKind = kind === 'startFight' || kind === 'damage' || kind === 'logFight';
+            if (clientDamageKind && !identity.admin && !(0, _release_flags_js_1.weeklyBossClientDamageEnabled)()) {
+                return res.status(503).json({
+                    error: 'Weekly Boss contribution is disabled for public beta until server-authoritative settlement is live.',
+                    code: _release_flags_js_1.WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
+                    fightEnabled: false,
+                });
+            }
             if (kind === 'startFight') {
                 if (!identity.admin) {
                     const used = boss.attemptsByPlayer?.[actorName] ?? 0;

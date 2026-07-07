@@ -304,7 +304,7 @@ raw password, that's a further step on top of this.
   triage note.
 - **Defense-in-depth hardening — APPLIED 2026-06-01 (user-approved).** Migration
   `harden_kv_store_revoke_authenticated_select` ran `revoke select on
-  public.kv_store from authenticated;` on prod (`soaychxshtbgwujhytsf`), and
+  public.kv_store from authenticated;` on prod, and
   `supabase-schema.sql` no longer re-grants select to `authenticated` (the
   `revoke all … from authenticated` stands alone). Verified post-apply: the
   `authenticated` grant is gone; the `anon` SELECT grant + `kv_store_anon_select`

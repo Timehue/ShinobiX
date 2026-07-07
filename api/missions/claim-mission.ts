@@ -16,6 +16,10 @@ import {
     validateMissionProgressReceipt,
 } from './_mission-progress-receipt.js';
 import {
+    clientTrustedCombatMissionRewardAllowed,
+    COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON,
+} from '../_release-flags.js';
+import {
     combatMissionByKey,
     fieldMissionById,
     huntMissionById,
@@ -156,6 +160,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (missionType === 'combat') {
                 const def = combatMissionByKey(missionId);
                 if (!def) return { applied: false, reason: 'unknown-mission', clientFallback: true };
+                if (!clientTrustedCombatMissionRewardAllowed(def)) {
+                    return { applied: false, reason: COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
+                }
                 if (Number(char.level ?? 1) < def.min) return { applied: false, reason: 'level' };
                 // Server-authoritative claim gate: the single-use token minted by
                 // /api/missions/queue-combat-claim when the fight was won. Preferred
