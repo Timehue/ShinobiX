@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            shinobij.client/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Root tests
+        run: npm test
+
+      - name: Root build
+        run: npm run build
+
+      - name: Install client dependencies
+        working-directory: shinobij.client
+        run: npm ci
+
+      - name: Client lint
+        working-directory: shinobij.client
+        run: npm run lint
+
+      - name: Client build
+        working-directory: shinobij.client
+        run: npm run build
+
+      - name: Client audit
+        working-directory: shinobij.client
+        run: npm audit --audit-level=high

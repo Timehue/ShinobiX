@@ -219,6 +219,7 @@ const _auth_js_1 = require("./api/_auth.js");
 // Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
 const _utils_js_1 = require("./api/_utils.js");
+const _http_security_js_1 = require("./api/_http-security.js");
 const _canonical_domain_js_1 = require("./api/_canonical-domain.js");
 // ─── Sentry (optional, env-gated server error reporting) ───────────────────────
 // Activates ONLY when SENTRY_DSN is set. The require is guarded so a cPanel box
@@ -258,6 +259,12 @@ if (process.env.DISABLE_VILLAGE_WAR !== '1')
 if (process.env.DISABLE_CLAN_BOSS !== '1')
     process.env.ENABLE_CLAN_BOSS = '1';
 const app = (0, express_1.default)();
+app.use((_req, res, next) => {
+    for (const [name, value] of Object.entries((0, _http_security_js_1.securityHeaders)())) {
+        res.setHeader(name, value);
+    }
+    next();
+});
 // JSON body parsing. The vast majority of routes carry tiny JSON (polls, moves,
 // player actions); only the image-pipe and admin-import routes legitimately POST
 // multi-MB base64 payloads. Cap the default at 5 MB to shrink the synchronous
@@ -915,7 +922,7 @@ app.use((err, req, res, _next) => {
     if (!res.headersSent) {
         // Echo the correlation id so a player can quote it in a bug report and an
         // admin can grep the exact server log line.
-        res.status(500).json({ error: String(err), requestId: reqId });
+        res.status(500).json((0, _http_security_js_1.publicErrorPayload)(err, reqId));
     }
 });
 // ─── Start ────────────────────────────────────────────────────────────────────

@@ -130,6 +130,66 @@ const supportJutsu = {
     isUtility: true,
     tags: [{ name: 'Heal' }, { name: 'Shield' }],
 };
+const buffedElementAttack = {
+    id: 'buffed-element',
+    name: 'Buffed Element',
+    type: 'Ninjutsu',
+    element: 'Lava',
+    target: 'OPPONENT',
+    range: 1,
+    ap: 60,
+    cooldown: 3,
+    chakraCost: 25,
+    staminaCost: 15,
+    effectPower: 30,
+    isUtility: false,
+    tags: [{ name: 'Increase Damage Given', percent: 20 }],
+};
+const crystalAttack = {
+    id: 'crystal-lance',
+    name: 'Crystal Lance',
+    type: 'Ninjutsu',
+    element: 'Crystal',
+    target: 'OPPONENT',
+    range: 1,
+    ap: 60,
+    cooldown: 3,
+    chakraCost: 25,
+    staminaCost: 15,
+    effectPower: 30,
+    isUtility: false,
+    tags: [],
+};
+const pushJutsu = {
+    id: 'push-test',
+    name: 'Push Test',
+    type: 'Ninjutsu',
+    element: 'None',
+    target: 'OPPONENT',
+    range: 1,
+    ap: 40,
+    cooldown: 1,
+    chakraCost: 5,
+    staminaCost: 0,
+    effectPower: 0,
+    isUtility: false,
+    tags: [{ name: 'Push', percent: 0 }],
+};
+const flickerJutsu = {
+    id: 'flicker',
+    name: 'Flicker',
+    type: 'Taijutsu',
+    element: 'None',
+    target: 'EMPTY_GROUND',
+    range: 5,
+    ap: 20,
+    cooldown: 2,
+    chakraCost: 25,
+    staminaCost: 25,
+    effectPower: 1,
+    method: 'SINGLE',
+    tags: [{ name: 'Move', percent: 0 }],
+};
 function fighter(name, pos, patch = {}) {
     return {
         name,
@@ -151,6 +211,20 @@ function fighter(name, pos, patch = {}) {
         },
         pos,
         ...patch,
+    };
+}
+function withEquippedItem(base, item, slotKey) {
+    const character = base.character;
+    return {
+        ...base,
+        character: {
+            ...character,
+            pvpItems: [...(character.pvpItems ?? []), item],
+            equipment: {
+                ...(character.equipment ?? {}),
+                [slotKey]: String(item.id),
+            },
+        },
     };
 }
 function withExtraJutsu(base, jutsu, level = 50) {
@@ -317,6 +391,156 @@ function storedSession(battleId) {
     strict_1.default.equal(attackVfx.anchor, 'target');
     strict_1.default.equal(after.vfxSeq, 1);
     strict_1.default.ok(after.log.some((line) => line.includes(`${damageFx.amount} damage`)));
+});
+(0, node_test_1.test)('damaging jutsu with incidental support tags keeps its elemental VFX', async () => {
+    seed(session('element-vfx', {
+        p1: withExtraJutsu(fighter('alice', 0), buffedElementAttack),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'element-vfx',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'buffed-element',
+        moveToken: 'element-vfx-token',
+    });
+    strict_1.default.equal(out.statusCode, 200);
+    const after = storedSession('element-vfx');
+    strict_1.default.equal(after.vfx?.[0]?.key, 'magma');
+    strict_1.default.equal(after.vfx?.[0]?.target, 'p2');
+    strict_1.default.equal(after.vfx?.[0]?.anchor, 'target');
+});
+(0, node_test_1.test)('custom bloodline element names resolve to the nearest shipped VFX family', async () => {
+    seed(session('custom-element-vfx', {
+        p1: withExtraJutsu(fighter('alice', 0), crystalAttack),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'custom-element-vfx',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'crystal-lance',
+        moveToken: 'custom-element-vfx-token',
+    });
+    strict_1.default.equal(out.statusCode, 200);
+    const after = storedSession('custom-element-vfx');
+    strict_1.default.equal(after.vfx?.[0]?.key, 'metal');
+    strict_1.default.equal(after.vfx?.[0]?.target, 'p2');
+    strict_1.default.equal(after.vfx?.[0]?.anchor, 'target');
+});
+(0, node_test_1.test)('bloodline displacement tags emit wind VFX on the opponent', async () => {
+    seed(session('push-vfx', {
+        p1: withExtraJutsu(fighter('alice', 0), pushJutsu),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'push-vfx',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'push-test',
+        moveToken: 'push-vfx-token',
+    });
+    strict_1.default.equal(out.statusCode, 200);
+    const after = storedSession('push-vfx');
+    strict_1.default.equal(after.vfx?.[0]?.key, 'wind');
+    strict_1.default.equal(after.vfx?.[0]?.target, 'p2');
+    strict_1.default.equal(after.vfx?.[0]?.anchor, 'target');
+});
+(0, node_test_1.test)('pure movement jutsu leaves combat VFX empty so the board trail owns the read', async () => {
+    seed(session('flicker-vfx', {
+        p1: withExtraJutsu(fighter('alice', 0), flickerJutsu),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'flicker-vfx',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'flicker',
+        tile: 12,
+        moveToken: 'flicker-vfx-token',
+    });
+    strict_1.default.equal(out.statusCode, 200);
+    const after = storedSession('flicker-vfx');
+    strict_1.default.equal(after.p1.pos, 12);
+    strict_1.default.equal(after.vfx, undefined);
+    strict_1.default.equal(after.vfxSeq, undefined);
+});
+(0, node_test_1.test)('thrown status weapons layer delivery VFX with their status effect', async () => {
+    const serpentDust = {
+        id: 'test-serpent-dust',
+        name: 'Serpent Dust',
+        slot: 'thrown',
+        weaponRange: 4,
+        weaponCooldown: 0,
+        weaponEp: 0,
+        weaponEffect: 'Poison',
+        weaponEffectValue: 55,
+        apCost: 20,
+    };
+    seed(session('throw-status-vfx', {
+        p1: withEquippedItem(fighter('alice', 0), serpentDust, 'thrown'),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'throw-status-vfx',
+        role: 'p1',
+        action: 'weapon',
+        itemId: 'test-serpent-dust',
+        moveToken: 'throw-status-vfx-token',
+    });
+    strict_1.default.equal(out.statusCode, 200);
+    const after = storedSession('throw-status-vfx');
+    strict_1.default.equal(after.vfx?.[0]?.key, 'throwable');
+    strict_1.default.equal(after.vfx?.[0]?.target, 'p2');
+    strict_1.default.ok(after.vfx?.some(vfx => vfx.key === 'poison' && vfx.target === 'p2' && vfx.anchor === 'target' && vfx.intensity === 'minor'));
+});
+(0, node_test_1.test)('named hand weapons layer delivery VFX with caster-side tag effects', async () => {
+    const copyBlade = {
+        id: 'test-copy-blade',
+        name: 'Copy Blade',
+        slot: 'hand',
+        weaponRange: 1,
+        weaponCooldown: 0,
+        weaponEp: 24,
+        weaponTags: [{ name: 'Copy', percent: 0 }],
+        apCost: 20,
+    };
+    seed(session('named-weapon-vfx', {
+        p1: withEquippedItem(fighter('alice', 0), copyBlade, 'hand'),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'named-weapon-vfx',
+        role: 'p1',
+        action: 'weapon',
+        itemId: 'test-copy-blade',
+        moveToken: 'named-weapon-vfx-token',
+    });
+    strict_1.default.equal(out.statusCode, 200);
+    const after = storedSession('named-weapon-vfx');
+    strict_1.default.equal(after.vfx?.[0]?.key, 'namedWeapon');
+    strict_1.default.equal(after.vfx?.[0]?.target, 'p2');
+    strict_1.default.ok(after.vfx?.some(vfx => vfx.key === 'reflect' && vfx.target === 'p1' && vfx.anchor === 'caster' && vfx.intensity === 'minor'));
+});
+(0, node_test_1.test)('both-target consumables emit matching self and opponent VFX', async () => {
+    const smokeBomb = {
+        id: 'test-smoke-bomb',
+        name: 'Smoke Bomb',
+        slot: 'item',
+        weaponCooldown: 0,
+        weaponEffect: 'Decrease Damage Given',
+        weaponEffectValue: 100,
+        weaponEffectTarget: 'both',
+        apCost: 20,
+    };
+    seed(session('smoke-vfx', {
+        p1: withEquippedItem(fighter('alice', 0), smokeBomb, 'item1'),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'smoke-vfx',
+        role: 'p1',
+        action: 'item',
+        itemId: 'test-smoke-bomb',
+        moveToken: 'smoke-vfx-token',
+    });
+    strict_1.default.equal(out.statusCode, 200);
+    const after = storedSession('smoke-vfx');
+    strict_1.default.ok(after.vfx?.some(vfx => vfx.key === 'debuff' && vfx.target === 'p2' && vfx.anchor === 'target'));
+    strict_1.default.ok(after.vfx?.some(vfx => vfx.key === 'debuff' && vfx.target === 'p1' && vfx.anchor === 'caster' && vfx.intensity === 'minor'));
 });
 (0, node_test_1.test)('cooldown is applied on cast and ticks when that fighter ends turn', async () => {
     seed(session('cooldown'));

@@ -35,6 +35,8 @@ export function WeeklyBossArena({
     onLaunchFight?: (bossAiId: string, bossDisplayName?: string) => void;
 }) {
     const [bossState, setBossState] = useState<WeeklyBossState | null>(null);
+    const [fightEnabled, setFightEnabled] = useState(true);
+    const [fightDisabledReason, setFightDisabledReason] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -44,6 +46,8 @@ export function WeeklyBossArena({
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
             setBossState(data.boss ?? null);
+            setFightEnabled(data.fightEnabled !== false);
+            setFightDisabledReason(typeof data.fightDisabledReason === "string" ? data.fightDisabledReason : null);
         } catch (e) {
             setError(String((e as Error).message || e));
         } finally {
@@ -99,6 +103,10 @@ export function WeeklyBossArena({
     const attemptsUsed = bossState.attemptsByPlayer?.[myKey] ?? 0;
     const attemptsLeft = Math.max(0, WEEKLY_BOSS_MAX_ATTEMPTS - attemptsUsed);
     const lockedOut = attemptsLeft <= 0;
+    const contributionDisabled = !fightEnabled;
+    const contributionDisabledCopy = fightDisabledReason === "weekly_boss_server_authority_required"
+        ? "Weekly Boss contribution is paused for public beta until server-authoritative settlement is live."
+        : "Weekly Boss contribution is currently disabled.";
 
     // hh:mm:ss countdown to despawn. Re-renders every interval via the
     // existing refresh() poll (15s); even between polls the countdown
@@ -176,28 +184,35 @@ export function WeeklyBossArena({
                     <strong>3 attempts per spawn.</strong>
                 </div>
             </div>
+            {contributionDisabled && (
+                <div style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "#cbd5e1" }}>
+                    <GiPadlock style={WB_ICON} />{contributionDisabledCopy}
+                </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", marginTop: "0.6rem" }}>
                 {roaming ? (
                     <button
-                        disabled={expired || lockedOut}
-                        style={{ padding: "0.8rem", background: expired || lockedOut ? "#333" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700, opacity: expired || lockedOut ? 0.6 : 1 }}
+                        disabled={expired || lockedOut || contributionDisabled}
+                        style={{ padding: "0.8rem", background: expired || lockedOut || contributionDisabled ? "#333" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700, opacity: expired || lockedOut || contributionDisabled ? 0.6 : 1 }}
                         onClick={() => setScreen("worldMap")}
                     >
                         {expired
                             ? <><GiTombstone style={WB_ICON} />Despawned</>
+                            : contributionDisabled
+                                ? <><GiPadlock style={WB_ICON} />Contribution paused</>
                             : lockedOut
                                 ? <><GiPadlock style={WB_ICON} />No attempts left</>
                                 : <><GiCrossedSwords style={WB_ICON} />Hunt it on the World Map</>}
                     </button>
                 ) : (
                     <button
-                        disabled={expired || lockedOut || (character.stamina ?? 0) < 20}
+                        disabled={expired || lockedOut || contributionDisabled || (character.stamina ?? 0) < 20}
                         style={{
                             padding: "0.8rem",
-                            background: expired || lockedOut ? "#333" : "linear-gradient(#7f1d1d,#450a0a)",
+                            background: expired || lockedOut || contributionDisabled ? "#333" : "linear-gradient(#7f1d1d,#450a0a)",
                             borderColor: "#f87171",
                             fontWeight: 700,
-                            opacity: expired || lockedOut ? 0.6 : 1,
+                            opacity: expired || lockedOut || contributionDisabled ? 0.6 : 1,
                         }}
                         onClick={() => {
                             if (!bossState) return;
@@ -206,6 +221,8 @@ export function WeeklyBossArena({
                     >
                         {expired
                             ? <><GiTombstone style={WB_ICON} />Despawned</>
+                            : contributionDisabled
+                                ? <><GiPadlock style={WB_ICON} />Contribution paused</>
                             : lockedOut
                                 ? <><GiPadlock style={WB_ICON} />No attempts left</>
                                 : <><GiCrossedSwords style={WB_ICON} />Fight Boss ({attemptsLeft} left · 20 stamina)</>}

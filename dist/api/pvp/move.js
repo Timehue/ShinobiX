@@ -153,8 +153,9 @@ const VFX_DEBUFF_TAGS = new Set([
     'Lag',
     'Recoil',
 ]);
-const VFX_CONTROL_TAGS = new Set(['Stun', 'Lag', 'Overclock']);
+const VFX_CONTROL_TAGS = new Set(['Stun', 'Lag']);
 const VFX_SEAL_TAGS = new Set(['Bloodline Seal', 'Elemental Seal']);
+const VFX_CASTER_WARD_KEYS = new Set(['heal', 'shield', 'reflect', 'absorb', 'buff', 'cleanse']);
 function vfxTagNames(tags) {
     return (tags ?? []).map(tag => normalizeTagName(String(tag.name ?? ''))).filter(Boolean);
 }
@@ -169,20 +170,77 @@ function vfxHasAny(tags, names) {
 }
 function elementVfxKey(element) {
     switch (String(element ?? '').trim().toLowerCase()) {
-        case 'fire': return 'fire';
-        case 'water': return 'water';
-        case 'wind': return 'wind';
-        case 'lightning': return 'lightning';
-        case 'earth': return 'earth';
-        case 'blood': return 'blood';
-        case 'shadow': return 'shadow';
-        case 'poison': return 'poison';
+        case 'fire':
+        case 'flame':
+        case 'ember':
+        case 'ash':
+        case 'smoke':
+        case 'sun':
+        case 'solar':
+            return 'fire';
+        case 'water':
+        case 'ice':
+        case 'frost':
+        case 'snow':
+        case 'mist':
+        case 'steam':
+            return 'water';
+        case 'wind':
+        case 'air':
+        case 'gale':
+            return 'wind';
+        case 'lightning':
+        case 'storm':
+        case 'thunder':
+        case 'shock':
+        case 'plasma':
+        case 'tempest':
+            return 'lightning';
+        case 'earth':
+        case 'stone':
+        case 'rock':
+        case 'sand':
+        case 'mud':
+        case 'wood':
+        case 'plant':
+            return 'earth';
+        case 'blood':
+        case 'crimson':
+            return 'blood';
+        case 'shadow':
+        case 'dark':
+        case 'darkness':
+        case 'void':
+        case 'night':
+        case 'moon':
+        case 'illusion':
+            return 'shadow';
+        case 'poison':
+        case 'venom':
+        case 'toxin':
+        case 'acid':
+            return 'poison';
         case 'lava':
         case 'magma':
+        case 'molten':
             return 'magma';
         case 'iron':
         case 'metal':
+        case 'steel':
+        case 'crystal':
+        case 'glass':
+        case 'diamond':
+        case 'magnet':
             return 'metal';
+        default:
+            return null;
+    }
+}
+function disciplineVfxKey(discipline) {
+    switch (String(discipline ?? '').trim().toLowerCase()) {
+        case 'taijutsu': return 'impact';
+        case 'bukijutsu': return 'slash';
+        case 'genjutsu': return 'debuff';
         default:
             return null;
     }
@@ -190,16 +248,16 @@ function elementVfxKey(element) {
 function keyForJutsuTags(tags, ground = false) {
     if (vfxHas(tags, 'Heal'))
         return 'heal';
-    if (vfxHas(tags, 'Barrier') || vfxHas(tags, 'Shield'))
-        return 'shield';
-    if (vfxHas(tags, 'Reflect'))
-        return 'reflect';
-    if (vfxHas(tags, 'Absorb'))
-        return 'absorb';
     if (vfxHasAny(tags, VFX_CONTROL_TAGS))
         return 'spark';
     if (vfxHasAny(tags, VFX_SEAL_TAGS))
         return 'seal';
+    if (vfxHas(tags, 'Copy'))
+        return 'reflect';
+    if (vfxHas(tags, 'Mirror'))
+        return 'debuff';
+    if (vfxHas(tags, 'Push') || vfxHas(tags, 'Pull'))
+        return 'wind';
     if (vfxHas(tags, 'Wound'))
         return 'wound';
     if (vfxHas(tags, 'Ignition'))
@@ -212,15 +270,28 @@ function keyForJutsuTags(tags, ground = false) {
         return 'pierce';
     if (vfxHasAny(tags, VFX_DEBUFF_TAGS))
         return 'debuff';
+    if (vfxHas(tags, 'Barrier') || vfxHas(tags, 'Shield'))
+        return 'shield';
+    if (vfxHas(tags, 'Reflect'))
+        return 'reflect';
+    if (vfxHas(tags, 'Absorb'))
+        return 'absorb';
     if (vfxHasAny(tags, VFX_SUPPORT_TAGS))
         return 'buff';
     return null;
+}
+function isDamagingVisualJutsu(jutsu) {
+    return Number(jutsu.effectPower ?? 0) > 0 && jutsu.target !== 'SELF' && jutsu.isUtility !== true;
 }
 function jutsuVisualKey(jutsu, opts = {}) {
     if (opts.ko)
         return 'ko';
     const tags = vfxTagNames(jutsu.tags);
-    return keyForJutsuTags(tags, !!opts.ground) ?? elementVfxKey(jutsu.element) ?? (opts.heavy ? 'heavy' : 'impact');
+    const tagKey = keyForJutsuTags(tags, !!opts.ground);
+    const materialKey = elementVfxKey(jutsu.element) ?? disciplineVfxKey(jutsu.type);
+    if (tagKey && !(isDamagingVisualJutsu(jutsu) && VFX_CASTER_WARD_KEYS.has(tagKey)))
+        return tagKey;
+    return materialKey ?? tagKey ?? (opts.heavy ? 'heavy' : 'impact');
 }
 function jutsuVisualAnchor(jutsu, key, opts = {}) {
     const tags = vfxTagNames(jutsu.tags);
@@ -229,12 +300,19 @@ function jutsuVisualAnchor(jutsu, key, opts = {}) {
         return 'area';
     if (opts.ground || jutsu.target === 'EMPTY_GROUND' || method === 'INSTANT_EFFECT')
         return 'tile';
-    if (jutsu.target === 'SELF' || key === 'heal' || key === 'shield' || key === 'reflect' || key === 'absorb' || key === 'buff')
+    if (jutsu.target === 'SELF' || VFX_CASTER_WARD_KEYS.has(key))
         return 'caster';
-    if (vfxHasAny(tags, VFX_SUPPORT_TAGS) && !vfxHasAny(tags, VFX_DEBUFF_TAGS) && !vfxHasAny(tags, VFX_CONTROL_TAGS) && !vfxHasAny(tags, VFX_SEAL_TAGS)) {
+    if (key === 'buff' && !isDamagingVisualJutsu(jutsu) && vfxHasAny(tags, VFX_SUPPORT_TAGS) && !vfxHasAny(tags, VFX_DEBUFF_TAGS) && !vfxHasAny(tags, VFX_CONTROL_TAGS) && !vfxHasAny(tags, VFX_SEAL_TAGS)) {
         return 'caster';
     }
     return 'target';
+}
+function vfxForTagEffect(tags, intensity = 'minor') {
+    const key = keyForJutsuTags(vfxTagNames(tags), false);
+    if (!key)
+        return [];
+    const selfVisual = VFX_CASTER_WARD_KEYS.has(key);
+    return [vfxEvent(selfVisual ? 'self' : 'opp', key, selfVisual ? 'caster' : 'target', intensity)];
 }
 function strongestDamageRatio(fx, self, opponent) {
     let ratio = 0;
@@ -1537,6 +1615,7 @@ async function handler(req, res) {
                 };
                 const tags = jutsu.tags ?? [];
                 const moveTag = tags.some(t => normalizeTagName(t.name) === 'Move');
+                const pureMoveJutsu = moveTag && tags.every(t => normalizeTagName(t.name) === 'Move');
                 const groundTarget = jutsu.target === 'EMPTY_GROUND';
                 const needsGroundTile = groundTarget || moveTag;
                 const selfTarget = jutsu.target === 'SELF';
@@ -1625,10 +1704,13 @@ async function handler(req, res) {
                         ]);
                     }
                     else {
-                        result = commit(movedSelf, null, apCost, cd, undefined, undefined, [
-                            vfxForJutsu(jutsu, movedSelf, opp, undefined, { tiles: [destTile], who: 'self' }),
-                            ...spendPoisonVfx,
-                        ]);
+                        const movementVfx = pureMoveJutsu
+                            ? (spendPoisonVfx.length ? spendPoisonVfx : undefined)
+                            : [
+                                vfxForJutsu(jutsu, movedSelf, opp, undefined, { tiles: [destTile], who: 'self' }),
+                                ...spendPoisonVfx,
+                            ];
+                        result = commit(movedSelf, null, apCost, cd, undefined, undefined, movementVfx);
                     }
                     break;
                 }
@@ -1774,8 +1856,10 @@ async function handler(req, res) {
                         namedWeapon ? 'namedWeapon' :
                             wIntensity === 'heavy' ? 'heavy' :
                                 'weapon';
+                const wEffectVfx = wIntensity === 'finisher' ? [] : vfxForTagEffect(wTags, 'minor');
                 result = commit(wr.self, wr.opponent, wApCost, wCd, wChargePatch, wr.fx, [
                     vfxEvent('opp', wVisualKey, 'target', wIntensity),
+                    ...wEffectVfx,
                     ...reactionVfx(opp, wr.opponent, wr.fx),
                 ]);
                 break;
@@ -1849,9 +1933,13 @@ async function handler(req, res) {
                 const iVisualKey = keyForJutsuTags(iVisualTags, false) ?? 'buff';
                 const iIntensity = intensityFromHit(ir.fx, irSelf, ir.opponent, ir.opponent.hp <= 0);
                 const iKey = iIntensity === 'finisher' ? 'ko' : iVisualKey;
-                const iVisualSelf = iVisualKey === 'heal' || iVisualKey === 'buff' || iVisualKey === 'shield' || iVisualKey === 'cleanse';
+                const iVisualSelf = VFX_CASTER_WARD_KEYS.has(iVisualKey);
+                const iBothTargetVfx = serverItem.weaponEffectTarget === 'both' && !iVisualSelf && iKey !== 'ko'
+                    ? [vfxEvent('self', iVisualKey, 'caster', 'minor')]
+                    : [];
                 result = commit(irSelf, ir.opponent, iApCost, iCd, iSpend.patch, ir.fx, [
                     vfxEvent(iVisualSelf ? 'self' : 'opp', iKey, iVisualSelf ? 'caster' : 'target', iIntensity),
+                    ...iBothTargetVfx,
                     ...reactionVfx(opp, ir.opponent, ir.fx),
                 ]);
                 break;

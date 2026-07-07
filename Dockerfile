@@ -6,8 +6,8 @@
 # serving both the API and the React SPA on a single port.
 #
 # NOTE: the cPanel entry point (app.js) is intentionally NOT used here. Its
-# DNS/IPv4 hardcoding exists only for CloudLinux/CageFS (which can't resolve DNS
-# or route IPv6); on a normal host it's unnecessary and would be fragile. We run
+# DNS/IPv4 bypass config exists only for CloudLinux/CageFS (which can't resolve
+# DNS or route IPv6); on a normal host it's unnecessary and would be fragile. We run
 # `node dist/server.js` directly instead. cPanel is unaffected — it still uses
 # app.js as before.
 #
@@ -23,7 +23,7 @@
 # Node 22+ is required: @supabase/supabase-js's createClient() builds a Realtime
 # client that needs a native global WebSocket, which only exists in Node 22+.
 # On Node 20 createClient() throws ("Node.js 20 detected without native WebSocket
-# support"), breaking every Supabase read. (engines allow >=20; 22 is current LTS.)
+# support"), breaking every Supabase read. package.json engines require Node 22+.
 
 # ── Stage 1: builder — install everything + build the server bundle + React client ──
 FROM node:22-bookworm-slim AS builder
@@ -31,20 +31,20 @@ FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 
 # Install API/server dependencies first for better layer caching.
-# There is no committed package-lock.json (it's .gitignored), so use
-# `npm install` rather than `npm ci`.
+# The committed root package-lock.json makes this build reproducible; use
+# `npm ci` rather than `npm install`.
 #
 # IMPORTANT: Railway (and most PaaS) set NODE_ENV=production during the build,
 # which makes npm OMIT devDependencies. But the build toolchain — typescript/tsc,
 # vite, sharp — lives in devDependencies, so we must force them in with
 # `--include=dev` or the build dies at `tsc: not found`.
-COPY package.json ./
-RUN npm install --include=dev
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev
 
 # Install client dependencies (vite, typescript, sharp are devDependencies too —
 # same --include=dev requirement as above).
-COPY shinobij.client/package.json ./shinobij.client/
-RUN cd shinobij.client && npm install --include=dev
+COPY shinobij.client/package.json shinobij.client/package-lock.json ./shinobij.client/
+RUN cd shinobij.client && npm ci --include=dev
 
 # Copy the rest of the source. node_modules and the committed dist/ are excluded
 # via .dockerignore, so the installs above are preserved and the build is fresh.
@@ -76,8 +76,8 @@ ENV NODE_ENV=production
 # dist/api/**) needs only these runtime packages: express, @supabase/supabase-js,
 # pg, compression, dotenv, @sentry/node, socket.io, undici — all declared under
 # "dependencies" (not "devDependencies").
-COPY package.json ./
-RUN npm install --omit=dev
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 # The built server + API (dist/) and the React SPA static bundle, which
 # express.static serves from join(__dirname,'..','shinobij.client','dist').
