@@ -1515,7 +1515,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "Keep the file in your coat. Let that be your part.", nextPage: 7 }
                 ] },
             { ...pg("You Hold the Market", "The booth, Nyx wrapping her own file in plain paper, like any parcel", "Nyx",
-                "Good. Then I say my own name, and you hold the market. Don't argue the assignment; holding this market open tomorrow is the harder job and we both know my rates for hard jobs.",
+                "Good. I was hoping you'd say that, which is disgusting, because hope has terrible margins. Then I say my own name, and you hold the market. Don't argue the assignment; holding this market open tomorrow is the harder job and we both know my rates for hard jobs.",
                 "My whole life I've bought and sold around one sealed folder like furniture I couldn't look at. Tomorrow I carry it up the tower myself and do the one transaction the glass has never priced.",
                 "I had a whole speech drafted. Cost analysis, historical grievance, a really devastating bit about compound interest. It's gone. All I've got left is: my mother gave me a name, and I want it back, and I'm going to go say so out loud to the woman who holds the warehouse.",
                 "That'll clear. It's the only balance I've ever had that will."),

@@ -138,6 +138,13 @@ const RULES: DeriveRule[] = [
     // Harrow name the Hollow Gate at the Mirror manifest. Persists Gate-knowledge
     // for the cross-village / final-seat plot, whichever Harrow choice was made.
     { grant: "ms80-named-hollow-gate", when: (has) => has("ms80-pulled-her-back") || has("ms80-partnered") || has("ms80-let-her-burn") },
+    // Moonshadow: the player still physically/legally holds Nyx's bill-of-sale
+    // going into L100 iff they took it at L65 AND never resolved ownership
+    // consensually (carried WITH her consent, or handed it back for her to carry).
+    // Gates "The File in Your Coat" so it only ever accuses a genuine holder, and
+    // never a player who returned the file to Nyx. Mutually exclusive with the
+    // better-truth chain by construction (that needs a nyx-proof state).
+    { grant: "ms88-player-still-holds-nyx-file", when: (has) => has("ms65-saved-the-file") && !has("ms88-nyx-proof-carried") && !has("ms88-nyx-proof-deferred") },
 ];
 
 /**
@@ -179,6 +186,7 @@ export const DERIVED_TRAIT_LEVELS: Record<string, number> = Object.fromEntries([
     ["ff92-witness-present", 92],
     ["ms80-named-hollow-gate", 80],
     ...["ms88-return-proven", "ms88-better-truth-ready", "ms88-better-truth-carried",
-        "ms88-better-truth-deferred", "ms88-nyx-proof-any", "ms88-unfinished-answer"].map((t) => [t, 88]),
+        "ms88-better-truth-deferred", "ms88-nyx-proof-any", "ms88-unfinished-answer",
+        "ms88-player-still-holds-nyx-file"].map((t) => [t, 88]),
     ["ms92-witness-present", 92],
 ]);
