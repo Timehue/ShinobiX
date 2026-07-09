@@ -1,3 +1,24 @@
+/*
+ * HollowGateShrineView — the dungeon screen, Spirit-Tracks-style pass.
+ *
+ * The floor renders as a seamless top-down dungeon (not a grid of bordered
+ * cells): fixed 48px tiles inside a camera viewport that follows the player,
+ * neighbour-aware walls (flat tops vs south-facing wall FACES so chambers
+ * read with depth), doors framed in their walls, torch sconces flickering on
+ * lit wall faces, and a three-state fog — lit (current room / torchlight),
+ * remembered (explored, drawn dim like a map memory) and dark.
+ *
+ * Movement is sector-style: tap any known tile and the avatar (a gliding
+ * grounded pin — HollowGateAvatar) walks there step by step via the walk hook
+ * in App; WASD/arrows still step one tile. A minimap in the side panel keeps
+ * the whole floor legible while the camera stays close.
+ *
+ * Admin-generated atlas art still wins everywhere it is assigned: terrain
+ * textures (shrine:tile-*), per-theme tiles (shrine:icon-theme-*), content
+ * icon variants (shrine:icon-*) and decorations all overlay the CSS look.
+ */
+import { useLayoutEffect, useRef, useState } from "react";
+import { HollowGateAvatar } from "./HollowGateAvatar";
 import { HollowGateShardBar } from "../../components/HollowGateShardBar";
 import { HOLLOW_GATE_MAX_FLOOR } from "../../constants/game";
 import { HOLLOW_GATE_ICON_KEY, HOLLOW_GATE_ICON_ROLES } from "../../data/hollow-gate-atlas";
@@ -7,6 +28,11 @@ import { hollowGateClawBackPreview } from "../../lib/hollow-gate-run";
 import { WING_GLYPH, WING_TINT, wingThemeAt } from "../../lib/hollow-gate-wings";
 import { isPetOnExpedition } from "../../lib/pet";
 import type { Character, HollowGateShrineRun, HollowGateTerrain, HollowGateTileKind } from "../../types/character";
+
+// Board space: one dungeon tile in CSS pixels. JS math and CSS share this via
+// the --hg-tile custom property stamped on the board. Smaller on phones so the
+// camera shows a wider slice of the floor (~8 tiles across at 375px).
+const TILE = typeof window !== "undefined" && window.innerWidth <= 480 ? 40 : 48;
 
 type HollowGateEventModal = {
     title: string;
@@ -27,6 +53,8 @@ type HollowGateShrineViewProps = {
     hollowGateEvent: HollowGateEventModal;
     hollowGateHiddenChamber: HiddenChamberState;
     moveHollowGatePlayer: (dx: number, dy: number) => void;
+    onTileClick: (idx: number) => void;
+    walkTarget: number | null;
     setHollowGateRun: (run: HollowGateShrineRun) => void;
     setCharacter: (character: Character) => void;
     pushHollowGateLog: (line: string) => void;
@@ -46,6 +74,8 @@ export function HollowGateShrineView({
     hollowGateEvent,
     hollowGateHiddenChamber,
     moveHollowGatePlayer,
+    onTileClick,
+    walkTarget,
     setHollowGateRun,
     setCharacter,
     pushHollowGateLog,
@@ -60,6 +90,27 @@ export function HollowGateShrineView({
     const cardBackground = shrineBg
         ? `linear-gradient(180deg, rgba(15,9,28,0.78), rgba(8,4,18,0.88)), url(${shrineBg}) center/cover no-repeat`
         : "linear-gradient(180deg, rgba(15,9,28,0.92), rgba(8,4,18,0.95))";
+
+    // ── Camera: the viewport is measured; the board translates so the player
+    //    stays centred (clamped to the board edges). Small boards just centre.
+    const viewportRef = useRef<HTMLDivElement | null>(null);
+    const [vp, setVp] = useState({ w: 0, h: 0 });
+    useLayoutEffect(() => {
+        const el = viewportRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver(() => {
+            const r = el.getBoundingClientRect();
+            setVp(prev => (prev.w === r.width && prev.h === r.height ? prev : { w: r.width, h: r.height }));
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
+    const boardW = run.width * TILE;
+    const boardH = run.height * TILE;
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+    const camX = vp.w >= boardW ? (vp.w - boardW) / 2 : clamp(vp.w / 2 - (run.playerX + 0.5) * TILE, vp.w - boardW, 0);
+    const camY = vp.h >= boardH ? (vp.h - boardH) / 2 : clamp(vp.h / 2 - (run.playerY + 0.5) * TILE, vp.h - boardH, 0);
 
     return (
                         <div className="card hollow-gate-shrine" style={{ background: cardBackground, color: "#e9d5ff", padding: 16, borderRadius: 12 }}>
@@ -142,16 +193,23 @@ export function HollowGateShrineView({
                                 </div>
                             </div>
 
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 16 }}>
-                                {/* Grid: room-flood visibility lights the room you're in; walls always
-                                    read as stone; surprise tiles stay disguised until stepped on. */}
+                            <div className="hg-layout">
+                                {/* Dungeon board: seamless tiles inside the camera viewport.
+                                    Room-flood visibility lights the room you're in; explored
+                                    tiles stay as a dim map memory; surprise tiles stay
+                                    disguised until stepped on. */}
                                 {(() => {
                                     // Room-flood visibility (whole floor when Diviner's Eye is active).
                                     const visibleSet = run.diviner
                                         ? new Set(run.tiles.map((_, i) => i))   // Diviner's Eye — whole floor lit
                                         : computeHollowGateVisible(run);
+                                    // Known = currently visible ∪ previously explored (stepped
+                                    // OR ever seen) — the click-to-walk surface and the "map
+                                    // memory" fog tier.
+                                    const knownSet = new Set(visibleSet);
+                                    run.tiles.forEach((t, i) => { if (t.revealed || t.seen) knownSet.add(i); });
                                     // Pull all admin-generated terrain textures once per render. Each is
-                                    // optional — the renderer falls through to a CSS gradient if missing.
+                                    // optional — the renderer falls through to the CSS dungeon look if missing.
                                     const doorTexture = sharedImages["shrine:tile-door"];
                                     // Variant texture banks: per-terrain arrays. The atlas slicer fills
                                     // `shrine:tile-X-0..N` entries; this fallback gathers them. If only
@@ -218,12 +276,6 @@ export function HollowGateShrineView({
                                         if (count <= 1) return 0;
                                         return ((idx * 2654435761) >>> 0) % count;
                                     }
-                                    // Helper: layered background for a terrain texture (returns CSS string).
-                                    function bgFromTexture(image: string | undefined, fallback: string, overlay = "rgba(15,9,28,0.35)") {
-                                        return image
-                                            ? `linear-gradient(135deg, ${overlay}, rgba(8,4,18,0.55)), url(${image}) center/cover no-repeat`
-                                            : fallback;
-                                    }
                                     // Room theme tile lookup. Each room has a theme stamped on it; for a
                                     // given (theme, role) try shrine:icon-theme-<theme>-<role>. If absent
                                     // we fall back to the base atlas tile. Themes only apply to tiles that
@@ -232,27 +284,13 @@ export function HollowGateShrineView({
                                         if (!theme) return undefined;
                                         return sharedImages[`shrine:icon-theme-${theme}-${role}`];
                                     }
-                                    function bgForTerrain(terrainKind: HollowGateTerrain, idx: number, theme?: string): string {
-                                        if (terrainKind === "wall") {
-                                            const themed = themedTileFor("wall", theme);
-                                            const v = themed ?? wallVariants[variantPick(idx, wallVariants.length)];
-                                            return v
-                                                ? `linear-gradient(135deg, rgba(15,9,28,0.35), rgba(8,4,18,0.55)), url(${v}) center/cover no-repeat`
-                                                : "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)";
-                                        }
-                                        if (terrainKind === "corridor_floor") {
-                                            const themed = themedTileFor("corridor", theme);
-                                            const v = themed ?? corridorFloorVariants[variantPick(idx, corridorFloorVariants.length)];
-                                            return bgFromTexture(v, "linear-gradient(135deg, rgba(40,28,72,0.7), rgba(28,18,54,0.85))");
-                                        }
-                                        if (terrainKind === "door") {
-                                            const themed = themedTileFor("door", theme);
-                                            return bgFromTexture(themed ?? doorTexture, "linear-gradient(135deg, rgba(120,72,32,0.5), rgba(64,40,18,0.75))", "rgba(40,20,8,0.3)");
-                                        }
-                                        // room_floor (default)
-                                        const themed = themedTileFor("floor", theme);
-                                        const v = themed ?? roomFloorVariants[variantPick(idx, roomFloorVariants.length)];
-                                        return bgFromTexture(v, "linear-gradient(135deg, rgba(50,38,82,0.7), rgba(34,24,60,0.85))");
+                                    // Optional texture layer for a terrain (admin atlas art). Returns the
+                                    // image url or undefined — the CSS dungeon look is the fallback.
+                                    function textureFor(terrainKind: HollowGateTerrain, idx: number, theme?: string): string | undefined {
+                                        if (terrainKind === "wall") return themedTileFor("wall", theme) ?? wallVariants[variantPick(idx, wallVariants.length)];
+                                        if (terrainKind === "corridor_floor") return themedTileFor("corridor", theme) ?? corridorFloorVariants[variantPick(idx, corridorFloorVariants.length)];
+                                        if (terrainKind === "door") return themedTileFor("door", theme) ?? doorTexture;
+                                        return themedTileFor("floor", theme) ?? roomFloorVariants[variantPick(idx, roomFloorVariants.length)];
                                     }
                                     // Per-cell theme resolver — null roomId (wall / corridor outside a room)
                                     // gets the room theme of the nearest 4-neighbour room cell, so walls
@@ -291,86 +329,89 @@ export function HollowGateShrineView({
                                         if (assigned.length === 0) return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
                                         return assigned[variantPick(idx, assigned.length)];
                                     }
+                                    const w = run.width, h = run.height;
+                                    const isWallAt = (x: number, y: number) => {
+                                        if (x < 0 || y < 0 || x >= w || y >= h) return true;   // outside = solid
+                                        const t = run.tiles[y * w + x];
+                                        return t.terrain === "wall" || (t.terrain == null && t.kind === "wall");
+                                    };
                                     return (
-                                <div className="hollow-gate-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${run.width}, 1fr)`, gap: 3, background: "rgba(0,0,0,0.55)", padding: 8, borderRadius: 8 }}>
+                                <div className="hg-viewport" ref={viewportRef} style={{ ["--hg-bh" as string]: `${boardH}px` }}>
+                                    <div
+                                        className="hg-board"
+                                        style={{
+                                            width: boardW,
+                                            height: boardH,
+                                            gridTemplateColumns: `repeat(${w}, ${TILE}px)`,
+                                            gridAutoRows: `${TILE}px`,
+                                            transform: `translate3d(${Math.round(camX)}px, ${Math.round(camY)}px, 0)`,
+                                            ["--hg-tile" as string]: `${TILE}px`,
+                                        }}
+                                    >
                                     {run.tiles.map((tile, i) => {
-                                        const x = i % run.width;
-                                        const y = Math.floor(i / run.width);
+                                        const x = i % w;
+                                        const y = Math.floor(i / w);
                                         const isPlayer = x === run.playerX && y === run.playerY;
                                         const revealed = tile.revealed;
-                                        // Lit when the room-flood visibility set includes this index.
                                         const visible = visibleSet.has(i);
-                                        // Wall test prefers terrain; falls back to kind for legacy runs.
-                                        const wall = tile.terrain === "wall" || (tile.terrain == null && tile.kind === "wall");
+                                        const known = knownSet.has(i);
+                                        const wall = isWallAt(x, y);
                                         const terrainKind: HollowGateTerrain =
                                             tile.terrain ?? (tile.kind === "wall" ? "wall" : "room_floor");
 
-                                        // Background by tile state: only currently-visible tiles draw
-                                        // their terrain (via bgForTerrain variant banks); the rest = fog.
-                                        const cellTheme = tileTheme(i);
-                                        let bg: string;
-                                        if (wall) {
-                                            bg = visible ? bgForTerrain("wall", i, cellTheme) : "rgba(7,4,15,0.92)";
-                                        } else if (isPlayer) {
-                                            bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
-                                        } else if (visible) {
-                                            // Terrain base layer, then optional decoration sprite, then content tint.
-                                            let terrainBase = bgForTerrain(terrainKind, i, cellTheme);
-                                            // Wing color-coding: tint floors/doors by their wing (Treasure/Beast/Trial).
-                                            const wTheme = wingThemeAt(run, i);
-                                            if (wTheme && WING_TINT[wTheme]) terrainBase = `linear-gradient(${WING_TINT[wTheme]}, ${WING_TINT[wTheme]}), ${terrainBase}`;
-                                            if (tile.decoration != null) {
-                                                const decoImg = pickDecorationFor(i, cellTheme, tile.decoration);
-                                                if (decoImg) {
-                                                    terrainBase = `url(${decoImg}) center/80% no-repeat, ${terrainBase}`;
-                                                }
-                                            }
-                                            // Surprise tiles (trap/battle/elite/pet) stay disguised as
-                                            // floor until actually stepped on (revealed) — tint hidden.
-                                            const isSurpriseKind = tile.kind === "trap"
-                                                || tile.kind === "battle"
-                                                || tile.kind === "elite"
-                                                || tile.kind === "pet_event"
-                                                || tile.kind === "pet_battle";
-                                            const hideContent = isSurpriseKind && !revealed;
-                                            const contentTint = hideContent ? null
-                                                : tile.kind === "boss" ? "linear-gradient(135deg, rgba(127,29,29,0.7), rgba(185,28,28,0.7))"
-                                                : tile.kind === "trap" ? "rgba(239,68,68,0.22)"
-                                                : tile.kind === "chest" ? "rgba(234,179,8,0.22)"
-                                                : tile.kind === "shrine" ? "rgba(168,85,247,0.26)"
-                                                : tile.kind === "exit" ? "rgba(34,197,94,0.22)"
-                                                : tile.kind === "locked" ? "rgba(148,163,184,0.22)"
-                                                : tile.kind === "npc" ? "rgba(56,189,248,0.22)"
-                                                : tile.kind === "descend" ? "rgba(192,132,252,0.26)"
-                                                : tile.kind === "battle" ? "rgba(248,113,113,0.18)"
-                                                : tile.kind === "elite" ? "rgba(220,38,38,0.26)"
-                                                : tile.kind === "pet_event" ? "rgba(96,165,250,0.18)"
-                                                : tile.kind === "pet_battle" ? "rgba(251,146,60,0.24)"  // beast orange
-                                                : tile.kind === "tile_game" ? "rgba(45,212,191,0.22)"   // tile-game teal
-                                                : tile.kind === "story" ? "rgba(250,204,21,0.18)"
-                                                : tile.kind === "shard_vein" ? "rgba(167,139,250,0.24)"
-                                                : null;
-                                            bg = contentTint
-                                                ? `linear-gradient(${contentTint}, ${contentTint}), ${terrainBase}`
-                                                : terrainBase;
-                                        } else {
-                                            bg = "rgba(7,4,15,0.92)"; // deep fog
-                                        }
+                                        // ── Cell classes: terrain shape + fog state ────────────
+                                        // Walls read with depth: a wall whose SOUTH neighbour is
+                                        // walkable shows its FACE (brick courses); other walls are
+                                        // flat tops. Floors are seamless (no per-cell borders).
+                                        const wallFace = wall && !isWallAt(x, y + 1);
+                                        const fogCls = visible ? "hg-lit" : known ? "hg-dim" : "hg-dark";
+                                        const shapeCls = wall
+                                            ? (wallFace ? "hg-wall-face" : "hg-wall-top")
+                                            : terrainKind === "door" ? "hg-door"
+                                            : terrainKind === "corridor_floor" ? "hg-floor-corridor"
+                                            : "hg-floor-room";
+                                        const checkCls = !wall && terrainKind !== "door" && (x + y) % 2 === 0 ? " hg-check" : "";
 
-                                        // Wall styling: brick-ish pattern via inset shadow.
-                                        // Only walls that are CURRENTLY visible (perimeter of the lit
-                                        // room) get the shadow detail — fog walls stay flat dark.
-                                        const wallShadow = wall && visible ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
-
-                                        // Icon shows only on visible tiles; surprise tiles also need
-                                        // `revealed` (stay disguised as floor until stepped on).
+                                        // ── Optional admin texture + content tint (lit only) ───
+                                        const cellTheme = (visible || known) ? tileTheme(i) : undefined;
+                                        const texture = (visible || known) && !isPlayer ? textureFor(terrainKind, i, cellTheme) : undefined;
+                                        const layers: string[] = [];
+                                        // Surprise tiles (trap/battle/elite/pet) stay disguised as
+                                        // floor until actually stepped on (revealed).
                                         const isSurpriseKind = tile.kind === "trap"
                                             || tile.kind === "battle"
                                             || tile.kind === "elite"
                                             || tile.kind === "pet_event"
                                             || tile.kind === "pet_battle";
-                                        // Icon = atlas image (shrine:icon-<slot>) if assigned, else emoji.
-                                        // Slot id mirrors HOLLOW_GATE_ICON_SLOTS (a few kinds remap below).
+                                        const hideContent = isSurpriseKind && !revealed;
+                                        if (visible && !hideContent) {
+                                            const contentTint =
+                                                tile.kind === "boss" ? "rgba(185,28,28,0.42)"
+                                                : tile.kind === "trap" ? "rgba(239,68,68,0.20)"
+                                                : tile.kind === "chest" ? "rgba(234,179,8,0.16)"
+                                                : tile.kind === "shrine" ? "rgba(168,85,247,0.22)"
+                                                : tile.kind === "exit" ? "rgba(34,197,94,0.20)"
+                                                : tile.kind === "locked" ? "rgba(148,163,184,0.20)"
+                                                : tile.kind === "npc" ? "rgba(56,189,248,0.16)"
+                                                : tile.kind === "descend" ? "rgba(192,132,252,0.24)"
+                                                : tile.kind === "elite" ? "rgba(220,38,38,0.20)"
+                                                : tile.kind === "shard_vein" ? "rgba(167,139,250,0.20)"
+                                                : null;
+                                            if (contentTint) layers.push(`linear-gradient(${contentTint}, ${contentTint})`);
+                                        }
+                                        if (visible && !wall) {
+                                            // Wing color-coding: tint floors/doors by their wing.
+                                            const wTheme = wingThemeAt(run, i);
+                                            if (wTheme && WING_TINT[wTheme]) layers.push(`linear-gradient(${WING_TINT[wTheme]}, ${WING_TINT[wTheme]})`);
+                                        }
+                                        if ((visible || known) && tile.decoration != null && !wall) {
+                                            const decoImg = pickDecorationFor(i, cellTheme, tile.decoration);
+                                            if (decoImg) layers.push(`url(${decoImg}) center/72% no-repeat`);
+                                        }
+                                        if (texture) layers.push(`url(${texture}) center/cover no-repeat`);
+                                        const styleBg = layers.length > 0 ? layers.join(", ") : undefined;
+
+                                        // ── Icon: atlas image (shrine:icon-<slot>) or emoji ────
                                         function iconSlotIdFor(k: HollowGateTileKind): string | null {
                                             if (k === "pet_event") return "pet";
                                             if (k === "pet_battle") return "petbattle";
@@ -379,79 +420,85 @@ export function HollowGateShrineView({
                                             if (k === "empty" || k === "wall") return null;
                                             return k;
                                         }
-                                        const showIcon =
-                                            isPlayer ? true
-                                            : wall ? false
-                                            : !visible ? false
-                                            : isSurpriseKind && !revealed ? false
-                                            : true;
-                                        const iconSlotId = isPlayer ? "you" : iconSlotIdFor(tile.kind);
-                                        // Variant-aware icon pick (shrine:icon-<role>-1..N). Player tile
-                                        // falls back to the player's own avatar if no "you" slot is assigned.
-                                        const playerAvatar = isPlayer
-                                            ? (character.avatarImage || sharedImages[`avatar:${character.name.toLowerCase()}`])
-                                            : undefined;
-                                        const iconImage = showIcon && iconSlotId
-                                            ? (pickRoleIconImage(iconSlotId, i) ?? playerAvatar)
-                                            : undefined;
-                                        let icon: string;
-                                        if (!showIcon) icon = !visible && !wall ? "·" : "";       // fog dot or blank
-                                        else if (isPlayer) icon = "🥷";
-                                        else {
+                                        const showIcon = !wall && (visible || known) && !(isSurpriseKind && !revealed) && tile.kind !== "empty";
+                                        const iconSlotId = showIcon ? iconSlotIdFor(tile.kind) : null;
+                                        const iconImage = iconSlotId ? pickRoleIconImage(iconSlotId, i) : undefined;
+                                        let icon = "";
+                                        if (showIcon) {
                                             icon = hollowGateTileIconForKind(tile.kind);
                                             // Label wing doors with their destination (🏆/🐺/⚔) for an informed choice.
                                             if (tile.terrain === "door") { const dt = wingThemeAt(run, i); if (dt && WING_GLYPH[dt]) icon = WING_GLYPH[dt]; }
                                         }
 
-                                        // Opacity: player = full, visible cells = full so the lit
-                                        // room reads clearly, anything else = dim fog dot.
-                                        const iconOpacity = isPlayer || visible ? 1 : 0.30;
+                                        const clickable = known && !wall && !isPlayer;
+                                        const isDest = walkTarget === i;
+
+                                        // Torch sconces: sparse, deterministic, on lit wall faces
+                                        // beside walkable floor — the shrine lights its own halls.
+                                        const sconce = wallFace && visible && (((i * 2654435761) >>> 0) % 5 === 0);
 
                                         return (
                                             <div
                                                 key={i}
-                                                title={wall ? "Wall" : visible ? tile.kind : "Out of sight"}
-                                                style={{
-                                                    aspectRatio: "1 / 1",
-                                                    background: bg,
-                                                    border: isPlayer ? "2px solid #60a5fa"
-                                                        : wall && visible ? "1px solid rgba(0,0,0,0.5)"
-                                                        : visible ? "1px solid rgba(168,85,247,0.5)"
-                                                        : "1px solid rgba(168,85,247,0.08)",
-                                                    borderRadius: 4,
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    fontSize: "clamp(16px, 2.6vw, 28px)",
-                                                    color: isPlayer || visible ? "#f5f3ff" : "rgba(196,181,253,0.85)",
-                                                    opacity: iconOpacity,
-                                                    boxShadow: isPlayer ? "0 0 12px rgba(96,165,250,0.6)" : wallShadow,
-                                                    transition: "background 200ms, opacity 200ms",
-                                                }}
+                                                title={wall ? undefined : visible ? tile.kind : known ? "Explored" : undefined}
+                                                className={`hg-cell ${shapeCls} ${fogCls}${checkCls}${clickable ? " hg-clickable" : ""}${isDest ? " hg-dest" : ""}`}
+                                                style={styleBg ? { background: styleBg } : undefined}
+                                                onClick={clickable ? () => onTileClick(i) : undefined}
                                             >
+                                                {sconce && <span className="hg-flame" />}
                                                 {iconImage ? (
                                                     <img
                                                         src={iconImage}
                                                         alt={iconSlotId ?? ""}
-                                                        style={{
-                                                            width: "78%",
-                                                            height: "78%",
-                                                            objectFit: "contain",
-                                                            imageRendering: "pixelated",
-                                                            filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.7))",
-                                                            pointerEvents: "none",
-                                                        }}
+                                                        className="hg-icon-img"
                                                     />
-                                                ) : icon}
+                                                ) : icon ? <span className="hg-icon">{icon}</span> : null}
                                             </div>
                                         );
                                     })}
+                                    <HollowGateAvatar
+                                        tileX={run.playerX}
+                                        tileY={run.playerY}
+                                        tilePx={TILE}
+                                        avatarImage={character.avatarImage || sharedImages[`avatar:${character.name.toLowerCase()}`] || pickRoleIconImage("you", 0)}
+                                        name={character.name}
+                                    />
+                                    </div>
                                 </div>
                                     );
                                 })()}
 
                                 {/* Side panel */}
                                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    {/* Minimap — the explored floor at a glance (the camera stays
+                                        close, the minimap keeps the run orientable). */}
+                                    {(() => {
+                                        const visibleSet = run.diviner
+                                            ? new Set(run.tiles.map((_, i) => i))
+                                            : computeHollowGateVisible(run);
+                                        const px = Math.max(3, Math.min(7, Math.floor(200 / run.width)));
+                                        return (
+                                            <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10 }}>
+                                                <h4 style={{ margin: "0 0 6px", color: "#c4b5fd", fontSize: 12 }}>Floor Map</h4>
+                                                <div className="hg-minimap" style={{ gridTemplateColumns: `repeat(${run.width}, ${px}px)`, gridAutoRows: `${px}px` }}>
+                                                    {run.tiles.map((t, i) => {
+                                                        const x = i % run.width, y = Math.floor(i / run.width);
+                                                        const isYou = x === run.playerX && y === run.playerY;
+                                                        const seen = visibleSet.has(i) || t.revealed || t.seen;
+                                                        const isWall = t.terrain === "wall" || (t.terrain == null && t.kind === "wall");
+                                                        const cls = isYou ? "hg-mm-you"
+                                                            : !seen ? "hg-mm-dark"
+                                                            : isWall ? "hg-mm-wall"
+                                                            : t.kind === "descend" || t.kind === "boss" ? "hg-mm-goal"
+                                                            : t.kind === "exit" ? "hg-mm-exit"
+                                                            : visibleSet.has(i) ? "hg-mm-lit"
+                                                            : "hg-mm-floor";
+                                                        return <span key={i} className={cls} />;
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                     {/* Objectives panel — updates as the run progresses. */}
                                     {(() => {
                                         const reachedFloor5 = run.floor >= HOLLOW_GATE_MAX_FLOOR;
@@ -528,12 +575,11 @@ export function HollowGateShrineView({
                                                     {legendCell("tilegame", "Tile Game")}  {legendCell("npc",       "Keeper")}
                                                     {legendCell("descend",  "Descend")}    {legendCell("exit",      "Leave")}
                                                     {legendCell("locked",   "Locked Door")}{legendCell("wall",      "Wall")}
-                                                    <span>· Unexplored</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
                                                 </div>
                                             );
                                         })()}
                                         <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(168,85,247,0.2)", fontSize: 11, color: "#a78bfa" }}>
-                                            Layout: rooms connected by corridors; loot &amp; NPCs in rooms, ambushes in corridors.
+                                            Every room has a purpose: guarded stairs, a sealed treasury, a keeper's alcove. Fights hold the doorways.
                                         </div>
                                     </div>
                                     <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
@@ -554,7 +600,7 @@ export function HollowGateShrineView({
                                 button. You can only exit by stepping on the Exit (Leave) tile
                                 or by dying. Each entry consumes 1 Hollow Gate Key. */}
                             <div style={{ marginTop: 12, display: "flex", justifyContent: "center", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-                                <div style={{ fontSize: 12, color: "#c4b5fd" }}>WASD / Arrow Keys to move · or tap:</div>
+                                <div style={{ fontSize: 12, color: "#c4b5fd" }}>Tap a tile to walk there · WASD / arrows step · or:</div>
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 44px)", gap: 4 }}>
                                     <div />
                                     <button onClick={() => moveHollowGatePlayer(0, -1)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▲</button>
