@@ -1356,7 +1356,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The book calls the same thing by a colder name: the Count. It is the Roll written down as law, a marked wrist and a logged route and a rescue the wall owes you. Hold the difference somewhere you won't lose it. The Roll is people calling for people. The Count is what the wall writes down about it afterward.",
                 "Elder Sova takes the intake words. Answer her plainly. She's heard everything twice."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp" },
-            { ...storyPage("The Intake", "The roll stone, Elder Sova with the count book open", "Elder Sova", [
+            { ...storyPage("The Intake", "The roll stone, Elder Sova with the Count book open", "Elder Sova", [
                 "Stand easy. This is not a test. It is the intake: a few words, one question, and then soup.",
                 "There are four words the wall lives by, and I only teach them once. Say them back so they stick: the checked are counted, the counted are kept, the kept are warm.",
                 "Now the plain meaning, because new ears have earned one. Checked means your wrist answered the plate. Counted means your name is written in the rescue book. Kept means that if you vanish, the wall owes you a search. Warm is the promise the first three make good on.",
@@ -1731,7 +1731,7 @@ export const storylines: Record<string, StoryStep[]> = {
         milestone("Frostfang Village", 100, "The Oath Must Break", "Kage Kael Whitefang, Hollow Oath Tyrant", "❄", [
             { ...storyPage("The Open Ledgers", "The vault stair, Sova's records room standing open, lamps lit, no keeper", "Narrator", [
                 "The records room stands open. Not forced. OPENED. Every vault ledger is out on the reading tables, squared to the table edges, lamps trimmed and burning.",
-                "Sova is nowhere in the room. Her chair is pushed in. The count book is gone from its stand, and on the bare wood where it sat for forty years, dead center, lies her pen.",
+                "Sova is nowhere in the room. Her chair is pushed in. The Count book is gone from its stand, and on the bare wood where it sat for forty years, dead center, lies her pen.",
                 "It is the tidiest resignation in the history of the village, and the loudest.",
                 "The stair to the vault door is lit all the way down."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp" },
@@ -1851,7 +1851,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "He sets the letter down like a sleeping child.", nextPage: 19 }
             ] },
-            { ...storyPage("The Litany, Backwards", "The vault floor, Sova on the stair with the count book held open outward", "Elder Sova", [
+            { ...storyPage("The Litany, Backwards", "The vault floor, Sova on the stair with the Count book held open outward", "Elder Sova", [
                 "Hold, child. This entry is mine, and it has been forty years coming due.",
                 "Kael. My litany. I wrote it, I taught it, I checked ten thousand wrists beneath it. Hear it once in the honest direction.",
                 "The warm are kept. The kept are counted. The counted are CHECKED. Said backwards it stops being a comfort and becomes a reckoning, and the reckoning is this: we warmed ourselves on the very thing we swore we were saving people from. The cold takes those who are alone. We swore to end that, and we did: the deep script binds every wrist to every other, so that no one here can ever be left behind. And no one here can ever leave. We cured being alone by sealing the only door out.",
@@ -1886,10 +1886,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The Count has one entry left, %name. Yours.",
                 "Show me what holds when nothing is holding it."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", leftName: "Player", rightName: "Kage Kael Whitefang", rightImage: "/portraits/kage-kael-whitefang-hollow.webp", choices: [
-                { text: "Show him the better Roll: Dren's lanterns found a man with no mark and no vault.", nextPage: 6, requireTrait: "ff88-better-count-carried" },
-                { text: "Let Yura answer Dren's Roll.", nextPage: 11, requireTrait: "ff88-better-count-deferred" },
+                { text: "Show him the better Roll: Dren's lanterns found a man with no mark and no vault.", nextPage: 6, requireTrait: "ff88-better-roll-carried" },
+                { text: "Let Yura answer Dren's Roll.", nextPage: 11, requireTrait: "ff88-better-roll-deferred" },
                 { text: "Let Sova read the litany backwards.", nextPage: 15, requireTrait: "ff92-witness-present" },
-                { text: "Show him Dren's letter.", nextPage: 14, requireTrait: "ff88-unfinished-answer", forbidTrait: "ff88-better-count-ready" },
+                { text: "Show him Dren's letter.", nextPage: 14, requireTrait: "ff88-unfinished-answer", forbidTrait: "ff88-better-roll-ready" },
                 { text: "Show him the nineteen minutes.", nextPage: 13, requireTrait: "ff88-relay-held", forbidTrait: "ff65-saved-the-letter" },
                 { text: "Answer for the exemption. You stood outside the Count like Sova.", nextPage: 16, requireTrait: "ff58-took-the-exemption" },
                 { text: "Answer for my plate. It read someone long gone.", nextPage: 17, requireTrait: "ff70-turned-the-plate" },
