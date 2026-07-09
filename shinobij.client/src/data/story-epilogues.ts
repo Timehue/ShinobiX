@@ -148,7 +148,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         {
             lane: "ambitious",
             requireTrait: "sv88-better-storm-carried",
-            title: "The Warm Tower",
+            title: "The Warm Tower, Proven",
             pages: [
                 {
                     title: "The New Weather",
@@ -177,7 +177,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         {
             lane: "ambitious",
             requireTrait: "sv88-better-storm-deferred",
-            title: "The Warm Tower",
+            title: "The Warm Tower, Named",
             pages: [
                 {
                     title: "The New Weather",

@@ -220,7 +220,7 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("The Name on the Board", "The rooftop, wind pulling at an old slate Mira keeps wrapped in oilcloth", "Mira Volt", [
                 "Since we're up here. There's a thing I show people once, to see what they do with it.",
                 "Kesa Volt. My mother. Cable rigger, best on the coast. Dead six years. And her grudge is still posted on the board, still drawing odds, still scheduled twice a season against a man who is also dead.",
-                "Two dead people, fighting on a schedule. The clerks call it a legacy bout. The odds-runners call it tradition. I call it my mother, working the arena from under a stone.",
+                "Two dead people, fighting on a schedule. The clerks call it a estate bout. The odds-runners call it tradition. I call it my mother, working the arena from under a stone.",
                 "I asked the tower to strike it once. One time. They said accounts close when they're settled, and hers is still drawing. Still DRAWING. Their word."
             ]), image: "/scenes/story/story-stormveil-village-25-2.webp", choices: [
                 { text: "Show her the Red Tally token from the border. Same tick marks.", nextPage: 2, requireTrait: "rd22-showed-the-token" },
@@ -275,8 +275,8 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("The First Storm", "An alcove off the engine floor, founders' slates behind wax", "Elder Vanta", [
                 "Here. If we're going to be down here, you'll see both halves. That's the deal I'm making with myself, so don't argue.",
                 "The founders' alcove. Every slate here is a war, given up whole. Read them. 'My feud with Harn's line, thirty years and both our fathers. Given to the sky, gladly, so my sons fight nothing but weather.' Signed. Witnessed.",
-                "The first Stormveil broke the sky's back with their own worst grudges, freely given, once, to raise the storm shield. That's what the engine was FOR. You gave your war away and it kept the lightning off everyone's roof. Beautiful. I mean that.",
-                "Now look at the pipes. Nobody signs the pipes. The pipes just run, every bout, every riot, every scheduled little harvest, and the reserve gets deeper and the reasons get thinner. We didn't inherit their shield. We inherited their still, and we ran it on the whole village."
+                "The first Stormveil named their worst wars, said aloud why they carried them, and chose to set them down. Signed. Witnessed. Settled. Each war given up that way raised the storm shield a little higher. That's what the engine was FOR: you gave your war away on PURPOSE, and it kept the lightning off everyone's roof. Beautiful. I mean that.",
+                "Now look at the pipes. Nobody signs the pipes. The modern board kept the founders' signature and threw out the choosing. It holds a grudge open and lets the floor take the reason underneath it, and it does not care whether the fight is real or fixed. A true feud feeds it. A scheduled one just feeds it on time. We didn't inherit their shield. We inherited their still, and we ran it on the whole village."
             ]), image: "/scenes/story/story-stormveil-village-35-3.webp", choices: [
                 { text: "Ask Mira what her mother knew about this place.", nextPage: 3, requireTrait: "mira-trust" },
                 { text: "Read the chalked figures at the pipe junctions.", nextPage: 4 }
@@ -324,7 +324,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Missing Chalk Line", "The rite chalk, the crowd noise far away for a moment", "Kage Raiko Veyr", [
                 "You copied the junction chalk. Of course you did. I told the Warden you were the counting kind; it owes me a drink.",
-                "All right. Plainly, and then the rite goes on. The surplus goes up the hill and out of my hands. There's a debt above this village, above all four, and it was old when my grandmother's grandmother took the seat. Every Kage inherits the payment schedule with the chair.",
+                "All right. Plainly, and then the rite goes on. The surplus goes up the hill and out of my hands. There's a debt above this village, older than my seat, and it was old when my grandmother's grandmother took the chair. Every Kage inherits its payment schedule with the seat.",
                 "I keep the intake gentle as I can. Scheduled little lettings, nobody dead, everybody's roof standing. You've seen what I bought with it: no grudge in thirty years has put a body in the ground. Show me the Kage who did better odds with the weather we're under.",
                 "And do you know what the seat charged ME? Listen to the crowd a moment. That roar. I hear every voice in it separately, every grudge in this village, all day, all night. The seat made me the drain. So post your rival, Jonin, and pick your fights the way I couldn't: one at a time."
             ]), image: "/scenes/story/story-stormveil-village-50-4.webp", choices: [
@@ -401,9 +401,9 @@ export const storylines: Record<string, StoryStep[]> = {
             { text: "Signal compliance. Then walk the squad into the wrong ravine.", conclusion: "You confirm the order, note the camp's 'position,' and lead eight paid men up a fork that dead-ends in scree and evening. By the time they unknot the map, the camp is smoke and cold fires and gone. Lying to armed men in the dark: your hands don't shake until after, which frightens you more than the shaking would.", trait: "suspicious" },
         ]),
         milestone("Stormveil Village", 75, "Kesa's Bout", "Mira Volt, False Betrayer", "⚡", [
-            { ...storyPage("The Legacy Closure", "The board at dawn, a new slate in the legacy column, Mira staring at it", "Mira Volt", [
+            { ...storyPage("The Estate Closure", "The board at dawn, a new slate in the estate column, Mira staring at it", "Mira Volt", [
                 "They posted it this morning. Look at it. LOOK at it.",
-                "Closure bout, legacy account: Kesa Volt. The board wants my mother's account settled at last, isn't that generous, and accounts settle by bout, and the estate fights through blood. Meaning me. Six years they milked her, and now the tower wants the account CLOSED before anyone reads it too closely.",
+                "Closure bout, estate account: Kesa Volt. The board wants my mother's account settled at last, isn't that generous, and accounts settle by bout, and the estate fights through blood. Meaning me. Six years they milked her, and now the tower wants the account CLOSED before anyone reads it too closely.",
                 "And look who they matched as the closing opponent. You. My name against yours, main card, three days. They put my dead mother between us like a purse.",
                 "I have two exit routes and a boat, and for the first time in my life I'm not taking them. I'm going to close her account MY way. I need you to hear the plan, and I need you not to talk me out of it, and there's nobody else on this coast I'd say those two sentences to."
             ]), image: "/scenes/story/story-stormveil-village-75-6.webp", choices: [
@@ -422,20 +422,20 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Storm rules. What's said on this roof stays on this roof.",
                 "The bout happens; we can't stop the posting. But a closure bout ends when the account holder's reason is SPOKEN AND SETTLED, that's founders' law, it's still on the oldest slate at the rail. Nobody invokes it because nobody remembers their reason by the time closure comes. Convenient, isn't it.",
                 "My mother's reason survived that ravine because you rode fast one day. I've been up the mountain twice since. I've read it until I hear it in her voice, and I could write it out blind, both hands, in the rain.",
-                "So we fight, full speed, no theater, and we give the floor nothing fake to drink. And when the crowd is loudest, I stop, and I say her reason OUT LOUD, and I settle it with my own mouth, and the account, THEIR word, closes with the board's fangs nowhere in it. They wrote me a script. I'm bringing a better one. Are you in?"
+                "So we fight, full speed, no theater. The floor will pull; let it. Honest grief has always been its best draw, and it does not care that ours is real. But when the crowd is loudest, I stop, and I say her reason OUT LOUD, and I settle it with my own mouth under founders' closure law, and the account, THEIR word, closes with her reason still in my hands. They wrote me a script for when I break. I'm bringing them a reason they can't take. Are you in?"
             ]), image: "/scenes/story/story-stormveil-village-75-6.webp", choices: [
                 { text: "Three days pass. The bell.", nextPage: 3 }
             ] },
-            { ...storyPage("Main Card", "The arena floor, the legacy slate hung over the bell, the crowd enormous", "Narrator", [
-                "They hang the legacy slate above the bell where everyone can read it: KESA VOLT, CLOSURE. The odds-runners have Mira long and grief longer.",
-                "Mira stands across the chalk from you, wearing her mother's rigging gloves, and under the crowd noise she mouths the plan's last line: nothing fake. Fight me true, or the floor will know.",
-                "Under the sand, faint as a held breath, the seams begin to glow. The board is thirsty tonight. It has waited six years for this vintage.",
+            { ...storyPage("Main Card", "The arena floor, the estate slate hung over the bell, the crowd enormous", "Narrator", [
+                "They hang the estate slate above the bell where everyone can read it: KESA VOLT, CLOSURE. The odds-runners have Mira long and grief longer.",
+                "Mira stands across the chalk from you, wearing her mother's rigging gloves, and under the crowd noise she mouths the plan's last line: fight me true, and when I raise my hand, hold the ring. Don't let them stop me when I speak.",
+                "Under the sand, faint as a held breath, the seams begin to glow before the first exchange. The board does not care whether tonight's grief is honest; honest grief has always been its best draw. It has waited six years for this vintage.",
                 "The bell is up, friend."
             ]), image: "/scenes/story/story-stormveil-village-75-6.webp" },
         ], [
-            { text: "Fight her true, and guard the moment she stops to speak.", conclusion: "You give her a real bout, hard and honest, and the floor drinks nothing because there's nothing false to skim and no grief given up, only spent, on purpose. When she raises her hand, you put your back to hers, and Kesa Volt's reason rings across the arena in her daughter's voice, word for word, settled. The account closes empty. The board hisses like rain on a forge.", trait: "loyal" },
-            { text: "Tear the legacy slate off the board mid-bout, in front of everyone.", conclusion: "You break from the exchange, run the rail, and rip KESA VOLT off the board with both hands while the crowd loses its mind. Founders' law says a torn posting voids the bout; tower law says you just assaulted the board itself. Both are true. Mira stands in the chalk, gloves up, laughing and crying at the ruin of every script in the building.", trait: "reckless" },
-            { text: "Buy the account. Purse, odds, and the estate's debt, in your name.", conclusion: "You halt the bout on a rule older than the tower: any account may be bought at closure by an open hand. Yours is the only hand rich enough, after the seasons you've had. Kesa Volt's account, her draw, her schedule, all of it now answers to you. Mira stares at you across the chalk, trying to decide what she just watched you become. The board files the transfer without complaint. It likes you.", trait: "ambitious" },
+            { text: "Fight her true, and guard the moment she stops to speak.", conclusion: "You give her a real bout, hard and honest, and the seams light anyway: the last ugly proof that the floor never cared whether the fight was real, only whether the reason under it was still there to take. At the fourth exchange Mira raises her hand. You put your back to hers while the routing clerks shout that the account hasn't closed, and Kesa Volt's reason rings across the arena in her daughter's voice, named under founders' closure law, word for word, settled. The seams pull once, then let go. The estate account closes empty. The board hisses like rain on a forge, because the reason stayed with the person who carried it.", trait: "loyal" },
+            { text: "Tear the estate slate off the board mid-bout, in front of everyone.", conclusion: "You break from the exchange, run the rail, and rip KESA VOLT off the board with both hands while the crowd loses its mind. Founders' law says a torn posting voids the bout; tower law says you just assaulted the board itself. Both are true. Mira stands in the chalk, gloves up, laughing and crying at the ruin of every script in the building.", trait: "reckless" },
+            { text: "Buy the account. Purse, odds, and the estate's debt, in your name.", conclusion: "You halt the bout on a rule older than the tower: any account may be bought at closure by an open hand. Yours is the only hand rich enough, after the seasons you've had. Kesa Volt's account, her draw, her schedule, all of it now answers to you. You did not free her reason; you bought the right to hold it. Mira stares at you across the chalk, trying to decide what she just watched you become. The board files the transfer without complaint. It likes you.", trait: "ambitious" },
         ]),
         milestone("Stormveil Village", 85, "The Kage's True Storm", "Hollow Tempest General", "⚡", [
             { ...storyPage("Fees Waived", "The square under a bruise-green sky, clerks posting free bouts as fast as chalk allows", "Tempest Guard Captain", [
@@ -507,7 +507,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Punctual. I like that in weather and people.",
                 "Before the bell, you get the truth, because you climbed for it. The ledger above us has a name; the exiles who cut the coast stair knew it before the tower had windows. The Hollow Gate. Four seats sit at it, one for each quarter of a circle cut in quarters, the little mark the tower presses into its pay slates, and each Kage is paid in kind for the intake he keeps open. Each of us really only knows his own price. They say frost buys certainty and moon buys silence; what fire is paid, I never learned.",
                 "You want to know my price? Quiet. The seat made me the drain for every grudge in this village, every voice, all at once, always. And the ledger pays me one hour a day of QUIET. One hour. I have started wars in my head for that hour. I have scheduled riots for it. I am not proud, and I am not sorry, and both of those are true at once, which is the most honest sentence I own.",
-                "And you should hear the ugliest part from me, not from her daughter. I spent Kesa Volt twice. For six years I let her grief be milked on that board to keep three hundred roofs standing, and every drop the shield did not burn I sent up the hill to feed the Gate. One woman's mourning, warming a village and paying a debt at once, for years. The Hollow Gate did not put the pen in my hand. It offered me arithmetic. I supplied the signature.",
+                "And you should hear the ugliest part from me, not from her daughter. I spent Kesa Volt twice. For six years I let her grief be milked on that board to keep three hundred roofs standing, and every drop the shield did not burn I sent up the hill to feed the Gate. One woman's mourning, warming a village and paying a debt at once, for years. Do not blame the Gate for my handwriting. It set the line. I kept taking the bet. And every time this village won, somebody else covered the purse. This round, it was her.",
                 "So. The storm is called, the account is due, and the seat takes challenges tonight only. Ask your questions, or ask your questions with your hands."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp" },
             { ...storyPage("The Man Becoming Weather", "The storm floor, lightning walking Raiko's shoulders like gulls", "Kage Raiko Veyr", [
@@ -590,11 +590,11 @@ export const storylines: Record<string, StoryStep[]> = {
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "He turns back to the storm.", nextPage: 18 }
             ] },
-            { ...storyPage("The Unbuilt Line", "Kesa's maps unrolled in Raiko's scarred hands", "Kage Raiko Veyr", [
-                "Kesa Volt's ridge line. I signed the note that buried this drawing, so believe me when I say I know exactly what you're holding.",
-                "It would work. It worked in her models eleven years ago; I read them at my desk and signed the note anyway, because a village that stops needing its engine stops needing its intake, and the account upstairs does not accept cancellations.",
-                "But a drawing is not a roof. I can admire it. I can grieve it. I cannot shelter one family under it tonight.",
-                "You kept the answer safe and never raised it where the village could sleep beneath it. That's real, Jonin. It's just not RIGGED, and tonight the sky only respects what's rigged."
+            { ...storyPage("The Answer in Your Kit", "Kesa's maps unrolled in Raiko's scarred hands", "Kage Raiko Veyr", [
+                "Kesa Volt's ridge line. Built, tested, and holding three hundred eleven roofs while you and I stand here under a clear patch of her sky. So it is not the engineering that's unfinished, Jonin.",
+                "It's the ownership. You pulled her reason out of a ravine. You carried it through a squad. You laid it beside the line she designed, in the one place it could finish the argument.",
+                "And then you put it back in your own kit. Safely. For later. On somebody else's behalf. That is exactly how every holder in this tower began, myself first of all.",
+                "You saved her answer. You did not give it back. The sky respects a rigged line and I respect a saved one, but neither of us can pretend a reason held in your coat is a reason set free."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "He rolls the maps with terrible care.", nextPage: 18 }
             ] },
@@ -614,7 +614,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Enough. The storm decides now.", nextPage: 18 }
             ] },
             { ...storyPage("Answer for the routing mark. My bout was written before I fought it.", "The reckoning", "Kage Raiko Veyr", [
-                "The Pike bout. Yes. Third-exchange loss, purse bagged in advance. I initial the routing slates in winter when the intake runs thin; scripted bouts draw steadier than honest ones. A fixed fight is a promise, and the floor loves a promise.",
+                "The Pike bout. Yes. Third-exchange loss, purse bagged in advance. I initial the routing slates in winter when the intake runs thin; scripted bouts draw steadier than honest ones, if never as rich. A fixed fight is a promise, and the floor loves a promise.",
                 "Here's what the routing office doesn't know. Your slate wouldn't take the script. The result filed itself blank, three times, and a clerk was disciplined for it, and I kept the blank slates in my desk like pressed flowers.",
                 "The board writes everyone in this village, Jonin. It cannot seem to write YOU. When you decide what tonight was, remember that of the two of us, only one ever had a choice."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
@@ -622,7 +622,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("Answer for Kesa Volt. Her line holds your sky right now.", "The reckoning", "Kage Raiko Veyr", [
                 "Kesa Volt. The rigger. The note on her ridge line crossed my desk and I signed it 'a widow's grief, no action,' eleven years ago, between a lunch and a hanging. I remember, because I remember everything; that's my price.",
-                "Here is the part I have told no living soul. I had her models tested. Quietly, one ridge, one winter. They held. Her line would have shielded this village and emptied my engine inside a decade, and the account upstairs does not take cancellations, so I signed the note.",
+                "Here is the part I have told no living soul. I tested her line. One ridge, one winter, quietly. It held. And the odds changed the moment it did: a village that stops needing the Engine stops feeding the account upstairs, and that account does not take cancellations. So I buried the winning line and kept the whole village staked on the losing one.",
                 "Her anchors are holding my sky as we stand here. Tell her daughter that, afterward. Tell her the Kage tested the line, and it held, and he buried it anyway. She deserves to hate me with the figures in hand."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "Enough. The storm decides now.", nextPage: 18 }
@@ -635,8 +635,8 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Show him the quiet storm.", nextPage: 4, requireTrait: "sv88-better-storm-carried" },
                 { text: "Let Mira say her mother's reason.", nextPage: 9, requireTrait: "sv88-better-storm-deferred" },
                 { text: "Let Vanta answer for the ninth share.", nextPage: 14, requireTrait: "sv92-witness-present" },
-                { text: "Show him Kesa's maps.", nextPage: 13, requireTrait: "sv88-unfinished-answer", forbidTrait: "sv88-better-storm-ready" },
-                { text: "Show him the district that held.", nextPage: 12, requireTrait: "sv88-line-held", forbidTrait: "sv65-saved-the-reason" },
+                { text: "Show him Kesa's answer from your kit.", nextPage: 13, requireTrait: "sv88-unfinished-answer", forbidTrait: "sv88-better-storm-ready" },
+                { text: "Show him the district that held.", nextPage: 12, requireTrait: "sv88-line-held", forbidTrait: "sv88-reason-proof-any" },
                 { text: "Answer for the ninth share. You've been drawing it for seasons.", nextPage: 15, requireTrait: "sv58-took-the-cut" },
                 { text: "Answer for the routing mark. My bout was written before I fought it.", nextPage: 16, requireTrait: "sv70-read-the-mark" },
                 { text: "Answer for Kesa Volt. Her line holds your sky right now.", nextPage: 17, requireTrait: "sv88-reason-proof-any" }
