@@ -337,7 +337,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         {
             lane: "ambitious",
             requireTrait: "ff88-better-count-carried",
-            title: "The Warm Door",
+            title: "The Warm Door, Lit",
             pages: [
                 {
                     title: "The New Keeper",
