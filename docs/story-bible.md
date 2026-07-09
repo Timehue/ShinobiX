@@ -586,9 +586,25 @@ in your ink. Boss: Kage Hoshina Enju, First Flame Vessel.
 
 ## 11. Sample Scenes (Ashen Leaf, new voice)
 
+**OWNER CALIBRATION (2026-07-09): Sample A is the canonical register.** Every
+scene in the game gets written like A. The rules A demonstrates:
+
+1. The scene is built around something the player is DOING (signing, standing
+   watch, escorting), never around being told about the world.
+2. Companions speak TO the player, second person, friendly and practical.
+   Exposition arrives disguised as advice ("Stand here, next to me").
+3. Rituals are taught as numbered, concrete steps ("Name. Family. Craft. Then
+   the fourth question."). The invasiveness is in the steps themselves.
+4. Narration: 1-3 lines, one strong concrete image, then back to people.
+5. Dread is a STING at the end of warmth: one wrong detail, one understated
+   reaction shot ("Toma stops smiling"), then out. No speeches about dread.
+6. Speeches cap at ~4 lines; longer thoughts get broken by a player choice or
+   another character. Even Kages and villains obey this (Sample C's monologue
+   register is retired; Hoshina argues in exchanges, not orations).
+7. The player is addressed or implicated on every page.
+
 *(Three scenes, written to the light-novel register: clear, present, personal,
-zero dashes, no accountant vocabulary. These are the audition for the whole
-rewrite.)*
+zero dashes, no accountant vocabulary. These were the audition; A won.)*
 
 ### Sample A — L4, the Branch Register (first page of the game's Ashen Leaf arc)
 

@@ -66,6 +66,9 @@ const PORTRAIT_PROMPTS = {
     "suma": `warm weathered woman in traveling clothes with a walking pack, gray-streaked braid, open honest face of someone who trusts and has paid for it before, small carved charm at her throat, ${PORTRAIT_BASE}`,
     "amra-tull": `composed village official woman in formal robes with a petition case, careful diplomatic face with exhausted eyes, hair pinned with plain iron pins, ${PORTRAIT_BASE}`,
     "ledger-clerk": `pale arena clerk behind a barred window, green eyeshade, fingerless gloves, quill tucked behind one ear, bored eyes that have written down terrible things neatly, ${PORTRAIT_BASE}`,
+    "registry-duty-clerk": `middle-aged registry clerk in ash-grey robes with cedar-toggle fastenings, ink-stained fingers, reading spectacles pushed up into greying hair, dry humor around tired eyes, a bundle of wooden record slats under one arm, ${PORTRAIT_BASE}`,
+    "imera": `careworn mother in her thirties, patched homespun apron over work clothes, dark hair pinned back hastily, fierce protective eyes with exhaustion under them, garden-rough hands, ${PORTRAIT_BASE}`,
+    "sera-reed": `warm grandmother-aged woman with silver-streaked hair in a neat bun, flour-dusted apron, kind crinkled smiling eyes with something faintly absent behind them, holding a teacup, ${PORTRAIT_BASE}`,
     "kage-raiko-veyr-hollow": `the Hollow Storm Tyrant: a towering Kage consumed by living storm, body crackling apart into lightning and black thunderhead, glowing storm-white eyes, tattered Kage mantle whipping in wind that comes from inside him, terrifying and sorrowful, dramatic low angle, waist-up`,
     "kage-hoshina-enju-hollow": `the First Flame Vessel: a regal Kage woman being worn by living fire, ceremonial robes igniting into slow orange-white flame that moves like fabric, ash falling upward around her, serene expression cracking with inner light, waist-up, dramatic`,
     "kage-kael-whitefang-hollow": `the Hollow Oath Tyrant: a broad Kage man fused into pale glacial ice, oath-mark sigils frozen glowing beneath the surface of his skin and armor, breath of frost, eyes emptied of choice, waist-up, dramatic`,
@@ -101,8 +104,13 @@ function collectJobs() {
     const jobs = [];
     const existing = new Set(fs.readdirSync(PORTRAIT_DIR).map((f) => f.toLowerCase()));
 
-    // Portraits: every speaker across interludes + road events without a file.
+    // Portraits: every speaker across chapters + interludes + road events
+    // without a file (chapters matter too — new chapter-only speakers like
+    // Imera would otherwise ship faceless).
     const speakers = new Map();
+    for (const [, steps] of Object.entries(storylines)) {
+        for (const s of steps) for (const p of s.pages ?? []) speakers.set(slugify(p.speaker), p.speaker);
+    }
     for (const [, entries] of Object.entries(storyInterludesByVillage)) {
         for (const e of entries) for (const p of e.pages) speakers.set(slugify(p.speaker), p.speaker);
     }
