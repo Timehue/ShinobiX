@@ -934,7 +934,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "Close the door. Tea's on the stove. It's bad tea; confession pairs badly with good tea, I find.",
                 "You've earned the plain version, so here are the four words behind the four words. The Roll is the bell. The Count is the law the bell hardened into. The Mark is the hook the law sets in your wrist. The Vault is the mouth the hook feeds.",
                 "We teach children only the first of those, the Roll, because a bell calling your name sounds like being loved. We keep the other three in locked books, because a book never asks why it's warm.",
-                "Here is how the mouth is fed. The vault keeps this village from freezing, and it runs on the Count. Every marked wrist that obeys while it doubts pays a small toll: the doubt sinks into the ice, the warmth rises through the floor. Ninety winters, not one frozen child. That is the trade, and I have kept its ledger my whole life.",
+                "Here is how the mouth is fed. The vault keeps this village from freezing, and it runs on the Count. Every marked wrist that obeys while it doubts pays a small toll: the doubt sinks into the ice, the warmth rises through the floor. Ninety winters this trade has run, and in the forty since Kael took the vault, not one frozen child. That is the trade, and I have kept its ledger my whole life.",
                 "Every wrist but two. Look. Bare, both of them. The keeper has to stand outside the Count, because someone must read the meter without the meter reading them. That is the exemption. It comes with the books, and I am offering you both, because the meter is climbing and my successor ought to be someone the plate cannot already taste."),
                 choices: [
                     { text: "Read the meter's whole history, every winter, both books.", nextPage: 1 },
@@ -944,7 +944,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "It takes two pots of bad tea. Ninety winters in two columns: warmth drawn up, doubt paid down.",
                 "The curve is patient and terrible. Each decade, the vault needs a little more doubt for the same warmth. The Count answers with more checks, deeper marks, longer holds at the plate. The machine isn't failing. It's HUNGRY, the way compound interest is hungry.",
                 "And near the bottom of the newest page, in Sova's steady hand, a projection: the winter the toll outgrows the village. It has a date. It is not far.",
-                "'Now you've read what I read every night,' she says. 'The Count got ninety years of children through the cold. And it has perhaps six more before it must eat the whole flock to warm the barn.'"),
+                "'Now you've read what I read every night,' she says. 'The vault has warmed this village for ninety winters. And it has perhaps six more before it must eat the whole flock to warm the barn.'"),
                 choices: [
                     { text: "The offer stands.", nextPage: 3 }
                 ] },
@@ -1058,13 +1058,28 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "\"Burn the plates. Some keys shouldn't survive their locksmith.\"", nextPage: 2 },
                     { text: "\"Sell me the schedule instead. Choke points, rounds, timings.\"", nextPage: 2 }
                 ] },
-            { ...pg("What the Vault Pays Into", "The icehouse bench, a copied ledger diagram unrolled under the lamp", "Kite Harrow",
-                "One more thing off the books, and then I want a drink. You asked what drinks through the mark. I found it while I was mapping the Count's works, and I wish I hadn't. Your vault keeps two draws, not one. Local warmth on the top, thin as a courtesy. A lower draw underneath it, and the lower one is the whole business.",
-                "Look. Not rescue lines. A pipe map. It runs past your vault and keeps going down, to the same place Stormveil's Engine pays into, and Ashen Leaf's Rootfire feeds, and Moonshadow's Mirror settles against. Every village names its sin something local. Different hymns. Same plumbing.",
+            { ...pg("What the Vault Pays Into", "The icehouse bench, a copied ledger diagram unrolled, Yura in from the cold at your shoulder", "Kite Harrow",
+                "One more thing off the books, and then I want a drink. You asked what drinks through the mark. I went looking, and I found your lower draw. Your Vault keeps two draws, not one: local warmth on the top, thin as a courtesy, and a lower draw underneath it, and the lower one is the whole business.",
+                "Look. Not rescue lines. A pipe map. It runs past your Vault and keeps going down, to the same place Stormveil's Engine pays into, and Ashen Leaf's Rootfire feeds, and Moonshadow's Mirror settles against. Every village names its sin something local. Different hymns. Same plumbing.",
                 "You want the one name under all four? I say it once, over the hum of that ice, and then I collect my drink. Hollow Gate.",
-                "I have appraised sieges and two small wars and one estate that turned out to be a prison, and I know a loss-leader when I price one. The warmth up here is the loss-leader. The lower draw is the ledger. Whatever the rest of that sentence is, black flower, it is Kael's to say, not mine. I only found the pipe."),
+                "The Vault keeps enough up here for warmth. Enough to make Kael's argument true on the worst nights. The rest goes down."),
                 choices: [
-                    { text: "Hear the rest of it.", nextPage: 3, trait: "ff80-named-hollow-gate" }
+                    { text: "Yura sets her hand flat on the map.", nextPage: 3 }
+                ] },
+            { ...pg("What Went Down", "The icehouse, Yura's bare wrist flat on the lower line of the pipe map", "Captain Yura",
+                "Say that again. The rest goes down. Down THAT.",
+                "Then it wasn't only warmth. Dren went down that pipe. And Kessa. Every name I ever called up a tower at strangers' midnight and answered myself, because the Count had struck them and the wall wouldn't. They didn't just freeze out there in the white. The Vault drank them.",
+                "He came for me with no mark on him. The Count called that impossible, filed him deserter, and then it burned him for heat. He was a rescue, and they rendered him down into fuel.",
+                "Snow take him."),
+                choices: [
+                    { text: "Harrow rolls the map shut.", nextPage: 4 }
+                ] },
+            { ...pg("Not Snow", "The icehouse, Harrow rolling the diagram shut, careful as a bandage", "Kite Harrow",
+                "Not snow, Captain. Gate.",
+                "I have appraised sieges and two small wars and one estate that turned out to be a prison, and I know a loss-leader when I price one. The warmth up here is the bait. The lower draw is the ledger. That is the whole ugly business.",
+                "Whatever the rest of that sentence is, anomaly, it is Kael's to say, not mine. I only found the pipe."),
+                choices: [
+                    { text: "Hear the rest of what she holds.", nextPage: 5, trait: "ff80-named-hollow-gate" }
                 ] },
             pg("The Locksmith's Choice", "The icehouse, the stove's one honest flame", "Kite Harrow",
                 "You know what the funny part is? Every village prices me the same way: useful, unsworn, ultimately outside. And every village is right, except about the last part. You can't stand outside a thing that holds the heat. The cold enforces membership better than any litany.",
