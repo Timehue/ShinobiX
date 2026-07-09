@@ -107,8 +107,11 @@ def render_scene(sc, header):
         lanes = [c for c in pg["choices"] if c["isLane"]]
         for c in [c for c in pg["choices"] if not c["isLane"]]:
             gate = f' <font color="#0a5a8a">[only if: {esc(c["requireTrait"])}]</font>' if c["requireTrait"] else ""
+            if c.get("forbidTrait"):
+                gate += f' <font color="#8a4a0a">[hidden once: {esc(c["forbidTrait"])}]</font>'
+            grant = f' <font color="#1a7a4a">[+{esc(c["trait"])}]</font>' if (c["trait"] and c["requireTrait"]) else ""
             dest = f' <font color="#5b5b78">→ page “{esc(c["targetTitle"])}”</font>' if c["targetTitle"] else ""
-            flow.append(Paragraph(f'» <b>{esc(c["text"])}</b>{gate}{dest}', S["choice"]))
+            flow.append(Paragraph(f'» <b>{esc(c["text"])}</b>{gate}{grant}{dest}', S["choice"]))
         if lanes:
             flow.append(Spacer(1,2))
             flow.append(Paragraph('<font color="#6d3bd4"><b>DECISION</b> (recorded; leads to the fight for chapters):</font>', S["choice"]))
@@ -126,7 +129,10 @@ flow.append(Paragraph("Full script export for review and fine-tuning", S["cover_
 flow.append(Spacer(1, 0.3*inch))
 tot_ch = sum(len(v["chapters"]) for v in data["villages"])
 tot_il = sum(len(v["interludes"]) for v in data["villages"])
-flow.append(Paragraph(f'{len(data["villages"])} villages &nbsp;·&nbsp; {tot_ch} chapters &nbsp;·&nbsp; {tot_il} interludes &nbsp;·&nbsp; {len(data["roadEvents"])} wandering road events', S["cover_sub"]))
+cover_bits = [f'{len(data["villages"])} village' + ("s" if len(data["villages"]) != 1 else ""),
+              f'{tot_ch} chapters', f'{tot_il} interludes']
+if data["roadEvents"]: cover_bits.append(f'{len(data["roadEvents"])} wandering road events')
+flow.append(Paragraph(" &nbsp;·&nbsp; ".join(cover_bits), S["cover_sub"]))
 flow.append(Spacer(1, 0.5*inch))
 flow.append(Paragraph(
     "<b>How to read this</b><br/>"
@@ -144,8 +150,9 @@ for v in data["villages"]:
     flow.append(Paragraph('<font size=8 color="#5b5b78">Chapters: ' + " · ".join(f'L{c["level"]} {esc(c["title"])}' for c in v["chapters"]) + '</font>', S["toc"]))
     flow.append(Paragraph('<font size=8 color="#5b5b78">Interludes: ' + " · ".join(f'L{i["level"]} {esc(i["title"])}' for i in v["interludes"]) + '</font>', S["toc"]))
     flow.append(Spacer(1,4))
-flow.append(Paragraph('<b>Wandering Road Events</b> (cross-village, found on the world map)', S["toc"]))
-flow.append(Paragraph('<font size=8 color="#5b5b78">' + " · ".join(f'L{e["level"]} {esc(e["title"])}' for e in data["roadEvents"]) + '</font>', S["toc"]))
+if data["roadEvents"]:
+    flow.append(Paragraph('<b>Wandering Road Events</b> (cross-village, found on the world map)', S["toc"]))
+    flow.append(Paragraph('<font size=8 color="#5b5b78">' + " · ".join(f'L{e["level"]} {esc(e["title"])}' for e in data["roadEvents"]) + '</font>', S["toc"]))
 flow.append(PageBreak())
 
 # Villages
@@ -161,12 +168,13 @@ for v in data["villages"]:
         render_scene(sc, header)
     flow.append(PageBreak())
 
-# Road events
-flow.append(Paragraph("Wandering Road Events", S["village"]))
-hr(ACCENT, 1.4, 1, 8)
-flow.append(Paragraph("Cross-village mini-stories delivered by road NPCs on the world map. They react to the player's reputation and branch back into the main arcs.", S["caption"]))
-for e in data["roadEvents"]:
-    render_scene(e, f'ROAD · Level {e["level"]} · {e["title"]}')
+# Road events (omitted when a single village was selected)
+if data["roadEvents"]:
+    flow.append(Paragraph("Wandering Road Events", S["village"]))
+    hr(ACCENT, 1.4, 1, 8)
+    flow.append(Paragraph("Cross-village mini-stories delivered by road NPCs on the world map. They react to the player's reputation and branch back into the main arcs.", S["caption"]))
+    for e in data["roadEvents"]:
+        render_scene(e, f'ROAD · Level {e["level"]} · {e["title"]}')
 
 def footer(canvas, doc):
     canvas.saveState(); canvas.setFont("Body", 7.5); canvas.setFillColor(MUTED)

@@ -9,7 +9,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isChoiceAvailable, analyzeVnFlow, parseDialogueString, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
+import { applyVnTextVars, isChoiceAvailable, analyzeVnFlow, parseDialogueString, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
 import { addStoryTrait } from "./character-progress";
 import type { Character } from "../types/character";
 
@@ -46,6 +46,14 @@ test("addStoryTrait: appends, dedupes, and never mutates the input character", (
 test("addStoryTrait: a blank trait is a no-op", () => {
     const base = { storyTraits: ["x"] } as unknown as Character;
     assert.equal(addStoryTrait(base, "   "), base);
+});
+
+test("applyVnTextVars: %name becomes the player name; plain text passes through", () => {
+    assert.equal(applyVnTextVars("Welcome to Ashen Leaf, %name.", "Rill"), "Welcome to Ashen Leaf, Rill.");
+    assert.equal(applyVnTextVars("%name and %name again", "Rill"), "Rill and Rill again");
+    assert.equal(applyVnTextVars("No token here.", "Rill"), "No token here.");
+    // A blank player name leaves the token visible rather than emitting a hole.
+    assert.equal(applyVnTextVars("Hello, %name.", "   "), "Hello, %name.");
 });
 
 const flowPage = (over: Partial<VnFlowPage> = {}): VnFlowPage => ({ scene: "s", dialogue: "d", choices: [], ...over });
