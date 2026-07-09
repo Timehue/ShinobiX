@@ -39,7 +39,11 @@ function proofChainRules(v: {
     works: string; number: string; lanes: string[];
     ready: string; deferred: string;
     composite: string; carried: string; deferredComposite: string;
-    any: string; unfinished: string; savedObject: string;
+    any: string; unfinished: string;
+    /** Ways the proof object survived L65: kept by the player OR handed to the
+     *  companion. Either form supports provenance; both reach "unfinished" if
+     *  the handoff conversation never happens. */
+    savedObjects: string[];
     witnessPresent: string; witnessLanes: string[];
 }): DeriveRule[] {
     return [
@@ -53,7 +57,7 @@ function proofChainRules(v: {
         { grant: v.any, when: (has) => has(v.ready) || has(v.deferred) },
         {
             grant: v.unfinished,
-            when: (has) => has(v.savedObject) && v.lanes.some(has) && !has(v.ready) && !has(v.deferred),
+            when: (has) => v.savedObjects.some(has) && v.lanes.some(has) && !has(v.ready) && !has(v.deferred),
         },
         { grant: v.witnessPresent, when: (has) => v.witnessLanes.some(has) },
     ];
@@ -107,7 +111,7 @@ const RULES: DeriveRule[] = [
         ready: "sv88-reason-proof-ready", deferred: "sv88-reason-proof-deferred",
         composite: "sv88-better-storm-ready", carried: "sv88-better-storm-carried",
         deferredComposite: "sv88-better-storm-deferred", any: "sv88-reason-proof-any",
-        unfinished: "sv88-unfinished-answer", savedObject: "sv65-saved-the-reason",
+        unfinished: "sv88-unfinished-answer", savedObjects: ["sv65-saved-the-reason", "sv65-gave-mira-the-page"],
         witnessPresent: "sv92-witness-present", witnessLanes: ["sv92-open-road", "sv92-signed-muster"],
     }),
     // ── Frostfang: the chosen-count proof chain (Dren Coldewe's long lanterns) ──
@@ -117,7 +121,7 @@ const RULES: DeriveRule[] = [
         ready: "ff88-exit-proof-ready", deferred: "ff88-exit-proof-deferred",
         composite: "ff88-better-count-ready", carried: "ff88-better-count-carried",
         deferredComposite: "ff88-better-count-deferred", any: "ff88-exit-proof-any",
-        unfinished: "ff88-unfinished-answer", savedObject: "ff65-saved-the-letter",
+        unfinished: "ff88-unfinished-answer", savedObjects: ["ff65-saved-the-letter", "ff65-gave-yura-the-letter"],
         witnessPresent: "ff92-witness-present", witnessLanes: ["ff92-called-the-camp", "ff92-took-her-terms"],
     }),
     // ── Moonshadow: the witnessed-return proof chain (the Returning) ──
@@ -127,7 +131,7 @@ const RULES: DeriveRule[] = [
         ready: "ms88-trust-proof-ready", deferred: "ms88-trust-proof-deferred",
         composite: "ms88-better-truth-ready", carried: "ms88-better-truth-carried",
         deferredComposite: "ms88-better-truth-deferred", any: "ms88-trust-proof-any",
-        unfinished: "ms88-unfinished-answer", savedObject: "ms65-saved-the-file",
+        unfinished: "ms88-unfinished-answer", savedObjects: ["ms65-saved-the-file", "ms65-gave-nyx-the-file"],
         witnessPresent: "ms92-witness-present", witnessLanes: ["ms92-vowed-open-ledgers", "ms92-vowed-a-keeper"],
     }),
 ];
