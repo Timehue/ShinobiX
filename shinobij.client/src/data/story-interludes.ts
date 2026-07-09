@@ -579,19 +579,36 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "It doesn't beat winter by itself. That's not why everybody's gone quiet. Everybody's gone quiet because it proves the fire was never the only answer, and every person on that wall upstairs paid for a lie.",
                 "So. It works, we can prove it works, and the burning is at frost-fall. What we do with this next decides whose proof it becomes."),
                 choices: [
-                    { text: "Set Aren's model beside the working machine.", nextPage: 6, requireTrait: "al65-saved-the-screw" },
-                    { text: "Let the numbers stand on their own.", nextPage: 7 }
+                    { text: "Set Aren's model beside the working machine.", nextPage: 6, requireTrait: "al65-saved-the-screw", trait: "al88-ninety-mouths" },
+                    { text: "Let the numbers stand on their own.", nextPage: 9, trait: "al88-ninety-mouths" }
                 ] },
             { ...pg("The Model and the Machine", "The little model turning beside its full-grown self", "Toma Reed",
                 "You kept it. Through the crates, the squad on the road, all of it. You kept the little one with the cracked vane, and now it sits next to the real one, turning in the same water.",
                 "This is what provenance means, friend. Anyone can build a machine and claim it. The model proves whose future this was. It was Aren's, it was stolen, stamped, and boxed for the fire, and it works.",
-                "Whoever carries this to the Kage isn't carrying a clever invention. They're carrying the whole argument.",
-                "So say it plainly, because after tonight there's no putting it down."),
+                "Someone has to carry that to the Kage. Carrying it means standing in front of her and saying, out loud, whose future this was. So decide who does the carrying.",
+                "Say it plainly. After tonight there's no putting it down."),
                 choices: [
-                    { text: "\"We built your brother's answer. Now I'll carry it to her.\"", nextPage: 7, requireTrait: "toma-hope", trait: "al88-better-winter-ready" },
-                    { text: "\"You trusted me with the letter. Trust me with the proof.\"", nextPage: 7, requireTrait: "toma-caution", trait: "al88-better-winter-ready" },
-                    { text: "\"Trust caught up. Let me carry it the rest of the way.\"", nextPage: 7, requireTrait: "al88-repaired-trust", trait: "al88-better-winter-ready" },
-                    { text: "Stand back. This proof belongs to the Reeds, not to you.", nextPage: 7 }
+                    { text: "\"We built your brother's answer. Now I'll carry it to her.\"", nextPage: 9, requireTrait: "toma-hope", trait: "al88-reed-proof-ready" },
+                    { text: "\"You trusted me with the letter. Trust me with the proof.\"", nextPage: 9, requireTrait: "toma-caution", trait: "al88-reed-proof-ready" },
+                    { text: "\"Trust caught up. Let me carry it the rest of the way.\"", nextPage: 9, requireTrait: "al88-repaired-trust", trait: "al88-reed-proof-ready" },
+                    { text: "\"Stand back. This is Aren's. Let the Reeds carry him; I'll carry the door.\"", nextPage: 7, requireTrait: "toma-hope", trait: "al88-reed-proof-deferred" },
+                    { text: "\"Stand back. This is Aren's. Let the Reeds carry him; I'll carry the door.\"", nextPage: 7, requireTrait: "toma-caution", trait: "al88-reed-proof-deferred" },
+                    { text: "\"Stand back. This is Aren's. Let the Reeds carry him; I'll carry the door.\"", nextPage: 7, requireTrait: "al88-repaired-trust", trait: "al88-reed-proof-deferred" },
+                    { text: "Keep the model to yourself. Let that be your part.", nextPage: 8 }
+                ] },
+            { ...pg("You Carry the Door", "The channel bank, Toma holding the model", "Toma Reed",
+                "Good. Then I'll carry him. You carry the door.",
+                "That's not the small job, friend. Someone has to make sure there's a village left standing when we get to the tower, and a way out if it goes wrong. That's you.",
+                "I've spent my whole life being the one who kept the thing in the floorboards. Tonight I get to be the one who puts it on the anvil. Let me have that. You made it possible; now let it be ours to say."),
+                choices: [
+                    { text: "Let it be theirs to say.", nextPage: 9 }
+                ] },
+            { ...pg("Grateful Is Not Ready", "The channel bank, the model still in your own hands", "Toma Reed",
+                "You kept the model. Through all of it. I'm grateful for that, and I mean grateful, not polite.",
+                "But grateful is not the same as ready to hand you my brother. You know that. I can see you know that.",
+                "So keep it. It's yours to keep, and it climbed tonight, and that's real. Just don't walk into that tower tomorrow and call a saved toy a finished winter. She'll know the difference. So will you."),
+                choices: [
+                    { text: "Keep the model. Walk on.", nextPage: 9 }
                 ] },
             pg("Whose Proof It Becomes", "First gray light, the water still climbing", "Narrator",
                 "The cold is real now, the tea is gone, and the water is still climbing, indifferent to how much it means.",
@@ -614,8 +631,24 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "I don't understand what was done to me. Toma says you do.",
                 "So here is what a mother can offer. I will stand in front of anyone, anywhere, and say: something was taken from my house, and I want the taking to end. Would that help you, dear? Being believed out loud?"),
                 choices: [
-                    { text: "Take her to the east channel. Show her Aren's answer running.", nextPage: 2, requireTrait: "al65-saved-the-screw" },
-                    { text: "\"It helps more than you know. Walk with us.\"", nextPage: 5 }
+                    { text: "\"The Reeds carry Aren's proof today. You'll carry his mother's word.\"", nextPage: 2, requireTrait: "al88-reed-proof-deferred" },
+                    { text: "Take her to the east channel. Show her Aren's answer running.", nextPage: 4, requireTrait: "al65-saved-the-screw" },
+                    { text: "\"It helps more than you know. Walk with us.\"", nextPage: 7 }
+                ] },
+            { ...pg("This Part Is Ours", "The road, Sera and Toma with the model and the letter", "Toma Reed",
+                "You were right to stand back. I didn't think so at the time. I think so now.",
+                "This is Aren's model. This is his letter. This is my mother's word. You carried us this far, and I will never be able to say what that's worth. But this part is ours.",
+                "You walk us to the tower. We'll carry him through the door.",
+                "And if the guards close it, you're the one who gets it open again. That was always going to be your job."),
+                choices: [
+                    { text: "Let Sera speak first.", nextPage: 3 }
+                ] },
+            { ...pg("The Threes", "The road, Sera holding the letter flat", "Sera Reed",
+                "My son wrote in stubborn threes. He argued in ink. He pressed too hard on the page when he was angry, and he was angry a great deal, and I loved every loud inch of him.",
+                "I remember enough now to say that aloud. To her face, if she lets me.",
+                "I spent years thanking the roots for a quiet, peaceful son. I will spend the rest of my life un-saying it. Walk me to the door, dear. I'll do the rest."),
+                choices: [
+                    { text: "Walk them to the tower.", nextPage: 7 }
                 ] },
             { ...pg("The Better Winter", "The east terrace channel, dawn water running", "Toma Reed",
                 "Come and look before we walk. Sera, you too. Watch the water.",
@@ -623,23 +656,23 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "Aren's water-screw, full size, feeding the east terraces without one future burned. You held the frame in the dark while we reset the vane. I remember exactly who was standing in the channel.",
                 "Whatever happens at the tower today, this is already true. Nobody can make this field dry again by winning an argument."),
                 choices: [
-                    { text: "\"And the terrace houses saw it climb. The whole row saw.\"", nextPage: 3, requireTrait: "al88-proved-the-winter" },
-                    { text: "\"She already knows, Toma. I made sure her own survey saw the field.\"", nextPage: 4, requireTrait: "al88-baited-the-survey" },
-                    { text: "Let the water speak. Walk on.", nextPage: 5 }
+                    { text: "\"And the terrace houses saw it climb. The whole row saw.\"", nextPage: 5, requireTrait: "al88-proved-the-winter" },
+                    { text: "\"She already knows, Toma. I made sure her own survey saw the field.\"", nextPage: 6, requireTrait: "al88-baited-the-survey" },
+                    { text: "Let the water speak. Walk on.", nextPage: 7 }
                 ] },
             { ...pg("What They Saw", "The channel, doors opening along the terrace row", "Toma Reed",
                 "That's the whole plan now, isn't it. Show them what they saw with their own eyes. The east channel. The water climbing.",
                 "They can call us liars at the tower. They can call Mori's book a forgery and your flower a trick. They cannot make forty families un-see water.",
                 "My brother's machine made witnesses out of an entire row while it was busy making bread. He would have liked that better than any argument."),
                 choices: [
-                    { text: "Walk on.", nextPage: 5 }
+                    { text: "Walk on.", nextPage: 7 }
                 ] },
             { ...pg("The Dry Report", "The channel, a gray figure gone from the tree line", "Toma Reed",
                 "A gray coat walked past this field three times this week, counting on her fingers like we couldn't see her from the water. You wanted the survey to notice. It noticed.",
                 "By now there's a report on the Kage's desk that says the east fields are wet in the driest week of the year, and she is sitting up there trying not to understand it.",
                 "I can't decide whether to admire that or be a little afraid of you. I've settled on both."),
                 choices: [
-                    { text: "Walk on.", nextPage: 5 }
+                    { text: "Walk on.", nextPage: 7 }
                 ] },
             { ...pg("The Keeper of Records", "The road, Mori with a bound book", "Elder Mori",
                 "Forty years of bloom charts, copied out fair, in my own hand, with my name signed at the bottom of every page.",
@@ -647,23 +680,23 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "If you mean to argue with her, arguments need documents. If you mean to break her fire, breakings need witnesses who kept count. Either way, this book walks with you.",
                 "One request, when it's over. Plant something for me. Anything at all. I have spent my whole life filing endings, and I would like to be present for one beginning."),
                 choices: [
-                    { text: "\"Open the book, Elder. Read me the east channel pages.\"", nextPage: 6, requireTrait: "al88-held-the-proof" },
-                    { text: "Show Mori the names carved into the housing.", nextPage: 7, requireTrait: "al88-named-the-builders" },
-                    { text: "Take the book, and walk on.", nextPage: 8 }
+                    { text: "\"Open the book, Elder. Read me the east channel pages.\"", nextPage: 8, requireTrait: "al88-held-the-proof" },
+                    { text: "Show Mori the names carved into the housing.", nextPage: 9, requireTrait: "al88-named-the-builders" },
+                    { text: "Take the book, and walk on.", nextPage: 10 }
                 ] },
             { ...pg("The Arithmetic", "The book open across his arm", "Elder Mori",
                 "The east channel pages. Flow, lift, field reach, mouths fed. Measured at the worst stretch of the channel, in the driest week, the way I taught you, so no clerk alive can call it generous.",
                 "The numbers are in my book, and my name is under them. She asked for arithmetic. We brought arithmetic.",
                 "I have filed forty years of things that were true and helped no one. This is the first page I have ever carried that argues back. Let me hold it a little longer, and then it's yours."),
                 choices: [
-                    { text: "Walk on together.", nextPage: 8 }
+                    { text: "Walk on together.", nextPage: 10 }
                 ] },
             { ...pg("The Signatures", "His thumb on the carved housing plate", "Elder Mori",
                 "You carved the builders' names into the housing. A. Reed. T. Reed. And under them, room for more.",
                 "Evidence argues, child. A signature testifies. A machine with names on it stops being a rumor and becomes somebody's word, given in public, on purpose.",
                 "Before we reach the gate, I will cut my own name beside theirs. It is long past time the record keeper went on the record."),
                 choices: [
-                    { text: "Walk on together.", nextPage: 8 }
+                    { text: "Walk on together.", nextPage: 10 }
                 ] },
             pg("The Third Figure", "The road's bend, a survey officer waiting alone", "Narrator",
                 "The third figure wears survey gray, stands alone, off schedule, hands kept visible. Everything about the posture says: I am breaking a rule, carefully.",
