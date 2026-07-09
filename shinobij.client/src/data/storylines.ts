@@ -809,7 +809,7 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("Payment Clears", "The marks leave the walls and gather", "Kage Kael Whitefang", [
                 "One entry remains. The vault holds forty years of my choices too. Payment was always scheduled.",
                 "It clears tonight.",
-                "Understand: I stopped being able to refuse this years ago. That is not a complaint. It is inventory.",
+                "Understand. I stopped being able to refuse this years ago. That is not a complaint. It is inventory.",
                 "Roll call, shinobi. Sound off."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", rightImage: "/portraits/kage-kael-whitefang-hollow.webp", rightName: "Kage Kael Whitefang" },
         ], [
@@ -932,7 +932,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ]), image: "/scenes/story/story-moonshadow-village-50-4.webp" },
             { ...storyPage("The Price of Rank", "The chamber, a blade on the table", "Kage Sable Nocturne", [
                 "Kage Sable Nocturne: Jonin of the Hidden Knife. Do you imagine I hand this to the loyal?",
-                "Kage Sable Nocturne: The rank comes with a first errand. A councilman keeps a second ledger. You will remind him we hold the first. Nothing more. Isn't that small?",
+                "Kage Sable Nocturne: The rank comes with a first errand. A Veiled Hand officer keeps a second ledger. You will remind him we hold the first. Nothing more. Isn't that small?",
                 "Kage Sable Nocturne: The blade is ceremonial. The trial isn't. Something in this room wears your face and has read your file. Shall we see which of you is current?",
                 "Kage Sable Nocturne: Take the handle. Mind the glass."
             ]), image: "/scenes/story/story-moonshadow-village-50-4.webp" },

@@ -135,10 +135,30 @@ export function serializeDialogueLines(lines: DialogueLine[]): string {
 // `fallbackSpeaker`, and — matching long-standing renderer behavior — uses the
 // whole line as the spoken text when nothing follows the first colon. Shared by
 // every VN renderer so the formerly-inline copies can't drift apart.
+/** A colon prefix only counts as a speaker tag when it plausibly IS a name:
+ *  either it matches the page's own speaker, or it reads like a Title-Case
+ *  name (1-5 words, lowercase particles allowed, no sentence punctuation).
+ *  Prose with mid-sentence colons — "Three things. One: hold the line" or
+ *  "There's a saying: the sky owes no one shelter" — stays one line spoken by
+ *  the page speaker instead of minting a phantom speaker named "Three things.
+ *  One". (Story copy avoids opening a line with a lone Capitalized word
+ *  before a colon; the story-content test enforces portrait coverage for
+ *  every speaker this heuristic yields.) */
+function looksLikeSpeakerName(prefix: string, fallbackSpeaker: string): boolean {
+    const p = prefix.trim();
+    if (!p || p.length > 32) return false;
+    if (p.toLowerCase() === fallbackSpeaker.trim().toLowerCase()) return true;
+    if (/[.!?,;'’\d—–]/.test(p)) return false;
+    const words = p.split(/\s+/);
+    if (words.length > 5) return false;
+    const particles = new Set(["of", "the", "and"]);
+    return words.every((w) => /^[A-Z]/.test(w) || particles.has(w));
+}
+
 export function splitDialogueLine(line: string, fallbackSpeaker: string): { speaker: string; text: string } {
-    if (line.includes(":")) {
-        const parts = line.split(":");
-        return { speaker: parts[0].trim(), text: parts.slice(1).join(":").trim() || line };
+    const colon = line.indexOf(":");
+    if (colon > 0 && looksLikeSpeakerName(line.slice(0, colon), fallbackSpeaker)) {
+        return { speaker: line.slice(0, colon).trim(), text: line.slice(colon + 1).trim() || line };
     }
     return { speaker: fallbackSpeaker.trim(), text: line.trim() || line };
 }

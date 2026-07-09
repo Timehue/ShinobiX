@@ -221,14 +221,21 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     </div>
                 </div>
                 <div className="vn-choice-row">
-                    <button onClick={() => { setPageIndex(0); setLineIndex(0); }}>Replay Scene</button>
-                    {!isSageEvent && !isStoryInterlude && <button onClick={() => onBattle(event)}>Battle in {biomeLabel(event.biome)}</button>}
-                    <button onClick={onComplete}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude ? "Continue" : "Claim Reward + Continue"}</button>
+                    <button onClick={() => { setPageIndex(0); setLineIndex(0); setPendingChoice(null); setShowFinale(false); }}>Replay Scene</button>
+                    {/* Story chapters must fight through a lane CHOICE (which seals the
+                        real reward + the reckoning) — the free battle would pay the
+                        zeroed event reward and skip both. */}
+                    {!isSageEvent && !isStoryInterlude && !isStoryChapterEvent && <button onClick={() => onBattle(event)}>Battle in {biomeLabel(event.biome)}</button>}
+                    <button onClick={onComplete}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude ? "Continue" : isStoryChapterEvent ? "Continue to Story Hall" : "Claim Reward + Continue"}</button>
                 </div>
                 {!isSageEvent && !isStoryInterlude && (
                     <div className="vn-reward-strip">
-                        <span>Trigger: {event.trigger === "firstBattleArena" ? "First Battle Arena click" : "First Village exit"}</span>
-                        <span>Reward: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
+                        {isStoryChapterEvent
+                            ? <span>Chapter reward: paid when the boss falls — choose your answer above.</span>
+                            : <>
+                                <span>Trigger: {event.trigger === "firstBattleArena" ? "First Battle Arena click" : "First Village exit"}</span>
+                                <span>Reward: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
+                            </>}
                     </div>
                 )}
             </div>
