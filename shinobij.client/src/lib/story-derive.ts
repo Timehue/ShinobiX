@@ -114,6 +114,11 @@ const RULES: DeriveRule[] = [
         unfinished: "sv88-unfinished-answer", savedObjects: ["sv65-saved-the-reason", "sv65-gave-mira-the-page"],
         witnessPresent: "sv92-witness-present", witnessLanes: ["sv92-open-road", "sv92-signed-muster"],
     }),
+    // Stormveil: any surviving form of Kesa's reason — including keeping it
+    // unfinished in your own kit — counts as reason-proof-any. proofChainRules
+    // already grants it for ready/deferred; extend to unfinished so the name-less
+    // "A Sky Without a Why" branch (forbid reason-proof-any) truly means NO reason.
+    { grant: "sv88-reason-proof-any", when: (has) => has("sv88-unfinished-answer") },
     // ── Frostfang: the chosen-count proof chain (Dren Coldewe's long lanterns) ──
     ...proofChainRules({
         works: "ff88-relay-held", number: "ff88-nineteen-minutes",
