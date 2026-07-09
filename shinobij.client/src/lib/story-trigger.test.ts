@@ -74,8 +74,9 @@ test("lower level fires first when a milestone and an interlude are both pending
 test("interludes fire in level order within a village", () => {
     const fired: string[] = [];
     // Max-progress, max-level character: every interlude is eligible; they
-    // should arrive strictly in catalog (level) order.
-    for (let i = 0; i < 7; i++) {
+    // should arrive strictly in catalog (level) order (8 per village since
+    // the L88 proof trials).
+    for (let i = 0; i < storyInterludesByVillage["Moonshadow Village"].length; i++) {
         const next = nextStoryTrigger(char(100, 9, "Moonshadow Village"), fired);
         assert.ok(next, `interlude ${i} missing`);
         fired.push(next.eventId);
