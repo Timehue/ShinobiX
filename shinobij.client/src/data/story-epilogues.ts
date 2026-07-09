@@ -625,6 +625,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By dawn the whole village knows what broke in the night. Forty strides of cedar stand dark for the first time in four hundred years, and the wall's lines are just names now, keeping nobody.",
                         "People stand in their doorways holding what came back. Jorun has a bridge in his hands, forty years late. The weaver is reading her own school out loud to anyone who passes.",
                         "The walls groan when the wind leans on them. The ash in the mortar has stopped holding. It will be a hard winter, and an honest one.",
+                        "And far below the old kiln, where no root should reach, the lower pipe has gone cold. Somewhere beyond the village, something that fed on Ashen Leaf for four hundred years notices the missing warmth. That reckoning belongs to another season.",
                     ],
                 },
                 {
@@ -651,6 +652,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By dawn the whole village knows what broke in the night. The Register wall stands dark, the lines just names now, and everything the fire was holding has come home to people who had learned to live without it.",
                         "There is crying in ash-house row, the good kind and the other kind. The walls groan when the wind leans on them. The granary is being counted twice.",
                         "Nobody has said thank you yet. Nobody has thrown a stone either. It is going to be close, all winter, every winter, for a while.",
+                        "Far below the kiln, where no root should reach, a pipe has gone cold, and something beyond the village notices the missing warmth. Nobody in ash-house row knows to fear it yet. That is a story for another season.",
                     ],
                 },
                 {
@@ -679,6 +681,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The Rootfire is small now, and clean. It burns exactly as bright as what people bring it, and people have been bringing things all morning: carved tokens, signed and given gladly, one by one.",
                         "The founders' alcove has been dusted. The iron racks stand empty, and Mori has already measured them for ordinary shelves.",
                         "Upstairs, the village is learning the new arithmetic. The fire keeps what is given freely, and only that.",
+                        "And below the floor, the lower seam has found nothing legal left to take, and gone cold. Somewhere beyond the village, something notices the missing surplus. That reckoning is for another season.",
                     ],
                 },
                 {
@@ -705,6 +708,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The Rootfire is small now, and clean, and honest, and everyone in the village understands exactly what that means for the cold season.",
                         "The willing alcove holds eleven new tokens by nightfall. Eleven, from a village of hundreds. Gladness was always a poor fuel. It is the only one left.",
                         "Nobody says the arithmetic out loud. Everyone is doing it.",
+                        "Far below the kiln, the lower draw has run dry and gone cold. Somewhere beyond the village, something notices, and waits. But that is a colder season's problem.",
                     ],
                 },
                 {

@@ -447,7 +447,9 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "You're standing in my light. No, stay. You're more interesting than the light.",
                 "So you're the black flower line everyone lowers their voice about. I appraised an estate with one of those once, up north. The flower alone raised the price of the whole property. Strange feeling, isn't it? Being the thing that makes the room worth more.",
                 "Since you're clearly going to ask: your village hired me to value a season of graft-slats for an outside buyer. Yields, freshness, how well the stock travels.",
-                "That was the word in the contract. Stock. I've read a lot of contracts, and I want you to know that word stopped me for a second. Not long. But it stopped me."),
+                "That was the word in the contract. Stock. I've read a lot of contracts, and I want you to know that word stopped me for a second. Not long. But it stopped me.",
+                "And the buyer hid behind an escrow mark I have seen in three villages now. A circle cut into four equal pieces, too clean for orchard work, like someone divided a mouth into ledgers. A buyer with that mark does not purchase goods. It purchases systems.",
+                "So here is the thing you will chew on tonight, whether you want to or not. Your village thinks it is selling a crop. The buyer thinks it is buying a pipe."),
                 choices: [
                     { text: "Look her in the eye. \"People aren't stock.\"", nextPage: 2 },
                     { text: "Ask her what a future actually sells for.", nextPage: 2 },
@@ -460,7 +462,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "I refunded that part of the fee. I'll be back through eventually. I'm always back through."),
         ], [
             ch("Walk her to the gate, in front of everyone.", "good", "al20-met-her-eye", "She matches your pace exactly and says nothing until the arch. 'That cost you something with the clerks,' she says. 'It bought you more with me. I keep honest books.'"),
-            ch("Memorize her charts before the clerks fold them away.", "neutral", "al20-took-her-measure", "Yields by household. Freshness by season. One column headed only OUTSIDE PARTY. You hold all of it in your head, and Harrow watches you do it with the approval of one collector for another."),
+            ch("Memorize her charts before the clerks fold them away.", "neutral", "al20-took-her-measure", "Yields by household. Freshness by season. One column headed OUTSIDE PARTY, and beneath it two words you do not know yet, printed so neatly they look official: FIFTH ANCHOR. You hold all of it in your head, and Harrow watches you do it with the approval of one collector for another."),
             ch("Tell the clerks to escort her out. This village isn't for sale.", "bad", "al20-turned-your-back", "She packs without hurry, pays for her own tea, and leaves a calling card on the desk anyway. Toma reads it aloud later: 'For when you find out what already sold.'"),
         ]),
         interlude("Ashen Leaf Village", 30, "Aren's Handwriting", [
@@ -653,6 +655,21 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "\"Kill this market. You're the only one who can.\"", nextPage: 2 },
                     { text: "\"Start with everything you know about the buyer.\"", nextPage: 2 }
                 ] },
+            { ...pg("The Pipe Under the Hearth", "The orchard wall, a copied schematic held up against the dusk", "Kite Harrow",
+                "One more thing, and then you get to hate me for knowing it. I went looking for where your buyer's goods actually go. Professional pride, mostly. Also the annex floor hums when you stand in the wrong spot, and floors that hum are usually billing somebody.",
+                "Look at this. I copied it off their schematic. These aren't orchard lines, black flower. They're pipe lines. Your Rootfire is a hearth on the top and a pipe underneath, and that pipe runs to the same place Stormveil's Engine feeds, and Frostfang's Vault pays into, and Moonshadow's Mirror settles its accounts. Every village names its sin something local and prays nobody compares notes. Different hymns. Same plumbing.",
+                "You want the one name under all of it? I only say it once, and then I would like a drink. Hollow Gate."),
+                choices: [
+                    { text: "Say it again.", nextPage: 3 }
+                ] },
+            { ...pg("Different Hymns, Same Plumbing", "The orchard gate, lanterns coming on, the schematic folded away", "Kite Harrow",
+                "Here's the part your keepers would burn me for. Ashen Leaf spends its people's futures. That is your village's coin, the one that bought Aren. The others spend their own, the way Stormveil spends reasons and Moonshadow spends secrets and Frostfang spends exits. The Gate does not care what any of you call the currency. It only cares that the Kages keep collecting.",
+                "Your Rootfire keeps enough ash to warm the village. Enough to make your Kage's argument true on the coldest nights. The rest goes down. Aren Reed went down. Sena will. The quiet children in those detention rows will. Not to your roots, black flower. To the Gate.",
+                "And before you ask whether Hoshina knew: nobody signs a lower-draw approval for thirty years by accident. She kept the scraps for your children and sent the surplus below, and she has understood exactly what she was doing since before you were born.",
+                "So. Now we both know it. That's the expensive part of knowing anything. You can't give it back."),
+                choices: [
+                    { text: "Hear the rest of what she holds.", nextPage: 4, trait: "al80-named-hollow-gate" }
+                ] },
             pg("What Harrow Holds", "The orchard gate, lanterns coming on", "Kite Harrow",
                 "You know, the last person who gave me advice without invoicing me afterward was my mother. She was also wrong, so let's hope it isn't hereditary.",
                 "Here's what I'm holding. The buyer's shipping route. Their agent's alias. And the sample manifest, with this annex's own stamps on it. Read that last part again: your village's stamps. Ashen Leaf sold a sample lot to an outside buyer, and then hired me to tell them what the rest was worth.",
@@ -802,15 +819,16 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 choices: [
                     { text: "Walk on.", nextPage: 7 }
                 ] },
-            { ...pg("The Keeper of Records", "The road, Mori with a bound book", "Elder Mori",
+            { ...pg("The Keeper of Records", "The road, Mori with a bound book and a second stack tied in survey string", "Elder Mori",
                 "Forty years of bloom charts. Copied out fair, in my own hand, my name at the bottom of every page.",
+                "And a second stack, which is not a book at all. Copied manifests, tied with survey string. For forty years I counted flowers and called it record keeping. This season I finally counted where the cut futures WENT.",
+                "Some burned here. Enough to warm us. Enough to make the lie comfortable on a cold night. The rest went below, to a place that was never ours. I mean to say the number of them out loud at the tower, and let the village decide what a keeper who counted the theft for forty years and stayed quiet is worth.",
                 "You know what a signature does, child? An old man counting flowers in private is a rumor. The village record keeper signing forty years of it is a record. Grief without a signature gets shelved under weather. I should know. I shelved plenty.",
-                "Arguments need documents. Breakings need witnesses who kept count. This book does both, so it walks with you.",
-                "One thing, when it's done. Plant something for me. Anything will do. I have filed endings my whole life. I would like to stand near a beginning for once."),
+                "Arguments need documents. Breakings need witnesses who kept count. These two do both, so they walk with you. And one thing, when it's done. Plant something for me. I have filed endings my whole life. I would like to stand near a beginning for once."),
                 choices: [
-                    { text: "\"Open the book, Elder. Read me the east channel pages.\"", nextPage: 8, requireTrait: "al88-held-the-proof" },
-                    { text: "Show Mori the names carved into the housing.", nextPage: 9, requireTrait: "al88-named-the-builders" },
-                    { text: "Take the book, and walk on.", nextPage: 10 }
+                    { text: "\"Open the book, Elder. Read me the east channel pages.\"", nextPage: 8, requireTrait: "al88-held-the-proof", trait: "al92-gate-witnessed" },
+                    { text: "Show Mori the names carved into the housing.", nextPage: 9, requireTrait: "al88-named-the-builders", trait: "al92-gate-witnessed" },
+                    { text: "Take the book, and walk on.", nextPage: 10, trait: "al92-gate-witnessed" }
                 ] },
             { ...pg("A Count That Argues", "Mori turning the east channel pages, wetting his thumb, losing his place once", "Elder Mori",
                 "Here. The channel pages. Flow, lift, field reach, mouths fed. Measured at the worst stretch, in the driest week, the way I taught you. No clerk alive can call it generous.",
