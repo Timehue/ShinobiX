@@ -56,7 +56,10 @@ Frontend (run inside `shinobij.client/`):
   Upstash/Redis KV layer has been fully migrated to Supabase (the one-off
   `migrate-upstash-*` / `import-*` scripts have been removed; see git history).
   `api/kv-proxy.ts` is the live Railway→cPanel disk-overlay proxy, not Upstash-era.
-- **`scripts/`** — one-off migration and PvP balance-simulation scripts.
+- **`scripts/`** — one-off migration and PvP balance-simulation scripts. Also
+  `gen-story-pdf.mjs` (+ `_story-pdf-build.py`): render the whole story
+  (chapters/interludes/road events) to a review PDF from the LIVE data —
+  `node --import tsx scripts/gen-story-pdf.mjs [out.pdf]` (needs `pip install reportlab`).
 - **`docs/`** — design docs (e.g. `professions.md`) and security/auth
   references. See **`docs/auth-and-anti-cheat-patterns.md`** for the token-first
   auth model and the server-minted single-use token pattern for client-reported
