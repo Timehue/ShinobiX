@@ -238,4 +238,5 @@ export const TEST_FILES = [
     "shinobij.client/src/data/story-content.test.ts",
     "shinobij.client/src/data/story-epilogues.test.ts",
     "api/village/_kage-unlock.test.ts",
+    "api/admin/server-reset.test.ts",
 ];
