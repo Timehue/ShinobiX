@@ -1058,6 +1058,14 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "\"Burn the plates. Some keys shouldn't survive their locksmith.\"", nextPage: 2 },
                     { text: "\"Sell me the schedule instead. Choke points, rounds, timings.\"", nextPage: 2 }
                 ] },
+            { ...pg("What the Vault Pays Into", "The icehouse bench, a copied ledger diagram unrolled under the lamp", "Kite Harrow",
+                "One more thing off the books, and then I want a drink. You asked what drinks through the mark. I found it while I was mapping the Count's works, and I wish I hadn't. Your vault keeps two draws, not one. Local warmth on the top, thin as a courtesy. A lower draw underneath it, and the lower one is the whole business.",
+                "Look. Not rescue lines. A pipe map. It runs past your vault and keeps going down, to the same place Stormveil's Engine pays into, and Ashen Leaf's Rootfire feeds, and Moonshadow's Mirror settles against. Every village names its sin something local. Different hymns. Same plumbing.",
+                "You want the one name under all four? I say it once, over the hum of that ice, and then I collect my drink. Hollow Gate.",
+                "I have appraised sieges and two small wars and one estate that turned out to be a prison, and I know a loss-leader when I price one. The warmth up here is the loss-leader. The lower draw is the ledger. Whatever the rest of that sentence is, black flower, it is Kael's to say, not mine. I only found the pipe."),
+                choices: [
+                    { text: "Hear the rest of it.", nextPage: 3, trait: "ff80-named-hollow-gate" }
+                ] },
             pg("The Locksmith's Choice", "The icehouse, the stove's one honest flame", "Kite Harrow",
                 "You know what the funny part is? Every village prices me the same way: useful, unsworn, ultimately outside. And every village is right, except about the last part. You can't stand outside a thing that holds the heat. The cold enforces membership better than any litany.",
                 "Whatever I do with this bench, know the price going in. If I burn it, I burn the best leverage an unsworn woman ever held against a machine that eats the sworn. If I use it, I become a counterfeiter of BELONGING, and I've seen what that trade does to the coin.",
