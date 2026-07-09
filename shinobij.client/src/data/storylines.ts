@@ -622,535 +622,538 @@ export const storylines: Record<string, StoryStep[]> = {
     ],
     "Ashen Leaf Village": [
         milestone("Ashen Leaf Village", 4, "Roots of the Shinobi", "Wooden Root Guardian", "🌿", [
-            { ...storyPage("Sign In", "Register hall, morning queue", "Toma Reed", [
-                "You sign in before your first trial. Everyone does. Sorry, I should introduce myself. Toma. Reed. Grove squad, third year.",
-                "The register holds every name in the village. Living on the east wall, dead on the west. The wall decides more than most people admit.",
-                "There was a woman here yesterday. Her son's plate went west last spring. She told the clerk she cannot picture his face anymore. Just the plate.",
-                "Anyway. Sign. Middle column. Press hard, the cedar is dense."
-            ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
-                { text: "Ask which wall his family reads from.", nextPage: 1 },
-                { text: "Ask about the woman who forgot the face.", nextPage: 2 }
-            ] },
-            { ...storyPage("The Middle Column", "Register hall, the east wall", "Toma Reed", [
-                "East. Mostly east. We're joiners, my family, we... the R row is right there, actually. You can see it from the queue.",
-                "It's a short row.",
-                "Sorry. You should sign. The clerk gets behind by noon and takes it out on the ink."
-            ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
-                { text: "Follow him to the yard", nextPage: 3 }
-            ] },
-            { ...storyPage("The Plate", "Register hall, west wall", "Toma Reed", [
-                "Marta Senn. Her boy was grove squad, like me. A year ahead.",
-                "The clerk offered her the rubbing they keep on file. She held it upside down for a while. Then she thanked him twice and left.",
-                "The clerks say the wall keeps them. I used to like how that sounded.",
-                "Middle column. Press hard."
-            ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
-                { text: "Sign and go to the yard", nextPage: 3 }
-            ] },
-            { ...storyPage("The Yard", "Training yard beneath ash dusted oaks", "Elder Mori", [
-                "Stand there. No, the flat stone. Roots come up under the soft ground, new students turn ankles, and then I do paperwork.",
-                "You will hear that Ashen Leaf grows its shinobi rather than trains them. Attribute that to me. I said it forty years ago and regret the phrasing annually.",
-                "The yard is older than the village. The village is built from its dead. The ash goes into the mortar, and that is not a figure of speech.",
-                "Bow to the roots before we begin. Not for luck. For the ones underfoot."
+            { ...storyPage("The Register Hall", "Register hall, morning light through cedar smoke", "Toma Reed", [
+                "First time signing? Stand here, next to me. If you stand in the middle, the clerks think you have something to hide.",
+                "Toma. Toma Reed. Grove squad. I've done this four times, so you're in good hands. Well. Adequate hands.",
+                "It goes like this. Name. Family. Craft. Then the fourth question. Everyone hesitates on the fourth question, so don't feel bad.",
+                "'What do you intend to become.' Just answer smaller than the truth. That's free advice. My brother taught me that."
             ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp" },
-            { ...storyPage("First Lesson", "The oldest oak splits along its grain", "First Flame Avatar", [
-                "New ink. It could be smelled from the wall.",
-                "Every student who ever stood on that stone stands under it now. They are the floor. They are listening.",
-                "The Root Guardian gives the first lesson. It has given it nine hundred times. It does not tire, and it does not flatter.",
-                "Show the floor what it is holding up."
+            { ...storyPage("The Fourth Question", "The Register wall, quill waiting", "Narrator", [
+                "The Register is a wall of living cedar, forty strides long. Every villager has a line in it. Some lines glitter with fresh ink. Some are old and dark as roots.",
+                "The clerk dips the quill for you and waits.",
+                "The hall is very quiet, the way a forest is quiet when something large is walking through it."
+            ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
+                { text: "Answer the fourth question honestly.", nextPage: 2 },
+                { text: "Give the small, safe answer Toma fed you.", nextPage: 3 },
+                { text: "Leave it blank and watch the clerk's face.", nextPage: 4 }
+            ] },
+            { ...storyPage("The True Answer", "The Register wall", "Registry Duty Clerk", [
+                "Speak slowly. The cedar takes its time with big words.",
+                "Hm. Ambitious. We had a girl answer like that nine years ago. Lovely line, hers. Very short.",
+                "Signed and witnessed. Welcome to Ashen Leaf. Try to become it slowly."
+            ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
+                { text: "Step back from the wall.", nextPage: 5 }
+            ] },
+            { ...storyPage("The Safe Answer", "The Register wall", "Registry Duty Clerk", [
+                "'To serve the village and tend my craft.' Yes. We get that one a great deal.",
+                "The cedar takes it anyway. The cedar is not fussy. The survey, later, is fussy.",
+                "Signed and witnessed. Your friend there gave the same answer four times. The wall remembers that too."
+            ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
+                { text: "Step back from the wall.", nextPage: 5 }
+            ] },
+            { ...storyPage("The Blank", "The Register wall", "Registry Duty Clerk", [
+                "You'll want to write something. Anything.",
+                "No? Truly nothing?",
+                "Curious. The quill is warm and the line is ready, and you're the first person I've met who the question just... slides off.",
+                "I'll mark it 'pending.' The wall dislikes 'pending.'"
+            ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
+                { text: "Step back from the wall.", nextPage: 5 }
+            ] },
+            { ...storyPage("The Black Flower", "The Register wall, ink drying", "Toma Reed", [
+                "Good, that's done. Now we get honey bread. There's a cart by the south arch that...",
+                "Wait.",
+                "Look at your line. Look at your line."
+            ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp" },
+            { ...storyPage("Elder Mori", "The Register wall, a crowd gathering", "Elder Mori", [
+                "Move aside. Move. Thank you.",
+                "A black flower. On a first signing. In forty years of keeping this wall I have seen that twice, and I planted neither.",
+                "It means the cedar believes you could become something impossible. The village calls it a blessing. Say 'thank you, Elder.'",
+                "Now. You owe the roots a trial before sundown. The grove keeps an old Guardian for exactly this. Come. Bring the nervous one, he could use the air."
+            ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
+                { text: "Follow Mori to the grove.", nextPage: 7 }
+            ] },
+            { ...storyPage("The Grove Trial", "The old grove, roots breaking the flagstones", "Elder Mori", [
+                "The rule of the grove is simple. The dead hold this yard. The ash of every keeper who came before us went into this soil, and the Guardian grew out of it.",
+                "It will test what you are, not what you say. They always know the difference. It is very restful, being dead.",
+                "Toma. Stop hiding behind the new one. You've passed this trial, act like it.",
+                "Whenever you are ready. The roots are patient. I am less so."
             ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp" },
         ], [
-            { text: "Bow to the roots, full and unhurried.", conclusion: "Mori's chin drops a fraction, which from him is a parade. Under your feet, the ground goes briefly quiet, like a room deciding to listen.", trait: "honorable" },
-            { text: "Watch how the Guardian favors its cracked side.", conclusion: "The split in its bark opens a half beat before each step, and you file it. Old things keep old habits.", trait: "suspicious" },
-            { text: "Skip the bow. Strike while it is still waking.", conclusion: "Behind you, Mori begins a sentence and gives up on it. The Guardian's eyes finish lighting mid swing.", trait: "reckless" },
+            { text: "Bow low to the roots first, and mean it.", conclusion: "Mori's eyebrows climb. The Guardian rises out of the soil slowly, almost politely, like an old keeper getting up to greet a guest.", trait: "honorable" },
+            { text: "Watch the Guardian's pattern before you move.", conclusion: "It circles the way roots grow, in slow spirals that repeat. By the second pass you have it. Behind you, Mori murmurs, 'Two signings, and it studies the wall.'", trait: "suspicious" },
+            { text: "Strike first. Show the grove what's growing.", conclusion: "Toma makes a sound like a kettle. The Guardian catches your first blow and the whole yard shivers, leaves down like rain, and somewhere under the soil something old starts paying attention.", trait: "reckless" },
         ]),
         milestone("Ashen Leaf Village", 15, "The Forbidden Seed", "Rootbound Guard Initiate", "🌿", [
-            { ...storyPage("Black Flowers", "The shrine tree, roped off since dawn", "Toma Reed", [
-                "It bloomed overnight. Black, all the way through. I checked a petal against soot and the soot looked pale.",
-                "Three facts. The tree was bare yesterday. The rope went up before the bell. And the flowering rite is already scheduled for tonight, incense ordered.",
-                "Rites take a week to schedule. I once waited nine days to get a funeral moved.",
-                "Sorry. Fourth fact. Nobody will say who tends this tree."
+            { ...storyPage("The Blessing", "Ash-house row at dawn, neighbors gathering", "Narrator", [
+                "Overnight, black flowers opened along a fence in ash-house row. Eleven of them, glossy as beetle shells, in a straight and tidy line.",
+                "The neighbors bring honey bread and congratulations. Flowers mean the roots have noticed a household. Flowers are luck.",
+                "Toma is not eating his honey bread."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp" },
-            { ...storyPage("Precedent", "The rope line, downwind of the blooms", "Elder Mori", [
-                "You are wondering what it means. The council does not wonder; it voted. A blessing, nine to one.",
-                "The last bloom was three generations ago, which is a way of telling you I was young when I stood here.",
-                "The archive records that season as a blessed harvest. Six families left the village that year and never wrote. The archive records that too, rather more briefly.",
-                "I was the one vote."
+            { ...storyPage("Eleven Flowers", "The fence line, crowd thinning", "Toma Reed", [
+                "That's Imera's fence. Her daughter Sena builds things. Water wheels out of barrel scrap. A loom that walks. She's nine.",
+                "When I was small we had flowers on our fence too. Everyone brought bread. My mother still talks about the bread.",
+                "That was the spring before my brother got quiet.",
+                "I'm not saying anything. I'm saying I don't like flowers. Come on, Mori sent for us."
+            ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp" },
+            { ...storyPage("Mori Counts", "The register annex, bloom charts on the table", "Elder Mori", [
+                "You two. Good. A watch, tonight, on the row. The survey team comes at first light to record the blessing, and blessings attract... enthusiasm.",
+                "Eleven blooms. Eleven. A household gets one, perhaps two. I have kept the bloom charts for forty years and I count eleven the way other men count graves.",
+                "Do not touch the flowers. Do not let anyone else touch the flowers. That is the whole of the assignment.",
+                "And if anything about the night strikes you as wrong, you come to me. Not to the survey. To me."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp", choices: [
-                { text: "Ask what his one vote said.", nextPage: 2 },
-                { text: "Ask how tonight's rite was scheduled overnight.", nextPage: 3 }
+                { text: "Take the night watch.", nextPage: 3 }
             ] },
-            { ...storyPage("The One Vote", "Downwind, voices low", "Elder Mori", [
-                "It said what dissent always says. Delay. Study. Consult the record.",
-                "I could have said the truth instead. I remember the Callows leaving on a grain cart. The children waved. No letter ever came.",
-                "The minutes will record this vote as unanimous. They did last time. I checked this morning, before the rope went up.",
-                "The wind again. Come to this side."
+            { ...storyPage("The Night Watch", "The fence line, moonless", "Narrator", [
+                "Past midnight, the row is all cricket-song and cold ash smell. The flowers hold a faint shine, like they are being read by some far light.",
+                "A shape slips from Imera's door. Not a thief. She moves like the owner of the fence.",
+                "She is carrying garden shears."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp", choices: [
-                { text: "Walk the rope line", nextPage: 4 }
+                { text: "Step out and stop her, gently.", nextPage: 4 },
+                { text: "Stay hidden and watch what she does.", nextPage: 5 }
             ] },
-            { ...storyPage("Incense by the Crate", "Behind the shrine, delivery boxes stacked", "Elder Mori", [
-                "You count well. The incense order is dated three days back. The tree bloomed last night.",
-                "So either the supplier is a prophet, which would be cheaper, or someone expected the bloom and does not file expectations.",
-                "The rota for tending this tree is not in the archive. I have looked. I am the archive.",
-                "Leave the crates as you found them. Clerks notice angles."
+            { ...storyPage("Imera", "The fence line", "Imera", [
+                "Please. Please, you're the new one, you don't have to be part of this yet.",
+                "You think they're luck. Everyone thinks they're luck. My mother thought so too, and her sister sang in three languages, and then one spring she just... sang smaller.",
+                "Eleven flowers, and my Sena dreams in machines. You do the sum.",
+                "One cut each. That's all. The survey counts a smaller blessing and my girl stays a nine-year-old with too many ideas. I am asking you to look at the crickets for one minute."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp", choices: [
-                { text: "Walk the rope line", nextPage: 4 }
+                { text: "Make your decision as dawn comes.", nextPage: 6 }
             ] },
-            { ...storyPage("Posted Since Dawn", "A young guard blocks the rope line", "Narrator", [
-                "The guard at the rope is young. New sandals. Ceremonial sash tied by someone else's hands.",
-                "Her orders are one sentence, and she has said it four times to four people. Nothing was planted. Move along.",
-                "She stands the way people stand when they were chosen for how little they know.",
-                "Behind her, one black flower loses a petal. It falls faster than a petal should."
+            { ...storyPage("The Shears", "Behind the rain barrel", "Narrator", [
+                "She kneels at the fence and does not cut. Not at first. She counts the flowers twice, the way you count sleeping children.",
+                "Then she chooses the largest bloom, the one over the gate, and holds the shears to its stem for a long time.",
+                "Her hands are shaking. Toma's breath stops beside you. He whispers: 'That's how my mother stands at Aren's bench.'"
+            ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp", choices: [
+                { text: "Dawn is coming.", nextPage: 6 }
+            ] },
+            { ...storyPage("First Light", "The row at dawn, survey banners approaching", "Toma Reed", [
+                "Survey's early. Of course the survey's early.",
+                "That's a Rootbound Initiate out front. They send one wherever there are flowers. Guarding the blessing, they call it.",
+                "Imera's still at the fence. Shears in her apron. Flower's still on the stem.",
+                "Whatever you're going to do, friend, the next thirty steps are when you do it."
+            ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp" },
+            { ...storyPage("The Survey Arrives", "The gate, Initiate's staff already glowing", "Narrator", [
+                "The Initiate plants its staff at the gate and begins the recording chant. Roots stir under the fence like fingers under a blanket.",
+                "Imera looks at you. Once. The way you look at weather.",
+                "Eleven flowers shine in a tidy line, and one of them leans toward a child's window."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp" },
         ], [
-            { text: "Palm a black flower while Mori holds the guard's eye.", conclusion: "The petals weigh wrong, like wet cloth folded small. The initiate watches your hand come back over the rope, and her one sentence changes.", trait: "suspicious" },
-            { text: "Ask Mori, in front of the guard, what the last bloom cost.", conclusion: "Mori recites six family names from memory, in order, facing her. Her grip shifts on her weapon like the names are being read at her.", trait: "honorable" },
-            { text: "Go over the rope and find who tends the tree.", conclusion: "Three steps past the rope, her hand closes on your collar. She is new, but somebody trained that grip on something bigger than students.", trait: "reckless" },
+            { text: "Palm the cut stem before the chant reaches it.", conclusion: "One snip inside your sleeve, smooth as a card trick. The survey records ten blooms, and Imera's shoulders come down an inch. The Initiate's staff swings toward the missing count, and toward you.", trait: "suspicious" },
+            { text: "Stand between Imera's gate and the survey.", conclusion: "The chant stutters. Initiates are not trained for a person who simply will not move. Behind you Imera whispers 'thank you' and 'run' in the same breath.", trait: "honorable" },
+            { text: "Tear the big flower out, roots and all, in the open.", conclusion: "The bloom comes up with a sound like a struck bell, and every root in the row wakes at once. Toma yells your name. At least nobody can call it an accident.", trait: "reckless" },
         ]),
-        milestone("Ashen Leaf Village", 25, "Names Removed from Scrolls", "Archive Spirit of the Root", "🌿", [
-            { ...storyPage("The Gaps", "Archive stacks, lamps trimmed low", "Elder Mori", [
-                "I asked you here because you are not a clerk, which is presently a qualification.",
-                "Look at the shelf. Do not look for what is there; count the dowels. Forty slots, thirty-one scrolls. The dust says the other nine left together, and recently.",
-                "Whole lines, gone. Not deceased. Deceased is the west wall, and the west wall is honest. Gone.",
-                "Every removed line questioned the Kage's rites. All within twenty years. I have found a pattern, and it has the poor manners to be simple.",
-                "I have served this archive for forty years. Prove me wrong by week's end. Please."
-            ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp", choices: [
-                { text: "Remind him what you once carried here unannounced.", nextPage: 1, requireTrait: "rd22-sealed-for-mori" },
-                { text: "Ask which erasure is freshest.", nextPage: 2 }
-            ] },
-            { ...storyPage("Filed Under Weather", "A drawer with no label", "Elder Mori", [
-                "The lead token. Yes. You gave it to me sealed and asked nothing, which I have thought about since.",
-                "I filed it under weather reports, autumn, damp. Nobody audits the damp.",
-                "There is a drawer like that for every year I have kept this room. Things that are true and cannot be shelved.",
-                "Nine scrolls would not fit in a drawer. Whoever took them does not file. They subtract.",
-                "You kept my confidence once. I am spending yours now. Count with me."
-            ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp", choices: [
-                { text: "Hear Toma out", nextPage: 3 }
-            ] },
-            { ...storyPage("Nine Days of Dust", "The high shelf, lamp held close", "Elder Mori", [
-                "This slot. Put your finger in the dust ring. Nine days, ten at most. I date dust the way farmers date frost.",
-                "Nine days ago the village held a promotion feast. Every clerk was pouring wine upstairs. I signed the duty log myself.",
-                "So it is not history being tidied. It is happening on feast nights, while the archive drinks.",
-                "The next feast is in twelve days."
-            ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp", choices: [
-                { text: "Hear Toma out", nextPage: 3 }
-            ] },
-            { ...storyPage("The Letter", "Archive floor, scrolls spread flat", "Toma Reed", [
-                "My brother's name is Aren. Was. Is. Sorry. I no longer know which.",
-                "He questioned the flowering rites. Wrote it up properly, filed it through the right office and everything. He believed in the right office.",
-                "The archive now says my family has one son. My mother believes it. She corrected me at dinner.",
-                "I have his letter. Two years old. One page against the whole west wing, and I keep having to check it still says his name."
+        milestone("Ashen Leaf Village", 25, "The Cut Branches", "Archive Spirit of the Root", "🌿", [
+            { ...storyPage("After Hours", "The archive, one lamp between the stacks", "Toma Reed", [
+                "The archive keeps a copy of every line in the Register. Births, crafts, letters of note. All of it, on cedar slats, in these racks.",
+                "I have a key because I mend the shelves. I mend the shelves because I wanted a key. Don't look at me like that, you've clearly done worse.",
+                "I need you to read some things and tell me I'm not inventing it. That's all. One friend's opinion.",
+                "Start with this one. Jorun the carpenter. Read it and tell me what he was building."
             ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp" },
-            { ...storyPage("On Duty", "The stacks exhale dust", "Narrator", [
-                "The lamps go blue. Between the stacks, something assembles itself from scroll dust and dowel pins, wearing the shape of a librarian.",
-                "It is not angry. It is on duty.",
-                "It moves toward Toma's letter the way a clerk moves toward a filing error.",
-                "The archive keeps what it is told to keep. Tonight it has been told about you."
+            { ...storyPage("Jorun's Plans", "The carpenter's slat, held to the lamp", "Narrator", [
+                "The record is complete. Apprenticeship, marriage, a workshop by the mill. Then drawings: a bridge across the flood channel, drawn with a sure hand. Three lines of it.",
+                "The bridge stops at the third line. The drawing resumes as a cabinet. Then chairs. Then twenty years of chairs.",
+                "The ink of the chairs is the same age as the ink of the bridge."
+            ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp", choices: [
+                { text: "Pull Aren Reed's slat yourself.", nextPage: 4 },
+                { text: "Ask Toma what he thinks happened to the bridge.", nextPage: 2 },
+                { text: "Show Mori you kept his border secret. Ask him instead.", nextPage: 3, requireTrait: "rd22-sealed-for-mori" }
+            ] },
+            { ...storyPage("The Bridge", "Between the racks", "Toma Reed", [
+                "Jorun is alive. He drinks at the mill house. Ask him about the flood channel and he laughs and says bridges were never his thing.",
+                "His thing. He drew it like his hands were on fire, and it was never his thing.",
+                "Nobody burned his record. Nobody had to. They just cut where he was going, and left where he'd been.",
+                "There's a word carved inside some of these racks, small, where only a shelf-mender sees it. 'Pruned.' I used to think it was about the orchards."
+            ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp", choices: [
+                { text: "Ask about Aren.", nextPage: 4 }
+            ] },
+            { ...storyPage("A Quiet Debt", "Mori's desk, lamp turned low", "Elder Mori", [
+                "You brought me quiet once, from the border. I have not forgotten. Ask.",
+                "Jorun. Yes. I remember his bridge. I surveyed his household the spring he stopped drawing it.",
+                "You want a word for what happens between a man and his bridge. The orchard keepers have one. They use it about branches.",
+                "I am going to say something an Elder should not say. Read the boy's slat. The Reed boy. And when your friend asks you what I said, tell him I said nothing."
+            ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp", choices: [
+                { text: "Pull Aren's slat.", nextPage: 4 }
+            ] },
+            { ...storyPage("Aren Reed", "The Reed family rack", "Toma Reed", [
+                "Here. Aren Reed. My brother. Go on. Read it. Nothing is missing, that's what I need you to understand first.",
+                "Born in ash-house row. Apprenticed at the joiner's bench. Quiet. Dutiful. It even has his smile right.",
+                "My mother remembers him exactly like this page. Quiet. Dutiful. Happy at the bench. That is the worst part.",
+                "Because I knew him, friend. He was the loudest argument in any room. There is a whole person missing between these lines, and I am the only one who..."
+            ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp" },
+            { ...storyPage("The Archive Wakes", "The stacks, lamp guttering", "Narrator", [
+                "The racks creak. Not the creak of settling wood. The creak of something turning over in its sleep.",
+                "Down the aisle, slats begin sliding back into place. The ones you pulled. The ones you touched. Gently, tidily, like a librarian with no face.",
+                "It has noticed the lamp. It has noticed you. The Archive Spirit keeps every record in this room, including its wounds, and you have been picking at the stitches."
+            ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp" },
+            { ...storyPage("The Keeper of Copies", "The archive aisle, roots sliding from the walls", "Toma Reed", [
+                "Bag. Bag. Where's my... okay. Okay. That is the archive's keeper and it is very old and we are very much not supposed to be here.",
+                "It won't chase us past the door. I think. I've never tested it. I mend its shelves, it lets me in, we had an arrangement, and you PULLED things.",
+                "Whatever happens, the slats don't leave this room. If we take them, the survey knows by noon.",
+                "Your call, friend. It's reaching."
             ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp" },
         ], [
-            { text: "Copy the nine erased names while the Spirit advances.", conclusion: "Ink smears under your speed, but all nine names hold legible. The Spirit turns toward the wet page before it turns toward you.", trait: "suspicious" },
-            { text: "Burn the falsified shelf and let the record die honest.", conclusion: "Thirty-one scrolls of curated history catch at once. The Spirit stops pretending to be slow.", trait: "reckless" },
-            { text: "Declare the pattern for the record, Kage's name and all.", conclusion: "Toma flinches at the Kage's name said plainly, indoors, on record. The Spirit does not flinch. It reclassifies you, and comes on.", trait: "honorable" },
+            { text: "Copy Aren's page by lamplight while it comes.", conclusion: "Your hand is steady and your letters are ugly and complete. The Spirit takes the slat back from under your quill with terrible patience, and the copy in your sleeve is yours.", trait: "suspicious" },
+            { text: "Hold the keeper off Toma. He copies faster.", conclusion: "It hits like a falling shelf. Toma scribbles and swears and scribbles. When you finally go down on one knee he's done, and he drags you out by the collar, both of you laughing wrong.", trait: "reckless" },
+            { text: "Set the slat down and greet the Spirit as kin.", conclusion: "It stops one root-length away. Something in the faceless wood reads you the way the cedar wall did, and finds the same impossible thing. It lets you both walk to the door. It keeps the slat.", trait: "honorable" },
         ]),
-        milestone("Ashen Leaf Village", 35, "The First Flame Chamber", "First Flame Sentinel", "🌿", [
-            { ...storyPage("Sixty Steps", "A root stair under the oldest tree", "Narrator", [
-                "The stair is not hidden. A door under the oldest tree, and pinned to it a tending rota in a clerk's hand, current through next month.",
-                "Sixty steps down, the air stops smelling of cedar and starts smelling of nothing at all.",
-                "Green light comes up the stairwell like water finding a level.",
-                "Toma counts the steps under his breath. He stops at forty."
+        milestone("Ashen Leaf Village", 35, "The Rootfire Chamber", "First Flame Sentinel", "🌿", [
+            { ...storyPage("The Kiln Stair", "Beneath the ancestral kiln, heat rising", "Elder Mori", [
+                "Stay on the stair. The floor down here is older than the village and it knows more games than I do.",
+                "You have earned a look. That is my judgment and I will answer for it. The survey answers to me this week, which is a sentence I plan to enjoy.",
+                "Below the kiln is the Rootfire. The founders lit it. Everything you have ever admired about Ashen Leaf is warm because of what I am about to show you.",
+                "Gloves on. Questions after. Grief, if you have any, on your own time."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp" },
-            { ...storyPage("The Offering Chamber", "The chamber of the First Flame", "Elder Mori", [
-                "There it is. You may stare. Everyone does, and the Flame has never minded an audience.",
-                "It was an offering chamber in the founding years. The dying and the spent came down on their own feet and gave what was left. The village wintered on it.",
-                "Willingness was the whole of the rite. That word has fallen out of the paperwork, and I can date, roughly, the year it fell.",
-                "I brought you because I no longer trust myself to be the only one who has seen it. An old man alone revises his memories to keep warm."
+            { ...storyPage("The Founders' Alcove", "A carved alcove, offerings behind wax", "Narrator", [
+                "The alcove is small and heartbreakingly neat. Wooden tokens, each carved by hand: a ship someone never sailed, a house never raised, a ring never given.",
+                "Each one is signed. Big, careful signatures, the kind you write when the writing is the last of it.",
+                "'My green years, given gladly.' The same phrase, forty times, in forty hands."
+            ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
+                { text: "Read a founder's token aloud.", nextPage: 2 },
+                { text: "Ask Mori what 'green years' bought.", nextPage: 3 },
+                { text: "Whisper to Toma: is this what Aren wrote about?", nextPage: 4, requireTrait: "toma-hope" }
+            ] },
+            { ...storyPage("Given Gladly", "The alcove", "Elder Mori", [
+                "'I, Osu of the mill line, give the roads I will not walk and the sons I will not meet. Gladly. Keep the children warm.'",
+                "You read it well. Most people's voices fail on 'gladly.'",
+                "That token bought the east wall, more or less. Osu died at ninety, unmarried, beloved, and by every account never once regretted it. That is what this place was.",
+                "Was. Now walk twenty steps left and see what it is."
+            ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
+                { text: "Walk to the racks.", nextPage: 5 }
+            ] },
+            { ...storyPage("The Arithmetic", "The alcove", "Elder Mori", [
+                "Walls that do not crack. Harvests that do not fail. Medicine that works past reason. The ash in our mortar is not a poem, child. It is load-bearing.",
+                "A future, freely given, burns steady for a generation. The founders knew the cost and paid it themselves. Themselves. Mark that word.",
+                "I was proud of this room for thirty years.",
+                "Twenty steps left. Then be proud, if you can manage it."
+            ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
+                { text: "Walk to the racks.", nextPage: 5 }
+            ] },
+            { ...storyPage("Aren's Map", "The alcove, out of Mori's hearing", "Toma Reed", [
+                "Yes. This room. His letter says 'the fire under the kiln is fed twice.' I thought it was a figure of speech.",
+                "Fed twice. The alcove is the first feeding. Look at Mori's face and tell me there isn't a second.",
+                "He drew a little map on the back of the letter. Stairs, alcove, and then racks, with a word underneath I couldn't read because his hand was shaking again.",
+                "I can read it now. It says 'stamped.'"
+            ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
+                { text: "Walk to the racks.", nextPage: 5 }
+            ] },
+            { ...storyPage("The Second Feeding", "Iron racks, fresh graft-slats in rows", "Narrator", [
+                "Twenty steps left, the carving stops and the iron starts. Racks, floor to ceiling, loaded with pale graft-slats.",
+                "No signatures. Each slat carries a stamp: a household mark, a season, and a small tidy character that means 'approved.'",
+                "The nearest slat still smells of sap. Someone's future was cut this week, and the fire is drawing on it as you watch, and the fire is very, very warm."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp" },
-            { ...storyPage("Queue Lines", "Closer to the fire", "Toma Reed", [
-                "Stand still a second. Feel that? Heat goes out. This goes in.",
-                "Three things. No smoke. No fuel. And the floor slopes toward it, worn smooth in lanes. Queue lines. People walked in orderly.",
-                "Somebody has been feeding it on schedule. The rota upstairs goes back years. I want to know what the deliveries were.",
-                "Sorry. I already know. I just wanted to be wrong out loud first."
+            { ...storyPage("The First Flame Sentinel", "The threshold, an armored shape kindling", "Elder Mori", [
+                "Steady. Do not draw. That is the Sentinel, and it is the only honest thing left in this room.",
+                "The founders built it to guard their gift from thieves. It has stood that post four hundred years. It still checks everyone against one question: did you give, or did you take?",
+                "It lets the survey crews pass. They carry permits, and it is old, and permits smell enough like consent to confuse it. I hate watching that.",
+                "It will not be confused about us. I brought no permit. On purpose, I think. I am seventy years old and tired of smelling like consent."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
-                { text: "Tell him the shed plate never comes below this floor.", nextPage: 3, requireTrait: "toma-hope" },
-                { text: "Walk the queue lane to the mouth.", nextPage: 4 }
+                { text: "Face the Sentinel.", nextPage: 7 }
             ] },
-            { ...storyPage("Above Ground", "Away from the lanes, under the roar", "Toma Reed", [
-                "You still carry it. I didn't ask where. Don't tell me where.",
-                "My grandmother used to say the fire is a door that only opens inward. I thought she was being poetic. She was a joiner. She measured doors.",
-                "Promise me the plate stays where the sun can find it. That's the whole prayer I've got left.",
-                "Look at the lanes. Everyone who walked them was somebody's plate once.",
-                "Okay. Count the steps with me on the way back up. It helps."
-            ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
-                { text: "Face the fire", nextPage: 5 }
-            ] },
-            { ...storyPage("The Mouth", "The lane's last stretch, stone gone glassy", "Narrator", [
-                "The lane narrows as it goes, the way queues do when they stop being voluntary.",
-                "Near the mouth, the floor is inlaid. Names, packed edge to edge, spiraling inward. The oldest are worn to shine. The newest still hold their corners.",
-                "The innermost ring is empty. Room for more.",
-                "The heat never reaches your skin. Your own pulse does, arriving hard, as if asked for.",
-                "Toma calls your name twice before you hear it."
-            ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
-                { text: "Step back from the mouth", nextPage: 5 }
-            ] },
-            { ...storyPage("The Mouth's Guard", "The fire stands up", "First Flame Avatar", [
-                "The Flame keeps the given. That is the whole of its law.",
-                "It kept the willing for two hundred years. Then it was brought the unwilling, and it kept them too, because keeping is all it knows.",
-                "The Sentinel guards the mouth. It does not ask how a gift arrived. No one has ever taught it the difference.",
-                "You are standing in the lane where the gifts walk. Prove you are not one."
+            { ...storyPage("Did You Give, Or Did You Take", "The threshold, the Rootfire at your back", "Narrator", [
+                "The Sentinel's visor opens on old fire. It looks at Mori and grieves. It looks at Toma and softens. It looks at you and stops.",
+                "Whatever it checks people against, you come back 'pending.' Its blade arm wakes with a sound like a kiln door.",
+                "It is not wrong to guard this place. That is the terrible part. Everyone who came down here this year deserved to be stopped."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp" },
         ], [
-            { text: "Smother a rank of the Flame and see what it uncovers.", conclusion: "Where the fire dies back, the name spiral shows deeper, rows packed tighter than the lanes above. The Sentinel is already moving.", trait: "reckless" },
-            { text: "Find the delivery ledger by the mouth before it reaches you.", conclusion: "The ledger stand by the mouth is empty, its dust ring fresh. Somebody cleared it for your visit, and the Sentinel steps between you and the question.", trait: "suspicious" },
-            { text: "Put the Sentinel down and seal the chamber behind you.", conclusion: "Toma is already stacking rota papers against the door for kindling. The Sentinel comes out of the mouth like a man defending his house.", trait: "honorable" },
+            { text: "Douse the nearest rack line and see what wakes.", conclusion: "Steam screams up the flue and half the chamber's warmth dies at once. Far above, faint through stone, you hear the village notice. The Sentinel moves, and for one strange moment it seems to approve of you.", trait: "reckless" },
+            { text: "Count the stamps. Every household. Every season.", conclusion: "You get to forty one households before the Sentinel closes the distance. Forty one, this season alone. Mori watches you counting and ages a year for every rack.", trait: "suspicious" },
+            { text: "Demand Mori name who signs the permits.", conclusion: "'One hand,' he says, not looking away from the fire. 'The same hand for thirty years.' The Sentinel hears the answer too, and its grief turns to something with edges.", trait: "honorable" },
         ]),
         milestone("Ashen Leaf Village", 50, "The Branch That Rises", "Jonin Trial: Rootbound Master", "🌿", [
-            { ...storyPage("Summons", "Kage hall, incense already lit", "Elder Mori", [
-                "A promotion, and you did not apply. Savor how that feels. It will feel different shortly.",
-                "The rank is real. The trial is real. The Rootbound Master has broken candidates I would have sworn were oak.",
-                "It is the oath after the trial you should read twice. There is a clause about the register. There is always a clause about the register."
-            ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
-                { text: "Ask who put your name forward.", nextPage: 1 },
-                { text: "Ask what line nine cost him, forty years ago.", nextPage: 2 }
-            ] },
-            { ...storyPage("Grown, Not Picked", "The hall doors, out of the ushers' hearing", "Elder Mori", [
-                "That is the correct question, and I dislike the answer. The nomination came from the Kage's office. Directly. No sponsoring jonin, no committee.",
-                "Candidates are grown here. Grown things get pruned, weighed, filed. They are not picked out of the air.",
-                "She has read something about you she likes. I have spent a week failing to learn what.",
-                "Mind the step at the dais. It is higher than it looks. Most things in this hall are."
-            ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
-                { text: "Find Toma in the antechamber", nextPage: 3 }
-            ] },
-            { ...storyPage("Mori's Signature", "An alcove off the hall, incense thinner", "Elder Mori", [
-                "Direct. Good. Very well.",
-                "I swore line nine in this room. The incense was sandalwood then. Within a year I found my first misfiled name and reshelved it without reading it twice.",
-                "That is what the clause buys. Not silence. A man who tidies. Silence at least knows it is lying.",
-                "I reshelved for a decade before I started counting instead. Counting is the only oath I have kept.",
-                "On the left tonight, when you look for me. With the other relics."
-            ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
-                { text: "Find Toma in the antechamber", nextPage: 3 }
-            ] },
-            { ...storyPage("Line Nine", "An antechamber, the oath scroll on a stand", "Toma Reed", [
-                "I copied the jonin oath while you were being measured for the sash. The clerks let me. Nobody watches the earnest ones.",
-                "Line nine. You swear the register is whole and true, and to defend its wholeness. Whole. True. In the same breath as your blood and your blade.",
-                "Everyone before you swore it. Every jonin in that hall has already sworn the wall is honest.",
-                "She wants you sworn too. I think... sorry. I think a jonin who swore is worth more to her than a chunin who counts."
+            { ...storyPage("The Measuring", "The graft hall, ribbons and calipers", "Registry Duty Clerk", [
+                "Arm out. Other arm. Chin level, eyes on the wall mark. This is the pleasant part, enjoy it.",
+                "Height, reach, span of hand. The tailors want it for the Jonin grays and the Register wants it for the record and I want my lunch, so hold still.",
+                "You are the black-flower signing, yes? The whole hall knows. Do not let it swell your head. Flowers wilt. Paper keeps.",
+                "There. Measured like a cutting. Rite's at the bell. Do not be late, the Kage herself is attending, and SHE is never measured."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp" },
-            { ...storyPage("We Keep", "The dais, the Kage in dark green", "Kage Hoshina Enju", [
-                "Approach. We are told you serve this village with more attention than comfort. Good. Comfort is what the dead buy for us. Attention is the interest we owe.",
-                "The oath is old. We did not write it; we only keep it. You will find that keeping is the whole of the office.",
-                "Swear, and rise a branch of this tree. The dead hold the walls, and the living hold the dead. That is the entire arrangement."
+            { ...storyPage("Before the Bell", "The hall steps, Toma pacing", "Toma Reed", [
+                "Jonin. My friend, the Jonin. I'd be prouder if I weren't sick.",
+                "You know what they call the rite in the old records? The grafting. They stopped calling it that out loud around when they stopped asking permission.",
+                "There's a clause in the oath. Everyone mumbles through it like a hymn they hate. Listen for it. 'I will grow where the tree permits.'",
+                "Say whatever keeps you alive in there. Just... know what you're saying. That's all. Aren took this oath too."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
-                { text: "Ask her about the name you restored. Isa Renn.", nextPage: 5, requireTrait: "rd44-restored-isa-renn" },
-                { text: "Ask what line nine keeps whole.", nextPage: 6 },
-                { text: "Take the sash in silence.", nextPage: 7 }
+                { text: "Answer the bell.", nextPage: 2 }
             ] },
-            { ...storyPage("New Mortar", "The dais, the hall listening", "Kage Hoshina Enju", [
-                "Isa Renn. She crossed forty enemies over tested ice and corrected the record standing. We say her name on the ninth of Thaw. She hears us.",
-                "The restoration reached our desk unsigned. We countersigned it within the hour and asked the registrar nothing. We knew the hand. We had been watching it.",
-                "Understand what you did. A restored name grieves twice. Once for the loss, once for the years of silence. The register received both. It was a generous gift.",
-                "You gave without being asked. That is the oldest rite we have. Swear, and we will teach you what it feeds."
+            { ...storyPage("The Grafting", "The rite circle, Hoshina presiding", "Kage Hoshina Enju", [
+                "Approach. So. The signing that made my Register bloom.",
+                "We are glad of you. Understand that first. Every Kage prays for strong branches, and you are the strongest cutting this hall has taken in a generation.",
+                "The oath is old and short. Service. Secrecy where the village requires it. And the third line, which the young mumble and the old mean.",
+                "Say it with me, or say what you have brought instead. I find the substitutions far more instructive."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
-                { text: "Take the sash", nextPage: 7 }
+                { text: "Swear it plainly, every word.", nextPage: 3 },
+                { text: "Ask what happens to branches that grow past permission.", nextPage: 4 },
+                { text: "Say the oath, but change the third line.", nextPage: 5 }
             ] },
-            { ...storyPage("What Line Nine Keeps", "The dais, incense climbing", "Kage Hoshina Enju", [
-                "A fair question, asked in the wrong room. We will answer it anyway. The hall may make of that what it likes.",
-                "Line nine does not protect the wall from lies. It protects the living from the dead. Grief unfenced would empty this village in a generation.",
-                "Our predecessor swore it to her predecessor. The dead who wrote it are in the mortar of this hall. They are listening to you decide.",
-                "The incense is burning down. It keeps better time than we do."
+            { ...storyPage("Word for Word", "The rite circle", "Kage Hoshina Enju", [
+                "'I will grow where the tree permits.' Clean. Unhesitating.",
+                "Do you know, most flinch on 'permits.' You did not. Either you meant it, or you have decided meaning it is a costume. Both are useful to me.",
+                "Rise, Jonin of Ashen Leaf. The tree is glad of you.",
+                "And child. The tree is always watching where you grow. That is not a threat. It is gardening."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
-                { text: "Take the sash", nextPage: 7 }
+                { text: "Rise as Jonin.", nextPage: 6 }
             ] },
-            { ...storyPage("The Sash", "Below the dais, the trial doors open", "Narrator", [
-                "The sash is heavier than cloth has any business being. Somebody has sewn cedar plates along the inner seam.",
-                "On the left, Mori studies the incense as if it had misfiled something.",
-                "Toma stands where the clerks stand, holding his copied oath like it might need to testify.",
-                "Below the hall, down a stair nobody points to, the Rootbound Master is waiting. The doors do not creak. They are maintained."
+            { ...storyPage("The Question", "The rite circle, the hall holding its breath", "Kage Hoshina Enju", [
+                "There it is. Forty years since anyone asked that at the rite itself. The last one is on my Register wall. Short line. Lovely ink.",
+                "You ask what happens to branches that grow past permission. In an orchard? The keeper decides. Fruit, or firewood.",
+                "I am the keeper, child. I decide with more grief than you will ever be asked to carry, and I have been right often enough to sleep at night.",
+                "Take the oath. Grow splendidly. And pray you never teach me that you were the question I should have answered differently."
+            ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
+                { text: "Take the oath and rise.", nextPage: 6 }
+            ] },
+            { ...storyPage("The Substitution", "The rite circle", "Kage Hoshina Enju", [
+                "'I will grow where the village needs me.' Hm. The village. Not the tree.",
+                "Half this hall thinks those are the same word. You and I know better, which makes your version either devotion or declaration. I genuinely cannot tell.",
+                "I will accept it. Recorded as spoken. Clerk, exactly as spoken.",
+                "Rise, Jonin. And do keep growing where I can see you. I extend that courtesy to very few."
+            ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
+                { text: "Rise as Jonin.", nextPage: 6 }
+            ] },
+            { ...storyPage("The Trial of the Rootbound Master", "The rite circle, floor roots parting", "Narrator", [
+                "The floor opens on old root-steps. Rank in Ashen Leaf is not granted. It is tested, in the dark, against the Rootbound Master: the grafted champion of the last generation.",
+                "Hoshina watches from the rim with her hands folded, the way keepers watch weather.",
+                "Somewhere in the hall Toma is mouthing 'you said WHAT' and holding both thumbs up anyway."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp" },
         ], [
-            { text: "Swear it flat and even. Keep your counting to yourself.", conclusion: "Line nine goes past your teeth without catching. The sash settles wrong anyway, cut for somebody your size but not your shape.", trait: "suspicious" },
-            { text: "Swear, then ask her before the hall what she expects for it.", conclusion: "She answers without pausing. Everything we keep, kept. The hall takes it for liturgy; she holds your eye one beat too long for liturgy.", trait: "honorable" },
-            { text: "Refuse line nine until the nine missing scrolls are answered for.", conclusion: "The incense burns on through the quiet you have made. Hoshina signals the trial anyway, which tells you the sash was never the point.", trait: "reckless" },
+            { text: "Fight measured. Give the hall nothing to record.", conclusion: "You win the way clerks write: neat, spare, no flourish for the survey to file. Hoshina's mouth tilts. 'Restraint,' she tells the hall, 'grafts well.' You wish she hadn't.", trait: "suspicious" },
+            { text: "Fight as yourself, whatever it shows them.", conclusion: "It is loud and yours and the old Master laughs once, mid-bout, like he remembers being alive. When you rise the hall is cheering and the Register bloom glows through the floor above.", trait: "honorable" },
+            { text: "Break the Master's stance and end it fast.", conclusion: "Three moves. The hall gasps at the speed and misses what you saw: the Master's relief. Grafted champions do not retire. Now the village will need a new one, and every eye finds you.", trait: "reckless" },
         ]),
         milestone("Ashen Leaf Village", 65, "The Mission of Quiet Ash", "Rootbound Retrieval Squad", "🌿", [
-            { ...storyPage("Crate Two", "Outer grove, relic crates half buried", "Toma Reed", [
-                "I stole them. I want that on the table before you decide anything. Forty-four name plates, out of the destruction queue.",
-                "Aren is in here. Crate two. I have not opened crate two.",
-                "They were scheduled to burn because they are proof. Every plate is a person the wall says never lived. Plates disagree, and plates cannot testify. So they burn.",
-                "Sorry. That is everything. Now you can decide."
+            { ...storyPage("Escort Orders", "The register annex, crates on a wagon", "Registry Duty Clerk", [
+                "Jonin. Good. Escort assignment: six crates, seasoned offerings, annex to kiln, before the frost. Signed by the Kage's own office.",
+                "Contents are sealed and blessed. That means no opening, no sniffing, no 'it fell.' The last escort had opinions and now he weeds terraces.",
+                "You come recommended, if it matters. Mori cleared you for sealed work himself.",
+                "Take the Reed boy. He is on my list for a route and frankly I want him where somebody patient can see him."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
-                { text: "Open crate two. Together. Now.", nextPage: 1 },
-                { text: "Ask about the funeral favor he is owed.", nextPage: 2 }
+                { text: "Sign for the crates and move out.", nextPage: 3 },
+                { text: "Ask why offerings need a Jonin escort.", nextPage: 1 },
+                { text: "You read Mori's working charts. Ask which households.", nextPage: 2, requireTrait: "al58-took-the-knowledge" }
             ] },
-            { ...storyPage("Aren Reed", "Crate two, lid raised", "Toma Reed", [
-                "Okay. The nails first. My grandmother would have... hand me the flat iron.",
-                "There. Third from the top. Aren Reed.",
-                "I practiced this part. Being calm. The lid was the whole rehearsal, and it's just cedar, it's just a board with his...",
-                "He notched it himself at his trials. We all do. His slipped, and he laughed about it for a week. The notch is still crooked.",
-                "Close it. Please. I can carry it now. Before tonight I couldn't have."
+            { ...storyPage("A Fair Question", "The annex", "Registry Duty Clerk", [
+                "Because last month a crate went missing between here and the kiln, and the month before, two.",
+                "Somebody in this village is stealing blessings. That is the official wording, and I keep my lunch by using official wordings.",
+                "You want my unofficial wording? Somebody in this village is a thief with excellent taste in what to steal, and half of us pack the crates slowly, and you did not hear that.",
+                "Sign. Frost won't wait on either wording."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
-                { text: "Watch the treeline with Mori", nextPage: 3 }
+                { text: "Sign and move out.", nextPage: 3 }
             ] },
-            { ...storyPage("The Favor", "The grove, light going copper", "Toma Reed", [
-                "Sarn. Second wing. Two winters ago his mother's rite clashed with a muster inspection, and inspections outrank grief. Officially.",
-                "I moved the muster. Forged nothing, just... walked the request through four offices in one afternoon. Nobody walks. That's the trick. Everyone sends paper.",
-                "He said if I ever needed a slow squad, he owed me one. He meant it as a joke.",
-                "Tonight I find out how slow. Don't count on it. But count it."
+            { ...storyPage("The Charts", "The annex, voice low", "Registry Duty Clerk", [
+                "You HAVE read the charts. Mori's ink is on you. Fine. Lean in.",
+                "Crate two is the mill line. Crate three is the weaver who petitioned for a school. Crates five and six came out of the detention rows, and I packed neither, because I was suddenly very needed elsewhere.",
+                "I file. I do not choose. Some mornings that sentence holds my whole roof up.",
+                "Sign, Jonin. And walk slow past the mill."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
-                { text: "Watch the treeline with Mori", nextPage: 3 }
+                { text: "Sign and move out.", nextPage: 3 }
             ] },
-            { ...storyPage("Precision by Omission", "The grove, wind turning, dusk coming", "Elder Mori", [
-                "The order sheet says stolen ritual property, recovery by force if refused. It does not say what the property is. Precision by omission. The oldest tool in the annex.",
-                "The squad believes it. Belief is cheap when the paperwork is tidy, and I have spent a career making paperwork tidy, so attribute the observation.",
-                "If they take the crates, the names burn uncontested. Uncontested is the only way the fire profits. You have heard the arithmetic called mercy. Tonight you may audit it.",
-                "Whatever you choose, choose before the light goes. Retrieval squads prefer the dark. Fewer witnesses to retrieve."
+            { ...storyPage("The Kiln Road", "The forest road, wagon wheels loud", "Toma Reed", [
+                "Sealed and blessed. Blessed and sealed. You know what my brother would have done by now.",
+                "The third crate rattles wrong. Offerings are ash and slats. Ash doesn't rattle. Slats don't roll.",
+                "I'm going to say a sentence, and you're going to be my Jonin or my friend, and I need to know which before I say it.",
+                "There's a pry bar under the seat."
+            ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
+                { text: "Pull the wagon off the road. Open it.", nextPage: 5 },
+                { text: "Keep rolling. Answer him as his Jonin.", nextPage: 4 }
+            ] },
+            { ...storyPage("As Your Jonin", "The wagon, still rolling", "Toma Reed", [
+                "Right. Sealed. Of course. Forget I...",
+                "It rattled again. That was a WHEEL, a little wooden wheel, I built toys with Aren, I know a toy wheel on floorboards when I...",
+                "Stop the wagon. As my Jonin, stop the wagon, and I will take every weed rotation from here to the thaw, but if you make me deliver a child's toy to that fire sealed inside a crate I will not come back from it. Please."
+            ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
+                { text: "Pull off the road.", nextPage: 5 }
+            ] },
+            { ...storyPage("The Third Crate", "Off the road, crate open", "Narrator", [
+                "Not ash. Not slats.",
+                "A water-screw model with a cracked vane. A bundle of letters tied in weaver's thread. Seed jars labeled in a child's hand. A walking loom, half-folded, still trying quietly to walk.",
+                "A whole crate of what people were becoming, packed in straw, stamped 'approved,' and addressed to a fire.",
+                "Toma does not say anything. He picks up the little loom and holds it the way you hold a bird."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp" },
-            { ...storyPage("The Standard Offer", "Lantern signals in the trees", "Narrator", [
-                "The squad comes proper. Three wings, low lanterns, blades still wrapped. Procedure, done kindly.",
-                "Their captain calls the standard offer in a bored voice. Return the property, and no names go in the report.",
-                "No names in the report. Toma laughs once, wrong, like a hiccup.",
-                "The crates sit between you, lids fast, dusk settling into the grain."
-            ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
-                { text: "Call in Harrow's favor. In writing, no expiry.", nextPage: 5, requireTrait: "rd48-favor-on-the-books" },
-                { text: "Ask the captain what the property is.", nextPage: 6 }
-            ] },
-            { ...storyPage("One Line, Crossed Out", "A fourth lantern, unhurried, off the road", "Kite Harrow", [
-                "Don't everybody reach for steel. I'm expensive to stab.",
-                "You rang? A ledger line walks both ways. I was two sectors over, and favors accrue interest I'd rather not pay.",
-                "Terms. I freight your crates through Central bond tonight. Village writs stop at the bond gate. Squads too. Even polite ones.",
-                "The fee is the line itself. Crossed out, witnessed, done. Cheapest thing I've sold all year, and it still stings.",
-                "Load fast. The captain is recalculating his evening, and I don't insure against arithmetic."
-            ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
-                { text: "Load the crates", nextPage: 7 }
-            ] },
-            { ...storyPage("The Captain's Sheet", "The rope of lantern light, holding", "Narrator", [
-                "The question crosses the grove and lands. The captain looks at his order sheet, front, then back. The back is blank.",
-                "He says ritual property, but slower this time, listening to himself say it.",
-                "In the second wing a lantern dips. Somebody's arm has gotten tired, or somebody's certainty.",
-                "The captain folds the sheet away and does not call the offer again. Procedure has run out of lines."
-            ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
-                { text: "Stand with the crates", nextPage: 7 }
-            ] },
-            { ...storyPage("Wrapped Blades", "The grove, full dark arriving", "Narrator", [
-                "The wind turns, carrying woodsmoke from the village. Ordinary smoke. Supper fires.",
-                "Toma sets his hand flat on crate two, once, the way you touch a shoulder.",
-                "Mori steps back into the treeline shadow, unhurried, a man finding his seat before the record starts.",
-                "The lanterns spread into a slow half circle. Nobody has unwrapped a blade yet."
+            { ...storyPage("The Retrieval Squad", "The road behind, lanterns through the trees", "Toma Reed", [
+                "Lanterns. Kiln side. That's a Rootbound Retrieval Squad, they sweep the route when a shipment stalls.",
+                "So. My Jonin, my friend. Six crates of stolen futures, one wagon, one fire that wants them, one squad that fetches, and us.",
+                "Whatever we do, the manifest under the seat is the only paper that ties these stamps to the Kage's office. Remember that when you're choosing.",
+                "Choose fast."
+            ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp" },
+            { ...storyPage("Lantern Light", "The kiln road, squad closing", "Narrator", [
+                "The lanterns spread out the way trained squads spread, unhurried, certain of the arithmetic.",
+                "The little loom folds itself flat in Toma's hands, playing dead. Somewhere in crate five, paper shifts, like letters turning over in their sleep.",
+                "Frost is coming. The fire is warm. Everyone in this forest is somebody's future, one way or the other."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp" },
         ], [
-            { text: "Guard the crates. Drop the squad without drawing blood.", conclusion: "Wrapped blades stay wrapped, which is a language squads understand. Their captain sighs like a man asked to work in the rain, and signals the advance.", trait: "merciful" },
-            { text: "Bury the crates and let the squad find you instead.", conclusion: "Fresh earth under old needles, and Toma memorizes the bearing twice. When the lanterns arrive, there is nothing behind you, which makes you the only evidence.", trait: "suspicious" },
-            { text: "Send the crates away with Toma and hold the grove alone.", conclusion: "He argues for exactly three seconds, then takes the handles. The last you see of crate two is his knuckles white on it, and then the lanterns are on you.", trait: "loyal" },
+            { text: "Scatter the crates into the dark. Burn the manifest wagon.", conclusion: "Futures vanish into the treeline in twelve directions, unrecoverable, unfileable, free. The wagon burns merrily, and with it the only proof of whose stamp sent them. Toma laughs and grieves in the same breath.", trait: "merciful" },
+            { text: "Hide two crates. Let the squad recover the rest, and the manifest.", conclusion: "The squad finds a stalled wagon, a flustered escort, and four crates of six. You keep Aren's kind of cargo and the manifest both. Two crates ride on toward the fire, rattling softly, and you make yourself listen.", trait: "suspicious" },
+            { text: "Send Toma into the dark with crate three. Face the squad alone.", conclusion: "He runs with the loom and the letters and doesn't look back, because you told him not to. The lanterns ring you in. Their captain checks your seal against a list, slowly, and asks where your partner went.", trait: "loyal" },
         ]),
         milestone("Ashen Leaf Village", 75, "The Ancestors Speak", "Ancestor-Bound Flame Beast", "🌿", [
-            { ...storyPage("The Wall Annotates Itself", "Old archive at night, west wall alight", "Elder Mori", [
-                "Come and look before it decides to stop. The west wall is annotating itself.",
-                "Every name that went to the fire willing burns steady. See the founding rows. Even light, no flicker. Content, if light can be content.",
-                "And there. The gaps. The erased lines glow at the edges, like a page held over a candle. The archive has noticed what it is missing.",
-                "Forty years I kept this room. It never once corrected me. I find I am moved, and at my age that is a medical concern."
+            { ...storyPage("Ash on the Wind", "The kiln yard at dusk, ash falling upward", "Elder Mori", [
+                "It began at noon. The Rootfire breathing wrong. Then every offering token in the founders' alcove turned face-down on its own.",
+                "The survey wants an exorcist. The Kage wants it quiet. I want the one person the roots keep mistaking for family. That is you, in case the ash is confusing.",
+                "Something old is climbing the flue, and it is wearing the founders' fire.",
+                "Toma is already down there. He would not wait. He said, and I quote, 'they knew Aren.'"
             ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp", choices: [
-                { text: "Ask which light is his family's.", nextPage: 1 },
-                { text: "Ask why the wall chose tonight.", nextPage: 2 }
+                { text: "Go down to the fire.", nextPage: 1 }
             ] },
-            { ...storyPage("Third Row, Fourth Plate", "The west wall, lamp lowered", "Elder Mori", [
-                "Third row from the sill. Fourth plate. Moris, going back to the founding. Steady, all of them. We die orderly. It is our one family talent.",
-                "And two shelves up, edge glow. Ilen Voss. I signed the finding against him early in my keeping. Sedition, the paper said. The paper was mine.",
-                "His light has been waiting at the edges since the wall woke. I have stood here an hour. It does not blink.",
-                "Do not comfort me. Hand me the lamp oil. The wall should see this whole room tonight."
+            { ...storyPage("The First Flame", "The Rootfire chamber, flames standing upright", "First Flame Avatar", [
+                "Little branch. Stand where we can warm you. We are trying very hard to be gentle, and gentleness was never fire's gift.",
+                "We are the given years. The gladly given. We built the walls you were born behind, and we were glad, and we are glad still.",
+                "But something has been feeding us the OTHER kind. Year upon year. Futures with the stems torn, still crying out for their people.",
+                "We do not digest theft, child. We hoard it. Four hundred seasons of stolen mornings are packed into this fire, and we cannot hold the door much longer."
             ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp", choices: [
-                { text: "Join Toma at the plates", nextPage: 3 }
+                { text: "Ask what the fire wants from you.", nextPage: 2 },
+                { text: "You copied the ghost-lines in the Reed kitchen. Show them.", nextPage: 3, requireTrait: "al42-filed-a-report" }
             ] },
-            { ...storyPage("What Crossed the Threshold", "The archive doors, bolted from inside", "Elder Mori", [
-                "Because forty-four plates crossed that threshold at dusk. The wall counts what enters. It has been brightening since, oldest rows first, like a roll call finding its order.",
-                "The archive is not haunted. I want that understood. Haunting is aimless. This is filing.",
-                "Whatever wakes when stolen names come home, it is older than my keys. Stand nearer the lamps anyway."
+            { ...storyPage("The Ask", "The chamber, tokens rising in the heat", "First Flame Avatar", [
+                "Not vengeance. We are dead, and the dead make poor executioners and worse judges.",
+                "A witness. One living voice that can stand before the village and say: the founders gave, and the keepers took, and these are not the same fire.",
+                "You. The one the cedar cannot read. You can carry a truth without the roots pruning it out of you on the stairs. Do you understand how rare that makes your shoulders?",
+                "But first. Our grief has a body. We chained it ourselves, to keep it off the village. The keeper woman uses it now, as a bellows. Free it or end it, but do not leave it HERS."
             ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp", choices: [
-                { text: "Join Toma at the plates", nextPage: 3 }
+                { text: "Follow the chain.", nextPage: 4 }
             ] },
-            { ...storyPage("Reading Aloud", "West wall, the recovered plates unwrapped", "Toma Reed", [
-                "The founders answer when you read them. Watch. Isu Reed, joiner. See the light lean?",
-                "They chose it. Every steady light on this wall walked down those stairs to buy the village a winter. The stolen ones do not answer. They wait.",
-                "I am going to read all forty-four. Out loud, into the wall, and the wall can do what it likes with the difference.",
-                "Aren Reed. Filed his complaint through the right office."
+            { ...storyPage("The Ghost Lines", "The chamber, your copied page held up", "First Flame Avatar", [
+                "Hold it higher. Yes. A wall of tools nobody remembers owning, drawn in a living hand.",
+                "You wrote the dead's own testimony without knowing it. The boy those tools belonged to is IN us, child. The stolen part of him. He remembers arguing.",
+                "He asks us to tell his brother: the bench was never the whole of him. Tell him about the ink.",
+                "We would weep, but everything we are is fire. Go to the chain. What waits there is our grief with the manners burned off, and it deserves better than the use it has been put to."
             ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp", choices: [
-                { text: "Read your own claimed name into the wall.", nextPage: 4, requireTrait: "al70-claimed-the-name" },
-                { text: "Take half the plates and read beside him.", nextPage: 5 }
+                { text: "Follow the chain.", nextPage: 4 }
             ] },
-            { ...storyPage("A Living Entry", "The wall's newest quarter, lights turning", "Narrator", [
-                "You say the name you claimed at the dais. The one the whole village knows now. It goes into the wall like a coin into deep water.",
-                "The nearest lights lean, all together, the way the founders lean for Toma. Then they hold. A living name, answered.",
-                "Toma has stopped reading. Mori polishes his lamp glass twice, which is what he does instead of gasping.",
-                "Behind the mortar a space opens, exactly your shape, and stays open. The wall is patient. It has your spelling now.",
-                "The lamp needs trimming. Nobody trims it."
-            ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp", choices: [
-                { text: "The wall answers", nextPage: 6 }
-            ] },
-            { ...storyPage("The Forty-Four", "Plates passing hand to hand", "Toma Reed", [
-                "Serra Whitlow, potter. Ren Ammas, gate runner. His plate still smells of the queue hall. Slowly, now. The wall has waited years. It can wait for diction.",
-                "Halfway through, the edge glow starts reaching for the plates before we say them. It knows what it's missing. It's checking our order.",
-                "Your turn. Read. If your voice does what mine is doing, don't apologize for it. We're past that, you and me.",
-                "Eleven left. Then Aren, last. I'm allowed one favorite."
-            ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp", choices: [
-                { text: "The wall answers", nextPage: 6 }
-            ] },
-            { ...storyPage("The Keeper Wakes", "The wall bulges; fire takes a shape", "First Flame Avatar", [
-                "The willing left a guard behind them. They gave everything but their grievance. The grievance was bound here, to keep the count honest.",
-                "It wakes when stolen names come home. It has waked twice in the village's whole history. Both times, it could not tell rescuer from thief.",
-                "It will read you the only way it can.",
-                "Stand still or stand ready. It does not honor a third option."
+            { ...storyPage("The Bellows", "The chamber's far vault, a chain thick as a tree", "Toma Reed", [
+                "There you are. I found the chain. The chain found me first, technically. Don't step in the melted part.",
+                "It's the ancestors' grief, the Avatar told me. Everything the willing dead feel about the stealing, chained up so it wouldn't level the village. And SHE runs it as a bellows. Pump the grief, stoke the fire. Efficient.",
+                "It looked at me, friend. Through all that flame, it looked at me like my mother looks at Aren's bench.",
+                "The Avatar says free it or end it. It's pulling the chain taut. I think it heard."
+            ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp" },
+            { ...storyPage("Grief, Off the Chain", "The vault, the Flame Beast rising", "Narrator", [
+                "It is the size of the fear it was chained for, and it burns in the shape of everyone the fire could not save.",
+                "The Avatar's voice comes down the flue, steady as a hand on your shoulder: 'Witness first. Whatever you choose, see it clearly. That is the whole work.'",
+                "The Beast lowers its head. Grief always knows its witnesses."
             ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp" },
         ], [
-            { text: "Call the forty-four names into its fire, one by one.", conclusion: "Toma feeds you names and you call them into the roar, one by one. Around the ninth, the Beast stops circling to learn whether you flinch.", trait: "honorable" },
-            { text: "Pull it off the wall and out into the yard.", conclusion: "You take its eye with a thrown lamp and run for the yard. It follows you out through the doorway without using the doorway.", trait: "reckless" },
-            { text: "Let it burn the forged rows. Guard the true ones.", conclusion: "You wager it knows its own dead better than the clerks do. The forged rows go up like they were waiting for permission, and the Beast turns to see who is editing.", trait: "suspicious" },
+            { text: "Speak the founders' words to it. 'Given gladly.' Mean them.", conclusion: "The words land like rain on a roof it once had. For three heartbeats the Beast is forty ordinary dead people, remembering gladness, and it fights you the way the grieving fight: to be held, not to win.", trait: "honorable" },
+            { text: "Shatter the chain. Whatever follows, follows.", conclusion: "The chain parts like a hymn ending. Freed grief takes the shortest road to what hurt it, and the shortest road is through you, and above, in her tower, the keeper feels her bellows die.", trait: "reckless" },
+            { text: "Ask the Avatar what it is not telling you. Then fight.", conclusion: "'That we are part guilty,' it says at once. 'The first stolen future was fed to us with our consent. We were cold that year.' The truth settles on your shoulders, and the Beast comes on.", trait: "suspicious" },
         ]),
         milestone("Ashen Leaf Village", 85, "The Kage Burns the Future", "Rootbound Elder Champion", "🌿", [
-            { ...storyPage("The Proclamation", "Market square, guards working a list", "Narrator", [
-                "The proclamation is nailed to the register hall by breakfast. Novel works to be surrendered for assay, their makers detained for questioning.",
-                "Fourteen taken by noon. A kiln builder. A girl who improved the water screw. Three are children whose crime is a kite that steers.",
-                "The crowd does not riot. The crowd forms a queue at the register to check the spelling of the detained's names.",
-                "The clerks sharpen fresh styluses. They have been told to expect entries."
-            ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp" },
-            { ...storyPage("The Count", "Rooftop over the holding yard", "Toma Reed", [
-                "No apologies this time. Just the count.",
-                "Fourteen names, none with standing family. I checked all fourteen. Two orphan makers. The kite girl's parents are west wall already. Every one would grieve uncontested.",
-                "This is not fear of invention. Invention is the excuse the council will believe. It is a harvest, sized for something.",
-                "She is paying down something large, and she picked people whose grief has nowhere to go but the Flame. Say I am wrong. Take your time. You cannot."
+            { ...storyPage("The Detainment Lists", "The village square, notices in fresh ink", "Toma Reed", [
+                "They posted it at dawn. 'Seasonal custodianship of promising branches.' CUSTODIANSHIP. Whoever writes her notices deserves the fire first.",
+                "Fourteen names. The weaver with the school petition. Old Jorun's apprentice. Two names from the mill line whose crime is a wedding both their houses forbid.",
+                "And Sena. Imera's Sena. The nine-year-old, the walking loom, the water wheels. They took her at breakfast, friend. There's a guard outside the detention rows who used to trade her scrap iron.",
+                "High-yield. That's the word Mori couldn't say out loud yesterday. Futures burn hotter the bigger they were going to be."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
-                { text: "Send word to Harrow. You hold something of hers.", nextPage: 2, requireTrait: "al80-pulled-her-back" },
-                { text: "Ask how he checked fourteen families in an afternoon.", nextPage: 3 }
+                { text: "Go to Imera first.", nextPage: 1 },
+                { text: "Go straight to the Kage's orchard office.", nextPage: 2 }
             ] },
-            { ...storyPage("Interest", "The rooftop, one shadow extra", "Kite Harrow", [
-                "You didn't have to send word. I bill quarterly and you're carrying my collateral. I keep track of where I'm kept.",
-                "Fourteen uncontested names. I found the rate at your fire trough, remember. Do the sum and sit down first.",
-                "That's not upkeep. That's not even a bad winter. That's purchase price. She's buying something off the thing under this village, and it's big.",
-                "I don't do rescues. Rescues are unpriceable, and I've told you my policy on that. But tonight I can misplace a gate schedule, and you never met me.",
-                "One more thing. What you took off my scale that night. Keep it wherever you keep yours."
+            { ...storyPage("Imera's Kitchen", "The house behind the eleven-flower fence", "Imera", [
+                "Don't say sorry. Everyone who says sorry stirs their tea after, and I am done watching tea.",
+                "You palmed a flower for us once. I have not forgotten. So I will say to you what I cannot say at the survey office.",
+                "They let me visit her. She is FINE, she says. Warm, fed, doing puzzles for nice clerks who write down how she solves them. They are measuring my daughter for the fire and she thinks she has finally been noticed.",
+                "She has one loom left, the first one, under her bed. If they take who she was going to be, and I am left remembering some quiet girl who liked sitting still... you bury me with it. Swear that, and then go do whatever that flower on your line says you can."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
-                { text: "Find Mori in the annex", nextPage: 4 }
+                { text: "Go to the orchard office.", nextPage: 2 }
             ] },
-            { ...storyPage("The Checking", "The rooftop, tiles going cold", "Toma Reed", [
-                "I've been keeping books on grief since the burning yard. You knew that. You didn't know how big the books got.",
-                "Every rite, I write who stands in the marked rows and who has nobody standing. A name with no row is worth more to the fire. So I track rows.",
-                "Fourteen for fourteen. Nobody in any row. That's not a list somebody drew up this morning. That's years of my kind of counting, done by somebody else, first.",
-                "There's another counter in this village. There has been all along. I'd like very much to burn their books."
+            { ...storyPage("The Orchard Office", "The Kage's office, rain on new grafts", "Kage Hoshina Enju", [
+                "You have seen the lists. You have come to tell me they are monstrous. Sit. You will do it better sitting down.",
+                "First, the winters. The split oak took forty one of us. The granary winter took twenty six, most of them small. Since my shears, thirty years, and not one frozen child. Weigh that before you speak.",
+                "The boy who draws machines, two seasons ago: his engines end the terrace farms inside ten years, and the farms feed four hundred. I read the futures I cut, child. Every one. I am the only person in this village who mourns them accurately."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
-                { text: "Find Mori in the annex", nextPage: 4 }
+                { text: "Say it: fourteen people are not firewood.", nextPage: 3 },
+                { text: "You claimed your own cut page once. Use it.", nextPage: 4, requireTrait: "al70-claimed-the-name" },
+                { text: "Ask her what the fire does with the unwilling.", nextPage: 5 }
             ] },
-            { ...storyPage("No Third Door", "The annex, cabinet standing open", "Elder Mori", [
-                "I have defended the arithmetic in this room for forty years. One name, forty lives. You have heard me say it, or heard of me saying it.",
-                "Fourteen at once is not arithmetic. Fourteen at once is a withdrawal. Something under us has presented a bill, and she intends to pay early.",
-                "I signed three of the old choices myself. I am not clean, and I will not pretend to be, because you would smell it."
+            { ...storyPage("Not Firewood", "The orchard office", "Kage Hoshina Enju", [
+                "No. They are four hundred people's warm winters, wearing fourteen faces. That is precisely the arithmetic, and I notice you have not offered me a different one.",
+                "You think I do not know their names? Sena. Nine. Builds walking things. Her loom is on my desk twice a year when the survey brings me wonders.",
+                "I keep every wonder I cut, child. There is a room. You are not the first to stand where you stand, but you may be the first who could make me hesitate, so do it properly or sit down.",
+                "The burning is at frost-fall. You have until then to be cleverer than a winter."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
-                { text: "Ask him the three names he signed.", nextPage: 5 },
-                { text: "Ask what bill comes due all at once.", nextPage: 6 }
+                { text: "Leave her office.", nextPage: 6 }
             ] },
-            { ...storyPage("Three Signatures", "The annex, lamplight on old ink", "Elder Mori", [
-                "Ilen Voss, whom I called sedition. Marra Dunn, whom I called theft. The third I will say only once, so attend. Pell Mori. My brother's daughter.",
-                "A famine year. The council wanted a name with weight, to make the mercy respectable. I gave them weight. My family thanked me for the honor. They believed it.",
-                "I have not said her name in this room since. The room noticed. Rooms do.",
-                "Now you know what my arithmetic is made of. Spend it however you like. It has never bought me a full night's sleep."
+            { ...storyPage("The Pending Line", "The orchard office", "Kage Hoshina Enju", [
+                "Yes. Your page. I have read it more often than any slat on my wall.",
+                "Someone pruned you before you ever reached my Register, child, and they did it without a fire, without a survey, without leaving so much as a stamp. Do you understand that I find that OBSCENE? I keep records. I mourn what I cut. Whoever cut you kept nothing.",
+                "You stood at my wall and demanded the stub of your own becoming back. That is when I began losing sleep over you.",
+                "So believe me as one wound to another: I am not the worst gardener you will meet. Frost-fall, child. Be cleverer than a winter."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
-                { text: "To the holding yard", nextPage: 7 }
+                { text: "Leave her office.", nextPage: 6 }
             ] },
-            { ...storyPage("The Bill", "The annex, maps under the ledger", "Elder Mori", [
-                "My predecessor left me one page, to be read only if the withdrawals ever tripled. They have tripled. I have read it.",
-                "Under the Flame there is a mouth. Under the mouth, a channel. The channel does not end beneath this village. It runs somewhere with three other doors.",
-                "The page calls it a lattice. The seat's first duty is keeping our anchor fed, lest the drain reverse. The word reverse is underlined twice.",
-                "She is not harvesting to grow. Something on the far side is calling accounts due, and she means to pay early. Fourteen names early.",
-                "The kettle has gone cold. Leave it."
+            { ...storyPage("The Unwilling", "The orchard office", "Kage Hoshina Enju", [
+                "The founders' fire ran on gladness. Gladness is a thin harvest. Two good winters a generation, perhaps, and then the cold gets a vote.",
+                "An unwilling future burns hotter. Four times the yield, five in the young. You wanted the number, there is the number. Now you know the price of every warm floor you have ever stood on here.",
+                "I did not build this equation. I inherited it, the way you inherit a roof. One does not tear off the roof in winter because one dislikes the shingles.",
+                "Frost-fall. Fourteen names. Bring me a better winter, child, or stand out of my light."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
-                { text: "To the holding yard", nextPage: 7 }
+                { text: "Leave her office.", nextPage: 6 }
             ] },
-            { ...storyPage("The Yard Tonight", "The holding yard, lamps in courteous rows", "Narrator", [
-                "The holding yard is quiet the way waiting rooms are quiet. Fourteen makers sit apart from each other, each given a blanket, each logged.",
-                "The kite girl has folded hers into a square and sits on it. Her kite is entered in the seizure book as one flying engine, string included.",
-                "At the gate stands the Elder Champion. Forty years of service, every year of it sincere. He nods as you come. He was told to expect entries too.",
-                "Somewhere above, the register hall keeps its lamps lit. The clerks are working late tonight."
+            { ...storyPage("The Detention Rows", "Outside the rows, the Elder Champion at the gate", "Narrator", [
+                "The Rootbound Elder Champion stands at the detention gate: the elders' own enforcer, grafted so long ago its bark has grown over the armor.",
+                "Through the fence, a small girl waves at you cheerfully and holds up a puzzle, solved.",
+                "Frost is three days out. The kiln flue is already warming. Somewhere behind you, Toma is carrying a folded loom under his coat like contraband made of heartbeats."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp" },
         ], [
-            { text: "Break the holding yard open before the escort forms.", conclusion: "Fourteen makers scatter into the dark with their spelling still their own. Between you and the gate, the Elder Champion sets his feet like a man closing a door.", trait: "merciful" },
-            { text: "Call the Champion out by name, in the square.", conclusion: "He accepts with a bow so correct it stings. Forty years of village praise steps into the ring, and the crowd cannot pick a side to pray for.", trait: "reckless" },
-            { text: "Go over the yard entirely. Reach Hoshina tonight.", conclusion: "The tower route crosses the Champion's post, and there was never a route that did not. He raises no alarm. He widens his stance, courteous to the last.", trait: "suspicious" },
+            { text: "Break the rows open tonight. All fourteen, into the dark.", conclusion: "Fourteen futures scatter into the treeline before the alarm bell finds its voice. The depot burns behind you, and with it the transfer manifest, the one paper that carried her seal. She will call it a kidnapping, and half the cold village will believe her.", trait: "merciful" },
+            { text: "Challenge the Champion at the gate, in daylight, before everyone.", conclusion: "The square fills the way squares do. Whatever happens next has three hundred witnesses, which is the point, and no plan, which is also, somehow, the point. The Champion's bark splits into something like a smile.", trait: "reckless" },
+            { text: "Let the transfer start. Track the crates to her private room.", conclusion: "Two detainees ride the first wagon while you shadow it, and every step of not-acting costs you something you will pay later, in dreams. But by nightfall you know where the wonder room is, and what else is in it. Your page is in it.", trait: "suspicious" },
         ]),
         milestone("Ashen Leaf Village", 100, "The Tree Must Choose", "Kage Hoshina Enju, First Flame Vessel", "🌿", [
-            { ...storyPage("Green from Root to Crown", "The sacred tree, burning without heat", "Narrator", [
-                "The old oak burns green from the taproot up, and does not char. Bark, ash mortar, register wall. Everything the dead are mixed into is lit from inside.",
-                "The village comes out and stands in its burning yard rows without being told. Habit is the last thing to catch fire.",
-                "In the register hall, the west wall has gone bright as noon. The east wall, the living wall, is dark.",
-                "Under everything, low, a sound like a ledger being balanced."
+            { ...storyPage("Frost-Fall", "The Register hall, every line glowing faint", "Narrator", [
+                "Frost-fall, and the Register wall is lit from within, forty strides of lives glowing like banked coals. The hall is empty. She sent everyone home warm.",
+                "Your black flower has grown. It holds the whole corner of your line now, petals open, and for the first time it is pointing somewhere: down.",
+                "The kiln stair door stands unlocked. On the top step sits a plate of honey bread, and a note in a keeper's hand: 'You were always going to come tonight. Eat something first.'"
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp" },
-            { ...storyPage("The Plates", "Register hall steps, crates at his feet", "Toma Reed", [
-                "Forty-four plates. I carried them here myself and nobody stopped me. The guards are all watching the tree like it might say something.",
-                "I used to practice speeches for this. I do not need one. She took people whose grief had nowhere to go, and she balanced a village on them.",
-                "Whatever happens up there, these go back on the wall. That part is not yours to win or lose. That part is mine."
+            { ...storyPage("At the Stair", "The kiln stair door", "Toma Reed", [
+                "I know. I know. You have to go down alone, it's a Kage thing, a fire thing, a you thing. I practiced this speech and it had more dignity in the mirror.",
+                "Aren's letter. Take it. He wrote 'remember me arguing,' and there is no argument in this village bigger than the one down those stairs.",
+                "Whatever the fire leaves standing, my mother's kitchen has tea in it, after. That's not a small thing, friend. That's the thing.",
+                "Go. I'll mind the door. It's what shelf-menders are for."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Tell him to read Aren first, and loudly.", nextPage: 2 },
-                { text: "Ask him to wait until it is done.", nextPage: 3 }
+                { text: "Go down alone.", nextPage: 2 }
             ] },
-            { ...storyPage("Aren, First", "The steps, the crowd's edge turning", "Toma Reed", [
-                "First. Yes. He'd hate going first, he alphabetized everything, he'd want... he gets to hate it. That's the point. He gets to be here hating it.",
-                "Aren Reed. Questioned the flowering rites in writing. Brother of Toma. Son of Enna. The register was wrong about us.",
-                "Look at the wall. Look at the wall!",
-                "Go. Whatever she says up there, it is already not true. I just proved it. Go."
-            ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Climb toward the tree", nextPage: 4 }
-            ] },
-            { ...storyPage("Not This Time", "The steps, crates between you", "Toma Reed", [
-                "No.",
-                "Sorry. Not sorry. I have done every hard thing in this village on somebody else's schedule. Filed, queued, stamped. Not this one.",
-                "You do your part, I do mine, and neither of us waits for permission. That is the whole lesson. The one she never wanted taught.",
-                "I will start slow. By the time you reach her, he will be on the wall."
-            ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Climb toward the tree", nextPage: 4 }
-            ] },
-            { ...storyPage("The Last Relic", "The hall doors, green light on old hands", "Elder Mori", [
-                "I will not climb with you. My knees have declined the honor. And my presence would hand her a hostage.",
-                "I know how she argues. I taught her half of it, a long time ago, when the sums still balanced.",
-                "Whatever you find up there, it will not look like a tyrant. It will look like a woman doing sums. That is the dangerous part. The sums are real.",
-                "I have been wrong for forty years, in one direction, at a rate I called mercy. You are the audit. I requested you, in a sense.",
-                "Go. I will hold the door. Doors have been my best work lately."
+            { ...storyPage("The Keeper at the Fire", "The Rootfire chamber, racks emptied, shears on an anvil", "Kage Hoshina Enju", [
+                "Punctual. Sit, or stand, the fire does not care and neither, tonight, do I.",
+                "There they are. The shears. Four hundred years of keepers' hands on those grips, mine longest of all. I had them out to clean them, and then I found I had been holding them for six hours.",
+                "I burned my first future at thirty one. A boy whose bridge would have moved the flood and drowned the low fields. I have been right, child, over and over and over, and do you know what being right for thirty years buys a gardener?",
+                "This."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp" },
-            { ...storyPage("The Keeper's Accounting", "Before the burning tree, the Kage unarmored", "Kage Hoshina Enju", [
-                "You have come to ask about the names. Good. We keep them. Nothing given to the Flame is lost, only held.",
-                "Our predecessor showed us the ledger the night we took the seat. We wept, we prayed, and by morning we understood what the founders bought, and its upkeep.",
-                "One name, freely grieved, is a winter of walls. One name uncontested is ten. We chose the ones no one would come for. That is not cruelty. That is stewardship.",
-                "The dead hold this village up. They do not resent it. We ask them nightly, and they answer, and you would call their answer the wind.",
-                "Come. The Flame wishes to see what we have raised."
+            { ...storyPage("The Vessel", "The fire climbing her arms like ivy", "Kage Hoshina Enju", [
+                "It started in the spring. The fire coming when I call, staying when I do not. The keeper prunes the tree, and the tree, patient beyond patience, prunes the keeper.",
+                "Every future I fed it is in me now. The bridge boy hums in my wrists. The weaver's school teaches in my sleep. I am becoming the room where they keep the wonders, and the fire finds that FITTING, and the terrible thing, child, the truly terrible thing, is that so do I.",
+                "So. You, whom nothing can read. You, pruned once by better shears than mine and still growing anyway.",
+                "Ask what you came to ask. The fire and I are listening."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp" },
-            { ...storyPage("Tell her whose name you answer to.", "The reckoning", "Kage Hoshina Enju", [
-                "You climbed the dais and claimed the name that shames you. Before the morning queue. Aloud.",
-                "We know its weight. The register offered more for that name than for any in our keeping. Uncontested shame is the purest coin there is.",
-                "You spent nothing and kept it. We have never once been able to afford that. Teach us, or join us."
+            { ...storyPage("Answer for Mori's charts. You taught me to see the cuts coming.", "The reckoning", "Kage Hoshina Enju", [
+                "So Mori gave you the reading of the blooms. Good. Then you have stood where I stand: seen a flower open on a fence and known, KNOWN, what mercy would cost that house.",
+                "Tell me you did not once look at a bloom and think, better it wilts early. Tell me, and I will call you a liar in front of the fire.",
+                "That is my whole life, child. Every day, one bloom, one house, one winter. You held the knowledge for one season and it bent you. I have held it thirty years."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. This ends now.", nextPage: 9 }
+                { text: "Enough. The tree chooses now.", nextPage: 7 }
             ] },
-            { ...storyPage("Recite the working copy back to her.", "The reckoning", "Kage Hoshina Enju", [
-                "Mori copied you forty years of the arithmetic, dated, in a fair hand. We countersigned the withdrawal ourselves.",
-                "So you have run our sums. One name keeps forty. Tell us which line you found in error. We have looked nightly. There is no line in error.",
-                "And you kept the copy. People who mean to burn a thing do not keep it warm and legible."
+            { ...storyPage("Answer for my page. You kept my cut in your wonder room.", "The reckoning", "Kage Hoshina Enju", [
+                "Yes. Your stub. The oldest cut I have ever handled, and not one of mine. I kept it where I keep everything the fire deserves and cannot have.",
+                "You stood at my wall and demanded yourself BACK. No one does that. The pruned do not know to ask, that is the whole mercy of it. You knew.",
+                "Whoever cut you left no stamp, no record, no grief. When you have taken my shears, child, and you will, go and ask them why. And when they answer with arithmetic, remember me kindly."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. This ends now.", nextPage: 9 }
+                { text: "Enough. The tree chooses now.", nextPage: 7 }
             ] },
-            { ...storyPage("Answer for the woman at the trough.", "The reckoning", "Kage Hoshina Enju", [
-                "The unsworn fed her born name to the intake, and you sat on the rim and watched the weight go.",
-                "What the Flame took of her is here. We keep it. She did not ask for keeping. You did not offer stopping.",
-                "Do not mourn her at us. We began exactly as you began. By watching once, and calling it witness."
+            { ...storyPage("Answer for Aren Reed. His future gets finished.", "The reckoning", "Kage Hoshina Enju", [
+                "Aren Reed. Water-screw, terrace fields, a complaint filed in a shaking hand. You promised his brother it gets finished. I countersigned that cut, child. Mine was the stamp.",
+                "His screw works. I tested it, alone, at night, in this room. It would have watered the east terraces and fed ninety more mouths, and his complaint would have emptied my kiln inside five years, and I chose the kiln.",
+                "That is the cut I mourn at frost-fall. Every year. You tell his brother that, after. Tell him his Kage tested the screw and it WORKED."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. This ends now.", nextPage: 9 }
+                { text: "Enough. The tree chooses now.", nextPage: 7 }
             ] },
-            { ...storyPage("The Payout", "The Flame reaches her before you do", "First Flame Avatar", [
-                "The Flame keeps the given. She gave it names for thirty years, and every name was entered under hers.",
-                "The account is called. She is the largest offering the mouth has ever been owed.",
-                "Watch. This is what keeping means when the keeper is kept.",
-                "The vessel stands. The Flame wears her the way she wore the village. Decide what you will feed it next."
+            { ...storyPage("The Shears on the Anvil", "The Rootfire at full roar, Hoshina alight", "Kage Hoshina Enju", [
+                "Enough, then. Look at me. This is what thirty years of being the winter's answer looks like, and I would do it all again, and that is exactly why it must be taken from me.",
+                "The shears, the fire, the wall of futures upstairs. One of us decides tonight, and the fire has already voted.",
+                "Show me, black flower. Show me what grows where nothing is permitted to."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", leftName: "Player", rightName: "Kage Hoshina Enju", rightImage: "/portraits/kage-hoshina-enju-hollow.webp", choices: [
-                { text: "Tell her whose name you answer to.", nextPage: 6, requireTrait: "al70-claimed-the-name" },
-                { text: "Recite the working copy back to her.", nextPage: 7, requireTrait: "al58-took-the-knowledge" },
-                { text: "Answer for the woman at the trough.", nextPage: 8, requireTrait: "al80-let-her-burn" }
+                { text: "Answer for Mori's charts. You taught me to see the cuts coming.", nextPage: 4, requireTrait: "al58-took-the-knowledge" },
+                { text: "Answer for my page. You kept my cut in your wonder room.", nextPage: 5, requireTrait: "al70-claimed-the-name" },
+                { text: "Answer for Aren Reed. His future gets finished.", nextPage: 6, requireTrait: "toma-hope" }
             ] },
         ], [
-            { text: "Give the register your name. Pull the stolen ones back.", conclusion: "The intake accepts your name without ceremony, the way it accepts everything. What shamed you is spent, and forty-four stolen names come home on the price.", trait: "honorable" },
-            { text: "Seal the mouth to a trickle only the willing can pass.", conclusion: "The Flame gutters to a lamp only free offerings can feed. The sealed rows stay dark, and their families' unanswered questions become yours, year after year.", trait: "merciful" },
-            { text: "Take the ledger. Decide yourself which names the village can spare.", conclusion: "The arithmetic settles onto you like a sash being fitted. Below on the steps, Toma sets down crate two and does not look up at you again.", trait: "ambitious" },
+            { text: "Break the shears on the anvil. Give every future back.", conclusion: "The shears part like a held breath. Upstairs, forty strides of cedar cry out as everyone gets their stolen selves returned, mid-sentence, mid-life. The walls groan. The winter is coming honest, and the fire keeps only what was given gladly, and Hoshina, unburdened, attacks you weeping with relief.", trait: "honorable" },
+            { text: "Bind the Rootfire to willing gifts alone. Keep the shears sheathed.", conclusion: "The fire shrinks to the founders' steady flame, ancient and thin. Every winter from now on is a referendum on your mercy, and the village will vote in shivers. Hoshina bows to the arrangement, and then, because the fire in her does not, she comes at you all the same.", trait: "merciful" },
+            { text: "Take the shears. Someone worthy has to hold them.", conclusion: "The grips are warm, and they fit like your hand was measured for them, and you understand suddenly that it was: the Register has been growing you toward this room since the flower bloomed. Hoshina smiles like winter breaking. 'Then prove it,' says the fire with her mouth.", trait: "ambitious" },
         ]),
     ],
     "Frostfang Village": [
