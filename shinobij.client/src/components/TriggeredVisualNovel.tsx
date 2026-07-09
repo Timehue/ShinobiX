@@ -164,7 +164,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             <div className="visual-novel admin-vn-play">
                 <div className="vn-header">
                     <div>
-                        <p className="act-label">TRIGGERED STORY EVENT</p>
+                        <p className="act-label">{isStoryInterlude ? "STORY INTERLUDE" : "TRIGGERED STORY EVENT"}</p>
                         <h2>{page.title || event.vnTitle || event.name}</h2>
                     </div>
                     <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
@@ -221,10 +221,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                 </div>
                 <div className="vn-choice-row">
                     <button onClick={() => { setPageIndex(0); setLineIndex(0); }}>Replay Scene</button>
-                    {!isSageEvent && <button onClick={() => onBattle(event)}>Battle in {biomeLabel(event.biome)}</button>}
-                    <button onClick={onComplete}>{isSageEvent ? "Skip to the Offer" : "Claim Reward + Continue"}</button>
+                    {!isSageEvent && !isStoryInterlude && <button onClick={() => onBattle(event)}>Battle in {biomeLabel(event.biome)}</button>}
+                    <button onClick={onComplete}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude ? "Continue" : "Claim Reward + Continue"}</button>
                 </div>
-                {!isSageEvent && (
+                {!isSageEvent && !isStoryInterlude && (
                     <div className="vn-reward-strip">
                         <span>Trigger: {event.trigger === "firstBattleArena" ? "First Battle Arena click" : "First Village exit"}</span>
                         <span>Reward: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
