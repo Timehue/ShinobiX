@@ -94,6 +94,9 @@ def render_scene(sc, header):
         if sc["isFinale"]: extra += f' &nbsp;·&nbsp; FINALE → title "{esc(sc["liberatorTitle"])}"'
     elif sc["kind"] == "road":
         extra = f' &nbsp;·&nbsp; NPC: {esc(sc["npcName"])} ({esc(sc["npcArchetype"])})' + (" · POST-FINALE" if sc["postFinale"] else "")
+    elif sc["kind"] == "epilogue":
+        extra = f' &nbsp;·&nbsp; plays once after winning the finale on the <b>{esc(sc["lane"])}</b> choice'
+        extra += f' &nbsp;·&nbsp; <font color="#0a5a8a">[only with: {esc(sc["requireTrait"])}]</font>' if sc["requireTrait"] else ' &nbsp;·&nbsp; (base ending)'
     else:
         extra = " &nbsp;·&nbsp; interlude (no fight; choice is the payoff)"
     blk.append(Paragraph("EDIT: " + esc(sc["editLocator"]) + extra, S["locator"]))
@@ -149,6 +152,8 @@ for v in data["villages"]:
     flow.append(Paragraph(f'<b>{esc(v["village"])}</b>', S["toc"]))
     flow.append(Paragraph('<font size=8 color="#5b5b78">Chapters: ' + " · ".join(f'L{c["level"]} {esc(c["title"])}' for c in v["chapters"]) + '</font>', S["toc"]))
     flow.append(Paragraph('<font size=8 color="#5b5b78">Interludes: ' + " · ".join(f'L{i["level"]} {esc(i["title"])}' for i in v["interludes"]) + '</font>', S["toc"]))
+    if v.get("epilogues"):
+        flow.append(Paragraph('<font size=8 color="#5b5b78">Endings: ' + " · ".join(f'{esc(e["lane"])} {esc(e["title"])}' for e in v["epilogues"]) + '</font>', S["toc"]))
     flow.append(Spacer(1,4))
 if data["roadEvents"]:
     flow.append(Paragraph('<b>Wandering Road Events</b> (cross-village, found on the world map)', S["toc"]))
@@ -166,6 +171,8 @@ for v in data["villages"]:
         header = (f'CHAPTER · Level {sc["level"]} · {sc["title"]}' if kind=="chapter"
                   else f'Interlude · Level {sc["level"]} · {sc["title"]}')
         render_scene(sc, header)
+    for sc in v.get("epilogues", []):
+        render_scene(sc, f'ENDING · {sc["lane"]} · {sc["title"]}')
     flow.append(PageBreak())
 
 # Road events (omitted when a single village was selected)
