@@ -144,6 +144,7 @@ export const TEST_FILES = [
     "shinobij.client/src/lib/pve-difficulty.test.ts",
     "shinobij.client/src/lib/endless-tower.test.ts",
     "shinobij.client/src/lib/inventory.test.ts",
+    "shinobij.client/src/lib/item-category.test.ts",
     "shinobij.client/src/lib/roster-merge.test.ts",
     "shinobij.client/src/lib/equipment.test.ts",
     "shinobij.client/src/lib/pvp-targeting.test.ts",
