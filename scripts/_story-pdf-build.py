@@ -10,7 +10,7 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, PageBreak,
-                                Table, TableStyle, HRFlowable, KeepTogether)
+                                Table, TableStyle, HRFlowable, KeepTogether, Image)
 from reportlab.lib.enums import TA_CENTER
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -72,6 +72,7 @@ S = {
  "concl":       ParagraphStyle("concl", fontName="Body-Italic", fontSize=9, leading=12, textColor=MUTED, spaceAfter=4, leftIndent=26),
  "toc":         ParagraphStyle("toc", fontName="Body", fontSize=10, leading=16, textColor=INK),
  "note":        ParagraphStyle("note", fontName="Body", fontSize=10, leading=15, textColor=INK),
+ "cast_cap":    ParagraphStyle("cast_cap", fontName="Body", fontSize=7, leading=8.5, textColor=MUTED, alignment=TA_CENTER),
 }
 LANE_COLOR = {"good": GOOD, "neutral": NEUTRAL, "bad": BAD}
 flow = []
@@ -87,6 +88,27 @@ def scene_caption_box(text):
                            ("TOPPADDING",(0,0),(-1,-1),4),("BOTTOMPADDING",(0,0),(-1,-1),4)]))
     flow.extend([t, Spacer(1,3)])
 
+def scaled_image(rec, disp_w, max_h):
+    """An Image scaled to disp_w (capped at max_h), preserving aspect."""
+    w, h = float(rec["w"]), float(rec["h"])
+    dw, dh = disp_w, disp_w * (h / w)
+    if dh > max_h:
+        dh, dw = max_h, max_h * (w / h)
+    return Image(rec["file"], width=dw, height=dh)
+
+def cast_strip(cast):
+    """A wrapping row of speaker portraits with name captions."""
+    per_row = 6
+    for start in range(0, len(cast), per_row):
+        chunk = cast[start:start+per_row]
+        imgs = [scaled_image(c, 0.82*inch, 0.82*inch) for c in chunk]
+        caps = [Paragraph(esc(c["name"]), S["cast_cap"]) for c in chunk]
+        t = Table([imgs, caps], colWidths=[1.02*inch]*len(chunk))
+        t.setStyle(TableStyle([("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"TOP"),
+                               ("TOPPADDING",(0,0),(-1,-1),1),("BOTTOMPADDING",(0,0),(-1,0),1)]))
+        flow.append(t)
+    flow.append(Spacer(1,3))
+
 def render_scene(sc, header):
     blk = [Paragraph(esc(header), S["scene_title"])]
     if sc["kind"] == "chapter":
@@ -100,7 +122,11 @@ def render_scene(sc, header):
     else:
         extra = " &nbsp;·&nbsp; interlude (no fight; choice is the payoff)"
     blk.append(Paragraph("EDIT: " + esc(sc["editLocator"]) + extra, S["locator"]))
+    if sc.get("sceneImage"):
+        blk.extend([Spacer(1,3), scaled_image(sc["sceneImage"], 5.4*inch, 3.5*inch)])
     flow.append(KeepTogether(blk))
+    if sc.get("cast"):
+        cast_strip(sc["cast"])
     for pg in sc["pages"]:
         flow.append(Paragraph(f'Page {pg["index"]+1} &nbsp;— &nbsp;{esc(pg["title"])}', S["page_head"]))
         scene_caption_box(pg["scene"])
