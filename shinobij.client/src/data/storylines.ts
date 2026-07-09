@@ -2241,7 +2241,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Empty Archive", "The tower archive, stripped to bare shelves, Sable alone in the wreck of her life's work", "Kage Sable Nocturne", [
                 "Come in, Jonin. Mind the empty. There's a great deal of empty tonight; I made it myself.",
-                "Forty years of collection, gone home in one courier night. My whole arsenal, disbanded. Would you like to know the marvelous joke? It was never MY arsenal. I audited the deep vault at midnight, before the burn. Every file I ever held had a duplicate lien on it. A prior claim, older than my seat, marked with a quartered circle. I wasn't the spider, friend. I was the WAREHOUSE CLERK, keeping stock for a buyer I never met, and my predecessors' predecessors signed the lease.",
+                "Forty years of collection, gone home in one courier night. My whole arsenal, disbanded. Would you like to know the marvelous joke? It was never MY arsenal. I audited the deep vault at midnight, before the burn. Every file I ever held had a duplicate lien on it. A prior claim, older than my seat, marked with a quartered circle. I wasn't only the spider, friend. I was the WAREHOUSE CLERK, keeping stock for a buyer I never met, and my predecessors' predecessors signed the first lease. But do not mistake inheritance for innocence, Jonin. The Gate offered a buyer; I supplied the warehouse, and I kept it profitable, quarter after quarter, for forty years.",
                 "The transfer lands tonight regardless. An empty warehouse breaches the lease; the buyer takes the fixture instead. The Mirror. And the Mirror, Jonin, holds a copy of every act of trust this village ever surrendered, including everything I burned, because the booths drained INTO it all along. My grand gesture emptied the shelves and left the tank.",
                 "So. Bring me a safer truth, if one exists. Show me this village protected without one soul of it being OWNED, by me or mine or theirs, and I will crack the Mirror myself and stand trial in the market at noon. Until then, I hold the tank, because the alternative holder is worse. That's my whole defense. It used to sound better."
             ]), image: "/scenes/story/story-moonshadow-village-85-7.webp", choices: [
@@ -2275,11 +2275,12 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Woman and the Tank", "The Mirror chamber, the black glass vast and still, Sable's shadow no longer matching her", "Kage Sable Nocturne", [
                 "Punctual. I appreciate that, tonight more than most nights.",
-                "Look at it. Every act of surrendered trust this village performed for four hundred years, held in one tank. They call what waits for me the Hollow Moon, and here is the joke I finally understood this spring: the moon over Moonshadow was always the Mirror, seen from underneath. And the Hollow Moon is only the mask the buyer wears over this one village. Tonight the tank transfers to that buyer, the one four vessels feed and no one in this room has ever seen, and it has a name older than my seat. I will say it once: the Hollow Gate. And look at ME, Jonin. Look carefully; everyone else is too polite. My shadow stopped taking my shape in the spring. The Gate is disbursing my account. Forty years of holding everyone, and I am being SPENT, word by withheld word, to settle a lease I never signed.",
+                "Look at it. Every act of surrendered trust this village performed for four hundred years, held in one tank. The moon over Moonshadow was always the Mirror, seen from underneath, and the thing they call the Hollow Moon was never a second moon; it is the Gate wearing our reflection. Tonight the tank transfers to that buyer, the one four vessels feed and no one in this room has ever seen. It has a name older than my seat, and I will say it once: the Hollow Gate.",
+                "And look at ME, Jonin; everyone else is too polite. My shadow stopped taking my shape in the spring. The Gate is disbursing my account now, word by withheld word, and yes, I am being spent to settle it. But do not hand the Gate my share of the blame. The first lease was not mine. The renewals were.",
                 "You are the fourth person to climb this tower and serve me notice. I broke the first three; you've read those files. But you are the first who has read their OWN. The Mirror showed you half a second late from your first night, because you arrive pre-encumbered, discrepancy. Somebody holds a piece of you the way I held pieces of everyone, and you walked in anyway, and I find that either the bravest or the most collateralized act I've ever appraised.",
                 "So. Serve your notice. We will hold the paper anyway. It is what we are."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "Face her before the glass.", nextPage: 16 }
+                { text: "Face her before the glass.", nextPage: 20 }
             ] },
             { ...storyPage("The Better Truth", "The Mirror chamber, the Returning's receipts fanned on the black glass", "Kage Sable Nocturne", [
                 "What is that. Show me. Slowly; the glass is listening, and it has never once heard this.",
@@ -2297,7 +2298,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Forty years I held this village's skin and called it armor. You handed some of it back in daylight and nothing burned.",
                 "I am out of collateral, and what remains of me is unlisted. Come and meet it."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "Enough. The Mirror answers now.", nextPage: 16 }
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
             ] },
             { ...storyPage("The Countersigned Receipts", "The chamber, receipts flat on the glass, her finger moving line to line", "Kage Sable Nocturne", [
                 "Hand them over and sit; auditing is the last love I have left, and I intend to take my time with this one.",
@@ -2305,7 +2306,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The receipts hold, Jonin. I taught this village that every trust needs a holder. You've filed eleven pages of evidence that it only ever needed a WITNESS.",
                 "I am out of collateral, and what remains of me is unlisted. Come and meet it."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "Enough. The Mirror answers now.", nextPage: 16 }
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
             ] },
             { ...storyPage("The Market's Own Arithmetic", "The chamber, a booth's price-slate held up to the glass", "Kage Sable Nocturne", [
                 "The booths repriced. I saw the slates at dusk and had two clerks flogged for forgery, and they were not forgeries. Returning, priced survivable. Holding, priced at RISK. My own market, marking my life's work down to salvage.",
@@ -2313,7 +2314,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "It's the only argument a keeper of ledgers was ever going to lose. I built this village to believe the numbers over the sermon, and now the numbers have opinions.",
                 "I am out of collateral, and what remains of me is unlisted. Come and meet it."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "Enough. The Mirror answers now.", nextPage: 16 }
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
             ] },
             { ...storyPage("The Unopened File", "The chamber, one file on the black glass, still closed", "Kage Sable Nocturne", [
                 "Whose... no. I know whose. The little dealer's. Sold at nine, one winter's food, storage paid quarterly by the circle. I've had that file memorized for a decade; I always understood it was the market's whole biography in one folder.",
@@ -2321,7 +2322,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Forty years of collection, Jonin, and the safest truth in this village is sitting on my Mirror in an envelope nobody needs to read.",
                 "I am out of collateral, and what remains of me is unlisted. Come and meet it."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "Enough. The Mirror answers now.", nextPage: 16 }
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
             ] },
             { ...storyPage("Her Own Name", "The chamber door opening, Nyx crossing the black glass floor", "Nyx", [
                 "You held the door for me my whole life, %name, one way or another. My turn. This part is mine.",
@@ -2329,7 +2330,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Here's tonight's transaction, priced at nothing, witnessed by everything: my name is NERISSA VALE. My mother chose it. I sold it to eat, and I am taking it back by SAYING it, in front of your tank, for free.",
                 "Do write that down, somebody. First entry in the new ledger. It's going to be a thick book."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "The glass goes very still.", nextPage: 9 }
+                { text: "The glass goes very still.", nextPage: 9, trait: "ms100-nyx-named-herself" }
             ] },
             { ...storyPage("The Tank Hears a Name", "The chamber, the Mirror's stillness broken by one slow ripple", "Kage Sable Nocturne", [
                 "You let her carry it. You held her file through fire and flood and never once opened it yourself, and then you stood aside and let her buy her own name back with her own breath.",
@@ -2337,14 +2338,14 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Look at the glass, Jonin. Look at it RIPPLE. Four hundred years of stillness, and one free sentence gave it weather.",
                 "I am out of collateral, and what remains of me is unlisted. Come and meet it."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "Enough. The Mirror answers now.", nextPage: 16 }
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
             ] },
             { ...storyPage("Returns Without Names", "The chamber, the return figures chalked plain, no receipts behind them", "Kage Sable Nocturne", [
                 "Eleven returns, zero fires. The figures are real; my clerks verified them twice and I had them verified a third time out of spite.",
                 "But whose returns, Jonin? Who handed back what, to whom, witnessed by which names willing to SIGN? An unsigned mercy is a rumor, and this market eats rumors for breakfast and stays hungry.",
                 "I can't crack a four-hundred-year tank on a rumor. Bring me signatures, or bring me your hands."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "She turns back to the glass.", nextPage: 16 }
+                { text: "She turns back to the glass.", nextPage: 20 }
             ] },
             { ...storyPage("The File in Your Coat", "Nyx's file in Sable's hands, hers to weigh, unopened", "Kage Sable Nocturne", [
                 "The dealer's bill of sale. The shrine's copy. Her tower file went home in my burn; this is the page that PRICED her, the child's own signature, and it is still in YOUR coat, Jonin. Not hers.",
@@ -2352,7 +2353,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "A held file is a held file, friend, whatever the holder's intentions. I have forty years of good intentions downstairs in an empty archive.",
                 "You kept the proof of what this village does to children, and never handed it back to the child. It is not nothing, friend. But the glass prices outcomes, not intentions. So, heaven help me, do I."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "She sets the file down with terrible gentleness.", nextPage: 16 }
+                { text: "She sets the file down with terrible gentleness.", nextPage: 20 }
             ] },
             { ...storyPage("Iro Reads the Manifest", "The chamber stair, Iro arriving with the buyer's manifest and an expression nobody has ever purchased", "Shade Master Iro", [
                 "Don't touch that, friend. It cost me everything I have ever charged anyone, and I will present it myself.",
@@ -2360,43 +2361,72 @@ export const storylines: Record<string, StoryStep[]> = {
                 "I'm IN it. Line four hundred and six. 'Broker, senior, high-yield: Iro.' Not my holdings, Sable. ME. I'm not a client of this arrangement. I never was. I'm STOCK with a long settlement date.",
                 "Forty years I sold this village's trust retail and called myself the one merchant too clever to be merchandise. The manifest disagrees. So here I stand, at the top of the tower, doing the one thing nobody ever priced me for: telling the truth at a loss. Whatever the discrepancy is selling tonight, Kage... I'm buying. That alone should terrify you into listening."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "He sets the manifest beside the glass.", nextPage: 16 }
+                { text: "He sets the manifest beside the glass.", nextPage: 20 }
             ] },
             { ...storyPage("Answer for the shelf. You've been paying its fee for seasons.", "The reckoning", "Kage Sable Nocturne", [
                 "So Iro sold you a shelf after all. Custody of your own file, editing rights on everyone else's, compounding monthly. Then you've sat where I sit: reading people at leisure and calling the reading protection.",
                 "Tell me you never once opened a stranger's page just because the fee entitled you. Say it, and I'll call you a liar in front of the glass.",
                 "That entitlement is my whole biography, Jonin. One shelf, one drawer, one tower, one tank. You bought in for a secret a month. I bought in for a village. The interest rate is the same."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "Enough. The Mirror answers now.", nextPage: 16 }
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
             ] },
             { ...storyPage("Answer for my file. I burned it in front of you.", "The reckoning", "Kage Sable Nocturne", [
                 "Yes. Your file. The one delivery my couriers ever made through an unbroken lock, and you put it in a brazier unread. My clerks called it waste. I called it the single most expensive purchase this village ever witnessed: you bought not-knowing, at the price of everything the knowing might have armed you with.",
                 "I have wanted to ask for two seasons, keeper to whatever you are: was it worth it? Owning nothing on yourself? Walking around unleveraged, unhedged, PLAIN?",
                 "Don't answer. Your face already has, and the glass saw it, and so did I. When you hold this tower, and I believe now you may, remember that the bravest ledger in Moonshadow was one page, burning. I never managed it. Not once, in forty years, with ten thousand chances."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "Enough. The Mirror answers now.", nextPage: 16 }
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
             ] },
             { ...storyPage("Answer for Nerissa Vale. Her name comes home tonight.", "The reckoning", "Kage Sable Nocturne", [
                 "The dealer. Sold at nine, one winter's food. You want the part I have never told a living soul? I found her file in my first year on this seat. A child's name, sold for a winter, storage accruing. I could have returned it. It would have cost me nothing.",
                 "I kept it. Not for leverage; I never once drew on it. I kept it because it was the PERFECT file: the whole village's arithmetic in one folder, and some keeper's instinct in me said, the day this file goes home, the tank cracks. I filed a nine-year-old under load-bearing and told myself it was stewardship.",
                 "Tell her that, afterward. Tell her the Kage read her price every winter and kept the receipt where it kept the whole system standing. She deserves to hate me with the file in hand. And Jonin... she deserves to hear it TONIGHT, whichever of us is left to say it."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
-                { text: "Enough. The Mirror answers now.", nextPage: 16 }
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
+            ] },
+            { ...storyPage("Answer for the night name you would not write.", "The reckoning", "Kage Sable Nocturne", [
+                "Your file has one field left open, and you left it open on purpose. You refused the night name. That is a different thing from leaving it blank, Jonin, and the Mirror hates the difference more than it has ever hated a lie.",
+                "A blank line, the tank can price later, at its leisure. A refusal, witnessed, it cannot price at all. You handed it the one entry four hundred years of intake never taught it to hold: a soul that declined to name its own worth."
+            ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
+            ] },
+            { ...storyPage("Answer for the night name that is yours alone.", "The reckoning", "Kage Sable Nocturne", [
+                "You wrote a night name in your own hand, for no one, owned by no one but you. Do you know what that is, on this canal? It is the one invoice this city never learned how to write.",
+                "A name said by its owner is not a transaction. I held ten thousand of them and understood that far too late to matter. You understood it at intake, and you never once let me buy it back off you."
+            ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
+            ] },
+            { ...storyPage("Answer for the leaf you tore out of your own file.", "The reckoning", "Kage Sable Nocturne", [
+                "You took the night-name leaf before my clerks could price the door it opened, and walked it out in your own coat, and left the buyer's quarterly deposit landing on the gap where it should have sat.",
+                "I respect the theft. Professionally, Jonin, and privately, which I do not say twice. Forty years I held everyone's pages, and I never once managed to steal back a single one of my own."
+            ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
+            ] },
+            { ...storyPage("Answer for the night name you wrote to shield someone else.", "The reckoning", "Kage Sable Nocturne", [
+                "You wrote a night name and spent it outward: a handle chosen to guard someone else, not to price yourself. My clerks would have argued for a week over which column it belongs in, because its worth points away from the holder.",
+                "I taught this village that a name is what you are worth. You wrote one that says a name is who you would stand in front of. The Mirror has no column for that either, and I find, tonight, that I am glad of it."
+            ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
+                { text: "Enough. The Mirror answers now.", nextPage: 20 }
             ] },
             { ...storyPage("The Glass and the Notice", "The Mirror chamber, the black moon at zenith, Sable's shadow finishing its departure", "Kage Sable Nocturne", [
                 "Enough. I close my books on time; it is the one virtue nobody ever had to buy from me. Forty years of being what no one could take, and here stands the last thing left to take, still answering to my name. I would hold every file again, friend, which is precisely the finding against me.",
                 "The tank, the lease, and a village on the stairs reading its own returned skin. Somebody decides tonight what safety costs here, and the buyer's escrow is already glowing.",
-                "The Mirror holds everyone, %name. Everyone but you. It has to look you up, and tonight, at last, we both learn why.",
+                "The Mirror holds everyone, %name. Everyone but you.",
+                "And do not mistake what rises out of me for a god, when it rises. It is a collection process with a face, and the face is mine, because I held the account long enough for the account to learn me.",
                 "Show me what a person is worth when nobody holds the receipt."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", leftName: "Player", rightName: "Kage Sable Nocturne", rightImage: "/portraits/kage-sable-nocturne-hollow.webp", choices: [
                 { text: "Show her the better truth.", nextPage: 3, requireTrait: "ms88-better-truth-carried" },
                 { text: "Let Nyx say her own name.", nextPage: 8, requireTrait: "ms88-better-truth-deferred" },
                 { text: "Let Iro read the buyer's manifest.", nextPage: 12, requireTrait: "ms92-witness-present" },
                 { text: "Show her Nyx's file.", nextPage: 11, requireTrait: "ms88-unfinished-answer", forbidTrait: "ms88-better-truth-ready" },
-                { text: "Show her the return figures.", nextPage: 10, requireTrait: "ms88-returns-held", forbidTrait: "ms65-saved-the-file" },
+                { text: "Show her the return figures.", nextPage: 10, requireTrait: "ms88-return-proven", forbidTrait: "ms65-saved-the-file" },
                 { text: "Answer for the shelf. You've been paying its fee for seasons.", nextPage: 13, requireTrait: "ms58-took-the-shelf" },
                 { text: "Answer for my file. I burned it in front of you.", nextPage: 14, requireTrait: "ms70-burned-the-file" },
-                { text: "Answer for Nerissa Vale. Her name comes home tonight.", nextPage: 15, requireTrait: "ms88-trust-proof-any" }
+                { text: "Answer for Nerissa Vale. Her name comes home tonight.", nextPage: 15, requireTrait: "ms88-nyx-proof-any" },
+                { text: "Answer for the night name you would not write.", nextPage: 16, requireTrait: "ms70-night-name-refused" },
+                { text: "Answer for the night name that is yours alone.", nextPage: 17, requireTrait: "ms70-night-name-claimed" },
+                { text: "Answer for the leaf you tore out of your own file.", nextPage: 18, requireTrait: "ms70-night-name-stolen-back" },
+                { text: "Answer for the night name you wrote to shield someone else.", nextPage: 19, requireTrait: "ms70-night-name-guardian" }
             ] },
         ], [
             { text: "Open the tank. Every held thing goes home, and the fires are ours to survive.", conclusion: "The glass parts like water deciding to be honest, and four hundred years of surrendered trust flows back down the tower into the village that grew around its absence: every confession, every name, every traded piece of everyone, home by dawn. Some of it burns; you knew it would; you chose a village that owns its own fires. The buyer's escrow lands on an empty tank. Sable attacks you weeping with relief, free of her lease at last.", trait: "honorable" },
