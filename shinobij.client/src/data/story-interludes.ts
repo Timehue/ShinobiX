@@ -1414,7 +1414,18 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "Somebody sold the deepest thing you ever gave, once, somewhere, to buy you a way out of a place the record does not name. The trust was collected. The passage was paid. What walked on afterward is you, minus the given thing, plus the storage fees.",
                 "And at the leaf's foot, freshly inked, quarterly-current, the buyer's mark holds the account OPEN. They're not done collecting. The file on your desk is the proof of reach. The blank page marked NEXT is the message: we are still buying, and you are still selling, and you have never once seen the counter."),
                 choices: [
-                    { text: "The lamp burns down.", nextPage: 8 }
+                    { text: "One field near the top you never let yourself read.", nextPage: 8 }
+                ] },
+            { ...pg("The Name Not Chosen", "The file's front leaf, one field the intake clerk left open on your first night", "Narrator",
+                "There is a line near the top of the file you have never once let yourself read. The day name is filled, in Iro's hand, from your first hour on the canal. Below it sits the other line.",
+                "The reserved line is headed in the registry's block capitals, NIGHT NAME, and the value keyed against it is one word. RESERVED. Not blank. Reserved.",
+                "Beside it, in the same quartered-circle mark that stands over every priced choice in these pages, a clerk has noted: PENDING SELF-VALUATION.",
+                "The Mirror did not only look you up on your first night. It has been waiting, quarter after quarter, for the one name you had not chosen yet: the price you would set on yourself, in your own hand, for it to hold."),
+                choices: [
+                    { text: "Write no night name at all. No one gets that handle, the buyer least of all.", nextPage: 9, trait: "ms70-night-name-refused" },
+                    { text: "Write a night name that guards someone else, not you.", nextPage: 9, trait: "ms70-night-name-guardian" },
+                    { text: "Write a night name that belongs to no one but you.", nextPage: 9, trait: "ms70-night-name-claimed" },
+                    { text: "Tear the night-name leaf out of the file and keep it in your own coat.", nextPage: 9, trait: "ms70-night-name-stolen-back" }
                 ] },
             pg("What to Do With a Mirror", "Your quarters at deep night, the file closed, your reflection in the dark window arriving on time for once", "Narrator",
                 "The file sits closed on the desk. Everything Moonshadow ever wrote about you, everything the circle ever bought of you, and one blank ruled page waiting for tonight's entry.",
@@ -1439,6 +1450,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
             pg("The Manifest", "The dry dock, the blank manifest on the crate, her pen unmoving over it", "Kite Harrow",
                 "Here's what my license training says: appraise the object, not the ethics. Here's what forty commissions across four villages have actually taught me: every 'object' on this coast turned out to be somebody, eventually, and I certified half of them before I learned to check.",
                 "The client's a quartered circle. I've traced that mark through four villages now, and the buyers under it keep one name they are careful never to write down: the Hollow Gate. The cargo is four hundred years of surrendered trust. The fee is my own name, over my own door, at last. And the manifest wants one signature to make the whole thing MERCHANDISE.",
+                "You want the shape of the thing, colleague? Stormveil spends reasons. Ashen Leaf spends futures. Frostfang spends exits. Moonshadow spends surrendered trust: names, secrets, confessions, files, and the exact moment a person believed the holder would keep them safe. The Gate does not care what any village calls its currency. It cares only that the four seats keep collecting.",
                 "You know the joke of it? The Mirror already holds a version of me that would sign. I MET her, on the scouting pass. She looked happy. She looked exactly like me with a door.",
                 "Whatever I do at this crate, colleague, one of us gets left in the glass. Help me pick which."),
         ], [
@@ -1476,7 +1488,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "'It's SMALLER than I remembered,' he keeps saying, gripping the folder like a rail. 'Years I paid to keep this held, and it's... it's just a bad winter. It's just a man having a bad winter.'",
                 "He signs the return receipt with a steady hand. Witnessed. Consented. Home. The oldest law on the canal dies without a sound, the way false things die when someone finally checks."),
                 choices: [
-                    { text: "The queue forms on its own.", nextPage: 4, trait: "ms88-returns-held" }
+                    { text: "The queue forms on its own.", nextPage: 4, trait: "ms88-return-proven" }
                 ] },
             { ...pg("Eleven by Dawn", "The booth at first light, a queue down the canal walk, receipts drying on a line", "Nyx",
                 "Numbers, before the market invents its own version. Eleven files returned by dawn. Eleven, witnessed, receipted, consented. Fires started: ZERO. Marriages ended: zero. Duels declared: zero, and I had odds posted on two.",
@@ -1494,12 +1506,12 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "Whoever carries that to the tower isn't carrying my bad winter. They're carrying the argument, the entire one: if THIS sale can come home, every sale can. If I can be unbought, nobody's holdings are safe, and safety-through-holding was always the only product the tower sold.",
                 "So quote me a carrier, friend, and make it final. This listing doesn't relist."),
                 choices: [
-                    { text: "\"Partners split the risk. I'll carry it up the tower. You hold the market.\"", nextPage: 8, requireTrait: "nyx-partner", trait: "ms88-trust-proof-ready" },
-                    { text: "\"Standing order, one last true thing: let me carry it to her.\"", nextPage: 8, requireTrait: "nyx-respect", trait: "ms88-trust-proof-ready" },
-                    { text: "\"Our account reopened at zero tonight. First entry: I carry this.\"", nextPage: 8, requireTrait: "ms88-repaired-trust", trait: "ms88-trust-proof-ready" },
-                    { text: "\"Stand back. It's your name. You say it; I'll hold the market open.\"", nextPage: 6, requireTrait: "nyx-partner", trait: "ms88-trust-proof-deferred" },
-                    { text: "\"Stand back. It's your name. You say it; I'll hold the market open.\"", nextPage: 6, requireTrait: "nyx-respect", trait: "ms88-trust-proof-deferred" },
-                    { text: "\"Stand back. It's your name. You say it; I'll hold the market open.\"", nextPage: 6, requireTrait: "ms88-repaired-trust", trait: "ms88-trust-proof-deferred" },
+                    { text: "\"Partners split the risk. I'll carry it up the tower. You hold the market.\"", nextPage: 8, requireTrait: "nyx-partner", trait: "ms88-nyx-proof-carried" },
+                    { text: "\"Standing order, one last true thing: let me carry it to her.\"", nextPage: 8, requireTrait: "nyx-respect", trait: "ms88-nyx-proof-carried" },
+                    { text: "\"Our account reopened at zero tonight. First entry: I carry this.\"", nextPage: 8, requireTrait: "ms88-repaired-trust", trait: "ms88-nyx-proof-carried" },
+                    { text: "\"Stand back. It's your name. You say it; I'll hold the market open.\"", nextPage: 6, requireTrait: "nyx-partner", trait: "ms88-nyx-proof-deferred" },
+                    { text: "\"Stand back. It's your name. You say it; I'll hold the market open.\"", nextPage: 6, requireTrait: "nyx-respect", trait: "ms88-nyx-proof-deferred" },
+                    { text: "\"Stand back. It's your name. You say it; I'll hold the market open.\"", nextPage: 6, requireTrait: "ms88-repaired-trust", trait: "ms88-nyx-proof-deferred" },
                     { text: "Keep the file in your coat. Let that be your part.", nextPage: 7 }
                 ] },
             { ...pg("You Hold the Market", "The booth, Nyx wrapping her own file in plain paper, like any parcel", "Nyx",
@@ -1540,7 +1552,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "I've kept books since I was nine, and I have never once closed a personal ledger at zero. Zero is impossible. Zero means every trade was fair and every gift was seen. People don't DO that.",
                 "So naturally I'm keeping the page. Framed. As evidence that it happened once, whatever the glass decides tomorrow. Now go talk to the vulture at lantern four; he's been rehearsing."),
                 choices: [
-                    { text: "\"Tomorrow your name comes home. Carried by you, said by you.\"", nextPage: 2, requireTrait: "ms88-trust-proof-deferred" },
+                    { text: "\"Tomorrow your name comes home. Carried by you, said by you.\"", nextPage: 2, requireTrait: "ms88-nyx-proof-deferred" },
                     { text: "Show her the sealed case file, receipt by receipt.", nextPage: 3, requireTrait: "ms88-sealed-receipts" },
                     { text: "Walk to the fourth lantern.", nextPage: 4 }
                 ] },
@@ -1569,9 +1581,9 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "The seventh lantern.", nextPage: 5 }
                 ] },
             pg("The Unlit Lantern", "The seventh lantern, the shrine witness holding her own small lamp, wick trimmed, unlit", "Shrine Witness",
-                "Knife. No... not knife anymore, I think. Climber, now. Sit a moment; old women and lanterns both take a while to say what they hold.",
+                "Knife. No... not knife anymore, I think. Climber, now. Sit a moment. This takes an old woman a while to say.",
                 "Three hundred and eleven names, copied twice, kept safe. I heard what your booth did with eleven files, and I am here to tell you what I will do with my pages, whichever way the tower falls tomorrow.",
-                "I will read them ALOUD. In the square, at noon, one name a day, three hundred and eleven days. The sold, said out loud, every day for nearly a year, so this village hears the roll of what it traded away. A name a day. I have the voice for a year of it. I checked with my chest and my grief, and both signed off.",
+                "I will read them ALOUD. In the square, at noon, one name a day, three hundred and eleven days. The sold, said out loud, every day for nearly a year, so this village hears the roll of what it traded away. A name a day. I have the voice for a year of it. I asked my chest and my grief, and neither of them said no.",
                 "This lamp is for the first reading. I'll light it from whichever fire tomorrow leaves burning. Climb well, climber. The names and I will be in the square either way."),
             pg("The Procession Forms", "The tower road at full dark, nine lanterns burning, the market coming out of its shadows", "Nyx",
                 "Look down the road. No. Really look.",

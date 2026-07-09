@@ -546,7 +546,35 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Take the Mirror (loyal) ───────────────────────────────────────
         {
             lane: "loyal",
-            requireTrait: "ms88-better-truth-carried",
+            requireTrait: "ms100-nyx-named-herself",
+            title: "The Unpriced Keeper, Named",
+            pages: [
+                {
+                    title: "The New Glass",
+                    scene: "The Mirror chamber, the tank recognizing a keeper it cannot appraise",
+                    speaker: "Narrator",
+                    dialogue: [
+                        "The tank takes your hand and finds no price on it, and settles, for the first time in four centuries, into custody it cannot bill.",
+                        "The buyer's escrow hangs unexecutable. Somewhere below the canal, something files its first extension in four hundred years.",
+                        "And in the glass's black depth, one ripple never quite stills: the place where a woman said her own name for free, the one entry the tank holds that it does not own.",
+                    ],
+                },
+                {
+                    title: "What Nyx Saw",
+                    scene: "The chamber door, Nyx not coming in",
+                    speaker: "Nyx",
+                    dialogue: [
+                        "You held the market open while I bought my name back with my own breath. That transaction is framed over my stall, friend, the first unpriced entry in canal history. I will owe you the frame forever. On the record, first.",
+                        "Then you watched the glass come open and sat down at it anyway.",
+                        "I said my name in front of that tank so nobody would ever hold me again. And the tank's new keeper heard it, and filed the ripple, and kept the seat. Strip the poetry and that's the ledger line.",
+                        "Nerissa Vale trades on the east canal now, daylight hours, true names only. Come by if you're ever just a person again. First tea's free. The second one, keeper, costs more than you currently have.",
+                    ],
+                },
+            ],
+        },
+        {
+            lane: "loyal",
+            requireTrait: "ms88-better-truth-ready",
             title: "The Unpriced Keeper",
             pages: [
                 {
@@ -568,34 +596,6 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "You held the whole argument, priced perfectly. And when the glass finally blinked, you bought the seat instead of the exit.",
                         "I've run the numbers all morning and they won't close. You're holding the tank so IT can't be held, I get the theory, I priced the theory, the theory is even GOOD.",
                         "But the ledger says my file's back in a tower, friend. Under a kinder keeper. The kindest yet. That's what the entry says, and I've never once written a false entry, so I'm leaving the page open. Make a liar of the trend line. Please. I'll pay.",
-                    ],
-                },
-            ],
-        },
-        {
-            lane: "loyal",
-            requireTrait: "ms88-better-truth-deferred",
-            title: "The Unpriced Keeper",
-            pages: [
-                {
-                    title: "The New Glass",
-                    scene: "The Mirror chamber, the tank recognizing a keeper it cannot appraise",
-                    speaker: "Narrator",
-                    dialogue: [
-                        "The tank takes your hand and finds no price on it, and settles, for the first time in four centuries, into custody it cannot bill.",
-                        "The buyer's escrow hangs unexecutable. Somewhere below the canal, something files its first extension in four hundred years.",
-                        "And in the glass's black depth, one ripple never quite stills: the place where a woman said her own name for free, the one entry the tank holds that it does not own.",
-                    ],
-                },
-                {
-                    title: "What Nyx Saw",
-                    scene: "The chamber door, Nyx not coming in",
-                    speaker: "Nyx",
-                    dialogue: [
-                        "You held the market open while I bought my name back with my own breath. That transaction is framed over my stall, friend, the first unpriced entry in canal history. I will owe you the frame forever. On the record, first.",
-                        "Then you watched the glass come open and sat down at it anyway.",
-                        "I said my name in front of that tank so nobody would ever hold me again. And the tank's new keeper heard it, and filed the ripple, and kept the seat. Strip the poetry and that's the ledger line.",
-                        "Nerissa Vale trades on the east canal now, daylight hours, true names only. Come by if you're ever just a person again. First tea's free. The second one, keeper, costs more than you currently have.",
                     ],
                 },
             ],
