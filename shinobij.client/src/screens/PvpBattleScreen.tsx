@@ -654,7 +654,8 @@ export function PvpBattleScreen({
     // entry id) so a refresh on the result screen re-records harmlessly.
     const battleRecordedRef = useRef(false);
     useEffect(() => {
-        if (session?.status !== "done" || battleRecordedRef.current || !onRecordBattle) return;
+        // Spars must not touch battle history — they count for nothing.
+        if (session?.status !== "done" || battleRecordedRef.current || !onRecordBattle || isSpar) return;
         battleRecordedRef.current = true;
         const meFighter = role === "p1" ? session.p1 : session.p2;
         const oppFighter = role === "p1" ? session.p2 : session.p1;
