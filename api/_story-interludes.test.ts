@@ -77,7 +77,13 @@ test('interlude choices are well-formed: one per lane, unique traits, self-point
             const lastIndex = entry.pages.length - 1;
             for (const [i, page] of entry.pages.entries()) {
                 assert.ok(page.dialogue.length >= 1, `${entry.id} page ${i} has no dialogue`);
-                if (i < lastIndex) assert.ok(!page.choices?.length, `${entry.id}: choices must live on the final page only`);
+                // Mid-scene choices steer the conversation only: they must never
+                // grant traits (the recorded decision lives on the final page).
+                if (i < lastIndex) {
+                    for (const choice of page.choices ?? []) {
+                        assert.ok(!choice.trait, `${entry.id} page ${i}: mid-scene choice grants a trait (${choice.trait})`);
+                    }
+                }
             }
             const choices = entry.pages[lastIndex].choices ?? [];
             assert.equal(choices.length, 3, entry.id);

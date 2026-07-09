@@ -129,27 +129,72 @@ test("every story VN graph is walkable and ends properly (all trait scenarios)",
                 assert.ok(terminals.has("battle") || terminals.has("conclude"), `${label}: no reachable ending`);
             }
         }
-        // Trait-gated hubs must always keep an ungated way forward.
+        // Trait-gated hubs must always keep an ungated way forward, and
+        // mid-scene choices (non-final pages) must never grant traits.
         for (const [i, page] of pages.entries()) {
             const choices = page.choices ?? [];
             if (choices.some((c) => c.requireTrait)) {
                 assert.ok(choices.some((c) => !c.requireTrait && !c.forbidTrait), `${label} page ${i}: gated hub without an ungated fallback choice`);
             }
+            if (i < pages.length - 1) {
+                for (const choice of choices) {
+                    assert.ok(!choice.trait, `${label} page ${i}: mid-scene choice grants trait ${choice.trait}`);
+                }
+            }
         }
     }
 });
 
-test("finale reckoning gates reference real interlude traits from the same village", () => {
+test("zero em/en dashes anywhere in story copy (owner hard rule)", () => {
+    const offenders: string[] = [];
+    for (const { label, pages } of allContent()) {
+        for (const page of pages) {
+            const fields = [page.title, page.scene, ...page.dialogue,
+                ...(page.choices ?? []).flatMap((c) => [c.text, (c as { conclusion?: string }).conclusion ?? ""])];
+            for (const field of fields) {
+                if (/[—–]/.test(field)) offenders.push(`${label}: ${field.slice(0, 80)}`);
+            }
+        }
+    }
+    assert.deepEqual(offenders, [], `em/en dashes found:\n${offenders.join("\n")}`);
+});
+
+test("the player's avatar always holds the left portrait slot", () => {
+    // The renderer puts the player LEFT when page.rightName is "Player" (the
+    // storyPage default, which swaps sides) or when leftName is "Player"/unset.
+    // A page must never name BOTH slots to NPCs, or the player vanishes from
+    // their own story.
+    const offenders: string[] = [];
+    for (const { label, pages } of allContent()) {
+        for (const [i, page] of pages.entries()) {
+            const p = page as { leftName?: string; rightName?: string };
+            const rightIsPlayer = (p.rightName ?? "Player").trim().toLowerCase() === "player";
+            const leftIsPlayer = (p.leftName ?? "Player").trim().toLowerCase() === "player";
+            if (!rightIsPlayer && !leftIsPlayer) offenders.push(`${label} page ${i}: left=${p.leftName} right=${p.rightName}`);
+        }
+    }
+    assert.deepEqual(offenders, [], `pages without the player in a slot:\n${offenders.join("\n")}`);
+});
+
+test("every trait gate references a trait this player can actually earn by then", () => {
+    // Earnable = this village's interlude traits + any road-event trait, and
+    // only from content whose levelReq is at or below the gating chapter's.
+    const roadTraitLevels = new Map<string, number>();
+    for (const event of storyRoadEvents) {
+        for (const choice of event.pages[event.pages.length - 1].choices ?? []) roadTraitLevels.set(choice.trait, event.levelReq);
+    }
     for (const [village, steps] of Object.entries(storylines)) {
-        const villageTraits = new Set(
-            (storyInterludesByVillage[village] ?? []).flatMap((e) =>
-                (e.pages[e.pages.length - 1].choices ?? []).map((c) => c.trait)),
-        );
-        const finale = steps[steps.length - 1];
-        for (const page of (finale.pages ?? []) as AnyPage[]) {
-            for (const choice of page.choices ?? []) {
-                if (choice.requireTrait) {
-                    assert.ok(villageTraits.has(choice.requireTrait), `${village} finale gates on unknown trait ${choice.requireTrait}`);
+        const interludeTraitLevels = new Map<string, number>();
+        for (const entry of storyInterludesByVillage[village] ?? []) {
+            for (const choice of entry.pages[entry.pages.length - 1].choices ?? []) interludeTraitLevels.set(choice.trait, entry.levelReq);
+        }
+        for (const step of steps) {
+            for (const page of (step.pages ?? []) as AnyPage[]) {
+                for (const choice of page.choices ?? []) {
+                    if (!choice.requireTrait) continue;
+                    const earnLevel = interludeTraitLevels.get(choice.requireTrait) ?? roadTraitLevels.get(choice.requireTrait);
+                    assert.ok(earnLevel !== undefined, `${village} L${step.levelReq} gates on unknown trait ${choice.requireTrait}`);
+                    assert.ok(earnLevel <= step.levelReq, `${village} L${step.levelReq} gates on ${choice.requireTrait}, only earnable at level ${earnLevel}`);
                 }
             }
         }

@@ -1,11 +1,11 @@
 /*
- * story-road-events — the level-capped wandering story events: cross-village
+ * story-road-events: the level-capped wandering story events: cross-village
  * mini-stories brought to the player by road NPCs (docs/fable-5-story-rebuild.md
  * §10 table; 15 events, levels 22-100). Delivered on the world map: the next
  * eligible event's NPC walks the player's current sector; talking to them opens
  * a multi-page VN whose choice is recorded to the server story record.
  *
- * ZERO imports on purpose — the api parity test (api/_story-road-events.test.ts)
+ * ZERO imports on purpose: the api parity test (api/_story-road-events.test.ts)
  * imports this file directly under node/tsx. Wanderer synthesis and CreatorEvent
  * conversion live in lib/story-road-events.ts.
  *
@@ -71,7 +71,7 @@ function roadEvent(levelReq: number, slug: string, title: string, npcName: strin
     };
 }
 
-/** Sorted by levelReq — the delivery layer walks this in order. */
+/** Sorted by levelReq; the delivery layer walks this in order. */
 export const storyRoadEvents: StoryRoadEvent[] = [
     roadEvent(22, "border-smoke", "Border Smoke", "Pell Marrow", "courier", [
         pg("The Burn Line", "Burnt strip, Ashen Leaf border road", "Narrator",
@@ -79,7 +79,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "A courier sits on the eastern stone, one sleeve burned to the elbow, sorting scorched letters by weight.",
             "She has been waving travelers through all morning. You, she stands up for."),
         pg("Undeliverable", "The eastern boundary stone", "Pell Marrow",
-            "Miller's Ford. The water-rights thing. You're that one. Good — I need somebody both patrols will let past the rope.",
+            "Miller's Ford. The water-rights thing. You're that one. Good. I need somebody both patrols will let past the rope.",
             "This dispatch says Frostfang burned the strip. I was standing in it when it caught. I don't deliver things I watched be wrong.",
             "Two patrols came to the light. Both in correct marks. Frostfang wool, Ashen Leaf gray. Patrols don't share a fire.",
             "There's a witness. Charcoal-burner up the ridge, Umi. Get to her before the captains do.",
@@ -87,7 +87,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
         pg("Ask Her Twice", "Charcoal camp above the burn", "Umi",
             "I don't sleep when the kilns are banked. Saw the whole thing. Two patrols, plain as washing on a line.",
             "First lot wore Frostfang wool, seal-marks at the wrist. Second lot was Ashen Leaf gray, register braids. Stood right where you're standing.",
-            "The second lot? Frostfang, I said. Blue wool, wrist-marks. Why do you keep— I said that. Didn't I say that.",
+            "The second lot? Frostfang, I said. Blue wool, wrist-marks. Why do you keep... I said that. Didn't I say that.",
             "There was a comfort-man through here after the fire. Took the worst of that night off me for two coins. Cheap, I thought.",
             "Odd, though. I can tell you every button on the first patrol. The second lot's faces come up smooth. Like river stones.",
             "Kiln three wants feeding. Mind the sparks going down."),
@@ -109,7 +109,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Frostfang drills for exactly that. Pairs. I have six students, this yard, and one hour before the road takes me north.",
             "First lesson is free. The second costs you an hour of holding pads."),
         pg("Drill Twelve", "The drill yard, second hour", "Petra",
-            "Hold out your wrist — habit, sorry. We check marks at home. You don't have one. Havek says that's allowed out here.",
+            "Hold out your wrist. Habit, sorry. We check marks at home. You don't have one. Havek says that's allowed out here.",
             "Stand closer. If I can't touch your shoulder, I can't cover you. That's drill one.",
             "The scroll's older than Havek. Except drill twelve. The ink runs darker there.",
             "He swears his instructor taught him twelve. His instructor swears she never did.",
@@ -121,7 +121,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Twenty years of drills in one hand and my students in the open. Choose fast, stranger. I already know my answer."),
         pg("The Open Gate", "The yard gate, the thief clearing it", "Narrator",
             "The mask clears the fence, scroll under one arm. The students are strung out across the yard, unpaired.",
-            "Havek is already moving — toward the youngest of them, not the thief.",
+            "Havek is already moving, toward the youngest of them, not the thief.",
             "The gate stands open. The road north is dry and fast."),
     ], [
         ch("Pull the scattered students behind you and hold the yard.", "good", "rd26-held-the-yard", "The mask is gone north before the dust settles. Havek counts his students twice, writes your name at the bottom of his roster, and mentions he works this road every month.", undefined),
@@ -134,7 +134,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Frostfang winter tread, size nine, heavy on the left heel. In Reedmarsh he's running east.",
             "In Coldbrook, same hour, running west. Downhill both times. Don't start about hills. I checked the hills.",
             "I've tracked liars, corpses, a bear that swam a river to spite me. Never a man who's three men at once.",
-            "You walk roads that don't behave. That's why I waved you over. Well — most of why."),
+            "You walk roads that don't behave. That's why I waved you over. Well. Most of why."),
         pg("The Print That Starts Nowhere", "Fallow field, Reedmarsh sector", "Narrator",
             "The trail begins in the middle of the field. No approach. No landing. Eleven strides, then nothing.",
             "The toe digs deep, like a sprint. The spacing says a walk. Both can't be true. Both are.",
@@ -190,12 +190,12 @@ export const storyRoadEvents: StoryRoadEvent[] = [
         pg("The Count at the Door", "Mud road below the shrine pass", "Sefa",
             "You walk like the one they talk about at the ford. No flag. Good. Keep walking while I talk.",
             "Storm banners on the west steps of the shrine. Ash banners east. Horns twice since dawn.",
-            "My pilgrims are inside. I count sandals at the door — eleven went up, nine pairs are still sitting there.",
+            "My pilgrims are inside. I count sandals at the door. Eleven went up, nine pairs are still sitting there.",
             "Old Maru's knees quit on the climb. He is not coming down without help, and I am done being polite about it."),
         pg("The Shrine of Two Steps", "The narrows, under raid horns", "Narrator",
             "The shrine sits where the pass narrows. Neither road crosses without walking under its steps.",
             "Pilgrims pour rice wine into the offering bowl at dusk. Every morning the bowl is dry, and every pilgrim walks down lighter than they climbed.",
-            "Both founders' names are carved on the inner wall — Stormveil reads its own, Ashen Leaf reads its own. Same wall. One hand cut them, older than either village.",
+            "Both founders' names are carved on the inner wall. Stormveil reads its own, Ashen Leaf reads its own. Same wall. One hand cut them, older than either village.",
             "Sefa's people sweep the steps every morning. Someone swept them today."),
         pg("The West Line", "West steps, Stormveil raid line", "Captain Hela Dray",
             "You. No flag. Pick a step or clear the pass.",
@@ -205,7 +205,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
         pg("The East Line", "East steps, behind the ash banners", "Warden Suvi Rell",
             "My mother's name is on that wall. She holds this pass. I only hold the paperwork.",
             "Dray calls it a toll hill. The register calls it our first page. Neither founder carved that wall, which nobody says on the steps.",
-            "If she puts fire to those names, they go where— no. State your business or stand clear.",
+            "If she puts fire to those names, they go where... no. State your business or stand clear.",
             "Mind the third step. It ices, even in summer."),
         pg("Nine Pairs of Sandals", "Shrine doorway, horns sounding again", "Sefa",
             "West side is dipping arrows in pitch. I watched the girl with the pot do it twice.",
@@ -215,7 +215,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
     ], [
         ch("Walk the pilgrims out and call both commanders down", "good", "rd38-walked-them-out", "You come down with Old Maru on your back and eight behind you, and the arrows hold, because loosing one now means shooting you. Rell grounds her banners; Dray steps into the pass and rolls her shoulders.", { bossName: "Raid Captain Hela Dray", bossIcon: "⛈️" }),
         ch("Broker terms: split hours, banners down, bowl sealed", "neutral", "rd38-split-the-hours", "Rell copies the terms into her register before Dray finishes carving her mark into the step: dawn hours west, dusk hours east, the bowl sealed in its niche behind both villages' wax. Sefa relights the lamps that night.", undefined),
-        ch("Slip inside and pocket the bowl while they argue", "bad", "rd38-lifted-the-bowl", "By nightfall each village swears the other lifted it, and the pass grows two new checkpoints. Sefa counts what leaves shrines the way she counts sandals — and she watched your hands.", undefined),
+        ch("Slip inside and pocket the bowl while they argue", "bad", "rd38-lifted-the-bowl", "By nightfall each village swears the other lifted it, and the pass grows two new checkpoints. Sefa counts what leaves shrines the way she counts sandals, and she watched your hands.", undefined),
     ]),
     roadEvent(44, "legacy-without-a-name", "A Legacy Without a Name", "Emissary Corvane", "emissary", [
         pg("The Stone at the Fork", "A marker stone where three roads meet", "Emissary Corvane",
@@ -264,7 +264,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "She waves you over like the two of you planned this."),
         pg("Hazard Rate", "Tailboard of the second wagon", "Kite Harrow",
             "There you are. The road keeps billing me for you. Third time this year.",
-            "Escort job. Six days, sealed cargo, hazard rate. Your village is named in the hostile-parties clause, so smile — you're the hazard.",
+            "Escort job. Six days, sealed cargo, hazard rate. Your village is named in the hostile-parties clause, so smile. You're the hazard.",
             "No, I haven't looked inside. Looking is a forty percent surcharge. Nobody paid it, so nobody looks. Principle.",
             "I can still count, though. The manifest lists weight 'as delivered.' Heavier every morning. There's a column waiting for the new number.",
             "Crates don't gain weight, in my experience. Grain settles. Stone sits. This does neither."),
@@ -277,7 +277,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
         pg("The Menu", "Out of the guards' hearing", "Kite Harrow",
             "You caught it. He says that sentence the same way every time. Same words, same breath. I counted.",
             "Sworn shinobi get to say 'not my department.' I don't have a department. Just the contract, and the contract stinks.",
-            "Here's the arithmetic. I break the seal, I eat the penalty. Half, if somebody splits it. Or you keep quiet and I owe you — in writing, no expiry.",
+            "Here's the arithmetic. I break the seal, I eat the penalty. Half, if somebody splits it. Or you keep quiet and I owe you. In writing, no expiry.",
             "Or you sell me to Bellis for two hundred. I'd respect it. I priced it.",
             "Whatever's in that crate, somebody already paid for it. Not the company. Somebody who doesn't know they did."),
     ], [
@@ -287,7 +287,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
     ]),
     roadEvent(52, "black-bridge", "Hostages at Black Bridge", "Registrar Corin Vell", "official", [
         pg("A Name Both Sides Gave", "Toll road above the Grey Fork", "Registrar Corin Vell",
-            "You're the one who— sorry. Both delegations gave your name. Independently, which never happens. I checked twice.",
+            "You're the one who... sorry. Both delegations gave your name. Independently, which never happens. I checked twice.",
             "Prisoner exchange at Black Bridge, noon. Six of Frostfang's for one of Moonshadow's. On paper, anyway.",
             "I record it. I don't guarantee it. There's a difference, and it's usually about a hundred paces wide.",
             "They wanted a witness neither side owns. Apparently that's you now.",
@@ -316,7 +316,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
     ]),
     roadEvent(56, "rival-who-keeps-losing", "The Rival Who Keeps Losing", "Anji Vesk", "rival", [
         pg("Fourth Challenge", "Waystation yard, frost on the rails", "Narrator",
-            "The Frostfang challenger is waiting at the waystation again. Fourth time. She has paid the fee up front, both halves — winner's and loser's.",
+            "The Frostfang challenger is waiting at the waystation again. Fourth time. She has paid the fee up front, both halves, winner's and loser's.",
             "She asked the keeper for the strongest hand on the road. He named you before she finished asking.",
             "Three losses. She chalks the ring herself, always the same size. Two shoulders wide. The width of a corridor.",
             "Nobody at the station bets against you anymore. She knows that. She came anyway."),
@@ -337,7 +337,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Fifth challenge. Both halves of the fee, up front.",
             "Well."),
     ], [
-        ch("Take the chalk. Train her like you mean it.", "good", "rd56-trained-the-rescue", "She stops asking about points and asks about Corin instead — reach, weight, which shoulder he favors. Then she chalks a fresh ring: the lesson starts now, full speed.", { bossName: "Anji Vesk", bossIcon: "⚔️" }),
+        ch("Take the chalk. Train her like you mean it.", "good", "rd56-trained-the-rescue", "She stops asking about points and asks about Corin instead. Reach, weight, which shoulder he favors. Then she chalks a fresh ring: the lesson starts now, full speed.", { bossName: "Anji Vesk", bossIcon: "⚔️" }),
         ch("Set a price: watch rotations for every lesson.", "neutral", "rd56-rotations-for-lessons", "She pays without haggling: rotations, the relief pattern, which gate man drinks on duty. She logs each lesson against each fact in a two-column tablet, balanced, nothing owed.", undefined),
         ch("Break her, and make Corin your leverage.", "bad", "rd56-leash-on-corin", "You say Corin's name and let it sit. The keeper pulls his shutters closed; she picks up the chalk anyway.", { bossName: "Anji Vesk", bossIcon: "🗡️" }),
     ]),
@@ -358,7 +358,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Her arithmetic's tidy. Out there my kids bleed and hers mostly don't. Run that sum.",
             "Stormveil doesn't halt a fight for getting honest.",
             "But somebody carved those seals wanting me to read Frostfang on them. I don't like being handed my own grudge.",
-            "So call it, neutral. And call it fast — my people don't stand still well."),
+            "So call it, neutral. And call it fast. My people don't stand still well."),
         pg("A Third Hand", "Proctor's table, the cut seal laid open", "Proctor Hasse",
             "Here is the recarved seal. The scoring hand knew both villages' work and used neither.",
             "I pulled the border smoke file on a hunch. The cold-burn line was struck from my copy. Not redacted. Struck. Somebody tidy got there before me.",
@@ -375,7 +375,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "This spring I sold a rumor. A fifth anchor under Central, older than the four. Forty buyers, clean margin.",
             "Twenty of them pooled up and dug. Three weeks back they stopped buying rope. Then lamp oil. Then bread.",
             "A crew that stops buying bread is dead or rich. I'd pay to know which before the villages do.",
-            "And you — people who never buy anything have started buying news of you. That made the detour cheap."),
+            "And you. People who never buy anything have started buying news of you. That made the detour cheap."),
         pg("What the Rumor Bought", "The dig camp, winch platform", "Foreman Dray",
             "Latch sent you? Then you already know what he sold us.",
             "There's no anchor down there. There's a street. Curbstones. Door lintels. A stair cut for eight men abreast.",
@@ -390,7 +390,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Down the wide stair, past the lamplight, something keeps a slow rhythm. It could be water. Water doesn't count.",
             "The third rung flexes on the way back up."),
         pg("Sold as Seen", "Winch platform, lamps guttering", "Corvo Latch",
-            "No anchor. No refunds either — a rumor's a sold-as-seen trade, and mine was honestly false.",
+            "No anchor. No refunds either. A rumor's a sold-as-seen trade, and mine was honestly false.",
             "A verified route outsells a rumor the way a deed outsells a promise. Down there is the find of my working life.",
             "Dray's crew won't climb out. Nobody leaves a hole with money at the bottom of it.",
             "So. Name your position, and I'll draft the paper it needs."),
@@ -437,7 +437,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
     roadEvent(82, "emergency-powers", "Emergency Powers", "Adjutant Denn", "official", [
         pg("The Last Line", "Mile marker on the north road", "Adjutant Denn",
             "Hold up. You're hard to find for someone this famous.",
-            "Adjutant Denn, Kage's office. This is Provision Nine — emergency decree, thirty days. Curfew, searches, seizure. All lawful, all countersigned.",
+            "Adjutant Denn, Kage's office. This is Provision Nine. Emergency decree, thirty days. Curfew, searches, seizure. All lawful, all countersigned.",
             "All but the last line. Enforcement wants a name the village already trusts. The office picked yours.",
             "I don't get an opinion. I get a satchel and a route.",
             "Careful, the ink's wet."),
@@ -466,7 +466,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
     ]),
     roadEvent(94, "last-road", "The Last Road Before the Seat", "Suma", "pilgrim", [
         pg("Forty Behind Her", "The Central road, first light", "Suma",
-            "Hold on. Hold — I know you.",
+            "Hold on. Hold... I know you.",
             "You won't remember. It was raining, and you didn't ask our names first. Stopped anyway.",
             "There's forty of us walking behind me. Give or take. Word came down the road you're going for the seat.",
             "Nobody sent us. I want that said plain. Nobody sent us.",
@@ -474,7 +474,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
         pg("The Woman on the Stone", "A rest stone, half a mile on", "Verah",
             "I'm not moving off this stone. You can go around.",
             "My sister carried water for the last one who took a seat. Right up to the end, she carried it.",
-            "So. When someone like you wins — what happens to someone like me?",
+            "So. When someone like you wins, what happens to someone like me?",
             "Don't answer fast. The fast answer is the one they've all had.",
             "There's a second stone past the willow. If you wanted to sit and not say anything."),
         pg("Standard Language", "Waystation, fresh horses waiting", "Undersecretary Corvel",
@@ -497,7 +497,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
     roadEvent(100, "seat-of-scars", "Seat of Scars", "Amra Tull", "official", [
         pg("The List", "A mile marker outside the village gate", "Amra Tull",
             "You walk faster than your statue will. I've been at this marker since yesterday noon.",
-            "Amra Tull. Deputy of records. Formerly deputy — the office door is off its hinges.",
+            "Amra Tull. Deputy of records. Formerly deputy. The office door is off its hinges.",
             "I'm not here about the door.",
             "Read this. I copied it off the well wall before someone could add my name to it.",
             "Fourteen names. Clerks, mostly. Two gate guards. Hob Setter, who counts arena bets. A scribe who wrote what she was handed.",
@@ -522,7 +522,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Tell me what to write."),
     ], [
         ch("Stand at Hob's stall at dusk, in the open.", "good", "rd100-stood-at-dusk", "Deni's crowd arrives, counts who is standing behind you, and thins out one lantern at a time. By morning Amra has posted a single line under the list: witnessed, and answered.", undefined),
-        ch("Order tribunals: open hearings, published names, punishments with a ceiling.", "neutral", "rd100-set-the-ceiling", "Amra drafts it fast, like she has been carrying the wording for days. Deni signs on as first complainant — inside the rules, which is where you put him.", undefined),
+        ch("Order tribunals: open hearings, published names, punishments with a ceiling.", "neutral", "rd100-set-the-ceiling", "Amra drafts it fast, like she has been carrying the wording for days. Deni signs on as first complainant, inside the rules, which is where you put him.", undefined),
         ch("Say nothing. Watch the square, and mark who bows first.", "bad", "rd100-marked-who-bowed", "Hob's stall burns on schedule while you watch from the notice board. By week's end three of the fourteen have knelt to you in the street, and Amra has stopped meeting your eyes.", undefined),
     ]),
 ];

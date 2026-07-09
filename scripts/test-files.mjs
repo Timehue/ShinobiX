@@ -236,4 +236,5 @@ export const TEST_FILES = [
     "shinobij.client/src/lib/story-trigger.test.ts",
     "shinobij.client/src/lib/story-road-events.test.ts",
     "shinobij.client/src/data/story-content.test.ts",
+    "api/village/_kage-unlock.test.ts",
 ];

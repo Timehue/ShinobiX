@@ -3892,6 +3892,9 @@ export default function App() {
         if (isBattleFlowScreen(screen)) return;
         // Gate the village story behind tutorial completion (skip sets "done").
         if (normalizeOnboardingStep(character.onboardingStep) !== "done") return;
+        // Don't fire beneath the forced ProfessionPicker modal (level 13+, no
+        // profession) — it out-z-indexes the VN and traps input until picked.
+        if (character.level >= 13 && !character.profession) return;
         const next = nextStoryTrigger(character, triggeredEvents, [...dismissedStoryScenesRef.current]);
         if (!next) return;
         if (vnTriggerClaimRef.current) return;
