@@ -24,6 +24,8 @@ const DEFS = [
     def("Stormveil Village", 58, { "sv58-refused-the-ninth": "good", "sv58-copied-the-column": "neutral", "sv58-took-the-cut": "bad" }),
     def("Stormveil Village", 70, { "sv70-fell-on-schedule": "neutral", "sv70-read-the-mark": "good", "sv70-made-him-kneel": "bad" }),
     def("Stormveil Village", 80, { "sv80-pulled-her-back": "good", "sv80-set-the-terms": "neutral", "sv80-took-notes": "bad" }),
+    // The Quiet Storm (proof trial; every village runs 8 interludes now).
+    def("Stormveil Village", 88, { "sv88-woke-the-district": "good", "sv88-logged-the-storm": "neutral", "sv88-baited-the-board": "bad" }),
     def("Stormveil Village", 92, { "sv92-open-road": "good", "sv92-signed-muster": "neutral", "sv92-fear-column": "bad" }),
     def("Ashen Leaf Village", 20, { "al20-met-her-eye": "good", "al20-took-her-measure": "neutral", "al20-turned-your-back": "bad" }),
     def("Ashen Leaf Village", 30, { "toma-hope": "good", "toma-caution": "neutral", "toma-doubt": "bad" }),
@@ -45,6 +47,8 @@ const DEFS = [
     def("Frostfang Village", 58, { "ff58-stayed-in-the-count": "good", "ff58-asked-the-meter": "neutral", "ff58-took-the-exemption": "bad" }),
     def("Frostfang Village", 70, { "ff70-turned-the-plate": "good", "ff70-copied-the-terms": "neutral", "ff70-took-the-hold": "bad" }),
     def("Frostfang Village", 80, { "ff80-burned-the-plates": "good", "ff80-sold-the-schedule": "neutral", "ff80-kept-her-list": "bad" }),
+    // The Long Lanterns (proof trial).
+    def("Frostfang Village", 88, { "ff88-woke-the-rows": "good", "ff88-logged-the-drill": "neutral", "ff88-baited-the-wardens": "bad" }),
     def("Frostfang Village", 92, { "ff92-called-the-camp": "good", "ff92-took-her-terms": "neutral", "ff92-sent-the-warning": "bad" }),
     def("Moonshadow Village", 20, { "ms20-respected-the-unsworn": "good", "ms20-measured-the-unsworn": "neutral", "ms20-dismissed-the-unsworn": "bad" }),
     def("Moonshadow Village", 30, { "nyx-partner": "good", "nyx-respect": "neutral", "nyx-suspicion": "bad" }),
@@ -52,6 +56,8 @@ const DEFS = [
     def("Moonshadow Village", 58, { "ms58-refused-the-shelf": "good", "ms58-took-note": "neutral", "ms58-took-the-shelf": "bad" }),
     def("Moonshadow Village", 70, { "ms70-burned-the-file": "good", "ms70-claimed-custody": "neutral", "ms70-started-files": "bad" }),
     def("Moonshadow Village", 80, { "ms80-pulled-her-back": "good", "ms80-partnered": "neutral", "ms80-let-her-burn": "bad" }),
+    // The Returning (proof trial).
+    def("Moonshadow Village", 88, { "ms88-open-returns": "good", "ms88-sealed-receipts": "neutral", "ms88-baited-the-market": "bad" }),
     def("Moonshadow Village", 92, { "ms92-vowed-open-ledgers": "good", "ms92-vowed-a-keeper": "neutral", "ms92-vowed-to-collect": "bad" }),
 ];
 exports.STORY_INTERLUDE_DEFS = Object.fromEntries(DEFS.map((d) => [d.id, d]));

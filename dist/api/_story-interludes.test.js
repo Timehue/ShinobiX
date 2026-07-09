@@ -15,13 +15,13 @@ async function loadClientInterludes() {
     return mod.storyInterludesByVillage;
 }
 const VILLAGES = ['Stormveil Village', 'Ashen Leaf Village', 'Frostfang Village', 'Moonshadow Village'];
-// Every village runs the seven core interludes; Ashen Leaf adds the L88
-// "Wet Field" trial-run scene (the finale's better-winter proof).
+// Every village runs the seven core interludes plus its L88 proof-trial
+// scene (Wet Field / Quiet Storm / Long Lanterns / Returning).
 const LEVELS_BY_VILLAGE = {
-    'Stormveil Village': [20, 30, 42, 58, 70, 80, 92],
+    'Stormveil Village': [20, 30, 42, 58, 70, 80, 88, 92],
     'Ashen Leaf Village': [20, 30, 42, 58, 70, 80, 88, 92],
-    'Frostfang Village': [20, 30, 42, 58, 70, 80, 92],
-    'Moonshadow Village': [20, 30, 42, 58, 70, 80, 92],
+    'Frostfang Village': [20, 30, 42, 58, 70, 80, 88, 92],
+    'Moonshadow Village': [20, 30, 42, 58, 70, 80, 88, 92],
 };
 const MIN_PROGRESS = { 20: 2, 30: 3, 42: 4, 58: 5, 70: 6, 80: 7, 88: 8, 92: 8 };
 const RELATIONSHIP_TRAITS = {
