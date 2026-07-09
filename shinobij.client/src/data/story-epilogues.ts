@@ -229,7 +229,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         {
             lane: "honorable",
             requireTrait: "ff88-better-count-ready",
-            title: "The Chosen Count, Lit",
+            title: "The Chosen Roll, Lit",
             pages: [
                 {
                     title: "What Came Home",
@@ -246,9 +246,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The north ridge, the relay burning down the line into the gray",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "Morning report, and it's a good one. Every district strung its own relay by second bell. Essen's gate crew taught three streets the chant. The Pale Pack came down, all of them, and answered the morning roll, and then half of them stayed to teach knots.",
+                        "Morning report, and it's a good one. Every district strung its own relay by second bell. Essen's gate crew taught three streets the chant. The Pale Pack came down, all of them, and answered the morning Roll, and then half of them stayed to teach knots.",
                         "Nineteen minutes is the standard now. Anyone lost, anywhere the lamps reach, nineteen minutes. We drilled it four times today because people kept VOLUNTEERING to be lost. That's a sentence I never thought I'd file.",
-                        "It won't warm the barracks. It doesn't have to. It has to prove the count can hold without the vault, and it's up there proving it every bell. Come on. Sova's teaching the litany's new verse, and I want to watch you hear it.",
+                        "It won't warm the barracks. It doesn't have to. It has to prove the Roll can hold without the vault, and it's up there proving it every bell. Come on. Sova's teaching the litany's new verse, and I want to watch you hear it.",
                     ],
                 },
             ],
@@ -263,7 +263,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "By morning the whole village knows what cracked in the night. The vault is dark. Every banked exit went home, and every hearth in Frostfang now answers to firewood and effort, the old way, the only honest way left.",
-                        "The count still forms at every bell. Smaller. Slower. Every answer a choice now, and everyone can hear the difference, and the difference is terrible and it is better.",
+                        "The Roll still forms at every bell. Smaller. Slower. Every answer a choice now, and everyone can hear the difference, and the difference is terrible and it is better.",
                         "The first blizzard after will be the whole argument. Everybody knows it. Nobody says it. They stack wood.",
                     ],
                 },
@@ -272,7 +272,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The wall walk, Yura assigning watches to volunteers only",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "A hungry winter is coming. That's a fact, not a complaint. Nobody has struck their own name from the count yet, and that is the only report that matters. Ask me again in the deep cold; I'll answer in cadence so you can't hear my teeth.",
+                        "A hungry winter is coming. That's a fact, not a complaint. Nobody has struck their own name from the Roll yet, and that is the only report that matters. Ask me again in the deep cold; I'll answer in cadence so you can't hear my teeth.",
                         "Every watch tonight is a volunteer. Every rescue from now on is somebody CHOOSING the cold for somebody else. We'll lose people we wouldn't have lost. We'll be people we couldn't have been. I've done that arithmetic all day and it keeps balancing, barely.",
                         "Come to the roll stone at third bell. We're calling the ridge post's names in the open now, all of them. It turns out that was always allowed.",
                     ],
@@ -327,7 +327,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Captain Yura",
                     dialogue: [
                         "You know what they call you at the wall now? The warden's warden. Accurate twice, and you knew it going in.",
-                        "Every draw needs your countersign now. Every cold snap the vault can't cover, yours to answer for. You became the law so the count couldn't be lawless, and the law, Jonin, is a post nobody relieves you from.",
+                        "Every draw needs your countersign now. Every cold snap the vault can't cover, yours to answer for. You became the law so the Count couldn't be lawless, and the law, Jonin, is a post nobody relieves you from.",
                         "It was the soldier's answer. Nobody drills a cheer for the soldier's answer, so here's mine, once, off the record. Mess tent's covered. Standing order, no expiry.",
                     ],
                 },
@@ -344,7 +344,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault floor, the script beginning at your wrist, warm as a bath",
                     speaker: "Narrator",
                     dialogue: [
-                        "The valve fits your hand. That is the terrible part. The count reforms by second bell, the wardens change nothing but the name they report to, and the vault's warmth settles over the village like a coat it never stopped wearing.",
+                        "The valve fits your hand. That is the terrible part. The Count reforms by second bell, the wardens change nothing but the name they report to, and the vault's warmth settles over the village like a coat it never stopped wearing.",
                         "On the ridge, one lantern relay burns where you drilled it, finding the lost for free, and the vault has already begun, gently, to schedule its wardens elsewhere.",
                         "The script at your wrist is patient. It has done this before. It can wait for the rest of you.",
                     ],
@@ -355,9 +355,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Captain Yura",
                     dialogue: [
                         "I watched the lanterns find a man in nineteen minutes. You proved it. You carried Dren's plans into that vault in your own hands. I stood the stair believing we'd finally built the thing he died un-thanked for.",
-                        "You lit the way out of the count. Then you posted yourself as the door.",
+                        "You lit the way out of the Count. Then you posted yourself as the door.",
                         "I don't have a drill for that. I've been standing here since dawn trying to write the report, and there's no format. There's no FORMAT, Jonin.",
-                        "Keep the letter. I can't carry it anymore; it reads different now. And don't send for me when the count needs a captain, because it will, and we both already know whose script answers.",
+                        "Keep the letter. I can't carry it anymore; it reads different now. And don't send for me when the Count needs a captain, because it will, and we both already know whose script answers.",
                     ],
                 },
             ],
@@ -372,7 +372,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault floor, the script beginning at your wrist, warm as a bath",
                     speaker: "Narrator",
                     dialogue: [
-                        "The valve fits your hand. That is the terrible part. The count reforms by second bell, and the vault's warmth settles over the village like a coat it never stopped wearing.",
+                        "The valve fits your hand. That is the terrible part. The Count reforms by second bell, and the vault's warmth settles over the village like a coat it never stopped wearing.",
                         "On the ridge, one lantern relay burns where a captain answered a dead man's roll, and the vault has already begun, gently, to reschedule its wardens around it.",
                         "The script at your wrist is patient. It has done this before.",
                     ],
@@ -385,7 +385,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "You let me answer his roll. You held the stair while I said Dren's name to the man who struck it, and I will carry that with the gloves and the good things. On the record, first.",
                         "Then you watched the door open and sat down in the doorway anyway.",
                         "I answered a dead man's roll call in that vault, and the vault's new keeper filed it. That's what happened. Strip the ceremony and that's the entry.",
-                        "I'm taking the north post. The far one. The count doesn't reach it in winter, which as of this morning is a feature. If anyone comes for me out there, Jonin, they will have chosen it. You taught me to want that. I'm choosing to keep it.",
+                        "I'm taking the north post. The far one. The Count doesn't reach it in winter, which as of this morning is a feature. If anyone comes for me out there, Jonin, they will have chosen it. You taught me to want that. I'm choosing to keep it.",
                     ],
                 },
             ],
@@ -396,10 +396,10 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
             pages: [
                 {
                     title: "The New Keeper",
-                    scene: "The vault floor, the valve warm, the count already reforming",
+                    scene: "The vault floor, the valve warm, the Count already reforming",
                     speaker: "Narrator",
                     dialogue: [
-                        "The valve fits like it was cast for your hand, and the count reforms by second bell, and the warmth is everything he promised.",
+                        "The valve fits like it was cast for your hand, and the Count reforms by second bell, and the warmth is everything he promised.",
                         "The wardens do not ask questions; the wardens have never asked questions. The meter finds your draw rhythm within a week and adjusts, accommodating, patient.",
                         "Somewhere above, the mark plate at the gate reads a new intake's wrist, holds it half a count long, and the frost leans in, and begins to wait again.",
                     ],
@@ -410,7 +410,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Elder Sova",
                     dialogue: [
                         "I have entered every keeper since my girlhood in this book. Each swore the door would open differently under their hand. For a while, the book agreed with each of them.",
-                        "Kael asked the desperate for a better count for forty years. I will ask you the same, once a season, at this stone, in front of the roll, for as long as the book and I last.",
+                        "Kael asked the desperate for a better Roll for forty years. I will ask you the same, once a season, at this stone, in front of the Roll, for as long as the book and I last.",
                         "There is one blank leaf saved at the back of the book, child. I have been saving it forty years for an entry that surprises me. Earn the leaf.",
                     ],
                 },
