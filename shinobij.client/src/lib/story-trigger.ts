@@ -59,7 +59,9 @@ export function interludeToCreatorEvent(interlude: StoryInterlude): CreatorEvent
         vnTitle: interlude.title,
         vnScene: interlude.pages[0]?.scene ?? "",
         vnSpeaker: interlude.pages[0]?.speaker ?? "Narrator",
-        image: "",
+        // Generated backdrop (scripts/gen-story-art.mjs); a missing file just
+        // leaves the biome gradient — the CSS gradient layer always renders.
+        image: `/scenes/story/${interlude.id}.webp`,
         village: interlude.village,
         vnPages: interlude.pages as CreatorEvent["vnPages"],
         levelReq: interlude.levelReq,
