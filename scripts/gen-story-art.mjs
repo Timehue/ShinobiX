@@ -52,6 +52,7 @@ const PORTRAIT_BASE = "character portrait bust, head and shoulders, facing sligh
 // gets a role-derived fallback.
 const PORTRAIT_PROMPTS = {
     "kite-harrow": `strikingly attractive young woman in her early twenties, long PINK hair loosely tied back with a few strands falling over sharp amused eyes, sly confident half-smile, traveling broker's layered road clothes in charcoal and slate with a wide belt hung with small brass ledger charms and tally-sticks, NO village headband or insignia anywhere, ${PORTRAIT_BASE}`,
+    "jorun": `weathered old carpenter in his sixties, broad scarred hands dusted with wood shavings, gray stubble and deep kind creases around puzzled eyes, plain work apron over faded village work clothes, warm lamplight, the look of a man remembering something with his hands, ${PORTRAIT_BASE}`,
     "pell-marrow": `wiry courier man with singed hair and a soot-streaked face, road-worn message satchel strap across his chest, nervous urgent expression, ${PORTRAIT_BASE}`,
     "instructor-havek": `broad middle-aged martial arts instructor with a gray-streaked topknot, weathered training gi with a foreign village's trim, patient appraising eyes, arms crossed, ${PORTRAIT_BASE}`,
     "oren-slate": `lean tracker with a hood pushed back, wind-burned face, pale sharp eyes that miss nothing, bone toggles on his coat, a coil of marker cord at his shoulder, ${PORTRAIT_BASE}`,
