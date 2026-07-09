@@ -13,6 +13,7 @@ import path from "node:path";
 import { storylines } from "./storylines";
 import { storyEpiloguesByVillage } from "./story-epilogues";
 import { selectStoryEpilogue, selectStoryEpilogueEvent } from "../lib/story-epilogue";
+import { deriveStoryTraits } from "../lib/story-derive";
 import { splitDialogueLine } from "../lib/vn";
 import type { Character } from "../types/character";
 
@@ -99,7 +100,9 @@ test("selectStoryEpilogueEvent builds a zero-reward story-epilogue VN with the f
         name: "Tester",
         village: "Ashen Leaf Village",
         storyVillage: "Ashen Leaf Village",
-        storyTraits: ["al65-saved-the-screw", "al88-better-winter-ready"],
+        // A player who carried the proof themselves — the state real play derives
+        // from these atomic choices (see lib/story-derive.ts).
+        storyTraits: deriveStoryTraits(["al65-saved-the-screw", "al88-ninety-mouths", "al88-held-the-proof", "al88-reed-proof-ready"]),
     } as unknown as Character;
     const event = selectStoryEpilogueEvent(character, "ambitious");
     assert.ok(event, "expected an epilogue event");

@@ -27,8 +27,8 @@ const AL88_LANES = ["al88-proved-the-winter", "al88-held-the-proof", "al88-baite
 
 const RULES: DeriveRule[] = [
     // ── Ashen Leaf: the better-winter proof chain (owner brief 2026-07-09) ──
-    // The full-size screw climbed. Implied by reaching "The Number" beat, which
-    // grants al88-ninety-mouths and which every Wet Field lane passes through.
+    // The full-size screw climbed. Set explicitly at L88 "The Water Climbs";
+    // also derivable from the number beat as a fallback for older saves.
     { grant: "al88-water-proven", when: (has) => has("al88-ninety-mouths") },
     // The strongest confrontation: machine proven, a form of proof preserved
     // (any lane), AND Aren's provenance either carried by the player or handed
@@ -41,10 +41,19 @@ const RULES: DeriveRule[] = [
             AL88_LANES.some(has) &&
             (has("al88-reed-proof-ready") || has("al88-reed-proof-deferred")),
     },
+    // Who does the arguing at the tower — used to split the L100 finale and the
+    // "Warm Chair" ending cleanly (single-trait gates instead of AND chains).
+    { grant: "al88-better-winter-carried", when: (has) => has("al88-better-winter-ready") && has("al88-reed-proof-ready") },
+    { grant: "al88-better-winter-deferred", when: (has) => has("al88-better-winter-ready") && has("al88-reed-proof-deferred") },
+    // Aren's proof exists in some carriable form — gates the "answer for Aren"
+    // reckoning, which should not hinge on one early Toma choice any more.
+    { grant: "al88-reed-proof-any", when: (has) => has("al88-reed-proof-ready") || has("al88-reed-proof-deferred") },
     // Saved Aren's model but never turned it into the village's argument (the
     // trust / provenance handoff was never earned): a real answer, but a lesser
     // one. Mutually exclusive with better-winter-ready by construction (that
-    // needs a reed-proof state; this needs the absence of one).
+    // needs a reed-proof state; this needs the absence of one). Also set
+    // explicitly on the keep-the-model choice; derivation covers the player who
+    // skipped provenance entirely (saved the screw, let the numbers stand).
     {
         grant: "al88-unfinished-answer",
         when: (has) =>
@@ -53,6 +62,9 @@ const RULES: DeriveRule[] = [
             !has("al88-reed-proof-ready") &&
             !has("al88-reed-proof-deferred"),
     },
+    // Mori walked the road with his signed charts (L92 civic / trusting lanes),
+    // so he can step forward to answer for his own records at the finale.
+    { grant: "al92-mori-present", when: (has) => has("al92-carried-their-trust") || has("al92-took-the-count") },
 ];
 
 /**
@@ -85,5 +97,9 @@ export function deriveStoryTraits(traits: readonly string[]): string[] {
 export const DERIVED_TRAIT_LEVELS: Record<string, number> = {
     "al88-water-proven": 88,
     "al88-better-winter-ready": 88,
+    "al88-better-winter-carried": 88,
+    "al88-better-winter-deferred": 88,
+    "al88-reed-proof-any": 88,
     "al88-unfinished-answer": 88,
+    "al92-mori-present": 92,
 };
