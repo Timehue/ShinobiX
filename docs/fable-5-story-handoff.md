@@ -1,6 +1,8 @@
 # Fable 5 Story Handoff — Pre-Draft Interview
 
-Status: story/planning handoff. No implementation work should start from this document until the owner answers the interview questions below.
+Status: ANSWERED (2026-07-08). The interview below was completed and the resulting
+story plan lives in `docs/fable-5-story-rebuild.md`, which supersedes this document.
+The owner's answers are recorded in that document's Appendix A. Kept for reference.
 
 ## Purpose
 
