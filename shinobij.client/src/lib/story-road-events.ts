@@ -103,7 +103,8 @@ export function roadEventToCreatorEvent(event: StoryRoadEvent, biome: Biome): Cr
         vnTitle: event.title,
         vnScene: event.pages[0]?.scene ?? "",
         vnSpeaker: event.pages[0]?.speaker ?? "Narrator",
-        image: "",
+        // Generated backdrop (scripts/gen-story-art.mjs); missing file = biome gradient.
+        image: `/scenes/story/${event.id}.webp`,
         vnPages: pages,
         levelReq: event.levelReq,
         xpReward: 0,
