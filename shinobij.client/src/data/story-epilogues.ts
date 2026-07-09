@@ -46,6 +46,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By morning the whole village knows what broke on the tower. The board is down, and every posted account came due at once: reasons flooding home to people who had forgotten they owned them.",
                         "It is loud. Old feuds wake up mid-sentence. The Harlan brothers are shouting about a field again, and crying about it, and it is theirs to shout about, every word.",
                         "The sky over the coast is honest now, which means it is dangerous again, and nobody's grudge is holding it off anybody's roof.",
+                        "The cistern under the arena has not drawn a drop since the board came down. On whatever ledger keeps the Hollow Gate, the Stormveil quarter reads unpaid, and for the first time in four hundred years the coast owes the dark nothing at all.",
                     ],
                 },
                 {
@@ -72,6 +73,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By morning the whole village knows what broke on the tower. The board is down, and every posted account came due at once: reasons flooding home to people who had forgotten they owned them.",
                         "It is loud, and it is going to stay loud. Anger with its memory back is weather of its own kind.",
                         "And above the loudness, the actual sky. Nobody's grudge holds it off anymore. The storm shield is a story now, and the season is turning.",
+                        "Under the sand the floor's seams have gone dark, and the sweepers swear the old hum has finally stopped. If the Hollow Gate still expects its Stormveil quarter, it will be waiting a long time on an empty pipe.",
                     ],
                 },
                 {
@@ -100,6 +102,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The floor still drinks, but now it drinks in public. A meter the size of a wagon wheel hangs over the arena where the odds used to be chalked, and anyone can read the draw, any hour, any day.",
                         "Posting requires consent now, witnessed, written, revocable. The queues are short. It turns out very few people feed the floor when the floor has to ask.",
                         "The Guard checks the meter at every bell. So do the grandmothers, which is the part that actually keeps it honest.",
+                        "On the ledger up the hill the Hollow Gate's Stormveil quarter still shows open, but the draw against it shrinks with every season the meter is read aloud. A debt no one will feed is, in the end, a debt dying slowly, in public, on the record.",
                     ],
                 },
                 {
@@ -126,6 +129,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The floor still drinks, but now it drinks in public, through a meter anyone can read, under a law anyone can cite.",
                         "It is better. Everyone agrees it is better, in the flat voice people use for improvements that still cost them something.",
                         "Because the shield still needs feeding, and the weather still comes, and every posted consent is still a reason leaving a person on schedule. Just politely now.",
+                        "The Hollow Gate still opens its pipe to Stormveil, but only for what the village signs over in daylight, witnessed, and fewer put their name to it every season the meter is read.",
                     ],
                 },
                 {
@@ -154,6 +158,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The seat fits. That is the terrible part. The board reposts itself by morning bell, the odds-runners are calling numbers on next week's weather, and the quiet hour arrives on schedule, and it is exactly as good as he said.",
                         "In the routing office, the clerks have already changed the pressing mark to your teeth.",
                         "Down the coast, one ridge line hums over one district, holding its stretch of sky for free, and the board has begun, gently, to bet against it.",
+                        "The cistern under the square keeps its own counsel now that the seat is yours. It does not go still; it goes quiet, the way a creditor goes quiet when an account has only changed names. The Hollow Gate keeps its Stormveil quarter, and the pen that feeds it is warm in your hand.",
                     ],
                 },
                 {
@@ -182,6 +187,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The seat fits. That is the terrible part. The board reposts itself by morning bell, and the quiet hour arrives on schedule, and it is exactly as good as he said.",
                         "In the routing office, the clerks have already changed the pressing mark to your teeth.",
                         "Down the coast, one ridge line hums over one district, holding its stretch of sky for free, signed with a dead rigger's name your board has already stopped saying.",
+                        "The Hollow Gate's quarter of the circle is yours to feed now. The cistern under your floor kept the old Kage's rhythm without a missed draw for thirty years, and it has already learned yours; it is certain, the way only machinery is certain, that nothing of importance has changed but the hand on the pen.",
                     ],
                 },
                 {
@@ -209,6 +215,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The seat fits like it was rigged for you, and the sky obeys, and the quiet hour is everything he promised.",
                         "The board reposts itself by morning. The clerks do not ask questions; the clerks have never asked questions. The meter of the elders' cut finds your account within the week.",
                         "Somewhere below, the board chalks a fresh bout between two friends, and the odds are very good, and the floor is already listening.",
+                        "The cistern never went still; it only changed seats. Up the hill the Hollow Gate marks Stormveil's quarter paid, on time, by a fresh hand, exactly as it has every season since the founders stopped giving and started being taken from.",
                     ],
                 },
                 {
