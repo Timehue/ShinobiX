@@ -140,10 +140,11 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                 },
             ],
         },
-        // ── Take the shears (ambitious) ───────────────────────────────────
+        // ── Take the shears (ambitious) — accusation depends on who carried
+        //    the proof (owner FIX 12). Carried/deferred variants BEFORE base.
         {
             lane: "ambitious",
-            requireTrait: "al88-better-winter-ready",
+            requireTrait: "al88-better-winter-carried",
             title: "The Warm Chair",
             pages: [
                 {
@@ -161,9 +162,38 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The kiln stair door, Toma not coming in",
                     speaker: "Toma Reed",
                     dialogue: [
-                        "I watched the water climb with my own eyes. Ninety mouths without one future burned. You knew. You proved it. You carried the proof into that room in your own hands.",
+                        "I watched the water climb with my own eyes. Ninety mouths, not one future burned. You proved it. You carried the proof into that room in your own hands.",
                         "You showed her the door out and then sat down in her chair.",
-                        "Keep the model. I can't have it in the workshop anymore. And don't send for me when the racks fill up again, because they will, and you already know whose stamp will be on them.",
+                        "I don't know what to do with that. I've been standing here trying to build a sentence out of it and there isn't one.",
+                        "Keep the model. I can't have it in the workshop. And don't send for me when the racks fill again, because they will, and you already know whose stamp goes on them.",
+                    ],
+                },
+            ],
+        },
+        {
+            lane: "ambitious",
+            requireTrait: "al88-better-winter-deferred",
+            title: "The Warm Chair",
+            pages: [
+                {
+                    title: "The New Keeper",
+                    scene: "The Rootfire chamber, the shears at your belt",
+                    speaker: "Narrator",
+                    dialogue: [
+                        "The fire settles around you like a coat cut to your measure. Upstairs, forty strides of cedar are already learning your hand.",
+                        "Hoshina's chair is still warm. Her room of taken wonders is yours now, every shelf of it, and the little walking loom goes still when you enter.",
+                        "The keeper is dead. Long live the keeper. The wall has already put out a fresh black flower, and it is not for you.",
+                    ],
+                },
+                {
+                    title: "What Toma Saw",
+                    scene: "The kiln stair door, Toma not coming in",
+                    speaker: "Toma Reed",
+                    dialogue: [
+                        "You let us carry him in. You let my mother stand in front of the woman who cut him quiet and say his name out loud. I will hear that for the rest of my life.",
+                        "Then you watched the door open and sat down in her chair anyway.",
+                        "I don't know what to do with that. My mother doesn't either. She hasn't said a word since we came down the hill.",
+                        "Keep the model. We don't want it back now. And don't send for us when the racks fill again, because they will, and we both know whose stamp goes on them.",
                     ],
                 },
             ],
