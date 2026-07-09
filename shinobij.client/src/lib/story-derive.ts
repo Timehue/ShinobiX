@@ -126,14 +126,18 @@ const RULES: DeriveRule[] = [
     }),
     // ── Moonshadow: the witnessed-return proof chain (the Returning) ──
     ...proofChainRules({
-        works: "ms88-returns-held", number: "ms88-eleven-files",
+        works: "ms88-return-proven", number: "ms88-eleven-files",
         lanes: ["ms88-open-returns", "ms88-sealed-receipts", "ms88-baited-the-market"],
-        ready: "ms88-trust-proof-ready", deferred: "ms88-trust-proof-deferred",
+        ready: "ms88-nyx-proof-carried", deferred: "ms88-nyx-proof-deferred",
         composite: "ms88-better-truth-ready", carried: "ms88-better-truth-carried",
-        deferredComposite: "ms88-better-truth-deferred", any: "ms88-trust-proof-any",
+        deferredComposite: "ms88-better-truth-deferred", any: "ms88-nyx-proof-any",
         unfinished: "ms88-unfinished-answer", savedObjects: ["ms65-saved-the-file", "ms65-gave-nyx-the-file"],
         witnessPresent: "ms92-witness-present", witnessLanes: ["ms92-vowed-open-ledgers", "ms92-vowed-a-keeper"],
     }),
+    // Moonshadow: any L80 "Harrow's Shortcut" completion means the player heard
+    // Harrow name the Hollow Gate at the Mirror manifest. Persists Gate-knowledge
+    // for the cross-village / final-seat plot, whichever Harrow choice was made.
+    { grant: "ms80-named-hollow-gate", when: (has) => has("ms80-pulled-her-back") || has("ms80-partnered") || has("ms80-let-her-burn") },
 ];
 
 /**
@@ -173,7 +177,8 @@ export const DERIVED_TRAIT_LEVELS: Record<string, number> = Object.fromEntries([
     ...["ff88-relay-held", "ff88-better-roll-ready", "ff88-better-roll-carried",
         "ff88-better-roll-deferred", "ff88-exit-proof-any", "ff88-unfinished-answer"].map((t) => [t, 88]),
     ["ff92-witness-present", 92],
-    ...["ms88-returns-held", "ms88-better-truth-ready", "ms88-better-truth-carried",
-        "ms88-better-truth-deferred", "ms88-trust-proof-any", "ms88-unfinished-answer"].map((t) => [t, 88]),
+    ["ms80-named-hollow-gate", 80],
+    ...["ms88-return-proven", "ms88-better-truth-ready", "ms88-better-truth-carried",
+        "ms88-better-truth-deferred", "ms88-nyx-proof-any", "ms88-unfinished-answer"].map((t) => [t, 88]),
     ["ms92-witness-present", 92],
 ]);
