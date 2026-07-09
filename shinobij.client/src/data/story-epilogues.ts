@@ -79,7 +79,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "Mira's rooftop, cable drums being counted",
                     speaker: "Mira Volt",
                     dialogue: [
-                        "So. Free village, angry village, naked sky. I want to say it plainly while I'm still brave: nobody regrets it yet. Ask me again when the first real cyclone comes ashore and I'll lie a little.",
+                        "So. Free village, angry village, naked sky. Nobody's asked me for the boat yet, which is the honest measure. Ask me again after the first real cyclone comes ashore; I'll show you the waiting list.",
                         "I'm not packing the boat. Look at me not packing it. There's too much rigging to do, and for the first time in my life, all of it is mine to choose.",
                         "Come to the rim tonight. People are fighting about real things at full volume and then eating soup together, and honestly? It's the best theater this village has ever staged.",
                     ],
@@ -133,7 +133,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The tower office, the intake ledger open to your signature",
                     speaker: "Elder Vanta",
                     dialogue: [
-                        "You know what they call you at the rim now? The board's new clerk. It isn't kind, and it isn't wrong, and you knew the price when you spoke it into the record.",
+                        "You know what they call you at the rim now? The board's new clerk. Unkind, and fair, like good odds, and you knew the line when you posted it.",
                         "Every draw needs your countersign. Every storm the shield breaks, yours to authorize. You became the law so the machine couldn't be lawless, and the law, child, is a chair a person sits in alone.",
                         "I'll say this at your funeral if I outlast you, which I won't: it was the grown-up answer. Nobody cheers the grown-up answer. Soup's on me anyway.",
                     ],
@@ -162,7 +162,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Mira Volt",
                     dialogue: [
                         "You carried her up the hill. Her slate, her line, her why. You proved the sky can be held for free, in front of the whole coast. I watched you do it.",
-                        "You showed him the door out and then sat down in his chair.",
+                        "You proved the sky holds for free. Then you took the paid seat anyway.",
                         "I don't have rigging for that. I've been standing here since dawn trying to splice it into sense, and it won't take the knot.",
                         "The bag's packed again. I want you to know it wasn't, for a while. That's the report from the cable department. Hold your own sky, Kage.",
                     ],
@@ -216,9 +216,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "Vanta's shack, the ledgers boxed for no one",
                     speaker: "Elder Vanta",
                     dialogue: [
-                        "Every Kage I've chalked stood where you're standing and swore they'd run it kinder. For a while, every one of them did. The floor is patient with new hands; appetite always is.",
+                        "I've chalked four Kages onto that board in my lifetime. Every one swore they'd run it kinder, and I gave every one better odds than they earned.",
                         "Raiko asked angry people for a quieter storm for thirty years. I'll ask you the same, once a season, at the rail, in front of the crowd, for as long as my forecast runs.",
-                        "The board chose a new keeper. It always does. Beat the odds, child. I never once saw it happen, and I'd like to lose that bet before I close the book.",
+                        "The board's posted you at even, child. Beat the line. I never once saw it happen, and I would dearly love to close my book on an upset.",
                     ],
                 },
             ],
@@ -272,7 +272,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The wall walk, Yura assigning watches to volunteers only",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "It's going to be a hungry winter. I want that said plainly while I'm still brave. Nobody regrets it yet. Ask me again in the deep cold and I'll answer in drill cadence so you can't hear my teeth.",
+                        "Hungry winter coming. Fact, not complaint. Nobody has struck their own name yet, which is the only report that matters. Ask me again in the deep cold; I'll answer in cadence so you can't hear my teeth.",
                         "Every watch tonight is a volunteer. Every rescue from now on is somebody CHOOSING the cold for somebody else. We'll lose people we wouldn't have lost. We'll be people we couldn't have been. I've done that arithmetic all day and it keeps balancing, barely.",
                         "Come to the roll stone at third bell. We're calling the ridge post's names in the open now, all of them. It turns out that was always allowed.",
                     ],
@@ -316,7 +316,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault hall, the meter ticking, the consent rack half empty",
                     speaker: "Narrator",
                     dialogue: [
-                        "The vault survives, caged. Draws by consent, posted, witnessed. It is better. Everyone agrees it is better, in the flat voice people use for improvements that still cost.",
+                        "The vault survives, caged. Draws by consent, posted, witnessed. It is better. Everyone agrees it is better, in the voice soldiers use for orders they intend to obey.",
                         "Because consent, it turns out, runs thin. Eleven marks re-signed the first week. Eleven, from a village of hundreds. Surrender was always a poor fuel when somebody had to ASK.",
                         "The wardens read the meter twice a bell. Nobody says the arithmetic out loud. Everybody does it.",
                     ],
@@ -326,9 +326,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault door, your name first on the consent ledger's keeper line",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "You know what they call you at the wall now? The warden's warden. It isn't kind, and it isn't wrong, and you knew the price when you signed it into law.",
+                        "You know what they call you at the wall now? The warden's warden. Accurate twice, and you knew it going in.",
                         "Every draw needs your countersign now. Every cold snap the vault can't cover, yours to answer for. You became the law so the count couldn't be lawless, and the law, Jonin, is a post nobody relieves you from.",
-                        "I'll say this at your funeral if I outlast you, which in this weather is a coin toss: it was the grown-up answer. Nobody cheers the grown-up answer. Soup's on me anyway. Forever, I think.",
+                        "It was the soldier's answer. Nobody drills a cheer for the soldier's answer, so here's mine, once, off the record. Mess tent's covered. Standing order, no expiry.",
                     ],
                 },
             ],
@@ -355,7 +355,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Captain Yura",
                     dialogue: [
                         "I watched the lanterns find a man in nineteen minutes. You proved it. You carried Dren's plans into that vault in your own hands. I stood the stair believing we'd finally built the thing he died un-thanked for.",
-                        "You showed him the door out and then sat down in the doorway.",
+                        "You lit the way out of the count. Then you posted yourself as the door.",
                         "I don't have a drill for that. I've been standing here since dawn trying to write the report, and there's no format. There's no FORMAT, Jonin.",
                         "Keep the letter. I can't carry it anymore; it reads different now. And don't send for me when the count needs a captain, because it will, and we both already know whose script answers.",
                     ],
@@ -409,9 +409,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The roll stone, Sova with the count book open to a fresh page",
                     speaker: "Elder Sova",
                     dialogue: [
-                        "Every keeper I have entered stood where you stand and swore they'd hold the door differently. For a while, every one of them did. The vault is patient with new hands; hunger always is.",
+                        "I have entered every keeper since my girlhood in this book. Each swore the door would open differently under their hand. For a while, the book agreed with each of them.",
                         "Kael asked the desperate for a better count for forty years. I will ask you the same, once a season, at this stone, in front of the roll, for as long as the book and I last.",
-                        "The count chose a new keeper. It always does. Prove an old woman wrong, child. I have one blank page saved at the back of the book, and I have been saving it for a surprise.",
+                        "There is one blank leaf saved at the back of the book, child. I have been saving it forty years for an entry that surprises me. Earn the leaf.",
                     ],
                 },
             ],
@@ -465,7 +465,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The square at noon, the shrine witness reading the fourth name",
                     speaker: "Nyx",
                     dialogue: [
-                        "It's going to be an ugly season. I want that priced honestly while I'm still brave: nobody regrets it yet. Ask me again when my neighbors finish their reading and start their remembering.",
+                        "Ugly season ahead; I've got odds posted on which neighbors stop speaking first. And still, nobody's asked me to broker a forgetting. Not one. Ask me again when the remembering really starts.",
                         "But I watched the fourth name get read at noon today. Sold thirty years ago, everyone assumed dead. A woman in the crowd stood up and said, that's my sister, and she's not dead, she wrote to me once from a place with no name. And the whole square went LOOKING.",
                         "That's the new economy, friend. Truth out loud, and the whole square goes looking. I can't price it. I've stopped trying. Come to the booth; the tea's honest and the drain is lead.",
                     ],
@@ -510,7 +510,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "Nine parts in ten go home, raw and unrehearsed, and the market survives it the hard way, fire by fire.",
-                        "The last tenth sits sealed under your covenant: audited, consented, lawful. It is better than the tank. Everyone agrees it is better, in the voice reserved for improvements that still cost.",
+                        "The last tenth sits sealed under your covenant: audited, consented, lawful. It is better than the tank. Everyone agrees it is better, in the tone of a market absorbing a new tax.",
                         "Because a keeper is still a keeper. The audits pass, season after season, and every season the line to audit grows shorter, and trust in the keeper grows quieter, and somewhere in that quiet, a new kind of holding is learning to be comfortable.",
                     ],
                 },
@@ -519,9 +519,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The audit table at noon, Iro first in line, on principle",
                     speaker: "Shade Master Iro",
                     dialogue: [
-                        "You know what they call you on the canal now? The clean spider. It isn't kind, and it isn't wrong, and you signed the covenant knowing the market never coins a flattering name.",
+                        "You know what they call you on the canal now? The clean spider. Unflattering, and correct, which is the only kind of price that holds its value.",
                         "I audit you every noon I can manage. Not because I doubt the seals, friend. Because I held a shelf for forty years, and I know EXACTLY how slowly the cage builds itself around a careful keeper, and somebody who knows the architecture should watch the walls go up.",
-                        "It was the grown-up answer, I'll grant. Nobody builds statues to the grown-up answer. I'll buy the tea anyway. Indefinitely. At cost. Do not tell anyone I said at cost.",
+                        "It was the solvent answer, I'll grant. Nobody throws festivals for solvency. The tea stands. Indefinitely. At cost. Do not tell anyone I said at cost.",
                     ],
                 },
             ],
@@ -548,7 +548,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Nyx",
                     dialogue: [
                         "You carried my file up the tower and put the whole argument on her glass. I watched you do it. The returns, the receipts, my bad winter, all of it, argued perfectly.",
-                        "You showed her the way out and then sat down at her glass.",
+                        "You held the whole argument, priced perfectly. And when the glass finally blinked, you bought the seat instead of the exit.",
                         "I've run the numbers all morning and they won't close. You're holding the tank so IT can't be held, I get the theory, I priced the theory, the theory is even GOOD.",
                         "But the ledger says my file's back in a tower, friend. Under a kinder keeper. The kindest yet. That's what the entry says, and I've never once written a false entry, so I'm leaving the page open. Make a liar of the trend line. Please. I'll pay.",
                     ],
@@ -602,9 +602,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "Nyx's stall, the good stool empty, the ledger open",
                     speaker: "Nyx",
                     dialogue: [
-                        "Every keeper this canal has ever priced sat where you're sitting and swore they'd hold it differently. For a while, every one of them did. The glass is patient with new hands; it has the storage capacity for patience.",
-                        "Sable asked the desperate for a safer truth for forty years. I'll ask you the same, once a season, at this stall, over tea you'll pay for, for as long as my books stay open.",
-                        "The Mirror chose a new keeper. It always does. Beat the trend line, friend. I've got a page reserved and a frame ready, and I'd genuinely love to hang something in it.",
+                        "I've verified three keepers in my working life. Each swore new terms. Each kept them, for a while; the glass has the patience of compound interest.",
+                        "Sable asked the desperate for a safer truth for forty years. I'll bill you the same question once a season, at this stall, over tea you'll pay for, for as long as my books stay open.",
+                        "Beat the interest, friend. I've never once seen it done, and I've got a frame ready over the stall, and I would genuinely love to hang your receipt in it.",
                     ],
                 },
             ],
