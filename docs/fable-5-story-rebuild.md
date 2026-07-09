@@ -604,6 +604,10 @@ WebP) or fal:
   finale key art per village.
 - Path-Legacy badges and title emblems (`/badges/legacy-<slug>.webp`).
 - One Harrow concept round for owner sign-off before batch generation.
+  Locked visual spec (owner, 2026-07-08): a strikingly attractive woman in her
+  early twenties; traveling-broker look, ledger charms on her belt, no village
+  marks anywhere. Her age is never stated in copy (verified), so the spec is
+  visual-only and needs no dialogue changes.
 
 Rules: generation keys stay untracked (main checkout `shinobij.client/.env`) and
 are never committed; only optimized finals are stored; when the client dist is
