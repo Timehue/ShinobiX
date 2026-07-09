@@ -246,7 +246,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The north ridge, the relay burning down the line into the gray",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "Report. Every district strung its own relay by second bell. Essen's gate crew taught three streets the chant. The Pale Pack came down, all of them, and answered the morning roll, and then half of them stayed to teach knots.",
+                        "Morning report, and it's a good one. Every district strung its own relay by second bell. Essen's gate crew taught three streets the chant. The Pale Pack came down, all of them, and answered the morning roll, and then half of them stayed to teach knots.",
                         "Nineteen minutes is the standard now. Anyone lost, anywhere the lamps reach, nineteen minutes. We drilled it four times today because people kept VOLUNTEERING to be lost. That's a sentence I never thought I'd file.",
                         "It won't warm the barracks. It doesn't have to. It has to prove the count can hold without the vault, and it's up there proving it every bell. Come on. Sova's teaching the litany's new verse, and I want to watch you hear it.",
                     ],
@@ -272,7 +272,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The wall walk, Yura assigning watches to volunteers only",
                     speaker: "Captain Yura",
                     dialogue: [
-                        "Hungry winter coming. Fact, not complaint. Nobody has struck their own name yet, which is the only report that matters. Ask me again in the deep cold; I'll answer in cadence so you can't hear my teeth.",
+                        "A hungry winter is coming. That's a fact, not a complaint. Nobody has struck their own name from the count yet, and that is the only report that matters. Ask me again in the deep cold; I'll answer in cadence so you can't hear my teeth.",
                         "Every watch tonight is a volunteer. Every rescue from now on is somebody CHOOSING the cold for somebody else. We'll lose people we wouldn't have lost. We'll be people we couldn't have been. I've done that arithmetic all day and it keeps balancing, barely.",
                         "Come to the roll stone at third bell. We're calling the ridge post's names in the open now, all of them. It turns out that was always allowed.",
                     ],
