@@ -872,7 +872,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
         interlude("Frostfang Village", 30, "The Ridge Roll", [
             pg("Nineteen Days", "The north tower at night watch, Yura with the roll book nobody assigned", "Captain Yura",
                 "You're early for watch. Good. Sit. You get to see the thing I do that isn't in any drill book.",
-                "Ridge post four. Nineteen days, one storm, three dead, one survivor. The count struck the whole post afterward. Bad numbers make bad reading, so procedure ATE it. There is no ridge post four in any book in Sova's room.",
+                "Ridge post four. Nineteen days, one storm, three dead, and one survivor. The count struck the whole post afterward: bad numbers make bad reading, so procedure ATE it. There is no ridge post four in any book in Sova's room.",
                 "So once a month I call its roll. Solvei. Brahm. Ketta. Dren. Present or accounted, all of them, by ME, because a name nobody calls is dead twice.",
                 "Sit through it once. Then you'll know what I am under the rank bar, and you can decide what to do about knowing."),
             pg("The Struck Roll", "The tower rail, four names said into falling snow", "Captain Yura",
@@ -1088,7 +1088,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 ] },
             { ...pg("The Drill Log", "The ridge at storm's end, the drill log open on a lantern crate", "Captain Yura",
                 "Numbers, before anyone gets sentimental. That's a direct quote from a friend of mine; she rigs cables down the coast.",
-                "One volunteer, unmarked, whiteout conditions, found in NINETEEN minutes. Vault draw for the operation: zero. Plate-reads: zero. Cost: lamp oil, wick cord, and one evening of the litany doing honest work for a change.",
+                "One volunteer, unmarked, in whiteout conditions, found in NINETEEN minutes. The vault drew nothing. The plates read nothing. The whole cost was lamp oil, wick cord, and one evening of the litany doing honest work for a change.",
                 "It doesn't replace the wall. It doesn't warm the barracks. It does exactly one thing: it proves the count's one sacred claim, that only the vault brings people home, is a LIE, and it proves it in the count's own reporting season, on a warded ridge, in nineteen minutes.",
                 "So. It works, and the wardens logged that it works. What we do next decides whose proof it becomes."),
                 choices: [
