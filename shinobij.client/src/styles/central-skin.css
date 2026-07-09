@@ -29,7 +29,6 @@
    and still render above everything.) */
 .central-hub .central-hero,
 .central-hub .central-log,
-.central-hub .reputation-snapshot,
 .central-hub .central-grid { position: relative; z-index: 1; }
 .central-hub > .scene-ambience,
 .central-hub > .day-night-sky,
@@ -74,97 +73,6 @@
     padding: 12px 16px !important;
     margin-bottom: 14px;
 }
-
-.central-hub .reputation-snapshot {
-    display: grid;
-    gap: 10px;
-    margin-bottom: 14px;
-    padding: 14px;
-    background: linear-gradient(180deg, rgba(12,18,34,0.9) 0%, rgba(6,10,22,0.94) 100%) !important;
-    border: 1px solid var(--bsv2-gold-faint) !important;
-    border-radius: 6px !important;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04) !important;
-}
-.central-hub .reputation-snapshot-heading {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-}
-.central-hub .rep-kicker {
-    margin: 0 0 3px;
-    color: var(--bsv2-gold-bright);
-    font: 700 10px var(--font-display);
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-}
-.central-hub .reputation-snapshot h2 {
-    margin: 0;
-    color: #f8fafc;
-    font: 700 20px/1.15 var(--font-display);
-    overflow-wrap: anywhere;
-}
-.central-hub .reputation-snapshot-heading span,
-.central-hub .rep-public-board small,
-.central-hub .rep-snapshot-stat small {
-    color: #9aa4b2;
-    font-size: 0.74rem;
-}
-.central-hub .rep-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-}
-.central-hub .rep-actions button {
-    min-height: 34px;
-    padding: 0 12px;
-    border-radius: 6px;
-    border: 1px solid rgba(78,168,255,0.45);
-    background: rgba(78,168,255,0.12);
-    color: #bfdbfe;
-    font: 700 11px var(--font-display);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-}
-.central-hub .rep-actions button:hover {
-    border-color: rgba(78,168,255,0.85);
-    background: rgba(78,168,255,0.18);
-}
-.central-hub .rep-snapshot-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-}
-.central-hub .rep-snapshot-stat,
-.central-hub .rep-public-board {
-    min-width: 0;
-    padding: 10px;
-    border-radius: 6px;
-    background: rgba(3,7,18,0.42);
-    border: 1px solid rgba(148,163,184,0.16);
-}
-.central-hub .rep-snapshot-stat span,
-.central-hub .rep-board-label {
-    display: block;
-    color: #94a3b8;
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-.central-hub .rep-snapshot-stat strong,
-.central-hub .rep-public-board strong {
-    display: block;
-    margin: 3px 0 2px;
-    color: #f8fafc;
-    font: 800 1rem/1.15 var(--font-display);
-    overflow-wrap: anywhere;
-}
-.central-hub .rep-tone-gold { border-color: rgba(250,204,21,0.35); }
-.central-hub .rep-tone-danger { border-color: rgba(248,113,113,0.35); }
-.central-hub .rep-tone-village { border-color: rgba(96,165,250,0.35); }
 
 .central-hub .central-grid {
     display: grid !important;
@@ -304,29 +212,10 @@
 }
 
 @media (max-width: 800px) {
-    .central-hub .reputation-snapshot-heading {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .central-hub .rep-actions {
-        justify-content: stretch;
-    }
-    .central-hub .rep-actions button {
-        flex: 1 1 110px;
-    }
-    .central-hub .rep-snapshot-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    }
     .central-hub .central-grid {
         grid-template-columns: 1fr !important;
     }
     .central-hub .central-hero h1 {
         font-size: 24px !important;
-    }
-}
-
-@media (max-width: 520px) {
-    .central-hub .rep-snapshot-grid {
-        grid-template-columns: 1fr !important;
     }
 }
