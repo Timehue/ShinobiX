@@ -36,6 +36,7 @@ import { standingReaction } from "../lib/wanderer-standing";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
+import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent } from "../lib/story-road-events";
 import { createPortal } from "react-dom";
 import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
@@ -868,6 +869,14 @@ export function WorldMap({
         const spawn = rollEmissarySpawn(character.name, character.level, legacyCategory, wandererDayBucket(new Date()));
         return spawn && spawn.sector === selectedSector ? [spawn.wanderer] : [];
     }, [legacyServerLive, character.name, character.level, legacyCategory, selectedSector]);
+    // Story road events (docs/fable-5-story-rebuild.md §10): the next eligible
+    // event's NPC walks WHATEVER sector the player is in — the road finds them.
+    // Completion is trait-presence, so the memo re-evaluates when traits change.
+    const roadWanderers = useMemo(() => {
+        if (!isWanderersEnabled() || selectedSector == null) return [];
+        const event = nextRoadEvent(character);
+        return event ? [synthRoadWanderer(event, selectedSector)] : [];
+    }, [character.level, character.storyProgress, character.storyTraits, selectedSector]);
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
@@ -1214,6 +1223,17 @@ export function WorldMap({
                 setSageVnPage(0);
                 setSageVnLine(0);
                 setSageVnEvent(buildSageVnEvent(sageOffer, character.name));
+            }
+            return;
+        }
+        // A story road event opens its VN directly (no verb dialog) — same
+        // pattern as the Sage. The event stays available until a choice is made.
+        if (w.id.startsWith(ROAD_WANDERER_PREFIX)) {
+            const roadEvent = roadEventBySynthId(w.id);
+            if (roadEvent && selectedSector != null) {
+                setCreatorEventPage(0);
+                setCreatorEventLine(0);
+                setSelectedCreatorEvent(roadEventToCreatorEvent(roadEvent, biomeForWorldSector(selectedSector)));
             }
             return;
         }
@@ -2095,6 +2115,9 @@ export function WorldMap({
         alert(event.icon + " " + event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards, character));
     }
     function completeCreatorEvent(event: CreatorEvent) {
+        // Story road events pay nothing here — the choice was the payoff and it
+        // was reported at choice time. Just close the scene.
+        if (event.id.startsWith(ROAD_WANDERER_PREFIX)) { setSelectedCreatorEvent(null); return; }
         const leveled = gainXp(character, event.xpReward);
         const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
         updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
@@ -2228,7 +2251,7 @@ export function WorldMap({
         return <TriggeredVisualNovel event={sageVnEvent} character={character} pageIndex={sageVnPage} lineIndex={sageVnLine} setPageIndex={setSageVnPage} setLineIndex={setSageVnLine} onCancel={() => setSageVnEvent(null)} onComplete={() => { setSageVnEvent(null); setSageChoiceOpen(true); }} onBattle={() => { /* the Sage never fights */ }} sharedImages={sharedImages} />;
     }
     if (selectedCreatorEvent) {
-        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const t = c.trait; if (t) updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); }} sharedImages={sharedImages} />;
+        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const t = c.trait; if (t) { updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); if (selectedCreatorEvent.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, selectedCreatorEvent.id, t); } }} sharedImages={sharedImages} />;
         const event = selectedCreatorEvent!;
         const eventPages = event.vnPages ?? [];
         const pages = (eventPages.length > 0 ? eventPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }]) as NonNullable<CreatorEvent["vnPages"]>;
@@ -2565,7 +2588,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers].map(w => (
+                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}

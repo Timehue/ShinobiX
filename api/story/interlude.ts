@@ -4,7 +4,8 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { STORY_INTERLUDE_DEFS, type StoryLane } from '../_story-interludes.js';
+import { STORY_INTERLUDE_DEFS } from '../_story-interludes.js';
+import { storyKeyFor, emptyStoryRecord, bumpLanes, type StoryRecord } from '../_story-record.js';
 
 /*
  * /api/story/interlude — POST { action, playerName, interludeId?, trait? }
@@ -24,14 +25,7 @@ import { STORY_INTERLUDE_DEFS, type StoryLane } from '../_story-interludes.js';
  * village must own the interlude. Each interlude records exactly once.
  */
 
-const storyKeyFor = (player: string) => `story:${player}`;
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-
-type StoryRecord = {
-    village: string;
-    interludes: Record<string, { trait: string; lane: StoryLane; at: number }>;
-    lanes: { good: number; neutral: number; bad: number };
-};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -75,11 +69,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if ((num(char.level) || 1) < def.levelReq) return { status: 200, body: { ok: false, reason: 'level' } };
                 if (num(char.storyProgress) < def.minProgress) return { status: 200, body: { ok: false, reason: 'progress' } };
 
-                const record = (await kv.get<StoryRecord>(storyKey)) ?? { village, interludes: {}, lanes: { good: 0, neutral: 0, bad: 0 } };
+                const record = (await kv.get<StoryRecord>(storyKey)) ?? emptyStoryRecord(village);
                 if (record.interludes?.[interludeId]) return { status: 200, body: { ok: false, reason: 'done' } };
-                const lanes = { good: num(record.lanes?.good), neutral: num(record.lanes?.neutral), bad: num(record.lanes?.bad) };
-                lanes[lane] += 1;
+                const lanes = bumpLanes(record.lanes, lane);
+                // Spread the record so road-event entries survive this write.
                 const updated: StoryRecord = {
+                    ...record,
                     village,
                     interludes: { ...(record.interludes ?? {}), [interludeId]: { trait, lane, at: Date.now() } },
                     lanes,

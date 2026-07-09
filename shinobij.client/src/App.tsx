@@ -5897,9 +5897,10 @@ export default function App() {
         }
         // Story chapter battles (triggered via auto-VN) must advance storyProgress just
         // like kind:"storyBoss" does. The event id always starts with "story-" for these.
-        // Interludes ("story-interlude-*") are VN-only: a battle launched from one must
-        // NOT advance the milestone index (that would skip a chapter).
-        const isStoryChapterBattle = event.id.startsWith("story-") && !event.id.startsWith("story-interlude-");
+        // Interludes ("story-interlude-*") and road events ("story-road-*") are story
+        // scenes: a battle launched from one must NOT advance the milestone index
+        // (that would skip a chapter).
+        const isStoryChapterBattle = event.id.startsWith("story-") && !event.id.startsWith("story-interlude-") && !event.id.startsWith("story-road-");
         if (isStoryChapterBattle) {
             nextCharacter = {
                 ...nextCharacter,
