@@ -891,14 +891,17 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Yes. This is the room. His letter says 'the fire under the kiln is fed twice.' I always thought that was a figure of speech.",
                 "Fed twice. This alcove is the first feeding, the willing one. Look at Mori's face and tell me there isn't a second.",
                 "Aren drew a little map on the back of the letter. Stairs, then the alcove, then racks, and under the racks one word. I couldn't read it for years because his hand was shaking when he wrote it.",
-                "I can read it now. The word is 'stamped.'"
+                "I can read it now. The word is 'stamped.' And there's a shape drawn under it that isn't a word. A circle, cut into four pieces. I always thought it was a wheel, maybe part of the water-screw.",
+                "It isn't part of the water-screw, is it. He was looking at something bigger than a fire, and his hand gave out before he could name it."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
                 { text: "Walk to the racks.", nextPage: 5 }
             ] },
             { ...storyPage("The Second Feeding", "Iron racks, fresh graft-slats in rows", "Narrator", [
                 "Twenty steps left, the hand carving stops and the iron begins. Racks from floor to ceiling, loaded with pale wooden slats.",
                 "No signatures on these. Each slat carries a stamp instead: a household mark, a season, and one small tidy character that means 'approved.'",
-                "The nearest slat still smells of fresh sap. Somebody's future was cut this week, without their name on it, and the fire is drawing warmth from it while you stand here."
+                "The nearest slat still smells of fresh sap. Somebody's future was cut this week, without their name on it, and the fire is drawing warmth from it while you stand here.",
+                "And there is a wrongness you feel before you can name it. When the signed founders' tokens burn, their ash lifts UP: into the flue, into the mortar, into the warm old bones of the village.",
+                "The stamped slats burn differently. Their smoke rises, yes, enough to keep the room alive, enough to keep the lie useful. But the ash does not rise. It falls, through a grate beneath the racks, down into a black seam under the kiln. Fire is not supposed to drain. Mori watches it fall, and for once the record keeper has no quick answer ready."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp" },
             { ...storyPage("The First Flame Sentinel", "The threshold, an armored shape kindling", "Elder Mori", [
                 "Stand still. Do not draw a weapon. That is the Sentinel, and it is the only honest thing left in this room.",
@@ -1031,6 +1034,14 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Give the loom to Toma. He'll know whose it is.", nextPage: 6, trait: "al65-gave-toma-the-loom" },
                 { text: "Repack everything exactly as you found it.", nextPage: 6, trait: "al65-resealed-the-crate" }
             ] },
+            { ...storyPage("The Manifest Under the Ash", "Off the road, a folded paper under the second crate's false bottom", "Toma Reed", [
+                "This was folded under the false bottom of the second crate. A shipping hand wrote it, not a survey hand. That's the first wrong thing. Listen to the rest.",
+                "Graft-slats, late season. Freshness, high. Household marks, sealed. Destination: Fifth Anchor escrow. Buyer mark, a circle cut in four. And then two lines that don't belong on a village offering at all. Local draw, approved. Lower draw, pending.",
+                "Local draw. Lower draw. The ink's bled at the bottom where somebody shut it too fast, but one line's still clear, and I wish to the roots it weren't. 'Deliver surplus below Rootfire intake.'",
+                "Surplus, friend. They have a word for what's left of us after they've spent us. And there's a second mouth somewhere under that fire that this whole village has never once been told about."
+            ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
+                { text: "Pocket the manifest.", nextPage: 7, trait: "al65-found-gate-manifest" }
+            ] },
             { ...storyPage("The Retrieval Squad", "The road behind, lanterns through the trees", "Toma Reed", [
                 "Lanterns, kiln side. That's a Rootbound Retrieval Squad. They sweep the route whenever a shipment stalls too long.",
                 "So here we are. Six crates of stolen futures, one wagon, one fire that wants them, one squad coming to collect, and the two of us.",
@@ -1043,9 +1054,9 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The frost is coming. The fire is warm. And everyone on this road tonight is somebody's future, one way or the other."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp" },
         ], [
-            { text: "Scatter the crates into the dark. Burn the wagon and manifest.", conclusion: "Futures vanish into the treeline in twelve directions, unrecoverable and free. The wagon burns bright behind you, and with it the only paper that proved whose stamp sent them. Toma laughs and grieves in the same breath, and you understand both.", trait: "merciful" },
-            { text: "Hide two crates. Let the squad recover the rest, and keep the manifest.", conclusion: "The squad finds a stalled wagon, a flustered escort, and four crates of six. You keep two crates of futures and the manifest that proves everything. The other four ride on toward the fire, rattling softly, and you make yourself listen until you can't hear them.", trait: "suspicious" },
-            { text: "Send Toma into the dark with the crates. Face the squad alone.", conclusion: "He runs because you told him to, and he doesn't look back, because you told him that too. The lanterns ring you in. The squad captain checks your seal against a list, slowly, and asks you, twice, where your partner went.", trait: "loyal" },
+            { text: "Scatter the crates into the dark. Burn the wagon and manifest.", conclusion: "Futures vanish into the treeline in twelve directions, unrecoverable and free. The wagon burns bright behind you, and with it the only paper that proved whose stamp sent them. For one moment the ash falls the wrong way, down through the road dust instead of up into the air. Toma sees it. So do you. Neither of you has paper enough left to prove it.", trait: "merciful" },
+            { text: "Hide two crates. Let the squad recover the rest, and keep the manifest.", conclusion: "The squad finds a stalled wagon, a flustered escort, and four crates of six. You keep two crates of futures and the manifest that proves everything. The other four ride on toward the fire, rattling softly, and you make yourself listen until you can't hear them. By dawn Toma has copied out that manifest's worst line three times, each copy worse than the one before, because his hand keeps shaking.", trait: "suspicious" },
+            { text: "Send Toma into the dark with the crates. Face the squad alone.", conclusion: "He runs because you told him to, and he doesn't look back, because you told him that too. The lanterns ring you in. The squad captain checks your seal against a list, slowly, and asks you, twice, where your partner went. Behind him the wagon rolls on toward the kiln road, and something inside one crate turns like a small wooden wheel trying to climb water that is not there.", trait: "loyal" },
         ]),
         milestone("Ashen Leaf Village", 75, "The Ancestors Speak", "Ancestor-Bound Flame Beast", "🌿", [
             { ...storyPage("Ash on the Wind", "The kiln yard at dusk, ash falling upward", "Elder Mori", [
@@ -1060,10 +1071,11 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Stand where we can warm you, little branch. We are trying to be gentle. Gentleness was never fire's gift.",
                 "We are the founders. The given years, the willing ones. We built the walls you were born behind, and we were glad to burn for them. We are glad still.",
                 "But for years now, something has been feeding us the other kind. Futures with the stems torn. Futures that scream.",
-                "We do not digest what is stolen, child. We hoard it, the way a wound hoards heat. Four hundred seasons of stolen mornings are packed inside this fire, and we cannot hold the door shut on them much longer."
+                "We do not digest what is stolen, child. We hoard it, the way a wound hoards heat. Four hundred seasons of stolen mornings are packed inside this fire, and we cannot hold the door shut on them much longer.",
+                "And hear what we are NOT, so the village hears it from us. We gave our green years to the fire above us. Our ash became walls, medicine, harvests, winter mortar; we knew the price, and we signed it. We never gave to the dark beneath this floor. The stamped slats are not gifts. They are theft wearing orchard language, and theft runs downward. We were built to guard a gift, child. Not to feed a drain."
             ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp", choices: [
-                { text: "Ask what the fire wants from you.", nextPage: 2 },
-                { text: "Show them the tool outlines you copied from the Reed wall.", nextPage: 3, requireTrait: "al42-filed-a-report" }
+                { text: "Ask what the fire wants from you.", nextPage: 2, trait: "al75-founders-reject-drain" },
+                { text: "Show them the tool outlines you copied from the Reed wall.", nextPage: 3, requireTrait: "al42-filed-a-report", trait: "al75-founders-reject-drain" }
             ] },
             { ...storyPage("The Ask", "The chamber, tokens rising in the heat", "First Flame Avatar", [
                 "Not revenge. We are dead. The dead make poor executioners and worse judges.",
@@ -1095,7 +1107,7 @@ export const storylines: Record<string, StoryStep[]> = {
         ], [
             { text: "Say the founders' words to it: 'given gladly.' Mean them.", conclusion: "The words land on it like rain on a roof it used to live under. For three heartbeats the Beast is just forty ordinary dead people remembering gladness, and then it fights you the way grieving people fight: to be held, not to win.", trait: "honorable" },
             { text: "Shatter the chain. Whatever follows, follows.", conclusion: "The chain parts with a sound like a hymn ending. Freed grief takes the shortest road toward what hurt it, and the shortest road runs through you. Far above, in her tower, the keeper feels her bellows die.", trait: "reckless" },
-            { text: "Ask the Avatar what it hasn't told you. Then fight.", conclusion: "'That we share the guilt,' it answers at once. 'The first stolen future was fed to us with our consent. We were cold that year, and we said yes.' The truth settles onto your shoulders, and the Beast comes on.", trait: "suspicious" },
+            { text: "Ask the Avatar what it hasn't told you. Then fight.", conclusion: "'That the gift was never enough on its own,' it answers at once. 'Two safe winters a generation, and then the cold got its vote back. The keepers used that thinness to excuse the first theft, and they told the living that the dead had agreed to it. We never agreed. We have been trying to say so through the fire ever since.' The truth settles onto your shoulders, and the Beast comes on.", trait: "suspicious" },
         ]),
         milestone("Ashen Leaf Village", 85, "The Kage Burns the Future", "Rootbound Elder Champion", "🌿", [
             { ...storyPage("The Detainment Lists", "The village square, notices in fresh ink", "Toma Reed", [
@@ -1154,9 +1166,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "You want the mechanics. All right. You've earned the honest version.",
                 "The founders' fire ran on futures given freely, and it ran thin. Gladness is a poor fuel. Two safe winters a generation, and after that, the cold got a vote again.",
                 "An unwilling future burns four times hotter. Five, if the person is young. There. Now you know the price of every warm floor you have ever stood on in this village, including the one under your feet right now.",
-                "I didn't build that equation. I inherited it, the way you inherit a roof. And nobody tears off the roof in winter because they've learned to hate the shingles. Frost-fall, Jonin. Bring me a better winter."
+                "And since you have made me honest tonight, here is the floor beneath that floor. Not all of it burns here. The village keeps enough ash to stay warm. The surplus goes down, through a lower draw, to a buyer that four villages share and none of us name. They mark it with a quartered circle. Its name is Hollow Gate. I have signed its approvals for thirty years, and I told myself every single time that a tax is not a sin as long as you spend your share of it on children.",
+                "And do not let me hide behind the word inherited. I did not build the lower draw, no. But I re-signed its approval every winter with my own hand, thirty times, and every single time I told myself the roof had chosen it for me. The roof did not. Frost-fall, Jonin. Bring me a better winter."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
-                { text: "Leave her office.", nextPage: 7 }
+                { text: "Leave her office.", nextPage: 7, trait: "al85-hoshina-named-gate" }
             ] },
             { ...storyPage("The Detention Rows", "Outside the rows, the Elder Champion at the gate", "Narrator", [
                 "The Rootbound Elder Champion stands at the detention gate. It has guarded the elders' orders for so long that bark has grown over its armor.",
@@ -1194,25 +1207,34 @@ export const storylines: Record<string, StoryStep[]> = {
                 "And the honest thing, the thing I need one person to hear me say out loud: part of me thinks I've earned it. That is how the fire wins, in the end. It agrees with you.",
                 "So. You, the one line my wall could never read. Ask your questions. Then we settle it, you and I and the fire."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Face her across the anvil.", nextPage: 18 }
+                { text: "The fire is not one fire.", nextPage: 4 }
+            ] },
+            { ...storyPage("The Lower Draw", "The Rootfire behind her: an upper flame, cedar-gold, and beneath the grate a darker pull", "Kage Hoshina Enju", [
+                "Before you show me whatever you carried down here, I owe you one true thing I have never said to a living soul. Look at the fire. Really look. There is the flame you can see, cedar-gold and warm, the village's flame. And under the grate, that darker pull. That is not flame. It is not a direction at all. It is a hunger.",
+                "The Rootfire keeps only enough to warm Ashen Leaf. It always has. The rest goes down. There is a lower draw beneath this floor, and it has carried the surplus of every future I ever cut to a buyer four villages share and none of us name.",
+                "I will name it, since you came all this way. The records mark it with a quartered circle. Its true name is Hollow Gate. For thirty years I told myself it was only a tax, that every village paid one, and that we were the kinder village because at least our children got back the warmth that came home.",
+                "So hear the whole shape of it before you decide anything. I did not spend Aren Reed once, for warmth. I spent him twice. Once to keep this village warm, and once to pay the Gate. The Gate did not put the shears in my hand. It offered me arithmetic, and I supplied the hand. Now show me what you brought, and let us find out whether it answers both."
+            ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
+                { text: "Face her across the anvil.", nextPage: 19, trait: "al100-lower-draw-confessed" }
             ] },
             { ...storyPage("The Better Winter", "The anvil, water dripping from your sleeve", "Kage Hoshina Enju", [
                 "What is that. Show me. Slowly.",
                 "Aren Reed's water-screw. Rebuilt, full size, and running in my east channel since the trial night. And Jorun planed the housing, didn't he. The survey cut the bridge out of that man's head thirty years ago, and his hands kept it anyway. His HANDS kept it.",
                 "I asked for a better winter because no one ever brought me one. I thought that made the question safe. Thirty years I thought that.",
+                "And understand what you have actually done, if this holds. A future that feeds the village here cannot be sent down the lower draw. You have not only answered the cold. You have answered the Gate. I built my whole life on the certainty that neither one could be answered, and you carried both up my east channel in a dead boy's machine.",
                 "Say the numbers out loud, %name. All of them. I want to hear this from the person who built it."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "\"Ninety mouths from the terraces alone. And the terrace families watched the water climb.\"", nextPage: 5, requireTrait: "al88-proved-the-winter" },
-                { text: "Open Mori's book to the measured pages and read her every line.", nextPage: 6, requireTrait: "al88-held-the-proof" },
-                { text: "\"Your own survey filed the proof. You have already read it three times.\"", nextPage: 7, requireTrait: "al88-baited-the-survey" },
-                { text: "Set Aren's model on her anvil and let the water speak for itself.", nextPage: 8 }
+                { text: "\"Ninety mouths from the terraces alone. And the terrace families watched the water climb.\"", nextPage: 6, requireTrait: "al88-proved-the-winter" },
+                { text: "Open Mori's book to the measured pages and read her every line.", nextPage: 7, requireTrait: "al88-held-the-proof" },
+                { text: "\"Your own survey filed the proof. You have already read it three times.\"", nextPage: 8, requireTrait: "al88-baited-the-survey" },
+                { text: "Set Aren's model on her anvil and let the water speak for itself.", nextPage: 9 }
             ] },
             { ...storyPage("What the Village Saw", "The anvil, her hands very still", "Kage Hoshina Enju", [
                 "The terrace families watched. Then it is already finished, isn't it. Arithmetic can be argued with. A village that has seen water climb cannot.",
                 "Thirty years, I asked every angry person who stood in front of me to bring me a better winter. You are the first one who walked in carrying it.",
                 "So now we find out what I actually am, because I am out of arithmetic."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 18 }
+                { text: "Enough. The tree chooses now.", nextPage: 19 }
             ] },
             { ...storyPage("The Measured Pages", "Mori's book open on the anvil", "Kage Hoshina Enju", [
                 "Give me the book. Sit down while I try to break it.",
@@ -1220,7 +1242,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "He signed every page. The one record that old man ever kept that argues back, and he put his name under it for me to see.",
                 "So now we find out what I actually am, because I am out of arithmetic."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 18 }
+                { text: "Enough. The tree chooses now.", nextPage: 19 }
             ] },
             { ...storyPage("Her Own Eyes", "A survey report unfolded between you", "Kage Hoshina Enju", [
                 "I read that report three times and refused to understand it. East fields wet in a dry week. Cause unrecorded. My own survey, my own ink, laid on my own desk.",
@@ -1228,7 +1250,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "You are the first angry person who was cruel enough to answer the question the way I would have.",
                 "So now we find out what I actually am, because I am out of arithmetic."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 18 }
+                { text: "Enough. The tree chooses now.", nextPage: 19 }
             ] },
             { ...storyPage("The Water Answers", "The model turning in a channel of firelight", "Kage Hoshina Enju", [
                 "One cracked vane. He never got to fix it. I know this little machine better than you do; I tested the full design myself once, alone, at night, in this room. It worked then too.",
@@ -1236,14 +1258,14 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Thirty years, I asked every angry person who stood in front of me to bring me a better winter. You are the first one who walked in carrying it.",
                 "So now we find out what I actually am. The machine I burned is turning in my own channel, and I have no argument left."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 18 }
+                { text: "Enough. The tree chooses now.", nextPage: 19 }
             ] },
             { ...storyPage("This Part Is Ours", "The kiln stair door opening behind you; Toma and Sera come down into the firelight", "Toma Reed", [
                 "You carried the door, %name. We'll carry him from here. Step back.",
                 "That's Aren's model. Cracked vane and all. You cut him quiet, Kage, and you signed the cut yourself. Look at it. His machine still climbs.",
                 "I had a whole speech for this. I lost it on the stairs. Mother, you say it. You always had the better hands for the hard parts."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Let Sera speak.", nextPage: 10 }
+                { text: "Let Sera speak.", nextPage: 11 }
             ] },
             { ...storyPage("Handwriting", "The chamber, Sera laying the letter flat on the anvil", "Sera Reed", [
                 "My son wrote this. I know that now. I know the threes he never closed. I know how he pressed too hard on the page when he was angry, and he was angry so much of the time.",
@@ -1251,14 +1273,14 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Ninety mouths. That is what his channel feeds. I came all this way to say the number to your face, in his own hand.",
                 "And my son was not a bench."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "The Kage looks at the letter.", nextPage: 11 }
+                { text: "The Kage looks at the letter.", nextPage: 12 }
             ] },
             { ...storyPage("A Mother's Proof", "The Rootfire dimming, Hoshina very still", "Kage Hoshina Enju", [
                 "You let them carry it. You stood back and let a mother and a shelf-mender put me in the ground with their own hands, and you only held the door.",
                 "Thirty years I asked angry people for a better winter. I did not expect a mother to bring me handwriting. I never built a defense against handwriting.",
                 "So now we find out what I actually am. I have run clean out of the one thing I was ever sure of."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 18 }
+                { text: "Enough. The tree chooses now.", nextPage: 19 }
             ] },
             { ...storyPage("Water Without a Name", "The channel numbers chalked on a slate", "Kage Hoshina Enju", [
                 "Ninety mouths. Yes. The number is real. I can see the east field is wet from my own tower window; I have been staring at it all week.",
@@ -1266,15 +1288,15 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Numbers without names are only another kind of filing, and filing is the one thing I have never been afraid of.",
                 "You have brought me water. You have not brought me the person I stole it from."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "She sets the slate down.", nextPage: 18 }
+                { text: "She sets the slate down.", nextPage: 19 }
             ] },
             { ...storyPage("The Unfinished Answer", "Aren's model in her scarred hands", "Kage Hoshina Enju", [
                 "Aren Reed's model. Yes. I know the shape. I countersigned the cut that made it an orphan.",
                 "It climbed in a basin once, in front of me. It climbed in my private tests too. That was never the question, child.",
-                "A model is not a winter. I can admire it. I can mourn it. I cannot feed a village on it.",
+                "A model is not a winter. I can admire it. I can mourn it. I cannot feed a village on it. And there is a debt you have not accounted for at all. Even if I spared the fire, I cannot pay the lower draw with a model. I cannot feed the Gate on what might have worked someday. A promise does not fill a pipe.",
                 "You kept the seed of an answer. You did not grow it somewhere the village could eat. That is not nothing. It is only not enough to stop my hand."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "She sets the model down gently.", nextPage: 18 }
+                { text: "She sets the model down gently.", nextPage: 19 }
             ] },
             { ...storyPage("Mori Reads the Pattern", "Mori opening the bloom charts on the anvil beside the shears; Hoshina says his name once, quietly", "Elder Mori", [
                 "No, child. Step back. This page is mine.",
@@ -1282,47 +1304,47 @@ export const storylines: Record<string, StoryStep[]> = {
                 "My hand. My count. My cowardice, if we are being accurate, and I am a record keeper, so we will be accurate.",
                 "The flowers were never a blessing. We carried bread to houses the fire had already marked, and I filed the paper that called it luck. I am done filing endings."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "He sets the charts beside the shears.", nextPage: 18 }
+                { text: "He sets the charts beside the shears.", nextPage: 19 }
             ] },
             { ...storyPage("Answer for Mori's charts. You've known the pattern for years.", "The reckoning", "Kage Hoshina Enju", [
                 "So Mori finally taught someone to read the blooms. Good. Then you've stood where I stand. You've looked at a flower on a fence and known exactly what it was going to cost that family.",
                 "Tell me you never once looked at a bloom and thought: better if it wilts early, before the survey sees it. Say it, and I'll call you a liar to your face.",
                 "That thought is my entire life. One flower, one house, one winter, every day, for thirty years. You carried the knowledge for one season and look what it did to you."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 18 }
+                { text: "Enough. The tree chooses now.", nextPage: 19 }
             ] },
             { ...storyPage("Answer for my page. You kept my cut in your wonder room.", "The reckoning", "Kage Hoshina Enju", [
                 "Yes. Your stub is in my room of taken things. The oldest cut I have ever handled, and the only one that isn't mine, and I couldn't burn it and I couldn't repair it, so I kept it. That is what keepers do. We keep.",
                 "You stood at my wall and demanded yourself back. Nobody does that. The pruned never know to ask. You knew, and you asked, and I have not slept properly since.",
                 "When you hold the shears, and I believe now that you will, go find whoever cut you. And when they explain themselves with arithmetic, the way I have tonight, remember me a little kindly."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 18 }
+                { text: "Enough. The tree chooses now.", nextPage: 19 }
             ] },
             { ...storyPage("Answer for Aren Reed. His future gets finished.", "The reckoning", "Kage Hoshina Enju", [
                 "Aren Reed. The water-screw. The complaint written in a shaking hand. You promised his brother it gets finished. I know, because I countersigned Aren's cut myself. Mine was the approving stamp.",
                 "Here is the part I have never told a living person. I tested his screw. Alone, at night, in this room. It worked. It would have watered the east terraces and fed ninety more mouths.",
                 "And his complaint would have emptied my kiln within five years, so I chose the kiln. That is the cut I mourn at every frost-fall. Tell his brother that, afterward. Tell him his Kage tested the screw, and it worked, and she burned him anyway. He deserves to hate me accurately."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 18 }
+                { text: "Enough. The tree chooses now.", nextPage: 19 }
             ] },
             { ...storyPage("The Shears on the Anvil", "The Rootfire at full roar, Hoshina alight", "Kage Hoshina Enju", [
                 "Enough talk, then. Look at me. Thirty years of being the answer to winter, and this is what's left, and I would do every year of it again. That is exactly why it has to be taken from me.",
                 "The shears, the fire, and a wall of futures upstairs. Somebody decides tonight what this village runs on. The fire has already cast its vote.",
                 "Show me, black flower. Show me what grows where nothing was permitted to."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", leftName: "Player", rightName: "Kage Hoshina Enju", rightImage: "/portraits/kage-hoshina-enju-hollow.webp", choices: [
-                { text: "Show her the better winter.", nextPage: 4, requireTrait: "al88-better-winter-carried" },
-                { text: "Let the Reeds show her the better winter.", nextPage: 9, requireTrait: "al88-better-winter-deferred" },
-                { text: "Let Mori answer for his charts.", nextPage: 14, requireTrait: "al92-mori-present" },
-                { text: "Show her Aren's model.", nextPage: 13, requireTrait: "al88-unfinished-answer", forbidTrait: "al88-better-winter-ready" },
-                { text: "Show her the east channel numbers.", nextPage: 12, requireTrait: "al88-water-proven", forbidTrait: "al65-saved-the-screw" },
-                { text: "Answer for Mori's charts. You've known the pattern for years.", nextPage: 15, requireTrait: "al58-took-the-knowledge" },
-                { text: "Answer for my page. You kept my cut in your wonder room.", nextPage: 16, requireTrait: "al70-claimed-the-name" },
-                { text: "Answer for Aren Reed. His future gets finished.", nextPage: 17, requireTrait: "al88-reed-proof-any" }
+                { text: "Show her the better winter.", nextPage: 5, requireTrait: "al88-better-winter-carried" },
+                { text: "Let the Reeds show her the better winter.", nextPage: 10, requireTrait: "al88-better-winter-deferred" },
+                { text: "Let Mori answer for his charts.", nextPage: 15, requireTrait: "al92-mori-present" },
+                { text: "Show her Aren's model.", nextPage: 14, requireTrait: "al88-unfinished-answer", forbidTrait: "al88-better-winter-ready" },
+                { text: "Show her the east channel numbers.", nextPage: 13, requireTrait: "al88-water-proven", forbidTrait: "al65-saved-the-screw" },
+                { text: "Answer for Mori's charts. You've known the pattern for years.", nextPage: 16, requireTrait: "al58-took-the-knowledge" },
+                { text: "Answer for my page. You kept my cut in your wonder room.", nextPage: 17, requireTrait: "al70-claimed-the-name" },
+                { text: "Answer for Aren Reed. His future gets finished.", nextPage: 18, requireTrait: "al88-reed-proof-any" }
             ] },
         ], [
-            { text: "Break the shears on the anvil. Give every future back.", conclusion: "The shears part with a sound like a held breath ending. Upstairs, forty strides of cedar cry out at once as every stolen self comes home mid-life. The walls groan, because the ash in them was load-bearing. The winter will be honest now, and hard, and hers. Hoshina attacks you weeping with relief.", trait: "honorable" },
-            { text: "Bind the Rootfire to willing gifts alone. Sheathe the shears forever.", conclusion: "The fire shrinks to the founders' flame, old and thin and clean. From tonight, Ashen Leaf must ask for its warmth honestly, and every hard winter will be a vote on your mercy. Hoshina bows to the arrangement, and then the fire wearing her does not, and it comes at you all the same.", trait: "merciful" },
-            { text: "Take the shears. The village needs a keeper who was never fooled.", conclusion: "The grips are warm, and they fit your hand exactly, and you understand all at once why: the Register has been growing you toward this room since the day it bloomed. Hoshina smiles like winter finally breaking. 'Then prove it,' says the fire, with her mouth.", trait: "ambitious" },
+            { text: "Break the shears on the anvil. Give every future back.", conclusion: "The shears part with a sound like a held breath ending. Upstairs, forty strides of cedar cry out at once as every stolen self comes home mid-life. The walls groan, because the ash in them was load-bearing. Deep beneath the kiln, the lower pipe empties with a sound like a throat losing a word, and the seam under the fire goes cold. For the first time in living memory the Rootfire draws nothing downward. The winter will be honest now, and hard, and hers. Hoshina attacks you weeping with relief.", trait: "honorable" },
+            { text: "Bind the Rootfire to willing gifts alone. Sheathe the shears forever.", conclusion: "The fire shrinks to the founders' flame, old and thin and clean. Every stamp on every unsigned slat splits down the middle; from tonight the Rootfire accepts only signatures, adult hands, a named price. Below, the lower seam opens once, hungry, finds nothing legal left to take, and closes. Ashen Leaf must ask for its warmth honestly now, and every hard winter will be a vote on your mercy. Hoshina bows to the arrangement, and then the fire wearing her does not, and it comes at you all the same.", trait: "merciful" },
+            { text: "Take the shears. The village needs a keeper who was never fooled.", conclusion: "The grips are warm, and they fit your hand exactly, and you understand all at once why: the Register has been growing you toward this room since the day it bloomed. Below the fire, the dark seam does not close. It waits, warmer by a single degree, for your first approval. Hoshina smiles like winter finally breaking. 'Then prove it,' says the fire, with her mouth.", trait: "ambitious" },
         ]),
     ],
     "Frostfang Village": [
