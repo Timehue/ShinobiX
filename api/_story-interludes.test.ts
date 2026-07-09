@@ -75,13 +75,17 @@ test('interlude choices are well-formed: one per lane, unique traits, self-point
     for (const village of VILLAGES) {
         for (const entry of storyInterludesByVillage[village]) {
             const lastIndex = entry.pages.length - 1;
+            const laneTraits = new Set((entry.pages[lastIndex].choices ?? []).map((c) => c.trait).filter(Boolean));
             for (const [i, page] of entry.pages.entries()) {
                 assert.ok(page.dialogue.length >= 1, `${entry.id} page ${i} has no dialogue`);
-                // Mid-scene choices steer the conversation only: they must never
-                // grant traits (the recorded decision lives on the final page).
+                // Mid-scene choices may carry unique-scheme memory traits, but
+                // never the recorded LANE traits (the decision the server
+                // tallies lives on the final page only).
                 if (i < lastIndex) {
                     for (const choice of page.choices ?? []) {
-                        assert.ok(!choice.trait, `${entry.id} page ${i}: mid-scene choice grants a trait (${choice.trait})`);
+                        if (!choice.trait) continue;
+                        assert.ok(!laneTraits.has(choice.trait), `${entry.id} page ${i}: mid-scene choice grants lane trait ${choice.trait}`);
+                        assert.ok(/^(sv|al|ff|ms|rd)\d+-/.test(choice.trait), `${entry.id} page ${i}: mid trait ${choice.trait} off-scheme`);
                     }
                 }
             }
