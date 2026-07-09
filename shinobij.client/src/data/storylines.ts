@@ -1328,15 +1328,17 @@ export const storylines: Record<string, StoryStep[]> = {
     "Frostfang Village": [
         milestone("Frostfang Village", 4, "The Pack Survives", "Snow Warden Pup", "❄", [
             { ...storyPage("First Bell", "The training yard at first bell, breath-fog in rows, lantern lines overhead", "Captain Yura", [
-                "New intake. Stand there. Feet on the worn spots; they're worn for a reason.",
-                "I'm Captain Yura. You'll freeze in that coat. After drill, requisition a real one. Tell them I sent you; the clerk owes me.",
-                "The rules here are short, because the cold doesn't read long ones. People who are alone die out here. So nobody is alone. We call the roll at every bell: you answer your name, you hear your neighbor answer theirs, and everyone goes back inside knowing nobody is missing.",
+                "New intake. Stand on the worn spots; they're worn for a reason.",
+                "I'm Captain Yura. You'll freeze in that coat. After drill, requisition a real one and tell them I sent you; the clerk owes me.",
+                "The rules here are short, because the cold doesn't wait through long ones. Out here, a person alone dies. So Frostfang made one rule above the rest: nobody is ever alone. We keep that rule with the Roll. Every bell, you answer your name, you hear your neighbor answer theirs, and everyone goes back inside knowing no one is missing.",
+                "The book calls the same thing by a colder name: the Count. It is the Roll written down as law, a marked wrist and a logged route and a rescue the wall owes you. Hold the difference somewhere you won't lose it. The Roll is people calling for people. The Count is what the wall writes down about it afterward.",
                 "Elder Sova takes the intake words. Answer her plainly. She's heard everything twice."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp" },
             { ...storyPage("The Intake", "The roll stone, Elder Sova with the count book open", "Elder Sova", [
-                "Stand easy. This is not a test. This is the litany, and then one question, and then soup.",
-                "Say it back to me once, so it sticks. The checked are counted. The counted are kept. The kept are warm.",
-                "Good. Now the question. Next to every name in this book, there is a reason written down. So tell me yours. Why do you stand in the count?"
+                "Stand easy. This is not a test. It is the intake: a few words, one question, and then soup.",
+                "There are four words the wall lives by, and I only teach them once. Say them back so they stick: the checked are counted, the counted are kept, the kept are warm.",
+                "Now the plain meaning, because new ears have earned one. Checked means your wrist answered the plate. Counted means your name is written in the rescue book. Kept means that if you vanish, the wall owes you a search. Warm is the promise the first three make good on.",
+                "Good. Now the one question, the one this book keeps beside every name. Tell me yours, plainly. Why do you stand in the Count?"
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "\"So the cold takes nobody on my watch.\"", nextPage: 2, trait: "ff4-count-protector" },
                 { text: "\"To be the strongest back in the pack.\"", nextPage: 3, trait: "ff4-count-strongest" },
@@ -1344,60 +1346,60 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "\"I'm looking for someone who walked away.\"", nextPage: 5, trait: "ff4-count-seeker" },
                 { text: "\"I don't know yet.\"", nextPage: 6, trait: "ff4-count-unknown" }
             ] },
-            { ...storyPage("A Watch Why", "The roll stone", "Elder Sova", [
-                "So the cold takes nobody on your watch. That's a guard's reason, and it is a good one to have next to your name.",
-                "Entered and counted, %name. Welcome to Frostfang.",
-                "Hold on to that reason where your hands can find it. Winters up here burn through people's reasons faster than they burn through lamp oil."
+            { ...storyPage("A Guard's Reason", "The roll stone", "Elder Sova", [
+                "So the cold takes nobody on your watch. That's a guard's reason, and a good one to stand beside your name.",
+                "Entered and counted, %name. The wall sleeps easier with a watch-stander in the book.",
+                "Hold that reason where your hands can find it in the dark. Up here, winters burn through people's reasons faster than through lamp oil."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Step to the mark plate.", nextPage: 7 }
             ] },
-            { ...storyPage("A Spine Why", "The roll stone", "Elder Sova", [
-                "The strongest back in the pack. Well, packs need strong backs. Just remember that even the strongest back breaks if it carries alone. Write that down somewhere in yourself.",
-                "Entered and counted, %name. Welcome to Frostfang.",
-                "Strength up here is measured in who you brought home. You'll learn the count."
+            { ...storyPage("A Strong Back", "The roll stone", "Elder Sova", [
+                "The strongest back in the pack. Well, the pack needs strong backs. Only remember that the strongest back is the first to break if it carries alone. Write that down somewhere inside you.",
+                "Entered and counted, %name. The pack could use a strong back that remembers it's a pack.",
+                "Strength here isn't measured in what you can lift. It's measured in who you carried home. You'll learn the Roll."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Step to the mark plate.", nextPage: 7 }
             ] },
-            { ...storyPage("A Debt Why", "The roll stone", "Elder Sova", [
-                "Repaying a rescue. Half the best soldiers I ever entered in this book stood where you are standing, owing somebody their heartbeat.",
-                "Entered and counted, %name. Welcome to Frostfang.",
+            { ...storyPage("A Debt to Pay", "The roll stone", "Elder Sova", [
+                "Repaying a rescue. Half the finest soldiers I ever entered in this book stood right where you stand, owing somebody their heartbeat.",
+                "Entered and counted, %name. The book is glad to hold a debt-payer.",
                 "Mind how you pay it. Some debts are better honored than settled. The settled ones stop keeping you warm."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Step to the mark plate.", nextPage: 7 }
             ] },
-            { ...storyPage("A Door Why", "The roll stone", "Elder Sova", [
-                "Looking for someone who walked away. People don't give me that answer often, and when they do, they say it quietly, like you just did. Up here, nobody likes remembering that walking away is possible.",
-                "Entered and counted, %name. Welcome to Frostfang.",
-                "I hope you find them. And when you do, ask them why softly. The answer is never what the count says it is."
+            { ...storyPage("A Door That Closed", "The roll stone", "Elder Sova", [
+                "Looking for someone who walked away. People rarely give me that answer, and when they do, they say it quietly, the way you just did. Up here, nobody likes the reminder that walking away is even possible.",
+                "Entered and counted, %name. Welcome in from the cold.",
+                "I hope you find them. And when you do, ask them why softly. The reason is never the one the Count wrote down for them."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Step to the mark plate.", nextPage: 7 }
             ] },
-            { ...storyPage("A Blank Why", "The roll stone", "Elder Sova", [
-                "You don't know yet. That's honest, and this book does better with honest answers than with boasts.",
-                "Entered and counted, %name. Welcome to Frostfang.",
-                "Come back when the word arrives. I'll enter it myself, and I'll put a good pen to it."
+            { ...storyPage("A Blank Line", "The roll stone", "Elder Sova", [
+                "You don't know yet. That's honest, and this book keeps honest answers better than it keeps boasts.",
+                "Entered and counted, %name. That's you in the book, blank reason and all.",
+                "Come back when the word arrives. I'll enter it myself, in a good hand. The reason line stays open till then."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Step to the mark plate.", nextPage: 7 }
             ] },
             { ...storyPage("The Fogged Plate", "The gate's mark plate, frost crawling where a wrist should read", "Captain Yura", [
-                "Put your wrist on the plate. It reads you, it logs you, and that's the whole ceremony.",
-                "Huh. Wipe it and go again.",
-                "Stop. Look. It's not misreading you. It's reading somebody. That's a name coming up. That's an OLD name. Nobody's had a plate-read like that since...",
-                "Sova. SOVA. The plate just read the new intake as someone long gone. Get the book."
+                "Wrist on the plate. It reads you, it logs you into the Count, and that's the whole ceremony.",
+                "Huh. Wipe it and try again.",
+                "Stop. Look. It isn't misreading you. It's reading somebody. That's a name coming up, and it's an OLD name. Nobody's had a plate-read like that in twenty years.",
+                "Sova. SOVA. The plate just read the new intake as someone long gone. Bring the book."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp" },
             { ...storyPage("Someone Long Gone", "The gate, Sova's thumb on the fogged plate", "Elder Sova", [
-                "Well. There's a thing I haven't seen in a long career.",
-                "Probably frost in the works. Plates are old. Old things remember wrong.",
-                "But I'll tell you what I tell the book, which is only true things: the plate doesn't read the skin. It reads what the wrist ANSWERS to. And yours answered with a name that left this world before you reached it.",
-                "It's nothing. Or it's yours. Either way, the yard is waiting. The Warden pup got loose again, and drill is drill. The pack watches its newest tonight."
+                "Well. There is a thing I have not seen in a long career.",
+                "Likely just frost in the works. The plates are old, and old things remember wrong.",
+                "But I'll tell you what I tell the book, which is only ever true things. The plate doesn't read your skin. It reads what your wrist answers to. And yours answered with a name that left this world before you reached it.",
+                "It's nothing. Or it's yours. Either way, the yard is waiting: the Warden pup slipped its pen again, and drill is drill. The pack watches its newest tonight."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Form up in the yard.", nextPage: 9 }
             ] },
             { ...storyPage("The Loose Warden", "The yard, a Snow Warden Pup pacing the drill square, six recruits in line", "Captain Yura", [
-                "Listen up. The pup escaped the pens twice this month. It's young, it's scared, and it's still two hundred pounds of teeth.",
-                "The drill is simple. The formation holds, the newest takes point, and the pack backs the point. That's not hazing. It's how we learn what your spine does when it matters.",
+                "Listen up. The pup has broken out of the pens twice this month. It's young, it's frightened, and it is still two hundred pounds of teeth.",
+                "The drill is simple. The formation holds, the newest takes point, and the pack backs the point. That isn't hazing. It's how we learn what your spine does when it counts.",
                 "Nobody fights alone in Frostfang. But somebody always fights FIRST.",
-                "Point position, intake. Bell's yours."
+                "Point position, intake. The bell is yours."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp" },
         ], [
             { text: "Hold formation. Trust the line at your back.", conclusion: "You take point and stay exactly where the pack can use you, and six strangers become a wall behind your shoulders. The pup breaks against the formation like weather. Yura says nothing, but she marks something in the drill book, and the something has your name on it.", trait: "loyal" },
@@ -1406,65 +1408,67 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Frostfang Village", 15, "The Missing Patrol", "Oathbound Soldier", "❄", [
             { ...storyPage("Five Names Unanswered", "The roll stone at third bell, snow starting, five names hanging", "Captain Yura", [
-                "Roll call came up short this morning. Ruven's patrol never answered. Five names, and not one voice. They were posted on the northern ridge, and the ridge is empty: the fires are banked, the packs are still full, and the men are gone.",
-                "The Kage ruled it at third bell. Desertion. Five deserters, struck from the count, case closed before their soup went cold.",
-                "Ruven has a wife, a dog, and the neatest kit in the north wall. Men like that don't run. Men like that get LOST, and lost means you go get them.",
-                "Kael closed the book. So we're not going as the count. We're going as weather. You coming?"
+                "Roll call came up short this morning. Ruven's patrol never answered. Five names, and not one voice. They were posted on the northern ridge, and the ridge is empty: the fires are banked, the packs still full, and the men gone.",
+                "The Kage ruled it at third bell. Desertion. Five deserters, struck from the Count, the case closed before their soup went cold.",
+                "But Ruven has a wife, a dog, and the neatest kit on the north wall. Men like that don't run. Men like that get LOST, and lost means somebody goes and gets them.",
+                "Kael closed the book, so we don't go as the Count. We go as weather. You coming?"
             ]), image: "/scenes/story/story-frostfang-village-15-1.webp" },
             { ...storyPage("The Kage in the Snow", "The north gate, Kael Whitefang walking IN out of the storm carrying a shepherd", "Kage Kael Whitefang", [
                 "Gate. Open. Now.",
-                "This is a shepherd from the east folds. He wandered past his line. He's frostbit, not dead. Get him soup and a warm wall. Move.",
-                "You two are going north. Don't.",
-                "The patrol struck themselves off. The shepherd didn't. See the difference? He stayed IN the count. So I went. That's the whole law of me. No one freezes inside my count. NO ONE. What's outside it, the snow may keep."
+                "This shepherd strayed past his line in the east folds. He's frostbit, not dead. Get him soup and a warm wall. Move.",
+                "You two are bound north. Don't be.",
+                "Hear the law of me, since you'll serve under it. A man stays in the Count while three things hold: his mark answers, his route is logged, and he keeps inside his rescue line. The shepherd broke one and kept two, so the Count still held him, so I went for him.",
+                "Ruven's patrol broke all three. No mark answered, no route held, the line was crossed. The Count struck them, and a struck name is not mine to chase.",
+                "You see banked fires and full packs and call it a riddle. I see a law that has kept children breathing for ninety winters. No one freezes inside my Count. No one. What the Count strikes, the snow may keep."
             ]), image: "/scenes/story/story-frostfang-village-15-1.webp" },
             { ...storyPage("What Yura Knows", "The north road, snow thickening", "Captain Yura", [
-                "You heard him. Nobody has frozen outside the wall since Kael kept the count. It's true. I've watched him carry grown men home on his back in weather that kills. He is the best rescue I have ever seen.",
-                "And when the plate says you left, he stops seeing you. Same man. Both things. I've stopped trying to make them fit.",
-                "Ruven's fires were BANKED. You bank a fire when you're coming back to it. Deserters don't bank fires.",
-                "Tracks. There, coming toward us. One set of boots, and whoever is in them is walking wrong."
+                "Here's what frightens me, and it isn't that he leaves people. He rescues better than anyone alive; I've watched him carry grown men home on his back through weather that kills.",
+                "It's that the Count can tell him a man stopped counting, and he'll believe the Count faster than he believes his own eyes. Same man, both things at once. I stopped trying to make them fit years ago.",
+                "Ruven banked his fire. You bank a fire when you mean to come back to it. Deserters don't bank fires. Lost men do.",
+                "So tonight we follow the fire, not the book. There. Tracks, coming toward us. One set of boots, and whoever's in them is walking wrong."
             ]), image: "/scenes/story/story-frostfang-village-15-1.webp" },
             { ...storyPage("Dain Comes Back", "The road, a soldier walking out of the white with his hood down", "Frost Seal Echo", [
-                "The soldier Dain is returned to the count.",
-                "The soldier Dain reports: the patrol went beyond its line. The patrol is corrected. The count is whole.",
-                "You are outside your posted rotation. State your numbers. The count is whole. The count is whole.",
+                "The soldier Dain is returned to the Count.",
+                "The soldier Dain reports: the patrol went beyond its line. The patrol is corrected. The Count is whole.",
+                "You stand outside your posted rotation. State your numbers. The Count is whole. The Count is whole.",
                 "Cold is only warmth that stopped asking questions. Return to the wall."
             ]), image: "/scenes/story/story-frostfang-village-15-1.webp" },
             { ...storyPage("The Corrected Man", "The road, Dain's hood down, frost in a script down his wrist", "Captain Yura", [
-                "That's Dain's face and that is not Dain. Dain stammers. Dain hums when he's scared. This thing talks like the gate plate.",
-                "Look at his wrist. That's not our mark. That's DEEP script, wrist to elbow, like someone wrote a whole oath into him.",
-                "Four still out there. And whatever corrected Dain is between us and them.",
-                "It's wearing him, and it's coming this way, and I need you to hear me say it plain: what we do in the next minute, we do to DAIN'S body. So we do it right."
+                "That's Dain's face, and that is not Dain. Dain stammers. Dain hums when he's frightened. Whatever this is, it speaks in the flat, certain voice of the reader plate at the gate: every word sure of itself, and nobody home behind them.",
+                "Look at his wrist. That is not our mark. That is deep script, wrist to elbow, like someone wrote a whole oath into his arm.",
+                "Four are still out there, and whatever corrected Dain is standing between us and them.",
+                "It's wearing him, and it's coming this way, so hear me plainly before it reaches us. Whatever we do in the next minute, we do it to Dain himself: his real arm, his real face, with something else steering. So we do it clean, we do it kind, and we bring home what's left of him."
             ]), image: "/scenes/story/story-frostfang-village-15-1.webp" },
         ], [
             { text: "Take the corrected man down fast, before it learns you're a threat.", conclusion: "You hit first and hard, and the thing wearing Dain fights with drill-perfect, joyless precision until it can't. He goes down breathing. Under the deep script his own mark is still there, faint, like handwriting under a stamp. Yura splints his arm with hands that don't shake until after.", trait: "reckless" },
-            { text: "Stand between it and the village. Nothing corrected passes.", conclusion: "You plant yourself on the road and make the correction come through you, and it does, methodically, reciting the count. You hold. When it finally stops moving, the road behind you is still clean snow, and Yura looks at you the way soldiers look at load-bearing walls.", trait: "honorable" },
+            { text: "Stand between it and the village. Nothing corrected passes.", conclusion: "You plant yourself on the road and make the correction come through you, and it does, methodically, reciting the Count. You hold. When it finally stops moving, the road behind you is still clean snow, and Yura looks at you the way soldiers look at load-bearing walls.", trait: "honorable" },
             { text: "Match its cadence. Answer its numbers. Learn the script's grammar.", conclusion: "You give the Echo's questions back in its own flat rhythm, numbers for numbers, and for eleven exchanges the thing believes you might be a colleague. Eleven exchanges of grammar, memorized. When it finally lunges, you already know how corrected things decide, which will matter more than anyone on this road yet knows.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 25, "The Loyalty Seal", "Frost Seal Guardian", "❄", [
-            { ...storyPage("Cut From the Ice", "A ravine north of the line, four figures standing in cut ice like specimens", "Captain Yura", [
+            { ...storyPage("Cut From the Ice", "A ravine north of the line, three figures standing in cut ice like specimens", "Captain Yura", [
                 "There. Roots take me. There they are.",
                 "They're standing up. In the ice. Like they walked into it and it agreed with them.",
                 "That's Ruven. Front. Cut them out slow; frostbite by inches is survivable, panic isn't.",
-                "Four. Count again. FOUR. Kessa isn't here. She's the fifth name, the youngest of them, and she is not here."
+                "Three. Count again. THREE. We met Dain on the road, so that's four of the five accounted for. But Kessa isn't here. She's the fifth name, the youngest of them, and she is not here."
             ]), image: "/scenes/story/story-frostfang-village-25-2.webp" },
-            { ...storyPage("The Deep Script", "The ravine, four soldiers thawing, wrists black with script to the elbow", "Narrator", [
-                "They wake calm. That is the wrong part. Men cut from ice should shake, weep, swear. These four stand up, form a line, and wait for orders.",
+            { ...storyPage("The Deep Script", "The ravine, three soldiers thawing, wrists black with script to the elbow", "Narrator", [
+                "They wake calm. That is the wrong part. Men cut from ice should shake, weep, swear. These three stand up, form a line, and wait for orders.",
                 "Ruven looks at Yura with polite, total certainty. He asks nothing about his wife. He asks nothing about his dog. He asks for his rotation.",
-                "The script runs wrist to elbow on all four. Force-sealed. An oath they never spoke, written in past the asking.",
-                "The count is whole, they say, all four, in unison, and the ravine's cold has nothing on the sound of it."
+                "The script runs wrist to elbow on all three. Force-sealed. An oath they never spoke, written in past the asking.",
+                "The Count is whole, they say, all three, in unison, and the ravine's cold has nothing on the sound of it."
             ]), image: "/scenes/story/story-frostfang-village-25-2.webp" },
             { ...storyPage("The Seal's Voice", "The ravine mouth, the Frost Seal Echo standing on the ice, guardian shapes forming under it", "Frost Seal Echo", [
-                "Four are recovered. The count is whole.",
+                "Four are recovered. The Count is whole.",
                 "The fifth resisted correction. The fifth is pending.",
                 "You transport recovered assets. This is approved. You inquire after the pending. This is not approved.",
                 "Warmth is owed to the counted. The counted are kept. You are keeping poorly. Stand down."
             ]), image: "/scenes/story/story-frostfang-village-25-2.webp", choices: [
                 { text: "\"You read her license once. Read this thing its own terms.\"", nextPage: 3, requireTrait: "ff20-read-her-license" },
-                { text: "Put the four behind you and face the Guardian.", nextPage: 4 }
+                { text: "Put the three behind you and face the Guardian.", nextPage: 4 }
             ] },
             { ...storyPage("Terms of Service", "The ravine mouth, the Echo's cadence stuttering", "Captain Yura", [
                 "That's it. Harrow's trick. It runs on TERMS, so I'll give it terms. Listen, you walking gate!",
-                "Kessa was CHECKED at intake. The checked are counted. The counted are KEPT. Your own litany, your own order. You can't call her pending. She's already owed.",
+                "Kessa was CHECKED at intake. The checked are counted. The counted are KEPT. Your own litany, your own order. You cannot call her pending. She's already owed a search.",
                 "Look at it. It's rereading itself. It's actually rereading itself.",
                 "Whatever that bought us, use it, because the ice is standing up."
             ]), image: "/scenes/story/story-frostfang-village-25-2.webp", choices: [
@@ -1472,33 +1476,34 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Frost Seal Guardian", "The ravine, a guardian of old ice rising between you and the road home", "Captain Yura", [
                 "That's a Guardian. Old work. It was here keeping something before this village had a wall, and the seal wears it now the way it wears Dain.",
-                "Four behind us, one missing, and a wall of winter in front. Standard Frostfang count.",
-                "Whatever you do, the four come home. That's the mission. Kessa is MY next mission, and I will dig her out of this seal's throat if it comes to that.",
+                "Three behind us, one missing, and a wall of winter in front. A standard Frostfang tally.",
+                "Whatever you do, the three come home. That's the mission. Kessa is MY next mission, and I will dig her out of this seal's throat if it comes to that.",
                 "On your call, intake. It's your road now."
             ]), image: "/scenes/story/story-frostfang-village-25-2.webp" },
         ], [
-            { text: "Hold the road until all four are clear, then break contact clean.", conclusion: "You fight a wall of winter to a standstill exactly as long as the rescue needs, and not one breath longer, and then you fold back through the ravine like a drill answer. Four men come home. The Guardian watches you leave with something like professional respect, if ice can respect a schedule.", trait: "honorable" },
+            { text: "Hold the road until all three are clear, then break contact clean.", conclusion: "You fight a wall of winter to a standstill exactly as long as the rescue needs, and not one breath longer, and then you fold back through the ravine like a drill answer. Three men come home. The Guardian watches you leave with something like professional respect, if ice can respect a schedule.", trait: "honorable" },
             { text: "Study the script while you fight. The seal writes; writing has rules.", conclusion: "Every strike you trade, you're reading: the Guardian moves in the litany's own meter, four beats and a hold. By the end you can feel the next line before it lands. Yura hauls you out bleeding and furious with you, and you come home carrying the seal's grammar like a stolen map.", trait: "suspicious" },
             { text: "Go through it. Kessa is out there and this thing is the door.", conclusion: "You don't fight the Guardian; you BREACH it, straight through the old ice with everything you own, because a girl is pending on the far side. It costs you skin and it doesn't find her, but the seal learns something new about the shape of you, and files it, and starts, in its cold way, to plan.", trait: "reckless" },
         ]),
         milestone("Frostfang Village", 35, "The Pale Pack", "Oathbound Ice Captain", "❄", [
             { ...storyPage("The Struck Names", "A rebel cavern in the glacier, forty-one people, no marks, warm fires", "Pale Pack Runner", [
-                "Weapons stay at the mouth. That's not a threat, it's furniture; we don't have racks for them inside.",
-                "Welcome to the Pale Pack. Forty-one names the count struck. Deserters, doubters, one woman who missed a check nursing her sick mother. Struck, all the same.",
-                "Look around. Fires banked, watches posted, roll call at every bell. Voluntary. Every bell, forty-one people ANSWER, because they choose to. The youngest is Kessa, off the ridge patrol; she walked in half-frozen a week after the seal took her squad, unsealed, still 'pending' in the wall's book. She teaches the children knots now.",
-                "The village says we're dead men walking. We've lost two in three winters. Ask the wall how their count's doing."
+                "Weapons stay at the mouth. That's not a threat, it's furniture; we've no racks for them inside.",
+                "Welcome to the Pale Pack. Forty-one names the Count struck. Deserters, doubters, one woman who missed a check nursing her sick mother. Struck all the same.",
+                "Look around, but don't romanticize it. We call the Roll here because we choose to, not because a mark makes us. Some nights people answer angry. Some nights a name doesn't come until the third call. The fires are warm and they smoke; the stew is thin. Two winters ago we lost a boy because the east watch slept through second bell.",
+                "The youngest of us is Kessa, off the ridge patrol. She walked in half-frozen a week after the seal took her squad, unsealed, still marked 'pending' in the wall's book. She teaches the children knots now.",
+                "So no, we are not proof that walking free is easy. We are proof of one thing only: the Count lied when it told you there was no other way. Ask the wall how their Count is doing."
             ]), image: "/scenes/story/story-frostfang-village-35-3.webp" },
             { ...storyPage("Yura's Roster-Mate", "The cavern fires, a big woman standing up slow", "Captain Yura", [
-                "Kessa's HERE? Kessa's alive, and teaching KNOTS, and nobody... no. Later. One miracle per bell.",
+                "Kessa's HERE? Kessa's alive, and teaching KNOTS, and nobody... no. Later. One miracle to a bell.",
                 "Marrin.",
-                "Marrin, I filed the report. I want that said before anything. The ridge post, the strike order, your name. My handwriting. I've carried it twelve years and I'm not asking you to make it lighter.",
-                "You were STRUCK, and you built a count anyway. A real one. Out of nothing. In a glacier.",
+                "Marrin, I filed the report. I want that said before anything else. The ridge post, the strike order, your name, all in my handwriting. I've carried it twelve years, and I'm not asking you to make it lighter.",
+                "The Count struck you. And you went and built a Roll anyway, a real one, out of nothing, in a glacier.",
                 "I don't know what to do with that, so I'm going to stand here while you decide whether to hit me."
             ]), image: "/scenes/story/story-frostfang-village-35-3.webp" },
             { ...storyPage("Returned to the Count", "The cavern mouth, torchlight, a sealed recovery detail forming up outside", "Narrator", [
                 "The recovery detail arrives at dusk: twelve sealed soldiers and a captain whose wrist script is old and deep, a man who was himself recovered once, and speaks of it the way saved men speak of medicine.",
                 "The order he carries is short, in Kael's own hand: ALL STRUCK NAMES RETURNED TO THE COUNT. RECOVERY AUTHORIZED. SEALING AUTHORIZED.",
-                "Forty-one people in the cavern behind you. Twelve sealed soldiers on the ice in front. The mountain does not care either way.",
+                "Forty-one people wait in the cavern behind you. Twelve sealed soldiers stand on the ice in front. The mountain does not care either way.",
                 "The captain gives you, formally, one bell to bring them out willing. He says the word willing without any sign it means something."
             ]), image: "/scenes/story/story-frostfang-village-35-3.webp", choices: [
                 { text: "Ask Yura, quietly, what she's about to do.", nextPage: 3, requireTrait: "yura-trust" },
@@ -1506,7 +1511,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Captain's Arithmetic", "The cavern mouth's shadow, Yura checking her gear by touch", "Captain Yura", [
                 "What am I about to do. Twelve years I've wanted somebody to ask me that before I did it.",
-                "My mark says I stand with the detail. My roster-mate is behind me with a count she built out of exile. My captain sealed five men I cut out of ice, and my Kage signed it.",
+                "My mark says I stand with the detail. My roster-mate is behind me with a Roll she built out of exile. My captain sealed the men I cut out of ice, and my Kage signed it.",
                 "You told me where you'd run once. Fair trade. Here's mine: if this goes wrong, I'm not running. I'm standing in the mouth. It's the only door I've got left that means anything.",
                 "Whatever you call, call it loud. I want to hear one order tonight I actually believe in."
             ]), image: "/scenes/story/story-frostfang-village-35-3.webp", choices: [
@@ -1516,11 +1521,11 @@ export const storylines: Record<string, StoryStep[]> = {
                 "They've done this before, you know. Not here. Smaller camps. Struck names, recovered, and you meet them a season later at the wall with script to the elbow, asking for their rotation.",
                 "Forty-one of us. Some will fight. Some are children. Some would honestly rather be sealed than spend another winter unforgiven; don't judge them, warmth is warmth when you're tired enough.",
                 "The bell the captain gave you is almost out.",
-                "So, wall-walker. What ARE you, out here past the count?"
+                "So, wall-walker. What ARE you, out here past the Count?"
             ]), image: "/scenes/story/story-frostfang-village-35-3.webp" },
         ], [
-            { text: "Stand in the mouth beside Yura. The cavern doesn't empty tonight.", conclusion: "Two of you in the mouth, then Marrin makes three, then the runner makes four, and the sealed captain recalculates a doorway that has grown teeth. Recovery withdraws, formally, pending reinforcement. The Pale Pack's fires burn all night, and forty-one names answer the midnight roll like a hymn.", trait: "honorable" },
-            { text: "Negotiate: the children and the willing go down warm, the rest stay free.", conclusion: "You split the impossible order into human pieces: nine go down the mountain fed and blanketed, by their own word, and thirty-two remain, and you sign the difference in your own name as ranking witness. The captain files it, because it is, technically, a recovery. Kael will read your count by morning, and know exactly what it says about you.", trait: "merciful" },
+            { text: "Stand in the mouth beside Yura. The cavern doesn't empty tonight.", conclusion: "Two of you in the mouth, then Marrin makes three, then the runner makes four, and the sealed captain recalculates a doorway that has grown teeth. Recovery withdraws, formally, pending reinforcement. The Pale Pack's fires burn all night, and forty-one names answer the midnight Roll like a hymn.", trait: "honorable" },
+            { text: "Negotiate: the children and the willing go down warm, the rest stay free.", conclusion: "You split the impossible order into human pieces: nine go down the mountain fed and blanketed, by their own word, and thirty-two remain, and you sign the difference in your own name as ranking witness. The captain files it, because it is, technically, a recovery. Kael will read what you signed by morning, and know exactly what it says about you.", trait: "merciful" },
             { text: "Let the bell run out. Then shadow the detail's captain home.", conclusion: "You give the captain his formal refusal at the mouth, let recovery withdraw empty-handed, and then you follow the sealed unit down the mountain, off their flank, all night. They don't go to the barracks. They go to a door in the glacier's root that no map holds, and file in like heat returning to a stove. You mark it. The seal-house has an address now, and only you have it.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 50, "Jonin of the Frozen Oath", "Jonin Rank Trial: Glacier Twins", "❄", [
@@ -1534,14 +1539,14 @@ export const storylines: Record<string, StoryStep[]> = {
                 "You hesitate. Good. Fools don't.",
                 "I'll say my piece once. The oath is a comfort. You'll wake at fourth bell, in weather that eats patrols, and the mark will tell you: you are counted, you are kept, someone comes. ALWAYS. Do you know what that's worth on a ridge at night? I do.",
                 "Choice is a luxury warm people invented. I kept children alive with this mark. Count that before you judge me.",
-                "Sign, or don't. But if you don't, understand me: I will never once send anyone for you. The count can't owe what it doesn't hold."
+                "Sign, or don't. But if you don't, understand me: I will never once send anyone for you. The Count can't owe what it doesn't hold."
             ]), image: "/scenes/story/story-frostfang-village-50-4.webp", choices: [
                 { text: "\"Essen's doubt walked out of him at the gate. I held it. Ask me what it weighed.\"", nextPage: 2, requireTrait: "ff42-held-the-doubt" },
                 { text: "Take up the pen.", nextPage: 3 }
             ] },
             { ...storyPage("What Doubt Weighs", "The oath hall, the brazier crackling", "Kage Kael Whitefang", [
                 "You held a man's doubt. And?",
-                "I've held a frozen child. Weigh THAT. One dead child outweighs every doubt this village ever produced. That's my whole count. I sleep on it. Mostly.",
+                "I've held a frozen child. Weigh THAT. One dead child outweighs every doubt this village ever produced. That's my whole reckoning. I sleep on it. Mostly.",
                 "But I'll grant the point you're circling. The gate took Essen's grievance without asking. Things that take without asking are on my list too. The list is long. The winter is longer. I close doors in the order they kill people.",
                 "Sign or don't, Jonin. The weather doesn't wait on philosophy. Neither do I."
             ]), image: "/scenes/story/story-frostfang-village-50-4.webp", choices: [
@@ -1550,7 +1555,7 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("The Pen Gets Lighter", "The hall's side door, Yura turning her own wrist in the brazier light", "Captain Yura", [
                 "Before you decide. One soldier's honesty, no charge.",
                 "I signed at nineteen. Re-signed every promotion. And every time, the pen got LIGHTER. First time, my hand shook. Last time, I signed while talking about boots. That's what the mark does. Not the binding. The EASING. It makes belonging so simple you stop checking what it costs.",
-                "Nineteen days on a ridge taught me what the count is worth. The mark taught me to stop asking the question. Those are different lessons and I got them in the wrong order.",
+                "Nineteen days on a ridge taught me what the Count is worth. The mark taught me to stop asking the question. Those are different lessons and I got them in the wrong order.",
                 "Whatever you do at that table, do it with your hand shaking. That's the whole advice."
             ]), image: "/scenes/story/story-frostfang-village-50-4.webp", choices: [
                 { text: "The Glacier Twins wait.", nextPage: 4 }
@@ -1563,21 +1568,21 @@ export const storylines: Record<string, StoryStep[]> = {
             ]), image: "/scenes/story/story-frostfang-village-50-4.webp" },
         ], [
             { text: "Take rank with the recruit's mark only. Refuse the deep script, out loud.", conclusion: "You sign page one and set the pen down in front of the Kage, the Elder, and the book. An unbound Jonin: the first in living memory. Kael says nothing, which everyone in the hall knows is his loudest register. Sova enters it with a hand that is absolutely not steady, and looks twenty years younger doing it.", trait: "honorable" },
-            { text: "Sign both pages. Rank now, and the binding's secrets from inside it.", conclusion: "The deep script takes like ice taking a lake: total, quiet, certain. And you learn on the first night what no refuser ever learns: the mark WHISPERS. Rotations, counts, the warmth of the vault, faint and constant, a lullaby with a ledger in it. You wanted to know the machine. Now the machine assumes you're a part.", trait: "ambitious" },
+            { text: "Sign both pages. Rank now, and the binding's secrets from inside it.", conclusion: "The deep script takes like ice taking a lake: total, quiet, certain. And you learn on the first night what no refuser ever learns: the mark WHISPERS. Rotations, tallies, the warmth of the vault, faint and constant, a lullaby with a ledger in it. You wanted to know the machine. Now the machine assumes you're a part.", trait: "ambitious" },
             { text: "Ask Sova, at the table, why the litany never mentions leaving.", conclusion: "The hall goes drill-quiet. Checked, counted, kept, warm; four verbs, and not one of them is 'released.' Sova looks at the litany she has recited for forty years like a door she has never once tried the handle of. 'Sign or step back,' Kael says, flat. You step back, and the question stays in the hall like woodsmoke, and outlives the ceremony.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 65, "Orders in White Blood", "Oathbound Purge Unit", "❄", [
             { ...storyPage("The Removal Order", "The muster yard before dawn, an order pinned under a lamp", "Captain Yura", [
                 "Read it. Read it twice; it improves nothing.",
                 "Removal order. 'Nineteen Pale Pack fighters, entrenched, old quarry.' Sweep at dawn, sealed unit, my command, you as ranking witness. Kael's own hand.",
-                "Now here's the scout report the order quotes. I pulled the original. The quarry holds nine children, six elders, four unsealed adults. Zero fighters. ZERO. Somebody upstream turned a refugee camp into 'nineteen fighters' with one stroke.",
+                "Now here's the scout report the order quotes. I pulled the original. The quarry holds nine children, six elders, four unsealed adults. Zero fighters. ZERO. Somebody upstream turned a refugee camp into 'nineteen fighters' with one stroke of a pen.",
                 "Nineteen. Of all the numbers. Someone's telling me a joke, and I've stopped finding it funny."
             ]), image: "/scenes/story/story-frostfang-village-65-5.webp", choices: [
-                { text: "\"You stayed in the count to fix it from inside. Is this the day that pays off?\"", nextPage: 1, requireTrait: "ff58-stayed-in-the-count" },
+                { text: "\"You stayed in the Count to fix it from inside. Is this the day that pays off?\"", nextPage: 1, requireTrait: "ff58-stayed-in-the-count" },
                 { text: "Ride for the quarry ahead of the unit.", nextPage: 2 }
             ] },
             { ...storyPage("From Inside", "The muster yard, Yura buckling her kit slow", "Captain Yura", [
-                "You remembered that. Sova's records room. I stayed in the count on purpose, I said. Fix the machine from inside the machine.",
+                "You remembered that. Sova's records room. I stayed in the Count on purpose, I said. Fix the machine from inside the machine.",
                 "So here's inside: I can slow a sealed unit two hours with 'confirmation protocol.' Two hours, all legal, all my signature. That's what twelve years of staying bought. Two hours.",
                 "Don't ever let anyone tell you the inside game is the strong move. It's the SLOW move. Sometimes slow is what's needed. Today it might be.",
                 "Two hours, Jonin. Spend them like they're the last thing I own, because officially, they are."
@@ -1613,21 +1618,21 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Call it."
             ]), image: "/scenes/story/story-frostfang-village-65-5.webp" },
         ], [
-            { text: "Refuse the order as written. False count, no sweep, on your testimony.", conclusion: "You declare the order void for false count, ranking witness, on the record, and Yura confirms before your echo dies. The sealed unit stands down; sealed men are nothing if not lawful. By dusk the camp is ghosts and cold fires, gone deeper, and by midnight your testimony is on Kael's desk, and the word NINETEEN is circled in his hand. Nobody knows yet what he circled it FOR.", trait: "merciful" },
-            { text: "Escort the camp down the mountain yourself, under pack law.", conclusion: "You invoke the oldest line in the drill book: the pack walks its slow home. Nine children, six elders, four unsealed, one Jonin, one captain, one runner, walking INTO the village, in the open, daring the count to refuse its own litany. The gate watch checks the litany, finds no line for this, and opens the gate. Sova enters fifteen names into the book with a steady hand and dares the room to speak.", trait: "loyal" },
+            { text: "Refuse the order as written. False count, no sweep, on your testimony.", conclusion: "You declare the order void for a false count, ranking witness, on the record, and Yura confirms before your echo dies. The sealed unit stands down; sealed men are nothing if not lawful. By dusk the camp is ghosts and cold fires, gone deeper, and by midnight your testimony is on Kael's desk, and the word NINETEEN is circled in his hand. Nobody knows yet what he circled it FOR.", trait: "merciful" },
+            { text: "Escort the camp down the mountain yourself, under pack law.", conclusion: "You invoke the oldest line in the drill book: the pack walks its slow home. Nine children, six elders, four unsealed, one Jonin, one captain, one runner, walking INTO the village, in the open, daring the Count to refuse its own litany. The gate watch checks the litany, finds no line for this, and opens the gate. Sova enters fifteen names into the book with a steady hand and dares the room to speak.", trait: "loyal" },
             { text: "Burn the order in front of the sealed unit and see who salutes.", conclusion: "Paper burns fast at altitude. The sealed unit watches its purpose curl to ash with those calm corrected faces, and then, one by one, they salute the RANK, because you outrank the ash, and the script never planned for that. It buys one dawn exactly. It also teaches the vault, watching through twelve pairs of eyes, that its instruments can be commanded off its own leash. Something files that. Something plans.", trait: "reckless" },
         ]),
         milestone("Frostfang Village", 75, "Yura Breaks the Oath", "Frostfang Oathbreaker Hunter", "❄", [
             { ...storyPage("Drill Fashion", "The north tower before first light, Yura's kit laid out in perfect rows", "Captain Yura", [
                 "You came. Good. I put it in writing so I couldn't take it back; that's a trick I learned from watching brave people.",
                 "Kit check, by the book. The blade is clean, the kettle is hot, the bandage roll is new, the knife is sterile. And the witness is you.",
-                "Twelve years I've worn the mark. This morning I take it out. Not because the count is worthless. Because I finally know what it took, and it took the ASKING. Whether rescue means anything when nobody chooses it. The mark answers so nobody has to.",
+                "Twelve years I've worn the mark. This morning I take it out. Not because the Count is worthless. Because I finally know what it took, and it took the ASKING. It took whether rescue means anything when nobody chooses it. The mark answers so nobody has to.",
                 "Talk to me while I work. That's your whole post this morning. If I go quiet, ask me something, and don't let me answer in drill cadence."
             ]), image: "/scenes/story/story-frostfang-village-75-6.webp" },
             { ...storyPage("Line by Line", "The tower room, lamplight, the work begun", "Captain Yura", [
                 "The first line is the intake mark. I was nineteen when I took it, hand shaking, so proud of myself. There it goes.",
                 "Talk. Ask.",
-                "Why now? Because of a windbreak made of a dead man's lanterns. Dren walked away from the count, and then he walked BACK, for me, unmarked, with no plate telling him to, and I have spent twelve years letting a wrist-line answer the question his whole life asked me.",
+                "Why now? Because of a windbreak made of a dead man's lanterns. Dren walked away from the Count, and then he walked BACK, for me, unmarked, with no plate telling him to, and I have spent twelve years letting a wrist-line answer the question his whole life asked me.",
                 "Second line. Promotion mark. Lighter pen, heavier debt. There it goes. Keep talking, Jonin, you're doing fine. So am I. Say it back to me so one of us believes it."
             ]), image: "/scenes/story/story-frostfang-village-75-6.webp", choices: [
                 { text: "\"You turned the holder plate down flat. This is the same hand, finishing the job.\"", nextPage: 2, requireTrait: "ff70-turned-the-plate" },
@@ -1642,13 +1647,13 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "The lamp steadies. The line comes out.", nextPage: 3 }
             ] },
             { ...storyPage("Self-Injury, Filed", "The tower stair, a shape climbing with drill-perfect steps", "Frost Seal Echo", [
-                "The officer Yura is flagged for damage to count property.",
-                "The finding is self-injury. The response is recovery. The Oathbreaker Hunter is dispatched. The count is whole. The count will be whole.",
+                "The officer Yura is flagged for damage to Count property.",
+                "The finding is self-injury. The response is recovery. The Oathbreaker Hunter is dispatched. The Count is whole. The Count will be whole.",
                 "The asset's service is honored. The asset's confusion is noted. The asset will be corrected and comforted.",
                 "Warmth is owed. Warmth will be delivered. Stand away from the asset."
             ]), image: "/scenes/story/story-frostfang-village-75-6.webp" },
             { ...storyPage("Her Own Name", "The tower room, Yura on her feet, wrist bound, eyes clear", "Captain Yura", [
-                "Look at that. It calls the mark the property and me the confusion. Twelve years, and I finally hear it plainly: the count was never FOR us. We were for the count.",
+                "Look at that. It calls the mark the property and me the confusion. Twelve years, and I finally hear it plainly: the Count was never FOR us. We were for the Count.",
                 "Here's the litany, the honest version, and I'll say it myself, out loud, once: the checked are counted. The counted are kept. The kept are FUEL.",
                 "It's on the stair. It moves the way Dain walked. Everything the seal wears moves like that, the way the plate reads: flat, certain, no one home.",
                 "If anyone comes for me after this, they will have CHOSEN it. Starting with you, starting now. Best morning of my life, and it's not even breakfast. Stand with me."
@@ -1656,7 +1661,7 @@ export const storylines: Record<string, StoryStep[]> = {
         ], [
             { text: "Stand between the Hunter and her bound wrist. She finishes her morning.", conclusion: "The Hunter wants the wrist; it has orders about the wrist. It gets you instead, for every stair, every landing, every drill-perfect lunge, while behind you a captain binds her own arm and drinks her tea sitting down. When it finally stops moving, Yura pins her old rank bar to its coat. 'Deliver THAT,' she tells the empty eyes, gently.", trait: "merciful" },
             { text: "Fight it side by side. Her first bout as a free name.", conclusion: "Shoulder to shoulder, no mark binding either of you to the other, which makes every covered flank a CHOICE, which makes it the best fighting either of you has ever done. The Hunter never adapts; nothing sealed ever fought two people who could each walk away and don't. She's laughing by the end. You've never heard her laugh.", trait: "loyal" },
-            { text: "Let it reach the room, then bar the door behind it. Study it alone.", conclusion: "You give the Hunter its objective and take the exits, and what happens in the tower room stays between you, it, and the grammar you've been collecting since the border road. It fights exactly as the script fights. It fails exactly where the script fails: the moment Yura addresses it by its OLD name, the one struck from the count, it hesitates a full second. You write the second down. Seconds like that win wars.", trait: "suspicious" },
+            { text: "Let it reach the room, then bar the door behind it. Study it alone.", conclusion: "You give the Hunter its objective and take the exits, and what happens in the tower room stays between you, it, and the grammar you've been collecting since the border road. It fights exactly as the script fights. It fails exactly where the script fails: the moment Yura addresses it by its OLD name, the one struck from the Count, it hesitates a full second. You write the second down. Seconds like that win wars.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 85, "The Kage Freezes Dissent", "Oathbound Alpha Guard", "❄", [
             { ...storyPage("The White Silence", "The central square at dawn, forty-three citizens standing frozen in perfect rows", "Narrator", [
@@ -1667,26 +1672,26 @@ export const storylines: Record<string, StoryStep[]> = {
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp" },
             { ...storyPage("What Harrow Sells", "The icehouse, Harrow with her collar up and her ledger out", "Kite Harrow", [
                 "You want the real story, and I want to be paid in being listened to, so we're both in luck.",
-                "He isn't punishing dissent. Look at the economics. A punished man repents and gets sealed and stops doubting. USELESS. The vault runs on surrendered exits, and a doubter who can never resolve his doubt, never act on it, never set it down? He surrenders that exit every single day. FOREVER.",
-                "It's not a punishment. It's a CELLAR. He is laying down doubt like wine, provisioning for a hard payment coming due. I've appraised sieges with the same shopping list.",
-                "The rows are the count's pantry now. That's the appraisal. No charge. Some numbers I don't want on my books."
+                "He isn't punishing dissent. Look at the economics. The vault drinks one thing: the moment a marked soul would have said no and didn't. Ordinary wrists pay it in sips, a doubt set down here, a route obeyed there. The deep-script soldiers stopped paying years ago; they've no doubt left in them, so he keeps them as tools instead. Neither kind fills a vault that's running dry.",
+                "So look what he does instead. A doubter frozen at the exact peak of his doubt, before it can fade or resolve, is a full cup that never spills. That is the White Silence. It isn't a punishment. It's a CELLAR: he's laying doubt down like wine against a hard payment coming due. I've appraised sieges with the same shopping list.",
+                "Those forty-three rows are the Count's larder now. That's the appraisal, no charge. Some numbers I don't care to keep on my own books."
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp", choices: [
                 { text: "\"You burned the forged plates. Now show me the real ones' weakness.\"", nextPage: 2, requireTrait: "ff80-burned-the-plates" },
                 { text: "Go to the vault hall. Face him.", nextPage: 3 }
             ] },
-            { ...storyPage("The Checksum's Flaw", "The icehouse, a forged mark plate between you on the ice table", "Kite Harrow", [
+            { ...storyPage("The Rhythm's Flaw", "The icehouse, a forged mark plate between you on the ice table", "Kite Harrow", [
                 "I burned MY forgeries, yes. Sentiment. Don't spread it around; it's bad for my rates.",
-                "But here's what forging them taught me, and this one's free because you were there when I chose the fire. The litany is a lock-rhythm. Checked, counted, kept, warm, in ORDER, four beats and a hold. The plates verify the rhythm, not the person.",
-                "And the White Silence breaks the rhythm. Those forty-three are KEPT, obviously, look at them, but they can't answer a CHECK. The count is holding wrists it can no longer hear, and a lock that keeps time with dead beats will open for a counterfeit one.",
-                "Hum the right roll at the right plate and the count will believe things that aren't so. A thing that believes wrong things can be led. There's your lever. Mind your fingers; it's heavier than it looks."
+                "But here's what forging them taught me, and this one's free, because you were there when I chose the fire. The litany is a lock-rhythm. Checked, counted, kept, warm, in ORDER, four beats and a hold. The plate verifies the rhythm, not the person behind the wrist.",
+                "And the White Silence breaks the rhythm. Those forty-three are KEPT, plainly, look at them, but they can no longer answer a CHECK. The Count is holding wrists it can't hear anymore, and a lock that keeps time against dead beats will open for a counterfeit one just as gladly.",
+                "Hum the right litany at the right plate, and the Count will believe a thing that isn't so. And a system that believes wrong things can be led by the nose. There's your lever. Mind your fingers; it's heavier than it looks."
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp", choices: [
                 { text: "To the vault hall.", nextPage: 3 }
             ] },
             { ...storyPage("The Quartermaster of Doubt", "The vault hall, warm as a hearth, Kael at a table of tally boards", "Kage Kael Whitefang", [
                 "Sit down. Nobody argues well shivering.",
-                "Two numbers first. Ninety-one dead the winter before I took the vault. Zero, last winter. Zero the nine before it. That's the whole speech.",
-                "The rows in the square. Say it. Monstrous. Now count with me. Forty-three preserved doubters. Or four hundred frozen children when the vault runs dry. That's the sum on my table. I've run it every way. The rows win. Every time.",
-                "So here's my door, and I only ever offer one. Bring me a count that holds without the vault. A count where the lost get FOUND, and no one's warmth pays for it. Bring me that, working, witnessed, and I'll break the rows out myself and stand trial in my own square. Until then, I keep the door. Someone has to be the door."
+                "Two numbers first. Ninety-one dead, the winter before I took the vault. Zero every winter since I took it. That's the whole speech.",
+                "The rows in the square. Say it: monstrous. Now count with me. Forty-three preserved doubters, or four hundred frozen children when the vault runs dry. That is the sum on my table. I've run it every way a man can, and the rows win. Every time.",
+                "So here is my door, and I only ever offer the one. Bring me a Roll that holds without the vault. A Roll where the lost still get FOUND, and no one's warmth pays for the finding. Bring me that, working and witnessed, and I will break the rows out with my own hands and stand trial in my own square. Until then, I keep the door. Someone has to be the door."
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp", choices: [
                 { text: "The Alpha Guard bars the hall.", nextPage: 4 }
             ] },
@@ -1697,9 +1702,9 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The White Silence stands in its rows outside. The vault hums under the floor. The Kage watches you across his tally boards, waiting to see which sum you are."
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp" },
         ], [
-            { text: "Break the rows out NOW. All forty-three, whatever it costs.", conclusion: "You go through the Alpha Guard and into the square with chisels and hot water and forty volunteers who materialize the moment somebody goes FIRST. Forty-three people come out of the frost weeping and furious and alive, and the vault's pantry empties in an afternoon. The count's next payment just came due with nothing laid down against it. Kael watches from the hall door and does not stop you, which is the most frightening thing he has ever done.", trait: "reckless" },
-            { text: "Post yourself at the rows. Nobody freezes, nobody vanishes, on your watch.", conclusion: "You take up a post the drill book doesn't have: warden of the frozen, in the open square, in view of every window. You check the rows at every bell, aloud, by name. The village starts answering. First one voice, then rows of the living answering FOR the sealed, a roll call the count never ordered. The White Silence stays sealed, but it is no longer silent, and Kael's cellar has four hundred witnesses now.", trait: "honorable" },
-            { text: "Map the rows against the vault's intake schedule. Find the payment date.", conclusion: "Forty-three names, forty-three seal dates, and the vault's draw curve from Sova's meter: they converge. Everything the count has cellared matures on the same night, three weeks out, when the deep payment falls due. He isn't hoarding doubt out of cruelty. He's short. The vault is SHORT, and the White Silence is the margin, and now you know the date the whole count either breaks or feeds.", trait: "suspicious" },
+            { text: "Break the rows out NOW. All forty-three, whatever it costs.", conclusion: "You go through the Alpha Guard and into the square with chisels and hot water and forty volunteers who materialize the moment somebody goes FIRST. Forty-three people come out of the frost weeping and furious and alive, and the vault's larder empties in an afternoon. The Count's next payment just came due with nothing laid down against it. Kael watches from the hall door and does not stop you, which is the most frightening thing he has ever done.", trait: "reckless" },
+            { text: "Post yourself at the rows. Nobody freezes, nobody vanishes, on your watch.", conclusion: "You take up a post the drill book doesn't have: warden of the frozen, in the open square, in view of every window. You check the rows at every bell, aloud, by name. The village starts answering. First one voice, then rows of the living answering FOR the sealed, a roll call the Count never ordered. The White Silence stays sealed, but it is no longer silent, and Kael's cellar has four hundred witnesses now.", trait: "honorable" },
+            { text: "Map the rows against the vault's intake schedule. Find the payment date.", conclusion: "Forty-three names, forty-three seal dates, and the vault's draw curve from Sova's meter: they converge. Everything the Count has cellared matures on the same night, three weeks out, when the deep payment falls due. He isn't hoarding doubt out of cruelty. He's short. The vault is SHORT, and the White Silence is the margin, and now you know the date the whole Count either breaks or feeds.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 100, "The Oath Must Break", "Kage Kael Whitefang, Hollow Oath Tyrant", "❄", [
             { ...storyPage("The Open Ledgers", "The vault stair, Sova's records room standing open, lamps lit, no keeper", "Narrator", [
@@ -1717,8 +1722,8 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Through the faulty door.", nextPage: 2 }
             ] },
             { ...storyPage("The Pack Comes Down", "The vault forecourt, forty-one unmarked figures standing in falling snow", "Pale Pack Runner", [
-                "Look who the weather blew in. All of us. Marrin's up front, and Kessa carries the roll-slate; she earned it. The slow came too; the children are with Sova at the wall, and I'd walk a second winter to watch the gate try to COUNT that.",
-                "We talked it out around the fire, all forty-one. If tonight goes right, we come down and answer one roll call. Freely. Struck names, answering by CHOICE, in the count's own forecourt. Not because we forgive it. Because that's what a real count sounds like, and somebody has to demonstrate.",
+                "Look who the weather blew in. All of us. Marrin's up front, and Kessa carries the roll-slate; she earned it. The slow came too; the children are with Sova at the wall, and I'd walk a second winter just to watch the gate try to COUNT that.",
+                "We talked it out around the fire, all forty-one. If tonight goes right, we come down and answer one roll call. Freely. Struck names, answering by CHOICE, in the Count's own forecourt. Not because we forgive it. Because that is what a real Roll sounds like, and somebody has to stand up and demonstrate one.",
                 "If tonight goes wrong, well. We were ghosts before. We're good at it.",
                 "Yura's holding the stair. Go. And wall-walker... whatever you are, it was worth the walk."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
@@ -1727,24 +1732,24 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("The Stair Held by Choice", "The vault stair, Yura at the landing, bare wrist bandaged, standing easy", "Captain Yura", [
                 "Post report: one stair, held by one captain, unmarked, un-ordered, and here entirely on purpose. It feels different. Better. Colder, but better.",
                 "Below that door is the vault, and the vault is short, and a payment older than the wall comes due tonight. He'll be standing at the meter. He's been standing there for days.",
-                "I have exactly one order left in me, and I'm spending it now: come back UP this stair. Whatever happens down there. That's an order, Jonin. First one I've ever given that the count didn't co-sign.",
+                "I have exactly one order left in me, and I'm spending it now: come back UP this stair. Whatever happens down there. That's an order, Jonin. First one I've ever given that the Count didn't co-sign.",
                 "Go. I'll keep the door. It's what free hands are for."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Down, alone.", nextPage: 4 }
             ] },
             { ...storyPage("The Man Fused to the Door", "The vault floor: a wall of ancient ice, a meter running backward, Kael before it", "Kage Kael Whitefang", [
                 "Punctual. Good.",
-                "There it is. The vault. Every surrendered exit this village ever banked, keeping every hearth above us warm. And the meter, running down. The payment's tonight. I told you someone has to be the door.",
-                "Look at my arm. Go on, look. The script doesn't stop at the shoulder anymore. The door goes both ways, it turns out. Forty years holding it shut, and the vault has been quietly counting ME.",
-                "One confession. No time for a second. The count was true when I built it. Every name mattered. Somewhere between ninety-one dead and zero, the promise became a QUOTA. I knew. I kept the door. Zero is zero is zero. Now. Show me what you brought, or show me your hands. The meter won't wait."
+                "There it is. The vault. Every surrendered exit this village ever banked, keeping every hearth above us warm. And the meter, running down. The payment is tonight. I told you someone has to be the door.",
+                "Look at my arm. Go on, look. The script doesn't stop at the shoulder anymore. The door swings both ways, it turns out. Forty years holding it shut, and the vault has been quietly counting ME.",
+                "One confession, and there's no time for a second. The Count was true when I built it. Every name mattered. Somewhere between ninety-one dead and zero, the promise curdled into a QUOTA. I knew it, and I kept the door, because zero is zero is zero. Now. Show me what you brought, or show me your hands. The meter won't wait."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Face him at the meter.", nextPage: 18 }
             ] },
-            { ...storyPage("The Better Count", "The vault floor, Dren's lantern plans unrolled against the ice", "Kage Kael Whitefang", [
+            { ...storyPage("The Better Roll", "The vault floor, Dren's lantern plans unrolled against the ice", "Kage Kael Whitefang", [
                 "What is that. Bring it to the light.",
-                "Lanterns. Relay lanterns, chant-spaced. Coldewe's hand. I'd know it anywhere. I struck his name myself. And he built the thing I called impossible. A way to be FOUND that doesn't run through my vault.",
-                "And you strung them. The ridge drill. Nineteen minutes. I didn't believe it. I read it four times.",
-                "The number, %name. Out loud. Let the vault hear it."
+                "Lanterns. Relay lanterns, chant-spaced. Coldewe's hand. I'd know it anywhere. I struck his name myself. And here it is: the thing I called impossible. A way to be FOUND that doesn't run through my vault.",
+                "And you strung them. The ridge drill. Nineteen minutes. I didn't believe the report. I read it four times.",
+                "Say the number, %name. Out loud. Let the vault hear it."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "\"Nineteen minutes to find a man in a whiteout. No mark. No vault. And the rows SAW it.\"", nextPage: 6, requireTrait: "ff88-woke-the-rows" },
                 { text: "Open the drill log to Sova's countersigned pages and read him every line.", nextPage: 7, requireTrait: "ff88-logged-the-drill" },
@@ -1752,56 +1757,56 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Hang Dren's lantern from the meter's frame and let it burn there.", nextPage: 9 }
             ] },
             { ...storyPage("What the Rows Saw", "The vault floor, the meter's light unsteady", "Kage Kael Whitefang", [
-                "The rows saw it. The whole wall watched a man walk into the white, and watched him get found, by choice, in nineteen minutes. And every watcher ran the same count: the vault is not the only door.",
-                "I can seal doubt. I cannot seal a thing four hundred people watched WORK.",
-                "Forty years I asked for a count that holds without the vault. You went and lit one.",
-                "The count has no answer. Neither do I. Now we see what's left."
+                "The rows saw it. The whole wall watched a man walk into the white, and watched him found again, by choice, in nineteen minutes. And every watcher did the same sum in their heads: the vault is not the only door.",
+                "I can seal a doubt. I cannot seal a thing four hundred people watched WORK.",
+                "Forty years I asked for a Roll that holds without the vault. You went up a ridge and lit one.",
+                "The Count has no answer. Neither do I. Now we see what's left."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
-                { text: "Enough. The count ends here.", nextPage: 18 }
+                { text: "Enough. The Count ends here.", nextPage: 18 }
             ] },
             { ...storyPage("The Countersigned Log", "The vault floor, the drill log flat against the ice wall", "Kage Kael Whitefang", [
-                "Give it here. Breaking counts is the office; let's see this one try to stand.",
-                "Lantern spacings. Sweep times. One volunteer, found in nineteen minutes, with zero plate-reads and zero draw. And it's countersigned. SOVA. The keeper of my own litany signed the count that replaces it.",
+                "Give it here. Breaking a count is the office; let's see this one try to stand.",
+                "Lantern spacings. Sweep times. One volunteer, found in nineteen minutes, zero plate-reads, zero draw. And it's countersigned. SOVA. The keeper of my own litany signed the Roll that replaces it.",
                 "Her pen never signs what her meter can't verify. I taught her that. I TAUGHT her that.",
-                "The figures hold. The count has no answer. Neither do I. Now we see what's left."
+                "The figures hold. The Count has no answer. Neither do I. Now we see what's left."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
-                { text: "Enough. The count ends here.", nextPage: 18 }
+                { text: "Enough. The Count ends here.", nextPage: 18 }
             ] },
             { ...storyPage("His Own Wardens", "The vault floor, a warden's report unfolded between you", "Kage Kael Whitefang", [
-                "My own wardens. Yes. You ran the drill on a warded ridge, in reporting season, where the count's own eyes would have to log it and file it UP.",
-                "I read it four times. I sent for the duty officer and asked him: is this real? He said, sir, we timed it twice. And I sat down in this cold room, and the door I have been my whole life swung loose on its hinge.",
-                "You used my count to deliver its own obituary. Cruel. Efficient. I'd have done the same. That's the part that lands.",
-                "The count has no answer. Neither do I. Now we see what's left."
+                "My own wardens. Yes. You ran the drill on a warded ridge, in reporting season, where the Count's own eyes had to log it and file it UP.",
+                "I read it four times. I sent for the duty officer and asked him plainly: is this real? He said, sir, we timed it twice. And I sat down in this cold room, and the door I have been my whole life swung loose on its hinge.",
+                "You used my own Count to deliver its obituary. Cruel. Efficient. I'd have done the same, and that is the part that lands.",
+                "The Count has no answer. Neither do I. Now we see what's left."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
-                { text: "Enough. The count ends here.", nextPage: 18 }
+                { text: "Enough. The Count ends here.", nextPage: 18 }
             ] },
             { ...storyPage("The Lantern on the Meter", "The vault floor, one lantern burning against a wall of banked exits", "Kage Kael Whitefang", [
-                "One lantern. Chant-spaced wick, storm glass, Coldewe's pattern. It burns slower than it should. He built them to outlast the search.",
-                "I struck him for walking OUT. Then he came back, unmarked, for one of mine, and I logged it as 'self-recovery,' because the truth put a hole through the whole count, so I filed a lie instead. And he spent his exile building doors for other people. He was a better man than the door he walked through. Say that at the wall afterward, plainly. They should hear it.",
-                "And now his little light sits on my meter, doing more keeping than the vault behind it.",
-                "The count has no answer. Neither do I. Now we see what's left."
+                "One lantern. Chant-spaced wick, storm glass, Coldewe's pattern. It burns slower than it has any right to. He built them to outlast the search.",
+                "I struck him for walking OUT. Then he came back, unmarked, for one of mine, and I logged it 'self-recovery,' because the truth put a hole clean through the Count, so I filed a lie instead. And he spent his whole exile building doors for other people. He was a better man than the door he walked through. Say that at the wall afterward, plainly. They should hear it.",
+                "And now his little light sits on my meter, doing more keeping than the whole vault behind it.",
+                "The Count has no answer. Neither do I. Now we see what's left."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
-                { text: "Enough. The count ends here.", nextPage: 18 }
+                { text: "Enough. The Count ends here.", nextPage: 18 }
             ] },
             { ...storyPage("She Answers His Roll", "The vault stair door opening, Yura coming down with the letter", "Captain Yura", [
-                "You held the stair for me, %name. My turn. This part is mine and his.",
-                "Kael. Roll call. Dren Coldewe, ridge post four, struck for desertion, day six. On day nineteen he walked into a whiteout for me with no mark and no order, and your count logged it 'self-recovery,' and I signed the log, and we both know why: because the truth broke the litany.",
-                "His letter. Never delivered; your confiscation crews are thorough. It's one line. 'Tell Yura: being counted isn't the same as being come for.'",
-                "Dren Coldewe. PRESENT. By choice, twelve years late, in his own handwriting. Answer your roll, Kage. The count is not whole. It never was."
+                "You held the stair for me, %name. My turn now. This part is mine and his.",
+                "Kael. Roll call. Dren Coldewe, ridge post four, struck for desertion on day six. On day nineteen he walked into a whiteout for me, no mark and no order, and your Count logged it 'self-recovery,' and I signed the log, and we both know why: because the truth broke the litany's spine.",
+                "His letter. Never delivered; your confiscation crews are thorough. It is one line. 'Tell Yura: being counted isn't the same as being come for.'",
+                "Dren Coldewe. PRESENT. By choice, twelve years late, in his own handwriting. Answer his Roll, Kage. The Count is not whole. It never was."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Kael stands very still.", nextPage: 11 }
             ] },
             { ...storyPage("The Door, Answered", "The vault floor, the meter's hum faltering", "Kage Kael Whitefang", [
-                "You let her carry it. You lit the lanterns. Then you stood aside, and the woman he came back for answered his name at my door.",
-                "Forty years I asked for a better count. It arrived as a dead man's roll call. Answered by the living. Freely.",
-                "Being counted isn't the same as being come for. One line. Forty years of count, and one line ends it.",
-                "The count has no answer for her. Neither do I. Now we see what's left."
+                "You let her carry it. You lit the lanterns, then you stood aside, and the woman he came back for answered his name at my door.",
+                "Forty years I asked for a better Roll. It arrives as a dead man's roll call, answered by the living, freely.",
+                "Being counted isn't the same as being come for. One line. Forty years of Count, and one line undoes it.",
+                "The Count has no answer for her. Neither do I. Now we see what's left."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
-                { text: "Enough. The count ends here.", nextPage: 18 }
+                { text: "Enough. The Count ends here.", nextPage: 18 }
             ] },
             { ...storyPage("A Count Without a Name", "The vault floor, the drill figures chalked on slate, no letter behind them", "Kage Kael Whitefang", [
-                "Nineteen minutes. It's real; my wardens timed it twice. I don't doubt you, and that is new for me.",
-                "But whose count is it, Jonin? Who built the lanterns? Who walked out, and who chose to go get him? Give me names. A count is names, or it is nothing.",
+                "Nineteen minutes. It's real; my wardens timed it twice. I don't doubt the method, and doubting nothing is new for me.",
+                "But whose is it, Jonin? Who built the lanterns? Who walked out into the white, and who chose to go and find him? Give me names. A Roll is names, or it is nothing.",
                 "You brought me a method. Methods are weather. Names are walls.",
                 "Bring me the walker's name, or the door stands."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
@@ -1809,59 +1814,59 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Undelivered Letter", "Dren's letter in Kael's scarred hands, unopened", "Kage Kael Whitefang", [
                 "Coldewe's kit. I know the tag; I signed the strike. So believe me when I say I know exactly what you're holding, and exactly what it weighs.",
-                "His lanterns worked. I tested the pattern myself, one ridge, one storm, in secret, and it found my man in nineteen minutes then too. And I filed it away. A count that doesn't need the vault doesn't need the door, and I am the door, and a man will file ANYTHING to stay load-bearing.",
-                "But a letter in a coat is not a count, Jonin. I can honor it. I can grieve it. I cannot warm one child with it tonight.",
-                "You kept the proof safe, and you never lit it where the village could see. That is not nothing. It is not enough either. The meter doesn't read letters."
+                "His lanterns worked. I tested the pattern myself once, one ridge, one storm, in secret, and it found my man in nineteen minutes then too. And I filed it away. A Roll that doesn't need the vault doesn't need a doorman, and I am the doorman, and a man will file ANYTHING to stay load-bearing.",
+                "But a letter in a coat is not a Roll, Jonin. I can honor it. I can grieve it. I cannot warm one child with it tonight.",
+                "You kept the proof safe, and you never lit it where the village could see. That is not nothing. It is not enough, either. The meter doesn't read letters."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "He sets the letter down like a sleeping child.", nextPage: 18 }
             ] },
             { ...storyPage("The Litany, Backwards", "The vault floor, Sova on the stair with the count book held open outward", "Elder Sova", [
                 "Hold, child. This entry is mine, and it has been forty years coming due.",
-                "Kael. My litany. I wrote it, I taught it, I checked ten thousand wrists under it. Hear it once in the honest direction.",
-                "The warm are kept. The kept are counted. The counted are CHECKED. Backwards, it's a reckoning, and the reckoning says: we warmed ourselves on the one thing we swore we were saving people FROM. The cold takes alone people. So we made sure, in the deep script, that no one could ever be anything else BUT alone, together.",
-                "My pen. My book. My litany. My share of the door. I am done keeping count of other people's exits. The book stays open, both directions, from tonight."
+                "Kael. My litany. I wrote it, I taught it, I checked ten thousand wrists beneath it. Hear it once in the honest direction.",
+                "The warm are kept. The kept are counted. The counted are CHECKED. Said backwards it stops being a comfort and becomes a reckoning, and the reckoning is this: we warmed ourselves on the very thing we swore we were saving people from. The cold takes those who are alone. We swore to end that, and we did: the deep script binds every wrist to every other, so that no one here can ever be left behind. And no one here can ever leave. We cured being alone by sealing the only door out.",
+                "My pen. My book. My litany. My share of the door. I am done keeping count of other people's exits. From tonight the book stays open, both directions."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "She sets the book on the meter.", nextPage: 18 }
             ] },
-            { ...storyPage("Answer for the exemption. You stood outside the count like Sova.", "The reckoning", "Kage Kael Whitefang", [
+            { ...storyPage("Answer for the exemption. You stood outside the Count like Sova.", "The reckoning", "Kage Kael Whitefang", [
                 "So she gave you the keeper's exemption. Bare wrists at the meter. Then you've stood where I stand: warm, counted by no one, watching the counted pay for it.",
                 "Tell me you never once read the intake book and thought: better them than me. Say it, and I'll call you a liar with my last honest breath.",
                 "That thought is the door, Jonin. That thought, every bell, for forty years. You held it one season. Imagine holding it until the script reaches your jaw."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
-                { text: "Enough. The count ends here.", nextPage: 18 }
+                { text: "Enough. The Count ends here.", nextPage: 18 }
             ] },
             { ...storyPage("Answer for my plate. It read someone long gone.", "The reckoning", "Kage Kael Whitefang", [
                 "The fogged plate. Yes. I read Vess's report the night it happened. I read everything. A wrist that answers with a struck name. The vault has a term for that. A debt still walking.",
-                "Someone surrendered an exit in your name, before you ever reached my gate. Bought your way out of something. Left my count holding the weight. The plate wasn't misreading you. It was trying to finish a delivery.",
-                "When the door falls tonight, take your wrist's answer and go find where that name was struck from. Every count keeps a book, Jonin. Even the one that ate your exit. ESPECIALLY that one."
+                "Someone surrendered an exit in your name, before you ever reached my gate. Bought your way out of something. Left my Count holding the weight. The plate wasn't misreading you. It was trying to finish a delivery.",
+                "When the door falls tonight, take your wrist's answer and go find where that name was struck from. Every Count keeps a book, Jonin. Even the one that ate your exit. ESPECIALLY that one."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
-                { text: "Enough. The count ends here.", nextPage: 18 }
+                { text: "Enough. The Count ends here.", nextPage: 18 }
             ] },
             { ...storyPage("Answer for Dren Coldewe. His lanterns are lit on your ridge.", "The reckoning", "Kage Kael Whitefang", [
                 "Coldewe. The walker. I struck his name with this hand, and I want you to hear the part I've never said at the wall: striking him was the only lie I ever entered in the book knowingly.",
                 "He didn't desert. He REFUSED, out loud, at post, the night I sealed the ridge rotation. Said a kept man can't keep anyone. I struck him as a deserter because a REFUSER on the record breaks the litany's spine, and then he walked into a whiteout for one of mine, unmarked, and proved himself right forever.",
-                "His lanterns hang on my ridge tonight. Tell Yura the truth of the strike, afterward. She signed a log she never believed; she deserves to know her captain entered the lie first, and knew it, and kept the book anyway. She has hated the wrong signature for twelve years."
+                "His lanterns hang on my ridge tonight. Tell Yura the truth of the strike, afterward. She signed a log she never believed; she deserves to know it was my hand that entered the lie first, and knew it was a lie, and kept the book anyway. She has hated her own signature for twelve years, and mine was the one that mattered."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
-                { text: "Enough. The count ends here.", nextPage: 18 }
+                { text: "Enough. The Count ends here.", nextPage: 18 }
             ] },
             { ...storyPage("The Meter at Zero", "The vault floor, the payment due, Kael's script reaching his jaw", "Kage Kael Whitefang", [
-                "Talk's done. Look at me. Forty years I have been the door, and I would hold it shut again, every time. That is exactly why you take it from me. A door that can't imagine opening is just a wall.",
-                "The vault, the meter, and forty-one struck names in my forecourt, answering a roll I never called. Tonight decides what keeps this village warm.",
-                "The count has one entry left, %name. Yours.",
+                "Talk's done. Look at me. Forty years I have been the door, and I would hold it shut again, every time. That is exactly why you take it from me now. A door that can't imagine opening is just a wall.",
+                "The vault, the meter, and forty-one struck names in my forecourt answering a Roll I never called. Tonight decides what keeps this village warm.",
+                "The Count has one entry left, %name. Yours.",
                 "Show me what holds when nothing is holding it."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", leftName: "Player", rightName: "Kage Kael Whitefang", rightImage: "/portraits/kage-kael-whitefang-hollow.webp", choices: [
-                { text: "Show him the better count.", nextPage: 5, requireTrait: "ff88-better-count-carried" },
-                { text: "Let Yura answer Dren's roll.", nextPage: 10, requireTrait: "ff88-better-count-deferred" },
+                { text: "Show him the better Roll: Dren's lanterns found a man with no mark and no vault.", nextPage: 5, requireTrait: "ff88-better-count-carried" },
+                { text: "Let Yura answer Dren's Roll.", nextPage: 10, requireTrait: "ff88-better-count-deferred" },
                 { text: "Let Sova read the litany backwards.", nextPage: 14, requireTrait: "ff92-witness-present" },
                 { text: "Show him Dren's letter.", nextPage: 13, requireTrait: "ff88-unfinished-answer", forbidTrait: "ff88-better-count-ready" },
                 { text: "Show him the nineteen minutes.", nextPage: 12, requireTrait: "ff88-relay-held", forbidTrait: "ff65-saved-the-letter" },
-                { text: "Answer for the exemption. You stood outside the count like Sova.", nextPage: 15, requireTrait: "ff58-took-the-exemption" },
+                { text: "Answer for the exemption. You stood outside the Count like Sova.", nextPage: 15, requireTrait: "ff58-took-the-exemption" },
                 { text: "Answer for my plate. It read someone long gone.", nextPage: 16, requireTrait: "ff70-turned-the-plate" },
                 { text: "Answer for Dren Coldewe. His lanterns are lit on your ridge.", nextPage: 17, requireTrait: "ff88-exit-proof-any" }
             ] },
         ], [
             { text: "Break every mark. No one is guaranteed again. They can only choose.", conclusion: "The vault cracks like a lake in spring, and every banked exit goes home to its wrist at once: forty years of surrendered doubts, refusals, and walkings-away, returned mid-life. The warmth dies to honest fires. In the forecourt, forty-one struck names answer the first free roll call in village history, and the falling snow suddenly matters again, and so does every hand in it. Kael attacks you weeping like a man finally allowed to.", trait: "honorable" },
-            { text: "Bind the vault. Metered, lawful, every struck name a case with your signature.", conclusion: "The vault survives, caged: draws by consent, posted publicly, every mark revocable by its own wrist, every historic strike reopened as a case. Someone must sign for all of it, and the pen is in your hand, and Sova's open book suddenly has an heir. The count becomes a law instead of a hunger. Kael bows to the arrangement, and then the script that runs to his jaw does not, and it comes at you wearing him.", trait: "merciful" },
+            { text: "Bind the vault. Metered, lawful, every struck name a case with your signature.", conclusion: "The vault survives, caged: draws by consent, posted publicly, every mark revocable by its own wrist, every historic strike reopened as a case. Someone must sign for all of it, and the pen is in your hand, and Sova's open book suddenly has an heir. The Count becomes a law instead of a hunger. Kael bows to the arrangement, and then the script that runs to his jaw does not, and it comes at you wearing him.", trait: "merciful" },
             { text: "Take the valve. A better keeper is still a keeper, and it's you.", conclusion: "Your hand fits the meter like it was cast for it, and you understand, all at once, why the plate fogged at your intake: the vault has been reading you as a keeper since the day you arrived. The script starts at your wrist, warm as a bath, patient as winter. Kael's shoulders come down for the first time in forty years. 'Then hold it,' says the vault, with his voice, already counting you.", trait: "ambitious" },
         ]),
     ],
