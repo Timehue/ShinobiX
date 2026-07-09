@@ -14,6 +14,7 @@ import { storylines } from "./storylines";
 import { storyInterludesByVillage } from "./story-interludes";
 import { storyRoadEvents } from "./story-road-events";
 import { splitDialogueLine } from "../lib/vn";
+import { DERIVED_TRAIT_LEVELS } from "../lib/story-derive";
 
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
 
@@ -203,6 +204,9 @@ test("every trait gate references a trait this player can actually earn by then"
                 }
             }
         }
+        // Composite traits are materialized by lib/story-derive.ts (never
+        // granted by a choice), so register them as earnable at their level.
+        for (const [trait, level] of Object.entries(DERIVED_TRAIT_LEVELS)) villageTraitLevels.set(trait, level);
         const gateCheck = (level: number, pages: AnyPage[], label: string) => {
             for (const page of pages) {
                 for (const choice of page.choices ?? []) {
