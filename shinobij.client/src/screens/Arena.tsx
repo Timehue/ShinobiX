@@ -31,6 +31,7 @@ import { buildActionsFromPveHistory, makeBattleEntry } from "../lib/battle-log-h
 import { playPetSfx } from "../lib/pet-sfx";
 import { masteryHasCapstone } from "../lib/profession-mastery";
 import { isMercAiId } from "../lib/merc-ai";
+import { stampWandererFightResult } from "../lib/wanderer-fight";
 import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
 import { CombatSideHud } from "../components/CombatSideHud";
@@ -809,8 +810,13 @@ export function Arena({
     const battleRecordedRef = useRef(false);
     useEffect(() => { if (!battleEnded) battleRecordedRef.current = false; }, [battleEnded]);
     useEffect(() => {
-        if (!battleEnded || !battleResult || battleRecordedRef.current || !onRecordBattle) return;
+        if (!battleEnded || !battleResult || battleRecordedRef.current) return;
         battleRecordedRef.current = true;
+        // A pending wanderer/ambush fight resolves back on the World Map by reading the
+        // authoritative outcome we stamp here (no-op for every other battle) — see
+        // lib/wanderer-fight. Runs regardless of onRecordBattle wiring.
+        stampWandererFightResult(battleResult);
+        if (!onRecordBattle) return;
         const mode = pendingStoryBattle ? "Story"
             : missionBattleActive ? "Mission"
             : exploreAmbushActive ? "Ambush"
