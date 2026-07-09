@@ -239,6 +239,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By morning the whole village knows what cracked in the night. The vault is dark, and every banked exit went home to its wrist: forty years of surrendered doubts and walkings-away, returned mid-life.",
                         "It is quiet, and it is not calm. People keep touching their own wrists like a healed break. Two soldiers resigned at first bell. One asked to re-enlist an hour later, and Sova entered him with a note: BY CHOICE, and underlined it.",
                         "The hearths burn wood now. Wood runs short. The cold is honest again, which means it is dangerous again, and nobody's surrendered exit is holding it off anybody's child.",
+                        "Far below the dark Vault, the lower draw goes quiet for the first time in thirty years, and finds no marked exit left to drink.",
                     ],
                 },
                 {
@@ -265,6 +266,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By morning the whole village knows what cracked in the night. The vault is dark. Every banked exit went home, and every hearth in Frostfang now answers to firewood and effort, the old way, the only honest way left.",
                         "The Roll still forms at every bell. Smaller. Slower. Every answer a choice now, and everyone can hear the difference, and the difference is terrible and it is better.",
                         "The first blizzard after will be the whole argument. Everybody knows it. Nobody says it. They stack wood.",
+                        "Far below the dark Vault, the lower draw goes quiet. The silence is honest. It is also not warm.",
                     ],
                 },
                 {
@@ -293,6 +295,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The vault survives, caged. Draws by posted consent, witnessed, revocable; every mark in the village re-signed or struck by its own wrist inside a month.",
                         "The meter above the door reads out the vault's hunger to anyone passing. The grandmothers check it the way they check weather. So do the children, who have invented a game about it, which the wardens have given up stopping.",
                         "And on the ridge, the lanterns burn every night: the searches that need no vault at all, eating into its purpose one found volunteer at a time.",
+                        "Below the Vault, the lower draw opens once against the new law, finds nothing lawful left to drink, and shuts.",
                     ],
                 },
                 {
@@ -319,6 +322,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The vault survives, caged. Draws by consent, posted, witnessed. It is better. Everyone agrees it is better, in the voice soldiers use for orders they intend to obey.",
                         "Because consent, it turns out, runs thin. Eleven marks re-signed the first week. Eleven, from a village of hundreds. Surrender was always a poor fuel when somebody had to ASK.",
                         "The wardens read the meter twice a bell. Nobody says the arithmetic out loud. Everybody does it.",
+                        "The lower draw is sealed by law now, but the village feels every theft it can no longer make, an ache with no name, all winter long.",
                     ],
                 },
                 {
@@ -347,6 +351,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The valve fits your hand. That is the terrible part. The Count reforms by second bell, the wardens change nothing but the name they report to, and the vault's warmth settles over the village like a coat it never stopped wearing.",
                         "On the ridge, one lantern relay burns where you drilled it, finding the lost for free, and the vault has already begun, gently, to schedule its wardens elsewhere.",
                         "The script at your wrist is patient. It has done this before. It can wait for the rest of you.",
+                        "And the thing beneath the Vault learns your hand before the village learns your new title.",
                     ],
                 },
                 {
@@ -375,6 +380,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The valve fits your hand. That is the terrible part. The Count reforms by second bell, and the vault's warmth settles over the village like a coat it never stopped wearing.",
                         "On the ridge, one lantern relay burns where a captain answered a dead man's roll, and the vault has already begun, gently, to reschedule its wardens around it.",
                         "The script at your wrist is patient. It has done this before.",
+                        "Beneath the Vault, the lower draw waits. Not open. Not closed. Waiting for your first order.",
                     ],
                 },
                 {
@@ -402,6 +408,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The valve fits like it was cast for your hand, and the Count reforms by second bell, and the warmth is everything he promised.",
                         "The wardens do not ask questions; the wardens have never asked questions. The meter finds your draw rhythm within a week and adjusts, accommodating, patient.",
                         "Somewhere above, the mark plate at the gate reads a new intake's wrist, holds it half a count long, and the frost leans in, and begins to wait again.",
+                        "Beneath the Vault, the lower draw warms by one degree.",
                     ],
                 },
                 {
