@@ -349,7 +349,7 @@ import { rawPetPool } from "./data/pet-pool";
 import { STARTER_PETS } from "./data/starter-pets";
 import { STARTER_EVOLUTIONS } from "./data/pet-evolutions";
 import { villageBiomeMap } from "./data/storylines";
-import { nextStoryTrigger, overlayVnImages, reportStoryInterlude } from "./lib/story-trigger";
+import { nextStoryTrigger, overlayVnImages, reportStoryInterlude, interludeChosenTrait } from "./lib/story-trigger";
 import {
     awakeningLv2VnEvent,
     auraSphereLv9VnEvent,
@@ -3852,6 +3852,16 @@ export default function App() {
     }, [activeTriggeredEvent, character, screen, triggeredEvents]);
 
     // Auto-trigger level-gated creator VN events (eventKind === "visualNovel", no special trigger)
+    // The two VN auto-trigger effects below run in the same commit and would
+    // both fire on the same stale null activeTriggeredEvent (last writer wins,
+    // the first scene lost but marked seen). The ref is the same-commit claim;
+    // it clears when the active VN closes.
+    const vnTriggerClaimRef = useRef(false);
+    useEffect(() => { if (!activeTriggeredEvent) vnTriggerClaimRef.current = false; }, [activeTriggeredEvent]);
+    // Interlude scenes dismissed THIS SESSION (skipped / closed without a
+    // choice). Deliberately not persisted: a refresh re-offers the beat instead
+    // of permanently losing it and its finale reckoning gate.
+    const dismissedStoryScenesRef = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
         if (isBattleFlowScreen(screen)) return;
@@ -3863,6 +3873,8 @@ export default function App() {
                 character.level >= ev.levelReq
         );
         if (!candidate) return;
+        if (vnTriggerClaimRef.current) return;
+        vnTriggerClaimRef.current = true;
         setTriggeredEvents((ids) => [...ids, candidate.id]);
         setActiveTriggeredEvent(candidate);
         setActiveTriggerReturnScreen(screen);
@@ -3880,13 +3892,17 @@ export default function App() {
         if (isBattleFlowScreen(screen)) return;
         // Gate the village story behind tutorial completion (skip sets "done").
         if (normalizeOnboardingStep(character.onboardingStep) !== "done") return;
-        const next = nextStoryTrigger(character, triggeredEvents);
+        const next = nextStoryTrigger(character, triggeredEvents, [...dismissedStoryScenesRef.current]);
         if (!next) return;
+        if (vnTriggerClaimRef.current) return;
+        vnTriggerClaimRef.current = true;
         // Prefer the admin-edited version from creatorEvents (uploaded images,
         // custom dialogue, etc.), then overlay any KV-stored images.
         const edited = creatorEvents.find(e => e.id === next.eventId);
         const vnEvent = overlayVnImages({ ...(edited ?? next.base), xpReward: 0, ryoReward: 0 }, next.eventId, sharedImages);
-        setTriggeredEvents(ids => [...ids, next.eventId]);
+        // Interludes are consumed at COMPLETION (once a choice is made), not at
+        // fire time — a refresh mid-scene must re-offer the beat, not lose it.
+        if (!next.eventId.startsWith("story-interlude-")) setTriggeredEvents(ids => ids.includes(next.eventId) ? ids : [...ids, next.eventId]);
         setActiveTriggeredEvent(vnEvent);
         setActiveTriggerReturnScreen(next.returnScreen === "storyHall" ? "storyHall" : screen);
         setTriggerPage(0);
@@ -5407,15 +5423,23 @@ export default function App() {
 
     function completeTriggeredEvent(event: CreatorEvent) {
         if (character) {
-            // Interludes report their recorded choice to the server story record
-            // (fire-and-forget; lanes are server-owned, storyTraits is the mirror).
-            if (event.id.startsWith("story-interlude-")) void reportStoryInterlude(character, event.id);
+            // Interludes: a made choice consumes the beat (persisted) and reports
+            // to the server story record; closing without choosing only dismisses
+            // it for this session so a refresh re-offers the scene.
+            if (event.id.startsWith("story-interlude-")) {
+                if (interludeChosenTrait(character, event.id)) {
+                    void reportStoryInterlude(character, event.id);
+                    setTriggeredEvents(ids => ids.includes(event.id) ? ids : [...ids, event.id]);
+                } else {
+                    dismissedStoryScenesRef.current.add(event.id);
+                }
+            }
             const leveled = gainXp(character, event.xpReward);
             const isRewardEvent = event.eventKind !== "visualNovel";
             const rewardInventory = event.id === AURA_SPHERE_VN_ID && !leveled.inventory.includes(AURA_SPHERE_ITEM_ID) && !Object.values(leveled.equipment).includes(AURA_SPHERE_ITEM_ID)
                 ? [...leveled.inventory, AURA_SPHERE_ITEM_ID]
                 : leveled.inventory;
-            let nextCharacter: Character = {
+            const nextCharacter: Character = {
                 ...applyCurrencyRewards(leveled, event.currencyRewards),
                 ryo: leveled.ryo + event.ryoReward,
                 stamina: Math.min(leveled.maxStamina, leveled.stamina + event.staminaReward),
@@ -5423,15 +5447,10 @@ export default function App() {
                 clanContribMonth: new Date().toISOString().slice(0, 7),
                 inventory: rewardInventory,
             };
-            if (event.kageFinale && event.village === character.village) {
-                unlockVillageKageSystem(character.village, character.name);
-                nextCharacter = {
-                    ...nextCharacter,
-                    storyTitle: event.liberatorTitle ?? nextCharacter.storyTitle,
-                    rankTitle: event.liberatorTitle ?? nextCharacter.rankTitle,
-                };
-                alert(`The false Kage of ${character.village} has fallen. ${character.name} has broken the Hollow Gate Pact. The Kage seat is now open.`);
-            }
+            // No kageFinale handling here: closing the finale VN without fighting
+            // must NOT unlock the Kage system or grant the title. The legitimate
+            // consequence path is the battle WIN in completePendingArenaStoryBattle
+            // (and StoryBoss.winBossFight for the legacy Hall screen).
             setCharacter(nextCharacter);
         }
 
@@ -5702,7 +5721,10 @@ export default function App() {
 
     function startTriggeredEventArenaBattle(
         event: CreatorEvent,
-        battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]
+        battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"],
+        // Explicit return target for same-tick callers (WorldMap road events):
+        // reading activeTriggerReturnScreen here would see the stale pre-set value.
+        returnScreen?: Screen,
     ) {
         if (battle?.encounterType === "pet") {
             setPendingEventEncounter({ event, battle });
@@ -5747,7 +5769,7 @@ export default function App() {
         }
         setPendingPvpOpponent(null);
         setRaidBattleKind("none");
-        setPendingArenaStoryBattle({ kind: "triggeredEvent", event, battle, returnScreen: activeTriggerReturnScreen });
+        setPendingArenaStoryBattle({ kind: "triggeredEvent", event, battle, returnScreen: returnScreen ?? activeTriggerReturnScreen });
         setPendingAiProfileId(aiProfileId);
         setCurrentBiome(event.biome);
         setCurrentWeather(weatherForBiome(event.biome));
@@ -5774,7 +5796,6 @@ export default function App() {
                 clanContribMonth: new Date().toISOString().slice(0, 7),
             };
             if (step.kageFinale) {
-                unlockVillageKageSystem(character.village, character.name);
                 // Story finale grants a Hollow Gate Key — a personal shrine pass
                 // that bypasses the village unlock and the daily run cap.
                 nextCharacter = addInventoryItems({
@@ -5782,6 +5803,13 @@ export default function App() {
                     storyTitle: step.liberatorTitle ?? nextCharacter.storyTitle,
                     rankTitle: step.liberatorTitle ?? nextCharacter.rankTitle,
                 }, [HOLLOW_GATE_KEY_ID]);
+                // Flush storyProgress=9 to the server FIRST — the kage unlock gate
+                // reads the SAVED character, so calling it before the save commits
+                // 403s and silently drops the liberator grant. (TownHall also
+                // retries the unlock as a self-heal for the 409-conflict case.)
+                void pushSaveToServer(nextCharacter, currentAccountName || character.name)
+                    .then(() => unlockVillageKageSystem(character.storyVillage || character.village, character.name))
+                    .catch(() => undefined);
             }
             setCharacter(nextCharacter);
             setPendingAiProfileId("");
@@ -5887,7 +5915,6 @@ export default function App() {
             inventory: rewardInventory,
         };
         if (event.kageFinale && event.village === character.village) {
-            unlockVillageKageSystem(character.village, character.name);
             // Story finale grants a Hollow Gate Key — a personal shrine pass.
             nextCharacter = addInventoryItems({
                 ...nextCharacter,
@@ -5910,6 +5937,15 @@ export default function App() {
                 stamina: Math.min(nextCharacter.maxStamina, nextCharacter.stamina + 20),
                 chakra: Math.min(nextCharacter.maxChakra, nextCharacter.chakra + 20),
             };
+        }
+        if (event.kageFinale && event.village === character.village) {
+            // Flush-then-unlock, AFTER storyProgress+1 is on nextCharacter: the
+            // kage gate reads the SAVED character, so unlocking before the save
+            // commits 403s and silently drops the liberator grant. (TownHall also
+            // retries the unlock as a self-heal.)
+            void pushSaveToServer(nextCharacter, currentAccountName || character.name)
+                .then(() => unlockVillageKageSystem(character.storyVillage || character.village, character.name))
+                .catch(() => undefined);
         }
         setCharacter(nextCharacter);
         setPendingAiProfileId("");
@@ -7607,7 +7643,7 @@ export default function App() {
                         lineIndex={triggerLine}
                         setPageIndex={setTriggerPage}
                         setLineIndex={setTriggerLine}
-                        onCancel={() => setActiveTriggeredEvent(null)}
+                        onCancel={() => { if (activeTriggeredEvent.id.startsWith("story-interlude-")) dismissedStoryScenesRef.current.add(activeTriggeredEvent.id); setActiveTriggeredEvent(null); }}
                         onComplete={() => completeTriggeredEvent(activeTriggeredEvent)}
                         onBattle={startTriggeredEventArenaBattle}
                         onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? addStoryTrait(prev, t) : prev); }}
@@ -7805,7 +7841,9 @@ export default function App() {
                         sharedImages={sharedImages}
                         onStartEventEncounter={(event, battle) => {
                             setActiveTriggerReturnScreen("worldMap");
-                            startTriggeredEventArenaBattle(event, battle);
+                            // Pass the target explicitly too — the setter above lands
+                            // next render, so the call below would read the stale value.
+                            startTriggeredEventArenaBattle(event, battle, "worldMap");
                         }}
                         onDungeonFound={() => triggerDungeonEncounter("worldMap")}
                         onEnterHollowGate={enterHollowGateShrine}

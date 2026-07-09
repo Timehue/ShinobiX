@@ -96,13 +96,30 @@ export type StoryTriggerCandidate = {
     returnScreen: "storyHall" | "current";
 };
 
+/** The choice trait this character recorded for an interlude, or null if the
+ *  scene has not been decided yet (skipped scenes leave no trait). */
+export function interludeChosenTrait(character: Character, interludeId: string): string | null {
+    const village = character.storyVillage || character.village;
+    const interlude = (storyInterludesByVillage[village] ?? []).find((entry) => entry.id === interludeId);
+    if (!interlude) return null;
+    const lastPage = interlude.pages[interlude.pages.length - 1];
+    const choiceTraits = (lastPage?.choices ?? []).map((choice) => choice.trait).filter(Boolean);
+    return (character.storyTraits ?? []).find((t) => choiceTraits.includes(t)) ?? null;
+}
+
 /**
  * The next story beat that should auto-fire for this character, or null.
  * Candidates: the current milestone step (existing behavior, unchanged) and the
- * lowest eligible interlude (level + minProgress gates, one-shot). When both
- * are pending, the lower levelReq fires first so the narrative stays in order.
+ * lowest eligible interlude (level + minProgress gates). When both are pending,
+ * the lower levelReq fires first so the narrative stays in order.
+ *
+ * Interludes are consumed by COMPLETION, not by firing: an interlude is done
+ * when its id was recorded in triggeredEvents at completion OR the player owns
+ * one of its choice traits (the double-guard prevents re-choosing after a
+ * refresh). `dismissed` is the caller's session-only skip list, so a refresh
+ * re-offers a skipped scene instead of losing it forever.
  */
-export function nextStoryTrigger(character: Character, triggeredEvents: string[]): StoryTriggerCandidate | null {
+export function nextStoryTrigger(character: Character, triggeredEvents: string[], dismissed: readonly string[] = []): StoryTriggerCandidate | null {
     const village = character.storyVillage || character.village;
 
     let milestone: StoryTriggerCandidate | null = null;
@@ -119,10 +136,13 @@ export function nextStoryTrigger(character: Character, triggeredEvents: string[]
     }
 
     let interlude: StoryTriggerCandidate | null = null;
+    const owned = character.storyTraits ?? [];
     for (const entry of storyInterludesByVillage[village] ?? []) {
         if (character.level < entry.levelReq) continue;
         if ((character.storyProgress ?? 0) < entry.minProgress) continue;
-        if (triggeredEvents.includes(entry.id)) continue;
+        if (triggeredEvents.includes(entry.id) || dismissed.includes(entry.id)) continue;
+        const lastChoices = entry.pages[entry.pages.length - 1].choices ?? [];
+        if (lastChoices.some((choice) => choice.trait && owned.includes(choice.trait))) continue;
         interlude = { eventId: entry.id, base: interludeToCreatorEvent(entry), returnScreen: "current" };
         break;
     }
@@ -138,19 +158,26 @@ export function nextStoryTrigger(character: Character, triggeredEvents: string[]
  * nothing. authFetch's global interceptor attaches the auth headers.
  */
 export async function reportStoryInterlude(character: Character, interludeId: string): Promise<void> {
-    const village = character.storyVillage || character.village;
-    const interlude = (storyInterludesByVillage[village] ?? []).find((entry) => entry.id === interludeId);
-    if (!interlude) return;
-    const lastPage = interlude.pages[interlude.pages.length - 1];
-    const choiceTraits = (lastPage?.choices ?? []).map((choice) => choice.trait).filter(Boolean);
-    const trait = (character.storyTraits ?? []).find((t) => choiceTraits.includes(t));
+    const trait = interludeChosenTrait(character, interludeId);
     if (!trait) return;
-    try {
-        await fetch("/api/story/interlude", {
+    const post = async (): Promise<string> => {
+        const res = await fetch("/api/story/interlude", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "complete", playerName: character.name, interludeId, trait }),
         });
+        const body = (await res.json().catch(() => null)) as { ok?: boolean; reason?: string } | null;
+        return body?.ok === false && typeof body.reason === "string" ? body.reason : "";
+    };
+    try {
+        const reason = await post();
+        // The server validates against the SAVED character; right after a
+        // level-up or chapter win the autosave may still be in flight, so a
+        // level/progress rejection gets one delayed retry.
+        if (reason === "level" || reason === "progress") {
+            await new Promise((resolve) => setTimeout(resolve, 6000));
+            await post();
+        }
     } catch {
         // Offline/flaky network: the trait mirror stays on the save; the server
         // record simply misses this beat until a future reconcile pass.
