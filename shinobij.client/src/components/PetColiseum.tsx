@@ -45,7 +45,7 @@ import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../lib/pet-projectile-vfx";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeContactFx, meleeTrailSpec, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
-import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
+import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, elementMult, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
 import { runPetArenaMatch, ARENA_TPS, BASE_SCORE_RANGE, BOSS_RADIUS, BOSS_ATK_RADIUS, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot, type ShrineKind } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { petVisualId } from "../data/pet-evolutions";
@@ -1559,6 +1559,21 @@ const DUEL_STATE_POSE: Record<DuelState, PetVisualState> = {
     idle: "idle", dash: "lunge", windup: "windup", strike: "lunge",
     recover: "idle", stagger: "recoil", dodge: "dodge", dead: "ko",
 };
+// Status chips under the HP bar — a fixed whitelist of constant HTML snippets
+// (sim statuses are fixed engine tokens; unknown keys render nothing), so the
+// innerHTML swap in DuelStandee can never carry untrusted content.
+const duelStatusChip = (label: string, color: string) =>
+    `<span style="display:inline-block;margin:1px 1px 0;padding:0 3px;border-radius:3px;border:1px solid ${color};color:${color};background:rgba(8,11,22,0.72);font:800 7.5px Inter,system-ui,sans-serif;letter-spacing:0.04em">${label}</span>`;
+const DUEL_STATUS_CHIPS: Record<string, string> = {
+    burn: duelStatusChip("BRN", "#fb923c"), stun: duelStatusChip("STN", "#93c5fd"),
+    slow: duelStatusChip("SLW", "#60a5fa"), haste: duelStatusChip("HST", "#34d399"),
+    root: duelStatusChip("RT", "#a78bfa"), shield: duelStatusChip("SHD", "#38bdf8"),
+    buff: duelStatusChip("ATK▲", "#fbbf24"), debuff: duelStatusChip("ATK▼", "#f87171"),
+    mark: duelStatusChip("MRK", "#f43f5e"),
+};
+// Element badge beside the nameplate + on the VS card — the type chart is part
+// of the show, so every fighter wears its element where the viewer can see it.
+const ELEMENT_EMOJI: Record<string, string> = { Fire: "🔥", Water: "💧", Lightning: "⚡", Earth: "⛰️", Wind: "🌪️" };
 type DuelClock = { t: number; playing: boolean; intro?: number };
 const findActor = (snap: { actors: DuelActorSnap[] }, id: string) => snap.actors.find((a) => a.id === id);
 // ── Tactical STAGE: a fixed painted diorama backdrop (Final-Fantasy-style
@@ -1710,6 +1725,10 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const hpFill = useRef<HTMLDivElement>(null);
     const hpChip = useRef<HTMLDivElement>(null);   // lagging "damage-taken" chip behind the fill
     const nameWrap = useRef<HTMLDivElement>(null);
+    const chipRow = useRef<HTMLDivElement>(null);  // status chips (BRN/STN/SHD/…) under the HP bar
+    const prevChips = useRef("");                  // last-rendered status set (rebuild only on change)
+    const dispPct = useRef(-1);                    // displayed HP% — drains at a bounded Pokemon-style rate
+    const hpCol = useRef("");                      // current bar colour band (green/yellow/red)
     const [poseCat, setPoseCat] = useState<PoseCat>("idle");
     const prevHp = useRef(Infinity);
     const flash = useRef(0);
@@ -2020,10 +2039,30 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // HP bar + dead dim via DOM refs (no React re-render).
         if (hpFill.current) {
             const pct = Math.max(0, Math.min(100, (a0.hp / Math.max(1, a0.maxHp)) * 100));
-            hpFill.current.style.width = `${pct}%`;
+            // Pokemon-style DRAIN: the bar ticks down at a bounded rate — a big hit takes
+            // visibly longer to empty (the "will it stop?" beat) — and rises fast on heals.
+            const shown = dispPct.current < 0 ? pct : dispPct.current;
+            const gap = pct - shown;
+            const next = gap >= 0
+                ? (gap > 30 ? pct : Math.min(pct, shown + Math.max(30, gap * 6) * delta))
+                : Math.max(pct, shown - Math.max(15, -gap * 2.4) * delta);
+            dispPct.current = next;
+            hpFill.current.style.width = `${next}%`;
+            // Gen-1 colour bands: green above half, caution yellow, danger red (+ pulse).
+            const col = next > 50 ? (side === "player" ? "#4ade80" : "#22c55e") : next > 20 ? "#facc15" : "#ef4444";
+            if (col !== hpCol.current) { hpCol.current = col; hpFill.current.style.background = col; }
+            hpFill.current.style.opacity = next <= 20 && a0.hp > 0 ? `${0.7 + 0.3 * Math.abs(Math.sin(state.clock.elapsedTime * 6))}` : "1";
             // Trailing "chip" drains DOWN slowly behind the fill (the classic damage read);
             // snaps up instantly on a heal so it never sits above true HP.
-            if (hpChip.current) { const chip = parseFloat(hpChip.current.style.width) || pct; hpChip.current.style.width = `${chip <= pct ? pct : lerp(chip, pct, 0.12)}%`; }
+            if (hpChip.current) { const chip = parseFloat(hpChip.current.style.width) || next; hpChip.current.style.width = `${chip <= next ? next : lerp(chip, next, 0.12)}%`; }
+        }
+        // Status chips (BRN/STN/SHD/…) — rebuilt only when the afflicted set changes.
+        if (chipRow.current) {
+            const key = a0.statuses.join(",");
+            if (key !== prevChips.current) {
+                prevChips.current = key;
+                chipRow.current.innerHTML = a0.statuses.map((s) => DUEL_STATUS_CHIPS[s] ?? "").join("");
+            }
         }
         if (nameWrap.current) nameWrap.current.style.opacity = a0.state === "dead" ? "0.5" : "1";
 
@@ -2053,11 +2092,12 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 </Billboard>
                 <Html position={[0, L.contentWorldH + 0.4, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
                     <div ref={nameWrap} style={{ textAlign: "center", font: "700 12px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none" }}>
-                        <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>Lv.{pet.level} {pet.name}</div>
+                        <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>{ELEMENT_EMOJI[pet.element ?? ""] ?? ""} Lv.{pet.level} {pet.name}</div>
                         <div style={{ position: "relative", width: 64, height: 6, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                             <div ref={hpChip} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: "#fbbf24", opacity: 0.75 }} />
-                            <div ref={hpFill} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: side === "player" ? "#4ade80" : "#f87171" }} />
+                            <div ref={hpFill} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: side === "player" ? "#4ade80" : "#22c55e" }} />
                         </div>
+                        <div ref={chipRow} style={{ marginTop: 2, minHeight: 11, lineHeight: "11px" }} />
                     </div>
                 </Html>
             </group>
@@ -2373,7 +2413,7 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, spawnTrail, elementById, nameById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, spawnTrail, elementById, nameById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout, onEffect, onDangerChange }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
@@ -2389,8 +2429,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     onFlash: (color: string, intensity: number) => void;     // full-screen element flash
     onCallout: (text: string) => void;                       // big "CRITICAL!/FINISH!" banner
     onCombo: (n: number) => void;                            // combo counter pop
-    onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => void;  // play-by-play commentary
+    onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko" | "info") => void;  // play-by-play commentary
     onMoveCallout: (text: string, side: "player" | "enemy") => void;                       // named-move flash ("Hellhound Execution!")
+    onEffect: (text: string, kind: "super" | "resist") => void;   // type-chart read ("SUPER EFFECTIVE!" / "RESISTED")
+    onDangerChange: (on: boolean) => void;                        // red-zone vignette while any fighter is critical
 }) {
     const { camera } = useThree();
     const lastTick = useRef(-1);
@@ -2408,6 +2450,26 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const holdUntil = useRef(0);                     // wall-time to HOLD the current slow-mo until (savor beat)
     const lastMoveCall = useRef(0);                  // wall-time of the last move-name callout (debounce)
     const lastHeroCut = useRef(-999);                // wall-time of the last hero-move anime cut-in (throttle)
+    const calledMove = useRef<{ move: string; until: number }>({ move: "", until: 0 });   // a wind-up already CALLED this move → don't re-flash it on impact
+    const lastEff = useRef(-999);                    // wall-time of the last SUPER EFFECTIVE / RESISTED banner (throttle)
+    const effSeen = useRef<Set<string>>(new Set());  // attackers whose type edge was already explained once
+    const missStreak = useRef<Record<string, number>>({});   // consecutive whiffs per fighter → "can't find its mark"
+    const lastFeintLine = useRef(-999);              // throttle for the feint commentary line
+    const dblLow = useRef(false);                    // "both on their last legs" fired once
+    const dangerOn = useRef(false);                  // current red-zone vignette state (edge-triggered callback)
+    const minFrac = useRef({ player: 1, enemy: 1 }); // lowest team-HP fraction seen → comeback detection at the KO
+    const lethalArmed = useRef(false);               // the pre-KO lethal slow-mo fired once
+    // Tekken-style LETHAL-MOMENT anticipation: the stream is deterministic, so the
+    // killing blow is known ahead of time — ease into deep slow-mo just BEFORE it
+    // lands and let the impact/KO beats take over from there.
+    const lethalTick = useMemo(() => {
+        let koT = -1;
+        for (const e of duel.events) if (e.type === "ko") koT = e.t;   // the terminal ko is the last one
+        if (koT < 0) return -1;
+        let hitT = -1;
+        for (const e of duel.events) if (e.type === "hit" && e.t <= koT && e.t > hitT) hitT = e.t;
+        return hitT > 8 ? hitT - 8 : -1;   // arm ~0.27s before the final blow connects
+    }, [duel]);
     // ── Cinematic camera (render-only): a live look target eased toward the fighters'
     // midpoint, briefly OVERRIDDEN by cuts (attacker on wind-up / defender on impact /
     // victim on KO), plus an adaptive dolly that tightens when they plant close.
@@ -2433,6 +2495,12 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         const savor = (scale: number, holdSec: number) => { timeScale.current = Math.min(timeScale.current, scale); holdUntil.current = Math.max(holdUntil.current, now + holdSec); };
         advanceClock(maxT, dt);
         const cur = Math.floor(clock.current.t);
+        // Ease into the killing blow (shared suspense — nobody watching "knows" yet).
+        if (lethalTick >= 0 && !lethalArmed.current && cur >= lethalTick) {
+            lethalArmed.current = true;
+            savor(0.24, 0.85);
+            zoomKick.current = Math.max(zoomKick.current, 1.6);
+        }
         if (cur > lastTick.current) {
             for (const e of duel.events) {
                 if (e.t <= lastTick.current || e.t > cur) continue;
@@ -2443,6 +2511,22 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         const frac = Math.min(1, e.dmg / Math.max(1, a.maxHp));
                         const heavy = !!e.crit || frac > 0.12;
                         const col = elementColor(e.element).glow;
+                        missStreak.current[e.actorId] = 0;
+                        // Pokemon-style TYPE READ — the element chart is invisible unless we SAY it.
+                        // Every super-effective/resisted blow flashes its banner (throttled), and the
+                        // first super-effective hit per attacker gets a one-time commentary explainer.
+                        const eff = elementMult(e.element, elementById[e.targetId]);
+                        if (eff > 1 && now - lastEff.current > 1.4) {
+                            lastEff.current = now;
+                            onEffect("SUPER EFFECTIVE!", "super");
+                            if (!effSeen.current.has(e.actorId)) {
+                                effSeen.current.add(e.actorId);
+                                onAnnounce(`${e.element ?? "Its element"} overwhelms ${elementById[e.targetId] ?? "the foe"} — super effective!`, "info");
+                            }
+                        } else if (eff < 1 && now - lastEff.current > 1.4) {
+                            lastEff.current = now;
+                            onEffect("RESISTED", "resist");
+                        }
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                         spawnImpact({ x: a.x, z: a.y, color: col, big: heavy });
                         const heavyKind = e.kind === "crush" || e.kind === "push";
@@ -2477,8 +2561,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0));
                         // Element-tinted full-screen FLASH + a ground SHOCKWAVE on every
                         // hit (bigger on heavy/crit) so even a small spell reads as an event.
-                        onFlash(col, Math.min(0.5, 0.1 + frac * 0.9) + (e.crit ? 0.16 : 0));
-                        spawnShock({ x: a.x, z: a.y, color: col, big: heavy });
+                        onFlash(col, Math.min(0.5, 0.1 + frac * 0.9) + (e.crit ? 0.16 : 0) + (eff > 1 ? 0.08 : 0));
+                        spawnShock({ x: a.x, z: a.y, color: col, big: heavy || eff > 1 });
                         // Dramatic SAVOR — slow the moment so the swing reads; deeper on a
                         // signature, then a crit/heavy slam, then any named ability, then a basic.
                         const isSig = !!e.signature, isAbility = !!e.move;
@@ -2500,7 +2584,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             savor(0.2, 0.7); shake.current = Math.max(shake.current, 1.6);
                             zoomKick.current = Math.max(zoomKick.current, 3.0); onFlash(col, 0.4);
                             onCutIn(e.actorId, e.move);
-                        } else if (e.move && !isSig && now - lastMoveCall.current > 0.4) {
+                        } else if (e.move && !isSig && now - lastMoveCall.current > 0.4 && !(calledMove.current.move === e.move && now < calledMove.current.until)) {
+                            // Only flash the name on impact if the wind-up didn't already CALL it.
                             lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
                         }
                         // Combo counter — consecutive hits inside a 1.1s window.
@@ -2551,6 +2636,14 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         camAim.current = [p.wx * 0.55, 1.4, CAM_LOOK[2] + p.wz * 0.4];
                         camAimHold.current = Math.max(camAimHold.current, 0.15);
                         camDollyBias.current = Math.max(camDollyBias.current, 0.7);
+                        // CALL the attack (Pokemon-style): a named wind-up flashes its move
+                        // name BEFORE the blow lands, so the viewer anticipates the hit
+                        // instead of being told about it afterwards.
+                        if (e.move && now - lastMoveCall.current > 0.4) {
+                            lastMoveCall.current = now;
+                            calledMove.current = { move: e.move, until: now + 2.2 };
+                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
+                        }
                     }
                 } else if (e.type === "dodge" && e.actorId) {
                     // Parry/slip shimmer where the dodge happened (a clean defensive read).
@@ -2633,14 +2726,40 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     onFlash("#fff7e6", 0.5);
                     onCallout("FINISH!");
                     if (dead) onAnnounce(`${nameById[dead.id] ?? "A fighter"} is down!`, "ko");
+                    // Comeback read: the terminal KO (no actorId) closing a fight the winner
+                    // nearly lost earns its own line, after the "is down!" beat clears.
+                    if (!e.actorId && duel.winner && minFrac.current[duel.winner] < 0.25) {
+                        const champ = nameById[`${duel.winner}-0`] ?? "The victor";
+                        window.setTimeout(() => onAnnounce(`${champ} storms back from the brink — what a comeback!`, "reversal"), 1500);
+                    }
                 } else if (e.type === "whiff" && e.actorId) {
-                    // A MISS — the attacker's blow finds nothing. Say so (was silent before).
                     const c = findActor(snapAt, e.actorId);
-                    if (c) { onCallout("MISS"); spawnImpact({ x: c.x, z: c.y, color: "#cbd5e1", big: false }); }
+                    if (e.move === "Feint") {
+                        // The planted mind-games beat — SELL the bluff instead of calling it a miss.
+                        if (c) spawnImpact({ x: c.x, z: c.y, color: "#e2e8f0", big: false });
+                        onCallout("FEINT!");
+                        if (now - lastFeintLine.current > 6) {
+                            lastFeintLine.current = now;
+                            onAnnounce(`${nameById[e.actorId] ?? "The challenger"} sells the fake!`, "info");
+                        }
+                    } else {
+                        // A MISS — the attacker's blow finds nothing. Say so (was silent before).
+                        if (c) { onCallout("MISS"); spawnImpact({ x: c.x, z: c.y, color: "#cbd5e1", big: false }); }
+                        missStreak.current[e.actorId] = (missStreak.current[e.actorId] ?? 0) + 1;
+                        if (missStreak.current[e.actorId] >= 3) {
+                            missStreak.current[e.actorId] = 0;
+                            onAnnounce(`${nameById[e.actorId] ?? "A fighter"} can't find its mark!`, "info");
+                        }
+                    }
                 } else if (e.type === "stagger" && e.actorId) {
                     // A recoil puff where a fighter got knocked out of its wind-up.
                     const c = findActor(snapAt, e.actorId);
                     if (c) spawnImpact({ x: c.x, z: c.y, color: "#fca5a5", big: false });
+                } else if (e.type === "dash" && e.actorId) {
+                    // Launch dust at the dash's start point (was silent — the afterimage
+                    // trail carries the speed read; this marks the commitment).
+                    const c = findActor(snapAt, e.actorId);
+                    if (c) spawnShock({ x: c.x, z: c.y, color: "#e2e8f0", big: false });
                 }
             }
             // ── Play-by-play momentum (render-only; reads the deterministic
@@ -2667,6 +2786,18 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     onAnnounce(`Reversal — ${who} storms back!`, "reversal");
                 }
                 if (lead !== "even") leadSide.current = lead;
+                // Comeback bookkeeping + endgame tension: track each side's lowest team-HP
+                // fraction, flag the "both critical" cliffhanger once, and drive the
+                // red-zone vignette while ANY fighter is hanging on.
+                minFrac.current.player = Math.min(minFrac.current.player, pFrac);
+                minFrac.current.enemy = Math.min(minFrac.current.enemy, eFrac);
+                if (!dblLow.current && pFrac > 0 && eFrac > 0 && pFrac < 0.3 && eFrac < 0.3) {
+                    dblLow.current = true;
+                    onAnnounce("Both are on their last legs — the next blow could end it!", "danger");
+                    savor(0.5, 0.5);
+                }
+                const anyDanger = snapNow.actors.some((ac) => ac.hp > 0 && ac.hp / Math.max(1, ac.maxHp) < 0.25);
+                if (anyDanger !== dangerOn.current) { dangerOn.current = anyDanger; onDangerChange(anyDanger); }
             }
             lastTick.current = cur;
         }
@@ -2875,8 +3006,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [flash, setFlash] = useState<{ id: number; color: string; intensity: number } | null>(null);
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
-    const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" } | null>(null);  // play-by-play broadcast line
+    const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" | "info" } | null>(null);  // play-by-play broadcast line
     const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy" } | null>(null);  // named-move flash
+    const [effect, setEffect] = useState<{ id: number; text: string; kind: "super" | "resist" } | null>(null);  // type-chart banner ("SUPER EFFECTIVE!")
+    const [danger, setDanger] = useState(false);   // red-zone vignette while a fighter is critical
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     const nameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.name])) as Record<string, string>, [roster]);
@@ -2944,7 +3077,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const triggerCallout = (text: string) => { const id = seqRef.current++; setCallout({ id, text }); window.setTimeout(() => setCallout((c) => (c && c.id === id ? null : c)), 760); };
     const triggerCombo = (n: number) => { const id = seqRef.current++; setCombo({ id, n }); window.setTimeout(() => setCombo((c) => (c && c.id === id ? null : c)), 820); };
     // Play-by-play broadcast line (lower-third) — narrates the swings of the fight.
-    const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); window.setTimeout(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
+    const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko" | "info") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); window.setTimeout(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
+    // Type-chart banner — "SUPER EFFECTIVE!" / "RESISTED" under the big callout spot.
+    const triggerEffect = (text: string, kind: "super" | "resist") => { const id = seqRef.current++; setEffect({ id, text, kind }); window.setTimeout(() => setEffect((c) => (c && c.id === id ? null : c)), 900); };
     // Named-move flash ("Hellhound Execution!") — a quick stylish callout, side-tinted.
     const triggerMoveCallout = (text: string, side: "player" | "enemy") => { const id = seqRef.current++; setMoveCallout({ id, text, side }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), 1000); };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
@@ -2960,7 +3095,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (!clock.current.playing) { clock.current.intro = (clock.current.intro ?? 0) + delta; return; }
         clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setTrails([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setTrails([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setEffect(null); setDanger(false); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
@@ -2980,6 +3115,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petCutinName { 0% { opacity: 0; transform: translateX(-16%) skewX(-7deg) scale(0.68); } 16% { opacity: 1; transform: translateX(0) skewX(-7deg) scale(1.09); } 30% { transform: translateX(0) skewX(-7deg) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateX(7%) skewX(-7deg) scale(1); } }
                 @keyframes petCutinInL { 0% { opacity: 0; transform: translateY(-50%) translateX(-45%) scale(0.9); } 15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1.05); } 30% { transform: translateY(-50%) translateX(0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(-8%) scale(1); } }
                 @keyframes petCutinInR { 0% { opacity: 0; transform: translateY(-50%) translateX(45%) scale(0.9); } 15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1.05); } 30% { transform: translateY(-50%) translateX(0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(8%) scale(1); } }
+                @keyframes petDuelDanger { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.62; } }
+                @keyframes petDuelEffect { 0% { opacity: 0; transform: translateX(-50%) scale(0.55); } 16% { opacity: 1; transform: translateX(-50%) scale(1.14); } 34% { transform: translateX(-50%) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) scale(0.98); } }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
@@ -3015,21 +3152,40 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} spawnTrail={spawnTrail} elementById={elementById} nameById={nameById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} spawnTrail={spawnTrail} elementById={elementById} nameById={nameById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} onEffect={triggerEffect} onDangerChange={setDanger} />
                 <BloomFx />
             </Canvas>
 
             {/* VS pre-fight intro — both fighters hold their face-off while a "VS"
                 splash slams in, then the clock starts. */}
-            {intro && (
-                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "clamp(12px,3vw,40px)", padding: "0 5%" }}>
-                        <span style={{ flex: 1, textAlign: "right", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#93c5fd", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out both" }}>{playerPet.name}</span>
-                        <span style={{ font: "900 clamp(44px,9vw,104px) var(--font-display)", color: "#fff", letterSpacing: "0.02em", textShadow: "0 0 26px rgba(250,204,21,0.9), 0 4px 12px #000", animation: "petDuelVs 700ms cubic-bezier(.2,.9,.2,1) both" }}>VS</span>
-                        <span style={{ flex: 1, textAlign: "left", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#fca5a5", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out 120ms both" }}>{enemyPet.name}</span>
+            {intro && (() => {
+                // Matchup card: both elements + who holds the type edge — frames the
+                // question the fight answers ("can the disadvantaged side overcome it?").
+                const pEl = playerPet.element ?? "None", eEl = enemyPet.element ?? "None";
+                const pEdge = elementMult(playerPet.element, enemyPet.element);
+                const eEdge = elementMult(enemyPet.element, playerPet.element);
+                const edgeLine = pEdge > 1 || eEdge < 1 ? `⚔ ${playerPet.name} holds the type advantage!` : eEdge > 1 || pEdge < 1 ? `⚔ ${enemyPet.name} holds the type advantage!` : null;
+                const edgeColor = edgeLine && (pEdge > 1 || eEdge < 1) ? "#93c5fd" : "#fca5a5";
+                return (
+                    <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+                        <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "clamp(12px,3vw,40px)", padding: "0 5%" }}>
+                                <span style={{ flex: 1, textAlign: "right", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#93c5fd", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out both" }}>{playerPet.name}</span>
+                                <span style={{ font: "900 clamp(44px,9vw,104px) var(--font-display)", color: "#fff", letterSpacing: "0.02em", textShadow: "0 0 26px rgba(250,204,21,0.9), 0 4px 12px #000", animation: "petDuelVs 700ms cubic-bezier(.2,.9,.2,1) both" }}>VS</span>
+                                <span style={{ flex: 1, textAlign: "left", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#fca5a5", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out 120ms both" }}>{enemyPet.name}</span>
+                            </div>
+                            <div style={{ textAlign: "center", marginTop: 12, animation: "petDuelVsName 500ms ease-out 260ms both" }}>
+                                <span style={{ font: "800 clamp(13px,1.9vw,20px) Inter, system-ui, sans-serif", color: "#e2e8f0", textShadow: "0 2px 8px #000" }}>
+                                    {ELEMENT_EMOJI[pEl] ?? ""} {pEl}<span style={{ color: "#64748b", margin: "0 10px" }}>·</span>{ELEMENT_EMOJI[eEl] ?? ""} {eEl}
+                                </span>
+                                {edgeLine && (
+                                    <div style={{ marginTop: 6, font: "800 clamp(13px,2vw,21px) var(--font-display)", color: edgeColor, textShadow: "0 0 12px rgba(250,204,21,0.5), 0 2px 8px #000" }}>{edgeLine}</div>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Anime signature CUT-IN — the action freeze-frames (hitStop) while a dark slam +
                 diagonal speed lines sweep in, the pet's PORTRAIT slams from its side, and the
@@ -3075,6 +3231,16 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {combo && combo.n >= 2 && (
                 <div key={`combo-${combo.id}`} style={{ position: "absolute", top: "20%", right: "8%", pointerEvents: "none", textAlign: "center", font: "900 clamp(30px,5vw,58px)/1 Inter, system-ui, sans-serif", color: "#fde68a", textShadow: "0 0 14px rgba(245,158,11,0.85), 0 3px 8px #000", animation: "petDuelCombo 700ms ease-out forwards" }}>{combo.n}<span style={{ fontSize: "0.45em", letterSpacing: "0.15em", display: "block" }}>HIT COMBO</span></div>
             )}
+            {/* Type-chart banner — the Pokemon signature read. Amber slam for a
+                super-effective blow, muted slate for a resisted one. */}
+            {effect && (
+                <div key={`eff-${effect.id}`} style={{ position: "absolute", left: "50%", top: "34%", transform: "translateX(-50%)", pointerEvents: "none", whiteSpace: "nowrap", font: `900 ${effect.kind === "super" ? "clamp(20px,3.4vw,40px)" : "clamp(15px,2.4vw,28px)"}/1 var(--font-display)`, letterSpacing: "0.09em", color: effect.kind === "super" ? "#fbbf24" : "#94a3b8", textShadow: effect.kind === "super" ? "0 0 20px rgba(245,158,11,0.9), 0 3px 9px #000" : "0 2px 8px #000", animation: "petDuelEffect 880ms cubic-bezier(.2,.9,.2,1) forwards" }}>{effect.text}</div>
+            )}
+            {/* Red-zone DANGER vignette — pulses while any fighter clings on below 25%
+                HP (the Gen-1 low-HP alarm, translated to light). */}
+            {danger && !ended && (
+                <div style={{ position: "absolute", inset: 0, pointerEvents: "none", boxShadow: "inset 0 0 150px rgba(239,68,68,0.55)", animation: "petDuelDanger 1.15s ease-in-out infinite" }} />
+            )}
             {/* Named-move flash — the ability's name slams in on cast/hit (signatures
                 use the bigger cut-in instead), side-tinted blue (you) / red (foe). */}
             {moveCallout && (
@@ -3083,7 +3249,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {/* Play-by-play broadcast line (lower-third) — narrates the swings:
                 a fighter on the ropes, a reversal, an ultimate, the finish. */}
             {announce && !ended && (
-                <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", maxWidth: "84vw", pointerEvents: "none", padding: "7px 22px", borderRadius: 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : "#fecaca", font: "800 clamp(15px,2.6vw,24px)/1.1 var(--font-display)", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
+                <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", maxWidth: "84vw", pointerEvents: "none", padding: "7px 22px", borderRadius: 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : announce.tone === "info" ? "#22d3ee" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : announce.tone === "info" ? "#cffafe" : "#fecaca", font: "800 clamp(15px,2.6vw,24px)/1.1 var(--font-display)", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
             )}
 
             <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
@@ -3125,6 +3291,15 @@ const ARENA_SPRITE_H = 1.05;
 const ARENA_POS_SMOOTH = 0.4;
 const ROLE_COLOR: Record<ArenaRole, string> = { defender: "#60a5fa", tracker: "#34d399", assassin: "#f87171", sage: "#fbbf24" };
 const ROLE_TAG: Record<ArenaRole, string> = { defender: "DEF", tracker: "TRK", assassin: "ASN", sage: "SGE" };
+// Status/buff chips on the arena nameplate — a fixed whitelist of constant HTML
+// (statuses are fixed engine tokens; unknown keys render nothing). "carry" is
+// excluded — the 📜 mark already carries it.
+const ARENA_STATUS_CHIPS: Record<string, string> = {
+    shield: duelStatusChip("SHD", "#38bdf8"), slow: duelStatusChip("SLW", "#60a5fa"),
+    mark: duelStatusChip("MRK", "#f43f5e"), taunt: duelStatusChip("TNT", "#fb923c"),
+    buff: duelStatusChip("ATK▲", "#fbbf24"), fury: duelStatusChip("FURY", "#fb923c"),
+    berserk: duelStatusChip("BSK", "#f43f5e"), edge: duelStatusChip("EDGE", "#a78bfa"),
+};
 const findArenaActor = (s: ArenaSnapshot, id: string) => s.actors.find((a) => a.id === id);
 function arenaPoseCat(st: ArenaState): PoseCat {
     if (st === "attack" || st === "dash") return "attack";
@@ -3181,6 +3356,9 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     const prevDown = useRef(false);   // was the pet hidden (respawning/dead) last frame → snap, never lerp, across the off-screen respawn jump (robust at any framerate)
     const reviveRef = useRef<HTMLDivElement>(null);     // "↻ Ns" respawn countdown shown while down
     const abilityPipRef = useRef<HTMLSpanElement>(null); // role-ability-ready glow dot
+    const stChips = useRef<HTMLDivElement>(null);        // status/buff chips (SHD/MRK/FURY/…) under the lives pips
+    const prevSt = useRef("");                           // last-rendered status set (rebuild only on change)
+    const auraTint = useRef("");                         // current aura colour (team / fury / berserk / overdrive)
     const runClock = useRef(0);
     const fast = useRef(0);   // speed gate 0..1 → dash-trail opacity (read by the ArenaGhost children)
     const tint = useMemo(() => elementTint(pet.element), [pet.element]);
@@ -3272,7 +3450,22 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         if (aura.current && auraMat.current) {   // team-colored ground glow (brighter while carrying)
             aura.current.position.set(drawX, drawY - 0.05 * p.depth, p.zo - 0.12);
             const aw = shadowW * 1.6 * scaleSm.current; aura.current.scale.set(aw, aw * 0.46, 1);
-            auraMat.current.opacity = down ? 0 : (a0.carrying ? 0.85 : 0.5);
+            // Power states RECOLOR the ground glow so a spiking team reads at a glance:
+            // Overdrive gold > Berserk crimson > Warden's-Fury orange > team colour.
+            const od = (team === "blue" ? snaps[i0].odBlue : snaps[i0].odRed) > 0;
+            const empowered = od || a0.statuses.includes("berserk") || a0.statuses.includes("fury");
+            const ac = od ? "#fde047" : a0.statuses.includes("berserk") ? "#f43f5e" : a0.statuses.includes("fury") ? "#fb923c" : auraColor;
+            if (auraTint.current !== ac) { auraTint.current = ac; auraMat.current.color.set(ac); }
+            auraMat.current.opacity = down ? 0 : (a0.carrying ? 0.85 : empowered ? 0.65 + Math.abs(Math.sin(state.clock.elapsedTime * 5)) * 0.2 : 0.5);
+        }
+        // Status/buff chips — rebuilt only when the afflicted set changes ("carry" is
+        // already the 📜 mark, so it's excluded here).
+        if (stChips.current) {
+            const key = a0.statuses.join(",");
+            if (key !== prevSt.current) {
+                prevSt.current = key;
+                stChips.current.innerHTML = a0.statuses.map((s) => ARENA_STATUS_CHIPS[s] ?? "").join("");
+            }
         }
     });
 
@@ -3306,6 +3499,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
                         <div style={{ display: "flex", gap: 2, justifyContent: "center", marginTop: 2 }}>
                             {[0, 1, 2].map((i) => (<span key={i} style={{ width: 5, height: 5, borderRadius: 5, background: i < lives ? (team === "blue" ? "#60a5fa" : "#fca5a5") : "#334155" }} />))}
                         </div>
+                        <div ref={stChips} style={{ marginTop: 1, minHeight: 10, lineHeight: "10px" }} />
                         <div ref={reviveRef} style={{ display: "none", marginTop: 2, color: "#fde047", font: "800 10px Inter, system-ui, sans-serif", textShadow: "0 1px 3px #000" }} />
                     </div>
                 </Html>
@@ -3618,7 +3812,7 @@ function ArenaShot({ from, to, visual, dur, depth, arc, onDone }: {
 }
 
 /** Advances the clock, spawns elemental FX on hits/abilities, updates the score HUD. */
-function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot, spawnFloater, spawnDecal, pushFeed, triggerHitstop, triggerShake, triggerSlowmo, triggerFlash, pushBanner, nameOf, setScore }: {
+function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot, spawnFloater, spawnDecal, pushFeed, triggerHitstop, triggerShake, triggerSlowmo, triggerFlash, pushBanner, nameOf, setScore, spawnBubble, setFocusMark }: {
     result: ArenaResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void; onEnd: () => void;
     spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
     spawnShot: (n: { fromX: number; fromY: number; toX: number; toY: number; element?: string | null; role?: string | null; kind?: string | null; support?: boolean; charged?: boolean }) => void;
@@ -3632,14 +3826,19 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
     pushBanner: (text: string, color: string) => void;
     nameOf: (id: string) => string;
     setScore: (b: number, r: number) => void;
+    spawnBubble: (x: number, z: number, text: string, color: string) => void;   // squad-dialogue speech chip
+    setFocusMark: (team: "blue" | "red", targetId: string | null) => void;      // committed focus-call reticle
 }) {
     const lastTick = useRef(-1); const ended = useRef(false);
     const streak = useRef<{ blue: number; red: number; lastT: number }>({ blue: 0, red: 0, lastT: -999 });
+    const lastBossFxT = useRef(-99);                    // bosshit FX throttle (ticks)
+    const firstScroll = useRef(true);                   // first scroll spawn gets the big banner
+    const lastScore = useRef({ blue: 0, red: 0 });      // match-point edge detection
     useFrame((_s, delta) => {
         const snaps = result.snapshots; const maxT = snaps.length - 1;
         advanceClock(maxT, delta);
         const cur = Math.floor(clock.current.t);
-        if (cur < lastTick.current) { lastTick.current = -1; streak.current = { blue: 0, red: 0, lastT: -999 }; }   // clock rewound (replay) → re-fire events
+        if (cur < lastTick.current) { lastTick.current = -1; streak.current = { blue: 0, red: 0, lastT: -999 }; lastBossFxT.current = -99; firstScroll.current = true; lastScore.current = { blue: 0, red: 0 }; }   // clock rewound (replay) → re-fire events
         if (cur > lastTick.current) {
             for (const e of result.events) {
                 if (e.t <= lastTick.current || e.t > cur) continue;
@@ -3703,6 +3902,62 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                     triggerHitstop(90); triggerSlowmo(matchPoint ? 460 : 280, 0.38); triggerShake(1.4);
                 } else if (e.type === "pickup" && e.actorId) {
                     pushFeed(`📜 ${nameOf(e.actorId)} took the scroll`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
+                    const c = findArenaActor(snapAt, e.actorId);
+                    if (c) spawnBubble(c.x, c.y, "Got it — cover me!", e.team === "blue" ? "#60a5fa" : "#f87171");
+                } else if (e.type === "drop" && e.actorId) {
+                    // The scroll hits the dirt — a fumble is a swing moment, say so.
+                    const c = findArenaActor(snapAt, e.actorId);
+                    if (c) spawnFx({ x: c.x, z: c.y, key: "spark", scale: 1.6, dur: 300 });
+                    pushFeed(`📜 ${nameOf(e.actorId)} dropped the scroll!`, "#fde047");
+                } else if (e.type === "scrollspawn") {
+                    const sc = snapAt.scroll;
+                    spawnFx({ x: sc.x, z: sc.y, key: "power", scale: 2.6, dur: 560 });
+                    pushFeed("📜 The scroll has appeared — contest it!", "#fde047");
+                    if (firstScroll.current) { firstScroll.current = false; pushBanner("📜 THE SCROLL RISES", "#fde047"); }
+                } else if (e.type === "respawn" && e.actorId) {
+                    pushFeed(`↻ ${nameOf(e.actorId)} rejoins the fight`, "#94a3b8");
+                } else if (e.type === "bosshit") {
+                    // Pets DO hurt the Warden — land a visible chip per volley (throttled so a
+                    // 4-pet train doesn't strobe) instead of only the HP bar moving.
+                    if (e.t - lastBossFxT.current >= 5) {
+                        lastBossFxT.current = e.t;
+                        const b = snapAt.boss;
+                        spawnFx({ x: b.x, z: b.y, key: "spark", scale: 1.3, dur: 220 });
+                        triggerShake(0.15);
+                    }
+                } else if (e.type === "focuscall" && e.actorId) {
+                    // The squad's shot-caller announces the target; a teammate acknowledges.
+                    // ("If the AI didn't say it, it didn't happen.") The reticle commits it.
+                    setFocusMark(e.team, e.targetId);
+                    const caller = findArenaActor(snapAt, e.actorId);
+                    const tc = e.team === "blue" ? "#60a5fa" : "#f87171";
+                    if (caller) {
+                        spawnBubble(caller.x, caller.y, `Focus ${nameOf(e.targetId)}!`, tc);
+                        const ally = snapAt.actors.find((ac) => ac.team === e.team && ac.id !== e.actorId && ac.hp > 0 && ac.state !== "respawning" && ac.state !== "dead");
+                        if (ally) { const ax = ally.x, ay = ally.y; window.setTimeout(() => spawnBubble(ax, ay, "On it!", tc), 420); }
+                    }
+                } else if (e.type === "posture") {
+                    // A whole-team stance flip is broadcast-worthy: press = "go go go",
+                    // regroup = a visible, called fall-back (the most legible team move there is).
+                    const tc = e.team === "blue" ? "#60a5fa" : "#f87171";
+                    const lead = snapAt.actors.find((ac) => ac.team === e.team && ac.hp > 0 && ac.state !== "respawning" && ac.state !== "dead");
+                    if (e.posture === "press") {
+                        pushFeed(`⤴ ${e.team === "blue" ? "Blue" : "Red"} presses the attack`, tc);
+                        if (lead) spawnBubble(lead.x, lead.y, "Push forward!", tc);
+                    } else if (e.posture === "regroup") {
+                        pushFeed(`⤵ ${e.team === "blue" ? "Blue" : "Red"} falls back to regroup`, tc);
+                        if (lead) spawnBubble(lead.x, lead.y, "Fall back — regroup!", tc);
+                    }
+                } else if (e.type === "peelassign" && e.actorId) {
+                    // Peel chatter: the defender claims its threat so body-blocking reads as
+                    // protection, not wandering.
+                    const df = findArenaActor(snapAt, e.actorId);
+                    if (df) spawnBubble(df.x, df.y, `${nameOf(e.targetId)} is mine!`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                } else if (e.type === "collapse") {
+                    const a = findArenaActor(snapAt, e.targetId);
+                    const tc = e.team === "blue" ? "#60a5fa" : "#f87171";
+                    if (a) spawnFx({ x: a.x, z: a.y, key: "spark", scale: 1.8, dur: 320 });
+                    pushFeed(`🎯 ${e.team === "blue" ? "Blue" : "Red"} collapses on ${nameOf(e.targetId)}`, tc);
                 } else if (e.type === "shrinespawn") {
                     const sh = snapAt.shrine; const isHeal = sh.kind === "mend" || sh.kind === "favor"; const c = isHeal ? "#34d399" : "#fb923c";
                     spawnFx({ x: sh.x, z: sh.y, key: RELIC_FX[sh.kind] ?? "spark", scale: 2.2, dur: 540 });
@@ -3760,13 +4015,97 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                 } else if (e.type === "ringclose") {
                     pushFeed("◈ The arena is closing in!", "#a78bfa"); pushBanner("◈ CLOSING RING", "#a78bfa"); triggerShake(0.9);
                 } else if (e.type === "executewindow") {
-                    const a = findArenaActor(snapAt, e.targetId); if (a) spawnFx({ x: a.x, z: a.y, key: "spark", scale: 1.6, dur: 260 });   // "he's going down" flare on the focused target
+                    // "He's going down!" — flare the focused target + call the finish.
+                    const a = findArenaActor(snapAt, e.targetId);
+                    const tc = e.team === "blue" ? "#60a5fa" : "#f87171";
+                    if (a) {
+                        spawnFx({ x: a.x, z: a.y, key: "spark", scale: 1.6, dur: 260 });
+                        const ally = snapAt.actors.find((ac) => ac.team === e.team && ac.hp > 0 && ac.state !== "respawning" && ac.state !== "dead");
+                        if (ally) spawnBubble(ally.x, ally.y, "Finish it!", tc);
+                    }
                 }
             }
             const s = snaps[Math.min(maxT, cur)]; setScore(s.scoreBlue, s.scoreRed);
+            // MATCH POINT — announce the brink once per side (after the SCORES! banner clears).
+            if (s.scoreBlue !== lastScore.current.blue || s.scoreRed !== lastScore.current.red) {
+                const mpB = s.scoreBlue === result.winScore - 1 && lastScore.current.blue < result.winScore - 1 && s.scoreBlue > s.scoreRed;
+                const mpR = s.scoreRed === result.winScore - 1 && lastScore.current.red < result.winScore - 1 && s.scoreRed > s.scoreBlue;
+                lastScore.current = { blue: s.scoreBlue, red: s.scoreRed };
+                if (mpB || mpR) window.setTimeout(() => pushBanner(`MATCH POINT — ${mpB ? "BLUE" : "RED"}`, mpB ? "#93c5fd" : "#fca5a5"), 1700);
+            }
             lastTick.current = cur;
         }
         if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
+    });
+    return null;
+}
+
+/** A squad-dialogue speech chip ("Focus the Sage!" / "On it!") pinned where it was
+ *  said. Static position (pets drift slowly over its ~2s life); team-tinted. */
+function ArenaBubble({ pos, text, color }: { pos: Vec3; text: string; color: string }) {
+    return (
+        <Html position={pos} center pointerEvents="none" zIndexRange={[46, 0]}>
+            <div style={{ padding: "2px 8px", borderRadius: 8, background: "rgba(8,12,24,0.88)", border: `1px solid ${color}`, color: "#e2e8f0", font: "700 11px Inter, system-ui, sans-serif", whiteSpace: "nowrap", textShadow: "0 1px 2px #000", boxShadow: `0 0 8px ${color}44`, animation: "arenaBubble 2s ease-out forwards" }}>{text}</div>
+        </Html>
+    );
+}
+
+/** The squad's committed FOCUS TARGET — a team-colored bouncing chevron that tracks
+ *  the called enemy until the call moves or the target goes down. The single
+ *  clearest "they're working together" read a spectator gets. */
+function ArenaFocusMark({ result, clock, targetId, color }: { result: ArenaResult; clock: { current: DuelClock }; targetId: string; color: string }) {
+    const g = useRef<THREE.Group>(null);
+    const el = useRef<HTMLDivElement>(null);
+    useFrame((state) => {
+        const snaps = result.snapshots;
+        const s = snaps[Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)))];
+        const a = s ? findArenaActor(s, targetId) : undefined;
+        const live = !!a && a.hp > 0 && a.state !== "respawning" && a.state !== "dead";
+        if (el.current) el.current.style.display = live ? "block" : "none";
+        if (g.current && a && live) {
+            const p = arenaPlace(a.x, a.y);
+            const bounce = Math.abs(Math.sin(state.clock.elapsedTime * 4.2)) * 0.22;
+            g.current.position.set(p.wx, p.wy + (2.05 + bounce) * p.depth, 9.5);
+        }
+    });
+    return (
+        <group ref={g}>
+            <Html center pointerEvents="none" zIndexRange={[47, 0]}>
+                <div ref={el} style={{ textAlign: "center", color, filter: `drop-shadow(0 0 6px ${color})`, font: "900 16px Inter, system-ui, sans-serif", lineHeight: 1 }}>
+                    <div style={{ fontSize: 7, letterSpacing: "0.18em", fontWeight: 800 }}>FOCUS</div>▼
+                </div>
+            </Html>
+        </group>
+    );
+}
+
+/** Transparent live WIN-ODDS read (the Riot/AWS broadcast stat, heuristic edition):
+ *  captures + HP pools + life reserve + Overdrive + the live carry, squashed through
+ *  a logistic. Renderer-only, recomputed from the CURRENT snapshot each frame — it
+ *  swings honestly with the action rather than leaking the known result. */
+function arenaWinProb(s: ArenaSnapshot, winScore: number): number {
+    let bl = 0, rl = 0, bh = 0, bm = 0, rh = 0, rm = 0;
+    for (const a of s.actors) {
+        if (a.team === "blue") { bl += Math.max(0, a.lives); bh += Math.max(0, a.hp); bm += a.maxHp; }
+        else { rl += Math.max(0, a.lives); rh += Math.max(0, a.hp); rm += a.maxHp; }
+    }
+    let adv = (s.scoreBlue - s.scoreRed) * 1.5
+        + ((bh / Math.max(1, bm)) - (rh / Math.max(1, rm))) * 1.6
+        + (bl - rl) * 0.3
+        + (s.odBlue > 0 ? 0.4 : 0) - (s.odRed > 0 ? 0.4 : 0)
+        + ((s.momBlue - s.momRed) / 100) * 0.3;
+    if (s.scroll.state === "carried" && s.scroll.carrierId) adv += s.scroll.carrierId.startsWith("blue") ? 0.7 : -0.7;
+    if (s.scoreBlue === winScore - 1) adv += 0.5;
+    if (s.scoreRed === winScore - 1) adv -= 0.5;
+    return 1 / (1 + Math.exp(-adv * 0.75));
+}
+/** Ref-driven HUD updater for the win-odds tug bar (no re-render). */
+function ArenaWinProbHud({ result, clock, barRef }: { result: ArenaResult; clock: { current: DuelClock }; barRef: React.MutableRefObject<HTMLDivElement | null> }) {
+    useFrame(() => {
+        const snaps = result.snapshots;
+        const s = snaps[Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)))];
+        if (!s || !barRef.current) return;
+        barRef.current.style.width = `${(arenaWinProb(s, result.winScore) * 100).toFixed(1)}%`;
     });
     return null;
 }
@@ -3940,6 +4279,8 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
     const [floaters, setFloaters] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; big: boolean }>>([]);
     const [feed, setFeed] = useState<Array<{ id: number; text: string; color: string }>>([]);
     const [decals, setDecals] = useState<Array<{ id: number; pos: Vec3; w: number }>>([]);   // accumulating scorch marks where pets fell
+    const [bubbles, setBubbles] = useState<Array<{ id: number; pos: Vec3; text: string; color: string }>>([]);   // squad-dialogue speech chips
+    const [focusMark, setFocusMarkState] = useState<{ blue: string | null; red: string | null }>({ blue: null, red: null });   // per-team committed focus call
     const objTextRef = useRef<HTMLSpanElement | null>(null);   // objective line: scroll-spawn countdown / carrier return progress (ref-driven, no re-render)
     const objBarWrapRef = useRef<HTMLDivElement | null>(null);
     const objBarRef = useRef<HTMLDivElement | null>(null);
@@ -3947,6 +4288,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
     const momRedRef = useRef<HTMLDivElement | null>(null);
     const odBlueRef = useRef<HTMLSpanElement | null>(null);
     const odRedRef = useRef<HTMLSpanElement | null>(null);
+    const winBarRef = useRef<HTMLDivElement | null>(null);    // live win-odds tug bar (blue share; ref-driven)
     const nameById = useMemo(() => { const m = new Map<string, string>(); roster.forEach((r) => m.set(r.id, r.pet.name)); return m; }, [roster]);
     const nameOf = (id: string) => nameById.get(id) ?? id;
     const setScore = (b: number, r: number) => setScoreState((p) => (p[0] === b && p[1] === r ? p : [b, r]));
@@ -3989,6 +4331,15 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
         const p = arenaPlace(x, z); const id = seqRef.current++;
         setDecals((arr) => [...arr, { id, pos: [p.wx, p.wy - 0.12 * p.depth, 7] as Vec3, w: 1.7 * p.depth }].slice(-12));   // keep the last 12 — the arena testifies a real fight happened
     };
+    // Squad-dialogue speech chip pinned above the speaker's position (static — pets
+    // drift slowly over its ~2s life).
+    const spawnBubble = (x: number, z: number, text: string, color: string) => {
+        const p = arenaPlace(x, z); const id = seqRef.current++;
+        setBubbles((arr) => [...arr, { id, pos: [p.wx, p.wy + 1.7 * p.depth, 9.2] as Vec3, text, color }].slice(-5));
+        window.setTimeout(() => setBubbles((arr) => arr.filter((b) => b.id !== id)), 2050);
+    };
+    const setFocusMark = (team: "blue" | "red", targetId: string | null) =>
+        setFocusMarkState((p) => (p[team] === targetId ? p : { ...p, [team]: targetId }));
     const triggerHitstop = (ms: number) => { hitstop.current = Math.max(hitstop.current, ms); };
     const triggerShake = (amp: number) => { shake.current = Math.max(shake.current, amp); };
     const triggerSlowmo = (ms: number, factor: number) => { if (ms > slowmo.current.ms) slowmo.current = { ms, factor }; };
@@ -4001,7 +4352,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
         if (slowmo.current.ms > 0) { slowmo.current.ms -= delta * 1000; factor = slowmo.current.factor; }   // then ease through the moment in slow-mo (speed CONTRAST sells impact)
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * ARENA_TPS * factor);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = true; hitstop.current = 0; shake.current = 0; slowmo.current = { ms: 0, factor: 1 }; setEnded(false); setFlash(null); setBanner(null); setScoreState([0, 0]); setFxList([]); setShots([]); setFloaters([]); setFeed([]); setDecals([]); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = true; hitstop.current = 0; shake.current = 0; slowmo.current = { ms: 0, factor: 1 }; setEnded(false); setFlash(null); setBanner(null); setScoreState([0, 0]); setFxList([]); setShots([]); setFloaters([]); setFeed([]); setDecals([]); setBubbles([]); setFocusMarkState({ blue: null, red: null }); };
     // Pay out / report once the match actually concludes (result is sealed from the
     // seed, so this is just the natural moment to surface it). Replaying re-fires with
     // the same seed → the server dedups by reportKey, so no double-claim.
@@ -4011,7 +4362,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
 
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a" }}>
-            <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes arenaFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes arenaFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes arenaBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-58%) scale(1)}}`}</style>
+            <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes arenaFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes arenaFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes arenaBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-58%) scale(1)}}@keyframes arenaBubble{0%{opacity:0;transform:translateY(6px) scale(0.7)}12%{opacity:1;transform:translateY(0) scale(1.04)}22%{transform:none}78%{opacity:1}100%{opacity:0;transform:translateY(-8px)}}`}</style>
             {/* The STAGE — backdrop + canvas + Html overlays — is one layer the action camera scales/pans as a unit (everything stays pixel-locked). HUD lives outside it. */}
             <div ref={stageRef} style={{ position: "absolute", inset: 0, backgroundImage: `url(${DIORAMA_URL})`, backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat", transformOrigin: "0 0", willChange: "transform" }}>
                 <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
@@ -4031,8 +4382,12 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                     {fxList.map((fx) => (<FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />))}
                     {shots.map((sh) => (<ArenaShot key={sh.id} from={sh.from} to={sh.to} visual={sh.visual} dur={sh.dur} depth={sh.depth} arc={sh.arc} onDone={() => setShots((p) => p.filter((x) => x.id !== sh.id))} />))}
                     {floaters.map((f) => (<ArenaFloater key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
+                    {bubbles.map((b) => (<ArenaBubble key={b.id} pos={b.pos} text={b.text} color={b.color} />))}
+                    {focusMark.blue && <ArenaFocusMark key={`fm-b-${focusMark.blue}`} result={result} clock={clock} targetId={focusMark.blue} color="#60a5fa" />}
+                    {focusMark.red && <ArenaFocusMark key={`fm-r-${focusMark.red}`} result={result} clock={clock} targetId={focusMark.red} color="#f87171" />}
+                    <ArenaWinProbHud result={result} clock={clock} barRef={winBarRef} />
                     <ArenaCamera result={result} clock={clock} stageRef={stageRef} shake={shake} />
-                    <ArenaDirector result={result} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnFx={spawnFx} spawnShot={spawnShot} spawnFloater={spawnFloater} spawnDecal={spawnDecal} pushFeed={pushFeed} triggerHitstop={triggerHitstop} triggerShake={triggerShake} triggerSlowmo={triggerSlowmo} triggerFlash={triggerFlash} pushBanner={pushBanner} nameOf={nameOf} setScore={setScore} />
+                    <ArenaDirector result={result} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnFx={spawnFx} spawnShot={spawnShot} spawnFloater={spawnFloater} spawnDecal={spawnDecal} pushFeed={pushFeed} triggerHitstop={triggerHitstop} triggerShake={triggerShake} triggerSlowmo={triggerSlowmo} triggerFlash={triggerFlash} pushBanner={pushBanner} nameOf={nameOf} setScore={setScore} spawnBubble={spawnBubble} setFocusMark={setFocusMark} />
                     <BloomFx />
                 </Canvas>
             </div>
@@ -4048,7 +4403,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
             </div>
 
             {/* Scoreboard */}
-            <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "6px 18px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: arenaV2 ? 14 : 999, font: "800 20px Inter, system-ui, sans-serif" }}>
+            <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "6px 18px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: 14, font: "800 20px Inter, system-ui, sans-serif" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <span style={{ color: "#60a5fa" }}>BLUE {score[0]}</span>
                     <span style={{ color: "#64748b", fontSize: 12, fontWeight: 600 }}>📜 first to {result.winScore}</span>
@@ -4064,6 +4419,17 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                         <span ref={odRedRef} style={{ opacity: 0, color: "#fde047", font: "900 10px Inter, system-ui, sans-serif", transition: "opacity .15s", width: 12, textAlign: "center" }}>⚡</span>
                     </div>
                 )}
+                {/* Live WIN ODDS tug-of-war — a transparent heuristic over the current
+                    snapshot (captures/HP/lives/Overdrive/carry), the broadcast-proven
+                    "who's ahead" read for anyone glancing in. */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, width: 240 }}>
+                    <span style={{ color: "#60a5fa", font: "800 8px Inter, system-ui, sans-serif" }}>WIN</span>
+                    <div style={{ position: "relative", flex: 1, height: 5, background: "linear-gradient(90deg,#7f1d1d,#dc2626)", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
+                        <div ref={winBarRef} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "50%", background: "linear-gradient(90deg,#1d4ed8,#3b82f6)", transition: "width .25s ease-out" }} />
+                        <div style={{ position: "absolute", left: "50%", top: 0, width: 1, height: "100%", background: "rgba(255,255,255,0.55)" }} />
+                    </div>
+                    <span style={{ color: "#f87171", font: "800 8px Inter, system-ui, sans-serif" }}>ODDS</span>
+                </div>
             </div>
             {/* Captures-only scoring — make the win condition unmistakable (kills don't score). */}
             {/* Dynamic objective line — scroll-spawn countdown / carrier return-progress,
