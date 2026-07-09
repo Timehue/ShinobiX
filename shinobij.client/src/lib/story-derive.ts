@@ -25,6 +25,40 @@ type DeriveRule = { grant: string; when: (has: (trait: string) => boolean) => bo
 // the player completed the trial and watched the water climb.
 const AL88_LANES = ["al88-proved-the-winter", "al88-held-the-proof", "al88-baited-the-survey"];
 
+/**
+ * Every village's proof-trial (L88) state machine has the same SHAPE as Ashen
+ * Leaf's better-winter chain; only the trait names differ. This builds the
+ * AL-identical rule set from a village's naming: ready = the proof works AND
+ * the number is counted AND a lane was recorded AND the provenance was either
+ * carried by the player or handed to the companion (humility still qualifies);
+ * carried/deferred split the finale; unfinished = saved the object but never
+ * earned the handoff; witness-present = the elder walked the L92 road on the
+ * open/civic lanes.
+ */
+function proofChainRules(v: {
+    works: string; number: string; lanes: string[];
+    ready: string; deferred: string;
+    composite: string; carried: string; deferredComposite: string;
+    any: string; unfinished: string; savedObject: string;
+    witnessPresent: string; witnessLanes: string[];
+}): DeriveRule[] {
+    return [
+        { grant: v.works, when: (has) => has(v.number) },
+        {
+            grant: v.composite,
+            when: (has) => has(v.works) && has(v.number) && v.lanes.some(has) && (has(v.ready) || has(v.deferred)),
+        },
+        { grant: v.carried, when: (has) => has(v.composite) && has(v.ready) },
+        { grant: v.deferredComposite, when: (has) => has(v.composite) && has(v.deferred) },
+        { grant: v.any, when: (has) => has(v.ready) || has(v.deferred) },
+        {
+            grant: v.unfinished,
+            when: (has) => has(v.savedObject) && v.lanes.some(has) && !has(v.ready) && !has(v.deferred),
+        },
+        { grant: v.witnessPresent, when: (has) => v.witnessLanes.some(has) },
+    ];
+}
+
 const RULES: DeriveRule[] = [
     // ── Ashen Leaf: the better-winter proof chain (owner brief 2026-07-09) ──
     // The full-size screw climbed. Set explicitly at L88 "The Water Climbs";
@@ -65,6 +99,37 @@ const RULES: DeriveRule[] = [
     // Mori walked the road with his signed charts (L92 civic / trusting lanes),
     // so he can step forward to answer for his own records at the finale.
     { grant: "al92-mori-present", when: (has) => has("al92-carried-their-trust") || has("al92-took-the-count") },
+
+    // ── Stormveil: the quiet-storm proof chain (Kesa Volt's ridge anchor line) ──
+    ...proofChainRules({
+        works: "sv88-line-held", number: "sv88-one-district",
+        lanes: ["sv88-woke-the-district", "sv88-logged-the-storm", "sv88-baited-the-board"],
+        ready: "sv88-reason-proof-ready", deferred: "sv88-reason-proof-deferred",
+        composite: "sv88-better-storm-ready", carried: "sv88-better-storm-carried",
+        deferredComposite: "sv88-better-storm-deferred", any: "sv88-reason-proof-any",
+        unfinished: "sv88-unfinished-answer", savedObject: "sv65-saved-the-reason",
+        witnessPresent: "sv92-witness-present", witnessLanes: ["sv92-open-road", "sv92-signed-muster"],
+    }),
+    // ── Frostfang: the chosen-count proof chain (Dren Coldewe's long lanterns) ──
+    ...proofChainRules({
+        works: "ff88-relay-held", number: "ff88-nineteen-minutes",
+        lanes: ["ff88-woke-the-rows", "ff88-logged-the-drill", "ff88-baited-the-wardens"],
+        ready: "ff88-exit-proof-ready", deferred: "ff88-exit-proof-deferred",
+        composite: "ff88-better-count-ready", carried: "ff88-better-count-carried",
+        deferredComposite: "ff88-better-count-deferred", any: "ff88-exit-proof-any",
+        unfinished: "ff88-unfinished-answer", savedObject: "ff65-saved-the-letter",
+        witnessPresent: "ff92-witness-present", witnessLanes: ["ff92-called-the-camp", "ff92-took-her-terms"],
+    }),
+    // ── Moonshadow: the witnessed-return proof chain (the Returning) ──
+    ...proofChainRules({
+        works: "ms88-returns-held", number: "ms88-eleven-files",
+        lanes: ["ms88-open-returns", "ms88-sealed-receipts", "ms88-baited-the-market"],
+        ready: "ms88-trust-proof-ready", deferred: "ms88-trust-proof-deferred",
+        composite: "ms88-better-truth-ready", carried: "ms88-better-truth-carried",
+        deferredComposite: "ms88-better-truth-deferred", any: "ms88-trust-proof-any",
+        unfinished: "ms88-unfinished-answer", savedObject: "ms65-saved-the-file",
+        witnessPresent: "ms92-witness-present", witnessLanes: ["ms92-vowed-open-ledgers", "ms92-vowed-a-keeper"],
+    }),
 ];
 
 /**
@@ -94,12 +159,17 @@ export function deriveStoryTraits(traits: readonly string[]): string[] {
  * al-rewrite integrator treat these as earnable so requireTrait gates on them
  * validate. Keep in sync with RULES above.
  */
-export const DERIVED_TRAIT_LEVELS: Record<string, number> = {
-    "al88-water-proven": 88,
-    "al88-better-winter-ready": 88,
-    "al88-better-winter-carried": 88,
-    "al88-better-winter-deferred": 88,
-    "al88-reed-proof-any": 88,
-    "al88-unfinished-answer": 88,
-    "al92-mori-present": 92,
-};
+export const DERIVED_TRAIT_LEVELS: Record<string, number> = Object.fromEntries([
+    ...["al88-water-proven", "al88-better-winter-ready", "al88-better-winter-carried",
+        "al88-better-winter-deferred", "al88-reed-proof-any", "al88-unfinished-answer"].map((t) => [t, 88]),
+    ["al92-mori-present", 92],
+    ...["sv88-line-held", "sv88-better-storm-ready", "sv88-better-storm-carried",
+        "sv88-better-storm-deferred", "sv88-reason-proof-any", "sv88-unfinished-answer"].map((t) => [t, 88]),
+    ["sv92-witness-present", 92],
+    ...["ff88-relay-held", "ff88-better-count-ready", "ff88-better-count-carried",
+        "ff88-better-count-deferred", "ff88-exit-proof-any", "ff88-unfinished-answer"].map((t) => [t, 88]),
+    ["ff92-witness-present", 92],
+    ...["ms88-returns-held", "ms88-better-truth-ready", "ms88-better-truth-carried",
+        "ms88-better-truth-deferred", "ms88-trust-proof-any", "ms88-unfinished-answer"].map((t) => [t, 88]),
+    ["ms92-witness-present", 92],
+]);
