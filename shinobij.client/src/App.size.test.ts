@@ -135,7 +135,12 @@ import { readFileSync } from "node:fs";
 // components/{BattleLogHistoryPanel,BattleActionBlock}.tsx, NOT here.
 // -> 8,398 (drained PetArenaBattlefield, HollowGateShrineView, default VN data,
 // village-leadership data, toast stacks, and stale migration breadcrumbs out of App.tsx).
-const MAX_LINES = 8_500;
+// -> 8,432 (story-rebuild foundation: drained storyToCreatorEvent + the story
+// auto-trigger selection/image-overlay logic → lib/story-trigger (net −43 vs the
+// pre-change count); the interlude wiring itself is +5: the completion report
+// call, the interlude guard on the milestone storyProgress advance, and the lib
+// import. Interlude DATA lives in data/story-interludes.ts, never here.)
+const MAX_LINES = 8_450;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

@@ -67,9 +67,13 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const pageChoices = page.choices?.filter((c) => !!c.text && isChoiceAvailable(c, playerTraits));
     const isAtChoicePoint = lineIndex >= pageDialogue.length - 1 && !!pageChoices?.length;
     const [showFinale, setShowFinale] = useState(false);
-    const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number } | null>(null);
+    const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number; battle?: VnChoice["battle"] } | null>(null);
     const isAuraSphereEvent = event.id === AURA_SPHERE_VN_ID;
     const isStoryChapterEvent = event.id.startsWith("story-");
+    // Story interludes ("story-interlude-*"): VN-only road scenes — no boss, no
+    // XP/ryo. The choice itself is the payoff (recorded server-side), so the
+    // free-battle affordances are hidden and the finale copy changes.
+    const isStoryInterlude = event.id.startsWith("story-interlude-");
     // The Wandering Sage's Legacy offer (lib/legacy-sage-vn.ts): no battle, no
     // reward — completing hands off to the offer sheet, so the finale must
     // never route into the generic "Enter Battle" dead-end.
@@ -80,15 +84,27 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         // Record the trait this choice grants (additive, deduped) before doing
         // anything else, so it persists even when the choice leads to a battle.
         onChoice?.(choice);
-        if (choice.battle) {
-            onBattle(event, choice.battle);
-            return;
-        }
         const target = Math.max(0, Math.min(pages.length - 1, choice.nextPage));
-        if (choice.conclusion?.trim()) { setPendingChoice({ conclusion: choice.conclusion.trim(), nextPage: target }); }
-        else { setPageIndex(target); setLineIndex(0); }
+        // Conclusions render for battle choices too (they used to be dead there):
+        // show the aftermath beat, then launch the battle from Continue.
+        if (choice.conclusion?.trim()) { setPendingChoice({ conclusion: choice.conclusion.trim(), nextPage: target, battle: choice.battle }); return; }
+        if (choice.battle) { onBattle(event, choice.battle); return; }
+        advanceAfterChoice(target);
     }
-    function confirmPendingChoice() { if (!pendingChoice) return; setPageIndex(pendingChoice.nextPage); setLineIndex(0); setPendingChoice(null); }
+    // A non-battle choice pointing at its own page has no forward content — the
+    // scene concludes there (interludes end this way) instead of re-looping the
+    // choice list forever.
+    function advanceAfterChoice(target: number) {
+        if (target === pageIndex) { setShowFinale(true); return; }
+        setPageIndex(target); setLineIndex(0);
+    }
+    function confirmPendingChoice() {
+        if (!pendingChoice) return;
+        const { nextPage, battle } = pendingChoice;
+        setPendingChoice(null);
+        if (battle) { onBattle(event, battle); return; }
+        advanceAfterChoice(nextPage);
+    }
     if (showFinale) return (
         <div className="card cinematic-card vn-finale-panel">
             <div className="vn-finale-header">
@@ -101,9 +117,11 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
                         : isSageEvent
                             ? "The Sage falls silent, watching you. The paths he named still hang in the air — and only one of them can ever be yours."
-                            : isStoryChapterEvent
-                                ? <>The scene fades. Your village story continues — face the chapter boss when you are ready.</>
-                                : <>The scene fades — a shinobi challenger steps from the shadows of <strong>{biomeLabel(event.biome)}</strong>. The fight is not over.</>}
+                            : isStoryInterlude
+                                ? <>The road moves on. What you chose here is written down somewhere that matters.</>
+                                : isStoryChapterEvent
+                                    ? <>The scene fades. Your village story continues — face the chapter boss when you are ready.</>
+                                    : <>The scene fades — a shinobi challenger steps from the shadows of <strong>{biomeLabel(event.biome)}</strong>. The fight is not over.</>}
                 </p>
             </div>
             <div className="menu">
@@ -121,7 +139,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     </>
                 ) : (
                     <button onClick={onComplete}>
-                        {isAuraSphereEvent ? "Claim Aura Sphere" : isSageEvent ? "Hear the Sage's Offer" : "Continue to Story Hall"}
+                        {isAuraSphereEvent ? "Claim Aura Sphere" : isSageEvent ? "Hear the Sage's Offer" : isStoryInterlude ? "Continue" : "Continue to Story Hall"}
                     </button>
                 )}
             </div>
@@ -131,9 +149,11 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         ? "Reward: Aura Sphere item"
                         : isSageEvent
                             ? "One Legacy, forever. Turning him down is always free."
-                            : isStoryChapterEvent
-                                ? "Defeat the chapter boss in Story Hall to earn XP and ryo."
-                                : `Reward: ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
+                            : isStoryInterlude
+                                ? "Your choice is recorded. The story remembers."
+                                : isStoryChapterEvent
+                                    ? "Defeat the chapter boss in Story Hall to earn XP and ryo."
+                                    : `Reward: ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
                 </span>
             </div>
         </div>
