@@ -58,8 +58,10 @@ Quest copy should never name the wound. Show it in what the player is offered.
 
 ### The spokes
 
-- **Kite Harrow — the main rival** (owner answer 4; name editable, see §11).
-  A "paper shinobi": licensed by Central, sworn to no village, hired by all four.
+- **Kite Harrow — the main rival** (owner answer 4; name approved 2026-07-08).
+  An **unsworn** shinobi: licensed out of Central, bound to no village, hired by
+  all four. ("Unsworn" is the in-world term; "paper shinobi" is banned from all
+  copy by owner decision.)
   Arrived the same season as the player, wants the same thing — to belong — and
   pursues it the opposite way: the player earns, Harrow transacts. Harrow keeps
   getting promoted faster, because every village's reward system pays for exactly
@@ -196,7 +198,7 @@ story beats per village total.
 
 ### Interlude skeleton (shared shape, localized content)
 
-- **L20 — "The Paper Shinobi."** Kite Harrow arrives, outperforms someone the
+- **L20 — "The Unsworn."** Kite Harrow arrives, outperforms someone the
   player likes, and collects payment without joy. Choice: how you treat the
   outsider — respect / measure / dismiss. Seeds the rival thread.
 - **L30 — Companion scene.** Mira / Toma / Yura / Nyx off duty, one personal fact
@@ -251,7 +253,7 @@ stands. Interlude rows are new content.
 |---|---|---|---|
 | 4 | First Thunder | milestone | Keep. Add one rumor-stage oddity: the losing scout can't remember why he was angry. |
 | 15 | The Riot Bell | milestone | Keep. The planted orders now carry a draw-tally mark the player will re-see at 42. |
-| 20 | The Paper Shinobi | interlude | Harrow wins a ledger duel for pay, refuses the crowd's toast. |
+| 20 | The Unsworn | interlude | Harrow wins a ledger duel for pay, refuses the crowd's toast. |
 | 25 | Orders Written in Lightning | milestone | Keep. |
 | 30 | Mira, Off the Ledger | interlude | Mira's one honest hour: why she keeps two exit plans. Relationship seed. |
 | 35 | The Storm Engine | milestone | Keep — this IS the valve; recast copy so the Engine reads as infrastructure, not superweapon. |
@@ -279,7 +281,7 @@ pays with Mira — trust is no longer available from anyone, only fear.
 |---|---|---|---|
 | 4 | Roots of the Shinobi | milestone | Keep. Rumor: a mourner at the register can't picture her son's face. |
 | 15 | The Forbidden Seed | milestone | Keep. |
-| 20 | The Paper Shinobi | interlude | Harrow appraises the register out loud: "Efficient. Most archives only eat paper." |
+| 20 | The Unsworn | interlude | Harrow appraises the register out loud: "Efficient. Most archives only eat paper." |
 | 25 | Names Removed from Scrolls | milestone | Keep — already the arc's spine. |
 | 30 | Toma's Relic | interlude | Toma shows the player the family relic that shouldn't exist; asks them to hold it. Relationship seed. |
 | 35 | The First Flame Chamber | milestone | Keep. The Flame is recast: not evil — trained to accept stolen offerings (shipped intent, keep). |
@@ -307,7 +309,7 @@ which names matter — paid for with Toma's hope.
 |---|---|---|---|
 | 4 | The Pack Survives | milestone | Keep. Rumor: a rescued drill partner thanks the player with a stranger's flatness. |
 | 15 | The Missing Patrol | milestone | Keep. |
-| 20 | The Paper Shinobi | interlude | Harrow works unmarked, is paid double for it, and everyone pretends not to notice. |
+| 20 | The Unsworn | interlude | Harrow works unmarked, is paid double for it, and everyone pretends not to notice. |
 | 25 | The Loyalty Seal | milestone | Keep — the valve's retail interface. |
 | 30 | Yura, Off Duty | interlude | Yura recites the roll call from the winter she was left behind — the year she volunteered for the mark. Relationship seed. |
 | 35 | The Pale Pack | milestone | Keep (the unsealed). |
@@ -335,7 +337,7 @@ difference between staying and being kept.
 |---|---|---|---|
 | 4 | No One Saves You | milestone | Keep. Rumor: the trial's decoy target thanks the player, then denies the trial happened. |
 | 15 | The Sold Secret | milestone | Keep. |
-| 20 | The Paper Shinobi | interlude | Harrow buys a secret about the player, then tells the player what they paid. An introduction and a threat, delivered as a courtesy. |
+| 20 | The Unsworn | interlude | Harrow buys a secret about the player, then tells the player what they paid. An introduction and a threat, delivered as a courtesy. |
 | 25 | Masks Beneath Masks | milestone | Keep. |
 | 30 | Nyx, One True Thing | interlude | Nyx trades the player one verified truth about themselves — at cost — to teach how the economy works. Relationship seed. |
 | 35 | The Hollow Moon Contract | milestone | Keep. |
@@ -497,7 +499,9 @@ trigger wiring in `lib/` — App.tsx is at its ratchet ceiling). Interludes are
 level-gated triggered VN events with ids like `story-interlude-<village>-<level>`,
 completing through the existing battle-free `completeTriggeredEvent` path. They
 never touch `storyProgress`. The milestone array is append-only save data;
-interludes must not be inserted into it.
+interludes must not be inserted into it. Interludes pay story only — traits,
+standings, relationship shifts, at most a title or cosmetic; never XP, ryo,
+items, or power (owner decision 4).
 
 **Choice memory.** Every interlude/milestone choice grants a *unique* trait,
 schema `<vil><level>-<slug>` (e.g. `sv58-took-the-cut`, `ml70-read-the-file`).
@@ -523,12 +527,26 @@ The mandate interlude (92) decides which supporter cameo page plays.
 client saves. Bumped from a story-settle endpoint, referenced by path Legacies via
 `r(...)`.
 
-**Server-authoritative finale.** Story XP/ryo is currently client-paid; at minimum
-the finale must move to the sealed-token pattern (the shipped questbook engine —
-staged, sealed choices, timers, title grants — is the closest skeleton). Finale
-settle: validates the win, bumps counters, grants the title via `serverTitles` +
+**Server-authoritative story engine.** (Owner decision 3: full, not finale-only —
+future-proofed and seamless.) Story progression state moves server-side: a sealed
+`story:<player>` record — questbook-style staged state — owns chapter
+eligibility, interlude completion, choice lanes, relationship states, and finale
+settlement. `character.storyProgress`, `storyTraits`, and relationship traits
+become display mirrors the server never trusts. A chapter or interlude start
+mints a sealed single-use token (level and prerequisites verified server-side);
+completion validates against it, records the choice made, and bumps the path
+counters. The finale settle additionally grants the title via `serverTitles` +
 `api/_titles-registry.ts` (the current client-side `kageLiberatorTitles` write
-migrates here), fires the world reaction, records the Hall entry.
+migrates here), fires the herald, and writes the Hall entry.
+`api/village/kage.ts` reads the server story record (or its mirrored save field)
+for seat eligibility. Existing tester saves seed the record once on first
+contact — migration risk is low with the pre-launch wipe pending. Every new
+endpoint registers in `server.ts` (route-parity test enforces both directions).
+
+**Story Hall.** (Owner decision 6.) The Hall becomes the full arc replay:
+milestone chapters plus completed interludes, in level order, each showing the
+choice the player actually made (read from the server story record). Read-only —
+no re-choosing. This replaces the current flat 9-chapter dialogue list.
 
 **Kage-system consequences (safe set).** Keep the unlock gate
 (`level ≥ 100 && storyProgress ≥ 9`). Add per-lane grants: Liberator — herald
@@ -538,63 +556,95 @@ liberator title, `firstLiberator`-style permanent marker. Warden — arbiter tit
 wanderer reaction set. **Never write `seatedKage`** — the seat is a live,
 contested, player-held object won through the challenge system.
 
-**Wandering story events.** The twelve-event pool from the rebuild request is
-kept (Border Smoke → Seat of Scars), recast onto the Court lore: edited memories
-are cession echoes; the triple footprints are intent echoes; "Four Seals, One
-Gate" reveals the grid; "Emergency Powers" is a valve decree; "The Last Road"
-casts the mandate. Delivery uses the proven emissary template: weight-0 wanderer
-archetypes + per-player spawn synth + a server endpoint owning eligibility and
-rewards (sealed-KV, like `wanderer-quest`/`questbook`). Rewards follow the
-request's philosophy: flags, reactions, titles, Legacy hints — not power.
+**Wandering story events.** All twelve events from the rebuild request ship
+(owner decision 7), staggered through levels 20–95 by narrative fit, plus three
+new connective events. Functions kept, levels reassigned:
+
+| Lv | Event | Function |
+|---|---|---|
+| 22 | Border Smoke | false flag between villages; first cession echo (edited memory) |
+| 26 | The Second Teacher | a foreign doctrine, then a test of whether it holds under raid |
+| 31 | Three Footprints, One Body | intent echo — the Gate copies desperation, not bodies |
+| 34 | What the Withheld Kept *(new)* | first Withheld contact: a sealed cache that opens only for a refusal |
+| 38 | The Shrine That Both Sides Own | two villages, one shrine, trapped pilgrims, a relic choice |
+| 44 | A Legacy Without a Name | reconstruct one act from three conflicting accounts |
+| 48 | The Unsworn's Ledger *(new)* | Harrow met mid-job for a rival village — the rival thread on the road |
+| 52 | Hostages at Black Bridge | a prisoner exchange collapses; diplomacy under fire |
+| 56 | The Rival Who Keeps Losing | another village's challenger with a sealed cause |
+| 62 | The Alliance Drill | Hollow sabotage turns a joint exercise live |
+| 66 | The Fifth Anchor *(new)* | a false rumor of a fifth anchor under Central leads into what the Hollow Gate dungeon actually is |
+| 74 | Four Seals, One Gate | the grid reveal — all four villages, one lattice |
+| 82 | Emergency Powers | a valve decree; Kage-system foreshadow |
+| 94 | The Last Road Before the Seat | the mandate mirror: one who trusts, one who fears, one who wants to use you |
+| 100+ | Seat of Scars | governance fallout after the finale — not a new fight |
+
+More connective events may be added wherever arcs need tissue (owner license).
+All are recast onto the Court lore. Delivery uses the proven emissary template:
+weight-0 wanderer archetypes + per-player spawn synth + a server endpoint owning
+eligibility and rewards (sealed-KV, like `wanderer-quest`/`questbook`). Rewards
+follow the philosophy: flags, reactions, titles, Legacy hints — not power.
 
 **World reactions.** `announce()` importance tiers map to story weight: interlude
 aftermaths are silent or low; finales are high (village herald) with mythic
 reserved for first-ever liberations. Path-flavored wanderer greeting variants key
 off `questStandings`-style flags, which already drive delayed flavor reactions.
 
-**Art.** Portrait convention `/portraits/<slug>.webp` (22 shipped portraits are
-kept by keeping the cast). New required art: Kite Harrow portrait; optional: four
-Kage finale forms (published as `ai:<aiProfileId>` shared images — the mechanism
-ships), interlude scene art under `/scenes/<eventId>.png` (missing files fall back
-to biome gradients, which is acceptable). Renaming any story NPC also touches
-`src/data/village-leadership.ts` (same names, separate render path). Do not
-commit generation keys; store optimized WebP only.
+**Art.** (Owner decision 8: professional-studio bar; no obligation to reuse
+existing assets.) Full art pass in the established in-game anime/shinobi style,
+generated through the shipped pipeline (`gen-asset.mjs` → gpt-image-1 → sharp →
+WebP) or fal:
+
+- New or regenerated portraits for the whole cast — the four Kages, elders,
+  companions, Kite Harrow, minor speakers — replacing any of the 22 shipped
+  portraits that fall short of the new bar. Convention `/portraits/<slug>.webp`
+  stands.
+- Four Kage finale forms, published as `ai:<aiProfileId>` shared images (the
+  mechanism ships today, so this art can land without code changes).
+- Scene/key art for every interlude and milestone (`/scenes/<eventId>.png`) and
+  finale key art per village.
+- Path-Legacy badges and title emblems (`/badges/legacy-<slug>.webp`).
+- One Harrow concept round for owner sign-off before batch generation.
+
+Rules: generation keys stay untracked (main checkout `shinobij.client/.env`) and
+are never committed; only optimized finals are stored; when the client dist is
+rebuilt, commit only the intended files (PNG recompression churn is a known
+trap). Renaming any story NPC also touches `src/data/village-leadership.ts`
+(same names, separate render path). Every replaced original is deleted in the
+same change (§12).
 
 **Writing process for all copy.** The three passes from the request stand:
 outline → voice filter → cleanup, with Appendix B as the voice filter's checklist.
 
 ---
 
-## 11. Unresolved questions
+## 11. Decisions (owner, 2026-07-08)
 
-Flagged, not invented:
+The unresolved questions were answered by the owner; recorded here as binding:
 
-1. **Cross-village endgame at launch.** `storyVillage` is written once at
-   creation; a player can never run another village's arc today, so "after all
-   four Kage finales" can't happen. Recommendation: compute the post-game
-   identity from the home-arc ending + wandering-event path weights at launch,
-   and ship "foreign campaigns" (post-100 access to other arcs) as an expansion.
-   Owner call.
-2. **Kite Harrow's design.** Name, gender, look need sign-off before portrait
-   generation. ("Ryn" was rejected — a Legacy emissary named Storm Caller Ryn
-   already ships.)
-3. **Server-settle scope for launch.** Full sealed story-chapter engine
-   (questbook-style) vs finale-only validation. Recommendation: finale-only
-   first; interludes are trait-and-flavor and can stay client-side initially.
-4. **Interlude rewards.** Recommendation: none beyond traits/flavor (matches the
-   request's reward philosophy). Confirm.
-5. **The dead-`conclusion` engine bug.** Conclusions on battle choices never
-   render. Fix the engine (small) or author around it. Recommendation: fix — the
-   finale wants pre-battle beat text.
-6. **Story Hall replay.** StoryHall renders the flat 9-step dialogue only;
-   interludes and choices won't appear in replays. Accept, or add an interlude
-   section to the Hall. Recommendation: accept for launch.
-7. **Wandering event pool size at launch.** Twelve designed; recommendation:
-   ship 7 (Border Smoke, Second Teacher, Three Footprints, Four Seals, Emergency
-   Powers, The Last Road, Seat of Scars) and stagger the rest.
-8. **Stranded admin art overrides.** Any `shared:img` keys pinned to story event
-   ids (`event:story-*`, `vn:story-*`, `ai:story-ai-*`) strand if ids change.
-   Interludes use new ids (safe); keep milestone ids stable and nothing strands.
+1. **Rival.** Name Kite Harrow approved; gender and look are designer's choice
+   (one concept round before batch art). The term "paper shinobi" is banned from
+   all copy — the in-world term is **the unsworn**. ("Ryn" had been rejected
+   earlier — Storm Caller Ryn already ships.)
+2. **Cross-village endgame: village-specific at launch.** Post-game identity is
+   computed from the home arc's ending plus wandering-event path weights.
+   Foreign campaigns stay a future expansion.
+3. **Server authority: FULL.** The whole story engine — milestones, interludes,
+   choice lanes, finale — is server-authoritative from day one, for
+   future-proofing and a seamless experience (§10).
+4. **Interlude rewards: story only.** Traits, standings, relationship states,
+   occasionally a title or cosmetic. Never XP, ryo, items, or power.
+5. **Dead-`conclusion` bug: fix the engine.** Pre-battle beat text becomes
+   available everywhere.
+6. **Story Hall: extend it.** Completed interludes and the choices made replay
+   in the Hall alongside chapters (§10).
+7. **Wandering events: all twelve ship**, staggered through 20–95 by narrative
+   fit, plus three new connective events (§10 table); more may be added wherever
+   arcs need tissue.
+8. **Art: full professional pass.** New generation is the default; reuse only
+   what clears the bar. Milestone event ids stay stable so admin `shared:img`
+   overrides don't strand; replaced repo assets are deleted per §12.
+
+Nothing remains open that blocks implementation.
 
 ---
 
@@ -605,8 +655,9 @@ If scope tightens, cut in this order — each cut is self-sealing:
 1. Interludes L30 and L80 (companion seed folds into L70; Harrow's shortcut folds
    into the 92 mandate). Five interludes per village still satisfy "more VN
    between 20–95."
-2. Wandering event pool 7 → 4 (keep Border Smoke, Four Seals, The Last Road,
-   Seat of Scars — the lore spine).
+2. Stagger the wandering-event waves: the lore spine ships first (Border Smoke,
+   Four Seals, The Last Road, Seat of Scars) and the rest follow in updates —
+   the full fifteen-event pool stays committed, only its schedule slips.
 3. Finale variant hub → three static trait-gated Kage lines, no supporter cameo
    pages.
 4. Relationship trait trios → a single trust/fear trait per companion.
@@ -618,11 +669,14 @@ If scope tightens, cut in this order — each cut is self-sealing:
 
 Never cut: the rival thread (L20 + one later beat minimum), the elder's cut at
 L58, the per-village sacrifice, the three-lane finale with server-settled
-consequences, and the herald/Hall/title grants — those five are the story.
+consequences, the herald/Hall/title grants, and the server-authoritative story
+engine — that last one is the foundation, not a feature.
 
 **Cleanup obligations when the rebuild ships** (per the original request §18):
-the cast survives, so the 22 shipped portraits are all reused — expected orphan
-set is empty unless an NPC is renamed. Required checks: no broken
+the cast survives, but the art pass (owner decision 8) will replace files —
+every replaced portrait, scene, and badge is deleted in the same change, and the
+implementation notes ship a manifest of removed / reused / added assets.
+Required checks: no broken
 `/portraits/<slug>.webp` resolutions for every speaker string in the new data; no
 references to removed trait names; `analyzeVnFlow` passes on all new VN graphs
 (with the known false-positive caveat on trait-gated hubs); route-parity test
@@ -650,6 +704,13 @@ removed/reused/added assets in the implementation notes.
 Plus: research how to make the story read as human-written and avoid AI
 signatures (Appendix B); make the story longer, with more VN triggers between
 levels 20 and 95 (§5).
+
+Decision round (same day, recorded in §11): rival name approved, gender/look
+designer's choice, "paper shinobi" banned in favor of "the unsworn"; endgame
+village-specific at launch; FULL server-authoritative story engine; interludes
+pay story only; fix the conclusion bug; extend the Story Hall; all twelve
+wandering events staggered through 20–95 plus new connective events as needed;
+full professional art pass with no obligation to reuse existing assets.
 
 ## Appendix B — Voice guide: writing copy that reads human
 
