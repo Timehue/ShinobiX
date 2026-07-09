@@ -280,7 +280,7 @@ export function Logbook({
                     <p><strong>Combat.</strong> Spend AP on Basic Attack and Jutsu. When AP runs low, press Wait to end the turn and recover.</p>
                     <p><strong>Growth.</strong> Training raises stats over time. Jutsu grow from Training Hall levels and battle use.</p>
                     <p><strong>Missions.</strong> Finish the task, return to Mission Hall, then claim the reward.</p>
-                    <p><strong>Story.</strong> Once the Academy path is complete, visit Story Hall to begin your village story.</p>
+                    <p><strong>Story.</strong> Once the Academy path is complete, your village story finds you on its own. Revisit past chapters and choices any time in the Story Hall.</p>
                 </div>
             </details>
             {examMissions.length > 0 && (

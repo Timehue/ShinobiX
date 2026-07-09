@@ -7,13 +7,9 @@ import { withKvLock } from '../_lock.js';
 import { KAGE_LIBERATOR_TITLES } from '../_titles-registry.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { announce, postVillageHerald, addHallEntry } from '../_announce.js';
+import { applyKageUnlock, type KageUnlockState } from './_kage-unlock.js';
 
-type VillageKageState = {
-    kageSystemUnlocked: boolean;
-    seatedKage?: string;
-    firstLiberator?: string;
-    unlockedAt?: number;
-};
+type VillageKageState = KageUnlockState;
 
 function kageKey(village: string) {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
@@ -142,21 +138,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const current = await kv.get<VillageKageState>(key) ?? { kageSystemUnlocked: false };
 
                 if (action === 'unlock') {
-                    if (current.kageSystemUnlocked) {
-                        // Already unlocked — return current without changing the seated kage
-                        return { status: 200, body: current };
-                    }
                     // The requirement gate ran before the lock (liberatorVerified);
-                    // admins skip it. Once-per-village state change happens here.
-                    const next: VillageKageState = {
-                        kageSystemUnlocked: true,
-                        seatedKage: playerName,
-                        firstLiberator: playerName,
-                        unlockedAt: Date.now(),
-                    };
-                    await kv.set(key, next);
-                    freshUnlock = true;
-                    return { status: 200, body: next };
+                    // admins skip it. First clear seats + brands firstLiberator,
+                    // exactly once; later clears change nothing here (test-locked
+                    // in _kage-unlock.test.ts).
+                    const outcome = applyKageUnlock(current, playerName, Date.now());
+                    if (outcome.freshUnlock) await kv.set(key, outcome.next);
+                    freshUnlock = outcome.freshUnlock;
+                    return { status: 200, body: outcome.next };
                 }
 
                 if (action === 'reset') {
