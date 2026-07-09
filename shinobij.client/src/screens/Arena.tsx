@@ -5,7 +5,7 @@ import "../styles/battle-skin.css";
 import {
     GiCrossedSwords, GiTrophy, GiLadder, GiEyeball, GiBoxingGlove, GiPawPrint,
     GiColiseum, GiLaurelsTrophy, GiSkullCrossedBones, GiFirstAidKit, GiScrollUnfurled,
-    GiVillage, GiNextButton,
+    GiVillage, GiNextButton, GiRollingDices,
 } from "react-icons/gi";
 // Inline style for a glyph that prefixes button/heading text — seats it on the baseline.
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -24,6 +24,7 @@ import { SparCoach } from "../components/SparCoach";
 import { BattleActionBlock } from "../components/BattleActionBlock";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { BountyBoardPanel } from "../components/BountyBoardPanel";
 import { BattleTabBar } from "../components/BattleTabBar";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { interpolateFlavor } from "../lib/battle-log-format";
@@ -1409,7 +1410,7 @@ export function Arena({
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: stringifyPvpSessionPayload({ useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", baseRewards: true, rewardSector: currentSector, ...pvpSessionEnvironment(challenge.mode === "ranked", currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement), p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
+                body: stringifyPvpSessionPayload({ useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", baseRewards: !(!challenge.mode || (challenge.mode === "standard" && !challenge.clanWarPoints && !challenge.sectorAttack)), rewardSector: currentSector, ...pvpSessionEnvironment(challenge.mode === "ranked", currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement), p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
             });
             if (!res.ok) throw new Error('Session create failed');
             // Mirrors acceptChallengeGlobal (App.tsx ~6763): read the session
@@ -5088,15 +5089,18 @@ export function Arena({
         const matchRemaining = arenaTournament ? Math.max(0, arenaTournament.matchDeadline - Date.now()) : 0;
         const isAdminTournamentManager = isAdminAccountName(character.name);
         if (lobbyMode === "battleArena") {
+            const incomingSpars = incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack);
+            const incomingPetSpars = incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints);
             return (
                 <div className="card arena-lobby">
                     <BackToVillageButton onClick={() => setScreen("village")} />
-                    <h2>Battle Arena</h2>
-                    <p>Train against AI fighters or send casual spar requests to other players.</p>
+                    <h2><GiCrossedSwords style={ARENA_ICON} />Battle Arena</h2>
+                    <p>Your hub for casual sparring — combat, pets, and cards — plus the bounty board.</p>
 
+                    {/* ── Combat Spar: vs AI ─────────────────────────────── */}
                     <section className="summary-box">
-                        <h3>Fight AI</h3>
-                        <p className="hint">Pick an AI level and start a practice battle. This stays separate from ranked, clan war, and tournament play.</p>
+                        <h3><GiCrossedSwords style={ARENA_ICON} />Combat Spar — Fight AI</h3>
+                        <p className="hint">Pick an AI level (1–{MAX_LEVEL}) and start a practice battle. This stays separate from ranked, clan war, and tournament play.</p>
                         <label>AI Level</label>
                         <input
                             type="number"
@@ -5108,23 +5112,75 @@ export function Arena({
                         <button onClick={beginAiBattle}>Start AI Battle</button>
                     </section>
 
+                    {/* ── Combat Spar: challenge a player ────────────────── */}
                     <section className="summary-box">
-                        <h3><GiPawPrint style={ARENA_ICON} />Incoming Pet Challenges</h3>
-                        {incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).length === 0
-                            ? <p className="hint">No incoming pet challenges.</p>
-                            : incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).map((challenge) => (
-                                <div className="summary-box" key={challenge.id}>
-                                    <strong>{challenge.fromName}</strong> wants a pet battle!
-                                    <div className="menu">
+                        <h3><GiBoxingGlove style={ARENA_ICON} />Combat Spar — Challenge a Player</h3>
+                        <label>Search Player Name</label>
+                        <input value={sparSearch} onChange={(e) => setSparSearch(e.target.value)} placeholder="Type a player name to challenge..." />
+                        {sparSearch.trim() && (
+                            <div className="jutsu-list">
+                                {sparOpponents.length === 0 ? (
+                                    <>
+                                        <p className="hint">No roster match. Send a challenge directly.</p>
                                         <button onClick={() => {
-                                            setScreen("petArena");
-                                        }}><GiColiseum style={ARENA_ICON} />Go to Pet Coliseum</button>
-                                        <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
+                                            const name = sparSearch.trim();
+                                            if (!name || name === character.name) return;
+                                            const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                            challengePlayer(stub);
+                                        }}>Send Spar Challenge to "{sparSearch.trim()}"</button>
+                                    </>
+                                ) : sparOpponents.map((player) => (
+                                    <div className="summary-box" key={`spar-${player.name}`}>
+                                        <strong>{player.name}</strong>
+                                        <p>Level {player.level} | {player.village} | {player.specialty}</p>
+                                        <div className="menu">
+                                            <button onClick={() => challengePlayer(player)}>Send Spar Challenge</button>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
+                        )}
                     </section>
 
+                    <section className="summary-box">
+                        <h3>Incoming Spar Requests</h3>
+                        {incomingSpars.length === 0 ? <p className="hint">No incoming spar requests.</p> : incomingSpars.map((challenge) => (
+                            <div className="summary-box" key={challenge.id}>
+                                <strong>{challenge.fromName}</strong>
+                                <p>Casual spar request to {challenge.toName}</p>
+                                <div className="menu">
+                                    <button onClick={() => acceptChallenge(challenge)}>Accept Spar</button>
+                                    <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
+                                </div>
+                            </div>
+                        ))}
+                    </section>
+
+                    {/* ── Pet Spar ───────────────────────────────────────── */}
+                    <section className="summary-box">
+                        <h3><GiPawPrint style={ARENA_ICON} />Pet Spar</h3>
+                        <p className="hint">Head to the Casual Pet Coliseum for a friendly pet duel against AI or a challenged player — no ladder rating on the line.</p>
+                        <button onClick={() => setScreen("petArena")}><GiColiseum style={ARENA_ICON} />Open Casual Pet Coliseum</button>
+                        {incomingPetSpars.map((challenge) => (
+                            <div className="summary-box" key={challenge.id}>
+                                <strong>{challenge.fromName}</strong> wants a pet battle!
+                                <div className="menu">
+                                    <button onClick={() => setScreen("petArena")}><GiColiseum style={ARENA_ICON} />Go to Pet Coliseum</button>
+                                    <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
+                                </div>
+                            </div>
+                        ))}
+                    </section>
+
+                    {/* ── Card Battle Spar ───────────────────────────────── */}
+                    <section className="summary-box">
+                        <h3><GiRollingDices style={ARENA_ICON} />Card Battle Spar</h3>
+                        <p className="hint">Play Shinobi Card Clash casually — against the AI or a live free-play opponent — over at the Card Hall.</p>
+                        <button onClick={() => setScreen("shinobiTiles")}><GiRollingDices style={ARENA_ICON} />Open Card Hall</button>
+                    </section>
+
+                    {/* ── Bounty Board (housed here for now) ──────────────── */}
+                    <BountyBoardPanel character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} />
                 </div>
             );
         }
