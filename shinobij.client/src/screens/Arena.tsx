@@ -46,7 +46,7 @@ import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
 import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
-import { resolveCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
+import { resolveCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import { cappedPostDamage, gainJutsuXpForRank, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter, v2ResourceRegen, v2PoisonOnSpend, v2JutsuResourceCost, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence, weeklyBossGuardedHit, weeklyBossDamageMultiplier, isWeeklyBossOpenRound } from "../lib/pve-difficulty";
@@ -400,7 +400,11 @@ export function Arena({
     };
 
     const spawnCombatVfx = (events: Array<{ focusPos: number; spec: CombatVfxSpec }>) => {
-        const next = events.flatMap((event): ArenaCombatVfx[] => {
+        // Collapse plates that would land on the same spot (e.g. a weapon delivery
+        // plus its tag effect on the same enemy) so one action never doubles up
+        // into an oversized, blurry plate. Different tiles/fighters stay distinct.
+        const unique = dedupeCombatVfx(events, (event) => combatVfxAnchorKey(event.spec, event.focusPos));
+        const next = unique.flatMap((event): ArenaCombatVfx[] => {
             if (event.focusPos < 0) return [];
             const candidateTiles = event.spec.tiles?.length ? event.spec.tiles : [event.focusPos];
             flashCombatTiles(candidateTiles);
