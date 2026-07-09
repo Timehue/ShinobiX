@@ -438,6 +438,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By morning the whole village knows what opened in the night. The tank is empty. Four hundred years of surrendered trust went home before dawn: every confession, every traded name, every held piece of everyone, delivered to its owner like the world's overdue post.",
                         "Some of it burns. A broker's marriage. Two old feuds, rearmed. The village chose to own its own fires, and some of them are real fires.",
                         "And down the canal, at a booth with a lead-plugged drain, the returns queue is already forming, because the give-back house taught this village the trick of surviving its own truth: witnesses, tea, and nobody rushed.",
+                        "Far below the tower's foundations, the deeper pipe that fed the quartered circle for four hundred years pulls once at the empty tank, finds nothing left to hold, and goes still.",
                     ],
                 },
                 {
@@ -464,6 +465,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By morning the whole village knows what opened in the night. The tank is empty, and four hundred years of held truth is loose in the streets, all at once, with no give-back house rehearsed and no queue trained to wait its turn.",
                         "It is a hard season. Three brokers flee. A wedding detonates. The watch works triple bells keeping read truths from becoming settled scores.",
                         "But every fire is the village's own, burning in the open, owned. And slowly, street by street, people learn what the dye-hand learned: most held things are smaller than their storage fees.",
+                        "Far below, the deeper pipe pulls once at the empty tank, finds nothing left to hold, and goes cold. The quartered circle's four-hundred-year draw on Moonshadow is over.",
                     ],
                 },
                 {
@@ -492,6 +494,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "Nine parts in ten go home by dawn, with the give-back house's method scaled to a village: witnesses at every doorstep delivery, tea in public squares, the shrine witness's readings pacing the hardest returns.",
                         "The last tenth, the truths that kill on contact, sit sealed under a new covenant, held by a keeper the whole market may audit, at noon, in the open, on demand.",
                         "The first audit happened before the ink dried. The keeper passed. The second audit is already scheduled. The keeper scheduled it personally, which is the entire difference.",
+                        "Far below the foundations, the deeper pipe opens once against the new covenant, finds nothing it is any longer allowed to take, and shuts.",
                     ],
                 },
                 {
@@ -518,6 +521,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "Nine parts in ten go home, raw and unrehearsed, and the market survives it the hard way, fire by fire.",
                         "The last tenth sits sealed under your covenant: audited, consented, lawful. It is better than the tank. Everyone agrees it is better, in the tone of a market absorbing a new tax.",
                         "Because a keeper is still a keeper. The audits pass, season after season, and every season the line to audit grows shorter, and trust in the keeper grows quieter, and somewhere in that quiet, a new kind of holding is learning to be comfortable.",
+                        "Below the foundations, the deeper pipe opens once against the new law, finds nothing lawful left to draw, and shuts.",
                     ],
                 },
                 {
