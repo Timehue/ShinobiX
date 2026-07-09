@@ -53,11 +53,24 @@ export const ACHIEVEMENT_TITLES: readonly string[] = [
     'War Veteran',          // secret-war-vet-50
 ];
 
+/** Village-story liberator titles (keyed by lowercased village name) —
+ *  granted server-side by api/village/kage.ts on a VERIFIED finale unlock
+ *  (level >= 100 && storyProgress >= 9, checked against the real save) and
+ *  stored in the serverTitles vault. Mirrors the client display map
+ *  kageLiberatorTitles in shinobij.client/src/data/storylines.ts. */
+export const KAGE_LIBERATOR_TITLES: Readonly<Record<string, string>> = {
+    'stormveil village': 'Stormbreaker',
+    'ashen leaf village': 'Root Liberator',
+    'frostfang village': 'Oathbreaker',
+    'moonshadow village': 'Moon Unmasked',
+};
+
 /** Every title the game can grant, lowercased for comparisons. */
 export const KNOWN_EARNED_TITLES: ReadonlySet<string> = new Set([
     ...ACHIEVEMENT_TITLES,
     ...ALL_LEGACY_TITLES,
     ...ERA_DEFS.flatMap((e) => (e.trigger ? [e.trigger.title] : [])),
+    ...Object.values(KAGE_LIBERATOR_TITLES),
 ].map((t) => t.toLowerCase()));
 
 /**
@@ -101,11 +114,17 @@ export function isKnownEarnedTitle(text: string): boolean {
     return KNOWN_EARNED_TITLES.has(normalizeTitleKey(text));
 }
 
+/** Liberator titles, lowercased — like era titles they live in the
+ *  server-owned serverTitles vault and demand the strict ownership source. */
+const LIBERATOR_TITLE_SET: ReadonlySet<string> = new Set(
+    Object.values(KAGE_LIBERATOR_TITLES).map((t) => t.toLowerCase()),
+);
+
 /** Server-credited titles that require the strict (server-owned) ownership
  *  source rather than client-writable earnedTitles. */
 export function isServerCreditedTitle(text: string): boolean {
     const key = normalizeTitleKey(text);
-    return LEGACY_ONLY_TITLES.has(key) || ERA_TRIGGER_TITLES.has(key);
+    return LEGACY_ONLY_TITLES.has(key) || ERA_TRIGGER_TITLES.has(key) || LIBERATOR_TITLE_SET.has(key);
 }
 
 export function isLegacyOnlyTitle(text: string): boolean {
