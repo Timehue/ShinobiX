@@ -55,6 +55,25 @@ test("better-winter-ready and unfinished-answer are mutually exclusive", () => {
     }
 });
 
+test("carried vs deferred composites split cleanly for the L100 finale", () => {
+    const carried = ["al88-ninety-mouths", "al88-held-the-proof", "al88-reed-proof-ready"];
+    assert.equal(has(carried, "al88-better-winter-carried"), true);
+    assert.equal(has(carried, "al88-better-winter-deferred"), false);
+    const deferred = ["al88-ninety-mouths", "al88-proved-the-winter", "al88-reed-proof-deferred"];
+    assert.equal(has(deferred, "al88-better-winter-deferred"), true);
+    assert.equal(has(deferred, "al88-better-winter-carried"), false);
+    // Both still count as "reed proof exists in some form" for the reckoning.
+    assert.equal(has(carried, "al88-reed-proof-any"), true);
+    assert.equal(has(deferred, "al88-reed-proof-any"), true);
+    assert.equal(has(["al88-ninety-mouths", "al88-held-the-proof"], "al88-reed-proof-any"), false);
+});
+
+test("Mori steps forward only on the civic / trusting L92 lanes", () => {
+    assert.equal(has(["al92-carried-their-trust"], "al92-mori-present"), true);
+    assert.equal(has(["al92-took-the-count"], "al92-mori-present"), true);
+    assert.equal(has(["al92-wore-their-fear"], "al92-mori-present"), false);
+});
+
 test("derivation is idempotent", () => {
     const once = deriveStoryTraits(["al88-ninety-mouths", "al88-proved-the-winter", "al88-reed-proof-ready"]);
     const twice = deriveStoryTraits(once);
@@ -62,7 +81,8 @@ test("derivation is idempotent", () => {
 });
 
 test("every derived trait is registered with an earnable level", () => {
-    for (const trait of ["al88-water-proven", "al88-better-winter-ready", "al88-unfinished-answer"]) {
+    for (const trait of ["al88-water-proven", "al88-better-winter-ready", "al88-better-winter-carried", "al88-better-winter-deferred", "al88-reed-proof-any", "al88-unfinished-answer"]) {
         assert.equal(DERIVED_TRAIT_LEVELS[trait], 88, trait);
     }
+    assert.equal(DERIVED_TRAIT_LEVELS["al92-mori-present"], 92);
 });

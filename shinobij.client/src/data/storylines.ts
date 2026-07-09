@@ -1168,7 +1168,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "And the honest thing, the thing I need one person to hear me say out loud: part of me thinks I've earned it. That is how the fire wins, in the end. It agrees with you.",
                 "So. You, the one line my wall could never read. Ask your questions. Then we settle it, you and I and the fire."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Face her across the anvil.", nextPage: 17 }
+                { text: "Face her across the anvil.", nextPage: 18 }
             ] },
             { ...storyPage("The Better Winter", "The anvil, water dripping from your sleeve", "Kage Hoshina Enju", [
                 "What is that. Show me. Slowly.",
@@ -1186,7 +1186,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Thirty years, I asked every angry person who stood in front of me to bring me a better winter. You are the first one who walked in carrying it.",
                 "So now we find out what I actually am, because I am out of arithmetic."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 17 }
+                { text: "Enough. The tree chooses now.", nextPage: 18 }
             ] },
             { ...storyPage("The Measured Pages", "Mori's book open on the anvil", "Kage Hoshina Enju", [
                 "Give me the book. Sit down while I try to break it.",
@@ -1194,7 +1194,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "He signed every page. The one record that old man ever kept that argues back, and he put his name under it for me to see.",
                 "So now we find out what I actually am, because I am out of arithmetic."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 17 }
+                { text: "Enough. The tree chooses now.", nextPage: 18 }
             ] },
             { ...storyPage("Her Own Eyes", "A survey report unfolded between you", "Kage Hoshina Enju", [
                 "I read that report three times and refused to understand it. East fields wet in a dry week. Cause unrecorded. My own survey, my own ink, laid on my own desk.",
@@ -1202,86 +1202,96 @@ export const storylines: Record<string, StoryStep[]> = {
                 "You are the first angry person who was cruel enough to answer the question the way I would have.",
                 "So now we find out what I actually am, because I am out of arithmetic."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 17 }
+                { text: "Enough. The tree chooses now.", nextPage: 18 }
             ] },
             { ...storyPage("The Water Answers", "The model turning in a channel of firelight", "Kage Hoshina Enju", [
                 "One cracked vane. He never got to fix it. I know this little machine better than you do; I tested the full design myself once, alone, at night, in this room. It worked then too.",
                 "And now it works upstairs, in my village, in the cold, without one future burned.",
                 "Thirty years, I asked every angry person who stood in front of me to bring me a better winter. You are the first one who walked in carrying it.",
-                "So now we find out what I actually am, because I am out of arithmetic."
+                "So now we find out what I actually am. The machine I burned is turning in my own channel, and I have no argument left."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 17 }
+                { text: "Enough. The tree chooses now.", nextPage: 18 }
             ] },
-            { ...storyPage("This Part Is Ours", "The chamber, Toma stepping to the anvil", "Toma Reed", [
-                "No. Step back, %name. This part is ours to say.",
-                "That's Aren's model. Cracked vane and all. You cut him quiet, Kage, and you countersigned it yourself. But look at it. His machine still climbs.",
-                "Mother. Tell her the rest."
+            { ...storyPage("This Part Is Ours", "The kiln stair door opening behind you; Toma and Sera come down into the firelight", "Toma Reed", [
+                "You carried the door, %name. We'll carry him from here. Step back.",
+                "That's Aren's model. Cracked vane and all. You cut him quiet, Kage, and you signed the cut yourself. Look at it. His machine still climbs.",
+                "I had a whole speech for this. I lost it on the stairs. Mother, you say it. You always had the better hands for the hard parts."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "Let Sera speak.", nextPage: 10 }
             ] },
             { ...storyPage("Handwriting", "The chamber, Sera laying the letter flat on the anvil", "Sera Reed", [
-                "My son wrote this letter. I know that now. I know the threes he never closed. I know the way he pressed too hard on the page when he was angry, and he was angry so often, and I called it peace because peace was easier to bury.",
-                "He was not a bench. He was not a quiet, dutiful boy. You took the loud half of my son and fed it to a fire, and I thanked you for the calm every winter for twenty years.",
-                "Ninety mouths, the record says. From his channel. Without one future burned. That is my son's arithmetic. I came to read it to you in his hand."
+                "My son wrote this. I know that now. I know the threes he never closed. I know how he pressed too hard on the page when he was angry, and he was angry so much of the time.",
+                "I spent twenty years grateful he was quiet. I washed his shirts and thanked the roots for a peaceful boy. You did that to me. You made a mother grateful for the hole where her son used to argue.",
+                "Ninety mouths. That is what his channel feeds. I came all this way to say the number to your face, in his own hand.",
+                "And my son was not a bench."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "The Kage looks at the letter.", nextPage: 11 }
             ] },
             { ...storyPage("A Mother's Proof", "The Rootfire dimming, Hoshina very still", "Kage Hoshina Enju", [
                 "You let them carry it. You stood back and let a mother and a shelf-mender put me in the ground with their own hands, and you only held the door.",
-                "Thirty years I asked angry people for arithmetic. I did not expect a mother to bring me handwriting. I never built a defense against handwriting.",
-                "So now we find out what I actually am, because I am out of arithmetic."
+                "Thirty years I asked angry people for a better winter. I did not expect a mother to bring me handwriting. I never built a defense against handwriting.",
+                "So now we find out what I actually am. I have run clean out of the one thing I was ever sure of."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 17 }
+                { text: "Enough. The tree chooses now.", nextPage: 18 }
             ] },
             { ...storyPage("Water Without a Name", "The channel numbers chalked on a slate", "Kage Hoshina Enju", [
                 "Ninety mouths. Yes. The number is real. I can see the east field is wet from my own tower window; I have been staring at it all week.",
-                "But whose future is this, child? Who paid for it? Who gets to stand in front of me and say, that was mine, and you took it from me?",
-                "Arithmetic without testimony is only another kind of filing, and I am the finest filer this village ever produced. You will have to do better than a wet field to move me.",
-                "You have brought me water. You have not yet brought me the person I stole it from."
+                "But whose future is this, child? Who paid for it? Who gets to stand in front of me and say: that was mine, and you took it?",
+                "Numbers without names are only another kind of filing, and filing is the one thing I have never been afraid of.",
+                "You have brought me water. You have not brought me the person I stole it from."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "She sets the slate down.", nextPage: 17 }
+                { text: "She sets the slate down.", nextPage: 18 }
             ] },
             { ...storyPage("The Unfinished Answer", "Aren's model in her scarred hands", "Kage Hoshina Enju", [
                 "Aren Reed's model. Yes. I know the shape. I countersigned the cut that made it an orphan.",
                 "It climbed in a basin once, in front of me. It climbed in my private tests too. That was never the question, child.",
-                "A model is not a winter. A toy is not a terrace. A saved object is not the same as saved work.",
-                "You kept the seed of an answer. You did not grow it where the village could eat from it. That is not nothing. It is simply not enough to stop my hand."
+                "A model is not a winter. I can admire it. I can mourn it. I cannot feed a village on it.",
+                "You kept the seed of an answer. You did not grow it somewhere the village could eat. That is not nothing. It is only not enough to stop my hand."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "She sets the model down gently.", nextPage: 17 }
+                { text: "She sets the model down gently.", nextPage: 18 }
+            ] },
+            { ...storyPage("Mori Reads the Pattern", "Mori opening the bloom charts on the anvil beside the shears; Hoshina says his name once, quietly", "Elder Mori", [
+                "No, child. Step back. This page is mine.",
+                "Forty years of flowers. Forty years of surveys. Forty years of telling myself a pattern isn't a sentence as long as nobody reads it out loud.",
+                "My hand. My count. My cowardice, if we are being accurate, and I am a record keeper, so we will be accurate.",
+                "The flowers were never a blessing. We carried bread to houses the fire had already marked, and I filed the paper that called it luck. I am done filing endings."
+            ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
+                { text: "He sets the charts beside the shears.", nextPage: 18 }
             ] },
             { ...storyPage("Answer for Mori's charts. You've known the pattern for years.", "The reckoning", "Kage Hoshina Enju", [
                 "So Mori finally taught someone to read the blooms. Good. Then you've stood where I stand. You've looked at a flower on a fence and known exactly what it was going to cost that family.",
                 "Tell me you never once looked at a bloom and thought: better if it wilts early, before the survey sees it. Say it, and I'll call you a liar to your face.",
                 "That thought is my entire life. One flower, one house, one winter, every day, for thirty years. You carried the knowledge for one season and look what it did to you."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 17 }
+                { text: "Enough. The tree chooses now.", nextPage: 18 }
             ] },
             { ...storyPage("Answer for my page. You kept my cut in your wonder room.", "The reckoning", "Kage Hoshina Enju", [
                 "Yes. Your stub is in my room of taken things. The oldest cut I have ever handled, and the only one that isn't mine, and I couldn't burn it and I couldn't repair it, so I kept it. That is what keepers do. We keep.",
                 "You stood at my wall and demanded yourself back. Nobody does that. The pruned never know to ask. You knew, and you asked, and I have not slept properly since.",
                 "When you hold the shears, and I believe now that you will, go find whoever cut you. And when they explain themselves with arithmetic, the way I have tonight, remember me a little kindly."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 17 }
+                { text: "Enough. The tree chooses now.", nextPage: 18 }
             ] },
             { ...storyPage("Answer for Aren Reed. His future gets finished.", "The reckoning", "Kage Hoshina Enju", [
                 "Aren Reed. The water-screw. The complaint written in a shaking hand. You promised his brother it gets finished. I know, because I countersigned Aren's cut myself. Mine was the approving stamp.",
                 "Here is the part I have never told a living person. I tested his screw. Alone, at night, in this room. It worked. It would have watered the east terraces and fed ninety more mouths.",
                 "And his complaint would have emptied my kiln within five years, so I chose the kiln. That is the cut I mourn at every frost-fall. Tell his brother that, afterward. Tell him his Kage tested the screw, and it worked, and she burned him anyway. He deserves to hate me accurately."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
-                { text: "Enough. The tree chooses now.", nextPage: 17 }
+                { text: "Enough. The tree chooses now.", nextPage: 18 }
             ] },
             { ...storyPage("The Shears on the Anvil", "The Rootfire at full roar, Hoshina alight", "Kage Hoshina Enju", [
                 "Enough talk, then. Look at me. Thirty years of being the answer to winter, and this is what's left, and I would do every year of it again. That is exactly why it has to be taken from me.",
                 "The shears, the fire, and a wall of futures upstairs. Somebody decides tonight what this village runs on. The fire has already cast its vote.",
                 "Show me, black flower. Show me what grows where nothing was permitted to."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", leftName: "Player", rightName: "Kage Hoshina Enju", rightImage: "/portraits/kage-hoshina-enju-hollow.webp", choices: [
-                { text: "Show her the better winter.", nextPage: 4, requireTrait: "al88-better-winter-ready", forbidTrait: "al88-reed-proof-deferred" },
-                { text: "Let the Reeds show her the better winter.", nextPage: 9, requireTrait: "al88-reed-proof-deferred" },
-                { text: "Show her Aren's model.", nextPage: 13, requireTrait: "al88-unfinished-answer" },
+                { text: "Show her the better winter.", nextPage: 4, requireTrait: "al88-better-winter-carried" },
+                { text: "Let the Reeds show her the better winter.", nextPage: 9, requireTrait: "al88-better-winter-deferred" },
+                { text: "Let Mori answer for his charts.", nextPage: 14, requireTrait: "al92-mori-present" },
+                { text: "Show her Aren's model.", nextPage: 13, requireTrait: "al88-unfinished-answer", forbidTrait: "al88-better-winter-ready" },
                 { text: "Show her the east channel numbers.", nextPage: 12, requireTrait: "al88-water-proven", forbidTrait: "al65-saved-the-screw" },
-                { text: "Answer for Mori's charts. You've known the pattern for years.", nextPage: 14, requireTrait: "al58-took-the-knowledge" },
-                { text: "Answer for my page. You kept my cut in your wonder room.", nextPage: 15, requireTrait: "al70-claimed-the-name" },
-                { text: "Answer for Aren Reed. His future gets finished.", nextPage: 16, requireTrait: "toma-hope" }
+                { text: "Answer for Mori's charts. You've known the pattern for years.", nextPage: 15, requireTrait: "al58-took-the-knowledge" },
+                { text: "Answer for my page. You kept my cut in your wonder room.", nextPage: 16, requireTrait: "al70-claimed-the-name" },
+                { text: "Answer for Aren Reed. His future gets finished.", nextPage: 17, requireTrait: "al88-reed-proof-any" }
             ] },
         ], [
             { text: "Break the shears on the anvil. Give every future back.", conclusion: "The shears part with a sound like a held breath ending. Upstairs, forty strides of cedar cry out at once as every stolen self comes home mid-life. The walls groan, because the ash in them was load-bearing. The winter will be honest now, and hard, and hers. Hoshina attacks you weeping with relief.", trait: "honorable" },
