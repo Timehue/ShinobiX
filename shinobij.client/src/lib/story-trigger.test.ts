@@ -5,16 +5,30 @@ import { nextStoryTrigger, interludeToCreatorEvent } from "./story-trigger";
 import { storyInterludesByVillage } from "../data/story-interludes";
 
 // Minimal character stub — nextStoryTrigger only reads these fields.
-function char(level: number, storyProgress: number, village = "Stormveil Village"): Character {
+function char(level: number, storyProgress: number, village = "Stormveil Village", storyTraits: string[] = []): Character {
     return {
         name: "Tester",
         village,
         storyVillage: village,
         level,
         storyProgress,
-        storyTraits: [],
+        storyTraits,
     } as unknown as Character;
 }
+
+test("interlude completion semantics: owned choice trait blocks re-fire; session dismissal is honored", () => {
+    // Refresh-after-choosing: the trait alone (triggeredEvents lost the id)
+    // must block a re-offer, or the player could double-pick a lane.
+    const chosen = nextStoryTrigger(char(20, 2, "Stormveil Village", ["sv20-asked-the-price"]), []);
+    assert.notEqual(chosen?.eventId, "story-interlude-stormveil-village-20");
+    // Skipped this session: the dismissed list suppresses the immediate
+    // re-offer without consuming the beat.
+    const dismissed = nextStoryTrigger(char(20, 2), [], ["story-interlude-stormveil-village-20"]);
+    assert.notEqual(dismissed?.eventId, "story-interlude-stormveil-village-20");
+    // Fresh session (no trait, nothing dismissed): the beat is offered again.
+    const fresh = nextStoryTrigger(char(20, 2), []);
+    assert.equal(fresh?.eventId, "story-interlude-stormveil-village-20");
+});
 
 test("fresh character gets the level-4 milestone, not an interlude", () => {
     const next = nextStoryTrigger(char(4, 0), []);

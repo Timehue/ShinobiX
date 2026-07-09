@@ -201,7 +201,9 @@ export function StoryBoss({ character, updateCharacter, setScreen }: { character
             return nextCharacter;
         });
         if (storyStep.kageFinale) {
-            unlockVillageKageSystem(character.village, character.name);
+            // Unlock the STORY village (a village-switcher keeps their original
+            // arc; the seat they liberated is the arc's, not their new home's).
+            unlockVillageKageSystem(character.storyVillage || character.village, character.name);
         }
         setLog(`${storyStep.bossName} defeated. +${effectiveCharacterXpGain(character, storyStep.rewardXp)} XP, +${storyStep.rewardRyo} ryo, +12 Aura Dust. Story advanced.`);
     }

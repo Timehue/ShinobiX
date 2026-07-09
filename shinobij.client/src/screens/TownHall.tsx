@@ -35,7 +35,7 @@ import {
 import { postPlayerChallengeNotice, postVillageTreasuryDonation } from "../lib/player-api";
 import { MERCENARY_TIERS, hiredTiersForWar } from "../lib/mercenaries";
 import { mercPortrait } from "../lib/merc-ai";
-import { activeVillageWarsFor, extendHollowGateUnlock, hollowGateDaysLeft, HOLLOW_GATE_UNLOCK_DAYS, isHollowGateUnlocked, isVillageAnbu, loadVillageState, normalizeVillageState, saveVillageState, villageOwnedTerritories, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageAgendaTask, type VillageState, type VillageTreasury, type VillageTreasuryCurrencyKey } from "../lib/world-state";
+import { activeVillageWarsFor, extendHollowGateUnlock, hollowGateDaysLeft, HOLLOW_GATE_UNLOCK_DAYS, isHollowGateUnlocked, isVillageAnbu, loadVillageState, normalizeVillageState, saveVillageState, unlockVillageKageSystem, villageOwnedTerritories, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageAgendaTask, type VillageState, type VillageTreasury, type VillageTreasuryCurrencyKey } from "../lib/world-state";
 
 // Server-authoritative Kage succession (mirrors api/village/_kage-challenge.ts —
 // keep these in sync). The full rules + obligation math live server-side; the
@@ -178,11 +178,22 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
     // one-shot fetch; the seat still mirrors into `state` for the displays.
     useEffect(() => {
         let alive = true;
+        let retriedUnlock = false;
         const fetchKage = () => fetch(`/api/village/kage?village=${encodeURIComponent(character.village)}`)
             .then(r => r.ok ? r.json() : null)
             .then((serverState: ServerKageState | null) => {
                 if (!alive || !serverState) return;
                 setServerKage(serverState);
+                // Self-heal for the finale unlock race: a legitimate liberator whose
+                // unlock POST lost to the save flush (or a 409 refetch) re-asserts it
+                // here, once per visit. The server re-verifies the SAVED character
+                // and the liberator grant is idempotent, so this is always safe.
+                if (!serverState.kageSystemUnlocked && !retriedUnlock
+                    && character.level >= 100 && (character.storyProgress ?? 0) >= 9
+                    && (character.storyVillage || character.village) === character.village) {
+                    retriedUnlock = true;
+                    unlockVillageKageSystem(character.village, character.name);
+                }
                 if (serverState.kageSystemUnlocked) {
                     setState(prev => normalizeVillageState(character.village, {
                         ...prev,
@@ -196,7 +207,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         fetchKage();
         const stop = visiblePoll(fetchKage, 12_000);
         return () => { alive = false; stop(); };
-    }, [character.village]);
+    }, [character.village, character.name, character.level, character.storyProgress, character.storyVillage]);
     // Challenger drives the overlap "accept obligation" clock: while their
     // challenge is pending, press the server every ~25s. The server only burns
     // the Kage's obligation when BOTH are verifiably online, so an offline Kage

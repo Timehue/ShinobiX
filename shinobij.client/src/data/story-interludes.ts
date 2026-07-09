@@ -241,8 +241,8 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "Watch the mourners, if you must watch something. The fire is only the paperwork."),
             pg("The Count", "The emptying yard, ash settling", "Toma Reed",
                 "Did you feel that? When the plate went. Sorry — feel is the wrong word. Count it with me.",
-                "One: the heat bent toward the trough, not up. Fires go up. Two: the mother stopped crying between one breath and the next. Not slowed. Stopped.",
-                "Three: the ash pan is light. I helped carry one once. It should take two people.",
+                "One. The heat bent toward the trough, not up. Fires go up. Two: the mother stopped crying between one breath and the next. Not slowed. Stopped.",
+                "Three. The ash pan is light. I helped carry one once. It should take two people.",
                 "Where did the weight go?"),
         ], [
             ch("Take what you counted to the registry clerks.", "good", "al42-filed-a-report", "The duty clerk writes down all three observations in a fair hand and stamps the page. A week later the entry is marked resolved, unsigned."),

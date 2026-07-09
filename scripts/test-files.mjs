@@ -235,4 +235,5 @@ export const TEST_FILES = [
     "api/_story-road-events.test.ts",
     "shinobij.client/src/lib/story-trigger.test.ts",
     "shinobij.client/src/lib/story-road-events.test.ts",
+    "shinobij.client/src/data/story-content.test.ts",
 ];
