@@ -19,6 +19,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { storylines } from "../shinobij.client/src/data/storylines.ts";
 import { storyInterludesByVillage } from "../shinobij.client/src/data/story-interludes.ts";
+import { storyEpiloguesByVillage } from "../shinobij.client/src/data/story-epilogues.ts";
 import { storyRoadEvents } from "../shinobij.client/src/data/story-road-events.ts";
 import { splitDialogueLine } from "../shinobij.client/src/lib/vn.ts";
 
@@ -85,6 +86,12 @@ const villages = Object.entries(storylines)
         kind: "interlude", level: entry.levelReq, title: entry.title,
         editLocator: `story-interludes.ts → "${village}" → L${entry.levelReq}`,
         pages: renderPages(entry.pages ?? []),
+    })),
+    epilogues: (storyEpiloguesByVillage[village] ?? []).map((def) => ({
+        kind: "epilogue", title: def.title, lane: def.lane,
+        requireTrait: def.requireTrait ?? null,
+        editLocator: `story-epilogues.ts → "${village}" → ${def.lane}${def.requireTrait ? ` + ${def.requireTrait}` : ""}`,
+        pages: renderPages(def.pages ?? []),
     })),
 }));
 

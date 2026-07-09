@@ -15,6 +15,10 @@ import type { CreatorEvent, StoryStep } from "../types/vn";
 import { storylines, villageBiomeMap, getCurrentStory } from "../data/storylines";
 import { storyInterludesByVillage, type StoryInterlude } from "../data/story-interludes";
 
+// Post-finale ending epilogues live in their own module; re-exported here so
+// App.tsx keeps a single story-beat import surface (and its line ratchet).
+export { selectStoryEpilogueEvent } from "./story-epilogue";
+
 export function storyToCreatorEvent(step: StoryStep, village: string, index: number): CreatorEvent {
     const slug = village.toLowerCase().replace(/\W+/g, "-");
     const pages = step.pages?.length ? step.pages : [{
