@@ -75,6 +75,9 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // only from choices). The choice itself is the payoff, recorded server-side,
     // so the free-battle affordances are hidden and the finale copy changes.
     const isStoryInterlude = event.id.startsWith("story-interlude-") || event.id.startsWith("story-road-");
+    // Post-finale ending epilogues ("story-epilogue-*", lib/story-epilogue.ts):
+    // pure goodbye scenes — no battle, no reward, never re-offered.
+    const isStoryEpilogue = event.id.startsWith("story-epilogue-");
     // The Wandering Sage's Legacy offer (lib/legacy-sage-vn.ts): no battle, no
     // reward — completing hands off to the offer sheet, so the finale must
     // never route into the generic "Enter Battle" dead-end.
@@ -118,11 +121,13 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
                         : isSageEvent
                             ? "The Sage falls silent, watching you. The paths he named still hang in the air — and only one of them can ever be yours."
-                            : isStoryInterlude
-                                ? <>The road moves on. What you chose here is written down somewhere that matters.</>
-                                : isStoryChapterEvent
-                                    ? <>The scene fades. Your village story continues — face the chapter boss when you are ready.</>
-                                    : <>The scene fades — a shinobi challenger steps from the shadows of <strong>{biomeLabel(event.biome)}</strong>. The fight is not over.</>}
+                            : isStoryEpilogue
+                                ? <>The last page of this village's story turns. What the village becomes next, it becomes with you in it.</>
+                                : isStoryInterlude
+                                    ? <>The road moves on. What you chose here is written down somewhere that matters.</>
+                                    : isStoryChapterEvent
+                                        ? <>The scene fades. Your village story continues — face the chapter boss when you are ready.</>
+                                        : <>The scene fades — a shinobi challenger steps from the shadows of <strong>{biomeLabel(event.biome)}</strong>. The fight is not over.</>}
                 </p>
             </div>
             <div className="menu">
@@ -150,11 +155,13 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         ? "Reward: Aura Sphere item"
                         : isSageEvent
                             ? "One Legacy, forever. Turning him down is always free."
-                            : isStoryInterlude
-                                ? "Your choice is recorded. The story remembers."
-                                : isStoryChapterEvent
-                                    ? "Defeat the chapter boss in Story Hall to earn XP and ryo."
-                                    : `Reward: ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
+                            : isStoryEpilogue
+                                ? "Your reckoning is written. The village remembers what you chose."
+                                : isStoryInterlude
+                                    ? "Your choice is recorded. The story remembers."
+                                    : isStoryChapterEvent
+                                        ? "Defeat the chapter boss in Story Hall to earn XP and ryo."
+                                        : `Reward: ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
                 </span>
             </div>
         </div>
@@ -165,7 +172,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             <div className="visual-novel admin-vn-play">
                 <div className="vn-header">
                     <div>
-                        <p className="act-label">{event.id.startsWith("story-road-") ? "ROAD STORY" : isStoryInterlude ? "STORY INTERLUDE" : "TRIGGERED STORY EVENT"}</p>
+                        <p className="act-label">{event.id.startsWith("story-road-") ? "ROAD STORY" : isStoryEpilogue ? "EPILOGUE" : isStoryInterlude ? "STORY INTERLUDE" : "TRIGGERED STORY EVENT"}</p>
                         <h2>{page.title || event.vnTitle || event.name}</h2>
                     </div>
                     <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
@@ -215,7 +222,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         ) : (
                             <div className="vn-controls">
                                 <button disabled={!canBack} onClick={previousLine}>Back</button>
-                                <button onClick={nextLine}>{isLastLine ? (isSageEvent ? "Continue" : "Begin Battle") : "Next"}</button>
+                                <button onClick={nextLine}>{isLastLine ? (isSageEvent || isStoryInterlude || isStoryEpilogue ? "Continue" : "Begin Battle") : "Next"}</button>
                             </div>
                         )}
                     </div>
@@ -228,7 +235,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     {!isSageEvent && !isStoryInterlude && !isStoryChapterEvent && <button onClick={() => onBattle(event)}>Battle in {biomeLabel(event.biome)}</button>}
                     <button onClick={onComplete}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude ? "Continue" : isStoryChapterEvent ? "Continue to Story Hall" : "Claim Reward + Continue"}</button>
                 </div>
-                {!isSageEvent && !isStoryInterlude && (
+                {!isSageEvent && !isStoryInterlude && !isStoryEpilogue && (
                     <div className="vn-reward-strip">
                         {isStoryChapterEvent
                             ? <span>Chapter reward: paid when the boss falls — choose your answer above.</span>

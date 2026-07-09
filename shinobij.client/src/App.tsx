@@ -349,7 +349,7 @@ import { rawPetPool } from "./data/pet-pool";
 import { STARTER_PETS } from "./data/starter-pets";
 import { STARTER_EVOLUTIONS } from "./data/pet-evolutions";
 import { villageBiomeMap } from "./data/storylines";
-import { nextStoryTrigger, overlayVnImages, reportStoryInterlude, interludeChosenTrait } from "./lib/story-trigger";
+import { nextStoryTrigger, overlayVnImages, reportStoryInterlude, interludeChosenTrait, selectStoryEpilogueEvent } from "./lib/story-trigger";
 import {
     awakeningLv2VnEvent,
     auraSphereLv9VnEvent,
@@ -2397,6 +2397,8 @@ export default function App() {
     const [activeTriggeredEvent, setActiveTriggeredEvent] = useState<CreatorEvent | null>(null);
     const [activeTriggerReturnScreen, setActiveTriggerReturnScreen] = useState<Screen>("village");
     const [pendingArenaStoryBattle, setPendingArenaStoryBattle] = useState<PendingArenaStoryBattle | null>(null);
+    // Finale-lane capture + queued ending epilogue (lib/story-epilogue.ts). Lane is set when a kageFinale VN battle choice is picked; the queued VN pops when the player leaves the arena after the win.
+    const storyEpilogueRef = useRef<{ lane: string | null; queued: CreatorEvent | null }>({ lane: null, queued: null });
     const [triggerPage, setTriggerPage] = useState(0);
     const [triggerLine, setTriggerLine] = useState(0);
     const [activeDungeonEvent, setActiveDungeonEvent] = useState<CreatorEvent | null>(null);
@@ -5813,6 +5815,7 @@ export default function App() {
                 void pushSaveToServer(nextCharacter, currentAccountName || character.name)
                     .then(() => unlockVillageKageSystem(character.storyVillage || character.village, character.name))
                     .catch(() => undefined);
+                storyEpilogueRef.current.queued = selectStoryEpilogueEvent(nextCharacter, storyEpilogueRef.current.lane);
             }
             setCharacter(nextCharacter);
             setPendingAiProfileId("");
@@ -5949,6 +5952,7 @@ export default function App() {
             void pushSaveToServer(nextCharacter, currentAccountName || character.name)
                 .then(() => unlockVillageKageSystem(character.storyVillage || character.village, character.name))
                 .catch(() => undefined);
+            storyEpilogueRef.current.queued = selectStoryEpilogueEvent(nextCharacter, storyEpilogueRef.current.lane);
         }
         setCharacter(nextCharacter);
         setPendingAiProfileId("");
@@ -5983,6 +5987,8 @@ export default function App() {
                 return;
             }
         }
+        // A finale win queued an ending epilogue: show it now that the arena is done. Completing it lands on returnScreen (activeTriggerReturnScreen); it pays nothing and never re-fires.
+        if (storyEpilogueRef.current.queued) { setActiveTriggeredEvent(storyEpilogueRef.current.queued); setActiveTriggerReturnScreen(returnScreen); setTriggerPage(0); setTriggerLine(0); storyEpilogueRef.current = { lane: null, queued: null }; }
         setScreen(returnScreen);
     }
 
@@ -7649,7 +7655,7 @@ export default function App() {
                         onCancel={() => { if (activeTriggeredEvent.id.startsWith("story-interlude-")) dismissedStoryScenesRef.current.add(activeTriggeredEvent.id); setActiveTriggeredEvent(null); }}
                         onComplete={() => completeTriggeredEvent(activeTriggeredEvent)}
                         onBattle={startTriggeredEventArenaBattle}
-                        onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? addStoryTrait(prev, t) : prev); }}
+                        onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? addStoryTrait(prev, t) : prev); if (t && c.battle && activeTriggeredEvent.kageFinale) storyEpilogueRef.current.lane = t; }}
                         sharedImages={sharedImages}
                     />
                 )}
