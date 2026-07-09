@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _story_interludes_js_1 = require("../_story-interludes.js");
+const _story_record_js_1 = require("../_story-record.js");
 /*
  * /api/story/interlude — POST { action, playerName, interludeId?, trait? }
  *
@@ -24,7 +25,6 @@ const _story_interludes_js_1 = require("../_story-interludes.js");
  * storyProgress >= minProgress (milestones beaten), and the character's story
  * village must own the interlude. Each interlude records exactly once.
  */
-const storyKeyFor = (player) => `story:${player}`;
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -46,7 +46,7 @@ async function handler(req, res) {
         }
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, `story-interlude-${action}`, 20, 60_000, identity.name)))
             return;
-        const storyKey = storyKeyFor(playerName);
+        const storyKey = (0, _story_record_js_1.storyKeyFor)(playerName);
         if (action === 'state') {
             const record = await _storage_js_1.kv.get(storyKey);
             return res.status(200).json({ ok: true, record: record ?? null });
@@ -72,12 +72,13 @@ async function handler(req, res) {
                     return { status: 200, body: { ok: false, reason: 'level' } };
                 if (num(char.storyProgress) < def.minProgress)
                     return { status: 200, body: { ok: false, reason: 'progress' } };
-                const record = (await _storage_js_1.kv.get(storyKey)) ?? { village, interludes: {}, lanes: { good: 0, neutral: 0, bad: 0 } };
+                const record = (await _storage_js_1.kv.get(storyKey)) ?? (0, _story_record_js_1.emptyStoryRecord)(village);
                 if (record.interludes?.[interludeId])
                     return { status: 200, body: { ok: false, reason: 'done' } };
-                const lanes = { good: num(record.lanes?.good), neutral: num(record.lanes?.neutral), bad: num(record.lanes?.bad) };
-                lanes[lane] += 1;
+                const lanes = (0, _story_record_js_1.bumpLanes)(record.lanes, lane);
+                // Spread the record so road-event entries survive this write.
                 const updated = {
+                    ...record,
                     village,
                     interludes: { ...(record.interludes ?? {}), [interludeId]: { trait, lane, at: Date.now() } },
                     lanes,

@@ -70,10 +70,11 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number; battle?: VnChoice["battle"] } | null>(null);
     const isAuraSphereEvent = event.id === AURA_SPHERE_VN_ID;
     const isStoryChapterEvent = event.id.startsWith("story-");
-    // Story interludes ("story-interlude-*"): VN-only road scenes — no boss, no
-    // XP/ryo. The choice itself is the payoff (recorded server-side), so the
-    // free-battle affordances are hidden and the finale copy changes.
-    const isStoryInterlude = event.id.startsWith("story-interlude-");
+    // Story interludes ("story-interlude-*") and road events ("story-road-*"):
+    // VN-only story scenes — no free battle, no XP/ryo (road-event fights come
+    // only from choices). The choice itself is the payoff, recorded server-side,
+    // so the free-battle affordances are hidden and the finale copy changes.
+    const isStoryInterlude = event.id.startsWith("story-interlude-") || event.id.startsWith("story-road-");
     // The Wandering Sage's Legacy offer (lib/legacy-sage-vn.ts): no battle, no
     // reward — completing hands off to the offer sheet, so the finale must
     // never route into the generic "Enter Battle" dead-end.
@@ -164,7 +165,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             <div className="visual-novel admin-vn-play">
                 <div className="vn-header">
                     <div>
-                        <p className="act-label">{isStoryInterlude ? "STORY INTERLUDE" : "TRIGGERED STORY EVENT"}</p>
+                        <p className="act-label">{event.id.startsWith("story-road-") ? "ROAD STORY" : isStoryInterlude ? "STORY INTERLUDE" : "TRIGGERED STORY EVENT"}</p>
                         <h2>{page.title || event.vnTitle || event.name}</h2>
                     </div>
                     <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>

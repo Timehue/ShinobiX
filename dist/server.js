@@ -167,8 +167,9 @@ const wanderer_ambush_js_1 = __importDefault(require("./api/sector/wanderer-ambu
 const wanderer_service_js_1 = __importDefault(require("./api/sector/wanderer-service.js"));
 const questbook_js_1 = __importDefault(require("./api/sector/questbook.js"));
 const merc_roam_js_1 = __importDefault(require("./api/sector/merc-roam.js"));
-// Story — server-authoritative interlude record (rebuild foundation)
+// Story — server-authoritative interlude + road-event record (rebuild foundation)
 const interlude_js_1 = __importDefault(require("./api/story/interlude.js"));
+const road_event_js_1 = __importDefault(require("./api/story/road-event.js"));
 // Legacy system (ENABLE_LEGACY) — earned identity paths + Wandering Sage
 const definitions_js_1 = __importDefault(require("./api/legacy/definitions.js"));
 const stats_js_1 = __importDefault(require("./api/legacy/stats.js"));
@@ -763,8 +764,9 @@ route('/sector/wanderer-ambush', wanderer_ambush_js_1.default);
 route('/sector/wanderer-service', wanderer_service_js_1.default);
 route('/sector/questbook', questbook_js_1.default);
 route('/sector/merc-roam', merc_roam_js_1.default);
-// ─── Story (server-authoritative interlude record) ─────────────────────────────
+// ─── Story (server-authoritative interlude + road-event record) ────────────────
 route('/story/interlude', interlude_js_1.default);
+route('/story/road-event', road_event_js_1.default);
 // ─── Legacy system (ENABLE_LEGACY) ─────────────────────────────────────────────
 // Earned identity paths: definitions codex, per-player stats/eligibility, the
 // Wandering Sage offer flow (permanent one-legacy-forever choice), trials,
