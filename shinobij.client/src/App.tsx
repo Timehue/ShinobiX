@@ -548,7 +548,10 @@ export type PendingArenaStoryBattle =
 
 // HOLLOW_GATE_SHRINE_W / H moved to ./constants/game.
 // Runtime-tunable from the admin panel.
-export let HOLLOW_GATE_THREAT_PER_STEP = 7;
+// THREAT_PER_STEP was 7 on the old 15×11 board (~20 steps to cross). The 25×17
+// board takes ~34 steps to cross, so 4/step keeps threat-per-floor-crossing
+// equivalent (34×4≈136 vs 20×7=140) — same ambush cadence, bigger dungeon.
+export let HOLLOW_GATE_THREAT_PER_STEP = 4;
 export let HOLLOW_GATE_THREAT_AMBUSH = 100;
 // HOLLOW_GATE_MAX_FLOOR moved to ./constants/game so ./lib/hollow-gate-dungeon
 // can read it without importing App (keeps the generator unit-testable).
@@ -580,6 +583,8 @@ import {
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
 import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun } from "./lib/hollow-gate-server";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
+import { markHollowGateSeen } from "./lib/hollow-gate-path";
+import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
 import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
 export type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
@@ -2002,26 +2007,16 @@ export default function App() {
     // Intro VN page index — null = not showing, 0..N = pages of the intro sequence.
     const [hollowGateIntroPage, setHollowGateIntroPage] = useState<number | null>(null);
 
-    // Hollow Gate Shrine — WASD / Arrow keys move the player one tile.
-    // Only active while the shrine screen is open, no event/chamber modal is up,
-    // and focus is not in a text field.
-    useEffect(() => {
-        if (screen !== "hollowGateShrine") return;
-        function handleKey(e: KeyboardEvent) {
-            const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-            if (tag === "input" || tag === "textarea" || tag === "select") return;
-            const k = e.key.toLowerCase();
-            if (k === "w" || k === "arrowup") { e.preventDefault(); moveHollowGatePlayer(0, -1); return; }
-            if (k === "s" || k === "arrowdown") { e.preventDefault(); moveHollowGatePlayer(0, 1); return; }
-            if (k === "a" || k === "arrowleft") { e.preventDefault(); moveHollowGatePlayer(-1, 0); return; }
-            if (k === "d" || k === "arrowright") { e.preventDefault(); moveHollowGatePlayer(1, 0); return; }
-        }
-        window.addEventListener("keydown", handleKey);
-        return () => window.removeEventListener("keydown", handleKey);
-    // moveHollowGatePlayer reads current state via closure — re-bind when run / modal state changes
-    // so the closure always sees the freshest values.
-     
-    }, [screen, hollowGateRun, hollowGateEvent, hollowGateHiddenChamber]);
+    // Hollow Gate Shrine movement — click-to-walk (sector-style pathing) plus
+    // the WASD/arrow key handler, both owned by the walk hook. Every walked
+    // step goes through moveHollowGatePlayer, so costs/events are identical
+    // to manual movement.
+    const { walkTo: hollowGateWalkTo, walkTarget: hollowGateWalkTarget } = useHollowGateWalk({
+        active: screen === "hollowGateShrine",
+        run: hollowGateRun,
+        blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null,
+        moveStep: moveHollowGatePlayer,
+    });
 
     // Persist the in-progress shrine run to the character so it survives refresh:
     // mirror local hollowGateRun into character.hollowGateRun whenever it changes inside the shrine.
@@ -7028,8 +7023,10 @@ export default function App() {
             if (wingEff.committedTheme) outcome = { ...outcome, committedTheme: wingEff.committedTheme };
             const tiles = prev.tiles.slice();
             tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
-            // Torch of Reiki: drains 1 every ~3 moves. At 0 torch, threat fills 2x faster.
-            const torchDrain = Math.random() < 0.33 ? 1 : 0;
+            // Torch of Reiki: drains 1 every ~5 moves (was ~3 on the old 15×11
+            // board — scaled with the 25×17 floor so one torch still covers
+            // roughly one thorough floor). At 0 torch, threat fills 2x faster.
+            const torchDrain = Math.random() < 0.2 ? 1 : 0;
             const nextTorch = Math.max(0, prev.torch - torchDrain);
             const threatMultiplier = nextTorch === 0 ? 2 : 1;
             // Hollow Ward holds Threat still while its steps last (then it ticks down).
@@ -7045,7 +7042,9 @@ export default function App() {
                 justResolved: justResolved ? { tile: { ...tile, revealed: true }, nx, ny, nextThreat } : null,
                 ambushImmediate: !justResolved && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH,
             };
-            return {
+            // markHollowGateSeen stamps the new visibility flood as map memory
+            // (dim "explored" tiles after you leave a room; click-to-walk surface).
+            return markHollowGateSeen({
                 ...prev,
                 ...(wingEff.patch ?? {}),
                 playerX: nx,
@@ -7054,7 +7053,7 @@ export default function App() {
                 threat: nextThreat,
                 torch: nextTorch,
                 wardSteps: Math.max(0, (prev.wardSteps ?? 0) - 1),
-            };
+            });
         });
 
         // ── Side effects ──────────────────────────────────────────────────
@@ -7685,6 +7684,8 @@ export default function App() {
                         hollowGateEvent={hollowGateEvent}
                         hollowGateHiddenChamber={hollowGateHiddenChamber}
                         moveHollowGatePlayer={moveHollowGatePlayer}
+                        onTileClick={hollowGateWalkTo}
+                        walkTarget={hollowGateWalkTarget}
                         setHollowGateRun={setHollowGateRun}
                         setCharacter={setCharacter}
                         pushHollowGateLog={pushHollowGateLog}

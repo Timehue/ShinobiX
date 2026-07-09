@@ -68,6 +68,12 @@ export type HollowGateTile = {
     wing?: number;
     revealed: boolean;
     resolved: boolean;
+    // Map memory: true once the tile has EVER been in the visibility flood
+    // (seen from inside its room / down a corridor). Seen-but-unstepped tiles
+    // draw as a dim "explored" layer after you leave — Zelda-automap style —
+    // and are walkable by click-to-move. `revealed` (stepped on) stays the
+    // gate for surprise-tile disguise. Absent on old saves (falsy = unseen).
+    seen?: boolean;
     flavor?: string;
 };
 

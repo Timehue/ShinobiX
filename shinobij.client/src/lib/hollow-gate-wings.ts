@@ -21,8 +21,12 @@ import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H } from "../constants/game";
 import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain } from "../types/character";
 
-// Fixed room rectangles on the 15×11 grid. Hub centered; three wings in the
-// top-left, top-right, and bottom bands. Each wing is its own BSP room id.
+// Fixed room rectangles authored on a 15×11 template. Hub centered; three wings
+// in the top-left, top-right, and bottom bands. Each wing is its own BSP room id.
+// The template is CENTERED onto the live grid at generation time (the shrine grid
+// grew to 25×17), so these stay authored in compact template coordinates.
+const TEMPLATE_W = 15;
+const TEMPLATE_H = 11;
 const HUB: BSPRect = { x: 6, y: 4, w: 3, h: 3 };          // rows 4-6, cols 6-8
 type WingDef = { rect: BSPRect; theme: "treasure" | "beast" | "trial" };
 const WINGS: WingDef[] = [
@@ -39,6 +43,11 @@ const WING_CORRIDORS: Array<Array<[number, number]>> = [
     [[9, 2], [9, 3], [9, 4]],   // beast:    col 9, rows 2-4 (hub(8,4) ↔ beast(10,2))
     [[7, 7]],                   // trial:    single cell (hub(7,6) ↔ trial(7,8))
 ];
+
+// Centre the authored template on the live grid (no-op when they match).
+function templateOffset(w: number, h: number): { ox: number; oy: number } {
+    return { ox: Math.max(0, Math.floor((w - TEMPLATE_W) / 2)), oy: Math.max(0, Math.floor((h - TEMPLATE_H) / 2)) };
+}
 
 function center(r: BSPRect): { x: number; y: number } {
     return { x: r.x + Math.floor(r.w / 2), y: r.y + Math.floor(r.h / 2) };
@@ -150,6 +159,12 @@ export function generateHollowGateWingRun(floor: number, isFinalFloor: boolean):
     const terrain: HollowGateTerrain[] = new Array(total).fill("wall");
     const roomIds: number[] = new Array(total).fill(-1);
 
+    // Centre the authored template on the live grid.
+    const { ox, oy } = templateOffset(w, h);
+    const shiftRect = (r: BSPRect): BSPRect => ({ x: r.x + ox, y: r.y + oy, w: r.w, h: r.h });
+    const hub = shiftRect(HUB);
+    const wings = WINGS.map((wg) => ({ rect: shiftRect(wg.rect), theme: wg.theme }));
+
     // ── Carve hub + wing rooms (roomId 0 = hub, 1..3 = wings) ──────────────
     const carveRoom = (r: BSPRect, id: number) => {
         for (let ry = r.y; ry < r.y + r.h; ry += 1) {
@@ -161,13 +176,13 @@ export function generateHollowGateWingRun(floor: number, isFinalFloor: boolean):
             }
         }
     };
-    carveRoom(HUB, 0);
-    WINGS.forEach((wing, i) => carveRoom(wing.rect, i + 1));
+    carveRoom(hub, 0);
+    wings.forEach((wing, i) => carveRoom(wing.rect, i + 1));
 
     // ── Connect each wing to the hub ONLY (hub = cut vertex) ───────────────
     for (const lane of WING_CORRIDORS) {
         for (const [cx, cy] of lane) {
-            const idx = cy * w + cx;
+            const idx = (cy + oy) * w + (cx + ox);
             if (terrain[idx] === "wall") terrain[idx] = "corridor_floor";
         }
     }
@@ -191,13 +206,13 @@ export function generateHollowGateWingRun(floor: number, isFinalFloor: boolean):
     }
 
     // ── Spawn (hub center), Leave tile (hub corner), descend/boss (trial) ──
-    const hubCenter = center(HUB);
+    const hubCenter = center(hub);
     const playerX = hubCenter.x, playerY = hubCenter.y;
     const spawnIdx = playerY * w + playerX;
     // Bottom-right hub corner — a plain hub cell (no corridor attaches there).
-    const exitIdx = (HUB.y + HUB.h - 1) * w + (HUB.x + HUB.w - 1);
-    const trialWing = WINGS.findIndex((wg) => wg.theme === "trial");
-    const trialC = center(WINGS[trialWing].rect);
+    const exitIdx = (hub.y + hub.h - 1) * w + (hub.x + hub.w - 1);
+    const trialWing = wings.findIndex((wg) => wg.theme === "trial");
+    const trialC = center(wings[trialWing].rect);
     const targetIdx = trialC.y * w + trialC.x;
 
     const kinds: HollowGateTileKind[] = new Array(total).fill("empty");
