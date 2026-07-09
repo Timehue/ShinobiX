@@ -228,7 +228,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Break every mark (honorable) ──────────────────────────────────
         {
             lane: "honorable",
-            requireTrait: "ff88-better-count-ready",
+            requireTrait: "ff88-better-roll-ready",
             title: "The Chosen Roll, Lit",
             pages: [
                 {
@@ -284,7 +284,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Bind the vault (merciful) ─────────────────────────────────────
         {
             lane: "merciful",
-            requireTrait: "ff88-better-count-ready",
+            requireTrait: "ff88-better-roll-ready",
             title: "Two Warmths",
             pages: [
                 {
@@ -340,7 +340,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Take the valve (ambitious) ────────────────────────────────────
         {
             lane: "ambitious",
-            requireTrait: "ff88-better-count-carried",
+            requireTrait: "ff88-better-roll-carried",
             title: "The Warm Door, Lit",
             pages: [
                 {
@@ -351,7 +351,6 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The valve fits your hand. That is the terrible part. The Count reforms by second bell, the wardens change nothing but the name they report to, and the vault's warmth settles over the village like a coat it never stopped wearing.",
                         "On the ridge, one lantern relay burns where you drilled it, finding the lost for free, and the vault has already begun, gently, to schedule its wardens elsewhere.",
                         "The script at your wrist is patient. It has done this before. It can wait for the rest of you.",
-                        "And the thing beneath the Vault learns your hand before the village learns your new title.",
                     ],
                 },
                 {
@@ -360,7 +359,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Captain Yura",
                     dialogue: [
                         "I watched the lanterns find a man in nineteen minutes. You proved it. You carried Dren's plans into that vault in your own hands. I stood the stair believing we'd finally built the thing he died un-thanked for.",
-                        "You lit the road out of the Count. Then you locked the door from the warm side.",
+                        "You lit the road out of the Count. Then you locked the door from the warm side. And the thing under the Vault knows your hand now.",
                         "I don't have a drill for that. I've been standing here since dawn trying to write the report, and there's no format. There's no FORMAT, Jonin.",
                         "Keep the letter. I can't carry it anymore; it reads different now. And don't send for me when the Count needs a captain, because it will, and we both already know whose script answers.",
                     ],
@@ -369,7 +368,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         },
         {
             lane: "ambitious",
-            requireTrait: "ff88-better-count-deferred",
+            requireTrait: "ff88-better-roll-deferred",
             title: "The Warm Door",
             pages: [
                 {
@@ -413,7 +412,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                 },
                 {
                     title: "Once a Season, At the Stone",
-                    scene: "The roll stone, Sova with the count book open to a fresh page",
+                    scene: "The roll stone, Sova with the Count book open to a fresh page",
                     speaker: "Elder Sova",
                     dialogue: [
                         "I have entered every keeper since my girlhood in this book. Each swore the door would open differently under their hand. For a while, the book agreed with each of them.",

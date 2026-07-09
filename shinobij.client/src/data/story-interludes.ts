@@ -1227,7 +1227,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 choices: [
                     { text: "The last cairn.", nextPage: 6 }
                 ] },
-            pg("The Keeper on the Road", "The last cairn before the vault stair, Sova waiting with the count book bound for travel", "Elder Sova",
+            pg("The Keeper on the Road", "The last cairn before the vault stair, Sova waiting with the Count book bound for travel", "Elder Sova",
                 "Forty years I've waited at plates for other people's wrists. Tonight I waited at a cairn for a person. The improvement is considerable.",
                 "The book comes with you. All of it: ninety winters, the toll curve, the projection with its ugly date, and the drill log with my countersign. If you mean to argue with Kael, arguments need documents. If you mean to break the vault, breakings need a keeper who testifies that the books demanded it. Either way, I walk down that stair tonight.",
                 "One request, when it's done. The litany was mine before it was the gate's. If any of it survives what's coming, let it be the version that lights lamps. I should like to die having written one thing that only ever fed people.",
