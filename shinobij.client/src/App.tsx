@@ -348,7 +348,8 @@ import { starterItems } from "./data/starter-items";
 import { rawPetPool } from "./data/pet-pool";
 import { STARTER_PETS } from "./data/starter-pets";
 import { STARTER_EVOLUTIONS } from "./data/pet-evolutions";
-import { storylines, villageBiomeMap, getCurrentStory } from "./data/storylines";
+import { villageBiomeMap } from "./data/storylines";
+import { nextStoryTrigger, overlayVnImages, reportStoryInterlude } from "./lib/story-trigger";
 import {
     awakeningLv2VnEvent,
     auraSphereLv9VnEvent,
@@ -1423,38 +1424,8 @@ export function stringifyServerSavePayload(payload: unknown) {
     return JSON.stringify(payload, (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
 }
 
-export function storyToCreatorEvent(step: StoryStep, village: string, index: number): CreatorEvent {
-    const slug = village.toLowerCase().replace(/\W+/g, "-");
-    const pages = step.pages?.length ? step.pages : [{
-        title: step.cinematicTitle,
-        scene: step.scene,
-        speaker: "Narrator",
-        dialogue: step.dialogue,
-        choices: [],
-    }];
-    return {
-        id: `story-${slug}-${step.levelReq}-${index}`,
-        name: `${village}: ${step.title}`,
-        biome: step.biome ?? villageBiomeMap[village] ?? "central",
-        icon: step.bossIcon,
-        eventKind: "visualNovel",
-        trigger: "manual",
-        vnTitle: step.title,
-        vnScene: step.scene,
-        vnSpeaker: pages[0]?.speaker ?? "Narrator",
-        image: "",
-        aiProfileId: step.aiProfileId,
-        village,
-        kageFinale: step.kageFinale,
-        liberatorTitle: step.liberatorTitle,
-        vnPages: pages,
-        levelReq: step.levelReq,
-        xpReward: step.rewardXp,
-        ryoReward: step.rewardRyo,
-        staminaReward: 0,
-        dialogue: step.dialogue,
-    };
-}
+// storyToCreatorEvent drained to lib/story-trigger (re-exported for the AdminPanel import site).
+export { storyToCreatorEvent } from "./lib/story-trigger";
 
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
@@ -3899,46 +3870,25 @@ export default function App() {
         setTriggerLine(0);
     }, [activeTriggeredEvent, character, creatorEvents, screen, triggeredEvents]);
 
-    // Auto-trigger the multi-page story chapter VN when a player first reaches the required level.
-    // Uses TriggeredVisualNovel (full vnPages reader) instead of the flat StoryHall dialogue.
-    // Rewards are 0 here — XP/ryo come from beating the boss after the VN.
+    // Auto-trigger the next story beat — a milestone chapter VN (boss) or a
+    // VN-only interlude (road scene) — when the player qualifies. Selection and
+    // ordering live in lib/story-trigger. Rewards are 0 here: chapter XP/ryo come
+    // from beating the boss; interludes pay story only (traits + server record).
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
         // Don't interrupt battle flows — let the VN fire after the player returns.
         if (isBattleFlowScreen(screen)) return;
         // Gate the village story behind tutorial completion (skip sets "done").
         if (normalizeOnboardingStep(character.onboardingStep) !== "done") return;
-        const step = getCurrentStory(character);
-        if (!step || character.level < step.levelReq) return;
-        const village = character.storyVillage || character.village;
-        const storyLine = storylines[village] || [];
-        const index = storyLine.findIndex(s => s.levelReq === step.levelReq);
-        if (index < 0) return;
-        const eventId = `story-${village.toLowerCase().replace(/\W+/g, "-")}-${step.levelReq}-${index}`;
-        if (triggeredEvents.includes(eventId)) return;
-        // Prefer the admin-edited version from creatorEvents (contains uploaded images,
-        // custom dialogue, etc.) over the hardcoded storyToCreatorEvent fallback.
-        // Then overlay any KV-stored images that landed in sharedImages.
-        const edited = creatorEvents.find(e => e.id === eventId);
-        const base = edited ?? storyToCreatorEvent(step, village, index);
-        const vnEvent: CreatorEvent = {
-            ...base,
-            xpReward: 0,
-            ryoReward: 0,
-            ...(sharedImages['event:' + eventId + ':bg']     ? { image:       sharedImages['event:' + eventId + ':bg'] }     : {}),
-            ...(sharedImages['event:' + eventId + ':avatar'] ? { avatarImage: sharedImages['event:' + eventId + ':avatar'] } : {}),
-            ...(base.vnPages ? {
-                vnPages: base.vnPages.map((p, i) => ({
-                    ...p,
-                    ...(sharedImages[`vn:${eventId}:page:${i}`]       ? { image:      sharedImages[`vn:${eventId}:page:${i}`] }       : {}),
-                    ...(sharedImages[`vn:${eventId}:page:${i}:left`]  ? { leftImage:  sharedImages[`vn:${eventId}:page:${i}:left`] }  : {}),
-                    ...(sharedImages[`vn:${eventId}:page:${i}:right`] ? { rightImage: sharedImages[`vn:${eventId}:page:${i}:right`] } : {}),
-                }))
-            } : {}),
-        };
-        setTriggeredEvents(ids => [...ids, eventId]);
+        const next = nextStoryTrigger(character, triggeredEvents);
+        if (!next) return;
+        // Prefer the admin-edited version from creatorEvents (uploaded images,
+        // custom dialogue, etc.), then overlay any KV-stored images.
+        const edited = creatorEvents.find(e => e.id === next.eventId);
+        const vnEvent = overlayVnImages({ ...(edited ?? next.base), xpReward: 0, ryoReward: 0 }, next.eventId, sharedImages);
+        setTriggeredEvents(ids => [...ids, next.eventId]);
         setActiveTriggeredEvent(vnEvent);
-        setActiveTriggerReturnScreen("storyHall");
+        setActiveTriggerReturnScreen(next.returnScreen === "storyHall" ? "storyHall" : screen);
         setTriggerPage(0);
         setTriggerLine(0);
     }, [activeTriggeredEvent, character, creatorEvents, screen, sharedImages, triggeredEvents]);
@@ -5457,6 +5407,9 @@ export default function App() {
 
     function completeTriggeredEvent(event: CreatorEvent) {
         if (character) {
+            // Interludes report their recorded choice to the server story record
+            // (fire-and-forget; lanes are server-owned, storyTraits is the mirror).
+            if (event.id.startsWith("story-interlude-")) void reportStoryInterlude(character, event.id);
             const leveled = gainXp(character, event.xpReward);
             const isRewardEvent = event.eventKind !== "visualNovel";
             const rewardInventory = event.id === AURA_SPHERE_VN_ID && !leveled.inventory.includes(AURA_SPHERE_ITEM_ID) && !Object.values(leveled.equipment).includes(AURA_SPHERE_ITEM_ID)
@@ -5944,7 +5897,9 @@ export default function App() {
         }
         // Story chapter battles (triggered via auto-VN) must advance storyProgress just
         // like kind:"storyBoss" does. The event id always starts with "story-" for these.
-        const isStoryChapterBattle = event.id.startsWith("story-");
+        // Interludes ("story-interlude-*") are VN-only: a battle launched from one must
+        // NOT advance the milestone index (that would skip a chapter).
+        const isStoryChapterBattle = event.id.startsWith("story-") && !event.id.startsWith("story-interlude-");
         if (isStoryChapterBattle) {
             nextCharacter = {
                 ...nextCharacter,

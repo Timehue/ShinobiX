@@ -167,6 +167,8 @@ import sectorWandererAmbushHandler    from './api/sector/wanderer-ambush.js';
 import sectorWandererServiceHandler   from './api/sector/wanderer-service.js';
 import sectorQuestbookHandler         from './api/sector/questbook.js';
 import sectorMercRoamHandler          from './api/sector/merc-roam.js';
+// Story — server-authoritative interlude record (rebuild foundation)
+import storyInterludeHandler          from './api/story/interlude.js';
 // Legacy system (ENABLE_LEGACY) — earned identity paths + Wandering Sage
 import legacyDefinitionsHandler       from './api/legacy/definitions.js';
 import legacyStatsHandler             from './api/legacy/stats.js';
@@ -828,6 +830,9 @@ route('/sector/wanderer-ambush',    sectorWandererAmbushHandler);
 route('/sector/wanderer-service',   sectorWandererServiceHandler);
 route('/sector/questbook',          sectorQuestbookHandler);
 route('/sector/merc-roam',          sectorMercRoamHandler);
+
+// ─── Story (server-authoritative interlude record) ─────────────────────────────
+route('/story/interlude',           storyInterludeHandler);
 
 // ─── Legacy system (ENABLE_LEGACY) ─────────────────────────────────────────────
 // Earned identity paths: definitions codex, per-player stats/eligibility, the
