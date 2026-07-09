@@ -90,7 +90,7 @@ import {
     dailyMissionsCompleted,
     dailyHuntsCompleted,
     rankTitleForLevel,
-    addStoryTrait,
+    applyStoryChoice, deriveStoryTraits,
 } from "./lib/character-progress";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
 import {
@@ -1068,7 +1068,7 @@ export function normalizeCharacter(parsed: Character): Character {
         maxStamina,
         rankTitle: parsed.rankTitle ?? rankFromLevel(level),
         storyTitle: parsed.storyTitle ?? "",
-        storyTraits: Array.isArray(parsed.storyTraits) ? parsed.storyTraits.filter(Boolean) : [],
+        storyTraits: deriveStoryTraits(Array.isArray(parsed.storyTraits) ? parsed.storyTraits.filter(Boolean) : []),
         inventory: parsed.inventory ?? [],
         equipment: parsed.equipment ?? {},
         stats,
@@ -7655,7 +7655,7 @@ export default function App() {
                         onCancel={() => { if (activeTriggeredEvent.id.startsWith("story-interlude-")) dismissedStoryScenesRef.current.add(activeTriggeredEvent.id); setActiveTriggeredEvent(null); }}
                         onComplete={() => completeTriggeredEvent(activeTriggeredEvent)}
                         onBattle={startTriggeredEventArenaBattle}
-                        onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? addStoryTrait(prev, t) : prev); if (t && c.battle && activeTriggeredEvent.kageFinale) storyEpilogueRef.current.lane = t; }}
+                        onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? applyStoryChoice(prev, t) : prev); if (t && c.battle && activeTriggeredEvent.kageFinale) storyEpilogueRef.current.lane = t; }}
                         sharedImages={sharedImages}
                     />
                 )}
