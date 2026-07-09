@@ -20,8 +20,15 @@ async function loadClientInterludes(): Promise<Record<string, ClientInterlude[]>
 }
 
 const VILLAGES = ['Stormveil Village', 'Ashen Leaf Village', 'Frostfang Village', 'Moonshadow Village'];
-const LEVELS = [20, 30, 42, 58, 70, 80, 92];
-const MIN_PROGRESS: Record<number, number> = { 20: 2, 30: 3, 42: 4, 58: 5, 70: 6, 80: 7, 92: 8 };
+// Every village runs the seven core interludes; Ashen Leaf adds the L88
+// "Wet Field" trial-run scene (the finale's better-winter proof).
+const LEVELS_BY_VILLAGE: Record<string, number[]> = {
+    'Stormveil Village': [20, 30, 42, 58, 70, 80, 92],
+    'Ashen Leaf Village': [20, 30, 42, 58, 70, 80, 88, 92],
+    'Frostfang Village': [20, 30, 42, 58, 70, 80, 92],
+    'Moonshadow Village': [20, 30, 42, 58, 70, 80, 92],
+};
+const MIN_PROGRESS: Record<number, number> = { 20: 2, 30: 3, 42: 4, 58: 5, 70: 6, 80: 7, 88: 8, 92: 8 };
 const RELATIONSHIP_TRAITS: Record<string, string[]> = {
     'Stormveil Village': ['mira-trust', 'mira-respect', 'mira-fear'],
     'Ashen Leaf Village': ['toma-hope', 'toma-caution', 'toma-doubt'],
@@ -29,13 +36,13 @@ const RELATIONSHIP_TRAITS: Record<string, string[]> = {
     'Moonshadow Village': ['nyx-partner', 'nyx-respect', 'nyx-suspicion'],
 };
 
-test('every village has the seven interludes at the planned levels and gates', async () => {
+test('every village has its planned interludes at the planned levels and gates', async () => {
     const storyInterludesByVillage = await loadClientInterludes();
     assert.deepEqual(Object.keys(storyInterludesByVillage).sort(), [...VILLAGES].sort());
     for (const village of VILLAGES) {
         const entries = storyInterludesByVillage[village];
-        assert.equal(entries.length, 7, village);
-        assert.deepEqual(entries.map((e) => e.levelReq), LEVELS, village);
+        assert.equal(entries.length, LEVELS_BY_VILLAGE[village].length, village);
+        assert.deepEqual(entries.map((e) => e.levelReq), LEVELS_BY_VILLAGE[village], village);
         for (const entry of entries) {
             assert.equal(entry.minProgress, MIN_PROGRESS[entry.levelReq], entry.id);
             assert.equal(entry.village, village, entry.id);
