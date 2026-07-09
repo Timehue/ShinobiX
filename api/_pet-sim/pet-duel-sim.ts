@@ -80,7 +80,7 @@ const RANGED_RANGE = 4.8;                   // ranged-ability / projectile range
 const ELEMENT_BEATS: Record<string, string> = {
     Fire: "Wind", Wind: "Lightning", Lightning: "Earth", Earth: "Water", Water: "Fire",
 };
-function elementMult(att?: string | null, def?: string | null): number {
+export function elementMult(att?: string | null, def?: string | null): number {
     if (!att || !def || att === "None" || def === "None") return 1;
     if (ELEMENT_BEATS[att] === def) return 1.15;   // +15% super-effective (was 25%)
     if (ELEMENT_BEATS[def] === att) return 0.85;   // −15% resisted
@@ -848,9 +848,12 @@ function beginCast(f: Fighter, idx: number, targetId: string, t: number, events:
     f.pendingIdx = idx; f.pendingTargetId = targetId;
     f.state = "windup";
     f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : Math.max(1, Math.round(f.windT * plantedPaceMul(f, t)));
-    if (idx >= 0 && f.abilities[idx].signature) events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name });
+    // Event payloads carry the move name + target so the renderer can "call the
+    // attack" (Pokemon-style caption BEFORE the swing lands). Payload-only — no
+    // state or rng change, so authoritative outcomes are untouched.
+    if (idx >= 0 && f.abilities[idx].signature) events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name, targetId });
     else if (idx >= 0 && f.abilities[idx].cls === "support") events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: f.abilities[idx].kind, move: f.abilities[idx].name });
-    else events.push({ t, type: "windup", side: f.team, actorId: f.id, kind: idx >= 0 ? f.abilities[idx].kind : "damage" });
+    else events.push({ t, type: "windup", side: f.team, actorId: f.id, kind: idx >= 0 ? f.abilities[idx].kind : "damage", move: idx >= 0 ? f.abilities[idx].name : undefined, targetId });
 }
 
 /** Resolve a wind-up that just finished. */
@@ -860,7 +863,9 @@ function resolveCast(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
     // FEINT (planted): the wind-up was a bluff — pay the basic cooldown so it isn't free spam,
     // deal NO damage / spend NO stamina, and skip the strike resolution. The renderer already
     // played the telegraph; the pet simply swings through and recovers (a pulled/feinted swing).
-    if (f.pendingFeint) { f.pendingFeint = false; f.basicCdLeft = f.basicCdT; return; }
+    // The whiff below (move:"Feint") only ever fires on the planted path — pendingFeint
+    // is set exclusively behind plantedMotion, so authoritative streams stay byte-identical.
+    if (f.pendingFeint) { f.pendingFeint = false; f.basicCdLeft = f.basicCdT; events.push({ t, type: "whiff", side: f.team, actorId: f.id, move: "Feint" }); return; }
     if (ab) { ab.cdLeft = ab.cdTicks; f.stamina -= ab.cost; } else { f.basicCdLeft = f.basicCdT; f.stamina -= COST_BASIC; }
 
     if (ab && ab.cls === "support") { castSupport(f, ab, fighters, t, events); return; }
