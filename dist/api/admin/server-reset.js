@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.WIPE_PATTERNS = void 0;
+exports.isProtectedKey = isProtectedKey;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
@@ -12,11 +14,16 @@ const player_auth_js_1 = require("../player-auth.js");
 const PROTECTED_NAMES = Array.from(player_auth_js_1.RESERVED_USERNAMES); // already lowercase
 const PROTECTED_SAVE_KEYS = new Set(PROTECTED_NAMES.map((n) => `save:${n}`));
 const PROTECTED_AUTH_KEYS = new Set(PROTECTED_NAMES.map((n) => `auth:${n}`));
+// A protected account keeps its save (with the storyTraits mirror), so its
+// server story record must survive too — wiping one but not the other would
+// desync the pair (empty lane tally under a character with recorded choices).
+const PROTECTED_STORY_KEYS = new Set(PROTECTED_NAMES.map((n) => `story:${n}`));
 function isProtectedKey(key) {
     const lower = key.toLowerCase();
-    return PROTECTED_SAVE_KEYS.has(lower) || PROTECTED_AUTH_KEYS.has(lower);
+    return PROTECTED_SAVE_KEYS.has(lower) || PROTECTED_AUTH_KEYS.has(lower) || PROTECTED_STORY_KEYS.has(lower);
 }
 // Patterns wiped on full reset. Anything matching these is deleted.
+// (Exported for the reset-coverage test only.)
 // EXCLUDED from wipe (preserved across resets):
 //   • shared:images*  / shared:imgfields*  — ALL uploaded images:
 //       avatars, pets, weapons, jutsus, items, cards, bloodlines, AIs,
@@ -28,7 +35,7 @@ function isProtectedKey(key) {
 //   • game:village-leadership-images — Village Leaders tab config (names + portraits).
 //   • game:weekly-boss-override — admin's chosen boss AI choice survives so
 //       the next week's boss spawns the same way.
-const WIPE_PATTERNS = [
+exports.WIPE_PATTERNS = [
     'presence:*',
     'presence:all', // bulk presence hash (cleared alongside individual keys)
     'challenges:*',
@@ -70,6 +77,19 @@ const WIPE_PATTERNS = [
     'raid-report-count:*', // per-player daily raid-report counters
     'raid-start-count:*', // per-player daily raid-start counters
     'chat:battle:*', // transient PvP battle chat logs
+    // ── Story rebuild keys (2026-07). The story record is permanent character
+    // history, so it must die WITH the character: leaving it would hand a
+    // pre-reset player's lane tally and interlude history to whoever
+    // re-registers that name after the wipe. Protected accounts keep theirs
+    // (they keep their saves). The hall:nx dedup keys gate every first-only
+    // world celebration (kage liberation, legacy firsts); the announcement
+    // feed they guard is world history, so a full wipe clears both together —
+    // otherwise the new world's first liberator seats silently, or the Hall
+    // shows two "firsts" from different eras.
+    'story:*', // server story records (interlude/road choices + lane tally)
+    'game:announcements', // world announcement feed + Hall entries
+    'game:announcements-seq',
+    'hall:nx:*', // first-only celebration dedup (re-arms for the new era)
 ];
 // Villages with NPC Kage + 3 Elders configured on the Village Leaders admin tab.
 // Images live in game:village-leadership-images (preserved through resets).
@@ -119,7 +139,7 @@ async function handler(req, res) {
         // 2. Wipe all other reset patterns in parallel.
         //    Protected auth records (auth:rill, etc.) skip the auth:* wipe so
         //    the protected accounts don't have to re-register after a reset.
-        await Promise.all(WIPE_PATTERNS.map(async (pattern) => {
+        await Promise.all(exports.WIPE_PATTERNS.map(async (pattern) => {
             const keys = await _storage_js_1.kv.keys(pattern);
             const targets = keys.filter((k) => !isProtectedKey(k));
             if (targets.length > 0) {
