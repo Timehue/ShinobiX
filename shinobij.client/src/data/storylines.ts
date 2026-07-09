@@ -1763,7 +1763,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Punctual. Good.",
                 "There it is. The vault. Every surrendered exit this village ever banked, keeping every hearth above us warm. And the meter, running down. The payment is tonight. I told you someone has to be the door.",
                 "Look at my arm. Go on, look. The script doesn't stop at the shoulder anymore. The door swings both ways, it turns out. Forty years holding it shut, and the vault has been quietly counting ME.",
-                "One confession, and there's no time for a second. The Count was true when I built it. Every name mattered. Somewhere between ninety-one dead and zero, the promise curdled into a QUOTA. I knew it, and I kept the door, because zero is zero is zero. But before you show me anything, there is a deeper thing owed, and it is worse."
+                "One confession, and there's no time for a second. The Count was true when I took it. Ninety winters of names and routes and rescue, and I inherited it clean. Every name mattered. Somewhere in my forty years at the door, between ninety-one dead and zero, the promise curdled into a QUOTA. I knew it, and I kept the door, because zero is zero is zero. But before you show me anything, there is a deeper thing owed, and it is worse."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Look where he is looking.", nextPage: 5 }
             ] },
@@ -1778,6 +1778,7 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("The Better Roll", "The vault floor, Dren's lantern plans unrolled against the ice", "Kage Kael Whitefang", [
                 "What is that. Bring it to the light.",
                 "Lanterns. Relay lanterns, chant-spaced. Coldewe's hand. I'd know it anywhere. I struck his name myself. And here it is: the thing I called impossible. A way to be FOUND that doesn't run through my vault.",
+                "And do you see what else it kills? A soul the lanterns bring home never surrenders the exit my vault drinks, so the pipe below runs dry. You did not only prove the vault unnecessary. You proved the Gate can be STARVED. I asked for a better Roll for forty years, and when Coldewe finally built one, I struck his name and fed him to the very thing he would have ended.",
                 "And you strung them. The ridge drill. Nineteen minutes. I didn't believe the report. I read it four times.",
                 "Say the number, %name. Out loud. Let the vault hear it."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
