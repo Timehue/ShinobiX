@@ -1437,7 +1437,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 ] },
             pg("The Manifest", "The dry dock, the blank manifest on the crate, her pen unmoving over it", "Kite Harrow",
                 "Here's what my license training says: appraise the object, not the ethics. Here's what forty commissions across four villages have actually taught me: every 'object' on this coast turned out to be somebody, eventually, and I certified half of them before I learned to check.",
-                "The client's a quartered circle. The cargo is four hundred years of surrendered trust. The fee is my own name, over my own door, at last. And the manifest wants one signature to make the whole thing MERCHANDISE.",
+                "The client's a quartered circle. I've traced that mark through four villages now, and the buyers under it keep one name they are careful never to write down: the Hollow Gate. The cargo is four hundred years of surrendered trust. The fee is my own name, over my own door, at last. And the manifest wants one signature to make the whole thing MERCHANDISE.",
                 "You know the joke of it? The Mirror already holds a version of me that would sign. I MET her, on the scouting pass. She looked happy. She looked exactly like me with a door.",
                 "Whatever I do at this crate, colleague, one of us gets left in the glass. Help me pick which."),
         ], [
@@ -1544,7 +1544,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "Walk to the fourth lantern.", nextPage: 4 }
                 ] },
             { ...pg("The Parcel", "The first lantern, the plain-wrapped file under Nyx's arm like a market parcel", "Nyx",
-                "Look at it. Thirty years of being the thing I traded around, and it's a PARCEL now. Brown paper. String. I wrapped it myself; my hands only shook at the knot.",
+                "Look at it. Forty years of being the thing I traded around, and it's a PARCEL now. Brown paper. String. I wrapped it myself; my hands only shook at the knot.",
                 "I'm carrying it up tomorrow, behind you, one stair back. Village law gives the notice-server the floor first; I checked, twice, in two different law-booths, and paid full rate both times just to hear it confirmed out loud.",
                 "And when you've said your piece to her, I say mine. Four words. I've costed longer speeches all week and it always comes back to four words.",
                 "My mother chose it. That's the part the glass never held, you know. It holds the sale. It never held the CHOOSING. Tomorrow it hears both, priced at nothing, witnessed by everything. Go rest, friend. Big market day."),
