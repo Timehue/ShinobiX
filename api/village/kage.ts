@@ -4,6 +4,9 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { KAGE_LIBERATOR_TITLES } from '../_titles-registry.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { announce, postVillageHerald, addHallEntry } from '../_announce.js';
 
 type VillageKageState = {
     kageSystemUnlocked: boolean;
@@ -14,6 +17,48 @@ type VillageKageState = {
 
 function kageKey(village: string) {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
+}
+
+/**
+ * Finale consequences for a VERIFIED liberator (rebuild §10): the village's
+ * liberator title goes into the server-owned serverTitles vault (the save
+ * sanitizer re-injects it; the registry marks it wearable), plus world
+ * reactions — a village herald for every liberator, and a world announcement
+ * + permanent Hall of Legends entry for the FIRST liberation only. Entirely
+ * best-effort: a failure here never blocks the unlock response, and the vault
+ * write is idempotent (already-granted returns without side effects).
+ */
+async function grantLiberatorReward(playerName: string, villageName: string, freshUnlock: boolean): Promise<void> {
+    const title = KAGE_LIBERATOR_TITLES[villageName.trim().toLowerCase()];
+    if (!title || !playerName) return;
+    let granted = false;
+    try {
+        await mutatePlayerSave(playerName, ({ character }) => {
+            const vault = Array.isArray(character.serverTitles)
+                ? (character.serverTitles as unknown[]).filter((t): t is string => typeof t === 'string')
+                : [];
+            if (vault.includes(title)) return { ok: false, status: 200, error: 'already granted' };
+            granted = true;
+            return {
+                ok: true,
+                value: null,
+                character: { ...character, serverTitles: [...vault, title], storyTitle: title, rankTitle: title },
+            };
+        });
+    } catch { /* best-effort — the next unlock call re-grants */ }
+    if (!granted) return;
+    try {
+        await postVillageHerald(villageName, 'A Kage Falls', `${playerName} has broken the false Kage's hold over ${villageName}. The seat stands open.`);
+    } catch { /* best-effort */ }
+    if (freshUnlock) {
+        try {
+            await announce({ type: 'kage_liberation', importance: 'high', title: 'A Village Breathes', message: `${playerName} is the first to topple the false Kage of ${villageName}.`, player: playerName, village: villageName });
+            await addHallEntry(
+                { entryType: 'kage_liberation', title: `First Liberation of ${villageName}`, description: `${playerName} broke the Hollow Gate pact and opened the Kage seat.`, player: playerName, village: villageName },
+                { nxKey: `kage-first-liberation:${villageName.toLowerCase().replace(/\s+/g, '-')}` },
+            );
+        } catch { /* best-effort */ }
+    }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -59,6 +104,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const key = kageKey(v);
 
+            // ── Server-side requirement gate (unlock) ─────────────────────────
+            // Verified BEFORE the village lock so it also covers the
+            // already-unlocked path: EVERY legitimate finale caller earns the
+            // liberator title (server-owned serverTitles vault), not only the
+            // first player to ever unlock the village.
+            let liberatorVerified = false;
+            if (action === 'unlock' && !identity.admin) {
+                const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                const char = (save as Record<string, unknown> | null)?.character as Record<string, unknown> | undefined;
+                if (!char) return res.status(400).json({ error: 'Character save not found.' });
+                const level = Number(char.level ?? 0);
+                const storyProgress = Number(char.storyProgress ?? 0);
+                // The kage finale story step is the level-100 boss fight (the 9th
+                // milestone at index 8). After defeating it the client increments
+                // storyProgress to 9. Level must also be ≥ 100.
+                if (level < 100) {
+                    return res.status(403).json({ error: `Must be level 100 to unlock the Kage system (current: ${level}).` });
+                }
+                if (storyProgress < 9) {
+                    return res.status(403).json({ error: `Must complete the village story to unlock the Kage system (progress: ${storyProgress}/9).` });
+                }
+                liberatorVerified = true;
+            }
+            let freshUnlock = false;
+
             // The unlock/seat/reset mutations are read-modify-writes on a shared,
             // permission-bearing key (the seated Kage authorizes village-treasury
             // transfers, and `firstLiberator` is permanent). Without a lock, two
@@ -76,32 +146,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // Already unlocked — return current without changing the seated kage
                         return { status: 200, body: current };
                     }
-
-                    // ── Server-side requirement gate ──────────────────────────
-                    // Only a player who has completed the level-100 Kage story
-                    // fight should be able to unlock the Kage system. Verify
-                    // their saved character data in KV to prevent exploits
-                    // (e.g. calling this endpoint directly from devtools).
-                    if (!identity.admin) {
-                        const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
-                        const char = (save as Record<string, unknown> | null)?.character as Record<string, unknown> | undefined;
-                        if (!char) {
-                            return { status: 400, body: { error: 'Character save not found.' } };
-                        }
-                        const level = Number(char.level ?? 0);
-                        const storyProgress = Number(char.storyProgress ?? 0);
-                        // The kage finale story step is the level-100 boss fight
-                        // (the 9th milestone at index 8). After defeating it the
-                        // client increments storyProgress to 9. Level must also
-                        // be ≥ 100.
-                        if (level < 100) {
-                            return { status: 403, body: { error: `Must be level 100 to unlock the Kage system (current: ${level}).` } };
-                        }
-                        if (storyProgress < 9) {
-                            return { status: 403, body: { error: `Must complete the village story to unlock the Kage system (progress: ${storyProgress}/9).` } };
-                        }
-                    }
-
+                    // The requirement gate ran before the lock (liberatorVerified);
+                    // admins skip it. Once-per-village state change happens here.
                     const next: VillageKageState = {
                         kageSystemUnlocked: true,
                         seatedKage: playerName,
@@ -109,6 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         unlockedAt: Date.now(),
                     };
                     await kv.set(key, next);
+                    freshUnlock = true;
                     return { status: 200, body: next };
                 }
 
@@ -169,6 +216,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 return { status: 400, body: { error: 'Invalid action.' } };
             }, { failClosed: true });
+
+            // Liberator consequences (rebuild §10): title into the server-owned
+            // vault + world reactions. Best-effort AFTER the kage lock (separate
+            // save-key lock inside mutatePlayerSave; never nested).
+            if (action === 'unlock' && liberatorVerified && result.status === 200) {
+                await grantLiberatorReward(safeName(playerName), v, freshUnlock);
+            }
 
             return res.status(result.status).json(result.body);
         } catch (err) {
