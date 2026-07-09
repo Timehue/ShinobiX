@@ -3,6 +3,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import type * as React from "react";
 import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT } from "./authFetch";
 import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAlert";
+import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
@@ -7342,45 +7343,20 @@ export default function App() {
                 <div className="incoming-attack-banner">{incomingAttackBanner}</div>
             )}
 
-            {/* Global incoming challenge notification — visible from any screen */}
-            {character && (() => {
-                const pending = duelChallenges.filter(c =>
-                    !c.accepted &&
-                    !c.declined &&
-                    !c.sectorAttack &&
-                    c.toName.toLowerCase() === character.name.toLowerCase()
-                );
-                if (!pending.length) return null;
-                const c = pending[0];
-                const isPet = c.mode === "clanWarPet" || c.mode === "rankedPet";
-                const isRanked = c.mode === "ranked";
-                const label = c.mode === "rankedPet" ? "ranked pet battle" : isPet ? "pet battle" : isRanked ? "ranked duel" : "spar";
-                const busy = processingChallengeIds.includes(c.id);
-                return (
-                    <div className="incoming-attack-banner" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-                        <span>⚔️ <strong>{c.fromName}</strong> challenged you to a {label}!</span>
-                        <div style={{ display: "flex", gap: 6 }}>
-                            <button
-                                style={{ padding: "4px 14px", background: "#22c55e", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
-                                disabled={busy}
-                                onClick={() => {
-                                    if (isPet) {
-                                        void acceptPetChallengeGlobal(c);
-                                    } else {
-                                        void acceptChallengeGlobal(c);
-                                    }
-                                }}
-                            >{busy ? "Opening..." : "✅ Accept"}</button>
-                            <button
-                                style={{ padding: "4px 14px", background: "#ef4444", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
-                                disabled={busy}
-                                onClick={() => declineChallengeGlobal(c)}
-                            >❌ Decline</button>
-                        </div>
-                        {pending.length > 1 && <span style={{ opacity: 0.7, fontSize: "0.85em" }}>+{pending.length - 1} more</span>}
-                    </div>
-                );
-            })()}
+            {/* Global incoming challenge popup — centered, clickable, visible from
+                any screen. Portals to <body> so the fixed side rails don't cover it. */}
+            {character && (
+                <IncomingChallengeModal
+                    challenges={duelChallenges}
+                    selfName={character.name}
+                    processingIds={processingChallengeIds}
+                    onAccept={(c) => {
+                        if (c.mode === "clanWarPet" || c.mode === "rankedPet") void acceptPetChallengeGlobal(c);
+                        else void acceptChallengeGlobal(c);
+                    }}
+                    onDecline={(c) => declineChallengeGlobal(c)}
+                />
+            )}
 
             <main
                 className={`center-game screen-${screen}`}
@@ -8255,6 +8231,9 @@ export default function App() {
                         if (!character) return;
                         const context = pvpBattleContext;
                         const rewardSector = context?.sector ?? currentSector;
+                        // Hoisted here so every reward/world-state write below can skip a casual spar.
+                        const isFriendlyDuel = !context?.mode
+                            || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
                         const deathsGate = rewardSector === 99;
                         const activeTrait = getActivePetTrait(character);
                         const xpGain = (activeTrait === "Swift" ? 125 : 100) * (deathsGate ? 2 : 1);
@@ -8275,15 +8254,13 @@ export default function App() {
                                 body: JSON.stringify({ action: "resolve", village: context.kageVillage, playerName: character.name, battleId: pvpBattleId }),
                             }).catch(() => {});
                         }
-                        if (pvpBattleId) void claimBountyOnWin(character.name, pvpBattleId).then(b => { if (b) { setCharacter(c => c ? { ...c, ryo: (c.ryo ?? 0) + b.amount } : c); alert(`💰 Bounty: +${b.amount.toLocaleString()} ryo for defeating ${b.target}!`); } });
+                        if (!isFriendlyDuel && pvpBattleId) void claimBountyOnWin(character.name, pvpBattleId).then(b => { if (b) { setCharacter(c => c ? { ...c, ryo: (c.ryo ?? 0) + b.amount } : c); alert(`💰 Bounty: +${b.amount.toLocaleString()} ryo for defeating ${b.target}!`); } });
                         const villageWarRaid = context?.raidKind === "raidPlayer"
                             ? recordVillageWarRaid(character, rewardSector, playerRoster)
                             : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
+                        const villageWarPvpPatch = (!isFriendlyDuel && opponent) ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
                         // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
                         if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
-                        const isFriendlyDuel = !context?.mode
-                            || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
                         // Spars grant NOTHING (no XP/stats/ryo/currency/scrolls/kills); ranked = no stats.
                         let leveled = isFriendlyDuel ? character : serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, xpGain);
                         if (!isFriendlyDuel && serverBase?.statGrowth?.allocated) leveled = applyStatGrowth(leveled, serverBase.statGrowth.allocated, 0);
@@ -8347,7 +8324,7 @@ export default function App() {
                         }
                         // PvP raid completion — pass pvpBattleId so the server
                         // can cross-validate the win against the real PvpSession.
-                        if (rewardSector > 0) recordMissionRaid(rewardSector, pvpBattleId ?? undefined);
+                        if (!isFriendlyDuel && rewardSector > 0) recordMissionRaid(rewardSector, pvpBattleId ?? undefined);
                         if (villageWarPvpPatch) console.info(villageWarPvpPatch.trim());
                         // Clan-war auto-report on win: if this PvP session
                         // was launched from a clan-war challenge (set by
