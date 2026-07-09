@@ -98,8 +98,10 @@ unreachable on both targets. `server-routes.test.ts` enforces this both ways
   changing allowed origins or custom headers (`x-admin-password`,
   `x-player-password`, `x-player-name`, `x-kv-token`, `x-client-fp`).
 - Tests are colocated as `*.test.ts` next to the code under test and run with the
-  built-in `node:test` runner via `tsx`. Add new tests to the `test` script in
-  the relevant `package.json` if they aren't picked up automatically.
+  built-in `node:test` runner via `tsx`. The root suite's file manifest lives in
+  **`scripts/test-files.mjs`** (run by `scripts/run-tests.mjs`; the list outgrew
+  the Windows cmd.exe command-line limit, so it can no longer live inline in the
+  `test` script). Add new root-suite test files there.
 - **`shinobij.client/src/App.tsx` is the legacy frontend monolith, in active
   drain** into `src/{screens,components,lib,data,constants,types}/`. Put **new**
   screens/components/helpers in their own module under those folders — **not** in
