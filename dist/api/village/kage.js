@@ -9,6 +9,7 @@ const _lock_js_1 = require("../_lock.js");
 const _titles_registry_js_1 = require("../_titles-registry.js");
 const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
 const _announce_js_1 = require("../_announce.js");
+const _kage_unlock_js_1 = require("./_kage-unlock.js");
 function kageKey(village) {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
 }
@@ -131,21 +132,15 @@ async function handler(req, res) {
             const result = await (0, _lock_js_1.withKvLock)(key, async () => {
                 const current = await _storage_js_1.kv.get(key) ?? { kageSystemUnlocked: false };
                 if (action === 'unlock') {
-                    if (current.kageSystemUnlocked) {
-                        // Already unlocked — return current without changing the seated kage
-                        return { status: 200, body: current };
-                    }
                     // The requirement gate ran before the lock (liberatorVerified);
-                    // admins skip it. Once-per-village state change happens here.
-                    const next = {
-                        kageSystemUnlocked: true,
-                        seatedKage: playerName,
-                        firstLiberator: playerName,
-                        unlockedAt: Date.now(),
-                    };
-                    await _storage_js_1.kv.set(key, next);
-                    freshUnlock = true;
-                    return { status: 200, body: next };
+                    // admins skip it. First clear seats + brands firstLiberator,
+                    // exactly once; later clears change nothing here (test-locked
+                    // in _kage-unlock.test.ts).
+                    const outcome = (0, _kage_unlock_js_1.applyKageUnlock)(current, playerName, Date.now());
+                    if (outcome.freshUnlock)
+                        await _storage_js_1.kv.set(key, outcome.next);
+                    freshUnlock = outcome.freshUnlock;
+                    return { status: 200, body: outcome.next };
                 }
                 if (action === 'reset') {
                     // Admin-only: reset the Kage system back to NPC / sealed state.

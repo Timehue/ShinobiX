@@ -28,14 +28,15 @@ function buildJourney(character: Character): JourneyEntry[] {
         done: (character.storyProgress ?? 0) > index,
     }));
     const interludes = (storyInterludesByVillage[village] ?? []).map((interlude): JourneyEntry => {
-        const choices = interlude.pages[interlude.pages.length - 1].choices ?? [];
-        const picked = choices.find((choice) => traits.includes(choice.trait));
+        // Lane choices only (mid-scene conversation choices carry no trait).
+        const choices = (interlude.pages[interlude.pages.length - 1].choices ?? []).filter((choice) => !!choice.trait);
+        const picked = choices.find((choice) => choice.trait && traits.includes(choice.trait));
         return {
             kind: "interlude",
             level: interlude.levelReq,
             interlude,
             done: !!picked,
-            chosen: picked ? { text: picked.text, conclusion: picked.conclusion } : undefined,
+            chosen: picked ? { text: picked.text, conclusion: picked.conclusion ?? "" } : undefined,
         };
     });
     return [...chapters, ...interludes].sort((a, b) => a.level - b.level);

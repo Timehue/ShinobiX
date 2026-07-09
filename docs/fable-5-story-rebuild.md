@@ -734,9 +734,11 @@ stretched," "a wave of [emotion] washed over."
 - Kill the summary sentence. If a scene showed it, don't restate it — the
   explainer is almost always the paragraph's last sentence. Delete it.
 - Ban "not X, but Y" beyond one use per chapter. Just assert Y.
-- Budget em-dashes (one per screen) and triads (one per scene, only when rhythm
-  is the point). Vary sentence length on purpose: a three-word line after a long
-  one.
+- ZERO em dashes and en dashes in game copy (owner hard rule, 2026-07-09 —
+  supersedes the old one-per-page budget; the story-content test enforces it).
+  Use periods, commas, or ellipses. Budget triads (one per scene, only when
+  rhythm is the point). Vary sentence length on purpose: a three-word line
+  after a long one.
 - Attribute lore to people, not fog. "Old Vanta swears the arena floor hums" —
   never "it is said."
 - Let scenes end unresolved or on a mundane detail sometimes. Not every page
