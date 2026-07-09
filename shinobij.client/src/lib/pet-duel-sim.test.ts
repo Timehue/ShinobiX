@@ -99,6 +99,24 @@ test("plantedMotion flag: default (off) is byte-identical to explicit off; on st
     assert.equal(runPetDuel(makePet({ id: "a", hp: 1400, attack: 220 }), makePet({ id: "b", hp: 500, attack: 60 }), 2024, 1, 1, false, false, false, null, true).result, "win");
 });
 
+test("feint whiffs (move:'Feint') exist ONLY on the planted path; wind-ups carry the called move", () => {
+    // The feint's viewer payoff (a "Feint" whiff event) may never appear in an
+    // authoritative stream — pendingFeint is set exclusively behind plantedMotion.
+    let plantedFeints = 0, calledWindups = 0;
+    for (const seed of SEEDS) {
+        const auth = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), seed);
+        assert.ok(!auth.events.some((e) => e.type === "whiff" && e.move === "Feint"), `authoritative feint leaked (seed ${seed})`);
+        const on = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), seed, 1, 1, false, false, false, null, true);
+        for (const e of on.events) {
+            if (e.type === "whiff" && e.move === "Feint") plantedFeints++;
+            // A named-ability wind-up announces its move BEFORE the blow (the "called attack").
+            if (e.type === "windup" && e.move) calledWindups++;
+        }
+    }
+    assert.ok(plantedFeints > 0, "no feint ever fired across the planted seeds (rate 9% — several expected)");
+    assert.ok(calledWindups > 0, "no wind-up carried its move name — the called-attack payload is missing");
+});
+
 // ── 1v1 ──────────────────────────────────────────────────────────────────────
 
 test("1v1 is deterministic — same seed yields byte-identical snapshots + events", () => {
