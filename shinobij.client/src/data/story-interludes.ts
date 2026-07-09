@@ -539,6 +539,70 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
             ch("Split the work: she stalls the buyer while you copy everything.", "neutral", "al80-split-the-draw", "Route, alias, manifest, stamps: copied into your cipher before midnight. Harrow feeds the buyer polite delays billed as due diligence. 'We're now partners in a crime against a crime,' she says. 'I've signed worse contracts.'"),
             ch("Tell her to take the deal and keep her seat at that table.", "bad", "al80-let-her-burn", "She looks at you for a long moment, recalculating something she'd thought was settled. 'A knife inside the market. Efficient.' She flags no one living and sells the buyer a warehouse of expired stock, and when she says goodbye, there's a receipt in it."),
         ]),
+        interlude("Ashen Leaf Village", 88, "The Wet Field", [
+            pg("The East Channel", "The east terrace channel at night, lamplight on low water", "Toma Reed",
+                "You came. Good. Keep your voice down and your boots on the stones; the mud here eats people's ankles.",
+                "Look at the channel. This whole stretch should be running wet in the planting season, and it's dry enough to sleep in. The terraces above us have been thirsty for thirty years, and everyone calls it normal.",
+                "The Kage told you to bring her a better winter. I have Aren's model in my coat and a frame full of guesswork in the water, and I need you to understand something before we start.",
+                "A model feeds nobody. Either the full machine works tonight, or all we ever had was a toy that made us feel right. And I am so angry that it might work that my hands are shaking. Don't ask me to explain that."),
+            pg("Hands Remember", "Jorun planing a housing board by lamplight", "Narrator",
+                "Jorun works with his eyes half closed, planing the housing boards by touch. He has already corrected the mount's angle twice, each time a moment before anyone saw the problem.",
+                "He keeps muttering the same complaint: he has never built a thing like this in his life. Then his hands adjust another joint, correctly, without him.",
+                "Toma watches one of those corrections happen and goes very quiet.",
+                "'Twenty years of chairs,' he says at last, 'and his hands still know the bridge. They cut the road out of his head, but they couldn't get it out of his fingers.'"),
+            { ...pg("The First Turn", "The screw lowered into the channel, rope taut", "Narrator",
+                "The three of you lower the screw into the channel on ropes. Cold water climbs your sleeves. Somewhere above, a night bird complains about the lamplight.",
+                "Toma releases the brake. The screw turns once, beautifully. Then it stutters, grinds sideways, throws a sheet of water across all three of you, and stops with a crack. One vane has split along the grain.",
+                "Jorun hauls it half out of the water and holds the lamp close. It can be fixed tonight, he says, but not quickly, and not without hands in the freezing channel.",
+                "Toma is staring at the split vane like it is a verdict."),
+                choices: [
+                    { text: "\"I told you to burn Aren's letter because I was afraid. I called it sense. It wasn't.\"", nextPage: 3, requireTrait: "toma-doubt", trait: "al88-repaired-trust" },
+                    { text: "Carve the builders' names into the housing first. A. Reed. T. Reed.", nextPage: 4, trait: "al88-named-the-builders" },
+                    { text: "Get into the channel and hold the frame while they reset the vane.", nextPage: 4 }
+                ] },
+            { ...pg("Trust Catches Up", "The channel bank, the lamp between you", "Toma Reed",
+                "Say that again. No. Don't. Once was honest; twice would be a performance.",
+                "You told me to burn the only thing left of him, and you called it wisdom, and the worst part is that you might have been right. That's what I couldn't forgive. Not the fear. The arithmetic.",
+                "Fine. Then don't ask me to trust you tonight. Help me make the thing work. Trust can catch up if it wants.",
+                "Get in the water. You hold, I set, Jorun cuts the new vane. And hand me the small mallet, friend. The wooden one."),
+                choices: [
+                    { text: "Get in the water.", nextPage: 4 }
+                ] },
+            pg("The Water Climbs", "The screw turning, water rising up the flights", "Narrator",
+                "The second turn is nothing like the first. The screw bites, steadies, and begins to lift, and the sound it makes is low and patient, like a man humming over a workbench.",
+                "Water arrives at the first terrace flight, then the second. It does not rush. It climbs slowly, stubbornly, in no hurry to amaze anyone, and it does not stop.",
+                "'It climbs,' Toma says. Then again, quieter, like checking his own arithmetic: 'It climbs.' Then: 'He was right.'",
+                "A lamp comes down the terrace path. It is Sera, with tea and dry cloth, because her son has been sneaking out at night and mothers notice. She looks at the machine for a long moment, then at the measuring marks scratched on the housing, and says: 'That's Aren's three. He never closed his threes.'"),
+            { ...pg("The Number", "Wet chalk figures on a channel stone", "Toma Reed",
+                "Numbers, before anyone starts crying. Flow, lift, field reach. Jorun, count with me and keep me honest.",
+                "The east terraces, watered like this through the cold season, feed ninety mouths. Ninety, from this one channel alone, without one future burned.",
+                "It doesn't beat winter by itself. That's not why everybody's gone quiet. Everybody's gone quiet because it proves the fire was never the only answer, and every person on that wall upstairs paid for a lie.",
+                "So. It works, we can prove it works, and the burning is at frost-fall. What we do with this next decides whose proof it becomes."),
+                choices: [
+                    { text: "Set Aren's model beside the working machine.", nextPage: 6, requireTrait: "al65-saved-the-screw" },
+                    { text: "Let the numbers stand on their own.", nextPage: 7 }
+                ] },
+            { ...pg("The Model and the Machine", "The little model turning beside its full-grown self", "Toma Reed",
+                "You kept it. Through the crates, the squad on the road, all of it. You kept the little one with the cracked vane, and now it sits next to the real one, turning in the same water.",
+                "This is what provenance means, friend. Anyone can build a machine and claim it. The model proves whose future this was. It was Aren's, it was stolen, stamped, and boxed for the fire, and it works.",
+                "Whoever carries this to the Kage isn't carrying a clever invention. They're carrying the whole argument.",
+                "So say it plainly, because after tonight there's no putting it down."),
+                choices: [
+                    { text: "\"We built your brother's answer. Now I'll carry it to her.\"", nextPage: 7, requireTrait: "toma-hope", trait: "al88-better-winter-ready" },
+                    { text: "\"You trusted me with the letter. Trust me with the proof.\"", nextPage: 7, requireTrait: "toma-caution", trait: "al88-better-winter-ready" },
+                    { text: "\"Trust caught up. Let me carry it the rest of the way.\"", nextPage: 7, requireTrait: "al88-repaired-trust", trait: "al88-better-winter-ready" },
+                    { text: "Stand back. This proof belongs to the Reeds, not to you.", nextPage: 7 }
+                ] },
+            pg("Whose Proof It Becomes", "First gray light, the water still climbing", "Narrator",
+                "The cold is real now, the tea is gone, and the water is still climbing, indifferent to how much it means.",
+                "Jorun sits on the bank flexing his warm hands, disturbed and smiling about it. Sera folds the drying cloth like she is putting a kitchen back in order inside herself.",
+                "Frost-fall is coming, the detention rows are full, and in the east channel a dead man's argument turns and turns.",
+                "One decision is left tonight, and it is yours."),
+        ], [
+            ch("Wake the terrace houses. Let them see it climb before dawn.", "good", "al88-proved-the-winter", "By first light there are forty people on the terrace edge watching water walk uphill, and children racing it up the flights. The proof is public now, and therefore dangerous, and word begins moving toward the tower faster than any of you can walk."),
+            ch("Keep it quiet. Record every number: flow, lift, reach, mouths fed.", "neutral", "al88-held-the-proof", "You measure everything twice by lamplight and carry the figures to Mori before the village wakes. He reads them in silence, then opens his testimony book to a fresh page and writes until his hand cramps. The proof is safe, signed, and waiting for its moment."),
+            ch("Let the survey hear just enough to come looking.", "bad", "al88-baited-the-survey", "You leave the machine running where a gray coat's morning route will find it. By evening a dry technical note is on the Kage's desk: east fields wet in a dry week, cause unrecorded. Toma watches you set the bait and says nothing, admiring and afraid in the same breath."),
+        ]),
         interlude("Ashen Leaf Village", 92, "Witnesses", [
             pg("The Last Road", "The kiln road at dawn, three figures waiting", "Narrator",
                 "Word has moved through Ashen Leaf like sap in spring: at frost-fall, the black flower walks to the tower, to put a question to the Kage that only the fire can answer.",
@@ -550,16 +614,32 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "I don't understand what was done to me. Toma says you do.",
                 "So here is what a mother can offer. I will stand in front of anyone, anywhere, and say: something was taken from my house, and I want the taking to end. Would that help you, dear? Being believed out loud?"),
                 choices: [
-                    { text: "Show her what you carried out of the crates.", nextPage: 2, requireTrait: "al65-saved-the-screw" },
-                    { text: "\"It helps more than you know. Walk with us.\"", nextPage: 3 }
+                    { text: "Take her to the east channel. Show her Aren's answer running.", nextPage: 2, requireTrait: "al65-saved-the-screw" },
+                    { text: "\"It helps more than you know. Walk with us.\"", nextPage: 5 }
                 ] },
             { ...pg("The Better Winter", "The east terrace channel, dawn water running", "Toma Reed",
-                "Show her. Show everyone. We finished it last night.",
-                "Aren's water-screw, full size. Toma Reed and company, builders. The company is you, and Jorun, who planed every housing board by hand. He couldn't tell us why his hands knew the measurements. They just did. Twenty years of chairs, and his hands still remembered the bridge.",
-                "Watch the channel. Sera, watch the water.",
-                "It CLIMBS. It's been climbing since midnight. That's the east terraces watered without one future burned, and my brother built it, and the village that cut him is about to find out what it cut."),
+                "Come and look before we walk. Sera, you too. Watch the water.",
+                "It has not stopped since the trial night. Jorun comes up before every dawn to check on it, and he stays longer than he needs to. He says his hands feel warm here. He's stopped asking why.",
+                "Aren's water-screw, full size, feeding the east terraces without one future burned. You held the frame in the dark while we reset the vane. I remember exactly who was standing in the channel.",
+                "Whatever happens at the tower today, this is already true. Nobody can make this field dry again by winning an argument."),
                 choices: [
-                    { text: "Let the water speak. Walk on.", nextPage: 3 }
+                    { text: "\"And the terrace houses saw it climb. The whole row saw.\"", nextPage: 3, requireTrait: "al88-proved-the-winter" },
+                    { text: "\"She already knows, Toma. I made sure her own survey saw the field.\"", nextPage: 4, requireTrait: "al88-baited-the-survey" },
+                    { text: "Let the water speak. Walk on.", nextPage: 5 }
+                ] },
+            { ...pg("What They Saw", "The channel, doors opening along the terrace row", "Toma Reed",
+                "That's the whole plan now, isn't it. Show them what they saw with their own eyes. The east channel. The water climbing.",
+                "They can call us liars at the tower. They can call Mori's book a forgery and your flower a trick. They cannot make forty families un-see water.",
+                "My brother's machine made witnesses out of an entire row while it was busy making bread. He would have liked that better than any argument."),
+                choices: [
+                    { text: "Walk on.", nextPage: 5 }
+                ] },
+            { ...pg("The Dry Report", "The channel, a gray figure gone from the tree line", "Toma Reed",
+                "A gray coat walked past this field three times this week, counting on her fingers like we couldn't see her from the water. You wanted the survey to notice. It noticed.",
+                "By now there's a report on the Kage's desk that says the east fields are wet in the driest week of the year, and she is sitting up there trying not to understand it.",
+                "I can't decide whether to admire that or be a little afraid of you. I've settled on both."),
+                choices: [
+                    { text: "Walk on.", nextPage: 5 }
                 ] },
             { ...pg("The Keeper of Records", "The road, Mori with a bound book", "Elder Mori",
                 "Forty years of bloom charts, copied out fair, in my own hand, with my name signed at the bottom of every page.",
@@ -567,7 +647,23 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "If you mean to argue with her, arguments need documents. If you mean to break her fire, breakings need witnesses who kept count. Either way, this book walks with you.",
                 "One request, when it's over. Plant something for me. Anything at all. I have spent my whole life filing endings, and I would like to be present for one beginning."),
                 choices: [
-                    { text: "Take the book, and walk on.", nextPage: 4 }
+                    { text: "\"Open the book, Elder. Read me the east channel pages.\"", nextPage: 6, requireTrait: "al88-held-the-proof" },
+                    { text: "Show Mori the names carved into the housing.", nextPage: 7, requireTrait: "al88-named-the-builders" },
+                    { text: "Take the book, and walk on.", nextPage: 8 }
+                ] },
+            { ...pg("The Arithmetic", "The book open across his arm", "Elder Mori",
+                "The east channel pages. Flow, lift, field reach, mouths fed. Measured at the worst stretch of the channel, in the driest week, the way I taught you, so no clerk alive can call it generous.",
+                "The numbers are in my book, and my name is under them. She asked for arithmetic. We brought arithmetic.",
+                "I have filed forty years of things that were true and helped no one. This is the first page I have ever carried that argues back. Let me hold it a little longer, and then it's yours."),
+                choices: [
+                    { text: "Walk on together.", nextPage: 8 }
+                ] },
+            { ...pg("The Signatures", "His thumb on the carved housing plate", "Elder Mori",
+                "You carved the builders' names into the housing. A. Reed. T. Reed. And under them, room for more.",
+                "Evidence argues, child. A signature testifies. A machine with names on it stops being a rumor and becomes somebody's word, given in public, on purpose.",
+                "Before we reach the gate, I will cut my own name beside theirs. It is long past time the record keeper went on the record."),
+                choices: [
+                    { text: "Walk on together.", nextPage: 8 }
                 ] },
             pg("The Third Figure", "The road's bend, a survey officer waiting alone", "Narrator",
                 "The third figure wears survey gray, stands alone, off schedule, hands kept visible. Everything about the posture says: I am breaking a rule, carefully.",

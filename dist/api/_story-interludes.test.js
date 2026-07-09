@@ -15,21 +15,28 @@ async function loadClientInterludes() {
     return mod.storyInterludesByVillage;
 }
 const VILLAGES = ['Stormveil Village', 'Ashen Leaf Village', 'Frostfang Village', 'Moonshadow Village'];
-const LEVELS = [20, 30, 42, 58, 70, 80, 92];
-const MIN_PROGRESS = { 20: 2, 30: 3, 42: 4, 58: 5, 70: 6, 80: 7, 92: 8 };
+// Every village runs the seven core interludes; Ashen Leaf adds the L88
+// "Wet Field" trial-run scene (the finale's better-winter proof).
+const LEVELS_BY_VILLAGE = {
+    'Stormveil Village': [20, 30, 42, 58, 70, 80, 92],
+    'Ashen Leaf Village': [20, 30, 42, 58, 70, 80, 88, 92],
+    'Frostfang Village': [20, 30, 42, 58, 70, 80, 92],
+    'Moonshadow Village': [20, 30, 42, 58, 70, 80, 92],
+};
+const MIN_PROGRESS = { 20: 2, 30: 3, 42: 4, 58: 5, 70: 6, 80: 7, 88: 8, 92: 8 };
 const RELATIONSHIP_TRAITS = {
     'Stormveil Village': ['mira-trust', 'mira-respect', 'mira-fear'],
     'Ashen Leaf Village': ['toma-hope', 'toma-caution', 'toma-doubt'],
     'Frostfang Village': ['yura-trust', 'yura-respect', 'yura-fear'],
     'Moonshadow Village': ['nyx-partner', 'nyx-respect', 'nyx-suspicion'],
 };
-(0, node_test_1.test)('every village has the seven interludes at the planned levels and gates', async () => {
+(0, node_test_1.test)('every village has its planned interludes at the planned levels and gates', async () => {
     const storyInterludesByVillage = await loadClientInterludes();
     strict_1.default.deepEqual(Object.keys(storyInterludesByVillage).sort(), [...VILLAGES].sort());
     for (const village of VILLAGES) {
         const entries = storyInterludesByVillage[village];
-        strict_1.default.equal(entries.length, 7, village);
-        strict_1.default.deepEqual(entries.map((e) => e.levelReq), LEVELS, village);
+        strict_1.default.equal(entries.length, LEVELS_BY_VILLAGE[village].length, village);
+        strict_1.default.deepEqual(entries.map((e) => e.levelReq), LEVELS_BY_VILLAGE[village], village);
         for (const entry of entries) {
             strict_1.default.equal(entry.minProgress, MIN_PROGRESS[entry.levelReq], entry.id);
             strict_1.default.equal(entry.village, village, entry.id);

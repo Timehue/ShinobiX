@@ -40,6 +40,13 @@ const DEFS: StoryInterludeDef[] = [
     def("Ashen Leaf Village", 58, { "al58-refused-the-cut": "good", "al58-took-note": "neutral", "al58-took-the-knowledge": "bad" }),
     def("Ashen Leaf Village", 70, { "al70-claimed-the-name": "good", "al70-erased-the-name": "neutral", "al70-traded-the-name": "bad" }),
     def("Ashen Leaf Village", 80, { "al80-pulled-her-back": "good", "al80-split-the-draw": "neutral", "al80-let-her-burn": "bad" }),
+    // The Wet Field (Ashen Leaf runs 8 interludes; the extra L88 trial-run
+    // scene makes the finale's better-winter proof playable, owner brief
+    // 2026-07-09). Mid-scene it also grants al88-repaired-trust /
+    // al88-named-the-builders / al88-better-winter-ready — those are memory
+    // traits recorded via the save mirror, not lanes, so only the three lane
+    // traits appear here.
+    def("Ashen Leaf Village", 88, { "al88-proved-the-winter": "good", "al88-held-the-proof": "neutral", "al88-baited-the-survey": "bad" }),
     def("Ashen Leaf Village", 92, { "al92-carried-their-trust": "good", "al92-took-the-count": "neutral", "al92-wore-their-fear": "bad" }),
     def("Frostfang Village", 20, { "ff20-shared-the-fire": "good", "ff20-read-her-license": "neutral", "ff20-called-the-next-name": "bad" }),
     def("Frostfang Village", 30, { "yura-trust": "good", "yura-respect": "neutral", "yura-fear": "bad" }),

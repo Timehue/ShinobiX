@@ -11,7 +11,7 @@ import type { CreatorEvent } from "../App";
 import type { Character } from "../types/character";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
-import { defaultVnPortrait, defaultVnScene, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
+import { applyVnTextVars, defaultVnPortrait, defaultVnScene, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
 import { biomeLabel } from "../data/world";
 
 type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number];
@@ -196,10 +196,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     </div>{/* end vn-picture */}
                     <div className="vn-dialogue">
                         <div className="vn-speaker">{speaker}</div>
-                        <p>{spoken}</p>
+                        <p>{applyVnTextVars(spoken, character.name)}</p>
                         {pendingChoice ? (
                             <div className="vn-conclusion">
-                                <p className="vn-conclusion-text">{pendingChoice.conclusion}</p>
+                                <p className="vn-conclusion-text">{applyVnTextVars(pendingChoice.conclusion, character.name)}</p>
                                 <div className="vn-controls">
                                     <button onClick={confirmPendingChoice}>Continue</button>
                                 </div>
@@ -208,7 +208,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                             <div className="vn-choices">
                                 {pageChoices!.map((choice, i) => (
                                     <button key={i} className="vn-choice-btn" onClick={() => chooseOption(choice)}>
-                                        {choice.text}
+                                        {applyVnTextVars(choice.text, character.name)}
                                     </button>
                                 ))}
                             </div>

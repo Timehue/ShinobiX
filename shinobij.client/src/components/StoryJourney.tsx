@@ -11,6 +11,7 @@ import { useState } from "react";
 import type { Character } from "../types/character";
 import { storylines } from "../data/storylines";
 import { storyInterludesByVillage, type StoryInterlude } from "../data/story-interludes";
+import { applyVnTextVars } from "../lib/vn";
 
 type JourneyEntry =
     | { kind: "chapter"; level: number; title: string; bossName: string; bossIcon: string; done: boolean }
@@ -99,14 +100,14 @@ export function StoryJourney({ character }: { character: Character }) {
                                         <div key={pageIndex} className="story-journey-page">
                                             <em>{page.scene}</em>
                                             {page.dialogue.map((line, lineIndex) => (
-                                                <p key={lineIndex}><strong>{page.speaker}:</strong> {line}</p>
+                                                <p key={lineIndex}><strong>{page.speaker}:</strong> {applyVnTextVars(line, character.name)}</p>
                                             ))}
                                         </div>
                                     ))}
                                     {entry.chosen && (
                                         <div className="story-journey-choice">
-                                            <p><strong>You chose:</strong> {entry.chosen.text}</p>
-                                            <p>{entry.chosen.conclusion}</p>
+                                            <p><strong>You chose:</strong> {applyVnTextVars(entry.chosen.text, character.name)}</p>
+                                            <p>{applyVnTextVars(entry.chosen.conclusion, character.name)}</p>
                                         </div>
                                     )}
                                 </div>

@@ -155,6 +155,20 @@ function looksLikeSpeakerName(prefix: string, fallbackSpeaker: string): boolean 
     return words.every((w) => /^[A-Z]/.test(w) || particles.has(w));
 }
 
+/**
+ * Substitute story-text variables at render time. `%name` becomes the player
+ * character's name, so signature beats (the Register signing, the finale) can
+ * address the player directly. Applied by the VN renderers to displayed
+ * dialogue / choice / conclusion text only — the stored data keeps the token,
+ * so saves and story data stay player-agnostic. Unknown tokens pass through
+ * untouched.
+ */
+export function applyVnTextVars(text: string, playerName: string): string {
+    const name = playerName.trim();
+    if (!name || !text.includes("%name")) return text;
+    return text.split("%name").join(name);
+}
+
 export function splitDialogueLine(line: string, fallbackSpeaker: string): { speaker: string; text: string } {
     const colon = line.indexOf(":");
     if (colon > 0 && looksLikeSpeakerName(line.slice(0, colon), fallbackSpeaker)) {
