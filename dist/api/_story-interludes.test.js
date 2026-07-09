@@ -65,8 +65,13 @@ const RELATIONSHIP_TRAITS = {
             const lastIndex = entry.pages.length - 1;
             for (const [i, page] of entry.pages.entries()) {
                 strict_1.default.ok(page.dialogue.length >= 1, `${entry.id} page ${i} has no dialogue`);
-                if (i < lastIndex)
-                    strict_1.default.ok(!page.choices?.length, `${entry.id}: choices must live on the final page only`);
+                // Mid-scene choices steer the conversation only: they must never
+                // grant traits (the recorded decision lives on the final page).
+                if (i < lastIndex) {
+                    for (const choice of page.choices ?? []) {
+                        strict_1.default.ok(!choice.trait, `${entry.id} page ${i}: mid-scene choice grants a trait (${choice.trait})`);
+                    }
+                }
             }
             const choices = entry.pages[lastIndex].choices ?? [];
             strict_1.default.equal(choices.length, 3, entry.id);
