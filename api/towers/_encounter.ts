@@ -215,9 +215,11 @@ function squadActor(m: SquadMemberInput, pos: number): TowerActor {
 function templateActor(
     id: string, side: 'enemy' | 'npc', tpl: EnemyTemplate, pos: number, ownerSlug: string | null = null,
 ): TowerActor {
+    const maxChakra = Math.max(1, Math.floor(Number(tpl.maxChakra ?? 100)));
+    const maxStamina = Math.max(1, Math.floor(Number(tpl.maxStamina ?? 100)));
     return {
         id, side, name: tpl.name, ownerSlug, ai: true,
-        hp: tpl.hp, maxHp: tpl.hp, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
+        hp: tpl.hp, maxHp: tpl.hp, chakra: maxChakra, maxChakra, stamina: maxStamina, maxStamina,
         shield: 0, statuses: [], cooldowns: {}, pos,
         // `visual` (sprite key) + `boss` are cosmetic-only hints the client renders; they
         // never touch combat math. The boss is also tracked authoritatively via phaseState.
@@ -228,6 +230,8 @@ function templateActor(
             ...(tpl.boss ? { boss: true } : {}),
             // Endgame Spire bosses carry raw damage-reduction (read by computeDamage's armor pool).
             ...(tpl.armorRawDR != null ? { armorRawDR: tpl.armorRawDR } : {}),
+            // Signature jutsu the AI casts (a boss that only basic-attacks can't threaten a geared party).
+            ...(tpl.jutsu ? { jutsu: tpl.jutsu.map(j => ({ ...j })) } : {}),
         },
     };
 }

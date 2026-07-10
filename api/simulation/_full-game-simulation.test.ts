@@ -620,7 +620,9 @@ describe('full game simulation harness', () => {
         assert.equal(clanBossDamageDealt(progress), progress.poolMax);
         assert.ok(clanBossScore(progress) > 0, 'finished clan boss should score');
         assert.equal(progress.participants.length, party.length);
-        assert.ok(party.every((member) => progress.memberAttempts[member]! <= CB_ASSAULTS_PER_MEMBER));
+        // A gauntlet-tuned boss can be finished in fewer assaults than there are members, so some
+        // members may never host (0 attempts) — that trivially satisfies the per-member cap.
+        assert.ok(party.every((member) => (progress.memberAttempts[member] ?? 0) <= CB_ASSAULTS_PER_MEMBER));
     });
 
     it('soaks progression, sectors, economy, inventory, shops, hospital, bank, and PvP rewards without invalid state', () => {
