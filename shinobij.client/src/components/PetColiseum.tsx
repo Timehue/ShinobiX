@@ -38,6 +38,7 @@ import {
     petStripVariant,
     elementVfxKey,
     extractPetMoveName,
+    POSE_ASSET_V,
 } from "../lib/pet-battle-anim";
 import { petBattleCamera, petCameraHoldMs } from "../lib/pet-battle-camera";
 import { petFxSpriteKey, arenaAbilityFxKey, arenaKillFxKey, multiKillLabel } from "../lib/jutsu-vfx";
@@ -231,7 +232,9 @@ const RUN_CATS: PoseCat[] = ["run-a", "run-b"]; // 2-frame run cycle (kills glid
 const MOVE_CATS: PoseCat[] = ["windup", "lunge", "impact", "recover"]; // generated attack sequence
 // Poses are served as STATIC files (public/pet-poses/) and loaded on demand per
 // fighting pet — the manifest says which of the 148 pets have a generated set.
-const poseUrl = (id: string, cat: PoseCat) => `/pet-poses/${id}-${cat}.webp`;
+// `?v` shares the idle path's POSE_ASSET_V: the combat-pose files are also
+// overwritten in place, so a CDN/browser would otherwise serve stale art.
+const poseUrl = (id: string, cat: PoseCat) => `/pet-poses/${id}-${cat}.webp?v=${POSE_ASSET_V}`;
 /** The posed-asset id for a pet (its own id, or the stripped base id), or null
  *  if no pose set was generated for it. */
 function posedId(petId: string): string | null {
