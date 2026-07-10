@@ -150,6 +150,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "Frostfang hunters cross the border tomorrow. They'll follow prints. The prints go everywhere he isn't.",
             "Lucky for Havel. It won't stay lucky. Terror this loud draws worse than hunters.",
             "I read ground. I can't read a frightened man's spillage. You maybe can.",
+            "And if you can't, I'd put my fee on %pet. I've watched the two of you walk all day. Not one wrong step between you.",
             "So. Your road. What do we do with it?"),
     ], [
         ch("Track the fear backward to the man himself", "good", "rd31-calmed-the-runner", "You find Havel folded into a culvert two sectors from any print and sit with him until his breathing slows; across three sectors, frozen mud goes soft. Oren burns his rubbings without being asked.", undefined),
@@ -167,6 +168,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
             "The lid carries no tool marks. Its seam is finer than a hair and holds no dust.",
             "Moss circles it at arm's length, a ring in no pattern anyone planted.",
             "The sun side of the stone is cold. The shaded side is warm.",
+            "%pet stops at the moss line unasked and stays there, watching the seam.",
             "Serel sets her pack down outside the ring and stays standing."),
         pg("Three Dry Days", "Inside the moss ring, midday", "Serel",
             "Three days I've walked dry. On purpose. Watch the seam, not me.",
@@ -472,6 +474,7 @@ export const storyRoadEvents: StoryRoadEvent[] = [
         pg("Forty Behind Her", "The Central road, first light", "Suma",
             "Hold on. Hold... I know you.",
             "You won't remember. It was raining, and you didn't ask our names first. Stopped anyway.",
+            "And %pet stayed with my youngest while you helped. She still asks if the two of you are eating right.",
             "There's forty of us walking behind me. Give or take. Word came down the road you're going for the seat.",
             "Nobody sent us. I want that said plain. Nobody sent us.",
             "We just want to stand where it happens. My feet already agreed."),
