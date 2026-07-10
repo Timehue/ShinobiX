@@ -41,6 +41,7 @@ import hollowGateArt from "../../assets/card-clash/loc/hollow-gate.webp";
 // image pipeline): the seated white kitsune deity (transparent cutout) and
 // the waterfall-shrine sanctuary backdrops for both orientations.
 import shiranuiArt from "./assets/shiranui.webp";
+import shiranuiBlink from "./assets/shiranui-blink.webp";
 import shrineFallsLandscape from "./assets/shrine-falls-landscape.webp";
 import shrineFallsPortrait from "./assets/shrine-falls-portrait.webp";
 import { introCue, startIntroAmbience, stopIntroAmbience } from "./introCinematicSfx";
@@ -74,10 +75,16 @@ export function IntroCinematic({
     character,
     sharedImages = {},
     onComplete,
+    replay = false,
+    onClose,
 }: {
     character: Character;
     sharedImages?: Record<string, string>;
-    onComplete: (pet: Pet) => void;
+    onComplete?: (pet: Pet) => void;
+    /** Replay mode (Story Hall): pure viewing — no grant, no step change; the
+     *  white-out ends by calling onClose instead of onComplete. */
+    replay?: boolean;
+    onClose?: () => void;
 }) {
     const [phase, setPhase] = useState<Phase>({ kind: "dialogue", stage: "pre", idx: 0 });
     const [chosen, setChosen] = useState<StarterPetOption | null>(null);
@@ -109,11 +116,31 @@ export function IntroCinematic({
     const [muted, setMuted] = useState(isAudioMuted);
     useEffect(() => subscribeAudioMute(() => setMuted(isAudioMuted())), []);
 
+    // The deity is alive: a second art frame with closed eyes swaps in on a
+    // natural blink rhythm (both frames share the exact silhouette, so the
+    // swap is jump-free). The farewell holds the eyes closed instead.
+    const [blink, setBlink] = useState(false);
+    useEffect(() => {
+        if (companionMode || reduced) return;
+        let closeT = 0, openT = 0;
+        let alive = true;
+        const schedule = () => {
+            if (!alive) return;
+            closeT = window.setTimeout(() => {
+                setBlink(true);
+                openT = window.setTimeout(() => { setBlink(false); schedule(); }, 160);
+            }, 2800 + Math.random() * 3800);
+        };
+        schedule();
+        return () => { alive = false; window.clearTimeout(closeT); window.clearTimeout(openT); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Companion mode — the beat AFTER the shrine cinematic's white-out
     // (onboardingStep === "companionIntro"): the granted pet stands over the
     // live village screen, speaks its own village intro, and hands off to the
     // tutorial. Same overlay component so App.tsx mounts exactly one gate.
-    const companionMode = character.onboardingStep === "companionIntro";
+    const companionMode = !replay && character.onboardingStep === "companionIntro";
     const companionPet = companionMode
         ? character.pets.find((p) => p.id === character.activePetId) ?? character.pets[0] ?? STARTER_PETS[0].pet
         : null;
@@ -175,11 +202,12 @@ export function IntroCinematic({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Warm the five pose cutouts during the opening dialogue so the picker
-    // cards never animate in artless on a cold cache.
+    // Warm the five pose cutouts (picker cards) and the blink frame during the
+    // opening dialogue so neither ever pops in on a cold cache.
     useEffect(() => {
         if (companionMode) return;
-        STARTER_PETS.forEach((o) => { const img = new Image(); img.src = petPoseImage(o.pet, sharedImages); });
+        [...STARTER_PETS.map((o) => petPoseImage(o.pet, sharedImages)), shiranuiBlink]
+            .forEach((src) => { const img = new Image(); img.src = src; });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -207,9 +235,10 @@ export function IntroCinematic({
         const revealMs = reduced ? 250 : 950;
         const t1 = window.setTimeout(() => setPhase({ kind: "whiteout", revealing: true }), whiteInMs);
         const t2 = window.setTimeout(() => {
-            if (completedRef.current || !chosen) return;
+            if (completedRef.current) return;
             completedRef.current = true;
-            onComplete(chosen.pet);
+            if (replay) { onClose?.(); return; }
+            if (chosen) onComplete?.(chosen.pet);
         }, whiteInMs + revealMs);
         return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -220,7 +249,7 @@ export function IntroCinematic({
     function finishCompanion() {
         if (completedRef.current || !companionPet) return;
         completedRef.current = true;
-        onComplete(companionPet);
+        onComplete?.(companionPet);
     }
 
     function advance() {
@@ -340,13 +369,15 @@ export function IntroCinematic({
                         />
                     </div>
                 )}
+                {/* The deity keeps watch (dimmed) while the five spirits present
+                    themselves on the choose/confirm screens. */}
+                {!companionMode && (showActors || phase.kind === "choose" || phase.kind === "confirm") && foxOnStage && (
+                    <div className={`icx-fox ${foxFading ? "is-fading" : ""} ${line?.speaker === "fox" && !typingDone ? "is-talking" : ""} ${phase.kind === "choose" || phase.kind === "confirm" ? "is-watching" : ""}`}>
+                        <img src={foxFading || blink ? shiranuiBlink : FOX_ART} alt={`${FOX_NAME}, the ancient spirit fox`} />
+                    </div>
+                )}
                 {showActors && !companionMode && (
                     <>
-                        {foxOnStage && (
-                            <div className={`icx-fox ${foxFading ? "is-fading" : ""} ${line?.speaker === "fox" && !typingDone ? "is-talking" : ""}`}>
-                                <img src={FOX_ART} alt={`${FOX_NAME}, the ancient spirit fox`} />
-                            </div>
-                        )}
                         <div className="icx-avatar">
                             {character.avatarImage ? (
                                 <img src={character.avatarImage} alt="" />
