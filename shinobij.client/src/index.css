@@ -2914,24 +2914,6 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     }
 }
 
-/* Starter "Choose Your Companion" onboarding overlay — same full-bleed pet-yard
-   backdrop as the Pet Yard, and the same desktop gutters so the picker cards sit
-   between the left profile card and the right menu instead of clipping under
-   them. Below 981px there are no sidebars, so it stays full-viewport. */
-.starter-pet-backdrop {
-    position: fixed;
-    inset: 0;
-    background:
-        linear-gradient(180deg, rgba(7,12,27,0.80) 0%, rgba(4,6,18,0.93) 100%),
-        url('/pet-yard.webp') center / cover no-repeat;
-}
-@media (min-width: 981px) {
-    .starter-pet-backdrop {
-        left: 265px;
-        right: 255px;
-    }
-}
-
 .pet-yard-overlay {
     min-height: 100%;
     padding: 20px;
@@ -6055,86 +6037,6 @@ button {
     color: #0f172a !important;
     display: grid !important;
     grid-template-rows: 78px 20px 16px 16px 18px !important;
-}
-
-.village-lore-screen {
-    animation: loreFadeIn .8s ease both;
-    max-width: 950px;
-    margin: 30px auto;
-}
-
-    .village-lore-screen h1 {
-        font-size: 34px;
-        margin-bottom: 6px;
-    }
-
-    .village-lore-screen h3 {
-        color: #cbd5e1;
-        margin-bottom: 28px;
-    }
-
-.village-lore-text {
-    max-width: 780px;
-    margin: 0 auto 30px;
-    text-align: left;
-    font-size: 18px;
-    line-height: 1.75;
-    white-space: pre-wrap;
-}
-
-    .village-lore-text p {
-        margin-bottom: 18px;
-    }
-
-@keyframes loreFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(18px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Mobile: shrink lore text and stack the Begin/Back buttons so the
-   whole screen fits comfortably without the menu hiding behind the
-   bottom mobile nav. */
-@media (max-width: 800px) {
-    .village-lore-screen {
-        margin: 12px auto !important;
-    }
-
-    .village-lore-screen h1 {
-        font-size: 26px !important;
-        margin-bottom: 4px !important;
-    }
-
-    .village-lore-screen h3 {
-        margin-bottom: 16px !important;
-        font-size: 15px !important;
-    }
-
-    .village-lore-text {
-        font-size: 15px !important;
-        line-height: 1.55 !important;
-        margin: 0 auto 20px !important;
-    }
-
-    .village-lore-text p {
-        margin-bottom: 12px !important;
-    }
-
-    .village-lore-screen .menu {
-        flex-direction: column !important;
-        gap: 8px !important;
-        margin-bottom: 12px !important;
-    }
-
-    .village-lore-screen .menu button {
-        width: 100% !important;
-    }
 }
 
 /* =========================================================
