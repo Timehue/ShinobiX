@@ -263,8 +263,10 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGat
     // The entrance chamber is a SAFE room: no hostiles ever spawn in it.
     const hostileSafe = (cells: number[]) => notSpawnRoom(cells);
 
-    // Counts mirror the legacy generators exactly (no balance change).
-    const battleCount = 4 + Math.min(3, floor);
+    // Content grows with depth. Battles ramp to floor 5 then plateau at 9 (the
+    // deep floors are dense but still crossable); elites + traps keep climbing
+    // (floor 9 → 5 elites, 7 traps) so a full nine-floor descent stays tense.
+    const battleCount = 4 + Math.min(5, floor);
     const eliteCount = 1 + Math.floor(floor / 2);
     const trapCount = 3 + Math.floor(floor / 2);
     const chestCount = 3;
