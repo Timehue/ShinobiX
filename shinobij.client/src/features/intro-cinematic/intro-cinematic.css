@@ -298,17 +298,20 @@
     width: 100%;
     height: auto;
     display: block;
+    transition: filter 1.6s ease;
+}
+/* Base frame defines the box, plays the materialization, AND carries the whole
+   aura (brightness + drop-shadow glow). It is always fully opaque, so the glow
+   is rock-steady. The alt frame (mouth-flap / farewell) stacks on top toggled
+   by opacity only, and must NOT cast its own drop-shadow — otherwise the glow
+   DOUBLES on every flap and the deity visibly flashes brighter as it speaks. */
+.icx-fox-base {
+    position: relative;
+    z-index: 0;
     filter:
         brightness(1)
         drop-shadow(0 0 18px rgba(240, 249, 255, 0.45))
         drop-shadow(0 0 60px rgba(186, 220, 252, 0.3));
-    transition: filter 1.6s ease;
-}
-/* Base frame defines the box + plays the materialization; the alt frame stacks
-   on top and is toggled by opacity only (mouth-flap / farewell eyes-closed). */
-.icx-fox-base {
-    position: relative;
-    z-index: 0;
     animation: icx-fox-arrive 1.9s ease-out both;
 }
 .icx-fox-alt {
@@ -316,24 +319,28 @@
     inset: 0;
     z-index: 1;
     opacity: 0;
+    /* match the base body brightness so the swapped muzzle never seams — but no
+       drop-shadow: the aura belongs to the base layer alone. */
+    filter: brightness(1);
     transition: opacity 70ms linear, filter 1.6s ease;
 }
-/* Speaking: the deity brightens while its words are being written. */
-.icx-fox.is-talking img {
-    filter:
-        brightness(1.1)
-        drop-shadow(0 0 24px rgba(240, 249, 255, 0.6))
-        drop-shadow(0 0 70px rgba(186, 220, 252, 0.4));
-}
-/* Farewell: fade the whole deity (container) and hold the eyes-closed alt. */
+/* Speaking: mouth-flap only (driven by the alt overlay's opacity). The aura is
+   deliberately held CONSTANT while talking — an earlier brightness bump here
+   read as the deity flashing brighter every time it spoke. */
+/* Farewell: fade the whole deity (container) and hold the eyes-closed alt.
+   The alt is steady here (not flapping), so brightening both layers does not
+   pulse — the aura still rides on the base. */
 .icx-fox.is-fading {
     opacity: 0.55;
 }
-.icx-fox.is-fading img {
+.icx-fox.is-fading .icx-fox-base {
     filter:
-        brightness(1.4)
+        brightness(1.35)
         drop-shadow(0 0 30px rgba(240, 249, 255, 0.9))
         drop-shadow(0 0 92px rgba(186, 230, 253, 0.65));
+}
+.icx-fox.is-fading .icx-fox-alt {
+    filter: brightness(1.35);
 }
 .icx-fox.is-fading::before {
     animation-duration: 2.4s;
