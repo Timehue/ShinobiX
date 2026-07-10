@@ -26,11 +26,30 @@ const stubCharacter = {
     inventory: [],
 } as unknown as Character;
 
+// Hydrate the shrine art from the LIVE shared-image store (reference URLs, the
+// same /api/img form the real client uses) so the harness shows the dungeon
+// fully dressed. Silent fallback to the CSS look when offline.
+const LIVE_SERVER = "https://shinobijourney.com";
+
 function Harness() {
     const [floorNum, setFloorNum] = useState(1);
     const [run, setRun] = useState<HollowGateShrineRun>(() => generateHollowGateShrineRun(1));
     const [log, setLog] = useState<string[]>(["Preview harness — movement is geometry-only."]);
+    const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const pushLog = (line: string) => setLog(prev => [line, ...prev].slice(0, 30));
+    useEffect(() => {
+        let alive = true;
+        fetch(`${LIVE_SERVER}/api/images?cat=shrine&ids=1`)
+            .then(r => (r.ok ? r.json() : []))
+            .then((ids: string[]) => {
+                if (!alive || !Array.isArray(ids)) return;
+                const map: Record<string, string> = {};
+                for (const id of ids) map[id] = `${LIVE_SERVER}/api/img?id=${encodeURIComponent(id)}`;
+                setSharedImages(map);
+            })
+            .catch(() => { /* offline — CSS fallback look */ });
+        return () => { alive = false; };
+    }, []);
 
     // Geometry-only movement: walls block, tiles reveal; stepping on descend
     // regenerates the next floor. No events/economy — renderer test only.
@@ -75,7 +94,7 @@ function Harness() {
                 character={stubCharacter}
                 hollowGateRun={run}
                 hollowGateLog={log}
-                sharedImages={{}}
+                sharedImages={sharedImages}
                 hollowGateIntroPage={null}
                 setHollowGateIntroPage={() => {}}
                 hollowGateEvent={null}

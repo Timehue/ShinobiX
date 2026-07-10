@@ -227,6 +227,11 @@ export function HollowGateShrineView({
                                         return variants;
                                     }
                                     const wallVariants = gatherVariants("shrine:tile-wall", 4);
+                                    // South-facing wall FACES get purpose-drawn masonry art
+                                    // (shrine:tile-wall-face) distinct from the flat wall TOPS;
+                                    // when it exists the CSS brick-course pass steps aside
+                                    // (.hg-tex) and only the cap + contact shading draw over it.
+                                    const wallFaceVariants = gatherVariants("shrine:tile-wall-face", 4);
                                     const roomFloorVariants = gatherVariants("shrine:tile-room-floor", 4);
                                     const corridorFloorVariants = gatherVariants("shrine:tile-corridor-floor", 4);
                                     // Decoration sprites — sprinkled on top of room floors by the generator.
@@ -280,17 +285,32 @@ export function HollowGateShrineView({
                                     // given (theme, role) try shrine:icon-theme-<theme>-<role>. If absent
                                     // we fall back to the base atlas tile. Themes only apply to tiles that
                                     // belong to a room (room_floor + doors); corridors stay default.
-                                    function themedTileFor(role: "wall" | "floor" | "corridor" | "door", theme: string | undefined): string | undefined {
+                                    function themedTileFor(role: "wall" | "wall-face" | "floor" | "corridor" | "door", theme: string | undefined): string | undefined {
                                         if (!theme) return undefined;
                                         return sharedImages[`shrine:icon-theme-${theme}-${role}`];
                                     }
                                     // Optional texture layer for a terrain (admin atlas art). Returns the
                                     // image url or undefined — the CSS dungeon look is the fallback.
-                                    function textureFor(terrainKind: HollowGateTerrain, idx: number, theme?: string): string | undefined {
-                                        if (terrainKind === "wall") return themedTileFor("wall", theme) ?? wallVariants[variantPick(idx, wallVariants.length)];
+                                    // Wall FACES prefer the dedicated face art and fall back to the
+                                    // wall-top texture (the CSS course pass keeps depth either way).
+                                    function textureFor(terrainKind: HollowGateTerrain, idx: number, theme?: string, face = false): string | undefined {
+                                        if (terrainKind === "wall") {
+                                            if (face) {
+                                                return themedTileFor("wall-face", theme)
+                                                    ?? wallFaceVariants[variantPick(idx, wallFaceVariants.length)]
+                                                    ?? themedTileFor("wall", theme)
+                                                    ?? wallVariants[variantPick(idx, wallVariants.length)];
+                                            }
+                                            return themedTileFor("wall", theme) ?? wallVariants[variantPick(idx, wallVariants.length)];
+                                        }
                                         if (terrainKind === "corridor_floor") return themedTileFor("corridor", theme) ?? corridorFloorVariants[variantPick(idx, corridorFloorVariants.length)];
                                         if (terrainKind === "door") return themedTileFor("door", theme) ?? doorTexture;
                                         return themedTileFor("floor", theme) ?? roomFloorVariants[variantPick(idx, roomFloorVariants.length)];
+                                    }
+                                    // True when a dedicated face texture exists for this theme —
+                                    // used to swap the CSS painted-brick pass for a lighter one.
+                                    function hasFaceArt(theme: string | undefined): boolean {
+                                        return Boolean(themedTileFor("wall-face", theme) ?? wallFaceVariants[0]);
                                     }
                                     // Per-cell theme resolver — null roomId (wall / corridor outside a room)
                                     // gets the room theme of the nearest 4-neighbour room cell, so walls
@@ -374,7 +394,8 @@ export function HollowGateShrineView({
 
                                         // ── Optional admin texture + content tint (lit only) ───
                                         const cellTheme = (visible || known) ? tileTheme(i) : undefined;
-                                        const texture = (visible || known) && !isPlayer ? textureFor(terrainKind, i, cellTheme) : undefined;
+                                        const texture = (visible || known) && !isPlayer ? textureFor(terrainKind, i, cellTheme, wallFace) : undefined;
+                                        const texturedFace = wallFace && Boolean(texture) && hasFaceArt(cellTheme);
                                         const layers: string[] = [];
                                         // Surprise tiles (trap/battle/elite/pet) stay disguised as
                                         // floor until actually stepped on (revealed).
@@ -408,7 +429,21 @@ export function HollowGateShrineView({
                                             const decoImg = pickDecorationFor(i, cellTheme, tile.decoration);
                                             if (decoImg) layers.push(`url(${decoImg}) center/72% no-repeat`);
                                         }
-                                        if (texture) layers.push(`url(${texture}) center/cover no-repeat`);
+                                        if (texture) {
+                                            // Supertile sampling: floors/corridors draw the texture
+                                            // across a 2×2 block of cells (world-anchored quadrant per
+                                            // cell), so the floor reads as ONE continuous surface with
+                                            // half the repetition — not 400 identical stamps. Wall
+                                            // faces alternate left/right halves so masonry courses run
+                                            // on down the wall line. Wall tops/doors stay per-cell.
+                                            if (terrainKind === "room_floor" || terrainKind === "corridor_floor") {
+                                                layers.push(`url(${texture}) ${-(x % 2) * TILE}px ${-(y % 2) * TILE}px / ${TILE * 2}px ${TILE * 2}px no-repeat`);
+                                            } else if (wallFace) {
+                                                layers.push(`url(${texture}) ${-(x % 2) * TILE}px ${-(TILE >> 1)}px / ${TILE * 2}px ${TILE * 2}px no-repeat`);
+                                            } else {
+                                                layers.push(`url(${texture}) center/cover no-repeat`);
+                                            }
+                                        }
                                         const styleBg = layers.length > 0 ? layers.join(", ") : undefined;
 
                                         // ── Icon: atlas image (shrine:icon-<slot>) or emoji ────
@@ -441,7 +476,7 @@ export function HollowGateShrineView({
                                             <div
                                                 key={i}
                                                 title={wall ? undefined : visible ? tile.kind : known ? "Explored" : undefined}
-                                                className={`hg-cell ${shapeCls} ${fogCls}${checkCls}${clickable ? " hg-clickable" : ""}${isDest ? " hg-dest" : ""}`}
+                                                className={`hg-cell ${shapeCls} ${fogCls}${texture ? "" : checkCls}${texturedFace ? " hg-tex" : ""}${clickable ? " hg-clickable" : ""}${isDest ? " hg-dest" : ""}`}
                                                 style={styleBg ? { background: styleBg } : undefined}
                                                 onClick={clickable ? () => onTileClick(i) : undefined}
                                             >
