@@ -668,9 +668,10 @@ export function Inventory({
                                             <div className="backpack-item-art">
                                                 {item?.image ? (
                                                     <img
-                                                        src={item.image}
-                                                        alt={item.name}
-                                                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                                         src={item.image}
+                                                         alt={item.name}
+                                                         loading="lazy"
+                                                         onError={(e) => { e.currentTarget.style.display = "none"; }}
                                                         style={{
                                                             width: "100%",
                                                             height: "100%",

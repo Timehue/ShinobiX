@@ -1,11 +1,16 @@
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { gzipSync } from 'node:zlib';
 
 const distDir = process.env.BUILD_SIZE_DIR || join(process.cwd(), 'shinobij.client', 'dist');
 
 const JS_CHUNK_FAIL_BYTES = 1_500_000;
 const CSS_FILE_FAIL_BYTES = 750_000;
 const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
+const TOTAL_JS_CSS_FAIL_BYTES = 5_900_000;
+const ENTRY_JS_FAIL_BYTES = 1_150_000;
+const INITIAL_GRAPH_FAIL_BYTES = 1_900_000;
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 550_000;
 
 function walk(dir) {
     const out = [];
@@ -54,8 +59,38 @@ for (const file of css) {
     if (file.size > CSS_FILE_FAIL_BYTES) failures.push(`${file.rel} is ${fmt(file.size)}; CSS file threshold is ${fmt(CSS_FILE_FAIL_BYTES)}`);
 }
 
+// Budget what every player must download before the first lazy screen. Generic
+// per-chunk ceilings missed regressions in the entry + render-blocking CSS graph.
+try {
+    const html = readFileSync(join(distDir, 'index.html'), 'utf8');
+    const initialRefs = [...new Set(
+        [...html.matchAll(/(?:src|href)="\/([^"?]+\.(?:js|css))(?:\?[^" ]*)?"/g)].map((match) => match[1]),
+    )];
+    const initialFiles = initialRefs.map((rel) => ({ rel, path: join(distDir, rel), size: statSync(join(distDir, rel)).size }));
+    const initialRaw = initialFiles.reduce((sum, file) => sum + file.size, 0);
+    const initialGzip = initialFiles.reduce((sum, file) => sum + gzipSync(readFileSync(file.path), { level: 9 }).length, 0);
+    const entryRef = [...html.matchAll(/<script[^>]+src="\/([^"?]+\.js)/g)][0]?.[1];
+    const entryFile = initialFiles.find((file) => file.rel === entryRef);
+
+    console.log(`[sizecheck] Initial JS/CSS graph: ${fmt(initialRaw)} raw / ${fmt(initialGzip)} gzip across ${initialFiles.length} files.`);
+    if (entryFile && entryFile.size > ENTRY_JS_FAIL_BYTES) {
+        failures.push(`${entryFile.rel} is ${fmt(entryFile.size)}; entry JS threshold is ${fmt(ENTRY_JS_FAIL_BYTES)}`);
+    }
+    if (initialRaw > INITIAL_GRAPH_FAIL_BYTES) {
+        failures.push(`initial JS/CSS graph is ${fmt(initialRaw)}; threshold is ${fmt(INITIAL_GRAPH_FAIL_BYTES)}`);
+    }
+    if (initialGzip > INITIAL_GRAPH_GZIP_FAIL_BYTES) {
+        failures.push(`initial JS/CSS graph is ${fmt(initialGzip)} gzip; threshold is ${fmt(INITIAL_GRAPH_GZIP_FAIL_BYTES)}`);
+    }
+} catch (err) {
+    failures.push(`could not measure initial index.html graph: ${err.message}`);
+}
+
 if (jsCssTotal > TOTAL_JS_CSS_WARN_BYTES) {
-    console.warn(`[sizecheck] WARN total JS/CSS is ${fmt(jsCssTotal)}. Current threshold is observational; tighten once a release baseline is pinned.`);
+    console.warn(`[sizecheck] WARN total JS/CSS is ${fmt(jsCssTotal)}.`);
+}
+if (jsCssTotal > TOTAL_JS_CSS_FAIL_BYTES) {
+    failures.push(`total JS/CSS is ${fmt(jsCssTotal)}; threshold is ${fmt(TOTAL_JS_CSS_FAIL_BYTES)}`);
 }
 
 if (failures.length) {

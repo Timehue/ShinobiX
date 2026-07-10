@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
@@ -70,14 +70,28 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
     const [offer, setOffer] = useState<OfferOpponent[] | null>(null);
     const [replay, setReplay] = useState<ChallengeResult | null>(null);
     const [outcome, setOutcome] = useState<{ won: boolean; rank: number | null } | null>(null);
+    const refreshId = useRef(0);
 
     const name = character.name;
     const teamSize = mode === "tactical" ? 4 : 1;
     const available = useMemo(() => character.pets.filter((p) => !isPetOnExpedition(p)), [character.pets]);
 
     const refresh = useCallback(async () => {
-        try { setErr(null); setView(await fetchLadder(name, mode)); } catch (e) { setErr((e as Error).message); }
+        const id = ++refreshId.current;
+        try {
+            const nextView = await fetchLadder(name, mode);
+            if (id === refreshId.current) { setErr(null); setView(nextView); }
+        } catch (e) {
+            if (id === refreshId.current) setErr((e as Error).message);
+        }
     }, [name, mode]);
+
+    const selectMode = (nextMode: Mode) => {
+        if (nextMode === mode) return;
+        refreshId.current += 1;
+        setView(null); setErr(null); setMode(nextMode);
+        sessionStorage.setItem("petLadder.mode", nextMode);
+    };
 
     useEffect(() => { void refresh(); }, [refresh]); // eslint-disable-line react-hooks/set-state-in-effect
     useEffect(() => { setPicks(available.slice(0, teamSize).map((p) => p.id)); setOffer(null); setOutcome(null); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
@@ -141,13 +155,13 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
             <div className="pl-tabs">
                 {(["coliseum", "tactical"] as Mode[]).map((m) => (
                     <button key={m} className={`pl-tab${mode === m ? " is-active" : ""}`}
-                        onClick={() => { setMode(m); sessionStorage.setItem("petLadder.mode", m); }}>
+                        onClick={() => selectMode(m)}>
                         {MODE_ICON[m]} {MODE_LABEL[m]}
                     </button>
                 ))}
             </div>
 
-            {err && <div className="pl-err">⚠ {err}</div>}
+            {err && <div className="pl-err">⚠ {err} <button onClick={() => void refresh()}>Retry</button></div>}
 
             {/* Your standing (full width) */}
             <div className="pl-panel pl-standing">
@@ -238,7 +252,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 {/* Ladder list */}
                 <div className="pl-panel">
                     <h3 className="pl-h">🪜 The ladder{view ? ` · ${view.total} ranked` : ""}</h3>
-                    {!view ? <LoadingState />
+                    {!view ? (err ? <EmptyState icon="⚠">The ladder could not be loaded.</EmptyState> : <LoadingState />)
                         : view.ladder.length === 0 ? <EmptyState icon="🪜">No one is ranked yet — set a defense and beat the AI to claim the first rung!</EmptyState>
                             : <div className="pl-list">
                                 {view.ladder.map((e) => (
