@@ -88,6 +88,14 @@ export type TowerBoardObject =
     | { kind: 'font'; resource: 'hp' | 'chakra' | 'stamina'; percent: number; cap: number; tiles?: number[]; label?: string }
     | { kind: 'shrine'; percent: number; tiles?: number[]; label?: string };
 
+// ── Dynamic hazards (recurring, round-timed board danger — fills the empty grid) ──
+// A GEYSER is a fixed vent that erupts on a cadence: every `everyRounds` rounds (from
+// `firstRound`) the tiles it occupies chip ANY living unit standing on them for `pct`% of maxHp
+// at round end, telegraphed a round ahead via the crimson channel so both sides can step off
+// (the AI avoids them). The encounter builder scatters `count` vents; the engine derives the
+// eruption purely from the round number, so settle reproduces it. Absent = nothing (byte-identical).
+export type TowerDynamicHazard = { kind: 'geyser'; count: number; pct: number; everyRounds: number; firstRound?: number };
+
 // A boss's signature mechanic — what makes each fight distinct + tough. Resolved by
 // the engine deterministically: 'enrage' ramps the boss's damage at each phase gate;
 // 'summon' spawns reinforcements at each gate; 'regen' heals it every round; 'bulwark'
@@ -111,8 +119,10 @@ export type TowerTargetMode = (typeof TOWER_TARGET_MODES)[number];
 // rounds (from `firstRound`) the boss paints a blast zone at round start — the squad gets that
 // round to step off before it detonates at round end for a flat % of maxHp (OUTSIDE the wMult
 // product, so it never interacts with enrage/statFactor). 'nova' centres on the boss (punishes
-// melee stacking); 'volley' centres on the nearest squad member's tile (forces them to scatter).
-export const TOWER_STRIKE_KINDS = ['nova', 'volley'] as const;
+// melee stacking); 'volley' centres on the nearest squad member's tile (forces them to scatter);
+// 'slam' is a boss-centred blast that ALSO knocks the caught squad away from the boss (combos
+// with hazards — a slam into a geyser/hazard tile).
+export const TOWER_STRIKE_KINDS = ['nova', 'volley', 'slam'] as const;
 export type TowerStrikeKind = (typeof TOWER_STRIKE_KINDS)[number];
 export type TowerBossStrike = {
     kind: TowerStrikeKind;
@@ -197,6 +207,9 @@ export type TowerFloor = {
      *  holding. NEVER author a shrine on an uncapped-enrage floor (10 / clan bosses); the
      *  engine also skips the shrine term for enraged attackers as a second guard. */
     boardObjects?: TowerBoardObject[];
+    /** dynamic hazards (geyser vents) scattered by the encounter builder — recurring, telegraphed
+     *  round-timed tile danger that makes the board a live decision every round. Absent = none. */
+    dynamicHazards?: TowerDynamicHazard[];
     /** goal tile index for `reach-tile` objectives */
     goalTile?: number;
     /** party size the enemy counts / boss HP are tuned for (2–4); default 4. Smaller
@@ -260,6 +273,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         id: 2, name: 'Crossfire Glade', biome: 'forest', objective: 'defeat-all',
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 15 },
         terrainPillars: 6, // terrain debuts here — light cover, learn to use it
+        dynamicHazards: [{ kind: 'geyser', count: 3, pct: 4, everyRounds: 3 }], // geysers debut — learn the beat
         enemies: [{ aiId: 'grunt-bandit', count: 5 }, { aiId: 'grunt-archer', count: 4, spawnRound: 2 }],
         features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 20)],
         firstClearReward: { ryo: 600, xp: 220, boneCharms: 5 },
@@ -271,6 +285,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // Reworked off "reach the goal" (too easy here) into a hazard-strewn brawl. The Drain
         // field rule bleeds chakra — the well is the counter-play if you go claim it.
         boardObjects: [{ kind: 'font', resource: 'chakra', percent: 20, cap: 40, label: 'Chakra Well' }],
+        dynamicHazards: [{ kind: 'geyser', count: 4, pct: 4, everyRounds: 3 }],
         enemies: [{ aiId: 'grunt-blocker', count: 6 }, { aiId: 'grunt-archer', count: 4 }],
         features: [pylon(20, 14), hazard(20, 14), hazard(20, 14)],
         firstClearReward: { ryo: 800, xp: 300 },
@@ -302,6 +317,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         terrainPillars: 8,
         // A contested battle shrine mid-board: whoever holds it hits harder — take it and keep it.
         boardObjects: [{ kind: 'shrine', percent: 10, label: 'Battle Shrine' }, { kind: 'font', resource: 'chakra', percent: 20, cap: 40, label: 'Chakra Well' }],
+        dynamicHazards: [{ kind: 'geyser', count: 4, pct: 4, everyRounds: 3 }],
         enemies: [{ aiId: 'grunt-acolyte', count: 5 }, { aiId: 'grunt-brute', count: 4 }],
         features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), hazard(20, 14)],
         firstClearReward: { ryo: 1400, xp: 550, boneCharms: 8 },
@@ -338,6 +354,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // whoever's already wounded to snowball a kill through the swarm; the spring keeps the
         // line alive. (Nova debuts here — kept to ONE object so the swarm stays the story.)
         boardObjects: [{ kind: 'font', resource: 'hp', percent: 8, cap: 120, label: 'Healing Spring' }],
+        dynamicHazards: [{ kind: 'geyser', count: 4, pct: 5, everyRounds: 3, firstRound: 2 }], // the pit erupts
         enemies: [{ aiId: 'grunt-brute', count: 2 }],
         // NOVA debut: the Ravager erupts a boss-centred slam — melee learns to back off mid-swarm.
         boss: { aiId: 'boss-ravager', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 3, targetMode: 'lowest-hp', strike: { kind: 'volley', pct: 14, radius: 1, everyRounds: 2, firstRound: 2 } },
@@ -354,6 +371,8 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // NOVA + CLOSING RING + PHASE PILLARS: the Sovereign slams the arena while it collapses
         // inward and stone erupts at every phase gate — the whole battlefield escalates with it.
         // The chips are flat %-maxHp OUTSIDE wMult, so nothing compounds the uncapped story enrage.
+        // NOT a slam: a knockback would un-cluster the party away from the Sovereign's radius nuke,
+        // trivializing the final wall. Its threat is the collapsing ring squeezing you IN — a nova fits.
         boss: { aiId: 'boss-sovereign', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2 }, phasePillars: 2 },
         closingRing: { pct: 3, fromRound: 11, minRadius: 3 },
         features: [pylon(24, 16), pylon(24, 16), pylon(24, 16), pylon(24, 16), ward(24, 16, 25), hazard(24, 16)],
@@ -374,9 +393,10 @@ export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
         id: CLAN_BOSS_FLOOR_BASE + 0, name: 'The Oni Warlord', biome: 'volcano', objective: 'defeat-boss',
         roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-brute', count: 3 }],
-        // Elite kit (mirrors the story Sovereign): focus-fires the wounded + a periodic nova.
-        // Gentle cadence (every 4) keeps the weekly chip economy intact — tune with clan-boss balance.
-        boss: { aiId: 'clan-boss-oni', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 4 } },
+        // Elite kit: focus-fires the wounded + a periodic SEISMIC SLAM — the Warlord's ground-pound
+        // hurls the caught back (fits a melee brute, and scatter costs less here than on the razor-tuned
+        // story floors). Gentle cadence (every 4) keeps the weekly chip economy intact — tune with clan balance.
+        boss: { aiId: 'clan-boss-oni', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'slam', pct: 8, radius: 1, everyRounds: 4 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         balanceFor: 3, firstClearReward: {},
     },
