@@ -2011,6 +2011,22 @@ export default function App() {
     // Shared event-gate config (admin-authored, distributed via the admin-save
     // content channel like creator content; lib/hollow-gate-variant normalizes).
     const [hollowGateEventConfig, setHollowGateEventConfig] = useState<HollowGateEventConfig | null>(null);
+    // Move side-effect queue. moveHollowGatePlayer's step effects (tile fire /
+    // logs / ambush) MUST NOT be read from a local `let` right after
+    // setHollowGateRun — React only runs the state updater eagerly when its
+    // queue is empty, so during click-to-walk (rapid steps + log churn) the
+    // updater runs late and the local reads stale, silently DROPPING the tile
+    // fire ("walked over a chest and nothing happened"). Instead each step
+    // pushes its effects here from inside the updater, and a macrotask drain
+    // (which runs after React has flushed every queued updater) processes them.
+    const hollowGateMoveFxRef = useRef<Array<{
+        wallBump: boolean;
+        blockMessage?: string;
+        committedTheme?: string;
+        torchSputtered: boolean;
+        justResolved: { tile: HollowGateTile; nx: number; ny: number; nextThreat: number } | null;
+        ambushImmediate: boolean;
+    }>>([]);
 
     // Hollow Gate Shrine movement — click-to-walk (sector-style pathing) plus
     // the WASD/arrow key handler, both owned by the walk hook. Every walked
@@ -6951,21 +6967,50 @@ export default function App() {
             }
         }
     }
+    // Drain the queued move side-effects. Runs on a macrotask AFTER React has
+    // flushed the state updater(s) that enqueued them, so the tile fire can
+    // never be dropped by the eager-updater timing race (see hollowGateMoveFxRef).
+    function drainHollowGateMoveFx() {
+        const queue = hollowGateMoveFxRef.current;
+        if (queue.length === 0) return;
+        hollowGateMoveFxRef.current = [];
+        for (const fx of queue) {
+            if (fx.wallBump) {
+                pushHollowGateLog(fx.blockMessage ?? "Solid shrine stone. You cannot pass.");
+                continue;
+            }
+            if (fx.committedTheme) {
+                pushHollowGateLog(`You commit to the ${fx.committedTheme === "treasure" ? "Treasure" : "Beast"} wing — the other detour seals behind you. The Trial path remains open.`);
+            }
+            if (fx.torchSputtered) {
+                pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
+            }
+            if (fx.justResolved) {
+                const { tile, nx, ny, nextThreat } = fx.justResolved;
+                const modalFiringKinds: HollowGateTileKind[] = [
+                    "battle", "elite", "boss",
+                    "trap", "chest", "shrine", "pet_event", "pet_battle", "tile_game", "story",
+                    "locked", "exit", "npc", "descend",
+                ];
+                const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
+                resolveHollowGateTile(tile, nx, ny);
+                if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
+                    triggerHollowGateAmbush();   // ambush at max threat (see triggerHollowGateAmbush)
+                }
+            } else if (fx.ambushImmediate) {
+                triggerHollowGateAmbush();
+            }
+        }
+    }
     function moveHollowGatePlayer(dx: number, dy: number) {
         if (hollowGateEvent || hollowGateHiddenChamber) return;
         if (hollowGateIntroPage !== null) return;
 
         // Functional state update so rapid WASD presses queue against the latest
         // run state (the closure form lost presses within a single render tick).
-        let outcome: {
-            wallBump: boolean;
-            blockMessage?: string;       // sealed-wing block reason (overrides the wall-bump log)
-            committedTheme?: string;     // wing theme just committed to (for the seal log)
-            torchSputtered: boolean;
-            justResolved: { tile: HollowGateTile; nx: number; ny: number; nextThreat: number } | null;
-            ambushImmediate: boolean;
-        } = { wallBump: false, torchSputtered: false, justResolved: null, ambushImmediate: false };
-
+        // Step side-effects are pushed to hollowGateMoveFxRef from INSIDE the
+        // updater (never a local `let` read right after — that races the eager
+        // updater and drops the tile fire during click-to-walk).
         setHollowGateRun(prev => {
             if (!prev) return prev;
             const nx = prev.playerX + dx;
@@ -6976,17 +7021,16 @@ export default function App() {
             // Walls are impassable. No state change, no threat/torch cost.
             const isWall = tile.kind === "wall" || tile.terrain === "wall";
             if (isWall) {
-                outcome = { ...outcome, wallBump: true };
+                hollowGateMoveFxRef.current.push({ wallBump: true, torchSputtered: false, justResolved: null, ambushImmediate: false });
                 return prev;
             }
             // Branching wings: block entry to a sealed wing; entering a detour
             // commits to it (sealing the other). Trial/hub are always open.
             const wingEff = wingEntryEffect(prev, tile.wing);
             if (wingEff.blocked) {
-                outcome = { ...outcome, wallBump: true, blockMessage: wingEff.message };
+                hollowGateMoveFxRef.current.push({ wallBump: true, blockMessage: wingEff.message, torchSputtered: false, justResolved: null, ambushImmediate: false });
                 return prev;
             }
-            if (wingEff.committedTheme) outcome = { ...outcome, committedTheme: wingEff.committedTheme };
             const tiles = prev.tiles.slice();
             tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
             // Torch of Reiki: drains 1 every ~5 moves (was ~3 on the old 15×11
@@ -7002,12 +7046,13 @@ export default function App() {
             // `resolved` only, never on revealed — so Leave/descend/locked/boss
             // re-fire when re-entered; markResolved() still prevents double-grants).
             const justResolved = !tile.resolved;
-            outcome = {
-                ...outcome,
+            hollowGateMoveFxRef.current.push({
+                wallBump: false,
+                committedTheme: wingEff.committedTheme,
                 torchSputtered: nextTorch === 0 && prev.torch > 0,
                 justResolved: justResolved ? { tile: { ...tile, revealed: true }, nx, ny, nextThreat } : null,
                 ambushImmediate: !justResolved && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH,
-            };
+            });
             // markHollowGateSeen stamps the new visibility flood as map memory
             // (dim "explored" tiles after you leave a room; click-to-walk surface).
             return markHollowGateSeen({
@@ -7022,36 +7067,10 @@ export default function App() {
             });
         });
 
-        // ── Side effects ──────────────────────────────────────────────────
-        if (outcome.wallBump) {
-            pushHollowGateLog(outcome.blockMessage ?? "Solid shrine stone. You cannot pass.");
-            return;
-        }
-        if (outcome.committedTheme) {
-            pushHollowGateLog(`You commit to the ${outcome.committedTheme === "treasure" ? "Treasure" : "Beast"} wing — the other detour seals behind you. The Trial path remains open.`);
-        }
-        if (outcome.torchSputtered) {
-            pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
-        }
-        if (outcome.justResolved) {
-            const { tile, nx, ny, nextThreat } = outcome.justResolved;
-            const modalFiringKinds: HollowGateTileKind[] = [
-                "battle", "elite", "boss",
-                "trap", "chest", "shrine", "pet_event", "pet_battle", "tile_game", "story",
-                "locked", "exit", "npc", "descend",
-            ];
-            const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
-            // Deferred via 0ms so state commits first (resolveHollowGateTile uses
-            // markResolved's functional form, preserving the player's position).
-            setTimeout(() => {
-                resolveHollowGateTile(tile, nx, ny);
-                if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
-                    triggerHollowGateAmbush();   // ambush at max threat (see triggerHollowGateAmbush)
-                }
-            }, 0);
-        } else if (outcome.ambushImmediate) {
-            setTimeout(() => triggerHollowGateAmbush(), 0);
-        }
+        // Drain after the flush. A single scheduled drain empties the whole
+        // queue, so back-to-back steps that batch into one flush are all
+        // processed in order (extra drains just find an empty queue).
+        setTimeout(drainHollowGateMoveFx, 0);
     }
     function leaveHollowGateShrine(opts?: { death?: boolean }) {
         // Death claws back the run's haul; a voluntary exit keeps it all.
