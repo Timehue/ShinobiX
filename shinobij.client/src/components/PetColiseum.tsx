@@ -2455,6 +2455,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const effSeen = useRef<Set<string>>(new Set());  // attackers whose type edge was already explained once
     const missStreak = useRef<Record<string, number>>({});   // consecutive whiffs per fighter → "can't find its mark"
     const lastFeintLine = useRef(-999);              // throttle for the feint commentary line
+    const lastEvade = useRef(-999);                  // throttle for the EVADED! callout
+    const evadeSeen = useRef<Set<string>>(new Set());   // fighters whose speed-evade was explained once
     const dblLow = useRef(false);                    // "both on their last legs" fired once
     const dangerOn = useRef(false);                  // current red-zone vignette state (edge-triggered callback)
     const minFrac = useRef({ player: 1, enemy: 1 }); // lowest team-HP fraction seen → comeback detection at the KO
@@ -2649,6 +2651,17 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     // Parry/slip shimmer where the dodge happened (a clean defensive read).
                     const d = findActor(snapAt, e.actorId);
                     if (d) spawnImpact({ x: d.x, z: d.y, color: "#bae6fd", big: false });
+                    // A SPEED evade (the "too slow!" beat) gets its own call — this is where
+                    // a fast pet's stat visibly pays off, so make sure the viewer hears it.
+                    if (e.move === "Evade" && now - lastEvade.current > 0.9) {
+                        lastEvade.current = now;
+                        onCallout("EVADED!");
+                        savor(0.6, 0.1);
+                        if (!evadeSeen.current.has(e.actorId)) {
+                            evadeSeen.current.add(e.actorId);
+                            onAnnounce(`${nameById[e.actorId] ?? "A fighter"} is too quick — the blow misses!`, "info");
+                        }
+                    }
                 } else if ((e.type === "cast" || e.type === "ultimate") && e.actorId) {
                     // The UNLEASH at the caster. A status cast wears its themed muzzle glow
                     // (poison gathers GREEN, a stun SPARKS); a support cast gathers a soft AURA
@@ -3291,6 +3304,21 @@ const ARENA_SPRITE_H = 1.05;
 const ARENA_POS_SMOOTH = 0.4;
 const ROLE_COLOR: Record<ArenaRole, string> = { defender: "#60a5fa", tracker: "#34d399", assassin: "#f87171", sage: "#fbbf24" };
 const ROLE_TAG: Record<ArenaRole, string> = { defender: "DEF", tracker: "TRK", assassin: "ASN", sage: "SGE" };
+// Comp identity — the lineup's tactical read at a glance (TFT-style team identity).
+// Derived from the drafted roles, shown on the scoreboard + the pre-match banner.
+function arenaCompLabel(slots: ArenaSlot[]): string {
+    let asn = 0, trk = 0, def = 0, sge = 0;
+    for (const s of slots) {
+        if (s.role === "assassin") asn++; else if (s.role === "tracker") trk++;
+        else if (s.role === "defender") def++; else sge++;
+    }
+    if (asn >= 2) return "DIVE";
+    if (def >= 1 && sge >= 1) return "PROTECT";
+    if (asn >= 1 && trk >= 1) return "HUNT";
+    if (trk >= 2) return "SKIRMISH";
+    if (sge >= 2) return "SUSTAIN";
+    return "BALANCED";
+}
 // Status/buff chips on the arena nameplate — a fixed whitelist of constant HTML
 // (statuses are fixed engine tokens; unknown keys render nothing). "carry" is
 // excluded — the 📜 mark already carries it.
@@ -3491,7 +3519,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
                             <span ref={carryMark} style={{ display: "none", filter: "drop-shadow(0 0 3px #fde047)" }}>📜</span>
                             <span style={{ color: ROLE_COLOR[role], border: `1px solid ${ROLE_COLOR[role]}`, borderRadius: 3, padding: "0 2px", fontSize: 8 }}>{ROLE_TAG[role]}</span>
                             <span ref={abilityPipRef} title="ability charged" style={{ width: 5, height: 5, borderRadius: 5, background: ROLE_COLOR[role], boxShadow: `0 0 5px ${ROLE_COLOR[role]}`, opacity: 0 }} />
-                            <span style={{ color: "#fff", textShadow: "0 1px 2px #000" }}>{pet.name}</span>
+                            <span style={{ color: "#fff", textShadow: "0 1px 2px #000" }}>{ELEMENT_EMOJI[pet.element ?? ""] ?? ""}{pet.name}</span>
                         </div>
                         <div style={{ width: 56, height: 5, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                             <div ref={hpFill} style={{ width: "100%", height: "100%", background: team === "blue" ? "#4ade80" : "#f87171" }} />
@@ -3850,7 +3878,10 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                         // An ABILITY-tagged hit is the tracker's MARK (only it deals ability damage) → a dark sigil; else the element burst.
                         if (e.ability) spawnFx({ x: a.x, z: a.y, key: "shadow", scale: 1.8, dur: 430 });
                         else spawnFx({ x: a.x, z: a.y, element: e.element, scale: e.crit ? 2.2 : 1.3, dur: 300 });
-                        spawnFloater(a.x, a.y, `${e.dmg}`, e.crit ? "#fde047" : "#fecaca", e.crit);
+                        // V2 element counter: an advantaged/resisted blow wears its arrow
+                        // (TFT damage-color style) so the lineup's type edges read live.
+                        const eff = result.v2 ? elementMult(e.element, a.element) : 1;
+                        spawnFloater(a.x, a.y, `${e.dmg}${eff > 1 ? " ▲" : eff < 1 ? " ▼" : ""}`, e.crit ? "#fde047" : eff > 1 ? "#fdba74" : "#fecaca", e.crit);
                         if (e.crit) { spawnFx({ x: a.x, z: a.y, key: "spark", scale: 2.0, dur: 240 }); triggerHitstop(45); triggerShake(0.5); }   // crits land with a flash + a little weight
                         // A ranged blow / tracker mark / assassin lunge flies a projectile in from the shooter
                         // (melee swings at point-blank skip it — the impact burst is enough).
@@ -4291,6 +4322,8 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
     const winBarRef = useRef<HTMLDivElement | null>(null);    // live win-odds tug bar (blue share; ref-driven)
     const nameById = useMemo(() => { const m = new Map<string, string>(); roster.forEach((r) => m.set(r.id, r.pet.name)); return m; }, [roster]);
     const nameOf = (id: string) => nameById.get(id) ?? id;
+    const blueComp = useMemo(() => arenaCompLabel(blue), [blue]);
+    const redComp = useMemo(() => arenaCompLabel(red), [red]);
     const setScore = (b: number, r: number) => setScoreState((p) => (p[0] === b && p[1] === r ? p : [b, r]));
     const spawnFx = (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => {
         const frames = (n.key ? bundledJutsuFxFrames(n.key) : null) ?? bundledJutsuFxFrames(elementVfxKey(n.element)) ?? bundledJutsuFxFrames("none");
@@ -4358,6 +4391,13 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
     // the same seed → the server dedups by reportKey, so no double-claim.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once on the ended edge; result is seed-stable and onResult is an inline arrow (adding it would re-fire every render)
     useEffect(() => { if (ended) onResult?.(result); }, [ended]);
+    // Pre-match COMP CARD — frame the matchup ("DIVE vs PROTECT") the way an
+    // auto-battler frames the question the round answers.
+    useEffect(() => {
+        const tm = window.setTimeout(() => pushBanner(`${blueComp} ⚔ ${redComp}`, "#e2e8f0"), 700);
+        return () => window.clearTimeout(tm);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per mount; comps are prop-stable and pushBanner is an inline closure
+    }, []);
     const winLabel = result.winner === "blue" ? "Blue Team Wins" : result.winner === "red" ? "Red Team Wins" : "Draw";
 
     return createPortal((
@@ -4405,9 +4445,9 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
             {/* Scoreboard */}
             <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "6px 18px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: 14, font: "800 20px Inter, system-ui, sans-serif" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <span style={{ color: "#60a5fa" }}>BLUE {score[0]}</span>
+                    <span style={{ color: "#60a5fa" }}>BLUE {score[0]}<span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, color: "#93c5fd", opacity: 0.85, letterSpacing: "0.08em" }}>{blueComp}</span></span>
                     <span style={{ color: "#64748b", fontSize: 12, fontWeight: 600 }}>📜 first to {result.winScore}</span>
-                    <span style={{ color: "#f87171" }}>{score[1]} RED</span>
+                    <span style={{ color: "#f87171" }}><span style={{ marginRight: 6, fontSize: 9, fontWeight: 800, color: "#fca5a5", opacity: 0.85, letterSpacing: "0.08em" }}>{redComp}</span>{score[1]} RED</span>
                 </div>
                 {/* V2 Overdrive meters — combat charges them; a full bar fires a spike (captures stay the only score). Both grow toward the centre label. */}
                 {arenaV2 && (
