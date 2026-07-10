@@ -54,14 +54,31 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
     });
     const [professionFilter, setProfessionFilter] = useState<Profession>("healer");
     const [weeklyBoss, setWeeklyBoss] = useState<WeeklyBossLb | null>(null);
+    const [weeklyBossLoaded, setWeeklyBossLoaded] = useState(false);
+    const [weeklyBossError, setWeeklyBossError] = useState("");
+    const [weeklyBossRequest, setWeeklyBossRequest] = useState(0);
+    function selectTab(nextTab: LbTab) {
+        if (nextTab === tab) return;
+        if (nextTab === "weeklyBoss") { setWeeklyBossLoaded(false); setWeeklyBossError(""); }
+        setTab(nextTab);
+    }
+    function retryWeeklyBoss() {
+        setWeeklyBossLoaded(false); setWeeklyBossError("");
+        setWeeklyBossRequest((request) => request + 1);
+    }
     useEffect(() => {
         if (tab !== "weeklyBoss") return;
         let alive = true;
-        fetch("/api/weekly-boss").then(r => r.json()).then(data => {
-            if (alive) setWeeklyBoss(data.boss ?? null);
-        }).catch(() => {});
+        fetch("/api/weekly-boss").then(r => {
+            if (!r.ok) throw new Error(`Weekly boss HTTP ${r.status}`);
+            return r.json();
+        }).then(data => {
+            if (alive) { setWeeklyBoss(data.boss ?? null); setWeeklyBossError(""); }
+        }).catch(() => {
+            if (alive) { setWeeklyBoss(null); setWeeklyBossError("Could not load the weekly boss."); }
+        }).finally(() => { if (alive) setWeeklyBossLoaded(true); });
         return () => { alive = false; };
-    }, [tab]);
+    }, [tab, weeklyBossRequest]);
     // Village W/L war records. Seed from the polled world-state cache for an
     // instant render, then refresh directly on tab open so it's current even if
     // the global poller hasn't run yet.
@@ -262,7 +279,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
 
             <div className="hol-tabs">
                 {tabs.map(t => (
-                    <button key={t.id} className={`hol-tab ${tab === t.id ? "hol-tab-active" : ""}`} onClick={() => setTab(t.id)}>
+                    <button key={t.id} className={`hol-tab ${tab === t.id ? "hol-tab-active" : ""}`} onClick={() => selectTab(t.id)}>
                         {t.icon} {t.label}
                     </button>
                 ))}
@@ -439,8 +456,12 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                 {tab === "weeklyBoss" && (
                     <>
                         <p className="hol-board-label">Weekly Boss — Top 25 Damage Dealers</p>
-                        {!weeklyBoss
+                        {!weeklyBossLoaded
                             ? <p className="hol-empty">Loading weekly boss…</p>
+                            : weeklyBossError
+                            ? <p className="hol-empty">{weeklyBossError} <button onClick={retryWeeklyBoss}>Retry</button></p>
+                            : !weeklyBoss
+                            ? <p className="hol-empty">No weekly boss is active right now.</p>
                             : (
                                 <>
                                     <div style={{ marginBottom: "0.6rem", padding: "0.5rem", background: "#0a0a1a", borderRadius: 6 }}>
@@ -674,7 +695,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                                 </ul>
                                                 {legends.length > shown.length && (
                                                     <button
-                                                        onClick={() => setTab("legends")}
+                                                        onClick={() => selectTab("legends")}
                                                         style={{ marginTop: 6, background: "transparent", border: "none", color: "#c084fc", fontSize: ".7rem", cursor: "pointer", padding: 0 }}
                                                     >
                                                         +{legends.length - shown.length} more in the Hall of Legends →

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import "../styles/pet-skin.css";
 import type { Character, PlayerRecord, ServerPlayerSummary } from "../types/character";
 import type { Pet } from "../types/pet";
@@ -26,6 +26,7 @@ import type { PetArenaFrame } from "../types/pet-arena";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
 import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
 import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
+import { lazyWithRetry } from "../lib/lazyWithRetry";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import tacticalArenaHero from "../assets/coliseum/tactical-arena-hero.webp";
 import petDuelHero from "../assets/coliseum/pet-duel-hero.webp";
@@ -128,18 +129,19 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
 
 // HD-2D coliseum renderer — the pet-battle arena. Lazy so three/react-three-fiber
 // load ONLY when a battle actually mounts, keeping the cold-landing bundle untouched.
-const PetColiseum = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseum })));
+const loadPetColiseum = () => import("../components/PetColiseum");
+const PetColiseum = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetColiseum })));
 // Continuous-duel renderer (the new authoritative PvE engine, behind
 // petDuelEngine.v1) — same lazy chunk, mounted instead of PetColiseum when the
 // flag is on for a non-ranked fight.
-const PetColiseumDuel = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
+const PetColiseumDuel = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetColiseumDuel })));
 // Tactical Arena game mode (deathmatch + capture-scroll, 2v2 / 4v4) — same lazy chunk.
-const PetArenaMatch = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetArenaMatch })));
+const PetArenaMatch = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetArenaMatch })));
 // Pet Gauntlet — the roguelike run mode (3rd tab). Self-contained (owns its run
 // state + its own fight), so it's lazy-loaded and never touches the duel/arena state here.
-const PetGauntlet = lazy(() => import("../components/PetGauntlet").then((m) => ({ default: m.PetGauntlet })));
+const PetGauntlet = lazyWithRetry(() => import("../components/PetGauntlet").then((m) => ({ default: m.PetGauntlet })));
 // Co-op lobby (play the Tactical Arena 4v4 with friends) — lazy; pulls the arena chunk.
-const ArenaCoopLobby = lazy(() => import("../components/ArenaCoopLobby").then((m) => ({ default: m.ArenaCoopLobby })));
+const ArenaCoopLobby = lazyWithRetry(() => import("../components/ArenaCoopLobby").then((m) => ({ default: m.ArenaCoopLobby })));
 
 // Build the arena slots from each pet's NATIVE role (pet.role, set by
 // derivePetRole + backfilled in capPetStats). Pets now carry an intrinsic role,
@@ -272,6 +274,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // to the smaller roster so a lopsided pick can't auto-stomp. Both clients
     // run this from identical embedded teams, so the match stays in sync.
     function startArenaMatch(blue: Pet[], red: Pet[], seed: number, vsAi = false) {
+        // Use the existing five-second pre-roll to fetch/parse Three + the arena
+        // renderer instead of showing another loading panel after the countdown.
+        void loadPetColiseum().catch(() => undefined);
         const n = Math.max(1, Math.min(blue.length, red.length));
         setArenaView("tactical");
         setArenaCountdown({ secs: 5, match: { blue: autoRoleTeam(blue, n), red: autoRoleTeam(red, n), seed, vsAi } });
@@ -476,6 +481,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         }
         const pendingClanPetBattle = loadPendingClanPetBattle();
         if (isPetOnExpedition(opponent.pet)) return alert(`${petDisplayName(opponent.pet)} is exploring and cannot battle right now.`);
+        // Battle simulation/setup gives the renderer a head start on first use.
+        void loadPetColiseum().catch(() => undefined);
         setPartyResult(null);
         setDuelBattle(null); // fresh fight — clear any prior duel overlay
         const nextDuelId = duelNonce + 1; // React key for the duel renderer

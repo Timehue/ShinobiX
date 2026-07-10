@@ -110,7 +110,7 @@ export function CardClashCardView({
         >
             <div className="cc-card-art">
                 {card.image ? (
-                    <img src={card.image} alt={card.name} draggable={false} />
+                    <img src={card.image} alt={card.name} draggable={false} loading="lazy" />
                 ) : (
                     <span className="cc-emoji">{ELEMENT_EMOJI[card.element] ?? "🗡️"}</span>
                 )}

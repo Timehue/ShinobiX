@@ -57,14 +57,22 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
 
     useEffect(() => {
         let cancelled = false;
-        (async () => {
+        // Tournament metadata is optional. Fetch it independently so a slow
+        // game-state response never holds the leaderboard loading screen open.
+        void (async () => {
+            try {
+                const gameStateRes = await fetch("/api/game-state");
+                if (!gameStateRes.ok) return;
+                const gs = await gameStateRes.json() as { arenaTournament?: PublicTournament };
+                if (!cancelled) setTournament(gs.arenaTournament ?? null);
+            } catch { /* best-effort metadata */ }
+        })();
+
+        void (async () => {
             setLoading(true);
             setError("");
             try {
-                const [leaderboardRes, gameStateRes] = await Promise.all([
-                    fetch("/api/player/leaderboards?limit=25"),
-                    fetch("/api/game-state").catch(() => null),
-                ]);
+                const leaderboardRes = await fetch("/api/player/leaderboards?limit=25");
                 if (!leaderboardRes.ok) throw new Error(`Leaderboard HTTP ${leaderboardRes.status}`);
                 const leaderboardData = await leaderboardRes.json() as { boards?: PublicLeaderboardBoard[] };
                 if (!cancelled) {
@@ -73,11 +81,6 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
                         nextBoards[board.id] = board;
                     }
                     setBoards(nextBoards);
-                }
-
-                if (gameStateRes && gameStateRes.ok) {
-                    const gs = await gameStateRes.json() as { arenaTournament?: PublicTournament };
-                    if (!cancelled) setTournament(gs.arenaTournament ?? null);
                 }
             } catch (err) {
                 if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load leaderboard");

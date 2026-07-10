@@ -819,10 +819,11 @@ export function Profile({
                                         title={`${a.name} — click for details`}
                                     >
                                         <div className="achievement-icon">
-                                            <img
-                                                src={`/badges/${a.id}.png`}
-                                                alt=""
-                                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                                             <img
+                                                 src={`/badges/${a.id}.png`}
+                                                 alt=""
+                                                 loading="lazy"
+                                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                                             />
                                             <span className="achievement-emoji" aria-hidden>{a.icon}</span>
                                         </div>
