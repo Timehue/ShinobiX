@@ -28,8 +28,37 @@ const stubCharacter = {
 
 // Hydrate the shrine art from the LIVE shared-image store (reference URLs, the
 // same /api/img form the real client uses) so the harness shows the dungeon
-// fully dressed. Silent fallback to the CSS look when offline.
+// fully dressed. The ids-list fetch needs CORS (only localhost:5173 is
+// allowlisted), so on other dev ports we fall back to a snapshot of the live
+// key list (audited 2026-07-09) — /api/img itself needs no CORS. Fully
+// offline, everything falls through to the CSS look.
 const LIVE_SERVER = "https://shinobijourney.com";
+const SHRINE_KEY_SNAPSHOT = [
+    "shrine:hidden-chamber-background", "shrine:hollow-gate-background",
+    "shrine:icon-battle-1", "shrine:icon-battle-2", "shrine:icon-battle-3", "shrine:icon-battle-4",
+    "shrine:icon-boss-1", "shrine:icon-boss-2",
+    "shrine:icon-chest-1", "shrine:icon-chest-2", "shrine:icon-chest-3", "shrine:icon-chest-4",
+    "shrine:icon-deco-1", "shrine:icon-deco-2", "shrine:icon-deco-3", "shrine:icon-deco-4",
+    "shrine:icon-deco-5", "shrine:icon-deco-6", "shrine:icon-deco-7", "shrine:icon-deco-8",
+    "shrine:icon-descend", "shrine:icon-descend-1",
+    "shrine:icon-elite-1", "shrine:icon-elite-2", "shrine:icon-elite-3", "shrine:icon-elite-4",
+    "shrine:icon-exit", "shrine:icon-exit-1", "shrine:icon-locked-1", "shrine:icon-locked-2",
+    "shrine:icon-npc-1", "shrine:icon-npc-2", "shrine:icon-npc-3",
+    "shrine:icon-pet-1", "shrine:icon-pet-2", "shrine:icon-pet-3",
+    "shrine:icon-shardvein-1", "shrine:icon-shardvein-2", "shrine:icon-shrine-1", "shrine:icon-shrine-2",
+    "shrine:icon-story-1", "shrine:icon-story-2", "shrine:icon-trap-1", "shrine:icon-trap-2",
+    "shrine:icon-trap-3", "shrine:icon-trap-4", "shrine:icon-wall",
+    ...["crypt", "ember", "sanctum", "ruins"].flatMap(t =>
+        ["corridor", "deco-1", "deco-2", "door", "floor", "wall", "wall-face"].map(r => `shrine:icon-theme-${t}-${r}`)),
+    "shrine:intro-1", "shrine:intro-2", "shrine:intro-3",
+    "shrine:tile-ancient-chest", "shrine:tile-corridor-floor", "shrine:tile-corridor-floor-0",
+    "shrine:tile-corridor-floor-1", "shrine:tile-corrupted-shinobi", "shrine:tile-door",
+    "shrine:tile-hollow-beast", "shrine:tile-pet-encounter",
+    "shrine:tile-room-floor", "shrine:tile-room-floor-0", "shrine:tile-room-floor-1", "shrine:tile-room-floor-2",
+    "shrine:tile-sealed-door", "shrine:tile-shrine-keeper", "shrine:tile-story", "shrine:tile-tile-game",
+    "shrine:tile-trap", "shrine:tile-wall", "shrine:tile-wall-0", "shrine:tile-wall-1", "shrine:tile-wall-2",
+    "shrine:tile-wall-face",
+];
 
 function Harness() {
     const [floorNum, setFloorNum] = useState(1);
@@ -39,15 +68,16 @@ function Harness() {
     const pushLog = (line: string) => setLog(prev => [line, ...prev].slice(0, 30));
     useEffect(() => {
         let alive = true;
+        const apply = (ids: string[]) => {
+            if (!alive || !Array.isArray(ids) || ids.length === 0) return;
+            const map: Record<string, string> = {};
+            for (const id of ids) map[id] = `${LIVE_SERVER}/api/img?id=${encodeURIComponent(id)}`;
+            setSharedImages(map);
+        };
         fetch(`${LIVE_SERVER}/api/images?cat=shrine&ids=1`)
-            .then(r => (r.ok ? r.json() : []))
-            .then((ids: string[]) => {
-                if (!alive || !Array.isArray(ids)) return;
-                const map: Record<string, string> = {};
-                for (const id of ids) map[id] = `${LIVE_SERVER}/api/img?id=${encodeURIComponent(id)}`;
-                setSharedImages(map);
-            })
-            .catch(() => { /* offline — CSS fallback look */ });
+            .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+            .then(apply)
+            .catch(() => apply(SHRINE_KEY_SNAPSHOT));   // CORS-blocked port / list hiccup
         return () => { alive = false; };
     }, []);
 
