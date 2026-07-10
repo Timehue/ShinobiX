@@ -3,7 +3,8 @@
 // board system at once: squad + enemy formation with the boss in back, pylon /
 // ward / hazard flowers, TERRAIN PILLARS (biome obstacle art), BOARD OBJECTS
 // (healing font + squad-held & enemy-held shrines), a primed VOLLEY telegraph
-// (violet tiles + banner), and the boss-kit encounter chips (hunt/strike/aegis).
+// (violet tiles + banner), GEYSER VENTS (idle + primed pulse), and the boss-kit
+// encounter chips (hunt/strike/aegis/geyser).
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { BattleTowerFight } from "./screens/BattleTowerFight";
@@ -51,9 +52,13 @@ const session: TowerSession = {
             { kind: "shrine", percent: 10, tiles: [105], label: "Battle Shrine" },
             { kind: "shrine", percent: 10, tiles: [176], label: "Battle Shrine" },
         ],
+        // Dynamic hazards: three geyser vents (tile 85 is PRIMED — it joins the crimson
+        // telegraph below to show the about-to-erupt pulse; the other two idle-pulse).
+        dynamicHazards: [{ kind: "geyser", tiles: [85, 149, 193], pct: 4, everyRounds: 3 }],
         // The volley's tiles double into the crimson channel like the server's union
-        // (the client subtracts them back out for the violet read).
-        nextRoundHazardTiles: STRIKE_TILES,
+        // (the client subtracts them back out for the violet read). The primed vent (85)
+        // rides the same channel so its eruption telegraphs a round ahead.
+        nextRoundHazardTiles: [...STRIKE_TILES, 85],
     },
     actors: [
         {

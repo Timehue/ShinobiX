@@ -437,9 +437,10 @@ function computeHazardTelegraph(session: TowerSession): number[] {
         if (m.kind !== 'hazard' || m.variant === 'proximity') continue;
         for (const t of spireHazardTiles(session, m, session.round)) out.add(t);
     }
-    // Story "board attacks back": paint the closing ring + a primed boss strike so the squad
-    // gets this round to step off before the end-of-round detonation. Absent → adds nothing.
+    // Story "board attacks back": paint the closing ring + a primed boss strike + any geyser
+    // erupting this round so the squad gets this round to step off. Absent → adds nothing.
     for (const t of closingRingTiles(session, session.round)) out.add(t);
+    for (const t of dynamicHazardTiles(session, session.round)) out.add(t);
     if (session.bossStrike && session.bossStrike.round === session.round) for (const t of session.bossStrike.tiles) out.add(t);
     return [...out].sort((a, b) => a - b);
 }
@@ -641,8 +642,8 @@ function primeBossStrike(session: TowerSession): void {
         .filter(t => !blocked.has(t)).sort((a, b) => a - b);
     if (tiles.length === 0) return;
     session.bossStrike = {
-        tiles, round, pct: cfg.pct, kind: cfg.kind,
-        label: cfg.kind === 'volley' ? `${boss.name}'s barrage` : `${boss.name}'s nova`,
+        tiles, round, pct: cfg.pct, kind: cfg.kind, center,
+        label: cfg.kind === 'volley' ? `${boss.name}'s barrage` : cfg.kind === 'slam' ? `${boss.name}'s seismic slam` : `${boss.name}'s nova`,
     };
     session.log.push(`⚠ ${session.bossStrike.label} charges — the marked ground erupts at round's end!`);
 }
@@ -670,17 +671,68 @@ function closingRingTiles(session: TowerSession, round: number): number[] {
     for (let t = 0; t < w * h; t++) if (!blocked.has(t) && hexDistance(t, center, w) > radius) out.push(t);
     return out;
 }
+// ─── Dynamic hazards (geyser vents — recurring, round-timed board danger) ─────────
+/** A geyser erupts at the END of a round on its fixed cadence. Pure predicate of the round. */
+function geyserErupts(hz: { everyRounds: number; firstRound?: number }, round: number): boolean {
+    const every = Math.max(2, Math.floor(Number(hz.everyRounds) || 3));
+    const first = Math.max(1, Math.floor(Number(hz.firstRound ?? every)));
+    return round >= first && (round - first) % every === 0;
+}
+/** The vent tiles erupting at the END of `round` (for the telegraph + AI avoidance). Pure. */
+function dynamicHazardTiles(session: TowerSession, round: number): number[] {
+    const hazards = session.map.dynamicHazards;
+    if (!hazards || hazards.length === 0) return [];
+    const out = new Set<number>();
+    for (const hz of hazards) if (geyserErupts(hz, round)) for (const t of hz.tiles ?? []) out.add(t);
+    return [...out].sort((a, b) => a - b);
+}
+/** Round-end: an erupting geyser scalds EVERY living unit standing on it (any side — neutral board
+ *  danger the AI dodges), flat %-maxHp. Absent → no-op (byte-identical). */
+function applyRoundDynamicHazards(session: TowerSession): void {
+    const hazards = session.map.dynamicHazards;
+    if (!hazards || hazards.length === 0) return;
+    for (const hz of hazards) {
+        if (!geyserErupts(hz, session.round)) continue;
+        const tiles = new Set(hz.tiles ?? []);
+        const pct = Math.max(1, Math.floor(Number(hz.pct) || 4));
+        for (const a of session.actors) {
+            if (a.hp <= 0 || !tiles.has(a.pos)) continue;
+            const dmg = Math.max(1, Math.floor((a.maxHp * pct) / 100));
+            a.hp = Math.max(0, a.hp - dmg);
+            session.log.push(`${a.name} is scalded by an erupting geyser for ${dmg} (${a.hp}/${a.maxHp}).`);
+        }
+    }
+}
+/** Shove `actor` up to `dist` tiles directly AWAY from `centerTile` (seismic-slam knockback).
+ *  Deterministic (first legal outward neighbour in tile-index order); stops at walls/edges/units. */
+function pushAwayFrom(session: TowerSession, actor: TowerActor, centerTile: number, dist: number): void {
+    const w = session.map.width, h = session.map.height;
+    const distTo = (t: number) => hexDistance(t, centerTile, w);
+    let pos = actor.pos;
+    for (let step = 0; step < dist; step++) {
+        const here = distTo(pos);
+        const next = towerNeighbors(pos, w, h).sort((a, b) => a - b)
+            .find(t => t !== centerTile && !isTileBlocked(session, t, actor.id) && distTo(t) > here);
+        if (next === undefined) break;
+        pos = next;
+    }
+    if (pos !== actor.pos) { actor.pos = pos; session.log.push(`${actor.name} is hurled back by the shockwave!`); }
+}
 /** Round-end: detonate a primed boss strike + chip anyone caught outside the closing ring. Squad
  *  only (boss/adds/escort exempt), flat %-maxHp outside wMult; the strike is cleared so it fires once. */
 function applyBossStrikeAndRing(session: TowerSession): void {
     const strike = session.bossStrike;
     if (strike && strike.round === session.round) {
         const zone = new Set(strike.tiles);
+        const isSlam = strike.kind === 'slam';
         for (const a of session.actors) {
             if (a.hp <= 0 || a.side !== 'squad' || !zone.has(a.pos)) continue;
             const dmg = Math.max(1, Math.floor((a.maxHp * strike.pct) / 100));
             a.hp = Math.max(0, a.hp - dmg);
             session.log.push(`${a.name} is caught in ${strike.label} for ${dmg} (${a.hp}/${a.maxHp}).`);
+            // Seismic slam: hurl the caught shinobi away from the blast centre (can toss them into a
+            // hazard/geyser — the combo). Only when the boss is alive to have thrown it.
+            if (isSlam && a.hp > 0 && typeof strike.center === 'number') pushAwayFrom(session, a, strike.center, 2);
         }
         session.bossStrike = undefined;
     }
@@ -1507,6 +1559,7 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     applyRoundStatusTicks(session); // bleed Wound/Poison/Drain + expire statuses (PvP DoT math)
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
     applyBossStrikeAndRing(session); // detonate the telegraphed boss strike + closing-ring chip
+    applyRoundDynamicHazards(session); // erupt any geyser vents scheduled for this round
     applyRoundFonts(session);   // fonts restore whoever holds them (capped; heal-cut honoured)
     applyBossRegen(session);    // a 'regen' boss heals each round
     checkTowerWinner(session, floor);
@@ -1604,6 +1657,7 @@ const AI_SEEK_RANGE = 6; // don't abandon the fight to chase a distant object
 function aiDangerTiles(session: TowerSession, actor: TowerActor): Set<number> {
     const danger = new Set<number>();
     for (const f of session.map.features ?? []) if (f.kind === 'hazard') for (const t of f.tiles) danger.add(t);
+    for (const t of dynamicHazardTiles(session, session.round)) danger.add(t); // geysers erupt on both sides
     if (actor.side === 'squad') for (const t of session.map.nextRoundHazardTiles ?? []) danger.add(t);
     for (const z of session.groundEffects ?? []) {
         const bitesMe = z.owner === 'p1' ? actor.side === 'enemy' : (actor.side === 'squad' || actor.side === 'npc');
