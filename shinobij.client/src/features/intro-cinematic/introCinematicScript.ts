@@ -36,14 +36,12 @@ export const PRE_GIFT_LINES: CinematicLine[] = [
     { speaker: "fox", label: "???", text: "Open your eyes, young one. Good. The summons held." },
     { speaker: "fox", label: "???", text: "Do not be afraid. You stand beyond the veil, in the last sanctuary of this land — and I am the one who called you." },
     { speaker: "fox", text: `I am ${FOX_NAME}, guardian of this shrine since the first torii was raised. What little of me remains, anyway.` },
-    { speaker: "fox", text: "Crossing the veil to reach a soul like yours took the last of my power. I did not spend it lightly." },
-    { speaker: "fox", text: "Listen well, for I may not have the strength to say this twice." },
+    { speaker: "fox", text: "Crossing the veil to reach a soul like yours took the last of my power — so listen well, for I may not have the strength to say this twice." },
     { speaker: "fox", vision: true, text: "Far beneath this land stands the Hollow Gate — a door that was sealed before your kind first drew breath. For a thousand years, it slept." },
     { speaker: "fox", vision: true, rumble: true, text: "It sleeps no longer. It stirs. It hungers. Something — or someone — is feeding it." },
     { speaker: "fox", text: "My kin held the seal for generations. I am the last of them, and my light is nearly spent. Alone, I cannot hold back what is coming." },
     { speaker: "fox", text: "That is why I called you. I hope — with all that remains of me — that you can help this land." },
-    { speaker: "fox", text: "But I will not send you into this world alone." },
-    { speaker: "fox", text: "Five young spirits shelter at this shrine — the last I have raised, each carrying one of the five natures." },
+    { speaker: "fox", text: "But I will not send you into this world alone. Five young spirits shelter at this shrine — the last I have raised, each carrying one of the five natures." },
     { speaker: "fox", text: "Choose one, {name}. Let it walk beside you where I cannot." },
 ];
 

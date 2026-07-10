@@ -26,7 +26,9 @@
    the opaque shrine scene. */
 .icx-root.is-companion {
     background: rgba(2, 5, 14, 0.45);
-    animation: icx-companion-root-in 600ms ease both;
+    /* A short breath first: the player gets one clean look at the village the
+       whole cinematic promised before the scrim settles over it. */
+    animation: icx-companion-root-in 700ms ease 500ms both;
 }
 @keyframes icx-companion-root-in {
     from { opacity: 0; }
@@ -38,7 +40,25 @@
     bottom: calc(clamp(26px, 5vh, 54px) + 18px);
     width: clamp(150px, 22vmin, 250px);
     pointer-events: none;
+    animation: icx-companion-in 700ms cubic-bezier(0.34, 1.56, 0.64, 1) 800ms both;
+}
+/* The freshly-chosen companion joins the stage for the farewell. */
+.icx-gift-pet {
+    position: absolute;
+    right: calc(clamp(3%, 9vw, 15%) + clamp(108px, 15vmin, 172px) + 16px);
+    bottom: 27%;
+    width: clamp(90px, 13vmin, 140px);
+    pointer-events: none;
     animation: icx-companion-in 700ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.icx-gift-pet img {
+    width: 100%;
+    display: block;
+    filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55));
+    transform-origin: 50% 100%;
+}
+.icx-gift-pet.is-talking img {
+    animation: icx-companion-talk 460ms ease-in-out infinite;
 }
 .icx-companion-pet img {
     width: 100%;
@@ -503,6 +523,31 @@
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(250, 204, 21, 0.08);
     padding: 14px 20px 26px;
     cursor: pointer;
+    animation: icx-choose-in 320ms ease-out both;
+}
+/* Every layer of the stage invites the advance tap. */
+.icx-root { cursor: pointer; }
+/* One-time first-line affordance for brand-new players. */
+.icx-tap-hint {
+    position: absolute;
+    right: 34px;
+    bottom: 9px;
+    font-size: 12px;
+    color: #fbbf24;
+    opacity: 0;
+    animation: icx-hint-in 600ms ease 400ms forwards;
+}
+@keyframes icx-hint-in {
+    to { opacity: 0.9; }
+}
+/* Screen-reader-only copy of the full line (the animated slice is aria-hidden). */
+.icx-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 .icx-speaker {
     display: inline-block;
@@ -560,11 +605,18 @@
     font-size: 12.5px;
     padding: 6px 14px;
     cursor: pointer;
-    z-index: 5;
+    /* Above the letterbox bars (z 6) and title (z 7) — a hidden Skip on a
+       forced cinematic is the worst affordance failure it can have. */
+    z-index: 8;
 }
 .icx-skip:hover {
     color: #fff7d6;
     border-color: rgba(250, 204, 21, 0.6);
+}
+/* Sound opt-in toggle beside Skip (the global unmute lives under the overlay). */
+.icx-skip.icx-sound {
+    right: 92px;
+    padding: 6px 11px;
 }
 
 /* ── Companion choice (the fox's gift) ──────────────────────────────────── */
@@ -580,6 +632,11 @@
     padding: clamp(14px, 3.5vh, 36px) 14px calc(22px + env(safe-area-inset-bottom, 0px));
     background: rgba(2, 5, 14, 0.72);
     backdrop-filter: blur(3px);
+    animation: icx-choose-in 320ms ease-out both;
+}
+@keyframes icx-choose-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
 }
 .icx-choose-kicker {
     margin: 0;
@@ -629,6 +686,17 @@
 .icx-pet-card:focus-visible {
     transform: translateY(-4px);
     box-shadow: 0 0 34px color-mix(in srgb, var(--icx-accent, #38bdf8) 42%, transparent);
+}
+/* The five spirits present themselves one after another. */
+.icx-pet-card { animation: icx-card-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.icx-pet-card:nth-child(1) { animation-delay: 60ms; }
+.icx-pet-card:nth-child(2) { animation-delay: 140ms; }
+.icx-pet-card:nth-child(3) { animation-delay: 220ms; }
+.icx-pet-card:nth-child(4) { animation-delay: 300ms; }
+.icx-pet-card:nth-child(5) { animation-delay: 380ms; }
+@keyframes icx-card-in {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .icx-pet-art {
     height: 92px;
@@ -736,7 +804,19 @@
     .icx-vision { top: 6%; width: min(26vh, 66vw); }
     .icx-letterbox { display: none; }
     .icx-companion-pet { left: 3%; bottom: 205px; width: clamp(100px, 28vw, 150px); }
+    .icx-gift-pet { right: 4%; bottom: calc(34% + 150px); width: clamp(70px, 20vw, 100px); }
     .icx-dialogue { min-height: 138px; padding: 12px 14px 24px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+    /* Scroll affordance: 5 tall cards overflow small screens — fade the fold. */
+    .icx-choose::after {
+        content: "";
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 56px;
+        background: linear-gradient(transparent, rgba(2, 5, 14, 0.92));
+        pointer-events: none;
+    }
     .icx-line { font-size: 15px; }
     .icx-pet-grid { grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 9px; }
     .icx-pet-card { padding: 11px; }
@@ -771,10 +851,24 @@
     .icx-advance,
     .icx-title,
     .icx-companion-pet,
-    .icx-companion-pet img {
+    .icx-companion-pet img,
+    .icx-gift-pet,
+    .icx-gift-pet img,
+    .icx-root.is-companion,
+    .icx-dialogue,
+    .icx-tap-hint,
+    .icx-choose,
+    .icx-pet-card {
         animation: none;
     }
     .icx-fox img { transition: none; }
     .icx-stagefill { transition: none; }
     .icx-letterbox { transition: none; }
+    /* Match the shortened JS whiteout choreography (250ms in / 250ms out). */
+    .icx-whiteout,
+    .icx-whiteout.is-on.is-revealing {
+        transition-duration: 200ms;
+    }
+    .icx-tap-hint { opacity: 0.9; }
+    .icx-root.is-companion { opacity: 1; }
 }
