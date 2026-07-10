@@ -152,6 +152,27 @@ function validateFloor(floor) {
             });
         }
     }
+    // Dynamic hazards (geyser vents): sane count / percent / cadence.
+    if (floor.dynamicHazards != null) {
+        if (!Array.isArray(floor.dynamicHazards)) {
+            errs.push(`${where}: dynamicHazards must be an array`);
+        }
+        else {
+            floor.dynamicHazards.forEach((hz, i) => {
+                const w2 = `${where}: dynamicHazards[${i}]`;
+                if (hz?.kind !== 'geyser')
+                    errs.push(`${w2}.kind invalid`);
+                if (!Number.isInteger(hz.count) || hz.count < 1 || hz.count > 12)
+                    errs.push(`${w2}.count must be an integer in [1,12]`);
+                if (typeof hz.pct !== 'number' || hz.pct <= 0 || hz.pct > 25)
+                    errs.push(`${w2}.pct out of (0,25]`);
+                if (!Number.isInteger(hz.everyRounds) || hz.everyRounds < 2)
+                    errs.push(`${w2}.everyRounds must be an integer ≥2`);
+                if (hz.firstRound != null && (!Number.isInteger(hz.firstRound) || hz.firstRound < 1))
+                    errs.push(`${w2}.firstRound must be a positive integer`);
+            });
+        }
+    }
     if (floor.closingRing != null) {
         const cr = floor.closingRing;
         if (cr.pct != null && (typeof cr.pct !== 'number' || cr.pct <= 0 || cr.pct > 100))

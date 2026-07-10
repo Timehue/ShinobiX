@@ -147,6 +147,28 @@ export function placeBoardObjects(
     }
 }
 
+/** Scatter each dynamic hazard's `count` geyser vents onto free interior tiles (off the spawn band,
+ *  never on a reserved tile or another vent). Own LCG stream (salt 0x27220a95) so settle reproduces
+ *  the layout. A floor with no dynamicHazards pays nothing (byte-identical). */
+export function placeDynamicHazards(
+    hazards: Array<{ tiles: number[] }>, counts: number[], w: number, h: number, seed: number, reserved: Set<number>,
+): void {
+    if (!hazards.length) return;
+    let s = (((seed >>> 0) ^ 0x27220a95) >>> 0) || 1;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
+    hazards.forEach((hz, i) => {
+        const want = Math.max(1, Math.min(12, Math.floor(counts[i] ?? 1)));
+        for (let attempt = 0; attempt < want * 60 + 200 && hz.tiles.length < want; attempt++) {
+            const cx = (SPAWN_LEFT_COLS + 1) + Math.floor(rnd() * Math.max(1, w - SPAWN_LEFT_COLS - 2));
+            const cy = 1 + Math.floor(rnd() * Math.max(1, h - 2));
+            const t = cy * w + cx;
+            if (reserved.has(t)) continue;
+            hz.tiles.push(t);
+            reserved.add(t);
+        }
+    });
+}
+
 // Deterministic spawn placement: from a desired (col,row), scan outward (down rows,
 // then wrap to the next column) to the first FREE tile, so squad + enemies spread
 // across spawn BANDS and never collide. Pure + deterministic (no RNG / wall-clock).
@@ -314,6 +336,21 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         placeBoardObjects(objects, W, H, p.seed, objReserved);
         map.boardObjects = objects;
         for (const o of objects) for (const t of o.tiles ?? []) used.add(t);
+    }
+
+    // Dynamic hazards (geyser vents): scatter AFTER objects (their tiles reserved) and BEFORE
+    // spawns, so no unit starts standing on a vent. A floor with no dynamicHazards → map field
+    // unset → byte-identical.
+    if (floor.dynamicHazards && floor.dynamicHazards.length > 0) {
+        const hazards = floor.dynamicHazards.map(hz => ({
+            kind: hz.kind, tiles: [] as number[], pct: hz.pct, everyRounds: hz.everyRounds,
+            ...(hz.firstRound != null ? { firstRound: hz.firstRound } : {}),
+        }));
+        const hzReserved = new Set<number>(used);
+        for (const t of map.objectiveTiles) hzReserved.add(t);
+        placeDynamicHazards(hazards, floor.dynamicHazards.map(hz => hz.count), W, H, p.seed, hzReserved);
+        map.dynamicHazards = hazards.filter(hz => hz.tiles.length > 0);
+        for (const hz of map.dynamicHazards) for (const t of hz.tiles) used.add(t);
     }
 
     const actors: TowerActor[] = [];

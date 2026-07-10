@@ -57,6 +57,9 @@ export type TowerMap = {
     objectiveTiles: number[];
     /** board objects (fonts / shrines) with resolved tiles — drawn + tinted on the board */
     boardObjects?: TowerBoardObject[];
+    /** dynamic hazards (geyser vents) with resolved tiles — drawn on the board; the tiles about
+     *  to erupt also come through nextRoundHazardTiles (crimson telegraph) so they pulse a round ahead */
+    dynamicHazards?: Array<{ kind: string; tiles: number[]; pct: number; everyRounds: number; firstRound?: number }>;
     /** positional battlefield features (pylons/wards/hazards) — drawn on the board */
     features?: TowerFeature[];
     /** Endless Spire telegraph: tiles that will burn at the END of the current round from

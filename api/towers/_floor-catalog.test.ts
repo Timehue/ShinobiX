@@ -87,6 +87,17 @@ describe('Battle Towers floor catalog', () => {
         const bad: TowerFloor = { ...FLOOR_CATALOG[0], balanceFor: 7 };
         assert.ok(validateFloor(bad).some(e => e.includes('balanceFor')));
     });
+
+    it('accepts a valid geyser hazard and rejects malformed cadence/percent/count', () => {
+        const ok: TowerFloor = { ...FLOOR_CATALOG[0], dynamicHazards: [{ kind: 'geyser', count: 3, pct: 5, everyRounds: 3, firstRound: 2 }] };
+        assert.deepEqual(validateFloor(ok), []);
+        const badPct: TowerFloor = { ...FLOOR_CATALOG[0], dynamicHazards: [{ kind: 'geyser', count: 3, pct: 40, everyRounds: 3 }] };
+        assert.ok(validateFloor(badPct).some(e => e.includes('pct')), 'a >25% geyser is rejected');
+        const badCadence: TowerFloor = { ...FLOOR_CATALOG[0], dynamicHazards: [{ kind: 'geyser', count: 3, pct: 5, everyRounds: 1 }] };
+        assert.ok(validateFloor(badCadence).some(e => e.includes('everyRounds')), 'an every-round geyser is rejected');
+        const badCount: TowerFloor = { ...FLOOR_CATALOG[0], dynamicHazards: [{ kind: 'geyser', count: 99, pct: 5, everyRounds: 3 }] };
+        assert.ok(validateFloor(badCount).some(e => e.includes('count')), 'a 99-vent floor is rejected');
+    });
 });
 
 describe('Battle Towers party scaling (2–4 squad)', () => {

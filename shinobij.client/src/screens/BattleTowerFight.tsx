@@ -32,6 +32,7 @@ import revenantSprite from "../assets/towers/enemies/revenant.webp";
 import sovereignSprite from "../assets/towers/enemies/sovereign.webp";
 import objectFont from "../assets/towers/objects/font.webp";
 import objectShrine from "../assets/towers/objects/shrine.webp";
+import hazardGeyser from "../assets/towers/hazards/geyser.webp";
 import obstacleForest from "../assets/towers/obstacles/forest.webp";
 import obstacleSnow from "../assets/towers/obstacles/snow.webp";
 import obstacleVolcano from "../assets/towers/obstacles/volcano.webp";
@@ -470,8 +471,9 @@ export function BattleTowerFight({
         if (boss?.character?.phasePillars) chips.push({ icon: "🪨", text: "Shatters the arena at phase gates", kind: "default" });
         if (boss?.character?.aegis) chips.push({ icon: "🛡️", text: "Raises a shield at phase gates", kind: "healcut" });
         if (session.map.closingRing) chips.push({ icon: "🔥", text: `Arena collapses from round ${Math.max(1, Number(session.map.closingRing.fromRound ?? 6))}`, kind: "extraPhase" });
+        if ((session.map.dynamicHazards ?? []).length) chips.push({ icon: "♨️", text: "Geysers erupt on a beat — don't end the round on a vent", kind: "hazard" });
         return chips;
-    }, [session.modifierStack, session.actors, session.phaseState.bossId, session.map.closingRing]);
+    }, [session.modifierStack, session.actors, session.phaseState.bossId, session.map.closingRing, session.map.dynamicHazards]);
 
     async function send(action: Parameters<typeof submitTowerAction>[2]) {
         if (busy) return;
@@ -785,6 +787,22 @@ export function BattleTowerFight({
                                     return <img key={`obs-${t}`} src={sprite} alt="" aria-hidden title="Impassable terrain"
                                         style={{ position: "absolute", left: left + HEX_W / 2 - S / 2, top: top + HEX_H * 0.9 - S, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: "drop-shadow(0 3px 3px rgba(0,0,0,0.8))" }} />;
                                 })}
+
+                                {/* dynamic hazards — geyser vents. The vent sits on the tile always; when it's
+                                    about to erupt the tile also joins the crimson telegraph (rendered above). */}
+                                {(session.map.dynamicHazards ?? []).flatMap((hz, hi) => (hz.tiles ?? []).map(t => {
+                                    const { left, top } = towerHexPixel(t, w);
+                                    const primed = (session.map.nextRoundHazardTiles ?? []).includes(t);
+                                    const S = 40;
+                                    return (
+                                        <span key={`geyser-${hi}-${t}`}>
+                                            <div className="tower-hex-tile" aria-hidden
+                                                style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: primed ? "rgba(234,88,12,0.34)" : "rgba(234,88,12,0.12)", filter: "drop-shadow(0 0 3px rgba(249,115,22,0.7))", zIndex: 2, pointerEvents: "none", animation: primed ? "towerHazardPulse 0.9s ease-in-out infinite" : "towerZonePulse 2.8s ease-in-out infinite" }} />
+                                            <img src={hazardGeyser} alt="Geyser vent" title={`Geyser — erupts every ${Math.max(2, Number(hz.everyRounds ?? 3))} rounds for ${hz.pct}% max HP; don't end the round on it`}
+                                                style={{ position: "absolute", left: left + HEX_W / 2 - S / 2, top: top + HEX_H * 0.9 - S, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: `drop-shadow(0 2px 3px rgba(0,0,0,0.8))${primed ? " drop-shadow(0 0 7px rgba(249,115,22,0.95))" : ""}` }} />
+                                        </span>
+                                    );
+                                }))}
 
                                 {/* board objects — fonts & shrines. The tile glows (turquoise font / gold
                                     shrine, tinted by the holder for shrines) and the prop sits on it. */}
