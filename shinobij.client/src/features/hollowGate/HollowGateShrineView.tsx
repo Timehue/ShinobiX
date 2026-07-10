@@ -393,8 +393,10 @@ export function HollowGateShrineView({
                                         const checkCls = !wall && terrainKind !== "door" && (x + y) % 2 === 0 ? " hg-check" : "";
 
                                         // ── Optional admin texture + content tint (lit only) ───
+                                        // The player's cell renders like any other floor — the
+                                        // avatar is an overlay, not a tile style.
                                         const cellTheme = (visible || known) ? tileTheme(i) : undefined;
-                                        const texture = (visible || known) && !isPlayer ? textureFor(terrainKind, i, cellTheme, wallFace) : undefined;
+                                        const texture = (visible || known) ? textureFor(terrainKind, i, cellTheme, wallFace) : undefined;
                                         const texturedFace = wallFace && Boolean(texture) && hasFaceArt(cellTheme);
                                         const layers: string[] = [];
                                         // Surprise tiles (trap/battle/elite/pet) stay disguised as
@@ -468,9 +470,12 @@ export function HollowGateShrineView({
                                         const clickable = known && !wall && !isPlayer;
                                         const isDest = walkTarget === i;
 
-                                        // Torch sconces: sparse, deterministic, on lit wall faces
-                                        // beside walkable floor — the shrine lights its own halls.
-                                        const sconce = wallFace && visible && (((i * 2654435761) >>> 0) % 5 === 0);
+                                        // Torch sconces: a wall face beside an OPENING in its wall
+                                        // line (where a corridor/door pierces through) always carries
+                                        // a flame — deliberate Zelda-style doorway framing — plus a
+                                        // sparse deterministic scatter along long unbroken walls.
+                                        const besideOpening = wallFace && (!isWallAt(x - 1, y) || !isWallAt(x + 1, y));
+                                        const sconce = wallFace && visible && (besideOpening || ((i * 2654435761) >>> 0) % 5 === 0);
 
                                         return (
                                             <div
@@ -540,7 +545,7 @@ export function HollowGateShrineView({
                                         const wardenDefeated = Boolean(run.completed) || run.tiles.some(t => t.kind === "boss" && t.resolved);
                                         const hiddenChamberFound = run.tiles.some(t => t.kind === "shrine" && t.resolved);
                                         const objectives = [
-                                            { label: "Reach Floor 5", done: reachedFloor5 },
+                                            { label: `Reach Floor ${HOLLOW_GATE_MAX_FLOOR}`, done: reachedFloor5 },
                                             { label: "Defeat the Hollow Gate Warden", done: wardenDefeated },
                                             { label: "Find a Hidden Chamber (optional)", done: hiddenChamberFound },
                                         ];
