@@ -50,9 +50,10 @@ const matchVillage = (name) => {
 };
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
-// %name is substituted with the live character name at render time
-// (lib/vn.ts applyVnTextVars); show a readable stand-in in the review PDF.
-const forReview = (s) => (s == null ? s : String(s).split("%name").join("[player name]"));
+// %name / %pet are substituted with the live character / active-pet name at
+// render time (lib/vn.ts applyVnTextVars; %pet falls back to "your companion");
+// show readable stand-ins in the review PDF.
+const forReview = (s) => (s == null ? s : String(s).split("%name").join("[player name]").split("%pet").join("[pet name]"));
 
 // ── Image embedding ──────────────────────────────────────────────────────
 // Transcode the public WebP art to JPEG in a temp dir so reportlab (no WebP
