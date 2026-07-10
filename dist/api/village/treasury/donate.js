@@ -9,6 +9,7 @@ const _lock_js_1 = require("../../_lock.js");
 const _treasury_donate_js_1 = require("../../_treasury-donate.js");
 const _legacy_track_js_1 = require("../../_legacy-track.js");
 const _mutate_player_save_js_1 = require("../../save/_mutate-player-save.js");
+const _village_merit_js_1 = require("../_village-merit.js");
 const _economy_tx_js_1 = require("../../_economy-tx.js");
 /*
  * /api/village/treasury/donate  — POST only
@@ -120,7 +121,12 @@ async function handler(req, res) {
                     meta: { village, playerName },
                 });
                 txState = 'reserved';
-                return { ok: true, character: outcome.nextDonorChar, value: { nextTreasury: outcome.nextTreasury } };
+                // Personal Village Merit toward a Kage challenge, scaled by the
+                // ryo-value donated (items = 500 each, mirroring the villageDonations
+                // legacy bump below). Costs real currency, so no free farming.
+                const ryoValue = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count) * 500;
+                const creditedDonorChar = { ...outcome.nextDonorChar, villageMerit: (0, _village_merit_js_1.meritNum)(outcome.nextDonorChar.villageMerit) + (0, _village_merit_js_1.meritForDonation)(ryoValue) };
+                return { ok: true, character: creditedDonorChar, value: { nextTreasury: outcome.nextTreasury } };
             });
             if (!debit.ok)
                 return debit;

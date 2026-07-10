@@ -430,6 +430,11 @@ export type Character = {
     warsWon?: number;             // wars where this player qualified for the winner crate
     warMvpCount?: number;         // wars where this player was MVP on either side
     lifetimeWarDamage?: number;   // sum of contribution damage across all wars touched
+    // Personal Village Merit — the server-owned, sanitizer-pinned metric that
+    // gates a Kage challenge (250 required). Written only by server-authoritative
+    // village-support endpoints; the client displays it read-only. See
+    // api/village/_village-merit.ts.
+    villageMerit?: number;
     totalTilesExplored?: number;
     totalTournamentsCompleted?: number;
     totalEndlessTowerWins?: number;

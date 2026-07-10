@@ -418,6 +418,15 @@ const V2_RING_MAX_R = 9.0, V2_RING_MIN_R = 3.5;   // MIN stays ≥ scroll-base r
 const V2_RING_SHRINK = (V2_RING_MAX_R - V2_RING_MIN_R) / (ARENA_TPS * 120);   // reaches MIN by ~270 s
 const V2_RING_BASE_DMG = 40, V2_RING_DMG_RAMP = 5, V2_RING_RAMP_EVERY = ARENA_TPS * 30;   // env damage/sec outside the ring, +5 per 30 s
 
+// Squad-call stability (anti-twitch) --------------------------------------------------
+// The blackboard is rebuilt fresh every tick, so a marginal score change can flip the
+// call target / posture back and forth — the #1 "spreadsheet AI" tell to a spectator.
+// Hold each decision for a minimum dwell before it may change (the call still breaks
+// early for a dead target or the enemy carrier appearing), and announce actual changes.
+const V2_CALL_DWELL = Math.round(ARENA_TPS * 2.5);      // a focus call is committed ~2.5 s
+const V2_POSTURE_DWELL = ARENA_TPS * 2;                 // a posture holds ≥ 2 s
+const V2_PEEL_ANNOUNCE_CD = ARENA_TPS * 3;              // per-defender peel chatter at most every 3 s
+
 interface MatchCfg {
     v2: boolean;
     ttkHpMul: number; winScore: number; maxTicks: number;
@@ -462,6 +471,9 @@ interface MatchState {
     bossComebackUsed: boolean;                       // the Warden's trailing +2 fires once per match
     collapseSeen: Set<string>; execSeen: Set<string>;   // Collapse/execute cue de-dupe
     shrineClaims: number;                            // v2 relic-pool cursor (cycles the pool deterministically)
+    call: { blue: { id: string | null; since: number }; red: { id: string | null; since: number } };   // sticky focus call (anti-twitch dwell)
+    postureHeld: { blue: { p: Posture; since: number }; red: { p: Posture; since: number } };          // posture dwell
+    peelSeen: Record<string, { tgt: string; at: number }>;   // per-defender last-announced peel (throttled chatter)
 }
 function makeMatchState(): MatchState {
     return {
@@ -469,6 +481,9 @@ function makeMatchState(): MatchState {
         mom: { blue: 0, red: 0 }, od: { blue: 0, red: 0 }, streak: { blue: 0, red: 0 }, bossDmg: { blue: 0, red: 0 },
         ringR: V2_RING_MAX_R, carryId: null, carryDist: 0, bossComebackUsed: false,
         collapseSeen: new Set(), execSeen: new Set(), shrineClaims: 0,
+        call: { blue: { id: null, since: -9999 }, red: { id: null, since: -9999 } },
+        postureHeld: { blue: { p: "even", since: -9999 }, red: { p: "even", since: -9999 } },
+        peelSeen: {},
     };
 }
 // Module-level "current match" config + state (rebuilt per runPetArenaMatch). Default OFF.
@@ -615,7 +630,14 @@ export type ArenaEvent =
     | { t: number; type: "overdrive" | "rampage"; team: "blue" | "red" }
     | { t: number; type: "bossenrage"; stage: number }
     | { t: number; type: "ringclose" }
-    | { t: number; type: "collapse" | "executewindow"; team: "blue" | "red"; targetId: string };
+    | { t: number; type: "collapse" | "executewindow"; team: "blue" | "red"; targetId: string }
+    // V2 squad-broadcast cues ("if the AI didn't say it, it didn't happen"): the
+    // blackboard's decisions, surfaced so the renderer can SHOW the teamwork —
+    // focus calls as dialogue + target marker, posture flips as press/fall-back
+    // callouts, peel assignments as protection chatter. Readouts only.
+    | { t: number; type: "focuscall"; team: "blue" | "red"; targetId: string; actorId: string }
+    | { t: number; type: "posture"; team: "blue" | "red"; posture: "press" | "even" | "regroup" }
+    | { t: number; type: "peelassign"; team: "blue" | "red"; actorId: string; targetId: string };
 export interface ArenaResult {
     winner: "blue" | "red" | "draw"; scoreBlue: number; scoreRed: number; ticks: number;
     snapshots: ArenaSnapshot[]; events: ArenaEvent[];
@@ -625,6 +647,17 @@ export interface ArenaResult {
 export interface ArenaSlot { pet: Pet; role: ArenaRole; }
 
 // ── Combat ───────────────────────────────────────────────────────────────────
+// Element counters (V2): Fire>Wind>Lightning>Earth>Water>Fire, ±15% — the same chart
+// as the coliseum duel (inlined so this file stays standalone, matching the duel sim's
+// own inlining for its server hand-port). This is what makes the LINEUP itself matter:
+// an advantaged pick hits 15% harder into its counter and shrugs 15% off the reverse.
+const ARENA_ELEMENT_BEATS: Record<string, string> = { Fire: "Wind", Wind: "Lightning", Lightning: "Earth", Earth: "Water", Water: "Fire" };
+function arenaElementMult(att?: string | null, def?: string | null): number {
+    if (!att || !def || att === "None" || def === "None") return 1;
+    if (ARENA_ELEMENT_BEATS[att] === def) return 1.15;
+    if (ARENA_ELEMENT_BEATS[def] === att) return 0.85;
+    return 1;
+}
 function dealDamage(src: AF, tgt: AF, raw: number, rng: () => number, t: number, events: ArenaEvent[], ability = false) {
     const crit = rng() < src.crit;
     // DODGE consumable fully negates the incoming hit (no damage, no procs).
@@ -641,6 +674,10 @@ function dealDamage(src: AF, tgt: AF, raw: number, rng: () => number, t: number,
         if (src.execLeft > 0 && tgt.hp < tgt.maxHp * V2_EDGE_HP) v2m *= V2_EDGE_MULT;   // Executioner's Edge relic: +50% vs low HP
         v2m *= collapseMult(src, tgt);                                         // Collapse-Call: capped focus-fire bonus
         mult *= Math.min(V2_DMG_STACK_CAP, v2m);                              // ceiling on the combined v2 buff stack
+        // Element counter rides OUTSIDE the buff-stack cap: it's a fixed matchup fact
+        // of the two lineups (±15%), not a stacking power-up, so it must not consume
+        // (or be swallowed by) the cap headroom.
+        mult *= arenaElementMult(src.element, tgt.element);
     }
     if (src.itemsOn) mult *= petGearExecuteMult(src.pet, tgt.hp, tgt.maxHp);   // gear execute vs low-HP foe
     let dmg = Math.max(1, Math.round((raw - tgt.def * 0.38) * mult));
@@ -1042,7 +1079,27 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss,
     const call = squad.callTarget[f.team];
     const directing = call !== null && !ctx.scrollOpen && !ctx.scrollSoon;
     const callBonus = (e: AF) => (directing && e.id === call ? CALL_TARGET_BONUS : 0);
-    const huntC = (e: AF, base: number): Cand => ({ score: base - distPen(e) + stick(e) + fire(e) + callBonus(e), kind: "hunt", plan: huntP(f, e, cfg.neutral) });
+    // Counter-seeking (V2): lean toward the enemy your ELEMENT beats — a Fire pet hunts
+    // the Wind pet. Mild (below the call/focus weights) but visible: counters find their
+    // prey, so drafting a counter lineup shapes who fights whom.
+    const counter = (e: AF) => (CFG.v2 && arenaElementMult(f.element, e.element) > 1 ? 8 : 0);
+    const huntC = (e: AF, base: number): Cand => ({ score: base - distPen(e) + stick(e) + fire(e) + callBonus(e) + counter(e), kind: "hunt", plan: huntP(f, e, cfg.neutral) });
+    // Assassin approach (V2): a long dive arcs around the FLANK (a perpendicular
+    // waypoint, side by slot parity — deterministic) and only straightens for the
+    // final close — the visible "coming around the side" read of a real dive.
+    const asnHunt = (e: AF, base: number): Cand => {
+        const c = huntC(e, base);
+        if (CFG.v2 && dist(f, e) > 4.5) {
+            const dx = e.x - f.x, dy = e.y - f.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > 1e-6) {
+                const side = (f.slot & 1) === 0 ? 1 : -1;
+                const [gx, gy] = snapMain(e.x + (-dy / d) * side * 2.4, e.y + (dx / d) * side * 2.4);
+                c.plan = { gx, gy, stopAt: cfg.neutral, target: e, channel: false };
+            }
+        }
+        return c;
+    };
 
     // SQUAD LAYER (all roles): rescue a dying ally, regroup when locally outnumbered.
     const crit = criticalAlly(f, fs);
@@ -1095,6 +1152,13 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss,
     // the lulls — but you GRAB it and move on (no camping). A power font pulls the whole
     // squad a little; a mending spring pulls a HURT pet hard (the lower its HP, the more
     // it wants the heal). A carrier ignores it (runs the scroll home).
+    // Tracker SCOUTS the next shrine (V2): pre-rotate to the upcoming spot in the last
+    // seconds of its timer — the "vision/tempo" job of a real jungler, and the arrival
+    // often sparks the shrine standoff instead of an uncontested grab.
+    if (CFG.v2 && shrine.state === "inactive" && shrine.spawnTimer > 0 && shrine.spawnTimer <= ARENA_TPS * 4 && f.role === "tracker" && !f.carrying) {
+        const [nx, ny] = SHRINE_SPOTS[shrine.idx];
+        cands.push({ score: 30 - distPt(f, nx, ny) * 0.5, kind: "shrine", plan: { gx: nx, gy: ny, stopAt: 1.6, target: nearestEnemy(f, fs), channel: false } });
+    }
     if (shrine.state === "active" && !f.carrying) {
         const dS = distPt(f, shrine.x, shrine.y);
         const inRange = dS <= SHRINE_CLAIM_RANGE;
@@ -1178,7 +1242,7 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss,
             else if (e.role === "tracker") s = 50;                                                                                    // ambush tracker
             else if (e.role === "defender") continue;                                                                                 // ignore defenders
             else s = 30;
-            cands.push(huntC(e, s));
+            cands.push(asnHunt(e, s));
         }
         if (hpFrac(f) < 0.30) cands.push({ score: 120, kind: "retreat", plan: retreatP(f, fs) });                                      // disengage immediately when hurt
         else if (countWithin(f.x, f.y, enemies, 3.0) >= 2 && hpFrac(f) < 0.6) cands.push({ score: 70, kind: "retreat", plan: retreatP(f, fs) });
@@ -1196,7 +1260,17 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss,
         if (anchor) cands.push({ score: 18, kind: "support", plan: behindP(f, anchor, nearestEnemy(f, fs)) });                        // fallback
     }
 
-    if (cands.length === 0) { const near = nearestEnemy(f, fs); cands.push(near ? { score: 1, kind: "frontline", plan: huntP(f, near, cfg.neutral) } : { score: 0, kind: "support", plan: { gx: f.x, gy: f.y, stopAt: 0, target: null, channel: false } }); }
+    if (cands.length === 0) {
+        const near = nearestEnemy(f, fs);
+        if (near) cands.push({ score: 1, kind: "frontline", plan: huntP(f, near, cfg.neutral) });
+        else if (CFG.v2) {
+            // No enemy on the board (whole team respawning): PREP the next objective
+            // instead of standing frozen — stage at the live shrine, else at the scroll's
+            // spawn point (centre). Reads as a rotation, not a stall. V2-gated.
+            const gp = shrine.state === "active" ? snapMain(shrine.x, shrine.y) : snapMain(ARENA_CENTER[0], ARENA_CENTER[1]);
+            cands.push({ score: 1, kind: "objective", plan: { gx: gp[0], gy: gp[1], stopAt: 1.2, target: null, channel: false } });
+        } else cands.push({ score: 0, kind: "support", plan: { gx: f.x, gy: f.y, stopAt: 0, target: null, channel: false } });
+    }
     return cands;
 }
 
@@ -1738,7 +1812,12 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
                 MS.ringR = Math.max(V2_RING_MIN_R, V2_RING_MAX_R - (t - V2_RING_START) * V2_RING_SHRINK);
                 if ((t - V2_RING_START) % ARENA_TPS === 0) {
                     const rdmg = V2_RING_BASE_DMG + Math.floor((t - V2_RING_START) / V2_RING_RAMP_EVERY) * V2_RING_DMG_RAMP;
-                    for (const f of fs) if (alive(f) && distPt(f, center[0], center[1]) > MS.ringR) bossHitPet(f, rdmg, t, events, "env");
+                    // The scroll WARDS its bearer: home seals sit in the corners (~11 from
+                    // centre, far outside MIN_R), so an un-warded late carrier would be
+                    // executed by ring damage it cannot outrun on every return leg — reading
+                    // as a random unfair death. Escorts still burn, so late carries stay
+                    // tense; the carry itself stays possible.
+                    for (const f of fs) if (alive(f) && !f.carrying && distPt(f, center[0], center[1]) > MS.ringR) bossHitPet(f, rdmg, t, events, "env");
                 }
             }
         }
@@ -1751,6 +1830,58 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         // real matches — player pets vs AI pets, never identical — are decided by
         // pet quality, not side.
         const squad = buildSquad(fs, scroll);   // shared squad awareness (focus + call + peels) + commander (posture + rally) — built once per tick
+        // V2 squad-call STABILITY + BROADCAST layer (buildSquad itself stays pure — this
+        // wrapper holds its per-tick output steady and announces real changes):
+        //  · the focus call is COMMITTED ~2.5 s (breaks early only for a dead/vanished
+        //    target or the enemy carrier appearing) — target flip-flop is the #1 "AI
+        //    twitch" tell to a spectator;
+        //  · posture holds ≥ 2 s so press/regroup reads as a decision, not a flicker;
+        //  · every adopted change emits a cue event (focuscall/posture/peelassign) so the
+        //    renderer can SAY it — coordination the viewer isn't told about doesn't exist.
+        if (CFG.v2) {
+            for (const tm of ["blue", "red"] as const) {
+                const held = MS.call[tm];
+                const fresh = squad.callTarget[tm];
+                const heldF = held.id ? fs.find((g) => g.id === held.id) : undefined;
+                const heldValid = !!heldF && alive(heldF);
+                const freshF = fresh ? fs.find((g) => g.id === fresh) : undefined;
+                const freshIsCarrier = !!freshF && freshF.carrying;
+                if (heldValid && !freshIsCarrier && t - held.since < V2_CALL_DWELL) {
+                    squad.callTarget[tm] = held.id;   // keep the committed call
+                } else if (fresh !== held.id) {
+                    held.id = fresh; held.since = t;
+                    if (fresh && freshF) {
+                        // The "caller" is the nearest living ally — the one making the shout.
+                        let caller: AF | null = null, cd = Infinity;
+                        for (const a of fs) {
+                            if (a.team !== tm || !alive(a)) continue;
+                            const d = dist(a, freshF);
+                            if (d < cd || (d === cd && caller !== null && a.id < caller.id)) { cd = d; caller = a; }
+                        }
+                        events.push({ t, type: "focuscall", team: tm, targetId: fresh, actorId: caller ? caller.id : "" });
+                    }
+                }
+                const ph = MS.postureHeld[tm];
+                const freshP = squad.posture[tm];
+                if (freshP !== ph.p) {
+                    if (t - ph.since >= V2_POSTURE_DWELL) {
+                        ph.p = freshP; ph.since = t;
+                        events.push({ t, type: "posture", team: tm, posture: freshP });
+                    } else {
+                        squad.posture[tm] = ph.p;   // hold the previous posture until the dwell elapses
+                    }
+                }
+            }
+            // Peel chatter: announce a defender's NEW assignment (throttled per defender).
+            for (const defId in squad.peel) {
+                const tgt = squad.peel[defId];
+                const seen = MS.peelSeen[defId];
+                if (seen && (seen.tgt === tgt || t - seen.at < V2_PEEL_ANNOUNCE_CD)) continue;
+                MS.peelSeen[defId] = { tgt, at: t };
+                const df = fs.find((g) => g.id === defId);
+                if (df) events.push({ t, type: "peelassign", team: df.team, actorId: defId, targetId: tgt });
+            }
+        }
         MS.squad = squad;                        // collapseMult (in dealDamage) reads this tick's focus tally
         // V2 Collapse-Call cues: when ≥2 allies commit to the same called target, flag it
         // focused (once), and fire an execute telegraph the first time it drops below 20% HP.
@@ -1772,7 +1903,7 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         // instead of order-dependent compounding shoves that ping-pong each pet against
         // its moveToward pull. That ping-pong read as pets "vibrating in place" and —
         // because the depth scale is tied to y — pulsing big↔small. The equilibrium
-        // spacing (1.5) is unchanged; only the transient is calmer (gap closes ~half/tick).
+        // spacing (BODY_SEP) is unchanged; only the transient is calmer (gap closes ~half/tick).
         for (let i = 0; i < fs.length; i++) { sepX[i] = 0; sepY[i] = 0; }
         for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
             const a = fs[i], b = fs[j]; if (!alive(a) || !alive(b)) continue;

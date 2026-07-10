@@ -86,8 +86,9 @@ test("plantedMotion flag: default (off) is byte-identical to explicit off; on st
         const on2 = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false, null, true);
         assert.deepEqual(on1, on2, `seed ${seed}: planted battles must stay deterministic`);
         assert.ok(["win", "loss", "draw"].includes(on1.result), `planted seed ${seed}: bad result`);
-        // Planted (casual) uses a raised 45s cap (longer, meatier fights) vs the 30s authoritative cap.
-        assert.ok(on1.ticks >= 1 && on1.ticks <= DUEL_TPS * 45, `planted seed ${seed}: ticks out of range ${on1.ticks}`);
+        // Planted (casual) uses a raised 75s cap (long cinematic fights that reach a real
+        // KO instead of a timer stop) vs the 30s authoritative cap.
+        assert.ok(on1.ticks >= 1 && on1.ticks <= DUEL_TPS * 75, `planted seed ${seed}: ticks out of range ${on1.ticks}`);
         assertAllNumbersFinite(on1, `planted.seed${seed}`);
     }
     // Planted still resolves a REAL fight: spawns apart, closes to melee, ends in a KO.
@@ -97,6 +98,36 @@ test("plantedMotion flag: default (off) is byte-identical to explicit off; on st
     assert.ok(r.events.some((e) => e.type === "hit"), "planted: no hits landed");
     // A clearly stronger pet still wins under planted motion (balance sanity).
     assert.equal(runPetDuel(makePet({ id: "a", hp: 1400, attack: 220 }), makePet({ id: "b", hp: 500, attack: 60 }), 2024, 1, 1, false, false, false, null, true).result, "win");
+});
+
+test("feint whiffs (move:'Feint') exist ONLY on the planted path; wind-ups carry the called move", () => {
+    // The feint's viewer payoff (a "Feint" whiff event) may never appear in an
+    // authoritative stream — pendingFeint is set exclusively behind plantedMotion.
+    let plantedFeints = 0, calledWindups = 0;
+    for (const seed of SEEDS) {
+        const auth = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), seed);
+        assert.ok(!auth.events.some((e) => e.type === "whiff" && e.move === "Feint"), `authoritative feint leaked (seed ${seed})`);
+        const on = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), seed, 1, 1, false, false, false, null, true);
+        for (const e of on.events) {
+            if (e.type === "whiff" && e.move === "Feint") plantedFeints++;
+            // A named-ability wind-up announces its move BEFORE the blow (the "called attack").
+            if (e.type === "windup" && e.move) calledWindups++;
+        }
+    }
+    assert.ok(plantedFeints > 0, "no feint ever fired across the planted seeds (rate 9% — several expected)");
+    assert.ok(calledWindups > 0, "no wind-up carried its move name — the called-attack payload is missing");
+});
+
+test("cinematic speed EVADE: a much faster pet slips blows (move:'Evade'), planted-only", () => {
+    let evades = 0;
+    for (const seed of SEEDS) {
+        const on = runPetDuel(makePet({ id: "a", speed: 20 }), makePet({ id: "b", speed: 230, element: "Water" }), seed, 1, 1, false, false, false, null, true);
+        for (const e of on.events) if (e.type === "dodge" && e.move === "Evade") evades++;
+        // The speed-evade rng draw lives behind plantedMotion — authoritative streams never see it.
+        const auth = runPetDuel(makePet({ id: "a", speed: 20 }), makePet({ id: "b", speed: 230, element: "Water" }), seed);
+        assert.ok(!auth.events.some((e) => e.type === "dodge" && e.move === "Evade"), `authoritative evade leaked (seed ${seed})`);
+    }
+    assert.ok(evades > 0, "a +210-speed pet never evaded a single blow across the planted seeds");
 });
 
 // ── 1v1 ──────────────────────────────────────────────────────────────────────

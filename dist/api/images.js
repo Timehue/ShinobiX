@@ -130,7 +130,11 @@ const LEGACY_KEY = 'shared:images';
 const catKey = (cat) => `shared:images:${cat}`;
 // New per-category Redis hash keys — HSET is atomic per-field, eliminating
 // the GET→modify→SET race condition that caused concurrent uploads to overwrite
-// each other and permanently lose images.
+// each other and permanently lose images. On the disk overlay (where these
+// shared:imgfields:* keys live) hset is a JSON-file RMW, so the per-field
+// guarantee is enforced by per-key serialization there — see _withDiskKeyLock
+// in api/_storage.ts. Without it, parallel publishes dropped each other's ids
+// from this manifest while staying servable via their shared:img:<id> keys.
 const catHashKey = (cat) => `shared:imgfields:${cat}`;
 // Backcompat (audit #16): leader:* portraits uploaded before 'leader' was a
 // known category were stored in the 'misc' hash. Pull those fields back out so
