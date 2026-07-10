@@ -206,6 +206,7 @@ export const TEST_FILES = [
     "shinobij.client/src/lib/hollow-gate-dungeon.test.ts",
     "shinobij.client/src/lib/hollow-gate-generate.test.ts",
     "shinobij.client/src/lib/hollow-gate-path.test.ts",
+    "shinobij.client/src/lib/hollow-gate-variant.test.ts",
     "api/towers/_sim.test.ts",
     "api/towers/_data-model.test.ts",
     "api/towers/_floor-catalog.test.ts",

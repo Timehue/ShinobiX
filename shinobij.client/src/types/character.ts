@@ -90,6 +90,31 @@ export type HollowGateAugmentOffer = {
     combat?: { kind: string; value: number };
 };
 
+// Optional run-shape override — the standard shrine (5 floors, 25×17, the
+// Hollow Gate Warden) when absent. Event gates (e.g. a 1-3 floor festival
+// gauntlet with a bespoke final boss) stamp one of these on the run at entry;
+// every floor-count / boss / grid decision downstream reads it through
+// lib/hollow-gate-variant so a mid-run save resumes with the same shape.
+export type HollowGateVariant = {
+    id: string;                 // stable id, e.g. "event-festival"
+    label?: string;             // display name, e.g. "Festival Gate"
+    maxFloor?: number;          // total floors (final floor holds the boss); default HOLLOW_GATE_MAX_FLOOR
+    width?: number;             // generated floor dimensions; default HOLLOW_GATE_SHRINE_W/H
+    height?: number;
+    bossAiId?: string;          // creator/builtin AI id for the final boss; default the Hollow Gate Warden
+    bossName?: string;          // display name for logs/objectives; default "Hollow Gate Warden"
+};
+
+// The shared event-gate announcement (admin-authored, distributed to every
+// client through the admin-save content channel like creator content). When
+// `active`, the World Map Hollow Gate menu offers the event entry.
+export type HollowGateEventConfig = HollowGateVariant & {
+    active?: boolean;
+    keyCost?: number;           // 0 = free entry, 1 = consumes a Hollow Gate Key (default 1)
+    requiresUnlock?: boolean;   // false = event bypasses the village Kage unlock (default false)
+    updatedAt?: number;         // recency for the admin-content merge
+};
+
 export type HollowGateShrineRun = {
     width: number;
     height: number;
@@ -101,6 +126,9 @@ export type HollowGateShrineRun = {
     torch: number; // 0..10
     keys: number;
     completed: boolean;
+    // Event-gate shape override (see HollowGateVariant above). Absent on
+    // standard runs and all legacy saves.
+    variant?: HollowGateVariant;
     // Theme assignment per roomId — the renderer uses this to pick which
     // shrine:icon-theme-<theme>-<role> tile to draw for room_floor / door /
     // corridor / wall cells. Old saved runs without this field fall back to

@@ -40,11 +40,15 @@ import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGat
 
 const CARD: ReadonlyArray<readonly [number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
+/** Optional grid dimensions — event-gate variants pass a smaller board; the
+ *  standard shrine constants apply when omitted. */
+export type HollowGateFloorDims = { width: number; height: number };
+
 /** Public entry: a fully-connected, intentionally-laid-out floor. Retries a few
  *  times if an invariant fails (regenerate-on-invalid is microseconds at 425 cells). */
-export function generateHollowGateFloor(floor: number, isFinalFloor: boolean): HollowGateShrineRun {
+export function generateHollowGateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims): HollowGateShrineRun {
     for (let attempt = 0; attempt < 20; attempt += 1) {
-        const run = tryGenerateFloor(floor, isFinalFloor);
+        const run = tryGenerateFloor(floor, isFinalFloor, dims);
         if (run) return run;
     }
     throw new Error("hollow-gate floor generation failed after retries");
@@ -66,20 +70,22 @@ function chamberInLeaf(node: BSPRect): BSPRect {
     return { x: roomX, y: roomY, w: roomW, h: roomH };
 }
 
-function tryGenerateFloor(floor: number, isFinalFloor: boolean): HollowGateShrineRun | null {
-    const w = HOLLOW_GATE_SHRINE_W;
-    const h = HOLLOW_GATE_SHRINE_H;
+function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims): HollowGateShrineRun | null {
+    const w = dims?.width ?? HOLLOW_GATE_SHRINE_W;
+    const h = dims?.height ?? HOLLOW_GATE_SHRINE_H;
     const total = w * h;
     const at = (x: number, y: number) => y * w + x;
 
     // ── 1. Rooms via BSP leaves ──────────────────────────────────────────────
     // Depth 3 on 25×17 yields ~6-8 chunky leaves; deeper floors sometimes split
     // once more for a busier, tighter warren. minLeaf 6 keeps every leaf big
-    // enough for a real chamber.
-    const splitDepth = 3 + (floor >= 3 && Math.random() < 0.4 ? 1 : 0);
-    const leaves = bspSplit({ x: 0, y: 0, w, h }, splitDepth, 6).filter((l) => l.w >= 5 && l.h >= 5);
+    // enough for a real chamber. Compact (event-variant) boards ease both knobs
+    // so a 15×11 floor still carves 3-5 real rooms instead of failing retries.
+    const compact = w < 20 || h < 13;
+    const splitDepth = 3 + (floor >= 3 && !compact && Math.random() < 0.4 ? 1 : 0);
+    const leaves = bspSplit({ x: 0, y: 0, w, h }, splitDepth, compact ? 5 : 6).filter((l) => l.w >= 5 && l.h >= 5);
     const rooms: BSPRect[] = leaves.map(chamberInLeaf);
-    if (rooms.length < 4) return null; // too few rooms → retry
+    if (rooms.length < (compact ? 3 : 4)) return null; // too few rooms → retry
 
     const terrain: HollowGateTerrain[] = new Array(total).fill("wall");
     const roomIds: number[] = new Array(total).fill(-1);
