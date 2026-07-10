@@ -18,22 +18,25 @@
  *   logbook       -> open Logbook; advances when the Logbook is opened
  *   sectorReturn  -> visit any sector, then return to the village -> "done"
  *
- * The chosen companion IS the guide: every banner/modal shows the starter pet's
- * pose portrait + name (guidePet, resolved by App from activePetId) and the
- * coaching lines are voiced by it. Falls back to a plain "Academy Guide" label
- * when no pet exists (skipped grant / legacy save).
+ * The chosen companion IS the guide, presented as a talking character: the
+ * pet's full-body 2.5D pose standee (the coliseum cutout art via petPoseImage)
+ * stands beside a speech bubble with a typewriter line — not a flat menu bar.
+ * guidePet is resolved by App from activePetId; with no pet (skipped grant /
+ * legacy save) the bubble runs alone under a plain "Academy Guide" label.
  *
  * State lives on character.onboardingStep (persisted, normalized via
  * normalizeOnboardingStep so legacy "spar"/"tour"/"storyUnlocked" saves keep
  * working). Rendered as an overlay alongside the ProfessionPicker in App.tsx.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { normalizeOnboardingStep, type CanonicalOnboardingStep } from "../lib/onboarding-step";
 import { petPoseImage } from "../lib/pet-battle-anim";
+import { prefersReducedMotion } from "../lib/device-tier";
 import type { Pet } from "../types/pet";
 import type { Character, Screen } from "../App";
+import "./onboarding-coach.css";
 
 const overlayStyle: React.CSSProperties = {
     position: "fixed",
@@ -54,23 +57,18 @@ const cardStyle: React.CSSProperties = {
     textAlign: "center",
 };
 
-const bannerStyle: React.CSSProperties = {
+// Fixed anchor for the talking-companion banner. Centered like the old pill
+// bar (the left edge belongs to the desktop profile rail, z 10000 > our 9000);
+// index.css's `.onboarding-coach-banner` mobile override lifts `bottom` above
+// the bottom nav.
+const guideWrapStyle: React.CSSProperties = {
     position: "fixed",
     left: "50%",
     bottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
     transform: "translateX(-50%)",
-    maxWidth: 560,
+    maxWidth: 620,
     width: "calc(100% - 24px)",
-    background: "#1f2937",
-    border: "1px solid #facc15",
-    borderRadius: 12,
-    padding: "12px 16px",
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: 10,
     zIndex: 9000,
-    boxShadow: "0 6px 24px rgba(0,0,0,0.5)",
 };
 
 const skipStyle: React.CSSProperties = {
@@ -81,18 +79,6 @@ const skipStyle: React.CSSProperties = {
     cursor: "pointer",
     fontSize: 12,
     marginLeft: "auto",
-};
-
-// Circular chip for the companion's transparent pose cutout.
-const guidePortraitStyle: React.CSSProperties = {
-    width: 46,
-    height: 46,
-    borderRadius: "50%",
-    objectFit: "contain",
-    background: "radial-gradient(circle, rgba(30,41,59,0.95), rgba(2,6,23,0.9))",
-    border: "1px solid #facc15",
-    flexShrink: 0,
-    padding: 2,
 };
 
 const stepProgress: Partial<Record<CanonicalOnboardingStep, string>> = {
@@ -145,6 +131,7 @@ export function OnboardingCoach({
     const loadoutBaselineRef = useRef<number | null>(null);
     const equipmentBaselineRef = useRef<number | null>(null);
     const sectorVisitedRef = useRef(false);
+    const reduced = prefersReducedMotion();
 
     useEffect(() => {
         if (step === "training" && activeTraining) {
@@ -250,83 +237,97 @@ export function OnboardingCoach({
 
     useBodyScrollLock(step === "academySpar");
 
+    const visitedSector = screen === "worldMap" && currentSector >= 1;
+
+    // The companion's coaching line for the current banner step. Plain strings
+    // so the speech-bubble typewriter can slice them.
+    const bannerText: string | null = (() => {
+        switch (step) {
+            case "training": return "Let's grow stronger together! Start your first stat training — pick any stat and any timer.";
+            case "jutsu": return "Now train one more jutsu. Pick an untrained jutsu and use the free Level 1 unlock.";
+            case "jutsuLoadout": return "Put that trained jutsu in your loadout from your Profile so it appears in battle.";
+            case "inventory": return "Equip a starter item from your Inventory. Your kunai or vest will help in the spar.";
+            case "cafeteria": return "Oh no, you've been hurt! Heal yourself in the Cafeteria before we move on.";
+            case "firstMission": return "Claim your one-time Academy Trial reward at the Mission Hall.";
+            case "logbook": return "Open your Logbook to see our Academy goals.";
+            case "sectorReturn": return visitedSector
+                ? "Well done! Return to the village to complete Academy Training."
+                : "Open the World Map and travel to any numbered sector.";
+            default: return null;
+        }
+    })();
+
+    // Speech-bubble typewriter, keyed to the line it belongs to (same
+    // interval-only pattern as the intro cinematic — no setState in the effect
+    // body). Step changes re-type; reduced motion shows lines whole.
+    const [typed, setTyped] = useState<{ text: string; count: number }>({ text: "", count: 0 });
+    useEffect(() => {
+        if (!bannerText || reduced) return;
+        let c = 0;
+        const id = window.setInterval(() => {
+            c = Math.min(bannerText.length, c + 2);
+            setTyped({ text: bannerText, count: c });
+            if (c >= bannerText.length) window.clearInterval(id);
+        }, 18);
+        return () => window.clearInterval(id);
+    }, [bannerText, reduced]);
+    const typedCount = !bannerText || reduced
+        ? bannerText?.length ?? 0
+        : typed.text === bannerText ? typed.count : 0;
+
     // academyIntro + starter belong to the intro cinematic, not the coach.
     if (step === "done" || step === "starter" || step === "academyIntro") return null;
 
     const skip = () => updateCharacter({ ...character, onboardingStep: "done" });
     const guideArt = guidePet ? petPoseImage(guidePet, sharedImages) : "";
     const guideLabel = guidePet ? `${guidePet.name} — your companion` : "Academy Guide";
+    const talking = bannerText !== null && typedCount < bannerText.length;
 
-    // Banner body: companion portrait + "who's talking" strip + the coaching line.
-    const renderGuide = (text: React.ReactNode) => (
-        <>
+    // The talking-companion banner: pose standee + speech bubble + actions.
+    const renderGuideBanner = (action?: React.ReactNode) => createPortal(
+        <div className="onboarding-coach-banner coach-guide" style={guideWrapStyle}>
             {guideArt && (
                 <img
                     src={guideArt}
                     alt=""
-                    style={guidePortraitStyle}
+                    className={`coach-guide-pet ${talking ? "is-talking" : ""}`}
                     onError={(e) => { e.currentTarget.style.display = "none"; }}
                 />
             )}
-            <span style={{ flex: "1 1 220px", lineHeight: 1.4 }}>
-                <span style={{ display: "block", color: "#facc15", fontWeight: 800, fontSize: 10.5, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 2 }}>
-                    {guideLabel} · {stepProgress[step]}
-                </span>
-                {text}
-            </span>
-        </>
+            <div className="coach-guide-bubble">
+                <span className="coach-guide-label">{guideLabel} · {stepProgress[step]}</span>
+                <p className="coach-guide-line">{(bannerText ?? "").slice(0, typedCount)}</p>
+                <div className="coach-guide-actions">
+                    {action}
+                    <button style={skipStyle} onClick={skip}>Skip</button>
+                </div>
+            </div>
+        </div>,
+        document.body,
     );
 
     if (step === "training") {
-        return createPortal(
-            <div className="onboarding-coach-banner" style={bannerStyle}>
-                {renderGuide(<>Let&apos;s grow stronger together! Start your first stat training — pick any stat and any timer.</>)}
-                {screen !== "training" && (
-                    <button className="start-primary-btn" onClick={() => setScreen("training")}>Go to Training Grounds</button>
-                )}
-                <button style={skipStyle} onClick={skip}>Skip</button>
-            </div>,
-            document.body,
-        );
+        return renderGuideBanner(screen !== "training" && (
+            <button className="start-primary-btn" onClick={() => setScreen("training")}>Go to Training Grounds</button>
+        ));
     }
 
     if (step === "jutsu") {
-        return createPortal(
-            <div className="onboarding-coach-banner" style={bannerStyle}>
-                {renderGuide(<>Now train one more jutsu. Pick an untrained jutsu and use the free Level 1 unlock.</>)}
-                {screen !== "jutsuTraining" && (
-                    <button className="start-primary-btn" onClick={() => setScreen("jutsuTraining")}>Go to Jutsu Training</button>
-                )}
-                <button style={skipStyle} onClick={skip}>Skip</button>
-            </div>,
-            document.body,
-        );
+        return renderGuideBanner(screen !== "jutsuTraining" && (
+            <button className="start-primary-btn" onClick={() => setScreen("jutsuTraining")}>Go to Jutsu Training</button>
+        ));
     }
 
     if (step === "jutsuLoadout") {
-        return createPortal(
-            <div className="onboarding-coach-banner" style={bannerStyle}>
-                {renderGuide(<>Put that trained jutsu in your loadout from your Profile so it appears in battle.</>)}
-                {screen !== "profile" && (
-                    <button className="start-primary-btn" onClick={() => setScreen("profile")}>Open Profile</button>
-                )}
-                <button style={skipStyle} onClick={skip}>Skip</button>
-            </div>,
-            document.body,
-        );
+        return renderGuideBanner(screen !== "profile" && (
+            <button className="start-primary-btn" onClick={() => setScreen("profile")}>Open Profile</button>
+        ));
     }
 
     if (step === "inventory") {
-        return createPortal(
-            <div className="onboarding-coach-banner" style={bannerStyle}>
-                {renderGuide(<>Equip a starter item from your Inventory. Your kunai or vest will help in the spar.</>)}
-                {screen !== "inventory" && (
-                    <button className="start-primary-btn" onClick={() => setScreen("inventory")}>Open Inventory</button>
-                )}
-                <button style={skipStyle} onClick={skip}>Skip</button>
-            </div>,
-            document.body,
-        );
+        return renderGuideBanner(screen !== "inventory" && (
+            <button className="start-primary-btn" onClick={() => setScreen("inventory")}>Open Inventory</button>
+        ));
     }
 
     if (step === "academySpar") {
@@ -337,7 +338,7 @@ export function OnboardingCoach({
                         <img
                             src={guideArt}
                             alt=""
-                            style={{ ...guidePortraitStyle, width: 64, height: 64, margin: "0 auto 6px", display: "block" }}
+                            style={{ width: 96, height: 96, objectFit: "contain", display: "block", margin: "0 auto 4px", filter: "drop-shadow(0 8px 10px rgba(0,0,0,0.5))" }}
                             onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                     )}
@@ -369,60 +370,33 @@ export function OnboardingCoach({
     }
 
     if (step === "cafeteria") {
-        return createPortal(
-            <div className="onboarding-coach-banner" style={bannerStyle}>
-                {renderGuide(<>Oh no, you&apos;ve been hurt! Heal yourself in the Cafeteria before we move on.</>)}
-                {screen !== "cafeteria" && (
-                    <button className="start-primary-btn" onClick={() => setScreen("cafeteria")}>Go to Cafeteria</button>
-                )}
-                <button style={skipStyle} onClick={skip}>Skip</button>
-            </div>,
-            document.body,
-        );
+        return renderGuideBanner(screen !== "cafeteria" && (
+            <button className="start-primary-btn" onClick={() => setScreen("cafeteria")}>Go to Cafeteria</button>
+        ));
     }
 
     if (step === "firstMission") {
-        return createPortal(
-            <div className="onboarding-coach-banner" style={bannerStyle}>
-                {renderGuide(<>Claim your one-time Academy Trial reward at the Mission Hall.</>)}
-                {screen !== "missions" && (
-                    <button className="start-primary-btn" onClick={() => setScreen("missions")}>Go to Mission Hall</button>
-                )}
-                <button style={skipStyle} onClick={skip}>Skip</button>
-            </div>,
-            document.body,
-        );
+        return renderGuideBanner(screen !== "missions" && (
+            <button className="start-primary-btn" onClick={() => setScreen("missions")}>Go to Mission Hall</button>
+        ));
     }
 
     if (step === "logbook") {
-        return createPortal(
-            <div className="onboarding-coach-banner" style={bannerStyle}>
-                {renderGuide(<>Open your <strong>Logbook</strong> to see our Academy goals.</>)}
-                {screen !== "logbook" && (
-                    <button className="start-primary-btn" onClick={() => setScreen("logbook")}>Open Logbook</button>
-                )}
-                <button style={skipStyle} onClick={skip}>Skip</button>
-            </div>,
-            document.body,
-        );
+        return renderGuideBanner(screen !== "logbook" && (
+            <button className="start-primary-btn" onClick={() => setScreen("logbook")}>Open Logbook</button>
+        ));
     }
 
     if (step === "sectorReturn") {
-        const visitedSector = screen === "worldMap" && currentSector >= 1;
-        return createPortal(
-            <div className="onboarding-coach-banner" style={bannerStyle}>
-                {renderGuide(visitedSector
-                    ? <>Well done! Return to the village to complete Academy Training.</>
-                    : <>Open the World Map and travel to any numbered sector.</>)}
+        return renderGuideBanner(
+            <>
                 {!visitedSector && screen !== "worldMap" && (
                     <button className="start-primary-btn" onClick={() => setScreen("worldMap")}>Open World Map</button>
                 )}
                 {visitedSector && (
                     <button className="start-primary-btn" onClick={() => setScreen("village")}>Return to Village</button>
                 )}
-                <button style={skipStyle} onClick={skip}>Skip</button>
-            </div>,
-            document.body,
+            </>,
         );
     }
 
