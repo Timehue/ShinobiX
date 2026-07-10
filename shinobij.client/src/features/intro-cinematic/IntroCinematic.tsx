@@ -42,6 +42,7 @@ import hollowGateArt from "../../assets/card-clash/loc/hollow-gate.webp";
 // the waterfall-shrine sanctuary backdrops for both orientations.
 import shiranuiArt from "./assets/shiranui.webp";
 import shiranuiBlink from "./assets/shiranui-blink.webp";
+import shiranuiSpeak from "./assets/shiranui-speak.webp";
 import shrineFallsLandscape from "./assets/shrine-falls-landscape.webp";
 import shrineFallsPortrait from "./assets/shrine-falls-portrait.webp";
 import { introCue, startIntroAmbience, stopIntroAmbience } from "./introCinematicSfx";
@@ -181,6 +182,17 @@ export function IntroCinematic({
         : !curtainUp ? 0 : typed.text === fullText ? typed.count : 0;
     const typingDone = typedCount >= fullText.length;
 
+    // Mouth flap while the deity's words are being written (frame C alternates
+    // with the base at speech cadence; a stale open-mouth flag is harmless
+    // because the frame choice also requires foxTalking).
+    const foxTalking = !companionMode && line?.speaker === "fox" && !typingDone;
+    const [mouthOpen, setMouthOpen] = useState(false);
+    useEffect(() => {
+        if (!foxTalking || reduced) return;
+        const id = window.setInterval(() => setMouthOpen((o) => !o), 150);
+        return () => window.clearInterval(id);
+    }, [foxTalking, reduced]);
+
     function completeLine() {
         if (typeTimerRef.current !== null) {
             window.clearInterval(typeTimerRef.current);
@@ -206,7 +218,7 @@ export function IntroCinematic({
     // opening dialogue so neither ever pops in on a cold cache.
     useEffect(() => {
         if (companionMode) return;
-        [...STARTER_PETS.map((o) => petPoseImage(o.pet, sharedImages)), shiranuiBlink]
+        [...STARTER_PETS.map((o) => petPoseImage(o.pet, sharedImages)), shiranuiBlink, shiranuiSpeak]
             .forEach((src) => { const img = new Image(); img.src = src; });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -373,7 +385,12 @@ export function IntroCinematic({
                     themselves on the choose/confirm screens. */}
                 {!companionMode && (showActors || phase.kind === "choose" || phase.kind === "confirm") && foxOnStage && (
                     <div className={`icx-fox ${foxFading ? "is-fading" : ""} ${line?.speaker === "fox" && !typingDone ? "is-talking" : ""} ${phase.kind === "choose" || phase.kind === "confirm" ? "is-watching" : ""}`}>
-                        <img src={foxFading || blink ? shiranuiBlink : FOX_ART} alt={`${FOX_NAME}, the ancient spirit fox`} />
+                        {/* Frame priority: farewell/blink (eyes closed) → mouth
+                            flap while speaking → base. */}
+                        <img
+                            src={foxFading || blink ? shiranuiBlink : foxTalking && mouthOpen ? shiranuiSpeak : FOX_ART}
+                            alt={`${FOX_NAME}, the ancient spirit fox`}
+                        />
                     </div>
                 )}
                 {showActors && !companionMode && (
