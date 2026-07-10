@@ -102,7 +102,7 @@ const THEMES = {
 // publish — the owner asked for a full art replacement.
 const ASSETS = [];
 function add(name, id, prompt, opts = {}) {
-    ASSETS.push({ name, id, prompt, size: opts.size ?? "1024x1024", maxPx: opts.maxPx ?? 256, quality: opts.quality ?? "medium", styleWrap: opts.styleWrap ?? false });
+    ASSETS.push({ name, id, prompt, size: opts.size ?? "1024x1024", maxPx: opts.maxPx ?? 256, quality: opts.quality ?? "medium", styleWrap: opts.styleWrap ?? false, transparent: opts.transparent ?? false });
 }
 
 // Base terrain (corridors + unthemed fallback). Variant keys -0/-1/-2 exist on
@@ -133,6 +133,39 @@ for (const [theme, t] of Object.entries(THEMES)) {
 add("backdrop", "shrine:hollow-gate-background",
     "vast subterranean shrine cavern seen from a high vantage: a colossal ancient torii gate of black stone wreathed in violet miasma, broken stairs descending into darkness, faint teal spirit-lanterns, purple chakra mist pooling between ruined pillars, moody and atmospheric, wide establishing shot",
     { size: "1536x1024", maxPx: 1024, quality: "medium", styleWrap: true });
+
+// ── Floor decorations (transparent sprites overlaid on floors) ───────────────
+// These REPLACE the mismatched clutter (random waterfalls / fountains / shields
+// that read wrong in a shadow shrine). Each is a single small prop on a clean
+// transparent background, top-down-ish, so it sits believably on a floor tile.
+// Shared decoration rules — no waterfalls, no fountains, no plants-out-of-place.
+const DECO_RULES = "single small dungeon prop object, top-down three-quarter view, sitting on the ground, transparent background, no floor tile beneath it, no scene, no border, no shadow baked in far from the base, muted violet-and-stone shadow-shrine palette, subtle rim light, cohesive with an ancient cursed shinobi shrine, no text, no watermark, no waterfall, no fountain, no shield, no modern objects";
+
+// Base pool (shrine:icon-deco-1..8) — theme-neutral shrine clutter, used
+// anywhere a room's theme has no dedicated deco.
+const BASE_DECOS = [
+    "a cracked ancient stone offering urn, faint violet dust settling around its rim",
+    "a small pile of pale weathered bones with a single cracked skull",
+    "the broken stump of a carved stone pillar, chipped and cracked",
+    "a spirit lantern of dark iron holding a floating violet flame",
+    "a cluster of half-melted black ritual candles with small violet flames",
+    "a carved circular floor rune-slab glowing faint violet",
+    "a heap of shattered stone rubble and shrine debris",
+    "a shallow stone offering bowl cradling a single violet ember",
+];
+BASE_DECOS.forEach((p, i) => add(`deco-${i + 1}`, `shrine:icon-deco-${i + 1}`, `${p}, ${DECO_RULES}`, { transparent: true }));
+
+// Per-theme decorations (2 each) — preferred in a room stamped with that theme,
+// so themed rooms feel cohesive (Crypt bones, Ember braziers, etc.).
+const THEME_DECOS = {
+    crypt:   ["a stacked ossuary of neatly piled pale bones", "a mossless pile of cracked skulls draped in grey cobweb"],
+    ember:   ["a squat iron brazier heaped with glowing orange embers and drifting sparks", "a jagged crack in the floor venting smouldering orange coals"],
+    sanctum: ["a golden filigree incense burner trailing thin violet smoke", "a tall bronze candle-stand holding a warm steady flame"],
+    ruins:   ["a toppled mossy stone pillar wrapped in creeping roots", "a rubble heap overtaken by green-teal moss with a thin pale sapling"],
+};
+for (const [theme, decos] of Object.entries(THEME_DECOS)) {
+    decos.forEach((p, i) => add(`${theme}-deco-${i + 1}`, `shrine:icon-theme-${theme}-deco-${i + 1}`, `${p}, part of a cursed shrine, ${DECO_RULES}`, { transparent: true }));
+}
 
 // ── Engine (mirrors gen-asset.mjs) ───────────────────────────────────────────
 function styleWrap(prompt, label) {
@@ -181,7 +214,12 @@ async function generateOne(asset) {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "gpt-image-1", prompt: finalPrompt, size: asset.size, quality: asset.quality, n: 1 }),
+        body: JSON.stringify({
+            model: "gpt-image-1", prompt: finalPrompt, size: asset.size, quality: asset.quality, n: 1,
+            // Transparent-background props (decorations) — PNG carries the alpha;
+            // sharp keeps it through the WebP encode (WebP supports alpha).
+            ...(asset.transparent ? { background: "transparent", output_format: "png" } : {}),
+        }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(`OpenAI ${res.status}: ${data?.error?.message ?? "generation failed"}`);
