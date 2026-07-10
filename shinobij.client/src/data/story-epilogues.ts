@@ -155,7 +155,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The tower's storm floor, the seat's quiet hour settling on you",
                     speaker: "Narrator",
                     dialogue: [
-                        "The seat fits. That is the terrible part. The board reposts itself by morning bell, and the quiet hour arrives on schedule, and it is exactly as good as he said.",
+                        "The quiet hour arrives on schedule. Worse, you understand immediately why Raiko wanted it. The board reposts itself by morning bell.",
                         "In the routing office, the clerks have already changed the pressing mark to your teeth.",
                         "Down the coast, one ridge line hums over one district, holding its stretch of sky for free, signed with a dead rigger's name your board has already stopped saying.",
                         "The Hollow Gate's quarter of the circle is yours to feed now. The cistern under your floor kept the old Kage's rhythm without a missed draw for thirty years, and it has already learned yours; it is certain, the way only machinery is certain, that nothing of importance has changed but the hand on the pen.",
@@ -166,7 +166,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The tower gate, Mira not coming in",
                     speaker: "Mira Volt",
                     dialogue: [
-                        "You let me carry her in. You held the gate while I said my mother's reason to the man who buried it, and I will owe you that until I die. I want that on the record first.",
+                        "You let me carry her in. You held the gate while I said my mother's reason to the man who buried it, and I will owe you that until I die. I want that said before anything else gets said.",
                         "Then you watched the seat come open and sat down in it anyway.",
                         "I said her why out loud in that tower, and the tower's new keeper filed it. That's what happened, isn't it. Strip the rigging off it and that's the load path.",
                         "The boat leaves on the tide. I'm taking the real route this time. You're the only person alive who knows it, so I suppose we'll find out exactly what you've become by whether anyone follows me.",
@@ -184,7 +184,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The tower's storm floor, the seat's quiet hour settling on you",
                     speaker: "Narrator",
                     dialogue: [
-                        "The seat fits. That is the terrible part. The board reposts itself by morning bell, the odds-runners are calling numbers on next week's weather, and the quiet hour arrives on schedule, and it is exactly as good as he said.",
+                        "For one full hour, every grudge in Stormveil goes silent. It is exactly as good as he promised. The board reposts itself by morning bell, and the odds-runners are calling numbers on next week's weather.",
                         "In the routing office, the clerks have already changed the pressing mark to your teeth.",
                         "Down the coast, one ridge line hums over one district, holding its stretch of sky for free, and the board has begun, gently, to bet against it.",
                         "The cistern under the square keeps its own counsel now that the seat is yours. It does not go still; it goes quiet, the way a creditor goes quiet when an account has only changed names. The Hollow Gate keeps its Stormveil quarter, and the pen that feeds it is warm in your hand.",
@@ -212,7 +212,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The tower's storm floor, the seat warm, the sky obedient",
                     speaker: "Narrator",
                     dialogue: [
-                        "The seat fits like it was rigged for you, and the sky obeys, and the quiet hour is everything he promised.",
+                        "The sky obeys, the quiet hour is everything he promised, and nothing in the tower needs re-rigging for your hand.",
                         "The board reposts itself by morning. The clerks do not ask questions; the clerks have never asked questions. The meter of the elders' cut finds your account within the week.",
                         "Somewhere below, the board chalks a fresh bout between two friends, and the odds are very good, and the floor is already listening.",
                         "The cistern never went still; it only changed seats. Up the hill the Hollow Gate marks Stormveil's quarter paid, on time, by a fresh hand, exactly as it has every season since the founders stopped giving and started being taken from.",
@@ -355,7 +355,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault floor, the script beginning at your wrist, warm as a bath",
                     speaker: "Narrator",
                     dialogue: [
-                        "The valve fits your hand. That is the terrible part. The Count reforms by second bell, the wardens change nothing but the name they report to, and the vault's warmth settles over the village like a coat it never stopped wearing.",
+                        "The valve settles under your palm as if it remembers you. The Count reforms by second bell, the wardens change nothing but the name they report to, and the vault's warmth settles over the village like a coat it never stopped wearing.",
                         "On the ridge, one lantern relay burns where you drilled it, finding the lost for free, and the vault has already begun, gently, to schedule its wardens elsewhere.",
                         "The script at your wrist is patient. It has done this before. It can wait for the rest of you.",
                     ],
@@ -383,7 +383,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault floor, the script beginning at your wrist, warm as a bath",
                     speaker: "Narrator",
                     dialogue: [
-                        "The valve fits your hand. That is the terrible part. The Count reforms by second bell, and the vault's warmth settles over the village like a coat it never stopped wearing.",
+                        "The valve is warm before you touch it. It has been waiting. The Count reforms by second bell, and the vault's warmth settles over the village like a coat it never stopped wearing.",
                         "On the ridge, one lantern relay burns where a captain answered a dead man's roll, and the vault has already begun, gently, to reschedule its wardens around it.",
                         "The script at your wrist is patient. It has done this before.",
                         "Beneath the Vault, the lower draw waits. Not open. Not closed. Waiting for your first order.",
@@ -411,7 +411,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The vault floor, the valve warm, the Count already reforming",
                     speaker: "Narrator",
                     dialogue: [
-                        "The valve fits like it was cast for your hand, and the Count reforms by second bell, and the warmth is everything he promised.",
+                        "The Count reforms by second bell, and the warmth is everything he promised.",
                         "The wardens do not ask questions; the wardens have never asked questions. The meter finds your draw rhythm within a week and adjusts, accommodating, patient.",
                         "Somewhere above, the mark plate at the gate reads a new intake's wrist, holds it half a count long, and the frost leans in, and begins to wait again.",
                         "Beneath the Vault, the lower draw warms by one degree.",
@@ -569,7 +569,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     dialogue: [
                         "You held the market open while I bought my name back with my own breath. That transaction is framed over my stall, friend, the first unpriced entry in canal history. I will owe you the frame forever. On the record, first.",
                         "Then you watched the glass come open and sat down at it anyway.",
-                        "I said my name in front of that tank so nobody would ever hold me again. And the tank's new keeper heard it, and filed the ripple, and kept the seat. Strip the poetry and that's the ledger line.",
+                        "I said my name in front of that tank so nobody would ever hold me again. And the tank's new keeper heard it, and filed the ripple, and kept the seat. That is what happened. I don't need a market word for it.",
                         "Nerissa Vale trades on the east canal now, daylight hours, true names only. Come by if you're ever just a person again. First tea's free. The second one, keeper, costs more than you currently have.",
                     ],
                 },
@@ -612,7 +612,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The Mirror chamber, the tank warm to your hand, the market already adjusting",
                     speaker: "Narrator",
                     dialogue: [
-                        "The tank takes your hand like a ledger taking a signature, and the market reforms by noon, and the booths' drains resume their patient swallowing, reporting now to you.",
+                        "The glass recognizes you before the village does. The market reforms by noon, and the booths' drains resume their patient swallowing, reporting now to you.",
                         "The Veiled Hands renew their contracts within the week. The clerks do not ask questions; the clerks have never asked questions. The quarterly buyer's mark arrives on schedule, addressed, this time, to the new holder.",
                         "Somewhere below, the Mirror registry reads a new intake half a second late, and begins, patiently, to build the file.",
                         "Deep in the glass, an older instruction tries once to speak. The new intake drowns it out.",
@@ -749,14 +749,14 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         {
             lane: "ambitious",
             requireTrait: "al88-better-winter-carried",
-            title: "The Warm Chair",
+            title: "The Warm Chair, Watered",
             pages: [
                 {
                     title: "The New Keeper",
                     scene: "The Rootfire chamber, the shears at your belt",
                     speaker: "Narrator",
                     dialogue: [
-                        "The fire settles around you like a coat cut to your measure. Upstairs, forty strides of cedar are already learning your hand.",
+                        "The shears balance perfectly in your hand. That is worse than if they had felt wrong. Upstairs, forty strides of cedar are already learning your grip.",
                         "Hoshina's chair is still warm. Her room of taken wonders is yours now, every shelf of it, and the little walking loom goes still when you enter.",
                         "The keeper is dead. Long live the keeper. The wall has already put out a fresh black flower, and it is not for you.",
                     ],
@@ -784,7 +784,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     scene: "The Rootfire chamber, the shears at your belt",
                     speaker: "Narrator",
                     dialogue: [
-                        "The fire settles around you like a coat cut to your measure. Upstairs, forty strides of cedar are already learning your hand.",
+                        "The shears balance perfectly in your hand. That is worse than if they had felt wrong. Upstairs, forty strides of cedar are already learning your grip.",
                         "Hoshina's chair is still warm. Her room of taken wonders is yours now, every shelf of it, and the little walking loom goes still when you enter.",
                         "The keeper is dead. Long live the keeper. The wall has already put out a fresh black flower, and it is not for you.",
                     ],
