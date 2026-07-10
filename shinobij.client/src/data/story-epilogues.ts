@@ -443,8 +443,9 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                     speaker: "Narrator",
                     dialogue: [
                         "By morning the whole village knows what opened in the night. The tank is empty. Four hundred years of surrendered trust went home before dawn: every confession, every traded name, every held piece of everyone, delivered to its owner like the world's overdue post.",
+                        "The moment the tank opened, one clear line crossed the glass ahead of the flood, and the oldest voice in the Mirror spoke its release. OWNERSHIP RETURNED. CLAIMS RELEASED.",
                         "Some of it burns. A broker's marriage. Two old feuds, rearmed. The village chose to own its own fires, and some of them are real fires.",
-                        "And down the canal, at a booth with a lead-plugged drain, the returns queue is already forming, because the give-back house taught this village the trick of surviving its own truth: witnesses, tea, and nobody rushed.",
+                        "And down the canal, at a booth with a lead-plugged drain, the returns queue is already forming, because the give-back house taught this village the trick of surviving its own truth: witnesses, tea, and nobody rushed. The old black plate above the drain wakes for every return now, and since the night the tank opened it has learned a new closing line. OWNER VERIFIED. RETURN WITNESSED. NO HOLDER REQUIRED. Nobody calls it a miracle anymore; it is simply the rule of the booth.",
                         "Far below the tower's foundations, the deeper pipe that fed the quartered circle for four hundred years pulls once at the empty tank, finds nothing left to hold, and goes still.",
                     ],
                 },
@@ -501,6 +502,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "Nine parts in ten go home by dawn, with the give-back house's method scaled to a village: witnesses at every doorstep delivery, tea in public squares, the shrine witness's readings pacing the hardest returns.",
                         "The last tenth, the truths that kill on contact, sit sealed under a new covenant, held by a keeper the whole market may audit, at noon, in the open, on demand.",
                         "The first audit happened before the ink dried. The keeper passed. The second audit is already scheduled. The keeper scheduled it personally, which is the entire difference.",
+                        "Every retained truth must be renewed by its owner, and when consent is withdrawn the glass clears ahead of any keeper's objection. CONSENT REQUIRED. CLAIM REVOCABLE. AUDIT WITNESSED. The oldest voice in the glass releases the claim before the seal can argue.",
                         "Far below the foundations, the deeper pipe opens once against the new covenant, finds nothing it is any longer allowed to take, and shuts.",
                     ],
                 },
@@ -557,6 +559,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The tank takes your hand and finds no price on it, and settles, for the first time in four centuries, into custody it cannot bill.",
                         "The buyer's escrow hangs unexecutable. Somewhere below the canal, something files its first extension in four hundred years.",
                         "And in the glass's black depth, one ripple never quite stills: the place where a woman said her own name for free, the one entry the tank holds that it does not own.",
+                        "When your hand first rests on the glass, the oldest voice in it speaks once, without heat. OWNER VERIFIED. HOLDER PRESENT. RELEASE INCOMPLETE. The First Reflection remembers Nerissa Vale. It records that the keeper's chair is occupied. It offers no opinion.",
                     ],
                 },
                 {
@@ -612,6 +615,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "The tank takes your hand like a ledger taking a signature, and the market reforms by noon, and the booths' drains resume their patient swallowing, reporting now to you.",
                         "The Veiled Hands renew their contracts within the week. The clerks do not ask questions; the clerks have never asked questions. The quarterly buyer's mark arrives on schedule, addressed, this time, to the new holder.",
                         "Somewhere below, the Mirror registry reads a new intake half a second late, and begins, patiently, to build the file.",
+                        "Deep in the glass, an older instruction tries once to speak. The new intake drowns it out.",
                     ],
                 },
                 {
