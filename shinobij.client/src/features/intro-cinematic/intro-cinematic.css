@@ -316,6 +316,14 @@
 .icx-fox.is-fading::before {
     animation-duration: 2.4s;
 }
+/* Watching over the companion choice: present but receded behind the cards. */
+.icx-fox.is-watching {
+    opacity: 0.55;
+}
+.icx-fox.is-watching::before {
+    opacity: 0.5;
+    animation-duration: 9s;
+}
 @keyframes icx-fox-float {
     0%, 100% { transform: translateY(0); }
     50%      { transform: translateY(-7px); }
@@ -630,8 +638,9 @@
     align-items: center;
     gap: 14px;
     padding: clamp(14px, 3.5vh, 36px) 14px calc(22px + env(safe-area-inset-bottom, 0px));
-    background: rgba(2, 5, 14, 0.72);
-    backdrop-filter: blur(3px);
+    /* Light enough that the watching deity reads through on the left. */
+    background: rgba(2, 5, 14, 0.6);
+    backdrop-filter: blur(2px);
     animation: icx-choose-in 320ms ease-out both;
 }
 @keyframes icx-choose-in {
@@ -665,7 +674,8 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(216px, 1fr));
     gap: 12px;
-    width: min(1120px, 100%);
+    /* Wide enough for all five spirits to stand in one row (5×216 + 4×12). */
+    width: min(1150px, 100%);
 }
 .icx-pet-card {
     display: flex;
