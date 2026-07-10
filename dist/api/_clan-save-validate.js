@@ -398,6 +398,30 @@ function validateClanSaveWrite(existing, incoming, ctx) {
         }
         next.treasury = outTreasury;
     }
+    // ── xp / level ──────────────────────────────────────────────────
+    // Clan XP + level are CREDITED ONLY by server endpoints (clan mission
+    // claim, war settle, weekly clan boss, and treasury donation), which
+    // persist them directly under the clan lock. The client re-reads and
+    // re-asserts them at a zero delta — so ANY change via the save blob is a
+    // forge attempt (a crafted client could otherwise jump straight to
+    // level 100 to unlock the Citadel-tier Clan Exchange shelves, or grind
+    // levels without the member-scaled server faucets). Pin to prev; admin
+    // bypasses (the { ...prev, ...incoming } spread above already applied the
+    // admin's incoming value). Same shape as the #17 treasury lockdown.
+    if (incoming.xp !== undefined && !ctx.isAdmin) {
+        const beforeXp = Math.max(0, num(prev.xp, 0));
+        if (num(incoming.xp, beforeXp) !== beforeXp) {
+            next.xp = beforeXp;
+            suppressed.push('clan xp change via save blob blocked — credited by server endpoints only');
+        }
+    }
+    if (incoming.level !== undefined && !ctx.isAdmin) {
+        const beforeLevel = Math.max(1, num(prev.level, 1));
+        if (num(incoming.level, beforeLevel) !== beforeLevel) {
+            next.level = beforeLevel;
+            suppressed.push('clan level change via save blob blocked — credited by server endpoints only');
+        }
+    }
     // ── joinRequests ────────────────────────────────────────────────
     // Anyone can add a request for themselves. Removing requests is
     // admin-role only (accept/deny flow). Names are canonicalized through

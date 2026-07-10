@@ -29,9 +29,13 @@ const _mission_catalog_js_1 = require("../_mission-catalog.js");
  */
 const TERRITORY_KEY_PREFIX = 'world:territory:';
 const AUDIT_LOG_PREFIX = 'audit:clan-mission-claim:';
-const CLAIM_TTL = 400 * 24 * 60 * 60; // ~13 months — effectively permanent latch.
-function claimedSetKey(slug) { return `clan:missions-claimed:${slug}`; }
-function claimLatchKey(slug, key) { return `clan:mission-claimed:${slug}:${key}`; }
+// Weekly-repeatable: the claim latch + listing set are keyed by ISO week, so a
+// clan can claim each mission once PER WEEK (a steady, member-scaled clan-XP
+// faucet toward hall growth). The ~10-day TTL lets a finished week's keys
+// auto-expire — next week uses a fresh key, so the mission is claimable again.
+const CLAIM_TTL = 10 * 24 * 60 * 60;
+function claimedSetKey(slug, weekKey) { return `clan:missions-claimed:${slug}:${weekKey}`; }
+function claimLatchKey(slug, weekKey, key) { return `clan:mission-claimed:${slug}:${weekKey}:${key}`; }
 const CLAN_MISSION_POINT_AMOUNTS = {
     battle: 40,
     mission: 50,
@@ -78,8 +82,8 @@ function pointEligibleMembers(clanRec, clanName, territories, missionKey) {
     }
     return names;
 }
-async function readClaimed(slug) {
-    const raw = await _storage_js_1.kv.get(claimedSetKey(slug)).catch(() => null);
+async function readClaimed(slug, weekKey) {
+    const raw = await _storage_js_1.kv.get(claimedSetKey(slug, weekKey)).catch(() => null);
     if (!Array.isArray(raw))
         return [];
     return raw.filter(_mission_catalog_js_1.isClanMissionKey);
@@ -95,7 +99,8 @@ async function handler(req, res) {
             const slug = (0, _utils_js_1.clanBareSlug)(clan);
             if (!slug)
                 return res.status(400).json({ error: 'Missing clan.' });
-            return res.status(200).json({ ok: true, claimed: await readClaimed(slug) });
+            const weekKey = (0, _clan_points_js_1.clanPointWeekKey)();
+            return res.status(200).json({ ok: true, weekKey, claimed: await readClaimed(slug, weekKey) });
         }
         if (req.method !== 'POST')
             return res.status(405).end();
@@ -122,6 +127,7 @@ async function handler(req, res) {
         if (!slug)
             return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = (0, _utils_js_1.clanRecordKey)(clan);
+        const weekKey = (0, _clan_points_js_1.clanPointWeekKey)();
         // Membership check (admin exempt) — the caller must belong to this clan.
         if (!identity.admin) {
             const donorRec = await _storage_js_1.kv.get(`save:${playerName}`);
@@ -146,14 +152,18 @@ async function handler(req, res) {
             if (progress < _mission_catalog_js_1.CLAN_MISSION_TARGETS[missionKey]) {
                 return { ok: false, status: 409, error: 'Clan mission not complete yet.' };
             }
-            // Single-use latch — reserve before crediting so two racing claims
-            // can't both pay out (the outer clan lock already serialises, this is
-            // the durable record across calls). NX: null means already taken.
-            const placed = await _storage_js_1.kv.set(claimLatchKey(slug, missionKey), '1', { nx: true, ex: CLAIM_TTL }).catch(() => 'OK');
+            // Per-week single-use latch — reserve before crediting so two racing
+            // claims can't both pay out (the outer clan lock already serialises,
+            // this is the durable per-week record across calls). NX: null means
+            // already taken THIS week.
+            const placed = await _storage_js_1.kv.set(claimLatchKey(slug, weekKey, missionKey), '1', { nx: true, ex: CLAIM_TTL }).catch(() => 'OK');
             if (placed === null)
-                return { ok: false, status: 409, error: 'This clan mission was already claimed.' };
+                return { ok: false, status: 409, error: 'This clan mission was already claimed this week.' };
             // ── Credit clan XP + treasury ───────────────────────────────────
-            const leveled = (0, _mission_catalog_js_1.addClanXpServer)(Number(clanRec.xp ?? 0) || 0, Number(clanRec.level ?? 1) || 1, reward.clanXp);
+            // Clan XP is member-scaled (10–15 members = 1.0×; small clans dampened,
+            // capped at 1.0×) so a tiny clan can't rush hall tiers.
+            const memberCount = Array.isArray(clanRec.members) ? clanRec.members.length : 0;
+            const leveled = (0, _mission_catalog_js_1.addClanXpServer)(Number(clanRec.xp ?? 0) || 0, Number(clanRec.level ?? 1) || 1, (0, _mission_catalog_js_1.scaledClanXp)(reward.clanXp, memberCount));
             const prevTreasury = (clanRec.treasury ?? {});
             const nextTreasury = { ...prevTreasury };
             for (const [cur, amt] of Object.entries(reward.treasury ?? {})) {
@@ -171,15 +181,16 @@ async function handler(req, res) {
         }, { failClosed: true });
         if (!outcome.ok)
             return res.status(outcome.status).json({ error: outcome.error });
-        // Maintain the listing set + audit (best-effort, off the claim's lock).
-        const claimed = await readClaimed(slug);
+        // Maintain the per-week listing set + audit (best-effort, off the claim's lock).
+        const claimed = await readClaimed(slug, weekKey);
         if (!claimed.includes(missionKey)) {
-            await _storage_js_1.kv.set(claimedSetKey(slug), [...claimed, missionKey], { ex: CLAIM_TTL }).catch(() => undefined);
+            await _storage_js_1.kv.set(claimedSetKey(slug, weekKey), [...claimed, missionKey], { ex: CLAIM_TTL }).catch(() => undefined);
         }
-        await _storage_js_1.kv.set(`${AUDIT_LOG_PREFIX}${slug}:${missionKey}`, {
+        await _storage_js_1.kv.set(`${AUDIT_LOG_PREFIX}${slug}:${weekKey}:${missionKey}`, {
             ts: Date.now(),
             actor: identity.admin ? 'admin' : identity.name,
             clan,
+            weekKey,
             missionKey,
             reward,
         }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
