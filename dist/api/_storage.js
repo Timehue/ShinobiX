@@ -692,22 +692,75 @@ function _makeDiskKv(root) {
 }
 // ─── Remote KV (HTTP client → cPanel proxy) ──────────────────────────────────
 function _makeRemoteKv(baseUrl, token) {
-    async function call(op, body) {
-        const r = await fetch(baseUrl.replace(/\/$/, '') + '/' + op, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', 'x-kv-token': token },
-            body: JSON.stringify(body),
-        });
-        if (!r.ok)
-            throw new Error(`remoteKv ${op}: HTTP ${r.status} ${await r.text().catch(() => '')}`);
-        return (await r.json());
+    // Transport resilience. The proxy lives on the cPanel box, which is bounced
+    // on every deploy (a hard worker exit) and can be OOM-killed by CloudLinux
+    // under load — either drops an in-flight response as a Passenger 502
+    // ("Incomplete response received from application"). Un-retried, that single
+    // blip surfaced as a player-facing 500 on a save/clan read (the exact GET
+    // /api/save/clan-* Sentry error). A short bounded retry on transient
+    // failures (network error, request timeout, or 502/503/504) turns almost all
+    // of them into a successful second attempt — the blip stays invisible.
+    //
+    // Idempotency: only safe-to-repeat ops are retried. Reads always are; plain
+    // set/del/hset/hdel re-apply identically (same body; last-write-wins). The
+    // one unsafe case opts OUT via { retryable: false } — a set with nx is a
+    // check-then-write claim, so a lost 2xx response would make the retry see
+    // its own prior claim and wrongly report "not claimed". (incr composes from
+    // a retryable get + a retryable plain set below, which stays correct because
+    // the recomputed value is deterministic given the same prior read.)
+    const RETRY_STATUS = new Set([502, 503, 504]);
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 150; // linear backoff between tries: 150ms, 300ms
+    const POINT_TIMEOUT_MS = 8_000; // abort a hung point op; bulk scans pass 0 (no timeout)
+    async function call(op, body, opts) {
+        const maxAttempts = opts?.retryable === false ? 1 : MAX_ATTEMPTS;
+        const timeoutMs = opts?.timeoutMs ?? POINT_TIMEOUT_MS;
+        let lastErr;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            let transient = false;
+            // Per-attempt timeout using the same AbortController idiom as the
+            // Supabase fetchWithTimeout above. Skipped (no signal) when
+            // timeoutMs <= 0 so a legitimately slow keys/mget scan over a big
+            // cPanel keyspace is never aborted mid-walk.
+            const ctrl = timeoutMs > 0 ? new AbortController() : null;
+            const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+            try {
+                const r = await fetch(baseUrl.replace(/\/$/, '') + '/' + op, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json', 'x-kv-token': token },
+                    body: JSON.stringify(body),
+                    signal: ctrl?.signal,
+                });
+                if (r.ok)
+                    return (await r.json());
+                lastErr = new Error(`remoteKv ${op}: HTTP ${r.status} ${await r.text().catch(() => '')}`);
+                transient = RETRY_STATUS.has(r.status);
+            }
+            catch (e) {
+                // fetch threw: DNS/connection error, or the abort timeout fired
+                // (AbortError). Both are transient — worth another attempt.
+                lastErr = e;
+                transient = true;
+            }
+            finally {
+                if (timer)
+                    clearTimeout(timer);
+            }
+            if (!transient || attempt >= maxAttempts)
+                break;
+            await new Promise((res) => setTimeout(res, RETRY_DELAY_MS * attempt));
+        }
+        throw lastErr;
     }
     return {
         async get(key) {
             return (await call('get', { key })).value;
         },
         async set(key, value, options) {
-            return (await call('set', { key, value, options })).result;
+            // nx claims are check-then-write: not safe to retry (a lost 2xx would
+            // make the retry observe the existing claim and report "not claimed").
+            // Plain sets re-apply the same value — retryable.
+            return (await call('set', { key, value, options }, { retryable: !options?.nx })).result;
         },
         async del(...keys) {
             return (await call('del', { keys })).count;
@@ -722,10 +775,15 @@ function _makeRemoteKv(baseUrl, token) {
             return next;
         },
         async keys(pattern) {
-            return (await call('keys', { pattern })).keys;
+            // Whole-keyspace walk on the cPanel disk — legitimately slow over a
+            // large save keyspace, so no client abort timeout (timeoutMs: 0).
+            // Still retried on transient transport failures.
+            return (await call('keys', { pattern }, { timeoutMs: 0 })).keys;
         },
         async mget(...keys) {
-            return (await call('mget', { keys })).values;
+            // Batched multi-key read — can be large (the snapshot cron mgets many
+            // saves at once); no client abort timeout for the same reason as keys.
+            return (await call('mget', { keys }, { timeoutMs: 0 })).values;
         },
         async hgetall(key) {
             return (await call('get', { key })).value;

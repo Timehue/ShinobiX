@@ -252,6 +252,60 @@ if (process.env.SENTRY_DSN) {
         Sentry = null;
     }
 }
+// ─── Process-level resilience ──────────────────────────────────────────────────
+// The HTTP server handle, assigned once it's created below. Referenced by
+// gracefulShutdown so a restart or an uncaught crash can drain in-flight
+// requests before exiting, instead of severing them mid-response.
+let _httpServer;
+// Drain in-flight requests, then exit so the supervisor respawns a fresh worker
+// (Passenger on cPanel, the platform on Railway). A bare process.exit() cuts
+// whatever request is in flight — on cPanel that reaches the caller as a
+// Passenger 502 "Incomplete response received from application" (exactly the
+// GET /api/save/* error this guards against). server.close() stops accepting new
+// connections and fires its callback once active requests finish;
+// closeIdleConnections() drops parked keep-alive sockets so the callback isn't
+// held open by an idle client. A bounded backstop force-exits if draining stalls
+// (a slow/streaming response), so a restart can never hang forever.
+function gracefulShutdown(code, reason) {
+    console.log(`[shutdown] draining in-flight requests (${reason})`);
+    let exited = false;
+    const exit = (how) => {
+        if (exited)
+            return;
+        exited = true;
+        console.log(`[shutdown] exiting worker (${reason}: ${how})`);
+        process.exit(code);
+    };
+    const backstop = setTimeout(() => exit('drain-timeout'), 4_000);
+    backstop.unref?.();
+    if (_httpServer) {
+        _httpServer.close(() => exit('drained'));
+        _httpServer.closeIdleConnections();
+    }
+    else {
+        exit('no-server'); // crashed during startup — nothing to drain
+    }
+}
+// Last-resort crash guards — but ONLY when Sentry is not active. Sentry's Node
+// SDK registers its own uncaughtException/unhandledRejection integrations
+// (capture + flush + exit); registering ours alongside would fight it. So on
+// Railway (Sentry on) Sentry owns this path; on cPanel (Sentry usually absent —
+// it needs a manual "Run NPM Install") these are the only net. Without them a
+// single stray async throw kills the worker mid-response as a 502 AND leaves no
+// app-level stack trace (the blind spot this investigation hit). An
+// unhandledRejection is logged and SURVIVED — Node 22 would otherwise crash the
+// worker, and a rejection is rarely process-corrupting. An uncaughtException is
+// logged with its stack, then drained-and-exited: the process state is undefined
+// after one, so we don't resume — but we exit cleanly instead of hard-crashing.
+if (!Sentry) {
+    process.on('unhandledRejection', (reason) => {
+        console.error('[fatal-guard] unhandledRejection (surviving):', reason instanceof Error ? (reason.stack ?? reason.message) : reason);
+    });
+    process.on('uncaughtException', (err) => {
+        console.error('[fatal-guard] uncaughtException:', err?.stack ?? err);
+        gracefulShutdown(1, 'uncaughtException');
+    });
+}
 // ─── App setup ───────────────────────────────────────────────────────────────
 // Village War Map is now ALWAYS ON (Combat/Card/Pet sector wars, mercenaries, the
 // merc cron). Every handler + cron gates on ENABLE_VILLAGE_WAR==='1', so default it
@@ -523,11 +577,10 @@ app.post(['/restart', '/api/restart'], (req, res) => {
     }
     console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`);
     res.json({ ok: true, restarting: true, prevCommit: _BUILD_INFO.commit });
-    // Give the response a chance to flush before exiting.
-    setTimeout(() => {
-        console.log('[restart] exiting worker on operator request');
-        process.exit(0);
-    }, 250);
+    // Let THIS response flush, then drain any OTHER in-flight requests before
+    // exiting. The old hard process.exit(0) severed concurrent requests — on
+    // cPanel a save-read proxied here mid-restart came back as a Passenger 502.
+    setTimeout(() => gracefulShutdown(0, 'operator restart'), 250);
 });
 // ─── API routes ───────────────────────────────────────────────────────────────
 // Save — dynamic :name param merged into req.query.name for the handler.
@@ -949,6 +1002,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 // Phusion Passenger sets the PORT env var automatically.
 // When running locally, defaults to 3000.
 const server = (0, node_http_1.createServer)(app);
+_httpServer = server; // expose to gracefulShutdown (drain-before-exit on restart/crash)
 // Phase 2/Step 3: attach the Socket.IO realtime layer to the SAME HTTP server
 // (registers the sweep→presence:gone listener). No-op when DISABLE_REALTIME=1;
 // the client then falls back to the HTTP heartbeat. Done before startGameLoop
