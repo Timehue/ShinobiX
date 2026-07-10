@@ -152,7 +152,10 @@ import { readFileSync } from "node:fs";
 // components/IncomingChallengeModal.tsx — a centered, clickable, <body>-portaled
 // popup replacing the old un-clickable red-strobe banner. App keeps only the
 // ~13-line render wiring; the modal + its CSS live in their own module.)
-const MAX_LINES = 8_456;
+// → 8,441 (net −10: retired the VillageLoreScreen route + StarterPetSelect
+// overlay wiring in favor of the single IntroCinematic overlay mount — the
+// spirit-fox intro cinematic + companion gift live in features/intro-cinematic/.)
+const MAX_LINES = 8_446;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
