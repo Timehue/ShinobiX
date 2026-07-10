@@ -40,10 +40,11 @@ import waterfallBg from "../../assets/sectors/water.webp";
 import hollowGateArt from "../../assets/card-clash/loc/hollow-gate.webp";
 import "./intro-cinematic.css";
 
-// The Eclipse Kitsune idle pose (bundled, transparent cutout) — restyled into
-// the white spirit fox via the .ic-fox CSS filter. Same ?v as pet-battle-anim's
-// idlePoseUrl so it shares the browser cache with the coliseum.
-const FOX_ART = "/pet-poses/mythic-0-idle.webp?v=2";
+// The Eclipse Kitsune "recover" pose (bundled, transparent cutout) — a calm
+// standing nine-tails facing the player's avatar, restyled into the white
+// spirit fox via the .icx-fox CSS filter. Same ?v as pet-battle-anim's pose
+// URLs so it shares the browser cache with the coliseum.
+const FOX_ART = "/pet-poses/mythic-0-recover.webp?v=2";
 
 // Bar scales matching the old StarterPetSelect so the standard-band stat leans
 // stay visible at a glance.
@@ -58,9 +59,9 @@ type Phase =
 function MiniStatBar({ label, value, max }: { label: string; value: number; max: number }) {
     const pct = Math.max(4, Math.min(100, Math.round((value / max) * 100)));
     return (
-        <div className="ic-statbar">
+        <div className="icx-statbar">
             <span>{label}</span>
-            <div className="ic-statbar-track"><div className="ic-statbar-fill" style={{ width: `${pct}%` }} /></div>
+            <div className="icx-statbar-track"><div className="icx-statbar-fill" style={{ width: `${pct}%` }} /></div>
             <span>{value}</span>
         </div>
     );
@@ -182,36 +183,36 @@ export function IntroCinematic({
 
     return createPortal(
         <div
-            className={`ic-root ${revealing ? "is-revealing" : ""}`}
+            className={`icx-root ${revealing ? "is-revealing" : ""}`}
             style={{
-                "--ic-bg-landscape": `url(${waterfallBg})`,
-                "--ic-bg-portrait": `url(${riverShrineBg})`,
+                "--icx-bg-landscape": `url(${waterfallBg})`,
+                "--icx-bg-portrait": `url(${riverShrineBg})`,
             } as React.CSSProperties}
             onClick={advance}
         >
-            <div className="ic-scene" />
+            <div className="icx-scene" />
             {!liteFx && !reduced && (
-                <div className="ic-motes" aria-hidden="true">
-                    {Array.from({ length: 7 }, (_, i) => <span key={i} className="ic-mote" />)}
+                <div className="icx-motes" aria-hidden="true">
+                    {Array.from({ length: 7 }, (_, i) => <span key={i} className="icx-mote" />)}
                 </div>
             )}
 
-            <div className="ic-stagefill">
+            <div className="icx-stagefill">
                 {showActors && (
                     <>
-                        <div className={`ic-fox ${line?.fading ? "is-fading" : ""}`}>
+                        <div className={`icx-fox ${line?.fading ? "is-fading" : ""}`}>
                             <img src={FOX_ART} alt={`${FOX_NAME}, the ancient spirit fox`} />
                         </div>
-                        <div className="ic-avatar">
+                        <div className="icx-avatar">
                             {character.avatarImage ? (
                                 <img src={character.avatarImage} alt="" />
                             ) : (
-                                <span className="ic-avatar-initial">{(character.name || "?").charAt(0).toUpperCase()}</span>
+                                <span className="icx-avatar-initial">{(character.name || "?").charAt(0).toUpperCase()}</span>
                             )}
-                            <span className="ic-avatar-name">{character.name}</span>
+                            <span className="icx-avatar-name">{character.name}</span>
                         </div>
                         {line?.vision && (
-                            <div className="ic-vision">
+                            <div className="icx-vision">
                                 <img src={hollowGateArt} alt="A vision of the Hollow Gate" />
                             </div>
                         )}
@@ -220,65 +221,65 @@ export function IntroCinematic({
             </div>
 
             {phase.kind === "dialogue" && line && (
-                <div className="ic-dialogue" role="dialog" aria-live="polite">
-                    {line.speaker === "fox" && <span className="ic-speaker">{line.label ?? FOX_NAME}</span>}
-                    <p className={`ic-line ${line.speaker === "narrator" ? "is-narrator" : ""}`}>
+                <div className="icx-dialogue" role="dialog" aria-live="polite">
+                    {line.speaker === "fox" && <span className="icx-speaker">{line.label ?? FOX_NAME}</span>}
+                    <p className={`icx-line ${line.speaker === "narrator" ? "is-narrator" : ""}`}>
                         {fullText.slice(0, typedCount)}
                     </p>
-                    {typingDone && <span className="ic-advance">▼</span>}
+                    {typingDone && <span className="icx-advance">▼</span>}
                 </div>
             )}
 
             {phase.kind === "dialogue" && (
-                <button type="button" className="ic-skip" onClick={(e) => { e.stopPropagation(); skip(); }}>
+                <button type="button" className="icx-skip" onClick={(e) => { e.stopPropagation(); skip(); }}>
                     Skip ▸
                 </button>
             )}
 
             {phase.kind === "choose" && (
-                <div className="ic-choose" onClick={(e) => e.stopPropagation()}>
+                <div className="icx-choose" onClick={(e) => e.stopPropagation()}>
                     <div>
-                        <p className="ic-choose-kicker">The Fox's Gift</p>
-                        <h2 className="ic-choose-title">Choose Your Companion</h2>
-                        <p className="ic-choose-sub">
+                        <p className="icx-choose-kicker">The Fox's Gift</p>
+                        <h2 className="icx-choose-title">Choose Your Companion</h2>
+                        <p className="icx-choose-sub">
                             One spirit for each nature. Each beats one element and is weak to
                             another: 🔥 → 🌬️ → ⚡ → 🪨 → 💧 → 🔥
                         </p>
                     </div>
-                    <div className="ic-pet-grid">
+                    <div className="icx-pet-grid">
                         {STARTER_PETS.map((o) => {
                             const art = artFor(o);
                             return (
                                 <button
                                     key={o.pet.id}
                                     type="button"
-                                    className="ic-pet-card"
-                                    style={{ "--ic-accent": o.accent } as React.CSSProperties}
+                                    className="icx-pet-card"
+                                    style={{ "--icx-accent": o.accent } as React.CSSProperties}
                                     onClick={() => setPhase({ kind: "confirm", option: o })}
                                 >
-                                    <span className="ic-pet-art">
+                                    <span className="icx-pet-art">
                                         {art ? (
                                             <img src={art} alt={o.pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                                         ) : (
-                                            <span className="ic-pet-emoji">{o.icon}</span>
+                                            <span className="icx-pet-emoji">{o.icon}</span>
                                         )}
                                     </span>
                                     <span>
-                                        <p className="ic-pet-name">{o.pet.name}</p>
-                                        <p className="ic-pet-role">{o.icon} {o.element} · {o.role}</p>
+                                        <p className="icx-pet-name">{o.pet.name}</p>
+                                        <p className="icx-pet-role">{o.icon} {o.element} · {o.role}</p>
                                     </span>
-                                    <span className="ic-pet-chips">
-                                        <span className="ic-chip-good">Strong vs {o.strongVs}</span>
-                                        <span className="ic-chip-bad">Weak vs {o.weakVs}</span>
+                                    <span className="icx-pet-chips">
+                                        <span className="icx-chip-good">Strong vs {o.strongVs}</span>
+                                        <span className="icx-chip-bad">Weak vs {o.weakVs}</span>
                                     </span>
-                                    <p className="ic-pet-blurb">{o.blurb}</p>
+                                    <p className="icx-pet-blurb">{o.blurb}</p>
                                     <span>
                                         <MiniStatBar label="HP" value={o.pet.hp} max={STAT_MAX.hp} />
                                         <MiniStatBar label="ATK" value={o.pet.attack} max={STAT_MAX.attack} />
                                         <MiniStatBar label="DEF" value={o.pet.defense} max={STAT_MAX.defense} />
                                         <MiniStatBar label="SPD" value={o.pet.speed} max={STAT_MAX.speed} />
                                     </span>
-                                    <p className="ic-pet-trait">★ {o.traitEffect}</p>
+                                    <p className="icx-pet-trait">★ {o.traitEffect}</p>
                                 </button>
                             );
                         })}
@@ -287,28 +288,28 @@ export function IntroCinematic({
             )}
 
             {phase.kind === "confirm" && (
-                <div className="ic-choose" onClick={(e) => e.stopPropagation()}>
-                    <div className="ic-confirm" style={{ "--ic-accent": phase.option.accent } as React.CSSProperties}>
-                        <span className="ic-pet-art">
+                <div className="icx-choose" onClick={(e) => e.stopPropagation()}>
+                    <div className="icx-confirm" style={{ "--icx-accent": phase.option.accent } as React.CSSProperties}>
+                        <span className="icx-pet-art">
                             {artFor(phase.option) ? (
                                 <img src={artFor(phase.option)} alt={phase.option.pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                             ) : (
-                                <span className="ic-pet-emoji">{phase.option.icon}</span>
+                                <span className="icx-pet-emoji">{phase.option.icon}</span>
                             )}
                         </span>
-                        <p className="ic-choose-kicker">Your First Companion</p>
+                        <p className="icx-choose-kicker">Your First Companion</p>
                         <h2>Walk with {phase.option.pet.name}?</h2>
                         <p>
                             {phase.option.icon} {phase.option.element} · {phase.option.role}.{" "}
                             {phase.option.pet.description}
                         </p>
-                        <div className="ic-confirm-actions">
-                            <button type="button" className="ic-btn-ghost" onClick={() => setPhase({ kind: "choose" })}>
+                        <div className="icx-confirm-actions">
+                            <button type="button" className="icx-btn-ghost" onClick={() => setPhase({ kind: "choose" })}>
                                 Back
                             </button>
                             <button
                                 type="button"
-                                className="ic-btn-take"
+                                className="icx-btn-take"
                                 onClick={() => {
                                     setChosen(phase.option);
                                     setPhase({ kind: "dialogue", stage: "post", idx: 0 });
@@ -321,7 +322,7 @@ export function IntroCinematic({
                 </div>
             )}
 
-            <div className={`ic-whiteout ${phase.kind === "whiteout" ? "is-on" : ""} ${revealing ? "is-revealing" : ""}`} />
+            <div className={`icx-whiteout ${phase.kind === "whiteout" ? "is-on" : ""} ${revealing ? "is-revealing" : ""}`} />
         </div>,
         document.body,
     );
