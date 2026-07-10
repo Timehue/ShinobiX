@@ -252,7 +252,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
     {
         id: 1, name: 'Foothold', biome: 'forest', objective: 'defeat-all',
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'none' },
-        enemies: [{ aiId: 'grunt-bandit', count: 6 }],
+        enemies: [{ aiId: 'grunt-bandit', count: 8 }],
         features: [pylon(20, 14), pylon(20, 14)],
         firstClearReward: { ryo: 400, xp: 150 },
     },
@@ -260,7 +260,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         id: 2, name: 'Crossfire Glade', biome: 'forest', objective: 'defeat-all',
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 15 },
         terrainPillars: 6, // terrain debuts here — light cover, learn to use it
-        enemies: [{ aiId: 'grunt-bandit', count: 4 }, { aiId: 'grunt-archer', count: 3, spawnRound: 2 }],
+        enemies: [{ aiId: 'grunt-bandit', count: 5 }, { aiId: 'grunt-archer', count: 4, spawnRound: 2 }],
         features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 20)],
         firstClearReward: { ryo: 600, xp: 220, boneCharms: 5 },
     },
@@ -271,7 +271,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // Reworked off "reach the goal" (too easy here) into a hazard-strewn brawl. The Drain
         // field rule bleeds chakra — the well is the counter-play if you go claim it.
         boardObjects: [{ kind: 'font', resource: 'chakra', percent: 20, cap: 40, label: 'Chakra Well' }],
-        enemies: [{ aiId: 'grunt-blocker', count: 5 }, { aiId: 'grunt-archer', count: 3 }],
+        enemies: [{ aiId: 'grunt-blocker', count: 6 }, { aiId: 'grunt-archer', count: 4 }],
         features: [pylon(20, 14), hazard(20, 14), hazard(20, 14)],
         firstClearReward: { ryo: 800, xp: 300 },
     },
@@ -292,7 +292,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // the player's first boss teaches "break the guards, burn the shield, protect your
         // squishy" — strikes debut on floor 7.
         enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
-        boss: { aiId: 'boss-warden', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 12 } },
+        boss: { aiId: 'boss-warden', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 }, strike: { kind: 'volley', pct: 8, radius: 1, everyRounds: 3 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         firstClearReward: { ryo: 2000, xp: 800, fateShards: 10, milestone: 'tower-floor-5' },
     },
@@ -302,7 +302,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         terrainPillars: 8,
         // A contested battle shrine mid-board: whoever holds it hits harder — take it and keep it.
         boardObjects: [{ kind: 'shrine', percent: 10, label: 'Battle Shrine' }, { kind: 'font', resource: 'chakra', percent: 20, cap: 40, label: 'Chakra Well' }],
-        enemies: [{ aiId: 'grunt-acolyte', count: 4 }, { aiId: 'grunt-brute', count: 3 }],
+        enemies: [{ aiId: 'grunt-acolyte', count: 5 }, { aiId: 'grunt-brute', count: 4 }],
         features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), hazard(20, 14)],
         firstClearReward: { ryo: 1400, xp: 550, boneCharms: 8 },
     },
@@ -317,7 +317,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
         // VOLLEY — telegraphed strikes DEBUT here: a barrage at the nearest shinobi every 3
         // rounds. Violet tiles + a full round to scatter teach the read on a forgiving 8%.
-        boss: { aiId: 'boss-revenant', phases: [66, 33], mechanic: 'regen', targetMode: 'support', strike: { kind: 'volley', pct: 8, radius: 1, everyRounds: 3 } },
+        boss: { aiId: 'boss-revenant', phases: [66, 33], mechanic: 'regen', targetMode: 'support', strike: { kind: 'volley', pct: 11, radius: 1, everyRounds: 3 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         firstClearReward: { ryo: 2400, xp: 950, fateShards: 12 },
     },
@@ -340,7 +340,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         boardObjects: [{ kind: 'font', resource: 'hp', percent: 8, cap: 120, label: 'Healing Spring' }],
         enemies: [{ aiId: 'grunt-brute', count: 2 }],
         // NOVA debut: the Ravager erupts a boss-centred slam — melee learns to back off mid-swarm.
-        boss: { aiId: 'boss-ravager', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 2, targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 10, radius: 1, everyRounds: 3, firstRound: 2 } },
+        boss: { aiId: 'boss-ravager', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 3, targetMode: 'lowest-hp', strike: { kind: 'volley', pct: 14, radius: 1, everyRounds: 2, firstRound: 2 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), hazard(22, 16), hazard(22, 16)],
         firstClearReward: { ryo: 3000, xp: 1200, fateShards: 15 },
     },
@@ -354,8 +354,8 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // NOVA + CLOSING RING + PHASE PILLARS: the Sovereign slams the arena while it collapses
         // inward and stone erupts at every phase gate — the whole battlefield escalates with it.
         // The chips are flat %-maxHp OUTSIDE wMult, so nothing compounds the uncapped story enrage.
-        boss: { aiId: 'boss-sovereign', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 10, radius: 1, everyRounds: 3 }, phasePillars: 2 },
-        closingRing: { pct: 5, fromRound: 8, minRadius: 3 },
+        boss: { aiId: 'boss-sovereign', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2 }, phasePillars: 2 },
+        closingRing: { pct: 3, fromRound: 11, minRadius: 3 },
         features: [pylon(24, 16), pylon(24, 16), pylon(24, 16), pylon(24, 16), ward(24, 16, 25), hazard(24, 16)],
         firstClearReward: { ryo: 6000, xp: 2500, fateShards: 30, milestone: 'tower-floor-10' },
     },
