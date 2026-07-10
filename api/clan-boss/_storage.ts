@@ -70,6 +70,19 @@ export const CB_REWARDS: Record<1 | 2 | 3, { ryo: number; fateShards: number; bo
 // Any clan that KILLED its boss but finished off the podium still gets this.
 export const CB_PARTICIPATION_REWARD = { ryo: 4000, fateShards: 0, boneCharms: 1, clanXp: 300 };
 
+// XP-only "engaged" reward for clans OUTSIDE the top 3 that chipped the boss but
+// did NOT slay it. Every clan that dealt damage climbs a little toward hall
+// growth (not just the killers), damage-scaled with a floor + cap. No treasury
+// payout — that stays reserved for the top 3 + non-top-3 killers.
+export const CB_ENGAGED_XP_FLOOR = 250;
+export const CB_ENGAGED_XP_CAP = 650;
+export const CB_ENGAGED_XP_PER_DMG = 0.08;
+export function clanBossEngagedXp(damage: number): number {
+    const d = Math.max(0, Number(damage) || 0);
+    if (d <= 0) return 0;
+    return Math.min(CB_ENGAGED_XP_CAP, CB_ENGAGED_XP_FLOOR + Math.floor(d * CB_ENGAGED_XP_PER_DMG));
+}
+
 export const CB_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 // ─────────────────────────────────────────────────────────────────────────────
