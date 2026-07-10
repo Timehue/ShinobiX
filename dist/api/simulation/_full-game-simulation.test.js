@@ -504,7 +504,9 @@ function assertHealthySession(session) {
         node_assert_1.strict.equal((0, _storage_js_1.clanBossDamageDealt)(progress), progress.poolMax);
         node_assert_1.strict.ok((0, _storage_js_1.clanBossScore)(progress) > 0, 'finished clan boss should score');
         node_assert_1.strict.equal(progress.participants.length, party.length);
-        node_assert_1.strict.ok(party.every((member) => progress.memberAttempts[member] <= _storage_js_1.CB_ASSAULTS_PER_MEMBER));
+        // A gauntlet-tuned boss can be finished in fewer assaults than there are members, so some
+        // members may never host (0 attempts) — that trivially satisfies the per-member cap.
+        node_assert_1.strict.ok(party.every((member) => (progress.memberAttempts[member] ?? 0) <= _storage_js_1.CB_ASSAULTS_PER_MEMBER));
     });
     (0, node_test_1.it)('soaks progression, sectors, economy, inventory, shops, hospital, bank, and PvP rewards without invalid state', () => {
         const roster = Array.from({ length: 64 }, (_, index) => makeCharacter(index, { level: 10 + (index % 70), namedWeapon: index % 11 === 0 }));

@@ -58,7 +58,7 @@ exports.CB_MEMBER_CAP = 25; // pool stops scaling past this roster size
 // the boss is truly slain only on the FINAL assault, once the remaining pool drops
 // below what a party can finish. So the whole boss takes MANY attempts, and "every
 // challenge ends in a wipe besides the clear." Banked chip-damage is what matters.
-exports.CB_ASSAULT_HP_CAP = 12000;
+exports.CB_ASSAULT_HP_CAP = 24000;
 exports.CB_ASSAULTS_PER_MEMBER = 5;
 exports.CB_MAX_PARTY = 3; // host + up to 2 clanmates
 exports.CB_ASSAULT_LOG_CAP = 200;
