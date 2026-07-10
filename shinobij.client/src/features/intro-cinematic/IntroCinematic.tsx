@@ -43,13 +43,15 @@ import hollowGateArt from "../../assets/card-clash/loc/hollow-gate.webp";
 import shiranuiArt from "./assets/shiranui.webp";
 import shrineFallsLandscape from "./assets/shrine-falls-landscape.webp";
 import shrineFallsPortrait from "./assets/shrine-falls-portrait.webp";
+import { introCue, startIntroAmbience, stopIntroAmbience } from "./introCinematicSfx";
+import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../../lib/pet-music";
 import "./intro-cinematic.css";
 
 const FOX_ART = shiranuiArt;
 
-// Bar scales matching the old StarterPetSelect so the standard-band stat leans
-// stay visible at a glance.
-const STAT_MAX = { hp: 400, attack: 55, defense: 45, speed: 50 } as const;
+// Bar scales sized so no starter pegs a bar (Spark Pup's 58 ATK and Pebble
+// Tortoise's 400 HP stay visibly distinct from the runners-up).
+const STAT_MAX = { hp: 420, attack: 60, defense: 45, speed: 50 } as const;
 
 type Phase =
     | { kind: "dialogue"; stage: "pre" | "post"; idx: number }
@@ -84,10 +86,28 @@ export function IntroCinematic({
     const [typed, setTyped] = useState<{ text: string; count: number }>({ text: "", count: 0 });
     const typeTimerRef = useRef<number | null>(null);
     const completedRef = useRef(false);
+    const lastCompleteRef = useRef(0);
     const reduced = prefersReducedMotion();
     const liteFx = isLowEndMobile();
 
     useBodyScrollLock(true);
+
+    // Opening curtain: hold the first line until the title card peaks (summon)
+    // or the village gets one clean beat on screen (companion). Reduced motion
+    // starts immediately.
+    const [curtainUp, setCurtainUp] = useState(reduced);
+    useEffect(() => {
+        if (curtainUp) return;
+        const t = window.setTimeout(() => setCurtainUp(true), character.onboardingStep === "companionIntro" ? 900 : 2400);
+        return () => window.clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Master-mute mirror for the in-cinematic sound toggle: the game's global
+    // unmute button is buried under this overlay, so first-time players need
+    // one here to opt in to the ambience at all.
+    const [muted, setMuted] = useState(isAudioMuted);
+    useEffect(() => subscribeAudioMute(() => setMuted(isAudioMuted())), []);
 
     // Companion mode — the beat AFTER the shrine cinematic's white-out
     // (onboardingStep === "companionIntro"): the granted pet stands over the
@@ -113,7 +133,7 @@ export function IntroCinematic({
 
     // Typewriter: ~83 chars/s, tap-to-complete. Reduced-motion shows lines whole.
     useEffect(() => {
-        if (!fullText || reduced) return;
+        if (!fullText || reduced || !curtainUp) return;
         let c = 0;
         const id = window.setInterval(() => {
             c = Math.min(fullText.length, c + 2);
@@ -128,10 +148,10 @@ export function IntroCinematic({
             window.clearInterval(id);
             if (typeTimerRef.current === id) typeTimerRef.current = null;
         };
-    }, [fullText, reduced]);
+    }, [fullText, reduced, curtainUp]);
     const typedCount = !fullText || reduced
         ? fullText.length
-        : typed.text === fullText ? typed.count : 0;
+        : !curtainUp ? 0 : typed.text === fullText ? typed.count : 0;
     const typingDone = typedCount >= fullText.length;
 
     function completeLine() {
@@ -139,13 +159,50 @@ export function IntroCinematic({
             window.clearInterval(typeTimerRef.current);
             typeTimerRef.current = null;
         }
+        lastCompleteRef.current = Date.now();
         setTyped({ text: fullText, count: fullText.length });
     }
+
+    // Shrine ambience bed for the summon beat (honours the global master mute;
+    // audio is opt-in). The companion beat plays over the village, bed-free.
+    // If the browser suspended the AudioContext (mount isn't a gesture), the
+    // startIntroAmbience() retry inside advance() picks it up on first click.
+    useEffect(() => {
+        if (companionMode) return;
+        startIntroAmbience();
+        introCue("title");
+        return () => stopIntroAmbience(600);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Warm the five pose cutouts during the opening dialogue so the picker
+    // cards never animate in artless on a cold cache.
+    useEffect(() => {
+        if (companionMode) return;
+        STARTER_PETS.forEach((o) => { const img = new Image(); img.src = petPoseImage(o.pet, sharedImages); });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Beat cues keyed to the line being shown (once per line, not per keystroke).
+    const lineKey = phase.kind === "dialogue" ? `${companionMode ? "c" : phase.stage}-${phase.idx}` : "";
+    useEffect(() => {
+        if (!lineKey || !line) return;
+        if (line.rumble) {
+            introCue("omen");
+        } else if (!companionMode && phase.kind === "dialogue" && phase.stage === "pre"
+            && line.speaker === "fox" && !line.label
+            && PRE_GIFT_LINES[phase.idx - 1]?.label === "???") {
+            introCue("reveal"); // Shiranui names itself
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lineKey]);
 
     // White-out choreography: fade to full white, hide the scene, fade the white
     // back out (revealing the village beneath), THEN complete exactly once.
     useEffect(() => {
         if (phase.kind !== "whiteout" || phase.revealing) return;
+        introCue("whiteout");
+        stopIntroAmbience(1400);
         const whiteInMs = reduced ? 250 : 1500;
         const revealMs = reduced ? 250 : 950;
         const t1 = window.setTimeout(() => setPhase({ kind: "whiteout", revealing: true }), whiteInMs);
@@ -167,13 +224,20 @@ export function IntroCinematic({
     }
 
     function advance() {
-        if (phase.kind !== "dialogue") return;
+        if (phase.kind !== "dialogue" || !curtainUp) return;
+        // Gesture-unlocked audio start for browsers that suspended the context
+        // at mount (no-op when muted or already running).
+        startIntroAmbience();
         if (!typingDone) {
             completeLine();
             return;
         }
+        // Double-tap grace: a force-completed line gets a beat to be read
+        // before the same gesture can advance past it.
+        if (Date.now() - lastCompleteRef.current < 250) return;
         const lines = companionMode ? companionLines : phase.stage === "pre" ? PRE_GIFT_LINES : postLines;
         if (phase.idx + 1 < lines.length) {
+            introCue("advance");
             setPhase({ kind: "dialogue", stage: phase.stage, idx: phase.idx + 1 });
         } else if (companionMode) {
             finishCompanion();
@@ -195,18 +259,31 @@ export function IntroCinematic({
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
+            // Leave the keyboard to higher overlays (GameAlert sits above us)
+            // and to focused controls (Enter on Skip must not also advance).
+            if (e.defaultPrevented) return;
+            if ((e.target as HTMLElement | null)?.closest?.("button, input, textarea, select")) return;
             if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") advance();
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [phase, typingDone, fullText]);
+    }, [phase, typingDone, fullText, curtainUp]);
 
     const artFor = (o: StarterPetOption) => petPoseImage(o.pet, sharedImages);
     const revealing = phase.kind === "whiteout" && phase.revealing;
-    const showActors = phase.kind === "dialogue";
+    const departing = phase.kind === "whiteout" && !phase.revealing;
+    // Actors stay on stage while the white covers them — unmounting at the
+    // whiteout's first frame made the deity blink out of the visible scene.
+    const showActors = phase.kind === "dialogue" || departing;
     const inDialogue = phase.kind === "dialogue";
+    const barsOn = inDialogue || departing;
     const rumbling = inDialogue && Boolean(line?.rumble);
+    const foxFading = Boolean(line?.fading) || departing;
+    // The deity materializes on its first spoken line ("???"), not during the
+    // narrator establishing shots — the arrival IS the reveal.
+    const foxOnStage = phase.kind !== "dialogue" || phase.stage === "post" || phase.idx >= 3;
+    const showGiftPet = chosen != null && (departing || (phase.kind === "dialogue" && phase.stage === "post"));
 
     return createPortal(
         <div
@@ -218,26 +295,32 @@ export function IntroCinematic({
             onClick={advance}
         >
             {!companionMode && <div className="icx-scene"><div className="icx-scene-art" /></div>}
-            {!companionMode && !liteFx && !reduced && (
+            {!liteFx && !reduced && (
                 <div className="icx-motes" aria-hidden="true">
-                    <div className="icx-rays" />
-                    <div className="icx-mist" />
-                    <div className="icx-mist m2" />
-                    {Array.from({ length: 7 }, (_, i) => <span key={i} className="icx-mote" />)}
-                    {Array.from({ length: 6 }, (_, i) => <span key={`p${i}`} className="icx-petal" />)}
+                    {!companionMode && (
+                        <>
+                            <div className="icx-rays" />
+                            <div className="icx-mist" />
+                            <div className="icx-mist m2" />
+                            {Array.from({ length: 6 }, (_, i) => <span key={`p${i}`} className="icx-petal" />)}
+                        </>
+                    )}
+                    {/* Spirit motes rise in both beats — the companion carries a
+                        little of the shrine's light into the village. */}
+                    {Array.from({ length: companionMode ? 4 : 7 }, (_, i) => <span key={i} className="icx-mote" />)}
                 </div>
             )}
 
             {/* Beat-driven color grade: violet omen during the Hollow Gate vision,
                 pale elegy light while the fox's spirit gutters. */}
             {!companionMode && (
-                <div className={`icx-grade ${line?.vision ? "is-omen" : ""} ${line?.fading ? "is-elegy" : ""}`} aria-hidden="true" />
+                <div className={`icx-grade ${line?.vision ? "is-omen" : ""} ${foxFading ? "is-elegy" : ""}`} aria-hidden="true" />
             )}
 
-            {/* Cinema letterbox bars — dialogue beats only, slide away for the
-                companion choice UI. Hidden on small screens (they eat space). */}
-            <div className={`icx-letterbox top ${inDialogue ? "is-on" : ""}`} aria-hidden="true" />
-            <div className={`icx-letterbox bottom ${inDialogue ? "is-on" : ""}`} aria-hidden="true" />
+            {/* Cinema letterbox bars — dialogue + departure beats, slide away
+                for the companion-choice UI. Hidden on small screens. */}
+            <div className={`icx-letterbox top ${barsOn ? "is-on" : ""}`} aria-hidden="true" />
+            <div className={`icx-letterbox bottom ${barsOn ? "is-on" : ""}`} aria-hidden="true" />
 
             {/* One-shot opening title card. */}
             {!companionMode && !reduced && (
@@ -259,9 +342,11 @@ export function IntroCinematic({
                 )}
                 {showActors && !companionMode && (
                     <>
-                        <div className={`icx-fox ${line?.fading ? "is-fading" : ""} ${line?.speaker === "fox" && !typingDone ? "is-talking" : ""}`}>
-                            <img src={FOX_ART} alt={`${FOX_NAME}, the ancient spirit fox`} />
-                        </div>
+                        {foxOnStage && (
+                            <div className={`icx-fox ${foxFading ? "is-fading" : ""} ${line?.speaker === "fox" && !typingDone ? "is-talking" : ""}`}>
+                                <img src={FOX_ART} alt={`${FOX_NAME}, the ancient spirit fox`} />
+                            </div>
+                        )}
                         <div className="icx-avatar">
                             {character.avatarImage ? (
                                 <img src={character.avatarImage} alt="" />
@@ -270,6 +355,11 @@ export function IntroCinematic({
                             )}
                             <span className="icx-avatar-name">{character.name}</span>
                         </div>
+                        {showGiftPet && chosen && (
+                            <div className={`icx-gift-pet ${inDialogue && phase.idx === 0 && !typingDone ? "is-talking" : ""}`}>
+                                <img src={artFor(chosen)} alt={chosen.pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                            </div>
+                        )}
                         {line?.vision && (
                             <div className="icx-vision">
                                 <img src={hollowGateArt} alt="A vision of the Hollow Gate" />
@@ -279,23 +369,45 @@ export function IntroCinematic({
                 )}
             </div>
 
-            {phase.kind === "dialogue" && line && (
+            {phase.kind === "dialogue" && line && curtainUp && (
                 <div className="icx-dialogue" role="dialog" aria-live="polite">
                     {line.speaker === "fox" && <span className="icx-speaker">{line.label ?? FOX_NAME}</span>}
+                    {/* The animated slice is aria-hidden; screen readers get the
+                        whole line once instead of a re-announcement per tick. */}
                     <p
                         key={`${phase.stage}-${phase.idx}`}
                         className={`icx-line ${line.speaker === "narrator" ? "is-narrator" : ""}`}
+                        aria-hidden="true"
                     >
                         {fullText.slice(0, typedCount)}
                     </p>
+                    <span className="icx-sr">{fullText}</span>
+                    {typingDone && !companionMode && phase.stage === "pre" && phase.idx === 0 && (
+                        <span className="icx-tap-hint">Tap anywhere to continue</span>
+                    )}
                     {typingDone && <span className="icx-advance">▼</span>}
                 </div>
             )}
 
             {phase.kind === "dialogue" && (
-                <button type="button" className="icx-skip" onClick={(e) => { e.stopPropagation(); skip(); }}>
-                    Skip ▸
-                </button>
+                <>
+                    <button
+                        type="button"
+                        className="icx-skip icx-sound"
+                        aria-label={muted ? "Unmute game audio" : "Mute game audio"}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const nowMuted = !muted;
+                            setAudioMuted(nowMuted);
+                            if (!nowMuted && !companionMode) startIntroAmbience();
+                        }}
+                    >
+                        {muted ? "🔇" : "🔊"}
+                    </button>
+                    <button type="button" className="icx-skip" onClick={(e) => { e.stopPropagation(); skip(); }}>
+                        Skip ▸
+                    </button>
+                </>
             )}
 
             {phase.kind === "choose" && (
@@ -373,6 +485,7 @@ export function IntroCinematic({
                                 type="button"
                                 className="icx-btn-take"
                                 onClick={() => {
+                                    introCue("confirm");
                                     setChosen(phase.option);
                                     setPhase({ kind: "dialogue", stage: "post", idx: 0 });
                                 }}
