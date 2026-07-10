@@ -782,6 +782,8 @@ function normalizeAdminCharacter(character: Character): Character {
         ...normalized,
         stats: maxedStats(),
         unspentStats: 0,
+        // Admins are name-gated out of every tutorial surface — never a live step.
+        onboardingStep: "done",
     };
 }
 
@@ -1366,6 +1368,7 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
 function createAdminCharacter(adminName: AdminAccount = "Admin 1"): Character {
     return {
         ...createCharacter(adminName, "Stormveil Village", "Ninjutsu", "Admin Core"),
+        onboardingStep: "done", // admins skip the cinematic + Academy Path
         level: 100,
         xp: 0,
         ryo: 999999,
@@ -3887,6 +3890,7 @@ export default function App() {
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
         if (isBattleFlowScreen(screen)) return;
+        if (normalizeOnboardingStep(character.onboardingStep) !== "done") return; // never consume a VN beneath the cinematic/tutorial
         const candidate = creatorEvents.find(
             (ev) =>
                 ev.eventKind === "visualNovel" &&
@@ -7664,43 +7668,41 @@ export default function App() {
                     />
                 )}
 
-                {/* Intro cinematic — the spirit-fox summons that replaced the old
-                    Village Lore screen AND the StarterPetSelect overlay (the fox
-                    gifts the companion mid-cinematic). Gated on the PERSISTED
-                    onboardingStep ("academyIntro" for fresh accounts, "starter"
-                    for saves that predate the cinematic), so it shows exactly once,
-                    survives a refresh, and never fires for veterans. Admins skip
-                    it (no real game role). */}
+                {/* Intro cinematic (replaced VillageLoreScreen + StarterPetSelect):
+                    fox summons + pet gift, then the companion's village intro. Gated
+                    on the PERSISTED onboardingStep → refresh-proof; admins skip. */}
                 {character
                     && (character.onboardingStep === "academyIntro" || character.onboardingStep === "starter" || character.onboardingStep === "companionIntro")
                     && character.name !== "Admin 1"
                     && character.name !== "Admin 2"
                     && (
+                    <Suspense fallback={null}>
                     <IntroCinematic
                         key={character.onboardingStep === "companionIntro" ? "companion" : "summon"}
                         character={character}
                         sharedImages={sharedImages}
                         onComplete={(pet) => {
-                            // Apply the pet's trait spawn-bonus exactly like a befriended
-                            // encounter pet (applyPetTraitBonuses), then add it to the
-                            // roster, set it active, and hand off to the companion's
-                            // village-intro beat (which in turn hands off to training —
-                            // the double-grant guard makes the second pass grant-free).
-                            const trait = pet.trait ?? "Loyal";
-                            const granted = applyPetTraitBonuses({ ...pet, trait }, trait);
-                            const already = character.pets.some((p) => p.id === granted.id);
-                            const updated: Character = {
-                                ...character,
-                                pets: already ? character.pets : [...character.pets, granted],
-                                activePetId: character.activePetId ?? granted.id,
-                                onboardingStep: character.onboardingStep === "companionIntro" ? "training" : "companionIntro",
-                            };
-                            setCharacter(updated);
-                            // Push immediately so the companion isn't lost on a fast refresh
-                            // before the 3s autosave fires (mirrors the befriend path).
-                            void pushSaveToServer(updated, updated.name);
+                            // Trait-bonus grant, then summon → companionIntro → training
+                            // (the guard makes pass 2 grant-free). FUNCTIONAL update: this
+                            // fires from a ~2.5s-old timer closure — a render-scope spread
+                            // would clobber updates that landed mid-white-out.
+                            setCharacter((prev) => {
+                                if (!prev || prev.onboardingStep === "training") return prev;
+                                const trait = pet.trait ?? "Loyal";
+                                const granted = applyPetTraitBonuses({ ...pet, trait }, trait);
+                                const already = prev.pets.some((p) => p.id === granted.id);
+                                const updated: Character = {
+                                    ...prev,
+                                    pets: already ? prev.pets : [...prev.pets, granted],
+                                    activePetId: prev.activePetId ?? granted.id,
+                                    onboardingStep: prev.onboardingStep === "companionIntro" ? "training" : "companionIntro",
+                                };
+                                pushSaveToServer(updated, updated.name).catch(() => {});
+                                return updated;
+                            });
                         }}
                     />
+                    </Suspense>
                 )}
 
                 {character
