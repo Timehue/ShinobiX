@@ -796,6 +796,7 @@ export function AdminPanel({
             "shrine:tile-corrupted-shinobi",
             "shrine:tile-shrine-keeper",
             "shrine:tile-wall",
+            "shrine:tile-wall-face",
             "shrine:tile-room-floor",
             "shrine:tile-corridor-floor",
             "shrine:tile-door",
@@ -5130,6 +5131,15 @@ export function AdminPanel({
                         name: "Wall tile texture",
                         category: "Tile / Scene",
                         defaultPrompt: "Seamless dark stone shrine wall texture tile, weathered ancient masonry with violet chakra-burned cracks, faint purple seal runes faded into the stone, top-down dungeon tile, game-ready square tile art, painted shinobi RPG environment art",
+                    },
+                    {
+                        // South-facing wall FACE (the masonry front the dungeon
+                        // renderer draws with depth below wall tops). Straight-on
+                        // elevation, NOT top-down like the other terrain tiles.
+                        key: "shrine:tile-wall-face",
+                        name: "Wall FACE texture (south-facing masonry)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Straight-on front elevation of a dungeon wall section: massive fitted stone brick courses, muted violet-grey palette, weathered chisel marks, faint cool purple reflected light near the bottom edge, seamless horizontally repeating masonry filling the whole square frame, uniform lighting, no perspective, no vignette, no text",
                     },
                     {
                         key: "shrine:tile-room-floor",
