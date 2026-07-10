@@ -113,11 +113,10 @@ const Hospital = lazyWithRetry(() => import("./screens/Hospital").then(m => ({ d
 const VillageTavern = lazyWithRetry(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
 const AdminLogin = lazyWithRetry(() => import("./screens/AdminLogin").then(m => ({ default: m.AdminLogin })));
 const Cafeteria = lazyWithRetry(() => import("./screens/Cafeteria").then(m => ({ default: m.Cafeteria })));
-const VillageLoreScreen = lazyWithRetry(() => import("./screens/VillageLoreScreen").then(m => ({ default: m.VillageLoreScreen })));
 const HallOfLegends = lazyWithRetry(() => import("./screens/HallOfLegends").then(m => ({ default: m.HallOfLegends })));
 const ProfessionPicker = lazyWithRetry(() => import("./screens/ProfessionPicker").then(m => ({ default: m.ProfessionPicker })));
 const Professions = lazyWithRetry(() => import("./screens/Professions").then(m => ({ default: m.Professions })));
-const StarterPetSelect = lazyWithRetry(() => import("./screens/StarterPetSelect").then(m => ({ default: m.StarterPetSelect })));
+const IntroCinematic = lazyWithRetry(() => import("./features/intro-cinematic/IntroCinematic").then(m => ({ default: m.IntroCinematic })));
 
 const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: m.Bank })));
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
@@ -644,8 +643,6 @@ function preloadBattleEntryAssets(biome: Biome, sector: number) {
     const urls = sector === 99 ? DEATHSGATE_ARENA_ART : ARENA_ART_BY_BIOME[biome];
     urls.forEach(preloadBattleArtUrl);
 }
-// villageLore lives in ./data/village-lore; screens/VillageLoreScreen imports
-// it directly from there.
 // specialties + jutsuElements live in ./data/jutsu (imported above for internal
 // use; JutsuDropdownList imports them directly from ./data/jutsu).
 // adminIconOptions moved to ./data/admin-icons; re-exported for existing importers.
@@ -1306,8 +1303,8 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         stamina: maxStaminaForLevel(1),
         maxStamina: maxStaminaForLevel(1),
         rankTitle: "Academy Student",
-        // Begin onboarding at the Academy intro modal; "Begin Academy Training"
-        // hands off to the choose-your-companion overlay (StarterPetSelect).
+        // Begin onboarding inside the intro cinematic (the spirit-fox summons +
+        // companion gift); completing it advances straight to "training".
         onboardingStep: "academyIntro",
         stats: baseStats(),
         unspentStats: STARTING_STAT_POINTS,
@@ -3491,7 +3488,7 @@ export default function App() {
             let didOptimisticPaint = false;
             try {
                 const hubHash = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
-                const OPTIMISTIC_HUB_SCREENS = new Set<string>(["village", "villageLore", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
+                const OPTIMISTIC_HUB_SCREENS = new Set<string>(["village", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
                 if (OPTIMISTIC_HUB_SCREENS.has(hubHash)) {
                     const preview = readSavePreview(localAccountName);
                     if (preview && preview.character) {
@@ -4704,7 +4701,9 @@ export default function App() {
         setTriggeredEvents([]);
         setPendingAiProfileId("");
         setCurrentSector(40);
-        setScreen("villageLore");
+        // Land directly on the village; the intro cinematic (gated on the fresh
+        // save's onboardingStep === "academyIntro") plays as an overlay above it.
+        setScreen("village");
         // Surface a failed FIRST save instead of swallowing it. A silent first-save
         // failure is the precondition for total character loss: the character lives
         // only in memory, and on the next refresh the login save-GET 404s and the
@@ -7663,48 +7662,38 @@ export default function App() {
                         onTakeHiddenChamberRelic={takeHollowGateHiddenChamberRelic}
                         onCloseHiddenChamber={() => setHollowGateHiddenChamber(null)}
                     />
-                )}                {!activeTriggeredEvent && screen === "villageLore" && character && (
-                    <VillageLoreScreen
-                        character={character}
-                        onBack={() => {
-                            setCharacter(null);
-                            setScreen("start");
-                        }}
-                        onContinue={() => setScreen("village")}
-                    />
                 )}
 
-                {/* Choose-your-companion overlay — the first onboarding beat after the
-                    Village Lore screen. Gated on onboardingStep === "starter" (set by
-                    createCharacter), so it shows exactly once for new players and never
-                    for veterans. Forced overlay (not a screen) so it survives a refresh
-                    mid-selection. Hidden during villageLore so the lore screen reads
-                    first; admins skip it (no real game role). */}
+                {/* Intro cinematic — the spirit-fox summons that replaced the old
+                    Village Lore screen AND the StarterPetSelect overlay (the fox
+                    gifts the companion mid-cinematic). Gated on the PERSISTED
+                    onboardingStep ("academyIntro" for fresh accounts, "starter"
+                    for saves that predate the cinematic), so it shows exactly once,
+                    survives a refresh, and never fires for veterans. Admins skip
+                    it (no real game role). */}
                 {character
-                    && character.onboardingStep === "starter"
-                    && screen !== "villageLore"
+                    && (character.onboardingStep === "academyIntro" || character.onboardingStep === "starter")
                     && character.name !== "Admin 1"
                     && character.name !== "Admin 2"
                     && (
-                    <StarterPetSelect
+                    <IntroCinematic
                         character={character}
                         sharedImages={sharedImages}
-                        onChoose={(pet) => {
+                        onComplete={(pet) => {
                             // Apply the pet's trait spawn-bonus exactly like a befriended
                             // encounter pet (applyPetTraitBonuses), then add it to the
-                            // roster, set it active, and advance onboarding to the tour.
+                            // roster, set it active, and hand off to stat training.
                             const trait = pet.trait ?? "Loyal";
                             const granted = applyPetTraitBonuses({ ...pet, trait }, trait);
+                            const already = character.pets.some((p) => p.id === granted.id);
                             const updated: Character = {
                                 ...character,
-                                pets: [...character.pets, granted],
-                                activePetId: granted.id,
-                                // Hand off to stat training first; jutsu/loadout and
-                                // inventory prep now happen before the first spar.
+                                pets: already ? character.pets : [...character.pets, granted],
+                                activePetId: character.activePetId ?? granted.id,
                                 onboardingStep: "training",
                             };
                             setCharacter(updated);
-                            // Push immediately so the starter isn't lost on a fast refresh
+                            // Push immediately so the companion isn't lost on a fast refresh
                             // before the 3s autosave fires (mirrors the befriend path).
                             void pushSaveToServer(updated, updated.name);
                         }}
@@ -7739,7 +7728,6 @@ export default function App() {
 
                 {character
                     && normalizeOnboardingStep(character.onboardingStep) !== "done"
-                    && screen !== "villageLore"
                     // Coach is hidden during the spar (the in-battle SparCoach handles it).
                     && screen !== "arena"
                     && character.name !== "Admin 1"
@@ -7751,6 +7739,8 @@ export default function App() {
                         screen={screen}
                         activeTraining={activeTraining}
                         currentSector={currentSector}
+                        guidePet={character.pets.find((p) => p.id === character.activePetId) ?? character.pets[0] ?? null}
+                        sharedImages={sharedImages}
                         setScreen={navigate}
                         updateCharacter={setCharacter}
                         onStartSpar={startAcademySparringMatch}
