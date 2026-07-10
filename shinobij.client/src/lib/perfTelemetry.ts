@@ -14,7 +14,8 @@
 //     missing Performance API just degrades to a no-op.
 //   • NEVER send PII — only anonymous timing numbers + viewport/network hints.
 //   • Self-initializes on import (registers observers + a pagehide flush). The
-//     app stamps milestones via setBootKind / notifyScreen / notifyRestoreComplete.
+//     app stamps milestones via setBootKind / notifyScreen / notifyScreenReady /
+//     notifyRestoreComplete.
 //
 // Boot kinds measured here are the two automatic, load-paced flows the audit
 // targets: a logged-out 'cold-start' landing and an auto-restoring 'refresh'.
@@ -22,6 +23,12 @@
 // of scope for this harness.
 
 type BootKind = 'cold-start' | 'refresh';
+
+import {
+    completeScreenTransition,
+    createScreenTransitionTracker,
+    startScreenTransition,
+} from './screen-transition-timing';
 
 const supported =
     typeof window !== 'undefined' &&
@@ -43,8 +50,7 @@ const state = {
     flushed: false,
     sawFirstScreen: false,
     settleTimer: null as ReturnType<typeof setTimeout> | null,
-    lastScreen: '',
-    lastScreenAt: 0,
+    transitionTracker: createScreenTransitionTracker(),
     slowTransitionCount: 0,
     maxScreenTransition: 0,
     longTaskCount: 0,
@@ -72,18 +78,23 @@ export function setBootKind(kind: BootKind): void {
     state.bootKindSet = true;
 }
 
-/** Call on every screen change. Marks first-screen + first-playable and, for a
- *  cold-start landing, schedules the flush as soon as the shell is up. */
+/** Mark navigation intent (or, as a fallback, the committed screen state). */
 export function notifyScreen(screen: string): void {
     if (!supported) return;
     try {
+        startScreenTransition(state.transitionTracker, screen, nowMs());
+    } catch {
+        /* never throw from telemetry */
+    }
+}
+
+/** Mark that real screen content committed inside the outer Suspense boundary. */
+export function notifyScreenReady(screen: string): void {
+    if (!supported) return;
+    try {
         const stamp = nowMs();
-        if (state.lastScreen && state.lastScreen !== screen) {
-            const elapsed = Math.max(0, stamp - state.lastScreenAt);
-            if (elapsed > 100) reportScreenTransition(state.lastScreen, screen, elapsed);
-        }
-        state.lastScreen = screen;
-        state.lastScreenAt = stamp;
+        const transition = completeScreenTransition(state.transitionTracker, screen, stamp);
+        if (transition) reportScreenTransition(transition.from, transition.to, transition.ms);
         if (state.flushed) return;
         if (!state.sawFirstScreen) {
             state.sawFirstScreen = true;

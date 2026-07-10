@@ -101,6 +101,67 @@ function makeStub(label, store, log) {
         ].sort());
     });
 });
+// Transport resilience for the remote (cPanel) proxy overlay. The proxy box is
+// bounced on every deploy and can be OOM-killed under load, dropping an in-flight
+// response as a Passenger 502 — the GET /api/save/clan-* error this hardening
+// targets. call() retries transient failures (502/503/504, network throw) but
+// must NOT retry non-idempotent ops (a set with nx is a check-then-write claim).
+(0, node_test_1.describe)('_makeRemoteKv transport resilience', () => {
+    const realFetch = globalThis.fetch;
+    let calls = [];
+    // Queue-driven fake fetch: each entry is a status number (→ a Response with
+    // that status) or 'throw' (→ a network error). The last entry repeats once
+    // the queue is exhausted, so [502] means "502 forever".
+    function installFetch(script) {
+        let i = 0;
+        calls = [];
+        globalThis.fetch = (async () => {
+            const step = script[Math.min(i, script.length - 1)];
+            i += 1;
+            calls.push(String(step));
+            if (step === 'throw')
+                throw new Error('network down');
+            return {
+                ok: step >= 200 && step < 300,
+                status: step,
+                json: async () => ({ value: 'V', result: 'OK', count: 1 }),
+                text: async () => `HTTP ${step} body`,
+            };
+        });
+    }
+    (0, node_test_1.afterEach)(() => { globalThis.fetch = realFetch; });
+    const kv = () => (0, _storage_js_1._makeRemoteKv)('https://proxy.example/api/kv', 'tok');
+    (0, node_test_1.it)('retries a transient 502 and succeeds on a later attempt', async () => {
+        installFetch([502, 502, 200]);
+        node_assert_1.strict.equal(await kv().get('save:clan-x'), 'V');
+        node_assert_1.strict.equal(calls.length, 3); // two retries, third attempt wins
+    });
+    (0, node_test_1.it)('gives up after 3 attempts when every try is a 502', async () => {
+        installFetch([502]);
+        await node_assert_1.strict.rejects(kv().get('save:clan-x'), /HTTP 502/);
+        node_assert_1.strict.equal(calls.length, 3);
+    });
+    (0, node_test_1.it)('does NOT retry a deterministic 500 (fails fast, one call)', async () => {
+        installFetch([500]);
+        await node_assert_1.strict.rejects(kv().get('save:clan-x'), /HTTP 500/);
+        node_assert_1.strict.equal(calls.length, 1);
+    });
+    (0, node_test_1.it)('retries a thrown network error', async () => {
+        installFetch(['throw', 200]);
+        node_assert_1.strict.equal(await kv().get('save:clan-x'), 'V');
+        node_assert_1.strict.equal(calls.length, 2);
+    });
+    (0, node_test_1.it)('a plain set retries a transient 502', async () => {
+        installFetch([502, 200]);
+        node_assert_1.strict.equal(await kv().set('save:clan-x', { a: 1 }), 'OK');
+        node_assert_1.strict.equal(calls.length, 2);
+    });
+    (0, node_test_1.it)('a set with nx is NOT retried — check-then-write is not idempotent', async () => {
+        installFetch([502]);
+        await node_assert_1.strict.rejects(kv().set('save:clan-x', { a: 1 }, { nx: true }), /HTTP 502/);
+        node_assert_1.strict.equal(calls.length, 1); // single attempt only
+    });
+});
 // Regression (2026-07-09): disk-overlay hset/hdel are read-modify-write over a
 // single JSON file. Unserialized, N parallel hsets all read the same snapshot
 // and the last write wins — concurrently-published images vanished from the

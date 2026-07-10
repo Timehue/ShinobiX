@@ -7,6 +7,7 @@ import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
+import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
@@ -14,6 +15,9 @@ import { payEndlessEntry, endlessEntryCost } from "./lib/entry-fee";
 import { warnLocalSaveUnavailable } from "./lib/recovery";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
+import { runSingleFlight } from "./lib/single-flight";
+import { preloadScreen } from "./lib/screen-preload";
+import { imageCategoriesForScreen } from "./lib/screen-image-categories";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
 import { presenceCharacter } from "./lib/presence-character";
@@ -116,7 +120,8 @@ const Cafeteria = lazyWithRetry(() => import("./screens/Cafeteria").then(m => ({
 const HallOfLegends = lazyWithRetry(() => import("./screens/HallOfLegends").then(m => ({ default: m.HallOfLegends })));
 const ProfessionPicker = lazyWithRetry(() => import("./screens/ProfessionPicker").then(m => ({ default: m.ProfessionPicker })));
 const Professions = lazyWithRetry(() => import("./screens/Professions").then(m => ({ default: m.Professions })));
-const IntroCinematic = lazyWithRetry(() => import("./features/intro-cinematic/IntroCinematic").then(m => ({ default: m.IntroCinematic })));
+const loadIntroCinematic = () => import("./features/intro-cinematic/IntroCinematic").then(m => ({ default: m.IntroCinematic }));
+const IntroCinematic = lazyWithRetry(loadIntroCinematic);
 
 const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: m.Bank })));
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
@@ -1556,8 +1561,8 @@ export default function App() {
     // bootKind is set first (before notifyScreen) so a refresh isn't misread as
     // a cold-start. notifyRestoreComplete only fires for an actual restore
     // (a previously-logged-in account was on disk).
-    useEffect(() => { perfSetBootKind(bootAccountName ? "refresh" : "cold-start"); }, []);
-    useEffect(() => { perfNotifyScreen(screen); }, [screen]);
+    useLayoutEffect(() => { perfSetBootKind(bootAccountName ? "refresh" : "cold-start"); }, []);
+    useLayoutEffect(() => { perfNotifyScreen(screen); }, [screen]);
     useEffect(() => { if (bootAccountName && !restoringSession) perfNotifyRestoreComplete(); }, [restoringSession]);
     // ── PvP session persistence ─────────────────────────────────────────
     // PvP keys are declared / used here, but the useEffect that consumes
@@ -1814,17 +1819,22 @@ export default function App() {
         });
     }, [editablePets]);
     useEffect(() => {
-        if (!tabVisible) return; // pause when tab hidden
+        if (!tabVisible || !character?.name || restoringSession) return;
         let alive = true;
+        let inFlight = false;
         async function refreshWorldState() {
+            if (inFlight) return;
+            inFlight = true;
             try {
-                const response = await fetch(WORLD_STATE_API, { cache: "no-cache" }); // no-cache: revalidate via the api/world-state.ts ETag, 304 on unchanged polls → no re-download. Freshness identical.
+                const response = await fetch(WORLD_STATE_API, { cache: "no-cache", signal: AbortSignal.timeout(12000) }); // no-cache: revalidate via the api/world-state.ts ETag, 304 on unchanged polls → no re-download. Freshness identical.
                 if (!response.ok) return;
                 const data = await response.json();
                 if (!alive) return;
                 if (hydrateSharedWorldState(data)) setWorldStateVersion(version => version + 1);
             } catch {
                 // Offline/dev fallback keeps the current in-memory world state until the API is available.
+            } finally {
+                inFlight = false;
             }
         }
         refreshWorldState(); // fetch fresh data on tab return
@@ -1833,21 +1843,26 @@ export default function App() {
             alive = false;
             clearInterval(id);
         };
-    }, [tabVisible]);
+    }, [character?.name, restoringSession, tabVisible]);
     useEffect(() => {
-        if (!tabVisible) return; // pause when tab hidden
+        if (!tabVisible || !character?.name || restoringSession) return;
         let alive = true;
+        let inFlight = false;
         async function refreshSharedGameState() {
+            if (inFlight) return;
+            inFlight = true;
             try {
                 const owner = characterRef.current?.name ?? currentAccountName;
                 setSharedGameStateOwnerName(owner); // seeds the POST (pendingClanPetBattle) owner; NOT sent as a GET query (would fragment the CDN cache key)
-                const response = await fetch(GAME_STATE_API, { cache: "no-cache" }); // no-cache (not no-store): browser revalidates via the api/game-state.ts ETag, gets 304 on unchanged frames → no re-download. Freshness identical.
+                const response = await fetch(GAME_STATE_API, { cache: "no-cache", signal: AbortSignal.timeout(12000) }); // no-cache (not no-store): browser revalidates via the api/game-state.ts ETag, gets 304 on unchanged frames → no re-download. Freshness identical.
                 if (!response.ok) return;
                 const data = await response.json();
                 if (!alive) return;
                 if (hydrateSharedGameState(data)) setSharedGameStateVersion(version => version + 1);
             } catch {
                 // Shared game state will refresh again on the next heartbeat-sized poll.
+            } finally {
+                inFlight = false;
             }
         }
         refreshSharedGameState(); // fetch fresh data on tab return
@@ -1856,14 +1871,14 @@ export default function App() {
             alive = false;
             clearInterval(id);
         };
-    }, [currentAccountName, character?.name, tabVisible]);
+    }, [currentAccountName, character?.name, restoringSession, tabVisible]);
     // Village leadership portraits are large base64 images that change rarely,
     // so they ride a separate slow poll (api/game-state.ts ?images=1) instead of
     // the 5s game-state frame — keeping the hot frame ~355KB lighter per poll.
     // Only logged-in players need them (Town Hall / admin), so this stays idle
     // pre-login. Bumps the shared version itself when the portraits actually change.
     useEffect(() => {
-        if (!tabVisible || !character?.name) return;
+        if (!tabVisible || !character?.name || restoringSession || (screen !== "townHall" && screen !== "adminPanel")) return;
         let alive = true;
         let lastSig = "";
         async function refreshLeadershipImages() {
@@ -1888,7 +1903,7 @@ export default function App() {
             alive = false;
             clearInterval(id);
         };
-    }, [character?.name, tabVisible]);
+    }, [character?.name, restoringSession, screen, tabVisible]);
     useEffect(() => {
         setEditablePets((currentPets) => {
             const mergedPets = mergeMissingBuiltInPets(currentPets);
@@ -2447,6 +2462,7 @@ export default function App() {
     // Lets the socket "kick" handler trigger an off-cycle heartbeat without the
     // heartbeat being in scope (it's redefined each effect run).
     const heartbeatRef = useRef<() => void>(() => {});
+    const heartbeatInFlightRef = useRef(false);
     // Throttles the per-beat roster ingest (see heartbeat) so the cross-device
     // player list isn't re-normalized + re-set on the hot 1s combat/explore beat.
     const lastRosterMergeAt = useRef(0);
@@ -2564,11 +2580,14 @@ export default function App() {
                 displayName: char.name,
                 tile: presenceBody.tile,
             });
+            if (heartbeatInFlightRef.current) return;
+            heartbeatInFlightRef.current = true;
             try {
                 const res = await fetch('/api/player/heartbeat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(presenceBody),
+                    signal: AbortSignal.timeout(12000),
                 });
                 if (!res.ok) return;
                 const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string } | null; forceReload?: boolean } = await res.json();
@@ -2579,16 +2598,16 @@ export default function App() {
                     // to player keys, not their own, so a signal on "admin1" should not
                     // disrupt the admin session. Just ack and continue.
                     if (adminLoggedIn) {
-                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST" });
+                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
                         return;
                     }
-                    const saveRes = await fetch(`/api/save/${encodeURIComponent(accountName)}`);
+                    const saveRes = await fetch(`/api/save/${encodeURIComponent(accountName)}`, { signal: AbortSignal.timeout(12000) });
                     if (saveRes.ok) {
                         const snap = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
                         // Apply full snapshot so all admin-given changes (pets, currencies,
                         // items, etc.) are reflected across the entire player state.
                         applyServerSnapshot(snap);
-                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST" });
+                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
                     } else {
                         // Save was deleted (account reset) — also clear localStorage so the
                         // stale level-100 snapshot can't be reloaded on the next login.
@@ -2601,7 +2620,7 @@ export default function App() {
                         setCharacter(null);
                         setCurrentAccountName("");
                         setScreen("start");
-                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST" });
+                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
                     }
                     return;
                 }
@@ -2654,6 +2673,8 @@ export default function App() {
                 }
             } catch {
                 // Server unavailable — silently skip
+            } finally {
+                heartbeatInFlightRef.current = false;
             }
         }
 
@@ -3424,18 +3445,12 @@ export default function App() {
                 }
                 setScreen(target);
             })();
-            // Re-hydrate images after KV restore — clears the loaded-cats guard so
-            // loadCategory fires again and overwrites the empty image strings that
-            // pushSaveToServer strips before sending to KV.
-            // Also clear sessionStorage image cache so we always get fresh KV data
-            // after login rather than serving stale cached images.
+            // Re-hydrate the visible screen after restore. Preserve the valid
+            // session manifest cache instead of forcing an eight-request reload.
             loadedCatsRef.current.clear();
-            clearImgCache();
             setTimeout(() => {
-                void loadCategory('item'); void loadCategory('pet');
-                void loadCategory('card'); void loadCategory('jutsu');
-                void loadCategory('event'); void loadCategory('avatar');
-                void loadCategory('ai'); void loadCategory('bloodline');
+                void loadCategory('avatar');
+                loadScreenImageCategories(screenRef.current);
             }, 0);
         }
 
@@ -3798,21 +3813,9 @@ export default function App() {
         const petTemplatesChanged = available.map(applySharedAdminContentSnapshot).some(Boolean);
         // Re-normalize the live roster so loaded pets adopt freshly-pulled admin kits.
         if (petTemplatesChanged) setCharacter((prev) => prev ? { ...prev, pets: prev.pets.map(normalizePet) } : prev);
-        loadedCatsRef.current.delete('jutsu');
-        loadedCatsRef.current.delete('bloodline');
-        loadedCatsRef.current.delete('event');
-        loadedCatsRef.current.delete('ai');
-        loadedCatsRef.current.delete('item');
-        loadedCatsRef.current.delete('card');
-        clearImgCache();
-        setTimeout(() => {
-            void loadCategory('jutsu');
-            void loadCategory('bloodline');
-            void loadCategory('event');
-            void loadCategory('ai');
-            void loadCategory('item');
-            void loadCategory('card');
-        }, 0);
+        // Image manifests have their own short-lived cache and screen-specific
+        // loader. Pulling shared metadata must not invalidate every image bucket.
+        loadScreenImageCategories(screenRef.current);
     }
 
     function saveAccountProgress(characterToSave: Character, accountName = currentAccountName) {
@@ -3990,6 +3993,7 @@ export default function App() {
     // embedded image fields so all existing display code works without changes.
     // A ref prevents duplicate fetches even when called from multiple effects.
     const loadedCatsRef = useRef<Set<string>>(new Set());
+    const loadingCatsRef = useRef<Map<string, Promise<void>>>(new Map());
 
     // Applies fetched images into the relevant React state arrays.
     // Extracted so applySnapshot can call it after the KV restore to avoid
@@ -4214,8 +4218,12 @@ export default function App() {
     // Revert any single category by removing it here.
     const URL_MODE_CATEGORIES = new Set<string>(['event', 'card', 'item', 'jutsu', 'ai', 'shrine', 'landmark', 'avatar', 'pet', 'bloodline']);
 
-    async function loadCategory(cat: string) {
-        if (loadedCatsRef.current.has(cat)) return;
+    function loadCategory(cat: string): Promise<void> {
+        if (loadedCatsRef.current.has(cat)) return Promise.resolve();
+        return runSingleFlight(loadingCatsRef.current, cat, () => loadCategoryOnce(cat));
+    }
+
+    async function loadCategoryOnce(cat: string): Promise<void> {
         const urlMode = URL_MODE_CATEGORIES.has(cat);
         // Do NOT mark loaded yet — only mark after a successful fetch so that
         // transient failures (Supabase cold start, timeout) allow retry.
@@ -4285,23 +4293,14 @@ export default function App() {
         // Both attempts failed — leave loadedCatsRef unset so next screen visit retries
     }
 
-    // Preload ALL image categories so they're warm regardless of which screen
-    // the player visits first. GATED so the ~30MB of base64 buckets are NOT
-    // pulled on an anonymous cold landing: every pre-login surface
-    // (StartScreen, CharacterCreator, the public leaderboard, AdminLogin) renders
-    // NO sharedImages, so nothing visible depends on these before the player is
-    // entering the game. We preload as soon as EITHER a character exists (logged
-    // in / created / admin — admin login sets a character) OR a session restore
-    // is in flight (a logged-in refresh, in-game momentarily). Because
-    // restoringSession is already true at mount on a logged-in refresh, those
-    // players get the EXACT same eager-preload timing as before — only true cold
-    // landings (which never render these images) are spared the download. The
-    // per-screen loader below, plus the login / restore / admin reload paths,
-    // independently guarantee a screen never lacks an image it would otherwise
-    // show, so this gate can only DELAY the anonymous case, never drop a load.
+    // Warm only shell-critical avatar metadata at login/restore. Route-specific
+    // categories are requested by the map below when they can actually render.
     useEffect(() => {
         if (!character?.name && !restoringSession) return;
-        void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); void loadCategory('shrine'); void loadCategory('landmark');
+        // The shell needs only the player's avatar. Other tiny manifests load
+        // when their screen is selected, so they cannot contend with restore,
+        // the destination chunk, or the first playable paint.
+        void loadCategory('avatar');
     }, [character?.name, restoringSession]);
 
     // ── Avatar cache-fill for live players ────────────────────────────────
@@ -4370,23 +4369,14 @@ export default function App() {
     // retired when the torch-lit catacomb terrain set landed — it canvas-sliced
     // the brown-brick pack over those keys and clobbered the published door.
 
-    // Screen ? image categories map
-    useEffect(() => {
-        if (screen === 'worldMap')                              { void loadCategory('avatar'); void loadCategory('event'); }
-        else if (screen === 'pets' || screen === 'petArena')    { void loadCategory('pet'); }
-        else if (screen === 'jutsuTraining')                    { void loadCategory('jutsu'); }
-        else if (screen === 'shop' || screen === 'profile' || screen === 'inventory' || screen === 'adminPanel') {
-            void loadCategory('item');
-            void loadCategory('ai');
-            void loadCategory('bloodline');
-        }
-        else if (screen === 'shinobiTiles')                     { void loadCategory('card'); }
-        else if (screen === 'arena' || screen === 'battleArena'){ void loadCategory('avatar'); void loadCategory('jutsu'); void loadCategory('ai'); }
-        else if (screen === 'bloodlineMaker')                   { void loadCategory('bloodline'); void loadCategory('jutsu'); }
-        else if (screen === 'storyHall')                        { void loadCategory('event'); }
-        else if (screen === 'logbook')                          { void loadCategory('event'); void loadCategory('ai'); }
+    // Screen -> image categories map. These manifests do not block the screen;
+    // images fill progressively from browser/CDN-cached /api/img URLs.
+    function loadScreenImageCategories(activeScreen: Screen): void {
+        for (const category of imageCategoriesForScreen(activeScreen)) void loadCategory(category);
+    }
 
-    }, [screen]);
+    useEffect(() => { loadScreenImageCategories(screen); }, [screen]);
+    useEffect(() => { if (activeTriggeredEvent) void loadCategory('event'); }, [activeTriggeredEvent]);
 
     // The choose-your-companion overlay (onboardingStep === "starter") renders
     // starter portraits from sharedImages['pet:<id>'], but it's not a
@@ -4396,7 +4386,7 @@ export default function App() {
     // Idempotent — loadCategory's loadedCatsRef guard skips a re-fetch.
     useEffect(() => {
         // academyIntro preloads a beat early so portraits are ready at "Begin".
-        if (character?.onboardingStep === "starter" || character?.onboardingStep === "academyIntro") void loadCategory('pet');
+        if (character?.onboardingStep === "starter" || character?.onboardingStep === "academyIntro" || character?.onboardingStep === "companionIntro") void loadCategory('pet');
     }, [character?.onboardingStep]);
 
     // Keep a ref to the latest save payload so the interval always uses current data.
@@ -4656,6 +4646,9 @@ export default function App() {
     }, []);
 
     async function createPlayerAccount(newCharacter: Character, password: string) {
+        // Registration gives us a useful network window to warm the cinematic
+        // that appears immediately after the first save succeeds.
+        void loadIntroCinematic().catch(() => {});
         const key = accountKey(newCharacter.name);
         let regToken: string | undefined;
         try {
@@ -4774,16 +4767,11 @@ export default function App() {
         // Mirror the freshly-applied state to the localStorage preview cache
         // so the next login can paint instantly before the save round-trip.
         writeSavePreview(snap.character.name, snap);
-        // Re-hydrate images after login — server save strips base64 images to stay
-        // within payload limits. Clear the loaded-cats guard and sessionStorage cache
-        // so loadCategory re-fetches from KV and patches image fields back in.
+        // Re-hydrate the active screen after login while keeping valid manifests.
         loadedCatsRef.current.clear();
-        clearImgCache();
         setTimeout(() => {
-            void loadCategory('item'); void loadCategory('pet');
-            void loadCategory('card'); void loadCategory('jutsu');
-            void loadCategory('event'); void loadCategory('avatar');
-            void loadCategory('ai'); void loadCategory('bloodline');
+            void loadCategory('avatar');
+            loadScreenImageCategories(screenRef.current);
         }, 0);
     }
 
@@ -4913,10 +4901,11 @@ export default function App() {
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
                 if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
-                // Explicit auth headers — belt-and-suspenders alongside the interceptor.
                 saveRes = await loginFetch(
                     `/api/save/${encodeURIComponent(name.toLowerCase())}`,
-                    { headers: { 'x-player-name': name, 'x-player-password': password } },
+                    // authFetch uses the minted token here; when SESSION_SECRET is
+                    // unset, its existing password fallback remains active.
+                    undefined,
                     20000,
                 );
                 if (saveRes.status !== 503) break; // 503 = storage unavailable, retry
@@ -5449,6 +5438,8 @@ export default function App() {
         }
 
         if (nextScreen === "worldMap") setWorldMapKey((k) => k + 1);
+        perfNotifyScreen(nextScreen);
+        preloadScreen(nextScreen);
         setScreen(nextScreen);
     }
 
@@ -7210,6 +7201,12 @@ export default function App() {
     }
 
     const hideBattleChrome = shouldHideBattleChrome({ screen, arenaBattleActive, petBattleActive });
+    const introCinematicActive = Boolean(
+        character
+        && (character.onboardingStep === "academyIntro" || character.onboardingStep === "starter" || character.onboardingStep === "companionIntro")
+        && character.name !== "Admin 1"
+        && character.name !== "Admin 2",
+    );
 
     return (
         <div
@@ -7671,11 +7668,7 @@ export default function App() {
                 {/* Intro cinematic (replaced VillageLoreScreen + StarterPetSelect):
                     fox summons + pet gift, then the companion's village intro. Gated
                     on the PERSISTED onboardingStep → refresh-proof; admins skip. */}
-                {character
-                    && (character.onboardingStep === "academyIntro" || character.onboardingStep === "starter" || character.onboardingStep === "companionIntro")
-                    && character.name !== "Admin 1"
-                    && character.name !== "Admin 2"
-                    && (
+                {introCinematicActive && character && (
                     <Suspense fallback={null}>
                     <IntroCinematic
                         key={character.onboardingStep === "companionIntro" ? "companion" : "summon"}
@@ -7702,6 +7695,7 @@ export default function App() {
                             });
                         }}
                     />
+                    <ScreenReadyProbe screen={screen} />
                     </Suspense>
                 )}
 
@@ -8421,6 +8415,7 @@ export default function App() {
                         onClose={() => { setBloodlineMakerRankLocked(false); setBloodlineMakerEditingBloodline(null); setScreen(isAdminAccountName(character.name) ? "adminPanel" : "centralHub"); }}
                     />
                 )}
+                {!introCinematicActive && <ScreenReadyProbe screen={screen} />}
                 </ScreenErrorBoundary>
                 </Suspense>
             </main>

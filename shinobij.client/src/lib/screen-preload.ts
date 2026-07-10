@@ -28,6 +28,22 @@ import type { Screen } from "../types/core";
 // nav Screen name → the module App.tsx lazy-loads that screen from. Only the
 // screens reachable from the nav menus are listed; anything else is a no-op.
 const SCREEN_PRELOADERS: Partial<Record<Screen, () => Promise<unknown>>> = {
+    village: () => import("../screens/Village"),
+    battleArena: () => import("../screens/Arena"),
+    arena: () => import("../screens/Arena"),
+    arenaDistrict: () => import("../screens/Arena"),
+    storyHall: () => import("../screens/StoryBoss"),
+    storyBoss: () => import("../screens/StoryBoss"),
+    townHall: () => import("../screens/TownHall"),
+    bank: () => import("../screens/Bank"),
+    shop: () => import("../components/Shop"),
+    clan: () => import("../screens/ClanHall"),
+    hospital: () => import("../screens/Hospital"),
+    cafeteria: () => import("../screens/Cafeteria"),
+    shinobiTiles: () => import("../screens/CardHall"),
+    centralHub: () => import("../screens/CentralHub"),
+    petArena: () => import("../screens/PetArena"),
+    hallOfLegends: () => import("../screens/HallOfLegends"),
     worldMap: () => import("../screens/WorldMap"),
     tavern: () => import("../screens/VillageTavern"),
     userHub: () => import("../screens/UserHub"),
@@ -46,17 +62,25 @@ const SCREEN_PRELOADERS: Partial<Record<Screen, () => Promise<unknown>>> = {
     adminLogin: () => import("../screens/AdminLogin"),
 };
 
+const preloadPromises = new Map<Screen, Promise<unknown>>();
+
+export function canPreloadScreen(screen: Screen): boolean {
+    return Boolean(SCREEN_PRELOADERS[screen]);
+}
+
 /**
  * Best-effort warm of a screen's lazy chunk. Safe to call on every pointer-down;
  * a repeat call after the chunk is cached is a cheap no-op. Never throws.
  */
 export function preloadScreen(screen: Screen): void {
     const load = SCREEN_PRELOADERS[screen];
-    if (!load) return;
+    if (!load || preloadPromises.has(screen)) return;
     try {
-        void load().catch(() => {
-            /* best-effort: the click's own lazy import will retry on real use */
+        const pending = load().catch(() => {
+            // Let a later hover/click try again after a transient failure.
+            preloadPromises.delete(screen);
         });
+        preloadPromises.set(screen, pending);
     } catch {
         /* best-effort */
     }

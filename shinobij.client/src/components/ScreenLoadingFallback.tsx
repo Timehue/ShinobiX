@@ -1,3 +1,6 @@
+import { useEffect } from "react";
+
+import { notifyScreen } from "../lib/perfTelemetry";
 import type { Screen } from "../types/core";
 
 const SCREEN_MESSAGES: Partial<Record<Screen, string>> = {
@@ -30,6 +33,8 @@ const SCREEN_MESSAGES: Partial<Record<Screen, string>> = {
 };
 
 export function ScreenLoadingFallback({ screen }: { screen: Screen }) {
+    useEffect(() => { notifyScreen(screen); }, [screen]);
+
     return (
         <div
             className="lazy-screen-fallback"

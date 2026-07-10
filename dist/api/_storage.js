@@ -26,6 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports._diskKvForProxy = exports.saveStoreKind = exports.kv = void 0;
 exports._makeDiskKv = _makeDiskKv;
+exports._makeRemoteKv = _makeRemoteKv;
 exports._makeRoutedKv = _makeRoutedKv;
 exports.migrateDiskRoutedKeysToOverlay = migrateDiskRoutedKeysToOverlay;
 const _readCache = new Map();
