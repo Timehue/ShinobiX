@@ -1589,6 +1589,89 @@ function pickFocusTarget(session: TowerSession, actor: TowerActor, mode: TowerTa
     return [...pool].sort(cmp)[0];
 }
 
+// ─── AI board-awareness: seek beneficial objects, avoid detrimental tiles ─────
+// A light overlay on the move decision so AI actors (enemies, async allies, AFK humans) walk
+// TOWARD board objects worth holding and AROUND tiles that would hurt them. Deterministic (pure
+// over session state — no RNG/wall-clock), and a strict NO-OP on a floor with no board objects,
+// no hazard features, no telegraph and no ground zones → the AI is byte-identical to the plain
+// nearest-opponent policy there. Combat stays primary: this only runs when the actor can't attack
+// this turn (the move branch of pickAiAction).
+const AI_SEEK_RANGE = 6; // don't abandon the fight to chase a distant object
+
+/** Tiles that would DAMAGE `actor` if it ends the round on them: feature hazards (any side), the
+ *  squad-targeted telegraph (boss strikes / closing ring / spire hazards — squad only), and the
+ *  hostile-owned persistent ground zones. Mirrors who each source actually chips. */
+function aiDangerTiles(session: TowerSession, actor: TowerActor): Set<number> {
+    const danger = new Set<number>();
+    for (const f of session.map.features ?? []) if (f.kind === 'hazard') for (const t of f.tiles) danger.add(t);
+    if (actor.side === 'squad') for (const t of session.map.nextRoundHazardTiles ?? []) danger.add(t);
+    for (const z of session.groundEffects ?? []) {
+        const bitesMe = z.owner === 'p1' ? actor.side === 'enemy' : (actor.side === 'squad' || actor.side === 'npc');
+        if (bitesMe) for (const t of z.tiles) danger.add(t);
+    }
+    return danger;
+}
+/** True when `actor` stands on a shrine its own team benefits from holding (so it should hold). */
+function aiOnHeldShrine(session: TowerSession, actor: TowerActor): boolean {
+    for (const o of session.map.boardObjects ?? []) {
+        if (o.kind === 'shrine' && (o.tiles ?? []).includes(actor.pos)) return true;
+    }
+    return false;
+}
+/** The tile of the most worthwhile beneficial object for `actor` to head toward (or undefined):
+ *  a shrine its team does NOT already hold (contest it), or a font for a resource it's low on.
+ *  Only within AI_SEEK_RANGE. Deterministic (integer score, then distance, then tile-id). */
+function aiBeneficialGoal(session: TowerSession, actor: TowerActor): number | undefined {
+    const objects = session.map.boardObjects;
+    if (!objects || objects.length === 0) return undefined;
+    const w = session.map.width;
+    let bestTile: number | undefined;
+    let bestScore = 0, bestDist = Infinity;
+    for (const o of objects) {
+        const tile = (o.tiles ?? [])[0];
+        if (tile === undefined || tile === actor.pos) continue;
+        let score = 0;
+        if (o.kind === 'shrine') {
+            const heldByMyTeam = session.actors.some(a => a.hp > 0 && a.side === actor.side && a.pos === tile);
+            if (!heldByMyTeam) score = 3;
+        } else { // font — want it when low on that resource; an urgent low-hp need ranks up with shrines
+            const frac = o.resource === 'hp' ? actor.hp / Math.max(1, actor.maxHp)
+                : o.resource === 'chakra' ? actor.chakra / Math.max(1, actor.maxChakra)
+                : actor.stamina / Math.max(1, actor.maxStamina);
+            if (frac < 0.6) score = (o.resource === 'hp' && frac < 0.35) ? 3 : 2;
+        }
+        if (score === 0) continue;
+        const d = hexDistance(actor.pos, tile, w);
+        if (d > AI_SEEK_RANGE) continue;
+        if (score > bestScore
+            || (score === bestScore && d < bestDist)
+            || (score === bestScore && d === bestDist && bestTile !== undefined && tile < bestTile)) {
+            bestTile = tile; bestScore = score; bestDist = d;
+        }
+    }
+    return bestTile;
+}
+/** One step toward `dest` that avoids `actor`'s danger tiles when it can; a unit standing IN danger
+ *  flees to a safe neighbour even off-route. Falls back to the terrain-aware nextStepToward when no
+ *  danger applies, so danger-free floors are byte-identical. */
+function aiSafeStepToward(session: TowerSession, actor: TowerActor, dest: number, danger: Set<number>): number {
+    const from = actor.pos;
+    const base = nextStepToward(session, from, dest, actor.id);
+    if (danger.size === 0) return base; // fast path — unchanged policy
+    if (base !== from && !danger.has(base)) return base; // the natural step is already safe
+    const w = session.map.width, h = session.map.height;
+    const here = hexDistance(from, dest, w);
+    const free = towerNeighbors(from, w, h).filter(n => !isTileBlocked(session, n, actor.id)).sort((a, b) => a - b);
+    const safeProgress = free.find(n => !danger.has(n) && hexDistance(n, dest, w) < here);
+    if (safeProgress !== undefined) return safeProgress;      // safe step that still gets closer
+    if (danger.has(from)) {                                    // in danger + no safe progress → flee anywhere safe
+        const anySafe = free.find(n => !danger.has(n));
+        if (anySafe !== undefined) return anySafe;
+    }
+    if (!danger.has(from)) return from;                        // safe now → hold rather than step into danger
+    return base;                                               // last resort: progress through danger
+}
+
 export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () => number): TowerAction {
     void rng;
     // A boss/enemy with an authored aiTargetMode focus-fires by priority; everyone else keeps
@@ -1600,11 +1683,22 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
         ?? nearestOpponent(session, actor);
     if (!target) return { actorId: actor.id, type: 'wait' };
     const dist = hexDistance(actor.pos, target.pos, session.map.width);
+    // Combat first: attack if we possibly can this turn.
     const j = bestAffordableJutsu(session, actor, dist);
     if (j && j.id) return { actorId: actor.id, type: 'jutsu', jutsuId: j.id, targetId: target.id };
     if (dist <= 1 && canAct(session, BASIC_ATTACK_AP)) return { actorId: actor.id, type: 'attack', targetId: target.id };
     if (canAct(session, MOVE_AP)) {
-        const step = nextStepToward(session, actor.pos, target.pos, actor.id);
+        // Can't attack → move. Head for a board object worth holding (or hold a shrine we're on),
+        // else approach the target — and step there while dodging danger tiles.
+        const danger = aiDangerTiles(session, actor);
+        let dest = target.pos;
+        if (!danger.has(actor.pos) && aiOnHeldShrine(session, actor)) {
+            dest = actor.pos; // hold contested ground instead of wandering off it
+        } else {
+            const boon = aiBeneficialGoal(session, actor);
+            if (boon !== undefined) dest = boon;
+        }
+        const step = aiSafeStepToward(session, actor, dest, danger);
         if (step !== actor.pos) return { actorId: actor.id, type: 'move', tile: step };
     }
     return { actorId: actor.id, type: 'wait' };
