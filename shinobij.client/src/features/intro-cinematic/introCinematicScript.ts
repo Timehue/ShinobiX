@@ -28,7 +28,7 @@ export type CinematicLine = {
 
 // ── Beat 1-3: awakening → warning → gift offer (before pet selection) ────────
 export const PRE_GIFT_LINES: CinematicLine[] = [
-    { speaker: "narrator", text: "Falling water. Cold stone. The scent of blossoms drifting on spirit-light." },
+    { speaker: "narrator", text: "Falling water. Cold stone. Cherry-blossom petals drifting through pale spirit-light." },
     { speaker: "narrator", text: "You wake at the foot of an ancient shrine — in a place you never entered." },
     { speaker: "fox", label: "???", text: "Open your eyes, young one. Good. The summons held." },
     { speaker: "fox", label: "???", text: "Do not be afraid. You stand beyond the veil, in the last sanctuary of this land — and I am the one who called you." },
