@@ -15797,6 +15797,23 @@ button.combat-jutsu-button,
     font-size: 2.1rem;
 }
 
+/* A hall whose unlock level the clan hasn't reached yet — dim the whole shelf so
+   the "Locked · Clan Level N" header reads as gated (cards stay individually
+   gated too). */
+.clan-exchange-tier.clan-exchange-hall-locked { opacity: .72; }
+.clan-exchange-tier.clan-exchange-hall-locked .clan-exchange-section-head span { color: #f4b8b8; }
+
+/* Real generated item art (ClanExchangeItemArt) — sits inside the framed plate,
+   above the ring/glow, with the small accent badges over its corners. */
+.clan-exchange-art-img {
+    position: relative;
+    z-index: 1;
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, .45));
+}
+
 .clan-exchange-art-mini {
     z-index: 2;
     display: grid;
@@ -26180,8 +26197,8 @@ textarea:focus-visible,
     --vfx-b: #94a3b8;
     --vfx-c: rgba(248, 250, 252, 0.18);
     position: absolute;
-    width: calc(78px * var(--vfx-scale, 1));
-    height: calc(78px * var(--vfx-scale, 1));
+    width: calc(66px * var(--vfx-scale, 1));
+    height: calc(66px * var(--vfx-scale, 1));
     transform: translate(-50%, -50%);
     border-radius: 50%;
     pointer-events: none;
@@ -26196,8 +26213,8 @@ textarea:focus-visible,
     will-change: auto;
 }
 .pvp-combat-vfx-tile {
-    width: calc(58px * var(--vfx-scale, 1));
-    height: calc(58px * var(--vfx-scale, 1));
+    width: calc(50px * var(--vfx-scale, 1));
+    height: calc(50px * var(--vfx-scale, 1));
     animation-name: pvp-vfx-tile-pulse;
 }
 .pvp-vfx-ring,
@@ -26376,20 +26393,20 @@ textarea:focus-visible,
     filter: saturate(1.3) brightness(1.12);
 }
 @keyframes pvp-vfx-pop {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.34); filter: blur(3px); }
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.34); filter: blur(2px); }
     18% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); filter: blur(0); }
-    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.65); filter: blur(5px); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.42); filter: blur(2.5px); }
 }
 @keyframes pvp-vfx-layer-pop {
-    0% { opacity: 0; transform: scale(0.42); filter: blur(3px); }
+    0% { opacity: 0; transform: scale(0.42); filter: blur(2px); }
     18% { opacity: var(--vfx-layer-opacity, 0.48); transform: scale(1.04); filter: blur(0); }
-    100% { opacity: 0; transform: scale(1.65); filter: blur(5px); }
+    100% { opacity: 0; transform: scale(1.42); filter: blur(2.5px); }
 }
 @keyframes pvp-vfx-asset-bloom {
-    0% { opacity: 0; filter: blur(3px) saturate(1.2) contrast(1.12); }
+    0% { opacity: 0; filter: blur(2px) saturate(1.2) contrast(1.12); }
     16% { opacity: var(--vfx-asset-opacity, 0.88); filter: blur(0) saturate(1.18) contrast(1.12); }
-    72% { opacity: 0.68; }
-    100% { opacity: 0; filter: blur(4px) saturate(1.08) contrast(1.04); }
+    80% { opacity: 0.72; filter: blur(0) saturate(1.12) contrast(1.08); }
+    100% { opacity: 0; filter: blur(2px) saturate(1.08) contrast(1.04); }
 }
 @keyframes pvp-vfx-tile-pulse {
     0% { opacity: 0; transform: translate(-50%, -50%) scale(0.72); }

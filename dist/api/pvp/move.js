@@ -24,38 +24,41 @@ function pushFx(fx, who, amount, kind) {
     if (amount > 0)
         fx.push({ who, amount: Math.round(amount), kind });
 }
+// durationMs values are ~25% longer than the original tuning so plates linger a
+// beat longer on screen. Keep this table in sync with the client-side
+// `COMBAT_VFX_REGISTRY` in shinobij.client/src/lib/combat-vfx.ts.
 const VFX_DEFAULTS = {
-    fire: { durationMs: 680, maxParticles: 20 },
-    water: { durationMs: 720, maxParticles: 18 },
-    wind: { durationMs: 620, maxParticles: 16 },
-    lightning: { durationMs: 560, maxParticles: 18 },
-    earth: { durationMs: 720, maxParticles: 16 },
-    blood: { durationMs: 680, maxParticles: 18 },
-    shadow: { durationMs: 740, maxParticles: 16 },
-    poison: { durationMs: 760, maxParticles: 16 },
-    magma: { durationMs: 760, maxParticles: 22 },
-    metal: { durationMs: 640, maxParticles: 14 },
-    slash: { durationMs: 420, maxParticles: 8 },
-    impact: { durationMs: 460, maxParticles: 10 },
-    pierce: { durationMs: 460, maxParticles: 10 },
-    heal: { durationMs: 820, maxParticles: 16 },
-    shield: { durationMs: 900, maxParticles: 14 },
-    reflect: { durationMs: 820, maxParticles: 14 },
-    absorb: { durationMs: 820, maxParticles: 14 },
-    spark: { durationMs: 560, maxParticles: 18 },
-    seal: { durationMs: 760, maxParticles: 14 },
-    wound: { durationMs: 620, maxParticles: 12 },
-    burn: { durationMs: 720, maxParticles: 18 },
-    poisonCloud: { durationMs: 900, maxParticles: 18 },
-    drain: { durationMs: 840, maxParticles: 16 },
-    cleanse: { durationMs: 760, maxParticles: 14 },
-    buff: { durationMs: 820, maxParticles: 14 },
-    debuff: { durationMs: 760, maxParticles: 14 },
-    throwable: { durationMs: 520, maxParticles: 10 },
-    weapon: { durationMs: 440, maxParticles: 8 },
-    namedWeapon: { durationMs: 620, maxParticles: 14 },
-    heavy: { durationMs: 620, maxParticles: 16 },
-    ko: { durationMs: 980, maxParticles: 24 },
+    fire: { durationMs: 850, maxParticles: 20 },
+    water: { durationMs: 900, maxParticles: 18 },
+    wind: { durationMs: 780, maxParticles: 16 },
+    lightning: { durationMs: 700, maxParticles: 18 },
+    earth: { durationMs: 900, maxParticles: 16 },
+    blood: { durationMs: 850, maxParticles: 18 },
+    shadow: { durationMs: 930, maxParticles: 16 },
+    poison: { durationMs: 950, maxParticles: 16 },
+    magma: { durationMs: 950, maxParticles: 22 },
+    metal: { durationMs: 800, maxParticles: 14 },
+    slash: { durationMs: 530, maxParticles: 8 },
+    impact: { durationMs: 580, maxParticles: 10 },
+    pierce: { durationMs: 580, maxParticles: 10 },
+    heal: { durationMs: 1030, maxParticles: 16 },
+    shield: { durationMs: 1130, maxParticles: 14 },
+    reflect: { durationMs: 1030, maxParticles: 14 },
+    absorb: { durationMs: 1030, maxParticles: 14 },
+    spark: { durationMs: 700, maxParticles: 18 },
+    seal: { durationMs: 950, maxParticles: 14 },
+    wound: { durationMs: 780, maxParticles: 12 },
+    burn: { durationMs: 900, maxParticles: 18 },
+    poisonCloud: { durationMs: 1130, maxParticles: 18 },
+    drain: { durationMs: 1050, maxParticles: 16 },
+    cleanse: { durationMs: 950, maxParticles: 14 },
+    buff: { durationMs: 1030, maxParticles: 14 },
+    debuff: { durationMs: 950, maxParticles: 14 },
+    throwable: { durationMs: 650, maxParticles: 10 },
+    weapon: { durationMs: 550, maxParticles: 8 },
+    namedWeapon: { durationMs: 780, maxParticles: 14 },
+    heavy: { durationMs: 780, maxParticles: 16 },
+    ko: { durationMs: 1230, maxParticles: 24 },
 };
 function vfxEvent(who, key, anchor, intensity = 'normal', patch = {}) {
     const defaults = VFX_DEFAULTS[key] ?? VFX_DEFAULTS.impact;
@@ -73,6 +76,7 @@ function vfxEvent(who, key, anchor, intensity = 'normal', patch = {}) {
 const _vanguard_rewards_js_1 = require("./_vanguard-rewards.js");
 const _receipts_js_1 = require("../_receipts.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
+const _kage_settle_js_1 = require("../village/_kage-settle.js");
 const _tags_js_1 = require("./_tags.js");
 const _aoe_js_1 = require("./_aoe.js");
 // All session writes flow through here so the combat log gets capped
@@ -2010,6 +2014,29 @@ async function handler(req, res) {
             // support / reward dispute can be reconstructed later. Disable with
             // DISABLE_COMBAT_RECEIPTS=1.
             await (0, _receipts_js_1.writeBattleReceipt)(result).catch(() => undefined);
+            // If this finished duel was an OFFICIAL Kage challenge (the server
+            // wrote a `kage-duel:<battleId>` pointer when the Kage accepted),
+            // settle the seat now so neither player has to manually press
+            // resolve. Fully authoritative: settleKageDuel re-reads the live
+            // challenge + this PvpSession and re-runs every anti-cheat gate. The
+            // manual /kage-challenge resolve action stays as a backup. Best-effort
+            // (never blocks the fight response) and idempotent (pointer + challenge
+            // are cleared on settle, so a retry no-ops).
+            if (result.winner && result.winner !== 'draw') {
+                try {
+                    const kagePtr = await _storage_js_1.kv.get((0, _kage_settle_js_1.kageDuelKey)(result.battleId));
+                    if (kagePtr?.village) {
+                        // Durably record the outcome FIRST so a stuck settle can be
+                        // reconciled from it even after the 15-min session TTL, THEN
+                        // attempt the immediate settle (which deletes the record on success).
+                        await (0, _kage_settle_js_1.recordPendingKageSettle)(kagePtr.village, result, kagePtr.challengeId);
+                        await (0, _kage_settle_js_1.settleKageDuel)(kagePtr.village, result.battleId, Date.now(), { expectChallengeId: kagePtr.challengeId });
+                    }
+                }
+                catch (err) {
+                    console.error('[pvp/move] kage auto-settle failed', err);
+                }
+            }
         }
         // Durable per-action combat receipt (phase 1). Best-effort + flag-gated
         // (DISABLE_COMBAT_RECEIPTS) + idempotent per moveToken. Derived from the

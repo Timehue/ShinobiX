@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { awardClanPointsToPlayerSave } from '../../_clan-points.js';
+import { awardWarEndClanXp } from './_war-xp.js';
 import type { PvpSession } from '../../pvp/session.js';
 import {
     applyFinalResult,
@@ -176,7 +177,8 @@ async function awardFinalizedWarPoints(body: Record<string, unknown>, actorName:
 }
 
 // applyFinalResult moved to _storage.ts so the tilecards endpoint
-// can share the same HP/MVP/cooldown logic.
+// can share the same HP/MVP/cooldown logic. Clan-XP-on-settle lives in
+// ./_war-xp.ts (awardWarEndClanXp), shared with the tilecards finalize path.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -311,6 +313,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (lockResult.status === 200) {
             const actorName = identity.admin ? '' : identity.name;
             const awardedCharacter = await awardFinalizedWarPoints(lockResult.body as Record<string, unknown>, actorName);
+            await awardWarEndClanXp((lockResult.body as { war?: ClanWar }).war)
+                .catch((e) => console.error('[clan/war/report] clan-xp award failed', e));
             return res.status(lockResult.status).json({ ...(lockResult.body as Record<string, unknown>), character: awardedCharacter });
         }
         return res.status(lockResult.status).json(lockResult.body);

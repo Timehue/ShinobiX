@@ -13,6 +13,7 @@ import {
     type ChallengeResult,
     type ClanWar,
 } from './_storage.js';
+import { awardWarEndClanXp } from './_war-xp.js';
 import {
     validateSubmittedDeck,
     deckCardIds,
@@ -176,13 +177,13 @@ async function persistAndMaybeFinalize(session: CwClashSession): Promise<void> {
     if (session.status !== 'done' || !session.winner) return;
 
     const warKey = `clan-war:${session.warId}`;
-    await withKvLock(warKey, async () => {
+    const endedWar = await withKvLock(warKey, async (): Promise<ClanWar | null> => {
         const fresh = await kv.get<ClanWar>(warKey);
-        if (!fresh) return;
+        if (!fresh) return null;
         const { war: war0 } = applyLazyClanWarExpiry(fresh);
-        if (war0.endedAt) return;
+        if (war0.endedAt) return null;
         const ch = war0.pendingChallenges.find((c) => c.id === session.challengeId);
-        if (!ch || ch.status !== 'accepted') return;
+        if (!ch || ch.status !== 'accepted') return null;
         const result = translateWinner(session, ch, session.winner!);
         const now = Date.now();
         const { war: next, warJustEnded } = applyFinalResult(war0, ch, result, now);
@@ -190,7 +191,13 @@ async function persistAndMaybeFinalize(session: CwClashSession): Promise<void> {
         if (warJustEnded) {
             await kv.set(clanWarCooldownKey(next.clans[0], next.clans[1]), now, { ex: CLAN_WAR_REMATCH_COOLDOWN_SEC });
         }
+        return warJustEnded ? next : null;
     });
+    // Once the war has ended, feed both clans XP toward hall growth (member-
+    // scaled, receipt-idempotent). Outside the war lock; best-effort.
+    if (endedWar) {
+        await awardWarEndClanXp(endedWar).catch((e) => console.error('[clan/war/tilecards] clan-xp award failed', e));
+    }
 }
 
 // ── Per-viewer projection — strips the opponent's hand contents + staged plays ──

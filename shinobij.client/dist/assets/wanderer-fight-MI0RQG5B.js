@@ -1,0 +1,1 @@
+var e=`wandererFight.pending.v1`;function t(t){try{let n=localStorage.getItem(e);if(!n)return;let r=JSON.parse(n);r.result=t,localStorage.setItem(e,JSON.stringify(r))}catch{}}export{t as n,e as t};

@@ -1,6 +1,9 @@
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { _makeRoutedKv, type KvLike } from './_storage.js';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { _makeDiskKv, _makeRoutedKv, type KvLike } from './_storage.js';
 import { consumeSingleUseToken } from './_single-use-token.js';
 
 // The routed KV splits keys across two backends — a disk overlay for the
@@ -104,6 +107,63 @@ describe('_makeRoutedKv.mget', () => {
             'base.mget:[auth:alice]',
             'disk.mget:[save:alice,save-snapshot:alice:1700000000000]',
         ].sort());
+    });
+});
+
+// Regression (2026-07-09): disk-overlay hset/hdel are read-modify-write over a
+// single JSON file. Unserialized, N parallel hsets all read the same snapshot
+// and the last write wins — concurrently-published images vanished from the
+// shared:imgfields:<cat> id manifest (GET /api/images?cat=X&ids=1) while
+// remaining individually servable via their own shared:img:<id> keys. These
+// tests hammer the ops that must now serialize per key (_withDiskKeyLock).
+describe('_makeDiskKv concurrent RMW', () => {
+    const root = mkdtempSync(join(tmpdir(), 'shinobix-diskkv-'));
+    after(() => rmSync(root, { recursive: true, force: true }));
+
+    it('N parallel hset calls land all N fields (no lost updates)', async () => {
+        const kv = _makeDiskKv(root);
+        const N = 25;
+        await Promise.all(Array.from({ length: N }, (_, i) =>
+            kv.hset('shared:imgfields:shrine', { [`shrine:tile-${i}`]: `img-${i}` }),
+        ));
+        const keys = await kv.hkeys('shared:imgfields:shrine');
+        assert.equal(keys.length, N, `manifest lost ${N - keys.length} of ${N} concurrent fields`);
+    });
+
+    it('parallel hsets across TWO instances on the same root land all fields', async () => {
+        // kv's _diskOverlay and the /api/kv proxy's _diskKvForProxy are separate
+        // _makeDiskKv instances over one root in the same process — the
+        // serialization must be shared between them, not per-instance.
+        const a = _makeDiskKv(root);
+        const b = _makeDiskKv(root);
+        await Promise.all(Array.from({ length: 10 }, (_, i) =>
+            (i % 2 ? a : b).hset('shared:imgfields:pet', { [`pet:${i}`]: 'x' }),
+        ));
+        assert.equal((await a.hkeys('shared:imgfields:pet')).length, 10);
+    });
+
+    it('concurrent hset + hdel settle to the exact expected field set', async () => {
+        const kv = _makeDiskKv(root);
+        await kv.hset('h:mix', { a: 1, b: 2 });
+        await Promise.all([kv.hdel('h:mix', 'a'), kv.hset('h:mix', { c: 3 })]);
+        const all = await kv.hgetall<Record<string, number>>('h:mix');
+        assert.deepEqual(Object.keys(all ?? {}).sort(), ['b', 'c']);
+    });
+
+    it('set nx: exactly one of N concurrent claimers wins', async () => {
+        const kv = _makeDiskKv(root);
+        const results = await Promise.all(Array.from({ length: 8 }, (_, i) =>
+            kv.set('claim:one', `owner-${i}`, { nx: true }),
+        ));
+        assert.equal(results.filter((r) => r === 'OK').length, 1);
+    });
+
+    it('hset preserves untouched fields and hdel removes only the named ones', async () => {
+        const kv = _makeDiskKv(root);
+        await kv.hset('h:basic', { keep: 'k', drop: 'd' });
+        await kv.hset('h:basic', { added: 'a' });
+        await kv.hdel('h:basic', 'drop');
+        assert.deepEqual(await kv.hgetall('h:basic'), { keep: 'k', added: 'a' });
     });
 });
 

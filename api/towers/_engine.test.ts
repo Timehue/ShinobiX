@@ -12,6 +12,8 @@ import {
     checkTowerWinner,
     computeDamage,
     applyPartyScaling,
+    pickAiAction,
+    towerNeighbors,
     BASIC_ATTACK_AP,
 } from './_engine.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
@@ -96,6 +98,179 @@ describe('Battle Towers engine (P1.A2)', () => {
         assert.equal(s.winner, 'squad');
         assert.equal(getActor(s, 'boss')?.hp, 0);
         assert.ok((getActor(s, 'en-1')?.hp ?? 0) > 0, 'trash never had to die');
+    });
+
+    it('focus-fire (aiTargetMode) picks the priority victim, not just the nearest', () => {
+        // Boss at pos 9 (col 1, row 1); pos 1 and pos 8 are BOTH hex-neighbours of 9 (dist 1).
+        // Two squad members equidistant: one full HP, one badly wounded.
+        const mkBoss = (mode?: string) => makeActor('boss', 'enemy', 9, {
+            character: { specialty: 'Taijutsu', level: 100, stats: { taijutsuOffense: 2500, taijutsuDefense: 2500 }, ...(mode ? { aiTargetMode: mode } : {}) },
+        });
+        const full = () => makeActor('sq-a', 'squad', 1, { hp: 1000, maxHp: 1000 }); // lower id, nearest-tiebreak winner
+        const hurt = () => makeActor('sq-b', 'squad', 8, { hp: 60, maxHp: 1000 });   // wounded, higher id
+        assert.equal(hexDistance(9, 1, 8), 1, 'sq-a adjacent to boss');
+        assert.equal(hexDistance(9, 8, 8), 1, 'sq-b adjacent to boss');
+
+        // lowest-hp focus → strikes the wounded sq-b even though sq-a is the nearest-tiebreak pick.
+        const sFocus = makeSession([mkBoss('lowest-hp'), full(), hurt()], { bossId: 'boss' });
+        sFocus.activeAp = 100; sFocus.actionsThisTurn = 0;
+        const focusAction = pickAiAction(sFocus, getActor(sFocus, 'boss')!, makeRng(1));
+        assert.equal(focusAction.type, 'attack');
+        assert.equal((focusAction as { targetId: string }).targetId, 'sq-b', 'focus-fire hits the wounded target');
+
+        // Control: no aiTargetMode → nearest-opponent tie-break by id → sq-a (unchanged behaviour).
+        const sPlain = makeSession([mkBoss(), full(), hurt()], { bossId: 'boss' });
+        sPlain.activeAp = 100; sPlain.actionsThisTurn = 0;
+        const plainAction = pickAiAction(sPlain, getActor(sPlain, 'boss')!, makeRng(1));
+        assert.equal((plainAction as { targetId: string }).targetId, 'sq-a', 'nearest policy is unchanged when no mode is set');
+    });
+
+    it('BFS pathing routes AI around a wall that would stall the greedy step', () => {
+        // 8x8 board with a vertical wall on column 4 (rows 0-6), gap only at row 7 (pos 60).
+        // A greedy one-step would jam at the wall (no distance-reducing free neighbour) and the
+        // fight would time out as a loss; BFS detours through the gap so the squad engages + wins.
+        const wall = [4, 12, 20, 28, 36, 44, 52]; // col 4, rows 0..6
+        const walledMap: TowerMap = { width: 8, height: 8, blockedTiles: wall, hazardTiles: [], objectiveTiles: [] };
+        const actors = [
+            makeActor('sq-1', 'squad', 27, { character: STRONG }), // (3,3), left of the wall
+            makeActor('en-1', 'enemy', 29, { character: WEAK }),   // (5,3), right of the wall
+        ];
+        const run = () => runTowerFloor(
+            makeSession(actors.map(a => ({ ...a, character: { ...a.character } })), { map: { ...walledMap, blockedTiles: [...wall] } }),
+            makeFloor('defeat-all'), makeRng(5),
+        );
+        const s = run();
+        assert.equal(s.winner, 'squad', 'squad pathed around the wall and cleared (no stall-timeout)');
+        assert.equal(getActor(s, 'en-1')?.hp, 0);
+        // and the terrain run stays deterministic (BFS is a pure function of board state)
+        assert.equal(JSON.stringify(run()), JSON.stringify(s), 'terrain run is byte-identical across replays');
+    });
+
+    it('a boss strike telegraphs at round start and detonates on a caught squad member', () => {
+        const mkBoss = () => makeActor('boss', 'enemy', 27, {
+            hp: 100000, maxHp: 100000,
+            character: { specialty: 'Taijutsu', level: 100, stats: { taijutsuOffense: 800, taijutsuDefense: 800 }, bossStrike: { kind: 'nova', pct: 12, radius: 1, everyRounds: 2, firstRound: 2 } },
+        });
+        const mkSq = () => makeActor('sq-1', 'squad', 28, { character: STRONG }); // 28 is a neighbour of 27 → stays adjacent (attacks) inside the nova
+
+        // Telegraph: at the cadence round, startRound primes the strike and paints its disk.
+        const tele = makeSession([mkBoss(), mkSq()], { bossId: 'boss' });
+        tele.round = 2; startRound(tele);
+        assert.ok(tele.bossStrike && tele.bossStrike.round === 2, 'strike primed at the cadence round');
+        assert.ok((tele.map.nextRoundHazardTiles ?? []).includes(27), 'nova centre telegraphed at round start');
+
+        // Off-cadence + no-config bosses never prime → no telegraph (byte-identical wire).
+        const off = makeSession([mkBoss(), mkSq()], { bossId: 'boss' }); off.round = 3; startRound(off);
+        assert.equal(off.bossStrike, undefined, 'no strike off-cadence');
+        const plain = makeActor('boss', 'enemy', 27, { hp: 100000, maxHp: 100000, character: { specialty: 'Taijutsu', level: 100, stats: {} } });
+        const none = makeSession([plain, mkSq()], { bossId: 'boss' }); none.round = 2; startRound(none);
+        assert.equal(none.bossStrike, undefined, 'a boss with no strike config never primes');
+        assert.ok(!(none.map.nextRoundHazardTiles ?? []).length, 'no telegraph without a strike');
+
+        // Detonation: run the floor; the adjacent shinobi eats the nova (logged), deterministically.
+        const run = () => runTowerFloor(makeSession([mkBoss(), mkSq()], { bossId: 'boss', objectiveKind: 'defeat-boss' }), makeFloor('defeat-boss', { id: 5 }), makeRng(7));
+        const a = run();
+        assert.ok(a.log.some(l => l.includes('nova')), 'the nova detonated on a caught squad member');
+        assert.equal(JSON.stringify(run()), JSON.stringify(a), 'strike run is byte-identical across replays');
+    });
+
+    it('phase pillars erupt at the gate, non-adjacent to everything, never on units', () => {
+        const mkActors = () => [
+            makeActor('sq-1', 'squad', 0, { character: STRONG }),
+            makeActor('boss', 'enemy', 1, {
+                hp: 1000, maxHp: 1000,
+                character: { specialty: 'Taijutsu', level: 100, stats: { taijutsuDefense: 200 }, phasePillars: 2 },
+            }),
+        ];
+        const run = () => runTowerFloor(
+            makeSession(mkActors(), { bossId: 'boss', bossPhases: [50], objectiveKind: 'defeat-boss' }),
+            makeFloor('defeat-boss', { id: 5 }), makeRng(11),
+        );
+        const s = run();
+        assert.ok(s.map.blockedTiles.length >= 1 && s.map.blockedTiles.length <= 2, `pillars dropped at the gate (${s.map.blockedTiles.length})`);
+        assert.ok(s.log.some(l => l.includes('shatters the arena')), 'the eruption is narrated');
+        const blocked = new Set(s.map.blockedTiles);
+        for (const t of s.map.blockedTiles) {
+            for (const nb of towerNeighbors(t, 8, 8)) assert.ok(!blocked.has(nb), `pillars ${t},${nb} must not touch (connectivity invariant)`);
+        }
+        for (const a of s.actors) assert.ok(!blocked.has(a.pos), `no pillar under ${a.id}`);
+        assert.equal(JSON.stringify(run()), JSON.stringify(s), 'pillar drops replay byte-identically');
+    });
+
+    it('fonts restore the tile-holder at round end, honouring the absolute cap + heal-cut', () => {
+        const font = { kind: 'font' as const, resource: 'hp' as const, percent: 8, cap: 50, tiles: [0], label: 'Healing Spring' };
+        const mkMap = (): TowerMap => ({ width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [], boardObjects: [{ ...font }] });
+        // 8% of 2000 = 160, but cap 50 wins; healcut 50% halves it to 25.
+        const wounded = () => makeActor('sq-1', 'squad', 0, { hp: 1000, maxHp: 2000, character: STRONG });
+        const foe = () => makeActor('en-1', 'enemy', 63, { character: WEAK });
+        const s = makeSession([wounded(), foe()], { map: mkMap() });
+        startRound(s); endTurn(s, makeFloor('defeat-all')); endTurn(s, makeFloor('defeat-all'));
+        assert.equal(getActor(s, 'sq-1')!.hp, 1050, 'restore = min(cap 50, 8% of max)');
+        const sCut = makeSession([wounded(), foe()], { map: mkMap() });
+        sCut.modifierStack = [{ kind: 'healcut', value: 50, label: 'test' }];
+        startRound(sCut); endTurn(sCut, makeFloor('defeat-all')); endTurn(sCut, makeFloor('defeat-all'));
+        assert.equal(getActor(sCut, 'sq-1')!.hp, 1025, 'spire heal-cut halves the font restore');
+        // an enemy standing on it benefits too (symmetric), with NO heal-cut
+        const sFoe = makeSession([makeActor('sq-1', 'squad', 63, { character: STRONG }), makeActor('en-1', 'enemy', 0, { hp: 100, maxHp: 500, character: WEAK })], { map: mkMap() });
+        sFoe.modifierStack = [{ kind: 'healcut', value: 50, label: 'test' }];
+        startRound(sFoe); endTurn(sFoe, makeFloor('defeat-all')); endTurn(sFoe, makeFloor('defeat-all'));
+        assert.equal(getActor(sFoe, 'en-1')!.hp, 140, 'enemy restore = min(cap, 8% of 500)=40, uncut');
+    });
+
+    it('a held shrine buffs its team, is capped, and never compounds an enraged attacker', () => {
+        const shrine = { kind: 'shrine' as const, percent: 10, tiles: [8], label: 'Battle Shrine' };
+        const mkMap = (): TowerMap => ({ width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [], boardObjects: [{ ...shrine }] });
+        const atk = { specialty: 'Taijutsu', level: 100, stats: { taijutsuOffense: 1000 } };
+        const J = { effectPower: 10, type: 'Taijutsu', ap: 60 };
+        // holder on the shrine (pos 8) + attacker adjacent to the foe
+        const mkActors = (hold: boolean, enraged = false) => [
+            makeActor('sq-1', 'squad', 0, { character: { ...atk, ...(enraged ? { enrage: 1 } : {}) } }),
+            makeActor('sq-2', 'squad', hold ? 8 : 16, { character: STRONG }),
+            makeActor('en-1', 'enemy', 1, { hp: 100000, maxHp: 100000, character: { stats: { taijutsuDefense: 1000 } } }),
+        ];
+        const dmgAfterAttack = (actors: TowerActor[]) => {
+            const s = makeSession(actors, { map: mkMap() });
+            startRound(s);
+            const r = applyAction(s, makeFloor('defeat-all'), { actorId: 'sq-1', type: 'attack', targetId: 'en-1' }, makeRng(1));
+            assert.equal(r.applied, true);
+            return 100000 - getActor(s, 'en-1')!.hp;
+        };
+        const held = dmgAfterAttack(mkActors(true));
+        const unheld = dmgAfterAttack(mkActors(false));
+        assert.ok(held > unheld, `held shrine hits harder (${held} > ${unheld})`);
+        assert.ok(held <= Math.ceil(unheld * 1.12) + 1, 'bonus stays within the SHRINE_TEAM_CAP');
+        const enragedHeld = dmgAfterAttack(mkActors(true, true));
+        const enragedBase = dmgAfterAttack(mkActors(false, true));
+        assert.equal(enragedHeld, enragedBase, 'an enraged attacker gains NOTHING from a shrine');
+    });
+
+    it('aegis grants a capped shield at each phase gate that the squad must burn through', () => {
+        const mkActors = () => [
+            makeActor('sq-1', 'squad', 0, { character: STRONG }),
+            makeActor('boss', 'enemy', 1, {
+                hp: 2000, maxHp: 2000,
+                character: { specialty: 'Taijutsu', level: 100, stats: { taijutsuDefense: 200 }, aegis: { shieldPct: 12 } },
+            }),
+        ];
+        const s = runTowerFloor(
+            makeSession(mkActors(), { bossId: 'boss', bossPhases: [50], objectiveKind: 'defeat-boss' }),
+            makeFloor('defeat-boss', { id: 5 }), makeRng(21),
+        );
+        assert.ok(s.log.some(l => l.includes('raises an aegis')), 'the aegis is narrated at the gate');
+        assert.equal(s.winner, 'squad', 'the shield delays but never prevents the kill');
+        assert.equal(getActor(s, 'boss')!.hp, 0);
+    });
+
+    it('the closing ring telegraphs more lethal outer tiles as it contracts', () => {
+        const boss = () => makeActor('boss', 'enemy', 40, { character: { specialty: 'Taijutsu', level: 100, stats: {} } });
+        const sq = () => makeActor('sq-1', 'squad', 0, { character: STRONG });
+        const ringMap = (): TowerMap => ({ width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [], closingRing: { pct: 5, fromRound: 1, minRadius: 2 } });
+        const early = makeSession([boss(), sq()], { map: ringMap(), bossId: 'boss' }); early.round = 1; startRound(early);
+        const late = makeSession([boss(), sq()], { map: ringMap(), bossId: 'boss' }); late.round = 8; startRound(late);
+        const nEarly = (early.map.nextRoundHazardTiles ?? []).length;
+        const nLate = (late.map.nextRoundHazardTiles ?? []).length;
+        assert.equal(nEarly, 0, 'the ring paints nothing before it starts closing');
+        assert.ok(nLate > 0, 'the contracted ring paints lethal outer tiles');
     });
 
     it('computeDamage: statFactor identity at off==def, armor DR reduces', () => {
