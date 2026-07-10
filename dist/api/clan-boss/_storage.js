@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CLAN_BOSS_BY_ID = exports.CLAN_BOSSES = exports.CB_WEEK_MS = exports.CB_PARTICIPATION_REWARD = exports.CB_REWARDS = exports.CB_CLEAN_WEIGHT = exports.CB_TIME_WEIGHT = exports.CB_TIME_PAR_HOURS = exports.CB_ROUND_WEIGHT = exports.CB_ROUND_PAR = exports.CB_BREADTH_WEIGHT = exports.CB_DMG_WEIGHT = exports.CB_KILL_BONUS = exports.CB_FLOOR_BASE = exports.CB_ASSAULT_LOG_CAP = exports.CB_MAX_PARTY = exports.CB_ASSAULTS_PER_MEMBER = exports.CB_ASSAULT_HP_CAP = exports.CB_MEMBER_CAP = exports.CB_POOL_PER_MEMBER = exports.CB_BASE_POOL = void 0;
+exports.CLAN_BOSS_BY_ID = exports.CLAN_BOSSES = exports.CB_WEEK_MS = exports.CB_ENGAGED_XP_PER_DMG = exports.CB_ENGAGED_XP_CAP = exports.CB_ENGAGED_XP_FLOOR = exports.CB_PARTICIPATION_REWARD = exports.CB_REWARDS = exports.CB_CLEAN_WEIGHT = exports.CB_TIME_WEIGHT = exports.CB_TIME_PAR_HOURS = exports.CB_ROUND_WEIGHT = exports.CB_ROUND_PAR = exports.CB_BREADTH_WEIGHT = exports.CB_DMG_WEIGHT = exports.CB_KILL_BONUS = exports.CB_FLOOR_BASE = exports.CB_ASSAULT_LOG_CAP = exports.CB_MAX_PARTY = exports.CB_ASSAULTS_PER_MEMBER = exports.CB_ASSAULT_HP_CAP = exports.CB_MEMBER_CAP = exports.CB_POOL_PER_MEMBER = exports.CB_BASE_POOL = void 0;
+exports.clanBossEngagedXp = clanBossEngagedXp;
 exports.clanBossPoolMax = clanBossPoolMax;
 exports.clanBossDamageDealt = clanBossDamageDealt;
 exports.clanBossHoursToKill = clanBossHoursToKill;
@@ -85,6 +86,19 @@ exports.CB_REWARDS = {
 };
 // Any clan that KILLED its boss but finished off the podium still gets this.
 exports.CB_PARTICIPATION_REWARD = { ryo: 4000, fateShards: 0, boneCharms: 1, clanXp: 300 };
+// XP-only "engaged" reward for clans OUTSIDE the top 3 that chipped the boss but
+// did NOT slay it. Every clan that dealt damage climbs a little toward hall
+// growth (not just the killers), damage-scaled with a floor + cap. No treasury
+// payout — that stays reserved for the top 3 + non-top-3 killers.
+exports.CB_ENGAGED_XP_FLOOR = 250;
+exports.CB_ENGAGED_XP_CAP = 650;
+exports.CB_ENGAGED_XP_PER_DMG = 0.08;
+function clanBossEngagedXp(damage) {
+    const d = Math.max(0, Number(damage) || 0);
+    if (d <= 0)
+        return 0;
+    return Math.min(exports.CB_ENGAGED_XP_CAP, exports.CB_ENGAGED_XP_FLOOR + Math.floor(d * exports.CB_ENGAGED_XP_PER_DMG));
+}
 exports.CB_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // Index-aligned with CLAN_BOSS_FLOORS in api/towers/_floor-catalog.ts (same order,
 // same mechanic, floorId = CB_FLOOR_BASE + index).

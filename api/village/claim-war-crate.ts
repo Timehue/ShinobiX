@@ -6,6 +6,8 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { MERIT_WAR_WIN, meritNum } from './_village-merit.js';
 
 /*
  * /api/village/claim-war-crate  — POST only  (P0.2c, warCrateServerAuth.v1)
@@ -142,7 +144,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             try {
                 const onceKey = `legacy:war-won:${playerName}:${warCrateId}`;
                 const first = await kv.set(onceKey, true, { nx: true });
-                if (first) await bumpLegacyStats(playerName, { warsWon: 1 });
+                if (first) {
+                    // Personal Village Merit toward a Kage challenge — once per won
+                    // war, guarded by the SAME NX key so a save strip-and-reclaim
+                    // can't re-mint it. Granted regardless of ENABLE_LEGACY.
+                    await mutatePlayerSave(playerName, ({ character }) => ({
+                        ok: true as const, value: null,
+                        character: { ...character, villageMerit: meritNum(character.villageMerit) + MERIT_WAR_WIN },
+                    })).catch((e) => console.error('[claim-war-crate] merit grant failed:', e));
+                    await bumpLegacyStats(playerName, { warsWon: 1 });
+                }
             } catch (legacyErr) {
                 console.error('[claim-war-crate] legacy tracking failed:', legacyErr);
             }

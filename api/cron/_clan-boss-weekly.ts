@@ -13,10 +13,11 @@
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { announce } from '../_announce.js';
-import { addClanXpServer } from '../clan/_mission-catalog.js';
+import { addClanXpServer, scaledClanXp } from '../clan/_mission-catalog.js';
 import {
     CB_REWARDS, CB_PARTICIPATION_REWARD, CB_WEEK_MS, CLAN_BOSS_BY_ID,
-    clanBossArchiveKey, clanBossPickId, clanBossWeekId, clanBossWeekKey, clanSlug,
+    clanBossArchiveKey, clanBossDamageDealt, clanBossEngagedXp, clanBossPickId,
+    clanBossWeekId, clanBossWeekKey, clanSlug,
     rankClanBoss, type ClanBossProgress, type ClanBossWeek,
 } from '../clan-boss/_storage.js';
 
@@ -66,11 +67,20 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
         const progressList = (progressKeys.length ? await kv.mget<ClanBossProgress[]>(...progressKeys) : [])
             .filter(Boolean) as ClanBossProgress[];
         const ranked = rankClanBoss(progressList);
+        // Per-clan damage, so clans that chipped the boss but finished off the
+        // podium still earn XP-only "engaged" progress toward hall growth.
+        const damageByClan = new Map(progressList.map((p) => [p.clanName, clanBossDamageDealt(p)]));
 
         for (const entry of ranked) {
-            const reward: Reward | null = entry.rank <= 3
-                ? CB_REWARDS[entry.rank as 1 | 2 | 3]
-                : (entry.killed ? CB_PARTICIPATION_REWARD : null);
+            let reward: Reward | null;
+            if (entry.rank <= 3) {
+                reward = CB_REWARDS[entry.rank as 1 | 2 | 3];
+            } else if (entry.killed) {
+                reward = CB_PARTICIPATION_REWARD;
+            } else {
+                const engagedXp = clanBossEngagedXp(damageByClan.get(entry.clanName) ?? 0);
+                reward = engagedXp > 0 ? { ryo: 0, fateShards: 0, boneCharms: 0, clanXp: engagedXp } : null;
+            }
             if (reward) await creditClanTreasury(entry.clanName, reward, week.weekId);
         }
 
@@ -103,7 +113,10 @@ async function creditClanTreasury(clanName: string, reward: Reward, weekId: stri
         if (claimed !== 'OK') return;
         const rec = await kv.get<Record<string, unknown>>(clanKey);
         if (!rec) return;
-        const leveled = addClanXpServer(Number(rec.xp ?? 0), Number(rec.level ?? 1), reward.clanXp);
+        // Member-scaled clan XP (10–15 members = 1.0×; small clans dampened,
+        // capped) so a tiny clan can't rush hall tiers off the weekly boss.
+        const memberCount = Array.isArray(rec.members) ? (rec.members as unknown[]).length : 0;
+        const leveled = addClanXpServer(Number(rec.xp ?? 0), Number(rec.level ?? 1), scaledClanXp(reward.clanXp, memberCount));
         const treasury = { ...(rec.treasury as Record<string, unknown> | undefined ?? {}) };
         treasury.ryo = Number(treasury.ryo ?? 0) + reward.ryo;
         treasury.fateShards = Number(treasury.fateShards ?? 0) + reward.fateShards;

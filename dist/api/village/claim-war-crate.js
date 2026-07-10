@@ -10,6 +10,8 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
+const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
+const _village_merit_js_1 = require("./_village-merit.js");
 /*
  * /api/village/claim-war-crate  — POST only  (P0.2c, warCrateServerAuth.v1)
  *
@@ -133,8 +135,16 @@ async function handler(req, res) {
             try {
                 const onceKey = `legacy:war-won:${playerName}:${warCrateId}`;
                 const first = await _storage_js_1.kv.set(onceKey, true, { nx: true });
-                if (first)
+                if (first) {
+                    // Personal Village Merit toward a Kage challenge — once per won
+                    // war, guarded by the SAME NX key so a save strip-and-reclaim
+                    // can't re-mint it. Granted regardless of ENABLE_LEGACY.
+                    await (0, _mutate_player_save_js_1.mutatePlayerSave)(playerName, ({ character }) => ({
+                        ok: true, value: null,
+                        character: { ...character, villageMerit: (0, _village_merit_js_1.meritNum)(character.villageMerit) + _village_merit_js_1.MERIT_WAR_WIN },
+                    })).catch((e) => console.error('[claim-war-crate] merit grant failed:', e));
                     await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { warsWon: 1 });
+                }
             }
             catch (legacyErr) {
                 console.error('[claim-war-crate] legacy tracking failed:', legacyErr);

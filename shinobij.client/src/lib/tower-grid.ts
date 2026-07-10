@@ -38,6 +38,31 @@ export function towerTilesInRange(pos: number, range: number, w: number, h: numb
     return out;
 }
 
+// ── Closing ring (mirrors api/towers/_engine.ts closingRingTiles) ────────────
+// The shrinking-safe-zone hazard: tiles OUTSIDE the ring's radius for `round` are
+// lethal at round end. This is a byte-mirror of the server derivation (same centre,
+// corner-max radius, defaults fromRound 6 / minRadius 3) so the client can paint the
+// ring in its own ember style, distinct from the crimson spire-hazard telegraph.
+export type TowerClosingRing = { pct?: number; fromRound?: number; minRadius?: number };
+export function towerClosingRingTiles(
+    w: number, h: number, blockedTiles: number[], ring: TowerClosingRing | undefined, round: number,
+): number[] {
+    if (!ring) return [];
+    const center = Math.floor(h / 2) * w + Math.floor(w / 2);
+    const fromRound = Math.max(1, Math.floor(Number(ring.fromRound ?? 6)));
+    const minRadius = Math.max(1, Math.floor(Number(ring.minRadius ?? 3)));
+    let maxR = 0;
+    for (const corner of [0, w - 1, (h - 1) * w, (h - 1) * w + (w - 1)]) {
+        maxR = Math.max(maxR, towerHexDistance(center, corner, w));
+    }
+    const radius = Math.max(minRadius, maxR - Math.max(0, round - fromRound));
+    if (radius >= maxR) return [];
+    const blocked = new Set(blockedTiles);
+    const out: number[] = [];
+    for (let t = 0; t < w * h; t++) if (!blocked.has(t) && towerHexDistance(t, center, w) > radius) out.push(t);
+    return out;
+}
+
 // ── Pixel layout (mirrors Arena.tsx HEX constants) ───────────────────────────
 export const HEX_W = 72;
 export const HEX_H = 42;

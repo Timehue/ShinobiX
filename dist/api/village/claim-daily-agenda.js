@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _village_agenda_js_1 = require("../_village-agenda.js");
 const _save_version_js_1 = require("../save/_save-version.js");
+const _village_merit_js_1 = require("./_village-merit.js");
 /*
  * /api/village/claim-daily-agenda  — POST only
  *
@@ -144,6 +145,9 @@ async function handler(req, res) {
                     ryo: num(char.ryo) + granted.ryo,
                     boneCharms: num(char.boneCharms) + granted.boneCharms,
                     honorSeals: num(char.honorSeals) + granted.honorSeals,
+                    // Personal Village Merit toward a Kage challenge (server-owned;
+                    // once/day via the NX marker above). See _village-merit.ts.
+                    villageMerit: (0, _village_merit_js_1.meritNum)(char.villageMerit) + _village_merit_js_1.MERIT_DAILY_AGENDA,
                 };
                 const next = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(next, rec));

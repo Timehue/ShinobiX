@@ -7,6 +7,7 @@ import { withKvLock } from '../../_lock.js';
 import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-donate.js';
 import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
+import { addClanXpServer, scaledClanXp } from '../_mission-catalog.js';
 
 /*
  * /api/clan/treasury/donate  — POST only
@@ -21,10 +22,12 @@ import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reser
  * — or mint never-owned items into treasury.items — without debiting anything.
  *
  * This endpoint is the intended path: it debits the donor's save AND credits
- * the clan treasury under dual locks, so the two halves can't be separated.
- * The legitimate client now routes the treasury credit through here; clan XP /
- * clanEventContrib stay client-side and are written on top of the treasury
- * value this returns (a zero-delta write the validator leaves alone).
+ * the clan treasury under dual locks, so the two halves can't be separated. It
+ * also credits the clan's (member-scaled) donation XP server-side and returns
+ * the new { treasury, xp, level }. Clan XP is NO LONGER written by the client —
+ * the save validator now pins clan xp/level so a crafted client can't forge a
+ * level jump (see api/_clan-save-validate.ts). clanEventContrib stays a personal
+ * per-player counter, applied client-side on the donor's own save.
  *
  * Body (currency):  { playerName, clan, currency, amount }
  * Body (item):      { playerName, clan, itemId, count? }   // count defaults to 1
@@ -51,6 +54,19 @@ const CURRENCY_CAPS: Record<string, number> = {
 const ITEM_COUNT_CAP = 1_000;
 
 const AUDIT_LOG_PREFIX = 'audit:clan-treasury-donate:';
+
+// Member-scaled clan XP for a donation, matching the amounts the client used to
+// apply on top of the returned treasury (now server-authoritative): ryo
+// floor(amount/35), other currencies amount*200, items count*20. The caller
+// scales the result by the clan's member count (10–15 members = 1.0×; small
+// clans dampened, capped) via scaledClanXp.
+function donationClanXp(donation: TreasuryDonation): number {
+    if (donation.kind === 'currency') {
+        const amount = Math.max(0, Math.floor(Number(donation.amount) || 0));
+        return donation.currency === 'ryo' ? Math.floor(amount / 35) : amount * 200;
+    }
+    return Math.max(0, Math.floor(Number(donation.count) || 0)) * 20;
+}
 
 function clanSlugBare(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -148,11 +164,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             await markEconomyTx(txId!, 'debit-applied');
             txState = 'debit-applied';
-            // Credit the clan treasury (donor debit is already committed).
-            await kv.set(clanSaveKey, { ...clanRec, treasury: debit.value.nextTreasury });
+            // Credit the clan treasury (donor debit is already committed) +
+            // member-scaled clan XP, both persisted under the clan lock. The
+            // client no longer writes xp (the validator now pins it), so this is
+            // the sole path that levels a clan from donations.
+            const memberCount = Array.isArray(clanRec.members) ? clanRec.members.length : 0;
+            const leveled = addClanXpServer(
+                Number(clanRec.xp ?? 0) || 0,
+                Number(clanRec.level ?? 1) || 1,
+                scaledClanXp(donationClanXp(donation), memberCount),
+            );
+            await kv.set(clanSaveKey, { ...clanRec, treasury: debit.value.nextTreasury, xp: leveled.xp, level: leveled.level });
             await completeEconomyTx(txId!);
             txState = 'complete';
-            return { ok: true as const, treasury: debit.value.nextTreasury, _saveVersion: debit._saveVersion };
+            return { ok: true as const, treasury: debit.value.nextTreasury, xp: leveled.xp, level: leveled.level, _saveVersion: debit._saveVersion };
         }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -167,7 +192,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : { itemId: donation.itemId, count: Math.floor(donation.count) }),
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
 
-        return res.status(200).json({ ok: true, treasury: result.treasury, _saveVersion: result._saveVersion });
+        return res.status(200).json({ ok: true, treasury: result.treasury, xp: result.xp, level: result.level, _saveVersion: result._saveVersion });
     } catch (err) {
         if (txId && txState && txState !== 'complete') {
             await failEconomyTx(txId, err).catch(() => undefined);
