@@ -216,3 +216,40 @@ function items(next) {
         node_assert_1.strict.equal((0, _clan_save_validate_js_1.validateClanSaveWrite)(prevSpend, clanWith([], { warSupply: 0 }), founderCtx).next.treasury.warSupply, 0);
     });
 });
+(0, node_test_1.describe)('validateClanSaveWrite — clan xp/level lockdown (server-credited only)', () => {
+    function clanXp(level, xp) {
+        return { name: 'Storm', founderName: 'Kaze', level, xp };
+    }
+    (0, node_test_1.it)('blocks a non-admin clan LEVEL jump via the save blob (would forge the hall-tier gate)', () => {
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(clanXp(3, 100), clanXp(100, 100), member);
+        node_assert_1.strict.equal(next.level, 3); // kept at prev, NOT forged to 100
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('clan level change via save blob blocked')), true);
+    });
+    (0, node_test_1.it)('blocks a non-admin clan XP increase via the save blob', () => {
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(clanXp(3, 100), clanXp(3, 999_999), member);
+        node_assert_1.strict.equal(next.xp, 100);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('clan xp change via save blob blocked')), true);
+    });
+    (0, node_test_1.it)('reverts a STALE lower xp to prev (no XP lost when a stale client re-saves)', () => {
+        // A concurrent server credit moved xp to 500; a stale client posts 100.
+        const { next } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(clanXp(5, 500), clanXp(5, 100), member);
+        node_assert_1.strict.equal(next.xp, 500); // server value preserved, stale client value ignored
+    });
+    (0, node_test_1.it)('allows a zero-delta re-assert of xp/level (client re-saves the credited value)', () => {
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(clanXp(5, 250), clanXp(5, 250), member);
+        node_assert_1.strict.equal(next.level, 5);
+        node_assert_1.strict.equal(next.xp, 250);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('via save blob blocked')), false);
+    });
+    (0, node_test_1.it)('lets admin set xp/level (bypass)', () => {
+        const { next } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(clanXp(3, 100), clanXp(50, 4_000), admin);
+        node_assert_1.strict.equal(next.level, 50);
+        node_assert_1.strict.equal(next.xp, 4_000);
+    });
+    (0, node_test_1.it)('allows a fresh clan bootstrap at level 1 / xp 0', () => {
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(null, { name: 'New', founderName: 'Akira', level: 1, xp: 0 }, { callerName: 'akira', isAdmin: false });
+        node_assert_1.strict.equal(next.level, 1);
+        node_assert_1.strict.equal(next.xp, 0);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('via save blob blocked')), false);
+    });
+});

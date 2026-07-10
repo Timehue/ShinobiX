@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _player_ips_js_1 = require("../_player-ips.js");
 const moderation_js_1 = require("../admin/moderation.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
+const _presence_beat_js_1 = require("../_realtime/_presence-beat.js");
 const presence_input_js_1 = require("../_realtime/presence-input.js");
 // Presence now lives in the in-memory online store (api/_realtime/online-store.ts)
 // instead of `presence:<name>` DB keys — no per-second DB read/write. The live
@@ -102,6 +103,9 @@ async function handler(req, res) {
         });
         const pendingAttacker = stored.pendingAttacker ?? null;
         online_store_js_1.onlineStore.clearPendingAttacker(name);
+        // Throttled cross-worker presence beat (fallback for consumers like the
+        // Kage accept-obligation clock). See _realtime/_presence-beat.ts.
+        (0, _presence_beat_js_1.stampPresenceBeat)(name);
         await Promise.all([
             pendingChallenges?.length ? _storage_js_1.kv.del(challengeKey) : Promise.resolve(),
             healSignal ? _storage_js_1.kv.del(healSignalKey) : Promise.resolve(),

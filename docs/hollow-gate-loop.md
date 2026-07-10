@@ -170,7 +170,11 @@ actually enforceable — which is what makes this redesign worth doing.
 ## 5. Decisions
 
 DECIDED (this round):
-1. **Cadence / run length** — ✅ **Keep 5 floors as-is** (epic, rare, high-stakes).
+1. **Cadence / run length** — ✅ **Full NINE-floor descent** (`HOLLOW_GATE_MAX_FLOOR = 9`),
+   progressively harder: non-boss enemies stiffen with depth
+   (`HOLLOW_GATE_FLOOR_HP_STEP`/`_STAT_STEP` in `features/hollowGate/encounter.ts`),
+   battle/elite/trap counts grow deeper, and the Warden waits on floor 9 at its
+   own peak ramp. (Was 5; event gates still override per-run via `HollowGateVariant`.)
 2. **Death stakes** — ✅ **Lose the entry Key; keep 50% of loot; keep all pets
    found.** (Plus XP in full.) Implemented via a run loot tally + claw-back, not
    per-floor checkpoints.

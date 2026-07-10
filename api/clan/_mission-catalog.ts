@@ -97,3 +97,21 @@ export function addClanXpServer(xp: number, level: number, amount: number): { xp
     }
     return { xp: nextXp, level: nextLevel };
 }
+
+// Member-count scaling for clan-XP GAINS (not the per-level cost). Normalized
+// so a "normal" clan of 10–15 active members earns 1.0×; small clans are
+// dampened so a 1–5 member clan can't rush hall tiers, and it's CAPPED at 1.0×
+// so a mega-clan can't run away either (the WoW-Cataclysm mistake the clan
+// audit warned about). Applied to every clan-XP faucet (missions, war, boss,
+// and the client donation path). KEEP IN SYNC with the client mirror in
+// shinobij.client/src/lib/clan-math.ts (clanXpMemberScale / scaledClanXp).
+export function clanXpMemberScale(memberCount: number): number {
+    const n = Math.max(0, Math.floor(Number(memberCount) || 0));
+    if (n <= 2) return 0.2;
+    if (n <= 5) return 0.4;
+    if (n <= 9) return 0.7;
+    return 1;
+}
+export function scaledClanXp(amount: number, memberCount: number): number {
+    return Math.max(0, Math.floor((Number(amount) || 0) * clanXpMemberScale(memberCount)));
+}

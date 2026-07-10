@@ -27,7 +27,7 @@ import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { hexLineTiles } from "../lib/hex-path";
 import { prefersLiteCombatFx } from "../lib/device-tier";
-import { safeCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
+import { safeCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import {
     normalizeCharacter,
@@ -530,7 +530,7 @@ export function PvpBattleScreen({
         if (seq === last) return;
         if (last === undefined && !watchedFromStart) return;
         const events = session.vfx ?? [];
-        return spawnCombatVfx(events.map((ev, i) => {
+        const mapped = events.map((ev, i) => {
             const spec = safeCombatVfxSpec({
                 key: ev.key,
                 target: ev.anchor,
@@ -541,7 +541,17 @@ export function PvpBattleScreen({
                 tiles: ev.tiles,
             });
             return { id: `${ev.target}-vfx-${seq}-${i}`, target: ev.target, spec };
-        }));
+        });
+        // Collapse plates that would land on the same spot. One action can stack
+        // two VFX on a single fighter — a hit plus its shield/reflect reaction, a
+        // weapon plus its tag effect, several DoTs ticking at once, or a movement
+        // flourish plus a spend-cloud on the tile the caster just moved onto —
+        // which reads as one oversized, blurry double. Key each plate by the tile
+        // it actually renders on (mirroring combatVfxCenters: a fighter-anchored
+        // plate resolves to that fighter's current tile), then keep only the first
+        // (primary) per tile. Effects on genuinely different tiles still both show.
+        return spawnCombatVfx(dedupeCombatVfx(mapped, (fx) =>
+            combatVfxAnchorKey(fx.spec, fx.target === "p1" ? session.p1.pos : session.p2.pos)));
     }, [session?.vfxSeq, session?.p1.pos, session?.p2.pos]);
 
     // Prefight countdown — fires once when the session first loads
@@ -644,7 +654,8 @@ export function PvpBattleScreen({
     // entry id) so a refresh on the result screen re-records harmlessly.
     const battleRecordedRef = useRef(false);
     useEffect(() => {
-        if (session?.status !== "done" || battleRecordedRef.current || !onRecordBattle) return;
+        // Spars must not touch battle history — they count for nothing.
+        if (session?.status !== "done" || battleRecordedRef.current || !onRecordBattle || isSpar) return;
         battleRecordedRef.current = true;
         const meFighter = role === "p1" ? session.p1 : session.p2;
         const oppFighter = role === "p1" ? session.p2 : session.p1;
