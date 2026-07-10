@@ -232,7 +232,9 @@ exports.CLAN_BOSS_FLOORS = [
         id: exports.CLAN_BOSS_FLOOR_BASE + 0, name: 'The Oni Warlord', biome: 'volcano', objective: 'defeat-boss',
         roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-brute', count: 3 }],
-        boss: { aiId: 'clan-boss-oni', phases: [75, 50, 25], mechanic: 'enrage' },
+        // Elite kit (mirrors the story Sovereign): focus-fires the wounded + a periodic nova.
+        // Gentle cadence (every 4) keeps the weekly chip economy intact — tune with clan-boss balance.
+        boss: { aiId: 'clan-boss-oni', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 4 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         balanceFor: 3, firstClearReward: {},
     },
@@ -240,7 +242,7 @@ exports.CLAN_BOSS_FLOORS = [
         id: exports.CLAN_BOSS_FLOOR_BASE + 1, name: 'Abyssal Leviathan', biome: 'snow', objective: 'defeat-boss',
         roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-acolyte', count: 2 }],
-        boss: { aiId: 'clan-boss-leviathan', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 2 },
+        boss: { aiId: 'clan-boss-leviathan', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 2, targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 4 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), hazard(22, 16)],
         balanceFor: 3, firstClearReward: {},
     },
@@ -248,7 +250,7 @@ exports.CLAN_BOSS_FLOORS = [
         id: exports.CLAN_BOSS_FLOOR_BASE + 2, name: 'The Fallen Kage', biome: 'shadow', objective: 'defeat-boss',
         roundBudget: 18, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
-        boss: { aiId: 'clan-boss-kage', phases: [66, 33], mechanic: 'regen' },
+        boss: { aiId: 'clan-boss-kage', phases: [66, 33], mechanic: 'regen', targetMode: 'support', strike: { kind: 'volley', pct: 8, radius: 1, everyRounds: 4 } },
         features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         balanceFor: 3, firstClearReward: {},
     },
@@ -256,8 +258,10 @@ exports.CLAN_BOSS_FLOORS = [
         id: exports.CLAN_BOSS_FLOOR_BASE + 3, name: 'Ancient Stone Golem', biome: 'central', objective: 'defeat-boss',
         roundBudget: 20, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
         // BULWARK: the golem takes half damage while its guards live — break them first.
+        // Elite kit hunts the softest guard + a periodic nova (no aegis — a shield would absorb
+        // boss-HP damage and shrink the weekly chip pool).
         enemies: [{ aiId: 'grunt-blocker', count: 3 }],
-        boss: { aiId: 'clan-boss-golem', phases: [60, 30], mechanic: 'bulwark' },
+        boss: { aiId: 'clan-boss-golem', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 4 } },
         features: [pylon(22, 16), pylon(22, 16), ward(22, 16, 25), ward(22, 16, 25)],
         balanceFor: 3, firstClearReward: {},
     },
