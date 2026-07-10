@@ -6,6 +6,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { gainXp } from '../_xp-engine.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { MERIT_MISSION, meritNum } from '../village/_village-merit.js';
 import { utcDateKey, reportNewbieEvent } from './_progress.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { recordBetaMetric, type BetaMetricEvent } from '../_beta-metrics.js';
@@ -330,9 +331,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (completion === 'daily') {
-                next = { ...next, ...markMissionCompletedFields(next, todayKey, monthKey) };
+                // Personal Village Merit toward a Kage challenge (day-capped completion).
+                next = { ...next, ...markMissionCompletedFields(next, todayKey, monthKey), villageMerit: meritNum(next.villageMerit) + MERIT_MISSION };
             } else if (completion === 'hunt') {
-                next = { ...next, ...markHuntCompletedFields(next, todayKey, monthKey) };
+                next = { ...next, ...markHuntCompletedFields(next, todayKey, monthKey), villageMerit: meritNum(next.villageMerit) + MERIT_MISSION };
             } else if (completion === 'total') {
                 next = {
                     ...next,
