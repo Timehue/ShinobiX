@@ -378,26 +378,6 @@
     backdrop-filter: blur(2px);
 }
 
-.landing-stat-chip--live {
-    color: #bbf7d0;
-    border-color: rgba(34, 197, 94, 0.5);
-    background: rgba(6, 24, 14, 0.55);
-}
-
-.landing-live-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #22c55e;
-    box-shadow: 0 0 8px #22c55e;
-    animation: landing-pulse 1.8s ease-in-out infinite;
-}
-
-@keyframes landing-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%      { opacity: 0.45; transform: scale(0.65); }
-}
-
 .landing-hero-actions {
     display: flex;
     flex-wrap: wrap;
@@ -1486,7 +1466,6 @@
 /* ── Reduced motion: stop the infinite pulse / bounce ───────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-    .landing-live-dot,
     .landing-scroll-arrow {
         animation: none !important;
     }
