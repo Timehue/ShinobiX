@@ -264,7 +264,7 @@ export function buildRunFromParsedLayout(
         }
     }
 
-    const battleCount = 4 + Math.min(3, floor);
+    const battleCount = 4 + Math.min(5, floor);   // grows to floor 5, plateaus at 9 (deep-floor density)
     const trapCount = 3 + Math.floor(floor / 2);
 
     function walkableNeighbors(idx: number): number {
@@ -610,7 +610,7 @@ function generateHollowGateShrineRunBSP(floor = 1, isFinal?: boolean, dims?: { w
         }
     }
 
-    const battleCount = 4 + Math.min(3, floor);
+    const battleCount = 4 + Math.min(5, floor);   // grows to floor 5, plateaus at 9 (deep-floor density)
     const trapCount = 3 + Math.floor(floor / 2);
 
     // Dead-end trap bias: corridors with only 1 walkable neighbor are natural

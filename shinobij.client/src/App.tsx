@@ -6262,7 +6262,7 @@ export default function App() {
             alert("The shrine refuses to reveal an opponent right now.");
             return;
         }
-        const { baseAi, encounterName, rebasedLevel, bossHpMultiplier, eliteAffix } = pick;
+        const { baseAi, encounterName, rebasedLevel, bossHpMultiplier, floorHpMult, floorStatMult, eliteAffix } = pick;
 
         // PET CO-COMBAT — multi-pronged simulation since Arena doesn't support
         // a co-combatant slot. When the player has a battle-ready pet, we:
@@ -6292,9 +6292,11 @@ export default function App() {
         // ONLY to this per-dive enemy clone, never the shared engine. Composes with
         // the elite affix + pet pre-damage already factored above.
         const aug = hollowGateAugmentEffects(hollowGateRun);
-        const augStatMult = (eliteAffix?.statMult ?? 1) * aug.enemyStatMult;
+        // floorHpMult / floorStatMult = the depth ramp (1.0 for the boss, which
+        // has its own stronger scaling in bossHpMultiplier). No double-scaling.
+        const augStatMult = (eliteAffix?.statMult ?? 1) * aug.enemyStatMult * floorStatMult;
         const totalHpShave = Math.min(0.9, hpShavePct + aug.enemyHpShavePct);
-        const scaledHp = Math.max(1, Math.floor(baseAi.hp * bossHpMultiplier * (eliteAffix?.hpMult ?? 1) * aug.enemyHpMult));
+        const scaledHp = Math.max(1, Math.floor(baseAi.hp * bossHpMultiplier * floorHpMult * (eliteAffix?.hpMult ?? 1) * aug.enemyHpMult));
         const shrineAi: CreatorAi = {
             ...baseAi,
             id: `hollow-gate-${baseAi.id}-${Date.now()}`,
