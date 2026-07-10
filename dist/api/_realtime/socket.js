@@ -4,6 +4,7 @@ exports.getIo = getIo;
 exports.attachSocketServer = attachSocketServer;
 const _auth_js_1 = require("../_auth.js");
 const online_store_js_1 = require("./online-store.js");
+const _presence_beat_js_1 = require("./_presence-beat.js");
 const presence_input_js_1 = require("./presence-input.js");
 const game_loop_js_1 = require("./game-loop.js");
 const notify_js_1 = require("./notify.js");
@@ -164,6 +165,8 @@ function wireRealtime(io) {
                 inBattle: p.inBattle === true ? true : undefined,
                 tile: (0, presence_input_js_1.normalizeTile)(p.tile, online_store_js_1.onlineStore.get(name)?.tile),
             });
+            // Throttled cross-worker presence beat (see _realtime/_presence-beat.ts).
+            (0, _presence_beat_js_1.stampPresenceBeat)(displayName);
             if (newSector !== prevSector) {
                 if (prevSector >= 0)
                     socket.leave(sectorRoom(prevSector));
