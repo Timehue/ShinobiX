@@ -48,7 +48,9 @@
 .icx-gift-pet {
     position: absolute;
     right: calc(clamp(3%, 9vw, 15%) + clamp(108px, 15vmin, 172px) + 10px);
-    bottom: 27%;
+    /* Centered on the avatar card's height so the companion stands EVEN with
+       the player, not down at its feet. */
+    bottom: 30%;
     width: clamp(90px, 13vmin, 140px);
     pointer-events: none;
     animation: icx-companion-in 700ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -820,7 +822,7 @@
     /* Grounded in the gap between the deity and the player, not on the card. */
     /* Beside the player's portrait (just left of it, aligned to its lower half),
        clearly visible above the dialogue — not floating in the middle. */
-    .icx-gift-pet { right: calc(3% + clamp(86px, 26vw, 118px) + 4px); left: auto; bottom: 30%; width: clamp(58px, 16vw, 80px); }
+    .icx-gift-pet { right: calc(3% + clamp(86px, 26vw, 118px) + 4px); left: auto; bottom: 38%; width: clamp(58px, 16vw, 80px); }
     .icx-dialogue { min-height: 138px; padding: 12px 14px 24px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
     /* The companion beat has no letterbox on mobile — a top+bottom dark
        gradient gives it the same cinematic framing and settles the busy
