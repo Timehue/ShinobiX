@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/purity */
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import "../styles/battle-skin.css";
 import { AURA_SPHERE_VN_ID, AWAKENING_VN_ID, DUNGEON_VN_ID } from "../constants/game";
 import type { Biome, Screen } from "../types/core";
@@ -25,6 +25,8 @@ import {
 } from "../App";
 import { unlockVillageKageSystem } from "../lib/world-state";
 import { StoryJourney } from "../components/StoryJourney";
+// Replayable intro cinematic (on-demand chunk — it carries its own art).
+const IntroCinematic = lazy(() => import("../features/intro-cinematic/IntroCinematic").then(m => ({ default: m.IntroCinematic })));
 
 export function StoryHall({
     character,
@@ -44,6 +46,7 @@ export function StoryHall({
     const storyLine = storylines[character.storyVillage || character.village] || [];
     const current = getCurrentStory(character);
     const [lineIndex, setLineIndex] = useState(0);
+    const [replayIntro, setReplayIntro] = useState(false);
     // Gate the village story behind tutorial completion (matches the auto-trigger
     // gate in App.tsx). Story Hall is no longer part of the Academy tutorial.
     const storyTutorialLocked = normalizeOnboardingStep(character.onboardingStep) !== "done";
@@ -75,10 +78,17 @@ export function StoryHall({
             character.level >= event.levelReq
         )
         .sort((a, b) => a.levelReq - b.levelReq || a.name.localeCompare(b.name));
-    const creatorVnShelf = creatorVisualNovels.length > 0 ? (
+    const creatorVnShelf = (
         <div className="summary-box">
-            <h3>Available Visual Novels</h3>
+            <h3>Visual Novels</h3>
             <div className="location-grid">
+                {/* The intro cinematic, replayable forever — pure viewing: no
+                    pet grant, no onboarding change (IntroCinematic replay mode). */}
+                <button className="location-button" onClick={() => setReplayIntro(true)}>
+                    <span className="tile-icon">🦊</span>
+                    <span>The Awakening</span>
+                    <small>Replay the intro cinematic</small>
+                </button>
                 {creatorVisualNovels.map((event) => (
                     <button key={event.id} className="location-button" onClick={() => onStartVisualNovel(event)}>
                         <span className="tile-icon">{event.icon || "?"}</span>
@@ -87,8 +97,13 @@ export function StoryHall({
                     </button>
                 ))}
             </div>
+            {replayIntro && (
+                <Suspense fallback={null}>
+                    <IntroCinematic replay character={character} sharedImages={sharedImages} onClose={() => setReplayIntro(false)} />
+                </Suspense>
+            )}
         </div>
-    ) : null;
+    );
     if (!current) return <div className="card cinematic-card"><BackToVillageButton onClick={() => setScreen("village")} /><div className="visual-novel"><div className="vn-stage vn-complete"><div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div><div className="vn-dialogue"><div className="vn-speaker">Narrator</div><p>Your village story is complete. The roads beyond level 100 whisper about clan invasions, forbidden bloodlines, and a war waiting under Central.</p></div></div><StoryJourney character={character} />{creatorVnShelf}</div></div>;
     const locked = character.level < current.levelReq;
     const activeLine = current.dialogue[lineIndex] ?? current.dialogue[0] ?? "The night waits for your answer.";
