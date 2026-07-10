@@ -72,6 +72,10 @@ export type TowerMap = {
      *  The engine resolves them each round by pure occupancy; the client draws them. Absent →
      *  no objects, byte-identical. */
     boardObjects?: TowerBoardObject[];
+    /** Dynamic hazards (geyser vents) with their tiles resolved by the encounter builder. The
+     *  engine erupts them on a round-cadence (chip + telegraph); the client draws the vents.
+     *  Absent → none, byte-identical. */
+    dynamicHazards?: Array<{ kind: string; tiles: number[]; pct: number; everyRounds: number; firstRound?: number }>;
 };
 
 export type TowerObjectiveState = {
@@ -151,7 +155,7 @@ export type TowerSession = {
      *  `round` (snapshot when primed at startRound so telegraph == detonation even if the boss
      *  moves), the % maxHp chip, and its kind/label. Cleared when it detonates. Absent → no
      *  strike this round; floors whose boss carries no strike config never set it (byte-identical). */
-    bossStrike?: { tiles: number[]; round: number; pct: number; kind: string; label: string };
+    bossStrike?: { tiles: number[]; round: number; pct: number; kind: string; label: string; center?: number };
 };
 
 // ─── accessors / invariants ──────────────────────────────────────────────────
