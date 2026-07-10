@@ -52,3 +52,33 @@ test("dungeon final floor: Warden boss reachable, no descent", () => {
         assert.ok(reach.has(bossIdx), `final floor iter ${i}: boss reachable from spawn`);
     }
 });
+
+test("event variants: shorter gates, compact boards, variant stamped through", () => {
+    // A 2-floor compact event gate: floor 1 descends, floor 2 is the boss.
+    const variant = { id: "event-test", label: "Test Gate", maxFloor: 2, width: 17, height: 13, bossAiId: "boss-x", bossName: "Test Oni" };
+    for (let i = 0; i < 60; i += 1) {
+        const f1 = generateHollowGateShrineRun(1, variant);
+        assert.equal(f1.width, 17, "variant width honored");
+        assert.equal(f1.height, 13, "variant height honored");
+        assert.deepEqual(f1.variant, variant, "variant stamped on the run (survives save/resume)");
+        assert.ok(f1.tiles.some((t) => t.kind === "descend"), "floor 1 of 2 descends");
+        assert.equal(f1.tiles.findIndex((t) => t.kind === "boss"), -1, "no boss before the final floor");
+
+        const f2 = generateHollowGateShrineRun(2, variant);
+        const spawn = f2.playerY * f2.width + f2.playerX;
+        const bossIdx = f2.tiles.findIndex((t) => t.kind === "boss");
+        assert.ok(bossIdx >= 0, "variant final floor has the boss");
+        assert.equal(f2.tiles.findIndex((t) => t.kind === "descend"), -1, "variant final floor has no descent");
+        assert.ok(hollowGateReachableSet(f2.width, f2.height, spawn, wallSet(f2.tiles)).has(bossIdx), "boss reachable");
+    }
+    // A 1-floor gauntlet is the final floor immediately.
+    for (let i = 0; i < 30; i += 1) {
+        const solo = generateHollowGateShrineRun(1, { id: "event-solo", maxFloor: 1 });
+        assert.ok(solo.tiles.some((t) => t.kind === "boss"), "1-floor gauntlet spawns its boss on floor 1");
+        assert.equal(solo.tiles.findIndex((t) => t.kind === "descend"), -1);
+        assert.equal(solo.width, 25, "omitted dims → standard board");
+    }
+    // No variant → identical default behavior (regression guard).
+    const std = generateHollowGateShrineRun(1);
+    assert.equal(std.variant, undefined, "standard runs carry no variant field");
+});

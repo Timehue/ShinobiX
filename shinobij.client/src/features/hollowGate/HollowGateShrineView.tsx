@@ -20,10 +20,10 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";
 import { HollowGateShardBar } from "../../components/HollowGateShardBar";
-import { HOLLOW_GATE_MAX_FLOOR } from "../../constants/game";
 import { HOLLOW_GATE_ICON_KEY, HOLLOW_GATE_ICON_ROLES } from "../../data/hollow-gate-atlas";
 import { hollowGateIntroPages, hollowGateTileIconForKind } from "../../data/hollow-gate-flavor";
 import { computeHollowGateVisible } from "../../lib/hollow-gate-dungeon";
+import { hollowGateBossDisplayName, hollowGateRunMaxFloor } from "../../lib/hollow-gate-variant";
 import { hollowGateClawBackPreview } from "../../lib/hollow-gate-run";
 import { WING_GLYPH, WING_TINT, wingThemeAt } from "../../lib/hollow-gate-wings";
 import { isPetOnExpedition } from "../../lib/pet";
@@ -155,8 +155,11 @@ export function HollowGateShrineView({
                             })()}
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
                                 <div>
-                                    <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>⛩ HOLLOW GATE SHRINE</p>
-                                    <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {HOLLOW_GATE_MAX_FLOOR} · {run.completed ? "Warden Defeated" : "Shadow Miasma"}</h2>
+                                    <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>
+                                        ⛩ {run.variant?.label ? run.variant.label.toUpperCase() : "HOLLOW GATE SHRINE"}
+                                        {run.variant && <span style={{ marginLeft: 8, fontSize: 10, color: "#fbbf24", border: "1px solid #b45309", borderRadius: 999, padding: "1px 8px", letterSpacing: 1 }}>EVENT</span>}
+                                    </p>
+                                    <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {hollowGateRunMaxFloor(run)} · {run.completed ? `${hollowGateBossDisplayName(run)} Defeated` : "Shadow Miasma"}</h2>
                                 </div>
                                 <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                                     <div style={{ minWidth: 200 }}>
@@ -541,12 +544,13 @@ export function HollowGateShrineView({
                                     })()}
                                     {/* Objectives panel — updates as the run progresses. */}
                                     {(() => {
-                                        const reachedFloor5 = run.floor >= HOLLOW_GATE_MAX_FLOOR;
+                                        const maxFloor = hollowGateRunMaxFloor(run);
+                                        const reachedFinalFloor = run.floor >= maxFloor;
                                         const wardenDefeated = Boolean(run.completed) || run.tiles.some(t => t.kind === "boss" && t.resolved);
                                         const hiddenChamberFound = run.tiles.some(t => t.kind === "shrine" && t.resolved);
                                         const objectives = [
-                                            { label: `Reach Floor ${HOLLOW_GATE_MAX_FLOOR}`, done: reachedFloor5 },
-                                            { label: "Defeat the Hollow Gate Warden", done: wardenDefeated },
+                                            ...(maxFloor > 1 ? [{ label: `Reach Floor ${maxFloor}`, done: reachedFinalFloor }] : []),
+                                            { label: `Defeat ${hollowGateBossDisplayName(run)}`, done: wardenDefeated },
                                             { label: "Find a Hidden Chamber (optional)", done: hiddenChamberFound },
                                         ];
                                         return (
