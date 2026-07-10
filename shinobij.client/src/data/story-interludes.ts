@@ -1466,7 +1466,8 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "Welcome to the stupidest venture in canal history. I rented the old booth for a season, I plugged its drain with a smith's own hands and a lot of lead, and tonight we open for business.",
                 "The product: RETURNS. People's own files, handed BACK, face to face, witnessed, by consent, free. Not like the burn. The burn threw everyone's skin at their doorsteps in one panicked night, anonymous, in the dark, and half the canal calls it proof that truth coming home means fire. An abandonment isn't a return, friend. Nobody has ever done the WITNESSED kind. Not once.",
                 "Then a witness on the east canal showed me three hundred names that exist twice and nobody's died of the duplication, and a certain discrepancy taught me the word free, and I did the worst thing a dealer can do: I started CHECKING the oldest law. It was always just... good for business.",
-                "So tonight we test it, in the open, in my market. If it works, this village learns trust doesn't need a warehouse. If it doesn't, well. You've seen what's left of my reputation; the blast radius is manageable."),
+                "So tonight we test it, in the open, in my market. If it works, this village learns trust doesn't need a warehouse. If it doesn't, well. You've seen what's left of my reputation; the blast radius is manageable.",
+                "Oh, and the one fixture the smith couldn't shift: that palm-sized plate of old black glass set over the drain. Dark since the day I signed the lease. Decorative, probably. Half of what this village bolts down pretends to be decorative."),
             { ...pg("The First Return", "The booth at moonrise, one subject summoned, one file on the table, the market pretending not to watch", "Narrator",
                 "The first subject is a dye-hand from the east canal: his gambling confessions, drained years ago, copied and sold twice since. The burn sent the tower's original home, but the trade copies stayed loose in the world, and it's those Nyx recovered at honest rates for tonight.",
                 "He comes. He sees his own file on the table, his name on the spine, three witnesses standing calm around it, and Nyx's hand-lettered sign: THIS BELONGS TO YOU. TAKE IT. NO CHARGE.",
@@ -1489,7 +1490,9 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "It takes the better part of a bell. No one rushes him. The witnesses witness; the lead-plugged drain drinks nothing; Nyx re-prices the room in a murmur: 'Free costs more than gold, apparently. Fetch the man some tea.'",
                 "And then, with the whole market watching sideways, the dye-hand opens his own file, reads three pages of his worst winter, and starts, unstoppably, to laugh. Then the other thing. Then both at once.",
                 "'It's SMALLER than I remembered,' he keeps saying, gripping the folder like a rail. 'Years I paid to keep this held, and it's... it's just a bad winter. It's just a man having a bad winter.'",
-                "He signs the return receipt with a steady hand. Witnessed. Consented. Home. The oldest law on the canal dies without a sound, the way false things die when someone finally checks."),
+                "He signs the return receipt with a steady hand. Witnessed. Consented. Home. The oldest law on the canal dies without a sound, the way false things die when someone finally checks.",
+                "And above the plugged drain, the old black-glass plate clears for the first time. The light in it is not the Hollow Moon's red and not moonlight; it is simply clear. A voice speaks out of it, from somewhere too shallow to be the Hollow Moon and too old to belong to the booth. OWNER VERIFIED. RETURN WITNESSED. NO TRANSFER. NO CLAIM RETAINED. Then the glass goes dark again.",
+                "Nyx looks at the plate for a long few seconds. 'That was not the Hollow Moon,' she says at last, touching its edge and not prying at it. 'The Hollow Moon never says no claim. I think the Mirror just remembered an older rule.'"),
                 choices: [
                     { text: "The queue forms on its own.", nextPage: 4, trait: "ms88-return-proven" }
                 ] },
@@ -1553,6 +1556,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 "There you are. I'm doing the year-end books early, on account of the world possibly ending. Professional habit; you'd be amazed what apocalypses do to outstanding balances.",
                 "So here's the miracle, and I've checked it four times. Your account and mine. Every favor, every fee, every free thing either of us pretended had no price. It BALANCES, friend. To the copper. Nobody owes anybody anything.",
                 "I've kept books since I was nine, and I have never once closed a personal ledger at zero. Zero is impossible. Zero means every trade was fair and every gift was seen. People don't DO that.",
+                "Also in the books: the black plate over the drain spoke again on the fifth return. Same four lines. Owner. Witness. No transfer. No claim. Whatever the Mirror used to be, friend, it understood giving something back.",
                 "So naturally I'm keeping the page. Framed. As evidence that it happened once, whatever the glass decides tomorrow. Now go talk to the vulture at lantern four; he's been rehearsing."),
                 choices: [
                     { text: "\"Tomorrow your name comes home. Carried by you, said by you.\"", nextPage: 2, requireTrait: "ms88-nyx-proof-deferred" },

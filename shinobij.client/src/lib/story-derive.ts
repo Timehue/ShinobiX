@@ -154,6 +154,13 @@ const RULES: DeriveRule[] = [
     // never a player who returned the file to Nyx. Mutually exclusive with the
     // better-truth chain by construction (that needs a nyx-proof state).
     { grant: "ms88-player-still-holds-nyx-file", when: (has) => has("ms65-saved-the-file") && !has("ms88-nyx-proof-carried") && !has("ms88-nyx-proof-deferred") },
+    // Moonshadow: the First Reflection — the Mirror's original witness-and-release
+    // protocol. It stirs the moment the first witnessed return succeeds, and fully
+    // wakes in the chamber when the complete ownership-respecting proof arrives
+    // (either the Nyx-named or player-carried route). Dialogue-callback traits for
+    // future cross-village content; nothing gates endings on them.
+    { grant: "ms88-first-reflection-stirred", when: (has) => has("ms88-return-proven") },
+    { grant: "ms100-first-reflection-awake", when: (has) => has("ms88-better-truth-ready") },
 ];
 
 /**
@@ -197,6 +204,7 @@ export const DERIVED_TRAIT_LEVELS: Record<string, number> = Object.fromEntries([
     ["ms80-named-hollow-gate", 80],
     ...["ms88-return-proven", "ms88-better-truth-ready", "ms88-better-truth-carried",
         "ms88-better-truth-deferred", "ms88-nyx-proof-any", "ms88-unfinished-answer",
-        "ms88-player-still-holds-nyx-file"].map((t) => [t, 88]),
+        "ms88-player-still-holds-nyx-file", "ms88-first-reflection-stirred"].map((t) => [t, 88]),
     ["ms92-witness-present", 92],
+    ["ms100-first-reflection-awake", 100],
 ]);
