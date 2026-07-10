@@ -100,6 +100,43 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         const plainAction = (0, _engine_js_1.pickAiAction)(sPlain, (0, _tower_session_js_1.getActor)(sPlain, 'boss'), (0, _sim_js_1.makeRng)(1));
         node_assert_1.strict.equal(plainAction.targetId, 'sq-a', 'nearest policy is unchanged when no mode is set');
     });
+    (0, node_test_1.it)('AI seeks a contested shrine it can reach instead of only chasing the far target', () => {
+        const shrineTile = 24; // (0,3), left; the combat target sits far right
+        const mkMap = (withObjects) => ({
+            width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [],
+            ...(withObjects ? { boardObjects: [{ kind: 'shrine', percent: 10, tiles: [shrineTile], label: 'Shrine' }] } : {}),
+        });
+        const build = (withObjects) => {
+            const s = makeSession([
+                makeActor('en-1', 'enemy', 27, { character: { specialty: 'Taijutsu', stats: {} } }), // no jutsu → move branch
+                makeActor('sq-1', 'squad', 31, { character: STRONG }), // far right
+            ], { map: mkMap(withObjects) });
+            s.activeAp = 100;
+            s.actionsThisTurn = 0;
+            return s;
+        };
+        const seek = build(true);
+        const a = (0, _engine_js_1.pickAiAction)(seek, (0, _tower_session_js_1.getActor)(seek, 'en-1'), (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.equal(a.type, 'move');
+        node_assert_1.strict.ok((0, _aoe_js_1.hexDistance)(a.tile, shrineTile, 8) < (0, _aoe_js_1.hexDistance)(27, shrineTile, 8), 'moves TOWARD the shrine');
+        // Control: with no board objects the enemy heads for the target (far right) — old policy.
+        const plain = build(false);
+        const b = (0, _engine_js_1.pickAiAction)(plain, (0, _tower_session_js_1.getActor)(plain, 'en-1'), (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.equal(b.type, 'move');
+        node_assert_1.strict.ok((0, _aoe_js_1.hexDistance)(b.tile, 31, 8) < (0, _aoe_js_1.hexDistance)(27, 31, 8), 'without objects, approaches the target');
+    });
+    (0, node_test_1.it)('AI standing in a hazard flees to a safe (non-hazard) tile', () => {
+        const hazard = [27, 26, 28]; // the actor is on 27; two neighbours are also lethal
+        const s = makeSession([
+            makeActor('en-1', 'enemy', 27, { character: { specialty: 'Taijutsu', stats: {} } }),
+            makeActor('sq-1', 'squad', 31, { character: STRONG }),
+        ], { map: { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [], features: [{ kind: 'hazard', tiles: hazard, percent: 12, label: 'Fire' }] } });
+        s.activeAp = 100;
+        s.actionsThisTurn = 0;
+        const a = (0, _engine_js_1.pickAiAction)(s, (0, _tower_session_js_1.getActor)(s, 'en-1'), (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.equal(a.type, 'move');
+        node_assert_1.strict.ok(!hazard.includes(a.tile), 'flees onto a safe tile off the hazard');
+    });
     (0, node_test_1.it)('BFS pathing routes AI around a wall that would stall the greedy step', () => {
         // 8x8 board with a vertical wall on column 4 (rows 0-6), gap only at row 7 (pos 60).
         // A greedy one-step would jam at the wall (no distance-reducing free neighbour) and the
