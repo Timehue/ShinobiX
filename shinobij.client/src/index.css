@@ -26517,6 +26517,16 @@ textarea:focus-visible,
         linear-gradient(0deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 26%);
     pointer-events: none;
 }
+/* Painted-masonry faces (shrine:tile-wall-face art assigned): the texture
+   carries the brick courses itself, so the CSS pass thins down to just the
+   top cap + base shading — no painted-over course lines. */
+.hg-wall-face.hg-tex::before {
+    background:
+        linear-gradient(180deg, #1a1128 0%, #1a1128 30%, rgba(26, 17, 40, 0) 31%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(233, 213, 255, 0.10) 31%, rgba(233, 213, 255, 0) 42%),
+        linear-gradient(0deg, rgba(0, 0, 0, 0.32) 0%, rgba(0, 0, 0, 0) 24%);
+}
+
 .hg-wall-face::after {
     /* floor-contact highlight — the lit seam where face meets ground */
     content: "";
