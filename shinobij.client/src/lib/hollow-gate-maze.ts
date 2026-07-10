@@ -18,8 +18,8 @@ import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H } from "../constants/game";
 import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain } from "../types/character";
 
-export function generateHollowGateMazeRun(floor: number, isFinalFloor: boolean): HollowGateShrineRun {
-    const w = HOLLOW_GATE_SHRINE_W, h = HOLLOW_GATE_SHRINE_H, total = w * h;
+export function generateHollowGateMazeRun(floor: number, isFinalFloor: boolean, dims?: { width: number; height: number }): HollowGateShrineRun {
+    const w = dims?.width ?? HOLLOW_GATE_SHRINE_W, h = dims?.height ?? HOLLOW_GATE_SHRINE_H, total = w * h;
     const terrain: HollowGateTerrain[] = new Array(total).fill("wall");
     const roomIds: number[] = new Array(total).fill(-1);
     const at = (x: number, y: number) => y * w + x;

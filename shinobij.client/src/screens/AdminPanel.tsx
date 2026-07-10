@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { AdminRole, Biome, JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank, Screen } from "../types/core";
-import type { Character, PlayerRecord, RewardCurrencyKey, ServerPlayerSummary } from "../types/character";
+import type { Character, HollowGateEventConfig, PlayerRecord, RewardCurrencyKey, ServerPlayerSummary } from "../types/character";
 import type { ArmorQuality, EquipmentSlot, GameItem, Jutsu, ReviewBloodline, SavedBloodline, Stats } from "../types/combat";
 import type { AiAction, AiCondition, AiLoadoutId, AiRule, CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
@@ -128,6 +128,8 @@ export function AdminPanel({
     onHollowGateClearRun,
     onHollowGateGrantKey,
     hollowGateVillageUnlocked,
+    hollowGateEventConfig,
+    setHollowGateEventConfig,
     playerRoster,
     allServerPlayers,
     adminPw,
@@ -167,12 +169,16 @@ export function AdminPanel({
     onSave: () => Promise<void>;
     onReloadImages?: () => void;
     onEditBloodline?: (bloodline: SavedBloodline) => void;
-    onTestHollowGate?: () => void;
+    onTestHollowGate?: (eventCfg?: HollowGateEventConfig) => void;
     onHollowGateForceUnlock?: (unlock: boolean) => void;
     onHollowGateResetIntro?: () => void;
     onHollowGateClearRun?: () => void;
     onHollowGateGrantKey?: () => void;
     hollowGateVillageUnlocked?: boolean;
+    // Shared event-gate config (distributed to every client via the admin-save
+    // content channel). The panel edits it; Publish pushes the admin save.
+    hollowGateEventConfig?: HollowGateEventConfig | null;
+    setHollowGateEventConfig?: (cfg: HollowGateEventConfig | null) => void;
     playerRoster: PlayerRecord[];
     allServerPlayers: ServerPlayerSummary[];
     adminPw: string;
@@ -5287,7 +5293,7 @@ export function AdminPanel({
                             </button>
                             {onTestHollowGate && (
                                 <button
-                                    onClick={onTestHollowGate}
+                                    onClick={() => onTestHollowGate()}
                                     style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)", borderColor: "#c4b5fd", color: "#faf5ff" }}
                                     title="Drops you directly into the Hollow Gate Shrine. Skips the village-unlock check and does not consume a Hollow Gate Key. Admin / test only."
                                 >
@@ -5301,6 +5307,101 @@ export function AdminPanel({
                             bypasses both the village-unlock requirement and the Hollow Gate Key. Useful for
                             verifying tile generation, the boss fight, and image hookup without burning real keys.
                         </p>
+                        {/* ── Event Gate — the scaled-down variant for live events ── */}
+                        {setHollowGateEventConfig && (() => {
+                            const cfg: HollowGateEventConfig = hollowGateEventConfig ?? {
+                                id: "event-gate", label: "Event Gate", maxFloor: 3, keyCost: 1, requiresUnlock: false, active: false,
+                            };
+                            const patch = (p: Partial<HollowGateEventConfig>) =>
+                                setHollowGateEventConfig({ ...cfg, ...p, id: ((p.id ?? cfg.id) || "event-gate"), updatedAt: Date.now() });
+                            const boardValue = cfg.width && cfg.height ? `${cfg.width}x${cfg.height}` : "standard";
+                            const labelStyle = { display: "flex", flexDirection: "column" as const, gap: 4, fontSize: 12, color: "#c4b5fd" };
+                            const checkStyle = { display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#e9d5ff" };
+                            return (
+                                <section className="summary-box" style={{ border: "1px solid #b45309", background: "rgba(69,26,3,0.25)" }}>
+                                    <h4 style={{ marginTop: 0 }}>⭐ Event Gate — scaled-down variant</h4>
+                                    <p className="hint" style={{ marginTop: -6 }}>
+                                        A shorter Hollow Gate for live events: 1-5 floors, optional compact board, and its own
+                                        final boss (any AI). While <strong>Active</strong>, every player&apos;s World Map Hollow Gate
+                                        menu offers the event entry alongside the normal shrine. Runs share the daily cap; loot,
+                                        torch, threat and death rules are unchanged.
+                                    </p>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10, marginBottom: 10 }}>
+                                        <label style={labelStyle}>Event name
+                                            <input value={cfg.label ?? ""} placeholder="Festival Gate" maxLength={48}
+                                                onChange={(e) => patch({ label: e.target.value })} />
+                                        </label>
+                                        <label style={labelStyle}>Floors (boss on the last)
+                                            <select value={cfg.maxFloor ?? 3} onChange={(e) => patch({ maxFloor: Number(e.target.value) })}>
+                                                {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} floor{n === 1 ? "" : "s"}</option>)}
+                                            </select>
+                                        </label>
+                                        <label style={labelStyle}>Board size
+                                            <select value={boardValue} onChange={(e) => {
+                                                const v = e.target.value;
+                                                if (v === "standard") patch({ width: undefined, height: undefined });
+                                                else { const [w, h] = v.split("x").map(Number); patch({ width: w, height: h }); }
+                                            }}>
+                                                <option value="standard">Standard (25×17)</option>
+                                                <option value="19x13">Compact (19×13)</option>
+                                                <option value="15x11">Small (15×11)</option>
+                                            </select>
+                                        </label>
+                                        <label style={labelStyle}>Final boss
+                                            <select value={cfg.bossAiId ?? ""} onChange={(e) => {
+                                                const ai = allAdminAis.find(a => a.id === e.target.value);
+                                                patch({ bossAiId: e.target.value || undefined, bossName: cfg.bossName || ai?.name });
+                                            }}>
+                                                <option value="">Hollow Gate Warden (default)</option>
+                                                {allAdminAis.map(ai => <option key={ai.id} value={ai.id}>{ai.name} (Lv {ai.level ?? "?"}{ai.isBossAi ? " · boss" : ""})</option>)}
+                                            </select>
+                                        </label>
+                                        <label style={labelStyle}>Boss display name
+                                            <input value={cfg.bossName ?? ""} placeholder="Hollow Gate Warden" maxLength={64}
+                                                onChange={(e) => patch({ bossName: e.target.value })} />
+                                        </label>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 10 }}>
+                                        <label style={checkStyle}>
+                                            <input type="checkbox" checked={(cfg.keyCost ?? 1) === 0}
+                                                onChange={(e) => patch({ keyCost: e.target.checked ? 0 : 1 })} />
+                                            Free entry (no Hollow Gate Key)
+                                        </label>
+                                        <label style={checkStyle}>
+                                            <input type="checkbox" checked={!cfg.requiresUnlock}
+                                                onChange={(e) => patch({ requiresUnlock: !e.target.checked })} />
+                                            Skip village Kage unlock
+                                        </label>
+                                        <label style={{ ...checkStyle, fontWeight: 700, color: cfg.active ? "#86efac" : "#fda4af" }}>
+                                            <input type="checkbox" checked={Boolean(cfg.active)}
+                                                onChange={(e) => patch({ active: e.target.checked })} />
+                                            ACTIVE — players can see and enter it
+                                        </label>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                        <button
+                                            onClick={async () => {
+                                                setHollowGateAssetStatus("Publishing event gate…");
+                                                try { await onSaveRef.current(); setHollowGateAssetStatus(`Event gate published${cfg.active ? " (ACTIVE)" : " (inactive)"}.`); }
+                                                catch { setHollowGateAssetStatus("Publish failed — try again."); }
+                                            }}
+                                            style={{ background: "linear-gradient(135deg,#b45309,#f59e0b)", borderColor: "#fde68a", color: "#451a03", fontWeight: 700 }}
+                                        >
+                                            📢 Publish to all players
+                                        </button>
+                                        {onTestHollowGate && (
+                                            <button
+                                                onClick={() => onTestHollowGate(cfg)}
+                                                title="Enter a test run of the event gate (admin-only; no key, no unlock). Clear your current run first if one is open."
+                                                style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", borderColor: "#c4b5fd", color: "#faf5ff" }}
+                                            >
+                                                ⛩ Test event run
+                                            </button>
+                                        )}
+                                    </div>
+                                </section>
+                            );
+                        })()}
                         <div style={{ display: "grid", gap: 12 }}>
                             {(["Item", "Boss AI", "Location", "Tile / Scene"] as const).map(category => {
                                 const inCategory = hollowGateAssets.filter(a => a.category === category);

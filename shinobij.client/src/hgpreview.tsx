@@ -15,7 +15,7 @@ import { HollowGateShrineView } from "./features/hollowGate/HollowGateShrineView
 import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
 import { generateHollowGateShrineRun } from "./lib/hollow-gate-dungeon";
 import { markHollowGateSeen } from "./lib/hollow-gate-path";
-import type { Character, HollowGateShrineRun } from "./types/character";
+import type { Character, HollowGateShrineRun, HollowGateVariant } from "./types/character";
 
 const stubCharacter = {
     name: "Kalam",
@@ -103,21 +103,26 @@ function Harness() {
     });
 
     // Regenerate floors from the toolbar to eyeball generator variety.
-    function regen(floor: number) {
+    function regen(floor: number, variant?: HollowGateVariant) {
         setFloorNum(floor);
-        setRun(generateHollowGateShrineRun(floor));
-        pushLog(`Generated floor ${floor}.`);
+        setRun(generateHollowGateShrineRun(floor, variant));
+        pushLog(variant ? `Generated ${variant.label ?? variant.id} floor ${floor}.` : `Generated floor ${floor}.`);
     }
+    // Event-variant previews: a 1-floor boss gauntlet and a 3-floor compact gate.
+    const EVENT_SOLO: HollowGateVariant = { id: "preview-solo", label: "Oni Gauntlet", maxFloor: 1, width: 19, height: 13, bossName: "Festival Oni" };
+    const EVENT_TRIO: HollowGateVariant = { id: "preview-trio", label: "Festival Gate", maxFloor: 3, width: 19, height: 13, bossName: "Festival Oni" };
 
     return (
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: 12 }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center", color: "#e9d5ff" }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center", color: "#e9d5ff", flexWrap: "wrap" }}>
                 <strong>HG preview:</strong>
                 {[1, 2, 3, 4, 5].map(f => (
                     <button key={f} onClick={() => regen(f)} style={{ fontWeight: f === floorNum ? 700 : 400 }}>
                         Floor {f}
                     </button>
                 ))}
+                <button onClick={() => regen(1, EVENT_SOLO)} style={{ borderColor: "#fbbf24" }}>⭐ Event 1F</button>
+                <button onClick={() => regen(3, EVENT_TRIO)} style={{ borderColor: "#fbbf24" }}>⭐ Event 3F</button>
                 <span style={{ fontSize: 12, color: "#a78bfa" }}>tap tiles to walk · WASD steps · no combat here</span>
             </div>
             <HollowGateShrineView

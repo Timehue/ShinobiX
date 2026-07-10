@@ -208,6 +208,7 @@ import {
     type HollowGateTileKind,
     type HollowGateTile,
     type HollowGateShrineRun,
+    type HollowGateEventConfig,
     type EndlessTowerRun,
     type Character,
     type PlayerRecord,
@@ -259,7 +260,6 @@ import {
     DUNGEON_LEGENDARY_FRAGMENT_ID,
     VEIL_OF_THE_HOLLOW_ID,
     HOLLOW_GATE_KEY_ID,
-    HOLLOW_GATE_MAX_FLOOR,
     WARFORGED_RELIC_ID,
     LEGENDARY_WAR_CRATE_ID,
     PROTECTED_ADMIN_USERNAME,
@@ -316,7 +316,6 @@ import {
 export { armorReductionForQuality, consolidateItemBonuses };
 
 import {
-    clampNumber,
     currentMonthKey,
     currentDateKey,
     makeId,
@@ -585,6 +584,8 @@ import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGate
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
 import { markHollowGateSeen } from "./lib/hollow-gate-path";
 import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
+import { pickShrineEncounter, scaleAffixStats } from "./features/hollowGate/encounter";
+import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig, normalizeHollowGateEventConfig } from "./lib/hollow-gate-variant";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
 import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
 export type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
@@ -2006,6 +2007,9 @@ export default function App() {
     const [hollowGateHiddenChamber, setHollowGateHiddenChamber] = useState<HiddenChamberState>(null);
     // Intro VN page index — null = not showing, 0..N = pages of the intro sequence.
     const [hollowGateIntroPage, setHollowGateIntroPage] = useState<number | null>(null);
+    // Shared event-gate config (admin-authored, distributed via the admin-save
+    // content channel like creator content; lib/hollow-gate-variant normalizes).
+    const [hollowGateEventConfig, setHollowGateEventConfig] = useState<HollowGateEventConfig | null>(null);
 
     // Hollow Gate Shrine movement — click-to-walk (sector-style pathing) plus
     // the WASD/arrow key handler, both owned by the walk hook. Every walked
@@ -3576,6 +3580,7 @@ export default function App() {
             petEncounterVn,
             ancientChestVn,
             editablePets,
+            hollowGateEventConfig,
             ...overrides,
         };
     }
@@ -3754,6 +3759,12 @@ export default function App() {
         if (snap.creatorItems) setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[]));
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
         if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn as CreatorEvent);
+        // Event-gate config: recency-merged like the other shared content so
+        // whichever admin edited it last wins across both admin slots.
+        if (snap.hollowGateEventConfig) {
+            const nextCfg = normalizeHollowGateEventConfig(snap.hollowGateEventConfig);
+            if (nextCfg) setHollowGateEventConfig(prev => (!prev || (nextCfg.updatedAt ?? 0) >= (prev.updatedAt ?? 0)) ? nextCfg : prev);
+        }
         // Publish admin-edited pet kits globally (normalizePet adopts authored templates).
         return snap.editablePets ? registerPublishedPetTemplates(snap.editablePets as Pet[]) : false;
     }
@@ -5992,8 +6003,12 @@ export default function App() {
         if (isPetOnExpedition(pet)) return false;
         return Boolean(pet.unlockedForPve);
     }
-    async function enterHollowGateShrine() {
+    async function enterHollowGateShrine(eventCfg?: HollowGateEventConfig) {
         if (!character) return;
+        // Event gates reshape the run (fewer floors / smaller board / bespoke
+        // boss) and may relax the entry gates; the standard shrine when absent.
+        const variant = eventCfg ? variantFromEventConfig(eventCfg) : undefined;
+        const gateName = eventCfg?.label || (eventCfg ? "Event Gate" : "Hollow Gate Shrine");
         // Restore an in-progress run, if any. Resuming a run is always free —
         // the key was already consumed when the run was started. The Character
         // normalizer resets daily counters at midnight UTC.
@@ -6012,20 +6027,23 @@ export default function App() {
 
         // Entry rules — BOTH conditions required to start a new run:
         //   (1) The Kage has purchased the Hollow Gate upgrade for this village.
-        //   (2) The player owns a Hollow Gate Key, which is consumed on entry.
+        //       (Event gates skip this unless the config demands it.)
+        //   (2) The player owns a Hollow Gate Key, consumed on entry (event
+        //       gates may set keyCost 0 = free entry).
         const village = loadVillageState(character.village);
-        if (!isHollowGateUnlocked(village)) {
+        if ((!eventCfg || eventCfg.requiresUnlock) && !isHollowGateUnlocked(village)) {
             alert("The Hollow Gate seal is still bound. Your village Kage must purchase the Hollow Gate upgrade from the Town Hall before anyone can enter.");
             return;
         }
+        const keyCost = eventCfg ? (eventCfg.keyCost ?? 1) : 1;
         const ownedKeys = countItem(character, HOLLOW_GATE_KEY_ID);
-        if (ownedKeys <= 0) {
-            alert("You need a Hollow Gate Key to enter the shrine. Forge one at the Crafter (5 Dungeon Keys or 10 Fate Shards), or complete your village story.");
+        if (keyCost > 0 && ownedKeys <= 0) {
+            alert("You need a Hollow Gate Key to enter the shrine. Forge one from Hollow Shards in Shrine Attunement (Key Forge), pry one from shrine chests, or complete your village story.");
             return;
         }
         // Daily run cap — hard-capped at 2 regardless of key inventory. The
         // shrine itself refuses to open more than twice between dawns.
-        // Counter is reset when lastDailyReset != today.
+        // Counter is reset when lastDailyReset != today. Event runs share it.
         const todayKey = currentDateKey();
         const runsToday = character.lastDailyReset === todayKey ? (character.dailyHollowGateRuns ?? 0) : 0;
         const DAILY_HOLLOW_GATE_CAP = 2 + attunementDailyBonus(character);
@@ -6033,7 +6051,9 @@ export default function App() {
             alert(`The Hollow Gate Shrine refuses to open again today. You've already entered ${runsToday}/${DAILY_HOLLOW_GATE_CAP} times. Return at dawn.`);
             return;
         }
-        const ok = await gameConfirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`, { title: "Hollow Gate", confirmLabel: "Enter" });
+        const floorsLine = eventCfg ? `\nEvent gate: ${hollowGateRunMaxFloor({ variant })} floor${hollowGateRunMaxFloor({ variant }) === 1 ? "" : "s"}, final boss: ${hollowGateBossDisplayName({ variant })}.` : "";
+        const keyLine = keyCost > 0 ? `This consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.` : "Entry is free for this event.";
+        const ok = await gameConfirm(`Enter the ${gateName}?\n${floorsLine}\n${keyLine}\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`, { title: gateName, confirmLabel: "Enter" });
         if (!ok) return;
 
         // Server daily-cap HARD-block (audit #7): with the server-auth flag on, ask the
@@ -6042,20 +6062,24 @@ export default function App() {
         // → token-less fallback (the dive opens client-authoritative, as today).
         let serverStart: Awaited<ReturnType<typeof startHollowGateServerRun>> = null;
         if (hollowGateServerEnabled()) {
-            serverStart = await startHollowGateServerRun(character.name, HOLLOW_GATE_MAX_FLOOR);
+            // The settle ceiling scales with floorDepth — a short event gate
+            // declares its OWN depth so its ceiling matches the shorter run.
+            serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }));
             if (serverStart?.reason === "daily-cap") {
                 alert("The Hollow Gate has already taken its measure of you today. Return at dawn.");
                 return;
             }
         }
 
-        // Consume exactly one Hollow Gate Key (drains the counted stack).
-        const afterKey = removeItem(character, HOLLOW_GATE_KEY_ID, 1);
+        // Consume exactly one Hollow Gate Key (free-entry events skip this).
+        const afterKey = keyCost > 0 ? removeItem(character, HOLLOW_GATE_KEY_ID, 1) : character;
 
-        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
+        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1, variant), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
         setHollowGateRun(run);
         setHollowGateLog([
-            "You press a Hollow Gate Key against the broken torii. The seal bends. You descend.",
+            keyCost > 0
+                ? "You press a Hollow Gate Key against the broken torii. The seal bends. You descend."
+                : `The ${gateName} stands open — the seal parts on its own. You descend.`,
         ]);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
@@ -6105,10 +6129,11 @@ export default function App() {
     // to playtest the shrine without burning a real key or waiting for a Kage.
     // Still uses the same generator / state setup as the normal entry, and
     // still records the run on the character so resume / persistence works.
-    function adminTestEnterHollowGateShrine() {
+    function adminTestEnterHollowGateShrine(eventCfg?: HollowGateEventConfig) {
         if (!character) return;
         // Resume an existing run if the admin has one — same behavior as
-        // the live entry. Otherwise start a fresh run with no gates.
+        // the live entry. Otherwise start a fresh run with no gates (with the
+        // event variant applied when the panel is playtesting an event gate).
         if (character.hollowGateRun && !character.hollowGateRun.completed) {
             setHollowGateRun(character.hollowGateRun);
             setHollowGateLog(prev => prev.length ? prev : ["(Admin test) Resuming the unfinished run."]);
@@ -6120,10 +6145,11 @@ export default function App() {
             resumeHollowGateServerRun({ playerName: character.name, run: character.hollowGateRun, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
             return;
         }
-        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
+        const variant = eventCfg ? variantFromEventConfig(eventCfg) : undefined;
+        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1, variant), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
         setHollowGateRun(run);
         setHollowGateLog([
-            "(Admin test) You step through the broken torii — no seal, no key. The Hollow Gate echoes greet you anyway.",
+            `(Admin test) You step through the broken torii — no seal, no key.${eventCfg ? ` Event gate: ${eventCfg.label || eventCfg.id}.` : ""} The Hollow Gate echoes greet you anyway.`,
         ]);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
@@ -6136,7 +6162,7 @@ export default function App() {
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
         // Same server run layer as the live entry (flag-gated; no-op when off).
-        void beginHollowGateServerRun({ playerName: character.name, floorDepth: HOLLOW_GATE_MAX_FLOOR, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+        void beginHollowGateServerRun({ playerName: character.name, floorDepth: hollowGateRunMaxFloor({ variant }), setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
     }
     // Weighted-random ambush — triggered when the threat meter hits the
     // ambush threshold (default 100). Picks one of three encounter types:
@@ -6148,11 +6174,11 @@ export default function App() {
     // ALWAYS fires something — the player never gets a free pass.
     function triggerHollowGateAmbush() {
         if (!character) return;
-        // F5 ambush → boss fight. Avoids the climax getting cheated by a
-        // random ambush firing before the Warden tile. The player still
-        // sees the boss fight + the F5 shrine-cleared modal on win.
-        if ((hollowGateRun?.floor ?? 1) >= HOLLOW_GATE_MAX_FLOOR) {
-            pushHollowGateLog("The corridor itself tears open — the Hollow Gate Warden steps through the seal!");
+        // Final-floor ambush → boss fight. Avoids the climax getting cheated by
+        // a random ambush firing before the boss tile. The player still sees
+        // the boss fight + the shrine-cleared modal on win.
+        if ((hollowGateRun?.floor ?? 1) >= hollowGateRunMaxFloor(hollowGateRun)) {
+            pushHollowGateLog(`The corridor itself tears open — ${hollowGateBossDisplayName(hollowGateRun)} steps through the seal!`);
             startHollowGateBattle({ isBoss: true });
             return;
         }
@@ -6219,88 +6245,23 @@ export default function App() {
     }
     function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean }) {
         if (!character) return;
-        // Elite-tile affixes: a tougher, flavored variant rolled for elite
-        // encounters. Build-time HP/stat modifiers only (no battle-engine
-        // changes) applied to the cloned shrine AI below, plus a nameplate tag.
-        const HOLLOW_GATE_AFFIXES = [
-            { name: "Colossal", hpMult: 1.4, statMult: 1.0 },
-            { name: "Brutish", hpMult: 1.25, statMult: 1.05 },
-            { name: "Savage", hpMult: 1.1, statMult: 1.12 },
-            { name: "Frenzied", hpMult: 0.9, statMult: 1.2 },
-        ] as const;
-        const eliteAffix = opts.isElite ? HOLLOW_GATE_AFFIXES[Math.floor(Math.random() * HOLLOW_GATE_AFFIXES.length)] : null;
-        const scaleAffixStats = (stats: CreatorAi["stats"], mult: number): CreatorAi["stats"] =>
-            mult === 1 ? stats : (Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, Math.max(1, Math.round(Number(v) * mult))])) as CreatorAi["stats"]);
-        const LEVEL_BAND = 15;
-        const playerLevel = character.level;
-        const inBand = (ai: CreatorAi) => Math.abs((ai.level ?? 1) - playerLevel) <= LEVEL_BAND;
-
-        const normalAis = playableAis.filter(ai => !ai.isBossAi);
-        const bossAis = playableAis.filter(ai => ai.isBossAi);
-
-        // Boss tile prefers the dedicated Hollow Gate Warden; falls back to any
-        // boss-type AI within ±15 levels; finally to closest boss overall.
-        // Ambush + normal battles pick a random non-boss AI within ±15 levels.
-        let chosen: CreatorAi | undefined;
-        if (opts.isBoss) {
-            const warden = bossAis.find(ai => ai.id === "boss-hollow-gate-warden");
-            const bossBand = bossAis.filter(inBand);
-            if (warden) {
-                // Use the warden but rebase its level to the player's level so the
-                // fight scales to the player. The encounter wrapper below clones the AI.
-                chosen = warden;
-            } else if (bossBand.length > 0) {
-                chosen = bossBand[Math.floor(Math.random() * bossBand.length)];
-            } else if (bossAis.length > 0) {
-                // Fall back to the boss closest in level.
-                chosen = [...bossAis].sort((a, b) =>
-                    Math.abs((a.level ?? 1) - playerLevel) - Math.abs((b.level ?? 1) - playerLevel)
-                )[0];
-            }
-        } else {
-            const normalBand = normalAis.filter(inBand);
-            if (normalBand.length > 0) {
-                chosen = normalBand[Math.floor(Math.random() * normalBand.length)];
-            } else if (normalAis.length > 0) {
-                chosen = [...normalAis].sort((a, b) =>
-                    Math.abs((a.level ?? 1) - playerLevel) - Math.abs((b.level ?? 1) - playerLevel)
-                )[0];
-            }
-        }
-
-        if (!chosen) {
+        // Opponent pick + scaling live in features/hollowGate/encounter (pure,
+        // variant-aware): the boss ramp runs over the gate's OWN floor count and
+        // an event variant may point the final fight at any authored AI.
+        const pick = pickShrineEncounter({
+            playableAis,
+            playerLevel: character.level,
+            floor: hollowGateRun?.floor ?? 1,
+            maxFloor: hollowGateRunMaxFloor(hollowGateRun),
+            bossDisplayName: hollowGateBossDisplayName(hollowGateRun),
+            variantBossAiId: hollowGateRun?.variant?.bossAiId,
+            opts,
+        });
+        if (!pick) {
             alert("The shrine refuses to reveal an opponent right now.");
             return;
         }
-        const baseAi = chosen;
-
-        // Wrap as a Hollow Gate themed encounter and rebase the AI's level
-        // to within the band of the player so the battle is fair.
-        const encounterName = opts.isBoss
-            ? "Hollow Gate Warden"
-            : opts.isAmbush
-                ? "Hollow Gate Ambush"
-                : opts.isBeast
-                    ? `Hollow Beast: ${baseAi.name}`
-                    : eliteAffix
-                        ? `${eliteAffix.name} ${baseAi.name}`
-                        : `Corrupted ${baseAi.name}`;
-        // Boss difficulty scales with the floor of the run:
-        //   Floor 1 -> playerLevel - 5
-        //   Floor 2 -> playerLevel
-        //   Floor 3 -> playerLevel + 5
-        //   Floor 4 -> playerLevel + 10
-        //   Floor 5 -> playerLevel + 15
-        // (Currently bosses only exist on Floor 5 in fresh runs, but a legacy
-        // save with a non-final-floor boss tile still scales correctly.)
-        const floor = hollowGateRun?.floor ?? 1;
-        const bossFloorOffset = opts.isBoss ? Math.min(LEVEL_BAND, -5 + (floor - 1) * 5) : 0;
-        const targetLevel = playerLevel + bossFloorOffset;
-        const rebasedLevel = opts.isBoss
-            ? clampNumber(targetLevel, 1, MAX_LEVEL)
-            : clampNumber(baseAi.level ?? playerLevel, Math.max(1, playerLevel - LEVEL_BAND), playerLevel + LEVEL_BAND);
-        // Bosses also scale HP by floor (1.0x .. 1.4x).
-        const bossHpMultiplier = opts.isBoss ? 1 + Math.max(0, floor - 1) * 0.1 : 1;
+        const { baseAi, encounterName, rebasedLevel, bossHpMultiplier, eliteAffix } = pick;
 
         // PET CO-COMBAT — multi-pronged simulation since Arena doesn't support
         // a co-combatant slot. When the player has a battle-ready pet, we:
@@ -6386,7 +6347,7 @@ export default function App() {
             keepers: t.filter(x => x.kind === "npc" && x.resolved).length,
         };
         return [
-            `Floor reached: ${stats.floors} / ${HOLLOW_GATE_MAX_FLOOR}`,
+            `Floor reached: ${stats.floors} / ${hollowGateRunMaxFloor(hollowGateRun)}`,
             `Chests opened: ${stats.chests}`,
             `Shinobi defeated: ${stats.battles}`,
             `Hollow Beasts felled: ${stats.beasts}`,
@@ -6710,9 +6671,9 @@ export default function App() {
                 // Staircase to the next floor. Carries torch + keys forward and
                 // gives a small torch refill. Resolved on use.
                 pushHollowGateLog(flavor);
-                if (hollowGateRun.floor >= HOLLOW_GATE_MAX_FLOOR) {
-                    // Defensive — shouldn't happen since Floor 5 never spawns a
-                    // descend tile, but if it somehow does, treat as exit.
+                if (hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) {
+                    // Defensive — shouldn't happen since the final floor never
+                    // spawns a descend tile, but if it somehow does, treat as exit.
                     setHollowGateEvent({
                         title: "Bottomless Staircase",
                         body: "The staircase coils into the dark, leading nowhere.\n\nThis is the deepest floor.",
@@ -6731,7 +6692,9 @@ export default function App() {
                             label: "Descend Deeper",
                             tone: "primary",
                             onSelect: () => {
-                                const next = applyAttunementToRun(generateHollowGateShrineRun(hollowGateRun.floor + 1), character, false);
+                                // The run's variant rides along so an event gate keeps its
+                                // shape (floors / board / boss) on every floor below.
+                                const next = applyAttunementToRun(generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant), character, false);
                                 setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4), entryCurrencies: hollowGateRun.entryCurrencies });
                                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
                                 setHollowGateEvent(null);
@@ -7104,22 +7067,23 @@ export default function App() {
         const isBoss = pendingArenaStoryBattle?.kind === "hollowGateShrine" && pendingArenaStoryBattle.isBoss;
         const isAmbush = pendingArenaStoryBattle?.kind === "hollowGateShrine" && pendingArenaStoryBattle.isAmbush;
         if (isBoss) {
-            // Boss only appears on Floor 5 now — defeating it clears the shrine.
-            // (Boss-defeat on earlier floors would only fire if a legacy run still
-            // had a boss tile on Floor 1-4; defensively we still handle it.)
+            // The boss holds the run's FINAL floor (standard 5, or the variant's
+            // own count) — defeating it clears the shrine. (Boss-defeat on
+            // earlier floors would only fire if a legacy run still had a boss
+            // tile mid-run; defensively we still handle it.)
             const tiles = hollowGateRun.tiles.map(t => t.kind === "boss" ? { ...t, resolved: true } : t);
-            const isFinalFloor = hollowGateRun.floor >= HOLLOW_GATE_MAX_FLOOR;
+            const isFinalFloor = hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun);
             // Surviving a fight resets threat (a fresh window) but NOT the Torch
             // — the Torch is the run clock, refilled only by chests/shrines/Keeper.
             const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0 };
             setHollowGateRun(nextRun);
-            pushHollowGateLog(`The Hollow Gate Warden falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
+            pushHollowGateLog(`${hollowGateBossDisplayName(hollowGateRun)} falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
             if (isFinalFloor) {
                 // Shrine-cleared bonus — extra fragment + honor seals + fate shard.
                 // No "Leave" choice — auto-returns to world map after rewards are claimed.
                 setHollowGateEvent({
-                    title: "Hollow Gate Shrine Cleared",
-                    body: `Floor ${hollowGateRun.floor} of ${HOLLOW_GATE_MAX_FLOOR} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
+                    title: hollowGateRun.variant?.label ? `${hollowGateRun.variant.label} Cleared` : "Hollow Gate Shrine Cleared",
+                    body: `Floor ${hollowGateRun.floor} of ${hollowGateRunMaxFloor(hollowGateRun)} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
                     kind: "boss",
                     choices: [
                         {
@@ -7147,7 +7111,7 @@ export default function App() {
                 });
             } else {
                 // Legacy / defensive: boss on a non-final floor auto-advances.
-                const nextGen = generateHollowGateShrineRun(hollowGateRun.floor + 1);
+                const nextGen = generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant);
                 const next = character ? applyAttunementToRun(nextGen, character, false) : nextGen;
                 setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4), entryCurrencies: hollowGateRun.entryCurrencies });
                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
@@ -7617,6 +7581,8 @@ export default function App() {
                             await pushSaveToServer(character, adminSaveName, undefined, { echoVersion: false });
                         }}
                         onTestHollowGate={adminTestEnterHollowGateShrine}
+                        hollowGateEventConfig={hollowGateEventConfig}
+                        setHollowGateEventConfig={setHollowGateEventConfig}
                         onHollowGateForceUnlock={adminHollowGateForceUnlock}
                         onHollowGateResetIntro={adminHollowGateResetIntro}
                         onHollowGateClearRun={adminHollowGateClearRun}
@@ -7850,7 +7816,9 @@ export default function App() {
                             startTriggeredEventArenaBattle(event, battle, "worldMap");
                         }}
                         onDungeonFound={() => triggerDungeonEncounter("worldMap")}
-                        onEnterHollowGate={enterHollowGateShrine}
+                        onEnterHollowGate={() => { void enterHollowGateShrine(); }}
+                        hollowGateEventConfig={hollowGateEventConfig}
+                        onEnterHollowGateEvent={(cfg) => { void enterHollowGateShrine(cfg); }}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}

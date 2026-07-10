@@ -14,12 +14,13 @@
 import { hollowGateReachableSet, bspSplit, bspRoomInNode, bspRoomCenter, bspCarveCorridor, type BSPRect } from "./hollow-gate-bsp";
 import { generateHollowGateMazeRun } from "./hollow-gate-maze";
 import { generateHollowGateFloor } from "./hollow-gate-generate";
+import { hollowGateRunMaxFloor, hollowGateVariantDims } from "./hollow-gate-variant";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H, HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { petTreatItems, petRarityOrder } from "../data/pet-config";
 import { starterItems } from "../data/starter-items";
 import { cloneEncounterPet } from "./pet-balance";
-import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain } from "../types/character";
+import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain, HollowGateVariant } from "../types/character";
 import type { Pet, PetRarity } from "../types/pet";
 
 // ── Hand-designed ASCII layouts ─────────────────────────────────────────
@@ -400,8 +401,13 @@ export function buildRunFromParsedLayout(
     };
 }
 
-export function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
-    const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
+export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVariant): HollowGateShrineRun {
+    // The run's own shape wins: an event variant can shorten the gate (its
+    // final floor holds the boss) and shrink the board. No variant = the
+    // standard shrine, byte-identical to before variants existed.
+    const isFinalFloor = floor >= hollowGateRunMaxFloor({ variant });
+    const dims = hollowGateVariantDims(variant);
+    const stamp = (run: HollowGateShrineRun): HollowGateShrineRun => (variant ? { ...run, variant } : run);
 
     // ONE coherent generator (lib/hollow-gate-generate) — rooms + MST corridors +
     // guaranteed connectivity + room-ROLE content (guarded stairs, locked treasury,
@@ -414,17 +420,17 @@ export function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
     // raw procedural styles (recursive-maze, x-sorted BSP) remain defensive
     // fallbacks only.
     try {
-        return generateHollowGateFloor(floor, isFinalFloor);
+        return stamp(generateHollowGateFloor(floor, isFinalFloor, dims));
     } catch {
-        try { return generateHollowGateMazeRun(floor, isFinalFloor); } catch { return generateHollowGateShrineRunBSP(floor); }
+        try { return stamp(generateHollowGateMazeRun(floor, isFinalFloor, dims)); } catch { return stamp(generateHollowGateShrineRunBSP(floor, isFinalFloor, dims)); }
     }
 }
 
-function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
-    const w = HOLLOW_GATE_SHRINE_W;
-    const h = HOLLOW_GATE_SHRINE_H;
+function generateHollowGateShrineRunBSP(floor = 1, isFinal?: boolean, dims?: { width: number; height: number }): HollowGateShrineRun {
+    const w = dims?.width ?? HOLLOW_GATE_SHRINE_W;
+    const h = dims?.height ?? HOLLOW_GATE_SHRINE_H;
     const total = w * h;
-    const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
+    const isFinalFloor = isFinal ?? (floor >= HOLLOW_GATE_MAX_FLOOR);
 
     // ── 1. BSP partition the grid into 5-7 rooms ──────────────────────────
     const rootNode: BSPRect = { x: 0, y: 0, w, h };
