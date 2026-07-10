@@ -1,0 +1,1 @@
+import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{a as t}from"./react-vendor-B5ZEWdOX.js";var n=e(t(),1),r=0,i=``;function a(e){(0,n.useEffect)(()=>{if(!(!e||typeof document>`u`))return r===0&&(i=document.body.style.overflow,document.body.style.overflow=`hidden`),r++,()=>{r=Math.max(0,r-1),r===0&&(document.body.style.overflow=i)}},[e])}export{a as t};

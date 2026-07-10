@@ -13,7 +13,7 @@
  * handler); they live here for TTL/AFK bookkeeping only, exactly like PvpSession.
  */
 import type { PvpStatus, PvpGroundEffect } from '../pvp/session.js';
-import type { TowerFeature } from './_floor-catalog.js';
+import type { TowerFeature, TowerBoardObject } from './_floor-catalog.js';
 import type { TowerModifier } from './_modifiers.js';
 
 export type TowerActorId = string;
@@ -64,6 +64,14 @@ export type TowerMap = {
      *  are reactive and intentionally not forecast). Recomputed by the engine each round;
      *  absent for story runs (no modifierStack) → unchanged wire. Client paints as danger. */
     nextRoundHazardTiles?: number[];
+    /** Closing-ring hazard (story boss finale): the safe zone shrinks toward the board centre
+     *  each round, and tiles OUTSIDE it chip the squad at round end (telegraphed). Pure function
+     *  of (map, round) — no positions — so settle reproduces it. Absent → no ring, byte-identical. */
+    closingRing?: { pct?: number; fromRound?: number; minRadius?: number };
+    /** Board objects (fonts / shrines) with their tiles resolved by the encounter builder.
+     *  The engine resolves them each round by pure occupancy; the client draws them. Absent →
+     *  no objects, byte-identical. */
+    boardObjects?: TowerBoardObject[];
 };
 
 export type TowerObjectiveState = {
@@ -139,6 +147,11 @@ export type TowerSession = {
     /** Wave 3 — the HP% gate the boss's one-time desperation blast fires at (injected into
      *  pendingPhases at creation); absent → no extra phase (story + floors < 15 unchanged) */
     extraPhaseThreshold?: number;
+    /** A boss's currently-primed telegraphed strike: the tiles it will detonate at the END of
+     *  `round` (snapshot when primed at startRound so telegraph == detonation even if the boss
+     *  moves), the % maxHp chip, and its kind/label. Cleared when it detonates. Absent → no
+     *  strike this round; floors whose boss carries no strike config never set it (byte-identical). */
+    bossStrike?: { tiles: number[]; round: number; pct: number; kind: string; label: string };
 };
 
 // ─── accessors / invariants ──────────────────────────────────────────────────

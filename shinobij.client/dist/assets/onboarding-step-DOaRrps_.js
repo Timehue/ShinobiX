@@ -1,0 +1,1 @@
+function e(e){return e?e===`spar`?`academySpar`:e===`tour`?`training`:e===`storyUnlocked`?`sectorReturn`:e:`done`}var t={academyIntro:0,starter:1,training:2,jutsu:3,jutsuLoadout:4,inventory:5,academySpar:6,cafeteria:7,firstMission:8,logbook:9,sectorReturn:10,done:11};function n(n,r){return t[e(n)]>=t[r]}export{n,e as t};
