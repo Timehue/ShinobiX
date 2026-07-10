@@ -147,35 +147,6 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
         // ── Take the seat (ambitious) ─────────────────────────────────────
         {
             lane: "ambitious",
-            requireTrait: "sv88-better-storm-carried",
-            title: "The Warm Tower, Proven",
-            pages: [
-                {
-                    title: "The New Weather",
-                    scene: "The tower's storm floor, the seat's quiet hour settling on you",
-                    speaker: "Narrator",
-                    dialogue: [
-                        "The seat fits. That is the terrible part. The board reposts itself by morning bell, the odds-runners are calling numbers on next week's weather, and the quiet hour arrives on schedule, and it is exactly as good as he said.",
-                        "In the routing office, the clerks have already changed the pressing mark to your teeth.",
-                        "Down the coast, one ridge line hums over one district, holding its stretch of sky for free, and the board has begun, gently, to bet against it.",
-                        "The cistern under the square keeps its own counsel now that the seat is yours. It does not go still; it goes quiet, the way a creditor goes quiet when an account has only changed names. The Hollow Gate keeps its Stormveil quarter, and the pen that feeds it is warm in your hand.",
-                    ],
-                },
-                {
-                    title: "What Mira Saw",
-                    scene: "The tower gate, Mira not coming in",
-                    speaker: "Mira Volt",
-                    dialogue: [
-                        "You carried her up the hill. Her slate, her line, her why. You proved the sky can be held for free, in front of the whole coast. I watched you do it.",
-                        "You proved the sky holds for free. Then you took the paid seat anyway.",
-                        "I don't have rigging for that. I've been standing here since dawn trying to splice it into sense, and it won't take the knot.",
-                        "The bag's packed again. I want you to know it wasn't, for a while. That's the report from the cable department. Hold your own sky, Kage.",
-                    ],
-                },
-            ],
-        },
-        {
-            lane: "ambitious",
             requireTrait: "sv88-better-storm-deferred",
             title: "The Warm Tower, Named",
             pages: [
@@ -199,6 +170,35 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "Then you watched the seat come open and sat down in it anyway.",
                         "I said her why out loud in that tower, and the tower's new keeper filed it. That's what happened, isn't it. Strip the rigging off it and that's the load path.",
                         "The boat leaves on the tide. I'm taking the real route this time. You're the only person alive who knows it, so I suppose we'll find out exactly what you've become by whether anyone follows me.",
+                    ],
+                },
+            ],
+        },
+        {
+            lane: "ambitious",
+            requireTrait: "sv88-better-storm-carried",
+            title: "The Warm Tower, Proven",
+            pages: [
+                {
+                    title: "The New Weather",
+                    scene: "The tower's storm floor, the seat's quiet hour settling on you",
+                    speaker: "Narrator",
+                    dialogue: [
+                        "The seat fits. That is the terrible part. The board reposts itself by morning bell, the odds-runners are calling numbers on next week's weather, and the quiet hour arrives on schedule, and it is exactly as good as he said.",
+                        "In the routing office, the clerks have already changed the pressing mark to your teeth.",
+                        "Down the coast, one ridge line hums over one district, holding its stretch of sky for free, and the board has begun, gently, to bet against it.",
+                        "The cistern under the square keeps its own counsel now that the seat is yours. It does not go still; it goes quiet, the way a creditor goes quiet when an account has only changed names. The Hollow Gate keeps its Stormveil quarter, and the pen that feeds it is warm in your hand.",
+                    ],
+                },
+                {
+                    title: "What Mira Saw",
+                    scene: "The tower gate, Mira not coming in",
+                    speaker: "Mira Volt",
+                    dialogue: [
+                        "You carried her up the hill. Her slate, her line, her why. You proved the sky can be held for free, in front of the whole coast. I watched you do it.",
+                        "You proved the sky holds for free. Then you took the paid seat anyway.",
+                        "I don't have rigging for that. I've been standing here since dawn trying to splice it into sense, and it won't take the knot.",
+                        "The bag's packed again. I want you to know it wasn't, for a while. That's the report from the cable department. Hold your own sky, Kage.",
                     ],
                 },
             ],
