@@ -5,6 +5,8 @@ import {
     COMBAT_VFX_REGISTRY,
     resolveCombatVfxSpec,
     safeCombatVfxSpec,
+    combatVfxAnchorKey,
+    dedupeCombatVfx,
     type CombatVfxKey,
 } from "./combat-vfx.ts";
 import { COMBAT_VFX_ASSETS } from "./combat-vfx-assets.ts";
@@ -163,6 +165,58 @@ test("missing or unknown combat actions fall back safely", () => {
     assert.equal(resolveCombatVfxSpec({ action: "jutsu", element: "Glass" }).key, "metal");
     assert.equal(resolveCombatVfxSpec({ action: "jutsu", element: "Prism" }).key, "impact");
     assert.equal(safeCombatVfxSpec({ key: "not-real" as CombatVfxKey }).key, "impact");
+});
+
+test("overlapping plates on one render tile collapse to a single VFX", () => {
+    // Model of the screens: each plate resolves to the tile it paints on — its
+    // own tile list, else the caster/target fighter's current tile.
+    const tileOf = { p1: 3, p2: 10 } as Record<string, number>;
+    const anchorKey = (fx: { target: string; spec: { tiles?: number[] } }) =>
+        combatVfxAnchorKey(fx.spec, tileOf[fx.target]);
+
+    // A hit on the enemy plus its shield-reaction on the same enemy → one plate.
+    const stacked = dedupeCombatVfx(
+        [
+            { target: "p2", spec: { key: "impact", tiles: undefined } },
+            { target: "p2", spec: { key: "shield", tiles: undefined } },
+        ],
+        anchorKey,
+    );
+    assert.equal(stacked.length, 1);
+    assert.equal(stacked[0].spec.key, "impact"); // primary (first) wins
+
+    // Effects on two different fighters (self buff + enemy hit) both survive.
+    const split = dedupeCombatVfx(
+        [
+            { target: "p1", spec: { key: "buff", tiles: undefined } },
+            { target: "p2", spec: { key: "impact", tiles: undefined } },
+        ],
+        anchorKey,
+    );
+    assert.equal(split.length, 2);
+
+    // A single-tile plate (movement flourish onto destTile) plus a fighter-anchored
+    // plate at that same tile (spend-cloud on the caster's new position) collapse —
+    // the same-pixel double the dedupe is meant to catch.
+    const moveThenSpend = dedupeCombatVfx(
+        [
+            { target: "p1", spec: { key: "wind", tiles: [3] } },        // flourish on destTile 3
+            { target: "p1", spec: { key: "poisonCloud", tiles: undefined } }, // cloud on p1 (tile 3)
+        ],
+        anchorKey,
+    );
+    assert.equal(moveThenSpend.length, 1);
+
+    // Distinct tile clusters stay distinct; identical clusters collapse.
+    assert.equal(dedupeCombatVfx(
+        [
+            { target: "p2", spec: { key: "earth", tiles: [1, 2, 3] } },
+            { target: "p2", spec: { key: "poisonCloud", tiles: [1, 2, 3] } },
+        ],
+        anchorKey,
+    ).length, 1);
+    assert.equal(combatVfxAnchorKey({ tiles: [1, 2] }, 9), "1,2");
+    assert.equal(combatVfxAnchorKey({ tiles: undefined }, 7), "7");
 });
 
 test("registry exposes only the supported generic combat VFX keys", () => {

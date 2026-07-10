@@ -13,10 +13,15 @@ import { villages } from "../data/sectors";
 import { type CwChallenge } from "../lib/clan-war-api";
 import {
 } from "../App";
-import { loadVillageState, loadVillageWar, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type KageHistoryEntry, type VillageWar } from "../lib/world-state";
+import { loadVillageWar, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageWar } from "../lib/world-state";
+import { type ServerKageState, type ServerKageHistoryEntry, KAGE_END_REASON_LABEL } from "../lib/kage-challenge-state";
 
 export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchClanWarBattle, onBack }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void; onBack: () => void }) {
     const [tab, setTab] = useState<"wars" | "clanBattles" | "kage">("wars");
+    // Server-owned Kage state per village (authoritative reign history), fetched
+    // when the Kage Records tab opens. Replaces the old client-synthesized,
+    // per-viewer Date.now() history.
+    const [kageStates, setKageStates] = useState<Record<string, ServerKageState>>({});
 
     // --- Village Wars ---
     const allVillagePairs: [string, string][] = [];
@@ -76,13 +81,34 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
         });
     }, []);
 
-    // --- Kage History ---
-    const allKageHistory: KageHistoryEntry[] = villages.flatMap(v => {
-        const state = loadVillageState(v);
-        const history = state.kageHistory ?? [];
-        // If seatedKage has no history entry yet, synthesize one
-        if (state.seatedKage && !history.some(e => e.name === state.seatedKage)) {
-            history.push({ name: state.seatedKage, village: v, seatedAt: state.kageSystemUnlocked ? Date.now() - 1 : Date.now() });
+    // Fetch the authoritative Kage state for every village when the tab opens.
+    useEffect(() => {
+        if (tab !== "kage") return;
+        let alive = true;
+        Promise.all(villages.map(v =>
+            fetch(`/api/village/kage?village=${encodeURIComponent(v)}`)
+                .then(r => r.ok ? r.json() : null)
+                .then((s: ServerKageState | null) => [v, s] as const)
+                .catch(() => [v, null] as const)
+        )).then(entries => {
+            if (!alive) return;
+            const map: Record<string, ServerKageState> = {};
+            for (const [v, s] of entries) if (s) map[v] = s;
+            setKageStates(map);
+        });
+        return () => { alive = false; };
+    }, [tab]);
+
+    // --- Kage History (server-owned) ---
+    const allKageHistory: ServerKageHistoryEntry[] = villages.flatMap(v => {
+        const s = kageStates[v];
+        if (!s) return [];
+        const history = (s.history ?? []).map(e => ({ ...e, village: e.village || v }));
+        // Display-only fallback for a legacy pre-history seated Kage: use the
+        // server's OWN seatedAt/unlockedAt timestamp — never Date.now() — and do
+        // not persist it. Once the seat next changes, real history takes over.
+        if (s.seatedKage && !history.some(e => !e.endedAt && e.name === s.seatedKage)) {
+            history.push({ name: s.seatedKage, village: v, seatedAt: s.seatedAt ?? s.unlockedAt ?? 0, defenseCount: s.defenseCount });
         }
         return history;
     });
@@ -229,6 +255,8 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                                             : `${new Date(entry.seatedAt).toLocaleDateString()} – ${new Date(entry.endedAt!).toLocaleDateString()}`
                                         }
                                     </span>
+                                    {typeof entry.defenseCount === "number" && entry.defenseCount > 0 && <span className="council-kage-date">🛡️ {entry.defenseCount} successful defense{entry.defenseCount === 1 ? "" : "s"}</span>}
+                                    {!isActive && entry.endedReason && <span className="council-kage-date">{KAGE_END_REASON_LABEL[entry.endedReason]}{entry.wonBy ? ` by ${entry.wonBy}` : ""}</span>}
                                 </div>
                             </div>
                         );

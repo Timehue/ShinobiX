@@ -2,6 +2,7 @@ import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction }
 import { createPortal } from "react-dom";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import { ClanImageMark } from "./Marks";
+import { clanExchangeItemArt } from "./ClanExchangeItemArt";
 import type { Character } from "../types/character";
 import type { ClanTreasury, EnhancedClanData } from "../types/clan";
 import type { GameItem } from "../types/combat";
@@ -22,9 +23,14 @@ type ExchangeReward =
     | { kind: "cache"; cache: "weapon" | "armor" }
     | { kind: "locked"; reason: string };
 
+// Which hall tier unlocks the shelf — mirrors ClanExchangeHall in
+// api/clan/_exchange.ts. KEEP IN SYNC with the server item defs below.
+type ExchangeHall = "camp" | "dojo" | "compound" | "fortress" | "citadel";
+
 type ExchangeItem = {
     id: string;
     tier: 1 | 2 | 3;
+    hall: ExchangeHall;
     requiredClanLevel: number;
     name: string;
     description: string;
@@ -34,26 +40,38 @@ type ExchangeItem = {
     reward: ExchangeReward;
 };
 
+// VERBATIM mirror of CLAN_EXCHANGE_ITEMS in api/clan/_exchange.ts (server is the
+// source of truth). Names/descriptions/tiers/levels/costs/limits/rewards must match.
 const EXCHANGE_ITEMS: ExchangeItem[] = [
-    { id: "smallRyoPouch", tier: 1, requiredClanLevel: 1, name: "Small Ryo Pouch", description: "A sealed clan stipend for active members.", cost: 100, limit: { kind: "weekly", count: 5 }, rarity: "standard", reward: { kind: "currency", currency: "ryo", amount: 2500 } },
-    { id: "boneCharmBundle", tier: 1, requiredClanLevel: 1, name: "Bone Charm Bundle", description: "Ten ritual charms used in bloodline and event progression.", cost: 150, limit: { kind: "weekly", count: 5 }, rarity: "rare", reward: { kind: "currency", currency: "boneCharms", amount: 10 } },
-    { id: "fateShardBundle", tier: 1, requiredClanLevel: 1, name: "Fate Shard Bundle", description: "Five Fate Shards from the clan vault.", cost: 250, limit: { kind: "weekly", count: 3 }, rarity: "rare", reward: { kind: "currency", currency: "fateShards", amount: 5 } },
-    { id: "clanBannerFrame", tier: 1, requiredClanLevel: 1, name: "Clan Banner Frame", description: "A profile banner cosmetic reserved for a future cosmetic frame system.", cost: 500, limit: { kind: "oneTime" }, rarity: "epic", reward: { kind: "locked", reason: "Coming Soon" } },
-    { id: "largeRyoPouch", tier: 2, requiredClanLevel: 5, name: "Large Ryo Pouch", description: "A heavier stipend for proven clan contributors.", cost: 400, limit: { kind: "weekly", count: 3 }, rarity: "rare", reward: { kind: "currency", currency: "ryo", amount: 10000 } },
-    { id: "boneCharmCrate", tier: 2, requiredClanLevel: 5, name: "Bone Charm Crate", description: "A lacquered crate containing thirty-five Bone Charms.", cost: 450, limit: { kind: "weekly", count: 3 }, rarity: "epic", reward: { kind: "currency", currency: "boneCharms", amount: 35 } },
-    { id: "fateShardCrate", tier: 2, requiredClanLevel: 5, name: "Fate Shard Crate", description: "A protected shipment of fifteen Fate Shards.", cost: 650, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "currency", currency: "fateShards", amount: 15 } },
-    { id: "auraStone", tier: 2, requiredClanLevel: 5, name: "Aura Stone", description: "A focused Aura Stone for advanced shinobi growth.", cost: 800, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "currency", currency: "auraStones", amount: 1 } },
-    { id: "warSupplyGrant", tier: 2, requiredClanLevel: 5, name: "War Supply Grant", description: "Send five hundred War Supply directly to your clan treasury.", cost: 750, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "treasury", currency: "warSupply", amount: 500 } },
-    { id: "territoryControlScroll", tier: 2, requiredClanLevel: 5, name: "Territory Control Scroll", description: "A real territory scroll used to reinforce clan sector control.", cost: 900, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "item", itemId: "territory-control-scroll", count: 1 } },
-    { id: "honorSealBundle", tier: 2, requiredClanLevel: 5, name: "Honor Seal Bundle", description: "Ten Honor Seals for high-value shinobi development.", cost: 1000, limit: { kind: "weekly", count: 1 }, rarity: "epic", reward: { kind: "currency", currency: "honorSeals", amount: 10 } },
-    { id: "premiumFateShardCrate", tier: 3, requiredClanLevel: 10, name: "Premium Fate Shard Crate", description: "A ceremonial crate packed with thirty-five Fate Shards.", cost: 1200, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "fateShards", amount: 35 } },
-    { id: "auraStoneBundle", tier: 3, requiredClanLevel: 10, name: "Aura Stone Bundle", description: "Three Aura Stones bound in a clan exchange scroll.", cost: 1500, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "auraStones", amount: 3 } },
-    { id: "greaterWarSupplyGrant", tier: 3, requiredClanLevel: 10, name: "Greater War Supply Grant", description: "Send fifteen hundred War Supply directly to your clan treasury.", cost: 1750, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "treasury", currency: "warSupply", amount: 1500 } },
-    { id: "weaponCache", tier: 3, requiredClanLevel: 10, name: "Weapon Cache", description: "Roll one existing Epic or Legendary weapon from the live item catalog.", cost: 6000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "weapon" } },
-    { id: "armorCache", tier: 3, requiredClanLevel: 10, name: "Armor Cache", description: "Roll one existing Epic or Legendary armor piece from the live item catalog.", cost: 8000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "armor" } },
+    { id: "smallRyoPouch", tier: 1, hall: "camp", requiredClanLevel: 1, name: "Genin Coin Cache", description: "A drawstring purse of ryō, issued to every active clan member.", cost: 100, limit: { kind: "weekly", count: 5 }, rarity: "standard", reward: { kind: "currency", currency: "ryo", amount: 2500 } },
+    { id: "boneCharmBundle", tier: 1, hall: "camp", requiredClanLevel: 1, name: "Ossuary Charm Satchel", description: "Ten carved bone charms strung for bloodline rites and events.", cost: 150, limit: { kind: "weekly", count: 5 }, rarity: "rare", reward: { kind: "currency", currency: "boneCharms", amount: 10 } },
+    { id: "fateShardBundle", tier: 1, hall: "camp", requiredClanLevel: 1, name: "Fate Shard Offering", description: "Five Fate Shards drawn from the clan's offering bowl.", cost: 250, limit: { kind: "weekly", count: 3 }, rarity: "rare", reward: { kind: "currency", currency: "fateShards", amount: 5 } },
+    { id: "clanBannerFrame", tier: 1, hall: "camp", requiredClanLevel: 1, name: "Clan Banner Sigil", description: "A clan banner sigil — reserved for the coming cosmetic frame rites.", cost: 500, limit: { kind: "oneTime" }, rarity: "epic", reward: { kind: "locked", reason: "Coming Soon" } },
+    { id: "largeRyoPouch", tier: 1, hall: "dojo", requiredClanLevel: 7, name: "Chūnin War Chest", description: "A chūnin's war chest — ten thousand ryō for a proven earner.", cost: 400, limit: { kind: "weekly", count: 3 }, rarity: "rare", reward: { kind: "currency", currency: "ryo", amount: 10000 } },
+    { id: "boneCharmCrate", tier: 2, hall: "dojo", requiredClanLevel: 7, name: "Ossuary Reliquary", description: "A lacquered reliquary of thirty-five bone charms.", cost: 450, limit: { kind: "weekly", count: 3 }, rarity: "epic", reward: { kind: "currency", currency: "boneCharms", amount: 35 } },
+    { id: "auraStone", tier: 2, hall: "dojo", requiredClanLevel: 7, name: "Kaguya Aura Stone", description: "A single Kaguya aura stone for advanced shinobi growth.", cost: 800, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "currency", currency: "auraStones", amount: 1 } },
+    { id: "fateShardCrate", tier: 2, hall: "compound", requiredClanLevel: 15, name: "Sealed Fate Reliquary", description: "A warded reliquary holding fifteen Fate Shards.", cost: 650, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "currency", currency: "fateShards", amount: 15 } },
+    { id: "warSupplyGrant", tier: 2, hall: "compound", requiredClanLevel: 15, name: "Quartermaster's Requisition", description: "Requisition five hundred War Supply straight to the clan stores.", cost: 750, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "treasury", currency: "warSupply", amount: 500 } },
+    { id: "territoryControlScroll", tier: 2, hall: "compound", requiredClanLevel: 15, name: "Border Claim Scroll", description: "A sealed border claim scroll to reinforce a clan sector.", cost: 900, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "item", itemId: "territory-control-scroll", count: 1 } },
+    { id: "honorSealBundle", tier: 2, hall: "compound", requiredClanLevel: 15, name: "Rite of Honor Seals", description: "Ten ceremonial Honor Seals for high-value shinobi development.", cost: 1000, limit: { kind: "weekly", count: 1 }, rarity: "epic", reward: { kind: "currency", currency: "honorSeals", amount: 10 } },
+    { id: "premiumFateShardCrate", tier: 3, hall: "fortress", requiredClanLevel: 25, name: "Grand Fate Reliquary", description: "A grand reliquary packed with thirty-five Fate Shards.", cost: 1200, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "fateShards", amount: 35 } },
+    { id: "greaterWarSupplyGrant", tier: 3, hall: "fortress", requiredClanLevel: 25, name: "Grand Quartermaster Requisition", description: "Requisition fifteen hundred War Supply to the clan stores.", cost: 1750, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "treasury", currency: "warSupply", amount: 1500 } },
+    { id: "weaponCache", tier: 3, hall: "fortress", requiredClanLevel: 25, name: "Forbidden Armory Scroll", description: "A forbidden armory scroll — unseals one Epic or Legendary weapon from the live catalog.", cost: 6000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "weapon" } },
+    { id: "auraStoneBundle", tier: 3, hall: "citadel", requiredClanLevel: 40, name: "Kaguya Aura Trove", description: "A trove of three Kaguya aura stones bound in a clan scroll.", cost: 1500, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "auraStones", amount: 3 } },
+    { id: "armorCache", tier: 3, hall: "citadel", requiredClanLevel: 40, name: "Vault of the Fallen", description: "A vault of the fallen — unseals one Epic or Legendary armor piece from the live catalog.", cost: 8000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "armor" } },
+    { id: "kageCoffer", tier: 3, hall: "citadel", requiredClanLevel: 40, name: "Kage's Coffer", description: "The kage's own coffer — fifty thousand ryō for the clan's finest.", cost: 4000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "ryo", amount: 50000 } },
 ];
 
-const FEATURED_IDS = new Set(["weaponCache", "armorCache", "premiumFateShardCrate", "auraStoneBundle"]);
+// Section metadata per hall — order + display name mirror clanHallTier() breakpoints.
+const HALL_SECTIONS: { key: ExchangeHall; label: string; sub: string; reqLevel: number; icon: GameIconName }[] = [
+    { key: "camp", label: "Clan Camp", sub: "Member issue", reqLevel: 1, icon: "scroll" },
+    { key: "dojo", label: "Fortified Dojo", sub: "Proven contributors", reqLevel: 7, icon: "shield" },
+    { key: "compound", label: "Hidden Compound", sub: "Officer stores", reqLevel: 15, icon: "shield" },
+    { key: "fortress", label: "War Fortress", sub: "War stores", reqLevel: 25, icon: "sword" },
+    { key: "citadel", label: "Legendary Citadel", sub: "Elite vault", reqLevel: 40, icon: "sigil" },
+];
+
+const FEATURED_IDS = new Set(["weaponCache", "armorCache", "premiumFateShardCrate", "kageCoffer"]);
 const ARMOR_SLOTS = new Set(["armor", "head", "body", "waist", "legs", "feet"]);
 
 function num(value: unknown): number {
@@ -146,11 +164,14 @@ function ExchangeProductArt({ item }: { item: ExchangeItem }) {
         reward.kind === "item" ? "scroll" :
         "locked";
 
+    const art = clanExchangeItemArt(item.id);
     return (
         <div className={`clan-exchange-art ${item.rarity} ${theme}`} aria-hidden="true">
             <span className="clan-exchange-art-ring" />
             <span className="clan-exchange-art-glow" />
-            <span className="clan-exchange-art-main"><ExchangeRewardIcon item={item} /></span>
+            {art
+                ? <img src={art} alt="" className="clan-exchange-art-img" loading="lazy" />
+                : <span className="clan-exchange-art-main"><ExchangeRewardIcon item={item} /></span>}
             <span className="clan-exchange-art-mini top"><GameIcon name={accentIcon} size={18} /></span>
             <span className="clan-exchange-art-mini bottom"><GameIcon name={item.tier >= 3 ? "sigil" : item.tier === 2 ? "scroll" : "sparkle"} size={16} /></span>
         </div>
@@ -210,9 +231,10 @@ export function ClanExchange({
     const weeklyEarned = character.weeklyClanPointsWeek === isoWeekKey() ? num(character.weeklyClanPoints) : 0;
     const weekPct = Math.min(100, (weeklyEarned / CLAN_POINTS_WEEKLY_CAP) * 100);
     const xpNeed = clanXpNeeded(clanData.level);
-    const tier = clanData.level >= 10 ? 3 : clanData.level >= 5 ? 2 : 1;
+    const unlockedHalls = HALL_SECTIONS.filter((h) => clanData.level >= h.reqLevel).length;
+    const currentHall = HALL_SECTIONS[Math.max(0, unlockedHalls - 1)];
     const modalRoot = typeof document !== "undefined" ? document.body : null;
-    const itemsByTier = useMemo(() => [1, 2, 3].map((t) => EXCHANGE_ITEMS.filter((item) => item.tier === t)), []);
+    const itemsByHall = useMemo(() => HALL_SECTIONS.map((h) => EXCHANGE_ITEMS.filter((item) => item.hall === h.key)), []);
     const featured = useMemo(() => EXCHANGE_ITEMS.filter((item) => FEATURED_IDS.has(item.id)), []);
 
     async function purchase(item: ExchangeItem) {
@@ -236,7 +258,7 @@ export function ClanExchange({
                     <div>
                         <span className="clan-exchange-kicker">Clan Exchange</span>
                         <h3>{clanData.name}</h3>
-                        <p>{clanData.village} exchange tier {tier} unlocked</p>
+                        <p>{currentHall.label} · {unlockedHalls} of {HALL_SECTIONS.length} halls unlocked</p>
                     </div>
                 </div>
                 <div className="clan-exchange-wallet">
@@ -271,20 +293,24 @@ export function ClanExchange({
                 </div>
             </section>
 
-            {itemsByTier.map((items, index) => (
-                <section className="clan-exchange-tier" key={index + 1}>
-                    <div className="clan-exchange-section-head">
-                        <div>
-                            <span>Tier {index + 1}</span>
-                            <h4>{index === 0 ? "Member issue" : index === 1 ? "Officer stores" : "Elite vault"}</h4>
+            {HALL_SECTIONS.map((hall, index) => {
+                const items = itemsByHall[index];
+                const unlocked = clanData.level >= hall.reqLevel;
+                return (
+                    <section className={`clan-exchange-tier${unlocked ? "" : " clan-exchange-hall-locked"}`} key={hall.key}>
+                        <div className="clan-exchange-section-head">
+                            <div>
+                                <span>{unlocked ? `Hall ${index + 1} · Unlocked` : `Locked · Clan Level ${hall.reqLevel}`}</span>
+                                <h4>{hall.label} · {hall.sub}</h4>
+                            </div>
+                            <GameIcon name={hall.icon} size={27} />
                         </div>
-                        {index === 0 ? <GameIcon name="scroll" size={26} /> : index === 1 ? <GameIcon name="shield" size={27} /> : <GameIcon name="sword" size={27} />}
-                    </div>
-                    <div className="clan-exchange-grid">
-                        {items.map((item) => <ExchangeCard key={item.id} item={item} character={character} clanData={clanData} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}
-                    </div>
-                </section>
-            ))}
+                        <div className="clan-exchange-grid">
+                            {items.map((item) => <ExchangeCard key={item.id} item={item} character={character} clanData={clanData} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}
+                        </div>
+                    </section>
+                );
+            })}
 
             {children}
 

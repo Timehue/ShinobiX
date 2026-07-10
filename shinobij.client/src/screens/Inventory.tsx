@@ -31,6 +31,13 @@ import { hasCharacterElement } from "../lib/elements";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { deriveCardClashCard } from "../lib/card-clash";
 import { addItem, addItems, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
+import {
+    type ItemCategory,
+    ITEM_CATEGORY_META,
+    ITEM_CATEGORY_ORDER,
+    itemCategory,
+    rarityWeight,
+} from "../lib/item-category";
 
 export function Inventory({
     character,
@@ -58,6 +65,10 @@ export function Inventory({
     const [inventoryTab, setInventoryTab] = useState<"items" | "tileCards">("items");
     const [selectedTileCard, setSelectedTileCard] = useState<{ card: TileCard; count: number } | null>(null);
     const [slotFilter, setSlotFilter] = useState<EquipmentSlot | null>(null);
+    // Backpack sub-category filter ("all" = show everything) + a free-text name
+    // search. Both are display-only filters over the same backpack stacks.
+    const [categoryFilter, setCategoryFilter] = useState<"all" | ItemCategory>("all");
+    const [itemSearch, setItemSearch] = useState("");
     const allItems = getAllItems(creatorItems);
     const allTileCards = getAllTileCards(creatorCards);
 
@@ -153,11 +164,22 @@ export function Inventory({
 
     // Unified backpack stacks across BOTH stores (inventory[] uniques +
     // itemStacks counted bulk items). One row per distinct id, with its total
-    // count — the UI is fully id/count based now, no array indices.
+    // count — the UI is fully id/count based now, no array indices. Each row
+    // carries its derived category so the tab strip / grid share one source.
     const backpackStacks = unifiedItemStacks(character).map(({ itemId, count }) => {
         const item = getItemById(allItems, itemId) ?? allItems.find((candidate) => candidate.name === itemId);
-        return { entry: itemId, item, count, stackKey: item?.id ?? itemId };
+        return { entry: itemId, item, count, stackKey: item?.id ?? itemId, category: itemCategory(itemId, item) };
     });
+
+    // Distinct-stack count per category (plus "all"), driving the tab badges.
+    const categoryCounts = backpackStacks.reduce<Record<string, number>>(
+        (counts, { category }) => {
+            counts.all = (counts.all ?? 0) + 1;
+            counts[category] = (counts[category] ?? 0) + 1;
+            return counts;
+        },
+        {},
+    );
 
     const visualSlots: Array<{ label: string; equipmentSlot?: EquipmentSlot; accepts?: EquipmentSlot; className: string }> = [
         { label: "Aura", equipmentSlot: "aura", accepts: "aura", className: "slot-keystone" },
@@ -498,7 +520,9 @@ export function Inventory({
 
                 <section className="inventory-backpack-panel">
                     <div className="inventory-panel-header">
-                        <h2>{inventoryTab === "items" ? "Backpack" : "Shinobi Card Clash Cards"}</h2>
+                        <h2>{inventoryTab === "items"
+                            ? (categoryFilter === "all" ? "Backpack" : `Backpack · ${ITEM_CATEGORY_META[categoryFilter].label}`)
+                            : "Shinobi Card Clash Cards"}</h2>
 
                         <div className="inventory-tabs">
                             <button
@@ -521,6 +545,53 @@ export function Inventory({
 
                     {inventoryTab === "items" && (
                         <>
+                            {/* Category tab strip — filter the backpack by kind of
+                                item. Picking a category clears any slot filter (the
+                                two are different drill-downs). Count badges show how
+                                many distinct stacks live in each. */}
+                            <div className="inventory-category-bar" role="tablist" aria-label="Backpack categories">
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={categoryFilter === "all"}
+                                    className={categoryFilter === "all" ? "active" : ""}
+                                    onClick={() => { setCategoryFilter("all"); setSlotFilter(null); }}
+                                >
+                                    All <span className="cat-count">{categoryCounts.all ?? 0}</span>
+                                </button>
+
+                                {ITEM_CATEGORY_ORDER.map((cat) => {
+                                    const count = categoryCounts[cat] ?? 0;
+                                    const meta = ITEM_CATEGORY_META[cat];
+                                    return (
+                                        <button
+                                            key={cat}
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={categoryFilter === cat}
+                                            className={`${categoryFilter === cat ? "active" : ""}${count === 0 ? " is-empty" : ""}`}
+                                            onClick={() => { setCategoryFilter(cat); setSlotFilter(null); }}
+                                            title={meta.label}
+                                        >
+                                            <span className="cat-icon" aria-hidden="true">{meta.icon}</span> {meta.label} <span className="cat-count">{count}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="inventory-search-row">
+                                <input
+                                    type="search"
+                                    value={itemSearch}
+                                    onChange={(e) => setItemSearch(e.target.value)}
+                                    placeholder="Search items by name…"
+                                    aria-label="Search backpack items by name"
+                                />
+                                {itemSearch && (
+                                    <button type="button" className="inventory-search-clear" onClick={() => setItemSearch("")} aria-label="Clear search">✕</button>
+                                )}
+                            </div>
+
                             {slotFilter && (
                                 <div className="slot-filter-bar">
                                     <span>Showing <strong>{equipmentSlotLabel(slotFilter)}</strong> items</span>
@@ -528,19 +599,40 @@ export function Inventory({
                                 </div>
                             )}
                             {(() => {
-                                // Filtering by one of the three item slots shows the
-                                // combat items (Attack/Defense Pill, Smoke Bomb) — all
-                                // are eligible for any item slot. Other slots match on
-                                // the item's destination slot as before.
-                                const visible = slotFilter
-                                    ? backpackStacks.filter(({ item }) => item && (
-                                        isCombatItemSlot(slotFilter)
-                                            ? isCombatConsumable(item)
-                                            : equipSlotForItem(item) === slotFilter
-                                    ))
-                                    : backpackStacks;
+                                // Three layered, display-only filters over the same
+                                // stacks: an active SLOT filter (from clicking an equip
+                                // slot) takes precedence over the category tab; a name
+                                // search narrows whatever remains. Results lead with the
+                                // rarest, then alphabetical, so the grid reads tidily.
+                                const query = itemSearch.trim().toLowerCase();
+                                const visible = backpackStacks
+                                    .filter(({ item, category }) => {
+                                        if (slotFilter) {
+                                            // Filtering by one of the three item slots shows the
+                                            // combat items (Attack/Defense Pill, Smoke Bomb) — all
+                                            // are eligible for any item slot. Other slots match on
+                                            // the item's destination slot as before.
+                                            return item && (
+                                                isCombatItemSlot(slotFilter)
+                                                    ? isCombatConsumable(item)
+                                                    : equipSlotForItem(item) === slotFilter
+                                            );
+                                        }
+                                        return categoryFilter === "all" || category === categoryFilter;
+                                    })
+                                    .filter(({ entry, item }) => !query || (item?.name ?? entry).toLowerCase().includes(query))
+                                    .sort((a, b) =>
+                                        rarityWeight(b.item?.rarity) - rarityWeight(a.item?.rarity)
+                                        || (a.item?.name ?? a.entry).localeCompare(b.item?.name ?? b.entry));
                                 if (visible.length === 0) {
-                                    return <p className="inventory-empty">{slotFilter ? `No ${equipmentSlotLabel(slotFilter)} items in inventory.` : "No items in inventory."}</p>;
+                                    const emptyMessage = query
+                                        ? `No items match "${itemSearch.trim()}".`
+                                        : slotFilter
+                                            ? `No ${equipmentSlotLabel(slotFilter)} items in inventory.`
+                                            : categoryFilter === "all"
+                                                ? "No items in inventory."
+                                                : ITEM_CATEGORY_META[categoryFilter].empty;
+                                    return <p className="inventory-empty">{emptyMessage}</p>;
                                 }
                                 return (
                                 <div className="backpack-grid">

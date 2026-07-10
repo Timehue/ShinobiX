@@ -11,14 +11,15 @@
  * selects a slot, clicks a tile in the atlas, and the picker slices that
  * 16×16 tile out of the atlas and publishes it under `shrine:icon-<id>`.
  *
- * A "theme" bundles 4 terrain tiles (wall + floor + corridor + door)
- * that look good together. The generator stamps each room with a
- * deterministic theme based on the room's index + floor number, so
- * consecutive runs and rooms inside the same run feel different without
- * exposing seams.
+ * A "theme" bundles the terrain tiles (wall top + wall FACE + floor +
+ * corridor + door) that look good together. The generator stamps each
+ * room with a deterministic theme based on the room's index + floor
+ * number, so consecutive runs and rooms inside the same run feel
+ * different without exposing seams.
  *
  * Theme tile keys in shared KV:
  *   shrine:icon-theme-<theme>-wall
+ *   shrine:icon-theme-<theme>-wall-face   (south-facing masonry, drawn with depth)
  *   shrine:icon-theme-<theme>-floor
  *   shrine:icon-theme-<theme>-corridor
  *   shrine:icon-theme-<theme>-door
@@ -100,15 +101,16 @@ export const HOLLOW_GATE_THEMES: Array<{ id: string; label: string }> = [
 ];
 
 export const HOLLOW_GATE_THEME_TILE_ROLES: Array<{ id: string; label: string }> = [
-    { id: "wall",     label: "Wall"     },
-    { id: "floor",    label: "Floor"    },
-    { id: "corridor", label: "Corridor" },
-    { id: "door",     label: "Door"     },
-    { id: "deco-1",   label: "Deco 1"   },   // themed decoration (preferred in this room)
-    { id: "deco-2",   label: "Deco 2"   },
+    { id: "wall",      label: "Wall"      },
+    { id: "wall-face", label: "Wall Face" },  // south-facing masonry (drawn with depth)
+    { id: "floor",     label: "Floor"     },
+    { id: "corridor",  label: "Corridor"  },
+    { id: "door",      label: "Door"      },
+    { id: "deco-1",    label: "Deco 1"    },   // themed decoration (preferred in this room)
+    { id: "deco-2",    label: "Deco 2"    },
 ];
 
-// Flat slot list for the picker: 4 themes × 4 roles = 16 theme slots.
+// Flat slot list for the picker: 4 themes × 7 roles (terrain + face + decos).
 export const HOLLOW_GATE_THEME_SLOTS: HollowGateIconSlot[] = HOLLOW_GATE_THEMES.flatMap(theme =>
     HOLLOW_GATE_THEME_TILE_ROLES.map(role => ({
         id: `theme-${theme.id}-${role.id}`,

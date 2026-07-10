@@ -101,6 +101,99 @@ function build(floor, squad, over = {}) {
         }
     });
 });
+(0, node_test_1.describe)('Battle Towers static terrain scatter', () => {
+    const SPAWN_LEFT_COLS = 3; // mirrors _encounter
+    const mkMap = () => ({ width: 20, height: 14, blockedTiles: [], hazardTiles: [], objectiveTiles: [] });
+    (0, node_test_1.it)('places non-adjacent pillars off the spawn band + edges, deterministically', () => {
+        const run = (seed) => { const m = mkMap(); (0, _encounter_js_1.scatterTerrain)(m, 20, 14, seed, new Set(), 8); return m.blockedTiles; };
+        const a = run(123), b = run(123);
+        node_assert_1.strict.deepEqual(a, b, 'deterministic per seed');
+        node_assert_1.strict.ok(a.length >= 1 && a.length <= 8, `placed ${a.length} pillars (<= requested)`);
+        const set = new Set(a);
+        // non-adjacency invariant ⇒ pillars can never wall off the board
+        for (const t of a)
+            for (const nb of (0, _engine_js_1.towerNeighbors)(t, 20, 14)) {
+                node_assert_1.strict.ok(!set.has(nb), `pillars ${t} and ${nb} must not be adjacent`);
+            }
+        for (const t of a) {
+            const col = t % 20, row = Math.floor(t / 20);
+            node_assert_1.strict.ok(col > SPAWN_LEFT_COLS && col < 19, `pillar col ${col} clear of spawn band + last col`);
+            node_assert_1.strict.ok(row >= 1 && row <= 12, `pillar row ${row} off the edge rows`);
+        }
+    });
+    (0, node_test_1.it)('never blocks a reserved tile and never exceeds the 10% board cap', () => {
+        const reserved = new Set([100, 101, 102, 150]);
+        const m = mkMap();
+        (0, _encounter_js_1.scatterTerrain)(m, 20, 14, 7, reserved, 8);
+        for (const r of reserved)
+            node_assert_1.strict.ok(!m.blockedTiles.includes(r), `reserved tile ${r} left clear`);
+        const m2 = mkMap();
+        (0, _encounter_js_1.scatterTerrain)(m2, 20, 14, 1, new Set(), 9999);
+        node_assert_1.strict.ok(m2.blockedTiles.length <= Math.floor(20 * 14 * 0.10), 'clamped to 10% of the board');
+        const m3 = mkMap();
+        (0, _encounter_js_1.scatterTerrain)(m3, 20, 14, 1, new Set(), 0);
+        node_assert_1.strict.deepEqual(m3.blockedTiles, [], 'count 0 is a no-op (byte-identical clear board)');
+    });
+    (0, node_test_1.it)('shipped terrain floors: no spawn is trapped and the board stays connected (non-adjacent)', () => {
+        for (const floor of _floor_catalog_js_1.FLOOR_CATALOG) {
+            if (!floor.terrainPillars)
+                continue;
+            for (const seed of [1, 55, 4242]) {
+                const s = (0, _encounter_js_1.buildTowerEncounter)({ floor, squad: [strongMember('h'), strongMember('i')], runId: 'r', seed, partySize: 4, now: 1 });
+                const W = s.map.width, H = s.map.height;
+                const blocked = new Set(s.map.blockedTiles);
+                node_assert_1.strict.ok(blocked.size >= 1 && blocked.size <= floor.terrainPillars, `floor ${floor.id} seed ${seed}: ${blocked.size} pillars`);
+                for (const a of s.actors)
+                    node_assert_1.strict.ok(!blocked.has(a.pos), `floor ${floor.id} seed ${seed}: ${a.id} spawned on a pillar`);
+                for (const t of s.map.blockedTiles)
+                    for (const nb of (0, _engine_js_1.towerNeighbors)(t, W, H)) {
+                        node_assert_1.strict.ok(!blocked.has(nb), `floor ${floor.id} seed ${seed}: adjacent pillars ${t},${nb} (could wall off the board)`);
+                    }
+            }
+        }
+    });
+    (0, node_test_1.it)('a terrain floor is deterministic end-to-end and a strong squad still clears it (BFS, no stall)', () => {
+        const floor = _floor_catalog_js_1.FLOOR_CATALOG.find(f => f.terrainPillars && f.objective === 'defeat-all');
+        const squad = [strongMember('a'), strongMember('b'), strongMember('c'), strongMember('d')];
+        const mk = () => (0, _engine_js_1.runTowerFloor)((0, _encounter_js_1.buildTowerEncounter)({ floor, squad, runId: 'r', seed: 99, partySize: 4, now: 1 }), floor, (0, _sim_js_1.makeRng)(99));
+        const a = mk(), b = mk();
+        node_assert_1.strict.equal(JSON.stringify(a), JSON.stringify(b), 'terrain run replays byte-identically');
+        node_assert_1.strict.equal(a.winner, 'squad', 'squad pathed around the pillars and cleared');
+        node_assert_1.strict.equal(a.status, 'done');
+    });
+});
+(0, node_test_1.describe)('Battle Towers board objects (fonts / shrines)', () => {
+    (0, node_test_1.it)('shipped object floors place every object on a free tile (shrines mid-board), deterministically', () => {
+        for (const floor of _floor_catalog_js_1.FLOOR_CATALOG) {
+            if (!floor.boardObjects?.length)
+                continue;
+            for (const seed of [1, 55, 4242]) {
+                const s = (0, _encounter_js_1.buildTowerEncounter)({ floor, squad: [strongMember('h'), strongMember('i')], runId: 'r', seed, partySize: 4, now: 1 });
+                const W = s.map.width;
+                const objects = s.map.boardObjects ?? [];
+                node_assert_1.strict.equal(objects.length, floor.boardObjects.length, `floor ${floor.id} seed ${seed}: all objects on the map`);
+                const featureTiles = new Set((s.map.features ?? []).flatMap(f => f.tiles));
+                const blocked = new Set(s.map.blockedTiles);
+                const seen = new Set();
+                for (const o of objects) {
+                    node_assert_1.strict.equal(o.tiles?.length, 1, `floor ${floor.id} seed ${seed}: ${o.kind} got a tile`);
+                    const t = o.tiles[0];
+                    node_assert_1.strict.ok(!featureTiles.has(t) && !blocked.has(t), `floor ${floor.id} seed ${seed}: ${o.kind} clear of features/pillars`);
+                    node_assert_1.strict.ok(!seen.has(t), `floor ${floor.id} seed ${seed}: objects never stack`);
+                    seen.add(t);
+                    if (o.kind === 'shrine') {
+                        const col = t % W;
+                        node_assert_1.strict.ok(col >= Math.floor(W / 3) && col <= Math.ceil((2 * W) / 3) - 1, `floor ${floor.id} seed ${seed}: shrine mid-board (col ${col})`);
+                    }
+                    for (const a of s.actors)
+                        node_assert_1.strict.ok(a.pos !== t, `floor ${floor.id} seed ${seed}: no spawn on the ${o.kind}`);
+                }
+                const again = (0, _encounter_js_1.buildTowerEncounter)({ floor, squad: [strongMember('h'), strongMember('i')], runId: 'r', seed, partySize: 4, now: 1 });
+                node_assert_1.strict.deepEqual(again.map.boardObjects, objects, `floor ${floor.id} seed ${seed}: placement is deterministic`);
+            }
+        }
+    });
+});
 (0, node_test_1.describe)('Battle Towers per-run elements (3 of 5, seeded)', () => {
     const VALID = new Set(['Fire', 'Water', 'Earth', 'Lightning', 'Wind']);
     (0, node_test_1.it)('picks exactly 3 distinct valid elements', () => {

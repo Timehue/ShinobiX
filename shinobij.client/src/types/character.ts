@@ -68,6 +68,12 @@ export type HollowGateTile = {
     wing?: number;
     revealed: boolean;
     resolved: boolean;
+    // Map memory: true once the tile has EVER been in the visibility flood
+    // (seen from inside its room / down a corridor). Seen-but-unstepped tiles
+    // draw as a dim "explored" layer after you leave — Zelda-automap style —
+    // and are walkable by click-to-move. `revealed` (stepped on) stays the
+    // gate for surprise-tile disguise. Absent on old saves (falsy = unseen).
+    seen?: boolean;
     flavor?: string;
 };
 
@@ -84,6 +90,31 @@ export type HollowGateAugmentOffer = {
     combat?: { kind: string; value: number };
 };
 
+// Optional run-shape override — the standard shrine (5 floors, 25×17, the
+// Hollow Gate Warden) when absent. Event gates (e.g. a 1-3 floor festival
+// gauntlet with a bespoke final boss) stamp one of these on the run at entry;
+// every floor-count / boss / grid decision downstream reads it through
+// lib/hollow-gate-variant so a mid-run save resumes with the same shape.
+export type HollowGateVariant = {
+    id: string;                 // stable id, e.g. "event-festival"
+    label?: string;             // display name, e.g. "Festival Gate"
+    maxFloor?: number;          // total floors (final floor holds the boss); default HOLLOW_GATE_MAX_FLOOR
+    width?: number;             // generated floor dimensions; default HOLLOW_GATE_SHRINE_W/H
+    height?: number;
+    bossAiId?: string;          // creator/builtin AI id for the final boss; default the Hollow Gate Warden
+    bossName?: string;          // display name for logs/objectives; default "Hollow Gate Warden"
+};
+
+// The shared event-gate announcement (admin-authored, distributed to every
+// client through the admin-save content channel like creator content). When
+// `active`, the World Map Hollow Gate menu offers the event entry.
+export type HollowGateEventConfig = HollowGateVariant & {
+    active?: boolean;
+    keyCost?: number;           // 0 = free entry, 1 = consumes a Hollow Gate Key (default 1)
+    requiresUnlock?: boolean;   // false = event bypasses the village Kage unlock (default false)
+    updatedAt?: number;         // recency for the admin-content merge
+};
+
 export type HollowGateShrineRun = {
     width: number;
     height: number;
@@ -95,6 +126,9 @@ export type HollowGateShrineRun = {
     torch: number; // 0..10
     keys: number;
     completed: boolean;
+    // Event-gate shape override (see HollowGateVariant above). Absent on
+    // standard runs and all legacy saves.
+    variant?: HollowGateVariant;
     // Theme assignment per roomId — the renderer uses this to pick which
     // shrine:icon-theme-<theme>-<role> tile to draw for room_floor / door /
     // corridor / wall cells. Old saved runs without this field fall back to
@@ -396,6 +430,11 @@ export type Character = {
     warsWon?: number;             // wars where this player qualified for the winner crate
     warMvpCount?: number;         // wars where this player was MVP on either side
     lifetimeWarDamage?: number;   // sum of contribution damage across all wars touched
+    // Personal Village Merit — the server-owned, sanitizer-pinned metric that
+    // gates a Kage challenge (250 required). Written only by server-authoritative
+    // village-support endpoints; the client displays it read-only. See
+    // api/village/_village-merit.ts.
+    villageMerit?: number;
     totalTilesExplored?: number;
     totalTournamentsCompleted?: number;
     totalEndlessTowerWins?: number;

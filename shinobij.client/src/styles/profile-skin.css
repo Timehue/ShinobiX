@@ -1343,6 +1343,95 @@
     border-color: #e8d496 !important;
 }
 
+/* ---- Backpack category tab strip (Gear / Consumables / Pet / … / Event) ---- */
+.inventory-page .inventory-category-bar {
+    display: flex;
+    flex-wrap: wrap;               /* wrap on desktop; stays scannable on mobile */
+    gap: 6px;
+    margin: 0 0 10px 0;
+    padding: 6px;
+    background: rgba(0,0,0,0.25) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px;
+}
+.inventory-page .inventory-category-bar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,0,0,0.3) !important;
+    border: 1px solid transparent !important;
+    color: rgba(196,162,90,0.7) !important;
+    padding: 6px 12px !important;
+    border-radius: 999px !important;   /* pill chips read as filters, not primary tabs */
+    font: 600 11px var(--font-display) !important;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 120ms, background 120ms, border-color 120ms;
+}
+.inventory-page .inventory-category-bar button:hover {
+    color: var(--bsv2-gold-bright) !important;
+    border-color: var(--bsv2-gold-soft) !important;
+}
+.inventory-page .inventory-category-bar button.active {
+    color: var(--bsv2-player) !important;
+    background: linear-gradient(180deg, rgba(78,168,255,0.14), rgba(78,168,255,0.05)) !important;
+    border-color: rgba(78,168,255,0.5) !important;
+    box-shadow: 0 0 10px rgba(78,168,255,0.18);
+}
+.inventory-page .inventory-category-bar button.is-empty:not(.active) {
+    opacity: 0.5;                  /* a category with nothing in it still shows, dimmed */
+}
+.inventory-page .inventory-category-bar .cat-icon {
+    font-size: 13px;
+    line-height: 1;
+    filter: saturate(1.1);
+}
+.inventory-page .inventory-category-bar .cat-count {
+    min-width: 18px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(196,162,90,0.28);
+    color: #e8d496;
+    font: 700 10px var(--font-display);
+    text-align: center;
+}
+.inventory-page .inventory-category-bar button.active .cat-count {
+    background: rgba(78,168,255,0.18);
+    border-color: rgba(78,168,255,0.45);
+    color: #cfe6ff;
+}
+
+/* ---- Backpack name search ---- */
+.inventory-page .inventory-search-row {
+    position: relative;
+    margin: 0 0 10px 0;
+}
+.inventory-page .inventory-search-row input[type="search"] {
+    width: 100%;
+    padding: 8px 32px 8px 12px !important;
+}
+.inventory-page .inventory-search-row input[type="search"]::-webkit-search-cancel-button {
+    display: none;                 /* single custom clear button instead of the native one */
+}
+.inventory-page .inventory-search-clear {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    background: transparent !important;
+    border: none !important;
+    color: rgba(196,162,90,0.7) !important;
+    font-size: 14px !important;
+    line-height: 1;
+    padding: 4px 6px !important;
+    cursor: pointer;
+}
+.inventory-page .inventory-search-clear:hover {
+    color: var(--bsv2-gold-bright) !important;
+}
+
 /* ---- Backpack item cards: tighten image fit, reduce icon size ---- */
 .inventory-page .backpack-item {
     padding: 8px !important;

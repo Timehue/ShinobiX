@@ -278,6 +278,10 @@ const FIRST_SAVE_BASELINE_CHARACTER = {
     totalPvpKills: 0, totalAiKills: 0, totalVillageRaids: 0,
     warsWon: 0, warMvpCount: 0, lifetimeWarDamage: 0,
     monthlyPvpKills: 0, dailyAiKills: 0,
+    // Personal Village Merit — the server-owned metric that gates a Kage
+    // challenge. Written only by server-authoritative village endpoints (never
+    // by the client save); a first save can't seed a nonzero value.
+    villageMerit: 0,
     // Inventory / equipment / pets / mastery / bloodlines must start empty —
     // otherwise the first save can ship with a maxed loadout and the
     // per-save inventory cap (500) won't catch it because there's no diff.
@@ -608,6 +612,13 @@ function sanitizeCharacterSave(incoming, existing) {
         // them (bestFloor must be 0 too, else a client inflates the depth leaderboard +5/save).
         battleTowerBestFloor: 0,
         battleTowerRating: 0,
+        // Personal Village Merit — fully server-authoritative (written only by
+        // the village-support endpoints: daily agenda, treasury donation, map
+        // control, war-crate win, mission claim), which bump _saveVersion and
+        // force a client refetch. maxDelta 0 pins it to the stored value so a
+        // tampered client save can neither raise nor lower it, keeping the Kage
+        // challenge gate un-spoofable.
+        villageMerit: 0,
         totalTournamentsCompleted: 3,
         totalTilesExplored: 200,
         // Hollow Gate Warden (F5 boss) kills — client-incremented and read by the

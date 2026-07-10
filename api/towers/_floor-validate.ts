@@ -10,6 +10,8 @@ import {
     TOWER_OBJECTIVES,
     TOWER_BIOMES,
     TOWER_BOSS_MECHANICS,
+    TOWER_TARGET_MODES,
+    TOWER_STRIKE_KINDS,
     OBJECTIVES_NEEDING_BOSS,
     OBJECTIVES_NEEDING_NPC,
     OBJECTIVES_NEEDING_GOAL,
@@ -17,6 +19,8 @@ import {
 } from './_floor-catalog.js';
 
 const BOSS_MECHANIC_SET = new Set<string>(TOWER_BOSS_MECHANICS);
+const TARGET_MODE_SET = new Set<string>(TOWER_TARGET_MODES);
+const STRIKE_KIND_SET = new Set<string>(TOWER_STRIKE_KINDS);
 
 const OBJECTIVE_SET = new Set<string>(TOWER_OBJECTIVES);
 const BIOME_SET = new Set<string>(TOWER_BIOMES);
@@ -90,6 +94,58 @@ export function validateFloor(floor: TowerFloor): string[] {
     if (floor.boss?.summonAiId != null && typeof floor.boss.summonAiId !== 'string') {
         errs.push(`${where}: boss.summonAiId must be a string`);
     }
+    if (floor.boss?.targetMode != null && !TARGET_MODE_SET.has(floor.boss.targetMode)) {
+        errs.push(`${where}: boss.targetMode "${floor.boss.targetMode}" is not a known target mode`);
+    }
+    if (floor.boss?.strike != null) {
+        const st = floor.boss.strike;
+        if (!STRIKE_KIND_SET.has(st.kind)) errs.push(`${where}: boss.strike.kind "${st.kind}" is not a known strike`);
+        if (st.pct != null && (typeof st.pct !== 'number' || st.pct <= 0 || st.pct > 100)) errs.push(`${where}: boss.strike.pct out of (0,100]`);
+        if (st.radius != null && (!Number.isInteger(st.radius) || st.radius < 0 || st.radius > 2)) errs.push(`${where}: boss.strike.radius out of [0,2]`);
+        if (st.everyRounds != null && (!Number.isInteger(st.everyRounds) || st.everyRounds < 2)) errs.push(`${where}: boss.strike.everyRounds must be an integer ≥2`);
+        if (st.firstRound != null && (!Number.isInteger(st.firstRound) || st.firstRound < 1)) errs.push(`${where}: boss.strike.firstRound must be a positive integer`);
+    }
+    if (floor.boss?.phasePillars != null && (!Number.isInteger(floor.boss.phasePillars) || floor.boss.phasePillars < 1 || floor.boss.phasePillars > 3)) {
+        errs.push(`${where}: boss.phasePillars must be an integer in [1,3]`);
+    }
+    if (floor.boss?.aegis != null) {
+        const ag = floor.boss.aegis;
+        if (typeof ag.shieldPct !== 'number' || ag.shieldPct <= 0 || ag.shieldPct > 25) {
+            errs.push(`${where}: boss.aegis.shieldPct out of (0,25]`);
+        }
+    }
+    // Board objects (fonts / shrines): sane percents + a REQUIRED absolute cap on fonts.
+    if (floor.boardObjects != null) {
+        if (!Array.isArray(floor.boardObjects)) {
+            errs.push(`${where}: boardObjects must be an array`);
+        } else {
+            if (floor.boardObjects.length > 3) errs.push(`${where}: at most 3 boardObjects per floor`);
+            floor.boardObjects.forEach((o, i) => {
+                const w2 = `${where}: boardObjects[${i}]`;
+                const kind = (o as { kind?: string })?.kind;
+                if (kind === 'font') {
+                    const f = o as { resource?: string; percent?: number; cap?: number };
+                    if (!['hp', 'chakra', 'stamina'].includes(String(f.resource))) errs.push(`${w2}.resource invalid`);
+                    if (typeof f.percent !== 'number' || f.percent <= 0 || f.percent > 25) errs.push(`${w2}.percent out of (0,25]`);
+                    if (!Number.isInteger(f.cap) || (f.cap as number) < 1 || (f.cap as number) > 500) errs.push(`${w2}.cap must be an integer in [1,500]`);
+                } else if (kind === 'shrine') {
+                    const s2 = o as { percent?: number };
+                    if (typeof s2.percent !== 'number' || s2.percent <= 0 || s2.percent > 12) errs.push(`${w2}.percent out of (0,12]`);
+                    // Hard rule: never a shrine beside an uncapped-enrage boss (the engine also
+                    // skips enraged attackers, but don't even author the temptation).
+                    if (floor.boss?.mechanic === 'enrage') errs.push(`${w2}: no shrine on an enrage-boss floor`);
+                } else {
+                    errs.push(`${w2}.kind invalid`);
+                }
+            });
+        }
+    }
+    if (floor.closingRing != null) {
+        const cr = floor.closingRing;
+        if (cr.pct != null && (typeof cr.pct !== 'number' || cr.pct <= 0 || cr.pct > 100)) errs.push(`${where}: closingRing.pct out of (0,100]`);
+        if (cr.fromRound != null && (!Number.isInteger(cr.fromRound) || cr.fromRound < 1)) errs.push(`${where}: closingRing.fromRound must be a positive integer`);
+        if (cr.minRadius != null && (!Number.isInteger(cr.minRadius) || cr.minRadius < 1)) errs.push(`${where}: closingRing.minRadius must be a positive integer`);
+    }
     if (OBJECTIVES_NEEDING_NPC.has(floor.objective)) {
         if (!floor.npc || typeof floor.npc.aiId !== 'string' || floor.npc.aiId.trim() === '') {
             errs.push(`${where}: objective "${floor.objective}" requires an npc.aiId`);
@@ -101,6 +157,16 @@ export function validateFloor(floor: TowerFloor): string[] {
     if (OBJECTIVES_NEEDING_GOAL.has(floor.objective)) {
         if (!Number.isInteger(floor.goalTile) || (floor.goalTile as number) < 0 || (floor.goalTile as number) >= tiles) {
             errs.push(`${where}: objective "${floor.objective}" requires goalTile within the board`);
+        }
+    }
+
+    // Static terrain pillars (optional): a non-negative count, capped so the board can never
+    // be more than a tenth blocked (the encounter builder clamps to the same fraction).
+    if (floor.terrainPillars != null) {
+        if (!Number.isInteger(floor.terrainPillars) || floor.terrainPillars < 0) {
+            errs.push(`${where}: terrainPillars must be a non-negative integer`);
+        } else if (floor.terrainPillars > Math.floor(tiles * 0.10)) {
+            errs.push(`${where}: terrainPillars ${floor.terrainPillars} exceeds 10% of the ${tiles}-tile board`);
         }
     }
 

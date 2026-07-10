@@ -46,11 +46,11 @@ export default defineConfig([
     // App.tsx is the legacy single-file game monolith in active drain: it must
     // re-export many helpers/constants so the modules drained out of it can
     // import them back (the documented drain pattern in CLAUDE.md). That trips
-    // the components-only rule ~70× with no real problem. petvfx.tsx is a
-    // standalone dev-only VFX harness page (petvfx.html), not in the player
-    // bundle. Turn the HMR rule off for just these two; remove the App.tsx entry
-    // once the drain is finished.
-    files: ['src/App.tsx', 'src/petvfx.tsx'],
+    // the components-only rule ~70× with no real problem. petvfx.tsx and
+    // hgpreview.tsx are standalone dev-only harness pages (petvfx.html /
+    // hgpreview.html), not in the player bundle. Turn the HMR rule off for
+    // just these; remove the App.tsx entry once the drain is finished.
+    files: ['src/App.tsx', 'src/petvfx.tsx', 'src/hgpreview.tsx'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },
