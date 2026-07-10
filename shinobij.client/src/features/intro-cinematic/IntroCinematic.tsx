@@ -200,7 +200,7 @@ export function IntroCinematic({
     useEffect(() => {
         if (companionMode) return;
         [...STARTER_PETS.map((o) => petPoseImage(o.pet, sharedImages)), shiranuiSpeak, shiranuiBlink]
-            .forEach((src) => { const img = new Image(); img.src = src; });
+            .forEach((src) => { const img = new Image(); img.src = src; void img.decode?.().catch(() => {}); });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -365,13 +365,20 @@ export function IntroCinematic({
                 {/* The deity keeps watch (dimmed) while the five spirits present
                     themselves on the choose/confirm screens. */}
                 {!companionMode && (showActors || phase.kind === "choose" || phase.kind === "confirm") && foxOnStage && (
-                    <div className={`icx-fox ${foxFading ? "is-fading" : ""} ${line?.speaker === "fox" && !typingDone ? "is-talking" : ""} ${phase.kind === "choose" || phase.kind === "confirm" ? "is-watching" : ""}`}>
-                        {/* Frame priority: farewell holds eyes closed (static, no
-                            swap) → mouth-flap while speaking → base. (Idle blinking
-                            was removed — the swap read as a flicker.) */}
+                    <div className={`icx-fox ${foxFading ? "is-fading" : ""} ${foxTalking ? "is-talking" : ""} ${phase.kind === "choose" || phase.kind === "confirm" ? "is-watching" : ""}`}>
+                        {/* Two stacked frames: the base is ALWAYS painted; the alt
+                            (mouth-open while speaking, eyes-closed while fading) is
+                            layered on top and toggled by OPACITY only. Nothing swaps
+                            the visible src at the 150ms flap cadence, so there is no
+                            decode/flash — the flicker is gone for good. (Idle blink
+                            removed entirely.) */}
+                        <img className="icx-fox-base" src={FOX_ART} alt={`${FOX_NAME}, the ancient spirit fox`} />
                         <img
-                            src={foxFading ? shiranuiBlink : foxTalking && mouthOpen ? shiranuiSpeak : FOX_ART}
-                            alt={`${FOX_NAME}, the ancient spirit fox`}
+                            className="icx-fox-alt"
+                            src={foxFading ? shiranuiBlink : shiranuiSpeak}
+                            alt=""
+                            aria-hidden="true"
+                            style={{ opacity: foxFading || (foxTalking && mouthOpen) ? 1 : 0 }}
                         />
                     </div>
                 )}
