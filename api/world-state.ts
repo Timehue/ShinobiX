@@ -15,6 +15,7 @@ import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js'
 import { DECLARE_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { villageWarKey, normalizeVillageWarRecord } from './_war-state.js';
 import { homeSectorsForVillage, WAR_VILLAGES } from './_war-map-sectors.js';
+import { kageKey } from './village/_kage-settle.js';
 
 function villageWarEnabled(): boolean {
     return process.env.ENABLE_VILLAGE_WAR === '1';
@@ -75,7 +76,6 @@ const VILLAGE_WAR_DECAY_GRACE_DAYS = 3;
 const VILLAGE_WAR_DECAY_PER_DAY = 500;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const VILLAGE_WAR_DECAY_GRACE_MS = VILLAGE_WAR_DECAY_GRACE_DAYS * ONE_DAY_MS;
-const VILLAGE_STATE_KEY_PREFIX = 'game:village-state:';
 
 function utcDateKey(ms = Date.now()): string {
     return new Date(ms).toISOString().slice(0, 10);
@@ -92,9 +92,15 @@ function normalizeVillageKey(village: string): string {
 async function isSeatedKageOf(playerName: string, village: string): Promise<boolean> {
     if (!village) return false;
     try {
-        const vs = await kv.get<Record<string, unknown>>(`${VILLAGE_STATE_KEY_PREFIX}${normalizeVillageKey(village)}`);
-        const seated = safeName(String(vs?.seatedKage ?? ''));
-        return seated === safeName(playerName);
+        // Authoritative seat: read the village:kage:<slug> row directly, NOT the
+        // lagging game:village-state mirror. The mirror only refreshes on a
+        // validated villageState write, so reading it here let a just-dethroned
+        // Kage keep war-declare / call-peace power (and blocked the new Kage)
+        // until some member's next save rehydrated it. Every other Kage power
+        // already reads this authoritative row.
+        const state = await kv.get<{ seatedKage?: string }>(kageKey(village));
+        const seated = safeName(String(state?.seatedKage ?? ''));
+        return !!seated && seated === safeName(playerName);
     } catch {
         return false;
     }
@@ -1019,6 +1025,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 //    the 500 Honor Seals and the war commits
                                 //    at this moment.
                                 war.pendingUntil = Date.now() + VILLAGE_WAR_PENDING_WINDOW_MS;
+                                // Durable audit of the Kage-authorized war declaration
+                                // (best-effort, 30d TTL). The cost is already paid and
+                                // the war commits at this point — no cancellation.
+                                await kv.set(`audit:village-war-declare:${normalizeVillageKey(actorVillage)}:${Date.now()}`, {
+                                    ts: Date.now(), action: 'declare-war', actor: identity.name, village: actorVillage, villages: war.villages,
+                                }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
                             } else if (isClaimingWin) {
                                 // Naming a winner REQUIRES the enemy village's
                                 // HP to actually be 0 in the persisted record.

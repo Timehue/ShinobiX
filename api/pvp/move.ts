@@ -120,6 +120,7 @@ function vfxEvent(
 import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
 import { writeBattleReceipt, writeActionReceipt } from '../_receipts.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { settleKageDuel, recordPendingKageSettle, kageDuelKey } from '../village/_kage-settle.js';
 import {
     TAG_ALIASES,
     STACKABLE_STATUS,
@@ -1988,6 +1989,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // support / reward dispute can be reconstructed later. Disable with
             // DISABLE_COMBAT_RECEIPTS=1.
             await writeBattleReceipt(result).catch(() => undefined);
+            // If this finished duel was an OFFICIAL Kage challenge (the server
+            // wrote a `kage-duel:<battleId>` pointer when the Kage accepted),
+            // settle the seat now so neither player has to manually press
+            // resolve. Fully authoritative: settleKageDuel re-reads the live
+            // challenge + this PvpSession and re-runs every anti-cheat gate. The
+            // manual /kage-challenge resolve action stays as a backup. Best-effort
+            // (never blocks the fight response) and idempotent (pointer + challenge
+            // are cleared on settle, so a retry no-ops).
+            if (result.winner && result.winner !== 'draw') {
+                try {
+                    const kagePtr = await kv.get<{ village?: string; challengeId?: string }>(kageDuelKey(result.battleId));
+                    if (kagePtr?.village) {
+                        // Durably record the outcome FIRST so a stuck settle can be
+                        // reconciled from it even after the 15-min session TTL, THEN
+                        // attempt the immediate settle (which deletes the record on success).
+                        await recordPendingKageSettle(kagePtr.village, result, kagePtr.challengeId);
+                        await settleKageDuel(kagePtr.village, result.battleId, Date.now(), { expectChallengeId: kagePtr.challengeId });
+                    }
+                } catch (err) {
+                    console.error('[pvp/move] kage auto-settle failed', err);
+                }
+            }
         }
         // Durable per-action combat receipt (phase 1). Best-effort + flag-gated
         // (DISABLE_COMBAT_RECEIPTS) + idempotent per moveToken. Derived from the
