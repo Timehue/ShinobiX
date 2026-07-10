@@ -9,6 +9,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
 const _save_version_js_1 = require("../save/_save-version.js");
+const _village_merit_js_1 = require("../village/_village-merit.js");
 const _progress_js_1 = require("./_progress.js");
 const _economy_js_1 = require("../_economy.js");
 const _beta_metrics_js_1 = require("../_beta-metrics.js");
@@ -293,10 +294,11 @@ async function handler(req, res) {
                 };
             }
             if (completion === 'daily') {
-                next = { ...next, ...(0, _mission_catalog_js_1.markMissionCompletedFields)(next, todayKey, monthKey) };
+                // Personal Village Merit toward a Kage challenge (day-capped completion).
+                next = { ...next, ...(0, _mission_catalog_js_1.markMissionCompletedFields)(next, todayKey, monthKey), villageMerit: (0, _village_merit_js_1.meritNum)(next.villageMerit) + _village_merit_js_1.MERIT_MISSION };
             }
             else if (completion === 'hunt') {
-                next = { ...next, ...(0, _mission_catalog_js_1.markHuntCompletedFields)(next, todayKey, monthKey) };
+                next = { ...next, ...(0, _mission_catalog_js_1.markHuntCompletedFields)(next, todayKey, monthKey), villageMerit: (0, _village_merit_js_1.meritNum)(next.villageMerit) + _village_merit_js_1.MERIT_MISSION };
             }
             else if (completion === 'total') {
                 next = {
