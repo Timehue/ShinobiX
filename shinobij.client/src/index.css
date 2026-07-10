@@ -15797,6 +15797,23 @@ button.combat-jutsu-button,
     font-size: 2.1rem;
 }
 
+/* A hall whose unlock level the clan hasn't reached yet — dim the whole shelf so
+   the "Locked · Clan Level N" header reads as gated (cards stay individually
+   gated too). */
+.clan-exchange-tier.clan-exchange-hall-locked { opacity: .72; }
+.clan-exchange-tier.clan-exchange-hall-locked .clan-exchange-section-head span { color: #f4b8b8; }
+
+/* Real generated item art (ClanExchangeItemArt) — sits inside the framed plate,
+   above the ring/glow, with the small accent badges over its corners. */
+.clan-exchange-art-img {
+    position: relative;
+    z-index: 1;
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, .45));
+}
+
 .clan-exchange-art-mini {
     z-index: 2;
     display: grid;

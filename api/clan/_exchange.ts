@@ -19,7 +19,14 @@ export type ClanExchangeItemId =
     | 'auraStoneBundle'
     | 'greaterWarSupplyGrant'
     | 'weaponCache'
-    | 'armorCache';
+    | 'armorCache'
+    | 'kageCoffer';
+
+// Which hall tier unlocks the shelf. Maps 1:1 to clanHallTier() breakpoints:
+// camp Lv1 → dojo Lv7 → compound Lv15 → fortress Lv25 → citadel Lv40. The
+// client renders one section per hall, in this order. KEEP IN SYNC with the
+// client mirror in shinobij.client/src/components/ClanExchange.tsx.
+export type ClanExchangeHall = 'camp' | 'dojo' | 'compound' | 'fortress' | 'citadel';
 
 export type ClanExchangeLimit =
     | { kind: 'weekly'; count: number }
@@ -36,6 +43,7 @@ export type ClanExchangeReward =
 export type ClanExchangeItemDef = {
     id: ClanExchangeItemId;
     tier: 1 | 2 | 3;
+    hall: ClanExchangeHall;
     requiredClanLevel: number;
     name: string;
     description: string;
@@ -87,12 +95,14 @@ export type ClanExchangePurchaseFailure = {
 export type ClanExchangePurchaseResult = ClanExchangePurchaseSuccess | ClanExchangePurchaseFailure;
 
 export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
+    // ── Camp (Lv 1+) — member issue ──────────────────────────────────
     {
         id: 'smallRyoPouch',
         tier: 1,
+        hall: 'camp',
         requiredClanLevel: 1,
-        name: 'Small Ryo Pouch',
-        description: 'A sealed clan stipend for active members.',
+        name: 'Genin Coin Cache',
+        description: 'A drawstring purse of ryō, issued to every active clan member.',
         cost: 100,
         limit: { kind: 'weekly', count: 5 },
         rarity: 'standard',
@@ -101,9 +111,10 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
     {
         id: 'boneCharmBundle',
         tier: 1,
+        hall: 'camp',
         requiredClanLevel: 1,
-        name: 'Bone Charm Bundle',
-        description: 'Ten ritual charms used in bloodline and event progression.',
+        name: 'Ossuary Charm Satchel',
+        description: 'Ten carved bone charms strung for bloodline rites and events.',
         cost: 150,
         limit: { kind: 'weekly', count: 5 },
         rarity: 'rare',
@@ -112,9 +123,10 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
     {
         id: 'fateShardBundle',
         tier: 1,
+        hall: 'camp',
         requiredClanLevel: 1,
-        name: 'Fate Shard Bundle',
-        description: 'Five Fate Shards from the clan vault.',
+        name: 'Fate Shard Offering',
+        description: "Five Fate Shards drawn from the clan's offering bowl.",
         cost: 250,
         limit: { kind: 'weekly', count: 3 },
         rarity: 'rare',
@@ -123,20 +135,23 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
     {
         id: 'clanBannerFrame',
         tier: 1,
+        hall: 'camp',
         requiredClanLevel: 1,
-        name: 'Clan Banner Frame',
-        description: 'A profile banner cosmetic reserved for a future cosmetic frame system.',
+        name: 'Clan Banner Sigil',
+        description: 'A clan banner sigil — reserved for the coming cosmetic frame rites.',
         cost: 500,
         limit: { kind: 'oneTime' },
         rarity: 'epic',
         reward: { kind: 'locked', reason: 'Coming Soon' },
     },
+    // ── Dojo (Lv 7+) — proven contributors ───────────────────────────
     {
         id: 'largeRyoPouch',
-        tier: 2,
-        requiredClanLevel: 5,
-        name: 'Large Ryo Pouch',
-        description: 'A heavier stipend for proven clan contributors.',
+        tier: 1,
+        hall: 'dojo',
+        requiredClanLevel: 7,
+        name: 'Chūnin War Chest',
+        description: "A chūnin's war chest — ten thousand ryō for a proven earner.",
         cost: 400,
         limit: { kind: 'weekly', count: 3 },
         rarity: 'rare',
@@ -145,42 +160,47 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
     {
         id: 'boneCharmCrate',
         tier: 2,
-        requiredClanLevel: 5,
-        name: 'Bone Charm Crate',
-        description: 'A lacquered crate containing thirty-five Bone Charms.',
+        hall: 'dojo',
+        requiredClanLevel: 7,
+        name: 'Ossuary Reliquary',
+        description: 'A lacquered reliquary of thirty-five bone charms.',
         cost: 450,
         limit: { kind: 'weekly', count: 3 },
         rarity: 'epic',
         reward: { kind: 'currency', currency: 'boneCharms', amount: 35 },
     },
     {
+        id: 'auraStone',
+        tier: 2,
+        hall: 'dojo',
+        requiredClanLevel: 7,
+        name: 'Kaguya Aura Stone',
+        description: 'A single Kaguya aura stone for advanced shinobi growth.',
+        cost: 800,
+        limit: { kind: 'weekly', count: 2 },
+        rarity: 'epic',
+        reward: { kind: 'currency', currency: 'auraStones', amount: 1 },
+    },
+    // ── Compound (Lv 15+) — officer stores ───────────────────────────
+    {
         id: 'fateShardCrate',
         tier: 2,
-        requiredClanLevel: 5,
-        name: 'Fate Shard Crate',
-        description: 'A protected shipment of fifteen Fate Shards.',
+        hall: 'compound',
+        requiredClanLevel: 15,
+        name: 'Sealed Fate Reliquary',
+        description: 'A warded reliquary holding fifteen Fate Shards.',
         cost: 650,
         limit: { kind: 'weekly', count: 2 },
         rarity: 'epic',
         reward: { kind: 'currency', currency: 'fateShards', amount: 15 },
     },
     {
-        id: 'auraStone',
-        tier: 2,
-        requiredClanLevel: 5,
-        name: 'Aura Stone',
-        description: 'A focused Aura Stone for advanced shinobi growth.',
-        cost: 800,
-        limit: { kind: 'weekly', count: 2 },
-        rarity: 'epic',
-        reward: { kind: 'currency', currency: 'auraStones', amount: 1 },
-    },
-    {
         id: 'warSupplyGrant',
         tier: 2,
-        requiredClanLevel: 5,
-        name: 'War Supply Grant',
-        description: 'Send five hundred War Supply directly to your clan treasury.',
+        hall: 'compound',
+        requiredClanLevel: 15,
+        name: "Quartermaster's Requisition",
+        description: 'Requisition five hundred War Supply straight to the clan stores.',
         cost: 750,
         limit: { kind: 'weekly', count: 2 },
         rarity: 'epic',
@@ -189,9 +209,10 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
     {
         id: 'territoryControlScroll',
         tier: 2,
-        requiredClanLevel: 5,
-        name: 'Territory Control Scroll',
-        description: 'A real territory scroll used to reinforce clan sector control.',
+        hall: 'compound',
+        requiredClanLevel: 15,
+        name: 'Border Claim Scroll',
+        description: 'A sealed border claim scroll to reinforce a clan sector.',
         cost: 900,
         limit: { kind: 'weekly', count: 2 },
         rarity: 'epic',
@@ -200,42 +221,35 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
     {
         id: 'honorSealBundle',
         tier: 2,
-        requiredClanLevel: 5,
-        name: 'Honor Seal Bundle',
-        description: 'Ten Honor Seals for high-value shinobi development.',
+        hall: 'compound',
+        requiredClanLevel: 15,
+        name: 'Rite of Honor Seals',
+        description: 'Ten ceremonial Honor Seals for high-value shinobi development.',
         cost: 1_000,
         limit: { kind: 'weekly', count: 1 },
         rarity: 'epic',
         reward: { kind: 'currency', currency: 'honorSeals', amount: 10 },
     },
+    // ── Fortress (Lv 25+) — war stores ───────────────────────────────
     {
         id: 'premiumFateShardCrate',
         tier: 3,
-        requiredClanLevel: 10,
-        name: 'Premium Fate Shard Crate',
-        description: 'A ceremonial crate packed with thirty-five Fate Shards.',
+        hall: 'fortress',
+        requiredClanLevel: 25,
+        name: 'Grand Fate Reliquary',
+        description: 'A grand reliquary packed with thirty-five Fate Shards.',
         cost: 1_200,
         limit: { kind: 'weekly', count: 1 },
         rarity: 'legendary',
         reward: { kind: 'currency', currency: 'fateShards', amount: 35 },
     },
     {
-        id: 'auraStoneBundle',
-        tier: 3,
-        requiredClanLevel: 10,
-        name: 'Aura Stone Bundle',
-        description: 'Three Aura Stones bound in a clan exchange scroll.',
-        cost: 1_500,
-        limit: { kind: 'weekly', count: 1 },
-        rarity: 'legendary',
-        reward: { kind: 'currency', currency: 'auraStones', amount: 3 },
-    },
-    {
         id: 'greaterWarSupplyGrant',
         tier: 3,
-        requiredClanLevel: 10,
-        name: 'Greater War Supply Grant',
-        description: 'Send fifteen hundred War Supply directly to your clan treasury.',
+        hall: 'fortress',
+        requiredClanLevel: 25,
+        name: 'Grand Quartermaster Requisition',
+        description: 'Requisition fifteen hundred War Supply to the clan stores.',
         cost: 1_750,
         limit: { kind: 'weekly', count: 1 },
         rarity: 'legendary',
@@ -244,24 +258,51 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
     {
         id: 'weaponCache',
         tier: 3,
-        requiredClanLevel: 10,
-        name: 'Weapon Cache',
-        description: 'Roll one existing Epic or Legendary weapon from the real item catalog.',
+        hall: 'fortress',
+        requiredClanLevel: 25,
+        name: 'Forbidden Armory Scroll',
+        description: 'A forbidden armory scroll — unseals one Epic or Legendary weapon from the live catalog.',
         cost: 6_000,
         limit: { kind: 'weekly', count: 1 },
         rarity: 'legendary',
         reward: { kind: 'cache', cache: 'weapon' },
     },
+    // ── Citadel (Lv 40+) — elite vault ───────────────────────────────
+    {
+        id: 'auraStoneBundle',
+        tier: 3,
+        hall: 'citadel',
+        requiredClanLevel: 40,
+        name: 'Kaguya Aura Trove',
+        description: 'A trove of three Kaguya aura stones bound in a clan scroll.',
+        cost: 1_500,
+        limit: { kind: 'weekly', count: 1 },
+        rarity: 'legendary',
+        reward: { kind: 'currency', currency: 'auraStones', amount: 3 },
+    },
     {
         id: 'armorCache',
         tier: 3,
-        requiredClanLevel: 10,
-        name: 'Armor Cache',
-        description: 'Roll one existing Epic or Legendary armor piece from the real item catalog.',
+        hall: 'citadel',
+        requiredClanLevel: 40,
+        name: 'Vault of the Fallen',
+        description: 'A vault of the fallen — unseals one Epic or Legendary armor piece from the live catalog.',
         cost: 8_000,
         limit: { kind: 'weekly', count: 1 },
         rarity: 'legendary',
         reward: { kind: 'cache', cache: 'armor' },
+    },
+    {
+        id: 'kageCoffer',
+        tier: 3,
+        hall: 'citadel',
+        requiredClanLevel: 40,
+        name: "Kage's Coffer",
+        description: "The kage's own coffer — fifty thousand ryō for the clan's finest.",
+        cost: 4_000,
+        limit: { kind: 'weekly', count: 1 },
+        rarity: 'legendary',
+        reward: { kind: 'currency', currency: 'ryo', amount: 50_000 },
     },
 ];
 

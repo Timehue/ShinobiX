@@ -9,6 +9,7 @@ export const TEST_FILES = [
     "server-routes.test.ts",
     "api/_clan-points.test.ts",
     "api/clan/_exchange.test.ts",
+    "api/clan/_clan-xp-scale.test.ts",
     "api/_canonical-domain.test.ts",
     "api/combat-core/_grid.test.ts",
     "api/combat-core/_formulas.test.ts",
