@@ -285,7 +285,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
             pg("Rigging in the Dark", "The spine cable going up, lanterns swinging, the Captain's guards hauling on ropes", "Narrator",
                 "The Tempest Guard Captain arrives at second bell with eleven guards, out of uniform, on his own time. Nobody discusses it. He takes a rope.",
                 "Mira works the anchor points in a language of grunts and hand signals, and the crew learns it in minutes because her hands make sense the way good rigging makes sense.",
-                "At the fourth anchor she stops dead. The bolt pattern her mother drew calls for a spacing nobody uses, and she stands there in the wind, eleven years of doubt in one look.",
+                "At the fourth anchor she stops dead. The bolt pattern her mother drew calls for a spacing nobody uses, and she stands there in the wind, twelve years of doubt in one look.",
                 "Then she sets the bolts to her mother's spacing, exactly, and says to nobody: 'You'd better be right about this too.'"),
             { ...pg("The First Raise", "The spine cable rising against the storm's first arm, everything singing", "Narrator",
                 "The line goes up into weather that does not want it there. For three full breaths it stands, humming, drinking the sky's first anger and pouring it down the anchors into honest rock.",
@@ -306,7 +306,7 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                     { text: "Hold tension. Match her hands.", nextPage: 4 }
                 ] },
             { ...pg("The Line Holds", "The spine rising again, Kesa's splice at its heart, the storm arm arriving", "Narrator",
-                "The second raise goes up in the teeth of it, and this time the splice is Kesa's, tied by her daughter's hands from eleven years of watching and one night of believing.",
+                "The second raise goes up in the teeth of it, and this time the splice is Kesa's, tied by her daughter's hands from twelve years of watching and one night of believing.",
                 "The storm arm hits the web like a fist hitting a net, and the net gives, and sways, and HOLDS, and the anchors drink the sky's whole argument down into the ridge.",
                 "Below, across the Low Terraces, three hundred roofs stand in weather that should be peeling them like fruit. A dog barks at the quiet. Somewhere a shutter bangs, once, and is latched by somebody sleepy and alive.",
                 "'It holds,' Mira says. Then again, quieter, like she's checking a knot: 'It holds.' Then she sits down on the wet rock, all at once, and laughs until it turns into the other thing, and nobody on the ridge pretends not to see."),
@@ -421,11 +421,14 @@ export const storyInterludesByVillage: Record<string, StoryInterlude[]> = {
                 choices: [
                     { text: "Walk on together.", nextPage: 7 }
                 ] },
-            pg("The Fourth Figure", "The tower gate's shadow, an odds-runner waiting alone, chalk behind her ear, no slate", "Narrator",
+            { ...pg("The Fourth Figure", "The tower gate's shadow, an odds-runner waiting alone, chalk behind her ear, no slate", "Narrator",
                 "The runner at the gate is the sharpest on the coast; you have watched her call lines through riots without blinking. She stands alone, hands visible, no slate anywhere on her.",
                 "'The window's shut,' she says, to the middle distance. 'First time ever. You know what we runners do when the window's shut? Nothing. There's no book on tonight. There's no book POSSIBLE on tonight.'",
                 "'Some of us have taken money on every fear this village ever had. If someone were to break the floor's bank for good, some of us would... find honest work. Slowly. With enormous complaining.'",
                 "She looks at you once, directly, the way runners look at a line they can't price, and then she is gone down the switchbacks, calling no numbers at all."),
+                choices: [
+                    { text: "The gate. The last climb.", nextPage: 8, trait: "sv92-witness-present" }
+                ] },
             pg("The Village on the Hill", "The tower gate, the crowd on every switchback below, wind steady", "Mira Volt",
                 "Look down the road. No, really look. Every switchback, full. The camp came down from the ravine, the Terraces came up with rigging pins in their belts, Pike's whole yard walked out mid-training. The Captain's guards are up here off duty, in their good coats, standing next to people they booked last spring.",
                 "Nobody posted this. Nobody could. There's no slate for it, no odds on it, no purse under it. It's just the whole village, choosing, in the open, with their feet.",
