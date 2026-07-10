@@ -119,6 +119,10 @@ const RULES: DeriveRule[] = [
     // already grants it for ready/deferred; extend to unfinished so the name-less
     // "A Sky Without a Why" branch (forbid reason-proof-any) truly means NO reason.
     { grant: "sv88-reason-proof-any", when: (has) => has("sv88-unfinished-answer") },
+    // Stormveil: any L80 "Harrow's Shortcut" completion means the player heard
+    // Harrow name the Hollow Gate at the cistern counter. Persists Gate-knowledge
+    // for cross-village / final-seat callbacks, whichever moral L80 choice was made.
+    { grant: "sv80-named-hollow-gate", when: (has) => has("sv80-pulled-her-back") || has("sv80-set-the-terms") || has("sv80-took-notes") },
     // ── Frostfang: the chosen-count proof chain (Dren Coldewe's long lanterns) ──
     ...proofChainRules({
         works: "ff88-relay-held", number: "ff88-nineteen-minutes",
@@ -183,6 +187,7 @@ export const DERIVED_TRAIT_LEVELS: Record<string, number> = Object.fromEntries([
     ...["al88-water-proven", "al88-better-winter-ready", "al88-better-winter-carried",
         "al88-better-winter-deferred", "al88-reed-proof-any", "al88-unfinished-answer"].map((t) => [t, 88]),
     ["al92-mori-present", 92],
+    ["sv80-named-hollow-gate", 80],
     ...["sv88-line-held", "sv88-better-storm-ready", "sv88-better-storm-carried",
         "sv88-better-storm-deferred", "sv88-reason-proof-any", "sv88-unfinished-answer"].map((t) => [t, 88]),
     ["sv92-witness-present", 92],
