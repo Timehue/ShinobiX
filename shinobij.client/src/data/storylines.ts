@@ -220,7 +220,7 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("The Name on the Board", "The rooftop, wind pulling at an old slate Mira keeps wrapped in oilcloth", "Mira Volt", [
                 "Since we're up here. There's a thing I show people once, to see what they do with it.",
                 "Kesa Volt. My mother. Cable rigger, best on the coast. Dead six years. And her grudge is still posted on the board, still drawing odds, still scheduled twice a season against a man who is also dead.",
-                "Two dead people, fighting on a schedule. The clerks call it a estate bout. The odds-runners call it tradition. I call it my mother, working the arena from under a stone.",
+                "Two dead people, fighting on a schedule. The clerks call it an estate bout. The odds-runners call it tradition. I call it my mother, working the arena from under a stone.",
                 "I asked the tower to strike it once. One time. They said accounts close when they're settled, and hers is still drawing. Still DRAWING. Their word."
             ]), image: "/scenes/story/story-stormveil-village-25-2.webp", choices: [
                 { text: "Show her the Red Tally token from the border. Same tick marks.", nextPage: 2, requireTrait: "rd22-showed-the-token" },
@@ -285,7 +285,9 @@ export const storylines: Record<string, StoryStep[]> = {
                 "You remember I told you where I'd run, if I ran. I've never told anyone the second half of that.",
                 "My mother came down here. I'm sure of it now. The winter after my father drowned, she kept saying the village was plumbed like a still, and she started drawing cable maps that made no sense, anchors on the high ridge where there's nothing to power.",
                 "Everyone said grief had her, because my father had just died, and she posted the grudge about it. Biggest mistake of her life, posting that. They scheduled her every season after. She got quieter every bout, and I watched it and called it healing.",
-                "They drained my mother's grief down one of these pipes, one fight at a time. And then they kept her name on the board after her heart quit, because the account was still. Still drawing."
+                "They drained my mother's grief down one of these pipes, one fight at a time.",
+                "Then they kept her name on the board after her heart quit because the account was still open.",
+                "Still drawing."
             ]), image: "/scenes/story/story-stormveil-village-35-3.webp", choices: [
                 { text: "Something moves by the reserve.", nextPage: 4 }
             ] },
@@ -505,7 +507,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Drain Speaks", "The storm floor, open to the rotating sky, Raiko at the rail", "Kage Raiko Veyr", [
                 "Punctual. I like that in weather and people.",
-                "Before the bell, you get the truth, because you climbed for it. The ledger above us has a name; the exiles who cut the coast stair knew it before the tower had windows. The Hollow Gate. Four seats sit at it, one for each quarter of a circle cut in quarters, the little mark the tower presses into its pay slates, and each Kage is paid in kind for the intake he keeps open. Each of us really only knows his own price. They say frost buys certainty and moon buys silence; what fire is paid, I never learned.",
+                "Before the bell, you get the truth, because you climbed for it. The ledger above us has a name; the exiles who cut the coast stair knew it before the tower had windows. The Hollow Gate. Four seats sit at it, one for each quarter of the circle. It is the same mark the tower presses into its pay slates, and each Kage is paid in kind for the intake he keeps open. Each of us really only knows his own price. They say frost buys certainty and moon buys silence; what fire is paid, I never learned.",
                 "You want to know my price? Quiet. The seat made me the drain for every grudge in this village, every voice, all at once, always. And the ledger pays me one hour a day of QUIET. One hour. I have started wars in my head for that hour. I have scheduled riots for it. I am not proud, and I am not sorry, and both of those are true at once, which is the most honest sentence I own.",
                 "And you should hear the ugliest part from me, not from her daughter. I spent Kesa Volt twice. For six years I let her grief be milked on that board to keep three hundred roofs standing, and every drop the shield did not burn I sent up the hill to feed the Gate. One woman's mourning, warming a village and paying a debt at once, for years. Do not blame the Gate for my handwriting. It set the line. I kept taking the bet. And every time this village won, somebody else covered the purse. This round, it was her.",
                 "So. The storm is called, the account is due, and the seat takes challenges tonight only. Ask your questions, or ask your questions with your hands."
@@ -520,7 +522,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Quiet Storm", "The storm floor, Kesa's cable maps unrolled on the rail", "Kage Raiko Veyr", [
                 "What is that. Bring it here. Slowly, the wind's a thief.",
-                "Kesa Volt's ridge line. I know this drawing; it crossed my desk eleven years ago with a note from the arena council calling it a widow's grief. I signed the note. I SIGNED it. And now you've built it, and the Low Terraces slept through the cyclone's first arm with the engine cold. My engine, cold, and three hundred roofs still standing.",
+                "Kesa Volt's ridge line. I know this drawing; it crossed my desk twelve years ago with a note from the arena council calling it a widow's grief. I signed the note. I SIGNED it. And now you've built it, and the Low Terraces slept through the cyclone's first arm with the engine cold. My engine, cold, and three hundred roofs still standing.",
                 "I asked for a quieter storm the way a man asks the sea for mercy. Rhetorically. Nobody brings one.",
                 "Call the line, %name. Loud, into the wind, like an odds-runner at last bell. I want the whole sky to hear the number that beats mine."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
@@ -554,7 +556,7 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Splice", "The storm floor, the anchor splice knotted to the rail, holding", "Kage Raiko Veyr", [
                 "One splice. Her splice; I'd know that knot off a drawing at a hundred paces. It held the ridge line through the first arm, didn't it. Of course it did.",
-                "Eleven years ago I signed a note calling this grief. The widow was the best rigger on the coast and I signed the note without standing up from my desk.",
+                "Twelve years ago I signed a note calling this grief. The widow was the best rigger on the coast and I signed the note without standing up from my desk.",
                 "And now her knot is holding my sky off my village without my engine, and the man who signed the note gets to stand here in the wind it's beating.",
                 "I have no storm left to answer with. Time to find out what that leaves standing."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
@@ -621,7 +623,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Enough. The storm decides now.", nextPage: 18 }
             ] },
             { ...storyPage("Answer for Kesa Volt. Her line holds your sky right now.", "The reckoning", "Kage Raiko Veyr", [
-                "Kesa Volt. The rigger. The note on her ridge line crossed my desk and I signed it 'a widow's grief, no action,' eleven years ago, between a lunch and a hanging. I remember, because I remember everything; that's my price.",
+                "Kesa Volt. The rigger. The note on her ridge line crossed my desk and I signed it 'a widow's grief, no action,' twelve years ago, between a lunch and a hanging. I remember, because I remember everything; that's my price.",
                 "Here is the part I have told no living soul. I tested her line. One ridge, one winter, quietly. It held. And the odds changed the moment it did: a village that stops needing the Engine stops feeding the account upstairs, and that account does not take cancellations. So I buried the winning line and kept the whole village staked on the losing one.",
                 "Her anchors are holding my sky as we stand here. Tell her daughter that, afterward. Tell her the Kage tested the line, and it held, and he buried it anyway. She deserves to hate me with the figures in hand."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
