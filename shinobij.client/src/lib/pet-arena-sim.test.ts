@@ -383,8 +383,11 @@ test("v2 — captures (and the Warden) are the ONLY score source; combat charges
 });
 
 test("v2 — carry-as-fight-through: a carrier can deal damage (the v1 B1 lockout is lifted)", () => {
+    // A wide seed net: the mechanic is "a carrier CAN swing", not "a carrier happens
+    // to swing on these exact seeds" — AI-shape changes (flank arcs, counter-seeking)
+    // legitimately reshuffle any single playout.
     let found = false;
-    for (const seed of V2SEEDS) {
+    for (const seed of [...V2SEEDS, ...spread(10, 61, 13)]) {
         const r = runPetArenaMatch(roster(COMP, { hp: 1200, attack: 150 }), roster(COMP, { hp: 340, attack: 30 }), seed, false, true);
         for (const e of r.events) {
             if (e.type !== "hit" || !e.actorId || e.actorId === "boss") continue;
@@ -443,6 +446,19 @@ test("v2 — squad broadcast cues fire (focuscall/posture/peelassign) and never 
             `squad broadcast cues leaked into v1 (seed ${seed})`);
     }
     assert.ok(calls > 0, "no focuscall ever fired across the v2 seeds");
+});
+
+test("v2 — element counters make the LINEUP matter (the countering side wins more)", () => {
+    // Identical stats, opposed elements: Fire beats Wind (deals ×1.15, takes ×0.85).
+    // Running both orientations on the same seeds isolates the element edge from the
+    // small spawn-side lean.
+    const seeds = spread(14, 37, 11);
+    let fireAsBlue = 0, windAsBlue = 0;
+    for (const seed of seeds) {
+        if (runPetArenaMatch(roster(COMP, { element: "Fire" }), roster(COMP, { element: "Wind" }), seed, false, true).winner === "blue") fireAsBlue++;
+        if (runPetArenaMatch(roster(COMP, { element: "Wind" }), roster(COMP, { element: "Fire" }), seed, false, true).winner === "blue") windAsBlue++;
+    }
+    assert.ok(fireAsBlue > windAsBlue, `the countering lineup should win more (fire-as-blue ${fireAsBlue} vs wind-as-blue ${windAsBlue} of ${seeds.length})`);
 });
 
 test("v2 — the focus call is COMMITTED (no re-call inside the dwell without a death/carrier break)", () => {
