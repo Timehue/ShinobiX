@@ -2,8 +2,9 @@
 // stored `character.onboardingStep` (which may be a legacy value from an older
 // save) onto the canonical "Academy Path" flow:
 //
-//   academyIntro -> starter -> training -> jutsu -> jutsuLoadout -> inventory
-//   -> academySpar -> cafeteria -> firstMission -> logbook -> sectorReturn -> done
+//   academyIntro -> starter -> companionIntro -> training -> jutsu
+//   -> jutsuLoadout -> inventory -> academySpar -> cafeteria -> firstMission
+//   -> logbook -> sectorReturn -> done
 //
 // Legacy saves used a shorter flow ("starter → spar → tour → training → jutsu
 // -> logbook -> done"). We never want to break those, so:
@@ -32,16 +33,17 @@ export function normalizeOnboardingStep(
 export const ONBOARDING_STEP_ORDER: Record<CanonicalOnboardingStep, number> = {
     academyIntro: 0,
     starter: 1,
-    training: 2,
-    jutsu: 3,
-    jutsuLoadout: 4,
-    inventory: 5,
-    academySpar: 6,
-    cafeteria: 7,
-    firstMission: 8,
-    logbook: 9,
-    sectorReturn: 10,
-    done: 11,
+    companionIntro: 2,
+    training: 3,
+    jutsu: 4,
+    jutsuLoadout: 5,
+    inventory: 6,
+    academySpar: 7,
+    cafeteria: 8,
+    firstMission: 9,
+    logbook: 10,
+    sectorReturn: 11,
+    done: 12,
 };
 
 export function onboardingStepAtLeast(

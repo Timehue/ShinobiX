@@ -6,9 +6,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { villages } from "../../data/sectors";
 import {
+    COMPANION_VILLAGE_FLAVOR,
     FOX_NAME,
     PRE_GIFT_LINES,
     VILLAGE_LORE_LINES,
+    buildCompanionIntroLines,
     buildPostGiftLines,
     resolveCinematicLine,
 } from "./introCinematicScript";
@@ -47,8 +49,23 @@ test("post-gift script ends on the fading 'save this land' farewell", () => {
     }
 });
 
+test("every village has companion-intro flavor and the beat asks to guide", () => {
+    for (const village of villages) {
+        assert.ok(COMPANION_VILLAGE_FLAVOR[village], `missing COMPANION_VILLAGE_FLAVOR for "${village}"`);
+        const lines = buildCompanionIntroLines(village, "Cinder Cub");
+        assert.ok(lines.length >= 3);
+        for (const line of lines) {
+            assert.ok(line.text.trim().length > 0);
+            assert.equal(line.label, "Cinder Cub");
+        }
+        assert.match(lines[lines.length - 1].text, /guide/i);
+    }
+    // Unknown villages fall back gracefully instead of crashing the beat.
+    assert.ok(buildCompanionIntroLines("Nowhere Village", "Pup").length >= 3);
+});
+
 test("placeholders resolve with no braces left behind", () => {
-    const all = [...PRE_GIFT_LINES, ...buildPostGiftLines(villages[0])];
+    const all = [...PRE_GIFT_LINES, ...buildPostGiftLines(villages[0]), ...buildCompanionIntroLines(villages[0], "Cinder Cub")];
     for (const line of all) {
         const resolved = resolveCinematicLine(line.text, "Testkage", "Cinder Cub");
         assert.ok(!resolved.includes("{"), `unresolved placeholder in: ${resolved}`);

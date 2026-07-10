@@ -275,8 +275,9 @@ export function OnboardingCoach({
         ? bannerText?.length ?? 0
         : typed.text === bannerText ? typed.count : 0;
 
-    // academyIntro + starter belong to the intro cinematic, not the coach.
-    if (step === "done" || step === "starter" || step === "academyIntro") return null;
+    // academyIntro/starter/companionIntro belong to the intro cinematic and
+    // the companion's village-intro beat, not the coach.
+    if (step === "done" || step === "starter" || step === "academyIntro" || step === "companionIntro") return null;
 
     const skip = () => updateCharacter({ ...character, onboardingStep: "done" });
     const guideArt = guidePet ? petPoseImage(guidePet, sharedImages) : "";

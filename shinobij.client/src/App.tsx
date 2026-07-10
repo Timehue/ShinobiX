@@ -7672,17 +7672,20 @@ export default function App() {
                     survives a refresh, and never fires for veterans. Admins skip
                     it (no real game role). */}
                 {character
-                    && (character.onboardingStep === "academyIntro" || character.onboardingStep === "starter")
+                    && (character.onboardingStep === "academyIntro" || character.onboardingStep === "starter" || character.onboardingStep === "companionIntro")
                     && character.name !== "Admin 1"
                     && character.name !== "Admin 2"
                     && (
                     <IntroCinematic
+                        key={character.onboardingStep === "companionIntro" ? "companion" : "summon"}
                         character={character}
                         sharedImages={sharedImages}
                         onComplete={(pet) => {
                             // Apply the pet's trait spawn-bonus exactly like a befriended
                             // encounter pet (applyPetTraitBonuses), then add it to the
-                            // roster, set it active, and hand off to stat training.
+                            // roster, set it active, and hand off to the companion's
+                            // village-intro beat (which in turn hands off to training —
+                            // the double-grant guard makes the second pass grant-free).
                             const trait = pet.trait ?? "Loyal";
                             const granted = applyPetTraitBonuses({ ...pet, trait }, trait);
                             const already = character.pets.some((p) => p.id === granted.id);
@@ -7690,7 +7693,7 @@ export default function App() {
                                 ...character,
                                 pets: already ? character.pets : [...character.pets, granted],
                                 activePetId: character.activePetId ?? granted.id,
-                                onboardingStep: "training",
+                                onboardingStep: character.onboardingStep === "companionIntro" ? "training" : "companionIntro",
                             };
                             setCharacter(updated);
                             // Push immediately so the companion isn't lost on a fast refresh

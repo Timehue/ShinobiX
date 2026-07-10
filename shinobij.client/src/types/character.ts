@@ -580,6 +580,9 @@ export type Character = {
     onboardingStep?:
         | "academyIntro"
         | "starter"
+        // post-gift beat: the companion introduces the village over the live
+        // village screen, then hands off to "training"
+        | "companionIntro"
         | "academySpar"
         | "training"
         | "jutsu"
