@@ -1,9 +1,9 @@
-import { describe, it, after } from 'node:test';
+import { describe, it, after, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { _makeDiskKv, _makeRoutedKv, type KvLike } from './_storage.js';
+import { _makeDiskKv, _makeRoutedKv, _makeRemoteKv, type KvLike } from './_storage.js';
 import { consumeSingleUseToken } from './_single-use-token.js';
 
 // The routed KV splits keys across two backends — a disk overlay for the
@@ -107,6 +107,76 @@ describe('_makeRoutedKv.mget', () => {
             'base.mget:[auth:alice]',
             'disk.mget:[save:alice,save-snapshot:alice:1700000000000]',
         ].sort());
+    });
+});
+
+// Transport resilience for the remote (cPanel) proxy overlay. The proxy box is
+// bounced on every deploy and can be OOM-killed under load, dropping an in-flight
+// response as a Passenger 502 — the GET /api/save/clan-* error this hardening
+// targets. call() retries transient failures (502/503/504, network throw) but
+// must NOT retry non-idempotent ops (a set with nx is a check-then-write claim).
+describe('_makeRemoteKv transport resilience', () => {
+    const realFetch = globalThis.fetch;
+    let calls: string[] = [];
+
+    // Queue-driven fake fetch: each entry is a status number (→ a Response with
+    // that status) or 'throw' (→ a network error). The last entry repeats once
+    // the queue is exhausted, so [502] means "502 forever".
+    function installFetch(script: Array<number | 'throw'>): void {
+        let i = 0;
+        calls = [];
+        globalThis.fetch = (async () => {
+            const step = script[Math.min(i, script.length - 1)];
+            i += 1;
+            calls.push(String(step));
+            if (step === 'throw') throw new Error('network down');
+            return {
+                ok: step >= 200 && step < 300,
+                status: step,
+                json: async () => ({ value: 'V', result: 'OK', count: 1 }),
+                text: async () => `HTTP ${step} body`,
+            };
+        }) as unknown as typeof fetch;
+    }
+
+    afterEach(() => { globalThis.fetch = realFetch; });
+
+    const kv = (): KvLike => _makeRemoteKv('https://proxy.example/api/kv', 'tok');
+
+    it('retries a transient 502 and succeeds on a later attempt', async () => {
+        installFetch([502, 502, 200]);
+        assert.equal(await kv().get('save:clan-x'), 'V');
+        assert.equal(calls.length, 3); // two retries, third attempt wins
+    });
+
+    it('gives up after 3 attempts when every try is a 502', async () => {
+        installFetch([502]);
+        await assert.rejects(kv().get('save:clan-x'), /HTTP 502/);
+        assert.equal(calls.length, 3);
+    });
+
+    it('does NOT retry a deterministic 500 (fails fast, one call)', async () => {
+        installFetch([500]);
+        await assert.rejects(kv().get('save:clan-x'), /HTTP 500/);
+        assert.equal(calls.length, 1);
+    });
+
+    it('retries a thrown network error', async () => {
+        installFetch(['throw', 200]);
+        assert.equal(await kv().get('save:clan-x'), 'V');
+        assert.equal(calls.length, 2);
+    });
+
+    it('a plain set retries a transient 502', async () => {
+        installFetch([502, 200]);
+        assert.equal(await kv().set('save:clan-x', { a: 1 }), 'OK');
+        assert.equal(calls.length, 2);
+    });
+
+    it('a set with nx is NOT retried — check-then-write is not idempotent', async () => {
+        installFetch([502]);
+        await assert.rejects(kv().set('save:clan-x', { a: 1 }, { nx: true }), /HTTP 502/);
+        assert.equal(calls.length, 1); // single attempt only
     });
 });
 
