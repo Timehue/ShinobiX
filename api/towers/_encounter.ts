@@ -14,7 +14,7 @@ import {
     type TowerSession,
     type TowerMap,
 } from './_tower-session.js';
-import { applyPartyScaling } from './_engine.js';
+import { applyPartyScaling, towerNeighbors } from './_engine.js';
 import { getEnemyTemplate, type EnemyTemplate } from './_enemy-templates.js';
 import { hexZone, type TowerFloor, type TowerFeature } from './_floor-catalog.js';
 
@@ -82,6 +82,68 @@ function placeFeatureFlowers(features: TowerFeature[], w: number, h: number, see
             for (const t of zone) taken.add(t);
             break;
         }
+    }
+}
+
+// ── Static terrain scatter (fills the otherwise-empty board with cover) ──────────
+// Hard cap on how much of the board can be blocked — sparse cover, never a maze.
+const TERRAIN_MAX_FRACTION = 0.10;
+
+/** Scatter up to `count` single-hex impassable pillars into map.blockedTiles. The pillars are
+ *  pairwise NON-ADJACENT by construction (a candidate touching an existing pillar is rejected):
+ *  with no two blocked cells sharing an edge, they can never form a connected wall that bisects
+ *  the board, so the free region stays fully connected WITHOUT a flood-fill guard (and the goal/
+ *  npc, whose neighbours the caller reserves, always keep ≥3 open approaches). Deterministic: an
+ *  own LCG stream salted apart from the feature-flower (0x9e3779b9) and spawn (0x85ebca6b) streams,
+ *  so the settle recompute reproduces the exact layout. `reserved` tiles (features / goal / npc +
+ *  neighbours) never receive a pillar; pillars stay off the left spawn band and the edge rows/cols.
+ *  `count <= 0` is a no-op → blockedTiles stays [] → the floor is byte-identical (and the engine
+ *  keeps its greedy-path fast-path). Every shipped floor that sets no terrainPillars pays nothing. */
+export function scatterTerrain(
+    map: TowerMap, w: number, h: number, seed: number, reserved: Set<number>, count: number,
+): void {
+    const want = Math.min(Math.max(0, Math.floor(Number(count) || 0)), Math.floor(w * h * TERRAIN_MAX_FRACTION));
+    if (want <= 0) return;
+    const pillars = new Set<number>();
+    let s = (((seed >>> 0) ^ 0xc2b2ae35) >>> 0) || 1;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
+    const maxAttempts = want * 80 + 200;
+    for (let attempt = 0; attempt < maxAttempts && pillars.size < want; attempt++) {
+        // interior tiles only: off the left spawn band + the last column, off the edge rows
+        const cx = (SPAWN_LEFT_COLS + 1) + Math.floor(rnd() * Math.max(1, w - SPAWN_LEFT_COLS - 2));
+        const cy = 1 + Math.floor(rnd() * Math.max(1, h - 2));
+        const t = cy * w + cx;
+        if (reserved.has(t) || pillars.has(t)) continue;
+        if (towerNeighbors(t, w, h).some(nb => pillars.has(nb))) continue; // non-adjacency invariant
+        pillars.add(t);
+    }
+    for (const t of pillars) map.blockedTiles.push(t);
+}
+
+// ── Board-object placement (fonts on the flanks, shrines mid-board) ─────────────
+/** Scatter each authored board object onto ONE free tile: shrines land in the contested
+ *  MIDDLE third (both sides want them), fonts anywhere outside the spawn band. Seeded on
+ *  its own LCG stream (salt 0x165667b1), skips reserved tiles, and marks its pick reserved
+ *  so objects never stack. A floor with no boardObjects pays nothing (byte-identical). */
+export function placeBoardObjects(
+    objects: Array<{ kind: string; tiles?: number[] }>, w: number, h: number, seed: number, reserved: Set<number>,
+): void {
+    if (!objects.length) return;
+    let s = (((seed >>> 0) ^ 0x165667b1) >>> 0) || 1;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
+    for (const o of objects) {
+        const midLo = Math.floor(w / 3), midHi = Math.ceil((2 * w) / 3) - 1;
+        const [cLo, cHi] = o.kind === 'shrine' ? [midLo, midHi] : [SPAWN_LEFT_COLS + 1, w - 2];
+        for (let attempt = 0; attempt < 300; attempt++) {
+            const cx = cLo + Math.floor(rnd() * Math.max(1, cHi - cLo + 1));
+            const cy = 1 + Math.floor(rnd() * Math.max(1, h - 2));
+            const t = cy * w + cx;
+            if (reserved.has(t)) continue;
+            o.tiles = [t];
+            reserved.add(t);
+            break;
+        }
+        if (!o.tiles || o.tiles.length === 0) o.tiles = []; // couldn't place — object is inert
     }
 }
 
@@ -195,6 +257,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         hazardTiles: [],
         objectiveTiles: typeof floor.goalTile === 'number' ? [floor.goalTile] : [],
         features: floor.features ? floor.features.map(f => ({ ...f, tiles: [...f.tiles] })) : [],
+        ...(floor.closingRing ? { closingRing: { ...floor.closingRing } } : {}),
     };
 
     // Per-run elements: assign the tower's 3 seeded elements round-robin to the pylon
@@ -225,6 +288,30 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     const npcTile = floor.npc && typeof floor.npc.pos === 'number' && floor.npc.pos >= 0 && floor.npc.pos < W * H
         ? Math.floor(floor.npc.pos) : undefined;
     if (npcTile !== undefined) used.add(npcTile);
+
+    // Scatter static terrain (impassable pillars) into map.blockedTiles BEFORE the spawn `blocked`
+    // set is snapshotted below, so squad/enemy spawns land clear of the pillars. Reserve the goal
+    // and npc tiles AND their neighbours so an objective can never be walled off (defensive — no
+    // shipped terrain floor carries a goal/npc yet). Feature tiles are already in `used`. Floors
+    // with no terrainPillars → no-op (blockedTiles stays []), byte-identical to before.
+    const terrainReserved = new Set<number>(used);
+    for (const t of map.objectiveTiles) { terrainReserved.add(t); for (const nb of towerNeighbors(t, W, H)) terrainReserved.add(nb); }
+    if (npcTile !== undefined) for (const nb of towerNeighbors(npcTile, W, H)) terrainReserved.add(nb);
+    scatterTerrain(map, W, H, p.seed, terrainReserved, floor.terrainPillars ?? 0);
+    for (const t of map.blockedTiles) used.add(t);
+
+    // Board objects (fonts / shrines): place AFTER terrain (pillars reserved) and BEFORE
+    // spawns — their tiles join `used` so no unit spawns standing on one. A floor without
+    // boardObjects leaves the map field unset → byte-identical.
+    if (floor.boardObjects && floor.boardObjects.length > 0) {
+        const objects = floor.boardObjects.map(o => ({ ...o, tiles: [] as number[] }));
+        const objReserved = new Set<number>(used);
+        for (const t of map.objectiveTiles) objReserved.add(t);
+        placeBoardObjects(objects, W, H, p.seed, objReserved);
+        map.boardObjects = objects;
+        for (const o of objects) for (const t of o.tiles ?? []) used.add(t);
+    }
+
     const actors: TowerActor[] = [];
 
     // ── Two-sided random spawns ──────────────────────────────────────────────
@@ -272,6 +359,14 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
                 bossActor.character.summonCount = Math.max(1, Math.min(4, Number(floor.boss.summonCount ?? 2)));
             }
         }
+        // Attach the boss's AI target-selection policy (absent → nearest-opponent, byte-identical).
+        if (floor.boss.targetMode) bossActor.character.aiTargetMode = floor.boss.targetMode;
+        // Attach the boss's recurring telegraphed strike config (absent → no strike).
+        if (floor.boss.strike) bossActor.character.bossStrike = { ...floor.boss.strike };
+        // Attach the phase-gate pillar count (absent → the arena never reshapes).
+        if (floor.boss.phasePillars) bossActor.character.phasePillars = Math.max(1, Math.min(3, Math.floor(floor.boss.phasePillars)));
+        // Attach the Aegis config (a one-time shield at each gate; absent → none).
+        if (floor.boss.aegis) bossActor.character.aegis = { shieldPct: Math.max(1, Math.min(25, Math.floor(floor.boss.aegis.shieldPct))) };
         actors.push(bossActor);
     }
 
