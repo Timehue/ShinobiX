@@ -28,6 +28,7 @@
     pointer-events: none;
 }
 .icx-root.is-revealing .icx-scene,
+.icx-root.is-revealing .icx-motes,
 .icx-root.is-revealing .icx-stagefill,
 .icx-root.is-revealing .icx-dialogue,
 .icx-root.is-revealing .icx-skip {
@@ -39,12 +40,20 @@
 .icx-scene {
     position: absolute;
     inset: 0;
+    overflow: hidden;
+}
+/* The painted art rides its own layer with a slow Ken Burns camera move
+   (transform-based so it stays on the GPU; the 3% bleed hides the pan). */
+.icx-scene-art {
+    position: absolute;
+    inset: -3%;
     background: var(--icx-bg-landscape) center / cover no-repeat;
-    animation: icx-drift 46s ease-in-out infinite alternate;
+    animation: icx-kenburns 38s ease-in-out infinite alternate;
+    will-change: transform;
 }
 /* Portrait-ish viewports read better with the portrait shrine art. */
 @media (max-width: 800px), (max-aspect-ratio: 5/6) {
-    .icx-scene {
+    .icx-scene-art {
         background-image: var(--icx-bg-portrait);
     }
 }
@@ -57,14 +66,97 @@
         radial-gradient(ellipse at 50% 38%, rgba(125, 211, 252, 0.10), transparent 55%),
         linear-gradient(180deg, rgba(4, 7, 14, 0.62) 0%, rgba(4, 7, 14, 0.18) 34%, rgba(4, 7, 14, 0.30) 62%, rgba(2, 4, 10, 0.88) 100%);
 }
-@keyframes icx-drift {
-    from { background-size: 102% auto; background-position: 50% 42%; }
-    to   { background-size: 112% auto; background-position: 50% 55%; }
+@keyframes icx-kenburns {
+    from { transform: scale(1.02) translate(0.6%, -0.8%); }
+    to   { transform: scale(1.12) translate(-1.2%, 1.2%); }
 }
-/* The drift animates background-size against the landscape art's proportions;
-   on the portrait art it fights cover-cropping, so hold a static frame there. */
-@media (max-width: 800px), (max-aspect-ratio: 5/6) {
-    .icx-scene { animation: none; background-size: cover; }
+
+/* God rays falling from above the falls — two soft shafts + an ambient glow. */
+.icx-rays {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% -12%, rgba(224, 242, 254, 0.22), transparent 58%);
+    animation: icx-rays-breathe 9s ease-in-out infinite alternate;
+}
+.icx-rays::before,
+.icx-rays::after {
+    content: "";
+    position: absolute;
+    top: -12%;
+    height: 85%;
+    width: 14%;
+    background: linear-gradient(180deg, rgba(224, 242, 254, 0.20), rgba(224, 242, 254, 0.05) 55%, transparent 90%);
+    filter: blur(9px);
+    transform-origin: top center;
+}
+.icx-rays::before {
+    left: 38%;
+    transform: skewX(-9deg);
+    animation: icx-ray-sway 13s ease-in-out infinite alternate;
+}
+.icx-rays::after {
+    left: 55%;
+    width: 9%;
+    transform: skewX(7deg);
+    animation: icx-ray-sway 17s ease-in-out infinite alternate-reverse;
+}
+@keyframes icx-rays-breathe {
+    from { opacity: 0.65; }
+    to   { opacity: 1; }
+}
+@keyframes icx-ray-sway {
+    from { transform: skewX(-11deg); opacity: 0.55; }
+    to   { transform: skewX(-5deg); opacity: 0.95; }
+}
+
+/* Low mist banks drifting across the pool. */
+.icx-mist {
+    position: absolute;
+    left: -30%;
+    width: 160%;
+    height: 26%;
+    bottom: 4%;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 65%, rgba(203, 226, 244, 0.16), transparent 70%);
+    filter: blur(14px);
+    animation: icx-mist-drift 52s linear infinite alternate;
+}
+.icx-mist.m2 {
+    bottom: 12%;
+    height: 18%;
+    opacity: 0.7;
+    animation-duration: 37s;
+    animation-direction: alternate-reverse;
+}
+@keyframes icx-mist-drift {
+    from { transform: translateX(-6%); }
+    to   { transform: translateX(6%); }
+}
+
+/* Falling cherry-blossom petals (paired with the rising spirit motes). */
+.icx-petal {
+    position: absolute;
+    top: -4%;
+    width: 10px;
+    height: 8px;
+    border-radius: 70% 30% 60% 40%;
+    background: linear-gradient(135deg, rgba(251, 207, 232, 0.9), rgba(244, 163, 202, 0.75));
+    opacity: 0;
+    animation: icx-petal-fall 13s linear infinite;
+}
+.icx-petal:nth-child(1) { left: 12%; animation-delay: 0s; }
+.icx-petal:nth-child(2) { left: 26%; animation-delay: 4.5s; animation-duration: 15s; width: 8px; height: 7px; }
+.icx-petal:nth-child(3) { left: 44%; animation-delay: 8s; animation-duration: 12s; }
+.icx-petal:nth-child(4) { left: 58%; animation-delay: 2s; animation-duration: 16s; width: 7px; height: 6px; }
+.icx-petal:nth-child(5) { left: 72%; animation-delay: 6s; animation-duration: 14s; }
+.icx-petal:nth-child(6) { left: 86%; animation-delay: 10.5s; animation-duration: 13s; width: 9px; height: 7px; }
+@keyframes icx-petal-fall {
+    0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    8%   { opacity: 0.85; }
+    50%  { transform: translate(-3vw, 50vh) rotate(200deg); }
+    92%  { opacity: 0.6; }
+    100% { transform: translate(2vw, 104vh) rotate(420deg); opacity: 0; }
 }
 
 /* Floating spirit motes (skipped entirely on low-end mobile). */
@@ -98,26 +190,44 @@
 
 /* The ancient spirit fox: the bundled Eclipse Kitsune pose given a spectral
    white treatment (invert flips the black coat to moonlight white; the
-   hue-rotate swings the inverted blue eye-glow back toward gold). */
+   hue-rotate swings the inverted blue eye-glow back toward gold). Deity
+   presence: towering scale, a pulsing sacred halo ring behind it, and a slow
+   materialization entrance — it should read as a shrine god, not a pet. */
 .icx-fox {
     position: absolute;
-    left: clamp(2%, 10vw, 16%);
-    bottom: 27%;
-    width: clamp(190px, 32vmin, 360px);
+    left: clamp(2%, 9vw, 14%);
+    bottom: 29%;
+    width: clamp(260px, 46vmin, 520px);
     pointer-events: none;
-    animation: icx-fox-float 7s ease-in-out infinite;
+    animation: icx-fox-float 11s ease-in-out infinite;
+}
+/* Sacred halo — a bright ring + ambient disc floating behind the fox. */
+.icx-fox::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 42%;
+    width: 118%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, transparent 42%, rgba(190, 227, 254, 0.30) 50%, rgba(240, 249, 255, 0.55) 53%, rgba(190, 227, 254, 0.22) 57%, transparent 65%),
+        radial-gradient(circle, rgba(165, 220, 252, 0.18), transparent 60%);
+    z-index: -1;
+    animation: icx-halo-pulse 5.5s ease-in-out infinite;
 }
 /* Spirit-light pool under the fox so it reads grounded, not floating. */
 .icx-fox::after {
     content: "";
     position: absolute;
-    left: 12%;
-    right: 8%;
-    bottom: -3%;
-    height: 15%;
+    left: 8%;
+    right: 4%;
+    bottom: -4%;
+    height: 14%;
     border-radius: 50%;
-    background: radial-gradient(ellipse, rgba(165, 220, 252, 0.42), transparent 68%);
-    filter: blur(5px);
+    background: radial-gradient(ellipse, rgba(165, 220, 252, 0.45), transparent 68%);
+    filter: blur(6px);
     z-index: -1;
 }
 .icx-fox img {
@@ -125,21 +235,35 @@
     height: auto;
     display: block;
     filter:
-        invert(1) hue-rotate(178deg) brightness(1.1) saturate(0.85)
-        drop-shadow(0 0 16px rgba(240, 249, 255, 0.55))
-        drop-shadow(0 0 52px rgba(125, 211, 252, 0.35));
+        invert(1) hue-rotate(178deg) brightness(1.12) saturate(0.85)
+        drop-shadow(0 0 20px rgba(240, 249, 255, 0.6))
+        drop-shadow(0 0 64px rgba(125, 211, 252, 0.4));
     transition: opacity 1.6s ease, filter 1.6s ease;
+    animation: icx-fox-arrive 1.9s ease-out both;
 }
 .icx-fox.is-fading img {
-    opacity: 0.55;
+    opacity: 0.5;
     filter:
-        invert(1) hue-rotate(178deg) brightness(1.45) saturate(0.55)
-        drop-shadow(0 0 26px rgba(240, 249, 255, 0.85))
-        drop-shadow(0 0 80px rgba(186, 230, 253, 0.6));
+        invert(1) hue-rotate(178deg) brightness(1.5) saturate(0.5)
+        drop-shadow(0 0 30px rgba(240, 249, 255, 0.9))
+        drop-shadow(0 0 92px rgba(186, 230, 253, 0.65));
+}
+.icx-fox.is-fading::before {
+    animation-duration: 2.4s;
 }
 @keyframes icx-fox-float {
     0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(-10px); }
+    50%      { transform: translateY(-7px); }
+}
+@keyframes icx-halo-pulse {
+    0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 1; transform: translate(-50%, -50%) scale(1.045); }
+}
+/* Filter lists with different shapes snap instead of interpolating, so the
+   materialization animates opacity + scale only (the glow filter stays put). */
+@keyframes icx-fox-arrive {
+    from { opacity: 0; transform: scale(0.93) translateY(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 /* The player's chosen avatar, framed like a VN portrait card. */
@@ -161,6 +285,11 @@
     border: 2px solid rgba(250, 204, 21, 0.65);
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), 0 0 34px rgba(250, 204, 21, 0.16);
     background: linear-gradient(180deg, rgba(7, 12, 23, 0.92), rgba(3, 7, 15, 0.96));
+    animation: icx-avatar-breathe 6s ease-in-out infinite;
+}
+@keyframes icx-avatar-breathe {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.014); }
 }
 .icx-avatar .icx-avatar-initial {
     display: flex;
@@ -251,6 +380,11 @@
     line-height: 1.55;
     color: #edf6ff;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    animation: icx-line-in 240ms ease-out both;
+}
+@keyframes icx-line-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 .icx-line.is-narrator {
     font-style: italic;
@@ -454,7 +588,7 @@
 /* ── Mobile ─────────────────────────────────────────────────────────────── */
 
 @media (max-width: 800px) {
-    .icx-fox { left: 0; bottom: 33%; width: clamp(150px, 44vw, 230px); }
+    .icx-fox { left: 0; bottom: 33%; width: clamp(190px, 56vw, 300px); }
     .icx-avatar { right: 3%; bottom: 34%; width: clamp(86px, 26vw, 118px); }
     .icx-avatar-name { font-size: 10.5px; padding: 2px 9px; }
     .icx-vision { top: 6%; width: min(26vh, 66vw); }
@@ -467,16 +601,28 @@
 
 /* ── Motion safety ──────────────────────────────────────────────────────── */
 
-.lite-fx .icx-scene,
+.lite-fx .icx-scene-art,
 .lite-fx .icx-fox,
+.lite-fx .icx-fox::before,
+.lite-fx .icx-fox img,
+.lite-fx .icx-avatar img,
 .lite-fx .icx-vision,
 .lite-fx .icx-advance {
     animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
-    .icx-scene,
+    .icx-scene-art,
     .icx-fox,
+    .icx-fox::before,
+    .icx-fox img,
+    .icx-avatar img,
     .icx-mote,
+    .icx-petal,
+    .icx-mist,
+    .icx-rays,
+    .icx-rays::before,
+    .icx-rays::after,
+    .icx-line,
     .icx-vision,
     .icx-advance {
         animation: none;

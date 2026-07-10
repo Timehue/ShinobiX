@@ -69,7 +69,12 @@ export function DailyBriefingModal({
     const [dismissed, setDismissed] = useState(() => {
         try { return localStorage.getItem(SEEN_KEY) === today; } catch { return false; }
     });
-    const shouldShow = character.level >= MIN_LEVEL && !dismissed;
+    // Held back during the Academy tutorial: a brand-new player finishing the
+    // intro cinematic shouldn't be greeted with "Welcome back" over the
+    // companion's first instruction. It shows right after the tutorial ends
+    // (same day), so no login reward is lost.
+    const tutorialDone = normalizeOnboardingStep(character.onboardingStep) === "done";
+    const shouldShow = character.level >= MIN_LEVEL && !dismissed && tutorialDone;
 
     // The login reward is collected by an explicit Claim button (not auto-granted).
     // `claim` holds the server result once collected this session; the save's
