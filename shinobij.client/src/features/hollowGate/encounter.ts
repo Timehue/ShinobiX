@@ -25,6 +25,16 @@ const HOLLOW_GATE_AFFIXES = [
 
 export type HollowGateEliteAffix = (typeof HOLLOW_GATE_AFFIXES)[number];
 
+// Per-floor "progressively harder" ramp for NON-boss shrine enemies: every
+// floor of depth stiffens the corrupted shinobi you meet, so a full nine-floor
+// descent bites harder the deeper you go. Floor 1 = baseline (1.0×), exactly as
+// before. The boss keeps its own, stronger level+HP ramp (hollowGateBossScaling)
+// and is deliberately NOT touched by these — it's already the run's peak.
+// Absolute-floor based (floor 8 is floor 8, whatever the gate length), so a
+// short event gate simply never reaches the steep end of the ramp.
+export const HOLLOW_GATE_FLOOR_HP_STEP = 0.06;    // +6% enemy HP per floor of depth
+export const HOLLOW_GATE_FLOOR_STAT_STEP = 0.035; // +3.5% enemy stats per floor of depth
+
 export type ShrineEncounterOpts = { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean };
 
 export type ShrineEncounterPick = {
@@ -32,6 +42,10 @@ export type ShrineEncounterPick = {
     encounterName: string;
     rebasedLevel: number;
     bossHpMultiplier: number;
+    // Depth ramp for non-boss enemies (1.0 on floor 1, 1.0 for the boss).
+    // Composes with the elite affix / augment / pet pre-damage in App.
+    floorHpMult: number;
+    floorStatMult: number;
     eliteAffix: HollowGateEliteAffix | null;
 };
 
@@ -122,5 +136,10 @@ export function pickShrineEncounter(args: {
         : clampNumber(baseAi.level ?? playerLevel, Math.max(1, playerLevel - LEVEL_BAND), playerLevel + LEVEL_BAND);
     const bossHpMultiplier = opts.isBoss ? scaling.hpMult : 1;
 
-    return { baseAi, encounterName, rebasedLevel, bossHpMultiplier, eliteAffix };
+    // Non-boss depth ramp — deeper floors send tougher corrupted shinobi.
+    const depth = Math.max(0, floor - 1);
+    const floorHpMult = opts.isBoss ? 1 : 1 + depth * HOLLOW_GATE_FLOOR_HP_STEP;
+    const floorStatMult = opts.isBoss ? 1 : 1 + depth * HOLLOW_GATE_FLOOR_STAT_STEP;
+
+    return { baseAi, encounterName, rebasedLevel, bossHpMultiplier, floorHpMult, floorStatMult, eliteAffix };
 }
