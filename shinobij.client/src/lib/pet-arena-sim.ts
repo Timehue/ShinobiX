@@ -647,6 +647,17 @@ export interface ArenaResult {
 export interface ArenaSlot { pet: Pet; role: ArenaRole; }
 
 // ── Combat ───────────────────────────────────────────────────────────────────
+// Element counters (V2): Fire>Wind>Lightning>Earth>Water>Fire, ±15% — the same chart
+// as the coliseum duel (inlined so this file stays standalone, matching the duel sim's
+// own inlining for its server hand-port). This is what makes the LINEUP itself matter:
+// an advantaged pick hits 15% harder into its counter and shrugs 15% off the reverse.
+const ARENA_ELEMENT_BEATS: Record<string, string> = { Fire: "Wind", Wind: "Lightning", Lightning: "Earth", Earth: "Water", Water: "Fire" };
+function arenaElementMult(att?: string | null, def?: string | null): number {
+    if (!att || !def || att === "None" || def === "None") return 1;
+    if (ARENA_ELEMENT_BEATS[att] === def) return 1.15;
+    if (ARENA_ELEMENT_BEATS[def] === att) return 0.85;
+    return 1;
+}
 function dealDamage(src: AF, tgt: AF, raw: number, rng: () => number, t: number, events: ArenaEvent[], ability = false) {
     const crit = rng() < src.crit;
     // DODGE consumable fully negates the incoming hit (no damage, no procs).
@@ -663,6 +674,10 @@ function dealDamage(src: AF, tgt: AF, raw: number, rng: () => number, t: number,
         if (src.execLeft > 0 && tgt.hp < tgt.maxHp * V2_EDGE_HP) v2m *= V2_EDGE_MULT;   // Executioner's Edge relic: +50% vs low HP
         v2m *= collapseMult(src, tgt);                                         // Collapse-Call: capped focus-fire bonus
         mult *= Math.min(V2_DMG_STACK_CAP, v2m);                              // ceiling on the combined v2 buff stack
+        // Element counter rides OUTSIDE the buff-stack cap: it's a fixed matchup fact
+        // of the two lineups (±15%), not a stacking power-up, so it must not consume
+        // (or be swallowed by) the cap headroom.
+        mult *= arenaElementMult(src.element, tgt.element);
     }
     if (src.itemsOn) mult *= petGearExecuteMult(src.pet, tgt.hp, tgt.maxHp);   // gear execute vs low-HP foe
     let dmg = Math.max(1, Math.round((raw - tgt.def * 0.38) * mult));
@@ -1064,7 +1079,27 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss,
     const call = squad.callTarget[f.team];
     const directing = call !== null && !ctx.scrollOpen && !ctx.scrollSoon;
     const callBonus = (e: AF) => (directing && e.id === call ? CALL_TARGET_BONUS : 0);
-    const huntC = (e: AF, base: number): Cand => ({ score: base - distPen(e) + stick(e) + fire(e) + callBonus(e), kind: "hunt", plan: huntP(f, e, cfg.neutral) });
+    // Counter-seeking (V2): lean toward the enemy your ELEMENT beats — a Fire pet hunts
+    // the Wind pet. Mild (below the call/focus weights) but visible: counters find their
+    // prey, so drafting a counter lineup shapes who fights whom.
+    const counter = (e: AF) => (CFG.v2 && arenaElementMult(f.element, e.element) > 1 ? 8 : 0);
+    const huntC = (e: AF, base: number): Cand => ({ score: base - distPen(e) + stick(e) + fire(e) + callBonus(e) + counter(e), kind: "hunt", plan: huntP(f, e, cfg.neutral) });
+    // Assassin approach (V2): a long dive arcs around the FLANK (a perpendicular
+    // waypoint, side by slot parity — deterministic) and only straightens for the
+    // final close — the visible "coming around the side" read of a real dive.
+    const asnHunt = (e: AF, base: number): Cand => {
+        const c = huntC(e, base);
+        if (CFG.v2 && dist(f, e) > 4.5) {
+            const dx = e.x - f.x, dy = e.y - f.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d > 1e-6) {
+                const side = (f.slot & 1) === 0 ? 1 : -1;
+                const [gx, gy] = snapMain(e.x + (-dy / d) * side * 2.4, e.y + (dx / d) * side * 2.4);
+                c.plan = { gx, gy, stopAt: cfg.neutral, target: e, channel: false };
+            }
+        }
+        return c;
+    };
 
     // SQUAD LAYER (all roles): rescue a dying ally, regroup when locally outnumbered.
     const crit = criticalAlly(f, fs);
@@ -1117,6 +1152,13 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss,
     // the lulls — but you GRAB it and move on (no camping). A power font pulls the whole
     // squad a little; a mending spring pulls a HURT pet hard (the lower its HP, the more
     // it wants the heal). A carrier ignores it (runs the scroll home).
+    // Tracker SCOUTS the next shrine (V2): pre-rotate to the upcoming spot in the last
+    // seconds of its timer — the "vision/tempo" job of a real jungler, and the arrival
+    // often sparks the shrine standoff instead of an uncontested grab.
+    if (CFG.v2 && shrine.state === "inactive" && shrine.spawnTimer > 0 && shrine.spawnTimer <= ARENA_TPS * 4 && f.role === "tracker" && !f.carrying) {
+        const [nx, ny] = SHRINE_SPOTS[shrine.idx];
+        cands.push({ score: 30 - distPt(f, nx, ny) * 0.5, kind: "shrine", plan: { gx: nx, gy: ny, stopAt: 1.6, target: nearestEnemy(f, fs), channel: false } });
+    }
     if (shrine.state === "active" && !f.carrying) {
         const dS = distPt(f, shrine.x, shrine.y);
         const inRange = dS <= SHRINE_CLAIM_RANGE;
@@ -1200,7 +1242,7 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss,
             else if (e.role === "tracker") s = 50;                                                                                    // ambush tracker
             else if (e.role === "defender") continue;                                                                                 // ignore defenders
             else s = 30;
-            cands.push(huntC(e, s));
+            cands.push(asnHunt(e, s));
         }
         if (hpFrac(f) < 0.30) cands.push({ score: 120, kind: "retreat", plan: retreatP(f, fs) });                                      // disengage immediately when hurt
         else if (countWithin(f.x, f.y, enemies, 3.0) >= 2 && hpFrac(f) < 0.6) cands.push({ score: 70, kind: "retreat", plan: retreatP(f, fs) });
