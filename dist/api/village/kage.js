@@ -10,6 +10,8 @@ const _titles_registry_js_1 = require("../_titles-registry.js");
 const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
 const _announce_js_1 = require("../_announce.js");
 const _kage_unlock_js_1 = require("./_kage-unlock.js");
+const _kage_challenge_js_1 = require("./_kage-challenge.js");
+const _kage_settle_js_1 = require("./_kage-settle.js");
 function kageKey(village) {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
 }
@@ -66,6 +68,11 @@ async function handler(req, res) {
         try {
             if (!village)
                 return res.status(400).json({ error: 'Missing village.' });
+            // Self-heal a stuck auto-settle from the durable record before reading.
+            // This is the main reconcile trigger: every client polls this GET (~12s)
+            // in every challenge state, incl. ACCEPTED_DUEL (where the challenger's
+            // press loop is idle). Best-effort; the response reflects the result.
+            await (0, _kage_settle_js_1.reconcilePendingKageSettle)(village, Date.now()).catch(() => undefined);
             const state = await _storage_js_1.kv.get(kageKey(village)) ?? { kageSystemUnlocked: false };
             res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
             return res.status(200).json(state);
@@ -131,25 +138,30 @@ async function handler(req, res) {
             // hiccup aborts (caller retries) rather than racing this state.
             const result = await (0, _lock_js_1.withKvLock)(key, async () => {
                 const current = await _storage_js_1.kv.get(key) ?? { kageSystemUnlocked: false };
+                const now = Date.now();
                 if (action === 'unlock') {
                     // The requirement gate ran before the lock (liberatorVerified);
                     // admins skip it. First clear seats + brands firstLiberator,
                     // exactly once; later clears change nothing here (test-locked
-                    // in _kage-unlock.test.ts).
-                    const outcome = (0, _kage_unlock_js_1.applyKageUnlock)(current, playerName, Date.now());
-                    if (outcome.freshUnlock)
-                        await _storage_js_1.kv.set(key, outcome.next);
-                    freshUnlock = outcome.freshUnlock;
+                    // in _kage-unlock.test.ts). On a fresh unlock we also OPEN the
+                    // first liberator's reign in the server-owned history.
+                    const outcome = (0, _kage_unlock_js_1.applyKageUnlock)(current, playerName, now);
+                    if (outcome.freshUnlock) {
+                        const withReign = (0, _kage_challenge_js_1.openReign)(outcome.next, playerName, v, now);
+                        await _storage_js_1.kv.set(key, withReign);
+                        freshUnlock = true;
+                        return { status: 200, body: withReign };
+                    }
                     return { status: 200, body: outcome.next };
                 }
                 if (action === 'reset') {
                     // Admin-only: reset the Kage system back to NPC / sealed state.
+                    // Closes the current reign ('admin-reset') but preserves the
+                    // permanent history so the record survives across eras.
                     if (!identity.admin) {
                         return { status: 403, body: { error: 'Only admins can reset the Kage system.' } };
                     }
-                    const next = {
-                        kageSystemUnlocked: false,
-                    };
+                    const next = (0, _kage_challenge_js_1.applyAdminReset)(current, v, now);
                     await _storage_js_1.kv.set(key, next);
                     return { status: 200, body: next };
                 }
@@ -186,11 +198,19 @@ async function handler(req, res) {
                     // when the seat is empty. We accept the seated-Kage path above
                     // and ensure that admin / seated Kage actions still proceed
                     // here; the firstLiberator is preserved in the next-state.
-                    const next = {
+                    const seatChanged = (0, _utils_js_1.safeName)(current.seatedKage ?? '') !== (0, _utils_js_1.safeName)(playerName);
+                    let next = {
                         ...current,
                         seatedKage: playerName,
                         firstLiberator: current.firstLiberator ?? playerName,
                     };
+                    if (seatChanged) {
+                        // Seat handed to a different player (admin install / step-down):
+                        // close the outgoing reign and open the new one so the
+                        // permanent record reflects the transition.
+                        const closed = current.seatedKage ? (0, _kage_challenge_js_1.closeCurrentReign)(current, v, now, 'abdicated') : current;
+                        next = { ...(0, _kage_challenge_js_1.openReign)(closed, playerName, v, now), firstLiberator: current.firstLiberator ?? playerName };
+                    }
                     await _storage_js_1.kv.set(key, next);
                     return { status: 200, body: next };
                 }

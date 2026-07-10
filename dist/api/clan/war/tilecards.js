@@ -7,6 +7,7 @@ const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
 const _storage_js_2 = require("./_storage.js");
+const _war_xp_js_1 = require("./_war-xp.js");
 const _card_clash_engine_js_1 = require("./_card-clash-engine.js");
 const _card_catalog_js_1 = require("./_card-catalog.js");
 // POST /api/clan/war/tilecards
@@ -133,16 +134,16 @@ async function persistAndMaybeFinalize(session) {
     if (session.status !== 'done' || !session.winner)
         return;
     const warKey = `clan-war:${session.warId}`;
-    await (0, _lock_js_1.withKvLock)(warKey, async () => {
+    const endedWar = await (0, _lock_js_1.withKvLock)(warKey, async () => {
         const fresh = await _storage_js_1.kv.get(warKey);
         if (!fresh)
-            return;
+            return null;
         const { war: war0 } = (0, _storage_js_2.applyLazyClanWarExpiry)(fresh);
         if (war0.endedAt)
-            return;
+            return null;
         const ch = war0.pendingChallenges.find((c) => c.id === session.challengeId);
         if (!ch || ch.status !== 'accepted')
-            return;
+            return null;
         const result = translateWinner(session, ch, session.winner);
         const now = Date.now();
         const { war: next, warJustEnded } = (0, _storage_js_2.applyFinalResult)(war0, ch, result, now);
@@ -150,7 +151,13 @@ async function persistAndMaybeFinalize(session) {
         if (warJustEnded) {
             await _storage_js_1.kv.set((0, _storage_js_2.clanWarCooldownKey)(next.clans[0], next.clans[1]), now, { ex: _storage_js_2.CLAN_WAR_REMATCH_COOLDOWN_SEC });
         }
+        return warJustEnded ? next : null;
     });
+    // Once the war has ended, feed both clans XP toward hall growth (member-
+    // scaled, receipt-idempotent). Outside the war lock; best-effort.
+    if (endedWar) {
+        await (0, _war_xp_js_1.awardWarEndClanXp)(endedWar).catch((e) => console.error('[clan/war/tilecards] clan-xp award failed', e));
+    }
 }
 // ── Per-viewer projection — strips the opponent's hand contents + staged plays ──
 function projectSide(side) {
