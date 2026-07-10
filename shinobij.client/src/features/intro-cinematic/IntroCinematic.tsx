@@ -31,6 +31,7 @@ import { useBodyScrollLock } from "../../lib/useBodyScrollLock";
 import {
     FOX_NAME,
     PRE_GIFT_LINES,
+    buildCompanionIntroLines,
     buildPostGiftLines,
     resolveCinematicLine,
     type CinematicLine,
@@ -88,13 +89,26 @@ export function IntroCinematic({
 
     useBodyScrollLock(true);
 
+    // Companion mode — the beat AFTER the shrine cinematic's white-out
+    // (onboardingStep === "companionIntro"): the granted pet stands over the
+    // live village screen, speaks its own village intro, and hands off to the
+    // tutorial. Same overlay component so App.tsx mounts exactly one gate.
+    const companionMode = character.onboardingStep === "companionIntro";
+    const companionPet = companionMode
+        ? character.pets.find((p) => p.id === character.activePetId) ?? character.pets[0] ?? STARTER_PETS[0].pet
+        : null;
+    const companionLines = useMemo(
+        () => (companionPet ? buildCompanionIntroLines(character.village, companionPet.name) : []),
+        [companionPet, character.village],
+    );
+
     const postLines = useMemo(() => buildPostGiftLines(character.village), [character.village]);
     const line: CinematicLine | null =
         phase.kind === "dialogue"
-            ? (phase.stage === "pre" ? PRE_GIFT_LINES : postLines)[phase.idx] ?? null
+            ? (companionMode ? companionLines : phase.stage === "pre" ? PRE_GIFT_LINES : postLines)[phase.idx] ?? null
             : null;
     const fullText = line
-        ? resolveCinematicLine(line.text, character.name, chosen?.pet.name ?? "")
+        ? resolveCinematicLine(line.text, character.name, chosen?.pet.name ?? companionPet?.name ?? "")
         : "";
 
     // Typewriter: ~83 chars/s, tap-to-complete. Reduced-motion shows lines whole.
@@ -144,15 +158,25 @@ export function IntroCinematic({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [phase.kind, reduced]);
 
+    // Companion mode ends without a white-out — the tutorial UI pops in the
+    // instant the overlay unmounts (the step flip is what removes it).
+    function finishCompanion() {
+        if (completedRef.current || !companionPet) return;
+        completedRef.current = true;
+        onComplete(companionPet);
+    }
+
     function advance() {
         if (phase.kind !== "dialogue") return;
         if (!typingDone) {
             completeLine();
             return;
         }
-        const lines = phase.stage === "pre" ? PRE_GIFT_LINES : postLines;
+        const lines = companionMode ? companionLines : phase.stage === "pre" ? PRE_GIFT_LINES : postLines;
         if (phase.idx + 1 < lines.length) {
             setPhase({ kind: "dialogue", stage: phase.stage, idx: phase.idx + 1 });
+        } else if (companionMode) {
+            finishCompanion();
         } else if (phase.stage === "pre") {
             setPhase({ kind: "choose" });
         } else {
@@ -164,7 +188,8 @@ export function IntroCinematic({
     // so Skip fast-forwards to the choice, then from the choice to the exit.
     function skip() {
         if (phase.kind !== "dialogue") return;
-        if (phase.stage === "pre") setPhase({ kind: "choose" });
+        if (companionMode) finishCompanion();
+        else if (phase.stage === "pre") setPhase({ kind: "choose" });
         else setPhase({ kind: "whiteout", revealing: false });
     }
 
@@ -185,15 +210,15 @@ export function IntroCinematic({
 
     return createPortal(
         <div
-            className={`icx-root ${revealing ? "is-revealing" : ""} ${rumbling && !reduced ? "is-rumbling" : ""}`}
+            className={`icx-root ${companionMode ? "is-companion" : ""} ${revealing ? "is-revealing" : ""} ${rumbling && !reduced ? "is-rumbling" : ""}`}
             style={{
                 "--icx-bg-landscape": `url(${shrineFallsLandscape})`,
                 "--icx-bg-portrait": `url(${shrineFallsPortrait})`,
             } as React.CSSProperties}
             onClick={advance}
         >
-            <div className="icx-scene"><div className="icx-scene-art" /></div>
-            {!liteFx && !reduced && (
+            {!companionMode && <div className="icx-scene"><div className="icx-scene-art" /></div>}
+            {!companionMode && !liteFx && !reduced && (
                 <div className="icx-motes" aria-hidden="true">
                     <div className="icx-rays" />
                     <div className="icx-mist" />
@@ -205,7 +230,9 @@ export function IntroCinematic({
 
             {/* Beat-driven color grade: violet omen during the Hollow Gate vision,
                 pale elegy light while the fox's spirit gutters. */}
-            <div className={`icx-grade ${line?.vision ? "is-omen" : ""} ${line?.fading ? "is-elegy" : ""}`} aria-hidden="true" />
+            {!companionMode && (
+                <div className={`icx-grade ${line?.vision ? "is-omen" : ""} ${line?.fading ? "is-elegy" : ""}`} aria-hidden="true" />
+            )}
 
             {/* Cinema letterbox bars — dialogue beats only, slide away for the
                 companion choice UI. Hidden on small screens (they eat space). */}
@@ -213,7 +240,7 @@ export function IntroCinematic({
             <div className={`icx-letterbox bottom ${inDialogue ? "is-on" : ""}`} aria-hidden="true" />
 
             {/* One-shot opening title card. */}
-            {!reduced && (
+            {!companionMode && !reduced && (
                 <div className="icx-title" aria-hidden="true">
                     <span className="icx-title-kicker">Beyond the Veil</span>
                     <span className="icx-title-main">The Awakening</span>
@@ -221,7 +248,16 @@ export function IntroCinematic({
             )}
 
             <div className={`icx-stagefill ${inDialogue && line?.speaker === "fox" ? "is-focus" : ""}`}>
-                {showActors && (
+                {showActors && companionMode && companionPet && (
+                    <div className={`icx-companion-pet ${!typingDone ? "is-talking" : ""}`}>
+                        <img
+                            src={petPoseImage(companionPet, sharedImages)}
+                            alt={companionPet.name}
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
+                    </div>
+                )}
+                {showActors && !companionMode && (
                     <>
                         <div className={`icx-fox ${line?.fading ? "is-fading" : ""} ${line?.speaker === "fox" && !typingDone ? "is-talking" : ""}`}>
                             <img src={FOX_ART} alt={`${FOX_NAME}, the ancient spirit fox`} />

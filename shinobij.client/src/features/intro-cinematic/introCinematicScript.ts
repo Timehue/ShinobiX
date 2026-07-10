@@ -91,3 +91,24 @@ export function buildPostGiftLines(village: string): CinematicLine[] {
 export function resolveCinematicLine(text: string, playerName: string, petName: string): string {
     return text.replaceAll("{name}", playerName).replaceAll("{pet}", petName);
 }
+
+// ── Companion intro (the beat between the shrine cinematic's white-out and
+// the tutorial UI): the chosen companion stands over the live village screen,
+// gives its own take on the village, and asks to guide the player. Different
+// angle than Shiranui's lore lines so the two beats never repeat each other.
+export const COMPANION_VILLAGE_FLAVOR: Record<string, string> = {
+    "Stormveil Village": "Storm towers, rain-slick roofs, thunder that never really sleeps... they say the strong make their own rules here.",
+    "Ashen Leaf Village": "Ember groves, ash roads, clan halls older than memory... tradition runs deeper than the roots here.",
+    "Frostfang Village": "Snow gates, stone holds, a cold that bites... but no village stands closer together than this one.",
+    "Moonshadow Village": "Lantern paths, hidden courts, streets that keep their secrets... half of what happens here is never seen.",
+};
+
+export function buildCompanionIntroLines(village: string, petName: string): CinematicLine[] {
+    const flavor = COMPANION_VILLAGE_FLAVOR[village]
+        ?? "I can already tell there's more to this place than meets the eye.";
+    return [
+        { speaker: "fox", label: petName, text: `So THIS is ${village}! ${flavor}` },
+        { speaker: "fox", label: petName, text: "Shiranui asked me to watch over you — and I will. We're partners now, you and me." },
+        { speaker: "fox", label: petName, text: "Come on, {name} — let me guide you through this world. Follow my lead, and we'll make a legend of you yet!" },
+    ];
+}
