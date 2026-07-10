@@ -34,10 +34,10 @@ const COMPANION_STEP_TITLES: [CanonicalOnboardingStep, string][] = [
 ];
 
 /** The tutorial checklist, or null when the tutorial isn't in a coach beat
- *  (pre-cinematic steps and "done" both return null → panel hidden). */
+ *  (cinematic steps and "done" both return null → panel hidden). */
 export function buildCompanionSteps(character: Character): CompanionStep[] | null {
     const step = normalizeOnboardingStep(character.onboardingStep ?? "");
-    if (step === "done" || step === "academyIntro" || step === "starter") return null;
+    if (step === "done" || step === "academyIntro" || step === "starter" || step === "companionIntro") return null;
     const current = ONBOARDING_STEP_ORDER[step];
     return COMPANION_STEP_TITLES.map(([id, title]) => ({
         id,
