@@ -284,19 +284,6 @@
     color: #fff7d6;
 }
 
-.landing-navlink--cta {
-    color: #fff7d6;
-    background: linear-gradient(180deg, rgba(202, 138, 4, 0.92), rgba(120, 53, 15, 0.92));
-    border: 1px solid rgba(250, 204, 21, 0.6);
-    padding: 8px 18px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(250, 204, 21, 0.12);
-}
-
-.landing-navlink--cta:hover {
-    filter: brightness(1.09);
-    color: #fff;
-}
-
 /* ── Hero ───────────────────────────────────────────────────────────────── */
 
 .landing-hero {
@@ -1266,9 +1253,10 @@
         letter-spacing: 0.18em !important;
     }
     .landing-topbar-inner {
-        flex-wrap: wrap;
-        gap: 8px;
+        flex-direction: column;
+        gap: 2px;
         justify-content: center;
+        padding: 6px 10px 8px;
     }
     .landing-brand {
         padding-block: 2px;
@@ -1287,24 +1275,41 @@
         margin-bottom: 12px;
     }
     .landing-topnav {
-        justify-content: center;
-        gap: 4px;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0;
+        width: 100%;
     }
     .landing-navlink {
-        font-size: 11px;
-        letter-spacing: 0.06em;
-        padding: 6px 6px;
-    }
-    .landing-navlink--cta {
-        padding: 7px 13px;
+        width: 100%;
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        padding: 7px 3px;
+        text-align: center;
     }
     .landing-auth-tab {
         font-size: 12px;
         letter-spacing: 0.05em;
         padding: 10px 6px;
     }
+    .landing-hero-actions {
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+    }
     .landing-hero-actions .landing-cta {
-        flex: 1 1 100%;
+        flex: none;
+    }
+    .landing-hero-actions .landing-cta--primary {
+        width: 100%;
+    }
+    .landing-hero-actions .landing-cta--ghost {
+        width: auto;
+        min-width: 0;
+        padding: 9px 12px;
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
     }
     .landing-band-actions .landing-cta {
         flex: 1 1 100%;
@@ -1442,18 +1447,6 @@
     }
 }
 
-/* ── Mobile sticky "Play Free" CTA (thumb zone) ─────────────────────────── */
-
-.landing-mobile-cta {
-    display: none;
-}
-
-@media (max-width: 800px) {
-    .landing-mobile-cta {
-        display: none;
-    }
-}
-
 /* ── Focus-visible rings (keyboard users on the dark art) ───────────────── */
 
 .landing-cta:focus-visible,
@@ -1476,7 +1469,6 @@
     .landing-scroll-arrow {
         animation: none !important;
     }
-    .landing-mobile-cta,
     .landing-feature-card,
     .landing-feature-media img,
     .landing-cta {

@@ -403,12 +403,8 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
         return () => { cancelled = true; };
     }, []);
 
-    // Hide the mobile sticky CTA whenever the auth panel is itself on screen, so
-    // the bar never covers the create/login form's own submit button.
     const scrollToFeatures = () => featuresRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     const scrollTop = () => rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    // Hero / band CTAs → switch to the Create tab, bring the panel into view,
-    // then focus the name field (without a second scroll jump).
     return (
         <div className="landing-root" ref={rootRef}>
             <header className="landing-topbar">
@@ -421,7 +417,6 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         <button type="button" className="landing-navlink" onClick={onOpenGuides}>Guides</button>
                         <button type="button" className="landing-navlink" onClick={onOpenLeaderboard}>Leaderboard</button>
                         <button type="button" className="landing-navlink" onClick={onOpenLogin}>Log In</button>
-                        <button type="button" className="landing-navlink landing-navlink--cta" onClick={onOpenCreate}>Play Now</button>
                     </nav>
                 </div>
             </header>
@@ -452,7 +447,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
 
                         <div className="landing-hero-actions">
                             <button type="button" className="landing-cta landing-cta--primary" onClick={onOpenCreate}>
-                                Enter the World
+                                Create Your Shinobi
                             </button>
                             <a className="landing-cta landing-cta--ghost" href={DISCORD_URL} target="_blank" rel="noopener noreferrer">
                                 Join the Discord
@@ -612,11 +607,6 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                 <p className="landing-footer-legal">© {year} Shinobi Journey. Forge your legend.</p>
             </footer>
 
-            <div className="landing-mobile-cta">
-                <button type="button" className="landing-cta landing-cta--primary" onClick={onOpenCreate}>
-                    Play Free Now
-                </button>
-            </div>
         </div>
     );
 }
