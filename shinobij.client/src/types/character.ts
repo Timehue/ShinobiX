@@ -566,7 +566,9 @@ export type Character = {
     // onboardingStep drives the forced first-session "Academy Path" coach; the
     // others are one-time "seen/claimed" gates matching the hollowGateIntroSeen
     // convention. Canonical order:
-    //   "academyIntro" (framing modal) → "starter" (choose-your-companion) →
+    //   "academyIntro" (the intro cinematic: spirit-fox summons + companion
+    //   gift; completing it jumps straight to "training". "starter" is the
+    //   pre-cinematic companion beat, kept for saves that stored it) →
     //   "training" → "jutsu" → "jutsuLoadout" → "inventory" →
     //   "academySpar" (guaranteed first-win spar) → "cafeteria" →
     //   "firstMission" (claim the Academy Trial) → "logbook" (open the goals) →

@@ -153,7 +153,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                 return (
                     <div className="cc-copy-stack">
                         <p className="cc-kicker">Shape Your Identity</p>
-                        <h2>Name and Enter the Village</h2>
+                        <h2>Name and Enter the World</h2>
                         <p>
                             Your village, bloodline, and portrait are set. Add the name other players see
                             and the password that protects this save.
@@ -318,7 +318,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
         bloodline: "Choose Avatar",
         avatar: "Preview Shinobi",
         preview: "Name and Password",
-        identity: submitting ? "Creating..." : "Enter the Village",
+        identity: submitting ? "Creating..." : "Enter the World",
     };
 
     function handlePrimaryAction() {

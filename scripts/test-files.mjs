@@ -150,6 +150,7 @@ export const TEST_FILES = [
     "shinobij.client/src/lib/equipment.test.ts",
     "shinobij.client/src/lib/pvp-targeting.test.ts",
     "shinobij.client/src/lib/screen-guards.test.ts",
+    "shinobij.client/src/features/intro-cinematic/introCinematicScript.test.ts",
     "shinobij.client/src/lib/hex-path.test.ts",
     "shinobij.client/src/lib/tower-grid.test.ts",
     "shinobij.client/src/lib/jutsu.test.ts",
