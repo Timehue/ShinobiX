@@ -2365,7 +2365,7 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Sable stares at the glass.", nextPage: 11 }
             ] },
             { ...storyPage("The Tank Hears a Name", "The chamber, the Mirror's stillness broken by one slow ripple", "Kage Sable Nocturne", [
-                "You let her carry it. You held her file through fire and flood and never once opened it yourself, and then you stood aside and let her buy her own name back with her own breath.",
+                "You kept her proof out of the market. You returned it to its owner. And then you stood aside while she bought her own name back with her own breath.",
                 "And I know that voice. It is written into the oldest Mirror plans, and for forty years I read it as a ceremonial phrase. The First Reflection. The glass's original instruction: hear a truth, verify its owner, let witnesses confirm it, and give it BACK. Release the claim. The Mirror was built to witness people, Jonin. The Hollow Gate taught it to keep a copy.",
                 "And before I turn that into another excuse, understand me. The Gate taught the Mirror to hold. I kept the warehouse full.",
                 "Look at the glass. Four hundred years of stillness, and one free sentence woke the oldest rule in it. Nothing surrendered. Nothing held. Spoken, witnessed, and hers."
