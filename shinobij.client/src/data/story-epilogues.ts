@@ -646,7 +646,7 @@ export const storyEpiloguesByVillage: Record<string, StoryEpilogueDef[]> = {
                         "By dawn the whole village knows what broke in the night. Forty strides of cedar stand dark for the first time in four hundred years, and the wall's lines are just names now, keeping nobody.",
                         "People stand in their doorways holding what came back. Jorun has a bridge in his hands, forty years late. The weaver is reading her own school out loud to anyone who passes.",
                         "The walls groan when the wind leans on them. The ash in the mortar has stopped holding. It will be a hard winter, and an honest one.",
-                        "And far below the old kiln, where no root should reach, the lower pipe has gone cold. Somewhere beyond the village, something that fed on Ashen Leaf for four hundred years notices the missing warmth. That reckoning belongs to another season.",
+                        "And far below the old kiln, where no root should reach, the lower pipe has gone cold. Somewhere beyond the village, something that fed on Ashen Leaf for generations notices the missing warmth. That reckoning belongs to another season.",
                     ],
                 },
                 {
