@@ -22,6 +22,8 @@ export type CinematicLine = {
     text: string;
     /** Show the Hollow Gate vision panel while this line plays. */
     vision?: boolean;
+    /** Shake the stage while this line plays (the Gate stirring). */
+    rumble?: boolean;
     /** The fox's spirit is guttering — dims the fox art for the farewell. */
     fading?: boolean;
 };
@@ -29,6 +31,7 @@ export type CinematicLine = {
 // ── Beat 1-3: awakening → warning → gift offer (before pet selection) ────────
 export const PRE_GIFT_LINES: CinematicLine[] = [
     { speaker: "narrator", text: "Falling water. Cold stone. Cherry-blossom petals drifting through pale spirit-light." },
+    { speaker: "narrator", text: "Once they carried the breath of spring. Now they only carry the memory." },
     { speaker: "narrator", text: "You wake at the foot of an ancient shrine — in a place you never entered." },
     { speaker: "fox", label: "???", text: "Open your eyes, young one. Good. The summons held." },
     { speaker: "fox", label: "???", text: "Do not be afraid. You stand beyond the veil, in the last sanctuary of this land — and I am the one who called you." },
@@ -36,7 +39,7 @@ export const PRE_GIFT_LINES: CinematicLine[] = [
     { speaker: "fox", text: "Crossing the veil to reach a soul like yours took the last of my power. I did not spend it lightly." },
     { speaker: "fox", text: "Listen well, for I may not have the strength to say this twice." },
     { speaker: "fox", vision: true, text: "Far beneath this land stands the Hollow Gate — a door that was sealed before your kind first drew breath. For a thousand years, it slept." },
-    { speaker: "fox", vision: true, text: "It sleeps no longer. It stirs. It hungers. Something — or someone — is feeding it." },
+    { speaker: "fox", vision: true, rumble: true, text: "It sleeps no longer. It stirs. It hungers. Something — or someone — is feeding it." },
     { speaker: "fox", text: "My kin held the seal for generations. I am the last of them, and my light is nearly spent. Alone, I cannot hold back what is coming." },
     { speaker: "fox", text: "That is why I called you. I hope — with all that remains of me — that you can help this land." },
     { speaker: "fox", text: "But I will not send you into this world alone." },

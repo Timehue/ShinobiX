@@ -35,16 +35,16 @@ import {
     resolveCinematicLine,
     type CinematicLine,
 } from "./introCinematicScript";
-import riverShrineBg from "../../assets/card-clash/loc/river-shrine.webp";
-import waterfallBg from "../../assets/sectors/water.webp";
 import hollowGateArt from "../../assets/card-clash/loc/hollow-gate.webp";
+// Bespoke gpt-image art (see project memory: generated via the owner's
+// image pipeline): the seated white kitsune deity (transparent cutout) and
+// the waterfall-shrine sanctuary backdrops for both orientations.
+import shiranuiArt from "./assets/shiranui.webp";
+import shrineFallsLandscape from "./assets/shrine-falls-landscape.webp";
+import shrineFallsPortrait from "./assets/shrine-falls-portrait.webp";
 import "./intro-cinematic.css";
 
-// The Eclipse Kitsune "recover" pose (bundled, transparent cutout) — a calm
-// standing nine-tails facing the player's avatar, restyled into the white
-// spirit fox via the .icx-fox CSS filter. Same ?v as pet-battle-anim's pose
-// URLs so it shares the browser cache with the coliseum.
-const FOX_ART = "/pet-poses/mythic-0-recover.webp?v=2";
+const FOX_ART = shiranuiArt;
 
 // Bar scales matching the old StarterPetSelect so the standard-band stat leans
 // stay visible at a glance.
@@ -180,13 +180,15 @@ export function IntroCinematic({
     const artFor = (o: StarterPetOption) => petPoseImage(o.pet, sharedImages);
     const revealing = phase.kind === "whiteout" && phase.revealing;
     const showActors = phase.kind === "dialogue";
+    const inDialogue = phase.kind === "dialogue";
+    const rumbling = inDialogue && Boolean(line?.rumble);
 
     return createPortal(
         <div
-            className={`icx-root ${revealing ? "is-revealing" : ""}`}
+            className={`icx-root ${revealing ? "is-revealing" : ""} ${rumbling && !reduced ? "is-rumbling" : ""}`}
             style={{
-                "--icx-bg-landscape": `url(${waterfallBg})`,
-                "--icx-bg-portrait": `url(${riverShrineBg})`,
+                "--icx-bg-landscape": `url(${shrineFallsLandscape})`,
+                "--icx-bg-portrait": `url(${shrineFallsPortrait})`,
             } as React.CSSProperties}
             onClick={advance}
         >
@@ -201,10 +203,27 @@ export function IntroCinematic({
                 </div>
             )}
 
-            <div className="icx-stagefill">
+            {/* Beat-driven color grade: violet omen during the Hollow Gate vision,
+                pale elegy light while the fox's spirit gutters. */}
+            <div className={`icx-grade ${line?.vision ? "is-omen" : ""} ${line?.fading ? "is-elegy" : ""}`} aria-hidden="true" />
+
+            {/* Cinema letterbox bars — dialogue beats only, slide away for the
+                companion choice UI. Hidden on small screens (they eat space). */}
+            <div className={`icx-letterbox top ${inDialogue ? "is-on" : ""}`} aria-hidden="true" />
+            <div className={`icx-letterbox bottom ${inDialogue ? "is-on" : ""}`} aria-hidden="true" />
+
+            {/* One-shot opening title card. */}
+            {!reduced && (
+                <div className="icx-title" aria-hidden="true">
+                    <span className="icx-title-kicker">Beyond the Veil</span>
+                    <span className="icx-title-main">The Awakening</span>
+                </div>
+            )}
+
+            <div className={`icx-stagefill ${inDialogue && line?.speaker === "fox" ? "is-focus" : ""}`}>
                 {showActors && (
                     <>
-                        <div className={`icx-fox ${line?.fading ? "is-fading" : ""}`}>
+                        <div className={`icx-fox ${line?.fading ? "is-fading" : ""} ${line?.speaker === "fox" && !typingDone ? "is-talking" : ""}`}>
                             <img src={FOX_ART} alt={`${FOX_NAME}, the ancient spirit fox`} />
                         </div>
                         <div className="icx-avatar">
