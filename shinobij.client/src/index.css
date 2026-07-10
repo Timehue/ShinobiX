@@ -15797,6 +15797,23 @@ button.combat-jutsu-button,
     font-size: 2.1rem;
 }
 
+/* A hall whose unlock level the clan hasn't reached yet — dim the whole shelf so
+   the "Locked · Clan Level N" header reads as gated (cards stay individually
+   gated too). */
+.clan-exchange-tier.clan-exchange-hall-locked { opacity: .72; }
+.clan-exchange-tier.clan-exchange-hall-locked .clan-exchange-section-head span { color: #f4b8b8; }
+
+/* Real generated item art (ClanExchangeItemArt) — sits inside the framed plate,
+   above the ring/glow, with the small accent badges over its corners. */
+.clan-exchange-art-img {
+    position: relative;
+    z-index: 1;
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, .45));
+}
+
 .clan-exchange-art-mini {
     z-index: 2;
     display: grid;
@@ -26180,8 +26197,8 @@ textarea:focus-visible,
     --vfx-b: #94a3b8;
     --vfx-c: rgba(248, 250, 252, 0.18);
     position: absolute;
-    width: calc(78px * var(--vfx-scale, 1));
-    height: calc(78px * var(--vfx-scale, 1));
+    width: calc(66px * var(--vfx-scale, 1));
+    height: calc(66px * var(--vfx-scale, 1));
     transform: translate(-50%, -50%);
     border-radius: 50%;
     pointer-events: none;
@@ -26196,8 +26213,8 @@ textarea:focus-visible,
     will-change: auto;
 }
 .pvp-combat-vfx-tile {
-    width: calc(58px * var(--vfx-scale, 1));
-    height: calc(58px * var(--vfx-scale, 1));
+    width: calc(50px * var(--vfx-scale, 1));
+    height: calc(50px * var(--vfx-scale, 1));
     animation-name: pvp-vfx-tile-pulse;
 }
 .pvp-vfx-ring,
@@ -26376,20 +26393,20 @@ textarea:focus-visible,
     filter: saturate(1.3) brightness(1.12);
 }
 @keyframes pvp-vfx-pop {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.34); filter: blur(3px); }
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.34); filter: blur(2px); }
     18% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); filter: blur(0); }
-    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.65); filter: blur(5px); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.42); filter: blur(2.5px); }
 }
 @keyframes pvp-vfx-layer-pop {
-    0% { opacity: 0; transform: scale(0.42); filter: blur(3px); }
+    0% { opacity: 0; transform: scale(0.42); filter: blur(2px); }
     18% { opacity: var(--vfx-layer-opacity, 0.48); transform: scale(1.04); filter: blur(0); }
-    100% { opacity: 0; transform: scale(1.65); filter: blur(5px); }
+    100% { opacity: 0; transform: scale(1.42); filter: blur(2.5px); }
 }
 @keyframes pvp-vfx-asset-bloom {
-    0% { opacity: 0; filter: blur(3px) saturate(1.2) contrast(1.12); }
+    0% { opacity: 0; filter: blur(2px) saturate(1.2) contrast(1.12); }
     16% { opacity: var(--vfx-asset-opacity, 0.88); filter: blur(0) saturate(1.18) contrast(1.12); }
-    72% { opacity: 0.68; }
-    100% { opacity: 0; filter: blur(4px) saturate(1.08) contrast(1.04); }
+    80% { opacity: 0.72; filter: blur(0) saturate(1.12) contrast(1.08); }
+    100% { opacity: 0; filter: blur(2px) saturate(1.08) contrast(1.04); }
 }
 @keyframes pvp-vfx-tile-pulse {
     0% { opacity: 0; transform: translate(-50%, -50%) scale(0.72); }
@@ -26414,4 +26431,292 @@ textarea:focus-visible,
 .lite-fx .pvp-vfx-sparks,
 .pvp-vfx-lite .pvp-vfx-sparks {
     display: none;
+}
+
+/* ═══ Hollow Gate dungeon — Spirit-Tracks pass ═══════════════════════════════
+   The shrine floor renders as a seamless top-down dungeon: fixed 48px tiles
+   (--hg-tile) in a camera viewport (.hg-viewport) that follows the player,
+   neighbour-aware walls (flat tops vs south-facing FACES for depth), doors
+   framed in the walls, and a three-state fog: .hg-lit (current room /
+   torchlight), .hg-dim (explored map-memory), .hg-dark (unknown). Admin atlas
+   textures arrive as inline backgrounds and override the CSS look; the wall
+   depth pass rides on ::before so it survives texture overrides. */
+
+.hg-layout {
+    display: grid;
+    grid-template-columns: 1fr 240px;
+    gap: 16px;
+}
+@media (max-width: 900px) {
+    .hg-layout { grid-template-columns: 1fr; }
+}
+
+.hg-viewport {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    background: #05030c;
+    height: min(62vh, var(--hg-bh, 62vh));
+    box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.85);
+    touch-action: manipulation;
+}
+.hg-board {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    transition: transform 340ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: transform;
+}
+
+.hg-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.hg-clickable { cursor: pointer; }
+.hg-clickable:hover::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 2px rgba(233, 213, 255, 0.35);
+    pointer-events: none;
+}
+
+/* ── Floors (seamless — no per-cell borders; a soft checker breathes) ── */
+.hg-floor-room {
+    background: linear-gradient(160deg, #3f2f68 0%, #362a59 100%);
+}
+.hg-floor-corridor {
+    background: linear-gradient(160deg, #271d46 0%, #211738 100%);
+    box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.35);
+}
+.hg-check { box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.026); }
+.hg-floor-corridor.hg-check { box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.35), inset 0 0 0 999px rgba(255, 255, 255, 0.026); }
+
+/* ── Doors: a framed threshold set into the wall line ── */
+.hg-door {
+    background: linear-gradient(180deg, #170e2b 0%, #2c1e4c 34%, #4c3a72 100%);
+}
+.hg-door::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(10, 6, 20, 0.85) 0%, rgba(10, 6, 20, 0) 18%, rgba(10, 6, 20, 0) 82%, rgba(10, 6, 20, 0.85) 100%),
+        linear-gradient(180deg, rgba(10, 6, 20, 0.75) 0%, rgba(10, 6, 20, 0) 22%);
+    pointer-events: none;
+}
+
+/* ── Walls: flat tops vs south-facing faces (the depth pass) ── */
+.hg-wall-top {
+    background: #1a1128;
+    box-shadow: inset 0 0 0 1px rgba(36, 23, 54, 0.9);
+}
+.hg-wall-face {
+    background: #3c2b5a;
+}
+.hg-wall-face::before {
+    /* cap (top third, same tone as wall tops) + brick courses + edge light */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, #1a1128 0%, #1a1128 32%, rgba(26, 17, 40, 0) 33%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0) 32%, rgba(233, 213, 255, 0.14) 33%, rgba(233, 213, 255, 0) 46%),
+        repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0 10px, rgba(0, 0, 0, 0.22) 10px 12px),
+        repeating-linear-gradient(90deg, rgba(0, 0, 0, 0) 0 14px, rgba(0, 0, 0, 0.14) 14px 16px),
+        linear-gradient(0deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 26%);
+    pointer-events: none;
+}
+/* Painted-masonry faces (shrine:tile-wall-face art assigned): the texture
+   carries the brick courses itself, so the CSS pass thins down to just the
+   top cap + base shading — no painted-over course lines. */
+.hg-wall-face.hg-tex::before {
+    background:
+        linear-gradient(180deg, #1a1128 0%, #1a1128 30%, rgba(26, 17, 40, 0) 31%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(233, 213, 255, 0.10) 31%, rgba(233, 213, 255, 0) 42%),
+        linear-gradient(0deg, rgba(0, 0, 0, 0.32) 0%, rgba(0, 0, 0, 0) 24%);
+}
+
+.hg-wall-face::after {
+    /* floor-contact highlight — the lit seam where face meets ground */
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: rgba(233, 213, 255, 0.10);
+    pointer-events: none;
+}
+
+/* ── Fog states (declared AFTER terrain so they win the cascade) ── */
+.hg-cell.hg-dim { filter: brightness(0.52) saturate(0.4); }
+.hg-cell.hg-dark { background: #06040e; box-shadow: none; }
+.hg-dark::before,
+.hg-dark::after { content: none; }
+
+/* ── Content icons ── */
+.hg-icon {
+    font-size: 25px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.85));
+    pointer-events: none;
+}
+.hg-icon-img {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+    pointer-events: none;
+}
+
+/* ── Click-to-walk destination ring ── */
+.hg-dest::after {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border: 2px solid #fbbf24;
+    border-radius: 8px;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.5);
+    animation: hgDestPulse 900ms ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes hgDestPulse {
+    0%, 100% { opacity: 0.95; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.9); }
+}
+
+/* ── Torch sconces on lit wall faces ── */
+.hg-flame {
+    position: absolute;
+    top: 34%;
+    left: 50%;
+    width: 10px;
+    height: 15px;
+    transform: translateX(-50%);
+    border-radius: 50% 50% 38% 38%;
+    background: radial-gradient(circle at 50% 32%, #fde68a 0%, #f59e0b 52%, rgba(180, 83, 9, 0) 78%);
+    filter: drop-shadow(0 0 7px rgba(251, 191, 36, 0.85));
+    animation: hgFlicker 1.4s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes hgFlicker {
+    0%, 100% { opacity: 0.95; transform: translateX(-50%) scale(1, 1); }
+    30% { opacity: 0.7; transform: translateX(-50%) scale(0.9, 1.08); }
+    65% { opacity: 0.9; transform: translateX(-50%) scale(1.06, 0.94); }
+}
+html.lite-fx .hg-flame { animation: none; }
+
+/* ── The walking avatar (grounded pin, SectorAvatar presentation) ── */
+.hg-avatar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 6;
+    pointer-events: none;
+}
+.hg-avatar-shadow {
+    position: absolute;
+    bottom: 1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 64%;
+    height: 9px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 70%);
+}
+.hg-avatar-aura {
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 115%;
+    height: 15px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(168, 85, 247, 0.35) 0%, rgba(168, 85, 247, 0) 70%);
+}
+.hg-avatar-sprite {
+    position: absolute;
+    inset: 0;
+    display: block;
+    transform: scaleX(var(--face, 1));
+    transform-origin: 50% 100%;
+}
+.hg-avatar.is-walking .hg-avatar-sprite { animation: hgWalkBob 0.3s ease-in-out infinite; }
+@keyframes hgWalkBob {
+    0%, 100% { translate: 0 0; }
+    50% { translate: 0 -3px; }
+}
+.hg-avatar-body {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    width: 100%;
+    height: 76%;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid rgba(196, 181, 253, 0.9);
+    background: #1d1435;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55), 0 0 12px rgba(168, 85, 247, 0.4);
+}
+.hg-avatar-body img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.hg-avatar-initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-weight: 700;
+    font-size: 13px;
+    color: #e9d5ff;
+}
+.hg-avatar-pin {
+    position: absolute;
+    left: 50%;
+    top: 74%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 12px solid rgba(196, 181, 253, 0.9);
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+/* ── Minimap ── */
+.hg-minimap {
+    display: grid;
+    gap: 0;
+    width: max-content;
+    max-width: 100%;
+    background: #0a0616;
+    padding: 4px;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.hg-minimap span { display: block; }
+.hg-mm-dark { background: transparent; }
+.hg-mm-wall { background: #251840; }
+.hg-mm-floor { background: #4b3a76; }
+.hg-mm-lit { background: #7c5fb8; }
+.hg-mm-goal { background: #fbbf24; border-radius: 50%; }
+.hg-mm-exit { background: #34d399; border-radius: 50%; }
+.hg-mm-you { background: #ffffff; border-radius: 50%; box-shadow: 0 0 4px #60a5fa; }
+
+@media (prefers-reduced-motion: reduce) {
+    .hg-board { transition: none; }
+    .hg-flame, .hg-dest::after, .hg-avatar.is-walking .hg-avatar-sprite { animation: none; }
 }
