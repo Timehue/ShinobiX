@@ -383,8 +383,11 @@ test("v2 — captures (and the Warden) are the ONLY score source; combat charges
 });
 
 test("v2 — carry-as-fight-through: a carrier can deal damage (the v1 B1 lockout is lifted)", () => {
+    // A wide seed net: the mechanic is "a carrier CAN swing", not "a carrier happens
+    // to swing on these exact seeds" — AI-shape changes (flank arcs, counter-seeking)
+    // legitimately reshuffle any single playout.
     let found = false;
-    for (const seed of V2SEEDS) {
+    for (const seed of [...V2SEEDS, ...spread(10, 61, 13)]) {
         const r = runPetArenaMatch(roster(COMP, { hp: 1200, attack: 150 }), roster(COMP, { hp: 340, attack: 30 }), seed, false, true);
         for (const e of r.events) {
             if (e.type !== "hit" || !e.actorId || e.actorId === "boss") continue;
@@ -415,6 +418,70 @@ test("v2 — the closing ring engages in a long match", () => {
         if (r.events.some((e) => e.type === "ringclose") && r.snapshots.some((s) => s.ringR > 0 && s.ringR < 9)) { sawRing = true; break; }
     }
     assert.ok(sawRing, "the closing ring never engaged in any long match");
+});
+
+test("v2 — ring damage never strikes the scroll carrier (the scroll wards its bearer)", () => {
+    // Home seals sit far outside the ring's MIN radius, so an un-warded carrier would be
+    // executed on every late return leg — reading as a random unfair death.
+    for (const seed of spread(14, 53, 3)) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed, false, true);
+        for (const e of r.events) {
+            if (e.type !== "hit" || e.actorId !== "env") continue;
+            const carrier = r.snapshots[Math.max(0, Math.min(r.snapshots.length - 1, e.t - 1))]?.scroll.carrierId;
+            assert.notEqual(e.targetId, carrier, `env damage struck the carrier at t=${e.t} (seed ${seed})`);
+        }
+    }
+});
+
+test("v2 — squad broadcast cues fire (focuscall/posture/peelassign) and never leak into v1", () => {
+    let calls = 0;
+    for (const seed of V2SEEDS) {
+        const v2r = runPetArenaMatch(roster(COMP), roster(COMP, { attack: 110 }), seed, false, true);
+        for (const e of v2r.events) {
+            if (e.type === "focuscall") { calls++; assert.ok(e.targetId, "focuscall without a target"); }
+            else if (e.type === "posture") assert.ok(["press", "even", "regroup"].includes(e.posture), `bad posture ${e.posture}`);
+        }
+        const v1r = runPetArenaMatch(roster(COMP), roster(COMP, { attack: 110 }), seed, false, false);
+        assert.ok(!v1r.events.some((e) => e.type === "focuscall" || e.type === "posture" || e.type === "peelassign"),
+            `squad broadcast cues leaked into v1 (seed ${seed})`);
+    }
+    assert.ok(calls > 0, "no focuscall ever fired across the v2 seeds");
+});
+
+test("v2 — element counters make the LINEUP matter (the countering side wins more)", () => {
+    // Identical stats, opposed elements: Fire beats Wind (deals ×1.15, takes ×0.85).
+    // Running both orientations on the same seeds isolates the element edge from the
+    // small spawn-side lean.
+    const seeds = spread(14, 37, 11);
+    let fireAsBlue = 0, windAsBlue = 0;
+    for (const seed of seeds) {
+        if (runPetArenaMatch(roster(COMP, { element: "Fire" }), roster(COMP, { element: "Wind" }), seed, false, true).winner === "blue") fireAsBlue++;
+        if (runPetArenaMatch(roster(COMP, { element: "Wind" }), roster(COMP, { element: "Fire" }), seed, false, true).winner === "blue") windAsBlue++;
+    }
+    assert.ok(fireAsBlue > windAsBlue, `the countering lineup should win more (fire-as-blue ${fireAsBlue} vs wind-as-blue ${windAsBlue} of ${seeds.length})`);
+});
+
+test("v2 — the focus call is COMMITTED (no re-call inside the dwell without a death/carrier break)", () => {
+    const DWELL = Math.round(ARENA_TPS * 2.5);
+    for (const seed of V2SEEDS) {
+        const r = runPetArenaMatch(roster(COMP), roster(COMP, { attack: 110 }), seed, false, true);
+        const byTeam: Record<"blue" | "red", Array<{ t: number; targetId: string }>> = { blue: [], red: [] };
+        for (const e of r.events) if (e.type === "focuscall") byTeam[e.team].push({ t: e.t, targetId: e.targetId });
+        for (const team of ["blue", "red"] as const) {
+            const seq = byTeam[team];
+            for (let i = 1; i < seq.length; i++) {
+                const gap = seq[i].t - seq[i - 1].t;
+                if (gap >= DWELL) continue;
+                // An early re-call is only legitimate when the old target went down (or off
+                // to respawn — a kill event marks both) or the new target holds the scroll.
+                const prevDied = r.events.some((e) => e.type === "kill" && e.targetId === seq[i - 1].targetId && e.t >= seq[i - 1].t && e.t <= seq[i].t);
+                const snapAt = r.snapshots[Math.min(r.snapshots.length - 1, seq[i].t)];
+                const newIsCarrier = !!snapAt?.actors.find((a) => a.id === seq[i].targetId)?.carrying
+                    || snapAt?.scroll.carrierId === seq[i].targetId;
+                assert.ok(prevDied || newIsCarrier, `team ${team} re-called after only ${gap} ticks with no break (seed ${seed}, t=${seq[i].t})`);
+            }
+        }
+    }
 });
 
 test("v2 — balance sanity across a mixed spread (decisive, rarely capped, Warden neither absent nor omnipresent)", () => {

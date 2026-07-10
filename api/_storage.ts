@@ -552,6 +552,77 @@ async function _diskUnlink(root: string, key: string): Promise<boolean> {
     }
 }
 
+// ─── Disk RMW serialization ───────────────────────────────────────────────────
+//
+// hset/hdel (and set-nx) on the disk overlay are read-modify-write over a
+// single JSON file: read the whole hash, merge/delete fields, rewrite the file.
+// Unserialized, concurrent writers interleave (both read the same snapshot,
+// then the last write wins) and silently drop each other's fields — reproduced
+// 2026-07-09 as image ids missing from the shared:imgfields:<cat> manifest
+// after parallel POST /api/images publishes, while every image stayed
+// individually servable via its own shared:img:<id> key (a plain set).
+// api/images.ts's "HSET is atomic per-field" contract is enforced HERE.
+// Two layers, both required:
+//   1. An in-process promise chain, keyed module-wide by root+key — covers
+//      concurrent requests inside one Node process, including across BOTH
+//      _makeDiskKv instances (kv's _diskOverlay and the /api/kv proxy's
+//      _diskKvForProxy share the same root).
+//   2. A <keyfile>.lock file created with O_EXCL — covers concurrent
+//      processes; Passenger may run several app processes on one DISK_KV_DIR.
+// Plain set/del stay lock-free: whole-value writes are already atomic via
+// _diskWrite's tmp+rename. Lock files never collide with data: _walkJson only
+// picks *.json, and '<key>.json.lock' doesn't end in '.json'.
+
+const _LOCK_STALE_MS = 10_000; // steal a lock older than this (crashed holder)
+const _LOCK_WAIT_MS = 10_000;  // then give up (throw) — caller surfaces a 500, client retries
+
+async function _acquireDiskLock(lockPath: string): Promise<void> {
+    const deadline = Date.now() + _LOCK_WAIT_MS;
+    let delay = 15;
+    for (;;) {
+        try {
+            await _fs.promises.writeFile(lockPath, String(process.pid), { flag: 'wx' });
+            return;
+        } catch (e) {
+            if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+        }
+        const st = await _fs.promises.stat(lockPath).catch(() => null);
+        if (st && Date.now() - st.mtimeMs > _LOCK_STALE_MS) {
+            await _fs.promises.unlink(lockPath).catch(() => {}); // stale — steal it
+            continue;
+        }
+        if (Date.now() >= deadline) {
+            throw new Error(`disk kv: timed out waiting for lock ${lockPath}`);
+        }
+        await new Promise((r) => setTimeout(r, delay));
+        delay = Math.min(delay * 2, 200);
+    }
+}
+
+const _diskRmwChains = new Map<string, Promise<unknown>>();
+
+async function _withDiskKeyLock<T>(root: string, key: string, fn: () => Promise<T>): Promise<T> {
+    const chainKey = JSON.stringify([root, key]); // unambiguous root/key boundary
+    const prev = _diskRmwChains.get(chainKey) ?? Promise.resolve();
+    const run = prev.then(async () => {
+        const lockPath = _keyToPath(root, key) + '.lock';
+        await _fs.promises.mkdir(_nodePath.dirname(lockPath), { recursive: true });
+        await _acquireDiskLock(lockPath);
+        try {
+            return await fn();
+        } finally {
+            await _fs.promises.unlink(lockPath).catch(() => {});
+        }
+    });
+    // Chain survives rejections (next op still runs); drop the map entry once idle.
+    const tail = run.then(() => {}, () => {});
+    _diskRmwChains.set(chainKey, tail);
+    void tail.then(() => {
+        if (_diskRmwChains.get(chainKey) === tail) _diskRmwChains.delete(chainKey);
+    });
+    return run;
+}
+
 async function _walkJson(dir: string, out: string[]): Promise<void> {
     let entries: import('node:fs').Dirent[];
     try {
@@ -597,7 +668,7 @@ export interface KvLike {
     hdel(key: string, ...fields: string[]): Promise<number>;
 }
 
-function _makeDiskKv(root: string): KvLike {
+export function _makeDiskKv(root: string): KvLike {
     return {
         async get<T = unknown>(key: string): Promise<T | null> {
             const rec = await _diskRead(root, key);
@@ -609,11 +680,17 @@ function _makeDiskKv(root: string): KvLike {
             return rec.value as T;
         },
         async set(key, value, options) {
-            if (options?.nx) {
-                const existing = await _diskRead(root, key);
-                if (existing && !isExpired(existing.expires_at)) return null;
-            }
             const exp = options?.ex ? expiresAt(options.ex) : null;
+            if (options?.nx) {
+                // Check-then-write — serialize like the other RMW ops so two
+                // concurrent nx claimers can't both observe "absent" and both win.
+                return _withDiskKeyLock(root, key, async () => {
+                    const existing = await _diskRead(root, key);
+                    if (existing && !isExpired(existing.expires_at)) return null;
+                    await _diskWrite(root, key, { value, expires_at: exp });
+                    return 'OK' as const;
+                });
+            }
             await _diskWrite(root, key, { value, expires_at: exp });
             return 'OK';
         },
@@ -655,16 +732,23 @@ function _makeDiskKv(root: string): KvLike {
             return all && typeof all === 'object' ? Object.keys(all) : [];
         },
         async hset(key, fields) {
-            const existing = (await this.get<Record<string, unknown>>(key)) ?? {};
-            await this.set(key, { ...existing, ...fields });
-            return Object.keys(fields).length;
+            // Serialized RMW — see _withDiskKeyLock. Unserialized, concurrent
+            // hsets read the same snapshot and the last write drops the other
+            // writers' fields (lost image-manifest ids under parallel publishes).
+            return _withDiskKeyLock(root, key, async () => {
+                const existing = (await this.get<Record<string, unknown>>(key)) ?? {};
+                await this.set(key, { ...existing, ...fields });
+                return Object.keys(fields).length;
+            });
         },
         async hdel(key, ...fields) {
             if (!fields.length) return 0;
-            const existing = (await this.get<Record<string, unknown>>(key)) ?? {};
-            for (const f of fields) delete existing[f];
-            await this.set(key, existing);
-            return fields.length;
+            return _withDiskKeyLock(root, key, async () => {
+                const existing = (await this.get<Record<string, unknown>>(key)) ?? {};
+                for (const f of fields) delete existing[f];
+                await this.set(key, existing);
+                return fields.length;
+            });
         },
     };
 }

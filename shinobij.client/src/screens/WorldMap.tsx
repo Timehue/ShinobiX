@@ -16,7 +16,7 @@ import {
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
-import type { Character, PlayerRecord } from "../types/character";
+import type { Character, HollowGateEventConfig, PlayerRecord } from "../types/character";
 import { gameConfirm } from "../components/GameAlert";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
@@ -33,6 +33,7 @@ import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
+import { WANDERER_PENDING_KEY, type WandererFightResult } from "../lib/wanderer-fight";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -270,6 +271,8 @@ export function WorldMap({
     onStartEventEncounter,
     onDungeonFound,
     onEnterHollowGate,
+    hollowGateEventConfig,
+    onEnterHollowGateEvent,
     setPvpBattleId,
     setPvpRole,
     setPvpBattleContext,
@@ -316,6 +319,10 @@ export function WorldMap({
     onStartEventEncounter: (event: CreatorEvent, battle?: EventEncounterBattle) => void;
     onDungeonFound: () => void;
     onEnterHollowGate?: () => void;
+    // Active event gate (admin-authored) — shows the event entry in the
+    // Hollow Gate menu and hands the config back on entry.
+    hollowGateEventConfig?: HollowGateEventConfig | null;
+    onEnterHollowGateEvent?: (cfg: HollowGateEventConfig) => void;
     setPvpBattleId: (id: string) => void;
     setPvpRole: (role: "p1" | "p2") => void;
     setPvpBattleContext: (context: SharedPvpBattleContext | null) => void;
@@ -909,9 +916,9 @@ export function WorldMap({
     // off robbers builds character.robberStreak; at 5, the next bandit springs an
     // AMBUSH gauntlet — 3 robbers then a boss, back-to-back (your HP carries). The
     // chain is driven client-side: a localStorage handoff survives the arena trip,
-    // and a totalAiKills delta tells a win from a loss. Each arena fight pays its
-    // own existing (server-safe) rewards, so there's no new currency surface.
-    const WANDERER_PENDING_KEY = "wandererFight.pending.v1";
+    // and the Arena stamps the authoritative win/loss onto the handoff record (see
+    // lib/wanderer-fight). Each arena fight pays its own existing (server-safe)
+    // rewards, so there's no new currency surface.
 
     function buildRobberAi(level: number, tag: string, stage = 0): CreatorAi {
         const lvl = Math.max(1, Math.min(100, Math.round(level)));
@@ -1112,15 +1119,17 @@ export function WorldMap({
                 const parts = [`${d.reward.ryo} ryo`];
                 if (d.reward.fateShards > 0) parts.push(`${d.reward.fateShards} fate shard${d.reward.fateShards === 1 ? "" : "s"}`);
                 if (d.reward.boneCharms > 0) parts.push(`${d.reward.boneCharms} bone charm${d.reward.boneCharms === 1 ? "" : "s"}`);
-                setTimeout(() => alert(`You broke the ambush and felled their warlord! Loot: ${parts.join(", ")}.`), 40);
+                setTimeout(() => alert(`You overwhelmed the bandits and felled their warlord! Loot: ${parts.join(", ")}.`), 40);
                 return;
             }
         } catch { /* fall through to the no-loot message */ }
         updateCharacter(prev => prev ? ({ ...prev, robberStreak: 0 }) : prev);
-        setTimeout(() => alert("You broke the ambush and felled their warlord! The roads are yours again."), 40);
+        setTimeout(() => alert("You overwhelmed the bandits and felled their warlord! The roads are yours again."), 40);
     }
-    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number }) {
-        const won = (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
+    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number }) {
+        // Prefer the authoritative outcome the Arena stamped on the record; fall back to
+        // the totalAiKills delta only for legacy records written before the stamp existed.
+        const won = p.result ? p.result === "win" : (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
         if (p.mode === "patrol") {
             if (won) setTimeout(() => alert(p.hostile ? "You broke the patrol's line and sent them running." : "The patrol yields after a clean spar."), 40);
             else setTimeout(() => alert(p.hostile ? "The patrol overwhelms you and leaves you for the healers." : "The patrol drops you, then drags you clear of the road."), 40);
@@ -1202,7 +1211,7 @@ export function WorldMap({
         let raw: string | null;
         try { raw = localStorage.getItem(WANDERER_PENDING_KEY); if (raw) localStorage.removeItem(WANDERER_PENDING_KEY); } catch { return; }
         if (!raw) return;
-        let p: { mode: string; stage: number; sector: number; baselineKills: number; at: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number };
+        let p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; at: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number };
         try { p = JSON.parse(raw); } catch { return; }
         if (!p || Date.now() - (p.at || 0) > 30 * 60 * 1000) return;
         resolveWandererFight(p);
@@ -3489,6 +3498,19 @@ export function WorldMap({
                         <h3 style={{ marginTop: 0, color: "#e9d5ff" }}>⛩ The Hollow Gate</h3>
                         <p style={{ color: "#c4b5fd", fontSize: 14 }}>The broken torii waits. Steel yourself, or attune to the shrine with the Hollow Shards you've torn from its depths.</p>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {hollowGateEventConfig?.active && (
+                                <button
+                                    onClick={() => { setHollowGateMenu(false); onEnterHollowGateEvent?.(hollowGateEventConfig); }}
+                                    style={{ padding: 8, borderRadius: 8, border: "1px solid #fbbf24", background: "linear-gradient(#b45309,#78350f)", color: "#fef3c7", fontWeight: 700, cursor: "pointer" }}
+                                >
+                                    ⭐ Event: {hollowGateEventConfig.label || "Event Gate"}
+                                    <span style={{ display: "block", fontSize: 11, fontWeight: 400, color: "#fde68a" }}>
+                                        {Math.max(1, hollowGateEventConfig.maxFloor ?? 1)} floor{(hollowGateEventConfig.maxFloor ?? 1) === 1 ? "" : "s"}
+                                        {hollowGateEventConfig.bossName ? ` · Boss: ${hollowGateEventConfig.bossName}` : ""}
+                                        {(hollowGateEventConfig.keyCost ?? 1) === 0 ? " · Free entry" : " · 1 Key"}
+                                    </span>
+                                </button>
+                            )}
                             <button onClick={() => { setHollowGateMenu(false); onEnterHollowGate?.(); }} style={{ padding: 8, borderRadius: 8, border: "none", background: "linear-gradient(#7c3aed,#4c1d95)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Enter the Shrine</button>
                             <button onClick={() => { setHollowGateMenu(false); setShowAttunement(true); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}>💎 Shrine Attunement</button>
                             <button onClick={() => setHollowGateMenu(false)} style={{ padding: 6, borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94a3b8", cursor: "pointer" }}>Cancel</button>

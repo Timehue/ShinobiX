@@ -201,6 +201,17 @@ async function handler(req, res) {
         }
         // For new challenges (not accept/decline/battle routing), gate on travel + battle state.
         if (!record.accepted && !record.declined && !record.battleId) {
+            // The target must be a real, existing player. A challenge typed to a
+            // mistyped/nonexistent name would otherwise store at challenges:<typo>
+            // — a key no heartbeat ever reads — and return 200 as if delivered,
+            // so the sender is never told it went nowhere (they'd wait for an
+            // accept that can't come). Player saves live at save:<safeName>, so a
+            // missing save = no such player. Only new outgoing challenges are
+            // gated; accept/decline/battle-routing replies legitimately target
+            // the counterparty and are handled above.
+            const targetExists = await _storage_js_1.kv.get(`save:${(0, _utils_js_1.safeName)(targetName)}`);
+            if (!targetExists)
+                return res.status(404).json({ error: `No player named "${targetName}" was found.` });
             // Presence is in process memory; challengeBlock carries the
             // traveling / in-battle / engaged gates AND the Academy-Student
             // protection (sub-Genin can't be challenged). Spar and pet-battle

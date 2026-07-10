@@ -36,6 +36,13 @@ export type EnemyTemplate = {
     /** raw damage-reduction (0..1.5) read by computeDamage's armor pool (effDR = raw/(raw+K_DR)).
      *  Absent = no armor (grunts). Endgame Spire bosses carry it so squad DPS is mitigated. */
     armorRawDR?: number;
+    /** signature jutsu the enemy AI casts (bestAffordableJutsu). Bosses use these to actually
+     *  THREATEN a geared party — a 60-AP damage jutsu hits ~4-5× a basic attack. Copied verbatim
+     *  onto the actor's character.jutsu by the encounter builder. Absent = basic-attacks only. */
+    jutsu?: Array<{ id: string; name?: string; type?: string; element?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number; method?: string }>;
+    /** chakra/stamina pool override (bosses that cast want a bigger pool than the 100 default) */
+    maxChakra?: number;
+    maxStamina?: number;
 };
 
 const TEMPLATES: Record<string, EnemyTemplate> = {
@@ -59,42 +66,58 @@ const TEMPLATES: Record<string, EnemyTemplate> = {
         name: 'Acolyte', specialty: 'Ninjutsu', level: 40, hp: 420, visual: 'acolyte',
         stats: { ninjutsuOffense: 750, ninjutsuDefense: 350, willpower: 250, intelligence: 200 },
     },
+    // Story bosses (floors 5/7/9/10) — GAUNTLET-tuned: high HP + armor DR so a geared party can't
+    // faceroll them in ~3 rounds (fights last long enough for the telegraphed strikes / closing
+    // ring / aegis / summons to actually bite), and enough offense to threaten a wipe. Ramp up to
+    // the finale. (Distinct from the Endless-Spire L100 variants below.)
     'boss-warden': {
-        name: 'Spire Warden', specialty: 'Ninjutsu', level: 80, hp: 4200, visual: 'warden', boss: true,
-        stats: { ninjutsuOffense: 1200, ninjutsuDefense: 950, willpower: 450, speed: 300 },
+        name: 'Spire Warden', specialty: 'Ninjutsu', level: 80, hp: 18000, visual: 'warden', boss: true, armorRawDR: 0.20,
+        stats: { ninjutsuOffense: 2050, ninjutsuDefense: 1200, willpower: 550, speed: 400 },
+        jutsu: [{ id: 'warden-lance', name: 'Warding Lance', type: 'Ninjutsu', element: 'Lightning', ap: 60, range: 3, effectPower: 46, method: 'AOE_BURST' }],
     },
     'boss-ravager': {
-        name: 'Pit Ravager', specialty: 'Taijutsu', level: 80, hp: 4800, visual: 'ravager', boss: true,
-        stats: { taijutsuOffense: 1300, taijutsuDefense: 1000, strength: 500, speed: 260 },
+        name: 'Pit Ravager', specialty: 'Taijutsu', level: 80, hp: 30000, visual: 'ravager', boss: true, armorRawDR: 0.24,
+        stats: { taijutsuOffense: 2150, taijutsuDefense: 1200, strength: 640, speed: 320 },
+        jutsu: [{ id: 'ravager-maul', name: 'Ravaging Maul', type: 'Taijutsu', ap: 60, range: 3, effectPower: 58, method: 'AOE_BURST' }],
     },
     'boss-revenant': {
-        name: 'Hollow Revenant', specialty: 'Genjutsu', level: 80, hp: 5200, visual: 'revenant', boss: true,
-        stats: { genjutsuOffense: 1300, genjutsuDefense: 1050, willpower: 500, intelligence: 350 },
+        name: 'Hollow Revenant', specialty: 'Genjutsu', level: 80, hp: 17000, visual: 'revenant', boss: true, armorRawDR: 0.18,
+        stats: { genjutsuOffense: 1950, genjutsuDefense: 1250, willpower: 620, intelligence: 420 },
+        jutsu: [{ id: 'revenant-wail', name: 'Hollow Wail', type: 'Genjutsu', ap: 60, range: 3, effectPower: 48, method: 'AOE_BURST' }],
     },
     'boss-sovereign': {
-        name: 'Spire Sovereign', specialty: 'Ninjutsu', level: 80, hp: 6200, visual: 'sovereign', boss: true,
-        stats: { ninjutsuOffense: 1500, ninjutsuDefense: 1150, willpower: 550, speed: 350 },
+        name: 'Spire Sovereign', specialty: 'Ninjutsu', level: 80, hp: 24000, visual: 'sovereign', boss: true, armorRawDR: 0.23,
+        stats: { ninjutsuOffense: 1950, ninjutsuDefense: 1400, willpower: 650, speed: 450 },
+        jutsu: [{ id: 'sovereign-cataclysm', name: 'Sovereign Cataclysm', type: 'Ninjutsu', element: 'Fire', ap: 60, range: 3, effectPower: 44, method: 'AOE_BURST' }],
     },
     // ── Clan Boss (api/clan-boss) — a tough party-of-3 boss. Its HP is OVERRIDDEN at
     // assault time to the clan's shared pool (min(pool, cap)), so these hp values are
     // only a fallback; the stats below drive how hard it HITS (assaults normally end
     // in a wipe having chipped the boss). Reuse the existing boss sprites. Stats sit
     // at the level-80 boss ceiling (a stat-cap parity test pins this).
+    // Clan bosses are GAUNTLET-tuned like the story bosses (armor + a signature AOE nuke) so a
+    // single geared party can't one-shot the capped assault chunk — assaults chip a portion and
+    // usually wipe, the way the weekly clan raid intends. HP is still overridden to the assault cap.
     'clan-boss-oni': {
-        name: 'The Oni Warlord', specialty: 'Taijutsu', level: 80, hp: 12000, visual: 'ravager', boss: true,
-        stats: { taijutsuOffense: 1500, taijutsuDefense: 1150, strength: 640, speed: 320 },
+        name: 'The Oni Warlord', specialty: 'Taijutsu', level: 80, hp: 12000, visual: 'ravager', boss: true, armorRawDR: 0.26,
+        stats: { taijutsuOffense: 2450, taijutsuDefense: 1250, strength: 720, speed: 380 },
+        jutsu: [{ id: 'oni-cleaver', name: 'Oni Cleaver', type: 'Taijutsu', ap: 60, range: 3, effectPower: 62, method: 'AOE_BURST' }],
     },
     'clan-boss-leviathan': {
-        name: 'Abyssal Leviathan', specialty: 'Ninjutsu', level: 80, hp: 12000, visual: 'sovereign', boss: true,
-        stats: { ninjutsuOffense: 1500, ninjutsuDefense: 1150, willpower: 560, speed: 340 },
+        name: 'Abyssal Leviathan', specialty: 'Ninjutsu', level: 80, hp: 12000, visual: 'sovereign', boss: true, armorRawDR: 0.26,
+        stats: { ninjutsuOffense: 2250, ninjutsuDefense: 1250, willpower: 620, speed: 380 },
+        jutsu: [{ id: 'leviathan-surge', name: 'Abyssal Surge', type: 'Ninjutsu', element: 'Water', ap: 60, range: 3, effectPower: 54, method: 'AOE_BURST' }],
     },
     'clan-boss-kage': {
-        name: 'The Fallen Kage', specialty: 'Genjutsu', level: 80, hp: 12000, visual: 'revenant', boss: true,
-        stats: { genjutsuOffense: 1500, genjutsuDefense: 1200, willpower: 560, intelligence: 420 },
+        name: 'The Fallen Kage', specialty: 'Genjutsu', level: 80, hp: 12000, visual: 'revenant', boss: true, armorRawDR: 0.16,
+        stats: { genjutsuOffense: 1850, genjutsuDefense: 1200, willpower: 580, intelligence: 440 },
+        jutsu: [{ id: 'kage-eclipse', name: 'Hollow Eclipse', type: 'Genjutsu', ap: 60, range: 3, effectPower: 46, method: 'AOE_BURST' }],
     },
     'clan-boss-golem': {
-        name: 'Ancient Stone Golem', specialty: 'Taijutsu', level: 80, hp: 12000, visual: 'warden', boss: true,
-        stats: { taijutsuOffense: 1400, taijutsuDefense: 1450, strength: 660, speed: 220 },
+        // bulwark tank: highest armor, a bit less offense; the whole clan chips it over the week.
+        name: 'Ancient Stone Golem', specialty: 'Taijutsu', level: 80, hp: 12000, visual: 'warden', boss: true, armorRawDR: 0.32,
+        stats: { taijutsuOffense: 2050, taijutsuDefense: 1550, strength: 720, speed: 240 },
+        jutsu: [{ id: 'golem-quake', name: 'Seismic Quake', type: 'Taijutsu', ap: 60, range: 3, effectPower: 48, method: 'AOE_BURST' }],
     },
     'npc-genin': {
         name: 'Allied Genin', specialty: 'Taijutsu', level: 40, hp: 600, visual: 'genin',

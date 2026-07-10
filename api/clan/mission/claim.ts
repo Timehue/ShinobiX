@@ -4,12 +4,13 @@ import { cors, safeName, clanBareSlug, clanRecordKey } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
-import { awardClanPointsToPlayerSave } from '../../_clan-points.js';
+import { awardClanPointsToPlayerSave, clanPointWeekKey } from '../../_clan-points.js';
 import {
     CLAN_MISSION_TARGETS,
     CLAN_MISSION_REWARDS,
     clanMissionProgressServer,
     addClanXpServer,
+    scaledClanXp,
     isClanMissionKey,
     type ClanMissionKey,
 } from '../_mission-catalog.js';
@@ -36,10 +37,14 @@ import {
 
 const TERRITORY_KEY_PREFIX = 'world:territory:';
 const AUDIT_LOG_PREFIX = 'audit:clan-mission-claim:';
-const CLAIM_TTL = 400 * 24 * 60 * 60; // ~13 months — effectively permanent latch.
+// Weekly-repeatable: the claim latch + listing set are keyed by ISO week, so a
+// clan can claim each mission once PER WEEK (a steady, member-scaled clan-XP
+// faucet toward hall growth). The ~10-day TTL lets a finished week's keys
+// auto-expire — next week uses a fresh key, so the mission is claimable again.
+const CLAIM_TTL = 10 * 24 * 60 * 60;
 
-function claimedSetKey(slug: string): string { return `clan:missions-claimed:${slug}`; }
-function claimLatchKey(slug: string, key: ClanMissionKey): string { return `clan:mission-claimed:${slug}:${key}`; }
+function claimedSetKey(slug: string, weekKey: string): string { return `clan:missions-claimed:${slug}:${weekKey}`; }
+function claimLatchKey(slug: string, weekKey: string, key: ClanMissionKey): string { return `clan:mission-claimed:${slug}:${weekKey}:${key}`; }
 
 type ClanMissionMember = {
     name?: string;
@@ -100,8 +105,8 @@ function pointEligibleMembers(
     return names;
 }
 
-async function readClaimed(slug: string): Promise<ClanMissionKey[]> {
-    const raw = await kv.get<unknown>(claimedSetKey(slug)).catch(() => null);
+async function readClaimed(slug: string, weekKey: string): Promise<ClanMissionKey[]> {
+    const raw = await kv.get<unknown>(claimedSetKey(slug, weekKey)).catch(() => null);
     if (!Array.isArray(raw)) return [];
     return raw.filter(isClanMissionKey);
 }
@@ -116,7 +121,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const clan = typeof req.query.clan === 'string' ? req.query.clan.trim() : '';
             const slug = clanBareSlug(clan);
             if (!slug) return res.status(400).json({ error: 'Missing clan.' });
-            return res.status(200).json({ ok: true, claimed: await readClaimed(slug) });
+            const weekKey = clanPointWeekKey();
+            return res.status(200).json({ ok: true, weekKey, claimed: await readClaimed(slug, weekKey) });
         }
 
         if (req.method !== 'POST') return res.status(405).end();
@@ -140,6 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const slug = clanBareSlug(clan);
         if (!slug) return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = clanRecordKey(clan);
+        const weekKey = clanPointWeekKey();
 
         // Membership check (admin exempt) — the caller must belong to this clan.
         if (!identity.admin) {
@@ -167,14 +174,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { ok: false as const, status: 409, error: 'Clan mission not complete yet.' };
             }
 
-            // Single-use latch — reserve before crediting so two racing claims
-            // can't both pay out (the outer clan lock already serialises, this is
-            // the durable record across calls). NX: null means already taken.
-            const placed = await kv.set(claimLatchKey(slug, missionKey), '1', { nx: true, ex: CLAIM_TTL }).catch(() => 'OK' as const);
-            if (placed === null) return { ok: false as const, status: 409, error: 'This clan mission was already claimed.' };
+            // Per-week single-use latch — reserve before crediting so two racing
+            // claims can't both pay out (the outer clan lock already serialises,
+            // this is the durable per-week record across calls). NX: null means
+            // already taken THIS week.
+            const placed = await kv.set(claimLatchKey(slug, weekKey, missionKey), '1', { nx: true, ex: CLAIM_TTL }).catch(() => 'OK' as const);
+            if (placed === null) return { ok: false as const, status: 409, error: 'This clan mission was already claimed this week.' };
 
             // ── Credit clan XP + treasury ───────────────────────────────────
-            const leveled = addClanXpServer(Number(clanRec.xp ?? 0) || 0, Number(clanRec.level ?? 1) || 1, reward.clanXp);
+            // Clan XP is member-scaled (10–15 members = 1.0×; small clans dampened,
+            // capped at 1.0×) so a tiny clan can't rush hall tiers.
+            const memberCount = Array.isArray(clanRec.members) ? clanRec.members.length : 0;
+            const leveled = addClanXpServer(Number(clanRec.xp ?? 0) || 0, Number(clanRec.level ?? 1) || 1, scaledClanXp(reward.clanXp, memberCount));
             const prevTreasury = (clanRec.treasury ?? {}) as Record<string, unknown>;
             const nextTreasury: Record<string, unknown> = { ...prevTreasury };
             for (const [cur, amt] of Object.entries(reward.treasury ?? {})) {
@@ -194,15 +205,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (!outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
 
-        // Maintain the listing set + audit (best-effort, off the claim's lock).
-        const claimed = await readClaimed(slug);
+        // Maintain the per-week listing set + audit (best-effort, off the claim's lock).
+        const claimed = await readClaimed(slug, weekKey);
         if (!claimed.includes(missionKey)) {
-            await kv.set(claimedSetKey(slug), [...claimed, missionKey], { ex: CLAIM_TTL }).catch(() => undefined);
+            await kv.set(claimedSetKey(slug, weekKey), [...claimed, missionKey], { ex: CLAIM_TTL }).catch(() => undefined);
         }
-        await kv.set(`${AUDIT_LOG_PREFIX}${slug}:${missionKey}`, {
+        await kv.set(`${AUDIT_LOG_PREFIX}${slug}:${weekKey}:${missionKey}`, {
             ts: Date.now(),
             actor: identity.admin ? 'admin' : identity.name,
             clan,
+            weekKey,
             missionKey,
             reward,
         }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);

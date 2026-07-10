@@ -8,8 +8,10 @@ import { KAGE_LIBERATOR_TITLES } from '../_titles-registry.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { announce, postVillageHerald, addHallEntry } from '../_announce.js';
 import { applyKageUnlock, type KageUnlockState } from './_kage-unlock.js';
+import { openReign, closeCurrentReign, applyAdminReset, type KageStateLike } from './_kage-challenge.js';
+import { reconcilePendingKageSettle } from './_kage-settle.js';
 
-type VillageKageState = KageUnlockState;
+type VillageKageState = KageUnlockState & Partial<KageStateLike>;
 
 function kageKey(village: string) {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
@@ -66,6 +68,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
         try {
             if (!village) return res.status(400).json({ error: 'Missing village.' });
+            // Self-heal a stuck auto-settle from the durable record before reading.
+            // This is the main reconcile trigger: every client polls this GET (~12s)
+            // in every challenge state, incl. ACCEPTED_DUEL (where the challenger's
+            // press loop is idle). Best-effort; the response reflects the result.
+            await reconcilePendingKageSettle(village, Date.now()).catch(() => undefined);
             const state = await kv.get<VillageKageState>(kageKey(village)) ?? { kageSystemUnlocked: false };
             res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
             return res.status(200).json(state);
@@ -136,26 +143,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // hiccup aborts (caller retries) rather than racing this state.
             const result = await withKvLock<{ status: number; body: unknown }>(key, async () => {
                 const current = await kv.get<VillageKageState>(key) ?? { kageSystemUnlocked: false };
+                const now = Date.now();
 
                 if (action === 'unlock') {
                     // The requirement gate ran before the lock (liberatorVerified);
                     // admins skip it. First clear seats + brands firstLiberator,
                     // exactly once; later clears change nothing here (test-locked
-                    // in _kage-unlock.test.ts).
-                    const outcome = applyKageUnlock(current, playerName, Date.now());
-                    if (outcome.freshUnlock) await kv.set(key, outcome.next);
-                    freshUnlock = outcome.freshUnlock;
+                    // in _kage-unlock.test.ts). On a fresh unlock we also OPEN the
+                    // first liberator's reign in the server-owned history.
+                    const outcome = applyKageUnlock(current, playerName, now);
+                    if (outcome.freshUnlock) {
+                        const withReign = openReign(outcome.next as KageStateLike, playerName, v, now);
+                        await kv.set(key, withReign);
+                        freshUnlock = true;
+                        return { status: 200, body: withReign };
+                    }
                     return { status: 200, body: outcome.next };
                 }
 
                 if (action === 'reset') {
                     // Admin-only: reset the Kage system back to NPC / sealed state.
+                    // Closes the current reign ('admin-reset') but preserves the
+                    // permanent history so the record survives across eras.
                     if (!identity.admin) {
                         return { status: 403, body: { error: 'Only admins can reset the Kage system.' } };
                     }
-                    const next: VillageKageState = {
-                        kageSystemUnlocked: false,
-                    };
+                    const next = applyAdminReset(current as KageStateLike, v, now);
                     await kv.set(key, next);
                     return { status: 200, body: next };
                 }
@@ -194,11 +207,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // when the seat is empty. We accept the seated-Kage path above
                     // and ensure that admin / seated Kage actions still proceed
                     // here; the firstLiberator is preserved in the next-state.
-                    const next: VillageKageState = {
-                        ...current,
+                    const seatChanged = safeName(current.seatedKage ?? '') !== safeName(playerName);
+                    let next: KageStateLike = {
+                        ...(current as KageStateLike),
                         seatedKage: playerName,
                         firstLiberator: current.firstLiberator ?? playerName,
                     };
+                    if (seatChanged) {
+                        // Seat handed to a different player (admin install / step-down):
+                        // close the outgoing reign and open the new one so the
+                        // permanent record reflects the transition.
+                        const closed = current.seatedKage ? closeCurrentReign(current as KageStateLike, v, now, 'abdicated') : (current as KageStateLike);
+                        next = { ...openReign(closed, playerName, v, now), firstLiberator: current.firstLiberator ?? playerName };
+                    }
                     await kv.set(key, next);
                     return { status: 200, body: next };
                 }

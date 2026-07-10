@@ -4,11 +4,11 @@ import type { Character, BattleHistoryEntry } from "../types/character";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import {
     submitTowerAction, settleTowerRun, fetchTowerState, joinTowerRun, TOWER_TURN_AFK_MS,
-    type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerFeature, type TowerHostLoadout,
+    type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerFeature, type TowerBoardObject, type TowerHostLoadout,
 } from "../lib/towers-api";
 import gameBg from "../assets/background-image.webp";
 import {
-    towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
+    towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, towerClosingRingTiles, HEX_W, HEX_H,
 } from "../lib/tower-grid";
 import { useBoardScale } from "../lib/use-board-scale";
 import { tagMatchesName } from "../lib/tags";
@@ -30,6 +30,13 @@ import ravagerSprite from "../assets/towers/enemies/ravager.webp";
 import geninSprite from "../assets/towers/enemies/genin.webp";
 import revenantSprite from "../assets/towers/enemies/revenant.webp";
 import sovereignSprite from "../assets/towers/enemies/sovereign.webp";
+import objectFont from "../assets/towers/objects/font.webp";
+import objectShrine from "../assets/towers/objects/shrine.webp";
+import obstacleForest from "../assets/towers/obstacles/forest.webp";
+import obstacleSnow from "../assets/towers/obstacles/snow.webp";
+import obstacleVolcano from "../assets/towers/obstacles/volcano.webp";
+import obstacleShadow from "../assets/towers/obstacles/shadow.webp";
+import obstacleCentral from "../assets/towers/obstacles/central.webp";
 import pylonFire from "../assets/towers/pylons/fire.webp";
 import pylonWater from "../assets/towers/pylons/water.webp";
 import pylonEarth from "../assets/towers/pylons/earth.webp";
@@ -80,6 +87,19 @@ const PYLON_SPRITE: Record<string, string> = {
 };
 // Ward / hazard flower sprites.
 const FEATURE_SPRITE: Record<string, string> = { ward: wardSprite, hazard: hazardSprite };
+// Impassable terrain-pillar sprites, keyed by the floor biome (painted game props that
+// sit on blocked tiles — the tile itself also tints dark via tileFill's isBlocked branch).
+const OBSTACLE_SPRITE: Record<string, string> = {
+    forest: obstacleForest, snow: obstacleSnow, volcano: obstacleVolcano,
+    shadow: obstacleShadow, central: obstacleCentral,
+};
+// Board-object sprites (fonts / shrines — tiles worth holding).
+const OBJECT_SPRITE: Record<string, string> = { font: objectFont, shrine: objectShrine };
+const FONT_RESOURCE_WORD: Record<string, string> = { hp: "HP", chakra: "chakra", stamina: "stamina" };
+function objectLabel(o: TowerBoardObject): string {
+    if (o.kind === "shrine") return `${o.label ?? "Battle Shrine"}: your whole team deals +${o.percent}% damage while a living ally stands here (capped; enraged bosses gain nothing)`;
+    return `${o.label ?? "Font"}: whoever ends the round standing here restores ${o.percent}% ${FONT_RESOURCE_WORD[o.resource] ?? o.resource} (up to ${o.cap})`;
+}
 const ENEMY_EMOJI: Record<string, string> = {
     bandit: "🥷", archer: "🏹", blocker: "🛡️", brute: "👹", acolyte: "🔮",
     warden: "🐲", ravager: "😈", genin: "🧑",
@@ -419,6 +439,40 @@ export function BattleTowerFight({
         return m;
     }, [session.map.features]);
 
+    // ── "Board attacks back" overlays — three DISTINCT danger reads ──────────────
+    // violet = the boss's telegraphed strike (detonates at THIS round's end)
+    // ember  = the closing ring (the arena collapsing inward; client mirror of the server)
+    // crimson = the remaining spire hazard telegraph (everything else in nextRoundHazardTiles)
+    const strikeTiles = useMemo(() => {
+        const st = session.bossStrike;
+        return new Set<number>(st && st.round === session.round ? st.tiles : []);
+    }, [session.bossStrike, session.round]);
+    const ringTiles = useMemo(
+        () => new Set<number>(towerClosingRingTiles(w, h, session.map.blockedTiles, session.map.closingRing, session.round)),
+        [w, h, session.map.blockedTiles, session.map.closingRing, session.round],
+    );
+    const crimsonTiles = useMemo(
+        () => (session.map.nextRoundHazardTiles ?? []).filter(t => !strikeTiles.has(t) && !ringTiles.has(t)),
+        [session.map.nextRoundHazardTiles, strikeTiles, ringTiles],
+    );
+
+    // Story encounter chips — surface the boss's kit (strike / hunting style / arena
+    // mechanics) the way the Spire surfaces its sealed modifiers, so a fight's demands
+    // read BEFORE they hurt. Spire floors keep their richer modifier manifest instead.
+    const encounterChips = useMemo(() => {
+        if (Array.isArray(session.modifierStack) && session.modifierStack.length > 0) return [];
+        const chips: Array<{ icon: string; text: string; kind: string }> = [];
+        const boss = session.actors.find(a => a.id === session.phaseState.bossId);
+        const strike = boss?.character?.bossStrike as { kind?: string; everyRounds?: number } | undefined;
+        const hunt = String(boss?.character?.aiTargetMode ?? "");
+        if (strike?.kind) chips.push({ icon: "☄️", text: `${strike.kind === "volley" ? "Telegraphed barrage" : "Telegraphed nova"} every ${Math.max(2, Number(strike.everyRounds ?? 3))} rounds — step off the violet tiles`, kind: "debuff" });
+        if (hunt) chips.push({ icon: "🎯", text: hunt === "support" ? "Hunts your support" : hunt === "squishiest" ? "Hunts your weakest guard" : "Finishes the wounded", kind: "objective" });
+        if (boss?.character?.phasePillars) chips.push({ icon: "🪨", text: "Shatters the arena at phase gates", kind: "default" });
+        if (boss?.character?.aegis) chips.push({ icon: "🛡️", text: "Raises a shield at phase gates", kind: "healcut" });
+        if (session.map.closingRing) chips.push({ icon: "🔥", text: `Arena collapses from round ${Math.max(1, Number(session.map.closingRing.fromRound ?? 6))}`, kind: "extraPhase" });
+        return chips;
+    }, [session.modifierStack, session.actors, session.phaseState.bossId, session.map.closingRing]);
+
     async function send(action: Parameters<typeof submitTowerAction>[2]) {
         if (busy) return;
         setBusy(true); setReject(null);
@@ -593,6 +647,41 @@ export function BattleTowerFight({
                         </div>
                     )}
 
+                    {/* Story encounter manifest — the boss's kit as chips (mirrors the spire chips) */}
+                    {encounterChips.length > 0 && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                            {encounterChips.map((c, i) => {
+                                const pal = MODIFIER_CHIP_COLOR[c.kind] ?? MODIFIER_CHIP_COLOR.default!;
+                                return (
+                                    <span key={i} style={{
+                                        fontSize: "0.72rem", fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                                        color: pal.fg, background: pal.bg, border: `1px solid ${pal.border}`, whiteSpace: "nowrap",
+                                    }}>{c.icon} {c.text}</span>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Live danger banners — a primed strike / the collapsing arena, this round */}
+                    {(strikeTiles.size > 0 || ringTiles.size > 0) && session.status === "active" && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                            {strikeTiles.size > 0 && session.bossStrike && (
+                                <span style={{
+                                    fontSize: "0.76rem", fontWeight: 800, padding: "3px 10px", borderRadius: 8, whiteSpace: "nowrap",
+                                    color: "#e9d5ff", background: "rgba(147,51,234,0.22)", border: "1px solid rgba(192,132,252,0.75)",
+                                    textShadow: "0 1px 2px #000", animation: "towerHazardPulse 1s ease-in-out infinite",
+                                }}>⚠️ {session.bossStrike.label} — clear the violet tiles before round's end!</span>
+                            )}
+                            {ringTiles.size > 0 && (
+                                <span style={{
+                                    fontSize: "0.76rem", fontWeight: 800, padding: "3px 10px", borderRadius: 8, whiteSpace: "nowrap",
+                                    color: "#fed7aa", background: "rgba(194,65,12,0.24)", border: "1px solid rgba(251,146,60,0.75)",
+                                    textShadow: "0 1px 2px #000",
+                                }}>🔥 The arena is collapsing — stay inside the ring!</span>
+                            )}
+                        </div>
+                    )}
+
                     <div ref={battlefieldCallbackRef} className="tower-board-area"
                         style={{ flex: 1, position: "relative", overflow: "hidden", borderRadius: 10, border: "2px solid #1f2937", background: `radial-gradient(ellipse at center, rgba(5,12,8,0.05), rgba(4,9,6,0.4)), url(${biomeFloor}) center/cover no-repeat` }}>
                         <div style={{
@@ -642,11 +731,28 @@ export function BattleTowerFight({
 
                                 {/* Endless Spire hazard telegraph — crimson "this burns at round end" warning so the
                                     squad can step off before it lands. Exact deterministic hazards only (server omits
-                                    reactive proximity tiles). Absent on story floors. */}
-                                {(session.map.nextRoundHazardTiles ?? []).map(t => {
+                                    reactive proximity tiles). Boss-strike + closing-ring tiles are filtered OUT here —
+                                    they get their own violet / ember reads below so each danger is distinguishable. */}
+                                {crimsonTiles.map(t => {
                                     const { left, top } = towerHexPixel(t, w);
-                                    return <div key={`haz-${t}`} className="tower-hex-tile" aria-hidden title="Hazard — clears at round end"
+                                    return <div key={`haz-${t}`} className="tower-hex-tile" aria-hidden title="Hazard — burns at round end"
                                         style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(220,38,38,0.32)", filter: "drop-shadow(0 0 3px rgba(239,68,68,0.95))", zIndex: 3, pointerEvents: "none", animation: "towerHazardPulse 1s ease-in-out infinite" }} />;
+                                })}
+
+                                {/* Boss strike telegraph — VIOLET "the boss detonates HERE at round's end" zone.
+                                    Snapshotted server-side when primed, so this footprint is a hard guarantee. */}
+                                {[...strikeTiles].map(t => {
+                                    const { left, top } = towerHexPixel(t, w);
+                                    return <div key={`strike-${t}`} className="tower-hex-tile" aria-hidden title={`${session.bossStrike?.label ?? "Boss strike"} — erupts at round's end`}
+                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(147,51,234,0.38)", filter: "drop-shadow(0 0 4px rgba(192,132,252,0.95))", zIndex: 3, pointerEvents: "none", animation: "towerHazardPulse 0.8s ease-in-out infinite" }} />;
+                                })}
+
+                                {/* Closing ring — EMBER collapse zone outside the shrinking safe circle. A slower,
+                                    heavier pulse than the strike so "terrain" reads apart from "attack". */}
+                                {[...ringTiles].map(t => {
+                                    const { left, top } = towerHexPixel(t, w);
+                                    return <div key={`ring-${t}`} className="tower-hex-tile" aria-hidden title="Collapsing arena — chips you at round end"
+                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(194,65,12,0.4)", filter: "drop-shadow(0 0 3px rgba(251,146,60,0.9))", zIndex: 3, pointerEvents: "none", animation: "towerZonePulse 2.2s ease-in-out infinite" }} />;
                                 })}
 
                                 {/* feature markers — one icon at a pylon flower's centre, one per
@@ -669,6 +775,42 @@ export function BattleTowerFight({
                                         </div>
                                     );
                                 })}
+
+                                {/* terrain pillars — painted biome props on the impassable tiles (movement,
+                                    pathing and the dark tile tint are already handled; this is the body) */}
+                                {session.map.blockedTiles.map(t => {
+                                    const { left, top } = towerHexPixel(t, w);
+                                    const sprite = OBSTACLE_SPRITE[session.map.biome ?? "central"] ?? OBSTACLE_SPRITE.central!;
+                                    const S = 46;
+                                    return <img key={`obs-${t}`} src={sprite} alt="" aria-hidden title="Impassable terrain"
+                                        style={{ position: "absolute", left: left + HEX_W / 2 - S / 2, top: top + HEX_H * 0.9 - S, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: "drop-shadow(0 3px 3px rgba(0,0,0,0.8))" }} />;
+                                })}
+
+                                {/* board objects — fonts & shrines. The tile glows (turquoise font / gold
+                                    shrine, tinted by the holder for shrines) and the prop sits on it. */}
+                                {(session.map.boardObjects ?? []).flatMap((o, oi) => (o.tiles ?? []).map(t => {
+                                    const { left, top } = towerHexPixel(t, w);
+                                    const holder = o.kind === "shrine"
+                                        ? session.actors.find(a => a.hp > 0 && (a.side === "squad" || a.side === "enemy") && a.pos === t)?.side
+                                        : undefined;
+                                    const glow = o.kind === "font" ? "rgba(45,212,191,0.9)"
+                                        : holder === "squad" ? "rgba(103,232,249,0.95)"
+                                        : holder === "enemy" ? "rgba(251,113,133,0.95)"
+                                        : "rgba(250,204,21,0.85)";
+                                    const fill = o.kind === "font" ? "rgba(20,184,166,0.3)"
+                                        : holder === "squad" ? "rgba(34,211,238,0.3)"
+                                        : holder === "enemy" ? "rgba(244,63,94,0.3)"
+                                        : "rgba(250,204,21,0.24)";
+                                    const S = 42;
+                                    return (
+                                        <span key={`bo-${oi}-${t}`}>
+                                            <div className="tower-hex-tile" aria-hidden
+                                                style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: fill, filter: `drop-shadow(0 0 3px ${glow})`, zIndex: 2, pointerEvents: "none", animation: "towerZonePulse 2.4s ease-in-out infinite" }} />
+                                            <img src={OBJECT_SPRITE[o.kind]} alt={o.label ?? o.kind} title={objectLabel(o)}
+                                                style={{ position: "absolute", left: left + HEX_W / 2 - S / 2, top: top + HEX_H * 0.9 - S, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: `drop-shadow(0 2px 3px rgba(0,0,0,0.8)) drop-shadow(0 0 6px ${glow})` }} />
+                                        </span>
+                                    );
+                                }))}
 
                                 {/* actor orbs */}
                                 {session.actors.filter(a => a.hp > 0).map(a => {
