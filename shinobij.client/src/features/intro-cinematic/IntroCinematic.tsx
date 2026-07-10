@@ -190,10 +190,14 @@ export function IntroCinematic({
             } as React.CSSProperties}
             onClick={advance}
         >
-            <div className="icx-scene" />
+            <div className="icx-scene"><div className="icx-scene-art" /></div>
             {!liteFx && !reduced && (
                 <div className="icx-motes" aria-hidden="true">
+                    <div className="icx-rays" />
+                    <div className="icx-mist" />
+                    <div className="icx-mist m2" />
                     {Array.from({ length: 7 }, (_, i) => <span key={i} className="icx-mote" />)}
+                    {Array.from({ length: 6 }, (_, i) => <span key={`p${i}`} className="icx-petal" />)}
                 </div>
             )}
 
@@ -223,7 +227,10 @@ export function IntroCinematic({
             {phase.kind === "dialogue" && line && (
                 <div className="icx-dialogue" role="dialog" aria-live="polite">
                     {line.speaker === "fox" && <span className="icx-speaker">{line.label ?? FOX_NAME}</span>}
-                    <p className={`icx-line ${line.speaker === "narrator" ? "is-narrator" : ""}`}>
+                    <p
+                        key={`${phase.stage}-${phase.idx}`}
+                        className={`icx-line ${line.speaker === "narrator" ? "is-narrator" : ""}`}
+                    >
                         {fullText.slice(0, typedCount)}
                     </p>
                     {typingDone && <span className="icx-advance">▼</span>}
