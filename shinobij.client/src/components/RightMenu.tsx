@@ -108,15 +108,15 @@ export const RightMenu = memo(function RightMenu({
                         is best-effort and side-effect-free. */}
                     <div className="right-menu-buttons">
                         <button onClick={() => guardedNavigate("tavern")} onPointerDown={() => preloadScreen("tavern")} title={`Enter the ${characterVillage} tavern from anywhere`}><GiBeerStein size={16} />Tavern</button>
-                        <button onClick={() => guardedNavigate("worldMap")} onPointerDown={() => preloadScreen("worldMap")}><GiTreasureMap size={16} />Travel</button>
+                        <button onClick={() => guardedNavigate("worldMap")} onPointerEnter={() => preloadScreen("worldMap")} onFocus={() => preloadScreen("worldMap")} onPointerDown={() => preloadScreen("worldMap")}><GiTreasureMap size={16} />Travel</button>
                         <button onClick={() => guardedNavigate("userHub")} onPointerDown={() => preloadScreen("userHub")}><GiThreeFriends size={16} />Users</button>
                         <button onClick={() => guardedNavigate("messages")} onPointerDown={() => preloadScreen("messages")}><GiEnvelope size={16} />Mail<MailUnreadBadge /></button>
-                        <button onClick={() => guardedNavigate("missions")} onPointerDown={() => preloadScreen("missions")}><GiScrollUnfurled size={16} />Missions</button>
-                        <button onClick={() => guardedNavigate("training")} onPointerDown={() => preloadScreen("training")}><GiBiceps size={16} />Training</button>
-                        <button onClick={() => guardedNavigate("profile")} onPointerDown={() => preloadScreen("profile")}><GiNinjaHeroicStance size={16} />Character</button>
-                        <button onClick={() => guardedNavigate("inventory")} onPointerDown={() => preloadScreen("inventory")}><GiKnapsack size={16} />Inventory</button>
+                        <button onClick={() => guardedNavigate("missions")} onPointerEnter={() => preloadScreen("missions")} onFocus={() => preloadScreen("missions")} onPointerDown={() => preloadScreen("missions")}><GiScrollUnfurled size={16} />Missions</button>
+                        <button onClick={() => guardedNavigate("training")} onPointerEnter={() => preloadScreen("training")} onFocus={() => preloadScreen("training")} onPointerDown={() => preloadScreen("training")}><GiBiceps size={16} />Training</button>
+                        <button onClick={() => guardedNavigate("profile")} onPointerEnter={() => preloadScreen("profile")} onFocus={() => preloadScreen("profile")} onPointerDown={() => preloadScreen("profile")}><GiNinjaHeroicStance size={16} />Character</button>
+                        <button onClick={() => guardedNavigate("inventory")} onPointerEnter={() => preloadScreen("inventory")} onFocus={() => preloadScreen("inventory")} onPointerDown={() => preloadScreen("inventory")}><GiKnapsack size={16} />Inventory</button>
                         <button onClick={() => guardedNavigate("jutsuTraining")} onPointerDown={() => preloadScreen("jutsuTraining")}><GiFireSpellCast size={16} />Jutsu</button>
-                        <button onClick={() => guardedNavigate("pets")} onPointerDown={() => preloadScreen("pets")}><GiPawPrint size={16} />Pets</button>
+                        <button onClick={() => guardedNavigate("pets")} onPointerEnter={() => preloadScreen("pets")} onFocus={() => preloadScreen("pets")} onPointerDown={() => preloadScreen("pets")}><GiPawPrint size={16} />Pets</button>
                         <button onClick={() => guardedNavigate("bloodlineMaker")} onPointerDown={() => preloadScreen("bloodlineMaker")}><GiDna1 size={16} />Bloodline</button>
                         <button
                             onClick={() => guardedNavigate("professions")}
