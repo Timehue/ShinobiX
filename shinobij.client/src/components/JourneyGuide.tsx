@@ -19,7 +19,13 @@ import { GameIcon } from "./icons/GameIcon";
 
 function readCollapsed(key: string): boolean {
     try {
-        return localStorage.getItem(key) === "1";
+        const stored = localStorage.getItem(key);
+        if (stored === "1") return true;
+        if (stored === "0") return false;
+        // No saved preference: default COLLAPSED on phones, where the coach
+        // speech bubble already carries the current step + action and the full
+        // roadmap would otherwise overlap it. Expanded by default on desktop.
+        return typeof window !== "undefined" && window.innerWidth <= 800;
     } catch {
         return false;
     }
@@ -27,8 +33,9 @@ function readCollapsed(key: string): boolean {
 
 function writeCollapsed(key: string, collapsed: boolean) {
     try {
-        if (collapsed) localStorage.setItem(key, "1");
-        else localStorage.removeItem(key);
+        // Store the explicit choice both ways so it sticks past the mobile
+        // default (an expand on mobile must not re-collapse on the next mount).
+        localStorage.setItem(key, collapsed ? "1" : "0");
     } catch {
         // Storage can be disabled; the guide still works for this session.
     }

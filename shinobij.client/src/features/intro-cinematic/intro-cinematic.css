@@ -811,11 +811,24 @@
     .icx-fox { left: 1%; bottom: 33%; width: clamp(160px, 46vw, 250px); }
     .icx-avatar { right: 3%; bottom: 34%; width: clamp(86px, 26vw, 118px); }
     .icx-avatar-name { font-size: 10.5px; padding: 2px 9px; }
-    .icx-vision { top: 6%; width: min(26vh, 66vw); }
+    /* Nudge the vision up + in a touch so it clears the deity's ears. */
+    .icx-vision { top: 4%; width: min(23vh, 60vw); }
     .icx-letterbox { display: none; }
     .icx-companion-pet { left: 3%; bottom: 205px; width: clamp(100px, 28vw, 150px); }
-    .icx-gift-pet { right: 4%; bottom: calc(34% + 150px); width: clamp(70px, 20vw, 100px); }
+    /* Grounded in the gap between the deity and the player, not on the card. */
+    .icx-gift-pet { right: auto; left: 47%; bottom: 31%; width: clamp(58px, 16vw, 76px); }
     .icx-dialogue { min-height: 138px; padding: 12px 14px 24px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+    /* The companion beat has no letterbox on mobile — a top+bottom dark
+       gradient gives it the same cinematic framing and settles the busy
+       village HUD behind the dialogue + pet. */
+    .icx-root.is-companion {
+        background:
+            linear-gradient(180deg,
+                rgba(2, 5, 14, 0.90) 0%,
+                rgba(2, 5, 14, 0.52) 20%,
+                rgba(2, 5, 14, 0.46) 58%,
+                rgba(2, 5, 14, 0.93) 100%);
+    }
     /* Scroll affordance: 5 tall cards overflow small screens — fade the fold. */
     .icx-choose::after {
         content: "";
