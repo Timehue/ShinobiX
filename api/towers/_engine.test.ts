@@ -298,6 +298,30 @@ describe('Battle Towers engine (P1.A2)', () => {
         assert.equal(getActor(s, 'boss')!.hp, 0);
     });
 
+    it('a geyser erupts on its cadence: telegraphs a round ahead + scalds whoever stands on it', () => {
+        const geyserMap = (): TowerMap => ({ width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [], dynamicHazards: [{ kind: 'geyser', tiles: [28], pct: 8, everyRounds: 2, firstRound: 2 }] });
+        const pair = () => [makeActor('sq-1', 'squad', 27, { character: STRONG }), makeActor('en-1', 'enemy', 28, { character: WEAK, hp: 6000, maxHp: 6000 })];
+        const tele = makeSession(pair(), { map: geyserMap() });
+        tele.round = 2; startRound(tele);
+        assert.ok((tele.map.nextRoundHazardTiles ?? []).includes(28), 'vent telegraphed on the cadence round');
+        const off = makeSession(pair(), { map: geyserMap() });
+        off.round = 3; startRound(off);
+        assert.ok(!(off.map.nextRoundHazardTiles ?? []).includes(28), 'no telegraph off-cadence');
+        // Full run: the adjacent enemy attacks (stays on the vent) and gets scalded at the cadence round-end.
+        const s = runTowerFloor(makeSession(pair(), { map: geyserMap(), objectiveKind: 'defeat-all' }), makeFloor('defeat-all'), makeRng(3));
+        assert.ok(s.log.some(l => l.includes('scalded by an erupting geyser')), 'the geyser scalded a unit standing on it');
+    });
+
+    it('a seismic-slam strike hurls the caught squad member back', () => {
+        const mk = () => [
+            makeActor('boss', 'enemy', 27, { hp: 100000, maxHp: 100000, character: { specialty: 'Taijutsu', level: 100, stats: { taijutsuOffense: 800, taijutsuDefense: 800 }, bossStrike: { kind: 'slam', pct: 6, radius: 1, everyRounds: 2, firstRound: 2 } } }),
+            makeActor('sq-1', 'squad', 28, { character: STRONG }), // adjacent → in the radius-1 slam
+        ];
+        const s = runTowerFloor(makeSession(mk(), { bossId: 'boss', objectiveKind: 'defeat-boss' }), makeFloor('defeat-boss', { id: 9 }), makeRng(4));
+        assert.ok(s.log.some(l => l.includes('seismic slam')), 'the slam detonated');
+        assert.ok(s.log.some(l => l.includes('hurled back')), 'a caught shinobi was knocked back');
+    });
+
     it('the closing ring telegraphs more lethal outer tiles as it contracts', () => {
         const boss = () => makeActor('boss', 'enemy', 40, { character: { specialty: 'Taijutsu', level: 100, stats: {} } });
         const sq = () => makeActor('sq-1', 'squad', 0, { character: STRONG });
