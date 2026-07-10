@@ -45,19 +45,20 @@ export async function postVillageTreasuryDonation(playerName: string, village: s
 
 // Atomic clan-treasury donation. Debits the donor AND credits the clan
 // treasury server-side under dual locks (api/clan/treasury/donate.ts), closing
-// the old "credit treasury without a matching debit" gap. Returns the
-// server-credited treasury (clan XP / clanEventContrib are still applied
-// client-side on top of it), or null on failure (alerts the player).
-export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<Record<string, unknown> | null> {
+// the old "credit treasury without a matching debit" gap. Also credits the
+// clan's member-scaled donation XP server-side (the client no longer writes
+// clan xp/level — the save validator now pins them). Returns the server-credited
+// { treasury, xp, level }, or null on failure (alerts the player).
+export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; xp: number; level: number } | null> {
     try {
         const res = await fetch("/api/clan/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, clan, ...donation }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown> };
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; xp?: number; level?: number };
         if (!res.ok || !data.ok || !data.treasury) { alert(data.error || "Donation failed. Please try again."); return null; }
-        return data.treasury;
+        return { treasury: data.treasury, xp: Math.max(0, Math.floor(Number(data.xp ?? 0))), level: Math.max(1, Math.floor(Number(data.level ?? 1))) };
     } catch {
         alert("Donation failed. Please try again.");
         return null;
