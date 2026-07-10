@@ -155,18 +155,50 @@ function looksLikeSpeakerName(prefix: string, fallbackSpeaker: string): boolean 
     return words.every((w) => /^[A-Z]/.test(w) || particles.has(w));
 }
 
+/** The %pet stand-in shown when the player has no active pet. Story lines
+ *  using %pet must read naturally with this phrase in the name slot, so keep
+ *  the token mid-sentence where a bare name would fit ("I watched %pet…"). */
+const PET_FALLBACK = "your companion";
+
 /**
  * Substitute story-text variables at render time. `%name` becomes the player
  * character's name, so signature beats (the Register signing, the finale) can
- * address the player directly. Applied by the VN renderers to displayed
- * dialogue / choice / conclusion text only — the stored data keeps the token,
- * so saves and story data stay player-agnostic. Unknown tokens pass through
- * untouched.
+ * address the player directly; `%pet` becomes the active pet's name, falling
+ * back to "your companion" (capitalized at a sentence start) so lines still
+ * read for players without an active pet. Applied by the VN renderers to
+ * displayed dialogue / choice / conclusion text only — the stored data keeps
+ * the tokens, so saves and story data stay player-agnostic. Unknown tokens
+ * pass through untouched. The legacy bare-string form (player name only) is
+ * still accepted so existing callers keep working.
  */
-export function applyVnTextVars(text: string, playerName: string): string {
-    const name = playerName.trim();
-    if (!name || !text.includes("%name")) return text;
-    return text.split("%name").join(name);
+export function applyVnTextVars(text: string, vars: string | { name: string; petName?: string }): string {
+    const { name, petName } = typeof vars === "string" ? { name: vars, petName: undefined } : vars;
+    let out = text;
+    const player = name.trim();
+    if (player && out.includes("%name")) out = out.split("%name").join(player);
+    if (out.includes("%pet")) {
+        const pet = (petName ?? "").trim();
+        out = pet
+            ? out.split("%pet").join(pet)
+            : out.replace(/%pet/g, (_token, offset: number, s: string) => {
+                const before = s.slice(0, offset).trimEnd();
+                return !before || /[.!?"”']$/.test(before)
+                    ? PET_FALLBACK[0].toUpperCase() + PET_FALLBACK.slice(1)
+                    : PET_FALLBACK;
+            });
+    }
+    return out;
+}
+
+/**
+ * Resolve the VN text vars for a character: the player's name plus the active
+ * pet's name (pets matched by activePetId; no active pet leaves petName
+ * undefined so %pet falls back). Structural parameter type keeps this file
+ * dependency-free; Character satisfies it.
+ */
+export function vnTextVarsFor(character: { name: string; pets?: { id: string; name: string }[]; activePetId?: string }): { name: string; petName?: string } {
+    const pet = character.activePetId ? (character.pets ?? []).find((p) => p.id === character.activePetId) : undefined;
+    return { name: character.name, petName: pet?.name };
 }
 
 export function splitDialogueLine(line: string, fallbackSpeaker: string): { speaker: string; text: string } {

@@ -11,7 +11,7 @@ import type { CreatorEvent } from "../App";
 import type { Character } from "../types/character";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
-import { applyVnTextVars, defaultVnPortrait, defaultVnScene, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
+import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
 import { biomeLabel } from "../data/world";
 
 type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number];
@@ -25,6 +25,8 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         (sharedImages?.['avatar:' + character.name.trim().toLowerCase()]) ||
         character.avatarImage ||
         "";
+    // %name / %pet substitution vars, resolved once per render.
+    const textVars = vnTextVarsFor(character);
     const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }];
     const page = pages[Math.min(pageIndex, pages.length - 1)];
     const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
@@ -203,10 +205,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     </div>{/* end vn-picture */}
                     <div className="vn-dialogue">
                         <div className="vn-speaker">{speaker}</div>
-                        <p>{applyVnTextVars(spoken, character.name)}</p>
+                        <p>{applyVnTextVars(spoken, textVars)}</p>
                         {pendingChoice ? (
                             <div className="vn-conclusion">
-                                <p className="vn-conclusion-text">{applyVnTextVars(pendingChoice.conclusion, character.name)}</p>
+                                <p className="vn-conclusion-text">{applyVnTextVars(pendingChoice.conclusion, textVars)}</p>
                                 <div className="vn-controls">
                                     <button onClick={confirmPendingChoice}>Continue</button>
                                 </div>
@@ -215,7 +217,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                             <div className="vn-choices">
                                 {pageChoices!.map((choice, i) => (
                                     <button key={i} className="vn-choice-btn" onClick={() => chooseOption(choice)}>
-                                        {applyVnTextVars(choice.text, character.name)}
+                                        {applyVnTextVars(choice.text, textVars)}
                                     </button>
                                 ))}
                             </div>
