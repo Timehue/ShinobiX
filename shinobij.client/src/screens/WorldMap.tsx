@@ -16,7 +16,7 @@ import {
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
-import type { Character, PlayerRecord } from "../types/character";
+import type { Character, HollowGateEventConfig, PlayerRecord } from "../types/character";
 import { gameConfirm } from "../components/GameAlert";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
@@ -270,6 +270,8 @@ export function WorldMap({
     onStartEventEncounter,
     onDungeonFound,
     onEnterHollowGate,
+    hollowGateEventConfig,
+    onEnterHollowGateEvent,
     setPvpBattleId,
     setPvpRole,
     setPvpBattleContext,
@@ -316,6 +318,10 @@ export function WorldMap({
     onStartEventEncounter: (event: CreatorEvent, battle?: EventEncounterBattle) => void;
     onDungeonFound: () => void;
     onEnterHollowGate?: () => void;
+    // Active event gate (admin-authored) — shows the event entry in the
+    // Hollow Gate menu and hands the config back on entry.
+    hollowGateEventConfig?: HollowGateEventConfig | null;
+    onEnterHollowGateEvent?: (cfg: HollowGateEventConfig) => void;
     setPvpBattleId: (id: string) => void;
     setPvpRole: (role: "p1" | "p2") => void;
     setPvpBattleContext: (context: SharedPvpBattleContext | null) => void;
@@ -3489,6 +3495,19 @@ export function WorldMap({
                         <h3 style={{ marginTop: 0, color: "#e9d5ff" }}>⛩ The Hollow Gate</h3>
                         <p style={{ color: "#c4b5fd", fontSize: 14 }}>The broken torii waits. Steel yourself, or attune to the shrine with the Hollow Shards you've torn from its depths.</p>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {hollowGateEventConfig?.active && (
+                                <button
+                                    onClick={() => { setHollowGateMenu(false); onEnterHollowGateEvent?.(hollowGateEventConfig); }}
+                                    style={{ padding: 8, borderRadius: 8, border: "1px solid #fbbf24", background: "linear-gradient(#b45309,#78350f)", color: "#fef3c7", fontWeight: 700, cursor: "pointer" }}
+                                >
+                                    ⭐ Event: {hollowGateEventConfig.label || "Event Gate"}
+                                    <span style={{ display: "block", fontSize: 11, fontWeight: 400, color: "#fde68a" }}>
+                                        {Math.max(1, hollowGateEventConfig.maxFloor ?? 1)} floor{(hollowGateEventConfig.maxFloor ?? 1) === 1 ? "" : "s"}
+                                        {hollowGateEventConfig.bossName ? ` · Boss: ${hollowGateEventConfig.bossName}` : ""}
+                                        {(hollowGateEventConfig.keyCost ?? 1) === 0 ? " · Free entry" : " · 1 Key"}
+                                    </span>
+                                </button>
+                            )}
                             <button onClick={() => { setHollowGateMenu(false); onEnterHollowGate?.(); }} style={{ padding: 8, borderRadius: 8, border: "none", background: "linear-gradient(#7c3aed,#4c1d95)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Enter the Shrine</button>
                             <button onClick={() => { setHollowGateMenu(false); setShowAttunement(true); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}>💎 Shrine Attunement</button>
                             <button onClick={() => setHollowGateMenu(false)} style={{ padding: 6, borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94a3b8", cursor: "pointer" }}>Cancel</button>
