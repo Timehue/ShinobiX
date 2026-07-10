@@ -117,25 +117,6 @@ export function IntroCinematic({
     const [muted, setMuted] = useState(isAudioMuted);
     useEffect(() => subscribeAudioMute(() => setMuted(isAudioMuted())), []);
 
-    // The deity is alive: a second art frame with closed eyes swaps in on a
-    // natural blink rhythm (both frames share the exact silhouette, so the
-    // swap is jump-free). The farewell holds the eyes closed instead.
-    const [blink, setBlink] = useState(false);
-    useEffect(() => {
-        if (companionMode || reduced) return;
-        let closeT = 0, openT = 0;
-        let alive = true;
-        const schedule = () => {
-            if (!alive) return;
-            closeT = window.setTimeout(() => {
-                setBlink(true);
-                openT = window.setTimeout(() => { setBlink(false); schedule(); }, 160);
-            }, 2800 + Math.random() * 3800);
-        };
-        schedule();
-        return () => { alive = false; window.clearTimeout(closeT); window.clearTimeout(openT); };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Companion mode — the beat AFTER the shrine cinematic's white-out
     // (onboardingStep === "companionIntro"): the granted pet stands over the
@@ -214,11 +195,11 @@ export function IntroCinematic({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Warm the five pose cutouts (picker cards) and the blink frame during the
-    // opening dialogue so neither ever pops in on a cold cache.
+    // Warm the five pose cutouts (picker cards) + the speak/farewell frames
+    // during the opening dialogue so none pop in on a cold cache.
     useEffect(() => {
         if (companionMode) return;
-        [...STARTER_PETS.map((o) => petPoseImage(o.pet, sharedImages)), shiranuiBlink, shiranuiSpeak]
+        [...STARTER_PETS.map((o) => petPoseImage(o.pet, sharedImages)), shiranuiSpeak, shiranuiBlink]
             .forEach((src) => { const img = new Image(); img.src = src; });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -385,10 +366,11 @@ export function IntroCinematic({
                     themselves on the choose/confirm screens. */}
                 {!companionMode && (showActors || phase.kind === "choose" || phase.kind === "confirm") && foxOnStage && (
                     <div className={`icx-fox ${foxFading ? "is-fading" : ""} ${line?.speaker === "fox" && !typingDone ? "is-talking" : ""} ${phase.kind === "choose" || phase.kind === "confirm" ? "is-watching" : ""}`}>
-                        {/* Frame priority: farewell/blink (eyes closed) → mouth
-                            flap while speaking → base. */}
+                        {/* Frame priority: farewell holds eyes closed (static, no
+                            swap) → mouth-flap while speaking → base. (Idle blinking
+                            was removed — the swap read as a flicker.) */}
                         <img
-                            src={foxFading || blink ? shiranuiBlink : foxTalking && mouthOpen ? shiranuiSpeak : FOX_ART}
+                            src={foxFading ? shiranuiBlink : foxTalking && mouthOpen ? shiranuiSpeak : FOX_ART}
                             alt={`${FOX_NAME}, the ancient spirit fox`}
                         />
                     </div>
