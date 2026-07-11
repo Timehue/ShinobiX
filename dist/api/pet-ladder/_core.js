@@ -31,7 +31,7 @@ exports.applyChallenge = applyChallenge;
 exports.resolveColiseum = resolveColiseum;
 exports.resolveTactical = resolveTactical;
 const _pet_stat_ceil_js_1 = require("../_pet-stat-ceil.js");
-const _duel_sim_js_1 = require("./_duel-sim.js");
+const pet_duel_cinematic_js_1 = require("../_pet-sim/pet-duel-cinematic.js");
 const _arena_sim_js_1 = require("./_arena-sim.js");
 exports.COLISEUM_PETS = 1;
 exports.TACTICAL_PETS = 4;
@@ -308,7 +308,12 @@ exports.projectLadder = projectLadder;
 // ── Server-authoritative resolution (ported deterministic engines) ─────────────
 /** Coliseum 1v1: true ⇒ the ATTACKER (challenger) won. Items applied for both. */
 function resolveColiseum(attacker, defender, seed) {
-    return (0, _duel_sim_js_1.runPetDuel)(toPet(attacker), toPet(defender), seed, 1, 1, false, true).result === "win";
+    // The generated cinematic mirror (api/_pet-sim, parity-tested vs the client engine) types
+    // its Pet as the full client shape; toPet yields the combat-relevant subset the engine
+    // reads (the same fields the old _duel-sim port consumed), so the cast is runtime-safe.
+    const p = toPet(attacker);
+    const d = toPet(defender);
+    return (0, pet_duel_cinematic_js_1.runPetDuelCinematic)(p, d, seed, 1, 1, false, true).result === "win";
 }
 /** Tactical 4v4: true ⇒ the ATTACKER (blue) won. Items applied for both teams. */
 function resolveTactical(attacker, defender, seed) {
