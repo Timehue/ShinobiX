@@ -1,9 +1,11 @@
 # Anbu Vault Infiltration — design plan
 
-**Status: PHASE 1 (headless server backend) BUILT — see §18 for what shipped and
-how it deviates from the plan below. Server-gated OFF (`ENABLE_ANBU_INFILTRATION`
-env unset) + `ENABLE_VILLAGE_WAR`; client flag `anbuInfiltration.v1` reserved for
-the UI phase. Client UI / art / missions NOT built yet.**
+**Status: SHIPPED to main and LIVE by default.** Full stack built (§18–19). No
+opt-in flag: the server runs unless `DISABLE_ANBU_INFILTRATION=1` (emergency kill
+switch), decoupled from `ENABLE_VILLAGE_WAR`; the client is on unless
+`localStorage anbuInfiltration.v1 = "0"`. Runs on the base war map — an unseeded
+sector falls back to its home village, and a village with no appointed Anbu
+defends with its seated Kage.
 
 A level-100 daily **sector-attrition** activity. A player infiltrates an
 enemy-held war sector's base — navigating a reskinned Hollow Gate dungeon to the
