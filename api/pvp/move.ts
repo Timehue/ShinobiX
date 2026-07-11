@@ -197,6 +197,13 @@ type Jutsu = {
     staminaCost?: number;
     tags?: JutsuTag[];
     battleDescription?: string;
+    // Weapon strikes set this when the wielder lacks the weapon's element (or the
+    // weapon has no element at all). resolveBaseDamage folds it into the
+    // Bloodline-Seal branch so the swing gets NO bloodline damage multiplier —
+    // the "an elemental weapon only rides the bloodline boost when its element is
+    // one the wielder has awakened" rule. Absent/false on real jutsu and basic
+    // attacks, so their bloodline boost is unchanged.
+    suppressBloodline?: boolean;
 };
 
 // Canonicalize a tag name via the shared alias map (./_tags). Sessions are
@@ -639,6 +646,13 @@ type JutsuDamageSetup = { baseDmg: number; effectiveDR: number; offStats: Record
 // to 100% at JUTSU_MAX_LEVEL. Applied to Heal/Shield (hard-capped at the FLAT ceiling)
 // it leaves maxed play byte-identical while damping low-mastery heal/shield spam.
 // Mirrors client combat-math.ts masteryDamageFrac — KEEP IN SYNC (parity test).
+// characterOwnsElement lives in the leaf module ./_elements.js so the weapon
+// attunement endpoint can reuse it without importing the combat engine. Imported
+// for internal use (the weapon synth's bloodline gate) and re-exported so existing
+// importers (api/towers/_engine.ts, the tests) keep resolving it from './move.js'.
+import { characterOwnsElement } from './_elements.js';
+export { characterOwnsElement };
+
 // Phase 1 — EP scaling → base damage, plus the defender's diminishing-returns DR pool.
 function resolveBaseDamage(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult: number, biome: string, round: number, masteryLevel: number): JutsuDamageSetup {
     const offStats = (self.character.stats as Record<string, number>) ?? {};
@@ -653,7 +667,10 @@ function resolveBaseDamage(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
         wMult,
         biome,
         rawStatusDR: drContributionFor(self, opponent, round),
-        hasBloodlineSeal: hasStatus(self, 'Bloodline Seal', round),
+        // A weapon swing that doesn't match an awakened element carries
+        // suppressBloodline → treat it like a Bloodline Seal for THIS hit so the
+        // bloodline damage multiplier collapses to 1.0 (weapon-only; jutsu unset).
+        hasBloodlineSeal: hasStatus(self, 'Bloodline Seal', round) || jutsu.suppressBloodline === true,
     });
 }
 
@@ -1805,6 +1822,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     effectPower: serverItem.weaponEp ?? 15,
                     ap: wApCost,
                     range: weapRange,
+                    // Elemental-weapon gate: this swing rides the wielder's bloodline
+                    // damage multiplier ONLY when the weapon's element is one the
+                    // wielder has awakened. No element (every base weapon today) → no
+                    // boost. An elemental shard/core stamps serverItem.weaponElement.
+                    suppressBloodline: !characterOwnsElement(me.character, serverItem.weaponElement),
                     tags: wTags,
                 };
                 lines.push(`${me.name} uses ${weaponJutsu.name}:`);
