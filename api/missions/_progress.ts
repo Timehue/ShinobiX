@@ -130,8 +130,7 @@ export async function awardProfessionXp(
                 professionRank: nextRank,
             },
         };
-        bumpSaveVersion(updated);
-        await kv.set(saveKey, updated);
+        await kv.set(saveKey, bumpSaveVersion(updated));
         return { xp: nextXp, rank: nextRank };
     }, { failClosed: true });
 }
@@ -405,8 +404,7 @@ async function awardNewbieRyo(playerName: string, amount: number): Promise<void>
             ...record,
             character: { ...char, ryo: Number(char.ryo ?? 0) + amount },
         };
-        bumpSaveVersion(updated);
-        await kv.set(saveKey, updated);
+        await kv.set(saveKey, bumpSaveVersion(updated));
     }, { failClosed: true });
 }
 

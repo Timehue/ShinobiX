@@ -109,8 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         honorSeals: Number(freshChar.honorSeals ?? 0) + amount,
                     },
                 };
-                bumpSaveVersion(updatedRecipient);
-                await kv.set(recipientSaveKey, mergePreservingImages(updatedRecipient, freshRecord));
+                await kv.set(recipientSaveKey, mergePreservingImages(bumpSaveVersion(updatedRecipient), freshRecord));
                 credited = true;          // only reachable after the atomic set resolved
             }, { failClosed: true });
         } catch (creditErr) {

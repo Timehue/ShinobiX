@@ -23,6 +23,9 @@ export const SERVER_SETTLEMENT_STATUS = {
     hollowGateAttunement: false,
     creatorItemCraft: false,
     timedJutsuTraining: false,
+    bankDeposit: false,
+    rankedPvp: false,
+    pvpSession: false,
 } as const;
 
 export type PendingServerSettlementAction = keyof typeof SERVER_SETTLEMENT_STATUS;
@@ -42,6 +45,9 @@ const ACTION_LABELS: Record<PendingServerSettlementAction, string> = {
     hollowGateAttunement: "Hollow Gate attunement",
     creatorItemCraft: "Item crafting",
     timedJutsuTraining: "Timed jutsu training",
+    bankDeposit: "Bank deposits",
+    rankedPvp: "Ranked PvP",
+    pvpSession: "PvP sessions",
 };
 
 export function isServerSettlementReady(action: PendingServerSettlementAction): boolean {

@@ -113,9 +113,10 @@ function isCronAuthorized(req: VercelRequest): boolean {
  * a list of player names that failed so the response surfaces partial
  * outages to whoever's looking.
  */
-async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: boolean; skip?: boolean; err?: string }>, deadline: number) {
+async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: boolean; skip?: boolean; validPlayer?: boolean; err?: string }>, deadline: number) {
     let snapshotted = 0;
     let skipped = 0;
+    let validPlayers = 0;
     const failed: string[] = [];
     let cursor = 0;
 
@@ -131,6 +132,7 @@ async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: bool
             }
         }));
         results.forEach((r, i) => {
+            if (r.validPlayer) validPlayers += 1;
             if (r.ok) snapshotted += 1;
             else if (r.skip) skipped += 1;
             else failed.push(String((slice[i] as unknown as string)));
@@ -142,7 +144,7 @@ async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: bool
         if (cursor < items.length) await new Promise<void>((resolve) => setImmediate(resolve));
     }
 
-    return { snapshotted, skipped, failed, processed: cursor, total: items.length };
+    return { snapshotted, skipped, validPlayers, failed, processed: cursor, total: items.length };
 }
 
 export type SnapshotRunResult = {
@@ -153,6 +155,7 @@ export type SnapshotRunResult = {
     writeOutage: boolean;
     snapshotted: number;
     skipped: number;
+    validPlayers: number;
     failed: string[];
     processed: number;
     total: number;
@@ -170,7 +173,7 @@ export function isPlayerSnapshotSaveKey(key: string): boolean {
     if (!name) return false;
     // Admin/content records and shared clan blobs are backed up separately and
     // must never be enough to refresh the player-backup health marker.
-    return name !== 'rill' && !name.startsWith('admin') && !name.startsWith('clan-');
+    return !name.startsWith('health-probe-') && !name.startsWith('admin') && !name.startsWith('clan-');
 }
 
 /**
@@ -197,12 +200,12 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
     // happen before this point, so the early return is side-effect free.
     if (saveKeys.length === 0) {
         console.error('[cron/snapshot-saves] ALARM: zero save:* rows found — KV overlay/proxy likely misconfigured (check KV_PROXY_URL / KV_PROXY_TOKEN). Snapshotted 0 players.');
-        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
+        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
     }
     const playerSaveKeys = saveKeys.filter(isPlayerSnapshotSaveKey);
     if (playerSaveKeys.length === 0) {
         console.error('[cron/snapshot-saves] ALARM: save:* rows exist but none are player saves — refusing to refresh backup health from admin/clan data only.');
-        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
+        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
     }
 
     // Dedup source: ONE scan of all snapshot keys, bucketed to the newest ts per
@@ -223,17 +226,22 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
         // Dedup: skip if this player already has a snapshot within the last
         // SKIP_IF_RECENT_MS window. Also makes a double run (e.g. two schedulers)
         // a harmless no-op. Sourced from the single up-front scan above.
-        const newest = newestByPlayer.get(playerName) ?? 0;
-        if (newest > 0 && Date.now() - newest < SKIP_IF_RECENT_MS) {
-            return { ok: false, skip: true };
+        const live = await kv.get<Record<string, unknown>>(saveKey);
+        if (!live || !live.character || typeof live.character !== 'object' || Array.isArray(live.character)) {
+            // A corrupt/malformed player row is a backup failure, not a normal
+            // dedup skip. Otherwise one healthy player could refresh the global
+            // success marker while any number of broken saves were omitted.
+            return { ok: false, validPlayer: false, err: 'missing or malformed character' };
         }
 
-        const live = await kv.get<Record<string, unknown>>(saveKey);
-        if (!live) return { ok: false, skip: true };
+        const newest = newestByPlayer.get(playerName) ?? 0;
+        if (newest > 0 && Date.now() - newest < SKIP_IF_RECENT_MS) {
+            return { ok: false, skip: true, validPlayer: true };
+        }
 
         const ts = Date.now();
         await kv.set(snapshotKey(playerName, ts), live, { ex: SNAPSHOT_TTL_SECONDS });
-        return { ok: true };
+        return { ok: true, validPlayer: true };
     }, deadline);
 
     const elapsed = Date.now() - startedAt;
@@ -246,7 +254,7 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
     if (writeOutage) {
         console.error(`[cron/snapshot-saves] ALARM: ${result.failed.length} snapshot writes failed and 0 succeeded — snapshot store may be down. Sample: ${result.failed.slice(0, 5).join(', ')}`);
     }
-    const complete = !writeOutage && !truncated && result.failed.length === 0;
+    const complete = result.validPlayers > 0 && !writeOutage && !truncated && result.failed.length === 0;
     let healthMarkerFailed = false;
     let completedAt: number | undefined;
     if (complete) {
@@ -255,7 +263,7 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
             completedAt,
             snapshotted: result.snapshotted,
             skipped: result.skipped,
-            total: result.total,
+            total: result.validPlayers,
             elapsedMs: elapsed,
         };
         try {
@@ -267,7 +275,7 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
     }
     return {
         ok: complete && !healthMarkerFailed,
-        emptyKeyspace: false,
+        emptyKeyspace: result.validPlayers === 0,
         writeOutage,
         ...result,
         elapsedMs: elapsed,

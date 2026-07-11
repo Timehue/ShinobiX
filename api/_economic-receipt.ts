@@ -13,8 +13,8 @@
 import { randomUUID } from 'node:crypto';
 
 export interface EconomicReceiptRecord {
-    version: 3;
-    state: 'pending' | 'committed';
+    version: 4;
+    state: 'pending' | 'committed' | 'aborted';
     ownerId: string;
     fingerprint: string;
     createdAt: number;
@@ -51,14 +51,18 @@ export class EconomicReceiptStorageError extends Error {
 function cleanStoredReceipt(raw: unknown): EconomicReceiptRecord | null {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
     const value = raw as Record<string, unknown>;
-    if ((value.version !== 1 && value.version !== 2 && value.version !== 3)
+    if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4)
         || typeof value.fingerprint !== 'string' || !value.fingerprint) return null;
     const createdAt = Number(value.createdAt);
     const leaseExpiresAt = Number(value.leaseExpiresAt);
     return {
-        version: 3,
-        state: (value.version === 2 || value.version === 3) && value.state === 'pending' ? 'pending' : 'committed',
-        ownerId: (value.version === 2 || value.version === 3) && typeof value.ownerId === 'string' && value.ownerId
+        version: 4,
+        state: value.version === 4 && value.state === 'aborted'
+            ? 'aborted'
+            : (value.version === 2 || value.version === 3 || value.version === 4) && value.state === 'pending'
+                ? 'pending'
+                : 'committed',
+        ownerId: (value.version === 2 || value.version === 3 || value.version === 4) && typeof value.ownerId === 'string' && value.ownerId
             ? value.ownerId
             : 'legacy-committed',
         fingerprint: value.fingerprint,
@@ -70,26 +74,19 @@ function cleanStoredReceipt(raw: unknown): EconomicReceiptRecord | null {
     };
 }
 
-function pendingReceiptKey(key: string): string {
+function legacyPendingReceiptKey(key: string): string {
     return `${key}:pending`;
 }
 
-function classifyCommittedReceipt(
-    raw: unknown,
-    fingerprint: string,
-): Extract<EconomicReceiptReservation, { status: 'replay' | 'conflict' }> {
-    const existing = cleanStoredReceipt(raw);
-    // Legacy scalar/unknown latches are spent. There is no safe way to prove
-    // that they belong to a new request, so never authorize another mutation.
-    if (!existing) return { status: 'replay', receipt: null };
-    return existing.fingerprint === fingerprint
-        ? { status: 'replay', receipt: existing }
-        : { status: 'conflict', receipt: existing };
-}
-
 /**
- * Reserve `key` through a short-lived NX lease, then commit the durable receipt
- * at `key` only after the protected mutation succeeds.
+ * Reserve `key` itself as a durable pending record before the protected
+ * mutation begins, then transition that same record to committed afterward.
+ * A pending primary row does not expire: without compare-and-swap support, that
+ * is what prevents an old owner from racing and overwriting a successor. The
+ * short `leaseExpiresAt` only describes how long a request is actively in
+ * flight. If a process dies, the durable pending row becomes an uncertain
+ * replay and can never authorize the reward again; operations staff can then
+ * reconcile it from its fingerprint/metadata without risking a double grant.
  *
  * - New reservation: the caller may perform the protected operation.
  * - Same committed fingerprint: a retry/replay; do not perform it again.
@@ -125,7 +122,7 @@ export async function reserveEconomicReceipt(
     const createdAt = opts.now ?? Date.now();
 
     const receipt: EconomicReceiptRecord = {
-        version: 3,
+        version: 4,
         state: 'pending',
         ownerId: randomUUID(),
         fingerprint: opts.fingerprint,
@@ -134,46 +131,109 @@ export async function reserveEconomicReceipt(
         ...(opts.metadata ? { metadata: { ...opts.metadata } } : {}),
     };
 
-    // Fast path for a durable committed receipt. This read is repeated after
-    // acquiring the pending lease to close the read/lease race.
+    // The primary row is the durable authorization boundary. Legacy scalar or
+    // malformed rows are spent rather than reinterpreted as a fresh request.
     let committedRaw: unknown;
     try {
         committedRaw = await store.get(opts.key);
     } catch (error) {
         throw new EconomicReceiptStorageError(opts.key, 'reserve', error);
     }
-    if (committedRaw != null) return classifyCommittedReceipt(committedRaw, receipt.fingerprint);
+    if (committedRaw != null) {
+        const existing = cleanStoredReceipt(committedRaw);
+        if (!existing) return { status: 'replay', receipt: null };
+        if (existing.fingerprint !== receipt.fingerprint) return { status: 'conflict', receipt: existing };
+        if (existing.state === 'aborted') throw new EconomicReceiptStorageError(opts.key, 'pending');
+        if (existing.state === 'pending' && existing.leaseExpiresAt && createdAt < existing.leaseExpiresAt) {
+            throw new EconomicReceiptStorageError(opts.key, 'pending');
+        }
+        return { status: 'replay', receipt: existing };
+    }
 
-    const leaseKey = pendingReceiptKey(opts.key);
-    let placed: unknown;
+    // Version 3 used a separate short-lived `${key}:pending` lease. Honor an
+    // active legacy lease during a rolling deployment so the new primary-key
+    // protocol cannot race an older worker that is already applying a reward.
+    const legacyLeaseKey = legacyPendingReceiptKey(opts.key);
+    let legacyRaw: unknown;
     try {
-        placed = await store.set(leaseKey, receipt, { nx: true, ex: pendingTtlSeconds });
+        legacyRaw = await store.get(legacyLeaseKey);
     } catch (error) {
         throw new EconomicReceiptStorageError(opts.key, 'reserve', error);
+    }
+    if (legacyRaw != null) {
+        const legacy = cleanStoredReceipt(legacyRaw);
+        if (!legacy) throw new EconomicReceiptStorageError(opts.key, 'read-after-collision');
+        if (!legacy.leaseExpiresAt || createdAt < legacy.leaseExpiresAt) {
+            if (legacy.fingerprint === receipt.fingerprint) {
+                throw new EconomicReceiptStorageError(opts.key, 'pending');
+            }
+            return { status: 'conflict', receipt: legacy };
+        }
+    }
+
+    let placed: unknown;
+    try {
+        // Intentionally no expiry while pending. Commit applies the requested
+        // TTL; abort replaces this with a short tombstone.
+        placed = await store.set(opts.key, receipt, { nx: true });
+    } catch (error) {
+        // Remote NX writes can apply and then lose their HTTP acknowledgement.
+        // Recover only our exact owner record; every other outcome is ambiguous
+        // and remains fail-closed.
+        try {
+            const recovered = cleanStoredReceipt(await store.get(opts.key));
+            if (recovered?.state === 'pending'
+                && recovered.ownerId === receipt.ownerId
+                && recovered.fingerprint === receipt.fingerprint) {
+                placed = true;
+            } else {
+                throw new EconomicReceiptStorageError(opts.key, 'reserve', error);
+            }
+        } catch (readError) {
+            if (readError instanceof EconomicReceiptStorageError) throw readError;
+            throw new EconomicReceiptStorageError(opts.key, 'reserve', readError);
+        }
     }
 
     if (!placed) {
         let raw: unknown;
         try {
-            raw = await store.get(leaseKey);
+            raw = await store.get(opts.key);
         } catch (error) {
             throw new EconomicReceiptStorageError(opts.key, 'read-after-collision', error);
         }
         if (raw == null) throw new EconomicReceiptStorageError(opts.key, 'read-after-collision');
         const existing = cleanStoredReceipt(raw);
-        if (existing?.fingerprint === receipt.fingerprint) {
+        if (!existing) return { status: 'replay', receipt: null };
+        if (existing.fingerprint === receipt.fingerprint) {
+            if (existing.state !== 'pending'
+                || (existing.leaseExpiresAt != null && createdAt >= existing.leaseExpiresAt)) {
+                return { status: 'replay', receipt: existing };
+            }
             throw new EconomicReceiptStorageError(opts.key, 'pending');
         }
-        if (existing) return { status: 'conflict', receipt: existing };
-        throw new EconomicReceiptStorageError(opts.key, 'read-after-collision');
+        return { status: 'conflict', receipt: existing };
     }
 
+    // Close the rolling-deploy race where a v3 worker placed its legacy lease
+    // after our preflight read but before our primary NX write. Leave our
+    // durable pending row in place: its uncertain state must remain replay-
+    // blocking if that older worker subsequently applied the mutation.
     try {
-        committedRaw = await store.get(opts.key);
+        legacyRaw = await store.get(legacyLeaseKey);
     } catch (error) {
         throw new EconomicReceiptStorageError(opts.key, 'read-after-collision', error);
     }
-    if (committedRaw != null) return classifyCommittedReceipt(committedRaw, receipt.fingerprint);
+    if (legacyRaw != null) {
+        const legacy = cleanStoredReceipt(legacyRaw);
+        if (!legacy) throw new EconomicReceiptStorageError(opts.key, 'read-after-collision');
+        if (!legacy.leaseExpiresAt || createdAt < legacy.leaseExpiresAt) {
+            if (legacy.fingerprint === receipt.fingerprint) {
+                throw new EconomicReceiptStorageError(opts.key, 'pending');
+            }
+            return { status: 'conflict', receipt: legacy };
+        }
+    }
     return { status: 'reserved', receipt };
 }
 
@@ -189,8 +249,9 @@ function requireOwnedPending(
 }
 
 /**
- * Mark a successful protected mutation as committed and extend its full TTL.
- * The owner check prevents one request from committing another request's lease.
+ * Mark a successful protected mutation as committed and refresh its full TTL.
+ * The non-expiring primary row cannot be taken over while pending, so an owned
+ * transition remains safe even if the short active-request lease has elapsed.
  */
 export async function commitEconomicReceipt(
     store: EconomicReceiptStore,
@@ -201,22 +262,23 @@ export async function commitEconomicReceipt(
     if (reservation.status !== 'reserved') return;
     if (!key || !Number.isFinite(ttlSeconds) || ttlSeconds <= 0) throw new TypeError('Receipt key and positive TTL are required.');
     try {
-        const current = requireOwnedPending(await store.get(pendingReceiptKey(key)), reservation);
+        const current = requireOwnedPending(await store.get(key), reservation);
         if (!current) throw new Error('Receipt reservation ownership was lost before commit.');
         if (current.state === 'committed') return;
-        // Never let a request commit on the edge of lease expiry: a successor
-        // could otherwise acquire the lease and begin the same mutation between
-        // this ownership read and the committed NX write.
-        if (!current.leaseExpiresAt || Date.now() >= current.leaseExpiresAt - 5_000) {
-            throw new Error('Receipt reservation lease expired before commit.');
-        }
-        const committed: EconomicReceiptRecord = { ...current, version: 3, state: 'committed' };
+        if (current.state !== 'pending') throw new Error('Receipt reservation is not pending.');
+        const committed: EconomicReceiptRecord = { ...current, version: 4, state: 'committed' };
         delete committed.leaseExpiresAt;
-        const placed = await store.set(key, committed, { nx: true, ex: ttlSeconds });
-        if (placed) return;
-        const collision = cleanStoredReceipt(await store.get(key));
-        if (collision?.state === 'committed' && collision.fingerprint === current.fingerprint) return;
-        throw new Error('A conflicting committed receipt appeared before commit.');
+        try {
+            const placed = await store.set(key, committed, { ex: Math.floor(ttlSeconds) });
+            if (!placed) throw new Error('Receipt commit write was not acknowledged.');
+        } catch (writeError) {
+            // A remote write may have committed and lost its acknowledgement.
+            const recovered = cleanStoredReceipt(await store.get(key));
+            if (recovered?.state === 'committed'
+                && recovered.ownerId === current.ownerId
+                && recovered.fingerprint === current.fingerprint) return;
+            throw writeError;
+        }
     } catch (error) {
         if (error instanceof EconomicReceiptStorageError) throw error;
         throw new EconomicReceiptStorageError(key, 'commit', error);
@@ -224,10 +286,10 @@ export async function commitEconomicReceipt(
 }
 
 /**
- * Mark an owned failed reservation as abandoned. The lease is intentionally not
- * deleted: this store exposes no atomic compare-and-delete, so deleting after an
- * ownership read could erase a successor lease that appeared at expiry. The
- * short TTL releases it safely and a retry receives 503 until then.
+ * Mark an owned failed reservation as abandoned with a short tombstone. The
+ * durable primary row cannot have a successor owner until this transition, so
+ * shortening its TTL is safe without compare-and-delete. If the abort write
+ * fails, the long pending row remains fail-closed rather than risking a replay.
  */
 export async function abortEconomicReceipt(
     store: EconomicReceiptStore,
@@ -236,10 +298,16 @@ export async function abortEconomicReceipt(
 ): Promise<boolean> {
     if (reservation.status !== 'reserved') return false;
     try {
-        if (await store.get(key) != null) return false;
-        const current = requireOwnedPending(await store.get(pendingReceiptKey(key)), reservation);
+        const current = requireOwnedPending(await store.get(key), reservation);
         if (!current || current.state !== 'pending') return false;
-        return true;
+        const retryDelaySeconds = 10;
+        const aborted: EconomicReceiptRecord = {
+            ...current,
+            version: 4,
+            state: 'aborted',
+            leaseExpiresAt: Date.now() + retryDelaySeconds * 1000,
+        };
+        return Boolean(await store.set(key, aborted, { ex: retryDelaySeconds }));
     } catch (error) {
         if (error instanceof EconomicReceiptStorageError) throw error;
         throw new EconomicReceiptStorageError(key, 'abort', error);

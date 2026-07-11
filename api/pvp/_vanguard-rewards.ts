@@ -4,6 +4,12 @@ import { safeName } from '../_utils.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { listActiveEscorters } from '../clan/pet-escort/_storage.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
+import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import {
+    abortEconomicReceipt,
+    commitEconomicReceipt,
+    reserveEconomicReceipt,
+} from '../_economic-receipt.js';
 import type { PvpSession } from './session.js';
 
 // Pet escort: Vanguard with an active pet on a PvP win gets +5% Seals AND
@@ -12,8 +18,8 @@ import type { PvpSession } from './session.js';
 const PET_ESCORT_SEAL_BONUS = 1.05;
 
 // Server-side Vanguard reward grant. Runs once per session when checkWinner
-// flips status to 'done' with a non-draw winner. Idempotent via the
-// `vanguardRewardsGranted` flag stamped on the session.
+// flips status to 'done' with a non-draw winner. The session flag is a fast
+// path; the durable economic receipt is the authoritative idempotency guard.
 //
 // Matches the client-side formula in shinobij.client/src/App.tsx
 // (vanguardSealsForKill / vanguardXpForKill) so removing the client-side
@@ -102,21 +108,16 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
     // only one fight's worth of Honor Seals + XP credited even though
     // they earned both. The lock serializes the two grants so they
     // each see the updated daily counter from the prior commit.
-    // NOTE: deliberately NOT failClosed. The grant fires on the single terminal
-    // move that flips the session to 'done'; move.ts then early-returns on any
-    // later move (status==='done') and claim-rewards does not re-invoke this, so
-    // there is no retry path. A failClosed throw under lock contention would
-    // therefore PERMANENTLY lose the winner's earned Seals. Idempotency instead
-    // comes from the durable NX receipt below, which is what actually prevents a
-    // same-battle replay double-pay; the lock just serializes the common
-    // back-to-back-fights case. (audit #7 — fail-open chosen over reward loss.)
+    // Economy writes must never fall through unlocked. The durable settlement
+    // receipt/retry path owns availability; this lock owns serialization with
+    // autosaves and every other server-side player mutation.
     return withKvLock(`save:${winnerSlug}`, async () => {
         // Load winner save (inside the lock so we observe the latest
         // committed value).
         const winnerKey = `save:${winnerSlug}`;
         const winnerRecord = await kv.get<Record<string, unknown>>(winnerKey);
         const winnerChar = winnerRecord?.character as Record<string, unknown> | undefined;
-        if (!winnerChar) return { granted: false };
+        if (!winnerRecord || !winnerChar) return { granted: false };
         if (winnerChar.profession !== 'vanguard') return { granted: false, reason: 'not-vanguard' };
 
         // Load loser save for anti-alt checks. Loser save is read-only
@@ -199,29 +200,39 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
         // wide margin. (A crash AFTER claiming but BEFORE the winner write can
         // under-grant on retry — an accepted trade: never double-pay currency.)
         const receiptKey = `pvp:vanguard-rewarded:${session.battleId}`;
-        const receipt = await kv.set(receiptKey, { winner: winnerSlug, at: Date.now() }, { nx: true, ex: 7 * 24 * 60 * 60 });
-        if (!receipt) return { granted: false, reason: 'already-granted' };
+        const receiptTtl = 7 * 24 * 60 * 60;
+        const reservation = await reserveEconomicReceipt(kv, {
+            key: receiptKey,
+            fingerprint: `vanguard:${session.battleId}:${winnerSlug}:${loserSlug}`,
+            ttlSeconds: receiptTtl,
+            pendingTtlSeconds: 10,
+            metadata: { battleId: session.battleId, winner: winnerSlug, loser: loserSlug },
+        });
+        if (reservation.status !== 'reserved') return { granted: false, reason: 'already-granted' };
 
         // Transactional ordering: escort stamps go FIRST. Each escort stamp is
         // idempotent (setting petEscortBonusReady=true twice is a no-op), so if
         // we crash between escorts the next retry safely re-stamps any missed
         // ones. The winner save commits LAST — that's the "transaction commit".
-        await Promise.all(escorters.map(async (escorterName) => {
-            const eKey = `save:${safeName(String(escorterName))}`;
-            const eRecord = await kv.get<Record<string, unknown>>(eKey);
-            const eChar = eRecord?.character as Record<string, unknown> | undefined;
-            if (!eChar || eChar.profession !== 'petTamer') return;
-            await kv.set(eKey, {
-                ...eRecord,
-                character: { ...eChar, petEscortBonusReady: true },
-            });
-        }));
+        let winnerWriteAttempted = false;
+        try {
+            const escorterSlugs = [...new Set(escorters
+                .map((escorterName) => safeName(String(escorterName)))
+                .filter((slug): slug is string => Boolean(slug)))];
+            await Promise.all(escorterSlugs.map(async (escorterSlug) => {
+                const eKey = `save:${escorterSlug}`;
+                await withKvLock(eKey, async () => {
+                    const eRecord = await kv.get<Record<string, unknown>>(eKey);
+                    const eChar = eRecord?.character as Record<string, unknown> | undefined;
+                    if (!eRecord || !eChar || eChar.profession !== 'petTamer' || eChar.petEscortBonusReady === true) return;
+                    await writeVersionedPlayerSave(eKey, eRecord, { ...eChar, petEscortBonusReady: true });
+                }, { failClosed: true });
+            }));
 
-        // Now commit the winner save. If this throws, the session flag isn't set
-        // and the next move's grant call retries cleanly (escorts already done = no-op).
-        const updated = {
-            ...winnerRecord,
-            character: {
+            // The verified claim endpoint is the durable retry path if the
+            // terminal move could not finish this grant. Escort stamps are
+            // already idempotent and therefore safe to encounter again.
+            const updatedCharacter = {
                 ...winnerChar,
                 honorSeals: nextHonor,
                 professionXp: nextProfessionXp,
@@ -229,10 +240,20 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
                 dailyHonorSealsEarned: dailySoFar + seals,
                 dailyHonorSealsByTarget: nextByTarget,
                 vanguardDailyResetDate: today,
-            },
-        };
-        await kv.set(winnerKey, updated);
+            };
+            winnerWriteAttempted = true;
+            await writeVersionedPlayerSave(winnerKey, winnerRecord, updatedCharacter);
+            await commitEconomicReceipt(kv, receiptKey, reservation, receiptTtl);
+        } catch (error) {
+            // Escort stamps are idempotent, so they can be retried. Once the
+            // winner write is attempted, however, a lost acknowledgement is
+            // ambiguous and the durable pending receipt must remain in place.
+            if (!winnerWriteAttempted) {
+                await abortEconomicReceipt(kv, receiptKey, reservation).catch(() => false);
+            }
+            throw error;
+        }
 
         return { granted: true, seals, xp: xpGain };
-    });
+    }, { failClosed: true });
 }

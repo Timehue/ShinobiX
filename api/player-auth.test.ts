@@ -112,6 +112,11 @@ describe('player auth hardening', () => {
         assert.equal(weak.statusCode, 400);
         assert.equal(store.has('auth:weakuser'), false);
 
+        const oversized = `A1${'x'.repeat(127)}`;
+        assert.equal((await post({ action: 'verify', name: 'weakuser', password: oversized })).statusCode, 400);
+        assert.equal((await post({ action: 'change', name: 'weakuser', oldPassword: oversized, newPassword: 'AnotherPass2' })).statusCode, 400);
+        assert.equal((await post({ action: 'delete', name: 'weakuser', password: oversized })).statusCode, 400);
+
         await register('policyuser', 'Original1');
         const weakChange = await post({
             action: 'change',
