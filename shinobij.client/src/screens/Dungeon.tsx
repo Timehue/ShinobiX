@@ -7,6 +7,8 @@ import { PetArenaCard } from "../components/PetBattleAvatar";
 import { type TileCard } from "../data/tile-cards";
 import { genericPetArenaOpponents } from "../data/pet-arena-opponents";
 import { runPetDuel, type DuelResult } from "../lib/pet-duel-sim";
+import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
+import { petColiseumCinematicEnabled } from "../lib/pet-coliseum-flag";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
@@ -170,7 +172,9 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
         // Continuous duel engine (the old round engine is retired). Hollow Gate is
         // pure client-side PvE (no server re-sim), so the casual planted-face-off
         // motion is ON (last arg true); intervening optional args keep their defaults.
-        const duel = runPetDuel(selectedPet, enemyPet, seed, petTamerPveMultiplier(character), petPveHpMult(character), petAlphaBond(character), false, undefined, undefined, true);
+        const duel = petColiseumCinematicEnabled()
+            ? runPetDuelCinematic(selectedPet, enemyPet, seed, petTamerPveMultiplier(character), petPveHpMult(character), petAlphaBond(character), true, undefined, null)
+            : runPetDuel(selectedPet, enemyPet, seed, petTamerPveMultiplier(character), petPveHpMult(character), petAlphaBond(character), false, undefined, undefined, true);
         const outcome = duel.result;
         setDuelNonce(nextDuelId);
         setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet, seed, id: nextDuelId });
