@@ -1,6 +1,7 @@
 "use strict";
 /*
- * P0.1 sub-5 — server budget for CUSTOM item bonuses (flag ITEM_BONUS_BUDGET).
+ * P0.1 sub-5 — server budget for CUSTOM item bonuses. PERMANENTLY ON (owner
+ * decision 2026-07-11; the old ITEM_BONUS_BUDGET env flag is retired).
  *
  * Built-in items (api/pvp/_item-catalog.ts ITEM_CATALOG) are authoritative and
  * EXEMPT — callers only ever pass player/admin-authored creatorItems here. Those
@@ -10,7 +11,7 @@
  * Live impact today is small/defense-in-depth: only the passive %s + shield flow
  * into authoritative PvP (api/pvp/_multipliers.ts sumEquippedBonus). Specialty-stat
  * bonuses are NOT folded into server combat, so their budget is storage hygiene +
- * future-proofing. Flag-off keeps the legacy per-field [0,1000] clamp (byte-identical).
+ * future-proofing. (The legacy per-field [0,1000] clamp this replaced is retired.)
  *
  * Baselines (see _item-catalog.ts legendary tiers):
  *   passive %s (damage/absorb/reflect/lifesteal) ≤ 1   (built-ins grant at most 1%)
