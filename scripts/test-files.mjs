@@ -195,6 +195,7 @@ export const TEST_FILES = [
     "shinobij.client/src/data/combat-missions.test.ts",
     "shinobij.client/src/lib/pet-battle-sim.test.ts",
     "shinobij.client/src/lib/pet-duel-sim.test.ts",
+    "shinobij.client/src/lib/pet-duel-cinematic.test.ts",
     "shinobij.client/src/lib/pet-arena-sim.test.ts",
     "shinobij.client/src/lib/pet-synergies.test.ts",
     "shinobij.client/src/lib/pet-gauntlet.test.ts",
