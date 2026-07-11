@@ -426,11 +426,12 @@ function resolveEquippedLoadout(saveCharacter, save, clientCharacter) {
             // Without this, A/S bloodline jutsu fall through to the BASIC caps
             // (Wound 25 / amp 30) instead of their rank's (A 30/35, S 35/40) — so the
             // four built-in A-rank bloodlines currently under-apply their tags.
-            // Gated by BLOODLINE_RANK_CAPS so the (small) A/S cap lift rolls out
-            // deliberately; flag-off leaves rank unstamped → basic caps, byte-
-            // identical to today. Pair with BLOODLINE_RANK_ENTITLEMENT so a forged
-            // rank can't claim higher caps than the player legitimately earned.
-            const stampRank = process.env.BLOODLINE_RANK_CAPS === '1';
+            // PERMANENTLY ON (owner decision 2026-07-11, retiring BLOODLINE_RANK_CAPS):
+            // the client PvE path already stamps bloodlineRank unconditionally
+            // (App.tsx markRank), so leaving PvP unstamped was a PvE<->PvP parity gap.
+            // Safe from forgery because rank entitlement is also permanent — a save
+            // can only hold a rank the server already granted it.
+            const stampRank = true;
             // Budget enforcement is PERMANENTLY ON (owner decision 2026-07-11, together
             // with rank entitlement in the save sanitizer): server-side anti-cheat is
             // not optional, so this no longer reads an env flag.
