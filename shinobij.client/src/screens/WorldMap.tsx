@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity, react-hooks/immutability, react-hooks/refs */
-import { useState, useEffect, useMemo, type ReactNode, type CSSProperties } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
 // Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import {
@@ -40,7 +40,12 @@ import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-are
 import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent } from "../lib/story-road-events";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
+import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
 import { createPortal } from "react-dom";
+
+// Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
+// in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
+const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid })));
 import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
 import { SectorForeground } from "../components/SectorForeground";
@@ -1650,6 +1655,10 @@ export function WorldMap({
     // lives in App) can broadcast it; other clients render us walking to this tile.
     useEffect(() => { setLocalSectorTile(sectorPlayerPos); }, [sectorPlayerPos]);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
+    // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
+    // sector's vault structure, and the live raid screen (portaled full-screen).
+    const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string } | null>(null);
+    const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
     const [creatorEventPage, setCreatorEventPage] = useState(0);
     const [creatorEventLine, setCreatorEventLine] = useState(0);
     type ChestLoot = {
@@ -2667,6 +2676,76 @@ export function WorldMap({
                                     </button>
                                 );
                             })()}
+
+                            {/* Anbu Vault (anbuInfiltration.v1) — the enemy village's war
+                                vault stands INSIDE every enemy-held war sector for L100
+                                shinobi. Walking up (clicking it) opens the Infiltrate /
+                                Retreat prompt; Infiltrate enters the navigable vault whose
+                                inner door is guarded by a sealed Anbu snapshot. NEVER flips
+                                the sector — pure attrition (docs/anbu-infiltration-plan.md). */}
+                            {(() => {
+                                if (!anbuInfiltrationEnabled() || (character.level ?? 0) < 100 || selectedSector == null) return null;
+                                const owner = loadSectorTerritory(selectedSector).ownerVillage;
+                                if (!owner || owner === character.village) return null;
+                                return (
+                                    <button
+                                        key="sector-anbu-vault-structure"
+                                        className="atlas-landmark sector-rift-structure"
+                                        style={{
+                                            left: "72%",
+                                            top: "38%",
+                                            backgroundImage: "url(/landmarks/anbu-vault.webp)",
+                                            backgroundSize: "contain",
+                                            backgroundRepeat: "no-repeat",
+                                            backgroundPosition: "center bottom",
+                                        }}
+                                        onClick={() => setVaultPrompt({ sector: selectedSector, village: owner })}
+                                        title={`${owner} war vault — infiltrate?`}
+                                    >
+                                        <strong>🏯</strong>
+                                        <span>War Vault</span>
+                                    </button>
+                                );
+                            })()}
+
+                            {/* Anbu Vault — Infiltrate / Retreat prompt (portaled above nav). */}
+                            {vaultPrompt && createPortal(
+                                <div style={{ position: "fixed", inset: 0, zIndex: 1000000, display: "grid", placeItems: "center", background: "rgba(4,6,12,0.72)" }} onClick={() => setVaultPrompt(null)}>
+                                    <div style={{ background: "#141926", border: "1px solid #38405a", borderRadius: 14, padding: "1.1rem 1.2rem", maxWidth: 380, width: "min(92vw, 380px)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                                        <img src="/landmarks/anbu-vault.webp" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
+                                        <h3 style={{ margin: "0.3rem 0" }}>{vaultPrompt.village} War Vault</h3>
+                                        <p style={{ fontSize: 13, opacity: 0.82, margin: "0.3rem 0 0.8rem" }}>
+                                            Their war supplies sit behind that sealed door — and one of their Anbu guards it.
+                                            Break through and you can bleed this sector's war economy. If you fall, you leave with nothing.
+                                        </p>
+                                        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                                            <button style={{ padding: "0.55rem 1.15rem" }} onClick={() => { setVaultRaid(vaultPrompt); setVaultPrompt(null); }}>Infiltrate</button>
+                                            <button style={{ padding: "0.55rem 1.15rem", opacity: 0.8 }} onClick={() => setVaultPrompt(null)}>Retreat</button>
+                                        </div>
+                                    </div>
+                                </div>,
+                                document.body,
+                            )}
+
+                            {/* Anbu Vault — the live raid (traverse → Anbu fight → spoils),
+                                portaled full-screen so the bottom nav can't paint over it. */}
+                            {vaultRaid && createPortal(
+                                <div style={{ position: "fixed", inset: 0, zIndex: 1000000, overflowY: "auto", background: "#0a0d15" }}>
+                                    <Suspense fallback={<div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", color: "#cbd5e1" }}>Slipping past the perimeter…</div>}>
+                                        <AnbuVaultRaid
+                                            character={character}
+                                            sharedImages={sharedImages}
+                                            sector={vaultRaid.sector}
+                                            targetVillage={vaultRaid.village}
+                                            creatorItems={wmCreatorItems}
+                                            savedBloodlines={savedBloodlines}
+                                            updateCharacter={updateCharacter}
+                                            onExit={() => setVaultRaid(null)}
+                                        />
+                                    </Suspense>
+                                </div>,
+                                document.body,
+                            )}
 
                             {/* Roaming weekly boss (weeklyBossRoam.v1): the boss looms in-sector
                                 and bears down on the player when this IS its current sector.

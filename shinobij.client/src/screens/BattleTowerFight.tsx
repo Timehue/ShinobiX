@@ -151,6 +151,7 @@ export function BattleTowerFight({
     onRecordBattle,
     settleFn,
     settleOnAnyDone,
+    actionFn,
 }: {
     character: Character;
     /** optimistically mirror a spire unlock onto the client save so the lobby shows
@@ -169,6 +170,11 @@ export function BattleTowerFight({
     // Some modes settle on ANY resolution: Clan Boss banks partial damage, and
     // story towers finalize server-recorded consumable/throwable spends on wipes.
     settleOnAnyDone?: boolean;
+    // Optional action-sender override — the Anbu Vault Infiltration reuses this
+    // whole fight screen but submits moves to its own route
+    // (api/village/anbu-infiltration action:'act') instead of /api/towers/action.
+    // Same request/response shape (the server runs the shared tower engine).
+    actionFn?: typeof submitTowerAction;
 }) {
     const [session, setSession] = useState<TowerSession>(initialSession);
     const [mode, setMode] = useState<Mode>("idle");
@@ -479,7 +485,7 @@ export function BattleTowerFight({
         if (busy) return;
         setBusy(true); setReject(null);
         try {
-            const res = await submitTowerAction(runId, me, action);
+            const res = await (actionFn ?? submitTowerAction)(runId, me, action);
             setSession(res.session);
             if (!res.applied) setReject(res.reason ?? "Invalid action");
         } catch (e) {
