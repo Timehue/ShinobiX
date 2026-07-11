@@ -28,6 +28,7 @@ import { activeActor, type TowerActor, type TowerSession } from '../api/towers/_
 import { makeRng } from '../api/towers/_sim.js';
 import { hexDistance } from '../api/pvp/_aoe.js';
 import type { TowerFloor } from '../api/towers/_floor-catalog.js';
+import { pathToFileURL } from 'node:url';
 
 // POWER env multiplier scales squad damage (EP + bloodline + item%) for A/B diagnostics —
 // e.g. POWER=1.4 models a stronger team. Distinguishes HP-walls (yield to more power) from
@@ -132,10 +133,25 @@ function runFloorSmart(session: TowerSession, floor: TowerFloor, rng: () => numb
 }
 
 // ── Run one floor N times; aggregate ─────────────────────────────────────────
-function simFloor(tier: number, n: number, seeds: number): { win: number; avgRounds: number; avgSurv: number; timeout: number; bossLeft: number; failCause: string } {
+export type SpireFloorSimResult = {
+    win: number;
+    avgRounds: number;
+    avgSurv: number;
+    timeout: number;
+    bossLeft: number;
+    failCause: string;
+};
+
+export function simFloor(
+    tier: number,
+    n: number,
+    seeds: number,
+    options: { bossHp?: number; blessingWeek?: number } = {},
+): SpireFloorSimResult {
     const floor = getSpireFloor(tier)!;
+    if (options.bossHp !== undefined) floor.boss!.hp = Math.max(1, Math.floor(options.bossHp));
     const bossKey = spireBossForFloor(tier)!;
-    const blessing = weeklySpireBlessing(0); // week 0's blessing (fixed, so the curve is stable across weeks)
+    const blessing = weeklySpireBlessing(options.blessingWeek ?? 0); // fixed week keeps CI deterministic
     let wins = 0, roundsSum = 0, survSum = 0, timeouts = 0, wipes = 0, bossLeftSum = 0, failN = 0;
     for (let s = 0; s < seeds; s++) {
         const seed = 1000 + s * 7 + tier;
@@ -163,30 +179,35 @@ function simFloor(tier: number, n: number, seeds: number): { win: number; avgRou
     };
 }
 
-const [minF, maxF, seedsArg, partyArg] = process.argv.slice(2);
-const MIN = Math.max(1, Number(minF) || 1), MAX = Math.min(20, Number(maxF) || 20);
-const SEEDS = Number(seedsArg) || 12, PARTY = Number(partyArg) || 4;
 const MECH: Record<string, string> = { warden: 'bulwark', revenant: 'regen', ravager: 'summon', sovereign: 'enrage' };
 
-console.log(`\nEndless Spire balance sim — ${PARTY}-player GEARED squad, ${SEEDS} seeds/floor (blessing: ${weeklySpireBlessing(0).name})`);
-console.log(`KNOBS: hp ${KNOBS.maxHp}, bloodline ×${KNOBS.bloodlineMult}, armorDR ${KNOBS.armorRawDR}, item+${KNOBS.itemDamagePct}%, best jutsu EP ${Math.max(...KNOBS.jutsu.map(j => Number(j.effectPower)))}\n`);
-console.log('Floor  Boss            Mech      HP      Rnd | Win%  ~TTK Surv  Loss    Boss%left  Verdict');
-console.log('─'.repeat(94));
-for (let t = MIN; t <= MAX; t++) {
-    const floor = getSpireFloor(t)!;
-    const bossKey = spireBossForFloor(t)!;
-    const r = simFloor(t, PARTY, SEEDS);
-    const verdict = r.win >= 92 && r.avgRounds <= (floor.roundBudget * 0.45) ? 'FACEROLL'
-        : r.win >= 82 ? 'ok'
-        : r.win >= 55 ? 'HARD'
-        : r.win >= 20 ? 'WALL'
-        : 'BRICK WALL';
-    const star = [5, 10, 15, 20].includes(t) ? '★' : ' ';
-    console.log(
-        `${star}F${String(t).padStart(2)}  ${floor.name.replace(/^Spire — Floor \d+ · /, '').padEnd(15)} ${MECH[bossKey].padEnd(9)} ${String(floor.boss!.hp).padStart(6)}  ${String(floor.roundBudget).padStart(2)}  | ${String(r.win).padStart(3)}% ${String(r.avgRounds).padStart(5)} ${String(r.avgSurv).padStart(4)}  ${r.failCause.padEnd(7)} ${String(r.bossLeft).padStart(6)}%    ${verdict}`,
-    );
+export function runSpireBalanceReport(argv = process.argv.slice(2)): void {
+    const [minF, maxF, seedsArg, partyArg] = argv;
+    const min = Math.max(1, Number(minF) || 1), max = Math.min(20, Number(maxF) || 20);
+    const seeds = Number(seedsArg) || 12, party = Number(partyArg) || 4;
+
+    console.log(`\nEndless Spire balance sim — ${party}-player GEARED squad, ${seeds} seeds/floor (blessing: ${weeklySpireBlessing(0).name})`);
+    console.log(`KNOBS: hp ${KNOBS.maxHp}, bloodline ×${KNOBS.bloodlineMult}, armorDR ${KNOBS.armorRawDR}, item+${KNOBS.itemDamagePct}%, best jutsu EP ${Math.max(...KNOBS.jutsu.map(j => Number(j.effectPower)))}\n`);
+    console.log('Floor  Boss            Mech      HP      Rnd | Win%  ~TTK Surv  Loss    Boss%left  Verdict');
+    console.log('─'.repeat(94));
+    for (let t = min; t <= max; t++) {
+        const floor = getSpireFloor(t)!;
+        const bossKey = spireBossForFloor(t)!;
+        const r = simFloor(t, party, seeds);
+        const verdict = r.win >= 92 && r.avgRounds <= (floor.roundBudget * 0.45) ? 'FACEROLL'
+            : r.win >= 82 ? 'ok'
+            : r.win >= 55 ? 'HARD'
+            : r.win >= 20 ? 'WALL'
+            : 'BRICK WALL';
+        const star = [5, 10, 15, 20].includes(t) ? '★' : ' ';
+        console.log(
+            `${star}F${String(t).padStart(2)}  ${floor.name.replace(/^Spire — Floor \d+ · /, '').padEnd(15)} ${MECH[bossKey].padEnd(9)} ${String(floor.boss!.hp).padStart(6)}  ${String(floor.roundBudget).padStart(2)}  | ${String(r.win).padStart(3)}% ${String(r.avgRounds).padStart(5)} ${String(r.avgSurv).padStart(4)}  ${r.failCause.padEnd(7)} ${String(r.bossLeft).padStart(6)}%    ${verdict}`,
+        );
+    }
+    console.log('─'.repeat(94));
+    console.log('Boss%left = avg boss HP remaining on a LOSS: <15% = knife-edge (tiny nudge) · >40% = true wall (big cut).');
+    console.log('Targets: F8-12 "ok" (win 82-95, TTK ~40-60% of cap) · F13-17 "HARD" (win 55-80) · F18-20 "WALL" (win 20-55, ★ spikes hardest).');
+    console.log('FACEROLL = too easy (raise HP/keystones) · BRICK WALL = unwinnable even geared (lower HP or dmgMult).\n');
 }
-console.log('─'.repeat(94));
-console.log('Boss%left = avg boss HP remaining on a LOSS: <15% = knife-edge (tiny nudge) · >40% = true wall (big cut).');
-console.log('Targets: F8-12 "ok" (win 82-95, TTK ~40-60% of cap) · F13-17 "HARD" (win 55-80) · F18-20 "WALL" (win 20-55, ★ spikes hardest).');
-console.log('FACEROLL = too easy (raise HP/keystones) · BRICK WALL = unwinnable even geared (lower HP or dmgMult).\n');
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) runSpireBalanceReport();

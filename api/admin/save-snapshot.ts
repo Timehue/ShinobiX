@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { kv } from '../_storage.js';
+import { kv, type KvLike } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
-import { withKvLock } from '../_lock.js';
+import { withKvLock, LockContendedError } from '../_lock.js';
+import { nextSaveVersion } from '../save/_save-version.js';
 
 /*
  * /api/admin/save-snapshot  — admin-only POST
@@ -55,6 +56,57 @@ function snapshotKeyFor(playerName: string, ts: number): string {
 
 function snapshotPrefixFor(playerName: string): string {
     return `${SNAPSHOT_PREFIX}${playerName}:`;
+}
+
+export function buildRestoredSave(
+    snapshot: Record<string, unknown>,
+    live: Record<string, unknown> | null,
+    now: number,
+): Record<string, unknown> {
+    return {
+        ...structuredClone(snapshot),
+        _saveVersion: nextSaveVersion(live?._saveVersion, snapshot._saveVersion),
+        _saveAt: now,
+    };
+}
+
+type RestoreLock = <T>(
+    target: string,
+    fn: () => Promise<T>,
+    opts: { failClosed: true },
+) => Promise<T>;
+
+export async function restoreSnapshotUnderLock(args: {
+    playerName: string;
+    saveKey: string;
+    snapshotKey: string;
+    snapshot: Record<string, unknown>;
+    store?: Pick<KvLike, 'get' | 'set'>;
+    lock?: RestoreLock;
+    now?: () => number;
+}): Promise<{ restoredVersion: number; preRestoreKey: string | null }> {
+    const store = args.store ?? kv;
+    const lock = args.lock ?? withKvLock;
+    const now = args.now ?? Date.now;
+    return lock(args.saveKey, async () => {
+        const live = await store.get<Record<string, unknown>>(args.saveKey);
+        const ts = now();
+        let preRestoreKey: string | null = null;
+        if (live) {
+            // Avoid replacing the source snapshot in the extremely unlikely
+            // event both timestamps land in the same millisecond.
+            const safeTs = snapshotKeyFor(args.playerName, ts) === args.snapshotKey ? ts + 1 : ts;
+            preRestoreKey = snapshotKeyFor(args.playerName, safeTs);
+            await store.set(preRestoreKey, live, { ex: SNAPSHOT_TTL_SECONDS });
+        }
+        const restored = buildRestoredSave(args.snapshot, live, ts);
+        await store.set(args.saveKey, restored);
+        await store.set(`reset-signal:${args.playerName.toLowerCase()}`, 1, { ex: 300 });
+        return {
+            restoredVersion: Number(restored._saveVersion),
+            preRestoreKey,
+        };
+    }, { failClosed: true });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -134,20 +186,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // then (b) overwrite with the requested snapshot. Both steps
             // happen under the same lock so a player autosave landing
             // mid-restore can't slip in between.
-            await withKvLock(saveKey, async () => {
-                const live = await kv.get<Record<string, unknown>>(saveKey);
-                if (live) {
-                    const preRestoreKey = snapshotKeyFor(playerName, Date.now());
-                    await kv.set(preRestoreKey, live, { ex: SNAPSHOT_TTL_SECONDS });
-                }
-                await kv.set(saveKey, snap);
+            const restored = await restoreSnapshotUnderLock({
+                playerName,
+                saveKey,
+                snapshotKey,
+                snapshot: snap,
             });
 
-            return res.status(200).json({ ok: true, restoredFrom: snapshotKey });
+            return res.status(200).json({
+                ok: true,
+                restoredFrom: snapshotKey,
+                _saveVersion: restored.restoredVersion,
+                preRestoreSnapshotKey: restored.preRestoreKey,
+            });
         }
 
         return res.status(400).json({ error: 'Invalid action.' });
     } catch (err) {
+        if (err instanceof LockContendedError) {
+            return res.status(503).json({ error: 'Save is busy. Restore was not applied; retry.' });
+        }
         console.error('[admin/save-snapshot]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

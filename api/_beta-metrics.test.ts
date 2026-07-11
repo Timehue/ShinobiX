@@ -72,3 +72,18 @@ test('records aggregate beta events, level bands, sources, and reward totals', a
     assert.equal(snapshot.totals.rewardTotals.territoryScrolls, 3);
     assert.equal(snapshot.totals.rewardTotals.fateShards, 2);
 });
+
+test('concurrent beta metric records are serialized without lost updates', async () => {
+    const store = new MemoryKv();
+    const now = Date.UTC(2026, 6, 7, 12);
+    await Promise.all(Array.from({ length: 40 }, () => recordBetaMetric({
+        event: 'mission.claimed',
+        level: 20,
+        xp: 5,
+        ts: now,
+    }, { kv: store })));
+
+    const snapshot = await readBetaMetricsSnapshot(1, { kv: store, now });
+    assert.equal(snapshot.totals.events['mission.claimed'], 40);
+    assert.equal(snapshot.totals.rewardTotals.xp, 200);
+});

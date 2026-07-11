@@ -17,6 +17,7 @@
         "slice-badges": "node scripts/slice-badges.mjs",
         "test": "node scripts/run-tests.mjs",
         "test:mission-eligibility": "node scripts/check-mission-eligibility.mjs",
+        "test:release-assets": "node scripts/check-release-assets.mjs",
         "sizecheck": "node scripts/check-build-size.mjs",
         "release:health": "node scripts/release-health-check.mjs"
     },

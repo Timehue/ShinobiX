@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import {
+    hollowGateRunsEnabled,
     HG_CLAWBACK_KEYS,
     HG_HIGH_VALUE_ITEM_ID,
     clampFragmentTotal,
@@ -17,15 +18,17 @@ import {
 } from './_run-token.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
+import { abortEconomicReceipt, commitEconomicReceipt, isEconomicReceiptStorageError, reserveEconomicReceipt } from '../_economic-receipt.js';
 
 /*
  * /api/hollow-gate/settle  — POST only  (docs/hollow-gate-augments.md)
  *
  * The authoritative payout for a dive. Reads the sealed token (depth + entry
  * snapshot + chosen augment), computes the per-currency ceiling
- * maxHaulForDepth(depth, sealedMultiplier), and credits min(client-claimed,
- * ceiling) — anchored to the sealed entry so a crafted client can neither inflate
- * the haul nor smuggle a bigger multiplier. Death applies a server-computed ×0.5
+ * maxHaulForDepth(depth, sealedMultiplier), and adds min(client-claimed,
+ * ceiling) to the fresh trusted save balance. Raw-save growth is pinned, so this
+ * endpoint owns the currency credit. A crafted client can neither exceed the
+ * sealed ceiling nor smuggle a bigger multiplier. Death applies a server-computed ×0.5
  * claw-back. Single-use (NX hg-settled entity key → reconnect/retry/co-op pays
  * once). Body: { playerName, token, outcome: 'extract'|'death', haul: {currency:n} }.
  *
@@ -34,12 +37,17 @@ import { bumpEraContribution } from '../_era.js';
 
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
-/** Pure: the credited value for one currency given the sealed entry + ceiling.
- *  Never exceeds the ceiling, never restores in-run spends (min with current),
- *  and applies the death claw-back fraction. */
-export function settleCurrency(current: number, entry: number, claimed: number, ceiling: number, frac: number): number {
+/** Pure: authoritative post-settlement balance for one currency.
+ *
+ * The raw save endpoint pins Hollow Gate currency growth while a server run is
+ * open, so `current` is the trusted server balance, not a client-prewritten
+ * haul. Settle adds the bounded run credit itself. `entry` remains in the
+ * signature because it is part of the sealed token and response reconciliation,
+ * but it no longer acts as the source balance.
+ */
+export function settleCurrency(current: number, _entry: number, claimed: number, ceiling: number, frac: number): number {
     const credit = Math.floor(Math.min(Math.max(0, claimed), Math.max(0, ceiling)) * frac);
-    return Math.max(0, Math.min(num(current), Math.max(0, entry) + credit));
+    return Math.max(0, num(current)) + Math.max(0, credit);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -51,13 +59,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const playerName = safeName(String(body.playerName ?? ''));
         const token = String(body.token ?? '').slice(0, 64);
-        const outcome = body.outcome === 'death' ? 'death' : 'extract';
+        const outcome = body.outcome === 'death' || body.outcome === 'extract' ? body.outcome : null;
         const haul = (body.haul && typeof body.haul === 'object') ? body.haul as Record<string, unknown> : {};
         if (!playerName || !token) return res.status(400).json({ error: 'Missing playerName or token.' });
+        if (!outcome) return res.status(400).json({ error: 'Invalid Hollow Gate outcome.' });
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
+        if (!hollowGateRunsEnabled()) {
+            return res.status(503).json({ error: 'Hollow Gate runs are temporarily unavailable until server settlement is complete.' });
+        }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-settle', 20, 60_000, identity.name))) return;
 
         const runKey = `hg-run:${playerName}:${token}`;
@@ -69,9 +81,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Entity-keyed single-use: keyed on the RUN, so a reconnect/retry (or a
         // co-op partner reporting the same run) collapses to one credit.
-        const once = await kv.set(`hg-settled:${playerName}:${token}`, '1', { nx: true, ex: 24 * 60 * 60 }).catch(() => 'OK' as const);
-        if (once === null) return res.status(200).json({ ok: true, alreadyReported: true });
-        await kv.del(runKey).catch(() => undefined);
+        const settlementReceiptKey = `hg-settled:${playerName}:${token}`;
+        const settlementReceiptTtl = 24 * 60 * 60;
+        const reservation = await reserveEconomicReceipt(kv, {
+            key: settlementReceiptKey,
+            fingerprint: `hollow-gate:${playerName}:${token}:${outcome}`,
+            ttlSeconds: settlementReceiptTtl,
+            metadata: { playerName, token, outcome },
+        });
+        if (reservation.status === 'replay') {
+            return res.status(200).json({ ok: true, alreadyReported: true });
+        }
+        if (reservation.status === 'conflict') {
+            return res.status(409).json({ error: 'This run was already settled with a different outcome.' });
+        }
 
         const mult = rewardMultiplierForToken(run);
         const ceiling = maxHaulForDepth(run.floorDepth, mult);
@@ -81,7 +104,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const fragmentCeiling = maxFragmentsForDepth(run.floorDepth);
         let fragmentsClampedTo: number | null = null;
         const saveKey = `save:${playerName}`;
-        const result = await withKvLock(saveKey, async () => {
+        let saveMutationApplied = false;
+        let result: { ok: true } | { ok: false };
+        try {
+        result = await withKvLock(saveKey, async () => {
             const fresh = await kv.get<Record<string, unknown>>(saveKey);
             const c = (fresh?.character ?? null) as Record<string, unknown> | null;
             if (!fresh || !c) return { ok: false as const };
@@ -111,10 +137,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const updated = bumpSaveVersion({ ...fresh, character: next });
             await kv.set(saveKey, mergePreservingImages(updated, fresh));
+            saveMutationApplied = true;
             return { ok: true as const };
         }, { failClosed: true });
 
+        if (result.ok) await commitEconomicReceipt(kv, settlementReceiptKey, reservation, settlementReceiptTtl);
+        else await abortEconomicReceipt(kv, settlementReceiptKey, reservation);
+        } catch (error) {
+            if (!saveMutationApplied) await abortEconomicReceipt(kv, settlementReceiptKey, reservation).catch(() => false);
+            throw error;
+        }
+
         if (!result.ok) return res.status(404).json({ error: 'Your save was not found.' });
+        await kv.del(runKey).catch((error) => {
+            // The committed settlement receipt still prevents a duplicate payout.
+            console.error('[hollow-gate/settle] run-token cleanup failed', error);
+            return 0;
+        });
         // Legacy tracking (ENABLE_LEGACY): only a successful EXTRACTION counts
         // as a clear — deaths settle currency but don't feed Legacy progress.
         // Anti-farm gate: an instant start→settle round-trip is not a dive; a
@@ -128,6 +167,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ok: true, outcome, credited, fragmentsClampedTo });
     } catch (err) {
         console.error('[hollow-gate/settle]', err);
+        if (isEconomicReceiptStorageError(err)) {
+            return res.status(503).json({ error: 'Could not reserve the Hollow Gate settlement. Please retry.' });
+        }
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

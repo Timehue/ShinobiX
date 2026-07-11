@@ -5,7 +5,7 @@ import { GiCrossedSwords, GiScrollUnfurled, GiTrophy, GiEyeball, GiBlackFlag } f
 const VW_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord } from "../types/character";
-import { TERRITORY_HP_MAX, LEGENDARY_WAR_CRATE_ID } from "../constants/game";
+import { TERRITORY_HP_MAX } from "../constants/game";
 import { currentDateKey } from "../lib/utils";
 import { VILLAGE_WAR_HP_MAX, type TerritoryRecord, type VillageWarRecord } from "../lib/world-state";
 import { gameConfirm } from "../components/GameAlert";
@@ -34,6 +34,7 @@ export function VillageWarScreen({
     // Tutorial popover — toggled by the ℹ button next to the page
     // header. Same UX pattern as the per-jutsu info popovers in PvP.
     const [showWarManual, setShowWarManual] = useState(false);
+    const [claimingCrateId, setClaimingCrateId] = useState("");
 
     useEffect(() => {
         let alive = true;
@@ -185,7 +186,7 @@ export function VillageWarScreen({
         !(character.claimedWarCrateIds ?? []).includes(`war-crate-${w.id}`)
     );
 
-    function claimVictory(war: VillageWarRecord) {
+    async function claimVictory(war: VillageWarRecord) {
         // Canonical winner reward: 1× Legendary War Crate, dedup via
         // claimedWarCrateIds. Matches claimPendingWarCrates exactly so
         // whichever path the player triggers first delivers the same
@@ -194,12 +195,41 @@ export function VillageWarScreen({
         // the other side out of the discrepancy.
         const crateId = `war-crate-${war.id}`;
         const claimed = character.claimedWarCrateIds ?? [];
-        if (claimed.includes(crateId)) return;
-        updateCharacter({
-            ...character,
-            inventory: [...character.inventory, LEGENDARY_WAR_CRATE_ID],
-            claimedWarCrateIds: [...claimed, crateId],
-        });
+        if (claimed.includes(crateId) || claimingCrateId) return;
+        setClaimingCrateId(crateId);
+        setError("");
+        try {
+            const response = await fetch("/api/village/claim-war-crate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, warCrateId: crateId }),
+            });
+            const data = await response.json().catch(() => ({})) as {
+                error?: string;
+                granted?: boolean;
+                reason?: string;
+                playerState?: { inventory?: unknown[]; claimedWarCrateIds?: string[] };
+            };
+            if (!response.ok) throw new Error(data.error ?? `HTTP ${response.status}`);
+            if (data.playerState) {
+                updateCharacter({
+                    ...character,
+                    inventory: Array.isArray(data.playerState.inventory)
+                        ? data.playerState.inventory.filter((id): id is string => typeof id === "string")
+                        : character.inventory,
+                    claimedWarCrateIds: Array.isArray(data.playerState.claimedWarCrateIds)
+                        ? data.playerState.claimedWarCrateIds
+                        : claimed,
+                });
+            }
+            if (!data.granted && data.reason !== "already-claimed") {
+                throw new Error(`War crate was not granted (${data.reason ?? "not eligible"}).`);
+            }
+        } catch (claimError) {
+            setError(String((claimError as Error).message || claimError));
+        } finally {
+            setClaimingCrateId("");
+        }
     }
 
     return (
@@ -282,8 +312,8 @@ export function VillageWarScreen({
                     {claimable.map(w => (
                         <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                             <span>vs {w.villages.find(v => v !== myVillage) ?? "?"} — won {new Date(w.endedAt!).toLocaleDateString()}</span>
-                            <button onClick={() => claimVictory(w)} style={{ padding: "0.3rem 0.7rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "0.85rem" }}>
-                                Claim Reward
+                            <button disabled={Boolean(claimingCrateId)} onClick={() => { void claimVictory(w); }} style={{ padding: "0.3rem 0.7rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                                {claimingCrateId === `war-crate-${w.id}` ? "Claiming..." : "Claim Reward"}
                             </button>
                         </div>
                     ))}

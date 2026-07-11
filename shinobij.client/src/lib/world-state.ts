@@ -20,6 +20,7 @@ import { GAME_STATE_API, LEGENDARY_WAR_CRATE_ID, TERRITORY_CONTROL_MAX, TERRITOR
 import type { TreasuryItemStack } from "./items";
 import { villages } from "../data/sectors";
 import { warCrateServerAuthEnabled } from "./war-crate-flag";
+import { isServerSettlementReady } from "./server-settlement-gate";
 import { biomeWeatherTables } from "../data/world";
 import { clampNumber, currentDateKey, currentMonthKey } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
@@ -794,6 +795,11 @@ export function claimPendingWarCrates(
     character: Character,
     clanData: { warHistory?: { result: string; warCrateId?: string; endedAt?: number }[] } | null,
 ): { character: Character; count: number; mvp?: boolean; consolation?: boolean } {
+    // The generic save route cannot settle payouts. Until every war-reward
+    // branch has a dedicated endpoint, never derive inventory/currency/latches
+    // from the browser's cached war state. Winner crates still flow through
+    // claimServerWarCrates, whose endpoint validates and writes the save.
+    if (!isServerSettlementReady("clientWarCrateGrant")) return { character, count: 0 };
     const claimed = new Set(character.claimedWarCrateIds ?? []);
     // P0.2c: when warCrateServerAuth.v1 is ON, WINNER crates (village + clan) defer to
     // claimServerWarCrates (server-validated); the MVP / consolation / lifetime-stat
@@ -1012,10 +1018,9 @@ export function claimPendingWarCrates(
  * wins), and clanData.warHistory (older clan wins that aged out of the cache); the
  * server validates each against the authoritative world:war / clan-war record.
  * Returns the warCrateIds it actually granted. Called from the post-poll sweep, so
- * the war-end state has already propagated server-side (no race). A network/5xx
- * failure falls back to the id (the caller grants it locally) so a legitimately-won
- * crate is never lost to an outage; a definitive decline (not your win / already
- * claimed / expired) is respected.
+ * the war-end state has already propagated server-side (no race). Network and
+ * server failures fail closed and are retried by the next polling sweep; only an
+ * explicit granted response is mirrored into client state.
  */
 export async function claimServerWarCrates(
     character: Character,
@@ -1049,12 +1054,12 @@ export async function claimServerWarCrates(
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ playerName: character.name, warCrateId }),
             });
-            if (!r.ok) { granted.push(warCrateId); continue; } // 5xx → local fallback (never lose a legit crate)
+            if (!r.ok) continue;
             const res = (await r.json().catch(() => null)) as { granted?: boolean } | null;
             if (res?.granted) granted.push(warCrateId);
             // a definitive granted:false (server says not-winner / already-claimed / …) is respected.
         } catch {
-            granted.push(warCrateId); // network error → local fallback
+            // Fail closed. The polling caller retries after connectivity returns.
         }
     }
     return granted;

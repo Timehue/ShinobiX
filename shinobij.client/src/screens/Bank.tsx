@@ -11,6 +11,7 @@ const BANK_INTEREST_PRINCIPAL_CAP = 10_000_000;
 
 export function Bank({ character, updateCharacter, onBack }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onBack: () => void }) {
     const [amount, setAmount] = useState(0);
+    const [movingRyo, setMovingRyo] = useState(false);
     // ── Direct transfer (player-to-player send) state ──
     const [sendTo, setSendTo] = useState("");
     const [sendCurr, setSendCurr] = useState<TradeCurrency>("ryo");
@@ -48,19 +49,33 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
     const canClaimInterest = character.bankRyo > 0 && interestPercent > 0 && Date.now() >= nextClaimAt;
     const projectedInterest = Math.max(0, Math.floor(Math.min(character.bankRyo, BANK_INTEREST_PRINCIPAL_CAP) * (interestPercent / 100)));
 
-    function deposit() {
-        // Number.isFinite guard: a non-numeric input yields NaN, and `NaN > ryo`
-        // is false — without this the transfer would proceed and write `ryo - NaN
-        // = NaN`, corrupting the save.
-        const value = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
-        if (value > character.ryo) return alert("Not enough ryo.");
-        updateCharacter({ ...character, ryo: character.ryo - value, bankRyo: character.bankRyo + value });
-    }
-
-    function withdraw() {
-        const value = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
-        if (value > character.bankRyo) return alert("Not enough banked ryo.");
-        updateCharacter({ ...character, ryo: character.ryo + value, bankRyo: character.bankRyo - value });
+    async function moveRyo(action: "deposit" | "withdraw") {
+        // Client validation is only immediate feedback; the server independently
+        // validates the same integer bounds against the locked stored balances.
+        const value = amount;
+        if (!Number.isSafeInteger(value) || value <= 0) return alert("Enter a whole-number amount greater than zero.");
+        if (value > 10_000_000) return alert("A single bank transfer cannot exceed 10,000,000 ryo.");
+        setMovingRyo(true);
+        try {
+            const res = await fetch("/api/bank/transfer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, action, amount: value }),
+            });
+            const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; character?: Character };
+            if (!res.ok || !data.ok || !data.character) {
+                return alert(data.error || "Could not update your bank account. Please try again.");
+            }
+            // Replace the local snapshot with the exact version produced under
+            // the server save lock. Never reproduce or fall back to the move
+            // locally; a stale client balance must not become an economy writer.
+            updateCharacter(data.character);
+            setAmount(0);
+        } catch {
+            alert("Could not update your bank account. Please try again.");
+        } finally {
+            setMovingRyo(false);
+        }
     }
 
     async function claimInterest() {
@@ -106,10 +121,10 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
                 <p>Projected Claim: <strong>{projectedInterest.toLocaleString()}</strong> ryo</p>
             </div>
             <label>Amount</label>
-            <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+            <input type="number" min={1} max={10_000_000} step={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
             <div className="menu">
-                <button onClick={deposit}>Deposit</button>
-                <button onClick={withdraw}>Withdraw</button>
+                <button onClick={() => void moveRyo("deposit")} disabled={movingRyo}>{movingRyo ? "Updating..." : "Deposit"}</button>
+                <button onClick={() => void moveRyo("withdraw")} disabled={movingRyo}>{movingRyo ? "Updating..." : "Withdraw"}</button>
                 <button onClick={claimInterest} disabled={!canClaimInterest}>Collect Interest</button>
             </div>
             <p className="hint">Town Hall Bank upgrade gives +0.01% interest per level (max 0.5%/day at level 50). Interest can be collected once every 24 hours.</p>

@@ -14,9 +14,18 @@ import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 import {
     cleanMissionProgressReceipt,
+    missionProgressEvidenceBundleKey,
     missionProgressReceiptKey,
+    type MissionProgressReceipt,
     validateMissionProgressReceipt,
 } from './_mission-progress-receipt.js';
+import {
+    abortEconomicReceipt,
+    commitEconomicReceipt,
+    isEconomicReceiptStorageError,
+    reserveEconomicReceipt,
+    type EconomicReceiptReservation,
+} from '../_economic-receipt.js';
 import {
     clientTrustedCombatMissionRewardAllowed,
     COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON,
@@ -53,12 +62,12 @@ import {
 // Eligibility enforced server-side (against the SAVED character, not the body):
 //   • combat       — missionId must be in pendingCombatMissionClaims (queued by
 //                    the Arena win); consumed on claim. Counts toward daily cap.
-//   • field        — level requirement + daily cap. (Explore/raid progress stays
-//                    client-tracked — same trust model as raids/expeditions.)
+//   • field        — level requirement + daily cap + single-use server evidence
+//                    for every explore/raid progress event.
 //   • hunt         — Hunter Guild contract: level req + the INDEPENDENT daily
 //                    hunt cap; grants material drops (itemRewards) server-side so
-//                    they can't be minted client-side (audit M-1). Hunt progress
-//                    (explore count) stays client-tracked like field missions.
+//                    they can't be minted client-side (audit M-1). Track/kill
+//                    progress likewise requires single-use server evidence.
 //   • academy-trial— one-time (character.academyTrialClaimed). OFF the daily cap.
 //
 // Unknown / creator-authored mission ids are not paid here. Rewarded missions
@@ -190,6 +199,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let academyTrialClaimed = false;
             let academyChecklistClaimed = false;
             let progressReceiptKeyToClear: string | null = null;
+            let progressReceiptToConsume: MissionProgressReceipt | null = null;
+            const claimReservations: Array<{ key: string; ttl: number; reservation: EconomicReceiptReservation }> = [];
 
             if (missionType === 'combat') {
                 const def = combatMissionByKey(missionId);
@@ -231,12 +242,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!eligibility.ok) return eligibilityFailure(eligibility);
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
                 const progressKey = missionProgressReceiptKey(playerName, missionId);
+                const progressReceipt = cleanMissionProgressReceipt(await kv.get(progressKey));
                 const progress = validateMissionProgressReceipt(
-                    cleanMissionProgressReceipt(await kv.get(progressKey).catch(() => null)),
+                    progressReceipt,
                     { playerName, missionId, missionType: 'field', mission: def },
                 );
                 if (!progress.ok) return { applied: false, reason: progress.reason };
                 progressReceiptKeyToClear = progressKey;
+                progressReceiptToConsume = progressReceipt;
                 baseXp = def.xpReward; baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 scrolls = FIELD_MISSION_SCROLLS; currencyBase = def.currencyRewards;
                 completion = 'daily';
@@ -249,12 +262,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!eligibility.ok) return eligibilityFailure(eligibility);
                 if (!hasDailyHuntSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
                 const progressKey = missionProgressReceiptKey(playerName, missionId);
+                const progressReceipt = cleanMissionProgressReceipt(await kv.get(progressKey));
                 const progress = validateMissionProgressReceipt(
-                    cleanMissionProgressReceipt(await kv.get(progressKey).catch(() => null)),
+                    progressReceipt,
                     { playerName, missionId, missionType: 'hunt', mission: def },
                 );
                 if (!progress.ok) return { applied: false, reason: progress.reason };
                 progressReceiptKeyToClear = progressKey;
+                progressReceiptToConsume = progressReceipt;
                 baseXp = def.xpReward; baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 scrolls = HUNT_MISSION_SCROLLS; currencyBase = def.currencyRewards;
                 items = def.itemRewards ?? [];
@@ -276,21 +291,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 academyChecklistClaimed = true;
             }
 
-            // Per-mission idempotency for field/hunt claims: each built-in
-            // field/hunt mission is claimable at most once per UTC day (matches
-            // the UI's one-card-per-mission model). The daily cap alone doesn't
-            // stop a client re-POSTing the single highest-value mission id up to
-            // the cap, and the explore/raid prerequisite is only client-tracked,
-            // so without this the best mission is re-claimable N times/day (audit
-            // #2). The NX reserve lives inside the save lock so it settles
-            // atomically with the payout, and fails OPEN (a KV hiccup never denies
-            // a legit claim). Combat (pendingCombatMissionClaims, consumed on
-            // claim) and academy-trial (academyTrialClaimed latch) are already
-            // single-use, so only field/hunt need this.
+            // Per-mission idempotency for field/hunt claims. Both reservations
+            // fail CLOSED: without a durable latch the client could replay the
+            // reward. The daily latch enforces the one-card-per-day rule, while
+            // the long-lived evidence-bundle latch prevents a progress receipt
+            // whose cleanup failed from paying again on a later UTC day.
             if (missionType === 'field' || missionType === 'hunt') {
+                if (!progressReceiptToConsume) return { applied: false, reason: 'missing-progress-receipt' };
                 const claimKey = `missions:field-claimed:${playerName}:${missionId}:${todayKey}`;
-                const placed = await kv.set(claimKey, '1', { nx: true, ex: 26 * 60 * 60 }).catch(() => 'OK' as const);
-                if (placed === null) return { applied: false, reason: 'already-claimed-today' };
+                const dailyReservation = await reserveEconomicReceipt(kv, {
+                    key: claimKey,
+                    fingerprint: `mission:${playerName}:${missionType}:${missionId}:${todayKey}`,
+                    ttlSeconds: 26 * 60 * 60,
+                    metadata: { playerName, missionType, missionId, todayKey },
+                });
+                if (dailyReservation.status === 'conflict') return { applied: false, reason: 'claim-receipt-conflict' };
+                if (dailyReservation.status === 'replay') return { applied: false, reason: 'already-claimed-today' };
+                claimReservations.push({ key: claimKey, ttl: 26 * 60 * 60, reservation: dailyReservation });
+
+                const evidenceKey = missionProgressEvidenceBundleKey(playerName, progressReceiptToConsume);
+                const evidenceReservation = await reserveEconomicReceipt(kv, {
+                    key: evidenceKey,
+                    fingerprint: `mission-evidence:${playerName}:${missionType}:${missionId}`,
+                    ttlSeconds: 90 * 24 * 60 * 60,
+                    metadata: { playerName, missionType, missionId },
+                });
+                if (evidenceReservation.status !== 'reserved') {
+                    await Promise.all(claimReservations.map((entry) =>
+                        abortEconomicReceipt(kv, entry.key, entry.reservation).catch(() => false)));
+                    return {
+                        applied: false,
+                        reason: evidenceReservation.status === 'conflict'
+                            ? 'claim-receipt-conflict'
+                            : 'progress-receipt-already-consumed',
+                    };
+                }
+                claimReservations.push({ key: evidenceKey, ttl: 90 * 24 * 60 * 60, reservation: evidenceReservation });
             }
 
             // ── Compute server-authoritative amounts ────────────────────────
@@ -348,7 +384,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const updated: Record<string, unknown> = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
             bumpSaveVersion(updated);
-            await kv.set(saveKey, mergePreservingImages(updated, record));
+            try {
+                await kv.set(saveKey, mergePreservingImages(updated, record));
+            } catch (error) {
+                await Promise.all(claimReservations.map((entry) =>
+                    abortEconomicReceipt(kv, entry.key, entry.reservation).catch(() => false)));
+                throw error;
+            }
+            // The save is durable now. Commit each reservation; if a commit
+            // write fails, its pending owner row remains replay-blocking.
+            for (const entry of claimReservations) {
+                await commitEconomicReceipt(kv, entry.key, entry.reservation, entry.ttl);
+            }
             if (progressReceiptKeyToClear) {
                 await kv.del(progressReceiptKeyToClear).catch(() => 0);
             }
@@ -429,6 +476,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ok: true, ...outcome });
     } catch (err) {
         console.error('[missions/claim-mission]', err);
+        if (isEconomicReceiptStorageError(err)) {
+            return res.status(503).json({ error: 'Could not reserve the mission reward receipt. Please retry.' });
+        }
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

@@ -15,7 +15,11 @@
  * runSnapshotSaves makes the second run a harmless no-op — set
  * DISABLE_SNAPSHOT_CRON=1 on secondaries to skip the redundant keyspace scan.
  */
-import { runSnapshotSaves } from './snapshot-saves.js';
+import {
+    isSnapshotMarkerFresh,
+    readSnapshotSuccessMarker,
+    runSnapshotSaves,
+} from './snapshot-saves.js';
 import { runRankedSeasonRollover } from './_ranked-season.js';
 import { runClanBossWeekly } from './_clan-boss-weekly.js';
 import { runVillageWarDailyPass } from '../_war-daily.js';
@@ -39,6 +43,26 @@ function msUntilNextTargetHour(now: number): number {
     const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), TARGET_UTC_HOUR, 0, 0, 0));
     if (next.getTime() <= now) next.setUTCDate(next.getUTCDate() + 1);
     return next.getTime() - now;
+}
+
+async function runBootSnapshotCatchUp(): Promise<void> {
+    try {
+        const marker = await readSnapshotSuccessMarker();
+        if (isSnapshotMarkerFresh(marker)) {
+            console.log(`[cron-scheduler] backup freshness ok; last complete run ${new Date(marker!.completedAt).toISOString()}.`);
+            return;
+        }
+        console.warn('[cron-scheduler] no complete snapshot run in the last 26h; starting boot catch-up.');
+    } catch (err) {
+        console.error('[cron-scheduler] backup marker read failed; attempting boot catch-up:', (err as Error).message);
+    }
+
+    try {
+        const result = await runSnapshotSaves(NIGHTLY_BUDGET_MS);
+        console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped, ${result.failed.length} failed; ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
+    } catch (err) {
+        console.error('[cron-scheduler] boot catch-up threw:', (err as Error).message);
+    }
 }
 
 async function fire(): Promise<void> {
@@ -120,6 +144,10 @@ export function startSnapshotCron(): void {
         _interval.unref?.();
     }, delay);
     _timeout.unref?.();
+    // If the process was down across 03:00 UTC, do not wait until tomorrow.
+    // The durable marker proves freshness and the per-player 20h dedup keeps
+    // restarts or a second scheduler from creating duplicate daily copies.
+    void runBootSnapshotCatchUp();
     // Village War mercenary auto-snipe — a frequent tick so active merc bands hunt
     // low-HP enemy defenders on their own. No-op unless ENABLE_VILLAGE_WAR=1.
     _mercInterval = setInterval(() => {

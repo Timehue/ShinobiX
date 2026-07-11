@@ -49,6 +49,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { NextGoalPin } from "../components/NextGoalPin";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 // Fantasy glyph per craft material — gives the forge's material list real
 // imagery instead of plain rows. Tiered by point value (see craftTier) for
@@ -224,6 +225,7 @@ export function CentralHub({
     }
 
     function forgeNamedWeapon() {
+        if (!requireServerSettlement("creatorItemCraft")) return;
         if (!namedWeaponRoll) return;
         const available = namedWeaponCurrencyPts();
         if (available < NW_COST) {
@@ -348,6 +350,7 @@ export function CentralHub({
     }
 
     function forgeNamedArmor() {
+        if (!requireServerSettlement("creatorItemCraft")) return;
         if (!namedArmorRoll) return;
         const available = namedWeaponCurrencyPts(); // shared cost pool with Named Weapon
         if (available < NW_COST) {
@@ -578,6 +581,7 @@ export function CentralHub({
     }
 
     function craftExistingWeapon(item: GameItem) {
+        if (!requireServerSettlement("creatorItemCraft")) return;
         const costPts = weaponCraftPoints(item);
         const ryo = craftRyoForRarity(item.rarity);
         if (character.level < (item.levelReq ?? 1)) return alert(`Requires level ${item.levelReq ?? 1}.`);
@@ -592,6 +596,7 @@ export function CentralHub({
     }
 
     function craftExistingArmor(item: GameItem) {
+        if (!requireServerSettlement("creatorItemCraft")) return;
         const costPts = armorCraftPoints(item);
         const ryo = craftRyoForRarity(item.rarity);
         if (character.level < (item.levelReq ?? 1)) return alert(`Requires level ${item.levelReq ?? 1}.`);
@@ -1070,6 +1075,7 @@ export function CentralHub({
                     recipe: { name: string; cost: number; itemId?: string; per?: number; grant?: (c: Character) => Character },
                     qty: number,
                 ) {
+                    if (!requireServerSettlement("creatorItemCraft")) return;
                     const affordable = Math.floor(totalPts / recipe.cost);
                     if (affordable < 1) return alert(`Not enough materials. Need ${recipe.cost} craft points, you have ${totalPts}.`);
                     let n = Math.min(Math.max(1, Math.floor(qty)), affordable);
@@ -1207,6 +1213,7 @@ export function CentralHub({
                                 const canCraftWithKeys = dungeonKeyCount >= HOLLOW_GATE_KEY_DUNGEON_KEY_COST;
                                 const canCraftWithShards = fateShardCount >= HOLLOW_GATE_KEY_FATE_SHARD_COST;
                                 function craftHollowGateKeyWithDungeonKeys() {
+                                    if (!requireServerSettlement("creatorItemCraft")) return;
                                     if (dungeonKeyCount < HOLLOW_GATE_KEY_DUNGEON_KEY_COST) {
                                         alert(`You need ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys. You have ${dungeonKeyCount}.`);
                                         return;
@@ -1221,6 +1228,7 @@ export function CentralHub({
                                     alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys.`);
                                 }
                                 function craftHollowGateKeyWithFateShards() {
+                                    if (!requireServerSettlement("creatorItemCraft")) return;
                                     if ((character.fateShards ?? 0) < HOLLOW_GATE_KEY_FATE_SHARD_COST) {
                                         alert(`You need ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards. You have ${character.fateShards ?? 0}.`);
                                         return;
@@ -1259,6 +1267,7 @@ export function CentralHub({
                                 const relicCount = countItem(character, DUNGEON_LEGENDARY_RELIC_ID);
                                 const canForge = fragmentCount >= FRAGMENTS_PER_RELIC;
                                 function forgeRelicFromFragments() {
+                                    if (!requireServerSettlement("creatorItemCraft")) return;
                                     if (fragmentCount < FRAGMENTS_PER_RELIC) {
                                         alert(`You need ${FRAGMENTS_PER_RELIC} Dungeon Legendary Fragments. You have ${fragmentCount}.`);
                                         return;

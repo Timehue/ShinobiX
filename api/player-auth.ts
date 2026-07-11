@@ -2,7 +2,13 @@ import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors, safeName } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
-import { safeEqual, issuePlayerToken } from './_auth.js';
+import {
+    safeEqual,
+    issuePlayerToken,
+    readPlayerSessionEpoch,
+    rotatePlayerSessionEpoch,
+} from './_auth.js';
+import { withKvLock } from './_lock.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
 import { recordBetaMetric } from './_beta-metrics.js';
 import crypto from 'crypto';
@@ -40,7 +46,29 @@ export function isReservedNameShape(name: string): boolean {
 
 // `hash` stores either the legacy HMAC-SHA256 hex (no version prefix) or the
 // new scrypt format `scrypt:N:r:p:hex`. New writes always use scrypt.
-type AuthRecord = { hash: string; salt: string };
+type AuthRecord = { hash: string; salt: string; sessionEpoch?: number };
+
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
+
+/**
+ * Server-authoritative password policy. This mirrors account creation's client
+ * validation and adds a hard maximum so hostile requests cannot send an
+ * unbounded scrypt input.
+ */
+export function playerPasswordPolicyError(password: unknown): string | null {
+    if (typeof password !== 'string') return 'Password must be text.';
+    if (password.length < MIN_PASSWORD_LENGTH) {
+        return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+    }
+    if (password.length > MAX_PASSWORD_LENGTH) {
+        return `Password must be at most ${MAX_PASSWORD_LENGTH} characters.`;
+    }
+    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+        return 'Password must include at least one letter and one number.';
+    }
+    return null;
+}
 
 function newSalt(): string {
     return crypto.randomBytes(16).toString('hex');
@@ -104,15 +132,39 @@ export function authKey(name: string): string {
     return `auth:${safeName(name)}`;
 }
 
+async function issuePlayerTokenForRecord(name: string, record: AuthRecord): Promise<string | null> {
+    try {
+        const recordEpoch = record.sessionEpoch ?? 0;
+        const token = issuePlayerToken(name, undefined, recordEpoch);
+        if (!token) return null;
+        const currentEpoch = await readPlayerSessionEpoch(name);
+        // A prior credential mutation may have rotated successfully but failed
+        // before its auth-row write. Never mint a token for that stale record;
+        // password fallback remains available until the mutation is retried.
+        if (recordEpoch !== currentEpoch) return null;
+        return token;
+    } catch {
+        return null;
+    }
+}
+
 export async function verifyPlayerPassword(name: string, password: string): Promise<boolean> {
-    const record = await kv.get<AuthRecord>(authKey(name));
+    const key = authKey(name);
+    const record = await kv.get<AuthRecord>(key);
     if (!record) return false;
     const ok = verifyAgainst(record, password);
     // Opportunistically migrate legacy hashes to scrypt on successful login.
     if (ok && !record.hash.startsWith(SCRYPT_PREFIX)) {
         try {
-            const salt = newSalt();
-            await kv.set(authKey(name), { hash: hashScrypt(password, salt), salt });
+            // Serialize with credential mutations and re-check the observed
+            // record. Otherwise a slow legacy migration can overwrite a newly
+            // changed password with the old password's upgraded hash.
+            await withKvLock(key, async () => {
+                const current = await kv.get<AuthRecord>(key);
+                if (!current || current.hash !== record.hash || current.salt !== record.salt) return;
+                const salt = newSalt();
+                await kv.set(key, { ...current, hash: hashScrypt(password, salt), salt });
+            }, { failClosed: true });
         } catch {
             // Migration is best-effort — auth itself already succeeded.
         }
@@ -129,7 +181,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // attackers can't hop serverless instances to reset the counter.
     if (!(await enforceRateLimitKv(req, res, 'player-auth', 20, 15 * 60_000))) return;
 
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    let body: unknown;
+    try {
+        body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    } catch {
+        return res.status(400).json({ ok: false, error: 'Invalid JSON body.' });
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return res.status(400).json({ ok: false, error: 'Invalid request body.' });
+    }
     const { action, name, password, oldPassword, newPassword } = body as {
         action?: string;
         name?: string;
@@ -138,12 +198,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         newPassword?: string;
     };
 
-    if (!name) return res.status(400).json({ ok: false, error: 'Missing name.' });
+    if (typeof name !== 'string' || !name) {
+        return res.status(400).json({ ok: false, error: 'Missing name.' });
+    }
+    if (!safeName(name)) {
+        return res.status(400).json({ ok: false, error: 'Pick a name with at least one letter or number.' });
+    }
     const key = authKey(name);
 
     if (action === 'register') {
+        let registeredSessionEpoch = 0;
         // Register a new password. Fails if one already exists — use 'change' to update.
-        if (!password) return res.status(400).json({ ok: false, error: 'Missing password.' });
+        if (typeof password !== 'string' || !password) {
+            return res.status(400).json({ ok: false, error: 'Missing password.' });
+        }
+        const passwordPolicyError = playerPasswordPolicyError(password);
+        if (passwordPolicyError) return res.status(400).json({ ok: false, error: passwordPolicyError });
 
         // Empty-slug guard: the account identity is the safeName slug. A name
         // made entirely of characters safeName strips (all emoji / punctuation)
@@ -182,26 +252,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         try {
-            const existing = await kv.get<AuthRecord>(key);
-            if (existing) return res.status(409).json({ ok: false, error: 'Account already has a password.' });
+            const registrationError = await withKvLock(key, async () => {
+                const existing = await kv.get<AuthRecord>(key);
+                if (existing) {
+                    return { status: 409, body: { ok: false, error: 'Account already has a password.' } };
+                }
 
-            // Legacy-account takeover defense: if a save:<name> blob already
-            // exists but no auth:<name> record was ever created, refuse the
-            // registration. Otherwise anyone who saw a player's name on the
-            // leaderboard could call register and claim that account.
-            // Legitimate legacy reclaim still works via the admin reset flow
-            // (action='adminreset' with x-admin-password).
-            const saveBlob = await kv.get<Record<string, unknown>>(`save:${safeName(name)}`);
-            if (saveBlob) {
-                return res.status(409).json({
-                    ok: false,
-                    error: 'This account is a legacy account without a server password. Ask an admin to set it for you.',
-                    legacyNeedsAdmin: true,
-                });
+                // A save without an auth row is a legacy account. Only the
+                // authenticated admin-reset recovery path may claim it.
+                const saveBlob = await kv.get<Record<string, unknown>>(`save:${safeName(name)}`);
+                if (saveBlob) {
+                    return {
+                        status: 409,
+                        body: {
+                            ok: false,
+                            error: 'This account is a legacy account without a server password. Ask an admin to set it for you.',
+                            legacyNeedsAdmin: true,
+                        },
+                    };
+                }
+
+                const sessionEpoch = await readPlayerSessionEpoch(name);
+                registeredSessionEpoch = sessionEpoch;
+                const salt = newSalt();
+                // NX remains a final concurrency gate if a non-cooperating
+                // writer races this lock or a lock lease ever expires.
+                const created = await kv.set(
+                    key,
+                    { hash: hashPw(password, salt), salt, sessionEpoch },
+                    { nx: true },
+                );
+                if (!created) {
+                    return { status: 409, body: { ok: false, error: 'Account already has a password.' } };
+                }
+                return null;
+            }, { failClosed: true });
+            if (registrationError) {
+                return res.status(registrationError.status).json(registrationError.body);
             }
-
-            const salt = newSalt();
-            await kv.set(key, { hash: hashPw(password, salt), salt });
             await recordBetaMetric({ event: 'account.registered', playerName: safeName(name), source: 'auth' });
         } catch (err) {
             console.error('[player-auth register]', String(err));
@@ -211,35 +299,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // immediately instead of re-sending the password (and re-running
         // scrypt server-side) on every subsequent request. null when
         // SESSION_SECRET is unset — client then keeps using the password.
-        return res.status(200).json({ ok: true, token: issuePlayerToken(name) ?? undefined });
+        return res.status(200).json({
+            ok: true,
+            token: issuePlayerToken(name, undefined, registeredSessionEpoch) ?? undefined,
+        });
     }
 
     if (action === 'verify') {
-        // Verify a password. Returns { ok: true } on match, { ok: false } on mismatch,
-        // or { ok: true, legacy: true } if no server password exists yet (legacy account).
-        if (!password) return res.status(400).json({ ok: false, error: 'Missing password.' });
+        // Verify a password. Legacy saves without a credential are recovery
+        // cases, never successful authentication.
+        if (typeof password !== 'string' || !password) {
+            return res.status(400).json({ ok: false, error: 'Missing password.' });
+        }
         let record: AuthRecord | null;
         try {
             record = await kv.get<AuthRecord>(key);
         } catch (err) {
             // KV read failure (Supabase timeout, network hiccup, etc.).
-            // Return 503 so the client can fall back to local auth rather than
-            // showing "wrong password" when the server is just temporarily unavailable.
+            // Return 503 rather than misreporting a storage outage as a wrong
+            // password. The client keeps the account locked and offers retry.
             console.error('[player-auth verify]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
         if (!record) {
-            // No server-side password stored yet (account predates this auth system).
-            // Return legacy=true so the client can decide whether to register the password.
-            return res.status(200).json({ ok: true, legacy: true });
+            // Only a real save qualifies as legacy. The client may surface the
+            // recovery state, but only authenticated adminreset can claim it.
+            try {
+                const saveBlob = await kv.get<Record<string, unknown>>(`save:${safeName(name)}`);
+                if (saveBlob) {
+                    return res.status(409).json({
+                        ok: false,
+                        error: 'This legacy account requires authenticated admin recovery.',
+                        legacy: true,
+                        legacyNeedsAdmin: true,
+                    });
+                }
+                return res.status(200).json({ ok: false, unused: true });
+            } catch (err) {
+                console.error('[player-auth verify legacy]', String(err));
+                return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+            }
         }
         const valid = verifyAgainst(record, password);
         // Opportunistically upgrade legacy HMAC hashes to scrypt on each
         // successful verify, so the legacy format dies off over time.
         if (valid && !record.hash.startsWith(SCRYPT_PREFIX)) {
             try {
-                const salt = newSalt();
-                await kv.set(key, { hash: hashScrypt(password, salt), salt });
+                await withKvLock(key, async () => {
+                    const current = await kv.get<AuthRecord>(key);
+                    if (!current || current.hash !== record.hash || current.salt !== record.salt) return;
+                    const salt = newSalt();
+                    await kv.set(key, { ...current, hash: hashScrypt(password, salt), salt });
+                }, { failClosed: true });
             } catch {
                 // best-effort
             }
@@ -267,28 +378,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Mint a session token so subsequent requests use the cheap HMAC path
         // instead of re-running scrypt on every call. null → SESSION_SECRET
         // unset, client falls back to the password path transparently.
-        return res.status(200).json({ ok: true, token: issuePlayerToken(name) ?? undefined });
+        return res.status(200).json({
+            ok: true,
+            token: (await issuePlayerTokenForRecord(name, record)) ?? undefined,
+        });
     }
 
     if (action === 'change') {
-        // Change password — requires old password.
-        if (!oldPassword || !newPassword) {
+        // Change password — requires the current password and serializes all
+        // credential mutations for this account.
+        if (typeof oldPassword !== 'string' || !oldPassword || typeof newPassword !== 'string' || !newPassword) {
             return res.status(400).json({ ok: false, error: 'Missing oldPassword or newPassword.' });
         }
+        const passwordPolicyError = playerPasswordPolicyError(newPassword);
+        if (passwordPolicyError) return res.status(400).json({ ok: false, error: passwordPolicyError });
+        if (safeStringEqual(oldPassword, newPassword)) {
+            return res.status(400).json({ ok: false, error: 'New password must differ from the current password.' });
+        }
         try {
-            const record = await kv.get<AuthRecord>(key);
-            if (!record) {
-                // Legacy account with no password yet — just set it.
+            return await withKvLock(key, async () => {
+                const record = await kv.get<AuthRecord>(key);
+                if (!record) {
+                    const saveBlob = await kv.get<Record<string, unknown>>(`save:${safeName(name)}`);
+                    if (saveBlob) {
+                        return res.status(409).json({
+                            ok: false,
+                            error: 'This legacy account requires authenticated admin recovery.',
+                            legacyNeedsAdmin: true,
+                        });
+                    }
+                    return res.status(404).json({ ok: false, error: 'Account does not exist.' });
+                }
+                if (!verifyAgainst(record, oldPassword)) {
+                    return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
+                }
+
+                // Rotate first: if the following hash write fails, old tokens
+                // are still revoked (safe failure) and the caller can retry.
+                const sessionEpoch = await rotatePlayerSessionEpoch(name);
                 const salt = newSalt();
-                await kv.set(key, { hash: hashPw(newPassword, salt), salt });
-                return res.status(200).json({ ok: true, token: issuePlayerToken(name) ?? undefined });
-            }
-            if (!verifyAgainst(record, oldPassword)) {
-                return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
-            }
-            const salt = newSalt();
-            await kv.set(key, { hash: hashPw(newPassword, salt), salt });
-            return res.status(200).json({ ok: true, token: issuePlayerToken(name) ?? undefined });
+                await kv.set(key, { hash: hashPw(newPassword, salt), salt, sessionEpoch });
+                return res.status(200).json({
+                    ok: true,
+                    token: issuePlayerToken(name, undefined, sessionEpoch) ?? undefined,
+                });
+            }, { failClosed: true });
         } catch (err) {
             console.error('[player-auth change]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
@@ -302,25 +436,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const adminPw = req.headers['x-admin-password'] as string | undefined;
         if (adminPassword && adminPw && safeStringEqual(adminPw, adminPassword)) {
             try {
-                await kv.del(key);
+                await withKvLock(key, async () => {
+                    await rotatePlayerSessionEpoch(name);
+                    await kv.del(key);
+                }, { failClosed: true });
             } catch (err) {
                 console.error('[player-auth delete]', String(err));
                 return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
             }
             return res.status(200).json({ ok: true });
         }
-        if (!password) return res.status(401).json({ ok: false, error: 'Authentication required.' });
+        if (typeof password !== 'string' || !password) {
+            return res.status(401).json({ ok: false, error: 'Authentication required.' });
+        }
         try {
-            const record = await kv.get<AuthRecord>(key);
-            if (record && !verifyAgainst(record, password)) {
-                return res.status(401).json({ ok: false, error: 'Incorrect password.' });
-            }
-            await kv.del(key);
+            return await withKvLock(key, async () => {
+                const record = await kv.get<AuthRecord>(key);
+                if (!record) {
+                    return res.status(404).json({ ok: false, error: 'Account does not exist.' });
+                }
+                if (!verifyAgainst(record, password)) {
+                    return res.status(401).json({ ok: false, error: 'Incorrect password.' });
+                }
+                await rotatePlayerSessionEpoch(name);
+                await kv.del(key);
+                return res.status(200).json({ ok: true });
+            }, { failClosed: true });
         } catch (err) {
             console.error('[player-auth delete]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
-        return res.status(200).json({ ok: true });
     }
 
     if (action === 'adminreset') {
@@ -331,9 +476,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(401).json({ ok: false, error: 'Admin authentication required.' });
         }
         if (!newPassword) return res.status(400).json({ ok: false, error: 'Missing newPassword.' });
+        const passwordPolicyError = playerPasswordPolicyError(newPassword);
+        if (passwordPolicyError) return res.status(400).json({ ok: false, error: passwordPolicyError });
         try {
-            const salt = newSalt();
-            await kv.set(key, { hash: hashPw(newPassword, salt), salt });
+            await withKvLock(key, async () => {
+                const sessionEpoch = await rotatePlayerSessionEpoch(name);
+                const salt = newSalt();
+                await kv.set(key, { hash: hashPw(newPassword, salt), salt, sessionEpoch });
+            }, { failClosed: true });
         } catch (err) {
             console.error('[player-auth adminreset]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });

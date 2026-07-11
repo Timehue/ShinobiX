@@ -16,6 +16,7 @@ import { warnLocalSaveUnavailable } from "./lib/recovery";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
+import { requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
 import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
@@ -173,6 +174,7 @@ const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => 
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
 import { applyWarCrateGrants, claimPendingWarCrates, claimServerWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
+import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { registerSectorBattle, resolveSectorBattle } from "./lib/village-war-map";
 import { masteryBonus } from "./lib/profession-mastery";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
@@ -4792,7 +4794,6 @@ export default function App() {
         // Always verify password against the server first — this is the authoritative check.
         // Local localStorage only provides a fast-path pre-check.
         let authOk = false;
-        let legacy = false;
         let authVerified = false;
         // Retry up to 2 times — handles Supabase cold starts (first call often slow)
         for (let attempt = 0; attempt < 2 && !authVerified; attempt++) {
@@ -4804,11 +4805,18 @@ export default function App() {
                     body: JSON.stringify({ action: 'verify', name: name.trim().toLowerCase(), password }),
                 }, 15000);
                 if (authRes.status === 503) continue; // storage unavailable — retry
+                const authData = await authRes.json().catch(() => ({})) as PlayerAuthResponse;
+                if (requiresLegacyAdminRecovery(authRes.status, authData)) {
+                    // A save without a server credential cannot be claimed from
+                    // localStorage. Only authenticated admin recovery may bind a
+                    // password to it, so never enter the offline/local fallback.
+                    alert("This legacy account does not yet have a server password. For your security, an administrator must verify ownership and reset the password before you can sign in.");
+                    return;
+                }
                 if (authRes.status === 403) {
                     // Account is banned. Show the ban detail and bail out — don't
                     // fall back to local cache, the server explicitly refused.
-                    const banData = await authRes.json().catch(() => ({})) as { ban?: { until: number; reason: string; permanent?: boolean } };
-                    const b = banData.ban;
+                    const b = authData.ban;
                     if (b) {
                         const when = b.permanent ? "permanently" : `until ${new Date(b.until).toLocaleString()}`;
                         alert(`⛔ Your account is banned ${when}.\n\nReason: ${b.reason || "(no reason given)"}`);
@@ -4818,9 +4826,7 @@ export default function App() {
                     return;
                 }
                 if (authRes.ok) {
-                    const authData = await authRes.json() as { ok: boolean; legacy?: boolean; token?: string };
-                    authOk = authData.ok;
-                    legacy = authData.legacy ?? false;
+                    authOk = authData.ok === true;
                     authVerified = true;
                     // Store the session token so every later /api/ request uses
                     // the cheap HMAC path instead of re-running scrypt server-side.
@@ -4861,16 +4867,6 @@ export default function App() {
         if (!authOk) {
             alert("Player name or password is incorrect.");
             return;
-        }
-
-        // Legacy account verified (no server hash yet) AND we have local data proving
-        // this is the real owner — silently upgrade to server-side password now.
-        if (legacy && account && account.password === password) {
-            void fetch('/api/player-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'register', name: name.trim().toLowerCase(), password }),
-            });
         }
 
         // Prime the authFetch interceptor *before* the save GET fires.
@@ -6021,6 +6017,7 @@ export default function App() {
         return Boolean(pet.unlockedForPve);
     }
     async function enterHollowGateShrine(eventCfg?: HollowGateEventConfig) {
+        if (!requireServerSettlement("hollowGateRun")) return;
         if (!character) return;
         // Event gates reshape the run (fewer floors / smaller board / bespoke
         // boss) and may relax the entry gates; the standard shrine when absent.
@@ -6930,6 +6927,7 @@ export default function App() {
                                         label: `Befriend ${encounter.name}`,
                                         tone: "primary",
                                         onSelect: () => {
+                                            if (!requireServerSettlement("hollowGatePetBefriend")) return;
                                             if (character.pets.length >= 5) {
                                                 alert("Your Pet Yard is full (5/5). Release a pet before befriending another.");
                                                 return;
@@ -8266,10 +8264,12 @@ export default function App() {
                             ryo: (isFriendlyDuel ? rewarded.ryo : serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
                             fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
                             auraDust: (rewarded.auraDust ?? 0) + (isFriendlyDuel ? 0 : 6),
-                            inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
+                            inventory: villageWarRaid.warCrate && !warCrateServerAuthEnabled()
+                                ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID]
+                                : rewarded.inventory,
                             // Stamp the canonical crate ID so claimPendingWarCrates'
                             // next sweep skips this war (already credited inline).
-                            claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
+                            claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId && !warCrateServerAuthEnabled()
                                 ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
                                 : (rewarded.claimedWarCrateIds ?? []),
                             totalPvpKills: (rewarded.totalPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),

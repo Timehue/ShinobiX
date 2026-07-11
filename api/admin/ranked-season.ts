@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { isAdmin } from '../_auth.js';
+import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { recordAudit } from '../_audit.js';
 import { startRankedSeason, forceRankedSeasonRollover, SEASON_CURRENT_KEY, type RankedSeason } from '../cron/_ranked-season.js';
@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {
-        if (!isAdmin(req)) return res.status(401).json({ error: 'Unauthorized.' });
+        if (!isFullAdmin(req)) return res.status(401).json({ error: 'Full admin access required.' });
         const current = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ active: !!current, current: current ?? null });
@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method !== 'POST') return res.status(405).end();
     if (!enforceRateLimit(req, res, 'admin-ranked-season', 30, 5 * 60_000)) return;
-    if (!isAdmin(req)) return res.status(401).json({ error: 'Unauthorized.' });
+    if (!isFullAdmin(req)) return res.status(401).json({ error: 'Full admin access required.' });
 
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;

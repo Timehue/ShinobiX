@@ -1,13 +1,21 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   pull_request:
   push:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +37,18 @@ jobs:
       - name: Root tests
         run: npm test
 
+      - name: Deployment topology contract
+        run: node scripts/check-deployment-config.mjs
+
+      - name: Mission eligibility catalog
+        run: npm run test:mission-eligibility
+
+      - name: Release asset references and decodability
+        run: npm run test:release-assets
+
+      - name: Root audit
+        run: npm audit --audit-level=high
+
       - name: Root build
         run: npm run build
 
@@ -39,6 +59,14 @@ jobs:
       - name: Client build
         working-directory: shinobij.client
         run: npm run build
+
+      - name: Install release browsers
+        working-directory: shinobij.client
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Cross-browser responsive and accessibility smoke
+        working-directory: shinobij.client
+        run: npm run test:e2e
 
       - name: Client audit
         working-directory: shinobij.client

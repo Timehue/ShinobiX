@@ -96,6 +96,26 @@ test('recordWarEcoEvent writes the per-village aggregate + capped list', async (
     assert.equal(list[1].eventId, 'd1');
 });
 
+test('concurrent and replayed war telemetry cannot lose or duplicate events', async () => {
+    const kv = memKv();
+    await Promise.all(Array.from({ length: 30 }, (_, i) => recordWarEcoEvent({
+        eventId: `earned:${i}`,
+        village: 'Stormveil Village',
+        kind: 'wr.earn',
+        amount: 2,
+    }, { kv })));
+    await Promise.all([
+        recordWarEcoEvent({ eventId: 'earned:0', village: 'Stormveil Village', kind: 'wr.earn', amount: 2 }, { kv }),
+        recordWarEcoEvent({ eventId: 'earned:0', village: 'Stormveil Village', kind: 'wr.earn', amount: 2 }, { kv }),
+    ]);
+
+    const agg = (await kv.get(warEcoAggKey('Stormveil Village'))) as WarEcoAgg;
+    const list = (await kv.get(WAR_ECO_TXN_LIST_KEY)) as WarEcoEvent[];
+    assert.equal(agg['wr.earn'], 60);
+    assert.equal(list.length, 30);
+    assert.deepEqual(duplicateEventIds(list), []);
+});
+
 test('recordWarEcoEvent is a best-effort no-op on bad input (never throws)', async () => {
     const kv = memKv();
     await recordWarEcoEvent({ eventId: 'x', village: 'Stormveil Village', kind: 'not-a-kind', amount: 50 }, { kv });

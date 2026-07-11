@@ -18,6 +18,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { migrateDiskRoutedKeysToOverlay } from '../_storage.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { withKvLock, LockContendedError } from '../_lock.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
@@ -31,18 +32,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return;
     }
     const dryRun = req.query?.dry === '1' || req.query?.dry === 'true';
+    if (!dryRun && process.env.KV_MIGRATION_WRITE_FROZEN !== '1') {
+        res.status(409).json({
+            ok: false,
+            error: 'Live migration requires KV_MIGRATION_WRITE_FROZEN=1 after legacy base writers are stopped.',
+        });
+        return;
+    }
     try {
-        const result = await migrateDiskRoutedKeysToOverlay({ dryRun });
+        const result = await withKvLock(
+            'admin:migrate-kv',
+            () => migrateDiskRoutedKeysToOverlay({ dryRun }),
+            { failClosed: true, ttlSec: 60 * 60, maxAttempts: 1 },
+        );
         res.status(200).json({
             ok: true,
             dryRun,
             migratedCount: result.migrated.length,
+            alreadyPresentCount: result.alreadyPresent.length,
+            conflictCount: result.conflicts.length,
             skippedCount: result.skipped.length,
             deletedFromBase: result.deleted,
             migrated: result.migrated,
+            alreadyPresent: result.alreadyPresent,
+            conflicts: result.conflicts,
             skipped: result.skipped,
         });
     } catch (err) {
+        if (err instanceof LockContendedError) {
+            res.status(409).json({ ok: false, error: 'Another migration is already running.' });
+            return;
+        }
         console.error('[admin/migrate-kv] failed:', err);
         res.status(500).json({ ok: false, error: 'Internal server error.' });
     }

@@ -14,14 +14,16 @@
 // No-op on cPanel (gated on the env var) so it never clobbers app.js's dispatcher.
 import './api/_force-ipv4.js';
 
-import { startGameLoop } from './api/_realtime/game-loop.js';
+import { startGameLoop, stopGameLoop } from './api/_realtime/game-loop.js';
 import { attachSocketServer } from './api/_realtime/socket.js';
-import { startSnapshotCron } from './api/cron/_scheduler.js';
+import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
 import compression from 'compression';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import { enforceRateLimit } from './api/_ratelimit.js';
+import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/_request-metrics.js';
 
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
@@ -100,6 +102,7 @@ import villageSectorPetHandler  from './api/village/sector-pet.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
+import bankTransferHandler from './api/bank/transfer.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
 // startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
@@ -250,6 +253,12 @@ if (process.env.SENTRY_DSN) {
         Sentry.init({
             dsn: process.env.SENTRY_DSN,
             environment: process.env.NODE_ENV || 'production',
+            release: [
+                process.env.RAILWAY_GIT_COMMIT_SHA,
+                process.env.BUILD_COMMIT,
+                process.env.GIT_COMMIT_SHA,
+                process.env.SOURCE_VERSION,
+            ].map((value) => String(value ?? '').trim()).find((value) => /^[0-9a-f]{7,64}$/i.test(value)),
             tracesSampleRate: 0,
             sendDefaultPii: false,
         });
@@ -266,6 +275,7 @@ if (process.env.SENTRY_DSN) {
 // gracefulShutdown so a restart or an uncaught crash can drain in-flight
 // requests before exiting, instead of severing them mid-response.
 let _httpServer: import('node:http').Server | undefined;
+let _shutdownStarted = false;
 
 // Drain in-flight requests, then exit so the supervisor respawns a fresh worker
 // (Passenger on cPanel, the platform on Railway). A bare process.exit() cuts
@@ -277,7 +287,11 @@ let _httpServer: import('node:http').Server | undefined;
 // held open by an idle client. A bounded backstop force-exits if draining stalls
 // (a slow/streaming response), so a restart can never hang forever.
 function gracefulShutdown(code: number, reason: string): void {
+    if (_shutdownStarted) return;
+    _shutdownStarted = true;
     console.log(`[shutdown] draining in-flight requests (${reason})`);
+    stopGameLoop();
+    stopSnapshotCron();
     let exited = false;
     const exit = (how: string): void => {
         if (exited) return;
@@ -316,6 +330,13 @@ if (!Sentry) {
         gracefulShutdown(1, 'uncaughtException');
     });
 }
+
+// Railway and other container supervisors use SIGTERM for deploy replacement.
+// Drain exactly the same way as an operator restart or fatal exception so an
+// in-flight save/reward write is not cut in half. Railway should allow at least
+// 10 seconds of deployment draining; our own bounded backstop exits after 4s.
+process.once('SIGTERM', () => gracefulShutdown(0, 'SIGTERM'));
+process.once('SIGINT', () => gracefulShutdown(0, 'SIGINT'));
 
 // ─── App setup ───────────────────────────────────────────────────────────────
 
@@ -368,6 +389,30 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         : randomUUID().slice(0, 8);
     (req as Request & { id?: string }).id = id;
     res.setHeader('x-request-id', id);
+    next();
+});
+
+// Short rolling request telemetry for release health. It is intentionally
+// in-process, bounded, and path-grouped: no player names are retained and a
+// request flood cannot grow memory without limit. A protected deep-health call
+// exposes p50/p95/p99 and 5xx rates; sustained SLO breaches also emit a
+// throttled warning to logs and Sentry.
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const started = process.hrtime.bigint();
+    res.once('finish', () => {
+        const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000;
+        recordRequestMetric({
+            method: req.method,
+            path: req.path,
+            statusCode: res.statusCode,
+            durationMs,
+        });
+        const alert = requestSloAlert();
+        if (alert) {
+            console.warn(alert);
+            try { Sentry?.captureMessage(alert, 'warning'); } catch { /* reporting must never affect a response */ }
+        }
+    });
     next();
 });
 
@@ -459,6 +504,17 @@ function route(path: string, handler: AnyHandler) {
 
 // Cached at module-load time so each request is a free read.
 const _BUILD_INFO = (() => {
+    const startedAt = new Date().toISOString();
+    const configured = [
+        process.env.RAILWAY_GIT_COMMIT_SHA,
+        process.env.BUILD_COMMIT,
+        process.env.GIT_COMMIT_SHA,
+        process.env.SOURCE_VERSION,
+    ].map((value) => String(value ?? '').trim()).find((value) => /^[0-9a-f]{7,64}$/i.test(value));
+    if (configured) {
+        const commit = configured.toLowerCase();
+        return { commit, commitShort: commit.slice(0, 8), commitSource: 'environment', startedAt };
+    }
     try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const fs = require('node:fs') as typeof import('node:fs');
@@ -470,20 +526,71 @@ const _BUILD_INFO = (() => {
         const sha = ref
             ? fs.readFileSync(path.join(__dirname, '..', '.git', ref), 'utf8').trim()
             : head;
-        return { commit: sha.slice(0, 8), startedAt: new Date().toISOString() };
+        if (!/^[0-9a-f]{7,64}$/i.test(sha)) throw new Error('invalid git commit');
+        const commit = sha.toLowerCase();
+        return { commit, commitShort: commit.slice(0, 8), commitSource: 'git', startedAt };
     } catch {
-        return { commit: 'unknown', startedAt: new Date().toISOString() };
+        return { commit: 'unknown', commitShort: 'unknown', commitSource: 'unknown', startedAt };
     }
 })();
+
+type DbHealthResult = Awaited<ReturnType<typeof runDbHealthProbe>>;
+type DeepHealthSource = 'hit' | 'shared' | 'miss';
+const _DEEP_HEALTH_CACHE_MS = Math.min(60_000, Math.max(1_000, Number(process.env.DEEP_HEALTH_CACHE_MS) || 15_000));
+let _deepHealthCache: { expiresAt: number; result: DbHealthResult } | null = null;
+let _deepHealthInFlight: Promise<DbHealthResult> | null = null;
+
+function deepHealthAuthorized(req: Request): boolean {
+    const expected = String(process.env.HEALTH_DEEP_TOKEN ?? '').trim();
+    if (!expected) return true;
+    const authorization = headerValue(req.headers.authorization);
+    const bearer = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+    const explicit = headerValue(req.headers['x-health-token']);
+    const provided = explicit || bearer;
+    return !!provided && safeEqual(provided, expected);
+}
+
+async function getDbHealthProbe(): Promise<{ result: DbHealthResult; source: DeepHealthSource }> {
+    const now = Date.now();
+    if (_deepHealthCache && _deepHealthCache.expiresAt > now) {
+        return { result: _deepHealthCache.result, source: 'hit' };
+    }
+    if (_deepHealthInFlight) {
+        return { result: await _deepHealthInFlight, source: 'shared' };
+    }
+    const pending = runDbHealthProbe();
+    _deepHealthInFlight = pending;
+    try {
+        const result = await pending;
+        _deepHealthCache = { result, expiresAt: Date.now() + _DEEP_HEALTH_CACHE_MS };
+        return { result, source: 'miss' };
+    } finally {
+        if (_deepHealthInFlight === pending) _deepHealthInFlight = null;
+    }
+}
+
+async function sendDeepHealth(req: Request, res: Response): Promise<void> {
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (!deepHealthAuthorized(req)) {
+        res.status(401).json({ ok: false, error: 'Deep health token required.', ..._BUILD_INFO });
+        return;
+    }
+    if (!enforceRateLimit(req, res, 'deep-health', 30, 60_000)) return;
+    const { result, source } = await getDbHealthProbe();
+    res.setHeader('X-Health-Probe', source);
+    res.status(result.ok ? 200 : 503).json({
+        ...result,
+        requestMetrics: readRequestMetrics(),
+        ..._BUILD_INFO,
+    });
+}
 
 app.get(['/health', '/api/health'], async (req, res) => {
     // Default: cheap process-liveness (what Railway's configured health check
     // hits — must stay fast so a slow DB can't flap the deploy). ?deep=1 runs
     // the full DB/KV readiness probe (same as /health/db).
     if (req.query.deep === '1') {
-        res.setHeader('Cache-Control', 'no-store');
-        const result = await runDbHealthProbe();
-        res.status(result.ok ? 200 : 503).json({ ...result, ..._BUILD_INFO });
+        await sendDeepHealth(req, res);
         return;
     }
     res.json({ ok: true, ..._BUILD_INFO });
@@ -496,8 +603,17 @@ app.get(['/health', '/api/health'], async (req, res) => {
 // those endpoints depend on against throwaway probe keys (base store: get/set/
 // set-nx/hset/hdel/del, plus the disk-routed `save:` overlay), so an operator
 // can tell a DB outage apart from a code bug. Reachable at /health/db or
-// /health?deep=1. Never cached. Returns 503 (not 200) when any check fails.
-async function runDbHealthProbe(): Promise<{ ok: boolean; checks: Record<string, boolean>; latencyMs: number; saveStore?: string; error?: string }> {
+// /health?deep=1. The expensive probe is single-flight and briefly cached so a
+// public request burst cannot amplify into repeated KV/overlay writes. Returns
+// 503 (not 200) when any check fails.
+async function runDbHealthProbe(): Promise<{
+    ok: boolean;
+    checks: Record<string, boolean>;
+    latencyMs: number;
+    saveStore?: string;
+    backup?: { completedAt?: number; ageMs?: number; fresh: boolean };
+    error?: string;
+}> {
     const checks: Record<string, boolean> = {};
     const t0 = Date.now();
     // Which backend `save:*` resolves to. 'base-store' on a host that serves
@@ -540,17 +656,25 @@ async function runDbHealthProbe(): Promise<{ ok: boolean; checks: Record<string,
         checks.diskRead = !!disk && disk.probe === token;
         await kv.del(diskKey).catch(() => undefined);
 
+        const { isSnapshotMarkerFresh, readSnapshotSuccessMarker } = await import('./api/cron/snapshot-saves.js');
+        const marker = await readSnapshotSuccessMarker();
+        const fresh = isSnapshotMarkerFresh(marker);
+        const backup = {
+            completedAt: marker?.completedAt,
+            ageMs: marker?.completedAt ? Math.max(0, Date.now() - marker.completedAt) : undefined,
+            fresh,
+        };
+        if (process.env.REQUIRE_FRESH_BACKUP === '1') checks.backupFresh = fresh;
+
         const ok = Object.values(checks).every(Boolean);
-        return { ok, checks, latencyMs: Date.now() - t0, saveStore };
+        return { ok, checks, latencyMs: Date.now() - t0, saveStore, backup };
     } catch (err) {
         return { ok: false, checks, latencyMs: Date.now() - t0, saveStore, error: (err as Error).message };
     }
 }
 
-app.get(['/health/db', '/api/health/db'], async (_req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
-    const result = await runDbHealthProbe();
-    res.status(result.ok ? 200 : 503).json({ ...result, ..._BUILD_INFO });
+app.get(['/health/db', '/api/health/db'], async (req, res) => {
+    await sendDeepHealth(req, res);
 });
 
 // Normalize a possibly-array header to a single string (Express can hand
@@ -786,6 +910,9 @@ route('/village/war-merc', villageWarMercHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', bankClaimInterestHandler);
+// Wallet <-> bank moves are authenticated save-lock transactions. Raw
+// autosaves cannot reproduce either side of the transfer.
+route('/bank/transfer', bankTransferHandler);
 
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
