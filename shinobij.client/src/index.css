@@ -285,7 +285,7 @@ textarea {
     gap: 16px;
     align-items: center;
     padding: 22px;
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     border-radius: 16px;
     background: linear-gradient(135deg, rgba(15,23,42,.96), rgba(30,41,59,.92));
     box-shadow: 0 18px 45px rgba(0,0,0,.45);
@@ -294,14 +294,14 @@ textarea {
 h1 {
     margin: 0;
     font-size: 58px;
-    color: #facc15;
+    color: var(--gold);
     letter-spacing: 2px;
     text-shadow: 0 2px 0 #000, 0 0 18px rgba(250,204,21,.45);
 }
 
 h2 {
     margin: 0 0 14px;
-    color: #facc15;
+    color: var(--gold);
     border-bottom: 1px solid rgba(250,204,21,.35);
     padding-bottom: 8px;
 }
@@ -374,7 +374,7 @@ h3 {
 
     .admin-panel-heading p {
         margin-top: 2px;
-        color: #94a3b8;
+        color: var(--text-dim);
     }
 
 .admin-ap-toggle {
@@ -415,7 +415,7 @@ h3 {
 }
 
     .ai-preset-card p {
-        color: #cbd5e1;
+        color: var(--slate-300);
     }
 
 .ai-selected-preview {
@@ -485,13 +485,13 @@ textarea {
     max-width: 720px;
     padding: 11px;
     border-radius: 8px;
-    border: 1px solid #475569;
+    border: 1px solid var(--slate-600);
     background: #020617;
     color: #f8fafc;
 }
 
 button {
-    border: 1px solid #475569;
+    border: 1px solid var(--slate-600);
     border-radius: 9px;
     padding: 10px 13px;
     color: #e0f2fe;
@@ -538,12 +538,12 @@ button {
     .top-hud span {
         display: block;
         font-size: 11px;
-        color: #94a3b8;
+        color: var(--text-dim);
         font-weight: 800;
     }
 
     .top-hud strong {
-        color: #facc15;
+        color: var(--gold);
     }
 
 .nav {
@@ -554,7 +554,7 @@ button {
     padding: 12px;
     border-radius: 12px;
     background: #111827;
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     position: sticky;
     top: 0;
     z-index: 20;
@@ -579,7 +579,7 @@ button {
     place-items: center;
     gap: 5px;
     background: linear-gradient(135deg, rgba(30,58,138,.96), rgba(15,23,42,.96));
-    border: 1px solid #475569;
+    border: 1px solid var(--slate-600);
 }
 
 .tile-icon {
@@ -611,7 +611,7 @@ button {
     display: grid;
     place-items: center;
     background: linear-gradient(135deg, rgba(30, 41, 59, 0.96), rgba(88, 28, 135, 0.5));
-    color: #facc15;
+    color: var(--gold);
     font-weight: 900;
     letter-spacing: 0;
 }
@@ -619,7 +619,7 @@ button {
 .summary-box,
 .jutsu-card {
     background: #020617;
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     border-radius: 12px;
     padding: 13px;
     margin-top: 12px;
@@ -628,7 +628,7 @@ button {
 .locked-jutsu-card {
     opacity: .72;
     border-color: #92400e;
-    background: linear-gradient(180deg, #1e293b, #020617);
+    background: linear-gradient(180deg, var(--slate-800), #020617);
 }
 
 /* ── Hospital admitted banner ── */
@@ -644,14 +644,14 @@ button {
 }
 
     .hospital-admitted-banner strong {
-        color: #fca5a5;
+        color: var(--red-300);
         display: block;
         margin-bottom: 0.25rem;
         font-size: 1rem;
     }
 
     .hospital-admitted-banner p {
-        color: #cbd5e1;
+        color: var(--slate-300);
         font-size: 0.82rem;
         margin: 0;
         line-height: 1.45;
@@ -674,7 +674,7 @@ button {
 
 .summary-box strong,
 .jutsu-card h4 {
-    color: #facc15;
+    color: var(--gold);
 }
 
 .technique-browser {
@@ -706,7 +706,7 @@ button {
 }
 
     .technique-reorder-hint {
-        color: #94a3b8 !important;
+        color: var(--text-dim) !important;
         font-weight: 700 !important;
         font-size: .72rem;
         text-transform: uppercase;
@@ -720,9 +720,9 @@ button {
     height: 30px;
     padding: 0;
     border-radius: 8px;
-    background: #1e293b;
+    background: var(--slate-800);
     border: 2px solid rgba(148, 163, 184, .55);
-    color: #facc15;
+    color: var(--gold);
     font-size: 14px;
     font-weight: 900;
     line-height: 1;
@@ -730,19 +730,19 @@ button {
 }
 
     .technique-reorder-btn:hover:not(:disabled) {
-        border-color: #facc15;
-        background: #0f172a;
+        border-color: var(--gold);
+        background: var(--slate-900);
     }
 
     .technique-reorder-btn:disabled {
         opacity: .35;
         cursor: not-allowed;
-        color: #94a3b8;
+        color: var(--text-dim);
     }
 
 .technique-reorder-note {
     margin: 0;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: .72rem;
     line-height: 1.3;
 }
@@ -774,13 +774,13 @@ button {
     min-height: 118px;
     padding: 5px;
     border-radius: 8px;
-    background: #0f172a;
+    background: var(--slate-900);
     border: 2px solid rgba(148, 163, 184, .55);
     color: #f8fafc;
 }
 
     .technique-card.selected {
-        border-color: #facc15;
+        border-color: var(--gold);
         box-shadow: 0 0 0 2px rgba(250, 204, 21, .25), 0 0 20px rgba(250, 204, 21, .18);
     }
 
@@ -789,7 +789,7 @@ button {
     place-items: center;
     overflow: hidden;
     border-radius: 6px;
-    background: radial-gradient(circle at 50% 35%, rgba(56, 189, 248, .35), transparent 34%), linear-gradient(135deg, #1e293b, #020617);
+    background: radial-gradient(circle at 50% 35%, rgba(56, 189, 248, .35), transparent 34%), linear-gradient(135deg, var(--slate-800), #020617);
 }
 
     .technique-thumb img {
@@ -820,7 +820,7 @@ button {
     display: grid;
     place-items: center;
     border-radius: 999px;
-    background: #facc15;
+    background: var(--gold);
     color: #111827;
     border: 2px solid #111827;
     font-size: 12px;
@@ -832,7 +832,7 @@ button {
     gap: 8px;
     padding: 12px;
     border-radius: 8px;
-    background: #334155;
+    background: var(--slate-700);
     border: 1px solid rgba(226, 232, 240, .35);
 }
 
@@ -917,7 +917,7 @@ button {
     .stat-points-badge.stat-points-empty {
         background: rgba(239, 68, 68, 0.15);
         border-color: rgba(239, 68, 68, 0.4);
-        color: #fca5a5;
+        color: var(--red-300);
     }
 
 .stat-warning {
@@ -955,14 +955,14 @@ button {
     margin: 0;
     font-size: 0.88rem;
     font-weight: 800;
-    color: #e2e8f0;
+    color: var(--slate-200);
     text-transform: uppercase;
     letter-spacing: 0.07em;
 }
 
 .stat-group-heading span {
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 /* ── Individual stat card ── */
@@ -979,7 +979,7 @@ button {
 .stat-card-label {
     font-size: 0.78rem;
     font-weight: 700;
-    color: #f59e0b;
+    color: var(--gold-2);
     letter-spacing: 0.03em;
     text-transform: uppercase;
 }
@@ -993,12 +993,12 @@ button {
 .stat-current {
     font-size: 1.2rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
 
 .stat-max {
     font-size: 0.78rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 /* Progress bar */
@@ -1011,7 +1011,7 @@ button {
 
 .stat-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #38bdf8, #818cf8);
+    background: linear-gradient(90deg, var(--cyan), #818cf8);
     border-radius: 4px;
     transition: width 0.3s ease;
 }
@@ -1029,7 +1029,7 @@ button {
     border-radius: 6px;
     border: 1px solid rgba(148, 163, 184, 0.3);
     background: rgba(15, 23, 42, 0.7);
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-size: 0.85rem;
     text-align: center;
 }
@@ -1081,7 +1081,7 @@ button {
 
 .tag-effect-help {
     grid-column: 1 / -1;
-    color: #94a3b8;
+    color: var(--text-dim);
     line-height: 1.35;
 }
 
@@ -1099,7 +1099,7 @@ button {
     height: 600px;
     overflow: hidden;
     border-radius: 18px;
-    border: 3px solid #1e293b;
+    border: 3px solid var(--slate-800);
     background: radial-gradient(circle at 21% 25%, #166534 0 12%, transparent 13%), radial-gradient(circle at 78% 24%, #7f1d1d 0 13%, transparent 14%), radial-gradient(circle at 22% 78%, #bfdbfe 0 13%, transparent 14%), radial-gradient(circle at 78% 78%, #312e81 0 13%, transparent 14%), radial-gradient(circle at 50% 50%, #a16207 0 14%, transparent 15%), linear-gradient(135deg, #075985, #082f49 45%, #020617);
     box-shadow: inset 0 0 110px rgba(0,0,0,.72), 0 0 25px rgba(14,165,233,.18);
 }
@@ -1153,7 +1153,7 @@ button {
     top: 50%;
     transform: translate(-50%, -50%);
     background: #020617;
-    border: 2px solid #facc15;
+    border: 2px solid var(--gold);
     border-radius: 14px;
     padding: 14px 18px;
     color: #fef3c7;
@@ -1167,7 +1167,7 @@ button {
     z-index: 4;
     height: 6px;
     border-radius: 999px;
-    background: repeating-linear-gradient(90deg, #fde68a 0 10px, #a16207 10px 18px);
+    background: repeating-linear-gradient(90deg, var(--gold-300) 0 10px, #a16207 10px 18px);
     box-shadow: 0 0 12px rgba(250,204,21,.55);
     transform-origin: left center;
 }
@@ -1213,7 +1213,7 @@ button {
         min-width: 130px;
         padding: 8px 10px;
         background: rgba(2,6,23,.9);
-        border: 1px solid #38bdf8;
+        border: 1px solid var(--cyan);
         font-size: 12px;
     }
 
@@ -1303,7 +1303,7 @@ button {
     .world-travel-point span {
         font-size: 18px;
         font-weight: 900;
-        color: #0f172a;
+        color: var(--slate-900);
     }
 
     .world-travel-point small {
@@ -1334,7 +1334,7 @@ button {
 }
 
 .world-central {
-    background: linear-gradient(135deg, #fde68a, #fbbf24);
+    background: linear-gradient(135deg, var(--gold-300), #fbbf24);
 }
 
 .world-village,
@@ -1373,7 +1373,7 @@ button {
     place-items: center;
     gap: 8px;
     align-content: center;
-    border: 3px solid #334155;
+    border: 3px solid var(--slate-700);
     border-radius: 6px;
     background: radial-gradient(circle at 50% 38%, rgba(255,255,255,.2), transparent 18%), linear-gradient(135deg, #0f4ca7, #092f6b);
 }
@@ -1414,7 +1414,7 @@ button {
 }
 
 .sector-central .sector-node {
-    background: linear-gradient(135deg, #22c55e, #15803d);
+    background: linear-gradient(135deg, var(--success), #15803d);
     color: #f8fafc;
 }
 
@@ -1444,7 +1444,7 @@ button {
     top: 13%;
     width: 45%;
     height: 60%;
-    background: radial-gradient(circle at 20% 18%, #b91c1c 0 13%, transparent 14%), radial-gradient(circle at 30% 60%, #14532d 0 18%, transparent 19%), radial-gradient(circle at 72% 61%, #d9c59a 0 36%, transparent 37%), linear-gradient(135deg, #9f6532, #b99058 48%, #dccca5);
+    background: radial-gradient(circle at 20% 18%, var(--red) 0 13%, transparent 14%), radial-gradient(circle at 30% 60%, #14532d 0 18%, transparent 19%), radial-gradient(circle at 72% 61%, #d9c59a 0 36%, transparent 37%), linear-gradient(135deg, #9f6532, #b99058 48%, #dccca5);
     clip-path: polygon(8% 31%, 17% 10%, 37% 6%, 47% 15%, 67% 12%, 89% 27%, 95% 48%, 82% 67%, 77% 94%, 55% 89%, 42% 74%, 20% 82%, 5% 64%);
 }
 
@@ -1453,7 +1453,7 @@ button {
     top: 28%;
     width: 36%;
     height: 42%;
-    background: radial-gradient(circle at 33% 42%, #dc2626 0 22%, transparent 23%), radial-gradient(circle at 73% 72%, #166534 0 18%, transparent 19%), linear-gradient(135deg, #94a3b8, #78ddb7 48%, #60a5fa);
+    background: radial-gradient(circle at 33% 42%, var(--red-600) 0 22%, transparent 23%), radial-gradient(circle at 73% 72%, #166534 0 18%, transparent 19%), linear-gradient(135deg, var(--text-dim), #78ddb7 48%, var(--blue-400));
     clip-path: polygon(5% 35%, 23% 8%, 52% 5%, 76% 18%, 96% 42%, 86% 65%, 95% 90%, 68% 96%, 50% 75%, 22% 89%, 8% 65%);
 }
 
@@ -1462,7 +1462,7 @@ button {
     top: 4%;
     width: 29%;
     height: 26%;
-    background: radial-gradient(circle at 28% 44%, #f8fafc 0 20%, transparent 21%), linear-gradient(135deg, #e0f2fe, #93c5fd 50%, #64748b);
+    background: radial-gradient(circle at 28% 44%, #f8fafc 0 20%, transparent 21%), linear-gradient(135deg, #e0f2fe, var(--blue-300) 50%, var(--text-muted));
     clip-path: polygon(7% 27%, 24% 6%, 45% 12%, 59% 3%, 82% 17%, 94% 45%, 78% 70%, 89% 92%, 50% 87%, 24% 96%, 10% 70%);
 }
 
@@ -1471,7 +1471,7 @@ button {
     top: 75%;
     width: 42%;
     height: 17%;
-    background: radial-gradient(circle at 74% 36%, #22c55e 0 16%, transparent 17%), linear-gradient(135deg, #7c3aed, #6ee7b7 50%, #d9f99d);
+    background: radial-gradient(circle at 74% 36%, var(--success) 0 16%, transparent 17%), linear-gradient(135deg, #7c3aed, #6ee7b7 50%, #d9f99d);
     clip-path: polygon(4% 45%, 14% 18%, 29% 34%, 43% 11%, 59% 29%, 76% 18%, 95% 40%, 87% 70%, 61% 62%, 45% 89%, 22% 72%);
 }
 
@@ -1548,8 +1548,8 @@ button {
     transform: translate(-50%, -50%);
     border: 0;
     border-radius: 999px;
-    border: 2px solid #dc2626;
-    background: radial-gradient(circle at 35% 28%, rgba(255,255,255,.7), transparent 22%), linear-gradient(180deg, #fde047, #f59e0b);
+    border: 2px solid var(--red-600);
+    background: radial-gradient(circle at 35% 28%, rgba(255,255,255,.7), transparent 22%), linear-gradient(180deg, #fde047, var(--gold-2));
     color: #7f1d1d;
     font-size: 12px;
     font-weight: 900;
@@ -1569,7 +1569,7 @@ button {
     height: 36px;
     font-size: 18px;
     background: radial-gradient(circle at 38% 30%, rgba(255,100,0,.25), transparent 40%), linear-gradient(180deg, #1a0000, #3b0000);
-    border: 2px solid #dc2626;
+    border: 2px solid var(--red-600);
     box-shadow: 0 0 0 3px rgba(220,38,38,.35), 0 0 18px rgba(220,38,38,.6), 0 4px 10px rgba(0,0,0,.6);
     z-index: 10;
     animation: deaths-gate-pulse 2.2s ease-in-out infinite;
@@ -1601,7 +1601,7 @@ button {
 }
 .atlas-sector-hunt-trail {
     z-index: 10;
-    border-color: #fde68a;
+    border-color: var(--gold-300);
     box-shadow: 0 0 0 3px rgba(250,204,21,.35), 0 0 18px rgba(250,204,21,.55), 0 4px 10px rgba(0,0,0,.45);
 }
 @keyframes weekly-boss-sector-pulse {
@@ -1632,7 +1632,7 @@ button {
     place-items: center;
     border-radius: 50%;
     color: #451a03;
-    background: linear-gradient(180deg, #fde68a, #f59e0b);
+    background: linear-gradient(180deg, var(--gold-300), var(--gold-2));
     border: 1px solid rgba(120,53,15,.85);
     pointer-events: none;
     filter: drop-shadow(0 0 4px rgba(250,204,21,.9)) drop-shadow(0 1px 1px #000);
@@ -1808,7 +1808,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, .3);
     background: rgba(2, 6, 23, .74);
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
@@ -1844,7 +1844,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
     .atlas-landmark strong {
-        color: #facc15;
+        color: var(--gold);
         font-size: 16px;
     }
 
@@ -1903,15 +1903,15 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     gap: 8px;
     padding: 12px;
     border: 6px solid #7c3f11;
-    border-image: linear-gradient(#f59e0b, #7c2d12) 1;
+    border-image: linear-gradient(var(--gold-2), #7c2d12) 1;
     background: linear-gradient(90deg, rgba(120,53,15,.88), rgba(15,23,42,.96) 16%, rgba(15,23,42,.96) 84%, rgba(120,53,15,.88));
-    box-shadow: 0 18px 45px rgba(0,0,0,.52), inset 0 0 0 2px #facc15;
+    box-shadow: 0 18px 45px rgba(0,0,0,.52), inset 0 0 0 2px var(--gold);
 }
 
 .instance-sidebar,
 .instance-actions {
     padding: 10px;
-    border: 2px solid #f59e0b;
+    border: 2px solid var(--gold-2);
     background: linear-gradient(180deg, #7f1d1d, #3f0b16);
     color: #f8fafc;
     box-shadow: inset 0 0 18px rgba(0,0,0,.45);
@@ -1938,7 +1938,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     margin: 0 auto;
     display: grid;
     place-items: center;
-    border: 3px solid #facc15;
+    border: 3px solid var(--gold);
     background: radial-gradient(circle, #67e8f9, #1d4ed8 62%, #111827);
     color: #f8fafc;
     font-size: 26px;
@@ -1957,7 +1957,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     gap: 8px;
     padding: 8px 10px;
     background: linear-gradient(#2f1d0c, #111827);
-    border-bottom: 3px solid #f59e0b;
+    border-bottom: 3px solid var(--gold-2);
     color: #fef3c7;
 }
 
@@ -2019,7 +2019,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .tile-tree {
-    background: radial-gradient(circle at 55% 35%, #22c55e 0 24%, transparent 25%), linear-gradient(135deg, #166534, #14532d);
+    background: radial-gradient(circle at 55% 35%, var(--success) 0 24%, transparent 25%), linear-gradient(135deg, #166534, #14532d);
 }
 
 .tile-water {
@@ -2027,13 +2027,13 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .tile-path {
-    background: linear-gradient(135deg, #fde68a 0 50%, #f8c57e 50%);
+    background: linear-gradient(135deg, var(--gold-300) 0 50%, #f8c57e 50%);
     color: #111827;
     text-shadow: none;
 }
 
 .tile-rock {
-    background: linear-gradient(135deg, #64748b 0 50%, #334155 50%);
+    background: linear-gradient(135deg, var(--text-muted) 0 50%, var(--slate-700) 50%);
 }
 
 .tile-snow {
@@ -2043,7 +2043,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .tile-lava {
-    background: linear-gradient(135deg, #ef4444 0 50%, #7f1d1d 50%);
+    background: linear-gradient(135deg, var(--danger) 0 50%, #7f1d1d 50%);
 }
 
 .tile-ash {
@@ -2055,7 +2055,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .tile-stone {
-    background: linear-gradient(135deg, #94a3b8 0 50%, #475569 50%);
+    background: linear-gradient(135deg, var(--text-dim) 0 50%, var(--slate-600) 50%);
 }
 
 .tile-village {
@@ -2063,7 +2063,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .tile-castle {
-    background: linear-gradient(135deg, #facc15 0 50%, #16a34a 50%);
+    background: linear-gradient(135deg, var(--gold) 0 50%, #16a34a 50%);
 }
 
 .scene-hotbar {
@@ -2072,7 +2072,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     gap: 5px;
     padding: 7px;
     background: linear-gradient(#7f1d1d, #be123c);
-    border-top: 3px solid #f59e0b;
+    border-top: 3px solid var(--gold-2);
 }
 
     .scene-hotbar span {
@@ -2101,7 +2101,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     .instance-actions button {
         min-height: 42px;
         background: linear-gradient(#92400e, #431407);
-        border-color: #facc15;
+        border-color: var(--gold);
     }
 
 @media (max-width: 900px) {
@@ -2147,7 +2147,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     }
 
     .right-menu-panel h3 {
-        color: #facc15;
+        color: var(--gold);
         margin-top: 12px;
         text-shadow: 0 2px 4px #000, 0 0 10px rgba(0, 0, 0, 0.9);
     }
@@ -2185,7 +2185,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #cbd5e1;
+    color: var(--slate-300);
     text-shadow: 0 1px 3px #000;
 }
 
@@ -2285,14 +2285,14 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .daily-briefing-titles h2 {
     margin: 0;
     font-size: 1.5rem;
-    color: #fde68a;
+    color: var(--gold-300);
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
     letter-spacing: 0.01em;
 }
 .daily-briefing-titles p {
     margin: 4px 0 0;
     font-size: 0.85rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
 }
 .daily-briefing-close {
@@ -2324,9 +2324,9 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     background: linear-gradient(135deg, rgba(120, 53, 15, 0.6), rgba(2, 6, 15, 0.55));
 }
 .db-reward-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.db-reward-amt { font-size: 1.15rem; font-weight: 800; color: #fcd34d; text-shadow: 0 1px 4px #000; }
+.db-reward-amt { font-size: 1.15rem; font-weight: 800; color: var(--gold-400); text-shadow: 0 1px 4px #000; }
 .db-reward-shards { font-size: 0.95rem; font-weight: 800; color: #ce93d8; }
-.db-reward-sub { font-size: 0.82rem; color: #e2e8f0; }
+.db-reward-sub { font-size: 0.82rem; color: var(--slate-200); }
 .db-claim-btn {
     padding: 9px 18px;
     border-radius: 9px;
@@ -2346,7 +2346,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 @keyframes db-claim-pulse { 0%, 100% { box-shadow: 0 2px 10px rgba(217, 119, 6, 0.45); } 50% { box-shadow: 0 2px 18px rgba(252, 211, 77, 0.75); } }
 .db-streak { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
 .db-streak-flame { font-size: 0.95rem; font-weight: 800; color: #fb923c; }
-.db-streak-next { font-size: 0.72rem; color: #cbd5e1; }
+.db-streak-next { font-size: 0.72rem; color: var(--slate-300); }
 
 /* Sections */
 .db-section { min-width: 0; background: rgba(2, 6, 15, 0.55); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px; padding: 12px 14px; }
@@ -2356,7 +2356,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 /* Recommendations */
@@ -2381,21 +2381,21 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .db-reco-icon { flex: 0 0 auto; font-size: 1.4rem; }
 .db-reco-text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 .db-reco-title { font-weight: 700; font-size: 0.92rem; }
-.db-reco-detail { font-size: 0.76rem; color: #cbd5e1; }
-.db-reco-cta { flex: 0 0 auto; font-size: 0.78rem; font-weight: 700; color: #fcd34d; white-space: nowrap; }
+.db-reco-detail { font-size: 0.76rem; color: var(--slate-300); }
+.db-reco-cta { flex: 0 0 auto; font-size: 0.78rem; font-weight: 700; color: var(--gold-400); white-space: nowrap; }
 
 /* Two-column grid (training + today) */
 .db-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .db-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
 .db-list-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.85rem; }
-.db-list-key { color: #e2e8f0; }
+.db-list-key { color: var(--slate-200); }
 .db-list-val { color: #67e8f9; font-weight: 700; font-variant-numeric: tabular-nums; }
 .db-list-go {
     min-height: 32px;
     background: none;
     border: none;
     padding: 6px 0;
-    color: #fcd34d;
+    color: var(--gold-400);
     font-weight: 700;
     font-size: 0.85rem;
     cursor: pointer;
@@ -2409,9 +2409,9 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .db-objective-count { flex: 0 0 auto; font-size: 0.78rem; font-weight: 700; color: #67e8f9; font-variant-numeric: tabular-nums; }
 .db-objective-bar { margin: 0; }
 .db-objective-reqs { gap: 5px; }
-.db-objective-reqs .db-list-key { color: #cbd5e1; font-size: 0.82rem; }
-.db-objective-reqs .db-list-val { color: #94a3b8; font-weight: 600; }
-.db-objective-ready { margin: 0; font-size: 0.84rem; font-weight: 700; color: #4ade80; }
+.db-objective-reqs .db-list-key { color: var(--slate-300); font-size: 0.82rem; }
+.db-objective-reqs .db-list-val { color: var(--text-dim); font-weight: 600; }
+.db-objective-ready { margin: 0; font-size: 0.84rem; font-weight: 700; color: var(--green-400); }
 .db-objective-cta { align-self: flex-start; margin-top: 2px; }
 
 /* World report */
@@ -2437,9 +2437,9 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .db-war-village { background: rgba(190, 18, 60, 0.85); color: #fff; }
 .db-war-clan { background: rgba(124, 58, 237, 0.85); color: #fff; }
 .db-war-vs { flex: 1 1 150px; min-width: 0; font-size: 0.85rem; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
-.db-war-vs em { color: #94a3b8; font-style: normal; padding: 0 3px; }
-.db-war-note { flex: 1 1 220px; min-width: 0; font-size: 0.72rem; line-height: 1.28; color: #94a3b8; text-align: right; overflow-wrap: anywhere; white-space: normal; }
-.db-empty { margin: 0; font-size: 0.84rem; color: #94a3b8; font-style: italic; }
+.db-war-vs em { color: var(--text-dim); font-style: normal; padding: 0 3px; }
+.db-war-note { flex: 1 1 220px; min-width: 0; font-size: 0.72rem; line-height: 1.28; color: var(--text-dim); text-align: right; overflow-wrap: anywhere; white-space: normal; }
+.db-empty { margin: 0; font-size: 0.84rem; color: var(--text-dim); font-style: italic; }
 
 /* Footer */
 .daily-briefing-footer {
@@ -2453,7 +2453,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     padding: 11px;
     border-radius: 10px;
     border: 1px solid rgba(250, 204, 21, 0.4);
-    background: linear-gradient(180deg, #f59e0b, #b45309);
+    background: linear-gradient(180deg, var(--gold-2), #b45309);
     color: #1a1207;
     font-weight: 800;
     font-size: 0.95rem;
@@ -2526,7 +2526,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .act-label {
-    color: #facc15;
+    color: var(--gold);
     letter-spacing: 2px;
     font-size: 12px;
     font-weight: 900;
@@ -2543,7 +2543,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .dialogue-box {
     margin-top: 16px;
     padding: 16px;
-    border-left: 4px solid #38bdf8;
+    border-left: 4px solid var(--cyan);
     background: rgba(2,6,23,.72);
     border-radius: 12px;
 }
@@ -2658,7 +2658,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .mentor-character {
     left: 8%;
     bottom: 150px;
-    background: radial-gradient(circle at 50% 25%, #e0f2fe 0 18%, transparent 19%), linear-gradient(180deg, #334155, #0f172a);
+    background: radial-gradient(circle at 50% 25%, #e0f2fe 0 18%, transparent 19%), linear-gradient(180deg, var(--slate-700), var(--slate-900));
 }
 
 .hero-character {
@@ -2691,7 +2691,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     bottom: 24px;
     min-height: 150px;
     padding: 18px 20px 16px;
-    border: 3px solid #facc15;
+    border: 3px solid var(--gold);
     border-radius: 12px;
     background: linear-gradient(180deg, rgba(255,255,255,.08), transparent 40%), rgba(6, 12, 24, .94);
     box-shadow: 0 18px 35px rgba(0,0,0,.42);
@@ -2702,7 +2702,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     margin-bottom: 8px;
     padding: 6px 12px;
     border-radius: 999px;
-    background: linear-gradient(#b91c1c, #5b1010);
+    background: linear-gradient(var(--red), #5b1010);
     color: #fef3c7;
     font-weight: 900;
 }
@@ -2756,7 +2756,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
     .vn-choice-btn:hover {
         background: rgba(250,204,21,.18);
-        border-color: #fcd34d;
+        border-color: var(--gold-400);
     }
 
 .vn-conclusion {
@@ -2823,7 +2823,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
     .vn-avatar-editor-card small {
         min-height: 32px;
-        color: #94a3b8;
+        color: var(--text-dim);
         line-height: 1.35;
     }
 
@@ -2873,7 +2873,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
         width: 100%;
         box-sizing: border-box;
         font-size: 13px;
-        color: #cbd5e1;
+        color: var(--slate-300);
         background: rgba(2,6,23,.6);
         border: 1px solid rgba(100,116,139,.4);
         border-radius: 6px;
@@ -2960,12 +2960,12 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
     .pet-slot-card:hover:not(.pet-empty) {
-        border-color: #fcd34d;
+        border-color: var(--gold-400);
         transform: translateY(-2px);
     }
 
     .pet-slot-card.pet-selected {
-        border-color: #fcd34d;
+        border-color: var(--gold-400);
         background: rgba(250,204,21,.12);
     }
 
@@ -3015,7 +3015,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .rarity-standard {
     background: rgba(148,163,184,.25);
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 .rarity-uncommon {
@@ -3030,7 +3030,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .rarity-legendary {
     background: rgba(250,204,21,.2);
-    color: #fcd34d;
+    color: var(--gold-400);
 }
 
 .rarity-mythic {
@@ -3085,7 +3085,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .pet-training-tag {
     font-size: 0.6rem;
-    color: #93c5fd;
+    color: var(--blue-300);
     font-weight: 700;
 }
 
@@ -3151,7 +3151,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     .pet-trait-display p {
         margin: 4px 0 0;
         font-size: 0.82rem;
-        color: #94a3b8;
+        color: var(--text-dim);
     }
 
 .pet-stats-grid {
@@ -3168,7 +3168,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .pet-description {
     font-size: 0.82rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-style: italic;
 }
 
@@ -3193,7 +3193,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     }
 
     .pet-happiness-meter-top span {
-        color: #e2e8f0;
+        color: var(--slate-200);
         font-weight: 900;
     }
 
@@ -3210,7 +3210,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
         width: var(--pet-happiness, 0%);
         height: 100%;
         border-radius: inherit;
-        background: linear-gradient(90deg, #ef4444, #facc15 50%, #22c55e);
+        background: linear-gradient(90deg, var(--danger), var(--gold) 50%, var(--success));
         box-shadow: 0 0 12px rgba(250, 204, 21, 0.3);
         transition: width 0.25s ease;
     }
@@ -3238,7 +3238,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .training-timer {
     font-size: 1.3rem;
     font-weight: 900;
-    color: #93c5fd;
+    color: var(--blue-300);
     margin: 6px 0 0;
 }
 
@@ -3280,14 +3280,14 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .pet-jutsu-stat {
     font-size: 0.72rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     white-space: nowrap;
 }
 
 .pet-empty-state {
     text-align: center;
     padding: 40px;
-    color: #94a3b8;
+    color: var(--text-dim);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -3305,20 +3305,20 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     .combat-stats > div {
         padding: 14px;
         background: #020617;
-        border: 1px solid #334155;
+        border: 1px solid var(--slate-700);
         border-radius: 12px;
     }
 
 .bar-label {
     margin-top: 9px;
-    color: #cbd5e1;
+    color: var(--slate-300);
     font-size: 13px;
 }
 
 .bar {
     height: 15px;
-    background: #0f172a;
-    border: 1px solid #334155;
+    background: var(--slate-900);
+    border: 1px solid var(--slate-700);
     border-radius: 999px;
     overflow: hidden;
 }
@@ -3326,11 +3326,11 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     .bar span {
         display: block;
         height: 100%;
-        background: linear-gradient(90deg, #16a34a, #86efac);
+        background: linear-gradient(90deg, #16a34a, var(--green-300));
     }
 
 .enemy-bar span {
-    background: linear-gradient(90deg, #dc2626, #fb7185);
+    background: linear-gradient(90deg, var(--red-600), #fb7185);
 }
 
 .ap-bar span {
@@ -3342,7 +3342,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     padding: 13px;
     border-radius: 10px;
     background: #020617;
-    color: #fde68a;
+    color: var(--gold-300);
     border: 1px solid rgba(250,204,21,.45);
 }
 
@@ -3353,7 +3353,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     padding: 14px;
     border-radius: 18px;
     background: linear-gradient(135deg, rgba(2,6,23,.97), rgba(15,23,42,.96));
-    border: 2px solid #334155;
+    border: 2px solid var(--slate-700);
     box-shadow: 0 0 35px rgba(0,0,0,.55);
 }
 
@@ -3380,7 +3380,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     font-weight: 800;
     letter-spacing: .07em;
     text-transform: uppercase;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 .twp-strip-sep {
     color: rgba(100, 116, 139, 0.4);
@@ -3390,10 +3390,10 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     font-size: 9px;
     text-transform: uppercase;
     letter-spacing: .05em;
-    color: #475569;
+    color: var(--slate-600);
 }
 .twp-strip-value {
-    color: #cbd5e1;
+    color: var(--slate-300);
     font-size: 11px;
 }
 
@@ -3402,7 +3402,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     font-weight: 700;
     letter-spacing: .06em;
     text-transform: uppercase;
-    color: #94a3b8;
+    color: var(--text-dim);
     margin-bottom: 5px;
 }
 
@@ -3417,12 +3417,12 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     font-size: 9px;
     text-transform: uppercase;
     letter-spacing: .05em;
-    color: #475569;
+    color: var(--slate-600);
     flex-shrink: 0;
 }
 
 .twp-value {
-    color: #cbd5e1;
+    color: var(--slate-300);
     font-size: 11px;
 }
 
@@ -3449,13 +3449,13 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .twp-positive {
     background: rgba(34,197,94,.15);
-    color: #86efac;
+    color: var(--green-300);
     border: 1px solid rgba(34,197,94,.3);
 }
 
 .twp-negative {
     background: rgba(239,68,68,.12);
-    color: #fca5a5;
+    color: var(--red-300);
     border: 1px solid rgba(239,68,68,.25);
 }
 
@@ -3521,7 +3521,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     }
 
 .hp-bar span {
-    background: #ef4444;
+    background: var(--danger);
 }
 
 .chakra-bar span {
@@ -3529,11 +3529,11 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .stamina-bar span {
-    background: #22c55e;
+    background: var(--success);
 }
 
 .shield-bar span {
-    background: #38bdf8;
+    background: var(--cyan);
     box-shadow: 0 0 6px rgba(56,189,248,.6);
 }
 
@@ -3557,7 +3557,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .combat-hud-village {
     font-size: 0.7rem;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 .combat-hud-turn-badge {
@@ -3577,8 +3577,8 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .turn-badge-waiting {
-    background: #1e293b;
-    color: #64748b;
+    background: var(--slate-800);
+    color: var(--text-muted);
 }
 
 .resource-label {
@@ -3588,13 +3588,13 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .resource-label small {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.75em;
 }
 
 .combat-hud-meta {
     font-size: 0.72rem;
-    color: #475569;
+    color: var(--slate-600);
     margin: 6px 0 4px;
     text-align: right;
 }
@@ -3613,7 +3613,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .fighter-panel,
 .arena-title-panel {
     background: rgba(2,6,23,.9);
-    border: 1px solid #475569;
+    border: 1px solid var(--slate-600);
     border-radius: 14px;
     padding: 12px;
 }
@@ -3629,7 +3629,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     padding: 24px 16px;
     overflow: auto;
     border-radius: 14px;
-    border: 3px solid #475569;
+    border: 3px solid var(--slate-600);
     display: grid;
     grid-template-columns: repeat(12, 76px);
     grid-auto-rows: 58px;
@@ -3701,17 +3701,17 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 /* ── Biome arena backgrounds ── */
 .hex-battlefield.hex-volcano {
     background: url('/arena-volcano-floor.webp') center center / cover no-repeat;
-    border-color: #b91c1c;
+    border-color: var(--red);
     box-shadow: inset 0 0 80px rgba(220,38,38,.35), 0 0 24px rgba(234,88,12,.4);
 }
 .hex-battlefield.hex-snow {
     background: url('/arena-snow-floor.webp') center center / cover no-repeat;
-    border-color: #93c5fd;
+    border-color: var(--blue-300);
     box-shadow: inset 0 0 80px rgba(147,197,253,.2), 0 0 24px rgba(186,230,253,.35);
 }
 .hex-battlefield.hex-forest {
     background: url('/arena-forest-floor.webp') center center / cover no-repeat;
-    border-color: #4ade80;
+    border-color: var(--green-400);
     box-shadow: inset 0 0 80px rgba(74,222,128,.18), 0 0 24px rgba(34,197,94,.3);
 }
 .hex-battlefield.hex-shadow {
@@ -3721,7 +3721,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 .hex-battlefield.hex-central {
     background: url('/arena-central-floor.webp') center center / cover no-repeat;
-    border-color: #94a3b8;
+    border-color: var(--text-dim);
     box-shadow: inset 0 0 80px rgba(148,163,184,.18), 0 0 24px rgba(148,163,184,.2);
 }
 .hex-battlefield.hex-deathsgate {
@@ -3825,14 +3825,14 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .spire-progress { position: relative; height: 6px; margin: 12px 16px 4px; border-radius: 4px; background: #241812; overflow: visible; }
 .spire-progress-fill {
     height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(0.22,1,0.36,1);
-    background: linear-gradient(90deg, #4ade80 0%, #38bdf8 33%, #a78bfa 66%, #fbbf24 100%);
+    background: linear-gradient(90deg, var(--green-400) 0%, var(--cyan) 33%, #a78bfa 66%, #fbbf24 100%);
     box-shadow: 0 0 12px rgba(240,161,90,0.5);
 }
 .spire-progress-tick {
     position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%;
     background: #14100c; border: 1.5px solid #57493a;
 }
-.spire-progress-tick.lit { background: #fbbf24; border-color: #fde68a; box-shadow: 0 0 8px rgba(251,191,36,0.8); }
+.spire-progress-tick.lit { background: #fbbf24; border-color: var(--gold-300); box-shadow: 0 0 8px rgba(251,191,36,0.8); }
 
 /* Weekly Blessing strip — a positive, teal-tinted banner (distinct from the amber chassis). */
 .spire-blessing {
@@ -3862,7 +3862,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem;
     color: #12100f; background: var(--boss-accent, #f0a15a); box-shadow: 0 1px 4px rgba(0,0,0,0.6);
 }
-.spire-hero-milestone { position: absolute; right: 6px; top: 4px; font-size: 1rem; color: #fde68a; text-shadow: 0 0 8px rgba(251,191,36,0.9); }
+.spire-hero-milestone { position: absolute; right: 6px; top: 4px; font-size: 1rem; color: var(--gold-300); text-shadow: 0 0 8px rgba(251,191,36,0.9); }
 .spire-hero-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .spire-hero-band { font-size: 0.72rem; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; }
 .spire-hero-name { font-family: var(--font-display, inherit); font-size: 1.55rem; line-height: 1; font-weight: 800; text-shadow: 0 2px 10px rgba(0,0,0,0.7); }
@@ -3871,7 +3871,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
     border: 1px solid #57493a; color: #c9bdad; background: rgba(0,0,0,0.25); white-space: nowrap;
 }
-.spire-tag.milestone { border-color: rgba(251,191,36,0.6); color: #fde68a; background: rgba(251,191,36,0.1); }
+.spire-tag.milestone { border-color: rgba(251,191,36,0.6); color: var(--gold-300); background: rgba(251,191,36,0.1); }
 .spire-tag.reward { border-color: rgba(125,211,252,0.5); color: #7dd3fc; background: rgba(56,189,248,0.08); }
 .spire-hero-blurb { margin: 3px 0 2px; color: #b9ab98; font-size: 0.82rem; line-height: 1.45; }
 
@@ -3888,7 +3888,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .spire-hero-cta { display: flex; gap: 9px; align-items: center; margin-top: auto; padding-top: 8px; flex-wrap: wrap; }
 .spire-stepper { display: inline-flex; align-items: center; gap: 2px; background: #1a1109; border: 1px solid #3c2614; border-radius: 9px; padding: 2px; }
 .spire-stepper button {
-    width: 30px; height: 30px; border: none; border-radius: 7px; background: transparent; color: #f0a15a;
+    width: 40px; height: 40px; border: none; border-radius: 7px; background: transparent; color: #f0a15a;
     font-size: 1.2rem; font-weight: 800; line-height: 1; cursor: pointer; transition: background 0.12s;
 }
 .spire-stepper button:hover:not(:disabled) { background: rgba(240,161,90,0.14); }
@@ -3929,8 +3929,8 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .spire-rung-info { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
 .spire-rung-boss { font-size: 0.74rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .spire-rung-mech { font-size: 0.66rem; color: #8a7c68; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.spire-rung-star { position: absolute; right: 6px; top: 4px; font-size: 0.72rem; color: #fde68a; text-shadow: 0 0 6px rgba(251,191,36,0.8); }
-.spire-rung-check { position: absolute; right: 6px; bottom: 4px; font-size: 0.72rem; font-weight: 800; color: #4ade80; }
+.spire-rung-star { position: absolute; right: 6px; top: 4px; font-size: 0.72rem; color: var(--gold-300); text-shadow: 0 0 6px rgba(251,191,36,0.8); }
+.spire-rung-check { position: absolute; right: 6px; bottom: 4px; font-size: 0.72rem; font-weight: 800; color: var(--green-400); }
 .spire-rung-next { position: absolute; right: 6px; bottom: 4px; font-size: 0.7rem; color: var(--boss-accent, #f0a15a); }
 @keyframes spireNextPulse {
     0%, 100% { box-shadow: 0 0 0 1px var(--boss-accent, #f0a15a), 0 0 10px rgba(240,161,90,0.25); }
@@ -3945,7 +3945,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .spire-board-list li.me { background: rgba(240,161,90,0.12); color: #f4c48a; font-weight: 700; }
 .spire-board-list li.distant { margin-top: 3px; border-top: 1px dashed #2c2116; padding-top: 6px; }
 .spire-board-rank { flex-shrink: 0; width: 30px; font-weight: 800; color: #a99e8d; font-variant-numeric: tabular-nums; }
-.spire-board-list li.me .spire-board-rank { color: #facc15; }
+.spire-board-list li.me .spire-board-rank { color: var(--gold); }
 .spire-board-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .spire-board-tier { flex-shrink: 0; font-size: 0.74rem; color: #8a7c68; }
 
@@ -4024,11 +4024,11 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .spire-result-card.loss .spire-result-portrait { filter: grayscale(0.6) brightness(0.7); border-color: #6b3b3b; box-shadow: none; }
 .spire-result-kicker { font-size: 0.72rem; letter-spacing: 1.4px; text-transform: uppercase; color: #a99e8d; font-weight: 700; }
 .spire-result-title { font-family: var(--font-display, inherit); font-size: 1.7rem; margin: 4px 0 2px; line-height: 1.05; }
-.spire-result-title.win { color: #fde68a; text-shadow: 0 2px 16px rgba(251,191,36,0.5); }
-.spire-result-title.loss { color: #f87171; }
+.spire-result-title.win { color: var(--gold-300); text-shadow: 0 2px 16px rgba(251,191,36,0.5); }
+.spire-result-title.loss { color: var(--red-400); }
 .spire-result-milestone {
     display: inline-block; margin: 8px auto 2px; padding: 5px 14px; border-radius: 999px; font-size: 0.86rem;
-    color: #fde68a; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.5);
+    color: var(--gold-300); background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.5);
     animation: spireMilestonePulse 1.4s ease-in-out infinite;
 }
 .spire-result-milestone b { color: #fff7cc; }
@@ -4038,7 +4038,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     color: #a5f3fc; background: rgba(34,211,238,0.12); border: 1px solid rgba(34,211,238,0.5);
 }
 .spire-reward-shard.in { animation: spireShardReveal 0.6s cubic-bezier(0.18,1.3,0.4,1); }
-.spire-reward-shard.muted { color: #94a3b8; background: rgba(148,163,184,0.1); border-color: rgba(148,163,184,0.35); font-weight: 600; font-size: 0.82rem; }
+.spire-reward-shard.muted { color: var(--text-dim); background: rgba(148,163,184,0.1); border-color: rgba(148,163,184,0.35); font-weight: 600; font-size: 0.82rem; }
 .spire-reward-shard.pending { color: #8a7c68; background: transparent; border-color: #3c2614; }
 .spire-result-sub { color: #c9bdad; font-size: 0.9rem; margin: 4px 0 0; line-height: 1.45; }
 .spire-result-sub b { color: var(--boss-accent, #f0a15a); }
@@ -4047,7 +4047,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     color: #12100f; border: 1px solid var(--boss-accent, #f0a15a);
     background: linear-gradient(180deg, var(--boss-accent, #f0a15a), #b0430c); box-shadow: 0 4px 16px var(--boss-glow, rgba(240,161,90,0.3));
 }
-.spire-result-card.loss .spire-result-btn { color: #fca5a5; background: transparent; border-color: #6b3b3b; box-shadow: none; }
+.spire-result-card.loss .spire-result-btn { color: var(--red-300); background: transparent; border-color: #6b3b3b; box-shadow: none; }
 @keyframes spireShardReveal { 0% { opacity: 0; transform: scale(0.6) translateY(8px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
 @keyframes spireMilestonePulse { 0%,100% { box-shadow: 0 0 0 rgba(251,191,36,0); } 50% { box-shadow: 0 0 16px rgba(251,191,36,0.5); } }
 
@@ -4090,18 +4090,18 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     background: #020617;
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     border-radius: 12px;
     padding: 10px;
     margin-bottom: 10px;
 }
 
 .ap-display-bar span {
-    background: linear-gradient(90deg, #38bdf8, #818cf8);
+    background: linear-gradient(90deg, var(--cyan), #818cf8);
 }
 
 .enemy-ap-display-bar span {
-    background: linear-gradient(90deg, #f97316, #ef4444);
+    background: linear-gradient(90deg, #f97316, var(--danger));
 }
 
 .basic-action-bar {
@@ -4117,7 +4117,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
     .basic-action-bar button {
         min-height: 74px;
-        background: linear-gradient(135deg, #1e293b, #020617);
+        background: linear-gradient(135deg, var(--slate-800), #020617);
         border: 2px solid #f8fafc;
         display: grid;
         place-items: center;
@@ -4132,21 +4132,21 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
         .basic-action-bar button small {
             font-size: 10px;
-            color: #cbd5e1;
+            color: var(--slate-300);
         }
 
 .selected-action {
-    outline: 3px solid #22c55e;
+    outline: 3px solid var(--success);
     filter: brightness(1.25);
 }
 
 .dash-target-tile {
-    box-shadow: 0 0 20px #22c55e !important;
-    border-color: #22c55e !important;
+    box-shadow: 0 0 20px var(--success) !important;
+    border-color: var(--success) !important;
 }
 
 .jutsu-target-tile {
-    box-shadow: 0 0 0 4px rgba(248, 113, 113, .75), 0 0 28px #ef4444 !important;
+    box-shadow: 0 0 0 4px rgba(248, 113, 113, .75), 0 0 28px var(--danger) !important;
     border-color: #fecaca !important;
     filter: brightness(1.25);
 }
@@ -4162,7 +4162,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
     .combat-target-prompt span {
-        color: #cbd5e1;
+        color: var(--slate-300);
     }
 
     .combat-target-prompt button {
@@ -4188,7 +4188,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     min-height: 142px;
     padding: 3px;
     background: #f8fafc;
-    border: 2px solid #334155;
+    border: 2px solid var(--slate-700);
     border-radius: 8px;
     color: #020617;
     display: grid;
@@ -4220,7 +4220,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     display: grid;
     place-items: center;
     font-size: 46px;
-    background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.75), transparent 20%), linear-gradient(135deg, #0f172a, #312e81, #7c2d12);
+    background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.75), transparent 20%), linear-gradient(135deg, var(--slate-900), #312e81, #7c2d12);
     color: white;
     overflow: hidden;
 }
@@ -4244,7 +4244,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .jutsu-meta,
 .jutsu-cooldown {
     font-size: 10px;
-    color: #1e293b;
+    color: var(--slate-800);
     line-height: 1.2;
     min-height: 12px;
     overflow: hidden;
@@ -4253,12 +4253,12 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .jutsu-cooldown {
-    color: #334155;
+    color: var(--slate-700);
     font-weight: 800;
 }
 
     .jutsu-cooldown.active {
-        color: #b91c1c;
+        color: var(--red);
     }
 
 .combat-text-log {
@@ -4266,8 +4266,8 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     max-height: 220px;
     overflow-y: auto;
     background: #e8f1fb;
-    color: #0f172a;
-    border: 3px solid #334155;
+    color: var(--slate-900);
+    border: 3px solid var(--slate-700);
     border-radius: 8px;
     padding: 10px;
     font-size: 13px;
@@ -4277,11 +4277,11 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .combat-log-header {
     display: flex;
     justify-content: space-between;
-    background: #cbd5e1;
+    background: var(--slate-300);
     padding: 6px 8px;
     border-radius: 6px;
     margin-bottom: 8px;
-    color: #0f172a;
+    color: var(--slate-900);
 }
 
 .combat-text-log p {
@@ -4291,7 +4291,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .timeline-round {
     margin: 0 0 10px;
     background: rgba(248, 250, 252, .7);
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--slate-300);
     border-radius: 6px;
     overflow: hidden;
 }
@@ -4303,12 +4303,12 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     gap: 10px;
     padding: 5px 8px;
     background: #cbd8e6;
-    color: #0f172a;
+    color: var(--slate-900);
     font-weight: 900;
 }
 
     .timeline-round-header small {
-        color: #475569;
+        color: var(--slate-600);
         font-size: 10px;
         font-weight: 700;
     }
@@ -4317,7 +4317,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     margin: 0;
     padding: 5px 10px;
     border-top: 1px solid rgba(148, 163, 184, .45);
-    color: #0f172a;
+    color: var(--slate-900);
 }
 
 .combat-text-log .timeline-player {
@@ -4326,18 +4326,18 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .combat-text-log .timeline-enemy {
-    color: #dc2626;
+    color: var(--red-600);
     background: rgba(254, 226, 226, .45);
 }
 
 .timeline-entry strong {
-    color: #334155;
+    color: var(--slate-700);
 }
 
 .combat-effect-panel {
     margin-top: 14px;
     padding-top: 10px;
-    border-top: 1px solid #64748b;
+    border-top: 1px solid var(--text-muted);
 }
 
     .combat-effect-panel h4 {
@@ -4351,16 +4351,16 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     justify-content: space-between;
     gap: 6px;
     font-size: 12px;
-    color: #22c55e;
+    color: var(--success);
     padding: 4px 0;
 }
 
     .effect-pill small {
-        color: #cbd5e1;
+        color: var(--slate-300);
     }
 
 .empty-effects {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 12px;
     margin: 0;
 }
@@ -4368,7 +4368,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .admin-jutsu-preview {
     width: 140px;
     height: 100px;
-    border: 2px solid #334155;
+    border: 2px solid var(--slate-700);
     border-radius: 8px;
     overflow: hidden;
     margin-top: 8px;
@@ -4413,7 +4413,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
     .vn-gallery-vn h4 {
         margin: 0 0 0.6rem;
-        color: #fcd34d;
+        color: var(--gold-400);
         font-size: 1rem;
     }
 
@@ -4453,7 +4453,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #475569;
+    color: var(--slate-600);
     font-size: 0.8rem;
 }
 
@@ -4466,12 +4466,12 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
     .vn-gallery-card-info strong {
         font-size: 0.75rem;
-        color: #93c5fd;
+        color: var(--blue-300);
     }
 
     .vn-gallery-card-info span {
         font-size: 0.7rem;
-        color: #94a3b8;
+        color: var(--text-dim);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -4493,7 +4493,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
         cursor: pointer;
         background: rgba(255,255,255,0.08);
         border: 1px solid rgba(255,255,255,0.15);
-        color: #e2e8f0;
+        color: var(--slate-200);
     }
 
 .vn-gallery-upload-btn {
@@ -4508,7 +4508,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .vn-gallery-card-actions .danger-button {
     background: rgba(220,38,38,0.2);
     border-color: rgba(220,38,38,0.5);
-    color: #fca5a5;
+    color: var(--red-300);
 }
 
 .vn-page-img-preview {
@@ -4570,7 +4570,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     overflow: hidden;
     border: 2px solid #6f87a4;
     border-radius: 8px;
-    background: radial-gradient(circle at 50% 35%, rgba(56,189,248,.35), transparent 34%), linear-gradient(135deg, #0f172a, #475569);
+    background: radial-gradient(circle at 50% 35%, rgba(56,189,248,.35), transparent 34%), linear-gradient(135deg, var(--slate-900), var(--slate-600));
     color: #f8fafc;
     font-weight: 900;
     text-align: center;
@@ -4662,7 +4662,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     .sector-presence h4 {
         grid-column: 1 / -1;
         margin: 0;
-        color: #facc15;
+        color: var(--gold);
     }
 
     .sector-presence span {
@@ -4789,7 +4789,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
         display: grid;
         place-items: center;
         border-radius: 999px;
-        background: #facc15;
+        background: var(--gold);
         color: #111827;
     }
 
@@ -4923,7 +4923,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     border: 2px dashed #344960;
     border-radius: 9px;
     background: rgba(148, 163, 184, 0.82);
-    color: #0f172a;
+    color: var(--slate-900);
     font-size: 13px;
     font-weight: 900;
     text-align: center;
@@ -4943,7 +4943,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
     .character-equip-slot.filled {
         border-style: solid;
-        background: linear-gradient(135deg, #1d4ed8, #0f172a);
+        background: linear-gradient(135deg, #1d4ed8, var(--slate-900));
         color: #f8fafc;
     }
 
@@ -5016,7 +5016,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
         padding: 6px 12px;
         border-color: rgba(255, 255, 255, 0.55);
         background: #f8fafc;
-        color: #0f172a;
+        color: var(--slate-900);
         font-size: 12px;
     }
 
@@ -5034,7 +5034,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     grid-template-rows: 54px auto 1fr auto;
     gap: 4px;
     border: 2px solid rgba(148, 163, 184, 0.8);
-    border-left: 4px solid #22c55e;
+    border-left: 4px solid var(--success);
     border-radius: 8px;
     background: linear-gradient(135deg, #1e3a8a, #172554);
     color: #f8fafc;
@@ -5087,14 +5087,14 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     place-items: center;
     border: 2px solid #f8fafc;
     border-radius: 999px;
-    background: #facc15;
-    color: #0f172a;
+    background: var(--gold);
+    color: var(--slate-900);
     font-size: 11px;
     font-weight: 900;
 }
 
 .backpack-item.rarity-common {
-    border-color: #94a3b8;
+    border-color: var(--text-dim);
 }
 
 .backpack-item.rarity-uncommon,
@@ -5105,7 +5105,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .backpack-item.rarity-rare,
 .character-equip-slot.rarity-rare {
-    border-color: #38bdf8;
+    border-color: var(--cyan);
     background: linear-gradient(135deg, #075985, #172554);
 }
 
@@ -5117,7 +5117,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .backpack-item.rarity-legendary,
 .character-equip-slot.rarity-legendary {
-    border-color: #facc15;
+    border-color: var(--gold);
     background: linear-gradient(135deg, #92400e, #172554);
 }
 
@@ -5125,7 +5125,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     padding: 18px;
     border: 1px dashed rgba(226, 232, 240, 0.55);
     border-radius: 8px;
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
 
 /* ── Slot picker modal ── */
@@ -5141,7 +5141,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .slot-picker-panel {
-    background: linear-gradient(160deg, #0f172a, #1e293b);
+    background: linear-gradient(160deg, var(--slate-900), var(--slate-800));
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 14px;
     padding: 16px;
@@ -5162,13 +5162,13 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 .slot-picker-header h3 {
     margin: 0;
     font-size: 0.95rem;
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
 
 .slot-picker-close {
     background: rgba(255,255,255,0.07);
     border: none;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 18px;
     width: 26px;
     height: 26px;
@@ -5179,11 +5179,11 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     justify-content: center;
     line-height: 1;
 }
-.slot-picker-close:hover { background: rgba(239,68,68,0.25); color: #f87171; }
+.slot-picker-close:hover { background: rgba(239,68,68,0.25); color: var(--red-400); }
 
 .slot-picker-empty {
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--text-muted);
     text-align: center;
     padding: 12px 0;
     margin: 0;
@@ -5236,12 +5236,12 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     justify-content: center;
     font-size: 1rem;
     font-weight: 700;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 .slot-picker-name {
     font-size: 0.65rem;
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-weight: 600;
     line-height: 1.2;
     word-break: break-word;
@@ -5249,7 +5249,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .slot-picker-rarity {
     font-size: 0.58rem;
-    color: #64748b;
+    color: var(--text-muted);
     text-transform: capitalize;
 }
 
@@ -5273,7 +5273,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .rarity-rare {
-    border-color: #38bdf8;
+    border-color: var(--cyan);
 }
 
 .rarity-epic {
@@ -5281,7 +5281,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .rarity-legendary {
-    border-color: #facc15;
+    border-color: var(--gold);
 }
 
 .vn-has-image {
@@ -5378,7 +5378,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     border-radius: 4px;
     border: 6px solid #7c3f11;
     background: linear-gradient(90deg, rgba(120,53,15,.72), rgba(15,23,42,.98) 12%, rgba(15,23,42,.98) 88%, rgba(120,53,15,.72));
-    box-shadow: 0 18px 45px rgba(0,0,0,.52), inset 0 0 0 2px #facc15;
+    box-shadow: 0 18px 45px rgba(0,0,0,.52), inset 0 0 0 2px var(--gold);
 }
 
 .combat-layout {
@@ -5387,14 +5387,14 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .combat-side-hud {
-    border: 2px solid #f59e0b;
+    border: 2px solid var(--gold-2);
     border-radius: 0;
     background: linear-gradient(180deg, #7f1d1d, #3f0b16);
     color: #f8fafc;
 }
 
 .combat-avatar {
-    border-color: #facc15;
+    border-color: var(--gold);
     border-radius: 0;
 }
 
@@ -5525,7 +5525,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
         height: 18px;
         margin-left: 4px;
         border-radius: 999px;
-        background: #dc2626;
+        background: var(--red-600);
         color: #fff;
         font-size: 11px;
     }
@@ -5541,7 +5541,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 
 .arena-fullscreen .timeline-round-header {
     background: #cbd8e6;
-    color: #0f172a;
+    color: var(--slate-900);
 }
 
 .arena-fullscreen .combat-text-log .timeline-player {
@@ -5549,19 +5549,19 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .arena-fullscreen .combat-text-log .timeline-enemy {
-    color: #dc2626;
+    color: var(--red-600);
 }
 
 /* ===== PvP rich battle log ===== */
 .pvp-rich-log {
     background: #0c0f17 !important;
-    border-color: #1e293b !important;
+    border-color: var(--slate-800) !important;
     font-size: 12px;
     line-height: 1.4;
 }
 
 .pvp-log-empty {
-    color: #475569;
+    color: var(--slate-600);
     font-style: italic;
     padding: 8px;
 }
@@ -5609,17 +5609,17 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .pvp-block-player {
-    border-left-color: #22c55e;
+    border-left-color: var(--success);
     background: rgba(20, 50, 30, 0.55);
 }
 
 .pvp-block-enemy {
-    border-left-color: #ef4444;
+    border-left-color: var(--danger);
     background: rgba(50, 15, 15, 0.55);
 }
 
 .pvp-block-system {
-    border-left-color: #475569;
+    border-left-color: var(--slate-600);
     background: rgba(15, 23, 42, 0.5);
 }
 
@@ -5643,23 +5643,23 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     font-weight: 800;
 }
 
-.pvp-actor-me { color: #4ade80; }
-.pvp-actor-opp { color: #f87171; }
+.pvp-actor-me { color: var(--green-400); }
+.pvp-actor-opp { color: var(--red-400); }
 
 .pvp-uses-text {
-    color: #64748b;
+    color: var(--text-muted);
     font-weight: 400;
     font-size: 11px;
 }
 
 .pvp-jutsu-name {
-    color: #fde68a;
+    color: var(--gold-300);
     font-size: 12px;
     font-weight: 800;
 }
 
 .pvp-block-full {
-    color: #cbd5e1;
+    color: var(--slate-300);
     font-size: 11px;
     font-weight: 600;
 }
@@ -5675,7 +5675,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     margin: 0;
     padding: 1px 8px 4px 9px;
     font-size: 10.5px;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-style: italic;
     line-height: 1.4;
     border-left: 2px solid rgba(100, 116, 139, 0.3);
@@ -5708,15 +5708,15 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 /* Effect line colors */
-.pvp-effect-damage { color: #fca5a5; }
-.pvp-effect-heal   { color: #86efac; }
-.pvp-effect-shield { color: #93c5fd; }
+.pvp-effect-damage { color: var(--red-300); }
+.pvp-effect-heal   { color: var(--green-300); }
+.pvp-effect-shield { color: var(--blue-300); }
 .pvp-effect-debuff { color: #fdba74; }
 .pvp-effect-buff   { color: #a5f3fc; }
-.pvp-effect-hit    { color: #fde68a; font-weight: 700; }
-.pvp-effect-miss   { color: #475569; font-style: italic; }
+.pvp-effect-hit    { color: var(--gold-300); font-weight: 700; }
+.pvp-effect-miss   { color: var(--slate-600); font-style: italic; }
 .pvp-effect-move   { color: #67e8f9; }
-.pvp-effect-system { color: #94a3b8; }
+.pvp-effect-system { color: var(--text-dim); }
 
 @media (max-width: 1100px) {
     .combat-layout {
@@ -5790,7 +5790,7 @@ button {
 
 .danger-button,
 .nav button:last-child {
-    background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 45%), linear-gradient(#b91c1c, #5b1010);
+    background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 45%), linear-gradient(var(--red), #5b1010);
 }
 
 .location-button,
@@ -5813,12 +5813,12 @@ button {
 }
 
 .summary-box.bloodline-over-budget {
-    border: 1px solid #ef4444;
+    border: 1px solid var(--danger);
     background: linear-gradient(135deg, rgba(60, 10, 10, .96), rgba(30, 5, 5, .96));
 }
 
 .bloodline-over-budget-label {
-    color: #f87171;
+    color: var(--red-400);
     font-weight: 600;
     margin-left: 6px;
 }
@@ -5941,7 +5941,7 @@ button {
     align-items: center !important;
     justify-content: center !important;
     background: radial-gradient(circle at center, rgba(37,99,235,.25), transparent 55%), linear-gradient(135deg, #063b8f, #0757d8 50%, #032968) !important;
-    border: 4px solid #334155 !important;
+    border: 4px solid var(--slate-700) !important;
     border-radius: 8px !important;
 }
 
@@ -5982,7 +5982,7 @@ button {
     padding: 14px !important;
     color: #f8fafc !important;
     background: linear-gradient(90deg, rgba(245,158,11,.9) 0 5px, transparent 5px), linear-gradient(180deg, #1a0f12, #2b1a1e 45%, #170c0f) !important;
-    border-left: 3px solid #f59e0b !important;
+    border-left: 3px solid var(--gold-2) !important;
     border-right: 3px solid #7c2d12 !important;
     border-radius: 0 !important;
 }
@@ -6033,8 +6033,8 @@ button {
     padding: 4px !important;
     border-radius: 8px !important;
     background: #f8fafc !important;
-    border: 2px solid #1e293b !important;
-    color: #0f172a !important;
+    border: 2px solid var(--slate-800) !important;
+    color: var(--slate-900) !important;
     display: grid !important;
     grid-template-rows: 78px 20px 16px 16px 18px !important;
 }
@@ -6084,7 +6084,7 @@ button {
     .technique-shell .technique-filter-panel > label {
         font-size: 11px !important;
         margin: 4px 0 1px !important;
-        color: #94a3b8 !important;
+        color: var(--text-dim) !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
     }
@@ -6307,7 +6307,7 @@ body {
         }
 
     .nav .danger-button {
-        background: linear-gradient(180deg, rgba(255,255,255,.13), transparent 48%), linear-gradient(135deg, #b91c1c, #581010);
+        background: linear-gradient(180deg, rgba(255,255,255,.13), transparent 48%), linear-gradient(135deg, var(--red), #581010);
     }
 
 .top-hud {
@@ -6440,7 +6440,7 @@ body {
     place-items: center;
     border-radius: 999px;
     border: 3px solid rgba(2, 6, 23, .9);
-    background: radial-gradient(circle at 35% 25%, #fff, #cbd5e1 42%, #111827 43%, #020617);
+    background: radial-gradient(circle at 35% 25%, #fff, var(--slate-300) 42%, #111827 43%, #020617);
     color: #111827;
     font-size: clamp(28px, 4vw, 54px);
     box-shadow: 0 9px 0 rgba(0,0,0,.72), 0 0 16px rgba(255,255,255,.2);
@@ -6453,11 +6453,11 @@ body {
 }
 
 .mask-icon {
-    background: radial-gradient(circle at 50% 44%, #ffffff 0 42%, #ef4444 43% 51%, #111827 52%);
+    background: radial-gradient(circle at 50% 44%, #ffffff 0 42%, var(--danger) 43% 51%, #111827 52%);
 }
 
 .blade-icon {
-    background: radial-gradient(circle, #e0f2fe, #64748b 58%, #111827);
+    background: radial-gradient(circle, #e0f2fe, var(--text-muted) 58%, #111827);
     color: #dbeafe;
 }
 
@@ -6579,7 +6579,7 @@ body {
 .profile-overview-panel,
 .profile-build-panel {
     background: rgba(15, 23, 42, .86);
-    border: 1px solid #64748b;
+    border: 1px solid var(--text-muted);
     padding: 16px;
     border-radius: 8px;
 }
@@ -6593,7 +6593,7 @@ body {
 .profile-big-avatar {
     width: 180px;
     height: 180px;
-    border: 3px solid #facc15;
+    border: 3px solid var(--gold);
     background: #020617;
     display: grid;
     place-items: center;
@@ -6685,8 +6685,8 @@ body {
     border-radius: 6px;
     padding-left: 8px;
 }
-.tavern-herald .tavern-author { color: #c084fc; }
-.tavern-herald .tavern-rank { color: #c084fc; opacity: .8; }
+.tavern-herald .tavern-author { color: var(--purple-400); }
+.tavern-herald .tavern-rank { color: var(--purple-400); opacity: .8; }
 
 .avatar-upload-button {
     display: block;
@@ -6694,7 +6694,7 @@ body {
     padding: 10px;
     text-align: center;
     background: linear-gradient(#1e3a8a, #172554);
-    border: 1px solid #facc15;
+    border: 1px solid var(--gold);
     border-radius: 6px;
     cursor: pointer;
     font-weight: 900;
@@ -6712,7 +6712,7 @@ body {
 
     .profile-info-grid h3 {
         margin-top: 0;
-        color: #facc15;
+        color: var(--gold);
     }
 
     .profile-info-grid p {
@@ -6720,7 +6720,7 @@ body {
     }
 
 .stat-card h4 {
-    color: #facc15;
+    color: var(--gold);
     margin: 0 0 8px;
 }
 
@@ -7131,7 +7131,7 @@ body {
 
     .village-full-overlay h2 {
         margin: 0 0 8px;
-        color: #facc15;
+        color: var(--gold);
     }
 
 .central-full-scene {
@@ -7196,9 +7196,9 @@ body {
 .sunscar-festival {
     min-height: 720px;
     padding: 24px;
-    border: 3px solid #f59e0b;
+    border: 3px solid var(--gold-2);
     border-radius: 18px;
-    background: radial-gradient(circle at top, rgba(251, 191, 36, 0.35), transparent 35%), linear-gradient(135deg, #3b1f0b, #7c2d12, #f59e0b);
+    background: radial-gradient(circle at top, rgba(251, 191, 36, 0.35), transparent 35%), linear-gradient(135deg, #3b1f0b, #7c2d12, var(--gold-2));
     color: white;
     box-shadow: 0 0 40px rgba(245, 158, 11, 0.45);
 }
@@ -7208,7 +7208,7 @@ body {
     padding: 24px;
     border-radius: 18px;
     background: rgba(69, 26, 3, 0.82);
-    border: 2px solid #fde68a;
+    border: 2px solid var(--gold-300);
 }
 
 .sunscar-grid {
@@ -7222,7 +7222,7 @@ body {
     padding: 18px;
     border-radius: 16px;
     background: rgba(30, 15, 5, 0.86);
-    border: 2px solid #facc15;
+    border: 2px solid var(--gold);
 }
 
 .sunscar-npc {
@@ -7291,9 +7291,9 @@ body {
     font-size: 1.05rem;
     font-weight: 700;
     border-radius: 12px;
-    border: 2px solid #facc15;
+    border: 2px solid var(--gold);
     background: linear-gradient(180deg, #b45309, #7c2d12);
-    color: #fde68a;
+    color: var(--gold-300);
     cursor: pointer;
 }
 .bm-crate-open-btn:hover,
@@ -7312,7 +7312,7 @@ body {
     font-size: 1.05rem;
 }
 .bm-crate-reward-emoji { font-size: 1.3rem; }
-.bm-crate-reward-amt { font-weight: 800; color: #fde68a; }
+.bm-crate-reward-amt { font-weight: 800; color: var(--gold-300); }
 .bm-crate-reward-label { color: #d6c7a3; }
 .bm-crate-empty { color: #9ca3af; font-style: italic; }
 @keyframes bm-fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -7340,7 +7340,7 @@ body {
     place-items: center;
     font-size: 38px;
     border-radius: 16px;
-    background: #fde68a;
+    background: var(--gold-300);
     color: #451a03;
     border: 3px solid #92400e;
 }
@@ -7349,7 +7349,7 @@ body {
     width: 100%;
     font-size: 18px;
     padding: 14px;
-    background: #facc15;
+    background: var(--gold);
     color: #451a03;
     border: 2px solid white;
 }
@@ -7371,7 +7371,7 @@ body {
 .central-hub {
     min-height: 720px;
     padding: 24px;
-    border: 3px solid #facc15;
+    border: 3px solid var(--gold);
     border-radius: 20px;
     background: radial-gradient(circle at top, rgba(250, 204, 21, 0.28), transparent 34%), linear-gradient(135deg, #111827, #3b2f13, #020617);
     color: white;
@@ -7383,7 +7383,7 @@ body {
     padding: 24px;
     border-radius: 18px;
     background: rgba(15, 23, 42, 0.88);
-    border: 2px solid #facc15;
+    border: 2px solid var(--gold);
 }
 
 .central-log {
@@ -7391,8 +7391,8 @@ body {
     padding: 14px;
     border-radius: 14px;
     background: rgba(0, 0, 0, 0.45);
-    border: 1px solid #facc15;
-    color: #fde68a;
+    border: 1px solid var(--gold);
+    color: var(--gold-300);
 }
 
 .central-grid {
@@ -7413,7 +7413,7 @@ body {
 
     .central-card:hover {
         transform: translateY(-2px);
-        border-color: #facc15;
+        border-color: var(--gold);
     }
 
 .central-icon {
@@ -7424,13 +7424,13 @@ body {
 
 .central-card strong {
     display: block;
-    color: #facc15;
+    color: var(--gold);
     font-size: 18px;
     margin-bottom: 6px;
 }
 
 .central-card small {
-    color: #cbd5e1;
+    color: var(--slate-300);
     line-height: 1.4;
 }
 
@@ -7450,7 +7450,7 @@ body {
 }
 
 .celestial-panel {
-    background: linear-gradient(160deg, #0f172a, #1e1b4b 60%, #0f172a);
+    background: linear-gradient(160deg, var(--slate-900), #1e1b4b 60%, var(--slate-900));
     border: 2px solid rgba(250, 204, 21, 0.6);
     border-radius: 18px;
     padding: 2rem 2rem 1.5rem;
@@ -7467,7 +7467,7 @@ body {
     }
 
 .celestial-panel-sub {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.88rem;
     margin: 0 0 1.4rem;
 }
@@ -7486,7 +7486,7 @@ body {
     gap: 0.4rem;
     padding: 1.2rem 0.8rem;
     border-radius: 14px;
-    background: linear-gradient(160deg, #1e293b, #0f172a);
+    background: linear-gradient(160deg, var(--slate-800), var(--slate-900));
     border: 1px solid rgba(250, 204, 21, 0.35);
     cursor: pointer;
     transition: border-color 0.15s, transform 0.12s;
@@ -7494,17 +7494,17 @@ body {
 }
 
     .celestial-option-btn:hover {
-        border-color: #facc15;
+        border-color: var(--gold);
         transform: translateY(-2px);
     }
 
     .celestial-option-btn strong {
-        color: #facc15;
+        color: var(--gold);
         font-size: 1rem;
     }
 
     .celestial-option-btn small {
-        color: #94a3b8;
+        color: var(--text-dim);
         font-size: 0.75rem;
         line-height: 1.4;
     }
@@ -7542,7 +7542,7 @@ body {
 }
 
 .archives-panel {
-    background: linear-gradient(160deg, #0d1321 0%, #0f172a 60%, #1a0a2e 100%);
+    background: linear-gradient(160deg, #0d1321 0%, var(--slate-900) 60%, #1a0a2e 100%);
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 16px;
     width: 100%;
@@ -7563,11 +7563,11 @@ body {
     .archives-header h2 {
         margin: 0;
         font-size: 1.25rem;
-        color: #f59e0b;
+        color: var(--gold-2);
     }
 
 .archives-subtitle {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.82rem;
     margin-bottom: 20px;
 }
@@ -7649,13 +7649,13 @@ body {
 
 .archives-lore {
     font-size: 0.85rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     line-height: 1.65;
     margin: 4px 0;
 }
 
 .archives-lore-missing {
-    color: #475569;
+    color: var(--slate-600);
     font-style: italic;
 }
 
@@ -7668,7 +7668,7 @@ body {
 
     .archives-jutsu-list strong {
         font-size: 0.78rem;
-        color: #64748b;
+        color: var(--text-muted);
         text-transform: uppercase;
         letter-spacing: 0.05em;
         margin-bottom: 2px;
@@ -7693,13 +7693,13 @@ body {
 
 .archives-jutsu-name {
     font-size: 0.82rem;
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-weight: 600;
 }
 
 .archives-jutsu-meta {
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-muted);
     margin-left: 6px;
 }
 
@@ -7733,7 +7733,7 @@ body {
     }
 
 .sector-player-tile {
-    box-shadow: 0 0 14px #facc15;
+    box-shadow: 0 0 14px var(--gold);
 }
 
 .sector-image-map {
@@ -7888,7 +7888,7 @@ body {
 
 .other-player-map-name {
     font-size: 0.5rem;
-    color: #fca5a5;
+    color: var(--red-300);
     font-weight: 700;
     text-align: center;
     max-width: 44px;
@@ -7932,7 +7932,7 @@ body {
     padding: 2px 10px;
     border-radius: 999px;
     background: rgba(2, 6, 23, 0.82);
-    color: #fca5a5;
+    color: var(--red-300);
     font-size: 0.62rem;
     font-weight: 700;
     white-space: nowrap;
@@ -8242,7 +8242,7 @@ body {
 .village-safe-zone {
     background: rgba(2, 6, 23, 0.88);
     border: 2px solid rgba(250, 204, 21, 0.7);
-    color: #fcd34d;
+    color: var(--gold-400);
     font-weight: 800;
     font-size: 0.95rem;
     padding: 8px 22px;
@@ -8253,7 +8253,7 @@ body {
 }
 
 .village-save-msg {
-    color: #86efac;
+    color: var(--green-300);
     font-weight: 700;
     font-size: 0.9rem;
     text-shadow: 0 0 8px rgba(134, 239, 172, 0.6);
@@ -8389,7 +8389,7 @@ body {
 
 .journey-guide-arrival {
     margin: 10px 0 12px;
-    color: #cbd5e1;
+    color: var(--slate-300);
     font-size: 0.86rem;
     line-height: 1.45;
 }
@@ -8639,7 +8639,7 @@ body {
     flex-wrap: wrap;
 }
 .mh-header h2 { margin: 0 0 2px; }
-.mh-sub { margin: 0; color: #94a3b8; font-size: .85rem; }
+.mh-sub { margin: 0; color: var(--text-dim); font-size: .85rem; }
 
 .mh-stats { display: flex; gap: 10px; flex-shrink: 0; }
 .mh-stat-chip {
@@ -8647,14 +8647,14 @@ body {
     flex-direction: column;
     align-items: center;
     background: rgba(15,23,42,.7);
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     border-radius: 10px;
     padding: 8px 14px;
     min-width: 68px;
 }
-.mh-stat-label { font-size: .7rem; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+.mh-stat-label { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
 .mh-stat-value { font-size: 1.15rem; font-weight: 700; color: #f8fafc; line-height: 1.1; }
-.mh-stat-max { font-size: .75rem; color: #475569; font-weight: 400; }
+.mh-stat-max { font-size: .75rem; color: var(--slate-600); font-weight: 400; }
 
 .mh-section { padding: 18px 20px; border-bottom: 1px solid rgba(71,85,105,.3); }
 .mh-section:last-child { border-bottom: none; }
@@ -8662,7 +8662,7 @@ body {
     margin: 0 0 6px;
     font-size: 1rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--slate-200);
     letter-spacing: .03em;
 }
 
@@ -8677,7 +8677,7 @@ body {
     display: flex;
     flex-direction: column;
     background: linear-gradient(160deg, rgba(30,41,59,.95), rgba(15,23,42,.95));
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     border-radius: 12px;
     overflow: hidden;
     transition: border-color .18s, transform .12s;
@@ -8712,7 +8712,7 @@ body {
     text-transform: uppercase;
     text-align: center;
     padding: 4px 0;
-    color: #0f172a;
+    color: var(--slate-900);
 }
 .mh-combat-avatar {
     display: flex;
@@ -8733,7 +8733,7 @@ body {
     flex: 1;
 }
 .mh-combat-name { font-size: .95rem; color: #f1f5f9; }
-.mh-combat-enemy { font-size: .78rem; color: #94a3b8; }
+.mh-combat-enemy { font-size: .78rem; color: var(--text-dim); }
 
 .mh-combat-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
 .mh-tag {
@@ -8744,7 +8744,7 @@ body {
     border: 1px solid transparent;
 }
 .mh-tag-req  { background: rgba(99,102,241,.15); border-color: rgba(99,102,241,.4); color: #a5b4fc; }
-.mh-tag-sta  { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); color: #fca5a5; }
+.mh-tag-sta  { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); color: var(--red-300); }
 
 .mh-combat-rewards {
     display: flex;
@@ -8792,7 +8792,7 @@ body {
 }
 .mh-fetch-card {
     background: rgba(15,23,42,.8);
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     border-radius: 10px;
     padding: 14px;
     display: flex;
@@ -8800,7 +8800,7 @@ body {
     gap: 10px;
     transition: border-color .18s;
 }
-.mh-fetch-card:hover { border-color: #475569; }
+.mh-fetch-card:hover { border-color: var(--slate-600); }
 .mh-fetch-card.mh-fetch-complete { border-color: rgba(34,197,94,.5); background: rgba(34,197,94,.06); }
 .mh-fetch-info .mh-recommended-badge {
     margin: 2px 0 3px;
@@ -8812,14 +8812,14 @@ body {
     border-radius: 8px; overflow: hidden;
     background: rgba(9,17,32,.6);
     display: flex; align-items: center; justify-content: center;
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     font-size: 1.4rem;
 }
 .mh-fetch-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .mh-fetch-info { display: flex; flex-direction: column; gap: 3px; flex: 1; }
 .mh-fetch-info strong { font-size: .9rem; color: #f1f5f9; }
-.mh-fetch-meta { font-size: .75rem; color: #64748b; line-height: 1.35; }
+.mh-fetch-meta { font-size: .75rem; color: var(--text-muted); line-height: 1.35; }
 
 .mh-fetch-rewards {
     display: flex;
@@ -8837,14 +8837,14 @@ body {
     display: flex;
     justify-content: space-between;
     font-size: .72rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .mh-fetch-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .mh-fetch-actions button { flex: 1; min-width: 100px; font-size: .82rem; padding: 7px 10px; }
 .mh-claim-btn {
     background: linear-gradient(135deg, rgba(21,128,61,.9), rgba(22,163,74,.9)) !important;
-    border-color: #22c55e !important;
+    border-color: var(--success) !important;
     color: #f0fdf4 !important;
 }
 
@@ -9168,7 +9168,7 @@ body {
 }
 
     .instance-sidebar strong {
-        color: #facc15 !important;
+        color: var(--gold) !important;
     }
 
     .instance-sidebar p {
@@ -9188,7 +9188,7 @@ body {
     width: 72px !important;
     height: 72px !important;
     border-radius: 12px !important;
-    border: 2px solid #facc15 !important;
+    border: 2px solid var(--gold) !important;
     background: radial-gradient(circle, #7dd3fc, #2563eb 58%, #020617) !important;
     box-shadow: 0 0 18px rgba(59,130,246,0.65) !important;
     font-size: 24px !important;
@@ -9258,7 +9258,7 @@ body {
     z-index: 9999;
     overflow: hidden;
     background: #05070d;
-    border-right: 3px solid #facc15;
+    border-right: 3px solid var(--gold);
 }
 
 .sector-banner-img {
@@ -9461,7 +9461,7 @@ main,
     border: 1px solid rgba(250, 204, 21, 0.40);
     border-radius: 6px;
     font-weight: 700;
-    color: #fcd34d;
+    color: var(--gold-400);
     font-size: 0.95rem;
     cursor: default;
     user-select: none;
@@ -9470,7 +9470,7 @@ main,
     font-size: 0.80rem;
     background: rgba(239, 68, 68, 0.20);
     border: 1px solid rgba(239, 68, 68, 0.45);
-    color: #fca5a5;
+    color: var(--red-300);
     border-radius: 4px;
     padding: 1px 6px;
     letter-spacing: 0.03em;
@@ -9489,19 +9489,19 @@ main,
     border-radius: 999px !important;
     border: 1px solid rgba(148, 163, 184, 0.35) !important;
     background: rgba(2, 6, 23, 0.5) !important;
-    color: #cbd5e1 !important;
+    color: var(--slate-300) !important;
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
 }
     .bloodline-wizard-step.done {
         border-color: rgba(250, 204, 21, 0.35) !important;
-        color: #fcd34d !important;
+        color: var(--gold-400) !important;
     }
     .bloodline-wizard-step.active {
         border-color: rgba(250, 204, 21, 0.7) !important;
         background: rgba(250, 204, 21, 0.16) !important;
-        color: #fde68a !important;
+        color: var(--gold-300) !important;
     }
 .bloodline-wizard-panel {
     display: flex;
@@ -9538,13 +9538,13 @@ main,
     border-radius: 999px !important;
     border: 1px solid rgba(148, 163, 184, 0.4) !important;
     background: rgba(2, 6, 23, 0.5) !important;
-    color: #cbd5e1 !important;
+    color: var(--slate-300) !important;
     font-size: 0.78rem;
     cursor: pointer;
 }
     .bloodline-chip:hover {
         border-color: rgba(250, 204, 21, 0.6) !important;
-        color: #fde68a !important;
+        color: var(--gold-300) !important;
     }
 
 /* Quick-start template archetypes */
@@ -9579,11 +9579,11 @@ main,
         background: rgba(250, 204, 21, 0.08) !important;
     }
     .bloodline-template-card strong {
-        color: #fde68a;
+        color: var(--gold-300);
         font-size: 0.92rem;
     }
     .bloodline-template-card span {
-        color: #cbd5e1;
+        color: var(--slate-300);
         font-size: 0.76rem;
         line-height: 1.25;
     }
@@ -9593,7 +9593,7 @@ main,
     border-radius: 6px;
     background: rgba(34, 197, 94, 0.14);
     border: 1px solid rgba(34, 197, 94, 0.4);
-    color: #86efac;
+    color: var(--green-300);
     font-size: 0.84rem;
 }
 
@@ -9601,10 +9601,10 @@ main,
 .bloodline-effect-preview {
     font-size: 0.86rem;
     line-height: 1.35;
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
     .bloodline-effect-preview strong {
-        color: #fcd34d;
+        color: var(--gold-400);
     }
 .bloodline-points-breakdown .bloodline-points-total {
     font-weight: 700;
@@ -9619,7 +9619,7 @@ main,
     display: flex;
     justify-content: space-between;
     font-size: 0.82rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     padding: 1px 0;
 }
     .bloodline-points-breakdown li span:last-child {
@@ -9638,10 +9638,10 @@ main,
     font-size: 0.86rem;
 }
     .bloodline-check.ok {
-        color: #86efac;
+        color: var(--green-300);
     }
     .bloodline-check.warn {
-        color: #fca5a5;
+        color: var(--red-300);
     }
 
 /* Smaller inner boxes inside Bloodline Maker/Admin Panel */
@@ -9688,7 +9688,7 @@ textarea {
    image; it's now a CSS border since the new art is frameless. */
 .left-profile-card {
     background: linear-gradient(180deg, rgba(3, 7, 18, 0.34), rgba(3, 7, 18, 0.30) 38%, rgba(3, 7, 18, 0.55) 76%, rgba(3, 7, 18, 0.74)), url("./assets/sectorbanner.webp") center / cover no-repeat !important;
-    border-right: 3px solid #facc15 !important;
+    border-right: 3px solid var(--gold) !important;
     box-shadow: inset -1px 0 0 rgba(250, 204, 21, 0.25), 0 0 22px rgba(0, 0, 0, 0.55) !important;
     overflow: hidden !important;
     padding: 70px 18px 24px !important;
@@ -9793,12 +9793,12 @@ textarea {
 
 .left-currency-label {
     flex: 1;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-weight: 500;
 }
 
 .left-currency-value {
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-weight: 700;
     font-size: 0.67rem;
     text-align: right;
@@ -9831,7 +9831,7 @@ textarea {
 
 .left-caps-label {
     font-size: 0.57rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -9842,7 +9842,7 @@ textarea {
 .left-caps-value {
     font-size: 0.64rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
     overflow: hidden;
@@ -9864,7 +9864,7 @@ textarea {
 
 .left-xp-label {
     font-size: 0.72rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     text-shadow: 0 1px 3px #000;
     text-align: center;
     font-weight: 600;
@@ -9880,7 +9880,7 @@ textarea {
 
 .left-xp-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #818cf8, #38bdf8);
+    background: linear-gradient(90deg, #818cf8, var(--cyan));
     border-radius: 999px;
     transition: width 0.4s ease;
 }
@@ -9947,7 +9947,7 @@ textarea {
 }
 
 .left-timer-label {
-    color: #cbd5e1;
+    color: var(--slate-300);
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -9977,7 +9977,7 @@ textarea {
 
 .vn-finale-header .act-label {
     letter-spacing: 0.15em;
-    color: #facc15;
+    color: var(--gold);
     font-size: 0.75rem;
     font-weight: 700;
 }
@@ -9988,7 +9988,7 @@ textarea {
 }
 
 .vn-finale-body p {
-    color: #cbd5e1;
+    color: var(--slate-300);
     line-height: 1.65;
     margin: 0;
 }
@@ -10016,19 +10016,19 @@ textarea {
 }
 
 .battle-result-win {
-    color: #4ade80;
+    color: var(--green-400);
     font-size: 2.25rem;
     margin: 0;
 }
 
 .battle-result-loss {
-    color: #f87171;
+    color: var(--red-400);
     font-size: 2.25rem;
     margin: 0;
 }
 
 .battle-result-fled {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 2.25rem;
     margin: 0;
 }
@@ -10111,14 +10111,14 @@ textarea {
     }
 
     .sector-player-info small {
-        color: #94a3b8;
+        color: var(--text-dim);
         font-size: 0.75rem;
     }
 
 /* Live badge */
 .live-badge {
     display: inline-block;
-    background: #22c55e;
+    background: var(--success);
     color: #000;
     font-size: 0.6rem;
     font-weight: 800;
@@ -10133,7 +10133,7 @@ textarea {
 .territory-hostile-tag {
     font-size: 0.78rem;
     font-weight: 700;
-    color: #f87171;
+    color: var(--red-400);
     margin: 0 0 4px;
     letter-spacing: 0.04em;
 }
@@ -10174,7 +10174,7 @@ textarea {
 .chest-reveal-sub {
     margin: 0;
     font-size: 0.82rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .chest-rewards {
@@ -10209,18 +10209,18 @@ textarea {
 
     .chest-reward-text strong {
         font-size: 0.95rem;
-        color: #e2e8f0;
+        color: var(--slate-200);
     }
 
     .chest-reward-text small {
         font-size: 0.74rem;
-        color: #64748b;
+        color: var(--text-muted);
     }
 
 .chest-claim-btn {
     margin-top: 4px;
     padding: 12px 32px;
-    background: linear-gradient(135deg, #d97706, #f59e0b);
+    background: linear-gradient(135deg, #d97706, var(--gold-2));
     color: #000;
     font-weight: 800;
     font-size: 1rem;
@@ -10283,7 +10283,7 @@ textarea {
 
 .element-water {
     background: rgba(59,130,246,0.2);
-    color: #60a5fa;
+    color: var(--blue-400);
     border: 1px solid rgba(59,130,246,0.5);
 }
 
@@ -10295,7 +10295,7 @@ textarea {
 
 .element-earth {
     background: rgba(217,119,6,0.2);
-    color: #f59e0b;
+    color: var(--gold-2);
     border: 1px solid rgba(217,119,6,0.5);
 }
 
@@ -10307,19 +10307,19 @@ textarea {
 
 .element-fire {
     background: rgba(239,68,68,0.2);
-    color: #f87171;
+    color: var(--red-400);
     border: 1px solid rgba(239,68,68,0.5);
 }
 
 .awakening-element-desc {
     font-size: 0.88rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     text-align: center;
     margin: 0;
 }
 
 .awakening-unawakened {
-    color: #64748b;
+    color: var(--text-muted);
     font-style: italic;
 }
 
@@ -10334,13 +10334,13 @@ textarea {
 .awakening-msg-success {
     background: rgba(34, 197, 94, 0.12);
     border: 1px solid rgba(34, 197, 94, 0.35);
-    color: #4ade80;
+    color: var(--green-400);
 }
 
 .awakening-msg-error {
     background: rgba(239, 68, 68, 0.12);
     border: 1px solid rgba(239, 68, 68, 0.35);
-    color: #f87171;
+    color: var(--red-400);
 }
 
 .awakening-section {
@@ -10359,7 +10359,7 @@ textarea {
 .awakening-hint {
     margin: 0;
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .awakening-roll-row {
@@ -10393,7 +10393,7 @@ textarea {
 
 .awakening-paid-btn {
     background: rgba(51, 65, 85, 0.6);
-    color: #cbd5e1;
+    color: var(--slate-300);
     border: 1px solid rgba(100,116,139,0.4);
 }
 
@@ -10442,13 +10442,13 @@ textarea {
 .awakening-material-name {
     flex: 1;
     font-size: 0.88rem;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 .awakening-material-count {
     font-weight: 700;
     font-size: 1rem;
-    color: #e2e8f0;
+    color: var(--slate-200);
     min-width: 40px;
     text-align: right;
 }
@@ -10490,11 +10490,11 @@ textarea {
 }
 
 .rank-b .awakening-forge-rank {
-    color: #4ade80;
+    color: var(--green-400);
 }
 
 .rank-a .awakening-forge-rank {
-    color: #60a5fa;
+    color: var(--blue-400);
 }
 
 .rank-s .awakening-forge-rank {
@@ -10503,12 +10503,12 @@ textarea {
 
 .awakening-forge-cost {
     font-size: 0.82rem;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 .awakening-forge-have {
     font-size: 0.75rem;
-    color: #475569;
+    color: var(--slate-600);
 }
 
 .awakening-forge-btn {
@@ -10525,13 +10525,13 @@ textarea {
 
 .rank-b .awakening-forge-btn {
     background: rgba(34,197,94,0.2);
-    color: #4ade80;
+    color: var(--green-400);
     border: 1px solid rgba(34,197,94,0.4);
 }
 
 .rank-a .awakening-forge-btn {
     background: rgba(59,130,246,0.2);
-    color: #60a5fa;
+    color: var(--blue-400);
     border: 1px solid rgba(59,130,246,0.4);
 }
 
@@ -10560,7 +10560,7 @@ textarea {
 
 .clan-my-contrib {
     font-size: 0.72rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .clan-rank-badge {
@@ -10580,7 +10580,7 @@ textarea {
     flex-wrap: wrap;
     gap: 6px;
     margin-bottom: 14px;
-    border-bottom: 1px solid #1e293b;
+    border-bottom: 1px solid var(--slate-800);
     padding-bottom: 8px;
 }
 
@@ -10589,19 +10589,19 @@ textarea {
         border-radius: 8px 8px 0 0;
         background: transparent;
         border: 1px solid transparent;
-        color: #64748b;
+        color: var(--text-muted);
         font-size: 0.82rem;
         cursor: pointer;
         transition: color 0.15s, border-color 0.15s;
     }
 
         .clan-tabs button:hover {
-            color: #94a3b8;
+            color: var(--text-dim);
         }
 
         .clan-tabs button.active {
-            color: #e2e8f0;
-            border-color: #334155;
+            color: var(--slate-200);
+            border-color: var(--slate-700);
             background: rgba(30,41,59,0.6);
         }
 
@@ -10643,14 +10643,14 @@ textarea {
     gap: 2px;
     text-align: left;
     padding: 8px;
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     border-radius: 6px;
     background: rgba(15, 18, 34, 0.6);
-    color: #cbd5e1;
+    color: var(--slate-300);
     cursor: pointer;
 }
 .clan-doctrine-option small {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.7rem;
 }
 .clan-doctrine-option.active {
@@ -10663,7 +10663,7 @@ textarea {
     display: block;
     margin-top: 3px;
     font-style: italic;
-    color: #94a3b8;
+    color: var(--text-dim);
     white-space: normal;
 }
 
@@ -10684,7 +10684,7 @@ textarea {
     }
 
     .clan-request-card small {
-        color: #94a3b8;
+        color: var(--text-dim);
     }
 
 .clan-join-requests {
@@ -10698,7 +10698,7 @@ textarea {
     padding: 4px 10px;
     font-size: 0.72rem;
     font-weight: 700;
-    color: #475569;
+    color: var(--slate-600);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -10711,12 +10711,12 @@ textarea {
     padding: 9px 12px;
     border-radius: 10px;
     background: rgba(15,23,42,0.5);
-    border: 1px solid #1e293b;
+    border: 1px solid var(--slate-800);
     transition: border-color 0.15s;
 }
 
     .clan-member-row:hover {
-        border-color: #334155;
+        border-color: var(--slate-700);
     }
 
 .clan-member-me {
@@ -10726,7 +10726,7 @@ textarea {
 
 .clan-member-pos {
     font-size: 0.75rem;
-    color: #475569;
+    color: var(--slate-600);
     font-weight: 700;
     text-align: center;
 }
@@ -10740,7 +10740,7 @@ textarea {
 .clan-member-name {
     font-size: 0.88rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--slate-200);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -10748,7 +10748,7 @@ textarea {
 
 .clan-member-sub {
     font-size: 0.72rem;
-    color: #475569;
+    color: var(--slate-600);
 }
 
 .clan-contrib-col {
@@ -10761,12 +10761,12 @@ textarea {
 .clan-contrib-total {
     font-size: 0.85rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
 
 .clan-contrib-breakdown {
     font-size: 0.68rem;
-    color: #475569;
+    color: var(--slate-600);
     white-space: nowrap;
 }
 
@@ -10780,13 +10780,13 @@ textarea {
     gap: 8px 12px;
     padding: 9px 12px;
     border-radius: 10px;
-    border: 1px solid #1e293b;
+    border: 1px solid var(--slate-800);
     background: rgba(15,23,42,0.4);
     margin-bottom: 6px;
 }
 
     .clan-member-row-v2:hover {
-        border-color: #334155;
+        border-color: var(--slate-700);
     }
 
     .clan-member-row-v2.clan-member-me {
@@ -10809,9 +10809,9 @@ textarea {
     }
 
 .clan-role-select {
-    background: #0f172a;
-    color: #cbd5e1;
-    border: 1px solid #334155;
+    background: var(--slate-900);
+    color: var(--slate-300);
+    border: 1px solid var(--slate-700);
     border-radius: 6px;
     padding: 3px 6px;
     font-size: 0.78rem;
@@ -10851,7 +10851,7 @@ textarea {
         justify-content: space-between;
         font-size: 0.82rem;
         margin-top: 4px;
-        color: #cbd5e1;
+        color: var(--slate-300);
     }
 
 .clan-raid-flash {
@@ -10861,7 +10861,7 @@ textarea {
     background: rgba(96,165,250,0.1);
     border: 1px solid rgba(96,165,250,0.3);
     font-size: 0.86rem;
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
 
 .clan-raid-board {
@@ -10886,9 +10886,9 @@ textarea {
     max-width: 100%;
     padding: 6px 12px;
     border-radius: 999px;
-    border: 1px solid #334155;
-    background: #0f172a;
-    color: #94a3b8;
+    border: 1px solid var(--slate-700);
+    background: var(--slate-900);
+    color: var(--text-dim);
     font-size: 0.82rem;
     cursor: pointer;
     overflow: hidden;
@@ -10951,12 +10951,12 @@ textarea {
 .clan-chat-name {
     font-size: 0.68rem;
     font-weight: 700;
-    color: #93c5fd;
+    color: var(--blue-300);
     letter-spacing: 0.02em;
 }
-.clan-chat-msg.self .clan-chat-name { color: #facc15; }
-.clan-chat-text { font-size: 0.86rem; line-height: 1.3; color: #e2e8f0; }
-.clan-chat-error { color: #f87171; font-size: 0.78rem; margin: 2px 0 6px; }
+.clan-chat-msg.self .clan-chat-name { color: var(--gold); }
+.clan-chat-text { font-size: 0.86rem; line-height: 1.3; color: var(--slate-200); }
+.clan-chat-error { color: var(--red-400); font-size: 0.78rem; margin: 2px 0 6px; }
 .clan-chat-input { display: flex; gap: 8px; }
 .clan-chat-input input {
     flex: 1 1 auto;
@@ -10965,7 +10965,7 @@ textarea {
     border-radius: 8px;
     border: 1px solid rgba(148, 163, 184, 0.28);
     background: rgba(15, 23, 42, 0.6);
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
 .clan-chat-input button { flex: none; min-height: 40px; padding: 0 1.1rem; }
 
@@ -10998,12 +10998,12 @@ textarea {
     padding: 8px 12px;
     border-radius: 8px;
     background: rgba(15,23,42,0.5);
-    border: 1px solid #1e293b;
+    border: 1px solid var(--slate-800);
 }
 
 .clan-guard-lvl {
     font-size: 0.78rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 /* Enemy territory guard section */
@@ -11012,8 +11012,8 @@ textarea {
     flex-direction: column;
     gap: 4px;
     padding: 8px 0;
-    border-top: 1px solid #1e293b;
-    border-bottom: 1px solid #1e293b;
+    border-top: 1px solid var(--slate-800);
+    border-bottom: 1px solid var(--slate-800);
     margin: 4px 0;
 }
 
@@ -11026,19 +11026,19 @@ textarea {
 
 .territory-guard-name {
     font-size: 0.78rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     margin: 0;
 }
 
 .territory-guard-lvl {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.72rem;
 }
 
 .territory-raid-btn {
     background: linear-gradient(135deg, rgba(127,29,29,0.6), rgba(185,28,28,0.4));
     border: 1px solid rgba(239,68,68,0.4);
-    color: #fca5a5;
+    color: var(--red-300);
     border-radius: 7px;
     padding: 7px 12px;
     font-weight: 700;
@@ -11065,7 +11065,7 @@ textarea {
     cursor: pointer;
     font-weight: 700;
     font-size: 0.95rem;
-    color: #93c5fd;
+    color: var(--blue-300);
     background: rgba(30, 58, 95, 0.35);
     user-select: none;
     transition: background 0.15s;
@@ -11077,7 +11077,7 @@ textarea {
 
 .bulk-image-chevron {
     font-size: 0.8rem;
-    color: #475569;
+    color: var(--slate-600);
 }
 
 .bulk-image-body {
@@ -11099,7 +11099,7 @@ textarea {
     align-items: center;
     gap: 6px;
     font-size: 0.82rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     cursor: pointer;
 }
 
@@ -11117,9 +11117,9 @@ textarea {
 .bulk-quick-btn {
     padding: 4px 10px;
     background: rgba(51, 65, 85, 0.6);
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     border-radius: 6px;
-    color: #cbd5e1;
+    color: var(--slate-300);
     font-size: 0.78rem;
     cursor: pointer;
     transition: background 0.15s;
@@ -11150,7 +11150,7 @@ textarea {
     padding: 7px 10px;
     border-radius: 8px;
     background: rgba(15, 23, 42, 0.5);
-    border: 1px solid #1e293b;
+    border: 1px solid var(--slate-800);
     flex-wrap: wrap;
     transition: border-color 0.15s, background 0.15s;
 }
@@ -11183,10 +11183,10 @@ textarea {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #1e293b;
-    color: #475569;
+    background: var(--slate-800);
+    color: var(--slate-600);
     font-size: 1.1rem;
-    border: 1px dashed #334155;
+    border: 1px dashed var(--slate-700);
 }
 
 .bulk-card-info {
@@ -11201,7 +11201,7 @@ textarea {
 .bulk-card-name {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
 
 .bulk-card-rarity {
@@ -11215,17 +11215,17 @@ textarea {
 
 .bulk-rarity-common {
     background: rgba(148,163,184,0.2);
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 .bulk-rarity-rare {
     background: rgba(59,130,246,0.2);
-    color: #60a5fa;
+    color: var(--blue-400);
 }
 
 .bulk-rarity-epic {
     background: rgba(168,85,247,0.2);
-    color: #c084fc;
+    color: var(--purple-400);
 }
 
 .bulk-card-element {
@@ -11238,7 +11238,7 @@ textarea {
 
 .bulk-card-has-img {
     font-size: 0.72rem;
-    color: #4ade80;
+    color: var(--green-400);
 }
 
 .bulk-card-prompt-input {
@@ -11247,13 +11247,13 @@ textarea {
     padding: 5px 8px;
     font-size: 0.78rem;
     background: rgba(15, 23, 42, 0.7);
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     border-radius: 6px;
-    color: #cbd5e1;
+    color: var(--slate-300);
 }
 
     .bulk-card-prompt-input::placeholder {
-        color: #475569;
+        color: var(--slate-600);
     }
 
 .bulk-progress-wrap {
@@ -11264,19 +11264,19 @@ textarea {
 
 .bulk-progress-label {
     font-size: 0.8rem;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 .bulk-progress-track {
     height: 8px;
-    background: #1e293b;
+    background: var(--slate-800);
     border-radius: 99px;
     overflow: hidden;
 }
 
 .bulk-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    background: linear-gradient(90deg, #3b82f6, var(--blue-400));
     border-radius: 99px;
     transition: width 0.4s ease;
 }
@@ -11293,7 +11293,7 @@ textarea {
 }
 
 .bulk-error-row {
-    color: #fca5a5;
+    color: var(--red-300);
 }
 
 .bulk-generate-btn {
@@ -11338,7 +11338,7 @@ textarea {
     max-height: 92vh;
     overflow-y: auto;
     border-radius: 16px;
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     background: #0d1827;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
     display: flex;
@@ -11359,7 +11359,7 @@ textarea {
 
 .vn-preview-label {
     font-size: 0.78rem;
-    color: #93c5fd;
+    color: var(--blue-300);
     letter-spacing: 0.02em;
     font-style: italic;
 }
@@ -11390,9 +11390,9 @@ textarea {
     padding: 6px !important;
     overflow: hidden !important;
     border: 6px solid #7c3f11 !important;
-    border-image: linear-gradient(#f59e0b, #7c2d12) 1 !important;
+    border-image: linear-gradient(var(--gold-2), #7c2d12) 1 !important;
     background: linear-gradient( 90deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.98) ) !important;
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.52), inset 0 0 0 2px #facc15 !important;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.52), inset 0 0 0 2px var(--gold) !important;
 }
 
     .sector-instance-wrap .tile-scene {
@@ -11416,7 +11416,7 @@ textarea {
         text-align: center !important;
         font-size: 11px !important;
         color: #f8fafc !important;
-        border: 2px solid #f59e0b !important;
+        border: 2px solid var(--gold-2) !important;
         background: linear-gradient(180deg, #111827, #020617) !important;
         box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.55) !important;
         overflow: hidden !important;
@@ -11440,7 +11440,7 @@ textarea {
     display: grid !important;
     place-items: center !important;
     border-radius: 50% !important;
-    border: 3px solid #facc15 !important;
+    border: 3px solid var(--gold) !important;
     background: radial-gradient(circle, #67e8f9, #1d4ed8 62%, #111827) !important;
     color: white !important;
     font-size: 22px !important;
@@ -11456,13 +11456,13 @@ textarea {
     }
 
 .sector-instance-wrap .instance-info strong {
-    color: #facc15 !important;
+    color: var(--gold) !important;
     font-size: 14px !important;
     line-height: 1.1 !important;
 }
 
 .sector-instance-wrap .instance-info small {
-    color: #cbd5e1 !important;
+    color: var(--slate-300) !important;
     font-size: 10px !important;
 }
 
@@ -12313,13 +12313,13 @@ textarea {
 }
 
 .combat-target-prompt {
-    border: 2px solid #facc15 !important;
+    border: 2px solid var(--gold) !important;
     background: rgba(15, 23, 42, 0.95) !important;
     color: #fef3c7 !important;
 }
 
 .jutsu-target-tile {
-    outline: 3px solid #facc15 !important;
+    outline: 3px solid var(--gold) !important;
     box-shadow: 0 0 18px rgba(250, 204, 21, 0.8) !important;
 }
 
@@ -12519,7 +12519,7 @@ textarea {
     text-align: left !important;
     border-radius: 7px !important;
     background: linear-gradient(#1e3a8a, #172554) !important;
-    border: 1px solid #64748b !important;
+    border: 1px solid var(--text-muted) !important;
     color: #e0f2fe !important;
     box-shadow: none !important;
 }
@@ -12539,11 +12539,11 @@ textarea {
     .combat-jutsu-button small {
         font-size: 8px !important;
         line-height: 1.1 !important;
-        color: #cbd5e1 !important;
+        color: var(--slate-300) !important;
     }
 
     .combat-jutsu-button.selected-action {
-        border-color: #facc15 !important;
+        border-color: var(--gold) !important;
         background: linear-gradient(#92400e, #451a03) !important;
         box-shadow: 0 0 10px rgba(250, 204, 21, 0.45) !important;
     }
@@ -12572,7 +12572,7 @@ textarea {
     text-align: center !important;
     border-radius: 6px !important;
     background: #e8f1fb !important;
-    border: 2px solid #334155 !important;
+    border: 2px solid var(--slate-700) !important;
     color: #020617 !important;
     box-shadow: none !important;
     overflow: hidden !important;
@@ -12585,7 +12585,7 @@ textarea {
     place-items: center !important;
     border-radius: 4px !important;
     overflow: hidden !important;
-    background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.55), transparent 24%), linear-gradient(135deg, #0f172a, #312e81, #7c2d12) !important;
+    background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.55), transparent 24%), linear-gradient(135deg, var(--slate-900), #312e81, #7c2d12) !important;
 }
 
     .combat-jutsu-thumb img {
@@ -12620,14 +12620,14 @@ textarea {
     display: block !important;
     font-size: 8px !important;
     line-height: 1 !important;
-    color: #334155 !important;
+    color: var(--slate-700) !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
 }
 
 .combat-jutsu-button.selected-action {
-    border-color: #facc15 !important;
+    border-color: var(--gold) !important;
     background: #fef3c7 !important;
     box-shadow: 0 0 10px rgba(250, 204, 21, 0.55) !important;
 }
@@ -12661,13 +12661,13 @@ textarea {
 }
 
 .combat-jutsu-info {
-    color: #cbd5e1 !important;
+    color: var(--slate-300) !important;
 }
 
 /* optional: make selected jutsu stand out more */
 .combat-jutsu-button.selected-action {
     background: linear-gradient(180deg, #3b2a09, #24180a) !important;
-    border-color: #facc15 !important;
+    border-color: var(--gold) !important;
     box-shadow: 0 0 10px rgba(250, 204, 21, 0.4) !important;
 }
 
@@ -12675,8 +12675,8 @@ textarea {
     cursor: not-allowed !important;
     filter: grayscale(1) brightness(0.62) !important;
     opacity: 0.62 !important;
-    border-color: #64748b !important;
-    background: linear-gradient(180deg, #475569, #1f2937) !important;
+    border-color: var(--text-muted) !important;
+    background: linear-gradient(180deg, var(--slate-600), #1f2937) !important;
 }
 /* Unaffordable / not-your-turn jutsu + item cards read as inert at a glance
    (catalog affordance, C5/C1 parity). On-cooldown cards keep their own dim +
@@ -12707,8 +12707,8 @@ textarea {
     cursor: not-allowed !important;
     filter: grayscale(1) brightness(0.62) !important;
     opacity: 0.62 !important;
-    border-color: #64748b !important;
-    background: linear-gradient(180deg, #475569, #1f2937) !important;
+    border-color: var(--text-muted) !important;
+    background: linear-gradient(180deg, var(--slate-600), #1f2937) !important;
 }
 
 /* Cooldown countdown badge — rounds remaining until the jutsu / weapon / item is
@@ -12880,7 +12880,7 @@ textarea {
 
     .combat-jutsu-help:hover {
         transform: none !important;
-        background: #facc15 !important;
+        background: var(--gold) !important;
         color: #111827 !important;
     }
 
@@ -12915,7 +12915,7 @@ textarea {
     .combat-jutsu-detail-header small {
         display: block !important;
         margin-top: 2px !important;
-        color: #cbd5e1 !important;
+        color: var(--slate-300) !important;
         font-size: 10px !important;
     }
 
@@ -12943,7 +12943,7 @@ textarea {
 }
 
     .combat-jutsu-detail-grid span {
-        color: #e2e8f0 !important;
+        color: var(--slate-200) !important;
         line-height: 1.25 !important;
     }
 
@@ -12996,7 +12996,7 @@ textarea {
 
 .jutsu-effect-card-head span {
     flex: 0 0 auto !important;
-    color: #93c5fd !important;
+    color: var(--blue-300) !important;
     font-size: 0.72rem !important;
     font-weight: 800 !important;
     text-transform: uppercase !important;
@@ -13010,7 +13010,7 @@ textarea {
 
 .jutsu-effect-card small {
     display: block !important;
-    color: #94a3b8 !important;
+    color: var(--text-dim) !important;
     line-height: 1.35 !important;
 }
 
@@ -13045,7 +13045,7 @@ textarea {
 }
 
     .combat-jutsu-effect-grid span {
-        color: #e2e8f0 !important;
+        color: var(--slate-200) !important;
         line-height: 1.25 !important;
     }
 
@@ -13109,7 +13109,7 @@ textarea {
     border-radius: 8px;
     border: 1px solid rgba(148,163,184,0.25);
     background: rgba(15,23,42,0.85);
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-size: 0.78rem;
     cursor: pointer;
     flex: 1;
@@ -13122,7 +13122,7 @@ textarea {
     border-radius: 8px;
     border: 1px solid rgba(239,68,68,0.4);
     background: rgba(239,68,68,0.12);
-    color: #f87171;
+    color: var(--red-400);
     font-size: 0.75rem;
     font-weight: 700;
     cursor: pointer;
@@ -13144,7 +13144,7 @@ textarea {
     object-fit: contain !important;
     border-radius: 6px !important;
     margin-bottom: 0.3rem !important;
-    border: 1px solid #334155 !important;
+    border: 1px solid var(--slate-700) !important;
     background: rgba(2, 6, 23, 0.65) !important;
     padding: 4px !important;
 }
@@ -13171,7 +13171,7 @@ textarea {
     padding: 16px;
     border: 2px solid rgba(148, 163, 184, 0.65);
     border-radius: 10px;
-    background: #334155;
+    background: var(--slate-700);
     color: #fff7ed;
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.75);
 }
@@ -13247,7 +13247,7 @@ textarea {
 
 .rarity-common {
     background: rgba(148, 163, 184, 0.25);
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
 
 .rarity-uncommon {
@@ -13267,7 +13267,7 @@ textarea {
 
 .rarity-legendary {
     background: rgba(250, 204, 21, 0.22);
-    color: #fde68a;
+    color: var(--gold-300);
 }
 
 .rarity-mythic {
@@ -13424,14 +13424,14 @@ textarea {
         border-radius: 8px;
         border: 1px solid rgba(226, 232, 240, 0.45);
         background: rgba(15, 23, 42, 0.8);
-        color: #e2e8f0;
+        color: var(--slate-200);
         font-size: 12px;
     }
 
         .inventory-tabs button.active {
             background: linear-gradient(135deg, #92400e, #172554);
             color: #fef3c7;
-            border-color: #facc15;
+            border-color: var(--gold);
             box-shadow: 0 0 14px rgba(250, 204, 21, 0.2);
         }
 
@@ -13520,7 +13520,7 @@ textarea {
         display: grid;
         place-items: center;
         border-radius: 999px;
-        background: #facc15;
+        background: var(--gold);
         color: #111827;
         font-size: 12px;
         font-weight: 900;
@@ -13536,8 +13536,8 @@ textarea {
     place-items: center;
     border: 2px solid #f8fafc;
     border-radius: 999px;
-    background: #facc15;
-    color: #0f172a;
+    background: var(--gold);
+    color: var(--slate-900);
     font-size: 11px;
     font-weight: 900;
 }
@@ -13556,7 +13556,7 @@ textarea {
         place-items: center;
         border-radius: 8px;
         background: rgba(15, 23, 42, 0.7);
-        color: #64748b;
+        color: var(--text-muted);
         font-size: 20px;
         font-weight: 900;
     }
@@ -13582,7 +13582,7 @@ textarea {
         }
 
         .tile-card-arrow-preview span.active {
-            background: #facc15;
+            background: var(--gold);
             color: #111827;
             box-shadow: 0 0 14px rgba(250, 204, 21, 0.45);
         }
@@ -13688,7 +13688,7 @@ textarea {
     padding: 1px 5px;
     border-radius: 4px;
     background: rgba(0,0,0,0.65);
-    color: #facc15;
+    color: var(--gold);
     font-size: 9px;
     font-weight: 700;
     pointer-events: none;
@@ -13707,7 +13707,7 @@ textarea {
 .jutsu-loadout-name {
     font-size: 9px;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--slate-200);
     line-height: 1.25;
     word-break: break-word;
     overflow: hidden;
@@ -13738,7 +13738,7 @@ textarea {
 
 .jutsu-loadout-toggle-btn.unequip {
     background: rgba(127, 29, 29, 0.75);
-    color: #fca5a5;
+    color: var(--red-300);
     border-color: rgba(239, 68, 68, 0.5);
 }
 
@@ -13749,7 +13749,7 @@ textarea {
 
 .jutsu-loadout-toggle-btn.equip {
     background: rgba(6, 60, 20, 0.75);
-    color: #86efac;
+    color: var(--green-300);
     border-color: rgba(74, 222, 128, 0.4);
 }
 
@@ -13768,7 +13768,7 @@ textarea {
     border-radius: 50%;
     border: 1px solid rgba(148, 163, 184, 0.5);
     background: rgba(15, 23, 42, 0.85);
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 10px;
     font-weight: 700;
     line-height: 1;
@@ -13782,8 +13782,8 @@ textarea {
 }
 .jutsu-loadout-info-btn:hover {
     background: rgba(56, 189, 248, 0.2);
-    color: #38bdf8;
-    border-color: #38bdf8;
+    color: var(--cyan);
+    border-color: var(--cyan);
 }
 
 /* Jutsu info modal overlay */
@@ -13802,8 +13802,8 @@ textarea {
 
 .jutsu-info-panel {
     position: relative;
-    background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
-    border: 1px solid var(--jutsu-type-color, #334155);
+    background: linear-gradient(160deg, var(--slate-900) 0%, var(--slate-800) 100%);
+    border: 1px solid var(--jutsu-type-color, var(--slate-700));
     border-radius: 14px;
     box-shadow: 0 0 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
     padding: 20px 20px 16px;
@@ -13821,7 +13821,7 @@ textarea {
     right: 12px;
     background: rgba(255,255,255,0.06);
     border: none;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 18px;
     line-height: 1;
     width: 26px;
@@ -13832,7 +13832,7 @@ textarea {
     align-items: center;
     justify-content: center;
 }
-.jutsu-info-close:hover { background: rgba(239,68,68,0.25); color: #f87171; }
+.jutsu-info-close:hover { background: rgba(239,68,68,0.25); color: var(--red-400); }
 
 .jutsu-info-art {
     width: 100%;
@@ -13845,7 +13845,7 @@ textarea {
 .jutsu-info-name {
     font-size: 1rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--slate-200);
     text-align: center;
     margin: 0;
 }
@@ -13863,8 +13863,8 @@ textarea {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     background: rgba(255,255,255,0.07);
-    color: var(--jutsu-type-color, #94a3b8);
-    border: 1px solid var(--jutsu-type-color, #334155);
+    color: var(--jutsu-type-color, var(--text-dim));
+    border: 1px solid var(--jutsu-type-color, var(--slate-700));
 }
 
 .jutsu-info-stats {
@@ -13885,26 +13885,26 @@ textarea {
 }
 .jutsu-info-stat span {
     font-size: 0.6rem;
-    color: #64748b;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 .jutsu-info-stat strong {
     font-size: 0.85rem;
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-weight: 700;
 }
 
 .jutsu-info-tags {
     font-size: 0.72rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     text-align: center;
     margin: 0;
 }
 
 .jutsu-info-effects {
     font-size: 0.75rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     text-align: center;
     margin: 0;
     line-height: 1.5;
@@ -13916,7 +13916,7 @@ textarea {
     align-items: center;
     gap: 8px;
     margin: 14px 0 10px;
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
@@ -13945,16 +13945,16 @@ textarea {
     padding: 3px 8px;
     font-size: 11px;
     background: rgba(15, 23, 42, 0.8);
-    border: 1px solid #334155;
+    border: 1px solid var(--slate-700);
     border-radius: 6px;
-    color: #94a3b8;
+    color: var(--text-dim);
     cursor: pointer;
 }
 
 .jutsu-loadout-sort:focus {
     outline: none;
     border-color: #3b82f6;
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
 
 /* ===== TILE CARD FILTER / SELL UI ===== */
@@ -13979,7 +13979,7 @@ textarea {
 
 .tile-card-filter-group label {
     font-size: 10px;
-    color: #64748b;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: 700;
@@ -13998,7 +13998,7 @@ textarea {
     border-radius: 999px;
     border: 1px solid rgba(51, 65, 85, 0.8);
     background: rgba(15, 23, 42, 0.6);
-    color: #64748b;
+    color: var(--text-muted);
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
     line-height: 1.6;
@@ -14006,8 +14006,8 @@ textarea {
 
 .tile-card-filter-buttons button:hover {
     background: rgba(30, 41, 59, 0.9);
-    color: #cbd5e1;
-    border-color: #475569;
+    color: var(--slate-300);
+    border-color: var(--slate-600);
 }
 
 .tile-card-filter-buttons button.active {
@@ -14018,7 +14018,7 @@ textarea {
 }
 
 .tile-card-inventory-card.selected {
-    outline: 2px solid #facc15;
+    outline: 2px solid var(--gold);
     outline-offset: 1px;
 }
 
@@ -14028,7 +14028,7 @@ textarea {
     font-size: 9px;
     background: rgba(127, 29, 29, 0.55);
     border: 1px solid rgba(239, 68, 68, 0.5);
-    color: #fca5a5;
+    color: var(--red-300);
     border-radius: 5px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
@@ -14039,7 +14039,7 @@ textarea {
 .tile-card-sell-btn:hover {
     background: rgba(185, 28, 28, 0.75);
     color: #fee2e2;
-    border-color: #ef4444;
+    border-color: var(--danger);
 }
 
 .tile-card-selected-detail {
@@ -14108,17 +14108,17 @@ textarea {
     /* Biome arena backgrounds — must follow the !important base rule above */
     .arena-fullscreen .hex-battlefield.hex-volcano {
         background: url('/arena-volcano-floor.webp') center center / cover no-repeat !important;
-        border-color: #b91c1c !important;
+        border-color: var(--red) !important;
         box-shadow: inset 0 0 80px rgba(220,38,38,.35), 0 0 24px rgba(234,88,12,.4) !important;
     }
     .arena-fullscreen .hex-battlefield.hex-snow {
         background: url('/arena-snow-floor.webp') center center / cover no-repeat !important;
-        border-color: #93c5fd !important;
+        border-color: var(--blue-300) !important;
         box-shadow: inset 0 0 80px rgba(147,197,253,.2), 0 0 24px rgba(186,230,253,.35) !important;
     }
     .arena-fullscreen .hex-battlefield.hex-forest {
         background: url('/arena-forest-floor.webp') center center / cover no-repeat !important;
-        border-color: #4ade80 !important;
+        border-color: var(--green-400) !important;
         box-shadow: inset 0 0 80px rgba(74,222,128,.18), 0 0 24px rgba(34,197,94,.3) !important;
     }
     .arena-fullscreen .hex-battlefield.hex-shadow {
@@ -14128,7 +14128,7 @@ textarea {
     }
     .arena-fullscreen .hex-battlefield.hex-central {
         background: url('/arena-central-floor.webp') center center / cover no-repeat !important;
-        border-color: #94a3b8 !important;
+        border-color: var(--text-dim) !important;
         box-shadow: inset 0 0 80px rgba(148,163,184,.18), 0 0 24px rgba(148,163,184,.2) !important;
     }
     .arena-fullscreen .hex-battlefield.hex-deathsgate {
@@ -14891,13 +14891,13 @@ button.combat-jutsu-button,
 
     .town-hall-wallet span {
         display: block;
-        color: #94a3b8;
+        color: var(--text-dim);
         font-size: 12px;
         font-weight: 800;
     }
 
     .town-hall-wallet strong {
-        color: #facc15;
+        color: var(--gold);
         font-size: 22px;
     }
 
@@ -14928,7 +14928,7 @@ button.combat-jutsu-button,
 }
 
     .elder-card span {
-        color: #93c5fd;
+        color: var(--blue-300);
         font-size: 12px;
         font-weight: 800;
     }
@@ -15002,7 +15002,7 @@ button.combat-jutsu-button,
 .leader-image-placeholder {
     display: grid;
     place-items: center;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-weight: 800;
 }
 
@@ -15032,7 +15032,7 @@ button.combat-jutsu-button,
 .war-history-list {
     margin: 8px 0 0;
     padding-left: 18px;
-    color: #cbd5e1;
+    color: var(--slate-300);
 }
 
     .war-history-list li {
@@ -15108,7 +15108,7 @@ button.combat-jutsu-button,
 }
 
 .town-upgrade-topline strong {
-    color: #facc15;
+    color: var(--gold);
 }
 
 .town-upgrade-topline p,
@@ -15119,13 +15119,13 @@ button.combat-jutsu-button,
 
 .town-upgrade-desc {
     min-height: 42px;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 12px;
     line-height: 1.35;
 }
 
 .town-upgrade-bonus {
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-size: 13px;
 }
 
@@ -15140,7 +15140,7 @@ button.combat-jutsu-button,
         display: block;
         height: 100%;
         border-radius: inherit;
-        background: linear-gradient(90deg, #38bdf8, #facc15);
+        background: linear-gradient(90deg, var(--cyan), var(--gold));
     }
 
 @media (max-width: 720px) {
@@ -15207,7 +15207,7 @@ button.combat-jutsu-button,
         display: block;
         height: 100%;
         border-radius: inherit;
-        background: linear-gradient(90deg, #38bdf8, #facc15);
+        background: linear-gradient(90deg, var(--cyan), var(--gold));
     }
 
 .clan-role-badge {
@@ -15334,7 +15334,7 @@ button.combat-jutsu-button,
 
     .war-score-board span {
         font-size: .9rem;
-        color: #94a3b8;
+        color: var(--text-dim);
     }
 
 .war-record-card,
@@ -15349,7 +15349,7 @@ button.combat-jutsu-button,
 
     .war-record-card strong,
     .edict-card h3 {
-        color: #facc15;
+        color: var(--gold);
         margin: 0;
     }
 
@@ -15360,7 +15360,7 @@ button.combat-jutsu-button,
 
     .war-record-card small,
     .edict-card p {
-        color: #94a3b8;
+        color: var(--text-dim);
     }
 
 .clan-visual-hall {
@@ -15379,7 +15379,7 @@ button.combat-jutsu-button,
 
 .town-notice-board p {
     margin: 5px 0;
-    color: #cbd5e1;
+    color: var(--slate-300);
 }
 
 .edict-active-card {
@@ -15463,7 +15463,7 @@ button.combat-jutsu-button,
 .clan-exchange-card-top span,
 .clan-exchange-reward span,
 .clan-exchange-confirm-row span {
-    color: #93c5fd;
+    color: var(--blue-300);
     font-size: .72rem;
     font-weight: 900;
     letter-spacing: .08em;
@@ -15483,7 +15483,7 @@ button.combat-jutsu-button,
 .clan-exchange-card p,
 .clan-exchange-modal p {
     margin: 4px 0 0;
-    color: #cbd5e1;
+    color: var(--slate-300);
 }
 
 .clan-exchange-wallet {
@@ -15495,7 +15495,7 @@ button.combat-jutsu-button,
 
 .clan-exchange-wallet strong {
     display: block;
-    color: #facc15;
+    color: var(--gold);
     font-size: 2rem;
     line-height: 1;
 }
@@ -15514,7 +15514,7 @@ button.combat-jutsu-button,
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #22c55e, #38bdf8, #facc15);
+    background: linear-gradient(90deg, var(--success), var(--cyan), var(--gold));
 }
 
 .clan-exchange-level {
@@ -15526,7 +15526,7 @@ button.combat-jutsu-button,
 
 .clan-exchange-level > svg {
     flex: 0 0 auto;
-    color: #facc15;
+    color: var(--gold);
     font-size: 2.2rem;
 }
 
@@ -15556,7 +15556,7 @@ button.combat-jutsu-button,
 }
 
 .clan-exchange-section-head > svg {
-    color: #facc15;
+    color: var(--gold);
     font-size: 1.7rem;
 }
 
@@ -15596,9 +15596,9 @@ button.combat-jutsu-button,
     pointer-events: none;
 }
 
-.clan-exchange-card.rare::before { border-color: #38bdf8; }
+.clan-exchange-card.rare::before { border-color: var(--cyan); }
 .clan-exchange-card.epic::before { border-color: #a78bfa; }
-.clan-exchange-card.legendary::before { border-color: #facc15; }
+.clan-exchange-card.legendary::before { border-color: var(--gold); }
 
 .clan-exchange-card.locked {
     filter: saturate(.72);
@@ -15761,14 +15761,14 @@ button.combat-jutsu-button,
 }
 
 .clan-exchange-card-meta {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: .78rem;
     font-weight: 800;
 }
 
 .clan-exchange-card small {
     min-height: 17px;
-    color: #fca5a5;
+    color: var(--red-300);
     font-size: .76rem;
 }
 
@@ -15785,7 +15785,7 @@ button.combat-jutsu-button,
     padding: 3px 8px;
     border: 1px solid rgba(148, 163, 184, .24);
     border-radius: 999px;
-    color: #e2e8f0;
+    color: var(--slate-200);
     background: rgba(15, 23, 42, .72);
     font-size: .68rem;
     font-weight: 900;
@@ -15923,7 +15923,7 @@ button.combat-jutsu-button,
 
 .arena-fullscreen .effect-pill small,
 .arena-fullscreen .empty-effects {
-    color: #94a3b8 !important;
+    color: var(--text-dim) !important;
     white-space: nowrap !important;
 }
 
@@ -15944,7 +15944,7 @@ button.combat-jutsu-button,
 }
 
 .effects-debuff .effect-pill {
-    color: #f87171;
+    color: var(--red-400);
 }
 
 /* Pet Arena */
@@ -15985,7 +15985,7 @@ button.combat-jutsu-button,
 .pet-arena-mode-toggle button {
     border: 1px solid rgba(148, 163, 184, 0.35);
     background: rgba(15, 23, 42, 0.72);
-    color: #cbd5e1;
+    color: var(--slate-300);
 }
 
 .pet-arena-mode-toggle button.active {
@@ -16031,7 +16031,7 @@ button.combat-jutsu-button,
 
 .pet-arena-card p {
     margin: 4px 0;
-    color: #cbd5e1;
+    color: var(--slate-300);
 }
 
 .pet-arena-jutsu-list {
@@ -16142,7 +16142,7 @@ button.combat-jutsu-button,
 }
 
 .pet-arena-fighter-bar span {
-    color: #cbd5e1;
+    color: var(--slate-300);
     font-size: 0.82rem;
 }
 
@@ -16160,12 +16160,12 @@ button.combat-jutsu-button,
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #22c55e, #a3e635);
+    background: linear-gradient(90deg, var(--success), #a3e635);
     transition: width 0.35s ease;
 }
 
 .pet-arena-fighter-bar.enemy .pet-arena-hpbar i {
-    background: linear-gradient(90deg, #f97316, #ef4444);
+    background: linear-gradient(90deg, #f97316, var(--danger));
 }
 
 /* Low-HP pulse */
@@ -16178,7 +16178,7 @@ button.combat-jutsu-button,
     border-color: rgba(239, 68, 68, 0.5) !important;
 }
 .pet-arena-hpbar-low i {
-    background: linear-gradient(90deg, #dc2626, #f87171) !important;
+    background: linear-gradient(90deg, var(--red-600), var(--red-400)) !important;
 }
 
 /* HP bar shake on hit */
@@ -16214,7 +16214,7 @@ button.combat-jutsu-button,
     top: -4px;
     font-weight: 900;
     font-size: 0.95rem;
-    color: #f87171;
+    color: var(--red-400);
     pointer-events: none;
     white-space: nowrap;
     animation: pet-damage-float 0.88s ease-out forwards;
@@ -16234,12 +16234,12 @@ button.combat-jutsu-button,
     letter-spacing: 0.04em;
 }
 .pet-damage-float.dot {
-    color: #c084fc;
+    color: var(--purple-400);
     font-size: 0.9rem;
     text-shadow: 0 0 8px rgba(192, 132, 252, 0.7), 0 1px 4px rgba(0, 0, 0, 0.8);
 }
 .pet-damage-float.heal {
-    color: #4ade80;
+    color: var(--green-400);
     font-size: 0.95rem;
     text-shadow: 0 0 8px rgba(74, 222, 128, 0.7), 0 1px 4px rgba(0, 0, 0, 0.8);
 }
@@ -16257,7 +16257,7 @@ button.combat-jutsu-button,
 .pet-momentum-bar i.player-momentum {
     display: block;
     height: 100%;
-    background: linear-gradient(90deg, #22c55e, #86efac);
+    background: linear-gradient(90deg, var(--success), var(--green-300));
     border-radius: 4px;
     transition: width 0.55s ease;
 }
@@ -16279,17 +16279,17 @@ button.combat-jutsu-button,
 }
 .pet-status-badge.poison {
     background: rgba(168, 85, 247, 0.25);
-    color: #c084fc;
+    color: var(--purple-400);
     border: 1px solid rgba(168, 85, 247, 0.4);
 }
 .pet-status-badge.atk {
     background: rgba(239, 68, 68, 0.2);
-    color: #fca5a5;
+    color: var(--red-300);
     border: 1px solid rgba(239, 68, 68, 0.35);
 }
 .pet-status-badge.def {
     background: rgba(96, 165, 250, 0.2);
-    color: #93c5fd;
+    color: var(--blue-300);
     border: 1px solid rgba(96, 165, 250, 0.35);
 }
 .pet-status-badge.shield {
@@ -16304,9 +16304,9 @@ button.combat-jutsu-button,
 }
 /* Status-kind badge tints (Phases 7-9) — driven by BATTLE_STATUS_DEFS.kind. */
 .pet-status-badge.pet-status-dot     { background: rgba(168, 85, 247, 0.22); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4); }
-.pet-status-badge.pet-status-control { background: rgba(251, 191, 36, 0.16);  color: #fcd34d; border: 1px solid rgba(251, 191, 36, 0.4); }
+.pet-status-badge.pet-status-control { background: rgba(251, 191, 36, 0.16);  color: var(--gold-400); border: 1px solid rgba(251, 191, 36, 0.4); }
 .pet-status-badge.pet-status-debuff  { background: rgba(180, 140, 90, 0.2);   color: #e0b07a; border: 1px solid rgba(180, 140, 90, 0.42); }
-.pet-status-badge.pet-status-buff    { background: rgba(110, 231, 160, 0.16); color: #86efac; border: 1px solid rgba(110, 231, 160, 0.4); }
+.pet-status-badge.pet-status-buff    { background: rgba(110, 231, 160, 0.16); color: var(--green-300); border: 1px solid rgba(110, 231, 160, 0.4); }
 .pet-status-badge.pet-status-shield  { background: rgba(56, 189, 248, 0.2);   color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.45); }
 /* A badge pops in when its status is first applied. */
 .pet-status-badge { animation: petBadgeIn 0.32s ease both; }
@@ -16332,7 +16332,7 @@ button.combat-jutsu-button,
    Uses filter drop-shadow so it layers on top of the avatar's existing
    box-shadow rather than replacing it. */
 .pet-battle-avatar.pet-collar-glow {
-    border-color: var(--collar-glow, #fde68a);
+    border-color: var(--collar-glow, var(--gold-300));
     border-width: 4px;
     /* Persistent base aura (always lit) + a breathing pulse layered on top. */
     filter: drop-shadow(0 0 12px var(--collar-glow, rgba(253, 224, 71, 0.9))) drop-shadow(0 0 26px var(--collar-glow, rgba(250, 204, 21, 0.7)));
@@ -16458,7 +16458,7 @@ button.combat-jutsu-button,
     display: inline-block;
     font: 900 3rem var(--font-display);
     line-height: 1;
-    color: #fde68a;
+    color: var(--gold-300);
     letter-spacing: 0.08em;
     text-shadow: 0 0 20px rgba(250, 204, 21, 0.8), 0 0 40px rgba(239, 68, 68, 0.4);
     animation: petPrefightVsPop 0.5s cubic-bezier(.2, .8, .2, 1) both;
@@ -16477,7 +16477,7 @@ button.combat-jutsu-button,
     display: flex;
     gap: 12px;
     font: 700 0.9rem 'Inter', system-ui, sans-serif;
-    color: #e2e8f0;
+    color: var(--slate-200);
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 .pet-prefight-record {
@@ -16485,9 +16485,9 @@ button.combat-jutsu-button,
     font: 800 0.92rem var(--font-display);
     letter-spacing: 0.04em;
 }
-.pet-prefight-record .rec-w   { color: #4ade80; }
-.pet-prefight-record .rec-l   { color: #f87171; }
-.pet-prefight-record .rec-elo { color: #fde68a; }
+.pet-prefight-record .rec-w   { color: var(--green-400); }
+.pet-prefight-record .rec-l   { color: var(--red-400); }
+.pet-prefight-record .rec-elo { color: var(--gold-300); }
 .pet-prefight-vs {
     display: flex;
     align-items: center;
@@ -16512,8 +16512,8 @@ button.combat-jutsu-button,
     width: clamp(96px, 11vw, 144px);
     height: clamp(96px, 11vw, 144px);
 }
-.pet-prefight-name.player { color: #4ade80; }
-.pet-prefight-name.enemy  { color: #f87171; }
+.pet-prefight-name.player { color: var(--green-400); }
+.pet-prefight-name.enemy  { color: var(--red-400); }
 .pet-prefight-vs-label {
     color: #fef3c7;
     font-size: 2.6rem;
@@ -16524,7 +16524,7 @@ button.combat-jutsu-button,
 }
 .pet-prefight-tagline {
     margin-top: 14px;
-    color: #fde68a;
+    color: var(--gold-300);
     font-size: 1.05rem;
     font-weight: 800;
     letter-spacing: 0.18em;
@@ -16677,7 +16677,7 @@ button.combat-jutsu-button,
 }
 .pvp-countdown-badge {
     padding: 4px 18px;
-    background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+    background: linear-gradient(135deg, var(--red), #7f1d1d);
     color: #fef2f2;
     border-radius: 8px;
     font-size: 1.1rem;
@@ -16715,13 +16715,13 @@ button.combat-jutsu-button,
 .pvp-coinflip-result.coinflip-win {
     background: rgba(34, 197, 94, 0.18);
     border: 1px solid rgba(34, 197, 94, 0.45);
-    color: #86efac;
+    color: var(--green-300);
     text-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
 }
 .pvp-coinflip-result.coinflip-lose {
     background: rgba(239, 68, 68, 0.15);
     border: 1px solid rgba(239, 68, 68, 0.35);
-    color: #fca5a5;
+    color: var(--red-300);
     text-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
 }
 
@@ -16791,7 +16791,7 @@ button.combat-jutsu-button,
     padding: 3px 10px;
     border-radius: 8px;
     font-size: 0.75rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     background: rgba(15, 23, 42, 0.72);
     border: 1px solid rgba(148, 163, 184, 0.15);
     white-space: nowrap;
@@ -16807,12 +16807,12 @@ button.combat-jutsu-button,
     color: #f1f5f9;
 }
 .pet-event-chip.player.damage,
-.pet-event-chip.player.basic { border-left: 3px solid #4ade80; }
+.pet-event-chip.player.basic { border-left: 3px solid var(--green-400); }
 .pet-event-chip.enemy.damage,
-.pet-event-chip.enemy.basic  { border-left: 3px solid #f87171; }
-.pet-event-chip.dot          { border-left: 3px solid #c084fc; }
-.pet-event-chip.heal         { border-left: 3px solid #4ade80; }
-.pet-event-chip.move         { border-left: 3px solid #38bdf8; }
+.pet-event-chip.enemy.basic  { border-left: 3px solid var(--red-400); }
+.pet-event-chip.dot          { border-left: 3px solid var(--purple-400); }
+.pet-event-chip.heal         { border-left: 3px solid var(--green-400); }
+.pet-event-chip.move         { border-left: 3px solid var(--cyan); }
 .pet-event-chip.buff         { border-left: 3px solid #fbbf24; }
 
 .pet-park-stage {
@@ -16863,7 +16863,7 @@ button.combat-jutsu-button,
 /* Poison reuses the puff burst with a toxic green glow (same recolour-free
    drop-shadow trick as heal) so a DoT reads distinctly from a neutral hit. */
 .pet-park-stage .jutsu-sprite-fx.fx-poison {
-    filter: drop-shadow(0 0 6px #4ade80) drop-shadow(0 0 3px #a3e635);
+    filter: drop-shadow(0 0 6px var(--green-400)) drop-shadow(0 0 3px #a3e635);
 }
 /* Signature / KO marquee tier — bigger + brighter so the flagship hit visibly
    out-scales a basic. Pulses once as it lands. */
@@ -17040,7 +17040,7 @@ button.combat-jutsu-button,
 }
 .pet-battle-vfx.crit b {
     font-size: 1.75rem;
-    color: #fde68a;
+    color: var(--gold-300);
     border-color: rgba(250, 204, 21, 0.85);
     text-shadow: 0 0 16px rgba(250, 204, 21, 0.9), 0 3px 6px #000;
 }
@@ -17065,7 +17065,7 @@ button.combat-jutsu-button,
     display: grid; place-items: center;
     border-radius: 8px; cursor: pointer;
     font-size: 15px; line-height: 1;
-    color: #fde68a;
+    color: var(--gold-300);
     background: rgba(2, 6, 23, 0.62);
     border: 1px solid rgba(250, 204, 21, 0.4);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
@@ -17142,8 +17142,8 @@ button.combat-jutsu-button,
 .pet-cutin-portrait :where(.pet-battle-avatar) { width: clamp(70px, 9vw, 110px); height: clamp(70px, 9vw, 110px); }
 .pet-cutin-text { display: flex; flex-direction: column; line-height: 1.05; }
 .pet-cutin.enemy .pet-cutin-text { align-items: flex-end; text-align: right; }
-.pet-cutin-pet  { font: 700 13px var(--font-display); letter-spacing: 0.18em; text-transform: uppercase; color: #93c5fd; }
-.pet-cutin.enemy .pet-cutin-pet { color: #fca5a5; }
+.pet-cutin-pet  { font: 700 13px var(--font-display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--blue-300); }
+.pet-cutin.enemy .pet-cutin-pet { color: var(--red-300); }
 .pet-cutin-move {
     font: 900 clamp(26px, 4vw, 44px)/1 var(--font-display); letter-spacing: 0.04em; color: #fff;
     text-shadow: 0 0 16px rgba(250,204,21,0.8), 0 3px 8px rgba(0,0,0,0.9);
@@ -17208,8 +17208,8 @@ button.combat-jutsu-button,
     margin: 0 auto 6px; border-radius: 8px; overflow: hidden;
     border: 1px solid rgba(148,163,184,0.4); background: rgba(2,6,23,0.6);
 }
-.pet-momentum-fill-player { background: linear-gradient(90deg, #16a34a, #4ade80); transition: width 0.45s ease; }
-.pet-momentum-fill-enemy  { background: linear-gradient(90deg, #f87171, #dc2626); transition: width 0.45s ease; }
+.pet-momentum-fill-player { background: linear-gradient(90deg, #16a34a, var(--green-400)); transition: width 0.45s ease; }
+.pet-momentum-fill-enemy  { background: linear-gradient(90deg, var(--red-400), var(--red-600)); transition: width 0.45s ease; }
 .pet-momentum-label {
     position: absolute; top: 0; bottom: 0; display: flex; align-items: center;
     font: 700 9px var(--font-display); letter-spacing: 0.1em; text-transform: uppercase;
@@ -17223,7 +17223,7 @@ button.combat-jutsu-button,
 .pet-commentary {
     text-align: center; margin: 0 auto 4px;
     font: 900 clamp(15px, 2.4vw, 22px)/1.1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase;
-    color: #fde68a; text-shadow: 0 0 14px rgba(250,204,21,0.55), 0 2px 6px rgba(0,0,0,0.85);
+    color: var(--gold-300); text-shadow: 0 0 14px rgba(250,204,21,0.55), 0 2px 6px rgba(0,0,0,0.85);
     animation: petCommentaryPop 0.5s cubic-bezier(.2,.8,.2,1) both;
 }
 @keyframes petCommentaryPop {
@@ -17457,7 +17457,7 @@ button.combat-jutsu-button,
         /* Cracks / texture noise */
         repeating-linear-gradient(118deg, rgba(0,0,0,0.05) 0 2px, transparent 2px 7px),
         /* Base stone gradient — colder, more saturated */
-        linear-gradient(140deg, #94a3b8 0%, #64748b 35%, #475569 70%, #334155 100%);
+        linear-gradient(140deg, var(--text-dim) 0%, var(--text-muted) 35%, var(--slate-600) 70%, var(--slate-700) 100%);
     border-radius: 7px 9px 4px 6px;
     /* Top-edge highlight + inner darker rim for chiseled stone feel */
     box-shadow:
@@ -17472,7 +17472,7 @@ button.combat-jutsu-button,
     top: 50%; bottom: 0;
     background:
         /* AO at the base — darker near the ground */
-        linear-gradient(180deg, #334155 0%, #1f2937 60%, #0f172a 100%);
+        linear-gradient(180deg, var(--slate-700) 0%, #1f2937 60%, var(--slate-900) 100%);
     border-radius: 0 0 6px 6px;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.08),
@@ -17486,7 +17486,7 @@ button.combat-jutsu-button,
     bottom: -2px;
     width: 9px;
     background:
-        linear-gradient(180deg, #475569 0%, #1e293b 60%, #0b1220 100%);
+        linear-gradient(180deg, var(--slate-600) 0%, var(--slate-800) 60%, #0b1220 100%);
     border-radius: 0 4px 4px 0;
     transform: skewY(11deg);
     box-shadow:
@@ -17619,7 +17619,7 @@ button.combat-jutsu-button,
     width: 82%;
     height: 7px;
     border-radius: 999px;
-    background: linear-gradient(90deg, transparent, #fde68a, #f97316, transparent);
+    background: linear-gradient(90deg, transparent, var(--gold-300), #f97316, transparent);
     transform: rotate(24deg);
     animation: petVfxSlashB 0.62s ease 0.06s both;
 }
@@ -17679,9 +17679,9 @@ button.combat-jutsu-button,
     background: #fef3c7;
     box-shadow:
         -22px -8px 0 #f97316,
-        20px -14px 0 #fde68a,
+        20px -14px 0 var(--gold-300),
         -14px 20px 0 #fb7185,
-        24px 18px 0 #facc15;
+        24px 18px 0 var(--gold);
     animation: petVfxSparks 0.62s ease both;
 }
 
@@ -17720,12 +17720,12 @@ button.combat-jutsu-button,
     border-radius: 50%;
     background: #fef3c7;
     box-shadow:
-        0 -28px 0 #facc15,
-        24px -14px 0 #fde68a,
-        24px 14px 0 #facc15,
-        0 28px 0 #fde68a,
-        -24px 14px 0 #facc15,
-        -24px -14px 0 #fde68a;
+        0 -28px 0 var(--gold),
+        24px -14px 0 var(--gold-300),
+        24px 14px 0 var(--gold),
+        0 28px 0 var(--gold-300),
+        -24px 14px 0 var(--gold),
+        -24px -14px 0 var(--gold-300);
     animation: petVfxVictorySparks 1s ease both;
 }
 
@@ -17736,7 +17736,7 @@ button.combat-jutsu-button,
     place-items: center;
     overflow: hidden;
     border-radius: 999px;
-    border: 3px solid #60a5fa;
+    border: 3px solid var(--blue-400);
     background:
         radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.28), transparent 28%),
         linear-gradient(145deg, rgba(30, 64, 175, 0.95), rgba(15, 23, 42, 0.98) 58%, rgba(2, 6, 23, 1));
@@ -17795,7 +17795,7 @@ button.combat-jutsu-button,
 }
 
 .pet-battle-avatar.enemy {
-    border-color: #f87171;
+    border-color: var(--red-400);
     color: #fee2e2;
     background:
         radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.24), transparent 28%),
@@ -18041,7 +18041,7 @@ button.combat-jutsu-button,
 .pet-pvfx-earth     { background: linear-gradient(90deg, rgba(210,170,110,0), #c08a44 60%, #ead7b4); box-shadow: 0 0 12px 3px rgba(180,124,68,0.7); }
 .pet-pvfx-blood     { background: linear-gradient(90deg, rgba(255,90,90,0), #e23b3b 60%, #ff9a9a); box-shadow: 0 0 12px 3px rgba(220,40,40,0.8); }
 .pet-pvfx-chakra,
-.pet-pvfx-none      { background: linear-gradient(90deg, rgba(250,204,21,0), #facc15 60%, #fff3c0); box-shadow: 0 0 12px 3px rgba(250,204,21,0.7); }
+.pet-pvfx-none      { background: linear-gradient(90deg, rgba(250,204,21,0), var(--gold) 60%, #fff3c0); box-shadow: 0 0 12px 3px rgba(250,204,21,0.7); }
 
 /* ── Localized VFX (rendered at the actor/target tile) ───────────────────── */
 .vfx-impact-flash {
@@ -18142,7 +18142,7 @@ button.combat-jutsu-button,
    not only in the log. */
 .damage-number  { color: #ff6b6b !important; font-weight: 900; text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 10px rgba(255,60,60,0.5); }
 .heal-number    { color: #6ee7a0 !important; font-weight: 900; text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 10px rgba(60,220,120,0.5); }
-.shield-number  { color: #93c5fd !important; font-weight: 800; text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 10px rgba(96,165,250,0.5); }
+.shield-number  { color: var(--blue-300) !important; font-weight: 800; text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 10px rgba(96,165,250,0.5); }
 .block-number   { color: #cfe3ff !important; font-weight: 900; letter-spacing: 0.08em; text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 12px rgba(120,180,255,0.6); }
 .crit-text      { color: #ffd34a !important; font-size: 1.5em; letter-spacing: 0.04em; text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0 14px rgba(255,180,40,0.7); animation: critTextPunch 0.4s ease both; }
 .status-pop     { color: #d8b4fe !important; font-weight: 800; text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 10px rgba(180,120,255,0.5); }
@@ -18230,7 +18230,7 @@ button.combat-jutsu-button,
 }
 
 .pet-arena-current-action span {
-    color: #93c5fd;
+    color: var(--blue-300);
     font-size: 0.82rem;
     font-weight: 800;
     text-transform: uppercase;
@@ -18292,7 +18292,7 @@ button.combat-jutsu-button,
 
 .pet-victory-screen span:not(.pet-victory-burst) {
     display: block;
-    color: #fde68a;
+    color: var(--gold-300);
     font-size: 0.78rem;
     font-weight: 900;
     text-transform: uppercase;
@@ -18332,12 +18332,12 @@ button.combat-jutsu-button,
     border-radius: 50%;
     background: #fef3c7;
     box-shadow:
-        0 -38px 0 #facc15,
-        34px -18px 0 #fde68a,
-        34px 18px 0 #facc15,
-        0 38px 0 #fde68a,
-        -34px 18px 0 #facc15,
-        -34px -18px 0 #fde68a;
+        0 -38px 0 var(--gold),
+        34px -18px 0 var(--gold-300),
+        34px 18px 0 var(--gold),
+        0 38px 0 var(--gold-300),
+        -34px 18px 0 var(--gold),
+        -34px -18px 0 var(--gold-300);
     opacity: 0.78;
     animation: petVictoryBurstSpin 1.8s linear infinite;
 }
@@ -18504,11 +18504,11 @@ button.combat-jutsu-button,
 }
 
 .pet-arena-win {
-    color: #4ade80;
+    color: var(--green-400);
 }
 
 .pet-arena-loss {
-    color: #f87171;
+    color: var(--red-400);
 }
 
 @media (max-width: 820px) {
@@ -18654,7 +18654,7 @@ button.combat-jutsu-button,
 
 .pet-xp-line {
     margin: -6px 0 0 !important;
-    color: #93c5fd !important;
+    color: var(--blue-300) !important;
     font-size: 0.82rem !important;
     font-weight: 800 !important;
 }
@@ -18705,7 +18705,7 @@ button.combat-jutsu-button,
 }
 
 .pet-feed-grid button span {
-    color: #facc15 !important;
+    color: var(--gold) !important;
     font-size: 0.75rem !important;
     font-weight: 800 !important;
 }
@@ -18796,7 +18796,7 @@ button.combat-jutsu-button,
     .hunter-board-header h2 {
         margin: 0;
         font-size: 1.5rem;
-        color: #facc15;
+        color: var(--gold);
     }
 
 .hunter-rank-banner {
@@ -18831,7 +18831,7 @@ button.combat-jutsu-button,
 }
 
 .hunter-rank-sub {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.82rem;
 }
 
@@ -18868,14 +18868,14 @@ button.combat-jutsu-button,
     align-items: center;
     gap: 10px;
     margin: 0 0 12px;
-    color: #93c5fd;
+    color: var(--blue-300);
     border-bottom: 1px solid rgba(148,163,184,.2);
     padding-bottom: 6px;
 }
 
 .hunt-lock-label {
     font-size: 0.82rem;
-    color: #64748b;
+    color: var(--text-muted);
     font-weight: 400;
 }
 
@@ -18919,23 +18919,23 @@ button.combat-jutsu-button,
 }
 
     .hunt-contract-info strong {
-        color: #e2e8f0;
+        color: var(--slate-200);
         font-size: 0.95rem;
     }
 
     .hunt-contract-info small {
-        color: #94a3b8;
+        color: var(--text-dim);
         font-size: 0.78rem;
     }
 
 .hunt-drops {
-    color: #86efac !important;
+    color: var(--green-300) !important;
 }
 
 .hunt-description {
     margin: 0;
     font-size: 0.8rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     line-height: 1.4;
 }
 
@@ -18958,7 +18958,7 @@ button.combat-jutsu-button,
 .hunt-progress-label {
     display: block;
     font-size: 0.72rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     text-align: right;
     margin-top: 2px;
 }
@@ -18986,7 +18986,7 @@ button.combat-jutsu-button,
     /* Forge interior — warm soot gradient under a banked-ember glow (::before). */
     background:
         radial-gradient(135% 90% at 50% -10%, rgba(124,45,18,.30), transparent 55%),
-        linear-gradient(150deg, #14100c 0%, #0f172a 45%, #1e293b 100%);
+        linear-gradient(150deg, #14100c 0%, var(--slate-900) 45%, var(--slate-800) 100%);
     border: 1px solid rgba(234,179,8,.34);
     border-radius: 16px;
     padding: 24px;
@@ -19072,11 +19072,11 @@ button.combat-jutsu-button,
         .crafter-tabs button.active {
             background: linear-gradient(135deg, #b45309, #7c2d12 55%, #172554);
             color: #fff7e6;
-            border-color: #facc15;
+            border-color: var(--gold);
             box-shadow: 0 0 16px rgba(250,204,21,.28), inset 0 1px 0 rgba(255,255,255,.12);
         }
 
-        .crafter-tabs button.active svg { opacity: 1; color: #fde68a; }
+        .crafter-tabs button.active svg { opacity: 1; color: var(--gold-300); }
 
 /* Collapsible "Your Materials" panel — compact summary (always shows the craft
    point total) that expands into a multi-column grid, so the materials list no
@@ -19102,14 +19102,14 @@ button.combat-jutsu-button,
 
     .crafter-materials-summary::-webkit-details-marker { display: none; }
 
-    .crafter-materials-summary strong { color: #facc15; }
+    .crafter-materials-summary strong { color: var(--gold); }
 
 .crafter-mat-sum { display: flex; align-items: center; gap: 7px; }
 .crafter-mat-sum svg { width: 18px; height: 18px; color: #d8a13a; flex: none; }
 
-.crafter-mat-total { color: #93c5fd; font-weight: 600; }
+.crafter-mat-total { color: var(--blue-300); font-weight: 600; }
 
-.crafter-mat-toggle { color: #64748b; font-size: 0.74rem; }
+.crafter-mat-toggle { color: var(--text-muted); font-size: 0.74rem; }
 
 .crafter-materials[open] .crafter-materials-summary {
     border-bottom: 1px solid rgba(148,163,184,.18);
@@ -19133,7 +19133,7 @@ button.combat-jutsu-button,
     gap: 9px;
     padding: 7px 9px;
     border: 1px solid rgba(148,163,184,.16);
-    border-left: 3px solid var(--tier, #64748b);
+    border-left: 3px solid var(--tier, var(--text-muted));
     border-radius: 8px;
     background: rgba(15,23,42,.55);
 }
@@ -19148,7 +19148,7 @@ button.combat-jutsu-button,
     flex: none;
     border-radius: 7px;
     background: rgba(0,0,0,.34);
-    color: var(--tier, #94a3b8);
+    color: var(--tier, var(--text-dim));
 }
 
     .crafter-mat-ico svg { width: 20px; height: 20px; }
@@ -19164,13 +19164,13 @@ button.combat-jutsu-button,
 }
 
 .crafter-mat-meta { font-size: 0.72rem; color: #6b7689; }
-.crafter-mat-meta b { color: #cbd5e1; font-weight: 700; }
+.crafter-mat-meta b { color: var(--slate-300); font-weight: 700; }
 
-.crafter-mat-chip[data-tier="common"]    { --tier: #94a3b8; }
-.crafter-mat-chip[data-tier="uncommon"]  { --tier: #4ade80; }
-.crafter-mat-chip[data-tier="rare"]      { --tier: #60a5fa; }
-.crafter-mat-chip[data-tier="epic"]      { --tier: #c084fc; }
-.crafter-mat-chip[data-tier="legendary"] { --tier: #facc15; }
+.crafter-mat-chip[data-tier="common"]    { --tier: var(--text-dim); }
+.crafter-mat-chip[data-tier="uncommon"]  { --tier: var(--green-400); }
+.crafter-mat-chip[data-tier="rare"]      { --tier: var(--blue-400); }
+.crafter-mat-chip[data-tier="epic"]      { --tier: var(--purple-400); }
+.crafter-mat-chip[data-tier="legendary"] { --tier: var(--gold); }
 
 .crafter-recipe-grid {
     display: grid;
@@ -19189,12 +19189,12 @@ button.combat-jutsu-button,
 }
 
     .crafter-recipe-btn strong {
-        color: #facc15;
+        color: var(--gold);
         font-size: 0.9rem;
     }
 
     .crafter-recipe-btn small {
-        color: #94a3b8;
+        color: var(--text-dim);
         font-size: 0.78rem;
     }
 
@@ -19215,7 +19215,7 @@ button.combat-jutsu-button,
     overflow: hidden;
     display: grid;
     place-items: center;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
     .crafter-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
@@ -19240,9 +19240,9 @@ button.combat-jutsu-button,
 .crafter-recipe-btn[data-rarity="epic"]      { border-color: rgba(168,85,247,.42); }
 .crafter-recipe-btn[data-rarity="legendary"] { border-color: rgba(234,179,8,.48); box-shadow: 0 0 16px rgba(234,179,8,.10); }
 
-.crafter-card-thumb[data-rarity="rare"]      { border-color: rgba(59,130,246,.5);  background: rgba(59,130,246,.13);  color: #93c5fd; }
+.crafter-card-thumb[data-rarity="rare"]      { border-color: rgba(59,130,246,.5);  background: rgba(59,130,246,.13);  color: var(--blue-300); }
 .crafter-card-thumb[data-rarity="epic"]      { border-color: rgba(168,85,247,.5);  background: rgba(168,85,247,.13);  color: #d8b4fe; }
-.crafter-card-thumb[data-rarity="legendary"] { border-color: rgba(234,179,8,.55);  background: rgba(234,179,8,.13);   color: #facc15; }
+.crafter-card-thumb[data-rarity="legendary"] { border-color: rgba(234,179,8,.55);  background: rgba(234,179,8,.13);   color: var(--gold); }
 
 /* Compact side-by-side cards for the two special forges (Hollow Gate Key +
    Dungeon Legendary Relic). Smaller padding/fonts than a normal recipe card
@@ -19287,11 +19287,11 @@ button.combat-jutsu-button,
     border: 1px solid rgba(234,179,8,.3);
     border-radius: 8px;
     font-size: 0.85rem;
-    color: #e2e8f0;
+    color: var(--slate-200);
 }
 
-    .weekly-boss-current strong { color: #facc15; }
-    .weekly-boss-current small  { color: #64748b; margin-left: auto; }
+    .weekly-boss-current strong { color: var(--gold); }
+    .weekly-boss-current small  { color: var(--text-muted); margin-left: auto; }
 
 .village-leader-section-header {
     display: flex;
@@ -19309,7 +19309,7 @@ button.combat-jutsu-button,
     border-radius: 50%;
     border: 1px solid rgba(148,163,184,.4);
     background: rgba(30,41,59,.8);
-    color: #93c5fd;
+    color: var(--blue-300);
     font-size: 0.75rem;
     font-weight: 700;
     cursor: pointer;
@@ -19322,7 +19322,7 @@ button.combat-jutsu-button,
 
     .weapon-info-btn:hover {
         background: rgba(59,130,246,.3);
-        border-color: #93c5fd;
+        border-color: var(--blue-300);
     }
 
 /* ─── GameAlert (styled replacement for window.alert) ───────────────────── */
@@ -19367,7 +19367,7 @@ button.combat-jutsu-button,
         0 0 0 1px rgba(250, 204, 21, 0.18) inset,
         0 0 32px rgba(250, 204, 21, 0.18);
     padding: 22px 24px 18px;
-    color: #e2e8f0;
+    color: var(--slate-200);
     animation: game-alert-rise 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -19398,14 +19398,14 @@ button.combat-jutsu-button,
     border-radius: 6px;
     background: rgba(250, 204, 21, 0.14);
     border: 1px solid rgba(250, 204, 21, 0.55);
-    color: #fcd34d;
+    color: var(--gold-400);
     font-size: 0.95rem;
     font-weight: 700;
     line-height: 1;
 }
 
 .game-alert-title {
-    color: #fcd34d;
+    color: var(--gold-400);
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -19416,7 +19416,7 @@ button.combat-jutsu-button,
     margin: 0;
     font-size: 0.98rem;
     line-height: 1.55;
-    color: #e2e8f0;
+    color: var(--slate-200);
     white-space: pre-wrap;
     word-break: break-word;
 }
@@ -19430,14 +19430,14 @@ button.combat-jutsu-button,
 }
 
 .game-alert-more {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.78rem;
     margin-right: auto;
     font-style: italic;
 }
 
 .game-alert-ok {
-    background: linear-gradient(180deg, #fcd34d 0%, #f59e0b 100%);
+    background: linear-gradient(180deg, var(--gold-400) 0%, var(--gold-2) 100%);
     border: 1px solid rgba(250, 204, 21, 0.9);
     color: #0b1224;
     font-weight: 800;
@@ -19461,16 +19461,16 @@ button.combat-jutsu-button,
     }
 
     .game-alert-ok:focus-visible {
-        outline: 2px solid #fcd34d;
+        outline: 2px solid var(--gold-400);
         outline-offset: 2px;
     }
 
 /* Secondary (Cancel) button + destructive (danger) Confirm variant — used by the
    themed GameConfirm dialog, which reuses the .game-alert-* card/footer styles. */
 .game-alert-cancel {
-    background: linear-gradient(180deg, #475569 0%, #334155 100%);
+    background: linear-gradient(180deg, var(--slate-600) 0%, var(--slate-700) 100%);
     border: 1px solid rgba(148, 163, 184, 0.5);
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -19483,10 +19483,10 @@ button.combat-jutsu-button,
 
     .game-alert-cancel:hover { filter: brightness(1.1); }
     .game-alert-cancel:active { transform: translateY(1px); }
-    .game-alert-cancel:focus-visible { outline: 2px solid #94a3b8; outline-offset: 2px; }
+    .game-alert-cancel:focus-visible { outline: 2px solid var(--text-dim); outline-offset: 2px; }
 
     .game-alert-ok.danger {
-        background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+        background: linear-gradient(180deg, var(--red-400) 0%, var(--red-600) 100%);
         border-color: rgba(248, 113, 113, 0.9);
         color: #fff;
         box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 12px rgba(220, 38, 38, 0.4);
@@ -19515,7 +19515,7 @@ button.combat-jutsu-button,
 }
 
 .modal-box {
-    background: linear-gradient(160deg, #0f172a, #1e293b);
+    background: linear-gradient(160deg, var(--slate-900), var(--slate-800));
     border: 1px solid rgba(148,163,184,.25);
     border-radius: 16px;
     box-shadow: 0 12px 40px rgba(0,0,0,0.7);
@@ -19529,13 +19529,13 @@ button.combat-jutsu-button,
     right: 12px;
     background: none;
     border: none;
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 1rem;
     cursor: pointer;
     line-height: 1;
 }
 
-    .modal-close-btn:hover { color: #e2e8f0; }
+    .modal-close-btn:hover { color: var(--slate-200); }
 
 .weapon-info-modal {
     max-width: 320px;
@@ -19560,7 +19560,7 @@ button.combat-jutsu-button,
 .weapon-info-name {
     font-size: 1rem;
     font-weight: 700;
-    color: #facc15;
+    color: var(--gold);
     margin: 0;
     text-align: center;
 }
@@ -19573,9 +19573,9 @@ button.combat-jutsu-button,
     border-radius: 999px;
 }
 
-    .weapon-info-badge[data-rarity="rare"]      { background: rgba(59,130,246,.2); color: #93c5fd; border: 1px solid rgba(59,130,246,.4); }
+    .weapon-info-badge[data-rarity="rare"]      { background: rgba(59,130,246,.2); color: var(--blue-300); border: 1px solid rgba(59,130,246,.4); }
     .weapon-info-badge[data-rarity="epic"]      { background: rgba(168,85,247,.2); color: #d8b4fe; border: 1px solid rgba(168,85,247,.4); }
-    .weapon-info-badge[data-rarity="legendary"] { background: rgba(234,179,8,.2);  color: #facc15; border: 1px solid rgba(234,179,8,.4); }
+    .weapon-info-badge[data-rarity="legendary"] { background: rgba(234,179,8,.2);  color: var(--gold); border: 1px solid rgba(234,179,8,.4); }
 
 .weapon-info-stats {
     width: 100%;
@@ -19592,12 +19592,12 @@ button.combat-jutsu-button,
         border-bottom: 1px solid rgba(148,163,184,.1);
     }
 
-    .weapon-info-stats > div span:first-child { color: #64748b; }
-    .weapon-info-stats > div span:last-child  { color: #e2e8f0; font-weight: 600; }
+    .weapon-info-stats > div span:first-child { color: var(--text-muted); }
+    .weapon-info-stats > div span:last-child  { color: var(--slate-200); font-weight: 600; }
 
 .weapon-info-desc {
     font-size: 0.8rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     text-align: center;
     margin: 0;
     line-height: 1.4;
@@ -19614,12 +19614,12 @@ button.combat-jutsu-button,
 
 .crafter-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #d8a13a, #facc15);
+    background: linear-gradient(90deg, #d8a13a, var(--gold));
     transition: width 0.2s ease;
 }
 
 .crafter-pts-label {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.75rem;
 }
 
@@ -19649,11 +19649,11 @@ button.combat-jutsu-button,
     display: flex;
     justify-content: space-between;
     font-size: 0.82rem;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 .named-weapon-currency-row strong {
-    color: #fde68a;
+    color: var(--gold-300);
 }
 
 .named-weapon-currency-total {
@@ -19661,7 +19661,7 @@ button.combat-jutsu-button,
     padding-top: 6px;
     border-top: 1px solid rgba(250, 204, 21, 0.18);
     font-size: 0.84rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     text-align: right;
 }
 
@@ -19683,7 +19683,7 @@ button.combat-jutsu-button,
 }
 
 .named-weapon-forge-header small {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.78rem;
 }
 
@@ -19736,20 +19736,20 @@ button.combat-jutsu-button,
     display: flex;
     justify-content: space-between;
     font-size: 0.85rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
 }
 
 .named-weapon-stat-row strong {
-    color: #fde68a;
+    color: var(--gold-300);
 }
 
 .named-weapon-tag-row strong {
-    color: #86efac;
+    color: var(--green-300);
 }
 
 .named-weapon-label {
     font-size: 0.80rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-weight: 600;
     margin-bottom: -4px;
 }
@@ -19760,7 +19760,7 @@ button.combat-jutsu-button,
     background: rgba(15, 23, 42, 0.80);
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 6px;
-    color: #e2e8f0;
+    color: var(--slate-200);
     font-size: 0.85rem;
     font-family: inherit;
     resize: vertical;
@@ -19840,7 +19840,7 @@ button.combat-jutsu-button,
 .nwo-label {
     font-size: 0.68rem;
     font-weight: 700;
-    color: #fcd34d;
+    color: var(--gold-400);
     margin-bottom: 4px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -19856,11 +19856,11 @@ button.combat-jutsu-button,
     display: flex;
     justify-content: space-between;
     font-size: 0.72rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
 }
 
 .nwo-pct {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.68rem;
 }
 
@@ -19883,7 +19883,7 @@ button.combat-jutsu-button,
 .nw-tag-formula {
     font-size: 0.65rem;
     font-weight: 400;
-    color: #94a3b8;
+    color: var(--text-dim);
     margin-left: 4px;
 }
 
@@ -19902,8 +19902,8 @@ button.combat-jutsu-button,
 .profile-title-input {
     padding: 0.45rem 0.7rem;
     border-radius: 6px;
-    border: 1px solid #334155;
-    background: #1e293b;
+    border: 1px solid var(--slate-700);
+    background: var(--slate-800);
     color: #f1f5f9;
     font-size: 0.9rem;
     width: 180px;
@@ -19915,7 +19915,7 @@ button.combat-jutsu-button,
 }
 
 .profile-title-counter {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.8rem;
     white-space: nowrap;
 }
@@ -20075,7 +20075,7 @@ button.combat-jutsu-button,
 }
 
 .village-pill-mine .village-pill-name {
-    color: #fcd34d;
+    color: var(--gold-400);
 }
 
 .council-hp-label {
@@ -20263,7 +20263,7 @@ button.combat-jutsu-button,
 
 .hol-header h2 {
     margin: 0 0 0.15rem;
-    color: #fde68a;
+    color: var(--gold-300);
     text-shadow: 0 0 18px rgba(250, 204, 21, 0.35);
     font-size: 1.3rem;
 }
@@ -20452,7 +20452,7 @@ button.combat-jutsu-button,
 
 .hol-tournament-card h3 {
     margin: 0 0 0.6rem;
-    color: #fde68a;
+    color: var(--gold-300);
 }
 
 .hol-tournament-card p {
@@ -20499,7 +20499,7 @@ button.combat-jutsu-button,
     margin: 0 0 0.15rem;
     font-size: 1.25rem;
     letter-spacing: 0.02em;
-    color: #fde68a;
+    color: var(--gold-300);
     text-shadow: 0 0 16px rgba(250, 204, 21, 0.3);
 }
 
@@ -20675,7 +20675,7 @@ button.combat-jutsu-button,
 .tavern-kage {
     font-size: 0.68rem;
     font-weight: 800;
-    color: #fde68a;
+    color: var(--gold-300);
     white-space: nowrap;
     background: linear-gradient(180deg, rgba(202, 138, 4, 0.4), rgba(120, 53, 15, 0.35));
     border: 1px solid rgba(250, 204, 21, 0.55);
@@ -20785,7 +20785,7 @@ button.combat-jutsu-button,
     opacity: 1;
     background: rgba(202, 138, 4, 0.16);
     border-color: rgba(202, 138, 4, 0.45);
-    color: #fde68a;
+    color: var(--gold-300);
 }
 
 /* No hover on touch devices — keep the action visible so it's discoverable. */
@@ -20853,7 +20853,7 @@ button.combat-jutsu-button,
 .tavern-reply-banner-label {
     font-size: 0.72rem;
     font-weight: 800;
-    color: #fde68a;
+    color: var(--gold-300);
     letter-spacing: 0.02em;
 }
 
@@ -20885,7 +20885,7 @@ button.combat-jutsu-button,
 .tavern-reply-cancel:hover,
 .tavern-reply-cancel:active {
     background: rgba(202, 138, 4, 0.2);
-    color: #fde68a;
+    color: var(--gold-300);
 }
 
 /* ===== Mobile: the tavern is a full-page chat — only the message log scrolls =====
@@ -20954,7 +20954,7 @@ button.combat-jutsu-button,
 
 .elder-focus-desc {
     display: block;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.76rem;
     margin: 4px 0 6px;
     line-height: 1.4;
@@ -21015,7 +21015,7 @@ button.combat-jutsu-button,
     padding: 0;
     border: 1px solid rgba(250, 204, 21, 0.4);
     background: rgba(2, 6, 23, 0.6);
-    color: #facc15;
+    color: var(--gold);
     border-radius: 50%;
     font-size: 20px;
     line-height: 1;
@@ -21045,13 +21045,13 @@ button.combat-jutsu-button,
     height: 34px;
     border-radius: 50%;
     border: 1px solid rgba(250, 204, 21, 0.55);
-    background: #1e293b;
+    background: var(--slate-800);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 11px;
     font-weight: bold;
-    color: #facc15;
+    color: var(--gold);
     overflow: hidden;
     flex-shrink: 0;
   }
@@ -21082,7 +21082,7 @@ button.combat-jutsu-button,
 
   .mthd-level {
     font-size: 10px;
-    color: #facc15;
+    color: var(--gold);
     font-weight: 600;
   }
 
@@ -21109,12 +21109,12 @@ button.combat-jutsu-button,
   }
 
   .mthd-bar-hp .mthd-bar-fill {
-    background: linear-gradient(90deg, #b91c1c 0%, #f87171 100%);
+    background: linear-gradient(90deg, var(--red) 0%, var(--red-400) 100%);
     box-shadow: 0 0 6px rgba(248, 113, 113, 0.35);
   }
 
   .mthd-bar-chakra .mthd-bar-fill {
-    background: linear-gradient(90deg, #0369a1 0%, #38bdf8 100%);
+    background: linear-gradient(90deg, #0369a1 0%, var(--cyan) 100%);
     box-shadow: 0 0 6px rgba(56, 189, 248, 0.35);
   }
 
@@ -21156,7 +21156,7 @@ button.combat-jutsu-button,
   }
 
   .mthd-ryo {
-    color: #facc15;
+    color: var(--gold);
   }
 
   .mthd-shards {
@@ -21195,7 +21195,7 @@ button.combat-jutsu-button,
   margin-left: 7px;
   padding: 0 5px;
   border-radius: 9px;
-  background: #dc2626;
+  background: var(--red-600);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -21211,7 +21211,7 @@ button.combat-jutsu-button,
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #dc2626;
+  background: var(--red-600);
   box-shadow: 0 0 0 2px #0b1120;
 }
 
@@ -21239,7 +21239,7 @@ button.combat-jutsu-button,
   gap: 6px;
   margin: 8px 0 4px;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-dim);
   cursor: pointer;
 }
 .change-password-card > button {
@@ -21258,16 +21258,16 @@ button.combat-jutsu-button,
   border-radius: 8px;
   border: 1px solid rgba(250, 204, 21, 0.35);
   background: rgba(250, 204, 21, 0.08);
-  color: #facc15;
+  color: var(--gold);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
 .profile-action-btn:disabled { opacity: 0.5; cursor: default; }
 .profile-action-btn.following {
-  border-color: #4ade80;
+  border-color: var(--green-400);
   background: rgba(74, 222, 128, 0.12);
-  color: #4ade80;
+  color: var(--green-400);
 }
 
 .user-hub-tabs {
@@ -21280,25 +21280,31 @@ button.combat-jutsu-button,
   border-radius: 999px;
   border: 1px solid rgba(148, 163, 184, 0.3);
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-dim);
   font-size: 13px;
   cursor: pointer;
 }
 .user-hub-tab.active {
   border-color: rgba(250, 204, 21, 0.5);
   background: rgba(250, 204, 21, 0.12);
-  color: #facc15;
+  color: var(--gold);
 }
 
 .user-hub-follow-star {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
   margin-left: 8px;
   font-size: 18px;
   line-height: 1;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   flex-shrink: 0;
 }
-.user-hub-follow-star.following { color: #facc15; }
+.user-hub-follow-star.following { color: var(--gold); }
 
 @media (max-width: 800px) {
   /* Add bottom padding to center-game so content isn't under the nav */
@@ -21374,7 +21380,7 @@ button.combat-jutsu-button,
     background: transparent;
     border: none;
     border-radius: 10px;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 10px;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
@@ -21382,7 +21388,7 @@ button.combat-jutsu-button,
 
   .mobile-nav-btn:active {
     background: rgba(250,204,21,0.15);
-    color: #facc15;
+    color: var(--gold);
   }
 
   .mobile-nav-btn .mnb-icon {
@@ -21391,7 +21397,7 @@ button.combat-jutsu-button,
   }
 
   .mobile-nav-btn.menu-btn {
-    color: #facc15;
+    color: var(--gold);
     background: rgba(250,204,21,0.1);
     border: 1px solid rgba(250,204,21,0.3);
     position: relative; /* anchor for the unread-mail dot */
@@ -21447,7 +21453,7 @@ button.combat-jutsu-button,
   }
 
   .mobile-menu-title {
-    color: #facc15;
+    color: var(--gold);
     font-size: 18px;
     font-weight: 900;
     letter-spacing: 1px;
@@ -21490,7 +21496,7 @@ button.combat-jutsu-button,
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    border: 2px solid #facc15;
+    border: 2px solid var(--gold);
     object-fit: cover;
     flex-shrink: 0;
     background: linear-gradient(145deg, #111827, #3f1d12);
@@ -21499,7 +21505,7 @@ button.combat-jutsu-button,
     justify-content: center;
     font-size: 18px;
     font-weight: bold;
-    color: #facc15;
+    color: var(--gold);
     overflow: hidden;
     box-shadow: 0 0 0 4px rgba(250,204,21,0.08), 0 0 22px rgba(250,204,21,0.18);
   }
@@ -21516,7 +21522,7 @@ button.combat-jutsu-button,
   }
 
   .mobile-char-name {
-    color: #facc15;
+    color: var(--gold);
     font-weight: 900;
     font-size: 15px;
     white-space: nowrap;
@@ -21526,7 +21532,7 @@ button.combat-jutsu-button,
   }
 
   .mobile-char-sub {
-    color: #cbd5e1;
+    color: var(--slate-300);
     font-size: 12px;
     margin-top: 2px;
     line-height: 1.25;
@@ -21544,7 +21550,7 @@ button.combat-jutsu-button,
 
   .mobile-xp-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #facc15, #f97316, #ef4444);
+    background: linear-gradient(90deg, var(--gold), #f97316, var(--danger));
     border-radius: 2px;
     transition: width 0.3s;
     box-shadow: 0 0 12px rgba(250,204,21,0.45);
@@ -21558,7 +21564,7 @@ button.combat-jutsu-button,
   }
 
   .mobile-menu-btn {
-    --menu-accent: #facc15;
+    --menu-accent: var(--gold);
     --menu-accent-glow: rgba(250,204,21,0.22);
     --menu-accent-border: rgba(250,204,21,0.35);
     position: relative;
@@ -21587,13 +21593,13 @@ button.combat-jutsu-button,
   }
 
   .mobile-menu-grid .mobile-menu-btn:nth-child(6n+1) {
-    --menu-accent: #facc15;
+    --menu-accent: var(--gold);
     --menu-accent-glow: rgba(250,204,21,0.22);
     --menu-accent-border: rgba(250,204,21,0.36);
   }
 
   .mobile-menu-grid .mobile-menu-btn:nth-child(6n+2) {
-    --menu-accent: #38bdf8;
+    --menu-accent: var(--cyan);
     --menu-accent-glow: rgba(56,189,248,0.19);
     --menu-accent-border: rgba(56,189,248,0.32);
   }
@@ -21649,10 +21655,10 @@ button.combat-jutsu-button,
   }
 
   .mobile-menu-btn.danger {
-    --menu-accent: #f87171;
+    --menu-accent: var(--red-400);
     --menu-accent-glow: rgba(248,113,113,0.22);
     --menu-accent-border: rgba(239,68,68,0.4);
-    color: #f87171;
+    color: var(--red-400);
   }
 
   .mobile-menu-btn:disabled {
@@ -21731,7 +21737,7 @@ button.combat-jutsu-button,
 }
 
 .mobile-profile-sheet-title {
-  color: #facc15;
+  color: var(--gold);
   font-size: 16px;
   font-weight: bold;
   letter-spacing: 1px;
@@ -21743,7 +21749,7 @@ button.combat-jutsu-button,
   height: 36px;
   min-height: 36px;
   border-radius: 50%;
-  border: 1px solid #334155;
+  border: 1px solid var(--slate-700);
   background: rgba(51, 65, 85, 0.5);
   color: #e8eef8;
   font-size: 18px;
@@ -21980,12 +21986,12 @@ button.combat-jutsu-button,
   .arena-fullscreen .combat-side-hud .resource-label {
     font-size: 9px !important;
     line-height: 1.1 !important;
-    color: #cbd5e1 !important;
+    color: var(--slate-300) !important;
   }
   .arena-fullscreen .combat-side-hud .resource-label small {
     font-size: 9px !important;
     margin-left: 3px !important;
-    color: #94a3b8 !important;
+    color: var(--text-dim) !important;
   }
   .arena-fullscreen .combat-side-hud .hud-bar {
     height: 6px !important;
@@ -22012,7 +22018,7 @@ button.combat-jutsu-button,
   .arena-fullscreen .combat-side-hud .combat-hud-meta {
     font-size: 9px !important;
     margin-top: 2px !important;
-    color: #94a3b8 !important;
+    color: var(--text-dim) !important;
   }
 
   /* Hex battlefield — block layout so JS margin-centering works reliably */
@@ -22244,7 +22250,7 @@ button.combat-jutsu-button,
         appearance: none;
         height: 5px;
         border-radius: 4px;
-        background: linear-gradient(90deg, #1e40af, #60a5fa);
+        background: linear-gradient(90deg, #1e40af, var(--blue-400));
         outline: none;
         cursor: pointer;
     }
@@ -22255,7 +22261,7 @@ button.combat-jutsu-button,
         width: 22px;
         height: 22px;
         border-radius: 50%;
-        background: #facc15;
+        background: var(--gold);
         border: 2px solid #92400e;
         box-shadow: 0 0 6px rgba(250,204,21,0.6);
         cursor: pointer;
@@ -22265,7 +22271,7 @@ button.combat-jutsu-button,
         width: 22px;
         height: 22px;
         border-radius: 50%;
-        background: #facc15;
+        background: var(--gold);
         border: 2px solid #92400e;
         box-shadow: 0 0 6px rgba(250,204,21,0.6);
         cursor: pointer;
@@ -22278,7 +22284,7 @@ button.combat-jutsu-button,
         border-radius: 50%;
         border: 1px solid rgba(99,132,220,0.5);
         background: rgba(30,58,138,0.7);
-        color: #93c5fd;
+        color: var(--blue-300);
         font-size: 16px;
         display: flex;
         align-items: center;
@@ -22368,7 +22374,7 @@ button.combat-jutsu-button,
 
 .round-timer-display small {
     font-size: 9px;
-    color: #94a3b8;
+    color: var(--text-dim);
     text-transform: uppercase;
     letter-spacing: .06em;
     white-space: nowrap;
@@ -22382,7 +22388,7 @@ button.combat-jutsu-button,
     display: grid;
     place-items: center;
     background: conic-gradient(
-        #38bdf8 calc(var(--rt-pct, 100%)),
+        var(--cyan) calc(var(--rt-pct, 100%)),
         rgba(30, 58, 138, 0.55) calc(var(--rt-pct, 100%))
     );
     box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
@@ -22394,7 +22400,7 @@ button.combat-jutsu-button,
     content: "";
     position: absolute;
     inset: 6px;
-    background: #0f172a;
+    background: var(--slate-900);
     border-radius: 50%;
 }
 
@@ -22403,14 +22409,14 @@ button.combat-jutsu-button,
     z-index: 1;
     font-size: 15px;
     font-weight: 900;
-    color: #e2e8f0;
+    color: var(--slate-200);
     line-height: 1;
 }
 
 /* Urgent state: last 10 seconds */
 .round-timer-display.round-timer-urgent .round-timer-ring {
     background: conic-gradient(
-        #ef4444 calc(var(--rt-pct, 0%)),
+        var(--danger) calc(var(--rt-pct, 0%)),
         rgba(127, 29, 29, 0.55) calc(var(--rt-pct, 0%))
     ) !important;
     box-shadow: 0 0 18px rgba(239, 68, 68, 0.6) !important;
@@ -22418,7 +22424,7 @@ button.combat-jutsu-button,
 }
 
 .round-timer-display.round-timer-urgent .round-timer-num {
-    color: #fca5a5;
+    color: var(--red-300);
 }
 
 @keyframes timer-pulse {
@@ -22434,7 +22440,7 @@ button.combat-jutsu-button,
 }
 
 .round-timer-display.round-timer-inactive .round-timer-num {
-    color: #475569;
+    color: var(--slate-600);
 }
 
 /* Mobile: make the ring a bit smaller so the AP panel doesn't get too tall */
@@ -22656,7 +22662,7 @@ button.combat-jutsu-button,
 
 /* ── Lifesteal float: green drain text ── */
 .pet-damage-float.lifesteal {
-    color: #4ade80 !important;
+    color: var(--green-400) !important;
     text-shadow: 0 0 8px rgba(74,222,128,0.8) !important;
 }
 
@@ -23111,8 +23117,8 @@ button.combat-jutsu-button,
     margin-top: 12px;
 }
 .notice-post {
-    background: #1e293b;
-    border: 1px solid #334155;
+    background: var(--slate-800);
+    border: 1px solid var(--slate-700);
     border-radius: 8px;
     padding: 10px 12px;
     display: flex;
@@ -23131,8 +23137,8 @@ button.combat-jutsu-button,
     font-size: 0.8rem;
 }
 .notice-post-head span:first-child {
-    background: #0f172a;
-    border: 1px solid #334155;
+    background: var(--slate-900);
+    border: 1px solid var(--slate-700);
     border-radius: 4px;
     padding: 1px 6px;
     font-size: 0.72rem;
@@ -23140,16 +23146,16 @@ button.combat-jutsu-button,
 }
 .notice-post-head strong {
     font-size: 0.88rem;
-    color: #e2e8f0;
+    color: var(--slate-200);
     flex: 1;
     min-width: 0;
 }
 .notice-post-head small {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.72rem;
 }
 .notice-post-meta {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.68rem;
     margin-left: auto;
     white-space: nowrap;
@@ -23157,7 +23163,7 @@ button.combat-jutsu-button,
 .notice-post p {
     margin: 0;
     font-size: 0.82rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
@@ -23167,14 +23173,14 @@ button.combat-jutsu-button,
     flex-direction: column;
     gap: 6px;
     margin-bottom: 14px;
-    background: #0f172a;
-    border: 1px solid #334155;
+    background: var(--slate-900);
+    border: 1px solid var(--slate-700);
     border-radius: 8px;
     padding: 10px 12px;
 }
 .notice-post-form label {
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     margin-bottom: 2px;
 }
 .notice-post-form textarea {
@@ -23216,7 +23222,7 @@ button.combat-jutsu-button,
         border-radius: 8px;
         background: transparent;
         border: 1px solid transparent;
-        color: #64748b;
+        color: var(--text-muted);
         font-size: 0.68rem;
         font-weight: 700;
         cursor: pointer;
@@ -23229,7 +23235,7 @@ button.combat-jutsu-button,
     .pmtab-active {
         background: rgba(250, 204, 21, 0.14) !important;
         border-color: rgba(250, 204, 21, 0.55) !important;
-        color: #facc15 !important;
+        color: var(--gold) !important;
     }
 
     /* Hide non-active tab content */
@@ -23281,7 +23287,7 @@ button.combat-jutsu-button,
         font-size: 0.78rem !important;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: #facc15 !important;
+        color: var(--gold) !important;
     }
 
     .profile-info-grid p {
@@ -23463,7 +23469,7 @@ html[data-vp="lg"] .battle-hud-sidebar {
     overflow: hidden;
     background: linear-gradient(180deg, rgba(120,53,15,.72), rgba(15,23,42,.96) 18%, rgba(15,23,42,.96) 82%, rgba(120,53,15,.72));
     border: 4px solid #7c3f11;
-    border-image: linear-gradient(#f59e0b, #7c2d12) 1;
+    border-image: linear-gradient(var(--gold-2), #7c2d12) 1;
     border-left: none;
     box-shadow: inset 0 0 0 2px rgba(250,204,21,.4), 4px 0 16px rgba(0,0,0,.5);
     padding: 60px 18px 16px 14px;
@@ -23586,7 +23592,7 @@ html[data-vp="lg"] .arena-fullscreen .hex-battlefield {
     background:
         linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
         url('/arena-central.webp') center center / cover no-repeat !important;
-    background-color: #1e293b !important;
+    background-color: var(--slate-800) !important;
 }
 .arena-fullscreen.arena-bg-deathsgate {
     background:
@@ -23617,7 +23623,7 @@ html[data-vp="lg"] .battle-side-left {
     border-radius: 0 8px 8px 0;
     box-sizing: border-box;
     font-size: 0.78rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     backdrop-filter: blur(6px);
 }
 
@@ -23642,7 +23648,7 @@ html[data-vp="lg"] .battle-side-left {
 .battle-spectator-name {
     padding: 3px 0;
     font-size: 0.76rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     border-bottom: 1px solid rgba(148, 163, 184, 0.08);
 }
 
@@ -23661,7 +23667,7 @@ html[data-vp="lg"] .battle-side-left {
     border-radius: 8px;
     box-sizing: border-box;
     font-size: 0.78rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     overflow: hidden;
     z-index: 50;
 }
@@ -23736,7 +23742,7 @@ html[data-vp="lg"] .battle-chat-col.battle-chat-hidden {
 .battle-chat-toggle {
     background: none;
     border: 1px solid rgba(148, 163, 184, 0.3);
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 14px;
     width: 22px;
     height: 22px;
@@ -23772,7 +23778,7 @@ html[data-vp="lg"] .battle-chat-col.battle-chat-hidden {
     font-weight: 600;
 }
 .battle-chat-empty {
-    color: #475569;
+    color: var(--slate-600);
     font-size: 0.72rem;
     font-style: italic;
     text-align: center;
@@ -23789,15 +23795,15 @@ html[data-vp="lg"] .battle-chat-col.battle-chat-hidden {
 
 .battle-chat-msg strong {
     font-size: 0.72rem;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
-.chat-fighter strong { color: #60a5fa; }
+.chat-fighter strong { color: var(--blue-400); }
 .chat-spectator strong { color: #a78bfa; }
 
 .battle-chat-msg span {
     font-size: 0.74rem;
-    color: #e2e8f0;
+    color: var(--slate-200);
     word-break: break-word;
 }
 
@@ -23817,7 +23823,7 @@ html[data-vp="lg"] .battle-chat-col.battle-chat-hidden {
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 4px;
     background: rgba(15, 23, 42, 0.8);
-    color: #e2e8f0;
+    color: var(--slate-200);
     outline: none;
 }
 
@@ -23880,7 +23886,7 @@ html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-chil
 html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
     background: linear-gradient(180deg, rgba(120,53,15,.72), rgba(15,23,42,.96) 18%, rgba(15,23,42,.96) 82%, rgba(120,53,15,.72)) !important;
     border: 4px solid #7c3f11 !important;
-    border-image: linear-gradient(#f59e0b, #7c2d12) 1 !important;
+    border-image: linear-gradient(var(--gold-2), #7c2d12) 1 !important;
     border-right: none !important;
     box-shadow: inset 0 0 0 2px rgba(250,204,21,.4), -4px 0 16px rgba(0,0,0,.5) !important;
 }
@@ -24692,7 +24698,7 @@ html[data-vp="sm"] .sector-instance-wrap .instance-actions {
 .bmt-clock {
     font-size: 11px;
     font-family: monospace;
-    color: #94a3b8;
+    color: var(--text-dim);
     background: rgba(2, 6, 23, 0.80);
     border: 1px solid rgba(250, 204, 21, 0.22);
     border-radius: 5px;
@@ -24725,7 +24731,7 @@ html[data-vp="sm"] .sector-instance-wrap .instance-actions {
 }
 
 .bmt-label {
-    color: #cbd5e1;
+    color: var(--slate-300);
     font-size: 9px;
     flex: 1;
     white-space: nowrap;
@@ -24734,7 +24740,7 @@ html[data-vp="sm"] .sector-instance-wrap .instance-actions {
 }
 
 .bmt-value {
-    color: #facc15;
+    color: var(--gold);
     font-family: monospace;
     font-size: 9px;
     flex-shrink: 0;
@@ -25907,8 +25913,8 @@ textarea:focus-visible,
     animation: pvp-hit-float 1.1s ease-out forwards;
     will-change: transform, opacity;
 }
-.pvp-hit-damage { color: #f87171; }
-.pvp-hit-heal { color: #4ade80; }
+.pvp-hit-damage { color: var(--red-400); }
+.pvp-hit-heal { color: var(--green-400); }
 @keyframes pvp-hit-float {
     0%   { opacity: 0; transform: translate(-50%, -40%) scale(0.7); }
     15%  { opacity: 1; transform: translate(-50%, -65%) scale(1.1); }
@@ -25960,7 +25966,7 @@ textarea:focus-visible,
 }
 .pvp-combat-vfx {
     --vfx-a: #f8fafc;
-    --vfx-b: #94a3b8;
+    --vfx-b: var(--text-dim);
     --vfx-c: rgba(248, 250, 252, 0.18);
     position: absolute;
     width: calc(66px * var(--vfx-scale, 1));
@@ -26084,27 +26090,27 @@ textarea:focus-visible,
 .pvp-vfx-plane-ground .pvp-vfx-ring {
     transform: perspective(320px) rotateX(38deg) scale(1.08);
 }
-.pvp-vfx-fire { --vfx-a: #fb923c; --vfx-b: #ef4444; --vfx-c: rgba(251, 146, 60, 0.24); }
-.pvp-vfx-water { --vfx-a: #38bdf8; --vfx-b: #14b8a6; --vfx-c: rgba(56, 189, 248, 0.24); }
-.pvp-vfx-wind { --vfx-a: #86efac; --vfx-b: #22d3ee; --vfx-c: rgba(134, 239, 172, 0.22); }
+.pvp-vfx-fire { --vfx-a: #fb923c; --vfx-b: var(--danger); --vfx-c: rgba(251, 146, 60, 0.24); }
+.pvp-vfx-water { --vfx-a: var(--cyan); --vfx-b: #14b8a6; --vfx-c: rgba(56, 189, 248, 0.24); }
+.pvp-vfx-wind { --vfx-a: var(--green-300); --vfx-b: #22d3ee; --vfx-c: rgba(134, 239, 172, 0.22); }
 .pvp-vfx-lightning,
-.pvp-vfx-spark { --vfx-a: #fef08a; --vfx-b: #60a5fa; --vfx-c: rgba(250, 204, 21, 0.24); }
+.pvp-vfx-spark { --vfx-a: #fef08a; --vfx-b: var(--blue-400); --vfx-c: rgba(250, 204, 21, 0.24); }
 .pvp-vfx-earth { --vfx-a: #d97706; --vfx-b: #78716c; --vfx-c: rgba(217, 119, 6, 0.24); }
 .pvp-vfx-blood,
 .pvp-vfx-wound { --vfx-a: #f43f5e; --vfx-b: #7f1d1d; --vfx-c: rgba(244, 63, 94, 0.24); }
 .pvp-vfx-shadow,
-.pvp-vfx-seal { --vfx-a: #c084fc; --vfx-b: #312e81; --vfx-c: rgba(192, 132, 252, 0.24); }
+.pvp-vfx-seal { --vfx-a: var(--purple-400); --vfx-b: #312e81; --vfx-c: rgba(192, 132, 252, 0.24); }
 .pvp-vfx-poison,
-.pvp-vfx-poisonCloud { --vfx-a: #4ade80; --vfx-b: #365314; --vfx-c: rgba(74, 222, 128, 0.24); }
+.pvp-vfx-poisonCloud { --vfx-a: var(--green-400); --vfx-b: #365314; --vfx-c: rgba(74, 222, 128, 0.24); }
 .pvp-vfx-magma,
-.pvp-vfx-burn { --vfx-a: #f97316; --vfx-b: #b91c1c; --vfx-c: rgba(249, 115, 22, 0.26); }
+.pvp-vfx-burn { --vfx-a: #f97316; --vfx-b: var(--red); --vfx-c: rgba(249, 115, 22, 0.26); }
 .pvp-vfx-metal,
-.pvp-vfx-pierce { --vfx-a: #cbd5e1; --vfx-b: #64748b; --vfx-c: rgba(203, 213, 225, 0.22); }
-.pvp-vfx-heal { --vfx-a: #6ee7b7; --vfx-b: #22c55e; --vfx-c: rgba(110, 231, 183, 0.24); }
+.pvp-vfx-pierce { --vfx-a: var(--slate-300); --vfx-b: var(--text-muted); --vfx-c: rgba(203, 213, 225, 0.22); }
+.pvp-vfx-heal { --vfx-a: #6ee7b7; --vfx-b: var(--success); --vfx-c: rgba(110, 231, 183, 0.24); }
 .pvp-vfx-shield { --vfx-a: #67e8f9; --vfx-b: #818cf8; --vfx-c: rgba(103, 232, 249, 0.24); }
-.pvp-vfx-reflect { --vfx-a: #c084fc; --vfx-b: #67e8f9; --vfx-c: rgba(192, 132, 252, 0.24); }
-.pvp-vfx-absorb { --vfx-a: #5eead4; --vfx-b: #22c55e; --vfx-c: rgba(94, 234, 212, 0.24); }
-.pvp-vfx-drain { --vfx-a: #a78bfa; --vfx-b: #0f172a; --vfx-c: rgba(167, 139, 250, 0.24); }
+.pvp-vfx-reflect { --vfx-a: var(--purple-400); --vfx-b: #67e8f9; --vfx-c: rgba(192, 132, 252, 0.24); }
+.pvp-vfx-absorb { --vfx-a: #5eead4; --vfx-b: var(--success); --vfx-c: rgba(94, 234, 212, 0.24); }
+.pvp-vfx-drain { --vfx-a: #a78bfa; --vfx-b: var(--slate-900); --vfx-c: rgba(167, 139, 250, 0.24); }
 .pvp-vfx-cleanse,
 .pvp-vfx-buff { --vfx-a: #bae6fd; --vfx-b: #fef08a; --vfx-c: rgba(186, 230, 253, 0.22); }
 .pvp-vfx-debuff { --vfx-a: #f0abfc; --vfx-b: #7e22ce; --vfx-c: rgba(240, 171, 252, 0.22); }
@@ -26112,9 +26118,9 @@ textarea:focus-visible,
 .pvp-vfx-impact,
 .pvp-vfx-weapon,
 .pvp-vfx-throwable,
-.pvp-vfx-heavy { --vfx-a: #f8fafc; --vfx-b: #f59e0b; --vfx-c: rgba(248, 250, 252, 0.2); }
+.pvp-vfx-heavy { --vfx-a: #f8fafc; --vfx-b: var(--gold-2); --vfx-c: rgba(248, 250, 252, 0.2); }
 .pvp-vfx-namedWeapon,
-.pvp-vfx-ko { --vfx-a: #fde68a; --vfx-b: #f43f5e; --vfx-c: rgba(253, 230, 138, 0.28); }
+.pvp-vfx-ko { --vfx-a: var(--gold-300); --vfx-b: #f43f5e; --vfx-c: rgba(253, 230, 138, 0.28); }
 .pvp-vfx-heal .pvp-vfx-cut,
 .pvp-vfx-shield .pvp-vfx-cut,
 .pvp-vfx-reflect .pvp-vfx-cut,
@@ -26369,7 +26375,7 @@ textarea:focus-visible,
     height: 15px;
     transform: translateX(-50%);
     border-radius: 50% 50% 38% 38%;
-    background: radial-gradient(circle at 50% 32%, #fde68a 0%, #f59e0b 52%, rgba(180, 83, 9, 0) 78%);
+    background: radial-gradient(circle at 50% 32%, var(--gold-300) 0%, var(--gold-2) 52%, rgba(180, 83, 9, 0) 78%);
     filter: drop-shadow(0 0 7px rgba(251, 191, 36, 0.85));
     animation: hgFlicker 1.4s ease-in-out infinite;
     pointer-events: none;
@@ -26480,7 +26486,7 @@ html.lite-fx .hg-flame { animation: none; }
 .hg-mm-lit { background: #7c5fb8; }
 .hg-mm-goal { background: #fbbf24; border-radius: 50%; }
 .hg-mm-exit { background: #34d399; border-radius: 50%; }
-.hg-mm-you { background: #ffffff; border-radius: 50%; box-shadow: 0 0 4px #60a5fa; }
+.hg-mm-you { background: #ffffff; border-radius: 50%; box-shadow: 0 0 4px var(--blue-400); }
 
 @media (prefers-reduced-motion: reduce) {
     .hg-board { transition: none; }

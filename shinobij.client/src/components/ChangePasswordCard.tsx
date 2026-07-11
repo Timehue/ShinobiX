@@ -63,6 +63,7 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
             <div className="change-password-fields">
                 <input
                     type={show ? "text" : "password"}
+                    aria-label="Current password"
                     value={current}
                     onChange={(e) => setCurrent(e.target.value)}
                     placeholder="Current password"
@@ -70,6 +71,7 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                 />
                 <input
                     type={show ? "text" : "password"}
+                    aria-label="New password"
                     value={next}
                     onChange={(e) => setNext(e.target.value)}
                     maxLength={PLAYER_PASSWORD_MAX_LENGTH}
@@ -78,6 +80,7 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                 />
                 <input
                     type={show ? "text" : "password"}
+                    aria-label="Confirm new password"
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     maxLength={PLAYER_PASSWORD_MAX_LENGTH}
@@ -90,7 +93,7 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                 <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show passwords
             </label>
             {msg && (
-                <p className="hint" style={{ color: msg.kind === "ok" ? "#4ade80" : "#f87171", marginTop: 6 }}>
+                <p className="hint" style={{ color: msg.kind === "ok" ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>
                     {msg.text}
                 </p>
             )}

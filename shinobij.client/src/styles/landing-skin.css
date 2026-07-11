@@ -134,7 +134,7 @@
     border-radius: 999px;
     border: 1px solid rgba(250, 204, 21, 0.34);
     background: rgba(2, 6, 23, 0.46);
-    color: #fde68a;
+    color: var(--gold-300);
     font-family: var(--font-display);
     font-size: 12px;
     font-weight: 700;
@@ -419,7 +419,7 @@
 }
 
 .landing-cta--ghost {
-    color: #fde68a;
+    color: var(--gold-300);
     background: rgba(2, 6, 23, 0.42);
     border: 1px solid rgba(202, 138, 4, 0.5);
     backdrop-filter: blur(3px);
@@ -560,7 +560,7 @@
 
 .landing-login-primary {
     min-height: 48px;
-    background: linear-gradient(180deg, #f59e0b, #8a3b0d) !important;
+    background: linear-gradient(180deg, var(--gold-2), #8a3b0d) !important;
     color: #fff7d6 !important;
     box-shadow:
         0 0 0 1px rgba(250, 204, 21, 0.20) inset,
@@ -576,7 +576,7 @@
     border-radius: 8px;
     border: 1px solid rgba(202, 138, 4, 0.38);
     background: rgba(2, 6, 23, 0.52);
-    color: #fde68a;
+    color: var(--gold-300);
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -623,7 +623,7 @@
 }
 
 .landing-auth-tab.is-active {
-    color: #fde68a;
+    color: var(--gold-300);
     background: linear-gradient(180deg, rgba(146, 64, 14, 0.78), rgba(69, 26, 3, 0.82));
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(250, 204, 21, 0.25);
 }
@@ -667,7 +667,7 @@
 
 .landing-scroll-cue:hover {
     opacity: 1;
-    color: #fde68a;
+    color: var(--gold-300);
     filter: brightness(1.12);
 }
 
@@ -713,7 +713,7 @@
     font-weight: 700;
     font-size: clamp(28px, 4vw, 46px);
     line-height: 1.05;
-    color: #fde68a;
+    color: var(--gold-300);
     text-shadow: 0 0 24px rgba(250, 204, 21, 0.2);
     border: none;
     padding: 0;
@@ -810,7 +810,7 @@
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 20px;
-    color: #fde68a;
+    color: var(--gold-300);
     letter-spacing: 0.02em;
     border: none;
     padding: 0;
@@ -983,7 +983,7 @@
 
 .landing-step-title {
     margin: 0 0 9px;
-    color: #fde68a;
+    color: var(--gold-300);
     font-family: var(--font-display);
     font-size: clamp(18px, 2vw, 22px);
     line-height: 1.15;
@@ -1009,7 +1009,7 @@
 
 .landing-guide-title {
     margin: 0 0 10px;
-    color: #fde68a;
+    color: var(--gold-300);
     font-family: var(--font-display);
     font-size: clamp(22px, 3vw, 32px);
     line-height: 1.1;
@@ -1111,7 +1111,7 @@
 
 .landing-footer-links a:hover,
 .landing-footer-links button:hover {
-    color: #fde68a;
+    color: var(--gold-300);
 }
 
 .landing-footer-legal {

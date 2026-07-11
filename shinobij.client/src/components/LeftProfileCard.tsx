@@ -150,12 +150,12 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             <div className="left-currencies">
                 {([
                     { icon: "ryo",     iconColor: "#f4c95d", label: "Ryo",          value: character.ryo },
-                    { icon: "medal",   iconColor: "#facc15", label: "Honor Seals",  value: character.honorSeals,  valueColor: "#facc15" },
-                    { icon: "sparkle", iconColor: "#fcd34d", label: "Aura Dust",    value: character.auraDust,    valueColor: "#fef3c7" },
+                    { icon: "medal",   iconColor: "var(--gold)", label: "Honor Seals",  value: character.honorSeals,  valueColor: "var(--gold)" },
+                    { icon: "sparkle", iconColor: "var(--gold-400)", label: "Aura Dust",    value: character.auraDust,    valueColor: "#fef3c7" },
                     { icon: "shard",   iconColor: "#ce93d8", label: "Fate Shards",  value: character.fateShards,  valueColor: "#ce93d8" },
-                    { icon: "crystal", iconColor: "#60a5fa", label: "Aura Stones",  value: character.auraStones,  valueColor: "#60a5fa" },
+                    { icon: "crystal", iconColor: "var(--blue-400)", label: "Aura Stones",  value: character.auraStones,  valueColor: "var(--blue-400)" },
                     { icon: "sigil",   iconColor: "#fde047", label: "Mythic Seals", value: character.mythicSeals, valueColor: "#fde047" },
-                    { icon: "bone",    iconColor: "#cbd5e1", label: "Bone Charms",  value: character.boneCharms,  valueColor: "#94a3b8" },
+                    { icon: "bone",    iconColor: "var(--slate-300)", label: "Bone Charms",  value: character.boneCharms,  valueColor: "var(--text-dim)" },
                 ] as { icon: GameIconName; iconColor: string; label: string; value: number; valueColor?: string }[]).map((c) => (
                     <div className="left-currency-row" key={c.label}>
                         <span className="left-currency-icon">
@@ -171,24 +171,24 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             <div className="left-daily-caps">
                 <div className="left-caps-grid">
                     <div className="left-caps-cell">
-                        <span className="left-caps-label"><GameIcon name="map" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#86efac" }} />Tiles</span>
-                        <span className="left-caps-value" style={{ color: (character.dailyTilesExplored ?? 0) >= 150 ? "#ef4444" : "#86efac" }}>{character.dailyTilesExplored ?? 0}/150</span>
+                        <span className="left-caps-label"><GameIcon name="map" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--green-300)" }} />Tiles</span>
+                        <span className="left-caps-value" style={{ color: (character.dailyTilesExplored ?? 0) >= 150 ? "var(--danger)" : "var(--green-300)" }}>{character.dailyTilesExplored ?? 0}/150</span>
                     </div>
                     <div className="left-caps-cell">
-                        <span className="left-caps-label"><GameIcon name="scroll" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#fcd34d" }} />Missions</span>
-                        <span className="left-caps-value" style={{ color: dailyMissionsCompleted(character) >= DAILY_MISSION_LIMIT ? "#ef4444" : "#fcd34d" }}>{dailyMissionsCompleted(character)}/{DAILY_MISSION_LIMIT}</span>
+                        <span className="left-caps-label"><GameIcon name="scroll" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Missions</span>
+                        <span className="left-caps-value" style={{ color: dailyMissionsCompleted(character) >= DAILY_MISSION_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{dailyMissionsCompleted(character)}/{DAILY_MISSION_LIMIT}</span>
                     </div>
                     <div className="left-caps-cell">
-                        <span className="left-caps-label"><GameIcon name="target" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#fcd34d" }} />Hunts</span>
-                        <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= DAILY_HUNT_LIMIT ? "#ef4444" : "#fcd34d" }}>{dailyHuntsCompleted(character)}/{DAILY_HUNT_LIMIT}</span>
+                        <span className="left-caps-label"><GameIcon name="target" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Hunts</span>
+                        <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= DAILY_HUNT_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{dailyHuntsCompleted(character)}/{DAILY_HUNT_LIMIT}</span>
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="dice" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Fate Spins</span>
-                        <span className="left-caps-value" style={{ color: (character.dailyFateSpins ?? 0) >= 5 ? "#ef4444" : "#a5b4fc" }}>{character.dailyFateSpins ?? 0}/5</span>
+                        <span className="left-caps-value" style={{ color: (character.dailyFateSpins ?? 0) >= 5 ? "var(--danger)" : "#a5b4fc" }}>{character.dailyFateSpins ?? 0}/5</span>
                     </div>
                     <div className="left-caps-cell">
-                        <span className="left-caps-label"><GameIcon name="clock" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#94a3b8" }} />Reset In</span>
-                        <span className="left-caps-value" style={{ color: "#94a3b8" }}>{(() => { const now = new Date(); const ms = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).getTime() - now.getTime(); const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })()}</span>
+                        <span className="left-caps-label"><GameIcon name="clock" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--text-dim)" }} />Reset In</span>
+                        <span className="left-caps-value" style={{ color: "var(--text-dim)" }}>{(() => { const now = new Date(); const ms = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).getTime() - now.getTime(); const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })()}</span>
                     </div>
                 </div>
             </div>
@@ -236,7 +236,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                     {activeTraining && Date.now() < activeTraining.endsAt && (
                         <div className="left-timer-bar">
                             <div className="left-timer-row">
-                                <span className="left-timer-icon"><GameIcon name="dumbbell" size={13} style={{ display: "block", color: "#f87171" }} /></span>
+                                <span className="left-timer-icon"><GameIcon name="dumbbell" size={13} style={{ display: "block", color: "var(--red-400)" }} /></span>
                                 <span className="left-timer-label">{activeTraining.label}</span>
                                 <span className="left-timer-value">{formatPetTimer(activeTraining.endsAt - Date.now())}</span>
                             </div>
@@ -269,7 +269,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                             rows.push(
                                 <div key={`pe-${pet.id}`} className="left-timer-bar">
                                     <div className="left-timer-row">
-                                        <span className="left-timer-icon"><GameIcon name="map" size={13} style={{ display: "block", color: "#93c5fd" }} /></span>
+                                        <span className="left-timer-icon"><GameIcon name="map" size={13} style={{ display: "block", color: "var(--blue-300)" }} /></span>
                                         <span className="left-timer-label">{petDisplayName(pet)} · Expedition</span>
                                         <span className="left-timer-value">{formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>
                                     </div>
@@ -279,9 +279,9 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                             rows.push(
                                 <div key={`pe-${pet.id}`} className="left-timer-bar">
                                     <div className="left-timer-row">
-                                        <span className="left-timer-icon"><GameIcon name="gift" size={13} style={{ display: "block", color: "#4ade80" }} /></span>
+                                        <span className="left-timer-icon"><GameIcon name="gift" size={13} style={{ display: "block", color: "var(--green-400)" }} /></span>
                                         <span className="left-timer-label">{petDisplayName(pet)} · Expedition</span>
-                                        <span className="left-timer-value" style={{ color: "#4ade80" }}>Ready!</span>
+                                        <span className="left-timer-value" style={{ color: "var(--green-400)" }}>Ready!</span>
                                     </div>
                                 </div>,
                             );
