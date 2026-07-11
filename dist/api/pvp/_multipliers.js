@@ -25,7 +25,6 @@ exports.deriveCombatMultipliers = deriveCombatMultipliers;
  * final ceiling.
  */
 const _item_catalog_js_1 = require("./_item-catalog.js");
-const _item_budget_js_1 = require("../_item-budget.js");
 // Armor damage-reduction per quality tier — mirrors armorQualityTiers in
 // shinobij.client/src/lib/equipment.ts. Keep in sync with that table.
 const ARMOR_REDUCTION = {
@@ -49,16 +48,14 @@ const ARMOR_SLOTS = ['head', 'body', 'armor', 'waist', 'legs', 'feet'];
  */
 function buildItemLookup(creatorItems) {
     const custom = new Map();
-    // PERMANENTLY ON (owner decision 2026-07-11, retiring the ITEM_BONUS_BUDGET env
-    // flag): server-side anti-cheat is not optional.
-    const budgetOn = true;
     if (Array.isArray(creatorItems)) {
         for (const it of creatorItems) {
             if (it && typeof it === 'object' && typeof it.id === 'string') {
-                // sub-5 defense-in-depth: budget a pre-existing custom item's bonuses
-                // when it loads into combat, so an item saved before the budget became
-                // permanent still can't out-scale built-in gear.
-                const entry = budgetOn ? (0, _item_budget_js_1.budgetItemBonuses)(it) : it;
+                // OWNER DECISION 2026-07-11: custom/creator items are ALLOWED to exceed
+                // built-in gear — budgetItemBonuses is deliberately NOT applied here
+                // (the brief ITEM_BONUS_BUDGET clamp was reverted the same day). The
+                // save sanitizer's [0,1000] hygiene clamp still bounds raw values.
+                const entry = it;
                 custom.set(String(entry.id), entry);
             }
         }

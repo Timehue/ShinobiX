@@ -5,7 +5,6 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _pet_stat_ceil_js_1 = require("../_pet-stat-ceil.js");
 const _jutsu_points_js_1 = require("../_jutsu-points.js");
-const _item_budget_js_1 = require("../_item-budget.js");
 const _utils_js_1 = require("../_utils.js");
 const player_auth_js_1 = require("../player-auth.js");
 const _auth_js_1 = require("../_auth.js");
@@ -1407,13 +1406,16 @@ function sanitizeCharacterSave(incoming, existing) {
             // forged item can't ship a 999999 stat (PvP also caps total stats
             // at MAX_STAT, this is storage hygiene).
             if (out.bonuses && typeof out.bonuses === 'object') {
-                // sub-5: clamp custom-item bonuses to the built-in legendary
-                // baseline (passive %s <=1, shield <=100, vitals <=150, specialty
-                // total scaled to the per-slot budget) so a forged item can't
-                // out-scale real gear. PERMANENTLY ON (owner decision 2026-07-11):
-                // the ITEM_BONUS_BUDGET env flag and the legacy [0,1000] clamp it
-                // fell back to are retired.
-                return (0, _item_budget_js_1.budgetItemBonuses)(out);
+                // OWNER DECISION 2026-07-11: custom/creator items are ALLOWED to
+                // exceed built-in gear — do NOT budget them to the built-in
+                // baseline (the brief ITEM_BONUS_BUDGET clamp was reverted same
+                // day; api/_item-budget.ts is deliberately unwired). Only the
+                // legacy per-field [0,1000] hygiene clamp applies, so a forged
+                // save still can't ship a 999999 stat.
+                const bonuses = out.bonuses;
+                for (const k of Object.keys(bonuses)) {
+                    bonuses[k] = Math.max(0, Math.min(1000, Number(bonuses[k]) || 0));
+                }
             }
             return out;
         });
