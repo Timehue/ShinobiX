@@ -12,14 +12,15 @@
  */
 import type { TowerSession, TowerActionInput, TowerActionResponse } from './towers-api';
 
-// ── Feature flag (client half; the server is separately gated by
-//    ENABLE_VILLAGE_WAR + ENABLE_ANBU_INFILTRATION envs) ──────────────────────
-/** `anbuInfiltration.v1` — default OFF; localStorage "1" forces on, "0" off. */
+// ── Feature toggle (client half) ─────────────────────────────────────────────
+/** LIVE by default. localStorage `anbuInfiltration.v1` = "0" is the only off
+ *  switch; anything else (incl. unset) is ON. The server is on by default too
+ *  (kill switch: DISABLE_ANBU_INFILTRATION=1). */
 export function anbuInfiltrationEnabled(): boolean {
     try {
-        return localStorage.getItem('anbuInfiltration.v1') === '1';
+        return localStorage.getItem('anbuInfiltration.v1') !== '0';
     } catch {
-        return false;
+        return true;
     }
 }
 

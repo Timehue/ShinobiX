@@ -8,7 +8,7 @@ import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 import { reportMissionEvent, type CompletedMissionInfo } from '../missions/_progress.js';
 import { enforceRateLimit, enforceRateLimitKv } from '../_ratelimit.js';
-import { isWarVillage } from '../_war-map-sectors.js';
+import { isWarVillage, isWarSector, homeVillageForSector } from '../_war-map-sectors.js';
 import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
 import { getSectorOwnerVillage } from '../_sector-war-store.js';
 import { sealTowerFighter, sealTowerItemCharges } from '../towers/_seal.js';
@@ -53,9 +53,12 @@ import { MAX_RAID_ATTEMPTS_PER_DAY, type WarPool } from '../_anbu-infiltration.j
  *   - turn-in : convert held caches into standing points, type-locked (War Supply →
  *               clan 2:1, War Resource → village merit 1:1).
  *
- * Server-gated: 404 unless ENABLE_VILLAGE_WAR=1 AND ENABLE_ANBU_INFILTRATION=1
- * (inert until the balance pass flips it — docs plan §12). NEVER flips sector
- * ownership; conquest stays with /village/sector-war.
+ * LIVE by default — no opt-in flag. Set DISABLE_ANBU_INFILTRATION=1 only as an
+ * emergency kill switch. Runs on the base war map (a sector with no seeded
+ * world:territory owner falls back to its home village, so it works before any
+ * sector-war capture), and defends with the village's appointed Anbu or, if none
+ * are appointed yet, its seated Kage. NEVER flips sector ownership; conquest
+ * stays with /village/sector-war.
  */
 
 const LEVEL_REQUIREMENT = 100;
@@ -67,11 +70,18 @@ async function villageOf(playerName: string): Promise<string> {
     return String(save?.character?.village ?? '').trim();
 }
 
+/** The seated Kage of a village (a real appointed leader) — the defender fallback
+ *  when a village hasn't appointed Anbu yet. Mirrors sector-war's kage key. */
+async function seatedKageOf(village: string): Promise<string> {
+    const st = await kv.get<{ seatedKage?: string }>(`village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`);
+    return safeName(st?.seatedKage ?? '');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
-    if (process.env.ENABLE_VILLAGE_WAR !== '1' || process.env.ENABLE_ANBU_INFILTRATION !== '1') {
+    if (process.env.DISABLE_ANBU_INFILTRATION === '1') {
         return res.status(404).json({ error: 'Not found.' });
     }
 
@@ -118,17 +128,24 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     const raiderVillage = String(char.village ?? '').trim();
     if (!raiderVillage) return res.status(403).json({ error: 'You must belong to a village.' });
 
-    // The target: an ENEMY-held war sector whose village has appointed Anbu (the
-    // "Kage systems active" gate — a village with no functioning leadership has no
-    // Anbu roster and cannot be infiltrated).
-    const targetVillage = await getSectorOwnerVillage(sector);
-    if (!targetVillage) return res.status(409).json({ error: 'That sector has no current owner.' });
-    if (!isWarVillage(targetVillage)) return res.status(400).json({ error: 'That sector is not held by a war village.' });
+    // The target: an enemy-held war sector. Prefer the live captured owner; fall
+    // back to the sector's HOME village when world:territory isn't seeded yet, so
+    // infiltration works on the base war map before any sector-war has run.
+    if (!isWarSector(sector)) return res.status(400).json({ error: 'That sector is not a war sector.' });
+    const targetVillage = (await getSectorOwnerVillage(sector)) || (homeVillageForSector(sector) ?? '');
+    if (!targetVillage || !isWarVillage(targetVillage)) return res.status(409).json({ error: 'That sector is not held by a war village.' });
     if (targetVillage === raiderVillage) return res.status(400).json({ error: 'You cannot infiltrate your own village’s sector.' });
 
-    const appointees = await loadAnbuAppointees(targetVillage);
+    // Defenders: the village's appointed Anbu, or — if none are appointed yet —
+    // its seated Kage (also a real appointed leader). Either way the defender is
+    // a real player's sealed loadout, shown behind the village's Anbu mask.
+    let appointees = await loadAnbuAppointees(targetVillage);
     if (appointees.length === 0) {
-        return res.status(409).json({ error: 'That village has no appointed Anbu to defend its vaults yet.' });
+        const kage = await seatedKageOf(targetVillage);
+        if (kage) appointees = [kage];
+    }
+    if (appointees.length === 0) {
+        return res.status(409).json({ error: 'That village has no Anbu or Kage to defend its vault yet.' });
     }
 
     // Daily attempt cap (counts ATTEMPTS — abandoning a run does not refund it).
