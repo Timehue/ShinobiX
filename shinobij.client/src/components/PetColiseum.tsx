@@ -17,7 +17,7 @@
  * with no backend (the /petvfx.html harness). Real transparent full-body art +
  * a generated coliseum backdrop are the next asset step; the renderer is ready.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createRef, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
 import { GameIcon } from "./icons/GameIcon";
@@ -54,6 +54,7 @@ import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { SceneAmbience } from "./SceneAmbience";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 import { petBloomEnabled, petArenaV2Enabled } from "../lib/pet-coliseum-flag";
+import { prefersLiteCombatFx } from "../lib/device-tier";
 
 type Vec3 = [number, number, number];
 const FLOOR_Y = 0;
@@ -90,6 +91,30 @@ const CAM_FOV = 36;
 // no .webp module-type declaration needed.
 const COLISEUM_FLOOR_URL = new URL("../assets/coliseum/coliseum-floor.webp", import.meta.url).href;
 const COLISEUM_BG_URL = new URL("../assets/coliseum/coliseum-bg.webp", import.meta.url).href;
+
+// Arena ROSTER — a themed backdrop+floor pair per element mood, so the marquee mode
+// feels like a real "stadium select" instead of one room. Purely cosmetic; the fight
+// is identical in every arena. "moon" is the original moonlit pagoda.
+const ARENA_ART: Record<string, { bg: string; floor: string; tint: string }> = {
+    moon:    { bg: COLISEUM_BG_URL, floor: COLISEUM_FLOOR_URL, tint: "#fff2e0" },
+    frost:   { bg: new URL("../assets/coliseum/frost-bg.webp", import.meta.url).href,   floor: new URL("../assets/coliseum/frost-floor.webp", import.meta.url).href,   tint: "#cfe6ff" },
+    volcano: { bg: new URL("../assets/coliseum/volcano-bg.webp", import.meta.url).href, floor: new URL("../assets/coliseum/volcano-floor.webp", import.meta.url).href, tint: "#ffd6a8" },
+    grove:   { bg: new URL("../assets/coliseum/grove-bg.webp", import.meta.url).href,   floor: new URL("../assets/coliseum/grove-floor.webp", import.meta.url).href,   tint: "#e4ffd0" },
+    storm:   { bg: new URL("../assets/coliseum/storm-bg.webp", import.meta.url).href,   floor: new URL("../assets/coliseum/storm-floor.webp", import.meta.url).href,   tint: "#dadcff" },
+};
+// Map the matchup's elements to an arena. The player "hosts" (their element wins);
+// else the foe's; else the neutral moonlit pagoda.
+const ELEMENT_ARENA: Record<string, string> = {
+    fire: "volcano", flame: "volcano", magma: "volcano",
+    water: "frost", ice: "frost", frost: "frost", snow: "frost",
+    earth: "grove", nature: "grove", wood: "grove", grass: "grove", plant: "grove", forest: "grove",
+    lightning: "storm", thunder: "storm", wind: "storm", storm: "storm", air: "storm",
+};
+function arenaThemeFor(playerEl?: string | null, enemyEl?: string | null): keyof typeof ARENA_ART {
+    const p = ELEMENT_ARENA[(playerEl ?? "").toLowerCase()];
+    const e = ELEMENT_ARENA[(enemyEl ?? "").toLowerCase()];
+    return (p ?? e ?? "moon") as keyof typeof ARENA_ART;
+}
 
 /** Load a bundled scene texture (sRGB). */
 function loadSceneTexture(url: string): THREE.Texture {
@@ -955,7 +980,7 @@ function CameraRig({ amp, shakeKey, target }: { amp: number; shakeKey: number; t
     return null;
 }
 
-function Arena({ floor, backdrop, big = false }: { floor: THREE.Texture; backdrop: THREE.Texture; big?: boolean }) {
+function Arena({ floor, backdrop, big = false, tint = "#ffffff" }: { floor: THREE.Texture; backdrop: THREE.Texture; big?: boolean; tint?: string }) {
     const ambient = useRef<THREE.AmbientLight>(null);
     const sun = useRef<THREE.DirectionalLight>(null);
     const floorR = big ? 22 : 14;
@@ -979,8 +1004,8 @@ function Arena({ floor, backdrop, big = false }: { floor: THREE.Texture; backdro
     });
     return (
         <group>
-            <ambientLight ref={ambient} intensity={0.95} />
-            <directionalLight ref={sun} position={[3, 8, 5]} intensity={0.9} />
+            <ambientLight ref={ambient} intensity={0.95} color={tint} />
+            <directionalLight ref={sun} position={[3, 8, 5]} intensity={0.9} color={tint} />
             {/* Curved coliseum wall (inner face of a cylinder arc behind the pit).
                 Rings the floor so panning/pull-back never exposes void. */}
             <mesh position={[0, big ? 9 : 6.0, 0]}>
@@ -1041,8 +1066,10 @@ export function PetColiseum({
     playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, result,
     obstacles, tiles, onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord,
 }: PetColiseumProps) {
-    const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
-    const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
+    // Pick the arena by the matchup's element mood (cosmetic only).
+    const arena = useMemo(() => arenaThemeFor(playerPet.element, enemyPet.element), [playerPet.element, enemyPet.element]);
+    const floor = useMemo(() => loadSceneTexture(ARENA_ART[arena].floor), [arena]);
+    const backdrop = useMemo(() => loadSceneTexture(ARENA_ART[arena].bg), [arena]);
     // Dispose the coliseum floor/backdrop textures when the match view unmounts.
     useEffect(() => () => { floor.dispose(); backdrop.dispose(); }, [floor, backdrop]);
     const playerSprite = usePetSprite(playerPet, sharedImages);
@@ -1355,7 +1382,7 @@ export function PetColiseum({
             <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
-                <Arena floor={floor} backdrop={backdrop} />
+                <Arena floor={floor} backdrop={backdrop} tint={ARENA_ART[arena].tint} />
                 <ArenaObstacles obstacles={obstacles} tiles={tiles} />
                 <PickupOrbs pickups={frame?.pickups} />
                 {placed.map((c) => {
@@ -1666,6 +1693,7 @@ const DUEL_FLOOR_Z0 = -0.4;      // centre the action near the camera's look poi
 const DUEL_MIN_WORLD_X = 3.7;    // min world-x gap so two big fighters never merge / cross
 const DUEL_SEP_BAND_Z = 1.7;     // only separate a pair within this depth band
 const DUEL_CONTACT_GAP = 1.7;    // world-x left between sprites at the peak of a melee lunge (close but not overlapping)
+const DUEL_CROSS_HALF = 1.2;     // final-position half-gap from the pair midpoint → sprites keep ≥2.4 world of air even on mutual lunges (no merge)
 // ── Opening choreography (render-only) — the pets appear FAR apart and "size each
 // other up", then CHARGE in to the combat face-off before the sim plays. Purely
 // cosmetic (the sim's positions are untouched); driven by clock.intro (seconds).
@@ -1687,13 +1715,30 @@ function introApproach(introSec: number): number {
 function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
     return { wx: (fx / ARENA_X) * DUEL_FLOOR_HALF_W, wz: DUEL_FLOOR_Z0 + (fy / ARENA_Y) * DUEL_FLOOR_HALF_D };
 }
+// ── Camera REGISTER escalation (anime broadcast direction) ────────────────────
+// Calm wide framing early (A), the full cut vocabulary once someone is bloodied
+// (B), hard tight cutting in sudden death (C) — so the fight's direction escalates
+// WITH its stakes. Consumed by DuelDirector's shot grammar + compose tail.
+// yawMax: orbit clamp (rad) · ease: default cut ease-back rate · floor: adaptive
+// dolly floor · hLo/hHi: eye-height band · holdMul: aim-hold scale · jab: crit
+// yaw-jabs enabled (0/1).
+const CAM_REG = {
+    A: { yawMax: 0.22, ease: 0.08, floor: 10.8, hLo: 5.2, hHi: 6.4, holdMul: 1, jab: 0 },
+    B: { yawMax: 0.45, ease: 0.14, floor: 10.4, hLo: 3.6, hHi: 7.2, holdMul: 1, jab: 1 },
+    C: { yawMax: 0.6, ease: 0.2, floor: 9.8, hLo: 3.0, hHi: 8.0, holdMul: 1.3, jab: 1 },
+} as const;
+const CAM_REG_RANK = { A: 0, B: 1, C: 2 } as const;
+type CamRegister = keyof typeof CAM_REG;
+/** Shot side for an actor: enemy pets stage on +x, the player's on −x. */
+const duelSideOf = (actorId: string) => (actorId.startsWith("enemy") ? 1 : -1);
 
 /** One GROUNDED fighter on the 3D coliseum floor — a Y-locked billboard standing
  *  on the floor with a real contact shadow, driven by the interpolated duel tick
  *  stream + the anime strike choreography (ability-distinct strikes, recoil,
  *  status tints, KO topple). Same grounded rig as the round renderer's Standee. */
-function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
+function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, celebrate }: {
     duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>;
+    celebrate?: React.MutableRefObject<null | "player" | "enemy">;
 }) {
     const sprite = usePetSprite(pet, sharedImages, mirror);   // mirror flips the art so the enemy faces the player
     const poses = usePetPoses(petVisualId(pet), mirror);
@@ -1754,6 +1799,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const strikeMods = useRef<MoveChoreoMods>(moveChoreoMods("lightMelee"));   // per-move motion tuning (slam/drain/beam/support/…)
     const pulseS = useRef(STRIKE_PULSE_S);
     const recoilPow = useRef(0.55);   // set on stagger-entry from the incoming hit's weight
+    const skidX = useRef(0);          // render-only KNOCKBACK slide: a heavy blow slides the sprite back hard, then settles (cosmetic — sim keeps its small balanced knockback)
     const bobPhase = useMemo(() => (id.charCodeAt(id.length - 1) % 7) * 0.9, [id]);
     // Damage-aware choreography lookup (render-only): this pet's OUTGOING
     // resolutions (a melee `hit` with how hard it landed, vs a ranged `cast`) and
@@ -1817,6 +1863,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         const myEnemy = id.startsWith("enemy");
         const actors = snaps[i0].actors;
         let foeWX: number | null = null;   // nearest opposing fighter's world-x → melee lunge target
+        let crossLimit: number | null = null;   // hard cap on the FINAL x (incl. lunge/skid) so two sprites never merge, even on mutual lunges
         for (let k = 0; k < actors.length; k++) {
             const other = actors[k];
             if (other.id === id || other.state === "dead") continue;
@@ -1834,6 +1881,11 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 const mid = (wx + of.wx) / 2;
                 wx = myEnemy ? Math.max(wx, mid + DUEL_MIN_WORLD_X / 2) : Math.min(wx, mid - DUEL_MIN_WORLD_X / 2);
                 if (foeWX === null || Math.abs(of.wx - wx) < Math.abs(foeWX - wx)) foeWX = of.wx;
+                // FINAL cross cap: neither sprite may pass the midpoint by more than a half-gap,
+                // so even when BOTH lunge at once they stop with clear air between them (fixes the
+                // "go into each other" overlap). Keep the most restrictive across foes.
+                const limit = myEnemy ? mid + DUEL_CROSS_HALF : mid - DUEL_CROSS_HALF;
+                crossLimit = crossLimit === null ? limit : (myEnemy ? Math.max(crossLimit, limit) : Math.min(crossLimit, limit));
             }
         }
 
@@ -1877,9 +1929,12 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         const baseProg = basePose === "idle" ? 1 : Math.min(1, (state.clock.elapsedTime - choStart.current) / (beatChoreoMs(basePose) / 1000));
         // Stagger ENTRY → scale this recoil's knockback by how hard the incoming blow landed.
         if (a0.state === "stagger" && prevSimState.current !== "stagger") {
-            let rp = 0.55;
-            for (let k = 0; k < inHits.length; k++) { const it = inHits[k]; if (it.t > curTick + 4) break; if (it.t >= curTick - 1) { rp = Math.max(0.28, it.power); break; } }
+            let rp = 0.55, heavyIn = false;
+            for (let k = 0; k < inHits.length; k++) { const it = inHits[k]; if (it.t > curTick + 4) break; if (it.t >= curTick - 1) { rp = Math.max(0.28, it.power); heavyIn = it.crit || it.power >= 0.5; break; } }
             recoilPow.current = rp;
+            // A heavy blow SLIDES the sprite back across the floor (render-only). Directed
+            // away from the foe (-facing); big on a crit/heavy, then it decays + settles.
+            if (heavyIn) skidX.current = -facing * (0.6 + 1.5 * rp);
         }
         const base = beatTimeline(basePose, facing, 1.0, baseProg, { power: basePose === "recoil" ? recoilPow.current : 0.6 });
         // Fire the forward strike pulse when windup completes into strike/recover.
@@ -1941,9 +1996,10 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 // Lifesteal → after contact, retract toward self (yank the life home).
                 if (mods.drainBack > 0 && pp > 0.5) dx -= mods.drainBack * reach * 0.4 * ((pp - 0.5) / 0.5) * facing;
                 dxT = dx;
-                // GROUNDED — feet stay on the floor; only a slight lift on the crit/slam chop.
+                // GROUNDED — feet stay planted; only a whisker of lift on the crit/slam chop
+                // (halved from before so a strike reads as a weighty grounded blow, not a hop).
                 // (The old big arc read as "dashing in the air".)
-                dyT = (ct ? 0.16 : 0.035) * Math.sin(Math.PI * Math.min(1, pp / 0.72)) * (0.7 + 0.3 * pw);
+                dyT = (ct ? 0.08 : 0.015) * Math.sin(Math.PI * Math.min(1, pp / 0.72)) * (0.7 + 0.3 * pw);
                 sxT = 1 + (0.10 + 0.14 * pw) * e + mods.chop * 0.05 * e;
                 syT = 1 - (0.07 + 0.09 * pw) * e - mods.chop * 0.04 * e;
                 rotT = -(0.05 + 0.16 * pw + mods.chop * 0.16) * e * facing * (ct ? 1.35 : 1);   // deeper overhead chop on slam/crit
@@ -1952,6 +2008,13 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // KO finisher — topple + sink when down (the dead pose fades; this lands it
         // with weight instead of just blinking out).
         if (a0.state === "dead") { dxT = -0.4 * facing; dyT = 0; rotT = 1.1 * facing; sxT = 1.05; syT = 0.7; }
+        // VICTORY HOP — the champion celebrates under the spotlight during the
+        // victory beat (a happy bounce reusing the existing choreo rig).
+        const celebrating = !!celebrate?.current && celebrate.current === (mirror ? "enemy" : "player") && a0.hp > 0;
+        if (celebrating) {
+            const vt = state.clock.elapsedTime;
+            dxT = 0; dyT = Math.abs(Math.sin(vt * 5)) * 0.22; rotT = Math.sin(vt * 5) * 0.05; sxT = 1.02; syT = 1.04;
+        }
         const ck = (a0.state === "strike" || a0.state === "stagger" || pe < pulseS.current) ? 0.5 : 0.3;   // snappier on the hit beats
         choX.current = lerp(choX.current, dxT, ck);
         choY.current = lerp(choY.current, dyT, ck);
@@ -1975,7 +2038,15 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         const footwork = idling ? facing * 0.08 + Math.sin(state.clock.elapsedTime * 2.4 + bobPhase) * 0.05 + circle + feint : 0;
         const bFreq = desperate ? 7.4 : 5.2, bAmp = desperate ? 0.075 : 0.04;
         const breathe = idling ? 1 + Math.abs(Math.sin(state.clock.elapsedTime * bFreq + bobPhase)) * bAmp : 1;
-        g.position.set(wx + choX.current + footwork, FLOOR_Y + Math.max(0, choY.current) + bob, wz);
+        // KNOCKBACK SKID (render-only): decay the slide, and clamp the final x to the floor
+        // so a big skid drives the sprite to the edge but never off it.
+        skidX.current *= 0.86; if (Math.abs(skidX.current) < 0.004) skidX.current = 0;
+        const skidLim = DUEL_FLOOR_HALF_W - 0.3;
+        let skidTarget = Math.max(-skidLim, Math.min(skidLim, wx + choX.current + footwork + skidX.current));
+        // Final non-merge cap: the full lunge/skid may NOT cross the pair midpoint half-gap,
+        // so two sprites always keep clear air between them (fixes "they go into each other").
+        if (crossLimit !== null) skidTarget = myEnemy ? Math.max(skidTarget, crossLimit) : Math.min(skidTarget, crossLimit);
+        g.position.set(skidTarget, FLOOR_Y + Math.max(0, choY.current) + bob, wz);
         pg.scale.set(choSX.current, choSY.current * breathe, 1);
         pg.rotation.z = lerp(pg.rotation.z, choRot.current, 0.4);
 
@@ -2000,6 +2071,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             runClock.current += delta * 8.5;
             cat = Math.floor(runClock.current) % 2 === 0 ? "run-a" : "run-b";
         }
+        if (celebrating) cat = poses?.hasMove ? "windup" : "attack";   // proud victory stance
         if (cat !== poseCat) setPoseCat(cat);
 
         // Hit flash on HP drop (folded into the material colour); status tint while
@@ -2010,6 +2082,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         let fl = flash.current < 0.02 ? 0 : flash.current * 0.9;
         // Power-up GLOW while sizing up — a pulsing brightness so both pets visibly "buff".
         if (sizingUp) fl = Math.max(fl, 0.22 + 0.16 * Math.abs(Math.sin(state.clock.elapsedTime * 6)));
+        // Champion GLOW during the victory beat.
+        if (celebrating) fl = Math.max(fl, 0.14 + 0.1 * Math.abs(Math.sin(state.clock.elapsedTime * 6)));
         // DESPERATION rage aura (R3) — a pulsing glow when a pet is bloodied (< 26% HP).
         if (desperate) fl = Math.max(fl, 0.10 + 0.10 * Math.abs(Math.sin(state.clock.elapsedTime * 8)));
         // Status TINT (burn = ember-warm, stun = icy-blue) pulses on the sprite so
@@ -2045,10 +2119,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             // Pokemon-style DRAIN: the bar ticks down at a bounded rate — a big hit takes
             // visibly longer to empty (the "will it stop?" beat) — and rises fast on heals.
             const shown = dispPct.current < 0 ? pct : dispPct.current;
-            const gap = pct - shown;
-            const next = gap >= 0
-                ? (gap > 30 ? pct : Math.min(pct, shown + Math.max(30, gap * 6) * delta))
-                : Math.max(pct, shown - Math.max(15, -gap * 2.4) * delta);
+            const next = stepHpDrain(shown, pct, delta);
             dispPct.current = next;
             hpFill.current.style.width = `${next}%`;
             // Gen-1 colour bands: green above half, caution yellow, danger red (+ pulse).
@@ -2069,9 +2140,9 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         }
         if (nameWrap.current) nameWrap.current.style.opacity = a0.state === "dead" ? "0.5" : "1";
 
-        // Contact shadow — flat on the floor, tracks x/z, fades + shrinks as the pet lifts.
+        // Contact shadow — flat on the floor, tracks x/z (incl. the skid), fades + shrinks as the pet lifts.
         if (shadow.current && shadowMat.current) {
-            shadow.current.position.set(wx + choX.current, 0.02, wz);
+            shadow.current.position.set(skidTarget, 0.02, wz);
             const lift = Math.max(0, choY.current);
             const sf = Math.max(0, 1 - lift * 0.7);
             shadowMat.current.opacity = 0.42 * sf * (a0.state === "dead" ? 0.4 : 1);
@@ -2094,9 +2165,11 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                     </group>
                 </Billboard>
                 <Html position={[0, L.contentWorldH + 0.4, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
+                    {/* Identity (name / Lv / element) lives on the Pokemon corner panels
+                        now — the in-scene plate keeps only the close-up reads: a small
+                        HP sliver + the status chips. */}
                     <div ref={nameWrap} style={{ textAlign: "center", font: "700 12px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none" }}>
-                        <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>{ELEMENT_EMOJI[pet.element ?? ""] ?? ""} Lv.{pet.level} {pet.name}</div>
-                        <div style={{ position: "relative", width: 64, height: 6, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
+                        <div style={{ position: "relative", width: 48, height: 5, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                             <div ref={hpChip} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: "#fbbf24", opacity: 0.75 }} />
                             <div ref={hpFill} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: side === "player" ? "#4ade80" : "#22c55e" }} />
                         </div>
@@ -2217,6 +2290,61 @@ function projRockTexture(): THREE.CanvasTexture {
     return _projRockTex;
 }
 
+/** Tileable horizontal energy-stream tile (beam middle layer) — four soft white
+ *  blobs that scroll caster→target. Instances CLONE it (repeat/offset are
+ *  texture-level state; clones share the image bitmap) and dispose the clone. */
+let _beamStreamTex: THREE.CanvasTexture | null = null;
+function beamStreamTexture(): THREE.CanvasTexture {
+    if (_beamStreamTex) return _beamStreamTex;
+    const W = 256, H = 64, c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d")!;
+    const xs = [16, 80, 160, 224], ys = [24, 40, 26, 38];
+    for (let i = 0; i < xs.length; i++) {
+        const rad = g.createRadialGradient(xs[i], ys[i], 1, xs[i], ys[i], 22);
+        rad.addColorStop(0, "rgba(255,255,255,0.95)");
+        rad.addColorStop(0.5, "rgba(255,255,255,0.4)");
+        rad.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = rad; g.beginPath(); g.arc(xs[i], ys[i], 22, 0, Math.PI * 2); g.fill();
+    }
+    _beamStreamTex = new THREE.CanvasTexture(c);
+    _beamStreamTex.colorSpace = THREE.SRGBColorSpace;
+    _beamStreamTex.wrapS = THREE.RepeatWrapping;
+    return _beamStreamTex;
+}
+
+/** Vertical eruption-column tile — bright at the base, fading up, with hotspots
+ *  near the bottom; scrolls upward so the pillar visibly RUSHES from the ground. */
+let _beamColumnTex: THREE.CanvasTexture | null = null;
+function beamColumnTexture(): THREE.CanvasTexture {
+    if (_beamColumnTex) return _beamColumnTex;
+    const W = 64, H = 256, c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d")!;
+    const grad = g.createLinearGradient(0, H, 0, 0);   // bottom → top
+    grad.addColorStop(0, "rgba(255,255,255,1)");
+    grad.addColorStop(0.35, "rgba(255,255,255,0.55)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grad; g.fillRect(0, 0, W, H);
+    const hs = [[16, 236], [40, 218], [28, 246]];
+    for (const [hx, hy] of hs) {
+        const rad = g.createRadialGradient(hx, hy, 1, hx, hy, 18);
+        rad.addColorStop(0, "rgba(255,255,255,0.9)"); rad.addColorStop(1, "rgba(255,255,255,0)");
+        g.fillStyle = rad; g.beginPath(); g.arc(hx, hy, 18, 0, Math.PI * 2); g.fill();
+    }
+    _beamColumnTex = new THREE.CanvasTexture(c);
+    _beamColumnTex.colorSpace = THREE.SRGBColorSpace;
+    _beamColumnTex.wrapT = THREE.RepeatWrapping;
+    return _beamColumnTex;
+}
+
+/** Pokemon-style HP drain step — shared verbatim by the floating bar (DuelStandee)
+ *  and the corner broadcast panels (DuelHudDriver) so both drain identically. */
+function stepHpDrain(shown: number, pct: number, delta: number): number {
+    const gap = pct - shown;
+    return gap >= 0
+        ? (gap > 30 ? pct : Math.min(pct, shown + Math.max(30, gap * 6) * delta))
+        : Math.max(pct, shown - Math.max(15, -gap * 2.4) * delta);
+}
+
 function projHeadTexture(tex: ProjTexKind): THREE.CanvasTexture {
     switch (tex) {
         case "crescent": return projCrescentTexture();
@@ -2318,10 +2446,14 @@ function ProjectileBody({ visual }: { visual: ProjectileVisual }) {
                 until decoded (see useFrame) so it never flashes a black box. */}
             {spriteTex && (
                 <group ref={paintedGrp} visible={false}>
-                    {/* faint additive halo so the shot still pops a touch + blooms */}
-                    <mesh position={[0, 0, -0.01]} scale={[spriteScale * 0.85, spriteScale * 0.85, 1]}>
+                    {/* additive halo pair so the shot reads PRESENT (not a dart) + blooms */}
+                    <mesh position={[0, 0, -0.02]} scale={[spriteScale * 2.1, spriteScale * 2.1, 1]}>
                         <planeGeometry args={[1, 1]} />
-                        <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.18} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.14} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                    <mesh position={[0, 0, -0.01]} scale={[spriteScale * 1.7, spriteScale * 1.7, 1]}>
+                        <planeGeometry args={[1, 1]} />
+                        <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.3} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                     </mesh>
                     <mesh ref={core}>
                         <planeGeometry args={[1, 1]} />
@@ -2341,14 +2473,14 @@ function ProjectileBody({ visual }: { visual: ProjectileVisual }) {
                 neutral shots that have no painted art. */}
             <group ref={procGrp}>
                 {/* comet tail — soft glow stretched BEHIND the head (parent faces +x = travel) */}
-                <mesh position={[-tailLen * 0.5 - baseW * 0.3, 0, -0.02]} scale={[tailLen, baseH * 2.6, 1]}>
+                <mesh position={[-tailLen * 0.8 - baseW * 0.3, 0, -0.02]} scale={[tailLen * 1.6, baseH * 3.4, 1]}>
                     <planeGeometry args={[1, 1]} />
                     <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.5} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                 </mesh>
                 {/* soft outer glow */}
-                <mesh position={[0, 0, -0.01]} scale={[baseW * 3, baseH * 3, 1]}>
+                <mesh position={[0, 0, -0.01]} scale={[baseW * 5, baseH * 5, 1]}>
                     <planeGeometry args={[1, 1]} />
-                    <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.42} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.55} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                 </mesh>
                 {/* bright head */}
                 <mesh ref={procCore}>
@@ -2375,24 +2507,45 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
     const curId = useRef<number | null>(null);
     const lastAngle = useRef(0);
     const [visual, setVisual] = useState<ProjectileVisual>(() => projectileVisual({ element: null }));
-    useFrame(() => {
+    // Speed-trail ghosts (world-space ring buffer sampled every 2nd frame) + a
+    // launch MUZZLE FLASH on the id-change edge — the shot reads as a real volley
+    // head, not a dart. Plain ref-driven meshes in the always-mounted slot: zero
+    // mount churn, zero allocations (tuples mutate in place).
+    const lite = useMemo(() => prefersLiteCombatFx(), []);
+    const trailBuf = useRef<Array<[number, number, number]>>([]);
+    const frameN = useRef(0);
+    const ghostRefs = useRef<Array<THREE.Group | null>>([null, null, null]);
+    const muzzle = useRef<THREE.Group>(null);
+    const muzzleMat = useRef<THREE.MeshBasicMaterial>(null);
+    const muzzleT = useRef(-1);
+    useFrame((s) => {
         const g = grp.current;
         if (!g) return;
         const snaps = duel.snapshots;
         const tf = Math.max(0, Math.min(snaps.length - 1, clock.current.t));
         const i0 = Math.floor(tf), i1 = Math.min(snaps.length - 1, i0 + 1), f = tf - i0;
         const pr = snaps[i0].projectiles[index];
-        if (!pr) { g.visible = false; curId.current = null; return; }
-        const nxt = snaps[i1].projectiles.find((q) => q.id === pr.id);
-        // A new bolt took this slot → reselect its element-distinct look.
-        if (pr.id !== curId.current) {
-            curId.current = pr.id;
-            setVisual(projectileVisual({ element: pr.element, kind: pr.kind, charged: pr.kind === "crush" }));
+        if (!pr) {
+            g.visible = false; curId.current = null;
+            trailBuf.current.length = 0;
+            for (const gr of ghostRefs.current) if (gr) gr.visible = false;
+            if (muzzle.current) muzzle.current.visible = false;
+            return;
         }
-        g.visible = true;
+        const nxt = snaps[i1].projectiles.find((q) => q.id === pr.id);
         const sx = nxt ? lerp(pr.x, nxt.x, f) : pr.x;
         const sy = nxt ? lerp(pr.y, nxt.y, f) : pr.y;
         const pp = duelFieldToFloor(sx, sy);
+        // A new bolt took this slot → reselect its element-distinct look, restart
+        // the trail, and pop the muzzle flash at the launch point.
+        if (pr.id !== curId.current) {
+            curId.current = pr.id;
+            setVisual(projectileVisual({ element: pr.element, kind: pr.kind, charged: pr.kind === "crush" }));
+            trailBuf.current.length = 0;
+            if (muzzle.current) muzzle.current.position.set(pp.wx, FX_Y, pp.wz);
+            muzzleT.current = s.clock.elapsedTime;
+        }
+        g.visible = true;
         g.position.set(pp.wx, FX_Y, pp.wz);
         // Point the head along its travel direction, projected into the screen plane.
         if (nxt) {
@@ -2401,14 +2554,632 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
             if (dxw * dxw + dzw * dzw > 1e-5) lastAngle.current = Math.atan2(-dzw, dxw);
         }
         if (inner.current) inner.current.rotation.z = lastAngle.current;
+        // Trail bookkeeping + ghost placement (ghosts live at ABSOLUTE world spots).
+        frameN.current++;
+        if (frameN.current % 2 === 0) {
+            const buf = trailBuf.current;
+            if (buf.length >= 6) { const first = buf.shift()!; first[0] = pp.wx; first[1] = FX_Y; first[2] = pp.wz; buf.push(first); }
+            else buf.push([pp.wx, FX_Y, pp.wz]);
+        }
+        const nGhost = lite ? 1 : 3;
+        for (let gi = 0; gi < 3; gi++) {
+            const gr = ghostRefs.current[gi]; if (!gr) continue;
+            const idx = trailBuf.current.length - 2 - 2 * gi;
+            const show = gi < nGhost && idx >= 0;
+            gr.visible = show;
+            if (show) { const p3 = trailBuf.current[idx]; gr.position.set(p3[0], p3[1], p3[2]); }
+        }
+        // Muzzle flash: 140ms pop at the launch point.
+        if (muzzle.current && muzzleMat.current) {
+            const me = s.clock.elapsedTime - muzzleT.current;
+            const on = muzzleT.current >= 0 && me < 0.14;
+            muzzle.current.visible = on;
+            if (on) {
+                const mp = me / 0.14;
+                const ms = 0.5 + 1.5 * (1 - Math.pow(1 - mp, 2));
+                muzzle.current.scale.setScalar(ms);
+                muzzleMat.current.opacity = 0.9 * (1 - mp);
+            }
+        }
+    });
+    return (
+        <group>
+            <group ref={grp} visible={false}>
+                <Billboard lockX lockZ>
+                    <group ref={inner}>
+                        <ProjectileBody visual={visual} />
+                    </group>
+                </Billboard>
+            </group>
+            {[0, 1, 2].map((gi) => (
+                <group key={gi} ref={(el) => { ghostRefs.current[gi] = el; }} visible={false}>
+                    <Billboard lockX lockZ>
+                        <mesh scale={[visual.size * (2.4 - 0.6 * gi), visual.size * (2.4 - 0.6 * gi), 1]}>
+                            <planeGeometry args={[1, 1]} />
+                            <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={[0.3, 0.18, 0.1][gi]} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    </Billboard>
+                </group>
+            ))}
+            <group ref={muzzle} visible={false}>
+                <Billboard lockX lockZ>
+                    <mesh>
+                        <planeGeometry args={[1, 1]} />
+                        <meshBasicMaterial ref={muzzleMat} map={glowTexture()} color={visual.glow} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                </Billboard>
+            </group>
+        </group>
+    );
+}
+
+/** ── Spectacle: DuelElementBeam ─────────────────────────────────────────────
+ *  A sustained caster→target elemental STREAM so a named ranged ability has a
+ *  visible BODY connecting the two pets (fire stream / water torrent / jagged
+ *  lightning / wind spiral / earth barrage). SIM-CLOCK timed: it lives exactly
+ *  as long as the sim projectile's flight, so savor slow-mo STRETCHES it and it
+ *  dies right as the blow lands. Endpoints track both actors live. */
+function DuelElementBeam({ duel, clock, actorId, targetId, element, heavy, startTick, endTick, lite, onDone }: {
+    duel: DuelResult; clock: { current: DuelClock }; actorId: string; targetId: string;
+    element?: string | null; heavy: boolean; startTick: number; endTick: number; lite: boolean; onDone: () => void;
+}) {
+    const grp = useRef<THREE.Group>(null);
+    const inner = useRef<THREE.Group>(null);
+    const coreRef = useRef<THREE.Mesh>(null);
+    const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+    const glowRef = useRef<THREE.Mesh>(null);
+    const glowMat = useRef<THREE.MeshBasicMaterial>(null);
+    const streamRef = useRef<THREE.Mesh>(null);
+    const streamMat = useRef<THREE.MeshBasicMaterial>(null);
+    const done = useRef(false);
+    const fastFade = useRef(-1);   // wall-time an endpoint vanished → 0.12s emergency fade
+    const visual = useMemo(() => projectileVisual({ element }), [element]);
+    const el = (element ?? "").toLowerCase();
+    // Per-instance texture clones (repeat/offset are texture-level state); the
+    // clones share the canvas bitmap, so cloning is cheap — but MUST be disposed.
+    // Held in REFS (not useMemo) so the per-frame repeat/offset scrolls satisfy the
+    // react-hooks/immutability rule; materials adopt them imperatively in useFrame.
+    const streamTexRef = useRef<THREE.CanvasTexture | null>(null);
+    const coreTexRef = useRef<THREE.CanvasTexture | null>(null);
+    useEffect(() => {
+        const st = beamStreamTexture().clone(); st.needsUpdate = true;
+        streamTexRef.current = st;
+        let ct: THREE.CanvasTexture | null = null;
+        if (el === "lightning") { ct = projBoltTexture().clone(); ct.wrapS = THREE.RepeatWrapping; ct.needsUpdate = true; coreTexRef.current = ct; }
+        return () => { st.dispose(); streamTexRef.current = null; if (ct) { ct.dispose(); coreTexRef.current = null; } };
+    }, [el]);
+    useFrame((s, delta) => {
+        const g = grp.current; if (!g || done.current) return;
+        const t = s.clock.elapsedTime;
+        const simT = clock.current.t;
+        if (simT >= endTick + 4) { done.current = true; onDone(); return; }
+        const snaps = duel.snapshots;
+        const i0 = Math.max(0, Math.min(snaps.length - 1, Math.floor(simT)));
+        const snap = snaps[i0];
+        const src = findActor(snap, actorId);
+        const tgt = findActor(snap, targetId);
+        if (!src || !tgt || tgt.hp <= 0) {
+            if (fastFade.current < 0) fastFade.current = t;
+            if (t - fastFade.current > 0.12) { done.current = true; onDone(); return; }
+        }
+        const sp = src ? duelFieldToFloor(src.x, src.y) : null;
+        const tp = tgt ? duelFieldToFloor(tgt.x, tgt.y) : null;
+        if (!sp || !tp) { g.visible = false; return; }
+        g.visible = true;
+        const dxw = tp.wx - sp.wx, dzw = tp.wz - sp.wz;
+        const len = Math.max(0.5, Math.hypot(dxw, dzw));
+        g.position.set((sp.wx + tp.wx) / 2, FX_Y, (sp.wz + tp.wz) / 2);
+        if (inner.current) inner.current.rotation.z = Math.atan2(-dzw, dxw);
+        // Opacity envelope on the SIM clock: smoothstep in over 3 ticks, out over 5 —
+        // hit-stop freezes it mid-flight instead of vanishing it. Lightning cuts hard.
+        const inP = Math.min(1, Math.max(0, (simT - startTick) / 3));
+        const outP = Math.min(1, Math.max(0, (endTick - simT) / 5));
+        let env = inP * inP * (3 - 2 * inP) * (el === "lightning" ? (outP > 0 ? 1 : 0) : outP * outP * (3 - 2 * outP));
+        if (fastFade.current >= 0) env *= Math.max(0, 1 - (t - fastFade.current) / 0.12);
+        // Per-element motion on the same rig.
+        const offSpeed = el === "lightning" ? 4.5 : el === "fire" ? 2.6 : el === "wind" ? 2.4 : el === "water" ? 1.8 : 2.2;
+        const crackle = el === "lightning" ? 0.55 + 0.45 * Math.abs(Math.sin(t * 23) * Math.sin(t * 8.7)) : 1;
+        const flicker = el === "fire" ? 1 + 0.25 * Math.sin(t * 31) : 1;
+        const bob = el === "water" ? Math.sin(t * 7) * 0.1 : 0;
+        if (inner.current) inner.current.position.y = bob;
+        if (coreRef.current && coreMat.current) {
+            const ct = coreTexRef.current;
+            if (ct) {
+                if (coreMat.current.map !== ct) { coreMat.current.map = ct; coreMat.current.needsUpdate = true; }
+                ct.repeat.x = Math.max(1, len / 1.6); ct.offset.x -= delta * offSpeed;
+            }
+            coreRef.current.scale.set(len, (heavy ? 0.5 : 0.34) * flicker, 1);
+            coreMat.current.opacity = 0.95 * env * crackle;
+        }
+        if (glowRef.current && glowMat.current) {
+            glowRef.current.scale.set(len * 1.06, heavy ? 1.15 : 0.8, 1);
+            glowMat.current.opacity = 0.5 * env;
+        }
+        if (streamRef.current && streamMat.current) {
+            const st = streamTexRef.current;
+            if (st) {
+                if (streamMat.current.map !== st) { streamMat.current.map = st; streamMat.current.needsUpdate = true; }
+                st.repeat.x = Math.max(1, len / 1.3);
+                st.offset.x -= delta * offSpeed;
+            }
+            streamRef.current.scale.set(len, heavy ? 0.7 : 0.5, 1);
+            streamMat.current.opacity = 0.75 * env * crackle;
+        }
     });
     return (
         <group ref={grp} visible={false}>
             <Billboard lockX lockZ>
                 <group ref={inner}>
-                    <ProjectileBody visual={visual} />
+                    <mesh ref={glowRef} position={[0, 0, -0.01]}>
+                        <planeGeometry args={[1, 1]} />
+                        <meshBasicMaterial ref={glowMat} map={projRoundTexture()} color={visual.glow} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                    {/* base maps are the shared singletons; the per-instance CLONES are
+                        adopted imperatively in useFrame (scrolling offsets stay instance-local) */}
+                    <mesh ref={coreRef}>
+                        <planeGeometry args={[1, 1]} />
+                        <meshBasicMaterial ref={coreMat} map={trailStreakTexture()} color={visual.core} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                    {!lite && (
+                        <mesh ref={streamRef} position={[0, 0, 0.01]}>
+                            <planeGeometry args={[1, 1]} />
+                            <meshBasicMaterial ref={streamMat} map={beamStreamTexture()} color={visual.glow} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    )}
                 </group>
             </Billboard>
+        </group>
+    );
+}
+
+/** ── Spectacle: DuelSlashCombo ──────────────────────────────────────────────
+ *  A big 2–3-slash anime arc sequence AT the victim (white-hot core + element
+ *  glow per slash, mirrored X pattern, horizontal decapitating finisher on
+ *  crit/heavy) — the melee swing finally reads at body scale. Wall-clock
+ *  self-timed like DuelImpact. */
+function DuelSlashCombo({ at, toward, color, crit, heavy, lite, onDone }: {
+    at: Vec3; toward: number; color: string; crit: boolean; heavy: boolean; lite: boolean; onDone: () => void;
+}) {
+    const start = useRef(-1);
+    const subs = useRef<Array<THREE.Group | null>>([null, null, null]);
+    const three = crit || heavy;
+    const slashes = useMemo(() => {
+        const arr = [
+            { at: 0, s: 2.5, rot: -0.6, flip: 1 },
+            { at: 0.09, s: 2.3, rot: 0.7, flip: -1 },
+        ];
+        if (three) arr.push({ at: 0.18, s: 3.1, rot: 0, flip: 1 });
+        return arr;
+    }, [three]);
+    const total = three ? 0.51 : 0.33;
+    useFrame((s) => {
+        if (start.current < 0) start.current = s.clock.elapsedTime;
+        const e = s.clock.elapsedTime - start.current;
+        if (e > total) { onDone(); return; }
+        for (let i = 0; i < slashes.length; i++) {
+            const sub = subs.current[i]; if (!sub) continue;
+            const sl = slashes[i];
+            const p = (e - sl.at) / 0.15;
+            const on = p >= 0 && p <= 1;
+            sub.visible = on;
+            if (!on) continue;
+            const sweep = p * p * (3 - 2 * p);   // smoothstep sweep
+            sub.rotation.z = (sl.rot + sweep * 0.5 * sl.flip) * toward;
+            sub.position.x = sweep * 0.5 * toward * sl.flip;
+            const pop = p < 0.25 ? 0.75 + p : p < 0.6 ? 1 : 1 - (p - 0.6) * 0.25;
+            sub.scale.set(sl.s * pop * sl.flip, sl.s * pop, 1);
+            const op = p < 0.2 ? p / 0.2 : 1 - (p - 0.2) / 0.8;
+            sub.children.forEach((ch) => {
+                const m = (ch as THREE.Mesh).material as THREE.MeshBasicMaterial;
+                if (m) m.opacity = op * 0.95;
+            });
+        }
+    });
+    return (
+        <group position={at}>
+            <Billboard lockX lockZ>
+                {slashes.map((sl, i) => (
+                    <group key={i} ref={(el) => { subs.current[i] = el; }} visible={false}>
+                        {!lite && (
+                            <mesh position={[0, 0, -0.01]} scale={[1.33, 1.33, 1]}>
+                                <planeGeometry args={[1, 1]} />
+                                <meshBasicMaterial map={projCrescentTexture()} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                            </mesh>
+                        )}
+                        <mesh>
+                            <planeGeometry args={[1, 1]} />
+                            <meshBasicMaterial map={projCrescentTexture()} color="#ffffff" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    </group>
+                ))}
+            </Billboard>
+        </group>
+    );
+}
+
+/** ── Spectacle: DuelEruption ────────────────────────────────────────────────
+ *  A ground-up element PILLAR under the victim for crush/push/signature/KO —
+ *  two crossed world-space columns (the vertical read a billboard can't give)
+ *  with an upward-scrolling tile + ballistic debris. Wall-clock self-timed. */
+function DuelEruption({ at, element, big, lite, onDone }: {
+    at: Vec3; element?: string | null; big: boolean; lite: boolean; onDone: () => void;
+}) {
+    const start = useRef(-1);
+    const grp = useRef<THREE.Group>(null);
+    const colMats = useRef<Array<THREE.MeshBasicMaterial | null>>([null, null, null]);
+    const debrisRefs = useRef<Array<THREE.Group | null>>([]);
+    const color = elementColor(element).glow;
+    const H = big ? 3.4 : 2.6;
+    const W = big ? 1.5 : 1.1;
+    const DUR = big ? 0.62 : 0.45;
+    const nDebris = lite ? 0 : big ? 8 : 6;
+    // Per-instance column-texture clone in a REF (see DuelElementBeam note).
+    const colTexRef = useRef<THREE.CanvasTexture | null>(null);
+    useEffect(() => {
+        const t = beamColumnTexture().clone(); t.needsUpdate = true;
+        colTexRef.current = t;
+        return () => { t.dispose(); colTexRef.current = null; };
+    }, []);
+    const isEarth = (element ?? "").toLowerCase() === "earth";
+    useFrame((s, delta) => {
+        if (start.current < 0) start.current = s.clock.elapsedTime;
+        const e = s.clock.elapsedTime - start.current;
+        const p = e / DUR;
+        if (p > 1) { onDone(); return; }
+        const g = grp.current; if (!g) return;
+        const ct = colTexRef.current;
+        if (ct) {
+            ct.offset.y -= delta * 1.4;   // the column visibly RUSHES upward
+            for (const m of colMats.current) if (m && m.map !== ct) { m.map = ct; m.needsUpdate = true; }
+        }
+        // Rise (overshoot), hold (flicker), lift-off + dissipate.
+        const rise = p < 0.18 ? 1 - Math.pow(1 - p / 0.18, 2) : 1;
+        const wob = p >= 0.18 && p < 0.65 ? 1 + 0.06 * Math.sin(s.clock.elapsedTime * 40) : 1;
+        const fade = p > 0.65 ? 1 - (p - 0.65) / 0.35 : 1;
+        const sy = rise * (p > 0.65 ? 1 + (p - 0.65) * 0.43 : 1);
+        const sx = (p < 0.18 ? 1.25 - 1.25 * (p / 0.18) + (p / 0.18) : 1) * wob;
+        g.scale.set(sx, sy, sx);
+        for (const m of colMats.current) if (m) m.opacity = (m.userData?.core ? 0.8 : 0.95) * fade;
+        for (let i = 0; i < debrisRefs.current.length; i++) {
+            const d = debrisRefs.current[i]; if (!d) continue;
+            const ang = i * 2.4;
+            const vx = Math.cos(ang) * (0.9 + (i % 3) * 0.3);
+            const vz = Math.sin(ang) * (0.9 + (i % 3) * 0.3);
+            const vy0 = 3.2 + (i % 2) * 0.8;
+            d.position.set(vx * e, Math.max(0, vy0 * e - 6 * e * e), vz * e);
+            const dm = ((d.children[0] as THREE.Group)?.children?.[0] as THREE.Mesh)?.material as THREE.MeshBasicMaterial | undefined;
+            if (dm) dm.opacity = Math.max(0, 1 - p);
+        }
+    });
+    return (
+        <group position={at}>
+            <group ref={grp}>
+                {[0, Math.PI / 2].map((ry, i) => (
+                    (i === 0 || !lite) && (
+                        <mesh key={i} rotation={[0, ry, 0]} position={[0, H / 2, 0]} scale={[W, H, 1]}>
+                            <planeGeometry args={[1, 1]} />
+                            <meshBasicMaterial ref={(m) => { colMats.current[i] = m; }} map={beamColumnTexture()} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                        </mesh>
+                    )
+                ))}
+                {!lite && (
+                    <mesh position={[0, H / 2, 0]} scale={[W * 0.55, H, 1]}>
+                        <planeGeometry args={[1, 1]} />
+                        <meshBasicMaterial ref={(m) => { if (m) { m.userData = { core: true }; colMats.current[2] = m; } }} map={beamColumnTexture()} color="#ffffff" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                    </mesh>
+                )}
+            </group>
+            {Array.from({ length: nDebris }).map((_, i) => (
+                <group key={i} ref={(el) => { debrisRefs.current[i] = el; }}>
+                    <Billboard lockX lockZ>
+                        <mesh scale={[0.16 + (i % 3) * 0.06, 0.16 + (i % 3) * 0.06, 1]}>
+                            <planeGeometry args={[1, 1]} />
+                            <meshBasicMaterial map={isEarth ? projRockTexture() : projRoundTexture()} color={color} transparent opacity={1} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    </Billboard>
+                </group>
+            ))}
+        </group>
+    );
+}
+
+// A cinematic 2.5D EARTH WALL — a LIT low-poly rock slab (real BoxGeometry so the arena
+// lights catch its facets → volume, not a flat billboard) that RISES from the floor
+// between the two fighters on a barrier cast, holds ~1.3s, then SINKS with dust. Render
+// only — the sim already granted the shield; this feeds nothing back.
+function EarthWall({ at, yaw, lite, onDone }: { at: Vec3; yaw: number; lite: boolean; onDone: () => void }) {
+    const start = useRef(-1);
+    const rise = useRef<THREE.Group>(null);
+    const dust = useRef<Array<THREE.Group | null>>([]);
+    const glowMat = useRef<THREE.MeshBasicMaterial | null>(null);
+    const rockTex = useMemo(() => projRockTexture(), []);
+    const H = 1.7, W = 2.4, D = 0.55;                 // below the 2.3 sprite head so faces stay visible
+    const RISE = 0.24, HOLD = 0.62, SINK = 0.34, TOTAL = RISE + HOLD + SINK;   // ~1.2s — solid phase (rise+hold ~0.86s) ≈ the sim block window
+    const nDust = lite ? 0 : 6;
+    useFrame((s) => {
+        if (start.current < 0) start.current = s.clock.elapsedTime;
+        const e = s.clock.elapsedTime - start.current;
+        if (e > TOTAL) { onDone(); return; }
+        let sy: number, glow = 1;
+        if (e < RISE) { const p = e / RISE; sy = 1 + 2.6 * Math.pow(p - 1, 3) + 1.6 * Math.pow(p - 1, 2); }   // easeOutBack overshoot
+        else if (e < RISE + HOLD) { sy = 1 + 0.015 * Math.sin(s.clock.elapsedTime * 26); }                     // hold + tremor
+        else { const p = (e - RISE - HOLD) / SINK; sy = 1 - p * p; glow = 1 - p; }                             // sink back into the floor
+        if (rise.current) rise.current.scale.y = Math.max(0.001, sy);
+        if (glowMat.current) glowMat.current.opacity = 0.5 * Math.min(1, e / RISE) * glow;
+        for (let i = 0; i < dust.current.length; i++) {
+            const dd = dust.current[i]; if (!dd) continue;
+            const ang = i * 2.399, spd = 1.0 + (i % 3) * 0.3, t2 = Math.min(e, 0.5);
+            dd.position.set(Math.cos(ang) * spd * t2, Math.max(0, 1.2 * t2 - 5 * t2 * t2), Math.sin(ang) * spd * t2 * 0.4);
+            const dm = ((dd.children[0] as THREE.Group)?.children?.[0] as THREE.Mesh)?.material as THREE.MeshBasicMaterial | undefined;
+            if (dm) dm.opacity = Math.max(0, 0.75 - t2 * 1.5);
+        }
+    });
+    return (
+        <group position={at} rotation={[0, yaw, 0]}>
+            {/* rise group scales Y 0→1; boxes sit at y=height/2 so they grow UP from the floor */}
+            <group ref={rise}>
+                <mesh position={[0, H / 2, 0]} castShadow>
+                    <boxGeometry args={[W, H, D]} />
+                    <meshLambertMaterial map={rockTex} color="#8a6a45" emissive="#3a2a16" emissiveIntensity={0.5} />
+                </mesh>
+                {!lite && (
+                    <mesh position={[-0.72, 0.7, 0.06]}>
+                        <boxGeometry args={[0.95, 1.4, D * 0.92]} />
+                        <meshLambertMaterial map={rockTex} color="#7d5f3f" emissive="#332414" emissiveIntensity={0.5} />
+                    </mesh>
+                )}
+                {!lite && (
+                    <mesh position={[0.74, 0.55, -0.06]}>
+                        <boxGeometry args={[0.9, 1.1, D * 0.92]} />
+                        <meshLambertMaterial map={rockTex} color="#856445" emissive="#332414" emissiveIntensity={0.5} />
+                    </mesh>
+                )}
+            </group>
+            {/* base rim glow (additive, on the floor) */}
+            <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[W * 1.4, D * 3.4]} />
+                <meshBasicMaterial ref={(m) => { glowMat.current = m; }} color={elementColor("earth").glow} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            {Array.from({ length: nDust }).map((_, i) => (
+                <group key={i} ref={(el) => { dust.current[i] = el; }} position={[0, 0.1, 0]}>
+                    <Billboard lockX lockZ>
+                        <mesh scale={[0.3, 0.3, 1]}>
+                            <planeGeometry args={[1, 1]} />
+                            <meshBasicMaterial map={rockTex} color="#b89a6e" transparent opacity={0.75} depthWrite={false} toneMapped={false} />
+                        </mesh>
+                    </Billboard>
+                </group>
+            ))}
+        </group>
+    );
+}
+
+/** ── Spectacle: DuelChargeGather ────────────────────────────────────────────
+ *  A sustained gathering effect on the caster for the ENTIRE wind-up — energy
+ *  motes visibly STREAM INTO the pet, a chest glow GROWS with real cast
+ *  progress, and a ground ring CONTRACTS (charging; the expanding shockwave
+ *  stays the release read). SIM-CLOCK timed, so hit-stop/savor make the gather
+ *  HOLD — exactly the anime read. Cancels visibly if a stagger breaks the cast. */
+function DuelChargeGather({ duel, clock, actorId, element, heavy, startTick, endTick, lite, onDone }: {
+    duel: DuelResult; clock: { current: DuelClock }; actorId: string; element?: string | null;
+    heavy: boolean; startTick: number; endTick: number; lite: boolean; onDone: () => void;
+}) {
+    const grp = useRef<THREE.Group>(null);
+    const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+    const coreMesh = useRef<THREE.Mesh>(null);
+    const ringMesh = useRef<THREE.Mesh>(null);
+    const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+    const ring2Mesh = useRef<THREE.Mesh>(null);
+    const ring2Mat = useRef<THREE.MeshBasicMaterial>(null);
+    const parts = useRef<Array<THREE.Group | null>>([]);
+    const done = useRef(false);
+    const cancelAt = useRef(-1);
+    const releaseAt = useRef(-1);
+    const color = elementColor(element).glow;
+    const N = lite ? 4 : heavy ? 12 : 8;
+    useFrame((s) => {
+        const g = grp.current; if (!g || done.current) return;
+        const t = s.clock.elapsedTime;
+        const simT = clock.current.t;
+        const snaps = duel.snapshots;
+        const i0 = Math.max(0, Math.min(snaps.length - 1, Math.floor(simT)));
+        const actor = findActor(snaps[i0], actorId);
+        if (!actor || actor.hp <= 0) { done.current = true; onDone(); return; }
+        // A stagger broke the cast → fast fade (the interrupt reads on screen).
+        if (cancelAt.current < 0 && actor.state !== "windup" && simT < endTick - 1 && simT > startTick + 2) cancelAt.current = t;
+        if (cancelAt.current >= 0 && t - cancelAt.current > 0.12) { done.current = true; onDone(); return; }
+        // Release pop: the gather SNAPS into the strike, then unmounts.
+        if (simT >= endTick && releaseAt.current < 0) releaseAt.current = t;
+        if (releaseAt.current >= 0 && t - releaseAt.current > 0.1) { done.current = true; onDone(); return; }
+        const p = duelFieldToFloor(actor.x, actor.y);
+        g.position.set(p.wx, 0, p.wz);
+        g.visible = true;
+        const progress = Math.min(1, Math.max(0, (simT - startTick) / Math.max(1, endTick - startTick)));
+        const fade = cancelAt.current >= 0 ? Math.max(0, 1 - (t - cancelAt.current) / 0.12) : 1;
+        const releasing = releaseAt.current >= 0 ? (t - releaseAt.current) / 0.1 : 0;
+        // Converging particles: pure functions of the clock — zero state.
+        for (let i = 0; i < parts.current.length; i++) {
+            const pt = parts.current[i]; if (!pt) continue;
+            const phi = i * 2.399;
+            const cyc = ((t * 2 + phi) % 1 + 1) % 1;
+            const r = 1.7 + (0.25 - 1.7) * cyc;
+            const ang = phi + t * 1.8;
+            pt.position.set(Math.cos(ang) * r, 0.15 + (1.25 - 0.15) * cyc, Math.sin(ang) * r * 0.4);
+            const sc = 0.14 + (0.05 - 0.14) * cyc;
+            pt.scale.setScalar(sc);
+            const m = ((pt.children[0] as THREE.Group)?.children?.[0] as THREE.Mesh)?.material as THREE.MeshBasicMaterial | undefined;
+            if (m) m.opacity = Math.sin(Math.PI * cyc) * 0.8 * fade;
+        }
+        // Growing chest glow — cast length made legible; pops ×1.8 on release.
+        if (coreMesh.current && coreMat.current) {
+            const base = (0.4 + 1.3 * progress) * (1 + 0.08 * Math.sin(t * 13));
+            coreMesh.current.scale.setScalar(base * (1 + releasing * 0.8));
+            coreMat.current.opacity = (0.28 + 0.35 * progress) * fade * (1 - releasing);
+        }
+        // Contracting ground ring (heavy adds a counter-rotating second ring).
+        if (ringMesh.current && ringMat.current) {
+            const rr = 1.6 + (0.55 - 1.6) * progress;
+            ringMesh.current.scale.set(rr, rr, 1);
+            ringMesh.current.rotation.z = t * 0.9;
+            ringMat.current.opacity = 0.35 * fade * (1 - releasing);
+        }
+        if (ring2Mesh.current && ring2Mat.current) {
+            const rr2 = 1.95 + (0.9 - 1.95) * progress;
+            ring2Mesh.current.scale.set(rr2, rr2, 1);
+            ring2Mesh.current.rotation.z = -t * 0.7;
+            ring2Mat.current.opacity = 0.28 * fade * (1 - releasing);
+        }
+    });
+    return (
+        <group ref={grp} visible={false}>
+            {Array.from({ length: N }).map((_, i) => (
+                <group key={i} ref={(el) => { parts.current[i] = el; }}>
+                    <Billboard lockX lockZ>
+                        <mesh>
+                            <planeGeometry args={[1, 1]} />
+                            <meshBasicMaterial map={glowTexture()} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    </Billboard>
+                </group>
+            ))}
+            <Billboard lockX lockZ position={[0, TARGET_SPRITE_H * 0.5, 0]}>
+                <mesh ref={coreMesh}>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial ref={coreMat} map={glowTexture()} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </Billboard>
+            {!lite && (
+                <mesh ref={ringMesh} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+                    <ringGeometry args={[0.85, 1.0, 32]} />
+                    <meshBasicMaterial ref={ringMat} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                </mesh>
+            )}
+            {!lite && heavy && (
+                <mesh ref={ring2Mesh} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+                    <ringGeometry args={[0.9, 1.0, 32]} />
+                    <meshBasicMaterial ref={ring2Mat} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                </mesh>
+            )}
+        </group>
+    );
+}
+
+/** Per-fighter DOM refs behind the Pokemon corner HP panels. Built per roster
+ *  with createRef (not useRef) so 2v2 rows key cleanly. */
+type HudRowRefs = {
+    row: React.RefObject<HTMLDivElement | null>;
+    fill: React.RefObject<HTMLDivElement | null>;
+    chip: React.RefObject<HTMLDivElement | null>;
+    text: React.RefObject<HTMLSpanElement | null>;
+    chips: React.RefObject<HTMLDivElement | null>;
+    ult: React.RefObject<HTMLDivElement | null>;
+};
+
+/** ── Broadcast frame: DuelHudDriver ─────────────────────────────────────────
+ *  Null-rendering in-Canvas driver (the ArenaObjectiveHud pattern) that feeds
+ *  the corner HP panels per frame: Pokemon drain bar (same stepHpDrain as the
+ *  floating bars), colour bands, exact HP text, status chips, a deterministic
+ *  ult-charge sliver (progress toward the NEXT `ultimate` event tick), and a
+ *  grayscale knock-out treatment. All DOM writes are change-guarded. */
+function DuelHudDriver({ duel, clock, refsBox, ultTicksById }: {
+    duel: DuelResult; clock: { current: DuelClock }; refsBox: React.MutableRefObject<Record<string, HudRowRefs>>; ultTicksById: Record<string, number[]>;
+}) {
+    const disp = useRef<Record<string, number>>({});
+    const lastCol = useRef<Record<string, string>>({});
+    const lastChips = useRef<Record<string, string>>({});
+    const lastTxt = useRef<Record<string, string>>({});
+    const lastUlt = useRef<Record<string, number>>({});
+    const lastDead = useRef<Record<string, boolean>>({});
+    /* eslint-disable react-hooks/immutability -- the exact ref-driven DOM-write pattern
+       of DuelStandee/ArenaObjectiveHud, routed through a keyed MutableRef box the tracer
+       can't follow: every write is `<createRef>.current.style` on our own panel DOM. */
+    useFrame((state, delta) => {
+        const snaps = duel.snapshots;
+        const s = snaps[Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)))];
+        if (!s) return;
+        const refMap = refsBox.current;
+        for (const a of s.actors) {
+            const r = refMap[a.id];
+            if (!r?.fill.current) continue;
+            const pct = Math.max(0, Math.min(100, (a.hp / Math.max(1, a.maxHp)) * 100));
+            const shown = disp.current[a.id] ?? pct;
+            const next = stepHpDrain(shown, pct, delta);
+            disp.current[a.id] = next;
+            r.fill.current.style.width = `${next}%`;
+            const col = next > 50 ? (a.team === "player" ? "#4ade80" : "#22c55e") : next > 20 ? "#facc15" : "#ef4444";
+            if (col !== lastCol.current[a.id]) { lastCol.current[a.id] = col; r.fill.current.style.background = col; }
+            r.fill.current.style.opacity = next <= 20 && a.hp > 0 ? `${0.7 + 0.3 * Math.abs(Math.sin(state.clock.elapsedTime * 6))}` : "1";
+            if (r.chip.current) { const c = parseFloat(r.chip.current.style.width) || next; r.chip.current.style.width = `${c <= next ? next : lerp(c, next, 0.12)}%`; }
+            const txt = `${Math.max(0, Math.ceil(a.hp))}/${a.maxHp}`;
+            if (r.text.current && txt !== lastTxt.current[a.id]) { lastTxt.current[a.id] = txt; r.text.current.textContent = txt; }
+            const key = a.statuses.join(",");
+            if (r.chips.current && key !== lastChips.current[a.id]) {
+                lastChips.current[a.id] = key;
+                r.chips.current.innerHTML = a.statuses.map((st) => DUEL_STATUS_CHIPS[st] ?? "").join("");
+            }
+            // Ult charge — deterministic: progress toward the NEXT ultimate event tick.
+            const ticks = ultTicksById[a.id];
+            if (r.ult.current && ticks?.length) {
+                const t = clock.current.t;
+                let prev = 0, nextT = -1;
+                for (const ut of ticks) { if (ut > t) { nextT = ut; break; } prev = ut; }
+                const chg = nextT < 0 ? 0 : Math.min(1, Math.max(0, (t - prev) / Math.max(1, nextT - prev)));
+                if (Math.abs(chg - (lastUlt.current[a.id] ?? -1)) > 0.005) {
+                    lastUlt.current[a.id] = chg;
+                    r.ult.current.style.width = `${chg * 100}%`;
+                    r.ult.current.style.boxShadow = chg > 0.92 ? "0 0 8px #e879f9" : "none";
+                }
+            }
+            const dead = a.state === "dead" || a.hp <= 0;
+            if (r.row.current && dead !== lastDead.current[a.id]) {
+                lastDead.current[a.id] = dead;
+                r.row.current.style.filter = dead ? "grayscale(0.9) brightness(0.6)" : "";
+                r.row.current.style.opacity = dead ? "0.55" : "1";
+            }
+        }
+    });
+    /* eslint-enable react-hooks/immutability */
+    return null;
+}
+
+/** ── Broadcast frame: VictorySpot ───────────────────────────────────────────
+ *  A golden floor spotlight under the CHAMPION during the victory beat (reuses
+ *  the cached shadowTexture radial as the light pool + a crisp rim ring). */
+function VictorySpot({ duel, clock, celebrate }: {
+    duel: DuelResult; clock: { current: DuelClock }; celebrate: React.MutableRefObject<null | "player" | "enemy">;
+}) {
+    const grp = useRef<THREE.Group>(null);
+    const matA = useRef<THREE.MeshBasicMaterial>(null);
+    const matB = useRef<THREE.MeshBasicMaterial>(null);
+    const born = useRef(-1);
+    useFrame((state) => {
+        const g = grp.current; if (!g) return;
+        const side = celebrate.current;
+        if (!side) { g.visible = false; born.current = -1; return; }
+        const snaps = duel.snapshots;
+        const s = snaps[Math.min(snaps.length - 1, Math.floor(clock.current.t))];
+        const lead = s?.actors.find((a) => a.team === side && a.hp > 0);
+        if (!lead) { g.visible = false; return; }
+        if (born.current < 0) born.current = state.clock.elapsedTime;
+        const fade = Math.min(1, (state.clock.elapsedTime - born.current) / 0.45);
+        const p = duelFieldToFloor(lead.x, lead.y);
+        g.visible = true;
+        g.position.set(p.wx, 0.03, p.wz);
+        const pulse = 1 + 0.05 * Math.sin(state.clock.elapsedTime * 3);
+        g.scale.set(pulse, 1, pulse);
+        if (matA.current) matA.current.opacity = 0.5 * fade;
+        if (matB.current) matB.current.opacity = 0.28 * fade;
+    });
+    return (
+        <group ref={grp} visible={false}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
+                <circleGeometry args={[2.1, 40]} />
+                <meshBasicMaterial ref={matA} map={shadowTexture()} color="#fde68a" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+                <ringGeometry args={[1.9, 2.05, 40]} />
+                <meshBasicMaterial ref={matB} color="#fcd34d" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+            </mesh>
         </group>
     );
 }
@@ -2416,7 +3187,7 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, spawnTrail, elementById, nameById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout, onEffect, onDangerChange }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, spawnTrail, elementById, nameById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout, onEffect, onDangerChange, spawnBeam, spawnSlash, spawnEruption, spawnWall, spawnCharge, onSpeedlines, celebrate }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
@@ -2433,9 +3204,17 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     onCallout: (text: string) => void;                       // big "CRITICAL!/FINISH!" banner
     onCombo: (n: number) => void;                            // combo counter pop
     onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko" | "info") => void;  // play-by-play commentary
-    onMoveCallout: (text: string, side: "player" | "enemy") => void;                       // named-move flash ("Hellhound Execution!")
+    onMoveCallout: (text: string, side: "player" | "enemy", element?: string | null) => void;   // named-move flash ("Hellhound Execution!"), element-tinted
     onEffect: (text: string, kind: "super" | "resist") => void;   // type-chart read ("SUPER EFFECTIVE!" / "RESISTED")
     onDangerChange: (on: boolean) => void;                        // red-zone vignette while any fighter is critical
+    // ── Spectacle layer (all render-only): attacks get a visual BODY ──
+    spawnBeam: (n: { actorId: string; targetId: string; element?: string | null; heavy: boolean; startTick: number; endTick: number }) => void;   // caster→target element stream
+    spawnSlash: (n: { x: number; z: number; toward: number; color: string; crit: boolean; heavy: boolean }) => void;           // anime slash-arc combo at the victim
+    spawnEruption: (n: { x: number; z: number; element?: string | null; big: boolean }) => void;                              // ground-up element pillar
+    spawnWall: (n: { ax: number; ay: number; bx: number; by: number }) => void;                                              // barrier earth-wall between the fighters
+    spawnCharge: (n: { actorId: string; element?: string | null; heavy: boolean; startTick: number; endTick: number }) => void; // sustained wind-up gather on the caster
+    onSpeedlines: (intensity: number, color?: string) => void;    // radial anime speedline flash
+    celebrate: React.MutableRefObject<null | "player" | "enemy">; // victory beat owner (set by onEnd, read by the camera)
 }) {
     const { camera } = useThree();
     const lastTick = useRef(-1);
@@ -2462,6 +3241,14 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const evadeSeen = useRef<Set<string>>(new Set());   // fighters whose speed-evade was explained once
     const dblLow = useRef(false);                    // "both on their last legs" fired once
     const dangerOn = useRef(false);                  // current red-zone vignette state (edge-triggered callback)
+    const lastSpeed = useRef(-999);                  // speedline debounce (one burst per exchange — load-bearing)
+    const lastClash = useRef(-999);                  // clash-burst debounce (the paired stagger events share ONE big VFX)
+    const lastSlam = useRef(-999);                   // wall-slam debounce
+    const lastStrideDust = useRef<Record<string, number>>({});   // per-actor stride-dust throttle — grounds a charge
+    const lastFlashStep = useRef<Record<string, number>>({});    // per-actor FLASH-STEP throttle — the "move" slot repurposed as a movement showpiece
+    const lastWindupTarget = useRef<Record<string, string>>({});   // actor → last telegraphed target (aims the beam)
+    const lastUltAt = useRef<Record<string, number>>({});          // actor → tick of its last ultimate (heavy-beam flag)
+    const pendingBursts = useRef<Array<{ atTick: number; x: number; z: number; element?: string | null; scale: number }>>([]);   // beam impact-end eruptions, SIM-tick scheduled (so slow-mo can't land them early)
     const minFrac = useRef({ player: 1, enemy: 1 }); // lowest team-HP fraction seen → comeback detection at the KO
     const lethalArmed = useRef(false);               // the pre-KO lethal slow-mo fired once
     // Tekken-style LETHAL-MOMENT anticipation: the stream is deterministic, so the
@@ -2475,6 +3262,15 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         for (const e of duel.events) if (e.type === "hit" && e.t <= koT && e.t > hitT) hitT = e.t;
         return hitT > 8 ? hitT - 8 : -1;   // arm ~0.27s before the final blow connects
     }, [duel]);
+    // First same-actor resolution after `after` (the wind-up's end) — the stream is
+    // time-ordered, so the first match is the earliest. Sizes the charge-up gather.
+    const nextActionTick = (actorId: string, after: number): number => {
+        for (const ev of duel.events) {
+            if (ev.t <= after || ev.actorId !== actorId) continue;
+            if (ev.type === "hit" || ev.type === "whiff" || ev.type === "cast" || ev.type === "stagger" || ev.type === "ko") return ev.t;
+        }
+        return after + 45;
+    };
     // ── Cinematic camera (render-only): a live look target eased toward the fighters'
     // midpoint, briefly OVERRIDDEN by cuts (attacker on wind-up / defender on impact /
     // victim on KO), plus an adaptive dolly that tightens when they plant close.
@@ -2484,6 +3280,32 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const camDollyBias = useRef(0);    // transient extra push-in during a wind-up cut (decays)
     const camPosBias = useRef<[number, number, number]>([0, 0, 0]);   // transient eye offset (low crit / overhead KO angle), eases back to 0
     const introLocked = useRef(false); // fires the "lock-in" shake once when the opening charge completes
+    // ── Orbit axis (the real cinematography): an eased YAW around the action pivot
+    // + an eased eye HEIGHT, composed so yaw=0 / camH=CAM_POS[1] reproduces the old
+    // fixed tripod exactly. Beats CUT by writing the targets (whip-pan) or the live
+    // values directly during a hit-stop freeze (a true anime hard cut).
+    const camYaw = useRef(0);
+    const camYawTarget = useRef(0);
+    const camH = useRef(CAM_POS[1]);
+    const camHTarget = useRef(CAM_POS[1]);
+    const cutEase = useRef(0.08);      // how fast yaw/height chase their targets (whips raise it)
+    const koOwnedUntil = useRef(0);    // while set, the KO reveal OWNS the camera (lesser beats skip writes)
+    const koOrbitVel = useRef(0);      // slow crane drift (rad/s) around the fallen pet, toward the winner
+    const yawJabSign = useRef(1);      // alternating crit yaw-jab direction
+    const camRegister = useRef<CamRegister>("A");   // A calm → B bloodied → C sudden death (never de-escalates)
+    const spreadRef = useRef(4);       // last frame's fighter spread (feeds the yaw clamp)
+    const { size } = useThree();       // portrait aspect softens the yaw clamp (framing, not perf)
+    // Current yaw clamp: register cap, halved for wide 2v2 spreads, softened on portrait.
+    const yawCap = () => {
+        let m: number = CAM_REG[camRegister.current].yawMax;
+        if (spreadRef.current > 7) m = Math.min(m, 0.3);
+        if (size.width / Math.max(1, size.height) < 0.9) m *= 0.7;
+        return m;
+    };
+    const clampH = (h: number) => {
+        const r = CAM_REG[camRegister.current];
+        return Math.min(r.hHi, Math.max(r.hLo, h));
+    };
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
         const maxT = snaps.length - 1;
@@ -2492,7 +3314,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         // sim). Neutral runs a touch FAST so dead approach time doesn't drag; each
         // hit/cast SAVOR-slows playback and HOLDS it (holdUntil) so the exchange
         // reads like a staged anime beat, then eases back. Hit-stop FREEZES on impact.
-        const BASE_SCALE = 1.12;
+        const BASE_SCALE = 0.95;   // slightly SLOWER than real-time (was 1.12) — a more legible tempo so setup→commit→payoff reads as tactics, not a blur
         let dt = delta * timeScale.current;
         if (hitStop.current > 0) { hitStop.current = Math.max(0, hitStop.current - delta); dt = 0; }
         if (now >= holdUntil.current) timeScale.current = lerp(timeScale.current, BASE_SCALE, 0.05);
@@ -2505,6 +3327,18 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
             lethalArmed.current = true;
             savor(0.24, 0.85);
             zoomKick.current = Math.max(zoomKick.current, 1.6);
+            // Slow DREAD CREEP toward the doomed side — the camera leans in with the
+            // audience (a crawl, not a cut; matches the slow-mo).
+            if (!celebrate.current && now >= koOwnedUntil.current) {
+                camHTarget.current = clampH(4.2);
+                const victimSign = duel.winner === "player" ? 1 : duel.winner === "enemy" ? -1 : 0;
+                if (victimSign !== 0) {
+                    const capL = yawCap();
+                    camYawTarget.current = Math.max(-capL, Math.min(capL, victimSign * 0.25));
+                }
+                cutEase.current = 0.06;
+                camAimHold.current = Math.max(camAimHold.current, 0.9);
+            }
         }
         if (cur > lastTick.current) {
             for (const e of duel.events) {
@@ -2516,6 +3350,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         const frac = Math.min(1, e.dmg / Math.max(1, a.maxHp));
                         const heavy = !!e.crit || frac > 0.12;
                         const col = elementColor(e.element).glow;
+                        const isSig = !!e.signature;
+                        const isAbility = !!e.move;   // restraint: light BASIC pokes get minimal VFX; abilities/crits keep the big combo
+                        // The freeze-frame CUT-IN fires for a pet's HERO move — its signature, or
+                        // its strongest move if none is formally flagged — but RARELY (12s throttle)
+                        // so it's an earned epic beat once or twice a fight, not the old spam.
+                        const willHeroCut = !!e.move && !isSig && heroMoveById[e.actorId] === e.move && now - lastHeroCut.current > 12;
+                        const camFree = !celebrate.current && now >= koOwnedUntil.current;   // KO/victory own the camera
                         missStreak.current[e.actorId] = 0;
                         // Pokemon-style TYPE READ — the element chart is invisible unless we SAY it.
                         // Every super-effective/resisted blow flashes its banner (throttled), and the
@@ -2546,14 +3387,26 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         if (fxKey) {
                             spawnFx({ x: a.x, z: a.y, key: fxKey, scale: heavy ? 2.7 : 1.9, dur: heavy ? 520 : 400 });
                         } else if (e.ranged) {
-                            spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 2.7 : 1.9, dur: heavy ? 520 : 400 });
-                        } else {
+                            spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 2.4 : 1.3, dur: heavy ? 520 : 340 });
+                        } else if (isAbility || heavy) {
+                            // The big ANIME SLASH COMBO + element burst — reserved now for ABILITY
+                            // hits and crits/heavy blows. Light basic pokes (below) skip it so a
+                            // plain exchange reads as a physical trade, not an elemental firework.
                             const arche = classifyMoveChoreo(e.kind, false, e.element);
                             const ax = a.x, az = a.y;
+                            const combo = arche !== "heavySlam";
+                            if (combo) spawnSlash({ x: ax, z: az, toward: e.actorId.startsWith("enemy") ? -1 : 1, color: col, crit: !!e.crit, heavy: heavyKind || heavy });
                             for (const b of meleeContactFx(e.element, arche, !!e.crit, heavyKind || heavy)) {
+                                if (combo && b.key === "slash") continue;
                                 const fire = () => spawnFx(b.key ? { x: ax, z: az, key: b.key, scale: b.scale, dur: b.dur } : { x: ax, z: az, element: e.element, scale: b.scale, dur: b.dur });
                                 if (b.at <= 0) fire(); else window.setTimeout(fire, b.at);
                             }
+                            // 1-frame WHITE IMPACT FRAME on the finisher slash (the anime pop).
+                            if (combo && (e.crit || heavyKind)) window.setTimeout(() => onFlash("#ffffff", 0.3), 180);
+                        } else {
+                            // A plain light basic — just a small contact spark + a dust puff at the
+                            // feet. Keeps trades PHYSICAL and grounded, not a light show.
+                            spawnFx({ x: a.x, z: a.y, key: "spark", scale: 0.95, dur: 200 });
                         }
                         // Weapon TRAIL — the swing itself, at the ATTACKER, per archetype
                         // (pierce stab / slash sweep / slam overhead chop / drain rake).
@@ -2562,43 +3415,77 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             const att = findActor(snapAt, e.actorId);
                             if (att) spawnTrail({ x: att.x, z: att.y, toward: e.actorId.startsWith("enemy") ? -1 : 1, kind: classifyMoveChoreo(e.kind, false, e.element), color: col });
                         }
+                        // Ground-up ELEMENT PILLAR under crush/push/signature impacts —
+                        // the earth-shattering finisher read a flat billboard can't give.
+                        if (e.kind === "crush" || e.kind === "push" || isSig) spawnEruption({ x: a.x, z: a.y, element: e.element, big: isSig || heavy });
                         hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0));
                         shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0));
-                        // Element-tinted full-screen FLASH + a ground SHOCKWAVE on every
-                        // hit (bigger on heavy/crit) so even a small spell reads as an event.
-                        onFlash(col, Math.min(0.5, 0.1 + frac * 0.9) + (e.crit ? 0.16 : 0) + (eff > 1 ? 0.08 : 0));
+                        // Full-screen FLASH only on meaningful hits (ability / crit / heavy) so a
+                        // plain poke doesn't strobe the screen. A ground SHOCKWAVE still grounds
+                        // every hit (small — it reads as physical impact, not a spell).
+                        if (isAbility || heavy) onFlash(col, Math.min(0.5, 0.1 + frac * 0.9) + (e.crit ? 0.16 : 0) + (eff > 1 ? 0.08 : 0));
                         spawnShock({ x: a.x, z: a.y, color: col, big: heavy || eff > 1 });
+                        // WALL SLAM — a heavy blow that drives the victim near the arena edge
+                        // cracks it against the wall: an extra white burst + a harder shake +
+                        // a callout. Sells "bounced off the wall" (the skid carries it there).
+                        if (heavy && Math.abs(a.x) > 9.5 && now - lastSlam.current > 0.3) {
+                            lastSlam.current = now;
+                            spawnShock({ x: a.x, z: a.y, color: "#ffffff", big: true });
+                            spawnFx({ x: a.x, z: a.y, key: "spark", scale: 2.2, dur: 340 });
+                            shake.current = Math.max(shake.current, 2.6);
+                            onFlash("#ffffff", 0.28);
+                            onCallout("WALL SLAM!");
+                        }
+                        // Radial SPEEDLINES on weighty blows (debounced — one per exchange).
+                        if ((e.crit || frac > 0.12) && now - lastSpeed.current > 0.25) { lastSpeed.current = now; onSpeedlines(e.crit ? 0.65 : 0.5); }
                         // Dramatic SAVOR — slow the moment so the swing reads; deeper on a
                         // signature, then a crit/heavy slam, then any named ability, then a basic.
-                        const isSig = !!e.signature, isAbility = !!e.move;
                         if (isSig) savor(0.26, 0.5);
                         else if (e.crit || heavyKind) savor(0.34, 0.3);
                         else if (isAbility || heavy) savor(0.42, 0.22);
                         else savor(0.6, 0.12);
                         // Camera ZOOM-PUNCH — every meaningful blow pushes in; abilities/crits/signatures harder.
                         zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : (isAbility || heavy) ? 1.8 : 0.9);
-                        // Camera CUT to whoever got hit — the impact reads on the defender.
-                        { const cp = duelFieldToFloor(a.x, a.y); camAim.current = [cp.wx * 0.55, 1.4, CAM_LOOK[2] + cp.wz * 0.4]; camAimHold.current = Math.max(camAimHold.current, 0.13); }
+                        // Camera CUT to whoever got hit — the impact reads on the defender —
+                        // and the orbit WHIPS back toward frontal so the punch-in lands square.
+                        if (camFree) {
+                            const cp = duelFieldToFloor(a.x, a.y); camAim.current = [cp.wx * 0.55, 1.4, CAM_LOOK[2] + cp.wz * 0.4]; camAimHold.current = Math.max(camAimHold.current, 0.13);
+                            camYawTarget.current *= 0.35; cutEase.current = 0.25;
+                        }
                         // A pet's HERO move (its signature, else its strongest jutsu) triggers the
                         // anime freeze-frame CUT-IN (throttled so it stays special); other named
                         // abilities show the smaller banner. (Signatures also cut in via 'ultimate'.)
-                        const hero = heroMoveById[e.actorId];
-                        if (e.move && !isSig && hero && e.move === hero && now - lastHeroCut.current > 9) {
+                        if (willHeroCut && e.move) {
                             lastHeroCut.current = now; lastMoveCall.current = now;
                             hitStop.current = Math.max(hitStop.current, 0.5);   // FREEZE-FRAME the impact
                             savor(0.2, 0.7); shake.current = Math.max(shake.current, 1.6);
                             zoomKick.current = Math.max(zoomKick.current, 3.0); onFlash(col, 0.4);
                             onCutIn(e.actorId, e.move);
-                        } else if (e.move && !isSig && now - lastMoveCall.current > 0.4 && !(calledMove.current.move === e.move && now < calledMove.current.until)) {
-                            // Only flash the name on impact if the wind-up didn't already CALL it.
-                            lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
+                            // HERO SNAP — a hard cut to a low, tight, angled shot of the
+                            // CASTER during the freeze, so the 3D frame agrees with the
+                            // portrait slam (a true broadcast cut, not a pan).
+                            if (camFree) {
+                                const att2 = findActor(snapAt, e.actorId);
+                                const hp2 = att2 ? duelFieldToFloor(att2.x, att2.y) : duelFieldToFloor(a.x, a.y);
+                                const cap2 = yawCap();
+                                camYaw.current = camYawTarget.current = Math.max(-cap2, Math.min(cap2, duelSideOf(e.actorId) * 0.3));
+                                camH.current = camHTarget.current = 3.2;
+                                camAim.current = [hp2.wx * 0.7, 1.6, CAM_LOOK[2] + hp2.wz * 0.4];
+                                camAimHold.current = Math.max(camAimHold.current, 0.9);
+                                camDollyBias.current = Math.max(camDollyBias.current, 2.0);
+                                cutEase.current = 0.06;
+                            }
                         }
+                        // RESTRAINT: no on-impact name flash for regular moves (the wind-up "call"
+                        // below already handles the rare telegraph). Keeps hits reading as blows.
                         // Combo counter — consecutive hits inside a 1.1s window.
                         comboN.current = now < comboT.current ? comboN.current + 1 : 1;
                         comboT.current = now + 1.1;
                         if (comboN.current >= 2) onCombo(comboN.current);
                         if (e.crit) onCallout("CRITICAL!");
                         if (e.crit) camPosBias.current[1] = -0.9;   // dip to a low hero angle on a crit (R4), eases back
+                        // Alternating crit YAW JAB (registers B/C) — a tiny broadcast "kick".
+                        if (e.crit && CAM_REG[camRegister.current].jab > 0 && camFree) { camYaw.current += yawJabSign.current * 0.05; yawJabSign.current *= -1; }
                         // Crit → a couple of trailing sparks read as a multi-hit flurry.
                         if (e.crit) {
                             const ax = a.x, az = a.y;
@@ -2621,6 +3508,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         spawnFx({ x: a.x, z: a.y, key: tel === "water" || tel === "earth" ? "shield" : "eshield", scale: 2.1, dur: 520 });
                         onFlash("#bfe3ff", 0.14);
                     }
+                    // BARRIER → a cinematic 2.5D EARTH WALL rises between the caster and the foe.
+                    if (e.kind === "barrier" && e.actorId) {
+                        const caster = findActor(snapAt, e.actorId);
+                        const side = e.actorId.startsWith("enemy") ? "enemy" : "player";
+                        const foe = snapAt.actors.find((ac) => !ac.id.startsWith(side) && ac.hp > 0);
+                        if (caster && foe) { spawnWall({ ax: caster.x, ay: caster.y, bx: foe.x, by: foe.y }); spawnShock({ x: caster.x, z: caster.y, color: "#cdb389", big: false }); }
+                    }
                 } else if (e.type === "buff" && e.actorId) {
                     // A self POWER-UP gather — a rising aura (was completely invisible).
                     const c = findActor(snapAt, e.actorId);
@@ -2632,22 +3526,43 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     // Element TELL — a charge ring at the attacker a beat before the blow,
                     // scaled UP for a real (damaging) move so a heavy hit reads as dangerous,
                     // plus a camera CUT + gentle push-in to the attacker ("here it comes").
+                    if (e.targetId) lastWindupTarget.current[e.actorId] = e.targetId;   // aims the beam at cast time
                     const c = findActor(snapAt, e.actorId);
                     if (c) {
                         const heavyTell = e.kind !== "buff" && e.kind !== "heal" && e.kind !== "shield" && e.kind !== "barrier" && e.kind !== "absorb" && e.kind !== "haste";
                         spawnImpact({ x: c.x, z: c.y, color: elementColor(elementById[e.actorId]).glow, big: heavyTell });
-                        if (heavyTell) { spawnFx({ x: c.x, z: c.y, key: "charge", scale: 1.3, dur: 220 }); savor(0.75, 0.06); }
+                        if (heavyTell) {
+                            savor(0.75, 0.06);
+                            // Sustained CHARGE-UP gather for the whole wind-up (replaces the old
+                            // 220ms puff) — while the move banner is up, the pet under it is
+                            // visibly channeling. Short basic windups keep just the ping.
+                            const endT = nextActionTick(e.actorId, e.t);
+                            if (endT - e.t >= 6) spawnCharge({ actorId: e.actorId, element: elementById[e.actorId], heavy: false, startTick: e.t, endTick: endT });
+                            else spawnFx({ x: c.x, z: c.y, key: "charge", scale: 1.3, dur: 220 });
+                        }
                         const p = duelFieldToFloor(c.x, c.y);
-                        camAim.current = [p.wx * 0.55, 1.4, CAM_LOOK[2] + p.wz * 0.4];
-                        camAimHold.current = Math.max(camAimHold.current, 0.15);
-                        camDollyBias.current = Math.max(camDollyBias.current, 0.7);
-                        // CALL the attack (Pokemon-style): a named wind-up flashes its move
-                        // name BEFORE the blow lands, so the viewer anticipates the hit
-                        // instead of being told about it afterwards.
-                        if (e.move && now - lastMoveCall.current > 0.4) {
+                        if (!celebrate.current && now >= koOwnedUntil.current) {
+                            camAim.current = [p.wx * 0.55, 1.4, CAM_LOOK[2] + p.wz * 0.4];
+                            camDollyBias.current = Math.max(camDollyBias.current, e.move && e.move === ultById[e.actorId] ? 1.1 : 0.7);
+                            // OVER-SHOULDER WHIP on named damaging wind-ups (registers B/C —
+                            // the calm opening act keeps its tripod): swing behind the caster
+                            // and hold through the swing so the cut reads as direction.
+                            if (e.move && heavyTell && camRegister.current !== "A") {
+                                const cap3 = yawCap();
+                                camYawTarget.current = Math.max(-cap3, Math.min(cap3, duelSideOf(e.actorId) * 0.38));
+                                camHTarget.current = clampH(4.6);
+                                cutEase.current = 0.2;
+                                camAimHold.current = Math.max(camAimHold.current, 0.45 * CAM_REG[camRegister.current].holdMul);
+                            } else {
+                                camAimHold.current = Math.max(camAimHold.current, 0.15);
+                            }
+                        }
+                        // CALL the attack (Pokemon-style) — but RARELY (throttled to 6s) so a
+                        // named wind-up is an occasional anticipation beat, not a constant banner.
+                        if (e.move && now - lastMoveCall.current > 6.0) {
                             lastMoveCall.current = now;
                             calledMove.current = { move: e.move, until: now + 2.2 };
-                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
+                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", elementById[e.actorId]);
                         }
                     }
                 } else if (e.type === "dodge" && e.actorId) {
@@ -2673,17 +3588,58 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const c = findActor(snapAt, e.actorId);
                     const el = elementById[e.actorId];
                     const supportCast = e.type === "cast" && classifyMoveChoreo(e.kind, true) === "support";
+                    const castCamFree = !celebrate.current && now >= koOwnedUntil.current;
+                    if (e.type === "ultimate") { lastUltAt.current[e.actorId] = e.t; if (e.targetId) lastWindupTarget.current[e.actorId] = e.targetId; }
                     if (c) {
                         if (supportCast) {
                             spawnFx({ x: c.x, z: c.y, key: "aura", scale: 1.6, dur: 340 });
                         } else {
-                            if (e.type === "ultimate") spawnFx({ x: c.x, z: c.y, key: "charge", scale: 2.2, dur: 360 });  // charge-up telegraph
+                            if (e.type === "ultimate") {
+                                // The signature CHANNELS — a heavy sustained gather for the whole
+                                // wind-up (the ultimate event fires at wind-up START).
+                                spawnCharge({ actorId: e.actorId, element: el, heavy: true, startTick: e.t, endTick: nextActionTick(e.actorId, e.t) });
+                            }
                             const castKey = e.type === "ultimate" ? "" : moveFxKey(e.kind);
                             if (castKey) spawnFx({ x: c.x, z: c.y, key: castKey, scale: 1.5, dur: 320 });
                             else spawnFx({ x: c.x, z: c.y, element: el, scale: e.type === "ultimate" ? 2.6 : 1.3, dur: e.type === "ultimate" ? 540 : 300 });
                             if (e.type === "ultimate") {
                                 const ex = c.x, ey = c.y;
                                 window.setTimeout(() => spawnFx({ x: ex, z: ey, element: el, scale: 3.4, dur: 540 }), 200);
+                            }
+                            // ELEMENT BEAM — a named offensive CAST finally has a visible BODY:
+                            // a sustained caster→target stream timed to the sim projectile's real
+                            // flight (gap/0.34 f.u. per tick), with impact-end eruptions scheduled
+                            // on the SIM clock so slow-mo can't land them before the blow.
+                            if (e.type === "cast" && e.move) {
+                                const tId = lastWindupTarget.current[e.actorId]
+                                    ?? snapAt.actors.find((ac) => !ac.id.startsWith(e.actorId.startsWith("enemy") ? "enemy" : "player") && ac.hp > 0)?.id;
+                                const tgt = tId ? findActor(snapAt, tId) : undefined;
+                                if (tgt && tgt.hp > 0) {
+                                    const gap = Math.hypot(tgt.x - c.x, tgt.y - c.y);
+                                    const flight = Math.max(14, Math.min(27, Math.round(gap / 0.34)));
+                                    const heavyBeam = e.move === ultById[e.actorId] || (lastUltAt.current[e.actorId] ?? -99) >= e.t - 40;
+                                    // RESTRAINT: the big caster→target BEAM is reserved for the signature /
+                                    // heavy cast. A regular poke just lands a small impact burst timed to the
+                                    // sim projectile — so the arena isn't wall-to-wall energy beams.
+                                    if (heavyBeam) {
+                                        spawnBeam({ actorId: e.actorId, targetId: tgt.id, element: el, heavy: true, startTick: e.t, endTick: e.t + flight });
+                                        pendingBursts.current.push({ atTick: e.t + Math.round(flight * 0.45), x: tgt.x, z: tgt.y, element: el, scale: 1.6 });
+                                        pendingBursts.current.push({ atTick: e.t + flight - 2, x: tgt.x, z: tgt.y, element: el, scale: 2.2 });
+                                    } else {
+                                        pendingBursts.current.push({ atTick: e.t + flight - 2, x: tgt.x, z: tgt.y, element: el, scale: 1.2 });
+                                    }
+                                    // REVERSE ANGLE down the flight line — the shot then flies away
+                                    // from camera into the target (registers B/C).
+                                    if (heavyBeam && castCamFree && camRegister.current !== "A") {
+                                        const cp3 = duelFieldToFloor(c.x, c.y);
+                                        const cap4 = yawCap();
+                                        camYawTarget.current = Math.max(-cap4, Math.min(cap4, duelSideOf(e.actorId) * 0.55));
+                                        camHTarget.current = clampH(3.6);
+                                        cutEase.current = 0.22;
+                                        camAim.current = [cp3.wx * 0.7, 1.5, CAM_LOOK[2] + cp3.wz * 0.4];
+                                        camAimHold.current = Math.max(camAimHold.current, 0.4 * CAM_REG[camRegister.current].holdMul);
+                                    }
+                                }
                             }
                         }
                     }
@@ -2699,26 +3655,30 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             savor(0.22, 0.7);                                      // then deep, HELD slow-mo
                             onCutIn(e.actorId, e.move ?? ultById[e.actorId] ?? "");  // anime portrait cut-in
                             onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
+                            onSpeedlines(0.7, elementColor(el).glow);
+                            // HERO SNAP — hard cut to the low angled hero shot during the freeze.
+                            if (castCamFree && c) {
+                                const hp3 = duelFieldToFloor(c.x, c.y);
+                                const cap5 = yawCap();
+                                camYaw.current = camYawTarget.current = Math.max(-cap5, Math.min(cap5, duelSideOf(e.actorId) * 0.3));
+                                camH.current = camHTarget.current = 3.2;
+                                camAim.current = [hp3.wx * 0.7, 1.6, CAM_LOOK[2] + hp3.wz * 0.4];
+                                camAimHold.current = Math.max(camAimHold.current, 0.9);
+                                camDollyBias.current = Math.max(camDollyBias.current, 2.0);
+                                cutEase.current = 0.06;
+                            }
                         } else {
                             // A quick REPEAT unleash — lighter beat, no cut-in / heavy shake.
                             shake.current = Math.max(shake.current, 0.6);
                             onFlash(elementColor(el).glow, 0.18);
                             savor(0.5, 0.14);
                         }
-                    } else if (e.type === "cast" && e.move && now - lastMoveCall.current > 0.4) {
-                        const heroC = heroMoveById[e.actorId];
-                        if (heroC && e.move === heroC && now - lastHeroCut.current > 9) {
-                            // A ranged / support HERO move → the anime cut-in freeze-frame.
-                            lastHeroCut.current = now; lastMoveCall.current = now;
-                            hitStop.current = Math.max(hitStop.current, 0.45); savor(0.2, 0.7);
-                            shake.current = Math.max(shake.current, 1.4); zoomKick.current = Math.max(zoomKick.current, 2.8);
-                            onFlash(elementColor(elementById[e.actorId]).glow, 0.38); onCutIn(e.actorId, e.move);
-                        } else {
-                            // A lesser named ability — the smaller banner + a short savor beat.
-                            lastMoveCall.current = now;
-                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
-                            savor(0.5, 0.18);
-                        }
+                    } else if (e.type === "cast" && e.move) {
+                        // RESTRAINT: a regular cast is now SILENT chrome-wise — no banner, no cut-in,
+                        // no hero snap. It reads as a physical attack (just its projectile + a small
+                        // impact), not an announced spell. Only the SIGNATURE gets a banner/cut-in,
+                        // so "throwing out elemental moves every second" is gone.
+                        savor(0.72, 0.08);
                     }
                 } else if (e.type === "ko") {
                     // KO finisher: a big element blast on the victim + a hard freeze → deep
@@ -2729,10 +3689,18 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const del = dead ? elementById[dead.id] : null;
                     if (dead) {
                         spawnFx({ x: dead.x, z: dead.y, element: del, scale: 3.0, dur: 620 });
-                        // Camera holds on the fallen pet as it topples (koPull does the reveal).
+                        // Full-height element PILLAR as the send-off under the KO blast.
+                        spawnEruption({ x: dead.x, z: dead.y, element: del, big: true });
+                        // Camera holds on the fallen pet as it topples (koPull does the reveal),
+                        // and the KO OWNS the camera: a slow crane-orbit toward the winner's
+                        // side while lesser beats keep their hands off the rig.
                         const p = duelFieldToFloor(dead.x, dead.y);
                         camAim.current = [p.wx * 0.5, 1.2, CAM_LOOK[2] + p.wz * 0.4];
-                        camAimHold.current = Math.max(camAimHold.current, 0.7);
+                        camAimHold.current = Math.max(camAimHold.current, 1.2);
+                        koOwnedUntil.current = now + 2.6;
+                        camHTarget.current = 7.8;
+                        cutEase.current = 0.05;
+                        koOrbitVel.current = (dead.id.startsWith("player") ? 1 : -1) * 0.1;   // orbit toward the surviving side
                     }
                     shake.current = Math.max(shake.current, 3.0);
                     hitStop.current = Math.max(hitStop.current, 0.34);
@@ -2741,6 +3709,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     camPosBias.current[1] = 2.4;   // rise to an overhead angle for the KO reveal (R4)
                     onFlash("#fff7e6", 0.5);
                     onCallout("FINISH!");
+                    onSpeedlines(0.8, "#fde68a");
                     if (dead) onAnnounce(`${nameById[dead.id] ?? "A fighter"} is down!`, "ko");
                     // Comeback read: the terminal KO (no actorId) closing a fight the winner
                     // nearly lost earns its own line, after the "is down!" beat clears.
@@ -2768,14 +3737,46 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         }
                     }
                 } else if (e.type === "stagger" && e.actorId) {
-                    // A recoil puff where a fighter got knocked out of its wind-up.
                     const c = findActor(snapAt, e.actorId);
-                    if (c) spawnImpact({ x: c.x, z: c.y, color: "#fca5a5", big: false });
+                    if (e.move === "Clash") {
+                        // CLASH — two committed dives collided. Fire ONE big centered burst
+                        // (the paired stagger events share it, debounced): shockwave + spark +
+                        // white flash + hitstop + a camera punch at the midpoint. The single
+                        // most iconic anime-fight image, finally punctuated.
+                        const o = e.targetId ? findActor(snapAt, e.targetId) : null;
+                        const mx = c && o ? (c.x + o.x) / 2 : c ? c.x : 0;
+                        const mz = c && o ? (c.y + o.y) / 2 : c ? c.y : 0;
+                        if (now - lastClash.current > 0.3) {
+                            lastClash.current = now;
+                            spawnShock({ x: mx, z: mz, color: "#ffffff", big: true });
+                            spawnFx({ x: mx, z: mz, key: "spark", scale: 2.6, dur: 440 });
+                            onFlash("#ffffff", 0.34);
+                            hitStop.current = Math.max(hitStop.current, 0.12);
+                            savor(0.3, 0.18);
+                            shake.current = Math.max(shake.current, 1.8);
+                            zoomKick.current = Math.max(zoomKick.current, 3.2);
+                            onCallout("CLASH!");
+                            if (now - lastSpeed.current > 0.25) { lastSpeed.current = now; onSpeedlines(0.6, "#ffffff"); }
+                        }
+                    } else if (c) {
+                        // A recoil puff where a fighter got knocked out of its wind-up.
+                        spawnImpact({ x: c.x, z: c.y, color: "#fca5a5", big: false });
+                    }
                 } else if (e.type === "dash" && e.actorId) {
                     // Launch dust at the dash's start point (was silent — the afterimage
                     // trail carries the speed read; this marks the commitment).
                     const c = findActor(snapAt, e.actorId);
                     if (c) spawnShock({ x: c.x, z: c.y, color: "#e2e8f0", big: false });
+                    if (now - lastSpeed.current > 0.25) { lastSpeed.current = now; onSpeedlines(0.3); }
+                }
+            }
+            // Beam impact-end eruptions, fired when the SIM clock crosses their tick —
+            // hit-stop and savor slow-mo stretch the wait instead of landing them early.
+            if (pendingBursts.current.length) {
+                const due = pendingBursts.current.filter((b) => b.atTick <= cur);
+                if (due.length) {
+                    pendingBursts.current = pendingBursts.current.filter((b) => b.atTick > cur);
+                    for (const b of due) spawnFx({ x: b.x, z: b.z, element: b.element, scale: b.scale, dur: 300 });
                 }
             }
             // ── Play-by-play momentum (render-only; reads the deterministic
@@ -2807,6 +3808,11 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                 // red-zone vignette while ANY fighter is hanging on.
                 minFrac.current.player = Math.min(minFrac.current.player, pFrac);
                 minFrac.current.enemy = Math.min(minFrac.current.enemy, eFrac);
+                // Camera REGISTER escalation: calm A → bloodied B → sudden-death C.
+                // Never de-escalates — the direction ratchets up with the stakes.
+                const minSide = Math.min(pFrac, eFrac);
+                const wantReg: CamRegister = (cur > 1500 || minSide < 0.25) ? "C" : minSide < 0.5 ? "B" : "A";
+                if (CAM_REG_RANK[wantReg] > CAM_REG_RANK[camRegister.current]) camRegister.current = wantReg;
                 if (!dblLow.current && pFrac > 0 && eFrac > 0 && pFrac < 0.3 && eFrac < 0.3) {
                     dblLow.current = true;
                     onAnnounce("Both are on their last legs — the next blow could end it!", "danger");
@@ -2834,32 +3840,98 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
             cmx += p.wx; cmz += p.wz; cn++;
             if (p.wx < xmin) xmin = p.wx;
             if (p.wx > xmax) xmax = p.wx;
+            // STRIDE DUST — a charging pet kicks up tan dust at its feet. The single
+            // strongest "grounded, not flying" cue for a fast billboard lunge.
+            if (ac.state === "dash" && now - (lastStrideDust.current[ac.id] ?? 0) > 0.11) {
+                lastStrideDust.current[ac.id] = now;
+                spawnShock({ x: ac.x, z: ac.y, color: "#cdb389", big: false });
+                // FLASH-STEP — the repurposed "move" slot as a pure showpiece: an occasional
+                // dash reads as an anime flash-step — radial speed-lines + a bright element
+                // blur-streak + a whoosh. Throttled per pet so it stays a punch, not spam.
+                // Render-only → zero balance impact (a gameplay reposition was balance-toxic).
+                if (now - (lastFlashStep.current[ac.id] ?? -9) > 2.6) {
+                    lastFlashStep.current[ac.id] = now;
+                    const g = elementColor(elementById[ac.id]).glow;
+                    onSpeedlines(0.62, g);
+                    spawnFx({ x: ac.x, z: ac.y, element: elementById[ac.id], scale: 1.5, dur: 260 });
+                    spawnFx({ x: ac.x, z: ac.y, key: "spark", scale: 1.0, dur: 200 });
+                }
+            }
         }
         const midX = cn > 0 ? cmx / cn : 0;
         const midZ = cn > 0 ? cmz / cn : DUEL_FLOOR_Z0;
         const spread = cn > 1 ? xmax - xmin : 4;
+        spreadRef.current = spread;
         // Neutral look eases to the live midpoint; a cut HOLDS its own aim until camAimHold decays.
         if (camAimHold.current > 0) camAimHold.current = Math.max(0, camAimHold.current - delta);
         else {
             camAim.current[0] = lerp(camAim.current[0], midX * 0.7, 0.05);
             camAim.current[1] = lerp(camAim.current[1], CAM_LOOK[1], 0.05);
             camAim.current[2] = lerp(camAim.current[2], CAM_LOOK[2] + midZ * 0.5, 0.05);
+            // The orbit relaxes with the aim: yaw drifts back to the broadcast tripod,
+            // height to the classic eye-line, cut-ease to the register's resting rate.
+            camYawTarget.current = lerp(camYawTarget.current, 0, 0.04);
+            camHTarget.current = lerp(camHTarget.current, CAM_POS[1], 0.04);
+            cutEase.current = lerp(cutEase.current, CAM_REG[camRegister.current].ease, 0.05);
         }
         // Adaptive dolly: pull back to fit the current spread, eased slowly (a gentle
-        // breathing zoom, never jitter). Clamped so it never crops or over-tightens.
-        let dollyTarget = Math.max(10.8, Math.min(CAM_POS[2], 9.4 + spread * 1.05));
-        // Opening: pull WIDE for the size-up, then punch in as the pets charge to the face-off,
-        // and give a "lock-in" shake the instant they arrive.
+        // breathing zoom, never jitter). Clamped so it never crops or over-tightens;
+        // the register's floor lets sudden death sit tighter than the calm opening.
+        // Frame the DISTANCE: push in tight when the pets are close (a clash reads intimate),
+        // pull wide when they break apart (kiting reads as real space). More responsive than
+        // before — a tighter floor + a stronger spread term so the gap is felt, not flattened.
+        let dollyTarget = Math.max(CAM_REG[camRegister.current].floor, Math.min(CAM_POS[2], 8.4 + spread * 1.35));
+        // ── Owner-ordered overrides (highest first): INTRO → VICTORY → KO orbit. ──
+        // Opening: pull WIDE for the size-up, then punch in as the pets charge to the
+        // face-off, and give a "lock-in" shake the instant they arrive. The intro owns
+        // the whole shot: level tripod, no yaw, classic height.
         const dollyIntro = clock.current.intro ?? 999;
-        if (dollyIntro < INTRO_CHARGE_END) dollyTarget = lerp(dollyTarget, INTRO_WIDE_DOLLY, introApproach(dollyIntro));
+        if (dollyIntro < INTRO_CHARGE_END) {
+            dollyTarget = lerp(dollyTarget, INTRO_WIDE_DOLLY, introApproach(dollyIntro));
+            camYawTarget.current = 0; camYaw.current = lerp(camYaw.current, 0, 0.2);
+            camHTarget.current = CAM_POS[1];
+            cutEase.current = 0.1;
+        }
         else if (dollyIntro < 900 && !introLocked.current) { introLocked.current = true; shake.current = Math.max(shake.current, 1.4); }
+        if (celebrate.current) {
+            // VICTORY settle: one slow crane onto the champion (kills any live KO orbit
+            // so there is a single camera owner — judge precedence: victory > KO).
+            koOwnedUntil.current = 0;
+            const winSnap = camSnap?.actors.find((ac) => ac.team === celebrate.current && ac.hp > 0);
+            if (winSnap) {
+                const wp = duelFieldToFloor(winSnap.x, winSnap.y);
+                camAim.current[0] = lerp(camAim.current[0], wp.wx * 0.8, 0.06);
+                camAim.current[1] = lerp(camAim.current[1], 1.8, 0.06);
+                camAim.current[2] = lerp(camAim.current[2], CAM_LOOK[2] + wp.wz * 0.5, 0.06);
+                camAimHold.current = 0.2;
+                dollyTarget = 11.2;
+                camYawTarget.current = (celebrate.current === "enemy" ? 1 : -1) * 0.15;
+                camHTarget.current = 5.4;
+                cutEase.current = 0.05;
+            }
+        } else if (now < koOwnedUntil.current) {
+            // KO reveal owns the camera: a slow crane-orbit toward the winner's side
+            // while the aim holds on the fallen pet (lesser beats skip their writes).
+            camYawTarget.current = Math.max(-0.5, Math.min(0.5, camYawTarget.current + koOrbitVel.current * delta));
+        }
         camDolly.current = lerp(camDolly.current, dollyTarget, dollyIntro < INTRO_CHARGE_END ? 0.1 : 0.03);
         const db = camDollyBias.current; camDollyBias.current *= 0.9;
         // Ease the transient angle bias (crit low / KO overhead) back to neutral so it reads as
         // a deliberate camera MOVE, not a teleport (R4 — angle variety).
         const pb = camPosBias.current;
         pb[0] = lerp(pb[0], 0, 0.045); pb[1] = lerp(pb[1], 0, 0.045); pb[2] = lerp(pb[2], 0, 0.045);
-        camera.position.set(CAM_POS[0] + midX * 0.1 + sx + pb[0], CAM_POS[1] + sy + pb[1], camDolly.current - zk - db + koPull.current + pb[2]);
+        // ── Compose: chase the orbit targets, clamp hard (yaw ±0.6 keeps the wall's
+        // ±36° gap behind the camera; height 3.0–8.6 and dist ≥6.0 keep both fighters
+        // and the floor in frame), then place the eye on the yaw circle. At yaw=0 /
+        // height=CAM_POS[1] this is byte-identical to the old fixed rig.
+        camYaw.current = lerp(camYaw.current, camYawTarget.current, cutEase.current);
+        camH.current = lerp(camH.current, camHTarget.current, cutEase.current * 0.8);
+        const yawC = Math.max(-0.6, Math.min(0.6, camYaw.current));
+        const camHc = Math.max(3.0, Math.min(8.6, camH.current));
+        const dist = Math.max(6.0, camDolly.current - zk - db + koPull.current + pb[2]);
+        // Pan WITH the fight — the eye tracks the pair's midpoint (0.1→0.28) so when the
+        // action drifts to one side of the ring the camera follows instead of staring center.
+        camera.position.set(CAM_POS[0] + midX * 0.28 + sx + pb[0] + Math.sin(yawC) * dist, camHc + sy + pb[1], Math.cos(yawC) * dist);
         camera.lookAt(camAim.current[0], camAim.current[1], camAim.current[2]);
         if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
     });
@@ -3002,10 +4074,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (enemyReservePet) r.push({ id: "enemy-1", pet: enemyReservePet, mirror: true });
         return r;
     }, [playerPet, enemyPet, playerReservePet, enemyReservePet]);
-    // 3D coliseum scene textures (curved wall + lit floor) — same as the round
-    // renderer, so the duel inherits the grounded look the owner liked.
-    const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
-    const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
+    // 3D coliseum scene textures (curved wall + lit floor). The arena THEME is picked
+    // from the matchup's element mood (cosmetic — the fight is identical everywhere).
+    const arena = useMemo(() => arenaThemeFor(playerPet.element, enemyPet.element), [playerPet.element, enemyPet.element]);
+    const floor = useMemo(() => loadSceneTexture(ARENA_ART[arena].floor), [arena]);
+    const backdrop = useMemo(() => loadSceneTexture(ARENA_ART[arena].bg), [arena]);
     useEffect(() => () => { floor.dispose(); backdrop.dispose(); }, [floor, backdrop]);
 
     const clock = useRef<DuelClock>({ t: 0, playing: false, intro: 0 });   // starts paused for the VS intro + opening choreography
@@ -3023,10 +4096,21 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
     const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" | "info" } | null>(null);  // play-by-play broadcast line
-    const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy" } | null>(null);  // named-move flash
+    const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy"; element?: string | null } | null>(null);  // named-move flash (element-tinted)
     const [effect, setEffect] = useState<{ id: number; text: string; kind: "super" | "resist" } | null>(null);  // type-chart banner ("SUPER EFFECTIVE!")
     const [danger, setDanger] = useState(false);   // red-zone vignette while a fighter is critical
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
+    // ── Spectacle layer state ──
+    const liteFx = useMemo(() => prefersLiteCombatFx(), []);   // weak devices get the cheap variants
+    const [beams, setBeams] = useState<Array<{ id: number; actorId: string; targetId: string; element?: string | null; heavy: boolean; startTick: number; endTick: number }>>([]);
+    const [slashes, setSlashes] = useState<Array<{ id: number; pos: Vec3; toward: number; color: string; crit: boolean; heavy: boolean }>>([]);
+    const [eruptions, setEruptions] = useState<Array<{ id: number; pos: Vec3; element?: string | null; big: boolean }>>([]);
+    const [walls, setWalls] = useState<Array<{ id: number; pos: Vec3; yaw: number }>>([]);   // barrier earth-wall (only one active at a time)
+    const [charges, setCharges] = useState<Array<{ id: number; actorId: string; element?: string | null; heavy: boolean; startTick: number; endTick: number }>>([]);
+    const [speedlines, setSpeedlines] = useState<{ id: number; intensity: number; color: string } | null>(null);
+    const [victory, setVictory] = useState(false);   // 2.4s champion beat between the KO and the result card
+    const celebrate = useRef<null | "player" | "enemy">(null);
+    const victoryTimer = useRef<number | null>(null);
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     const nameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.name])) as Record<string, string>, [roster]);
     const ultById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.jutsus?.find((j) => j.signature)?.name ?? "Ultimate"])) as Record<string, string>, [roster]);
@@ -3039,6 +4123,22 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const strongest = js.reduce<(typeof js)[number] | undefined>((best, j) => ((j.power ?? 0) > (best?.power ?? -1) ? j : best), undefined);
         return [r.id, (sig ?? strongest)?.name ?? ""];
     })) as Record<string, string>, [roster]);
+    // Ticks of each pet's `ultimate` events — drives the deterministic ult-charge
+    // sliver on the corner panels (progress toward the NEXT unleash).
+    const ultTicksById = useMemo(() => {
+        const m: Record<string, number[]> = {};
+        for (const e of duel.events) if (e.type === "ultimate" && e.actorId) (m[e.actorId] ??= []).push(e.t);
+        return m;
+    }, [duel]);
+    // Per-fighter DOM refs for the Pokemon corner panels (createRef, keyed per roster),
+    // handed to the in-Canvas driver through a MUTABLE REF box (the lint-blessed
+    // channel for cross-tree imperative DOM writes).
+    const hudRefs = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, {
+        row: createRef<HTMLDivElement>(), fill: createRef<HTMLDivElement>(), chip: createRef<HTMLDivElement>(),
+        text: createRef<HTMLSpanElement>(), chips: createRef<HTMLDivElement>(), ult: createRef<HTMLDivElement>(),
+    }])) as Record<string, HudRowRefs>, [roster]);
+    const hudRefsBox = useRef(hudRefs);
+    useEffect(() => { hudRefsBox.current = hudRefs; }, [hudRefs]);
     // VS intro: hold on the face-off (clock paused) for a beat, then start. Re-runs
     // on replay / fight-again (runId bump).
     useEffect(() => {
@@ -3096,8 +4196,45 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko" | "info") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); window.setTimeout(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
     // Type-chart banner — "SUPER EFFECTIVE!" / "RESISTED" under the big callout spot.
     const triggerEffect = (text: string, kind: "super" | "resist") => { const id = seqRef.current++; setEffect({ id, text, kind }); window.setTimeout(() => setEffect((c) => (c && c.id === id ? null : c)), 900); };
-    // Named-move flash ("Hellhound Execution!") — a quick stylish callout, side-tinted.
-    const triggerMoveCallout = (text: string, side: "player" | "enemy") => { const id = seqRef.current++; setMoveCallout({ id, text, side }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), 1000); };
+    // Named-move flash ("Hellhound Execution!") — side-tinted for WHO, element-glowed
+    // for WHAT; 1400ms so the banner is STILL up when the called blow lands.
+    const triggerMoveCallout = (text: string, side: "player" | "enemy", element?: string | null) => { const id = seqRef.current++; setMoveCallout({ id, text, side, element }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), 1400); };
+    // ── Spectacle spawners (capped; beams/charges self-track actors by id) ──
+    const spawnBeam = (n: { actorId: string; targetId: string; element?: string | null; heavy: boolean; startTick: number; endTick: number }) => {
+        const id = seqRef.current++;
+        const cap = liteFx ? 1 : 3;
+        setBeams((arr) => [...arr.slice(Math.max(0, arr.length - (cap - 1))), { id, ...n }]);
+    };
+    const spawnSlash = (n: { x: number; z: number; toward: number; color: string; crit: boolean; heavy: boolean }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setSlashes((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 0.5, fp.wz] as Vec3, toward: n.toward, color: n.color, crit: n.crit, heavy: n.heavy }]);
+    };
+    const spawnEruption = (n: { x: number; z: number; element?: string | null; big: boolean }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setEruptions((arr) => [...arr.slice(-2), { id, pos: [fp.wx, FLOOR_Y, fp.wz] as Vec3, element: n.element, big: n.big }]);
+    };
+    // Earth wall between the two fighters, biased toward the caster; oriented broadside to
+    // the down-camera so it reads as a slab, not edge-on.
+    const spawnWall = (n: { ax: number; ay: number; bx: number; by: number }) => {
+        const a = duelFieldToFloor(n.ax, n.ay), b = duelFieldToFloor(n.bx, n.by);
+        const t = 0.5, wx = a.wx + (b.wx - a.wx) * t, wz = a.wz + (b.wz - a.wz) * t;   // true midpoint — coincides with the SIM wall blocker
+        let yaw = Math.atan2(b.wx - a.wx, b.wz - a.wz);      // face perpendicular to the line
+        yaw = yaw + (0 - yaw) * 0.28;                        // cheat toward camera-facing (fighters split along world-X → raw yaw reads edge-on)
+        setWalls([{ id: seqRef.current++, pos: [wx, FLOOR_Y, wz] as Vec3, yaw }]);   // one wall at a time
+    };
+    const spawnCharge = (n: { actorId: string; element?: string | null; heavy: boolean; startTick: number; endTick: number }) => {
+        const id = seqRef.current++;
+        setCharges((arr) => [...arr.filter((c) => c.actorId !== n.actorId).slice(-3), { id, ...n }]);
+    };
+    // Radial anime speedlines — compositor-only CSS, fully skipped on lite devices.
+    const triggerSpeedlines = (intensity: number, color = "#ffffff") => {
+        if (liteFx) return;
+        const id = seqRef.current++;
+        setSpeedlines({ id, intensity, color });
+        window.setTimeout(() => setSpeedlines((s) => (s && s.id === id ? null : s)), 400);
+    };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
     const triggerCutIn = (actorId: string, move: string) => {
@@ -3111,7 +4248,26 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (!clock.current.playing) { clock.current.intro = (clock.current.intro ?? 0) + delta; return; }
         clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setTrails([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setEffect(null); setDanger(false); setRunId((r) => r + 1); };
+    const replay = () => {
+        clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false);
+        setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setTrails([]);
+        setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setEffect(null); setDanger(false);
+        setBeams([]); setSlashes([]); setEruptions([]); setWalls([]); setCharges([]); setSpeedlines(null);
+        setVictory(false); celebrate.current = null;
+        if (victoryTimer.current !== null) { window.clearTimeout(victoryTimer.current); victoryTimer.current = null; }
+        setRunId((r) => r + 1);
+    };
+    // Fight over → a 2.4s VICTORY BEAT (winner pose + spotlight + WINNER banner +
+    // camera settle) before the result card; draws skip straight to the card.
+    const handleEnd = () => {
+        if (duel.winner) {
+            celebrate.current = duel.winner;
+            setVictory(true);
+            triggerSpeedlines(0.55, "#fde68a");
+            victoryTimer.current = window.setTimeout(() => { victoryTimer.current = null; setEnded(true); }, 2400);
+        } else setEnded(true);
+    };
+    useEffect(() => () => { if (victoryTimer.current !== null) window.clearTimeout(victoryTimer.current); }, []);
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
@@ -3125,7 +4281,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelVs { 0% { opacity: 0; transform: scale(2.2) rotate(-8deg); } 45% { opacity: 1; transform: scale(0.92) rotate(0deg); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
                 @keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
                 @keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
-                @keyframes petDuelMove { 0% { opacity: 0; transform: translateX(-50%) scale(0.6) skewX(-10deg); } 22% { opacity: 1; transform: translateX(-50%) scale(1.06) skewX(-10deg); } 72% { opacity: 1; transform: translateX(-50%) scale(1) skewX(-10deg); } 100% { opacity: 0; transform: translateX(-50%) scale(1) skewX(-10deg); } }
+                @keyframes petDuelMove { 0% { opacity: 0; transform: translateX(-50%) scale(0.6) skewX(-10deg); } 16% { opacity: 1; transform: translateX(-50%) scale(1.06) skewX(-10deg); } 82% { opacity: 1; transform: translateX(-50%) scale(1) skewX(-10deg); } 100% { opacity: 0; transform: translateX(-50%) scale(1) skewX(-10deg); } }
                 @keyframes petCutinBg { 0% { opacity: 0; } 9% { opacity: 1; } 76% { opacity: 1; } 100% { opacity: 0; } }
                 @keyframes petCutinStreak { 0% { opacity: 0; transform: translateX(-28%); } 14% { opacity: 0.95; } 100% { opacity: 0; transform: translateX(18%); } }
                 @keyframes petCutinName { 0% { opacity: 0; transform: translateX(-16%) skewX(-7deg) scale(0.68); } 16% { opacity: 1; transform: translateX(0) skewX(-7deg) scale(1.09); } 30% { transform: translateX(0) skewX(-7deg) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateX(7%) skewX(-7deg) scale(1); } }
@@ -3133,6 +4289,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petCutinInR { 0% { opacity: 0; transform: translateY(-50%) translateX(45%) scale(0.9); } 15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1.05); } 30% { transform: translateY(-50%) translateX(0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(8%) scale(1); } }
                 @keyframes petDuelDanger { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.62; } }
                 @keyframes petDuelEffect { 0% { opacity: 0; transform: translateX(-50%) scale(0.55); } 16% { opacity: 1; transform: translateX(-50%) scale(1.14); } 34% { transform: translateX(-50%) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) scale(0.98); } }
+                @keyframes petDuelPanelIn { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: none; } }
+                @keyframes petDuelSpeed { 0% { opacity: 0; transform: scale(1.14) rotate(1deg); } 14% { opacity: var(--sl, 0.5); } 100% { opacity: 0; transform: scale(1) rotate(-1deg); } }
+                @keyframes petDuelChevron { 0% { opacity: 0.3; transform: translateX(0); } 50% { opacity: 1; transform: translateX(4px); } 100% { opacity: 0.3; transform: translateX(0); } }
+                @keyframes petDuelLetterbox { 0% { transform: scaleY(0); } 14% { transform: scaleY(1); } 80% { transform: scaleY(1); } 100% { transform: scaleY(0); } }
+                @keyframes petDuelVictory { 0% { opacity: 0; transform: translateY(20px) scale(0.94); } 12% { opacity: 1; transform: none; } 90% { opacity: 1; } 100% { opacity: 0; transform: translateY(-8px); } }
+                @media (prefers-reduced-motion: reduce) { .pet-duel-speedlines, .pet-duel-chevron, .pet-duel-letterbox { animation: none !important; opacity: 0 !important; } }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
@@ -3142,15 +4304,32 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
-                <Arena floor={floor} backdrop={backdrop} big />
+                <Arena floor={floor} backdrop={backdrop} big tint={ARENA_ART[arena].tint} />
                 {/* Ambient embers drifting through the arena — the world feels alive. */}
                 <Sparkles count={46} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.32} color="#ffb46b" noise={1.6} />
                 {roster.map((r) => (
-                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} />
+                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} celebrate={celebrate} />
                 ))}
                 {Array.from({ length: 8 }).map((_, i) => (
                     <DuelProjectile key={i} index={i} duel={duel} clock={clock} />
                 ))}
+                {beams.map((b) => (
+                    <DuelElementBeam key={b.id} duel={duel} clock={clock} actorId={b.actorId} targetId={b.targetId} element={b.element} heavy={b.heavy} startTick={b.startTick} endTick={b.endTick} lite={liteFx} onDone={() => setBeams((p) => p.filter((x) => x.id !== b.id))} />
+                ))}
+                {slashes.map((sl) => (
+                    <DuelSlashCombo key={sl.id} at={sl.pos} toward={sl.toward} color={sl.color} crit={sl.crit} heavy={sl.heavy} lite={liteFx} onDone={() => setSlashes((p) => p.filter((x) => x.id !== sl.id))} />
+                ))}
+                {eruptions.map((er) => (
+                    <DuelEruption key={er.id} at={er.pos} element={er.element} big={er.big} lite={liteFx} onDone={() => setEruptions((p) => p.filter((x) => x.id !== er.id))} />
+                ))}
+                {walls.map((w) => (
+                    <EarthWall key={w.id} at={w.pos} yaw={w.yaw} lite={liteFx} onDone={() => setWalls((p) => p.filter((x) => x.id !== w.id))} />
+                ))}
+                {charges.map((ch) => (
+                    <DuelChargeGather key={ch.id} duel={duel} clock={clock} actorId={ch.actorId} element={ch.element} heavy={ch.heavy} startTick={ch.startTick} endTick={ch.endTick} lite={liteFx} onDone={() => setCharges((p) => p.filter((x) => x.id !== ch.id))} />
+                ))}
+                <DuelHudDriver key={`hud-${runId}`} duel={duel} clock={clock} refsBox={hudRefsBox} ultTicksById={ultTicksById} />
+                <VictorySpot duel={duel} clock={clock} celebrate={celebrate} />
                 {impacts.map((im) => (
                     <DuelImpact key={im.id} at={im.pos} color={im.color} big={im.big} onDone={() => setImpacts((p) => p.filter((x) => x.id !== im.id))} />
                 ))}
@@ -3168,7 +4347,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} spawnTrail={spawnTrail} elementById={elementById} nameById={nameById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} onEffect={triggerEffect} onDangerChange={setDanger} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={handleEnd} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} spawnTrail={spawnTrail} elementById={elementById} nameById={nameById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} onEffect={triggerEffect} onDangerChange={setDanger} spawnBeam={spawnBeam} spawnSlash={spawnSlash} spawnEruption={spawnEruption} spawnWall={spawnWall} spawnCharge={spawnCharge} onSpeedlines={triggerSpeedlines} celebrate={celebrate} />
                 <BloomFx />
             </Canvas>
 
@@ -3215,6 +4394,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 const portrait = petBattleSprite(cutIn.pet, sharedImages).src;
                 return (
                     <div key={`cutin-${cutIn.id}`} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 30 }}>
+                        {/* Signature LETTERBOX — cinema bars snap in for the ultimate and
+                            retract with the cut-in (scaleY only, GPU-cheap). */}
+                        <div className="pet-duel-letterbox" style={{ position: "absolute", left: 0, right: 0, top: 0, height: "9vh", background: "#000", transformOrigin: "top", animation: "petDuelLetterbox 1650ms cubic-bezier(.2,.9,.2,1) both" }} />
+                        <div className="pet-duel-letterbox" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "9vh", background: "#000", transformOrigin: "bottom", animation: "petDuelLetterbox 1650ms cubic-bezier(.2,.9,.2,1) both" }} />
+                        <div style={{ position: "absolute", inset: 0, boxShadow: "inset 0 0 120px rgba(0,0,0,0.75)", animation: "petCutinBg 1650ms ease-out forwards" }} />
                         <div style={{ position: "absolute", inset: 0, background: "rgba(3,5,12,0.55)", animation: "petCutinBg 1650ms ease-out forwards" }} />
                         <div style={{ position: "absolute", inset: 0, background: `linear-gradient(${isEnemy ? 255 : 105}deg, transparent 40%, ${band} 50%, transparent 60%)`, animation: "petCutinBg 1650ms ease-out forwards" }} />
                         <div style={{ position: "absolute", inset: "-25%", background: `repeating-linear-gradient(112deg, transparent 0 16px, ${streak} 16px 21px)`, animation: "petCutinStreak 900ms ease-out forwards" }} />
@@ -3257,10 +4441,33 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {danger && !ended && (
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none", boxShadow: "inset 0 0 150px rgba(239,68,68,0.55)", animation: "petDuelDanger 1.15s ease-in-out infinite" }} />
             )}
-            {/* Named-move flash — the ability's name slams in on cast/hit (signatures
-                use the bigger cut-in instead), side-tinted blue (you) / red (foe). */}
-            {moveCallout && (
-                <div key={`move-${moveCallout.id}`} style={{ position: "absolute", left: "50%", top: "40%", transform: "translateX(-50%)", pointerEvents: "none", padding: "4px 20px", borderRadius: 6, border: `2px solid ${moveCallout.side === "player" ? "#60a5fa" : "#f87171"}`, background: "rgba(8,11,22,0.55)", color: moveCallout.side === "player" ? "#dbeafe" : "#fee2e2", font: "900 clamp(20px,3.4vw,40px)/1 var(--font-display)", letterSpacing: "0.04em", textShadow: "0 2px 10px #000", whiteSpace: "nowrap", animation: "petDuelMove 1000ms cubic-bezier(.2,.9,.2,1) forwards" }}>{moveCallout.text}</div>
+            {/* Named-move CALL banner — fired at the WIND-UP (before the blow lands) so
+                the viewer connects name → charge → impact as ONE staged moment. Border
+                = WHO (side color); glow + underline = WHAT (element); chevrons point at
+                the attack's direction; moved high (19%) so it FRAMES the strike instead
+                of covering it. */}
+            {moveCallout && (() => {
+                const mGlow = elementColor(moveCallout.element).glow;
+                return (
+                    <div key={`move-${moveCallout.id}`} style={{ position: "absolute", left: "50%", top: "19%", transform: "translateX(-50%)", pointerEvents: "none", padding: "4px 20px", borderRadius: 6, border: `2px solid ${moveCallout.side === "player" ? "#60a5fa" : "#f87171"}`, borderBottom: `3px solid ${mGlow}`, background: "rgba(8,11,22,0.55)", boxShadow: `0 0 24px ${mGlow}33`, color: moveCallout.side === "player" ? "#dbeafe" : "#fee2e2", font: "900 clamp(20px,3.4vw,40px)/1 var(--font-display)", letterSpacing: "0.04em", textShadow: `0 0 14px ${mGlow}, 0 2px 10px #000`, whiteSpace: "nowrap", maxWidth: "78vw", overflow: "hidden", textOverflow: "ellipsis", animation: "petDuelMove 1400ms cubic-bezier(.2,.9,.2,1) forwards" }}>
+                        {moveCallout.side === "enemy" && <span className="pet-duel-chevron" style={{ display: "inline-block", marginRight: 10, font: "900 0.8em var(--font-display)", color: mGlow, animation: "petDuelChevron 500ms ease-out infinite" }}>◀◀</span>}
+                        {moveCallout.text}
+                        {moveCallout.side === "player" && <span className="pet-duel-chevron" style={{ display: "inline-block", marginLeft: 10, font: "900 0.8em var(--font-display)", color: mGlow, animation: "petDuelChevron 500ms ease-out infinite" }}>▶▶</span>}
+                    </div>
+                );
+            })()}
+            {/* Radial anime SPEEDLINES — a 380ms compositor-only conic burst with a
+                masked-clear center: the frame edges streak, the pets stay readable. */}
+            {speedlines && (
+                <div key={`sl-${speedlines.id}`} className="pet-duel-speedlines" style={{
+                    position: "absolute", inset: "-12%", pointerEvents: "none", zIndex: 26,
+                    background: `repeating-conic-gradient(from 3deg at 50% 46%, transparent 0deg 6deg, ${speedlines.color} 6.8deg 7.6deg, transparent 8.4deg 13deg)`,
+                    WebkitMaskImage: "radial-gradient(ellipse 60% 55% at 50% 46%, transparent 0 38%, #000 68%)",
+                    maskImage: "radial-gradient(ellipse 60% 55% at 50% 46%, transparent 0 38%, #000 68%)",
+                    mixBlendMode: "screen",
+                    animation: "petDuelSpeed 380ms ease-out forwards",
+                    ["--sl" as string]: speedlines.intensity,
+                } as React.CSSProperties} />
             )}
             {/* Play-by-play broadcast line (lower-third) — narrates the swings:
                 a fighter on the ropes, a reversal, an ultimate, the finish. */}
@@ -3268,15 +4475,61 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", maxWidth: "84vw", pointerEvents: "none", padding: "7px 22px", borderRadius: 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : announce.tone === "info" ? "#22d3ee" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : announce.tone === "info" ? "#cffafe" : "#fecaca", font: "800 clamp(15px,2.6vw,24px)/1.1 var(--font-display)", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
             )}
 
-            <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
+            {/* ── POKEMON CORNER HP PANELS — the broadcast frame. Enemy top-right,
+                player bottom-left (the classic layout); 2v2 reserves stack as mini
+                rows. Driven per-frame by DuelHudDriver via refs; hidden once the
+                result card is up (stale data at that point). */}
+            {!ended && (["enemy", "player"] as const).map((side) => {
+                const rows = roster.filter((r) => r.id.startsWith(side));
+                if (!rows.length) return null;
+                const accent = side === "player" ? "#60a5fa" : "#f87171";
+                return (
+                    <div key={`panel-${side}-${runId}`} style={{ position: "absolute", ...(side === "player" ? { left: 12, bottom: 56 } : { right: 12, top: 12 }), width: "min(300px, 46vw)", display: "flex", flexDirection: "column", gap: 6, alignItems: side === "player" ? "flex-start" : "flex-end", pointerEvents: "none", zIndex: 14, animation: `petDuelPanelIn 420ms ease-out ${INTRO_SPLASH_END}s both` }}>
+                        {rows.map((r, i) => {
+                            const mini = i > 0;
+                            return (
+                                <div key={r.id} ref={hudRefs[r.id]?.row} style={{ width: mini ? "82%" : "100%", background: "linear-gradient(100deg, rgba(10,14,26,0.9), rgba(10,14,26,0.72))", border: `1px solid ${accent}44`, [side === "player" ? "borderLeft" : "borderRight"]: `3px solid ${accent}`, borderRadius: 10, padding: mini ? "4px 8px 5px" : "6px 10px 7px", boxShadow: "0 4px 14px rgba(0,0,0,0.45)", transform: `skewX(${side === "player" ? -4 : 4}deg)`, transition: "filter 300ms, opacity 300ms" }}>
+                                    <div style={{ transform: `skewX(${side === "player" ? 4 : -4}deg)` }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                                            <span style={{ font: `800 ${mini ? 11 : 13}px Inter, system-ui, sans-serif`, color: "#f1f5f9", textShadow: "0 1px 3px #000", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ELEMENT_EMOJI[r.pet.element ?? ""] ?? ""} {r.pet.name}</span>
+                                            <span style={{ font: "700 10px Inter, system-ui, sans-serif", color: "#94a3b8", flexShrink: 0 }}>Lv.{r.pet.level}</span>
+                                        </div>
+                                        <div style={{ position: "relative", height: mini ? 7 : 10, background: "#0b1020", borderRadius: 6, border: "1px solid #000", overflow: "hidden", marginTop: 3 }}>
+                                            <div ref={hudRefs[r.id]?.chip} style={{ position: "absolute", inset: "0 auto 0 0", height: "100%", width: "100%", background: "#fbbf24", opacity: 0.75 }} />
+                                            <div ref={hudRefs[r.id]?.fill} style={{ position: "absolute", inset: "0 auto 0 0", height: "100%", width: "100%", background: side === "player" ? "#4ade80" : "#22c55e" }} />
+                                        </div>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2, minHeight: 12 }}>
+                                            <div ref={hudRefs[r.id]?.chips} style={{ lineHeight: "11px" }} />
+                                            <span ref={hudRefs[r.id]?.text} style={{ font: "800 10px Inter, system-ui, sans-serif", color: "#cbd5e1", textShadow: "0 1px 2px #000" }}>—</span>
+                                        </div>
+                                        <div style={{ display: ultTicksById[r.id]?.length ? "block" : "none", height: 3, background: "#0b1020", borderRadius: 2, marginTop: 3, overflow: "hidden" }}>
+                                            <div ref={hudRefs[r.id]?.ult} style={{ width: "0%", height: "100%", background: "linear-gradient(90deg, #a855f7, #f0abfc)" }} />
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            })}
+            {/* WINNER beat — champion name banner over the spotlight, before the card. */}
+            {victory && !ended && duel.winner && (
+                <div style={{ position: "absolute", left: 0, right: 0, bottom: "20%", textAlign: "center", pointerEvents: "none", zIndex: 28, animation: "petDuelVictory 2400ms cubic-bezier(.2,.9,.2,1) both" }}>
+                    <div style={{ display: "inline-block", padding: "10px 44px", background: "linear-gradient(90deg, transparent, rgba(15,18,32,0.88) 16%, rgba(15,18,32,0.88) 84%, transparent)", borderTop: "1px solid rgba(250,204,21,0.75)", borderBottom: "1px solid rgba(250,204,21,0.75)" }}>
+                        <div style={{ font: "800 clamp(11px,1.5vw,14px) var(--font-display)", letterSpacing: "0.34em", color: "#fcd34d", textShadow: "0 2px 6px #000" }}>WINNER</div>
+                        <div style={{ font: "900 clamp(26px,4.5vw,48px)/1.05 var(--font-display)", color: "#fff", textShadow: "0 0 26px rgba(250,204,21,0.8), 0 4px 12px #000" }}>{nameById[`${duel.winner}-0`]}</div>
+                    </div>
+                </div>
+            )}
+
+            <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8, zIndex: 15 }}>
                 <button onClick={onExit} style={duelBtn}>✕ Exit</button>
                 <button onClick={togglePause} style={duelBtn}>{paused ? "▶ Play" : "❚❚ Pause"}</button>
                 <button onClick={replay} style={duelBtn}>⟲ Replay</button>
             </div>
-            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}>⚔️ Pet Coliseum</div>
 
             {ended && (
-                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
+                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)", zIndex: 40 }}>
                     <div style={{ textAlign: "center" }}>
                         <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{resultLabel}</div>
                         <div style={{ color: "#94a3b8", font: "600 12px Inter, system-ui, sans-serif", marginTop: 4 }}>Pet Coliseum</div>

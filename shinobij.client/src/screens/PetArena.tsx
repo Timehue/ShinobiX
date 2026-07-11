@@ -8,6 +8,8 @@ import { PET_ELEMENT_BEATS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
 import { petFramePace, pickBestPartyOrder, scorePetMatchup, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { runPetDuel, runPetPartyDuel, type DuelResult } from "../lib/pet-duel-sim";
+import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
+import { petColiseumCinematicEnabled } from "../lib/pet-coliseum-flag";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { isPetOnExpedition, petDisplayName, pickArenaTeam } from "../lib/pet";
 import { derivePetRole, ROLE_META, ROLE_BEATS, type PetRole } from "../lib/pet-roles";
@@ -556,7 +558,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             // server trusts the reported outcome (no pet-duel re-sim; clan-war just records
             // it), and plantedMotion is deterministic so both clients of a clan-war party
             // fight still agree. The PvE mastery mults stay pvpParty-gated (PvE only).
-            const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character), false, undefined, true);
+            // CINEMATIC engine (redesigned context-steering + role/element/stat/item AI)
+            // when the flag is on; else the previous planted engine. Items ON in the
+            // cinematic path so equipped gear/consumables matter. Casual only — ranked/
+            // ladder/sector are untouched (they never reach here).
+            const duel = petColiseumCinematicEnabled()
+                ? runPetPartyDuelCinematic(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character), true)
+                : runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character), false, undefined, true);
             const partyOutcome: "win" | "loss" | "draw" = duel.result;
             const matchesWon = duel.result === "win" ? 1 : 0;
             setDuelBattle({ result: duel, playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve, seed, id: nextDuelId });
@@ -731,7 +739,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         // two-client clan/casual fight still agrees. Ranked (returns above) + the
         // server-authoritative ladder/sector replays stay false. The PvE mastery mults stay
         // pveOpp-gated (only a built-in AI fight earns the bonus).
-        const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false, false, undefined, undefined, true);
+        const duel = petColiseumCinematicEnabled()
+            ? runPetDuelCinematic(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false, true, undefined, null)
+            : runPetDuel(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false, false, undefined, undefined, true);
         const outcome: "win" | "loss" | "draw" = duel.result;
         const logs: string[] = [];
         setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId });

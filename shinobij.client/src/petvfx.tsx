@@ -11,6 +11,7 @@ import { PetArenaBattlefield } from "./components/PetArenaBattlefield";
 import { petFramePace, runPetArenaBattle, runPetArenaParty } from "./lib/pet-battle-sim";
 import { rawPetPool } from "./data/pet-pool";
 import { PetColiseum, PetColiseumDuel, PetArenaMatch } from "./components/PetColiseum";
+import { runPetDuelCinematic, runPetPartyDuelCinematic } from "./lib/pet-duel-cinematic";
 import { PetBoardArena } from "./components/PetBoardArena";
 import { PetGauntlet } from "./components/PetGauntlet";
 import { runPetGridBattle } from "./lib/pet-board-sim";
@@ -48,9 +49,12 @@ function Harness() {
     // ?duel=1 — render the new TACTICAL diorama-stage duel (PetColiseumDuel),
     // using pets that have generated run-cycle frames so the gliding fix shows.
     const duelMode = PARAMS.get("duel") === "1";
+    // ?cine=1 — play the NEW cinematic engine (pet-duel-cinematic.ts) through the
+    // same renderer (precompute the result + pass it in).
+    const cineMode = PARAMS.get("cine") === "1";
     // A pure-RANGED kiter vs a MELEE chaser — the clearest tactical contrast.
     const duelPlayer = useMemo(() => ({ ...harnessPet(0, { element: "Fire" }), id: "generic-ai-pet-emberlynx", name: "Emberlynx", hp: 1100, attack: 110, speed: 95,
-        jutsus: jts({ name: "Ember Bolt", kind: "burn", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Cinder Veil", kind: "slow", power: 55, cooldown: 3, currentCooldown: 0 }) }), []);
+        jutsus: jts({ name: "Ember Bolt", kind: "burn", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Cinder Veil", kind: "slow", power: 55, cooldown: 3, currentCooldown: 0 }, { name: "Stone Ward", kind: "barrier", power: 60, cooldown: 3, currentCooldown: 0 }) }), []);
     const duelEnemy = useMemo(() => ({ ...harnessPet(7, { element: "Lightning" }), id: "generic-ai-pet-guardhound", name: "Guardhound", hp: 1200, attack: 115, speed: 80,
         jutsus: jts({ name: "Iron Bite", kind: "damage", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Warding Howl", kind: "stun", power: 45, cooldown: 4, currentCooldown: 0 }) }), []);
     const duelPlayerRes = useMemo(() => ({ ...harnessPet(1, { element: "Water" }), id: "legendary-0", name: "Ally", hp: 1000, attack: 100,
@@ -143,6 +147,12 @@ function Harness() {
 
     const frame = frames[i];
     const restart = () => { setI(0); setPlaying(true); };
+    const cineResult = useMemo(() => {
+        if (!cineMode) return undefined;
+        return partyMode
+            ? runPetPartyDuelCinematic(duelPlayer, duelPlayerRes, duelEnemy, duelEnemyRes, seed)
+            : runPetDuelCinematic(duelPlayer, duelEnemy, seed);
+    }, [cineMode, partyMode, duelPlayer, duelEnemy, duelPlayerRes, duelEnemyRes, seed]);
 
     const btn: React.CSSProperties = { padding: "6px 12px", background: "#1e3a8a", color: "#fff", border: "1px solid #3b82f6", borderRadius: 6, cursor: "pointer", font: "600 12px Inter, sans-serif" };
     if (gauntletMode) {
@@ -150,13 +160,14 @@ function Harness() {
     }
     return (
         <div style={{ maxWidth: 880, margin: "16px auto", padding: 12 }}>
-            {duelMode && (
+            {(duelMode || cineMode) && (
                 <PetColiseumDuel
                     playerPet={duelPlayer}
                     enemyPet={duelEnemy}
                     playerReservePet={partyMode ? duelPlayerRes : undefined}
                     enemyReservePet={partyMode ? duelEnemyRes : undefined}
                     seed={seed}
+                    result={cineResult}
                     sharedImages={harnessShared}
                     onFightAgain={restart}
                     onExit={() => {}}
