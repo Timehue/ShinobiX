@@ -1,15 +1,20 @@
 /*
- * P0.1 sub-5 — server budget for CUSTOM item bonuses (flag ITEM_BONUS_BUDGET).
+ * P0.1 sub-5 — server budget for CUSTOM item bonuses. ⚠ DELIBERATELY UNWIRED
+ * (owner decision 2026-07-11): custom/creator items are ALLOWED to exceed
+ * built-in gear ("they are supposed to be better/potentially better"), so this
+ * clamp must NOT be applied to creatorItems. It was briefly wired always-on and
+ * reverted the same day. Kept (with its test) as the reference budget math ONLY
+ * — do not re-wire into the save sanitizer or combat load without owner sign-off.
+ * The save sanitizer's per-field [0,1000] hygiene clamp is what bounds raw values.
  *
  * Built-in items (api/pvp/_item-catalog.ts ITEM_CATALOG) are authoritative and
  * EXEMPT — callers only ever pass player/admin-authored creatorItems here. Those
  * are clamped to the built-in legendary baseline so a forged item can't out-scale
  * real gear (the uniform-endgame-gear ceiling, per the balanced-PvP pillar).
  *
- * Live impact today is small/defense-in-depth: only the passive %s + shield flow
- * into authoritative PvP (api/pvp/_multipliers.ts sumEquippedBonus). Specialty-stat
- * bonuses are NOT folded into server combat, so their budget is storage hygiene +
- * future-proofing. Flag-off keeps the legacy per-field [0,1000] clamp (byte-identical).
+ * If ever re-wired, impact would be small/defense-in-depth: only the passive %s +
+ * shield flow into authoritative PvP (api/pvp/_multipliers.ts sumEquippedBonus).
+ * Specialty-stat bonuses are NOT folded into server combat.
  *
  * Baselines (see _item-catalog.ts legendary tiers):
  *   passive %s (damage/absorb/reflect/lifesteal) ≤ 1   (built-ins grant at most 1%)

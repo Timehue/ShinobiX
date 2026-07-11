@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { Pet } from "../types/pet";
-import { runPetDuel, type DuelResult } from "../lib/pet-duel-sim";
+import { type DuelResult } from "../lib/pet-duel-sim";
+import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
 import { joinSectorPet, sectorPetState } from "../lib/village-war-map";
 
 /*
@@ -69,7 +70,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
 
     // Resolved → replay the deterministic duel (identical to the server) + the result.
     if (session?.status === "done" && session.p2 && session.seed != null) {
-        const result: DuelResult = runPetDuel(session.p1.pet, session.p2.pet, session.seed, 1, 1, false, false, false, session.terrain ?? null);
+        const result: DuelResult = runPetDuelCinematic(session.p1.pet, session.p2.pet, session.seed, 1, 1, false, false, false, session.terrain ?? null);
         const mine = character.name.toLowerCase() === session.p1.name.toLowerCase() ? "p1"
             : character.name.toLowerCase() === session.p2.name.toLowerCase() ? "p2" : null;
         const banner = session.winner === "draw" ? "The pet duel ended in a draw — the sector holds."

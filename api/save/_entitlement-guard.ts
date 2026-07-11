@@ -1,4 +1,5 @@
 import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
+import { CACHE_ITEM_IDS } from '../_anbu-infiltration.js';
 
 const SERVER_OWNED_ITEM_IDS = new Set([
     'weekly-boss-core',
@@ -11,6 +12,11 @@ const SERVER_OWNED_ITEM_IDS = new Set([
     'hunt-legendary-material',
     'hunt-ancient-beast-core',
     'hunt-titan-bone',
+    // Anbu Vault Infiltration war caches — minted ONLY by the raid settle
+    // (api/_anbu-infiltration-store.ts), redeemed only by its turn-in. A client
+    // save can spend them, never mint them.
+    CACHE_ITEM_IDS.warSupply,
+    CACHE_ITEM_IDS.warResources,
 ]);
 
 function countStrings(raw: unknown): Map<string, number> {

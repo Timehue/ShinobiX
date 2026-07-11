@@ -5,7 +5,6 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _pet_stat_ceil_js_1 = require("../_pet-stat-ceil.js");
 const _jutsu_points_js_1 = require("../_jutsu-points.js");
-const _item_budget_js_1 = require("../_item-budget.js");
 const _utils_js_1 = require("../_utils.js");
 const player_auth_js_1 = require("../player-auth.js");
 const _auth_js_1 = require("../_auth.js");
@@ -898,14 +897,16 @@ function sanitizeCharacterSave(incoming, existing) {
     // for that bloodline id, and a new bloodline (no stored row) caps at B Rank. A
     // genuine rank-up must come from a dedicated server-authoritative endpoint, so a
     // forged save can't self-promote to A/S (there is no Mythic-Seal faucet, by
-    // design). Gated by BLOODLINE_RANK_ENTITLEMENT; flag-off keeps the old
-    // "accept any known rank" behavior (byte-identical). Needs a one-off save:*
-    // audit of legit A/S holders before flipping (a wiped/migrated save lacking the
-    // bloodline would otherwise re-baseline its rank to B).
-    const RANK_ENTITLEMENT_ON = process.env.BLOODLINE_RANK_ENTITLEMENT === '1';
+    // design). PERMANENTLY ON (owner decision 2026-07-11): server-side anti-cheat
+    // enforcement is not optional, so this no longer reads an env flag. The old
+    // pre-flip caveat — a wiped/migrated save missing its bloodline row would
+    // re-baseline that bloodline's rank to B — is accepted: the game is in testing
+    // with a full reset pending, and rank-ups flow through a server path anyway.
+    const RANK_ENTITLEMENT_ON = true;
     // sub-1: enforce the bloodline POINT BUDGET server-side (the core PvP-balance
-    // knob, client-only today). Gated; flag-off = no-op for honest bloodlines.
-    const BLOODLINE_BUDGET_ON = process.env.BLOODLINE_BUDGET_SERVER === '1';
+    // knob). PERMANENTLY ON (same decision). Clamp, never reject: an honest
+    // within-budget bloodline is a no-op; a forged one is trimmed to legal power.
+    const BLOODLINE_BUDGET_ON = true;
     const normalizeBloodlineArray = (arr, existingArr) => {
         if (!Array.isArray(arr))
             return arr;
@@ -1232,6 +1233,12 @@ function sanitizeCharacterSave(incoming, existing) {
     // claimed, a forged save can't flip it back to false to re-claim. (audit #1)
     if (exChar.academyTrialClaimed === true)
         char.academyTrialClaimed = true;
+    // academySectorVisited latches the final onboarding beat's "visited a sector"
+    // milestone the same way: once the server has recorded it, a stale/forged save
+    // can't flip it back to false. Reverting it would strand the player on the
+    // "return to the village" step (the coach loops forever with no way to finish).
+    if (exChar.academySectorVisited === true)
+        char.academySectorVisited = true;
     // Bank-interest claim window enforcement.
     //   The Bank screen (shinobij.client/src/screens/Bank.tsx) uses
     //   Date.now() to gate the "claim interest" button — a player who
@@ -1399,12 +1406,12 @@ function sanitizeCharacterSave(incoming, existing) {
             // forged item can't ship a 999999 stat (PvP also caps total stats
             // at MAX_STAT, this is storage hygiene).
             if (out.bonuses && typeof out.bonuses === 'object') {
-                // sub-5: clamp custom-item bonuses to the built-in legendary
-                // baseline (passive %s <=1, shield <=100, vitals <=150, specialty
-                // total scaled to the per-slot budget) so a forged item can't
-                // out-scale real gear. Flag-off keeps the legacy [0,1000] clamp.
-                if (process.env.ITEM_BONUS_BUDGET === '1')
-                    return (0, _item_budget_js_1.budgetItemBonuses)(out);
+                // OWNER DECISION 2026-07-11: custom/creator items are ALLOWED to
+                // exceed built-in gear — do NOT budget them to the built-in
+                // baseline (the brief ITEM_BONUS_BUDGET clamp was reverted same
+                // day; api/_item-budget.ts is deliberately unwired). Only the
+                // legacy per-field [0,1000] hygiene clamp applies, so a forged
+                // save still can't ship a 999999 stat.
                 const bonuses = out.bonuses;
                 for (const k of Object.keys(bonuses)) {
                     bonuses[k] = Math.max(0, Math.min(1000, Number(bonuses[k]) || 0));
