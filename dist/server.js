@@ -163,6 +163,7 @@ const queue_combat_claim_js_1 = __importDefault(require("./api/missions/queue-co
 const record_progress_js_1 = __importDefault(require("./api/missions/record-progress.js"));
 const wanderer_gift_js_1 = __importDefault(require("./api/sector/wanderer-gift.js"));
 const wanderer_quest_js_1 = __importDefault(require("./api/sector/wanderer-quest.js"));
+const rift_quest_js_1 = __importDefault(require("./api/sector/rift-quest.js"));
 const wanderer_ambush_js_1 = __importDefault(require("./api/sector/wanderer-ambush.js"));
 const wanderer_service_js_1 = __importDefault(require("./api/sector/wanderer-service.js"));
 const questbook_js_1 = __importDefault(require("./api/sector/questbook.js"));
@@ -813,6 +814,7 @@ route('/missions/record-progress', record_progress_js_1.default);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift', wanderer_gift_js_1.default);
 route('/sector/wanderer-quest', wanderer_quest_js_1.default);
+route('/sector/rift-quest', rift_quest_js_1.default);
 route('/sector/wanderer-ambush', wanderer_ambush_js_1.default);
 route('/sector/wanderer-service', wanderer_service_js_1.default);
 route('/sector/questbook', questbook_js_1.default);
