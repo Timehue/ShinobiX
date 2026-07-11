@@ -675,9 +675,12 @@
     align-items: center;
     gap: 14px;
     padding: clamp(14px, 3.5vh, 36px) 14px calc(22px + env(safe-area-inset-bottom, 0px));
-    /* Light enough that the watching deity reads through on the left. */
+    /* Light enough that the watching deity reads through on the left.
+       NO backdrop-filter: on many mobile GPUs a blurred backdrop samples a
+       STALE snapshot that bakes in the just-removed dialogue box, ghosting the
+       previous line's dark prompt behind the cards until the next repaint. The
+       translucent scrim alone (no blur) still lets the deity read through. */
     background: rgba(2, 5, 14, 0.6);
-    backdrop-filter: blur(2px);
     animation: icx-choose-in 320ms ease-out both;
 }
 @keyframes icx-choose-in {

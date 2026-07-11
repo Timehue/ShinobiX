@@ -215,4 +215,3 @@ export function parseEndpointMix(rawJson, scenario = {}) {
   }
   return endpoints;
 }
-
