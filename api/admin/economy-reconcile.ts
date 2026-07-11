@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { isAdmin } from '../_auth.js';
+import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { cors } from '../_utils.js';
@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required.' });
+    if (!isFullAdmin(req)) return res.status(403).json({ error: 'Full admin access required.' });
     if (!enforceRateLimit(req, res, 'admin-economy-reconcile', 30, 60_000)) return;
 
     try {

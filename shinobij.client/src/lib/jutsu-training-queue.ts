@@ -19,6 +19,7 @@ import { useEffect, type Dispatch, type SetStateAction } from "react";
 import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel } from "../constants/game";
 import type { Character } from "../types/character";
 import type { ActiveJutsuTraining } from "../types/combat";
+import { isServerSettlementReady } from "./server-settlement-gate";
 
 // Ryo training (the Hall) tops out at level 30, but never above the player's rank
 // jutsu cap — a Genin (cap 20) can't ryo-train a jutsu past 20 even though the Hall
@@ -118,6 +119,7 @@ export function useJutsuTrainingQueueRunner(
     setCharacter: Dispatch<SetStateAction<Character | null>>,
 ): void {
     useEffect(() => {
+        if (!isServerSettlementReady("timedJutsuTraining")) return;
         if (!activeJutsuTraining?.next && !activeJutsuTraining?.autoClaim) return;
         const advance = () => {
             const { grants, active } = advanceJutsuTrainingQueue(activeJutsuTraining, Date.now());

@@ -28,6 +28,7 @@ import { getAllItems, getItemById } from "../lib/items";
 import { getCharacterElements } from "../lib/elements";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { getAllJutsus, playerLensDiscipline } from "../App";
 
 type ProfileDossierRow = {
@@ -188,6 +189,7 @@ export function Profile({
     // (only gains are clamped), so this client write persists cleanly. HP/Chakra/
     // Stamina pools are untouched (they are not allocatable stats).
     async function respecStats() {
+        if (!requireServerSettlement("profileStatRespec")) return;
         const RESPEC_COST = 50;
         if ((character.fateShards ?? 0) < RESPEC_COST) {
             setStatWarning(`Respec costs ${RESPEC_COST} 🔮 Fate Shards — you have ${character.fateShards ?? 0}.`);
@@ -206,6 +208,7 @@ export function Profile({
     }
 
     function purchaseTitle() {
+        if (!requireServerSettlement("profileFateShardTitle")) return;
         const trimmed = titleInput.trim().slice(0, 15);
         if (!trimmed) return alert("Enter a title first.");
         if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} 🔮 Fate Shards.`);
@@ -226,6 +229,7 @@ export function Profile({
             return alert(`Title styles cost ${TITLE_STYLE_COST} 🔮 Fate Shards.`);
         }
         const cost = styleId === "" ? 0 : TITLE_STYLE_COST;
+        if (cost > 0 && !requireServerSettlement("profileFateShardTitle")) return;
         if (cost > 0 && !(await gameConfirm(`Restyle your title for ${cost} 🔮 Fate Shards?`, { title: "Title Style", confirmLabel: "Restyle" }))) return;
         updateCharacter({ ...character, customTitleStyle: styleId, fateShards: (character.fateShards ?? 0) - cost });
     }
@@ -235,6 +239,7 @@ export function Profile({
             return alert(`Title icons cost ${TITLE_ICON_COST} 🔮 Fate Shards.`);
         }
         const cost = icon === "" ? 0 : TITLE_ICON_COST;
+        if (cost > 0 && !requireServerSettlement("profileFateShardTitle")) return;
         if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} 🔮 Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return;
         updateCharacter({ ...character, customTitleIcon: icon, fateShards: (character.fateShards ?? 0) - cost });
     }

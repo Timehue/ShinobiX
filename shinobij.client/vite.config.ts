@@ -9,6 +9,7 @@ import child_process from 'child_process';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { env } from 'process';
 import type { IncomingMessage, ServerResponse } from 'http';
+import { playerPasswordPolicyError } from './src/lib/player-auth-policy';
 
 // ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
 const isBuildMode = process.argv.includes('build');
@@ -128,6 +129,12 @@ function createDevAuthRecord(password: string): DevAuthRecord {
 function devPasswordMatches(record: DevAuthRecord, password: string) {
     const expected = Buffer.from(record.hash, 'hex');
     const actual = Buffer.from(hashDevPassword(password, record.salt), 'hex');
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+function devStringMatches(expectedValue: string, actualValue: string) {
+    const expected = Buffer.from(expectedValue);
+    const actual = Buffer.from(actualValue);
     return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
@@ -435,15 +442,26 @@ export default defineConfig({
                         }
 
                         const store = loadDevAuthStore(authPath);
+                        const hasPlayerSave = () => fs.existsSync(path.join(savesDir, `${playerId}.json`));
 
                         if (action === 'register') {
                             if (!password) { sendJson(res, 400, { ok: false, error: 'Missing password.' }); return; }
+                            const policyError = playerPasswordPolicyError(password);
+                            if (policyError) { sendJson(res, 400, { ok: false, error: policyError }); return; }
                             if (isReservedDevAuthName(playerId)) {
                                 sendJson(res, 403, { ok: false, error: 'That username is reserved. Pick a different name.' });
                                 return;
                             }
                             if (store[playerId]) {
                                 sendJson(res, 409, { ok: false, error: 'Account already has a password.' });
+                                return;
+                            }
+                            if (hasPlayerSave()) {
+                                sendJson(res, 409, {
+                                    ok: false,
+                                    error: 'This account is a legacy account without a server password. Ask an admin to set it for you.',
+                                    legacyNeedsAdmin: true,
+                                });
                                 return;
                             }
 
@@ -456,7 +474,19 @@ export default defineConfig({
                         if (action === 'verify') {
                             if (!password) { sendJson(res, 400, { ok: false, error: 'Missing password.' }); return; }
                             const record = store[playerId];
-                            if (!record) { sendJson(res, 200, { ok: true, legacy: true }); return; }
+                            if (!record) {
+                                if (hasPlayerSave()) {
+                                    sendJson(res, 409, {
+                                        ok: false,
+                                        error: 'This legacy account requires authenticated admin recovery.',
+                                        legacy: true,
+                                        legacyNeedsAdmin: true,
+                                    });
+                                } else {
+                                    sendJson(res, 200, { ok: false, unused: true });
+                                }
+                                return;
+                            }
                             sendJson(res, 200, { ok: devPasswordMatches(record, password) });
                             return;
                         }
@@ -466,8 +496,26 @@ export default defineConfig({
                                 sendJson(res, 400, { ok: false, error: 'Missing oldPassword or newPassword.' });
                                 return;
                             }
+                            const policyError = playerPasswordPolicyError(newPassword);
+                            if (policyError) { sendJson(res, 400, { ok: false, error: policyError }); return; }
+                            if (oldPassword === newPassword) {
+                                sendJson(res, 400, { ok: false, error: 'New password must differ from the current password.' });
+                                return;
+                            }
                             const record = store[playerId];
-                            if (record && !devPasswordMatches(record, oldPassword)) {
+                            if (!record) {
+                                if (hasPlayerSave()) {
+                                    sendJson(res, 409, {
+                                        ok: false,
+                                        error: 'This legacy account requires authenticated admin recovery.',
+                                        legacyNeedsAdmin: true,
+                                    });
+                                } else {
+                                    sendJson(res, 404, { ok: false, error: 'Account does not exist.' });
+                                }
+                                return;
+                            }
+                            if (!devPasswordMatches(record, oldPassword)) {
                                 sendJson(res, 401, { ok: false, error: 'Incorrect current password.' });
                                 return;
                             }
@@ -484,12 +532,32 @@ export default defineConfig({
                                 return;
                             }
                             const record = store[playerId];
-                            if (record && !devPasswordMatches(record, password)) {
+                            if (!record) {
+                                sendJson(res, 404, { ok: false, error: 'Account does not exist.' });
+                                return;
+                            }
+                            if (!devPasswordMatches(record, password)) {
                                 sendJson(res, 401, { ok: false, error: 'Incorrect password.' });
                                 return;
                             }
 
                             delete store[playerId];
+                            saveDevAuthStore(authPath, store);
+                            sendJson(res, 200, { ok: true });
+                            return;
+                        }
+
+                        if (action === 'adminreset') {
+                            const adminPassword = env.ADMIN_PASSWORD;
+                            const suppliedAdminPassword = req.headers['x-admin-password'];
+                            if (!adminPassword || typeof suppliedAdminPassword !== 'string' || !devStringMatches(adminPassword, suppliedAdminPassword)) {
+                                sendJson(res, 401, { ok: false, error: 'Admin authentication required.' });
+                                return;
+                            }
+                            if (!newPassword) { sendJson(res, 400, { ok: false, error: 'Missing newPassword.' }); return; }
+                            const policyError = playerPasswordPolicyError(newPassword);
+                            if (policyError) { sendJson(res, 400, { ok: false, error: policyError }); return; }
+                            store[playerId] = createDevAuthRecord(newPassword);
                             saveDevAuthStore(authPath, store);
                             sendJson(res, 200, { ok: true });
                             return;
