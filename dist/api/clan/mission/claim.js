@@ -7,6 +7,7 @@ const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
 const _clan_points_js_1 = require("../../_clan-points.js");
+const _economic_receipt_js_1 = require("../../_economic-receipt.js");
 const _mission_catalog_js_1 = require("../_mission-catalog.js");
 /*
  * /api/clan/mission/claim
@@ -156,9 +157,30 @@ async function handler(req, res) {
             // claims can't both pay out (the outer clan lock already serialises,
             // this is the durable per-week record across calls). NX: null means
             // already taken THIS week.
-            const placed = await _storage_js_1.kv.set(claimLatchKey(slug, weekKey, missionKey), '1', { nx: true, ex: CLAIM_TTL }).catch(() => 'OK');
-            if (placed === null)
-                return { ok: false, status: 409, error: 'This clan mission was already claimed this week.' };
+            const receiptKey = claimLatchKey(slug, weekKey, missionKey);
+            const reservation = await (0, _economic_receipt_js_1.reserveEconomicReceipt)(_storage_js_1.kv, {
+                key: receiptKey,
+                fingerprint: `clan-mission:${slug}:${weekKey}:${missionKey}`,
+                ttlSeconds: CLAIM_TTL,
+                metadata: { slug, weekKey, missionKey },
+            });
+            if (reservation.status === 'conflict') {
+                return {
+                    ok: false,
+                    status: 409,
+                    error: 'Conflicting clan mission receipt exists.',
+                };
+            }
+            if (reservation.status === 'replay') {
+                return {
+                    ok: true,
+                    xp: Number(clanRec.xp ?? 0) || 0,
+                    level: Number(clanRec.level ?? 1) || 1,
+                    treasury: (clanRec.treasury ?? {}),
+                    pointAmount: CLAN_MISSION_POINT_AMOUNTS[missionKey] ?? 0,
+                    pointMembers: pointEligibleMembers(clanRec, String(clanRec.name ?? clan), territories, missionKey),
+                };
+            }
             // ── Credit clan XP + treasury ───────────────────────────────────
             // Clan XP is member-scaled (10–15 members = 1.0×; small clans dampened,
             // capped at 1.0×) so a tiny clan can't rush hall tiers.
@@ -169,7 +191,12 @@ async function handler(req, res) {
             for (const [cur, amt] of Object.entries(reward.treasury ?? {})) {
                 nextTreasury[cur] = (Number(nextTreasury[cur] ?? 0) || 0) + Number(amt);
             }
+            // A remote write can apply and then lose its acknowledgement. Once
+            // attempted, leave the durable pending receipt replay-blocking.
             await _storage_js_1.kv.set(clanSaveKey, { ...clanRec, xp: leveled.xp, level: leveled.level, treasury: nextTreasury });
+            // If commit fails after the clan write, leave the owned pending row
+            // in place; it still blocks replay. Never roll it back post-mutation.
+            await (0, _economic_receipt_js_1.commitEconomicReceipt)(_storage_js_1.kv, receiptKey, reservation, CLAIM_TTL);
             return {
                 ok: true,
                 xp: leveled.xp,
@@ -201,13 +228,13 @@ async function handler(req, res) {
             const actor = playerName;
             const others = pointMembers.filter((name) => name !== actor);
             await Promise.allSettled(others.map((member) => (0, _clan_points_js_1.awardClanPointsToPlayerSave)(member, 'clanMissionContribution', pointAmount, {
-                eventId: `mission:${slug}:${missionKey}:contribution:${member}`,
+                eventId: `mission:${slug}:${weekKey}:${missionKey}:contribution:${member}`,
                 clan,
                 missionKey,
             })));
             if (pointMembers.includes(actor)) {
                 const contribution = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(actor, 'clanMissionContribution', pointAmount, {
-                    eventId: `mission:${slug}:${missionKey}:contribution:${actor}`,
+                    eventId: `mission:${slug}:${weekKey}:${missionKey}:contribution:${actor}`,
                     clan,
                     missionKey,
                 });
@@ -217,7 +244,7 @@ async function handler(req, res) {
         }
         if (pointAmount > 0) {
             const claimAward = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(playerName, 'clanMissionClaim', 25, {
-                eventId: `mission:${slug}:${missionKey}:claim:${playerName}`,
+                eventId: `mission:${slug}:${weekKey}:${missionKey}:claim:${playerName}`,
                 clan,
                 missionKey,
             });
@@ -237,6 +264,9 @@ async function handler(req, res) {
     }
     catch (err) {
         console.error('[clan/mission/claim]', err);
+        if ((0, _economic_receipt_js_1.isEconomicReceiptStorageError)(err)) {
+            return res.status(503).json({ error: 'Could not reserve the clan mission reward. Please retry.' });
+        }
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

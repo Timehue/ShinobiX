@@ -28,3 +28,7 @@ const server_reset_js_1 = require("./server-reset.js");
     strict_1.default.equal((0, server_reset_js_1.isProtectedKey)('save:someplayer'), false);
     strict_1.default.equal((0, server_reset_js_1.isProtectedKey)('story:someplayer'), false);
 });
+(0, node_test_1.test)('full reset revokes sessions for deleted auth rows and preserves protected accounts', () => {
+    strict_1.default.deepEqual((0, server_reset_js_1.authNamesRequiringRevocation)(['auth:someplayer', 'auth:Rill', 'save:not-auth', 'auth:another']), ['someplayer', 'another']);
+    strict_1.default.equal(server_reset_js_1.WIPE_PATTERNS.includes('auth-session:*'), false, 'rotated epochs must survive reset');
+});

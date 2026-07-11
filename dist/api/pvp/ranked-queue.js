@@ -26,6 +26,9 @@ const matchKey = (slug) => `${QUEUE_KEY}:match:${slug}`;
 // opens, so the queue never starves.
 const LEVEL_BAND_BASE = 10;
 const LEVEL_BAND_OPEN_INTERVAL_MS = 15_000; // widen by 1 level every 15s waiting
+function rankedPvpActionAllowedDuringSettlement(action) {
+    return action === 'leave';
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -59,6 +62,13 @@ async function handler(req, res) {
             // covers the client's ~2-3s poll cadence with headroom.
             if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'ranked-queue', 60, 60_000, identity.name)))
                 return;
+            // Ranked remains closed until consumables are deducted for both
+            // fighters during the first authoritative settlement, independent
+            // of whether either participant voluntarily claims. Allow leave so
+            // stale pre-deploy queue rows can still be cleaned up.
+            if (!rankedPvpActionAllowedDuringSettlement(action)) {
+                return res.status(503).json({ error: 'Ranked PvP is temporarily unavailable while authoritative item settlement is finalized.' });
+            }
             // Pre-derive server-side level/elo for the join path before
             // entering the lock so the lock body stays fast.
             let serverLevel = 1;

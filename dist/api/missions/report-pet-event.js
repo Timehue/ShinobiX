@@ -249,8 +249,7 @@ async function handler(req, res) {
                         ...(escortReady ? { petEscortBonusReady: false } : {}),
                     },
                 };
-                (0, _save_version_js_1.bumpSaveVersion)(updated);
-                await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
+                await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updated), record));
             }, { failClosed: true });
             if (tokenAlreadySpent) {
                 return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });

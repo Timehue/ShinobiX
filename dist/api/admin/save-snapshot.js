@@ -1,10 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildRestoredSave = buildRestoredSave;
+exports.restoreSnapshotUnderLock = restoreSnapshotUnderLock;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 /*
  * /api/admin/save-snapshot  — admin-only POST
  *
@@ -51,6 +54,37 @@ function snapshotKeyFor(playerName, ts) {
 }
 function snapshotPrefixFor(playerName) {
     return `${SNAPSHOT_PREFIX}${playerName}:`;
+}
+function buildRestoredSave(snapshot, live, now) {
+    return {
+        ...structuredClone(snapshot),
+        _saveVersion: (0, _save_version_js_1.nextSaveVersion)(live?._saveVersion, snapshot._saveVersion),
+        _saveAt: now,
+    };
+}
+async function restoreSnapshotUnderLock(args) {
+    const store = args.store ?? _storage_js_1.kv;
+    const lock = args.lock ?? _lock_js_1.withKvLock;
+    const now = args.now ?? Date.now;
+    return lock(args.saveKey, async () => {
+        const live = await store.get(args.saveKey);
+        const ts = now();
+        let preRestoreKey = null;
+        if (live) {
+            // Avoid replacing the source snapshot in the extremely unlikely
+            // event both timestamps land in the same millisecond.
+            const safeTs = snapshotKeyFor(args.playerName, ts) === args.snapshotKey ? ts + 1 : ts;
+            preRestoreKey = snapshotKeyFor(args.playerName, safeTs);
+            await store.set(preRestoreKey, live, { ex: SNAPSHOT_TTL_SECONDS });
+        }
+        const restored = buildRestoredSave(args.snapshot, live, ts);
+        await store.set(args.saveKey, restored);
+        await store.set(`reset-signal:${args.playerName.toLowerCase()}`, 1, { ex: 300 });
+        return {
+            restoredVersion: Number(restored._saveVersion),
+            preRestoreKey,
+        };
+    }, { failClosed: true });
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -127,19 +161,25 @@ async function handler(req, res) {
             // then (b) overwrite with the requested snapshot. Both steps
             // happen under the same lock so a player autosave landing
             // mid-restore can't slip in between.
-            await (0, _lock_js_1.withKvLock)(saveKey, async () => {
-                const live = await _storage_js_1.kv.get(saveKey);
-                if (live) {
-                    const preRestoreKey = snapshotKeyFor(playerName, Date.now());
-                    await _storage_js_1.kv.set(preRestoreKey, live, { ex: SNAPSHOT_TTL_SECONDS });
-                }
-                await _storage_js_1.kv.set(saveKey, snap);
+            const restored = await restoreSnapshotUnderLock({
+                playerName,
+                saveKey,
+                snapshotKey,
+                snapshot: snap,
             });
-            return res.status(200).json({ ok: true, restoredFrom: snapshotKey });
+            return res.status(200).json({
+                ok: true,
+                restoredFrom: snapshotKey,
+                _saveVersion: restored.restoredVersion,
+                preRestoreSnapshotKey: restored.preRestoreKey,
+            });
         }
         return res.status(400).json({ error: 'Invalid action.' });
     }
     catch (err) {
+        if (err instanceof _lock_js_1.LockContendedError) {
+            return res.status(503).json({ error: 'Save is busy. Restore was not applied; retry.' });
+        }
         console.error('[admin/save-snapshot]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }
