@@ -58,6 +58,15 @@ const CAP_TICKS = DUEL_TPS * 75;            // ~75s cap; the sudden-death ramp g
 const TTK_HP = 3.0;                          // HP scale → long, meaty fights that show the kiting/repositioning (tune knob)
 const LATE_T = DUEL_TPS * 50;                // sudden-death: past here damage ramps so fights END in a KO
 const LATE_RAMP = DUEL_TPS * 20;             // dmg ×(1 + (t−LATE_T)/RAMP) → ×2.25 at cap
+// STALL BREAKER — two same-role kiters (assassin/tracker mirror) can circle-strafe forever
+// and never land a hit → a 0-damage stand-off that draws regardless of stats. When NO damage
+// has been dealt by EITHER side for STALL_START_SECS, ramp a "force the exchange" pressure over
+// STALL_RAMP_SECS that collapses R* to melee, suppresses dodging, and disables the clash so
+// mutual dives LAND — the pets brawl it out and the stronger stats win. Gated on real no-damage
+// (every normal fight lands hits within a couple seconds → pressure stays 0 → zero effect on the
+// tuned archetype balance).
+const STALL_START_SECS = 11;
+const STALL_RAMP_SECS = 7;
 const Q = 256;
 const quant = (n: number) => Math.round(n * Q) / Q;
 const clamp = (n: number, lo: number, hi: number) => (n < lo ? lo : n > hi ? hi : n);
@@ -117,6 +126,9 @@ const maskAt = (c: number, r: number) => WALK_MASK.charCodeAt(r * GCOLS + c) ===
 // neither can attack through it for a beat — they buff/heal or path around. Module-level
 // + reset each simulate() run → fully deterministic (barriers cast at deterministic ticks).
 let SIM_WALLS: { x: number; y: number; r: number; expiry: number }[] = [];
+// Stall-breaker state (reset per simulate() run, like SIM_WALLS → deterministic, no carry-over).
+let _stallPressure = 0;    // 0 in every fight where damage lands; ramps only in a true no-damage stand-off
+let _forcedEngage = false; // latched once a stand-off is confirmed → a decisive brawl to the finish
 const WALL_TICKS = Math.round(DUEL_TPS * 0.85);   // how long a wall BLOCKS (short → a beat, not a big defensive advantage)
 const WALL_PENALTY_TICKS = Math.round(DUEL_TPS * 3.0);   // caster's damage halved this long after raising a wall (the wall's cost)
 const cellBlockedByWall = (c: number, r: number): boolean => {
@@ -830,8 +842,8 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         const eAb = e.pendingIdx >= 0 ? e.abilities[e.pendingIdx] : null;
         const eRange = eAb ? eAb.range : e.reach + 0.6;
         if (d <= eRange + 1.2) {
-            const chance = clamp(0.14 + (f.spd - e.spd) * 0.0022 + f.style.dodgeBias, 0.05, 0.85);
-            if (rng() < chance) {
+            const chance = clamp(0.14 + (f.spd - e.spd) * 0.0022 + f.style.dodgeBias, 0.05, 0.85) * (1 - (_forcedEngage ? 1 : _stallPressure));
+            if (rng() < chance) {   // rng() always drawn (order preserved); stall just lowers the threshold → no dodge
                 // Sidestep perpendicular to the incoming line (away from arena edge).
                 let px = -dy / d, py = dx / d;
                 if (!walkableAt(f.x + px * 1.6, f.y + py * 1.6)) { px = -px; py = -py; }
@@ -907,6 +919,9 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     }
     if ((enemyOpen || killShot) && !useRanged && d > moveRange) rStar = Math.min(rStar, moveRange * 0.9);   // press the opening / go for the kill
     if (holdRepos) rStar += f.style.reposBack;   // reposition beat: back out by the archetype's amount (kiter dances far, defender holds ground) then circle back in — the in-out cadence
+    // STALL BREAKER: collapse R* toward melee so a no-damage kiter stand-off is forced to close
+    // and trade (the stronger stats then win). p=0 in normal fights → no effect.
+    { const p = _forcedEngage ? 1 : _stallPressure; if (p > 0) rStar *= 1 - 0.9 * p; }
     // Route around terrain (BFS waypoint) when the direct line to the foe is blocked.
     let routeGoal: [number, number] | undefined;
     if (!hasLineOfSight(f.x, f.y, e.x, e.y)) {
@@ -969,7 +984,8 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                         // damage) — the iconic anime collision, a pure tension beat. Tagged
                         // move:"Clash" on the paired staggers so the renderer can punctuate it
                         // (frozen-contract-safe — DuelEvent.move already exists).
-                        if (tgt.state === "dash" && tgt.lungeAbIdx > -2 && (tgt.faceX * (f.x - tgt.x) + tgt.faceY * (f.y - tgt.y)) > 0) {
+                        const engaging = _forcedEngage || _stallPressure >= 0.5;   // stall breaker: let mutual dives LAND (no deflect) so a stand-off resolves
+                        if (!engaging && tgt.state === "dash" && tgt.lungeAbIdx > -2 && (tgt.faceX * (f.x - tgt.x) + tgt.faceY * (f.y - tgt.y)) > 0) {
                             const cdx = f.x - tgt.x, cdy = f.y - tgt.y, cdd = Math.max(1e-4, Math.sqrt(cdx * cdx + cdy * cdy));
                             const [fx2, fy2] = snapPos(f.x + (cdx / cdd) * CLASH_KB, f.y + (cdy / cdd) * CLASH_KB);
                             const [tx2, ty2] = snapPos(tgt.x - (cdx / cdd) * CLASH_KB, tgt.y - (cdy / cdd) * CLASH_KB);
@@ -1083,10 +1099,16 @@ function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean): 
     let ticks = 0;
     let winner: "player" | "enemy" | null = null;
     SIM_WALLS = [];   // reset barrier walls per run → deterministic (no carry-over between fights)
+    _stallPressure = 0; _forcedEngage = false;
+    let lastDmgTick = 0, prevTotalHp = 0;
+    for (const f of fighters) prevTotalHp += Math.max(0, f.hp);
     for (const f of fighters) { const [sx, sy] = snapPos(f.x, f.y); f.x = sx; f.y = sy; }
     for (let t = 0; t < CAP_TICKS; t++) {
         ticks = t + 1;
         if (SIM_WALLS.length) SIM_WALLS = SIM_WALLS.filter((w) => w.expiry > t);   // expire finished walls
+        // Stall pressure: how long since ANY damage landed → ramps to force a decisive exchange.
+        _stallPressure = clamp(((t - lastDmgTick) / DUEL_TPS - STALL_START_SECS) / STALL_RAMP_SECS, 0, 1);
+        if (_stallPressure >= 1) _forcedEngage = true;   // latch a confirmed stand-off → brawl to a result
         // Alternate the per-tick step order by tick parity so neither side keeps a
         // persistent "second-mover" reaction edge (which skews mirror matches). The
         // pet that steps second sees the first's fresh wind-up and can react-dodge —
@@ -1102,6 +1124,9 @@ function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean): 
             const [sx, sy] = snapPos(f.x, f.y); f.x = sx; f.y = sy;
             quantizeFighter(f);
         }
+        // Any damage this tick (a landed hit OR a DoT) resets the stall timer → pressure only
+        // builds in a genuine no-damage stand-off.
+        { let totalHp = 0; for (const f of fighters) totalHp += Math.max(0, f.hp); if (totalHp < prevTotalHp - 0.5) lastDmgTick = t; prevTotalHp = totalHp; }
         snapshots.push(snap(t, fighters, projectiles));
         const pA = teamAlive(fighters, "player"), eA = teamAlive(fighters, "enemy");
         if (!pA || !eA) { winner = pA && !eA ? "player" : eA && !pA ? "enemy" : null; events.push({ t, type: "ko", side: winner === "player" ? "enemy" : "player", actorId: "" }); break; }
