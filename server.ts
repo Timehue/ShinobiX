@@ -163,6 +163,7 @@ import missionsQueueCombatClaimHandler from './api/missions/queue-combat-claim.j
 import missionsRecordProgressHandler from './api/missions/record-progress.js';
 import sectorWandererGiftHandler      from './api/sector/wanderer-gift.js';
 import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
+import sectorRiftQuestHandler         from './api/sector/rift-quest.js';
 import sectorWandererAmbushHandler    from './api/sector/wanderer-ambush.js';
 import sectorWandererServiceHandler   from './api/sector/wanderer-service.js';
 import sectorQuestbookHandler         from './api/sector/questbook.js';
@@ -883,6 +884,7 @@ route('/missions/record-progress',  missionsRecordProgressHandler);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
 route('/sector/wanderer-quest',     sectorWandererQuestHandler);
+route('/sector/rift-quest',         sectorRiftQuestHandler);
 route('/sector/wanderer-ambush',    sectorWandererAmbushHandler);
 route('/sector/wanderer-service',   sectorWandererServiceHandler);
 route('/sector/questbook',          sectorQuestbookHandler);

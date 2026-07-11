@@ -397,6 +397,13 @@ export type Character = {
     // at a time. Additive/optional. `deadline` (ms epoch) is set on timed stages;
     // `choices` maps a branch stage key → the chosen option key.
     activeQuestbook?: { id: string; stage: number; baseline: number; target: number; deadline?: number | null; choices?: Record<string, string> } | null;
+    // Active Hollow Gate Rift quest (wandering-AI quest into a scaled event gate;
+    // api/sector/rift-quest.ts seals the real baseline + reward in KV). Display
+    // mirror only. `stage`: "travel" until the player reaches the rift structure,
+    // "descend" once they are there. Additive/optional. See lib/hollow-rifts.
+    activeRiftQuest?: { id: string; targetSector: number; stage: "travel" | "descend"; baseline: number; bossName: string } | null;
+    // Epoch ms until which the roaming rift-giver stays quiet after a clear.
+    riftCooldownUntil?: number;
     // Cosmetic titles earned from completing Quest Book epics. Additive/optional.
     questTitles?: string[];
     // Persistent world-standing flags from epic branch choices (e.g. "goro-spared").
