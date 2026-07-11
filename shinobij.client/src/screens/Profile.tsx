@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
 import type { Character } from "../types/character";
@@ -21,7 +21,8 @@ import { BattleLogHistoryPanel } from "../components/BattleLogHistoryPanel";
 import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, isLegacyServerLive, isLegacyEnabled } from "../lib/legacy";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { canEquipElementJutsu } from "../lib/bloodline";
-import { allocatedStatPoints, baseStats, capStat, xpNeeded } from "../lib/stats";
+import { allocatedStatPoints, capStat, xpNeeded } from "../lib/stats";
+import { settleProfileAction, type ProfileSettlementAction } from "../lib/profile-settlement";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
 import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getAllItems, getItemById } from "../lib/items";
@@ -126,6 +127,23 @@ export function Profile({
     const [statInputs, setStatInputs] = useState<Partial<Record<keyof Stats, number>>>({});
     const [statWarning, setStatWarning] = useState("");
     const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
+    const profileSettlementBusy = useRef(false);
+
+    async function runPaidProfileAction(action: ProfileSettlementAction): Promise<boolean> {
+        if (profileSettlementBusy.current) return false;
+        profileSettlementBusy.current = true;
+        try {
+            const result = await settleProfileAction(character.name, action);
+            if (!result.ok) {
+                alert(result.error);
+                return false;
+            }
+            updateCharacter(result.character);
+            return true;
+        } finally {
+            profileSettlementBusy.current = false;
+        }
+    }
     // Title style/icon pickers are a Legacy-wave feature: shown only once the
     // SERVER's ENABLE_LEGACY is confirmed live (session-cached probe), so a
     // player can never spend shards on a cosmetic the save sanitizer would
@@ -204,15 +222,15 @@ export function Profile({
         }
         if (!(await gameConfirm(`Reset all 12 stats to base and refund every earned point (${refund}) into your allocatable pool for ${RESPEC_COST} 🔮 Fate Shards? Nothing is lost — you re-allocate as you wish.`))) return;
         setStatWarning("");
-        updateCharacter({ ...character, stats: baseStats(), unspentStats: (character.unspentStats ?? 0) + refund, fateShards: (character.fateShards ?? 0) - RESPEC_COST });
+        await runPaidProfileAction({ type: "respec-stats" });
     }
 
-    function purchaseTitle() {
+    async function purchaseTitle() {
         if (!requireServerSettlement("profileFateShardTitle")) return;
         const trimmed = titleInput.trim().slice(0, 15);
         if (!trimmed) return alert("Enter a title first.");
         if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} 🔮 Fate Shards.`);
-        updateCharacter({ ...character, customTitle: trimmed, fateShards: character.fateShards - TITLE_COST });
+        await runPaidProfileAction({ type: "purchase-title", title: trimmed });
     }
 
     function clearTitle() {
@@ -231,7 +249,8 @@ export function Profile({
         const cost = styleId === "" ? 0 : TITLE_STYLE_COST;
         if (cost > 0 && !requireServerSettlement("profileFateShardTitle")) return;
         if (cost > 0 && !(await gameConfirm(`Restyle your title for ${cost} 🔮 Fate Shards?`, { title: "Title Style", confirmLabel: "Restyle" }))) return;
-        updateCharacter({ ...character, customTitleStyle: styleId, fateShards: (character.fateShards ?? 0) - cost });
+        if (cost === 0) updateCharacter({ ...character, customTitleStyle: styleId });
+        else await runPaidProfileAction({ type: "purchase-title-style", styleId });
     }
     async function purchaseTitleIcon(icon: string) {
         if ((character.customTitleIcon ?? "") === icon) return;
@@ -241,7 +260,8 @@ export function Profile({
         const cost = icon === "" ? 0 : TITLE_ICON_COST;
         if (cost > 0 && !requireServerSettlement("profileFateShardTitle")) return;
         if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} 🔮 Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return;
-        updateCharacter({ ...character, customTitleIcon: icon, fateShards: (character.fateShards ?? 0) - cost });
+        if (cost === 0) updateCharacter({ ...character, customTitleIcon: icon });
+        else await runPaidProfileAction({ type: "purchase-title-icon", icon });
     }
 
     // Wear an earned title (free) — earned titles come from title-granting
