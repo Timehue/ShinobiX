@@ -98,6 +98,7 @@ const sector_war_js_1 = __importDefault(require("./api/village/sector-war.js"));
 const war_merc_js_1 = __importDefault(require("./api/village/war-merc.js"));
 const sector_card_js_1 = __importDefault(require("./api/village/sector-card.js"));
 const sector_pet_js_1 = __importDefault(require("./api/village/sector-pet.js"));
+const anbu_infiltration_js_1 = __importDefault(require("./api/village/anbu-infiltration.js"));
 const war_map_js_1 = __importDefault(require("./api/village/war-map.js"));
 const claim_war_crate_js_1 = __importDefault(require("./api/village/claim-war-crate.js"));
 const claim_interest_js_1 = __importDefault(require("./api/bank/claim-interest.js"));
@@ -717,6 +718,11 @@ route('/village/sector-card', sector_card_js_1.default);
 // pet duel resolved server-side by the generated pet engine (api/pet-sim), settling
 // the same contest Control HP. The client replays the same (pets, seed). Gated.
 route('/village/sector-pet', sector_pet_js_1.default);
+// Anbu Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
+// turn-in action switch): fight a daily-sealed Anbu snapshot (Battle Towers
+// engine) to skim 1% of the enemy war economy into turn-in caches. NEVER flips
+// sector ownership. Gated (404 unless ENABLE_VILLAGE_WAR=1 + ENABLE_ANBU_INFILTRATION=1).
+route('/village/anbu-infiltration', anbu_infiltration_js_1.default);
 // Village War Map — read-only aggregator for the client War-Map panel (Phase 6):
 // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
 // GET only, gated (404 unless ENABLE_VILLAGE_WAR=1).
