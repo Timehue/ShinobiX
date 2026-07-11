@@ -8,7 +8,7 @@ import { LoadingState } from "../components/ui/LoadingState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { petPvpGearById, petConsumableById } from "../data/pet-config";
 import { PetColiseumDuel, PetArenaMatch } from "../components/PetColiseum";
-import { runPetDuel } from "../lib/pet-duel-sim";
+import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import {
     type Mode, type LadderView, type OfferOpponent, type ChallengeResult, type PetLite,
@@ -123,10 +123,10 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
         const r = replay.replay;
         if (r.kind === "coliseum") {
             const player = toClientPet(r.player), enemy = toClientPet(r.enemy);
-            // Ladder replay stays on the shipped motion (no trailing plantedMotion arg): the
-            // server resolves via the hand-maintained api/pet-ladder/_duel-sim.ts port, which
-            // lacks that param — passing planted motion here would desync the recorded winner.
-            const result = runPetDuel(player, enemy, r.seed, 1, 1, false, true);
+            // Ladder replay runs the CINEMATIC engine — the server resolves via the
+            // parity-tested api/_pet-sim/pet-duel-cinematic.ts mirror (scripts/gen-pet-sim.mjs),
+            // so client replay and server-recorded winner stay byte-identical.
+            const result = runPetDuelCinematic(player, enemy, r.seed, 1, 1, false, true);
             return <PetColiseumDuel playerPet={player} enemyPet={enemy} seed={r.seed} result={result} sharedImages={sharedImages} onExit={exitCinematic} />;
         }
         const blue: ArenaSlot[] = r.blue.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));
