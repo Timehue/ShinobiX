@@ -134,8 +134,8 @@ export function CardClashDeckBuilder({
                             <span className="cc-tag" style={{ color: ELEMENT_COLOR[card.element] }}>{card.element[0]}</span>
                             <span className="cc-tag" style={{ color: RARITY_BORDER[card.rarity] }}>{card.rarity[0].toUpperCase()}</span>
                             {count > 1 && <span className="cc-muted" style={{ fontSize: 11 }}>×{count}</span>}
-                            <button className="cc-btn ghost" style={{ padding: "3px 8px" }} onClick={() => removeOne(id)}>−</button>
-                            <button className="cc-btn ghost" style={{ padding: "3px 8px" }} onClick={() => add(id)}>+</button>
+                            <button className="cc-btn ghost" aria-label={`Remove one ${card.name}`} style={{ padding: "3px 8px" }} onClick={() => removeOne(id)}>−</button>
+                            <button className="cc-btn ghost" aria-label={`Add one ${card.name}`} style={{ padding: "3px 8px" }} onClick={() => add(id)}>+</button>
                         </div>
                     ))}
                 </div>

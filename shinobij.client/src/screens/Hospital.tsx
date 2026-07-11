@@ -200,13 +200,13 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                     </div>
                 </div>
                 <div className="summary-box" style={{ marginBottom: "1rem" }}>
-                    <span>HP: <strong style={{ color: "#f87171" }}>{character.hp}/{character.maxHp}</strong></span>
-                    <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong style={{ color: character.ryo >= dischargeCost ? "#4ade80" : "#f87171" }}>{character.ryo.toLocaleString()}</strong></span>
+                    <span>HP: <strong style={{ color: "var(--red-400)" }}>{character.hp}/{character.maxHp}</strong></span>
+                    <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong style={{ color: character.ryo >= dischargeCost ? "var(--green-400)" : "var(--red-400)" }}>{character.ryo.toLocaleString()}</strong></span>
                 </div>
                 <button
                     onClick={discharge}
                     disabled={busy || character.ryo < dischargeCost}
-                    style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80", opacity: (busy || character.ryo < dischargeCost) ? 0.5 : 1, width: "100%", marginBottom: "0.5rem" }}
+                    style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "var(--green-400)", opacity: (busy || character.ryo < dischargeCost) ? 0.5 : 1, width: "100%", marginBottom: "0.5rem" }}
                 >
                     {busy ? "…" : isHealer
                         ? "✚ Free Self-Heal & Discharge (Healer)"
@@ -218,17 +218,17 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                     <button
                         onClick={freeCheckout}
                         disabled={busy}
-                        style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "#60a5fa", width: "100%", animation: "pulse 1.5s infinite", opacity: busy ? 0.5 : 1 }}
+                        style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "var(--blue-400)", width: "100%", animation: "pulse 1.5s infinite", opacity: busy ? 0.5 : 1 }}
                     >
                         {busy ? "…" : "🚪 Check Out (Free — time served)"}
                     </button>
                 ) : (
                     <p className="hint" style={{ textAlign: "center" }}>
-                        Free check-out unlocks in <strong style={{ color: "#fcd34d" }}>{remaining}s</strong>
+                        Free check-out unlocks in <strong style={{ color: "var(--gold-400)" }}>{remaining}s</strong>
                     </p>
                 ))}
                 {character.ryo < dischargeCost && !freeCheckoutReady && (
-                    <p style={{ color: "#f87171", fontSize: "0.82rem", marginTop: "0.5rem", textAlign: "center" }}>
+                    <p style={{ color: "var(--red-400)", fontSize: "0.82rem", marginTop: "0.5rem", textAlign: "center" }}>
                         You need {(dischargeCost - character.ryo).toLocaleString()} more ryo, or wait {remaining}s for the free check-out.
                     </p>
                 )}
@@ -240,11 +240,11 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
         <div className="card">
             <BackToVillageButton onClick={() => setScreen("village")} />
             <h2>🏥 Village Hospital</h2>
-            <p style={{ color: "#94a3b8" }}>Rest, recover, and restore your vitals. Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
+            <p style={{ color: "var(--text-dim)" }}>Rest, recover, and restore your vitals. Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
             {isHealer && (
                 <div className="summary-box" style={{ background: "linear-gradient(180deg,rgba(34,211,238,0.12),rgba(8,10,22,0.4))", border: "1px solid rgba(34,211,238,0.45)", marginBottom: "1rem" }}>
                     <span style={{ color: "#22d3ee", fontWeight: 600 }}>✚ Healer</span>
-                    <span style={{ marginLeft: 12, color: "#cbd5e1" }}>
+                    <span style={{ marginLeft: 12, color: "var(--slate-300)" }}>
                         Rank {healerRank} · {character.professionXp ?? 0} XP
                     </span>
                     <p className="hint" style={{ margin: "6px 0 0" }}>
@@ -261,7 +261,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
             {isHealer ? (
                 <button onClick={topUp} disabled={busy}>{busy ? "..." : "✚ Full Heal — Free (Healer)"}</button>
             ) : (
-                <p className="hint" style={{ margin: "0.4rem 0", color: "#94a3b8" }}>
+                <p className="hint" style={{ margin: "0.4rem 0", color: "var(--text-dim)" }}>
                     🚫 Only Healers can heal at the hospital. If admitted, wait the 60-second timer or pay the discharge fee.
                 </p>
             )}

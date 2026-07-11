@@ -77,7 +77,7 @@ export class ErrorBoundary extends Component<Props, State> {
                     padding: "24px",
                     background:
                         "radial-gradient(ellipse at center, rgba(2,6,23,0.92), rgba(2,6,23,0.98))",
-                    color: "#e2e8f0",
+                    color: "var(--slate-200)",
                     fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
                 }}
             >
@@ -96,10 +96,10 @@ export class ErrorBoundary extends Component<Props, State> {
                     <div style={{ fontSize: 34, marginBottom: 10 }} aria-hidden>
                         忍
                     </div>
-                    <h1 style={{ fontSize: 20, color: "#facc15", margin: "0 0 8px" }}>
+                    <h1 style={{ fontSize: 20, color: "var(--gold)", margin: "0 0 8px" }}>
                         {chunk ? "A new version is available" : "Something went wrong"}
                     </h1>
-                    <p style={{ fontSize: 14, lineHeight: 1.5, color: "#94a3b8", margin: "0 0 20px" }}>
+                    <p style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text-dim)", margin: "0 0 20px" }}>
                         {chunk
                             ? "The game was updated while you were playing. Reload to get the latest version — your progress is saved."
                             : "An unexpected error interrupted the game. Reloading usually fixes it; your progress is saved."}
@@ -112,7 +112,7 @@ export class ErrorBoundary extends Component<Props, State> {
                             cursor: "pointer",
                             marginTop: 12,
                             background: "transparent",
-                            color: "#cbd5e1",
+                            color: "var(--slate-300)",
                             fontWeight: 700,
                             fontSize: 13,
                             border: "1px solid rgba(148,163,184,0.35)",

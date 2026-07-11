@@ -35,8 +35,8 @@ async function lobbyApi(name: string, action: string, extra: Record<string, unkn
     return data;
 }
 
-const PANEL: React.CSSProperties = { background: "#0f172a", border: "1px solid #1e293b", borderRadius: 10, padding: "0.7rem 0.85rem" };
-const TEAM_COLOR: Record<Team, string> = { blue: "#3b82f6", red: "#ef4444" };
+const PANEL: React.CSSProperties = { background: "var(--slate-900)", border: "1px solid var(--slate-800)", borderRadius: 10, padding: "0.7rem 0.85rem" };
+const TEAM_COLOR: Record<Team, string> = { blue: "#3b82f6", red: "var(--danger)" };
 
 export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     character: Character; sharedImages: Record<string, string>; onExit: () => void;
@@ -86,7 +86,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     // ── Running → run the sealed replay (identical on every client) ────────────
     if (lobby?.state === "running" && lobby.match) {
         return (
-            <Suspense fallback={<Overlay><div style={{ color: "#94a3b8" }}>Loading arena…</div></Overlay>}>
+            <Suspense fallback={<Overlay><div style={{ color: "var(--text-dim)" }}>Loading arena…</div></Overlay>}>
                 {/* Shared replay must be identical on every client — force the canonical V2 ruleset regardless of any local kill-switch. */}
                 <PetArenaMatch blue={lobby.match.blue} red={lobby.match.red} seed={lobby.match.seed} v2 sharedImages={sharedImages} onExit={onExit} />
             </Suspense>
@@ -99,7 +99,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     return (
         <Overlay>
             <div style={{ width: "min(560px, 94vw)", maxHeight: "90vh", overflowY: "auto", ...PANEL, background: "#0b1120" }}>
-                <div style={{ position: "relative", height: 108, borderRadius: 10, overflow: "hidden", marginBottom: "0.7rem", border: "1px solid #1e293b", backgroundImage: `url(${coopHero})`, backgroundSize: "cover", backgroundPosition: "center 32%" }}>
+                <div style={{ position: "relative", height: 108, borderRadius: 10, overflow: "hidden", marginBottom: "0.7rem", border: "1px solid var(--slate-800)", backgroundImage: `url(${coopHero})`, backgroundSize: "cover", backgroundPosition: "center 32%" }}>
                     <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,12,22,0.2) 0%, rgba(8,12,22,0.55) 55%, rgba(8,12,22,0.9) 100%)" }} />
                     <button onClick={leave} disabled={busy} style={{ position: "absolute", top: 8, right: 8, zIndex: 1, background: "rgba(15,23,42,0.85)" }}>✕ Close</button>
                     <strong style={{ position: "absolute", left: 14, bottom: 10, zIndex: 1, fontSize: "1.2rem", letterSpacing: "0.04em", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}>🤝 Co-op Arena</strong>
@@ -107,7 +107,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
 
                 {!lobby && (
                     <div style={{ display: "grid", gap: "0.7rem" }}>
-                        <p style={{ color: "#94a3b8", margin: 0, fontSize: "0.85rem" }}>
+                        <p style={{ color: "var(--text-dim)", margin: 0, fontSize: "0.85rem" }}>
                             Team up for a 4v4 capture match. Create a lobby and share the code, or join a friend's.
                             Each player brings 2 pets; empty seats are filled by AI.
                         </p>
@@ -129,10 +129,10 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                     <div style={{ display: "grid", gap: "0.7rem" }}>
                         {/* Shareable code */}
                         <div style={{ ...PANEL, textAlign: "center" }}>
-                            <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>Lobby code — share with friends</div>
+                            <div style={{ color: "var(--text-dim)", fontSize: "0.75rem" }}>Lobby code — share with friends</div>
                             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "0.5rem", marginTop: "0.2rem" }}>
                                 <span style={{ fontSize: "1.8rem", fontWeight: 800, letterSpacing: "0.25em" }}>{lobby.code}</span>
-                                <button onClick={() => navigator.clipboard?.writeText(lobby.code)} title="Copy code" style={{ background: "#334155" }}>📋</button>
+                                <button onClick={() => navigator.clipboard?.writeText(lobby.code)} title="Copy code" style={{ background: "var(--slate-700)" }}>📋</button>
                             </div>
                         </div>
 
@@ -145,11 +145,11 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                                     </div>
                                     {lobby.seats.filter((s) => s.team === team).map((s) => (
                                         <div key={s.slot} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem", padding: "0.15rem 0" }}>
-                                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.name ? (s.ready ? "#22c55e" : "#eab308") : "#475569", flexShrink: 0 }} />
-                                            <span style={{ color: s.name ? "#e2e8f0" : "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.name ? (s.ready ? "var(--success)" : "#eab308") : "var(--slate-600)", flexShrink: 0 }} />
+                                            <span style={{ color: s.name ? "var(--slate-200)" : "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                                 {s.name ? `${s.name}${s.isYou ? " (you)" : ""}` : "Open — AI"}
                                             </span>
-                                            {s.name && <span style={{ marginLeft: "auto", color: s.ready ? "#22c55e" : "#94a3b8", fontSize: "0.75rem" }}>{s.ready ? "ready" : "picking…"}</span>}
+                                            {s.name && <span style={{ marginLeft: "auto", color: s.ready ? "var(--success)" : "var(--text-dim)", fontSize: "0.75rem" }}>{s.ready ? "ready" : "picking…"}</span>}
                                         </div>
                                     ))}
                                 </div>
@@ -161,12 +161,12 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                             <div style={{ display: "flex", alignItems: "center", marginBottom: "0.35rem" }}>
                                 <strong style={{ fontSize: "0.85rem" }}>Your pets {mySeat?.ready ? "✓ locked in" : `(${picks.length}/2)`}</strong>
                                 <button onClick={lockIn} disabled={busy || picks.length !== 2 || availablePets.length < 2}
-                                    style={{ marginLeft: "auto", background: mySeat?.ready ? "#334155" : "#16a34a" }}>
+                                    style={{ marginLeft: "auto", background: mySeat?.ready ? "var(--slate-700)" : "#16a34a" }}>
                                     {mySeat?.ready ? "Change picks" : "Lock in 2 pets"}
                                 </button>
                             </div>
                             {availablePets.length < 2 ? (
-                                <p style={{ color: "#f59e0b", margin: 0, fontSize: "0.8rem" }}>You need at least 2 pets that aren't on expeditions.</p>
+                                <p style={{ color: "var(--gold-2)", margin: 0, fontSize: "0.8rem" }}>You need at least 2 pets that aren't on expeditions.</p>
                             ) : (
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))", gap: "0.35rem" }}>
                                     {availablePets.map((pet) => {
@@ -174,10 +174,10 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                                         const img = petCardImage(pet, sharedImages);
                                         return (
                                             <button key={pet.id} onClick={() => togglePick(pet.id)}
-                                                style={{ padding: "0.25rem", background: sel ? "#0e7490" : "#1e293b", border: sel ? "2px solid #22d3ee" : "2px solid transparent", borderRadius: 8, display: "grid", justifyItems: "center", gap: 2 }}>
+                                                style={{ padding: "0.25rem", background: sel ? "#0e7490" : "var(--slate-800)", border: sel ? "2px solid #22d3ee" : "2px solid transparent", borderRadius: 8, display: "grid", justifyItems: "center", gap: 2 }}>
                                                 {img
                                                     ? <img src={img} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
-                                                    : <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#334155" }} />}
+                                                    : <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--slate-700)" }} />}
                                                 <span style={{ fontSize: "0.62rem", maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{petDisplayName(pet)}</span>
                                             </button>
                                         );
@@ -193,11 +193,11 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                             )}
                             <button onClick={leave} disabled={busy} style={{ background: "#7f1d1d" }}>Leave lobby</button>
                         </div>
-                        {!iAmHost && <p style={{ color: "#64748b", margin: 0, fontSize: "0.75rem", textAlign: "center" }}>Waiting for the host to start…</p>}
+                        {!iAmHost && <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.75rem", textAlign: "center" }}>Waiting for the host to start…</p>}
                     </div>
                 )}
 
-                {error && <p style={{ color: "#f87171", marginTop: "0.6rem", marginBottom: 0, fontSize: "0.85rem" }}>{error}</p>}
+                {error && <p style={{ color: "var(--red-400)", marginTop: "0.6rem", marginBottom: 0, fontSize: "0.85rem" }}>{error}</p>}
             </div>
         </Overlay>
     );

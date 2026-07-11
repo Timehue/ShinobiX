@@ -8,7 +8,7 @@
     --cc-ink: #e8eefc;
     --cc-dim: #9fb0d0;
     --cc-gold: #fbbf24;
-    --cc-jade: #4ade80;
+    --cc-jade: var(--green-400);
     --cc-blue: #4fc3f7;
     --cc-red: #ef5350;
     --cc-panel: rgba(12, 18, 38, 0.82);
@@ -129,7 +129,7 @@
 
 .cc-card {
     position: relative; flex-shrink: 0;
-    border: 2px solid var(--cc-card-border, #475569);
+    border: 2px solid var(--cc-card-border, var(--slate-600));
     border-radius: 10px; overflow: visible;
     background: linear-gradient(180deg, rgba(18, 26, 50, 0.98), rgba(8, 12, 26, 0.98));
     box-shadow: var(--cc-card-glow, none);
@@ -163,7 +163,7 @@
     font-size: 12px; font-weight: 800; border-radius: 50% / 60%;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); line-height: 1;
 }
-.cc-pip.cost { top: 3px; left: 3px; background: #1e3a8a; color: #cfe3ff; border: 1px solid #60a5fa; }
+.cc-pip.cost { top: 3px; left: 3px; background: #1e3a8a; color: #cfe3ff; border: 1px solid var(--blue-400); }
 .cc-pip.power { top: 3px; right: 3px; background: #7c2d12; color: #ffe9c7; border: 1px solid var(--cc-gold); }
 .cc-pip.power.buffed { background: #14532d; color: #d9ffe4; border-color: var(--cc-jade); }
 .cc-pip.power.debuffed { background: #5b1010; color: #ffd9d9; border-color: var(--cc-red); }
@@ -226,7 +226,7 @@
 .cc-deck-meter { display: flex; gap: 12px; align-items: baseline; margin: 4px 0 10px; }
 .cc-deck-meter .big { font-size: 26px; font-weight: 800; color: var(--cc-gold); }
 .cc-deck-meter .ok { color: var(--cc-jade); }
-.cc-deck-errors { font-size: 12px; color: #fca5a5; margin: 6px 0; line-height: 1.5; }
+.cc-deck-errors { font-size: 12px; color: var(--red-300); margin: 6px 0; line-height: 1.5; }
 
 /* ── Board ────────────────────────────────────────────────────────────────── */
 

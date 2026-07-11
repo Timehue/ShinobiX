@@ -5664,7 +5664,7 @@ export function Arena({
                         <span className="twp-strip-label">Terrain</span>
                         <span className="twp-strip-value">{terrainEffects[currentBiome].description}</span>
                         {terrainEffects[currentBiome].playerBuff && (
-                            <span className="twp-buff twp-positive">{terrainEffects[currentBiome].playerBuff}</span>
+                            <span className="twp-buff twp-positive">🔺 {terrainEffects[currentBiome].playerBuff}</span>
                         )}
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Weather</span>
@@ -6077,7 +6077,7 @@ export function Arena({
 
                                             {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return (
                                                 <p className="combat-jutsu-detail-desc">
-                                                    <strong style={{ color: "#c084fc" }}>🎯 {t.short}:</strong> {t.detail}
+                                                    <strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}
                                                 </p>
                                             ); })()}
 
@@ -6191,12 +6191,12 @@ export function Arena({
                             <>
                                 <h2 className="battle-result-win"><GiLaurelsTrophy style={ARENA_ICON} />Wave {endlessBattleWave} Clear!</h2>
                                 <p>{log}</p>
-                                <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.4rem 0" }}>
+                                <p style={{ color: "var(--text-dim)", fontSize: "0.85rem", margin: "0.4rem 0" }}>
                                     HP carried into next wave. Stay alive as long as you can.
                                 </p>
                                 <button
                                     className="admin-button"
-                                    style={{ background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "1rem", padding: "0.7rem 1.5rem" }}
+                                    style={{ background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "var(--green-400)", fontSize: "1rem", padding: "0.7rem 1.5rem" }}
                                     onClick={() => onEndlessWin?.(endlessBattleWave)}
                                 >
                                     <GiNextButton style={ARENA_ICON} />Next Wave
@@ -6209,11 +6209,11 @@ export function Arena({
                                     You reached Wave {endlessBattleWave}
                                 </p>
                                 <p>{log}</p>
-                                <p style={{ color: "#f87171", fontSize: "0.88rem", margin: "0.4rem 0" }}>
+                                <p style={{ color: "var(--red-400)", fontSize: "0.88rem", margin: "0.4rem 0" }}>
                                     You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated.
                                 </p>
                                 <div className="menu">
-                                    <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { onEndlessBattleEnd?.(); setScreen("hospital"); }}>
+                                    <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)" }} onClick={() => { onEndlessBattleEnd?.(); setScreen("hospital"); }}>
                                         <GiFirstAidKit style={ARENA_ICON} />Go to Hospital
                                     </button>
                                     <button onClick={() => { onEndlessBattleEnd?.(); setScreen("centralHub"); }}>
@@ -6237,14 +6237,14 @@ export function Arena({
                                 <p>{log}</p>
                                 {pendingStoryBattle?.kind === "weeklyBoss" && (battleResult === "loss" || battleResult === "fled") ? (
                                     <>
-                                        <p style={{ color: "#facc15", fontSize: "0.9rem", margin: "0.5rem 0" }}>
+                                        <p style={{ color: "var(--gold)", fontSize: "0.9rem", margin: "0.5rem 0" }}>
                                             Total damage dealt this attempt: <strong>{(pendingStoryBattle.bossInitialHp - enemyHp).toLocaleString()}</strong>.
                                             {battleResult === "fled"
                                                 ? " Fleeing still counts as an attempt and logs your damage."
                                                 : ""}
                                         </p>
                                         <button
-                                            style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#facc15" }}
+                                            style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--gold)" }}
                                             disabled={logging}
                                             onClick={() => { setLogging(true); onWeeklyBossLogDamage?.(pendingStoryBattle.bossInitialHp - enemyHp, weeklyBossDamageEventsRef.current); }}
                                         >
@@ -6253,19 +6253,19 @@ export function Arena({
                                     </>
                                 ) : battleResult === "loss" && pendingStoryBattle?.kind === "dungeonAi" ? (
                                     <>
-                                        <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
+                                        <p style={{ color: "var(--red-400)", fontSize: "0.9rem", margin: "0.5rem 0" }}>
                                             Your Dungeon Key was consumed by the failed run. You return to your village empty-handed.
                                         </p>
-                                        <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => onDungeonFail?.()}>
+                                        <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)" }} onClick={() => onDungeonFail?.()}>
                                             <GiVillage style={ARENA_ICON} />Return to Village
                                         </button>
                                     </>
                                 ) : battleResult === "loss" ? (
                                     <>
-                                        <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
+                                        <p style={{ color: "var(--red-400)", fontSize: "0.9rem", margin: "0.5rem 0" }}>
                                             You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated and released.
                                         </p>
-                                        <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { if (pendingStoryBattle) onPendingStoryBattleContinue?.(); setScreen("hospital"); }}>
+                                        <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)" }} onClick={() => { if (pendingStoryBattle) onPendingStoryBattleContinue?.(); setScreen("hospital"); }}>
                                             <GiFirstAidKit style={ARENA_ICON} />Go to Hospital
                                         </button>
                                     </>

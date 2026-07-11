@@ -296,7 +296,7 @@ export function Logbook({
                                 <h3>{exam.title} {passed ? "✓" : ""}</h3>
                                 {exam.summary && <p className="hint">{exam.summary}</p>}
                                 <p className="hint">Gate: level {gate?.level ?? exam.unlockLevel}. Status: <strong>{passed ? "Passed" : complete ? "Ready to pass" : "In progress"}</strong></p>
-                                {isBlocking && !complete && <p style={{ color: "#f87171", fontWeight: "bold" }}>You cannot level past {gate!.level} until you pass this exam.</p>}
+                                {isBlocking && !complete && <p style={{ color: "var(--red-400)", fontWeight: "bold" }}>You cannot level past {gate!.level} until you pass this exam.</p>}
                                 <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
                                 {!passed && <div className="menu">
                                     <button disabled={!complete} onClick={() => {

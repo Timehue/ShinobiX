@@ -28,7 +28,7 @@ export function RecoveryActions({ compact = false }: RecoveryActionsProps) {
                 onClick={recoverToVillage}
                 style={{
                     ...buttonBase,
-                    background: "linear-gradient(180deg, #facc15, #eab308)",
+                    background: "linear-gradient(180deg, var(--gold), #eab308)",
                     color: "#1a1306",
                     border: "none",
                 }}
@@ -41,7 +41,7 @@ export function RecoveryActions({ compact = false }: RecoveryActionsProps) {
                 style={{
                     ...buttonBase,
                     background: "#162033",
-                    color: "#e2e8f0",
+                    color: "var(--slate-200)",
                     border: "1px solid rgba(148,163,184,0.45)",
                 }}
             >

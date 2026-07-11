@@ -37,10 +37,10 @@ const OBJECTIVE_LABEL: Record<string, string> = {
     "kill-adds-first": "Kill the adds first",
 };
 const BIOME: Record<string, { color: string; icon: string }> = {
-    forest: { color: "#4ade80", icon: "🌲" },
-    snow: { color: "#93c5fd", icon: "❄️" },
+    forest: { color: "var(--green-400)", icon: "🌲" },
+    snow: { color: "var(--blue-300)", icon: "❄️" },
     volcano: { color: "#fb7185", icon: "🌋" },
-    central: { color: "#cbd5e1", icon: "🏛️" },
+    central: { color: "var(--slate-300)", icon: "🏛️" },
     shadow: { color: "#a78bfa", icon: "🌑" },
 };
 
@@ -166,16 +166,16 @@ export function BattleTowersLobby({
     const selFloor = floors.find(f => f.id === selected);
 
     return (
-        <div style={{ maxWidth: 880, margin: "1rem auto", padding: "0 0.8rem 1.5rem", color: "#e2e8f0" }}>
+        <div style={{ maxWidth: 880, margin: "1rem auto", padding: "0 0.8rem 1.5rem", color: "var(--slate-200)" }}>
             {/* Hero banner */}
             <div style={{
                 position: "relative", borderRadius: 14, overflow: "hidden", marginBottom: 14,
-                border: "1px solid #334155", boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
+                border: "1px solid var(--slate-700)", boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
                 background: `linear-gradient(180deg, rgba(8,12,24,0.25) 0%, rgba(8,12,24,0.92) 100%), url(${spireBanner}) center 30%/cover no-repeat`,
                 minHeight: 168, display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "1.1rem 1.3rem",
             }}>
                 <h1 style={{ margin: 0, fontSize: "2.1rem", letterSpacing: 0.5, textShadow: "0 3px 12px rgba(0,0,0,0.9)" }}>⚔️ Battle Towers</h1>
-                <p style={{ margin: "4px 0 0", color: "#cbd5e1", maxWidth: 620, fontSize: "0.9rem", textShadow: "0 2px 6px rgba(0,0,0,0.9)" }}>
+                <p style={{ margin: "4px 0 0", color: "var(--slate-300)", maxWidth: 620, fontSize: "0.9rem", textShadow: "0 2px 6px rgba(0,0,0,0.9)" }}>
                     Curated squad floors — objectives, battlefield gimmicks, and bosses with signature mechanics.
                     First few floors free daily, then a small ryo toll; unlimited retries — the gate is tactics, not stamina.
                 </p>
@@ -188,7 +188,7 @@ export function BattleTowersLobby({
                         display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
                         padding: "0.85rem", marginBottom: 14, borderRadius: 12, fontWeight: 800, fontSize: "0.98rem",
                         cursor: "pointer", color: "#dbeafe", background: "linear-gradient(180deg,#1e3a8a,#172554)",
-                        border: "1px solid #60a5fa", boxShadow: "0 0 18px rgba(96,165,250,0.45)",
+                        border: "1px solid var(--blue-400)", boxShadow: "0 0 18px rgba(96,165,250,0.45)",
                     }}>
                     ⚔️ You've been called to a squad run — Floor {pendingRun.session.floor} · Join now ▶
                 </button>
@@ -196,9 +196,9 @@ export function BattleTowersLobby({
 
             {/* Stat chips */}
             <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-                <Stat label="Deepest floor" value={String(bestFloor)} color="#facc15" />
+                <Stat label="Deepest floor" value={String(bestFloor)} color="var(--gold)" />
                 <Stat label="Tower rating" value={rating.toLocaleString()} color="#a78bfa" />
-                <Stat label="Floors cleared" value={`${cleared.size}/${floors.length || "—"}`} color="#4ade80" />
+                <Stat label="Floors cleared" value={`${cleared.size}/${floors.length || "—"}`} color="var(--green-400)" />
             </div>
 
             {/* ── Endless Spire — dedicated ascension boss gauntlet ── */}
@@ -219,8 +219,8 @@ export function BattleTowersLobby({
             {/* Squad assembly */}
             <div style={{ padding: "0.8rem 0.9rem", borderRadius: 12, border: "1px solid #293548", background: "linear-gradient(180deg,#0e1626,#0a111f)", marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                    <strong style={{ fontSize: "0.98rem" }}>🛡 Your Squad <span style={{ color: "#94a3b8", fontWeight: 400, fontSize: "0.8rem" }}>· you + up to {MAX_ALLIES} allies</span></strong>
-                    <span style={{ color: "#64748b", fontSize: "0.76rem" }}>Invited players get a “join” prompt and fight live alongside you</span>
+                    <strong style={{ fontSize: "0.98rem" }}>🛡 Your Squad <span style={{ color: "var(--text-dim)", fontWeight: 400, fontSize: "0.8rem" }}>· you + up to {MAX_ALLIES} allies</span></strong>
+                    <span style={{ color: "var(--text-muted)", fontSize: "0.76rem" }}>Invited players get a “join” prompt and fight live alongside you</span>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                     <SquadChip name={me} you />
@@ -231,7 +231,7 @@ export function BattleTowersLobby({
                             <input value={inviteName} onChange={e => setInviteName(e.target.value)}
                                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addAlly(inviteName); } }}
                                 placeholder="Invite player by name…" maxLength={24}
-                                style={{ padding: "0.4rem 0.7rem", borderRadius: 20, background: "#0b1220", color: "#e2e8f0", border: "1px solid #475569", fontSize: "0.82rem", width: 170 }} />
+                                style={{ padding: "0.4rem 0.7rem", borderRadius: 20, background: "#0b1220", color: "var(--slate-200)", border: "1px solid var(--slate-600)", fontSize: "0.82rem", width: 170 }} />
                             <button onClick={() => addAlly(inviteName)} disabled={!inviteName.trim()}
                                 style={{ padding: "0.4rem 0.8rem", borderRadius: 20, fontWeight: 700, fontSize: "0.8rem", cursor: inviteName.trim() ? "pointer" : "default", color: "#dbeafe", background: "linear-gradient(180deg,#1e3a8a,#172554)", border: "1px solid #3b5278", opacity: inviteName.trim() ? 1 : 0.5 }}>
                                 + Invite
@@ -239,7 +239,7 @@ export function BattleTowersLobby({
                             {/* Quick-add from players you follow */}
                             {availableAllies.length > 0 && (
                                 <select value="" onChange={e => { if (e.target.value) addAlly(e.target.value); }}
-                                    style={{ padding: "0.4rem 0.6rem", borderRadius: 20, background: "#0b1220", color: "#cbd5e1", border: "1px dashed #475569", cursor: "pointer", fontSize: "0.82rem" }}>
+                                    style={{ padding: "0.4rem 0.6rem", borderRadius: 20, background: "#0b1220", color: "var(--slate-300)", border: "1px dashed var(--slate-600)", cursor: "pointer", fontSize: "0.82rem" }}>
                                     <option value="">+ From follows…</option>
                                     {availableAllies.map(f => <option key={f} value={f}>{f}</option>)}
                                 </select>
@@ -250,14 +250,14 @@ export function BattleTowersLobby({
             </div>
 
             {loading && <LoadingState>Loading floors…</LoadingState>}
-            {error && <p style={{ color: "#f87171" }}>{error}</p>}
+            {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}
 
             {!loading && floors.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10, marginBottom: 16 }}>
                     {floors.map(f => {
                         const isCleared = cleared.has(f.id);
                         const isSel = selected === f.id;
-                        const b = BIOME[f.biome] ?? { color: "#94a3b8", icon: "🗺️" };
+                        const b = BIOME[f.biome] ?? { color: "var(--text-dim)", icon: "🗺️" };
                         return (
                             <button
                                 key={f.id}
@@ -265,10 +265,10 @@ export function BattleTowersLobby({
                                 style={{
                                     position: "relative", display: "flex", alignItems: "center", gap: 12, textAlign: "left",
                                     padding: "0.7rem 0.8rem 0.7rem 0.9rem", borderRadius: 10, overflow: "hidden",
-                                    border: `1px solid ${isSel ? "#60a5fa" : "#293548"}`,
+                                    border: `1px solid ${isSel ? "var(--blue-400)" : "#293548"}`,
                                     background: isSel ? "linear-gradient(180deg,#16263f,#0d1830)" : "linear-gradient(180deg,#0e1626,#0a111f)",
-                                    boxShadow: isSel ? "0 0 0 1px #60a5fa, 0 6px 18px rgba(37,99,235,0.25)" : "0 2px 8px rgba(0,0,0,0.4)",
-                                    cursor: "pointer", color: "#e2e8f0",
+                                    boxShadow: isSel ? "0 0 0 1px var(--blue-400), 0 6px 18px rgba(37,99,235,0.25)" : "0 2px 8px rgba(0,0,0,0.4)",
+                                    cursor: "pointer", color: "var(--slate-200)",
                                 }}
                             >
                                 {/* biome color stripe */}
@@ -280,11 +280,11 @@ export function BattleTowersLobby({
                                         <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</strong>
                                         {f.milestone && <span title="Milestone" style={{ fontSize: 13 }}>⭐</span>}
                                     </span>
-                                    <span style={{ display: "block", color: "#94a3b8", fontSize: "0.78rem", marginTop: 2 }}>
+                                    <span style={{ display: "block", color: "var(--text-dim)", fontSize: "0.78rem", marginTop: 2 }}>
                                         {OBJECTIVE_LABEL[f.objective] ?? f.objective} · {f.biome}{f.isBoss ? " · boss" : ""}
                                     </span>
                                 </span>
-                                {isCleared && <span title="First-cleared" style={{ color: "#4ade80", fontWeight: 800, flexShrink: 0 }}>✓</span>}
+                                {isCleared && <span title="First-cleared" style={{ color: "var(--green-400)", fontWeight: 800, flexShrink: 0 }}>✓</span>}
                             </button>
                         );
                     })}
@@ -297,7 +297,7 @@ export function BattleTowersLobby({
                     style={{
                         flex: "1 1 240px", padding: "0.85rem 1rem", borderRadius: 10, fontWeight: 800, fontSize: "1rem",
                         cursor: selected != null ? "pointer" : "not-allowed", color: "#dcfce7",
-                        background: "linear-gradient(180deg,#16803a,#0c5226)", border: "1px solid #4ade80",
+                        background: "linear-gradient(180deg,#16803a,#0c5226)", border: "1px solid var(--green-400)",
                         boxShadow: "0 4px 16px rgba(34,197,94,0.3)", opacity: selected == null || loading ? 0.5 : 1,
                     }}
                     onClick={enterFloor}
@@ -350,7 +350,7 @@ function SpireLadder({
                         <b style={{ color: "#f4c48a" }}>{spireUnlocked}</b><span>/{SPIRE_MAX_TIER} cleared</span>
                         <span className="spire-head-dot">·</span>
                         <span>this week</span> <b style={{ color: "#f4c48a" }}>{weeklyBest}</b>
-                        {myRank && <><span className="spire-head-dot">·</span><span>rank</span> <b style={{ color: "#facc15" }}>#{myRank.rank}</b></>}
+                        {myRank && <><span className="spire-head-dot">·</span><span>rank</span> <b style={{ color: "var(--gold)" }}>#{myRank.rank}</b></>}
                         {isAdmin && <><span className="spire-head-dot">·</span><b style={{ color: "#5eead4" }} title="Admin: every floor unlocked for testing (you don't need to win — enter to view)">🔓 all floors</b></>}
                     </span>
                 </div>
@@ -489,7 +489,7 @@ function SpireLadder({
 function Stat({ label, value, color }: { label: string; value: string; color: string }) {
     return (
         <div style={{ flex: "1 1 140px", padding: "0.7rem 0.9rem", borderRadius: 10, background: "linear-gradient(180deg,#0e1626,#0a111f)", border: "1px solid #293548" }}>
-            <div style={{ color: "#94a3b8", fontSize: "0.78rem" }}>{label}</div>
+            <div style={{ color: "var(--text-dim)", fontSize: "0.78rem" }}>{label}</div>
             <div style={{ fontSize: "1.5rem", fontWeight: 800, color }}>{value}</div>
         </div>
     );
@@ -500,13 +500,13 @@ function SquadChip({ name, you, onRemove }: { name: string; you?: boolean; onRem
         <span style={{
             display: "inline-flex", alignItems: "center", gap: 6, padding: "0.35rem 0.7rem", borderRadius: 20, fontSize: "0.84rem",
             background: you ? "linear-gradient(180deg,#15301f,#0d2014)" : "linear-gradient(180deg,#142036,#0d1830)",
-            border: `1px solid ${you ? "#4ade80" : "#3b5278"}`, color: "#e2e8f0",
+            border: `1px solid ${you ? "var(--green-400)" : "#3b5278"}`, color: "var(--slate-200)",
         }}>
             <span style={{ fontSize: 14 }}>{you ? "🥷" : "🤝"}</span>
             <strong style={{ fontWeight: 700, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</strong>
             {you
-                ? <span style={{ color: "#86efac", fontSize: "0.72rem" }}>you</span>
-                : onRemove && <button onClick={onRemove} title="Remove" style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>✕</button>}
+                ? <span style={{ color: "var(--green-300)", fontSize: "0.72rem" }}>you</span>
+                : onRemove && <button onClick={onRemove} aria-label={`Remove ${name}`} style={{ background: "none", border: "none", color: "var(--text-dim)", cursor: "pointer", fontSize: 14, padding: "4px 6px", lineHeight: 1 }}>✕</button>}
         </span>
     );
 }

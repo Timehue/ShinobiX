@@ -257,7 +257,7 @@ export function CardHall({
                 <div
                     role="status"
                     onClick={() => setStarterToast(false)}
-                    style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 9999, maxWidth: 460, padding: "10px 16px", borderRadius: 10, background: "linear-gradient(#1e293b,#0f172a)", border: "1px solid #a78bfa", color: "#e2e8f0", boxShadow: "0 6px 24px rgba(0,0,0,0.45)", fontSize: ".85rem", lineHeight: 1.35, cursor: "pointer", textAlign: "center" }}
+                    style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 9999, maxWidth: 460, padding: "10px 16px", borderRadius: 10, background: "linear-gradient(var(--slate-800),var(--slate-900))", border: "1px solid #a78bfa", color: "var(--slate-200)", boxShadow: "0 6px 24px rgba(0,0,0,0.45)", fontSize: ".85rem", lineHeight: 1.35, cursor: "pointer", textAlign: "center" }}
                 >
                     🃏 You're playing a <strong>starter deck</strong>. Build your own in the <strong>Deck Builder</strong> for a real edge. <span style={{ opacity: 0.7 }}>(tap to dismiss)</span>
                 </div>
@@ -324,7 +324,7 @@ export function CardHall({
                     <div className="cc-pvp-tab">
                         <h3 style={{ marginTop: 0 }}>Free-Play PvP</h3>
                         <p className="hint">Queue to duel another shinobi live. Free-play is <strong>unranked</strong> — no rewards, no penalties, just bragging rights. Your saved deck is used (an auto-built one if you have none).</p>
-                        {pvpError && <p className="hint" style={{ color: "#f87171" }}>{pvpError}</p>}
+                        {pvpError && <p className="hint" style={{ color: "var(--red-400)" }}>{pvpError}</p>}
                         {!pvpQueuing ? (
                             <button className="cc-btn primary" onClick={startQueue} disabled={cardClashOwned === 0}>
                                 {cardClashOwned === 0 ? "Collect cards first" : "⚔ Find a Match"}

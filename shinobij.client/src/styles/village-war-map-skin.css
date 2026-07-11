@@ -7,7 +7,7 @@
 .vwm-header h1 { font-family: var(--font-display, inherit); margin: 0.4rem 0; }
 .vwm-back { background: transparent; border: 1px solid rgba(255, 255, 255, 0.2); color: inherit; border-radius: 8px; padding: 0.35rem 0.8rem; cursor: pointer; }
 .vwm-back:hover { background: rgba(255, 255, 255, 0.08); }
-.vwm-error { color: #f87171; font-weight: 600; }
+.vwm-error { color: var(--red-400); font-weight: 600; }
 
 /* "How Sector War works" — a collapsible primer at the top of the map. */
 .vwm-info { margin: 0.55rem 0 0.9rem; border: 1px solid rgba(243, 194, 89, 0.28); border-radius: 12px; background: linear-gradient(180deg, rgba(30, 41, 59, 0.5), rgba(15, 23, 42, 0.5)); overflow: hidden; }
@@ -78,7 +78,7 @@
 .vwm-merc-band { font-size: 0.78rem; opacity: 0.9; margin: 0.35rem 0 0.2rem; color: #fbbf24; }
 .vwm-merc-deploy { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.3rem; }
 .vwm-merc-deploy select, .vwm-merc-deploy input { background: rgba(0, 0, 0, 0.3); color: inherit; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px; padding: 0.25rem; font-size: 0.78rem; }
-.vwm-merc-msg { margin-top: 0.5rem; font-size: 0.85rem; color: #86efac; }
+.vwm-merc-msg { margin-top: 0.5rem; font-size: 0.85rem; color: var(--green-300); }
 
 /* Cleaner, consistent card chrome + hover affordances. */
 .vwm-resources, .vwm-village, .vwm-contests, .vwm-mercs {
@@ -132,9 +132,9 @@
     height: 24px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
-    background: var(--vw-accent, #94a3b8);
+    background: var(--vw-accent, var(--text-dim));
     opacity: 0.28;
-    box-shadow: 0 0 8px 1px var(--vw-accent, #94a3b8);
+    box-shadow: 0 0 8px 1px var(--vw-accent, var(--text-dim));
 }
 
 /* The planted banner standee — rises ABOVE the marker (base at the point) so it
@@ -159,8 +159,8 @@
 }
 
 @keyframes vw-claim-pulse {
-    0%, 100% { opacity: 0.28; box-shadow: 0 0 6px 1px var(--vw-accent, #94a3b8); }
-    50% { opacity: 0.6; box-shadow: 0 0 15px 5px var(--vw-accent, #94a3b8); }
+    0%, 100% { opacity: 0.28; box-shadow: 0 0 6px 1px var(--vw-accent, var(--text-dim)); }
+    50% { opacity: 0.6; box-shadow: 0 0 15px 5px var(--vw-accent, var(--text-dim)); }
 }
 @keyframes vw-banner-sway {
     0%, 100% { transform: translate(-50%, -100%) rotate(-2.5deg); }

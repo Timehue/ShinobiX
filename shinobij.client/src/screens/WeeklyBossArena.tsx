@@ -77,7 +77,7 @@ export function WeeklyBossArena({
         return (
             <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>
                 <h1 style={{ marginTop: 0 }}><GiOgre style={WB_ICON} />Weekly Boss</h1>
-                <p style={{ color: "#94a3b8" }}>No boss has been summoned this week. Ask an admin to set the weekly boss AI.</p>
+                <p style={{ color: "var(--text-dim)" }}>No boss has been summoned this week. Ask an admin to set the weekly boss AI.</p>
                 <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back to Central</button>
             </div>
         );
@@ -128,9 +128,9 @@ export function WeeklyBossArena({
     return (
         <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
             <h1 style={{ marginTop: 0 }}><GiOgre style={WB_ICON} />Weekly Boss</h1>
-            <p style={{ color: "#94a3b8", marginTop: 0 }}>Week: <strong>{bossState.weekKey}</strong></p>
-            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
-            <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", margin: "0.8rem 0" }}>
+            <p style={{ color: "var(--text-dim)", marginTop: 0 }}>Week: <strong>{bossState.weekKey}</strong></p>
+            {error && <div style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}>⚠ {error}</div>}
+            <div style={{ background: "#1a1a2e", border: "1px solid var(--red-400)", borderRadius: 8, padding: "0.8rem", margin: "0.8rem 0" }}>
                 <div style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
                     {bossImage && (
                         <div style={{ flex: "0 0 96px", width: 96, height: 96, background: "#0a0a1a", border: "1px solid rgba(248,113,113,0.5)", borderRadius: 6, overflow: "hidden" }}>
@@ -144,8 +144,8 @@ export function WeeklyBossArena({
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                            <strong style={{ color: "#f87171", fontSize: "1.05rem" }}>{bossState.bossName ?? bossAi?.name ?? "Weekly Boss"}</strong>
-                            <span style={{ fontFamily: "monospace", color: expired ? "#94a3b8" : "#facc15" }}>
+                            <strong style={{ color: "var(--red-400)", fontSize: "1.05rem" }}>{bossState.bossName ?? bossAi?.name ?? "Weekly Boss"}</strong>
+                            <span style={{ fontFamily: "monospace", color: expired ? "var(--text-dim)" : "var(--gold)" }}>
                                 {expired ? <><GiTombstone style={WB_ICON} />Despawned</> : `⏱ ${countdown}`}
                             </span>
                         </div>
@@ -160,24 +160,24 @@ export function WeeklyBossArena({
             {roaming && roam?.active && (
                 <div style={{ background: "rgba(236,91,56,0.12)", border: "1px solid rgba(236,91,56,0.5)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0 0 0.5rem", fontSize: "0.85rem" }}>
                     🗺️ Now rampaging in <strong>Sector {roam.currentSector}</strong> · moves on in ~{Math.max(1, Math.ceil(roam.nextHopInMs / 60000))}m.
-                    <span style={{ color: "#94a3b8" }}> Find it there on the World Map to challenge it.</span>
+                    <span style={{ color: "var(--text-dim)" }}> Find it there on the World Map to challenge it.</span>
                 </div>
             )}
             <p>
-                Your damage: <strong style={{ color: "#facc15" }}>{myDamage.toLocaleString()}</strong>
+                Your damage: <strong style={{ color: "var(--gold)" }}>{myDamage.toLocaleString()}</strong>
                 {myRankDisplay !== null && (
-                    <span style={{ color: "#94a3b8", marginLeft: "0.5rem" }}>· Rank #{myRankDisplay}</span>
+                    <span style={{ color: "var(--text-dim)", marginLeft: "0.5rem" }}>· Rank #{myRankDisplay}</span>
                 )}
-                <span style={{ color: lockedOut ? "#f87171" : "#94a3b8", marginLeft: "0.5rem" }}>
+                <span style={{ color: lockedOut ? "var(--red-400)" : "var(--text-dim)", marginLeft: "0.5rem" }}>
                     · Attempts: <strong>{attemptsUsed}/{WEEKLY_BOSS_MAX_ATTEMPTS}</strong>
                 </span>
             </p>
             <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 6, padding: "0.5rem 0.7rem", margin: "0.4rem 0", fontSize: "0.82rem" }}>
                 <div><GiTrophy style={WB_ICON} /><strong>Rewards at despawn</strong></div>
-                <div>· Top 10 by damage → <strong style={{ color: "#facc15" }}>1 Weekly Boss Core</strong> each</div>
-                <div>· Top 25 by damage → <strong style={{ color: "#60a5fa" }}>1 Dungeon Key</strong> each</div>
+                <div>· Top 10 by damage → <strong style={{ color: "var(--gold)" }}>1 Weekly Boss Core</strong> each</div>
+                <div>· Top 25 by damage → <strong style={{ color: "var(--blue-400)" }}>1 Dungeon Key</strong> each</div>
                 <div>· Every contributor → ryo + XP share by damage (MVP = top 1 gets <strong>×2</strong>)</div>
-                <div style={{ marginTop: 4, color: "#94a3b8" }}>
+                <div style={{ marginTop: 4, color: "var(--text-dim)" }}>
                     {roaming
                         ? "Find the boss roaming the World Map and challenge it where it stands — each fight adds your damage to the leaderboard. "
                         : "Each attack launches a full arena fight vs the boss — it has unlimited HP and will eventually knock you out. Whatever damage you dealt is added to the leaderboard. "}
@@ -185,7 +185,7 @@ export function WeeklyBossArena({
                 </div>
             </div>
             {contributionDisabled && (
-                <div style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "#cbd5e1" }}>
+                <div style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
                     <GiPadlock style={WB_ICON} />{contributionDisabledCopy}
                 </div>
             )}
@@ -193,7 +193,7 @@ export function WeeklyBossArena({
                 {roaming ? (
                     <button
                         disabled={expired || lockedOut || contributionDisabled}
-                        style={{ padding: "0.8rem", background: expired || lockedOut || contributionDisabled ? "#333" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700, opacity: expired || lockedOut || contributionDisabled ? 0.6 : 1 }}
+                        style={{ padding: "0.8rem", background: expired || lockedOut || contributionDisabled ? "#333" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: expired || lockedOut || contributionDisabled ? 0.6 : 1 }}
                         onClick={() => setScreen("worldMap")}
                     >
                         {expired
@@ -210,7 +210,7 @@ export function WeeklyBossArena({
                         style={{
                             padding: "0.8rem",
                             background: expired || lockedOut || contributionDisabled ? "#333" : "linear-gradient(#7f1d1d,#450a0a)",
-                            borderColor: "#f87171",
+                            borderColor: "var(--red-400)",
                             fontWeight: 700,
                             opacity: expired || lockedOut || contributionDisabled ? 0.6 : 1,
                         }}
@@ -232,7 +232,7 @@ export function WeeklyBossArena({
             </div>
             <h3 style={{ marginTop: "1.2rem" }}>Top 25 Contributors</h3>
             <div style={{ display: "grid", gap: 4 }}>
-                {top25.length === 0 && <em style={{ color: "#64748b" }}>No damage dealt yet.</em>}
+                {top25.length === 0 && <em style={{ color: "var(--text-muted)" }}>No damage dealt yet.</em>}
                 {top25.map(([name, dmg], i) => {
                     const player = playerRoster.find(p => p.name.toLowerCase() === name);
                     // Tier coloring: MVP gold (rank 1), top-10 core tier (ranks 2-10),
@@ -269,9 +269,9 @@ export function WeeklyBossArena({
                                 alignItems: "center",
                             }}
                         >
-                            <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>#{i + 1}</span>
-                            <span>{player?.name ?? name} {player?.village ? <span style={{ color: "#94a3b8", fontSize: "0.78rem" }}>· {player.village}</span> : null}</span>
-                            <small style={{ color: "#cbd5e1", fontSize: "0.72rem" }}>{tierLabel}</small>
+                            <span style={{ color: "var(--text-dim)", fontSize: "0.85rem" }}>#{i + 1}</span>
+                            <span>{player?.name ?? name} {player?.village ? <span style={{ color: "var(--text-dim)", fontSize: "0.78rem" }}>· {player.village}</span> : null}</span>
+                            <small style={{ color: "var(--slate-300)", fontSize: "0.72rem" }}>{tierLabel}</small>
                             <strong>{(dmg as number).toLocaleString()}</strong>
                         </div>
                     );
@@ -279,7 +279,7 @@ export function WeeklyBossArena({
             </div>
             {expired && mySummary && (
                 <div style={{ background: "rgba(15,118,110,0.18)", border: "1px solid rgba(74,222,128,0.4)", borderRadius: 6, padding: "0.6rem 0.8rem", margin: "0.8rem 0 0.4rem", fontSize: "0.85rem" }}>
-                    <strong style={{ color: "#4ade80" }}>✓ Rewards distributed.</strong> You earned:
+                    <strong style={{ color: "var(--green-400)" }}>✓ Rewards distributed.</strong> You earned:
                     <ul style={{ margin: "4px 0 0 18px" }}>
                         <li>+{mySummary.ryo.toLocaleString()} ryo · +{mySummary.xp.toLocaleString()} XP{mySummary.isMvp ? " (MVP ×2)" : ""}</li>
                         {mySummary.gotCore && <li>+1 Weekly Boss Core (top 10)</li>}
@@ -288,7 +288,7 @@ export function WeeklyBossArena({
                 </div>
             )}
             {expired && !mySummary && myDamage > 0 && (
-                <p style={{ color: "#94a3b8", marginTop: "0.8rem", fontSize: "0.85rem" }}>
+                <p style={{ color: "var(--text-dim)", marginTop: "0.8rem", fontSize: "0.85rem" }}>
                     Rewards distributed — your save has been credited (refresh to see updated totals).
                 </p>
             )}
