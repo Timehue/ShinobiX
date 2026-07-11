@@ -1383,12 +1383,10 @@ export function sanitizeCharacterSave(
                     // sub-5: clamp custom-item bonuses to the built-in legendary
                     // baseline (passive %s <=1, shield <=100, vitals <=150, specialty
                     // total scaled to the per-slot budget) so a forged item can't
-                    // out-scale real gear. Flag-off keeps the legacy [0,1000] clamp.
-                    if (process.env.ITEM_BONUS_BUDGET === '1') return budgetItemBonuses(out);
-                    const bonuses = out.bonuses as Record<string, unknown>;
-                    for (const k of Object.keys(bonuses)) {
-                        bonuses[k] = Math.max(0, Math.min(1000, Number(bonuses[k]) || 0));
-                    }
+                    // out-scale real gear. PERMANENTLY ON (owner decision 2026-07-11):
+                    // the ITEM_BONUS_BUDGET env flag and the legacy [0,1000] clamp it
+                    // fell back to are retired.
+                    return budgetItemBonuses(out);
                 }
                 return out;
             });
