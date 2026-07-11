@@ -75,8 +75,9 @@ export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAcc
     return (
         <div className="card creator-card">
             <h2>Admin Login</h2>
-            <label>Password</label>
+            <label htmlFor="admin-login-pw">Password</label>
             <input
+                id="admin-login-pw"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -129,11 +130,11 @@ export function AdminPasswordReset({ adminPw }: { adminPw: string }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <p className="hint" style={{ margin: 0 }}>Set a new password for a player (e.g. for account recovery). The player's old password is not needed.</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
-                <input type="password" placeholder="New password (8-128, letter + number)" value={newPw} maxLength={PLAYER_PASSWORD_MAX_LENGTH} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+                <input aria-label="Player name" placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
+                <input type="password" aria-label="New password" placeholder="New password (8-128, letter + number)" value={newPw} maxLength={PLAYER_PASSWORD_MAX_LENGTH} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
                 <button onClick={submit}>Reset</button>
             </div>
-            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
+            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", margin: 0 }}>{msg}</p>}
         </div>
     );
 }
@@ -164,10 +165,10 @@ export function AdminClearAuthLock({ adminPw }: { adminPw: string }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <p className="hint" style={{ margin: 0 }}>Use when a player has a password record but no save data (stuck in "account exists" loop). Clears the auth lock so they can re-register with the same name.</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
+                <input aria-label="Player name" placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
                 <button onClick={submit}>Clear Auth Lock</button>
             </div>
-            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
+            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", margin: 0 }}>{msg}</p>}
         </div>
     );
 }

@@ -10,10 +10,10 @@ const STATE_LABEL: Record<LaunchState, string> = {
 };
 
 const STATE_COLOR: Record<LaunchState, string> = {
-    ready: "#4ade80",
-    monitor: "#38bdf8",
-    gate: "#facc15",
-    desktop: "#c084fc",
+    ready: "var(--green-400)",
+    monitor: "var(--cyan)",
+    gate: "var(--gold)",
+    desktop: "var(--purple-400)",
 };
 
 function readDismissed(id: string): boolean {
@@ -83,7 +83,7 @@ export function ReleaseReadinessNotice({ screen }: { screen: Screen }) {
             </span>
             <div style={{ flex: "1 1 auto", minWidth: 0 }}>
                 <strong style={{ display: "block", color: "#f8fafc", marginBottom: 2 }}>{notice.title}</strong>
-                <span style={{ color: "#cbd5e1" }}>{notice.body}</span>
+                <span style={{ color: "var(--slate-300)" }}>{notice.body}</span>
             </div>
             <button
                 type="button"
@@ -97,7 +97,7 @@ export function ReleaseReadinessNotice({ screen }: { screen: Screen }) {
                     border: "1px solid rgba(148,163,184,.35)",
                     borderRadius: 8,
                     background: "rgba(15,23,42,.8)",
-                    color: "#cbd5e1",
+                    color: "var(--slate-300)",
                     cursor: "pointer",
                     fontWeight: 800,
                 }}

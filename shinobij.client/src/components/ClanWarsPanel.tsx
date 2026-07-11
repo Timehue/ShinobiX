@@ -47,7 +47,7 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
                     type="button"
                     onClick={() => setShowClanWarManual(v => !v)}
                     title="How does Clan War work?"
-                    style={{ padding: "0.15rem 0.5rem", fontSize: "0.85rem", borderRadius: 999, border: "1px solid #60a5fa", background: "#1e293b", color: "#60a5fa", cursor: "pointer", width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}
+                    style={{ padding: "0.15rem 0.5rem", fontSize: "0.85rem", borderRadius: 999, border: "1px solid var(--blue-400)", background: "var(--slate-800)", color: "var(--blue-400)", cursor: "pointer", width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}
                 >
                     ?
                 </button>
@@ -62,8 +62,8 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
             {loading && <p className="hint">Loading clan war state…</p>}
 
             {!loading && activeWar && (
-                <div className="war-record-card" style={{ background: "#1f0a0a", borderColor: "#f87171", marginTop: 10 }}>
-                    <strong style={{ color: "#f87171" }}>🚨 Active Clan War vs {enemyClan}</strong>
+                <div className="war-record-card" style={{ background: "#1f0a0a", borderColor: "var(--red-400)", marginTop: 10 }}>
+                    <strong style={{ color: "var(--red-400)" }}>🚨 Active Clan War vs {enemyClan}</strong>
                     <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
                         <div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
@@ -71,7 +71,7 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
                                 <span style={{ flexShrink: 0, marginLeft: 8 }}>{(activeWar.hp[clanName] ?? 0).toLocaleString()} / {(activeWar.hpMax?.[clanName] ?? CW_HP_MAX).toLocaleString()} HP</span>
                             </div>
                             <div className="bar" style={{ background: "#0b1220" }}>
-                                <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[clanName] ?? 0) / (activeWar.hpMax?.[clanName] ?? CW_HP_MAX)) * 100))}%`, background: "#22c55e" }} />
+                                <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[clanName] ?? 0) / (activeWar.hpMax?.[clanName] ?? CW_HP_MAX)) * 100))}%`, background: "var(--success)" }} />
                             </div>
                         </div>
                         <div>
@@ -80,11 +80,11 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
                                 <span style={{ flexShrink: 0, marginLeft: 8 }}>{(activeWar.hp[enemyClan] ?? 0).toLocaleString()} / {(activeWar.hpMax?.[enemyClan] ?? CW_HP_MAX).toLocaleString()} HP</span>
                             </div>
                             <div className="bar enemy-bar" style={{ background: "#0b1220" }}>
-                                <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[enemyClan] ?? 0) / (activeWar.hpMax?.[enemyClan] ?? CW_HP_MAX)) * 100))}%`, background: "#ef4444" }} />
+                                <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[enemyClan] ?? 0) / (activeWar.hpMax?.[enemyClan] ?? CW_HP_MAX)) * 100))}%`, background: "var(--danger)" }} />
                             </div>
                         </div>
                     </div>
-                    <small style={{ display: "block", marginTop: 6, color: "#94a3b8" }}>
+                    <small style={{ display: "block", marginTop: 6, color: "var(--text-dim)" }}>
                         Started {new Date(activeWar.startedAt).toLocaleDateString()} · {activeWar.completedChallenges.length} battles completed · {activeWar.pendingChallenges.length} pending
                     </small>
                     <div className="menu" style={{ marginTop: 8 }}>
@@ -94,7 +94,7 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
             )}
 
             {!loading && !activeWar && (
-                <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginTop: 10 }}>
+                <div style={{ background: "#0b1220", border: "1px solid var(--slate-700)", borderRadius: 6, padding: "0.8rem", marginTop: 10 }}>
                     <p style={{ margin: 0 }}>{clanName} is not currently in a clan war.</p>
                     <p className="hint" style={{ marginTop: 6 }}>
                         Clan Founder, Leader, or Officer can declare war from the Shinobi Council Hall → Clan Battles tab.
@@ -116,7 +116,7 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
                             const mvp = w.mvpByClan?.[clanName];
                             return (
                                 <div key={w.id} className="war-record-card">
-                                    <strong style={{ color: weWon ? "#4ade80" : "#f87171" }}>{weWon ? "🏆 Victory" : "💀 Defeat"} vs {opponent}</strong>
+                                    <strong style={{ color: weWon ? "var(--green-400)" : "var(--red-400)" }}>{weWon ? "🏆 Victory" : "💀 Defeat"} vs {opponent}</strong>
                                     <small>HP: {clanName} {(w.hp[clanName] ?? 0).toLocaleString()} · {opponent} {(w.hp[opponent] ?? 0).toLocaleString()}</small>
                                     <small>Battles: {w.completedChallenges.length} · Ended {w.endedAt ? new Date(w.endedAt).toLocaleDateString() : "—"}</small>
                                     {mvp && <small>👑 MVP: {mvp}</small>}
@@ -130,7 +130,7 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
             <p className="hint" style={{ marginTop: 14, fontSize: "0.78rem" }}>
                 Tip: Clan wars deal HP damage by challenge type — Combat ({CW_DAMAGE.pvp1v1} / {CW_DAMAGE.pvp2v2}) &gt; Pet ({CW_DAMAGE.pet1v1} / {CW_DAMAGE.pet2v2}) &gt; Card Clash ({CW_DAMAGE.tilecards}). Drive the enemy clan to 0 HP to win.
             </p>
-            <p className="hint" style={{ fontSize: "0.72rem", color: "#64748b" }}>You are playing as {character.name}.</p>
+            <p className="hint" style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>You are playing as {character.name}.</p>
         </div>
     );
 }

@@ -57,9 +57,9 @@ const NPC_LINES = [
 const GAUNTLET_BUILD = "g22";
 
 const ELEMENT_COLOR: Record<string, string> = {
-    Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
+    Fire: "#fb923c", Water: "var(--cyan)", Wind: "#5eead4", Lightning: "var(--gold)", Earth: "#a3a380",
 };
-const elColor = (el?: string | null) => (el && ELEMENT_COLOR[el]) || "#94a3b8";
+const elColor = (el?: string | null) => (el && ELEMENT_COLOR[el]) || "var(--text-dim)";
 const roleOf = (p: Pet): PetRole => (p.role as PetRole | undefined) ?? derivePetRole(p).role;
 // Deterministic fight seed from the run + round so a round's fight is reproducible.
 const fightSeed = (run: GauntletRun) => (run.seed * 7919 + run.round * 104729) >>> 0;
@@ -71,14 +71,14 @@ function PetMiniCard({ pet, footer, sharedImages = {}, badge }: { pet: Pet; foot
             {badge && <span style={{ position: "absolute", top: 5, right: 5, zIndex: 2, padding: "1px 7px", borderRadius: 999, background: "rgba(252,211,77,0.95)", color: "#3b2f0b", fontWeight: 900, fontSize: "0.66rem", boxShadow: "0 1px 4px rgba(0,0,0,0.6)" }}>{badge}</span>}
             {(() => { const img = petCardImage(pet, sharedImages); return img ? <img src={img} alt="" style={{ display: "block", width: "100%", height: 70, objectFit: "contain", marginBottom: 4, filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.5))" }} /> : null; })()}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                <strong style={{ fontSize: "0.86rem", color: "#e2e8f0" }}>{pet.name}</strong>
+                <strong style={{ fontSize: "0.86rem", color: "var(--slate-200)" }}>{pet.name}</strong>
                 <span title={ROLE_META[role].label} style={{ fontSize: "0.92rem" }}>{ROLE_META[role].icon}</span>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "3px 0 5px" }}>
                 <span style={{ fontSize: "0.7rem", fontWeight: 700, color: elColor(pet.element) }}>{pet.element ?? "—"}</span>
-                <span style={{ fontSize: "0.68rem", color: "#64748b", textTransform: "capitalize" }}>· {pet.rarity}</span>
+                <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", textTransform: "capitalize" }}>· {pet.rarity}</span>
             </div>
-            <div style={{ display: "flex", gap: 8, fontSize: "0.68rem", color: "#94a3b8" }}>
+            <div style={{ display: "flex", gap: 8, fontSize: "0.68rem", color: "var(--text-dim)" }}>
                 <span title="HP">❤ {pet.hp}</span><span title="Attack">⚔ {pet.attack}</span><span title="Defense">🛡 {pet.defense}</span><span title="Speed">💨 {pet.speed}</span>
             </div>
             {footer && <div style={{ marginTop: 6 }}>{footer}</div>}
@@ -87,8 +87,8 @@ function PetMiniCard({ pet, footer, sharedImages = {}, badge }: { pet: Pet; foot
 }
 
 const btn = (bg: string, disabled = false): React.CSSProperties => ({
-    padding: "5px 12px", borderRadius: 8, border: "1px solid #334155", background: disabled ? "#1e293b" : bg,
-    color: disabled ? "#64748b" : "#0b1220", fontWeight: 800, fontSize: "0.78rem", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1,
+    padding: "5px 12px", borderRadius: 8, border: "1px solid var(--slate-700)", background: disabled ? "var(--slate-800)" : bg,
+    color: disabled ? "var(--text-muted)" : "#0b1220", fontWeight: 800, fontSize: "0.78rem", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1,
 });
 
 // Compact "+X% ⚔" parts for the run-wide buffs (Quartermaster items + stat relics).
@@ -105,18 +105,18 @@ const buffParts = (b: GauntletBuffs): string[] => [
 // or the enemy's round scaling.
 function TeamStatCard({ title, accent, totals, edge, footer }: { title: string; accent: string; totals: TeamStatTotals; edge: number; footer?: React.ReactNode }) {
     const edgePct = Math.round((edge - 1) * 100);
-    const edgeColor = edgePct > 0 ? "#4ade80" : edgePct < 0 ? "#f87171" : "#94a3b8";
+    const edgeColor = edgePct > 0 ? "var(--green-400)" : edgePct < 0 ? "var(--red-400)" : "var(--text-dim)";
     return (
         <div style={{ border: `1px solid ${accent}55`, borderRadius: 10, background: "rgba(15,23,42,0.62)", padding: "9px 11px", display: "grid", gap: 6 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
                 <strong style={{ color: accent, fontSize: "0.78rem", letterSpacing: "0.05em" }}>{title}</strong>
-                <span style={{ fontSize: "0.64rem", color: "#64748b" }}>{totals.count} pet{totals.count === 1 ? "" : "s"}</span>
+                <span style={{ fontSize: "0.64rem", color: "var(--text-muted)" }}>{totals.count} pet{totals.count === 1 ? "" : "s"}</span>
             </div>
             {totals.count === 0 ? (
-                <div style={{ fontSize: "0.66rem", color: "#64748b" }}>No pets fielded yet.</div>
+                <div style={{ fontSize: "0.66rem", color: "var(--text-muted)" }}>No pets fielded yet.</div>
             ) : (
                 <>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 10px", fontSize: "0.72rem", color: "#cbd5e1" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 10px", fontSize: "0.72rem", color: "var(--slate-300)" }}>
                         <span title="Team HP pool (after bonuses)">❤ {totals.hp.toLocaleString()}</span>
                         <span title="Team attack pool (after bonuses)">⚔ {totals.attack.toLocaleString()}</span>
                         <span title="Average defense per pet">🛡 {totals.defenseAvg}</span>
@@ -130,7 +130,7 @@ function TeamStatCard({ title, accent, totals, edge, footer }: { title: string; 
                         </div>
                     )}
                     <div title="Average element damage multiplier this squad deals to the other (the board sim's Fire→Wind→Lightning→Earth→Water cycle)" style={{ fontSize: "0.7rem", fontWeight: 700, color: edgeColor }}>
-                        ⚖ Elemental {edgePct === 0 ? "even" : `${edgePct > 0 ? "+" : ""}${edgePct}%`} <span style={{ color: "#64748b", fontWeight: 400 }}>×{edge.toFixed(2)}</span>
+                        ⚖ Elemental {edgePct === 0 ? "even" : `${edgePct > 0 ? "+" : ""}${edgePct}%`} <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>×{edge.toFixed(2)}</span>
                     </div>
                 </>
             )}
@@ -246,7 +246,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     }, [run, meta, updateCharacter]);
 
     if (!run) {
-        return <section className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Entering the weekly Gauntlet…</section>;
+        return <section className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Entering the weekly Gauntlet…</section>;
     }
     // Non-null alias: TS keeps the guard's narrowing here at top level, but not
     // inside the nested function declarations below — close over `activeRun`.
@@ -321,39 +321,39 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
             {/* Hero header — generated banner (fal Flux) under a dark gradient for text legibility. */}
             <div style={{ borderRadius: 12, padding: "22px 20px", border: "1px solid #3b2f55", backgroundImage: `linear-gradient(105deg, rgba(8,11,22,0.86), rgba(8,11,22,0.4) 70%), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center 38%" }}>
-                <h3 style={{ margin: 0, font: "800 1.15rem var(--font-display)", color: "#fcd34d" }}>🗡️ Pet Gauntlet</h3>
+                <h3 style={{ margin: 0, font: "800 1.15rem var(--font-display)", color: "var(--gold-400)" }}>🗡️ Pet Gauntlet</h3>
                 <p className="hint" style={{ margin: "4px 0 0" }}>
                     Draft a run-only squad from a <strong style={{ color: "#c4b5fd" }}>randomized</strong> shop, chase element &amp; role synergies, and survive {run.maxRounds} escalating rounds.
-                    Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "#fcd34d" }}>Ryo</strong>, and the deepest clears
+                    Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "var(--gold-400)" }}>Ryo</strong>, and the deepest clears
                     climb the weekly <strong style={{ color: "#c4b5fd" }}>Hall of Legends</strong> board.
-                    {meta && !meta.rewardEligible && <em style={{ color: "#fca5a5" }}> · Daily Ryo cap reached — this run is for the leaderboard.</em>}
+                    {meta && !meta.rewardEligible && <em style={{ color: "var(--red-300)" }}> · Daily Ryo cap reached — this run is for the leaderboard.</em>}
                 </p>
             </div>
 
             {/* Run status bar */}
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", padding: "8px 14px", background: "rgba(15,23,42,0.55)", border: "1px solid #334155", borderRadius: 10, fontWeight: 800 }}>
-                <span style={{ color: "#fca5a5" }}>{"❤".repeat(Math.max(0, run.hearts))}{"🖤".repeat(Math.max(0, GAUNTLET_START_HEARTS - run.hearts))}</span>
-                <span title="Valor — the Gauntlet's run-only shop currency (not your Ryo)" style={{ color: "#fcd34d" }}>✦ {run.valor} Valor</span>
-                <span style={{ color: "#93c5fd" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
-                <span title="Gauntlet client build — confirms which version the live site is serving" style={{ color: "#475569", fontSize: "0.62rem", fontWeight: 700 }}>build {GAUNTLET_BUILD}</span>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", padding: "8px 14px", background: "rgba(15,23,42,0.55)", border: "1px solid var(--slate-700)", borderRadius: 10, fontWeight: 800 }}>
+                <span style={{ color: "var(--red-300)" }}>{"❤".repeat(Math.max(0, run.hearts))}{"🖤".repeat(Math.max(0, GAUNTLET_START_HEARTS - run.hearts))}</span>
+                <span title="Valor — the Gauntlet's run-only shop currency (not your Ryo)" style={{ color: "var(--gold-400)" }}>✦ {run.valor} Valor</span>
+                <span style={{ color: "var(--blue-300)" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
+                <span title="Gauntlet client build — confirms which version the live site is serving" style={{ color: "var(--slate-600)", fontSize: "0.62rem", fontWeight: 700 }}>build {GAUNTLET_BUILD}</span>
                 <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
-                    {!over && <button type="button" style={btn("#a855f7")} onClick={() => setShopOpen(true)}>🛒 Shop</button>}
-                    <button type="button" style={btn("#475569")} onClick={newRun}>↻ New Run ({GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo)</button>
+                    {!over && <button type="button" style={btn("var(--purple-500)")} onClick={() => setShopOpen(true)}>🛒 Shop</button>}
+                    <button type="button" style={btn("var(--slate-600)")} onClick={newRun}>↻ New Run ({GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo)</button>
                 </span>
             </div>
 
             {over ? (
                 <div style={{ textAlign: "center", padding: "1.4rem" }}>
-                    <div style={{ font: "900 2rem Inter, sans-serif", color: run.status === "won" ? "#4ade80" : "#f87171" }}>
+                    <div style={{ font: "900 2rem Inter, sans-serif", color: run.status === "won" ? "var(--green-400)" : "var(--red-400)" }}>
                         {run.status === "won" ? "🏆 Gauntlet Cleared!" : "Run Over"}
                     </div>
                     <p className="hint">{run.log[run.log.length - 1]}</p>
                     <p className="hint" style={{ margin: "2px 0 10px" }}>Cleared {run.roundsCleared} / {run.maxRounds} rounds.</p>
                     {reward ? (
                         <div style={{ display: "inline-flex", flexDirection: "column", gap: 4, padding: "10px 18px", margin: "0 auto 12px", borderRadius: 12, background: "rgba(120,53,15,0.3)", border: "1px solid rgba(250,204,21,0.5)" }}>
-                            <span style={{ font: "800 1.1rem Inter, sans-serif", color: "#fcd34d" }}>{reward.ryo > 0 ? `+${reward.ryo.toLocaleString()} Ryo` : "No Ryo this run"}</span>
+                            <span style={{ font: "800 1.1rem Inter, sans-serif", color: "var(--gold-400)" }}>{reward.ryo > 0 ? `+${reward.ryo.toLocaleString()} Ryo` : "No Ryo this run"}</span>
                             {(reward.fateShards > 0 || reward.boneCharms > 0) && (
-                                <span style={{ font: "800 0.92rem Inter, sans-serif", color: "#fde68a" }}>
+                                <span style={{ font: "800 0.92rem Inter, sans-serif", color: "var(--gold-300)" }}>
                                     {reward.fateShards > 0 ? `+${reward.fateShards} 🔮 Fate Shard${reward.fateShards === 1 ? "" : "s"}` : ""}
                                     {reward.fateShards > 0 && reward.boneCharms > 0 ? " · " : ""}
                                     {reward.boneCharms > 0 ? `+${reward.boneCharms} 🦴 Bone Charm${reward.boneCharms === 1 ? "" : "s"}` : ""}
@@ -364,17 +364,17 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     ) : (
                         <p className="hint" style={{ fontSize: "0.74rem", opacity: 0.75 }}>Tallying the result…</p>
                     )}
-                    <div><button type="button" style={{ ...btn("#f59e0b"), padding: "8px 18px", fontSize: "0.9rem" }} onClick={newRun}>Run the weekly Gauntlet again</button></div>
+                    <div><button type="button" style={{ ...btn("var(--gold-2)"), padding: "8px 18px", fontSize: "0.9rem" }} onClick={newRun}>Run the weekly Gauntlet again</button></div>
                 </div>
             ) : (
                 <>
                     {/* Latest event — surfaces the round result (incl. a loss → retry + consolation Valor). */}
-                    <p className="hint" style={{ margin: "-2px 0 4px", fontSize: "0.76rem", color: run.log[run.log.length - 1]?.includes("lost") ? "#fca5a5" : "#cbd5e1" }}>{run.log[run.log.length - 1]}</p>
+                    <p className="hint" style={{ margin: "-2px 0 4px", fontSize: "0.76rem", color: run.log[run.log.length - 1]?.includes("lost") ? "var(--red-300)" : "var(--slate-300)" }}>{run.log[run.log.length - 1]}</p>
                     {/* Fielded squad + active synergies */}
                     <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-                            <h4 style={{ margin: 0, color: "#e2e8f0" }}>Your Formation ({fielded.length}/5)</h4>
-                            <button type="button" style={btn("#f59e0b", fielded.length === 0)} disabled={fielded.length === 0} onClick={startRound}>⚔ Fight Round {run.round}</button>
+                            <h4 style={{ margin: 0, color: "var(--slate-200)" }}>Your Formation ({fielded.length}/5)</h4>
+                            <button type="button" style={btn("var(--gold-2)", fielded.length === 0)} disabled={fielded.length === 0} onClick={startRound}>⚔ Fight Round {run.round}</button>
                         </div>
                         {synergies.length > 0 ? (
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
@@ -391,20 +391,20 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                             ? <p className="hint">Recruit pets from the shop below to build your squad — then click a pet and a cell to position it here.</p>
                             : (
                                 <div>
-                                    <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.74rem" }}>Click a pet, then a cell on <strong style={{ color: "#93c5fd" }}>your side</strong> (bottom), to position it — this is the board you'll fight on. Your front line meets the enemy's in the middle.</p>
+                                    <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.74rem" }}>Click a pet, then a cell on <strong style={{ color: "var(--blue-300)" }}>your side</strong> (bottom), to position it — this is the board you'll fight on. Your front line meets the enemy's in the middle.</p>
                                     <details style={{ margin: "0 0 8px", fontSize: "0.72rem" }}>
-                                        <summary style={{ cursor: "pointer", color: "#fcd34d", fontWeight: 700 }}>⚔ How combat works — roles &amp; position</summary>
-                                        <div style={{ display: "grid", gap: 3, margin: "5px 0 0", padding: "7px 10px", borderRadius: 8, background: "rgba(15,23,42,0.55)", border: "1px solid #334155", color: "#cbd5e1", lineHeight: 1.45 }}>
+                                        <summary style={{ cursor: "pointer", color: "var(--gold-400)", fontWeight: 700 }}>⚔ How combat works — roles &amp; position</summary>
+                                        <div style={{ display: "grid", gap: 3, margin: "5px 0 0", padding: "7px 10px", borderRadius: 8, background: "rgba(15,23,42,0.55)", border: "1px solid var(--slate-700)", color: "var(--slate-300)", lineHeight: 1.45 }}>
                                             <div><span style={{ color: "#7dd3fc" }}>🛡 Defender</span> — a tank in your <strong>front row taunts</strong>: enemy melee must hit it before your squishier pets.</div>
-                                            <div><span style={{ color: "#fca5a5" }}>🗡 Assassin</span> — <strong>dives the back row</strong>, hunting the enemy <span style={{ color: "#4ade80" }}>Sage</span> (healer) first.</div>
+                                            <div><span style={{ color: "var(--red-300)" }}>🗡 Assassin</span> — <strong>dives the back row</strong>, hunting the enemy <span style={{ color: "var(--green-400)" }}>Sage</span> (healer) first.</div>
                                             <div><span style={{ color: "#fbbf24" }}>🎯 Tracker</span> — ranged; <strong>snipes the lowest-HP foe</strong> anywhere, and hunts enemy Sages.</div>
-                                            <div><span style={{ color: "#4ade80" }}>✚ Sage</span> — heals &amp; shields your most-wounded pet. Keep it protected — it's a target.</div>
-                                            <div style={{ marginTop: 2, color: "#94a3b8" }}>📍 <strong>Position:</strong> melee can't reach the back until the front falls. <span style={{ color: "#fcd34d" }}>Front row +12% damage</span>; <span style={{ color: "#7dd3fc" }}>back row takes −18% melee</span> (cover).</div>
+                                            <div><span style={{ color: "var(--green-400)" }}>✚ Sage</span> — heals &amp; shields your most-wounded pet. Keep it protected — it's a target.</div>
+                                            <div style={{ marginTop: 2, color: "var(--text-dim)" }}>📍 <strong>Position:</strong> melee can't reach the back until the front falls. <span style={{ color: "var(--gold-400)" }}>Front row +12% damage</span>; <span style={{ color: "#7dd3fc" }}>back row takes −18% melee</span> (cover).</div>
                                         </div>
                                     </details>
                                     <div style={{ display: "flex", gap: 10, alignItems: "stretch", justifyContent: "center", flexWrap: "wrap" }}>
                                     <div style={{ flex: "1 1 360px", maxWidth: 560, borderRadius: 12, border: "1px solid #3b2f55", padding: 7, backgroundImage: `linear-gradient(rgba(8,11,20,0.32), rgba(8,11,20,0.32)), url(${gauntletBoard})`, backgroundSize: "cover", backgroundPosition: "center" }}>
-                                        <div style={{ fontSize: "0.64rem", fontWeight: 700, color: "#fca5a5", letterSpacing: "0.08em", margin: "0 0 3px 2px" }}>ENEMY</div>
+                                        <div style={{ fontSize: "0.64rem", fontWeight: 700, color: "var(--red-300)", letterSpacing: "0.08em", margin: "0 0 3px 2px" }}>ENEMY</div>
                                         <div style={{ display: "grid", gridTemplateColumns: `repeat(${BOARD_COLS}, 1fr)`, gap: 5 }}>
                                             {Array.from({ length: BOARD_ROWS_PER_SIDE * 2 }).flatMap((_, gr) =>
                                                 Array.from({ length: BOARD_COLS }).map((_, c) => {
@@ -426,9 +426,9 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                     const img = pet ? petCardImage(pet, sharedImages) : "";
                                                     return (
                                                         <button key={`p${gr}-${c}`} type="button" onClick={() => clickCell(pRow, c)} title={pRow === 0 ? "Front line" : pRow === BOARD_ROWS_PER_SIDE - 1 ? "Back line" : "Mid line"}
-                                                            style={{ aspectRatio: "1", borderRadius: 6, border: `1px solid ${sel ? "#facc15" : "rgba(96,165,250,0.42)"}`, background: pet ? "rgba(15,23,42,0.5)" : "rgba(30,52,82,0.3)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.7)" : "none" }}>
+                                                            style={{ aspectRatio: "1", borderRadius: 6, border: `1px solid ${sel ? "var(--gold)" : "rgba(96,165,250,0.42)"}`, background: pet ? "rgba(15,23,42,0.5)" : "rgba(30,52,82,0.3)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.7)" : "none" }}>
                                                             {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain" }} /> : null}
-                                                            {pet && petStar(run, pet.id) > 1 && <span title={`Merged ★${petStar(run, pet.id)}`} style={{ position: "absolute", top: 1, left: 3, fontSize: "0.56rem", fontWeight: 900, color: "#fcd34d", textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}>★{petStar(run, pet.id)}</span>}
+                                                            {pet && petStar(run, pet.id) > 1 && <span title={`Merged ★${petStar(run, pet.id)}`} style={{ position: "absolute", top: 1, left: 3, fontSize: "0.56rem", fontWeight: 900, color: "var(--gold-400)", textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}>★{petStar(run, pet.id)}</span>}
                                                             {pet?.element && <span title={pet.element} style={{ position: "absolute", bottom: 0, left: 2, fontSize: "0.62rem", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}>{elementIcon(pet.element)}</span>}
                                                             {pet && <span title={ROLE_META[roleOf(pet)].label} style={{ position: "absolute", bottom: 1, right: 3, fontSize: "0.58rem", color: elColor(pet.element) }}>{ROLE_META[roleOf(pet)].icon}</span>}
                                                         </button>
@@ -436,20 +436,20 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                 }),
                                             )}
                                         </div>
-                                        <div style={{ fontSize: "0.64rem", fontWeight: 700, color: "#93c5fd", letterSpacing: "0.08em", margin: "3px 0 0 2px", textAlign: "right" }}>YOU</div>
+                                        <div style={{ fontSize: "0.64rem", fontWeight: 700, color: "var(--blue-300)", letterSpacing: "0.08em", margin: "3px 0 0 2px", textAlign: "right" }}>YOU</div>
                                     </div>
                                     {/* Team stat column — pooled power, element spread + elemental edge,
                                         and (for you) the synergies / relics / boosts you've drafted. Stacked
                                         to mirror the board halves: enemy on top, you on the bottom. */}
                                     <div style={{ flex: "1 1 208px", maxWidth: 272, minWidth: 184, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8 }}>
-                                        <TeamStatCard title="🛡 ENEMY SQUAD" accent="#f87171" totals={enemyTotals} edge={enemyEdge} footer={
-                                            <div style={{ fontSize: "0.64rem", color: "#fca5a5" }} title="Per-round stat multiplier applied to every enemy pet this round">Round scaling <strong>×{enemyStatMultForRound(run.round).toFixed(2)}</strong></div>
+                                        <TeamStatCard title="🛡 ENEMY SQUAD" accent="var(--red-400)" totals={enemyTotals} edge={enemyEdge} footer={
+                                            <div style={{ fontSize: "0.64rem", color: "var(--red-300)" }} title="Per-round stat multiplier applied to every enemy pet this round">Round scaling <strong>×{enemyStatMultForRound(run.round).toFixed(2)}</strong></div>
                                         } />
-                                        <TeamStatCard title="⚔ YOUR SQUAD" accent="#93c5fd" totals={playerTotals} edge={playerEdge} footer={
+                                        <TeamStatCard title="⚔ YOUR SQUAD" accent="var(--blue-300)" totals={playerTotals} edge={playerEdge} footer={
                                             (synergies.length > 0 || run.relics.length > 0 || buffParts(run.buffs).length > 0) ? (
                                                 <div style={{ display: "grid", gap: 5 }}>
                                                     {buffParts(run.buffs).length > 0 && (
-                                                        <div style={{ fontSize: "0.64rem", color: "#fcd34d" }} title="Run-wide boosts folded in from Quartermaster items + stat relics">Boosts: {buffParts(run.buffs).join(" · ")}</div>
+                                                        <div style={{ fontSize: "0.64rem", color: "var(--gold-400)" }} title="Run-wide boosts folded in from Quartermaster items + stat relics">Boosts: {buffParts(run.buffs).join(" · ")}</div>
                                                     )}
                                                     {synergies.length > 0 && (
                                                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -461,7 +461,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                     {run.relics.length > 0 && (
                                                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                                                             {run.relics.map((id) => { const d = relicDef(id); const art = relicArt(id); return (
-                                                                <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 3, alignItems: "center", padding: "1px 6px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid #a855f7", color: "#d8b4fe", fontWeight: 700, fontSize: "0.62rem" }}>
+                                                                <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 3, alignItems: "center", padding: "1px 6px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid var(--purple-500)", color: "#d8b4fe", fontWeight: 700, fontSize: "0.62rem" }}>
                                                                     {art ? <img src={art} alt="" style={{ width: 12, height: 12, objectFit: "contain" }} /> : <span>{d.icon}</span>}{d.name}
                                                                 </span>
                                                             ); })}
@@ -469,7 +469,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div style={{ fontSize: "0.62rem", color: "#64748b" }}>Draft pets that share an element or role for synergies, and shop relics, to boost your squad.</div>
+                                                <div style={{ fontSize: "0.62rem", color: "var(--text-muted)" }}>Draft pets that share an element or role for synergies, and shop relics, to boost your squad.</div>
                                             )
                                         } />
                                     </div>
@@ -483,7 +483,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     <p className="hint" style={{ margin: 0 }}>
                         Next: {enemySquadForRound(run).map((e) => e.name).join(" + ")} ({enemySquadForRound(run)[0]?.rarity}).
                         {run.round >= GAUNTLET_SPIKE_ROUND
-                            ? <strong style={{ color: "#f87171" }}> ⚠ Elite round — enemies are far tougher from here. Optimize your squad.</strong>
+                            ? <strong style={{ color: "var(--red-400)" }}> ⚠ Elite round — enemies are far tougher from here. Optimize your squad.</strong>
                             : run.round === GAUNTLET_SPIKE_ROUND - 1
                                 ? <strong style={{ color: "#fbbf24" }}> ⚠ The gauntlet hardens next round ({GAUNTLET_SPIKE_ROUND}). Gear up.</strong>
                                 : null}
@@ -494,12 +494,12 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     {/* Shop */}
                     <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-                            <h4 style={{ margin: 0, color: "#e2e8f0" }}>Recruit Shop</h4>
-                            <button type="button" style={btn("#38bdf8", run.valor < rerollCost)} disabled={run.valor < rerollCost} onClick={() => setRun(rerollShop(run))}>
+                            <h4 style={{ margin: 0, color: "var(--slate-200)" }}>Recruit Shop</h4>
+                            <button type="button" style={btn("var(--cyan)", run.valor < rerollCost)} disabled={run.valor < rerollCost} onClick={() => setRun(rerollShop(run))}>
                                 🎲 Reroll ({rerollCost === 0 ? "free" : `${rerollCost}✦`})
                             </button>
                         </div>
-                        <p className="hint" style={{ margin: "0 0 6px" }}>Recruit a pet you already own to <strong style={{ color: "#fcd34d" }}>merge</strong> it — the copy levels up (★) with a stat boost instead of taking a roster slot.</p>
+                        <p className="hint" style={{ margin: "0 0 6px" }}>Recruit a pet you already own to <strong style={{ color: "var(--gold-400)" }}>merge</strong> it — the copy levels up (★) with a stat boost instead of taking a roster slot.</p>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             {run.shop.length === 0
                                 ? <p className="hint">Sold out — reroll for fresh recruits.</p>
@@ -513,7 +513,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                     const blocked = run.valor < cost || (rosterFull && !merges);
                                     return (
                                         <PetMiniCard key={`${offer.pet.id}-${i}`} pet={offer.pet} sharedImages={sharedImages} badge={merges ? `★${nextStar}` : undefined} footer={
-                                            <button type="button" style={btn(merges ? "#fcd34d" : "#4ade80", blocked)} disabled={blocked} onClick={() => setRun(buyOffer(run, i))}>
+                                            <button type="button" style={btn(merges ? "var(--gold-400)" : "var(--green-400)", blocked)} disabled={blocked} onClick={() => setRun(buyOffer(run, i))}>
                                                 {merges ? `Merge ★${nextStar} · ${cost}✦` : rosterFull ? "Roster full" : `Recruit · ${cost}✦`}
                                             </button>
                                         } />
@@ -529,17 +529,17 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         <div onClick={(e) => e.stopPropagation()} style={{ width: "min(840px, 96vw)", maxHeight: "94vh", display: "flex", flexDirection: "column", borderRadius: 14, border: "1px solid #6d28d9", boxShadow: "0 24px 70px rgba(0,0,0,0.7)", overflow: "hidden", backgroundColor: "#0a0914", backgroundImage: gauntletShop ? `linear-gradient(rgba(8,6,16,0.46) 0%, rgba(8,6,16,0.88) 32%, rgba(8,6,16,0.96) 100%), url(${gauntletShop})` : "none", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" }}>
                             {/* Title bar (transparent — the panel backdrop shows the shopkeeper) */}
                             <div style={{ position: "relative", padding: "16px 20px 10px", flexShrink: 0 }}>
-                                <button type="button" onClick={() => setShopOpen(false)} aria-label="Close shop" style={{ position: "absolute", top: 8, right: 10, width: 30, height: 30, borderRadius: 8, border: "1px solid #475569", background: "rgba(15,23,42,0.85)", color: "#e2e8f0", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}>✕</button>
-                                <strong style={{ color: "#fcd34d", font: "800 1.15rem var(--font-display)", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}>🛒 The Beastmaster's Bazaar</strong>
+                                <button type="button" onClick={() => setShopOpen(false)} aria-label="Close shop" style={{ position: "absolute", top: 8, right: 10, width: 30, height: 30, borderRadius: 8, border: "1px solid var(--slate-600)", background: "rgba(15,23,42,0.85)", color: "var(--slate-200)", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}>✕</button>
+                                <strong style={{ color: "var(--gold-400)", font: "800 1.15rem var(--font-display)", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}>🛒 The Beastmaster's Bazaar</strong>
                                 <p className="hint" style={{ margin: "4px 0 8px", fontStyle: "italic", color: "#f1e7c6", maxWidth: 460, textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}>“{NPC_LINES[(run.round - 1) % NPC_LINES.length]}”</p>
-                                <span title="Valor — the run-only shop currency (not your Ryo)" style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, background: "rgba(0,0,0,0.6)", border: "1px solid rgba(252,211,77,0.5)", color: "#fcd34d", fontWeight: 800 }}>✦ {run.valor} Valor</span>
+                                <span title="Valor — the run-only shop currency (not your Ryo)" style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, background: "rgba(0,0,0,0.6)", border: "1px solid rgba(252,211,77,0.5)", color: "var(--gold-400)", fontWeight: 800 }}>✦ {run.valor} Valor</span>
                             </div>
                             {/* Scrollable shop body (transparent so the backdrop shows through) */}
                             <div style={{ padding: "6px 18px 18px", display: "grid", gap: "0.9rem", overflowY: "auto" }}>
 
                     {/* Item shop — Valor consumables that buff the whole run */}
                     <div>
-                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Quartermaster <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· run-wide upgrades</span></h4>
+                        <h4 style={{ margin: "0 0 6px", color: "var(--slate-200)" }}>Quartermaster <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· run-wide upgrades</span></h4>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             {GAUNTLET_ITEMS.map((def) => {
                                 const owned = run.itemsBought[def.id] ?? 0;
@@ -549,13 +549,13 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                 const blocked = maxed || atFullHearts || run.valor < cost;
                                 const label = maxed ? "Maxed" : atFullHearts ? "Full ❤" : `Buy · ${cost}✦`;
                                 return (
-                                    <div key={def.id} style={{ border: "1px solid #334155", borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", width: 150 }}>
+                                    <div key={def.id} style={{ border: "1px solid var(--slate-700)", borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", width: 150 }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                            <strong style={{ fontSize: "0.84rem", color: "#e2e8f0" }}>{def.icon} {def.name}</strong>
-                                            {def.max > 1 && <span style={{ fontSize: "0.64rem", color: "#64748b" }}>{owned}/{def.max}</span>}
+                                            <strong style={{ fontSize: "0.84rem", color: "var(--slate-200)" }}>{def.icon} {def.name}</strong>
+                                            {def.max > 1 && <span style={{ fontSize: "0.64rem", color: "var(--text-muted)" }}>{owned}/{def.max}</span>}
                                         </div>
                                         <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{def.blurb}</p>
-                                        <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => setRun(buyItem(run, def.id))}>{label}</button>
+                                        <button type="button" style={btn("var(--gold-2)", blocked)} disabled={blocked} onClick={() => setRun(buyItem(run, def.id))}>{label}</button>
                                     </div>
                                 );
                             })}
@@ -564,11 +564,11 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
 
                     {/* Relics — permanent run-long boons, bought with Valor (rolled shelf + owned strip) */}
                     <div>
-                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Relics <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· permanent run-long boons · a fresh selection from {GAUNTLET_RELICS.length} relics rotates in each round (reroll for more)</span></h4>
+                        <h4 style={{ margin: "0 0 6px", color: "var(--slate-200)" }}>Relics <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· permanent run-long boons · a fresh selection from {GAUNTLET_RELICS.length} relics rotates in each round (reroll for more)</span></h4>
                         {run.relics.length > 0 && (
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                                 {run.relics.map((id) => { const d = relicDef(id); const art = relicArt(id); return (
-                                    <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 5, alignItems: "center", padding: "3px 9px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid #a855f7", color: "#d8b4fe", fontWeight: 700, fontSize: "0.74rem" }}>
+                                    <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 5, alignItems: "center", padding: "3px 9px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid var(--purple-500)", color: "#d8b4fe", fontWeight: 700, fontSize: "0.74rem" }}>
                                         {art ? <img src={art} alt="" style={{ width: 16, height: 16, objectFit: "contain" }} /> : <span>{d.icon}</span>}{d.name}
                                     </span>
                                 ); })}
@@ -584,7 +584,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                             {d.name}
                                         </strong>
                                         <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{d.blurb}</p>
-                                        <button type="button" style={btn("#a855f7", blocked)} disabled={blocked} onClick={() => setRun(buyRelic(run, id))}>Buy · {d.cost}✦</button>
+                                        <button type="button" style={btn("var(--purple-500)", blocked)} disabled={blocked} onClick={() => setRun(buyRelic(run, id))}>Buy · {d.cost}✦</button>
                                     </div>
                                 ); })}
                         </div>
@@ -595,7 +595,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         once per day each (so Valor can't mint unlimited currency). */}
                     {premiumUnlocked(run) && (
                         <div>
-                            <h4 style={{ margin: "0 0 6px", color: "#fcd34d" }}>🏆 Rare Goods <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· cleared round 9! · banked to your account at run end (once per day each)</span></h4>
+                            <h4 style={{ margin: "0 0 6px", color: "var(--gold-400)" }}>🏆 Rare Goods <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· cleared round 9! · banked to your account at run end (once per day each)</span></h4>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                 {[
                                     { kind: "fateShard" as const, name: "Fate Shard", icon: "🔮", cost: GAUNTLET_SHARD_COST, bought: run.boughtFateShard },
@@ -604,9 +604,9 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                     const blocked = p.bought || run.valor < p.cost;
                                     return (
                                         <div key={p.kind} style={{ border: "1px solid #b45309", borderRadius: 10, background: "rgba(67,40,8,0.5)", padding: "8px 10px", width: 162 }}>
-                                            <strong style={{ fontSize: "0.84rem", color: "#fde68a" }}>{p.icon} {p.name}</strong>
+                                            <strong style={{ fontSize: "0.84rem", color: "var(--gold-300)" }}>{p.icon} {p.name}</strong>
                                             <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>Bank 1 {p.name} to your account when the run ends.</p>
-                                            <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => setRun(buyPremium(run, p.kind))}>{p.bought ? "Queued ✓" : `Buy · ${p.cost}✦`}</button>
+                                            <button type="button" style={btn("var(--gold-2)", blocked)} disabled={blocked} onClick={() => setRun(buyPremium(run, p.kind))}>{p.bought ? "Queued ✓" : `Buy · ${p.cost}✦`}</button>
                                         </div>
                                     );
                                 })}
@@ -614,7 +614,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         </div>
                     )}
 
-                                <div style={{ textAlign: "center", marginTop: 4 }}><button type="button" style={{ ...btn("#475569"), padding: "7px 18px" }} onClick={() => setShopOpen(false)}>Done shopping →</button></div>
+                                <div style={{ textAlign: "center", marginTop: 4 }}><button type="button" style={{ ...btn("var(--slate-600)"), padding: "7px 18px" }} onClick={() => setShopOpen(false)}>Done shopping →</button></div>
                             </div>
                         </div>
                     </div>

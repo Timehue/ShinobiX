@@ -862,7 +862,7 @@ export function PvpBattleScreen({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                 <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
                     <h2>PvP Battle</h2>
-                    <p style={{ color: "#94a3b8" }}>Connecting to battle session...</p>
+                    <p style={{ color: "var(--text-dim)" }}>Connecting to battle session...</p>
                 </div>
             </div>
         </div>
@@ -1362,7 +1362,7 @@ export function PvpBattleScreen({
                         <span className="twp-strip-label">Terrain</span>
                         <span className="twp-strip-value">{terrainEffects[arenaBiome].description}</span>
                         {terrainEffects[arenaBiome].playerBuff && (
-                            <span className="twp-buff twp-positive">{terrainEffects[arenaBiome].playerBuff}</span>
+                            <span className="twp-buff twp-positive">🔺 {terrainEffects[arenaBiome].playerBuff}</span>
                         )}
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Weather</span>
@@ -1626,7 +1626,7 @@ export function PvpBattleScreen({
                         const fallbackSecs = Math.max(0, Math.ceil((FALLBACK_MS - idleMs) / 1000));
                         return (
                             <div className="basic-action-bar shinobi-command-bar" style={{ justifyContent: "center", flexDirection: "column", gap: 8 }}>
-                                <p style={{ color: "#94a3b8", padding: "0.5rem 1rem", margin: 0 }}>
+                                <p style={{ color: "var(--text-dim)", padding: "0.5rem 1rem", margin: 0 }}>
                                     {opp.name} is taking their turn...
                                 </p>
                                 {canClaim ? (
@@ -1638,11 +1638,11 @@ export function PvpBattleScreen({
                                         ⏱ Claim Win (Opponent AFK)
                                     </button>
                                 ) : oppSkips >= 1 ? (
-                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "#fcd34d" }}>
+                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "var(--gold-400)" }}>
                                         Opponent skipped {oppSkips}/2 rounds — one more for AFK forfeit
                                     </p>
                                 ) : idleMs > 30_000 ? (
-                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "#fcd34d" }}>
+                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "var(--gold-400)" }}>
                                         AFK forfeit fallback available in {fallbackSecs}s
                                     </p>
                                 ) : null}
@@ -1657,7 +1657,7 @@ export function PvpBattleScreen({
                                     <h2 className={isDraw ? "" : amSpectator ? "" : iWon ? "battle-result-win" : session.fleedBy === role ? "battle-result-fled" : "battle-result-loss"}>
                                         {isDraw ? "Draw" : amSpectator ? "Battle Over" : iWon ? "Victory" : session.fleedBy === role ? "Escaped" : "💥 Defeated"}
                                     </h2>
-                                    <p style={{ color: "#94a3b8", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
+                                    <p style={{ color: "var(--text-dim)", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
                                         {isDraw ? "The duel ended with equal honor."
                                             : amSpectator ? `${session.winner === "p1" ? session.p1.name : session.winner === "p2" ? session.p2.name : "Nobody"} wins the duel!`
                                             : iWon ? `${me.name} wins the duel!`
@@ -1876,7 +1876,7 @@ export function PvpBattleScreen({
                                                 <span><strong>Chakra Cost:</strong> {jutsuResourceDisplay(inspectedJutsu, "chakra", character.level, character.specialty, mastery.level)}</span>
                                                 <span><strong>Stamina Cost:</strong> {jutsuResourceDisplay(inspectedJutsu, "stamina", character.level, character.specialty, mastery.level)}</span>
                                             </div>
-                                            {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "#c084fc" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
+                                            {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
                                             {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}
                                             <div className="combat-jutsu-effects-list">
                                                 <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />

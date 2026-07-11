@@ -41,8 +41,8 @@ export class ScreenErrorBoundary extends Component<Props, State> {
         return (
             <div role="alert" style={{ padding: "2rem 1.25rem", maxWidth: 520, margin: "1.5rem auto", textAlign: "center", background: "#0b1120", border: "1px solid rgba(250,204,21,0.35)", borderRadius: 14 }}>
                 <div style={{ fontSize: 30, marginBottom: 8 }} aria-hidden>忍</div>
-                <h2 style={{ fontSize: 18, color: "#facc15", margin: "0 0 6px" }}>{chunk ? "A new version is available" : "This screen hit a snag"}</h2>
-                <p style={{ fontSize: 14, lineHeight: 1.5, color: "#94a3b8", margin: "0 0 18px" }}>
+                <h2 style={{ fontSize: 18, color: "var(--gold)", margin: "0 0 6px" }}>{chunk ? "A new version is available" : "This screen hit a snag"}</h2>
+                <p style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text-dim)", margin: "0 0 18px" }}>
                     {chunk
                         ? "The game was updated while you were playing. Reload to get the latest version — your progress is saved."
                         : "Something went wrong drawing this view. Use the menu to go somewhere else, or reload — your progress is saved."}
@@ -51,7 +51,7 @@ export class ScreenErrorBoundary extends Component<Props, State> {
                 <button
                     type="button"
                     onClick={() => window.location.reload()}
-                    style={{ cursor: "pointer", marginTop: 10, background: "transparent", color: "#cbd5e1", fontWeight: 700, fontSize: 13, border: "1px solid rgba(148,163,184,0.35)", borderRadius: 10, padding: "9px 18px" }}
+                    style={{ cursor: "pointer", marginTop: 10, background: "transparent", color: "var(--slate-300)", fontWeight: 700, fontSize: 13, border: "1px solid rgba(148,163,184,0.35)", borderRadius: 10, padding: "9px 18px" }}
                 >
                     Reload Current Screen
                 </button>

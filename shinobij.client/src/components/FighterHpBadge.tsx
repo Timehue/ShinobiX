@@ -16,7 +16,7 @@
 // and CombatSideHud (>50 green, >25 amber, else red) so every HP readout in the
 // game agrees.
 function hpBarColor(pct: number): string {
-    return pct > 50 ? "#22c55e" : pct > 25 ? "#f59e0b" : "#ef4444";
+    return pct > 50 ? "var(--success)" : pct > 25 ? "var(--gold-2)" : "var(--danger)";
 }
 
 // Glide the badge with its fighter on Move / Push / Pull / ground relocation —
