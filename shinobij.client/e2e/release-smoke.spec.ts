@@ -79,3 +79,32 @@ test('landing and creator have no serious WCAG A/AA axe violations', async ({ pa
         .analyze();
     expect(creator.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([]);
 });
+
+test('production error reporting stays lazy and fails open', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-desktop', 'one production-bundle assertion is sufficient');
+
+    const sentryChunks: string[] = [];
+    const envelopes: string[] = [];
+    page.on('request', (request) => {
+        if (/\/assets\/sentry-(?:runtime|vendor)-/.test(request.url())) sentryChunks.push(request.url());
+    });
+    await page.route('https://example.invalid/**', (route) => {
+        envelopes.push(route.request().url());
+        return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('button', { name: 'Create Your Shinobi' })).toBeVisible();
+    expect(sentryChunks).toEqual([]);
+
+    await page.evaluate(() => {
+        window.dispatchEvent(new ErrorEvent('error', {
+            message: 'release-sentry-smoke',
+            error: new Error('release-sentry-smoke'),
+        }));
+    });
+
+    await expect.poll(() => sentryChunks.some((url) => url.includes('/assets/sentry-vendor-'))).toBe(true);
+    await expect.poll(() => envelopes.length).toBeGreaterThan(0);
+    await expect(page.getByRole('button', { name: 'Create Your Shinobi' })).toBeVisible();
+});

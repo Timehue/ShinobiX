@@ -16,6 +16,12 @@ jobs:
   test-build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Exercise the same Sentry-enabled bundle path Railway builds. The dummy
+      # DSN is public-format test data and sends nothing during build or smoke.
+      VITE_SENTRY_DSN: https://public@example.invalid/1
+      VITE_SENTRY_RELEASE: ci
+      VITE_BUILD_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
