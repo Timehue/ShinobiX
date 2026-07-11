@@ -73,8 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 },
             };
 
-            bumpSaveVersion(updated);
-            await kv.set(key, mergePreservingImages(updated, existing));
+            await kv.set(key, mergePreservingImages(bumpSaveVersion(updated), existing));
             return { status: 200 as const, body: { ok: true, profession } };
         });
 

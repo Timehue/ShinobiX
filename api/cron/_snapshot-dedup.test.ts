@@ -1,6 +1,13 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { isPlayerSnapshotSaveKey, isSnapshotMarkerFresh, newestSnapshotByPlayer } from './snapshot-saves.js';
+import { kv } from '../_storage.js';
+import {
+    isPlayerSnapshotSaveKey,
+    isSnapshotMarkerFresh,
+    newestSnapshotByPlayer,
+    runSnapshotSaves,
+    SNAPSHOT_SUCCESS_KEY,
+} from './snapshot-saves.js';
 
 // Guards the snapshot-dedup bucketing that replaced the per-player kv.keys() N+1.
 // The map must yield the SAME "newest snapshot ts per player" the old per-player
@@ -78,11 +85,47 @@ describe('snapshot success marker freshness', () => {
 });
 
 describe('player snapshot key classification', () => {
-    it('accepts players and rejects case-varied admin, protected, clan, and malformed rows', () => {
+    it('accepts real players (including the protected admin player) and rejects probes/shared rows', () => {
         assert.equal(isPlayerSnapshotSaveKey('save:alice'), true);
         assert.equal(isPlayerSnapshotSaveKey('save:Aka Ito'), true);
-        for (const key of ['save:Admin 1', 'save:admin201', 'save:Rill', 'save:rill', 'save:clan-leaf', 'save:', 'world:alice']) {
+        assert.equal(isPlayerSnapshotSaveKey('save:Rill'), true);
+        assert.equal(isPlayerSnapshotSaveKey('save:rill'), true);
+        for (const key of ['save:Admin 1', 'save:admin201', 'save:clan-leaf', 'save:health-probe-123', 'save:', 'world:alice']) {
             assert.equal(isPlayerSnapshotSaveKey(key), false, key);
+        }
+    });
+});
+
+describe('snapshot run health', () => {
+    it('does not publish a success marker when one valid save is mixed with a corrupt player row', async () => {
+        const originalKeys = kv.keys;
+        const originalGet = kv.get;
+        const originalSet = kv.set;
+        const records = new Map<string, unknown>([
+            ['save:valid-player', { character: { name: 'Valid Player', level: 10 } }],
+            ['save:broken-player', { notCharacter: true }],
+        ]);
+
+        kv.keys = async (pattern: string) => pattern === 'save:*'
+            ? ['save:valid-player', 'save:broken-player']
+            : [];
+        kv.get = async <T = unknown>(key: string) => (records.get(key) ?? null) as T | null;
+        kv.set = async (key: string, value: unknown) => {
+            records.set(key, value);
+            return 'OK' as const;
+        };
+
+        try {
+            const result = await runSnapshotSaves(5_000);
+            assert.equal(result.ok, false);
+            assert.equal(result.validPlayers, 1);
+            assert.equal(result.snapshotted, 1);
+            assert.deepEqual(result.failed, ['save:broken-player']);
+            assert.equal(records.has(SNAPSHOT_SUCCESS_KEY), false);
+        } finally {
+            kv.keys = originalKeys;
+            kv.get = originalGet;
+            kv.set = originalSet;
         }
     });
 });

@@ -133,8 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             stamina: freshChar.maxStamina,
                         },
                     };
-                    bumpSaveVersion(updated);
-                    await kv.set(targetKey, mergePreservingImages(updated, fresh));
+                    await kv.set(targetKey, mergePreservingImages(bumpSaveVersion(updated), fresh));
                     return {
                         status: 200 as const,
                         body: {
@@ -220,8 +219,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ryo: Math.max(0, Number(freshChar.ryo ?? 0) - chargedRyo),
                     },
                 };
-                bumpSaveVersion(healed);
-                await kv.set(targetKey, mergePreservingImages(healed, fresh));
+                await kv.set(targetKey, mergePreservingImages(bumpSaveVersion(healed), fresh));
                 return Number((healed as Record<string, unknown>)._saveVersion ?? 0);
             });
             return res.status(200).json({ ok: true, kind: 'self', chargedRyo, _saveVersion: saveVersion });
@@ -407,8 +405,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(targetHospitalized ? { lastDischargeAt: Date.now() } : {}),
                 },
             };
-            bumpSaveVersion(healedTarget);
-            await kv.set(targetKey, mergePreservingImages(healedTarget, fresh));
+            await kv.set(targetKey, mergePreservingImages(bumpSaveVersion(healedTarget), fresh));
         });
 
         // If this heal actually discharged a hospitalized player, queue a one-shot

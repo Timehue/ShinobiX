@@ -49,6 +49,9 @@ describe("pending server settlement policy", () => {
             "hollowGateAttunement",
             "creatorItemCraft",
             "timedJutsuTraining",
+            "bankDeposit",
+            "rankedPvp",
+            "pvpSession",
         ];
         assert.deepEqual(Object.keys(SERVER_SETTLEMENT_STATUS).sort(), expected.sort());
         assert.ok(Object.values(SERVER_SETTLEMENT_STATUS).every((ready) => ready === false));
@@ -106,6 +109,31 @@ describe("pending server settlement policy", () => {
         assertGuardBefore(hunter, "rankUp", "fieldHuntMissions", "updateCharacter(");
         assertGuardBefore(hunter, "acceptHunt", "fieldHuntMissions", "setAcceptedMissionIds(");
         assertGuardBefore(hunter, "claimHunt", "fieldHuntMissions", "postClaimMission(");
+
+        const bank = source("../screens/Bank.tsx");
+        assertGuardBefore(bank, "moveRyo", "bankDeposit", "fetch(\"/api/bank/transfer\"");
+
+        const arena = source("../screens/Arena.tsx");
+        assertGuardBefore(arena, "joinRankedQueue", "rankedPvp", "setRankedQueueActive(");
+        assertGuardBefore(arena, "acceptChallenge", "pvpSession", "setDuelChallenges(");
+        const rankedServer = source("../../../api/pvp/ranked-queue.ts");
+        assert.match(rankedServer, /rankedPvpActionAllowedDuringSettlement\(action\)[\s\S]+Ranked PvP is temporarily unavailable/);
+
+        const appPvp = source("../App.tsx");
+        assertGuardBefore(appPvp, "acceptChallengeGlobal", "pvpSession", "setProcessingChallengeIds(");
+        const sectorAttack = appPvp.indexOf("sectorAttackPlayer={async (opponent) => {");
+        const sectorGuard = appPvp.indexOf('requireServerSettlement("pvpSession")', sectorAttack);
+        const sectorFetch = appPvp.indexOf("fetch('/api/pvp/session'", sectorAttack);
+        assert.ok(sectorAttack >= 0 && sectorGuard > sectorAttack && sectorFetch > sectorGuard, "sector player attacks must gate before session creation");
+
+        const worldMap = source("../screens/WorldMap.tsx");
+        assertGuardBefore(worldMap, "startPvpRaid", "pvpSession", "setCurrentSector(");
+        const guardRaid = worldMap.indexOf("const guard = territoryGuards[0]");
+        const guardGate = worldMap.lastIndexOf('requireServerSettlement("pvpSession")', guardRaid);
+        assert.ok(guardRaid >= 0 && guardGate >= 0 && guardGate < guardRaid, "village-guard PvP must gate before session creation");
+
+        const pvpSessionServer = source("../../../api/pvp/session.ts");
+        assert.match(pvpSessionServer, /!pvpSessionCreationAllowedDuringSettlement\(identity\.admin\)[\s\S]+status\(503\)[\s\S]+Nothing was changed/);
     });
 
     test("timed jutsu training and background queue settlement cannot mutate locally", () => {

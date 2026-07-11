@@ -10,6 +10,11 @@ const expectedSaveStore = process.env.EXPECTED_SAVE_STORE || '';
 const expectedCommit = String(process.env.EXPECTED_COMMIT || '').trim().toLowerCase();
 const deepHealthToken = String(process.env.HEALTH_DEEP_TOKEN || '').trim();
 
+if (!deepHealthToken) {
+    console.error('HEALTH_DEEP_TOKEN is required for the release readiness probe.');
+    process.exit(2);
+}
+
 async function fetchJson(path) {
     const url = `${baseUrl}${path}`;
     const headers = { accept: 'application/json' };

@@ -256,8 +256,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             honorSeals: Number(freshChar.honorSeals ?? 0) + bonusSeals,
                         },
                     };
-                    bumpSaveVersion(updated);
-                    await kv.set(saveKey, mergePreservingImages(updated, fresh));
+                    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), fresh));
                 }, { failClosed: true });
             }
         }
