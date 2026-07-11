@@ -421,12 +421,23 @@
 /* Hollow Gate vision panel — framed apparition while the warning lines play. */
 .icx-vision {
     position: absolute;
-    left: 50%;
-    top: 8%;
-    transform: translateX(-50%);
+    /* Anchor the panel's LEFT edge just past the deity's right edge (which sits
+       at ~8vw + 40vmin). This clears the fox's tails on tight/portrait viewports
+       — where they overlapped the framed vision and read as clipping — while
+       keeping it near the deity on wide screens. transform:none so `left` IS the
+       edge; the entrance pop uses the standalone `scale` property (icx-vision-in)
+       so it doesn't fight this. */
+    left: calc(8vw + 40vmin + 2vw);
+    top: 7%;
+    transform: none;
     width: min(30vh, 58vw);
     border-radius: 12px;
     overflow: hidden;
+    /* Opaque backstop + explicit z-index: the apparition is a solid framed panel
+       that sits cleanly ON TOP of the deity, so nothing shows through or pokes
+       past it (the deity recedes behind it). */
+    background: #05060a;
+    z-index: 5;
     border: 2px solid rgba(167, 139, 250, 0.65);
     box-shadow: 0 0 44px rgba(139, 92, 246, 0.55), 0 18px 60px rgba(0, 0, 0, 0.65);
     animation: icx-vision-in 900ms ease both, icx-vision-pulse 3.2s ease-in-out 900ms infinite;
@@ -440,8 +451,11 @@
     background: linear-gradient(180deg, rgba(76, 29, 149, 0.10), rgba(2, 4, 10, 0.35));
 }
 @keyframes icx-vision-in {
-    from { opacity: 0; transform: translateX(-50%) scale(0.9); }
-    to   { opacity: 1; transform: translateX(-50%) scale(1); }
+    /* Uses the standalone `scale` property (not transform) so it composes with
+       the base `transform` — desktop is transform:none (left-edge anchored),
+       mobile is translateX(-50%) (centred). Both pop in from a 0.9 scale. */
+    from { opacity: 0; scale: 0.9; }
+    to   { opacity: 1; scale: 1; }
 }
 @keyframes icx-vision-pulse {
     0%, 100% { box-shadow: 0 0 44px rgba(139, 92, 246, 0.55), 0 18px 60px rgba(0, 0, 0, 0.65); }
@@ -834,8 +848,10 @@
     .icx-fox { left: 1%; bottom: 33%; width: clamp(160px, 46vw, 250px); }
     .icx-avatar { right: 3%; bottom: 34%; width: clamp(86px, 26vw, 118px); }
     .icx-avatar-name { font-size: 10.5px; padding: 2px 9px; }
-    /* Nudge the vision up + in a touch so it clears the deity's ears. */
-    .icx-vision { top: 4%; width: min(23vh, 60vw); }
+    /* Mobile keeps the vision centred (the fox sits lower here, so it clears)
+       and nudged up so it clears the deity's ears. transform is re-added because
+       the desktop base is now transform:none (left-edge anchored). */
+    .icx-vision { left: 50%; transform: translateX(-50%); top: 4%; width: min(23vh, 60vw); }
     .icx-letterbox { display: none; }
     .icx-companion-pet { left: 3%; bottom: 205px; width: clamp(100px, 28vw, 150px); }
     /* Grounded in the gap between the deity and the player, not on the card. */
