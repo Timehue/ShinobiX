@@ -127,6 +127,7 @@ export function OnboardingCoach({
     onStartSpar: () => void;
 }) {
     const step = normalizeOnboardingStep(character.onboardingStep);
+    const [confirmingSkip, setConfirmingSkip] = useState(false);
     const jutsuBaselineRef = useRef<number | null>(null);
     const loadoutBaselineRef = useRef<number | null>(null);
     const equipmentBaselineRef = useRef<number | null>(null);
@@ -237,6 +238,21 @@ export function OnboardingCoach({
 
     useBodyScrollLock(step === "academySpar");
 
+    // While the bottom coaching banner is on screen, reserve space under the
+    // scroll area on mobile so the current screen's OWN bottom controls (e.g.
+    // Training's timer tiles) sit ABOVE the banner — visible and tappable, not
+    // hidden behind it. The modal steps (spar / skip-confirm) don't need it.
+    const bannerVisible =
+        !confirmingSkip &&
+        (step === "training" || step === "jutsu" || step === "jutsuLoadout" ||
+         step === "inventory" || step === "cafeteria" || step === "firstMission" ||
+         step === "logbook" || step === "sectorReturn");
+    useEffect(() => {
+        if (!bannerVisible) return;
+        document.body.classList.add("coach-banner-open");
+        return () => document.body.classList.remove("coach-banner-open");
+    }, [bannerVisible]);
+
     const visitedSector = screen === "worldMap" && currentSector >= 1;
 
     // The companion's coaching line for the current banner step. Plain strings
@@ -279,10 +295,35 @@ export function OnboardingCoach({
     // the companion's village-intro beat, not the coach.
     if (step === "done" || step === "starter" || step === "academyIntro" || step === "companionIntro") return null;
 
-    const skip = () => updateCharacter({ ...character, onboardingStep: "done" });
+    // Skipping wipes the WHOLE tutorial, so it always goes through a confirm —
+    // an accidental tap (e.g. reaching for a control the banner overlaps on
+    // mobile) must never silently end onboarding.
+    const doSkip = () => updateCharacter({ ...character, onboardingStep: "done" });
+    const requestSkip = () => setConfirmingSkip(true);
     const guideArt = guidePet ? petPoseImage(guidePet, sharedImages) : "";
     const guideLabel = guidePet ? `${guidePet.name} — your companion` : "Academy Guide";
     const talking = bannerText !== null && typedCount < bannerText.length;
+
+    if (confirmingSkip) {
+        return createPortal(
+            <div style={overlayStyle}>
+                <div className="card" style={{ ...cardStyle, maxWidth: 380 }}>
+                    <h2 style={{ marginTop: 0 }}>Skip the Academy tutorial?</h2>
+                    <p style={{ lineHeight: 1.5, color: "#cbd5e1" }}>
+                        It walks you through your first training, jutsu, gear, spar, and
+                        rewards. You can’t easily restart it once it’s skipped.
+                    </p>
+                    <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setConfirmingSkip(false)}>
+                        Keep going
+                    </button>
+                    <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={doSkip}>
+                        Yes, skip the tutorial
+                    </button>
+                </div>
+            </div>,
+            document.body,
+        );
+    }
 
     // The talking-companion banner: pose standee + speech bubble + actions.
     const renderGuideBanner = (action?: React.ReactNode) => createPortal(
@@ -296,12 +337,15 @@ export function OnboardingCoach({
                 />
             )}
             <div className="coach-guide-bubble">
-                <span className="coach-guide-label">{guideLabel} · {stepProgress[step]}</span>
-                <p className="coach-guide-line">{(bannerText ?? "").slice(0, typedCount)}</p>
-                <div className="coach-guide-actions">
-                    {action}
-                    <button style={skipStyle} onClick={skip}>Skip</button>
+                <div className="coach-guide-head">
+                    <span className="coach-guide-label">{guideLabel} · {stepProgress[step]}</span>
+                    {/* Skip lives up here, clear of the primary button below, and
+                        opens a confirm — so it can't be fat-fingered into ending
+                        the whole tutorial. */}
+                    <button className="coach-skip-link" onClick={requestSkip}>Skip</button>
                 </div>
+                <p className="coach-guide-line">{(bannerText ?? "").slice(0, typedCount)}</p>
+                {action && <div className="coach-guide-actions">{action}</div>}
             </div>
         </div>,
         document.body,
@@ -361,7 +405,7 @@ export function OnboardingCoach({
                     >
                         Begin Your First Spar
                     </button>
-                    <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={skip}>
+                    <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={requestSkip}>
                         Skip Tutorial
                     </button>
                 </div>
