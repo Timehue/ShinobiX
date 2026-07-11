@@ -11,6 +11,8 @@ const TOTAL_JS_CSS_FAIL_BYTES = 5_900_000;
 const ENTRY_JS_FAIL_BYTES = 1_150_000;
 const INITIAL_GRAPH_FAIL_BYTES = 1_900_000;
 const INITIAL_GRAPH_GZIP_FAIL_BYTES = 550_000;
+const SENTRY_VENDOR_FAIL_BYTES = 100_000;
+const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 
 function walk(dir) {
     const out = [];
@@ -50,8 +52,21 @@ for (const file of withRel.slice(0, 20)) {
 const js = withRel.filter((file) => file.rel.endsWith('.js'));
 const css = withRel.filter((file) => file.rel.endsWith('.css'));
 const jsCssTotal = [...js, ...css].reduce((sum, file) => sum + file.size, 0);
-
 const failures = [];
+const sentryChunks = js.filter((file) => SENTRY_VENDOR_RE.test(file.rel));
+const budgetedJsCssTotal = [
+    ...js.filter((file) => !SENTRY_VENDOR_RE.test(file.rel)),
+    ...css,
+].reduce((sum, file) => sum + file.size, 0);
+
+// Sentry is observability, not product code. Allow one tightly capped chunk only
+// when it stays off the initial graph; do not weaken the product-code budget.
+if (sentryChunks.length > 1) failures.push(`expected at most one lazy Sentry vendor chunk; found ${sentryChunks.length}`);
+for (const file of sentryChunks) {
+    if (file.size > SENTRY_VENDOR_FAIL_BYTES) {
+        failures.push(`${file.rel} is ${fmt(file.size)}; lazy Sentry threshold is ${fmt(SENTRY_VENDOR_FAIL_BYTES)}`);
+    }
+}
 for (const file of js) {
     if (file.size > JS_CHUNK_FAIL_BYTES) failures.push(`${file.rel} is ${fmt(file.size)}; JS chunk threshold is ${fmt(JS_CHUNK_FAIL_BYTES)}`);
 }
@@ -73,6 +88,9 @@ try {
     const entryFile = initialFiles.find((file) => file.rel === entryRef);
 
     console.log(`[sizecheck] Initial JS/CSS graph: ${fmt(initialRaw)} raw / ${fmt(initialGzip)} gzip across ${initialFiles.length} files.`);
+    if (initialRefs.some((rel) => SENTRY_VENDOR_RE.test(rel))) {
+        failures.push('lazy Sentry vendor is referenced by index.html and would delay healthy-player startup');
+    }
     if (entryFile && entryFile.size > ENTRY_JS_FAIL_BYTES) {
         failures.push(`${entryFile.rel} is ${fmt(entryFile.size)}; entry JS threshold is ${fmt(ENTRY_JS_FAIL_BYTES)}`);
     }
@@ -86,11 +104,11 @@ try {
     failures.push(`could not measure initial index.html graph: ${err.message}`);
 }
 
-if (jsCssTotal > TOTAL_JS_CSS_WARN_BYTES) {
-    console.warn(`[sizecheck] WARN total JS/CSS is ${fmt(jsCssTotal)}.`);
+if (budgetedJsCssTotal > TOTAL_JS_CSS_WARN_BYTES) {
+    console.warn(`[sizecheck] WARN budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (all emitted: ${fmt(jsCssTotal)}).`);
 }
-if (jsCssTotal > TOTAL_JS_CSS_FAIL_BYTES) {
-    failures.push(`total JS/CSS is ${fmt(jsCssTotal)}; threshold is ${fmt(TOTAL_JS_CSS_FAIL_BYTES)}`);
+if (budgetedJsCssTotal > TOTAL_JS_CSS_FAIL_BYTES) {
+    failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)}; threshold is ${fmt(TOTAL_JS_CSS_FAIL_BYTES)}`);
 }
 
 if (failures.length) {
@@ -99,4 +117,5 @@ if (failures.length) {
     process.exit(1);
 }
 
-console.log(`[sizecheck] PASS. Total JS/CSS: ${fmt(jsCssTotal)}.`);
+const sentryNote = sentryChunks.length ? `; lazy Sentry: ${fmt(sentryChunks[0].size)}` : '';
+console.log(`[sizecheck] PASS. Budgeted product JS/CSS: ${fmt(budgetedJsCssTotal)}; all emitted: ${fmt(jsCssTotal)}${sentryNote}.`);
