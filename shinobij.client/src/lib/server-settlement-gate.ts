@@ -9,12 +9,12 @@
  * endpoint and the client has been migrated to use that endpoint.
  */
 export const SERVER_SETTLEMENT_STATUS = {
-    profileStatRespec: false,
-    profileFateShardTitle: false,
+    profileStatRespec: true,
+    profileFateShardTitle: true,
     shopPurchase: false,
     shopCardPack: false,
     inventorySale: false,
-    warCrateOpen: false,
+    warCrateOpen: true,
     clientWarCrateGrant: false,
     fieldHuntMissions: false,
     hollowGatePetBefriend: false,
