@@ -17,13 +17,11 @@ const mkForgedBloodline = () => ({
     })),
 });
 const mkChar = () => ({ name: 'Tester', level: 50, savedBloodlines: [mkForgedBloodline()] });
-function withFlags(on, fn) {
+/** Run with the retired env flags explicitly CLEARED — enforcement must not depend on them. */
+function withFlagsCleared(fn) {
     const keys = ['BLOODLINE_RANK_ENTITLEMENT', 'BLOODLINE_BUDGET_SERVER'];
     const prev = keys.map((k) => process.env[k]);
-    keys.forEach((k) => { if (on)
-        process.env[k] = '1';
-    else
-        delete process.env[k]; });
+    keys.forEach((k) => { delete process.env[k]; });
     try {
         fn();
     }
@@ -34,15 +32,15 @@ function withFlags(on, fn) {
             process.env[k] = prev[i]; });
     }
 }
-(0, node_test_1.test)('flags OFF: forged S-rank + over-budget tags pass through (legacy behavior)', () => {
-    withFlags(false, () => {
+(0, node_test_1.test)('enforcement is permanent: env flags cleared, forged S-rank + over-budget tags are STILL clamped', () => {
+    withFlagsCleared(() => {
         const bl = sanitizeChar(mkChar(), null).savedBloodlines[0];
-        strict_1.default.equal(bl.rank, 'S Rank'); // rank not clamped
-        strict_1.default.equal(bl.jutsus[0].tags.length, 3); // tags not stripped
+        strict_1.default.equal(bl.rank, 'B Rank', 'forged rank must clamp even with the retired env flags unset');
+        strict_1.default.ok((0, _jutsu_points_js_1.bloodlinePoints)(bl.jutsus, 'B Rank') <= 7, 'over-budget tags must strip even with the retired env flags unset');
     });
 });
-(0, node_test_1.test)('flags ON: new bloodline clamps rank to B (entitlement) + strips tags to budget, never rejected', () => {
-    withFlags(true, () => {
+(0, node_test_1.test)('new bloodline clamps rank to B (entitlement) + strips tags to budget, never rejected', () => {
+    withFlagsCleared(() => {
         const c = sanitizeChar(mkChar(), null);
         strict_1.default.ok(Array.isArray(c.savedBloodlines), 'save was not rejected');
         const bl = c.savedBloodlines[0];
@@ -51,8 +49,8 @@ function withFlags(on, fn) {
         strict_1.default.ok((0, _jutsu_points_js_1.bloodlinePoints)(bl.jutsus, 'B Rank') <= 7, 'clamped within the B-rank budget');
     });
 });
-(0, node_test_1.test)('flags ON: an existing A-rank entitlement is preserved (claimed S clamped DOWN to A)', () => {
-    withFlags(true, () => {
+(0, node_test_1.test)('an existing A-rank entitlement is preserved (claimed S clamped DOWN to A)', () => {
+    withFlagsCleared(() => {
         const existing = { savedBloodlines: [{ id: 'bl-forged', name: 'Forged', rank: 'A Rank', jutsus: [], totalPoints: 0 }] };
         const bl = sanitizeChar(mkChar(), existing).savedBloodlines[0];
         strict_1.default.equal(bl.rank, 'A Rank', 'rank only goes DOWN to the stored entitlement, never up to the claimed S');
