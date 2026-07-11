@@ -45,6 +45,9 @@ async function handler(req, res) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'You can only start your own dive.' });
         }
+        if (!(0, _run_token_js_1.hollowGateRunsEnabled)()) {
+            return res.status(503).json({ error: 'Hollow Gate runs are temporarily unavailable until server settlement is complete.' });
+        }
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'hollow-gate-start', 20, 60_000, identity.name)))
             return;
         const rec = await _storage_js_1.kv.get(`save:${playerName}`);

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WIPE_PATTERNS = void 0;
 exports.isProtectedKey = isProtectedKey;
+exports.authNamesRequiringRevocation = authNamesRequiringRevocation;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
@@ -21,6 +22,12 @@ const PROTECTED_STORY_KEYS = new Set(PROTECTED_NAMES.map((n) => `story:${n}`));
 function isProtectedKey(key) {
     const lower = key.toLowerCase();
     return PROTECTED_SAVE_KEYS.has(lower) || PROTECTED_AUTH_KEYS.has(lower) || PROTECTED_STORY_KEYS.has(lower);
+}
+function authNamesRequiringRevocation(authKeys) {
+    return authKeys
+        .filter((key) => key.toLowerCase().startsWith('auth:') && !isProtectedKey(key))
+        .map((key) => key.slice('auth:'.length))
+        .filter(Boolean);
 }
 // Patterns wiped on full reset. Anything matching these is deleted.
 // (Exported for the reset-coverage test only.)
@@ -120,6 +127,12 @@ async function handler(req, res) {
     }
     try {
         const deleted = [];
+        // Revoke every affected account token before the first destructive
+        // write. The rotated epoch deliberately survives the reset: deleting
+        // auth-session:* would make a missing epoch read as zero and could
+        // resurrect an old epoch-0 v2 token even though its password row is gone.
+        const authKeys = await _storage_js_1.kv.keys('auth:*');
+        await Promise.all(authNamesRequiringRevocation(authKeys).map((name) => (0, _auth_js_1.rotatePlayerSessionEpoch)(name)));
         // 1. Wipe all player saves — admin saves are preserved so admin-created
         //    content (jutsus, AIs, missions, events, pets, cards, VNs) survives.
         //    Reserved usernames (PROTECTED_NAMES, e.g. Rill) are also preserved.

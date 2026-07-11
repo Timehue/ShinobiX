@@ -4,17 +4,42 @@
 // unit-testable on its own (same pattern as the _*-validate.ts cores).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseBaseSaveVersion = parseBaseSaveVersion;
+exports.storedSaveVersion = storedSaveVersion;
+exports.nextSaveVersion = nextSaveVersion;
+exports.matchesStoredSaveVersion = matchesStoredSaveVersion;
 exports.saveVersionTelemetryKey = saveVersionTelemetryKey;
 exports.isVersionlessPlayerSave = isVersionlessPlayerSave;
 exports.bumpSaveVersion = bumpSaveVersion;
 /**
- * Parse a client-supplied `_baseSaveVersion`. Returns the numeric version, or
- * null when it's absent / non-finite — i.e. an old client that doesn't echo
- * the field. `null` means "no version known", which the guard treats as an
- * allow (backwards-compat for stale tabs) and the #14 telemetry counts.
+ * Parse a client-supplied `_baseSaveVersion`. Returns the numeric version only
+ * for a non-negative safe integer. Missing, fractional, negative, unsafe,
+ * non-finite, and wrong-type values return null; player saves reject null.
  */
 function parseBaseSaveVersion(raw) {
-    return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+    // A version is a persisted counter, not an arbitrary number. Accepting a
+    // fraction, negative value, or unsafe/future sentinel weakens the exact
+    // compare in the save handler and can let a stale writer clobber data.
+    return typeof raw === 'number' && Number.isSafeInteger(raw) && raw >= 0 ? raw : null;
+}
+/** Validate a stored version, treating only a truly absent legacy stamp as 0. */
+function storedSaveVersion(raw) {
+    if (raw === undefined || raw === null)
+        return 0;
+    const parsed = parseBaseSaveVersion(raw);
+    if (parsed === null)
+        throw new RangeError('Stored save version is invalid.');
+    return parsed;
+}
+/** Return max(input versions)+1 without ever producing an unsafe counter. */
+function nextSaveVersion(...rawVersions) {
+    const max = rawVersions.reduce((current, raw) => Math.max(current, storedSaveVersion(raw)), 0);
+    if (max >= Number.MAX_SAFE_INTEGER)
+        throw new RangeError('Save version space exhausted.');
+    return max + 1;
+}
+/** True only when the client is replacing the exact stored snapshot it read. */
+function matchesStoredSaveVersion(baseVersion, storedVersion) {
+    return baseVersion !== null && baseVersion === storedVersion;
 }
 /**
  * UTC daily key for the "player saves arriving WITHOUT a version stamp"
@@ -71,7 +96,7 @@ function isVersionlessPlayerSave(isClanSave, identityName, baseVersion) {
  */
 function bumpSaveVersion(record) {
     const r = record;
-    r._saveVersion = Number(r._saveVersion ?? 0) + 1;
+    r._saveVersion = nextSaveVersion(r._saveVersion);
     r._saveAt = Date.now();
     return record;
 }

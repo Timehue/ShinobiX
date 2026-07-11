@@ -36,6 +36,9 @@ async function handler(req, res) {
             return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName)
             return res.status(403).json({ error: 'Not your run.' });
+        if (!(0, _run_token_js_1.hollowGateRunsEnabled)()) {
+            return res.status(503).json({ error: 'Hollow Gate runs are temporarily unavailable until server settlement is complete.' });
+        }
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'hollow-gate-choose', 30, 60_000, identity.name)))
             return;
         const key = `hg-run:${playerName}:${token}`;

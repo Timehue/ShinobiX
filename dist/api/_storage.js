@@ -28,10 +28,11 @@ exports._diskKvForProxy = exports.saveStoreKind = exports.kv = void 0;
 exports._makeDiskKv = _makeDiskKv;
 exports._makeRemoteKv = _makeRemoteKv;
 exports._makeRoutedKv = _makeRoutedKv;
+exports._migrateDiskRoutedKeys = _migrateDiskRoutedKeys;
 exports.migrateDiskRoutedKeysToOverlay = migrateDiskRoutedKeysToOverlay;
 const _readCache = new Map();
 // These prefixes change too rapidly to benefit from caching.
-const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:'];
+const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:'];
 function _shouldCache(key) {
     return !_noCachePrefixes.some(p => key.startsWith(p));
 }
@@ -428,19 +429,22 @@ const supabaseKv = {
 //
 // Routing rule: a key matches DISK when its prefix is one of:
 //   save:                 — player save blobs
-//   save-snapshot:        — daily/manual backup copies of those saves (full
-//                           blobs, 90-day TTL). Kept on the same free cPanel
-//                           disk as the live saves they copy, so backups don't
-//                           pile up on Supabase. NOTE: 'save:' does NOT match
-//                           'save-snapshot:' (5th char ':' vs '-'), so this
-//                           prefix is required explicitly.
 //   shared:images*        — uploaded image blobs (incl. bloodline images)
 //   shared:imgfields*     — uploaded image hash fields
 //
-// All other keys keep using pgKv / supabaseKv as before.
-const _DISK_PREFIXES = ['save:', 'save-snapshot:', 'shared:images', 'shared:imgfields'];
+// save-snapshot: is intentionally base-primary (Supabase/Postgres) so backup
+// and live data do not share the disk/proxy failure domain.
+// Live saves stay on the disk/proxy overlay; snapshots deliberately do NOT.
+// Backups are written to the independent base database so losing the overlay
+// cannot erase both the live save and its recovery copy. Legacy snapshots that
+// already live on disk remain readable through the routing fallback below.
+const _DISK_PREFIXES = ['save:', 'shared:images', 'shared:imgfields'];
+const _SNAPSHOT_PREFIX = 'save-snapshot:';
 function _routesToDisk(keyOrPattern) {
     return _DISK_PREFIXES.some((p) => keyOrPattern.startsWith(p));
+}
+function _routesToSnapshotBase(keyOrPattern) {
+    return keyOrPattern.startsWith(_SNAPSHOT_PREFIX);
 }
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const _fs = require('node:fs');
@@ -825,8 +829,14 @@ function _makeRoutedKv(base, disk) {
     async function diskGet(key) {
         return disk.get(key);
     }
+    async function snapshotGet(key) {
+        const primary = await base.get(key);
+        return primary === null ? disk.get(key) : primary;
+    }
     return {
         async get(key) {
+            if (_routesToSnapshotBase(key))
+                return snapshotGet(key);
             return _routesToDisk(key) ? diskGet(key) : base.get(key);
         },
         async set(key, value, options) {
@@ -834,18 +844,29 @@ function _makeRoutedKv(base, disk) {
         },
         async del(...keys) {
             const { diskKeys, baseKeys } = split(keys);
+            const snapshotKeys = keys.filter(_routesToSnapshotBase);
             // For disk-routed keys, also delete the legacy copy on base.
-            const [a, b, c] = await Promise.all([
+            // Snapshot keys are base-primary but also delete any legacy disk
+            // copy so an expired/deleted backup cannot reappear via fallback.
+            const [a, b, c, d] = await Promise.all([
                 diskKeys.length ? disk.del(...diskKeys) : Promise.resolve(0),
                 baseKeys.length ? base.del(...baseKeys) : Promise.resolve(0),
                 diskKeys.length ? base.del(...diskKeys).catch(() => 0) : Promise.resolve(0),
+                snapshotKeys.length ? disk.del(...snapshotKeys).catch(() => 0) : Promise.resolve(0),
             ]);
-            return a + b + c;
+            return a + b + c + d;
         },
         async incr(key, options) {
             return _routesToDisk(key) ? disk.incr(key, options) : base.incr(key, options);
         },
         async keys(pattern) {
+            if (_routesToSnapshotBase(pattern)) {
+                const [primary, legacy] = await Promise.all([
+                    base.keys(pattern),
+                    disk.keys(pattern).catch(() => []),
+                ]);
+                return [...new Set([...primary, ...legacy])];
+            }
             return _routesToDisk(pattern) ? disk.keys(pattern) : base.keys(pattern);
         },
         async mget(...keys) {
@@ -864,9 +885,18 @@ function _makeRoutedKv(base, disk) {
             let di = 0, bi = 0;
             for (const src of order)
                 out.push(src === 'disk' ? diskVals[di++] : baseVals[bi++]);
+            const fallbackIndexes = keys
+                .map((key, index) => ({ key, index }))
+                .filter(({ key, index }) => _routesToSnapshotBase(key) && out[index] === null);
+            if (fallbackIndexes.length) {
+                const legacy = await disk.mget(...fallbackIndexes.map(({ key }) => key));
+                fallbackIndexes.forEach(({ index }, i) => { out[index] = legacy[i]; });
+            }
             return out;
         },
         async hgetall(key) {
+            if (_routesToSnapshotBase(key))
+                return snapshotGet(key);
             return _routesToDisk(key) ? diskGet(key) : base.hgetall(key);
         },
         async hkeys(key) {
@@ -880,34 +910,81 @@ function _makeRoutedKv(base, disk) {
         },
     };
 }
-// One-shot migration helper. Walks all disk-routed keys on the base backend,
-// copies each to the disk backend, then deletes the base copy. Idempotent.
-// Exposed via /api/admin/migrate-kv (admin-auth required).
-async function migrateDiskRoutedKeysToOverlay(opts) {
-    if (!_diskOverlay)
-        throw new Error('No disk overlay configured (set DISK_KV_DIR or KV_PROXY_URL).');
+function migrationValueEqual(a, b) {
+    // KV values are JSON-compatible. A conservative false negative is safe: it
+    // reports a conflict and retains both copies instead of deleting anything.
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+/**
+ * Conflict-safe migration core with injectable stores for race tests.
+ * Destination writes are NX, then read back and compared. The source is read a
+ * second time before deletion. A newer/different overlay value is NEVER
+ * replaced, and any source mutation leaves the source intact for operator
+ * review. Callers must freeze legacy base writers during a live migration.
+ */
+async function _migrateDiskRoutedKeys(base, overlay, prefixes, opts) {
     const migrated = [];
+    const alreadyPresent = [];
+    const conflicts = [];
     const skipped = [];
     let deleted = 0;
-    for (const prefix of _DISK_PREFIXES) {
-        const ks = await _baseKv.keys(prefix + '*');
+    for (const prefix of prefixes) {
+        const ks = await base.keys(prefix + '*');
         for (const k of ks) {
-            const v = await _baseKv.get(k);
-            if (v === null || v === undefined) {
+            const source = await base.get(k);
+            if (source === null || source === undefined) {
                 skipped.push(k);
+                continue;
+            }
+            const destination = await overlay.get(k);
+            if (destination !== null && destination !== undefined) {
+                if (!migrationValueEqual(source, destination)) {
+                    conflicts.push(k);
+                    continue;
+                }
+                if (!opts?.dryRun) {
+                    const sourceReadBack = await base.get(k);
+                    if (!migrationValueEqual(source, sourceReadBack)) {
+                        conflicts.push(k);
+                        continue;
+                    }
+                    deleted += await base.del(k).catch(() => 0);
+                }
+                alreadyPresent.push(k);
                 continue;
             }
             if (opts?.dryRun) {
                 migrated.push(k);
                 continue;
             }
-            await _diskOverlay.set(k, v);
+            // NX closes the check->write race with a concurrent overlay writer.
+            const claimed = await overlay.set(k, source, { nx: true });
+            const readBack = await overlay.get(k);
+            if (!claimed || !migrationValueEqual(source, readBack)) {
+                conflicts.push(k);
+                continue;
+            }
+            // A concurrent source change must never be deleted as if it were the
+            // older value we copied. The endpoint additionally requires an
+            // explicit write-freeze acknowledgement for live runs.
+            const sourceReadBack = await base.get(k);
+            if (!migrationValueEqual(source, sourceReadBack)) {
+                conflicts.push(k);
+                continue;
+            }
             migrated.push(k);
-            const n = await _baseKv.del(k).catch(() => 0);
+            const n = await base.del(k).catch(() => 0);
             deleted += n;
         }
     }
-    return { migrated, skipped, deleted };
+    return { migrated, alreadyPresent, conflicts, skipped, deleted };
+}
+// One-shot migration helper. Snapshots are intentionally excluded: they now
+// stay on the independent base store as disaster-recovery copies.
+async function migrateDiskRoutedKeysToOverlay(opts) {
+    if (!_diskOverlay)
+        throw new Error('No disk overlay configured (set DISK_KV_DIR or KV_PROXY_URL).');
+    return _migrateDiskRoutedKeys(_baseKv, _diskOverlay, _DISK_PREFIXES, opts);
 }
 // ─── Export the right backend ─────────────────────────────────────────────────
 //

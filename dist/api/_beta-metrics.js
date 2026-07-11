@@ -8,6 +8,7 @@ exports.recentBetaDates = recentBetaDates;
 exports.recordBetaMetric = recordBetaMetric;
 exports.readBetaMetricsSnapshot = readBetaMetricsSnapshot;
 const _storage_js_1 = require("./_storage.js");
+const _telemetry_lock_js_1 = require("./_telemetry-lock.js");
 const BETA_METRICS_RETENTION_SECONDS = 120 * 24 * 60 * 60;
 const DEFAULT_DAYS = 14;
 const MAX_DAYS = 60;
@@ -100,9 +101,11 @@ async function recordBetaMetric(input, opts = {}) {
     try {
         const ts = input.ts ?? Date.now();
         const key = betaMetricKey(betaDateKey(ts));
-        const current = await store.get(key);
-        const next = applyBetaMetric(current, { ...input, ts });
-        await store.set(key, next, { ex: BETA_METRICS_RETENTION_SECONDS });
+        await (0, _telemetry_lock_js_1.withTelemetryLock)(key, store, async () => {
+            const current = await store.get(key);
+            const next = applyBetaMetric(current, { ...input, ts });
+            await store.set(key, next, { ex: BETA_METRICS_RETENTION_SECONDS });
+        });
     }
     catch (e) {
         console.error('[beta-metrics] record failed:', e);

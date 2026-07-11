@@ -123,8 +123,7 @@ async function handler(req, res) {
                             stamina: freshChar.maxStamina,
                         },
                     };
-                    (0, _save_version_js_1.bumpSaveVersion)(updated);
-                    await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
+                    await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updated), fresh));
                     return {
                         status: 200,
                         body: {
@@ -212,8 +211,7 @@ async function handler(req, res) {
                         ryo: Math.max(0, Number(freshChar.ryo ?? 0) - chargedRyo),
                     },
                 };
-                (0, _save_version_js_1.bumpSaveVersion)(healed);
-                await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)(healed, fresh));
+                await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(healed), fresh));
                 return Number(healed._saveVersion ?? 0);
             });
             return res.status(200).json({ ok: true, kind: 'self', chargedRyo, _saveVersion: saveVersion });
@@ -388,8 +386,7 @@ async function handler(req, res) {
                     ...(targetHospitalized ? { lastDischargeAt: Date.now() } : {}),
                 },
             };
-            (0, _save_version_js_1.bumpSaveVersion)(healedTarget);
-            await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)(healedTarget, fresh));
+            await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(healedTarget), fresh));
         });
         // If this heal actually discharged a hospitalized player, queue a one-shot
         // "you were healed" signal for them. Their next heartbeat delivers+clears it

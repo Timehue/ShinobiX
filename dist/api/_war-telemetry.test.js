@@ -81,6 +81,24 @@ function memKv() {
     strict_1.default.equal(list[0].meta, 'sector:31');
     strict_1.default.equal(list[1].eventId, 'd1');
 });
+(0, node_test_1.test)('concurrent and replayed war telemetry cannot lose or duplicate events', async () => {
+    const kv = memKv();
+    await Promise.all(Array.from({ length: 30 }, (_, i) => (0, _war_telemetry_js_1.recordWarEcoEvent)({
+        eventId: `earned:${i}`,
+        village: 'Stormveil Village',
+        kind: 'wr.earn',
+        amount: 2,
+    }, { kv })));
+    await Promise.all([
+        (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: 'earned:0', village: 'Stormveil Village', kind: 'wr.earn', amount: 2 }, { kv }),
+        (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: 'earned:0', village: 'Stormveil Village', kind: 'wr.earn', amount: 2 }, { kv }),
+    ]);
+    const agg = (await kv.get((0, _war_telemetry_js_1.warEcoAggKey)('Stormveil Village')));
+    const list = (await kv.get(_war_telemetry_js_1.WAR_ECO_TXN_LIST_KEY));
+    strict_1.default.equal(agg['wr.earn'], 60);
+    strict_1.default.equal(list.length, 30);
+    strict_1.default.deepEqual((0, _war_telemetry_js_1.duplicateEventIds)(list), []);
+});
 (0, node_test_1.test)('recordWarEcoEvent is a best-effort no-op on bad input (never throws)', async () => {
     const kv = memKv();
     await (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: 'x', village: 'Stormveil Village', kind: 'not-a-kind', amount: 50 }, { kv });

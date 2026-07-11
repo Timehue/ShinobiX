@@ -116,16 +116,27 @@ async function handler(req, res) {
             const side = String((parsed.kind === 'village' ? c.village : c.clan) ?? '').trim();
             const claimed = Array.isArray(c.claimedWarCrateIds) ? c.claimedWarCrateIds.map(String) : [];
             const decision = warCrateClaimDecision(war, warCrateId, side, claimed, Date.now());
-            if (!decision.granted)
-                return { ...decision, _saveVersion: Number(fresh._saveVersion ?? 0) };
-            const inventory = Array.isArray(c.inventory) ? [...c.inventory] : [];
+            const currentInventory = Array.isArray(c.inventory) ? [...c.inventory] : [];
+            if (!decision.granted) {
+                return {
+                    ...decision,
+                    _saveVersion: Number(fresh._saveVersion ?? 0),
+                    playerState: { inventory: currentInventory, claimedWarCrateIds: claimed },
+                };
+            }
+            const inventory = currentInventory;
             inventory.push(LEGENDARY_WAR_CRATE_ID);
             const updated = (0, _save_version_js_1.bumpSaveVersion)({
                 ...fresh,
                 character: { ...c, inventory, claimedWarCrateIds: [...claimed, warCrateId] },
             });
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
-            return { granted: true, reason: 'granted', _saveVersion: Number(updated._saveVersion ?? 0) };
+            return {
+                granted: true,
+                reason: 'granted',
+                _saveVersion: Number(updated._saveVersion ?? 0),
+                playerState: { inventory, claimedWarCrateIds: [...claimed, warCrateId] },
+            };
         }, { failClosed: true });
         // Legacy tracking (ENABLE_LEGACY): a granted crate proves a won war.
         // Own NX per (player, war) — claimedWarCrateIds lives on the

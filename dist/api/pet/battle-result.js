@@ -8,6 +8,8 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _ranked_rating_js_1 = require("../_ranked-rating.js");
+const _economic_receipt_js_1 = require("../_economic-receipt.js");
+const _ranked_settlement_js_1 = require("./_ranked-settlement.js");
 // Pet Arena reward recorder. Non-ranked wins require a short-lived start token
 // minted by /api/pet/battle-start for the same reportKey. The battle is still
 // client-resolved, but bare result-only reward posts no longer pay out.
@@ -48,12 +50,9 @@ async function handler(req, res) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
         const outcome = (body.outcome === 'win' || body.outcome === 'loss') ? body.outcome : null;
-        // Ranked-pet-ladder marker (audit #7 / Stage 3). LIVE — the client sends
-        // this from the pet-ranked queue (shinobij.client/src/screens/PetArena.tsx
-        // posts { ranked: true, matchToken } here). When true the SERVER owns the
-        // petRankedRating swing (computed from the caller's + opponent's ratings as
-        // sealed by the match token) instead of the client self-applying
-        // rankedDelta. When absent the casual path below runs unchanged.
+        // Ranked requests take a separate server-authority path below. That path
+        // is disabled unless the private match token contains a deterministic
+        // server-engine resolution; participants + ratings alone are insufficient.
         const ranked = body.ranked === true;
         let opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(body.opponentLevel ?? 1))));
         // Optional opponent name — used to verify the claimed opponentLevel
@@ -138,16 +137,9 @@ async function handler(req, res) {
             opponentLevel = Math.min(opponentLevelRaw, myLevel + 10);
         }
         const saveKey = `save:${playerName}`;
-        // ── Ranked pet ladder credit (audit #7 / Stage 3 — LIVE) ────────────
-        // Reached when the client sends `ranked:true` — the pet-ranked queue does:
-        // PetArena.tsx posts { ranked: true, matchToken } here after a match
-        // accepted via /api/pet/ranked-start (Arena.tsx mints that token). When the
-        // flag is absent the casual path below runs unchanged. The SERVER owns the
-        // petRankedRating swing: it computes the Elo change from the caller's +
-        // opponent's ratings as SEALED by the match token (read below) and the
-        // reported outcome, then credits the caller's save. This mirrors the
-        // client's pet-ranked appliers exactly (creditRankedOutcome), so it is a
-        // zero-balance change.
+        // ── Ranked pet ladder credit (server-resolved tokens only) ──────────
+        // The token chooses the winner and both rating roles. The caller's outcome
+        // is only a consistency check and can never move the ladder by itself.
         //
         // Differences from the casual path, by design (matching the client's
         // ranked-pet branch in App.tsx, which grants NO ryo and bypasses the
@@ -159,35 +151,29 @@ async function handler(req, res) {
         // Exactly-once: the receipt is placed INSIDE the save lock together with
         // the rating write (failClosed), so a contention abort (→503) leaves
         // NOTHING placed and a retry credits cleanly without ever double-applying
-        // the swing. reportKey is REQUIRED (for losses too, since a ranked loss
-        // also moves the rating) so the receipt is stable across refresh-replays.
+        // the swing. The private match token is the stable replay identity.
         if (ranked) {
-            // #9: a ranked pet result REQUIRES a server-minted match token (from
-            // /api/pet/ranked-start) that sealed BOTH fighters' pre-match
-            // petRankedRating. Without it a client could move the ladder by
-            // asserting ranked:true against an arbitrary opponent. The token also
-            // lets the server settle BOTH accounts from the SAME sealed snapshot,
-            // exactly once each — so the loser can't dodge their drop by never
-            // reporting. (Client wiring: PetArena.tsx sends ranked:true + matchToken;
-            // Arena.tsx mints the token via api/pet/ranked-start.ts.)
+            // A valid token must contain BOTH sealed rating snapshots and the
+            // future server engine's resolution. ranked-start intentionally mints
+            // nothing until that engine exists.
             const matchToken = typeof body.matchToken === 'string' ? body.matchToken.trim() : '';
             const tok = matchToken
                 ? await _storage_js_1.kv.get(`pet:ranked-token:${matchToken}`)
                 : null;
             if (!tok) {
-                return res.status(400).json({ error: 'A valid pet ranked match token is required (start via /api/pet/ranked-start).' });
+                return res.status(503).json({ error: _ranked_settlement_js_1.PET_RANKED_DISABLED_REASON });
             }
-            if (tok.a !== playerName && tok.b !== playerName) {
-                return res.status(403).json({ error: 'Match token does not name you.' });
+            const decision = (0, _ranked_settlement_js_1.derivePetRankedSettlement)(tok, playerName, outcome);
+            if (!decision.ok) {
+                if (decision.reason === 'caller-not-in-match') {
+                    return res.status(403).json({ error: 'Match token does not name you.' });
+                }
+                if (decision.reason === 'conflicting-client-outcome') {
+                    return res.status(409).json({ error: 'Reported outcome conflicts with the server-resolved match.' });
+                }
+                return res.status(503).json({ error: _ranked_settlement_js_1.PET_RANKED_DISABLED_REASON });
             }
-            const callerIsA = tok.a === playerName;
-            const opponentName = callerIsA ? tok.b : tok.a;
-            const myRating = Number(callerIsA ? tok.aRating : tok.bRating);
-            const oppRating = Number(callerIsA ? tok.bRating : tok.aRating);
-            const winnerName = outcome === 'win' ? playerName : opponentName;
-            const loserName = outcome === 'win' ? opponentName : playerName;
-            const winnerRating = outcome === 'win' ? myRating : oppRating;
-            const loserRating = outcome === 'win' ? oppRating : myRating;
+            const { winnerName, loserName, winnerRating, loserRating } = decision.settlement;
             // Settle ONE side's petRankedRating once (NX receipt keyed by token +
             // slug) and report its resulting rating.
             const settlePet = async (slug, role) => {
@@ -196,11 +182,21 @@ async function handler(req, res) {
                 const char = (record?.character ?? null);
                 if (!record || !char)
                     return undefined;
-                const placed = await _storage_js_1.kv.set(`pet:ranked-settled:${slug}:${matchToken}`, { role, ts: Date.now() }, { nx: true, ex: RANKED_RECEIPT_TTL_SECONDS });
+                const receiptKey = `pet:ranked-settled:${slug}:${matchToken}`;
+                const reservation = await (0, _economic_receipt_js_1.reserveEconomicReceipt)(_storage_js_1.kv, {
+                    key: receiptKey,
+                    fingerprint: `pet-ranked:${matchToken}:${winnerName}:${loserName}:${role}`,
+                    ttlSeconds: RANKED_RECEIPT_TTL_SECONDS,
+                    metadata: { slug, role, matchToken },
+                });
+                if (reservation.status === 'conflict') {
+                    throw new Error(`Conflicting pet-ranked settlement for ${matchToken}/${slug}.`);
+                }
                 const r = (0, _ranked_rating_js_1.creditRankedOutcome)(char, { role, winnerRating, loserRating, kind: 'pet' });
-                if (placed) {
+                if (reservation.status === 'reserved') {
                     const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: { ...char, ...r.patch } });
                     await _storage_js_1.kv.set(sk, (0, _utils_js_1.mergePreservingImages)(updated, record));
+                    await (0, _economic_receipt_js_1.commitEconomicReceipt)(_storage_js_1.kv, receiptKey, reservation, RANKED_RECEIPT_TTL_SECONDS);
                     return { field: 'petRankedRating', value: r.newRating, delta: r.delta };
                 }
                 const cur = Number(char.petRankedRating);
@@ -284,8 +280,7 @@ async function handler(req, res) {
                 lastDailyReset: today,
             };
             const updated = { ...record, character: updatedChar };
-            (0, _save_version_js_1.bumpSaveVersion)(updated);
-            await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
+            await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updated), record));
             return {
                 ok: true,
                 reward,

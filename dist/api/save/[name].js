@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.adminSaveTargetAllowed = adminSaveTargetAllowed;
 exports.sanitizeCharacterSave = sanitizeCharacterSave;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
@@ -22,6 +23,7 @@ const _registry_throttle_js_1 = require("./_registry-throttle.js");
 const _public_index_js_1 = require("../player/_public-index.js");
 const _lock_js_1 = require("../_lock.js");
 const _elapsed_state_js_1 = require("../_elapsed-state.js");
+const formulas_js_1 = require("../combat-core/formulas.js");
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
 const PRIVATE_CHAR_FIELDS = [
@@ -254,15 +256,24 @@ function freshWindow() {
 // maxed stats because there's no `existing` baseline to diff against.
 const FIRST_SAVE_BASELINE_CHARACTER = {
     level: 1,
-    ryo: 0,
+    // These values are the canonical createCharacter() starter grant. A first
+    // save is allowed to choose identity/cosmetic fields, but not its economy
+    // or combat power.
+    ryo: 100,
     xp: 0,
     stats: {
-        strength: 0, speed: 0, intelligence: 0, willpower: 0,
-        bukijutsuOffense: 0, bukijutsuDefense: 0,
-        taijutsuOffense: 0, taijutsuDefense: 0,
-        genjutsuOffense: 0, genjutsuDefense: 0,
-        ninjutsuOffense: 0, ninjutsuDefense: 0,
+        strength: 10, speed: 10, intelligence: 10, willpower: 10,
+        bukijutsuOffense: 10, bukijutsuDefense: 10,
+        taijutsuOffense: 10, taijutsuDefense: 10,
+        genjutsuOffense: 10, genjutsuDefense: 10,
+        ninjutsuOffense: 10, ninjutsuDefense: 10,
     },
+    unspentStats: 20,
+    hp: 500, maxHp: 500,
+    chakra: 1000, maxChakra: 1000,
+    stamina: 1000, maxStamina: 1000,
+    rankTitle: 'Academy Student',
+    auraSphereLevel: 1,
     honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0,
     auraDust: 0, mythicSeals: 0,
     hospitalized: false, hospitalizedUntil: 0,
@@ -281,12 +292,378 @@ const FIRST_SAVE_BASELINE_CHARACTER = {
     // challenge. Written only by server-authoritative village endpoints (never
     // by the client save); a first save can't seed a nonzero value.
     villageMerit: 0,
-    // Inventory / equipment / pets / mastery / bloodlines must start empty —
-    // otherwise the first save can ship with a maxed loadout and the
-    // per-save inventory cap (500) won't catch it because there's no diff.
-    inventory: [], itemStacks: [], jutsuMastery: [], pets: [], savedBloodlines: [], tileCards: [],
+    // Ownership baselines. The final ledger boundary replaces inventory with
+    // the canonical two starter items, strips pets/equipment, and rewrites the
+    // chosen starter mastery rows to level 1 / XP 0.
+    inventory: ['rustfang-kunai', 'shinobi-vest'], itemStacks: [], jutsuMastery: [], pets: [], savedBloodlines: [], tileCards: [],
     equipment: {},
 };
+// Target state for raw player-save POSTs: persistence channel, never reward
+// ledger. Re-injecting this full set prevents minting a bounded amount on every
+// autosave. Existing characters use it only behind STRICT_RAW_SAVE_LEDGER until
+// every core reward writer is migrated; first saves use it unconditionally.
+// Admin writes bypass sanitizeCharacterSave.
+const STRICT_SERVER_LEDGER_CHARACTER_FIELDS = [
+    'level', 'xp', 'experience', 'ryo', 'bankRyo',
+    'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'auraDust',
+    'mythicSeals', 'hollowShards',
+    'stats', 'unspentStats', 'totalStatsTrained', 'maxHp', 'maxChakra', 'maxStamina',
+    'rankTitle', 'professionXp', 'professionRank', 'auraSphereLevel',
+    'hollowGateAttunement', 'rankedRating', 'petRankedRating',
+];
+// These fields have complete server-authoritative mutation paths today and are
+// therefore safe to protect on every generic save. Keep this list deliberately
+// narrow: most PvE/world progression still arrives through the bounded legacy
+// save channel, so pinning XP, currencies, mastery, pets, or inventory before
+// those callers are migrated would silently discard legitimate player progress.
+const ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS = [
+    'bankRyo',
+    'hollowGateAttunement',
+    'rankedRating',
+    'petRankedRating',
+    'professionXp',
+    'professionRank',
+];
+function strictRawSaveLedgerEnabled() {
+    return process.env.STRICT_RAW_SAVE_LEDGER === '1';
+}
+// Payout/idempotency state must be immutable through the generic save route.
+// The corresponding claim endpoints write these under the same save lock and
+// bump _saveVersion. Keeping the complete stored value prevents both latch
+// clearing and forward-forging a reset date/counter combination.
+const SERVER_PAYOUT_CHARACTER_FIELDS = [
+    'lastBankInterestAt', 'lastLoginRewardDate', 'loginStreak',
+    'academyChecklistClaimed', 'academyTrialClaimed',
+    'cardClashDailyWinDate', 'claimedWarCrateIds',
+    'claimedVillageAgendaDate', 'claimedMapControlDate',
+    'lastExpeditionClaimDate', 'expeditionsClaimedToday', 'petEscortBonusReady',
+    'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
+    'dailyDonatedSeals', 'dailyDonationDate',
+    'pendingCombatMissionClaims',
+    'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed',
+    'lastTaxDate',
+];
+// Receipt ledgers live outside character but have the same trust boundary.
+const SERVER_LEDGER_TOPLEVEL_FIELDS = [
+    '_trainingReceipts', 'activeTraining',
+    'creatorJutsus', 'creatorAis', 'creatorMissions', 'creatorEvents',
+    'creatorCards', 'creatorRaids',
+];
+const EQUIPMENT_SLOTS = new Set([
+    'aura', 'hand', 'gloves', 'body', 'waist', 'legs', 'feet', 'head',
+    'item', 'item1', 'item2', 'item3', 'thrown', 'potion',
+    'weapon', 'armor', 'accessory',
+]);
+const REFERENCE_EQUIPMENT_SLOTS = new Set([
+    'item', 'item1', 'item2', 'item3', 'thrown', 'potion',
+]);
+function canonicalEquipmentSlot(slot) {
+    if (slot === 'weapon')
+        return 'hand';
+    if (slot === 'armor')
+        return 'body';
+    if (slot === 'accessory')
+        return 'aura';
+    if (slot === 'item')
+        return 'item1';
+    return slot;
+}
+const ALLOCATABLE_STAT_FIELDS = new Set(formulas_js_1.STAT_CAP_FIELDS);
+// Canonical first-save bloodline loadouts. These IDs mirror the four built-in
+// starter bloodlines in shinobij.client/src/data/jutsu.ts and the generated
+// server combat catalog. A first save may choose one of these authored kits,
+// but it may not turn arbitrary catalog IDs into owned mastery rows.
+const STARTER_BLOODLINE_JUTSU_IDS = {
+    'Ashen Eyes': [
+        'ashen-eyes-blood-gaze', 'ashen-eyes-crimson-hall',
+        'ashen-eyes-hematoma-veil', 'ashen-eyes-vein-mirror',
+    ],
+    'Inferno Cataclysm': [
+        'inferno-cataclysm-crater-lance', 'inferno-cataclysm-lava-burst',
+        'inferno-cataclysm-molten-rain', 'inferno-cataclysm-obsidian-afterglow',
+    ],
+    'Shadow Lotus': [
+        'shadow-lotus-black-petal-guard', 'shadow-lotus-eclipse-wire',
+        'shadow-lotus-night-petal', 'shadow-lotus-umbra-senbon',
+    ],
+    'Iron Fang': [
+        'iron-fang-anvil-breath', 'iron-fang-ferrous-crash',
+        'iron-fang-magnet-knuckle', 'iron-fang-steel-maw',
+    ],
+};
+function starterJutsuIdsForBloodline(raw) {
+    const name = raw === 'Blue Blade Eyes' ? 'Ashen Eyes' : String(raw ?? '');
+    return STARTER_BLOODLINE_JUTSU_IDS[name] ?? [];
+}
+/** Content admin is limited to the two explicit admin content save records. */
+function adminSaveTargetAllowed(targetName, fullAdmin, anyAdmin) {
+    if (fullAdmin)
+        return true;
+    return anyAdmin && (targetName === 'admin1' || targetName === 'admin2');
+}
+function copyStoredField(target, stored, field) {
+    // The stored value is never mutated after this final boundary. Reusing the
+    // reference avoids deep-cloning large arrays/objects on every autosave.
+    if (Object.prototype.hasOwnProperty.call(stored, field))
+        target[field] = stored[field];
+    else
+        delete target[field];
+}
+function addOwnedCount(counts, rawId, amount = 1) {
+    const id = typeof rawId === 'string' ? rawId.trim() : '';
+    if (!id || amount <= 0)
+        return;
+    counts.set(id, (counts.get(id) ?? 0) + Math.floor(amount));
+}
+/**
+ * Apply the final server-ledger boundary after the legacy shape/text clamps.
+ * The complete ownership lock is rollout-gated until all core reward writers
+ * settle directly on the server. First saves and fields with completed server
+ * mutation paths are always protected.
+ */
+function enforceRawSaveLedgerBoundary(char, stored, firstSave) {
+    const requestedStats = char.stats && typeof char.stats === 'object'
+        ? char.stats
+        : null;
+    const requestedUnspentStats = char.unspentStats;
+    for (const field of ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS)
+        copyStoredField(char, stored, field);
+    for (const field of SERVER_PAYOUT_CHARACTER_FIELDS)
+        copyStoredField(char, stored, field);
+    if (char.masterySpec !== undefined) {
+        char.masterySpec = (0, _profession_mastery_js_1.sanitizeMasterySpec)(char.profession, char.masterySpec, (0, _profession_mastery_js_1.masteryBudget)(char.profession, char.professionXp));
+    }
+    // Mission/hunt claim counters are server-owned within a UTC day, while the
+    // shared reset stamps are also legitimately advanced by client-only daily
+    // exploration, pet, and tower counters. Preserve the authoritative count on
+    // the current day, but permit exactly today's rollover and reset the server
+    // counter to zero with it. This avoids both replaying claims and pinning a
+    // stale date that would make unrelated daily caps reset on every reload.
+    const today = new Date().toISOString().slice(0, 10);
+    for (const [dateField, counterField] of [
+        ['lastDailyReset', 'dailyMissionsCompleted'],
+        ['lastHuntReset', 'dailyHuntsCompleted'],
+    ]) {
+        const storedDate = typeof stored[dateField] === 'string' ? stored[dateField] : '';
+        const requestedDate = typeof char[dateField] === 'string' ? char[dateField] : '';
+        if (storedDate === today) {
+            copyStoredField(char, stored, counterField);
+        }
+        else if (requestedDate === today) {
+            char[dateField] = today;
+            char[counterField] = 0;
+        }
+        else if (storedDate > today) {
+            copyStoredField(char, stored, dateField);
+            copyStoredField(char, stored, counterField);
+        }
+    }
+    if (firstSave) {
+        for (const field of STRICT_SERVER_LEDGER_CHARACTER_FIELDS)
+            copyStoredField(char, stored, field);
+        // A new character legitimately starts with its chosen bloodline's small
+        // level-1 loadout. Intersect the request with that exact authored kit
+        // and rewrite every mastery value to the canonical starter value;
+        // arbitrary catalog IDs, power, XP, or custom definitions cannot enter.
+        const starterMastery = [];
+        const seenStarterJutsu = new Set();
+        const allowedStarterJutsu = new Set(starterJutsuIdsForBloodline(char.bloodline));
+        if (Array.isArray(char.jutsuMastery)) {
+            for (const raw of char.jutsuMastery) {
+                const jutsuId = typeof raw?.jutsuId === 'string' ? raw.jutsuId.trim().toLowerCase() : '';
+                if (!allowedStarterJutsu.has(jutsuId) || seenStarterJutsu.has(jutsuId))
+                    continue;
+                seenStarterJutsu.add(jutsuId);
+                starterMastery.push({ jutsuId, level: 1, xp: 0 });
+                if (starterMastery.length >= allowedStarterJutsu.size)
+                    break;
+            }
+        }
+        char.jutsuMastery = starterMastery;
+        const requestedStarterLoadout = Array.isArray(char.equippedJutsuIds) ? char.equippedJutsuIds : [];
+        char.equippedJutsuIds = [...new Set(requestedStarterLoadout
+                .filter((id) => typeof id === 'string' && seenStarterJutsu.has(id)))]
+            .slice(0, 3);
+        char.inventory = structuredClone(FIRST_SAVE_BASELINE_CHARACTER.inventory);
+        char.itemStacks = [];
+        char.pets = [];
+        char.equipment = {};
+        delete char.activePetId;
+        delete char.activePetId2v2;
+        return;
+    }
+    // Compatibility bridge: AI battles, story/world encounters, battle jutsu
+    // mastery, level-up point grants, and several bounded loot paths still save
+    // through this route. The detailed clamps above remain active. Enable the
+    // full boundary only after those writers have moved to versioned server
+    // mutations; otherwise ordinary play appears to succeed and then rolls back
+    // on the next load.
+    if (!strictRawSaveLedgerEnabled())
+        return;
+    for (const field of STRICT_SERVER_LEDGER_CHARACTER_FIELDS)
+        copyStoredField(char, stored, field);
+    // Mastery level/XP is combat power. Dedicated training endpoints may
+    // mutate it under lock; a raw save may only choose a loadout from already
+    // learned (or grandfathered equipped) ids.
+    const storedMastery = Array.isArray(stored.jutsuMastery) ? stored.jutsuMastery : [];
+    char.jutsuMastery = storedMastery;
+    const learnedJutsuIds = new Set(storedMastery
+        .map((entry) => String(entry?.jutsuId ?? ''))
+        .filter(Boolean));
+    for (const id of Array.isArray(stored.equippedJutsuIds) ? stored.equippedJutsuIds : []) {
+        if (typeof id === 'string' && id)
+            learnedJutsuIds.add(id);
+    }
+    const requestedLoadout = Array.isArray(char.equippedJutsuIds)
+        ? char.equippedJutsuIds
+        : (Array.isArray(stored.equippedJutsuIds) ? stored.equippedJutsuIds : []);
+    char.equippedJutsuIds = [...new Set(requestedLoadout
+            .filter((id) => typeof id === 'string' && learnedJutsuIds.has(id)))]
+        .slice(0, 15);
+    // Stat allocation is a conserved transfer from the authoritative unspent
+    // pool. It may raise known stats only by the exact number of pool points the
+    // request spends, and never above the character's rank cap. Training gains
+    // still arrive through server endpoints and are already present in stored.
+    const exStats = stored.stats && typeof stored.stats === 'object'
+        ? stored.stats
+        : {};
+    const exUnspent = Math.max(0, Math.floor(Number(stored.unspentStats) || 0));
+    const requestedPool = Number(requestedUnspentStats);
+    let allocationBudget = Number.isSafeInteger(requestedPool) && requestedPool >= 0
+        ? Math.min(exUnspent, Math.max(0, exUnspent - requestedPool))
+        : 0;
+    const nextStats = {};
+    const cap = (0, formulas_js_1.statCapForLevel)(Number(stored.level) || 1);
+    for (const [key, rawStored] of Object.entries(exStats)) {
+        const current = Math.max(0, Math.floor(Number(rawStored) || 0));
+        if (!ALLOCATABLE_STAT_FIELDS.has(key)) {
+            nextStats[key] = current;
+            continue;
+        }
+        const desiredRaw = requestedStats?.[key];
+        const desired = Number.isFinite(Number(desiredRaw))
+            ? Math.max(current, Math.min(cap, Math.floor(Number(desiredRaw))))
+            : current;
+        const applied = Math.min(allocationBudget, Math.max(0, desired - current));
+        nextStats[key] = current + applied;
+        allocationBudget -= applied;
+    }
+    const allocated = Object.entries(nextStats).reduce((sum, [key, value]) => {
+        const current = Math.max(0, Math.floor(Number(exStats[key]) || 0));
+        return sum + Math.max(0, value - current);
+    }, 0);
+    char.stats = nextStats;
+    char.unspentStats = exUnspent - allocated;
+    // Build the authoritative ownership pool from backpack, counted stacks,
+    // and equipped gear (gear is removed from the backpack while equipped).
+    const available = new Map();
+    for (const id of Array.isArray(stored.inventory) ? stored.inventory : [])
+        addOwnedCount(available, id);
+    if (Array.isArray(stored.itemStacks)) {
+        for (const raw of stored.itemStacks) {
+            if (!raw || typeof raw !== 'object')
+                continue;
+            addOwnedCount(available, raw.itemId, Math.max(0, Math.floor(Number(raw.count) || 0)));
+        }
+    }
+    const storedEquipment = stored.equipment && typeof stored.equipment === 'object'
+        ? stored.equipment
+        : {};
+    const countedStoredSlots = new Set();
+    for (const [slot, id] of Object.entries(storedEquipment)) {
+        if (!EQUIPMENT_SLOTS.has(slot) || REFERENCE_EQUIPMENT_SLOTS.has(slot))
+            continue;
+        const canonicalSlot = canonicalEquipmentSlot(slot);
+        if (countedStoredSlots.has(canonicalSlot))
+            continue;
+        countedStoredSlots.add(canonicalSlot);
+        addOwnedCount(available, id);
+    }
+    const remaining = new Map(available);
+    const proposedInventory = Array.isArray(char.inventory)
+        ? char.inventory
+        : (Array.isArray(stored.inventory) ? stored.inventory : []);
+    const inventory = [];
+    for (const raw of proposedInventory) {
+        const id = typeof raw === 'string' ? raw.trim() : '';
+        const left = remaining.get(id) ?? 0;
+        if (!id || left <= 0)
+            continue;
+        inventory.push(id);
+        remaining.set(id, left - 1);
+    }
+    char.inventory = inventory;
+    const proposedStacks = Array.isArray(char.itemStacks)
+        ? char.itemStacks
+        : (Array.isArray(stored.itemStacks) ? stored.itemStacks : []);
+    const stacks = [];
+    const seenStackIds = new Set();
+    for (const raw of proposedStacks) {
+        if (!raw || typeof raw !== 'object')
+            continue;
+        const itemId = typeof raw.itemId === 'string' ? raw.itemId.trim() : '';
+        if (!itemId || seenStackIds.has(itemId))
+            continue;
+        const count = Math.min(Math.max(0, Math.floor(Number(raw.count) || 0)), remaining.get(itemId) ?? 0);
+        if (count <= 0)
+            continue;
+        seenStackIds.add(itemId);
+        stacks.push({ itemId, count });
+        remaining.set(itemId, (remaining.get(itemId) ?? 0) - count);
+    }
+    char.itemStacks = stacks;
+    const retainedBackpackIds = new Set([
+        ...inventory,
+        ...stacks.map((stack) => stack.itemId),
+    ]);
+    // Pets are competitive actors. Pet creation, XP/stat growth and evolution
+    // must arrive via their dedicated server endpoints; the generic save may
+    // only re-assert the authoritative stored roster.
+    const pets = Array.isArray(stored.pets) ? stored.pets : [];
+    char.pets = pets;
+    const petIds = new Set(pets
+        .map((pet) => String(pet?.id ?? ''))
+        .filter(Boolean));
+    for (const field of ['activePetId', 'activePetId2v2']) {
+        const requested = typeof char[field] === 'string' ? char[field] : '';
+        if (requested && petIds.has(requested))
+            char[field] = requested;
+        else
+            copyStoredField(char, stored, field);
+    }
+    // Loadout references may change, but every id must already be in the
+    // authoritative ownership pool. De-duplicate ids so one physical weapon
+    // cannot be asserted in several combat slots simultaneously.
+    const requestedEquipment = char.equipment && typeof char.equipment === 'object'
+        ? char.equipment
+        : storedEquipment;
+    const equipment = {};
+    const equippedIds = new Set();
+    const occupiedCanonicalSlots = new Set();
+    for (const [slot, rawId] of Object.entries(requestedEquipment)) {
+        const id = typeof rawId === 'string' ? rawId.trim() : '';
+        const canonicalSlot = canonicalEquipmentSlot(slot);
+        if (!EQUIPMENT_SLOTS.has(slot) || !id || equippedIds.has(id) || occupiedCanonicalSlots.has(canonicalSlot))
+            continue;
+        if (REFERENCE_EQUIPMENT_SLOTS.has(slot)) {
+            // Consumable slots are references into the backpack stack and do
+            // not own an extra copy. Drop a stale selection when the last copy
+            // was consumed in this save.
+            if (!retainedBackpackIds.has(id))
+                continue;
+        }
+        else {
+            const left = remaining.get(id) ?? 0;
+            if (left <= 0)
+                continue;
+            remaining.set(id, left - 1);
+        }
+        equipment[slot] = id;
+        equippedIds.add(id);
+        occupiedCanonicalSlots.add(canonicalSlot);
+    }
+    char.equipment = equipment;
+}
 function sanitizeCharacterSave(incoming, existing) {
     const inChar = incoming.character;
     // First-save case (no existing): clamp against a fresh baseline so a brand-
@@ -742,6 +1119,13 @@ function sanitizeCharacterSave(incoming, existing) {
     if (Array.isArray(char.inventory) && char.inventory.length > INVENTORY_CAP) {
         char.inventory = char.inventory.slice(0, INVENTORY_CAP);
     }
+    // Standard Hidden Dungeon completion is still a bounded client-settled PvE
+    // path. Preserve its real one-relic award while preventing a single save
+    // from bulk-minting the crafting material. Move this ID back to the strict
+    // entitlement set once dungeon settlement writes the player save directly.
+    const boundedDungeonRelics = (0, _entitlement_guard_js_1.capStringArrayItemGain)(char.inventory, exChar.inventory, 'dungeon-legendary-relic', 1);
+    if (boundedDungeonRelics)
+        char.inventory = boundedDungeonRelics;
     const entitledInventory = (0, _entitlement_guard_js_1.preserveEntitledStringArray)(char.inventory, exChar.inventory, _entitlement_guard_js_1.isServerOwnedItemId);
     if (entitledInventory)
         char.inventory = entitledInventory;
@@ -1175,12 +1559,11 @@ function sanitizeCharacterSave(incoming, existing) {
     // (claim-mission, pvp/claim-rewards), so by the time an autosave runs the
     // stored value already reflects them and this clamp is a no-op re-assert for
     // honest play.
-    if (exChar.warGroundBountyDate === SERVER_UTC_DATE) {
-        const exRyoFloor = Math.max(0, Number(exChar.ryo ?? 0));
-        char.ryo = Math.min(Math.max(0, Number(char.ryo) || 0), exRyoFloor);
-        const exFateFloor = Math.max(0, Number(exChar.fateShards ?? 0));
-        char.fateShards = Math.min(Math.max(0, Number(char.fateShards) || 0), exFateFloor);
-    }
+    // Do not freeze every later same-day ryo/Fate gain after this bounty.
+    // AI, story, world, and achievement rewards still use the bounded raw-save
+    // compatibility channel. The UTC stamp check above plus the general
+    // per-save/per-minute caps remain the interim protection until bounty payout
+    // and its latch move together into a versioned server transaction.
     // Hollow Gate daily run cap (dailyHollowGateRuns) is gated client-side via
     // lastDailyReset. Defense-in-depth: if the SERVER-stored save was last written
     // today (exChar.lastDailyReset === SERVER_UTC_DATE), the run count can only go
@@ -1420,11 +1803,24 @@ function sanitizeCharacterSave(incoming, existing) {
             return out;
         });
     }
+    // Final authority boundary. The detailed normalizers above still provide
+    // storage hygiene for legacy/admin-originated data, but a normal player
+    // save cannot increase server-ledger fields or create ownership.
+    enforceRawSaveLedgerBoundary(char, exChar, existing === null);
+    sanitizedCreatorItems = existing === null
+        ? []
+        : (Array.isArray(existing.creatorItems) ? existing.creatorItems : []);
     const out = { ...incoming, character: char };
     if (Array.isArray(incoming.savedBloodlines))
         out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines);
     if (sanitizedCreatorItems !== undefined)
         out.creatorItems = sanitizedCreatorItems;
+    for (const field of SERVER_LEDGER_TOPLEVEL_FIELDS) {
+        if (existing && Object.prototype.hasOwnProperty.call(existing, field))
+            out[field] = existing[field];
+        else
+            delete out[field];
+    }
     return out;
 }
 // ── Clan / village identity lockdown ──────────────────────────────────────
@@ -1583,7 +1979,9 @@ async function handler(req, res) {
         // correctly recognises the owner (the old `.toLowerCase().trim()` left a
         // spaced-name owner looking like a foreigner and served them a stripped
         // public projection of their own save).
-        const isOwner = identity.admin || isClanSave || identity.name === name;
+        const adminCanReadTarget = identity.admin
+            && adminSaveTargetAllowed(name, (0, _auth_js_1.isFullAdmin)(req), (0, _auth_js_1.isAdmin)(req));
+        const isOwner = adminCanReadTarget || isClanSave || (!identity.admin && identity.name === name);
         const combatOnly = req.query.combatOnly === '1';
         let payload = isOwner ? data : publicProjection(stripPrivateFields(data));
         if (combatOnly)
@@ -1609,6 +2007,9 @@ async function handler(req, res) {
                 const ackIdentity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
                 if (!ackIdentity)
                     return res.status(401).json({ error: 'Authentication required.' });
+                if (ackIdentity.admin && !adminSaveTargetAllowed(name, (0, _auth_js_1.isFullAdmin)(req), (0, _auth_js_1.isAdmin)(req))) {
+                    return res.status(403).json({ error: 'Full admin authentication required for that save.' });
+                }
                 if (!ackIdentity.admin && !isClanSave && ackIdentity.name !== name) {
                     return res.status(403).json({ error: 'Cannot ack another player.' });
                 }
@@ -1629,7 +2030,7 @@ async function handler(req, res) {
             // Admin-flagged writes require admin auth (constant-time compare in isAdmin).
             let identityName = null;
             if (isAdminSave) {
-                if (!(0, _auth_js_1.isAdmin)(req)) {
+                if (!adminSaveTargetAllowed(name, (0, _auth_js_1.isFullAdmin)(req), (0, _auth_js_1.isAdmin)(req))) {
                     return res.status(401).json({ error: 'Admin authentication required.' });
                 }
             }
@@ -1640,6 +2041,9 @@ async function handler(req, res) {
                 const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
                 if (!identity)
                     return res.status(401).json({ error: 'Authentication required.' });
+                if (identity.admin && !adminSaveTargetAllowed(name, (0, _auth_js_1.isFullAdmin)(req), (0, _auth_js_1.isAdmin)(req))) {
+                    return res.status(403).json({ error: 'Full admin authentication required for that save.' });
+                }
                 if (!identity.admin && !isClanSave && identity.name !== name) {
                     return res.status(403).json({ error: 'Cannot save another player.' });
                 }
@@ -1902,7 +2306,7 @@ async function handler(req, res) {
                         // across the whole clan and use a separate field-level
                         // delta validator that already handles concurrent writes.
                         const existingObj = existing ?? null;
-                        const storedVersion = Number(existingObj?._saveVersion ?? 0);
+                        const storedVersion = (0, _save_version_js_1.storedSaveVersion)(existingObj?._saveVersion);
                         const incomingBody = incoming;
                         const baseVersion = (0, _save_version_js_1.parseBaseSaveVersion)(incomingBody?._baseSaveVersion);
                         // #14 step 2: REQUIRE a version stamp for non-clan player
@@ -1924,13 +2328,15 @@ async function handler(req, res) {
                                 code: 'CLIENT_REFRESH_REQUIRED',
                             });
                         }
-                        if (!isClanSave && baseVersion !== null && baseVersion < storedVersion) {
+                        // Exact compare rejects both stale and forged-future bases:
+                        // the client may only replace the snapshot it actually read.
+                        if (!isClanSave && baseVersion !== null && !(0, _save_version_js_1.matchesStoredSaveVersion)(baseVersion, storedVersion)) {
                             return res.status(409).json({
                                 error: 'Save conflict — another tab or device wrote first.',
                                 currentVersion: storedVersion,
                             });
                         }
-                        const nextVersion = storedVersion + 1;
+                        const nextVersion = (0, _save_version_js_1.nextSaveVersion)(storedVersion);
                         const mergedPayload = existing ? (0, _utils_js_1.mergePreservingImages)(safeIncoming, existing) : safeIncoming;
                         // Strip `_baseSaveVersion` from the persisted payload so
                         // it doesn't accumulate in the stored save record.
@@ -1988,37 +2394,44 @@ async function handler(req, res) {
                 }
             }
             // Admin save path — lock first, then read + write, then signal reload.
-            await _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 });
-            const existing = await _storage_js_1.kv.get(key);
-            const adminStoredVersion = Number(existing?._saveVersion ?? 0);
-            const adminMerged = existing ? (0, _utils_js_1.mergePreservingImages)(incoming, existing) : incoming;
-            const payload = {
-                ...adminMerged,
-                _saveVersion: adminStoredVersion + 1,
-                _saveAt: Date.now(),
-            };
-            const char = incoming?.character;
-            const registryEntry = (0, _public_index_js_1.buildPublicPlayerIndexEntry)(char, name);
-            await Promise.all([
-                _storage_js_1.kv.set(key, payload),
-                _storage_js_1.kv.hset(_public_index_js_1.REGISTRY_KEY, { [name]: registryEntry }),
-            ]);
-            // Set reset-signal after the new save is committed so the client reloads that exact version.
-            await _storage_js_1.kv.set(resetSignalKey, 1, { ex: 300 });
+            await (0, _lock_js_1.withKvLock)(`save:${name.toLowerCase()}`, async () => {
+                await _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 });
+                const existing = await _storage_js_1.kv.get(key);
+                const adminMerged = existing ? (0, _utils_js_1.mergePreservingImages)(incoming, existing) : incoming;
+                const payload = {
+                    ...adminMerged,
+                    _saveVersion: (0, _save_version_js_1.nextSaveVersion)(existing?._saveVersion),
+                    _saveAt: Date.now(),
+                };
+                const char = payload?.character;
+                const registryEntry = (0, _public_index_js_1.buildPublicPlayerIndexEntry)(char, name);
+                await Promise.all([
+                    _storage_js_1.kv.set(key, payload),
+                    _storage_js_1.kv.hset(_public_index_js_1.REGISTRY_KEY, { [name]: registryEntry }),
+                ]);
+                // Signal only after the repaired version is durable.
+                await _storage_js_1.kv.set(resetSignalKey, 1, { ex: 300 });
+            }, { failClosed: true });
             return res.status(200).end();
         }
         catch (err) {
+            if (err instanceof _lock_js_1.LockContendedError) {
+                return res.status(503).json({ error: 'Save is busy. Admin overwrite was not applied; retry.' });
+            }
             console.error('[save POST]', err);
             return res.status(500).json({ error: 'Internal server error.' });
         }
     }
     if (req.method === 'DELETE') {
         try {
-            const adminAuth = (0, _auth_js_1.isAdmin)(req);
+            const adminAuth = (0, _auth_js_1.isFullAdmin)(req);
             if (!adminAuth) {
                 const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
                 if (!identity)
                     return res.status(401).json({ error: 'Authentication required.' });
+                if (identity.admin) {
+                    return res.status(403).json({ error: 'Full admin authentication required to delete saves.' });
+                }
                 if (!identity.admin && isClanSave) {
                     // Clan record: only the clan FOUNDER (or an admin) may delete
                     // the shared save — mirrors the founder-only "Delete Clan" UI.
@@ -2050,16 +2463,21 @@ async function handler(req, res) {
             }
             const lowered = name.toLowerCase();
             const adminLockKey = `admin-lock:${lowered}`;
-            await _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 });
-            await Promise.all([
-                _storage_js_1.kv.del(key),
-                _storage_js_1.kv.hdel(_public_index_js_1.REGISTRY_KEY, name),
-                // Signal the player's client to reload on next heartbeat (5-min TTL)
-                _storage_js_1.kv.set(`reset-signal:${lowered}`, 1, { ex: 300 }),
-            ]);
+            await (0, _lock_js_1.withKvLock)(`save:${lowered}`, async () => {
+                await _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 });
+                await Promise.all([
+                    _storage_js_1.kv.del(key),
+                    _storage_js_1.kv.hdel(_public_index_js_1.REGISTRY_KEY, name),
+                    // Signal the player's client to reload on next heartbeat (5-min TTL)
+                    _storage_js_1.kv.set(`reset-signal:${lowered}`, 1, { ex: 300 }),
+                ]);
+            }, { failClosed: true });
             return res.status(200).json({ ok: true });
         }
         catch (err) {
+            if (err instanceof _lock_js_1.LockContendedError) {
+                return res.status(503).json({ error: 'Save is busy. Delete was not applied; retry.' });
+            }
             console.error('[save DELETE]', err);
             return res.status(500).json({ error: 'Internal server error.' });
         }

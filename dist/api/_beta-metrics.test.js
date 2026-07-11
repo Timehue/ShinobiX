@@ -67,3 +67,16 @@ class MemoryKv {
     strict_1.default.equal(snapshot.totals.rewardTotals.territoryScrolls, 3);
     strict_1.default.equal(snapshot.totals.rewardTotals.fateShards, 2);
 });
+(0, node_test_1.test)('concurrent beta metric records are serialized without lost updates', async () => {
+    const store = new MemoryKv();
+    const now = Date.UTC(2026, 6, 7, 12);
+    await Promise.all(Array.from({ length: 40 }, () => (0, _beta_metrics_1.recordBetaMetric)({
+        event: 'mission.claimed',
+        level: 20,
+        xp: 5,
+        ts: now,
+    }, { kv: store })));
+    const snapshot = await (0, _beta_metrics_1.readBetaMetricsSnapshot)(1, { kv: store, now });
+    strict_1.default.equal(snapshot.totals.events['mission.claimed'], 40);
+    strict_1.default.equal(snapshot.totals.rewardTotals.xp, 200);
+});
