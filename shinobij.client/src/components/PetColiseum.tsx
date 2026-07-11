@@ -46,7 +46,8 @@ import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../lib/pet-projectile-vfx";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeContactFx, meleeTrailSpec, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
-import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, elementMult, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
+import { DUEL_TPS, ARENA_X, ARENA_Y, elementMult, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
+import { runPetDuelCinematic, runPetPartyDuelCinematic } from "../lib/pet-duel-cinematic";
 import { runPetArenaMatch, ARENA_TPS, BASE_SCORE_RANGE, BOSS_RADIUS, BOSS_ATK_RADIUS, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot, type ShrineKind } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { petVisualId } from "../data/pet-evolutions";
@@ -4062,8 +4063,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const duel = useMemo(
         () => result
             ?? ((playerReservePet || enemyReservePet)
-                ? runPetPartyDuel(playerPet, playerReservePet ?? null, enemyPet, enemyReservePet ?? null, seed)
-                : runPetDuel(playerPet, enemyPet, seed)),
+                ? runPetPartyDuelCinematic(playerPet, playerReservePet ?? null, enemyPet, enemyReservePet ?? null, seed)
+                : runPetDuelCinematic(playerPet, enemyPet, seed)),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [result, seed, playerPet.id, enemyPet.id, playerReservePet?.id, enemyReservePet?.id],
     );
