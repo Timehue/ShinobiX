@@ -267,6 +267,7 @@ describe('release operations wiring', () => {
 
     it('protects and coalesces the storage-mutating deep health probe', () => {
         assert.match(serverSrc, /HEALTH_DEEP_TOKEN/, 'deep health should support a monitor token');
+        assert.match(serverSrc, /if \(!expected\) return process\.env\.NODE_ENV !== ['"]production['"]/, 'deep health must fail closed without a token in production');
         assert.match(serverSrc, /_deepHealthInFlight/, 'deep health should coalesce concurrent probes');
         assert.match(serverSrc, /_deepHealthCache/, 'deep health should briefly cache probe results');
         assert.match(serverSrc, /enforceRateLimit\(req, res, ['"]deep-health['"]/, 'deep health should be rate limited');

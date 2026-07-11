@@ -249,8 +249,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ...(escortReady ? { petEscortBonusReady: false } : {}),
                     },
                 };
-                bumpSaveVersion(updated);
-                await kv.set(saveKey, mergePreservingImages(updated, record));
+                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), record));
             }, { failClosed: true });
             if (tokenAlreadySpent) {
                 return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });

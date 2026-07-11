@@ -13,6 +13,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import type { PvpSession } from './session.js';
+import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
 import {
     abortEconomicReceipt,
     commitEconomicReceipt,
@@ -208,18 +209,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     const updated = deductUsedItems(char, usedByClaimer);
                     const next = bumpSaveVersion({ ...record, character: updated });
-                    try {
-                        await kv.set(saveKey, mergePreservingImages(next, record));
-                    } catch (error) {
-                        await abortEconomicReceipt(kv, consumedKey, reservation).catch(() => false);
-                        throw error;
-                    }
+                    // Never abort after a protected write attempt: the remote
+                    // store may have applied it before an acknowledgement failed.
+                    await kv.set(saveKey, mergePreservingImages(next, record));
                     await commitEconomicReceipt(kv, consumedKey, reservation, CLAIM_TTL_SECONDS);
                 });
             } catch (itemErr) {
                 console.error('[pvp/claim-rewards] consumable settlement failed', itemErr);
                 return res.status(503).json({ error: 'Could not settle battle consumables. Please retry.' });
             }
+        }
+
+        // The terminal move attempts this grant first, but the verified claim
+        // is its durable retry path after lock or storage contention.
+        try {
+            await grantVanguardRewardsForSession(session);
+        } catch (vanguardError) {
+            console.error('[pvp/claim-rewards] Vanguard reward retry failed', vanguardError);
+            return res.status(503).json({ error: 'Could not settle Vanguard rewards. Please retry.' });
         }
 
         // ── Server-credited paths (audit #7 / Stage 3, + #8 two-sided settle) ──
@@ -295,12 +302,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind });
                 if (reservation.status === 'reserved') {
                     const next = bumpSaveVersion({ ...record, character: { ...char, ...r.patch } });
-                    try {
-                        await kv.set(saveKey, mergePreservingImages(next, record));
-                    } catch (error) {
-                        await abortEconomicReceipt(kv, ratingReceiptKey, reservation).catch(() => false);
-                        throw error;
-                    }
+                    await kv.set(saveKey, mergePreservingImages(next, record));
                     await commitEconomicReceipt(kv, ratingReceiptKey, reservation, CLAIM_TTL_SECONDS);
                     return { field: ratingField, value: r.newRating, delta: r.delta };
                 }
@@ -406,16 +408,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         throw new Error(`Conflicting PvP claim receipt for ${battleId}/${playerName}.`);
                     }
                     const already = selfReservation.status === 'replay';
-                    let mutationsComplete = already;
+                    let protectedMutationAttempted = false;
                     try {
 
                     // Settle BOTH ratings (each exactly once across the battle).
+                    if (rankedEligible) protectedMutationAttempted = true;
                     const winnerRatingOut = await settleRatingFor(winnerSlug, 'winner');
                     const loserRatingOut = (loserSlug && loserSlug !== winnerSlug)
                         ? await settleRatingFor(loserSlug, 'loser')
                         : undefined;
 
                     // Winner base reward — only when the WINNER is the caller.
+                    if (creditBase && claimerSlug === winnerSlug && !already) protectedMutationAttempted = true;
                     const base = (creditBase && claimerSlug === winnerSlug)
                         ? await settleBaseForWinner(already)
                         : undefined;
@@ -423,11 +427,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const rating = claimerSlug === winnerSlug ? winnerRatingOut
                         : claimerSlug === loserSlug ? loserRatingOut
                         : undefined;
-                    mutationsComplete = true;
                     await commitEconomicReceipt(kv, key, selfReservation, CLAIM_TTL_SECONDS);
                     return { already, rating, base };
                     } catch (error) {
-                        if (!mutationsComplete) {
+                        if (!protectedMutationAttempted) {
                             await abortEconomicReceipt(kv, key, selfReservation).catch(() => false);
                         }
                         throw error;
@@ -484,7 +487,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (reservation.status === 'conflict') {
             return res.status(409).json({ error: 'A conflicting reward claim already exists for this battle.' });
         }
-        await commitEconomicReceipt(kv, key, reservation, CLAIM_TTL_SECONDS);
+        try {
+            await commitEconomicReceipt(kv, key, reservation, CLAIM_TTL_SECONDS);
+        } catch (error) {
+            // This path authorizes a later client callback but has not mutated
+            // the player save yet. Release our owned reservation after a failed
+            // commit so a transient storage error cannot strand the reward.
+            await abortEconomicReceipt(kv, key, reservation).catch(() => false);
+            throw error;
+        }
         const alreadyClaimed = reservation.status === 'replay';
         const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
         const finalChar = (finalSave?.character ?? null) as Record<string, unknown> | null;

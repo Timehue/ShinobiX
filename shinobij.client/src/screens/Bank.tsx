@@ -3,6 +3,7 @@ import { type Character, getBankInterestPercent } from "../App";
 import { sendCurrency, previewCredit, TRADE_CURRENCIES, TRADE_CURRENCY_LABELS, TRADE_MINS, TRADE_CAPS, TRADE_TAX_PCT, type TradeCurrency } from "../lib/player-trade";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { gameConfirm } from "../components/GameAlert";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 // MIRROR of api/_bank-interest.ts BANK_INTEREST_PRINCIPAL_CAP (gameplay-loop
 // audit M-2): interest is paid on at most this much banked ryo, so the projected
@@ -50,6 +51,7 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
     const projectedInterest = Math.max(0, Math.floor(Math.min(character.bankRyo, BANK_INTEREST_PRINCIPAL_CAP) * (interestPercent / 100)));
 
     async function moveRyo(action: "deposit" | "withdraw") {
+        if (action === "deposit" && !requireServerSettlement("bankDeposit")) return;
         // Client validation is only immediate feedback; the server independently
         // validates the same integer bounds against the locked stored balances.
         const value = amount;

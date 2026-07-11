@@ -36,6 +36,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identityName) return res.status(401).json({ error: 'Authentication required.' });
         if (identityName !== playerName) return res.status(403).json({ error: 'You can only use your own bank account.' });
         if (!(await enforceRateLimitKv(req, res, 'bank-transfer', 20, 60_000, identityName, { strict: true }))) return;
+        // Compatibility-mode raw saves can still increase wallet ryo, while
+        // bankRyo is server-pinned. Accepting that wallet as a deposit would let
+        // a player repeatedly mint trusted bank principal. Withdrawals remain
+        // safe; deposits reopen only after wallet ryo has a server ledger.
+        if (action === 'deposit') {
+            return res.status(503).json({ error: 'Bank deposits are temporarily unavailable while the wallet ledger is finalized. Nothing was changed.' });
+        }
 
         try {
             const out = await mutatePlayerSave(playerName, ({ character }) => {
