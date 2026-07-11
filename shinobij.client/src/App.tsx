@@ -594,6 +594,8 @@ import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
 import { pickShrineEncounter, scaleAffixStats } from "./features/hollowGate/encounter";
 import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig, normalizeHollowGateEventConfig } from "./lib/hollow-gate-variant";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
+import { riftEventConfig, completeRiftRun } from "./lib/rift-run";
+import type { HollowRift } from "./data/hollow-rifts";
 import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
 export type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
 type PendingEventEncounter = {
@@ -5894,13 +5896,16 @@ export default function App() {
                     ...nextCharacter,
                     hollowGateWardenKills: (nextCharacter.hollowGateWardenKills ?? 0) + 1,
                 };
+                // RIFT final-floor clear: flush the bumped kill counter, then complete server-side.
+                const riftId = hollowGateRun?.variant?.id;
+                if (riftId?.startsWith("rift-") && hollowGateRun && hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) void pushSaveToServer(nextCharacter, currentAccountName || character.name).then(() => completeRiftRun(character.name, riftId, setCharacter, pushHollowGateLog)).catch(() => {});
             }
             setCharacter(nextCharacter);
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");
             onHollowGateBattleWin();
             return isBoss
-                ? `Hollow Gate Warden defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust, +${honorReward} Honor Seals, +${bossShards} Hollow Shards, +1 Dungeon Legendary Fragment.`
+                ? `${hollowGateBossDisplayName(hollowGateRun)} defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust, +${honorReward} Honor Seals, +${bossShards} Hollow Shards, +1 Dungeon Legendary Fragment.`
                 : `Corrupted shinobi defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust.`;
         }
 
@@ -7099,6 +7104,8 @@ export default function App() {
             setHollowGateRun(nextRun);
             pushHollowGateLog(`${hollowGateBossDisplayName(hollowGateRun)} falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
             if (isFinalFloor) {
+                // (A wandering-quest RIFT run completes from the boss-win handler above,
+                // after flushing the bumped kill counter — see completePendingArenaStoryBattle.)
                 // Shrine-cleared bonus — extra fragment + honor seals + fate shard.
                 // No "Leave" choice — auto-returns to world map after rewards are claimed.
                 setHollowGateEvent({
@@ -7115,13 +7122,14 @@ export default function App() {
                                 const bonusCharms = nonVanguardCharmSubstitute(character, 75);
                                 const bonusShardSub = nonVanguardShardSubstitute(character, 75);
                                 const bonusFate = 1 + bonusShardSub;
-                                const next = addInventoryItems({
-                                    ...character,
-                                    honorSeals: (character.honorSeals ?? 0) + bonusHonor,
-                                    boneCharms: (character.boneCharms ?? 0) + bonusCharms,
-                                    fateShards: (character.fateShards ?? 0) + bonusFate,
-                                }, [DUNGEON_LEGENDARY_FRAGMENT_ID, VEIL_OF_THE_HOLLOW_ID]);
-                                setCharacter(next);
+                                // Functional (base = `prev`) so it composes with the async rift
+                                // reward that clears through this same modal; amounts unchanged.
+                                setCharacter(prev => prev ? addInventoryItems({
+                                    ...prev,
+                                    honorSeals: (prev.honorSeals ?? 0) + bonusHonor,
+                                    boneCharms: (prev.boneCharms ?? 0) + bonusCharms,
+                                    fateShards: (prev.fateShards ?? 0) + bonusFate,
+                                }, [DUNGEON_LEGENDARY_FRAGMENT_ID, VEIL_OF_THE_HOLLOW_ID]) : prev);
                                 pushHollowGateLog(`Shrine cleared bonus: ${bonusHonor > 0 ? `+${bonusHonor} Honor Seals, ` : bonusCharms > 0 ? `+${bonusCharms} Bone Charms, ` : ""}+${bonusFate} Fate Shard${bonusFate === 1 ? "" : "s"}, +1 Dungeon Legendary Fragment, +1 Veil of the Hollow.`);
                                 setHollowGateEvent(null);
                                 leaveHollowGateShrine();
@@ -7809,6 +7817,7 @@ export default function App() {
                         onEnterHollowGate={() => { void enterHollowGateShrine(); }}
                         hollowGateEventConfig={hollowGateEventConfig}
                         onEnterHollowGateEvent={(cfg) => { void enterHollowGateShrine(cfg); }}
+                        onDescendRift={(rift: HollowRift) => { void enterHollowGateShrine(riftEventConfig(rift)); }}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}

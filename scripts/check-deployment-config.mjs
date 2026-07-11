@@ -51,4 +51,3 @@ if (invokedPath === fileURLToPath(import.meta.url)) {
   }, null, 2)}\n`);
   if (!result.passed) process.exitCode = 1;
 }
-

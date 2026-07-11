@@ -5,6 +5,7 @@ exports.isHighRiskTileCardId = isHighRiskTileCardId;
 exports.preserveEntitledStringArray = preserveEntitledStringArray;
 exports.preserveEntitledStacks = preserveEntitledStacks;
 const _card_catalog_js_1 = require("../clan/war/_card-catalog.js");
+const _anbu_infiltration_js_1 = require("../_anbu-infiltration.js");
 const SERVER_OWNED_ITEM_IDS = new Set([
     'weekly-boss-core',
     'dungeon-key',
@@ -16,6 +17,11 @@ const SERVER_OWNED_ITEM_IDS = new Set([
     'hunt-legendary-material',
     'hunt-ancient-beast-core',
     'hunt-titan-bone',
+    // Anbu Vault Infiltration war caches — minted ONLY by the raid settle
+    // (api/_anbu-infiltration-store.ts), redeemed only by its turn-in. A client
+    // save can spend them, never mint them.
+    _anbu_infiltration_js_1.CACHE_ITEM_IDS.warSupply,
+    _anbu_infiltration_js_1.CACHE_ITEM_IDS.warResources,
 ]);
 function countStrings(raw) {
     const counts = new Map();

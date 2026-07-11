@@ -127,6 +127,9 @@ export const stackableItemIds = new Set<string>([
     LEGENDARY_WAR_CRATE_ID,
     WARFORGED_RELIC_ID,
     DUNGEON_LEGENDARY_RELIC_ID,
+    // Anbu Vault Infiltration war caches (server-minted; cap 9999/stack).
+    // KEEP IN SYNC with api/_anbu-infiltration.ts CACHE_ITEM_IDS.
+    "war-supply-cache", "war-resource-cache",
     "thrown-shuriken", "thrown-senbon", "thrown-serpent-dust",
     "item-smoke-bomb", "item-attack-pill", "item-defense-pill",
     "potion-rejuvenation",
