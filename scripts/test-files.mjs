@@ -101,6 +101,7 @@ export const TEST_FILES = [
     "api/img.test.ts",
     "api/save/_save-version.test.ts",
     "api/save/_mutate-player-save.test.ts",
+    "api/save/_versioned-save-writes.test.ts",
     "api/save/_sanitize-hollowgate.test.ts",
     "api/save/_sanitize-custom-title.test.ts",
     "api/save/_sanitize-legacy.test.ts",
