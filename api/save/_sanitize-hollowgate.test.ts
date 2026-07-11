@@ -200,6 +200,11 @@ test('academyTrialClaimed: latched true — a forged save cannot un-claim the on
     assert.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: false }).academyTrialClaimed, false, 'not-yet-claimed stays false');
 });
 
+test('academySectorVisited: latched true — a stale save cannot un-set the sector-visit milestone (would loop the final onboarding beat)', () => {
+    assert.equal(sanitize({ academySectorVisited: false }, { academySectorVisited: true }).academySectorVisited, true, 'cannot revert to false');
+    assert.equal(sanitize({ academySectorVisited: false }, { academySectorVisited: false }).academySectorVisited, false, 'not-yet-visited stays false');
+});
+
 test('pendingCombatMissionClaims: client saves preserve server-owned claims but cannot mint or clear them', () => {
     const minted = sanitize(
         { level: 50, pendingCombatMissionClaims: ['combat-d-errand'] },
