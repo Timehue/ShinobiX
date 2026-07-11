@@ -170,8 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                     // Bump _saveVersion so a stale declarer tab can't refund the
                     // debit (a free war) via its next autosave (audit #2 class).
-                    bumpSaveVersion(updated);
-                    await kv.set(saveKey, updated);
+                    await kv.set(saveKey, bumpSaveVersion(updated));
                     return null;
                 }, { failClosed: true });
                 if (debitError) return debitError;

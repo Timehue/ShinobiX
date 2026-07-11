@@ -383,14 +383,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (academyChecklistClaimed) next = { ...next, academyChecklistClaimed: true };
 
             const updated: Record<string, unknown> = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
-            bumpSaveVersion(updated);
-            try {
-                await kv.set(saveKey, mergePreservingImages(updated, record));
-            } catch (error) {
-                await Promise.all(claimReservations.map((entry) =>
-                    abortEconomicReceipt(kv, entry.key, entry.reservation).catch(() => false)));
-                throw error;
-            }
+            // A thrown remote acknowledgement does not prove the write failed.
+            // Never abort these receipts after the protected save was attempted.
+            await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), record));
             // The save is durable now. Commit each reservation; if a commit
             // write fails, its pending owner row remains replay-blocking.
             for (const entry of claimReservations) {

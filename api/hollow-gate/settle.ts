@@ -104,7 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const fragmentCeiling = maxFragmentsForDepth(run.floorDepth);
         let fragmentsClampedTo: number | null = null;
         const saveKey = `save:${playerName}`;
-        let saveMutationApplied = false;
+        let saveMutationAttempted = false;
         let result: { ok: true } | { ok: false };
         try {
         result = await withKvLock(saveKey, async () => {
@@ -136,15 +136,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 fragmentsClampedTo = allowedFragments;
             }
             const updated = bumpSaveVersion({ ...fresh, character: next });
+            saveMutationAttempted = true;
             await kv.set(saveKey, mergePreservingImages(updated, fresh));
-            saveMutationApplied = true;
             return { ok: true as const };
         }, { failClosed: true });
 
         if (result.ok) await commitEconomicReceipt(kv, settlementReceiptKey, reservation, settlementReceiptTtl);
         else await abortEconomicReceipt(kv, settlementReceiptKey, reservation);
         } catch (error) {
-            if (!saveMutationApplied) await abortEconomicReceipt(kv, settlementReceiptKey, reservation).catch(() => false);
+            if (!saveMutationAttempted) await abortEconomicReceipt(kv, settlementReceiptKey, reservation).catch(() => false);
             throw error;
         }
 

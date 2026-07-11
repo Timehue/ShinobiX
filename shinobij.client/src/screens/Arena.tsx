@@ -45,6 +45,7 @@ import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRaw
 import { petRankedChallengeEnabled } from "../lib/pet-coliseum-flag";
 import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { resolveCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
@@ -599,6 +600,7 @@ export function Arena({
     }, [rankedQueueActive]);  
 
     function joinRankedQueue() {
+        if (!requireServerSettlement("rankedPvp")) return;
         setRankedQueueActive(true);
         fetch("/api/pvp/ranked-queue", {
             method: "POST",
@@ -1385,6 +1387,7 @@ export function Arena({
     }
 
     async function acceptChallenge(challenge: DuelChallenge) {
+        if (!requireServerSettlement("pvpSession")) return;
         const challenger = normalizeCharacter(challenge.challenger);
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
         try {

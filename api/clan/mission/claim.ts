@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { awardClanPointsToPlayerSave, clanPointWeekKey } from '../../_clan-points.js';
-import { abortEconomicReceipt, commitEconomicReceipt, isEconomicReceiptStorageError, reserveEconomicReceipt } from '../../_economic-receipt.js';
+import { commitEconomicReceipt, isEconomicReceiptStorageError, reserveEconomicReceipt } from '../../_economic-receipt.js';
 import {
     CLAN_MISSION_TARGETS,
     CLAN_MISSION_REWARDS,
@@ -215,12 +215,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             for (const [cur, amt] of Object.entries(reward.treasury ?? {})) {
                 nextTreasury[cur] = (Number(nextTreasury[cur] ?? 0) || 0) + Number(amt);
             }
-            try {
-                await kv.set(clanSaveKey, { ...clanRec, xp: leveled.xp, level: leveled.level, treasury: nextTreasury });
-            } catch (error) {
-                await abortEconomicReceipt(kv, receiptKey, reservation).catch(() => false);
-                throw error;
-            }
+            // A remote write can apply and then lose its acknowledgement. Once
+            // attempted, leave the durable pending receipt replay-blocking.
+            await kv.set(clanSaveKey, { ...clanRec, xp: leveled.xp, level: leveled.level, treasury: nextTreasury });
             // If commit fails after the clan write, leave the owned pending row
             // in place; it still blocks replay. Never roll it back post-mutation.
             await commitEconomicReceipt(kv, receiptKey, reservation, CLAIM_TTL);

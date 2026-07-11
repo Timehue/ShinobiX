@@ -78,6 +78,7 @@ import { playerNameTile } from "../lib/sector-tile";
 import { defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { getAllItems } from "../lib/items";
 import { getBloodlineMultiplier } from "../lib/combat-math";
 import { cwListWars } from "../lib/clan-war-api";
@@ -481,6 +482,7 @@ export function WorldMap({
     }
 
     async function startPvpRaid(opponent: Character, sector: number, biome: Biome, weather: WeatherType) {
+        if (!requireServerSettlement("pvpSession")) return;
         setCurrentSector(sector);
         setCurrentBiome(biome);
         setCurrentWeather(weather);
@@ -3440,6 +3442,7 @@ export function WorldMap({
                                     <button
                                         className="territory-raid-btn"
                                         onClick={async () => {
+                                            if (!requireServerSettlement("pvpSession")) return;
                                             const guard = territoryGuards[0];
                                             setCurrentSector(virtualSector);
                                             setCurrentBiome(biome);

@@ -391,8 +391,7 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                             inventory: currentInventory,
                         },
                     };
-                    bumpSaveVersion(updated);
-                    await kv.set(saveKey, mergePreservingImages(updated, fresh));
+                    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), fresh));
                     return true;
                 } catch (creditErr) {
                     // Roll back the reservation so the next run re-credits.

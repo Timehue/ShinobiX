@@ -544,7 +544,9 @@ let _deepHealthInFlight: Promise<DbHealthResult> | null = null;
 
 function deepHealthAuthorized(req: Request): boolean {
     const expected = String(process.env.HEALTH_DEEP_TOKEN ?? '').trim();
-    if (!expected) return true;
+    // Local development can run the probe without secret plumbing. Production
+    // fails closed: the deep route mutates storage and exposes topology/metrics.
+    if (!expected) return process.env.NODE_ENV !== 'production';
     const authorization = headerValue(req.headers.authorization);
     const bearer = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
     const explicit = headerValue(req.headers['x-health-token']);

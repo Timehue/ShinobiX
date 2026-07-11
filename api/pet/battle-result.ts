@@ -6,7 +6,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
-import { abortEconomicReceipt, commitEconomicReceipt, reserveEconomicReceipt } from '../_economic-receipt.js';
+import { commitEconomicReceipt, reserveEconomicReceipt } from '../_economic-receipt.js';
 import {
     derivePetRankedSettlement,
     PET_RANKED_DISABLED_REASON,
@@ -198,12 +198,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind: 'pet' });
                 if (reservation.status === 'reserved') {
                     const updated = bumpSaveVersion({ ...record, character: { ...char, ...r.patch } });
-                    try {
-                        await kv.set(sk, mergePreservingImages(updated, record));
-                    } catch (error) {
-                        await abortEconomicReceipt(kv, receiptKey, reservation).catch(() => false);
-                        throw error;
-                    }
+                    await kv.set(sk, mergePreservingImages(updated, record));
                     await commitEconomicReceipt(kv, receiptKey, reservation, RANKED_RECEIPT_TTL_SECONDS);
                     return { field: 'petRankedRating', value: r.newRating, delta: r.delta };
                 }
@@ -291,8 +286,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lastDailyReset: today,
             };
             const updated = { ...record, character: updatedChar };
-            bumpSaveVersion(updated);
-            await kv.set(saveKey, mergePreservingImages(updated, record));
+            await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), record));
             return {
                 ok: true,
                 reward,

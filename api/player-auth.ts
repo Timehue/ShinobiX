@@ -70,6 +70,14 @@ export function playerPasswordPolicyError(password: unknown): string | null {
     return null;
 }
 
+function playerPasswordVerificationError(password: unknown): string | null {
+    if (typeof password !== 'string' || !password) return 'Missing password.';
+    if (password.length > MAX_PASSWORD_LENGTH) {
+        return `Password must be at most ${MAX_PASSWORD_LENGTH} characters.`;
+    }
+    return null;
+}
+
 function newSalt(): string {
     return crypto.randomBytes(16).toString('hex');
 }
@@ -209,9 +217,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'register') {
         let registeredSessionEpoch = 0;
         // Register a new password. Fails if one already exists — use 'change' to update.
-        if (typeof password !== 'string' || !password) {
-            return res.status(400).json({ ok: false, error: 'Missing password.' });
-        }
+        if (typeof password !== 'string') return res.status(400).json({ ok: false, error: 'Password must be text.' });
         const passwordPolicyError = playerPasswordPolicyError(password);
         if (passwordPolicyError) return res.status(400).json({ ok: false, error: passwordPolicyError });
 
@@ -308,9 +314,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'verify') {
         // Verify a password. Legacy saves without a credential are recovery
         // cases, never successful authentication.
-        if (typeof password !== 'string' || !password) {
-            return res.status(400).json({ ok: false, error: 'Missing password.' });
-        }
+        const verificationError = playerPasswordVerificationError(password);
+        if (verificationError) return res.status(400).json({ ok: false, error: verificationError });
+        const verifiedPassword = password as string;
         let record: AuthRecord | null;
         try {
             record = await kv.get<AuthRecord>(key);
@@ -340,7 +346,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
             }
         }
-        const valid = verifyAgainst(record, password);
+        const valid = verifyAgainst(record, verifiedPassword);
         // Opportunistically upgrade legacy HMAC hashes to scrypt on each
         // successful verify, so the legacy format dies off over time.
         if (valid && !record.hash.startsWith(SCRYPT_PREFIX)) {
@@ -349,7 +355,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const current = await kv.get<AuthRecord>(key);
                     if (!current || current.hash !== record.hash || current.salt !== record.salt) return;
                     const salt = newSalt();
-                    await kv.set(key, { ...current, hash: hashScrypt(password, salt), salt });
+                    await kv.set(key, { ...current, hash: hashScrypt(verifiedPassword, salt), salt });
                 }, { failClosed: true });
             } catch {
                 // best-effort
@@ -390,6 +396,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (typeof oldPassword !== 'string' || !oldPassword || typeof newPassword !== 'string' || !newPassword) {
             return res.status(400).json({ ok: false, error: 'Missing oldPassword or newPassword.' });
         }
+        const oldPasswordError = playerPasswordVerificationError(oldPassword);
+        if (oldPasswordError) return res.status(400).json({ ok: false, error: oldPasswordError });
         const passwordPolicyError = playerPasswordPolicyError(newPassword);
         if (passwordPolicyError) return res.status(400).json({ ok: false, error: passwordPolicyError });
         if (safeStringEqual(oldPassword, newPassword)) {
@@ -449,6 +457,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (typeof password !== 'string' || !password) {
             return res.status(401).json({ ok: false, error: 'Authentication required.' });
         }
+        const verificationError = playerPasswordVerificationError(password);
+        if (verificationError) return res.status(400).json({ ok: false, error: verificationError });
         try {
             return await withKvLock(key, async () => {
                 const record = await kv.get<AuthRecord>(key);
