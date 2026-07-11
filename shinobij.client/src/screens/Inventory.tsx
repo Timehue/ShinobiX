@@ -1,20 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "../styles/profile-skin.css";
 import {
     type Character,
     type EquipmentSlot,
     type GameItem,
-    DUNGEON_KEY_ID,
     LEGENDARY_WAR_CRATE_ID,
-    WARFORGED_RELIC_ID,
     armorReductionForQuality,
     consolidateItemBonuses,
     getAllItems,
     getItemById,
-    nonVanguardCharmSubstitute,
     petFeedXpForItem,
-    vanguardOnlyHonorSeals,
 } from "../App";
 import {
     COMBAT_ITEM_SLOTS,
@@ -30,7 +26,8 @@ import {
 import { hasCharacterElement } from "../lib/elements";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { deriveCardClashCard } from "../lib/card-clash";
-import { addItem, addItems, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
+import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
+import { openWarCrate } from "../lib/inventory-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import {
     type ItemCategory,
@@ -70,6 +67,7 @@ export function Inventory({
     // search. Both are display-only filters over the same backpack stacks.
     const [categoryFilter, setCategoryFilter] = useState<"all" | ItemCategory>("all");
     const [itemSearch, setItemSearch] = useState("");
+    const warCrateBusy = useRef(false);
     const allItems = getAllItems(creatorItems);
     const allTileCards = getAllTileCards(creatorCards);
 
@@ -277,27 +275,23 @@ export function Inventory({
         setSelectedInventoryItem(null);
     }
 
-    function consumeItem(entry: string) {
+    async function consumeItem(entry: string) {
         if (entry === LEGENDARY_WAR_CRATE_ID) {
             if (!requireServerSettlement("warCrateOpen")) return;
-            const rewards = [WARFORGED_RELIC_ID];
-            if (Math.random() < 0.35) rewards.push(DUNGEON_KEY_ID);
-            // Honor Seals are Vanguard-only. Non-Vanguards get the standard
-            // 8:1 Bone Charm substitute instead (matches every other grant
-            // site since 510f4cb).
-            const honorSealGain = vanguardOnlyHonorSeals(character, 10);
-            const charmGain = nonVanguardCharmSubstitute(character, 10);
-            updateCharacter({
-                ...addItems(removeItem(character, LEGENDARY_WAR_CRATE_ID, 1), rewards),
-                honorSeals: (character.honorSeals ?? 0) + honorSealGain,
-                boneCharms: (character.boneCharms ?? 0) + charmGain,
-                ryo: character.ryo + 500,
-            });
-            setSelectedInventoryItem(null);
-            const honorMsg = honorSealGain > 0
-                ? `, +${honorSealGain} Honor Seals`
-                : charmGain > 0 ? `, +${charmGain} Bone Charms` : "";
-            alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${rewards.includes(DUNGEON_KEY_ID) ? ", +1 Dungeon Key" : ""}.`);
+            if (warCrateBusy.current) return;
+            warCrateBusy.current = true;
+            try {
+                const result = await openWarCrate(character.name);
+                if (!result.ok) return alert(result.error);
+                updateCharacter(result.character);
+                setSelectedInventoryItem(null);
+                const honorMsg = result.rewards.honorSeals > 0
+                    ? `, +${result.rewards.honorSeals} Honor Seals`
+                    : result.rewards.boneCharms > 0 ? `, +${result.rewards.boneCharms} Bone Charms` : "";
+                alert(`War crate opened. +1 Warforged Relic, +${result.rewards.ryo} ryo${honorMsg}${result.rewards.dungeonKey ? ", +1 Dungeon Key" : ""}.`);
+            } finally {
+                warCrateBusy.current = false;
+            }
             return;
         }
 

@@ -99,6 +99,8 @@ export const TEST_FILES = [
     "api/_xp-engine.test.ts",
     "api/_bank-interest.test.ts",
     "api/bank/_transfer.test.ts",
+    "api/inventory/_war-crate.test.ts",
+    "api/profile/_settlement.test.ts",
     "api/_elapsed-state.test.ts",
     "api/_storage.test.ts",
     "api/messages.test.ts",

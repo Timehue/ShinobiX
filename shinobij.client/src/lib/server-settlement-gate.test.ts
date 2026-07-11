@@ -33,7 +33,7 @@ function assertGuardBefore(
 }
 
 describe("pending server settlement policy", () => {
-    test("every audited client-authoritative action is disabled and explains that nothing changed", () => {
+    test("completed profile settlements are enabled while every pending action stays disabled", () => {
         const expected: PendingServerSettlementAction[] = [
             "profileStatRespec",
             "profileFateShardTitle",
@@ -54,7 +54,12 @@ describe("pending server settlement policy", () => {
             "pvpSession",
         ];
         assert.deepEqual(Object.keys(SERVER_SETTLEMENT_STATUS).sort(), expected.sort());
-        assert.ok(Object.values(SERVER_SETTLEMENT_STATUS).every((ready) => ready === false));
+        assert.equal(SERVER_SETTLEMENT_STATUS.profileStatRespec, true);
+        assert.equal(SERVER_SETTLEMENT_STATUS.profileFateShardTitle, true);
+        for (const action of expected) {
+            const shouldBeReady = action === "profileStatRespec" || action === "profileFateShardTitle" || action === "warCrateOpen";
+            assert.equal(SERVER_SETTLEMENT_STATUS[action], shouldBeReady, `${action} readiness`);
+        }
 
         let notice = "";
         assert.equal(requireServerSettlement("shopPurchase", (message) => { notice = message; }), false);
@@ -64,8 +69,8 @@ describe("pending server settlement policy", () => {
 
     test("profile, shops, inventory, pets, attunement, and crafting gate before local writes", () => {
         const profile = source("../screens/Profile.tsx");
-        assertGuardBefore(profile, "respecStats", "profileStatRespec", "updateCharacter(");
-        assertGuardBefore(profile, "purchaseTitle", "profileFateShardTitle", "updateCharacter(");
+        assertGuardBefore(profile, "respecStats", "profileStatRespec", "runPaidProfileAction(");
+        assertGuardBefore(profile, "purchaseTitle", "profileFateShardTitle", "runPaidProfileAction(");
         assert.ok((profile.match(/requireServerSettlement\("profileFateShardTitle"\)/g) ?? []).length >= 3);
 
         const shop = source("../components/Shop.tsx");
@@ -73,7 +78,7 @@ describe("pending server settlement policy", () => {
         assertGuardBefore(shop, "openPack", "shopCardPack", "updateCharacter(");
 
         const inventory = source("../screens/Inventory.tsx");
-        assertGuardBefore(inventory, "consumeItem", "warCrateOpen", "Math.random(");
+        assertGuardBefore(inventory, "consumeItem", "warCrateOpen", "openWarCrate(");
         assertGuardBefore(inventory, "sellSelectedItem", "inventorySale", "updateCharacter(");
 
         const app = source("../App.tsx");
