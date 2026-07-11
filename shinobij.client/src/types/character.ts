@@ -335,6 +335,13 @@ export type Character = {
     cardClashTutorialSeen?: boolean;
     element?: string;
     elements?: string[];
+    // Per-weapon elemental attunement (weaponId → element). SERVER-OWNED: written
+    // only by api/weapon/apply-elemental-core.ts (which spends one Elemental Core),
+    // and the save sanitizer re-injects the stored copy so a tampered save can't
+    // attune a weapon it didn't earn. Overlaid onto the weapon's `weaponElement`
+    // in combat (server: resolveEquippedPvpItems; client: getAllItems) so an
+    // attuned legendary/mythic weapon rides the wielder's bloodline damage boost.
+    weaponElements?: Record<string, string>;
     boneCharms: number;
     auraStones: number;
     mythicSeals: number;

@@ -269,7 +269,7 @@ export function Arena({
         }
         return rawPendingAiProfile;
     }, [rawPendingAiProfile, combatMissionForAi, character.level]);
-    const allItems = getAllItems(creatorItems);
+    const allItems = getAllItems(creatorItems, character.weaponElements);
     const isAtWarForFocus = activeVillageWarsFor(character.village).length > 0;
     const warFocusDamageReduction = (character.elderFocus === "war" && isAtWarForFocus) ? 0.99 : 1.0;
     const playerArmorFactor = getCharacterArmorFactor(character, allItems) * warFocusDamageReduction;
@@ -2481,12 +2481,19 @@ export function Arena({
 
         const ep = item.weaponEp ?? Math.floor(22 + characterCombatStats.strength * 0.18 + characterCombatStats.bukijutsuOffense * 0.1 + itemBonusTotal(item) * 0.18);
         const weaponJutsu = makeJutsu(`item-${item.id}`, item.name, "Bukijutsu", apCost, range, ep, 0, 0, staminaCost, [{ name: "Damage", percent: 100 }], item.weaponElement ?? "None");
+        // Elemental-weapon gate (mirrors PvP move.ts): the weapon strike only rides
+        // the bloodline damage multiplier when its element is one the character has
+        // awakened. No element (every base weapon today) → no bloodline boost. An
+        // elemental shard/core stamps item.weaponElement to unlock it.
+        const weaponBloodlineMult = item.weaponElement && hasCharacterElement(character, item.weaponElement)
+            ? activeBloodlineMultiplier(character, playerStatuses)
+            : 1.0;
         let damage = calculateDamage(
             weaponJutsu,
             characterCombatStats,
             enemyCombatStats,
             enemyMaxHp,
-            activeBloodlineMultiplier(character, playerStatuses),
+            weaponBloodlineMult,
             enemyArmorFactor,
             playerItemMult,
             weatherDamageMultiplier(weaponJutsu) * territoryDamageMultiplier(weaponJutsu) * biomeTerrainMultiplier(weaponJutsu),

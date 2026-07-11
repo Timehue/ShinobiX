@@ -117,6 +117,8 @@ export const stackableItemIds = new Set<string>([
     "hollow-gate-key",
     "dungeon-legendary-fragment",
     "veil-of-the-hollow",
+    "elemental-shard",
+    "elemental-core",
     // High-volume consumables / throwables / reward materials. These are the
     // items players accumulate in bulk, so they live as counted stacks in
     // Character.itemStacks (one entry each) instead of one inventory[] slot per
