@@ -20,7 +20,6 @@
  * final ceiling.
  */
 import { ITEM_CATALOG, BUILTIN_BLOODLINE_IDS, type CatalogItem } from './_item-catalog.js';
-import { budgetItemBonuses } from '../_item-budget.js';
 
 // Armor damage-reduction per quality tier — mirrors armorQualityTiers in
 // shinobij.client/src/lib/equipment.ts. Keep in sync with that table.
@@ -50,16 +49,14 @@ type ItemLike = CatalogItem | Record<string, unknown>;
  */
 export function buildItemLookup(creatorItems: unknown): (id: string) => ItemLike | undefined {
     const custom = new Map<string, Record<string, unknown>>();
-    // PERMANENTLY ON (owner decision 2026-07-11, retiring the ITEM_BONUS_BUDGET env
-    // flag): server-side anti-cheat is not optional.
-    const budgetOn = true;
     if (Array.isArray(creatorItems)) {
         for (const it of creatorItems) {
             if (it && typeof it === 'object' && typeof (it as Record<string, unknown>).id === 'string') {
-                // sub-5 defense-in-depth: budget a pre-existing custom item's bonuses
-                // when it loads into combat, so an item saved before the budget became
-                // permanent still can't out-scale built-in gear.
-                const entry = budgetOn ? budgetItemBonuses(it as Record<string, unknown>) : (it as Record<string, unknown>);
+                // OWNER DECISION 2026-07-11: custom/creator items are ALLOWED to exceed
+                // built-in gear — budgetItemBonuses is deliberately NOT applied here
+                // (the brief ITEM_BONUS_BUDGET clamp was reverted the same day). The
+                // save sanitizer's [0,1000] hygiene clamp still bounds raw values.
+                const entry = it as Record<string, unknown>;
                 custom.set(String(entry.id), entry);
             }
         }
