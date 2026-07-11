@@ -136,7 +136,12 @@ export function Profile({
         return () => { cancelled = true; };
     }, []);
     const TITLE_COST = 10;
-    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>('overview');
+    // During the loadout tutorial step the coach says "equip that jutsu from your
+    // Profile" — open straight to the Jutsu tab so the Equip button is visible
+    // instead of buried behind the default Overview tab on mobile.
+    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>(
+        () => character.onboardingStep === "jutsuLoadout" ? 'jutsu' : 'overview',
+    );
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     // Display-only lens for jutsu effect descriptions — names a discipline so
     // damage tags read e.g. "Taijutsu damage given". Defaults to the player's
