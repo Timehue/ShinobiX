@@ -269,7 +269,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                                     {(m.legacyStage ?? 0) >= 2 && (
                                         <span
                                             title={`Legacy — Stage ${STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}`}
-                                            style={{ fontSize: ".72rem", fontWeight: 800, color: "#c084fc" }}
+                                            style={{ fontSize: ".72rem", fontWeight: 800, color: "var(--purple-400)" }}
                                         >★{STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}</span>
                                     )}
                                     <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>

@@ -85,11 +85,11 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
 
     if (view.phase === "checking") {
         return (
-            <div className="arena-fullscreen" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: "100dvh", color: "#cbd5e1" }}>
+            <div className="arena-fullscreen" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, minHeight: "100dvh", color: "var(--slate-300)" }}>
                 <p className="hint" style={{ margin: 0 }}>Resuming your tower run…</p>
                 {/* Escape hatch: the screen is nav-locked while checking, so give the
                     player a way out if the resume probe is slow/stuck. */}
-                <button style={{ padding: "0.5rem 1rem", borderColor: "#475569", color: "#cbd5e1" }}
+                <button style={{ padding: "0.5rem 1rem", borderColor: "var(--slate-600)", color: "var(--slate-300)" }}
                     onClick={() => { clearRunKey(); setView({ phase: "lobby" }); }}>
                     Cancel — back to the lobby
                 </button>

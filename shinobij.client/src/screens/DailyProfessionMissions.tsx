@@ -105,7 +105,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
 
     const prof = character.profession;
     const isNewbie = !prof;
-    const accent = prof ? PROFESSION_ACCENT[prof] : "#facc15";
+    const accent = prof ? PROFESSION_ACCENT[prof] : "var(--gold)";
     const label = prof ? PROFESSION_LABEL[prof] : "New Shinobi";
     // Guard against a 200 response that omits `missions` — render off a safe
     // local so a partial payload can't throw `.length`/`.map` during render.
@@ -117,7 +117,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                 {isNewbie ? "📜 Daily Missions" : `📜 Daily ${label} Missions`}
             </h3>
             {loading && <LoadingState />}
-            {error && <p style={{ color: "#f87171" }}>{error}</p>}
+            {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}
             {!loading && !error && data && missions.length === 0 && (
                 <p className="hint" style={{ margin: 0 }}>
                     No daily missions available right now.
@@ -139,7 +139,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                                 }}
                             >
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-                                    <strong style={{ color: done ? accent : "#e2e8f0" }}>
+                                    <strong style={{ color: done ? accent : "var(--slate-200)" }}>
                                         {done && "✓ "}{m.name}
                                     </strong>
                                     <span className="hint" style={{ fontSize: "0.75rem" }}>

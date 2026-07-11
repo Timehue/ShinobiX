@@ -126,7 +126,7 @@ export function HunterBoard({
                 <h2>🎯 Hunter Guild — Contract Board</h2>
                 <span
                     className="hunter-daily-chip"
-                    style={{ marginLeft: "auto", fontWeight: 600, color: dailyHuntsCompleted(character) >= DAILY_HUNT_LIMIT ? "#ef4444" : "#fcd34d" }}
+                    style={{ marginLeft: "auto", fontWeight: 600, color: dailyHuntsCompleted(character) >= DAILY_HUNT_LIMIT ? "var(--danger)" : "var(--gold-400)" }}
                 >
                     🎯 Hunts today: {dailyHuntsCompleted(character)}/{DAILY_HUNT_LIMIT}
                 </span>

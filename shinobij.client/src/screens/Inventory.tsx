@@ -882,7 +882,7 @@ export function Inventory({
                                             </div>
                                         )}
                                         {selectedGameItem.flavorText && (
-                                            <p className="item-popup-description" style={{ fontStyle: "italic", color: "#94a3b8", marginTop: 6 }}>
+                                            <p className="item-popup-description" style={{ fontStyle: "italic", color: "var(--text-dim)", marginTop: 6 }}>
                                                 "{selectedGameItem.flavorText}"
                                             </p>
                                         )}

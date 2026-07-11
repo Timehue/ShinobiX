@@ -169,14 +169,14 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                                     <div className={`council-side ${character.village === vA ? "council-mine" : ""}`}>
                                         <VillagePill village={vA} highlight={character.village === vA} />
                                         <span className="council-hp-label">{hpA.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
-                                        <HpBar current={hpA} max={VILLAGE_WAR_HP_MAX} color="#22c55e" />
+                                        <HpBar current={hpA} max={VILLAGE_WAR_HP_MAX} color="var(--success)" />
                                         <span className="council-top"><GiTrophy style={SCH_ICON} />{topA}</span>
                                     </div>
                                     <div className="council-vs">VS</div>
                                     <div className={`council-side council-side-right ${character.village === vB ? "council-mine" : ""}`}>
                                         <VillagePill village={vB} highlight={character.village === vB} />
                                         <span className="council-hp-label">{hpB.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
-                                        <HpBar current={hpB} max={VILLAGE_WAR_HP_MAX} color="#ef4444" />
+                                        <HpBar current={hpB} max={VILLAGE_WAR_HP_MAX} color="var(--danger)" />
                                         <span className="council-top"><GiTrophy style={SCH_ICON} />{topB}</span>
                                     </div>
                                 </div>
