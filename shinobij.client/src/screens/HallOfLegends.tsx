@@ -294,7 +294,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                             const h = Math.floor((ms % 86_400_000) / 3_600_000);
                             return (
                                 <div style={{ padding: "10px 14px", marginBottom: "0.8rem", borderRadius: 10, background: "rgba(120,53,15,0.35)", border: "1px solid rgba(250,204,21,0.5)" }}>
-                                    <strong style={{ color: "#facc15" }}><GiTrophy style={HOL_ICON} />Ranked Season {season.current.id}</strong>
+                                    <strong style={{ color: "var(--gold)" }}><GiTrophy style={HOL_ICON} />Ranked Season {season.current.id}</strong>
                                     <span style={{ color: "#e7d9b0" }}> · {ms > 0 ? `ends in ${d}d ${h}h` : "ending soon"}</span>
                                     <p className="hint" style={{ margin: "4px 0 0", fontSize: "0.76rem" }}>At season end the top 3 of each ladder are rewarded (champion: Warforged Relic + aura stones) and ratings soft-reset toward 1000.</p>
                                 </div>
@@ -474,10 +474,10 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                             const nowMs = Date.now();
                                             const expiresAt = weeklyBoss.expiresAt ?? ((weeklyBoss.startedAt ?? nowMs) + 24 * 60 * 60 * 1000);
                                             const ms = Math.max(0, expiresAt - nowMs);
-                                            if (weeklyBoss.rewardsDistributed || ms <= 0) return <span style={{ marginLeft: 8, color: "#94a3b8" }}>· Despawned</span>;
+                                            if (weeklyBoss.rewardsDistributed || ms <= 0) return <span style={{ marginLeft: 8, color: "var(--text-dim)" }}>· Despawned</span>;
                                             const h = Math.floor(ms / 3_600_000);
                                             const m = Math.floor((ms % 3_600_000) / 60_000);
-                                            return <span style={{ marginLeft: 8, color: "#facc15" }}>· {h}h {m}m to despawn</span>;
+                                            return <span style={{ marginLeft: 8, color: "var(--gold)" }}>· {h}h {m}m to despawn</span>;
                                         })()}
                                     </div>
                                     <p className="hint" style={{ fontSize: "0.78rem", margin: "0 0 0.4rem" }}>
@@ -620,11 +620,11 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         : hallEntries.map((e) => (
                             <div key={e.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, opacity: e.status === "revoked" ? 0.55 : 1 }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                                    <b style={{ color: "#e2e8f0", textDecoration: e.status === "revoked" ? "line-through" : "none" }}>{e.title}</b>
+                                    <b style={{ color: "var(--slate-200)", textDecoration: e.status === "revoked" ? "line-through" : "none" }}>{e.title}</b>
                                     <span style={{ fontSize: ".7rem", color: "#9aa3b2" }}>{new Date(e.ts).toLocaleDateString()}</span>
                                 </div>
-                                <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "#cbd5e1" }}>{e.description}</p>
-                                {e.status === "revoked" && <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "#f87171" }}>Revoked{e.correctionNote ? ` — ${e.correctionNote}` : ""}</p>}
+                                <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "var(--slate-300)" }}>{e.description}</p>
+                                {e.status === "revoked" && <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "var(--red-400)" }}>Revoked{e.correctionNote ? ` — ${e.correctionNote}` : ""}</p>}
                                 {e.status === "corrected" && e.correctionNote && <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "#fbbf24" }}>Corrected — {e.correctionNote}</p>}
                             </div>
                         ))
@@ -639,14 +639,14 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                 <div style={{ position: "relative" }}>
                                     <img src={e.banner} alt={e.name} style={{ width: "100%", maxHeight: 130, objectFit: "cover", display: "block", filter: e.status === "unlocked" ? "none" : "saturate(.35) brightness(.7)" }} onError={(ev) => { (ev.currentTarget as HTMLImageElement).style.display = "none"; }} />
                                     <div style={{ position: "absolute", left: 12, bottom: 8, textShadow: "0 1px 6px rgba(0,0,0,.9)" }}>
-                                        <b style={{ fontSize: "1rem", color: e.status === "unlocked" ? "#fde68a" : "#cbd5e1" }}>{e.name}</b>
-                                        <span style={{ marginLeft: 8, fontSize: ".7rem", color: e.status === "unlocked" ? "#86efac" : "#c084fc" }}>
+                                        <b style={{ fontSize: "1rem", color: e.status === "unlocked" ? "var(--gold-300)" : "var(--slate-300)" }}>{e.name}</b>
+                                        <span style={{ marginLeft: 8, fontSize: ".7rem", color: e.status === "unlocked" ? "var(--green-300)" : "var(--purple-400)" }}>
                                             {e.status === "unlocked" ? "UNLOCKED" : e.status === "milestone_active" ? "IN PROGRESS" : "SEALED"}
                                         </span>
                                     </div>
                                 </div>
                                 <div style={{ padding: "10px 12px" }}>
-                                    <p style={{ margin: 0, fontSize: ".78rem", color: "#cbd5e1" }}>{e.description}</p>
+                                    <p style={{ margin: 0, fontSize: ".78rem", color: "var(--slate-300)" }}>{e.description}</p>
                                     <p style={{ margin: "4px 0 0", fontSize: ".72rem", color: "#9aa3b2", fontStyle: "italic" }}>{e.lore}</p>
                                     {(e.chronicle?.length ?? 0) > 0 && (
                                         <ul style={{ margin: "8px 0 0", paddingLeft: 16, display: "grid", gap: 3 }}>
@@ -656,7 +656,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                         </ul>
                                     )}
                                     {e.unlockedBy && (
-                                        <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c084fc" }}>
+                                        <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "var(--purple-400)" }}>
                                             Opened by <b>{e.unlockedBy}</b>{e.unlockedVillage ? ` of ${e.unlockedVillage}` : ""}{e.unlockedAt ? ` · ${new Date(e.unlockedAt).toLocaleDateString()}` : ""}
                                         </p>
                                     )}
@@ -678,25 +678,25 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                         const oldest = legends[legends.length - 1]; // legendsOfEra is newest-first
                                         return (
                                             <div style={{ marginTop: 8, borderTop: "1px solid rgba(148,163,184,.15)", paddingTop: 8 }}>
-                                                <p style={{ margin: "0 0 2px", fontSize: ".66rem", letterSpacing: ".08em", textTransform: "uppercase", color: "#c084fc" }}>
+                                                <p style={{ margin: "0 0 2px", fontSize: ".66rem", letterSpacing: ".08em", textTransform: "uppercase", color: "var(--purple-400)" }}>
                                                     ⚜ Legends of this Age <span style={{ color: "#9aa3b2" }}>· {legends.length}</span>
                                                 </p>
                                                 {oldest && (
                                                     <p style={{ margin: "0 0 5px", fontSize: ".68rem", color: "#9aa3b2", fontStyle: "italic" }}>
-                                                        It opened with {oldest.player ? <b style={{ color: "#cbd5e1" }}>{oldest.player}</b> : "the first of them"} and the {oldest.title}.
+                                                        It opened with {oldest.player ? <b style={{ color: "var(--slate-300)" }}>{oldest.player}</b> : "the first of them"} and the {oldest.title}.
                                                     </p>
                                                 )}
                                                 <ul style={{ margin: 0, paddingLeft: 16, display: "grid", gap: 2 }}>
                                                     {shown.map((l) => (
-                                                        <li key={l.id} style={{ fontSize: ".72rem", color: "#cbd5e1", lineHeight: 1.35 }}>
-                                                            <b style={{ color: "#e2e8f0" }}>{l.title}</b>{l.player ? ` — ${l.player}${l.village ? ` of ${l.village}` : ""}` : ""}
+                                                        <li key={l.id} style={{ fontSize: ".72rem", color: "var(--slate-300)", lineHeight: 1.35 }}>
+                                                            <b style={{ color: "var(--slate-200)" }}>{l.title}</b>{l.player ? ` — ${l.player}${l.village ? ` of ${l.village}` : ""}` : ""}
                                                         </li>
                                                     ))}
                                                 </ul>
                                                 {legends.length > shown.length && (
                                                     <button
                                                         onClick={() => selectTab("legends")}
-                                                        style={{ marginTop: 6, background: "transparent", border: "none", color: "#c084fc", fontSize: ".7rem", cursor: "pointer", padding: 0 }}
+                                                        style={{ marginTop: 6, background: "transparent", border: "none", color: "var(--purple-400)", fontSize: ".7rem", cursor: "pointer", padding: 0 }}
                                                     >
                                                         +{legends.length - shown.length} more in the Hall of Legends →
                                                     </button>
@@ -722,17 +722,17 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                     })()}
                                     {e.status === "milestone_active" && e.milestones.map((m) => (
                                         <div key={m.metric} style={{ marginTop: 6 }}>
-                                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".72rem", color: m.done ? "#86efac" : "#cbd5e1" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".72rem", color: m.done ? "var(--green-300)" : "var(--slate-300)" }}>
                                                 <span>{m.done ? "✓ " : ""}{m.label}</span>
                                                 <span>{m.current.toLocaleString()} / {m.required.toLocaleString()}</span>
                                             </div>
                                             <div style={{ height: 6, borderRadius: 3, background: "rgba(148,163,184,.15)", overflow: "hidden" }}>
-                                                <div style={{ height: "100%", width: `${Math.min(100, (m.current / Math.max(1, m.required)) * 100)}%`, background: m.done ? "#4ade80" : "#c084fc" }} />
+                                                <div style={{ height: "100%", width: `${Math.min(100, (m.current / Math.max(1, m.required)) * 100)}%`, background: m.done ? "var(--green-400)" : "var(--purple-400)" }} />
                                             </div>
                                         </div>
                                     ))}
                                     {e.status === "milestone_active" && e.trigger && (
-                                        <p style={{ margin: "8px 0 0", fontSize: ".72rem", color: e.trigger.fired ? "#86efac" : "#fbbf24" }}>
+                                        <p style={{ margin: "8px 0 0", fontSize: ".72rem", color: e.trigger.fired ? "var(--green-300)" : "#fbbf24" }}>
                                             {e.trigger.fired ? `✓ Final trigger struck by ${e.trigger.firedBy}` : `Final trigger: ${e.trigger.label}`}
                                         </p>
                                     )}
@@ -746,17 +746,17 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         : worldNews.length === 0
                         ? <p className="hol-empty">The world is quiet. For now.</p>
                         : worldNews.map((a) => (
-                            <div key={a.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, borderLeft: `3px solid ${a.importance === "mythic" ? "#c084fc" : a.importance === "high" ? "#f59e0b" : "#475569"}` }}>
+                            <div key={a.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, borderLeft: `3px solid ${a.importance === "mythic" ? "var(--purple-400)" : a.importance === "high" ? "var(--gold-2)" : "var(--slate-600)"}` }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                                    <b style={{ color: a.importance === "mythic" ? "#c084fc" : a.importance === "high" ? "#f59e0b" : "#e2e8f0" }}>
+                                    <b style={{ color: a.importance === "mythic" ? "var(--purple-400)" : a.importance === "high" ? "var(--gold-2)" : "var(--slate-200)" }}>
                                         {/* Server-firsts are once-ever world history — mark them so the
                                             feed distinguishes "first EVER" from "another mythic moment". */}
-                                        {a.type === "server_first" && <span style={{ fontSize: ".6rem", fontWeight: 800, letterSpacing: ".1em", color: "#c084fc", border: "1px solid #c084fc", borderRadius: 4, padding: "1px 5px", marginRight: 6, verticalAlign: "1px" }}>ONCE EVER</span>}
+                                        {a.type === "server_first" && <span style={{ fontSize: ".6rem", fontWeight: 800, letterSpacing: ".1em", color: "var(--purple-400)", border: "1px solid var(--purple-400)", borderRadius: 4, padding: "1px 5px", marginRight: 6, verticalAlign: "1px" }}>ONCE EVER</span>}
                                         {a.title}
                                     </b>
                                     <span style={{ fontSize: ".7rem", color: "#9aa3b2" }}>{new Date(a.ts).toLocaleString()}</span>
                                 </div>
-                                <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "#cbd5e1" }}>{a.message}</p>
+                                <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "var(--slate-300)" }}>{a.message}</p>
                             </div>
                         ))
                 )}

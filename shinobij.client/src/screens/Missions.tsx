@@ -118,7 +118,7 @@ export function Missions({
     }
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
-    const rankColor: Record<string, string> = { "E Rank": "#14b8a6", "D Rank": "#22c55e", "C Rank": "#3b82f6", "B Rank": "#a855f7", "A Rank": "#f97316", "S Rank": "#ef4444", "Daily": "#facc15" };
+    const rankColor: Record<string, string> = { "E Rank": "#14b8a6", "D Rank": "var(--success)", "C Rank": "#3b82f6", "B Rank": "var(--purple-500)", "A Rank": "#f97316", "S Rank": "var(--danger)", "Daily": "var(--gold)" };
     const todayMissions = dailyMissionsCompleted(character);
     // Tab state: default to Profession for players who have one, Combat otherwise.
     const hasProfession = !!character.profession;
@@ -172,7 +172,7 @@ export function Missions({
                         <li>✅ Started stat training</li>
                         <li>✅ Unlocked / equipped a jutsu</li>
                     </ul>
-                    <p style={{ margin: "0 0 12px", color: "#cbd5e1", fontSize: 13 }}>
+                    <p style={{ margin: "0 0 12px", color: "var(--slate-300)", fontSize: 13 }}>
                         Reward: small XP, ryo, and stamina. This does not use one of today's mission slots.
                     </p>
                     <button className="start-primary-btn" onClick={() => { void claimAcademyTrial(); }}>
@@ -245,7 +245,7 @@ export function Missions({
                         const recommended = showRookieOrders && mission.key === "combat-e-drill" && !claimable;
                         return (
                             <div key={mission.key} className={`mh-combat-card${locked ? " mh-locked" : ""}${claimable ? " mh-fetch-complete" : ""}${recommended ? " mh-recommended-card" : ""}`}>
-                                <div className="mh-combat-rank" style={{ background: rankColor[mission.rank + " Rank"] ?? "#475569" }}>
+                                <div className="mh-combat-rank" style={{ background: rankColor[mission.rank + " Rank"] ?? "var(--slate-600)" }}>
                                     {mission.rank}-Rank
                                 </div>
                                 {recommended && <span className="mh-recommended-badge">Recommended First Mission</span>}
@@ -289,7 +289,7 @@ export function Missions({
                     ? <EmptyState icon={<GiPositionMarker />}>No field missions posted yet.</EmptyState>
                     : groupedFetchMissions.map((group) => (
                         <div className="mh-fetch-group" key={group.rank}>
-                            <div className="mh-fetch-group-label" style={{ borderColor: rankColor[group.rank] ?? "#475569", color: rankColor[group.rank] ?? "#94a3b8" }}>
+                            <div className="mh-fetch-group-label" style={{ borderColor: rankColor[group.rank] ?? "var(--slate-600)", color: rankColor[group.rank] ?? "var(--text-dim)" }}>
                                 {group.rank}
                             </div>
                             <div className="mh-fetch-grid">

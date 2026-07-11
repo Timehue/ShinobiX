@@ -235,13 +235,13 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                     type="button"
                     onClick={() => setShowClanWarManual(v => !v)}
                     title="How does Clan War work?"
-                    style={{ padding: "0.15rem 0.5rem", fontSize: "0.85rem", borderRadius: 999, border: "1px solid #60a5fa", background: "#1e293b", color: "#60a5fa", cursor: "pointer", width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}
+                    style={{ padding: "0.15rem 0.5rem", fontSize: "0.85rem", borderRadius: 999, border: "1px solid var(--blue-400)", background: "var(--slate-800)", color: "var(--blue-400)", cursor: "pointer", width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}
                 >
                     ?
                 </button>
             </div>
             {showClanWarManual && <ClanWarManual onClose={() => setShowClanWarManual(false)} />}
-            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem", padding: "0.4rem 0.6rem", background: "#3b0a0a", borderRadius: 4 }}>⚠ {error}</div>}
+            {error && <div style={{ color: "var(--red-400)", marginBottom: "0.5rem", padding: "0.4rem 0.6rem", background: "#3b0a0a", borderRadius: 4 }}>⚠ {error}</div>}
             {loading && <p className="council-empty">Loading clan wars…</p>}
 
             {!loading && myWar && (
@@ -252,14 +252,14 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                             <div className={`council-side ${character.clan === myClan ? "council-mine" : ""}`}>
                                 <span className="council-village-name">{myClan}</span>
                                 <span className="council-hp-label">{(myWar.hp[myClan] ?? 0).toLocaleString()} / {(myWar.hpMax?.[myClan] ?? CW_HP_MAX).toLocaleString()} HP</span>
-                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[myClan] ?? 0) / (myWar.hpMax?.[myClan] ?? CW_HP_MAX)) * 100))}%`, background: "#22c55e" }} /></div>
+                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[myClan] ?? 0) / (myWar.hpMax?.[myClan] ?? CW_HP_MAX)) * 100))}%`, background: "var(--success)" }} /></div>
                                 {myWar.mvpByClan?.[myClan] && <span className="council-top">👑 MVP: {myWar.mvpByClan[myClan]}</span>}
                             </div>
                             <div className="council-vs">VS</div>
                             <div className="council-side council-side-right">
                                 <span className="council-village-name">{enemyClan}</span>
                                 <span className="council-hp-label">{(myWar.hp[enemyClan] ?? 0).toLocaleString()} / {(myWar.hpMax?.[enemyClan] ?? CW_HP_MAX).toLocaleString()} HP</span>
-                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[enemyClan] ?? 0) / (myWar.hpMax?.[enemyClan] ?? CW_HP_MAX)) * 100))}%`, background: "#ef4444" }} /></div>
+                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[enemyClan] ?? 0) / (myWar.hpMax?.[enemyClan] ?? CW_HP_MAX)) * 100))}%`, background: "var(--danger)" }} /></div>
                                 {myWar.mvpByClan?.[enemyClan] && <span className="council-top">👑 MVP: {myWar.mvpByClan[enemyClan]}</span>}
                             </div>
                         </div>
@@ -269,14 +269,14 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                     </div>
 
                     {/* Send a challenge — 1v1 sends immediately; 2v2 opens a queue */}
-                    <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                    <div style={{ background: "#0b1220", border: "1px solid var(--slate-700)", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                            <strong style={{ color: "#60a5fa" }}>⚔ Send Anonymous Challenge to {enemyClan}</strong>
-                            <span style={{ fontSize: "0.78rem", color: atSlotCap ? "#f87171" : "#94a3b8" }}>
+                            <strong style={{ color: "var(--blue-400)" }}>⚔ Send Anonymous Challenge to {enemyClan}</strong>
+                            <span style={{ fontSize: "0.78rem", color: atSlotCap ? "var(--red-400)" : "var(--text-dim)" }}>
                                 Your slots: <strong>{mySlotCount}/{CW_MAX_PER_PLAYER}</strong>
                             </span>
                         </div>
-                        <p style={{ fontSize: "0.78rem", color: "#94a3b8", margin: "4px 0 8px" }}>
+                        <p style={{ fontSize: "0.78rem", color: "var(--text-dim)", margin: "4px 0 8px" }}>
                             {composeMode === "pvp2v2" || composeMode === "pet2v2"
                                 ? `2v2 modes open a send queue — a clanmate has to join from Your Queued Challenges below before ${enemyClan} sees it.`
                                 : `${enemyClan} will see your clan but not the specific challenger until they accept. Challenges expire in 1h — ignored ones cost the defender ${5} HP.`}
@@ -290,12 +290,12 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                     <option key={m} value={m}>{CW_MODE_ICON[m]} {CW_MODE_LABEL[m]} (−{CW_DAMAGE[m]} HP)</option>
                                 ))}
                             </select>
-                            <button onClick={handleSend} disabled={busy || atSlotCap} style={{ padding: "0.4rem 0.8rem", background: atSlotCap ? "#1f2937" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: atSlotCap ? "#475569" : "#f87171" }}>
+                            <button onClick={handleSend} disabled={busy || atSlotCap} style={{ padding: "0.4rem 0.8rem", background: atSlotCap ? "#1f2937" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: atSlotCap ? "var(--slate-600)" : "var(--red-400)" }}>
                                 {busy ? "Sending…" : atSlotCap ? "Slot cap reached" : (composeMode === "pvp2v2" || composeMode === "pet2v2") ? "Open 2v2 Queue" : "Send Challenge"}
                             </button>
                         </div>
                         {atSlotCap && (
-                            <p style={{ fontSize: "0.78rem", color: "#f87171", marginTop: 6 }}>You're at the {CW_MAX_PER_PLAYER}-slot cap. Cancel one of your active challenges or wait for them to resolve / expire.</p>
+                            <p style={{ fontSize: "0.78rem", color: "var(--red-400)", marginTop: 6 }}>You're at the {CW_MAX_PER_PLAYER}-slot cap. Cancel one of your active challenges or wait for them to resolve / expire.</p>
                         )}
                         {!atSlotCap && myClanmates.length === 0 && (composeMode === "pvp2v2" || composeMode === "pet2v2") && (
                             <p style={{ fontSize: "0.78rem", color: "#fbbf24", marginTop: 6 }}>You can still open a queue but no clanmates are online to fill the partner slot yet.</p>
@@ -307,8 +307,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                         const sendQueues = myWar.pendingChallenges.filter(c => c.fromClan === myClan && c.status === "queuing");
                         if (sendQueues.length === 0) return null;
                         return (
-                            <div style={{ background: "#0a1a2a", border: "1px solid #60a5fa", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
-                                <strong style={{ color: "#60a5fa" }}>🪑 Your Clan's Open 2v2 Send Queues ({sendQueues.length})</strong>
+                            <div style={{ background: "#0a1a2a", border: "1px solid var(--blue-400)", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                                <strong style={{ color: "var(--blue-400)" }}>🪑 Your Clan's Open 2v2 Send Queues ({sendQueues.length})</strong>
                                 <p style={{ fontSize: "0.78rem", color: "#bfdbfe", margin: "4px 0 8px" }}>
                                     A clanmate must join as partner before {enemyClan} sees the challenge. 1/2 challengers queued.
                                 </p>
@@ -319,10 +319,10 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                         <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                                             <strong style={{ flex: 1, minWidth: 200 }}>
                                                 {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
-                                                <span style={{ color: "#94a3b8", fontWeight: 400 }}> · seed: {ch.fromPlayer} · expires in {minsLeft}m</span>
+                                                <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> · seed: {ch.fromPlayer} · expires in {minsLeft}m</span>
                                             </strong>
                                             {!isSeed && (
-                                                <button onClick={() => handleJoinSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                                                <button onClick={() => handleJoinSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
                                                     🤝 Join as Partner
                                                 </button>
                                             )}
@@ -343,9 +343,9 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                         const incoming = myWar.pendingChallenges.filter(c => c.fromClan === enemyClan && c.status === "pending");
                         if (incoming.length === 0) return null;
                         return (
-                            <div style={{ background: "#1f0a0a", border: "1px solid #f87171", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
-                                <strong style={{ color: "#f87171" }}>🚨 Incoming Challenges ({incoming.length})</strong>
-                                <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 8px" }}>
+                            <div style={{ background: "#1f0a0a", border: "1px solid var(--red-400)", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                                <strong style={{ color: "var(--red-400)" }}>🚨 Incoming Challenges ({incoming.length})</strong>
+                                <p style={{ fontSize: "0.78rem", color: "var(--gold-400)", margin: "4px 0 8px" }}>
                                     {enemyClan} sent these. Challenger names are hidden until your accept queue fills.
                                     2v2 challenges need 2 defenders to queue before the battle is ready.
                                 </p>
@@ -361,19 +361,19 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                         <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                                             <strong style={{ flex: 1, minWidth: 200 }}>
                                                 {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
-                                                <span style={{ color: "#94a3b8", fontWeight: 400 }}> (−{CW_DAMAGE[ch.mode]} HP · {minsLeft}m{queueLabel})</span>
+                                                <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> (−{CW_DAMAGE[ch.mode]} HP · {minsLeft}m{queueLabel})</span>
                                                 {isTwoV && ch.acceptedPlayer && <span style={{ color: "#a7f3d0", fontSize: "0.78rem", marginLeft: 6 }}>· queued: {ch.acceptedPlayer}{ch.acceptedPlayer2 ? ` + ${ch.acceptedPlayer2}` : ""}</span>}
                                             </strong>
                                             {!isTwoV && !meQueued && (
-                                                <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80" }}>Accept</button>
+                                                <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)" }}>Accept</button>
                                             )}
                                             {isTwoV && !meQueued && !ch.acceptedPlayer && (
-                                                <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                                                <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
                                                     🪑 Queue to Accept (1st)
                                                 </button>
                                             )}
                                             {isTwoV && !meQueued && ch.acceptedPlayer && !ch.acceptedPlayer2 && (
-                                                <button onClick={() => handleJoinAccept(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                                                <button onClick={() => handleJoinAccept(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
                                                     🤝 Join Accept Queue (2nd)
                                                 </button>
                                             )}
@@ -399,8 +399,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                         const outgoing = myWar.pendingChallenges.filter(c => c.fromClan === myClan && c.status === "pending");
                         if (outgoing.length === 0) return null;
                         return (
-                            <div style={{ background: "#0a1f0a", border: "1px solid #4ade80", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
-                                <strong style={{ color: "#4ade80" }}>📤 Your Clan's Sent Challenges ({outgoing.length})</strong>
+                            <div style={{ background: "#0a1f0a", border: "1px solid var(--green-400)", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                                <strong style={{ color: "var(--green-400)" }}>📤 Your Clan's Sent Challenges ({outgoing.length})</strong>
                                 {outgoing.map(ch => {
                                     const isTwoV = ch.mode === "pvp2v2" || ch.mode === "pet2v2";
                                     const minsLeft = Math.max(1, Math.ceil((ch.expiresAt - Date.now()) / 60_000));
@@ -412,7 +412,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                         <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                                             <strong style={{ flex: 1, minWidth: 200 }}>
                                                 {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
-                                                <span style={{ color: "#94a3b8", fontWeight: 400 }}> · {ch.fromPlayer}{ch.fromPlayer2 ? ` + ${ch.fromPlayer2}` : ""} · expires in {minsLeft}m{enemyQueueLabel}</span>
+                                                <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> · {ch.fromPlayer}{ch.fromPlayer2 ? ` + ${ch.fromPlayer2}` : ""} · expires in {minsLeft}m{enemyQueueLabel}</span>
                                             </strong>
                                             {isTwoV && mine && (
                                                 <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
@@ -473,14 +473,14 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 6 }}>
                                                 <strong style={{ flex: 1, minWidth: 200 }}>
                                                     {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
-                                                    <span style={{ color: "#94a3b8", fontWeight: 400 }}> · vs {opponents.join(" + ") || "?"} · −{CW_DAMAGE[ch.mode]} HP on win</span>
+                                                    <span style={{ color: "var(--text-dim)", fontWeight: 400 }}> · vs {opponents.join(" + ") || "?"} · −{CW_DAMAGE[ch.mode]} HP on win</span>
                                                 </strong>
-                                                <button onClick={() => launchBattle(ch)} disabled={busy} style={{ padding: "0.25rem 0.55rem", background: "#0f172a", borderColor: "#475569", color: "#94a3b8", fontSize: "0.78rem" }}>
+                                                <button onClick={() => launchBattle(ch)} disabled={busy} style={{ padding: "0.25rem 0.55rem", background: "var(--slate-900)", borderColor: "var(--slate-600)", color: "var(--text-dim)", fontSize: "0.78rem" }}>
                                                     ↻ Re-launch
                                                 </button>
                                             </div>
                                             {hasTentative && (
-                                                <div style={{ background: "#0f1a2a", border: "1px solid #60a5fa", borderRadius: 4, padding: "0.4rem 0.6rem", marginBottom: 6, fontSize: "0.82rem" }}>
+                                                <div style={{ background: "#0f1a2a", border: "1px solid var(--blue-400)", borderRadius: 4, padding: "0.4rem 0.6rem", marginBottom: 6, fontSize: "0.82rem" }}>
                                                     {iAmTentative
                                                         ? <span style={{ color: "#fbbf24" }}>⏳ Your tentative report (<strong>{tentativeLabel}</strong>) is awaiting opposing-side confirmation. {tentativeStale ? "Window elapsed — click any button below to auto-confirm." : `${tentativeMins}m remaining.`}</span>
                                                         : <span style={{ color: "#a7f3d0" }}>📨 Opposing side reported <strong>{tentativeLabel}</strong>. {tentativeStale ? "Window elapsed — clicking below will auto-confirm." : `Confirm to apply damage, or dispute to record a draw. ${tentativeMins}m remaining.`}</span>}
@@ -491,8 +491,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                                 automatically when the battle resolves. The two-
                                                 phase server merge + the PvpSession cross-check
                                                 cover correctness without player input. */}
-                                            {ch.battleId && <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>Battle ID: {ch.battleId}</small>}
-                                            {ch.petBattleSeed && <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>Pet seed: {ch.petBattleSeed}</small>}
+                                            {ch.battleId && <small style={{ display: "block", marginTop: 4, color: "var(--text-muted)" }}>Battle ID: {ch.battleId}</small>}
+                                            {ch.petBattleSeed && <small style={{ display: "block", marginTop: 4, color: "var(--text-muted)" }}>Pet seed: {ch.petBattleSeed}</small>}
                                         </div>
                                     );
                                 })}
@@ -502,8 +502,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
                     {/* Recent battles log */}
                     {myWar.completedChallenges.length > 0 && (
-                        <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
-                            <strong style={{ color: "#94a3b8" }}>📜 Recent Battles</strong>
+                        <div style={{ background: "#0b1220", border: "1px solid var(--slate-700)", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                            <strong style={{ color: "var(--text-dim)" }}>📜 Recent Battles</strong>
                             <div style={{ display: "grid", gap: 4, marginTop: 6, fontSize: "0.82rem" }}>
                                 {myWar.completedChallenges.slice(0, 10).map(ch => {
                                     const winnerSide = ch.result === "from-wins" ? ch.fromClan : ch.result === "to-wins" ? (myWar.clans.find(c => c !== ch.fromClan) ?? "?") : null;
@@ -512,7 +512,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                                 ch.result === "draw" ? "🤝 draw" :
                                                 winnerSide ? `🏆 ${winnerSide} won (−${CW_DAMAGE[ch.mode]} enemy HP)` : "?";
                                     return (
-                                        <div key={ch.id} style={{ color: winnerSide === myClan ? "#4ade80" : winnerSide === enemyClan ? "#f87171" : "#94a3b8" }}>
+                                        <div key={ch.id} style={{ color: winnerSide === myClan ? "var(--green-400)" : winnerSide === enemyClan ? "var(--red-400)" : "var(--text-dim)" }}>
                                             {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]} — {tag}
                                         </div>
                                     );
@@ -525,7 +525,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
             {/* No active war — show declare form if I'm leadership */}
             {!loading && !myWar && (
-                <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                <div style={{ background: "#0b1220", border: "1px solid var(--slate-700)", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
                     <p style={{ marginTop: 0 }}>Your clan ({myClan}) is not currently in a clan war.</p>
                     {canLead ? (
                         <>
@@ -535,14 +535,14 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                     <option value="">Pick enemy clan…</option>
                                     {eligibleTargets.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
-                                <button onClick={handleDeclare} disabled={busy || !declareTarget} style={{ padding: "0.4rem 0.8rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
+                                <button onClick={handleDeclare} disabled={busy || !declareTarget} style={{ padding: "0.4rem 0.8rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)" }}>
                                     {busy ? "Declaring…" : "⚔ Declare Clan War"}
                                 </button>
                             </div>
-                            {eligibleTargets.length === 0 && <p style={{ fontSize: "0.78rem", color: "#94a3b8", marginTop: 6 }}>No eligible clans right now — all known clans are already in wars or unavailable.</p>}
+                            {eligibleTargets.length === 0 && <p style={{ fontSize: "0.78rem", color: "var(--text-dim)", marginTop: 6 }}>No eligible clans right now — all known clans are already in wars or unavailable.</p>}
                         </>
                     ) : (
-                        <p style={{ fontSize: "0.82rem", color: "#64748b", fontStyle: "italic" }}>Only your Clan Founder / Leader / Officer can declare a clan war.</p>
+                        <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", fontStyle: "italic" }}>Only your Clan Founder / Leader / Officer can declare a clan war.</p>
                     )}
                 </div>
             )}
@@ -552,15 +552,15 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                 const others = wars.filter(w => !w.endedAt && !w.clans.includes(myClan));
                 if (others.length === 0) return null;
                 return (
-                    <div style={{ marginTop: "1rem", paddingTop: "0.8rem", borderTop: "1px solid #334155" }}>
-                        <h4 style={{ color: "#94a3b8", marginTop: 0, marginBottom: 8 }}>👁 Other Active Clan Wars</h4>
+                    <div style={{ marginTop: "1rem", paddingTop: "0.8rem", borderTop: "1px solid var(--slate-700)" }}>
+                        <h4 style={{ color: "var(--text-dim)", marginTop: 0, marginBottom: 8 }}>👁 Other Active Clan Wars</h4>
                         <div style={{ display: "grid", gap: 8 }}>
                             {others.map(w => {
                                 const [cA, cB] = w.clans;
                                 return (
                                     <div key={w.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, fontSize: "0.85rem" }}>
-                                        <strong>{cA}</strong> <span style={{ color: "#64748b" }}>vs</span> <strong>{cB}</strong>
-                                        <div style={{ color: "#94a3b8", fontSize: "0.78rem", marginTop: 2 }}>
+                                        <strong>{cA}</strong> <span style={{ color: "var(--text-muted)" }}>vs</span> <strong>{cB}</strong>
+                                        <div style={{ color: "var(--text-dim)", fontSize: "0.78rem", marginTop: 2 }}>
                                             {cA}: {(w.hp[cA] ?? 0).toLocaleString()} HP · {cB}: {(w.hp[cB] ?? 0).toLocaleString()} HP · {w.completedChallenges.length} battles
                                         </div>
                                     </div>

@@ -743,7 +743,7 @@ export function CentralHub({
                             background: isPending
                                 ? "linear-gradient(90deg, #3b2a05, #1a1a2e, #3b2a05)"
                                 : "linear-gradient(90deg, #450a0a, #1a1a2e, #450a0a)",
-                            border: `2px solid ${isPending ? "#fbbf24" : "#f87171"}`,
+                            border: `2px solid ${isPending ? "#fbbf24" : "var(--red-400)"}`,
                             borderRadius: 8,
                             padding: "0.8rem 1rem",
                             margin: "0 0 1rem",
@@ -761,13 +761,13 @@ export function CentralHub({
                             {isPending ? (
                                 <>
                                     <strong style={{ color: "#fde047", fontSize: "1.05rem" }}>⏳ {character.village} vs {enemy} — War starts in {minsToWar} min</strong>
-                                    <div style={{ fontSize: "0.82rem", color: "#fcd34d", marginTop: 4 }}>
+                                    <div style={{ fontSize: "0.82rem", color: "var(--gold-400)", marginTop: 4 }}>
                                         Pre-war window. Rally your village, queue guards, gather pre-fight buffs. No HP can drop until the timer expires.
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <strong style={{ color: "#fca5a5", fontSize: "1.05rem" }}>⚔ {character.village} is at War with {enemy}</strong>
+                                    <strong style={{ color: "var(--red-300)", fontSize: "1.05rem" }}>⚔ {character.village} is at War with {enemy}</strong>
                                     <div style={{ fontSize: "0.82rem", color: "#fde047", marginTop: 4, display: "flex", gap: 16, flexWrap: "wrap" }}>
                                         <span>Day {ageDays + 1}</span>
                                         <span>{myVillage}: <strong>{myHp.toLocaleString()}</strong> HP</span>
@@ -780,13 +780,13 @@ export function CentralHub({
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                             <button
                                 onClick={() => setScreen("townHall")}
-                                style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", color: "#fee2e2", padding: "0.4rem 0.8rem", fontSize: "0.85rem", fontWeight: 700 }}
+                                style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", color: "#fee2e2", padding: "0.4rem 0.8rem", fontSize: "0.85rem", fontWeight: 700 }}
                             >
                                 Join the Fight →
                             </button>
                             <button
                                 onClick={() => dismissWarBanner(activeWarBanner.id)}
-                                style={{ background: "transparent", border: "1px solid #475569", color: "#94a3b8", padding: "0.15rem 0.5rem", fontSize: "0.7rem" }}
+                                style={{ background: "transparent", border: "1px solid var(--slate-600)", color: "var(--text-dim)", padding: "0.15rem 0.5rem", fontSize: "0.7rem" }}
                                 title="Hide this banner for this war (a new war will surface a fresh one)"
                             >
                                 Dismiss
@@ -846,8 +846,8 @@ export function CentralHub({
                             <div>· Die → all banked ryo/XP is lost. Hospital trip applies. <strong>Milestone currencies stay credited.</strong></div>
                             <div style={{ marginTop: 6 }}><strong>Kill milestones</strong> (auto-credited, repeat every 20 kills):</div>
                             <div>· Kills 5, 10 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span></div>
-                            <div>· Kill 15 → <span style={{ color: "#facc15" }}>+5 Fate Shards</span></div>
-                            <div>· Kill 20 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span> &amp; <span style={{ color: "#facc15" }}>+5 Fate Shards</span></div>
+                            <div>· Kill 15 → <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
+                            <div>· Kill 20 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span> &amp; <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
                             <div>· Pattern repeats: 25/30 bone, 35 fate, 40 both, and so on.</div>
                             <div style={{ marginTop: 6 }}><strong>Rest stops:</strong> every 10th kill automatically restores 33% HP and 50% chakra &amp; stamina.</div>
                         </div>
@@ -1242,7 +1242,7 @@ export function CentralHub({
                                 }
                                 const ownedKeys = countItem(character, HOLLOW_GATE_KEY_ID);
                                 return (
-                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#a855f7", boxShadow: "0 0 10px rgba(168,85,247,0.22)" }}>
+                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "var(--purple-500)", boxShadow: "0 0 10px rgba(168,85,247,0.22)" }}>
                                         <strong><GiTempleGate style={COST_ICON} />Hollow Gate Key</strong>
                                         <small>Shrine pass. Bypasses village unlock + 2/day cap.</small>
                                         <small>You own: <strong>{ownedKeys}</strong></small>
@@ -1282,7 +1282,7 @@ export function CentralHub({
                                     alert(`Dungeon Legendary Relic forged. Consumed ${FRAGMENTS_PER_RELIC} Fragments.`);
                                 }
                                 return (
-                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#facc15", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
+                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "var(--gold)", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
                                         <strong><GameIcon name="shard" size={14} style={COST_ICON} />Dungeon Legendary Relic</strong>
                                         <small>Combine Hollow Gate Warden fragments into a legendary relic.</small>
                                         <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
@@ -1336,7 +1336,7 @@ export function CentralHub({
                                                     <strong>{recipe.name}</strong>
                                                     <small>{recipe.desc}</small>
                                                     {cap != null && (
-                                                        <small style={{ color: "#86efac" }}>In bag: {owned} / {cap}</small>
+                                                        <small style={{ color: "var(--green-300)" }}>In bag: {owned} / {cap}</small>
                                                     )}
                                                 </div>
                                             </div>

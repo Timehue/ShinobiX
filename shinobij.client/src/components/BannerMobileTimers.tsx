@@ -81,7 +81,7 @@ export const BannerMobileTimers = memo(function BannerMobileTimers({
                 <div key={`pe-${pet.id}`} className="bmt-row">
                     <span className="bmt-icon">🎁</span>
                     <span className="bmt-label">{petDisplayName(pet)} · Exp</span>
-                    <span className="bmt-value" style={{ color: "#4ade80" }}>Ready!</span>
+                    <span className="bmt-value" style={{ color: "var(--green-400)" }}>Ready!</span>
                 </div>,
             );
         }
