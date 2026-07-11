@@ -669,7 +669,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                         {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
                                         {character.activePetId2v2 === pet.id && <span className="pet-2v2-tag">2v2</span>}
                                         {pet.expedition && Date.now() < pet.expedition.endsAt && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>}
-                                        {pet.expedition && Date.now() >= pet.expedition.endsAt && <span className="pet-ready-tag" onClick={(e) => { e.stopPropagation(); setSelectedPetId(pet.id); }}>🎁 Claim</span>}
+                                        {pet.expedition && Date.now() >= pet.expedition.endsAt && <span className="pet-ready-tag" role="button" tabIndex={0} aria-label={`Claim ${pet.name}'s expedition reward`} onClick={(e) => { e.stopPropagation(); setSelectedPetId(pet.id); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setSelectedPetId(pet.id); } }}>🎁 Claim</span>}
                                         {pet.training && Date.now() < pet.training.endsAt && (
                                             <span className="pet-training-tag">⏳ {formatPetTimer(pet.training.endsAt - Date.now())}</span>
                                         )}
@@ -726,7 +726,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                         🔮 10 Shards
                                     </button>
                                 </div>
-                                {nicknameMsg && <p className="hint" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
+                                {nicknameMsg && <p className="hint" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)" }}>{nicknameMsg}</p>}
                             </div>
                             <div className="pet-happiness-meter" style={{ ["--pet-happiness" as string]: `${petHappiness(selectedPet)}%` }}>
                                 <div className="pet-happiness-meter-top">
@@ -757,13 +757,13 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                         <p className="hint" style={{ margin: "0 0 4px" }}>{petDisplayName(selectedPet)} → <strong>{next.name}</strong> <span style={{ textTransform: "capitalize" }}>({next.rarity})</span></p>
                                         <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.72rem" }}>{next.description}</p>
                                         <ul style={{ margin: "0 0 6px", paddingLeft: 16, fontSize: "0.72rem", listStyle: "none" }}>
-                                            <li style={{ color: hasLevel ? "#4ade80" : "#f87171" }}>{hasLevel ? "✓" : "✗"} Level {next.requiredLevel} (now {selectedPet.level})</li>
-                                            <li style={{ color: hasStone ? "#4ade80" : "#f87171" }}>{hasStone ? "✓" : "✗"} {stoneName}</li>
+                                            <li style={{ color: hasLevel ? "var(--green-400)" : "var(--red-400)" }}>{hasLevel ? "✓" : "✗"} Level {next.requiredLevel} (now {selectedPet.level})</li>
+                                            <li style={{ color: hasStone ? "var(--green-400)" : "var(--red-400)" }}>{hasStone ? "✓" : "✗"} {stoneName}</li>
                                         </ul>
                                         <button onClick={evolveSelectedPet} disabled={!ready || evolveBusy} style={{ width: "100%" }}>
                                             {evolveBusy ? "Evolving…" : ready ? `✨ Evolve into ${next.name}` : !hasLevel ? `Reach Lv ${next.requiredLevel}` : `Need ${stoneName}`}
                                         </button>
-                                        {evolveMsg && <p className="hint" style={{ fontSize: "0.72rem", marginTop: 4, color: evolveMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{evolveMsg}</p>}
+                                        {evolveMsg && <p className="hint" style={{ fontSize: "0.72rem", marginTop: 4, color: evolveMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)" }}>{evolveMsg}</p>}
                                     </section>
                                 );
                             })()}
@@ -1098,29 +1098,29 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                     <p className="hint">This pet has no jutsu yet.</p>
                                 ) : selectedPet.jutsus.map((jutsu, i) => {
                                     const kindMeta: Record<string, { icon: string; label: string; color: string }> = {
-                                        damage:    { icon: "⚔",  label: "Damage",   color: "#fca5a5" },
-                                        buff:      { icon: "⬆",  label: "Buff",     color: "#86efac" },
-                                        heal:      { icon: "✚",  label: "Heal",     color: "#4ade80" },
+                                        damage:    { icon: "⚔",  label: "Damage",   color: "var(--red-300)" },
+                                        buff:      { icon: "⬆",  label: "Buff",     color: "var(--green-300)" },
+                                        heal:      { icon: "✚",  label: "Heal",     color: "var(--green-400)" },
                                         debuff:    { icon: "⬇",  label: "Debuff",   color: "#f97316" },
-                                        dot:       { icon: "☠",  label: "Poison",   color: "#c084fc" },
-                                        move:      { icon: "➡",  label: "Move",     color: "#93c5fd" },
+                                        dot:       { icon: "☠",  label: "Poison",   color: "var(--purple-400)" },
+                                        move:      { icon: "➡",  label: "Move",     color: "var(--blue-300)" },
                                         barrier:   { icon: "◇",  label: "Barrier",  color: "#7dd3fc" },
                                         movelock:  { icon: "⛓",  label: "Rootlock", color: "#fbbf24" },
-                                        lifesteal: { icon: "🩸", label: "Lifesteal",color: "#f87171" },
+                                        lifesteal: { icon: "🩸", label: "Lifesteal",color: "var(--red-400)" },
                                         shield:    { icon: "🛡", label: "Shield",   color: "#7dd3fc" },
                                         absorb:    { icon: "✨", label: "Absorb",   color: "#a5b4fc" },
-                                        crush:     { icon: "🪨", label: "Crush",    color: "#fca5a5" },
+                                        crush:     { icon: "🪨", label: "Crush",    color: "var(--red-300)" },
                                         burn:      { icon: "🔥", label: "Burn",     color: "#fb923c" },
                                         freeze:    { icon: "🧊", label: "Freeze",   color: "#7dd3fc" },
-                                        confuse:   { icon: "🌀", label: "Confuse",  color: "#93c5fd" },
+                                        confuse:   { icon: "🌀", label: "Confuse",  color: "var(--blue-300)" },
                                         stun:      { icon: "💫", label: "Stun",     color: "#fde047" },
-                                        wound:     { icon: "🩸", label: "Wound",    color: "#f87171" },
+                                        wound:     { icon: "🩸", label: "Wound",    color: "var(--red-400)" },
                                         mark:      { icon: "🔻", label: "Mark",     color: "#f97316" },
                                         slow:      { icon: "🐌", label: "Slow",     color: "#7dd3fc" },
                                         haste:     { icon: "⚡", label: "Haste",    color: "#fde047" },
                                         taunt:     { icon: "❗", label: "Taunt",    color: "#f97316" },
-                                        push:      { icon: "👊", label: "Push",     color: "#fca5a5" },
-                                        pull:      { icon: "🪝", label: "Pull",     color: "#93c5fd" },
+                                        push:      { icon: "👊", label: "Push",     color: "var(--red-300)" },
+                                        pull:      { icon: "🪝", label: "Pull",     color: "var(--blue-300)" },
                                     };
                                     const km = kindMeta[jutsu.kind] ?? { icon: "✦", label: jutsu.kind, color: "#aaa" };
                                     return (

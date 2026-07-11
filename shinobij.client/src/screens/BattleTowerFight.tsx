@@ -110,7 +110,7 @@ const ELEMENT_ICON: Record<string, string> = { Fire: "🔥", Water: "🌊", Eart
 // Manifest-chip palette by modifier kind: the Wave-2 keystones (hazard/debuff/healcut) read
 // distinctly from the amber stat chassis (hp/dmg/roundCap/enrageCap → default).
 const MODIFIER_CHIP_COLOR: Record<string, { fg: string; bg: string; border: string }> = {
-    hazard: { fg: "#fca5a5", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.32)" },       // crimson — tile burn
+    hazard: { fg: "var(--red-300)", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.32)" },       // crimson — tile burn
     debuff: { fg: "#d8b4fe", bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.32)" },     // violet — vulnerability
     healcut: { fg: "#5eead4", bg: "rgba(20,184,166,0.12)", border: "rgba(20,184,166,0.32)" },    // teal — healing throttle
     extraPhase: { fg: "#fdba74", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.32)" }, // ember — extra boss phase (W3)
@@ -580,7 +580,7 @@ export function BattleTowerFight({
         mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
 
     return (
-        <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "#e2e8f0", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${gameBg}) center/cover fixed` }}>
+        <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "var(--slate-200)", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${gameBg}) center/cover fixed` }}>
             {/* Endless Spire — boss intro nameplate (fresh entry only; click to skip) */}
             {showIntro && spireMeta && (
                 <div className="spire-intro" onClick={() => setShowIntro(false)}>
@@ -602,7 +602,7 @@ export function BattleTowerFight({
 
                 {/* Squad rail (+ protect-target allies) */}
                 <aside style={{ minWidth: 0 }}>
-                    <RailHeader icon="🛡" label="Squad" accent="#4ade80" />
+                    <RailHeader icon="🛡" label="Squad" accent="var(--green-400)" />
                     {allies.map(a => <ActorCard key={a.id} actor={a} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} ally={a.side === "npc"} />)}
                 </aside>
 
@@ -610,19 +610,19 @@ export function BattleTowerFight({
                 <main style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
                         <strong>Floor {session.floor} · {objective.replace(/-/g, " ")}</strong>
-                        <span title="Objective progress" style={{ color: "#fcd34d", fontSize: "0.8rem", fontWeight: 700, whiteSpace: "nowrap" }}>🎯 {objectiveProgress}</span>
+                        <span title="Objective progress" style={{ color: "var(--gold-400)", fontSize: "0.8rem", fontWeight: 700, whiteSpace: "nowrap" }}>🎯 {objectiveProgress}</span>
                         <span style={{
                             flex: 1, textAlign: "right", fontWeight: session.roundCap ? 700 : 400,
                             // Endless Spire: the round cap is a real clear deadline — warn as it nears.
-                            color: session.roundCap && session.round >= session.roundCap - 2 ? "#f87171"
-                                : session.roundCap && session.round >= Math.floor(session.roundCap * 0.66) ? "#facc15" : "#94a3b8",
+                            color: session.roundCap && session.round >= session.roundCap - 2 ? "var(--red-400)"
+                                : session.roundCap && session.round >= Math.floor(session.roundCap * 0.66) ? "var(--gold)" : "var(--text-dim)",
                         }}>Round {session.round}{session.roundCap ? `/${session.roundCap}` : ""}</span>
                         {turnLabel && (
                             <span style={{
                                 display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 16, fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap",
                                 background: myTurn ? "linear-gradient(180deg,#16803a,#0c5226)" : "rgba(15,23,42,0.85)",
-                                border: `1px solid ${myTurn ? "#4ade80" : activeActor?.side === "enemy" ? "#f87171" : "#60a5fa"}`,
-                                color: myTurn ? "#dcfce7" : "#e2e8f0",
+                                border: `1px solid ${myTurn ? "var(--green-400)" : activeActor?.side === "enemy" ? "var(--red-400)" : "var(--blue-400)"}`,
+                                color: myTurn ? "#dcfce7" : "var(--slate-200)",
                             }}>
                                 {turnLabel}{afkRemaining != null ? ` · ${afkRemaining}s` : ""}
                             </span>
@@ -632,7 +632,7 @@ export function BattleTowerFight({
                         {session.status === "active" && (
                             // Free, penalty-free abandon — floors have unlimited retries.
                             <button
-                                style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: "#475569", color: "#cbd5e1" }}
+                                style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: "var(--slate-600)", color: "var(--slate-300)" }}
                                 onClick={async () => { if (await gameConfirm("Leave this floor? Your run won't be saved — floors have unlimited retries.")) onExit(); }}
                             >Leave</button>
                         )}
@@ -849,7 +849,7 @@ export function BattleTowerFight({
                                     const selfTargetable = mode === "jutsu" && !!selJutsu && isSelfCastJutsu(selJutsu) && myActor != null && a.id === myActor.id;
                                     const isActive = a.id === activeId;
                                     const img = avatarFor(a);
-                                    const ringColor = a.side === "squad" ? "#67e8f9" : a.side === "npc" ? "#facc15" : "#fb7185";
+                                    const ringColor = a.side === "squad" ? "#67e8f9" : a.side === "npc" ? "var(--gold)" : "#fb7185";
                                     const pct = Math.max(0, Math.min(100, (a.hp / Math.max(1, a.maxHp)) * 100));
                                     return (
                                         <div key={a.id} onClick={() => onTileClick(a.pos)} title={`${a.name} ${a.hp}/${a.maxHp}`}
@@ -859,7 +859,7 @@ export function BattleTowerFight({
                                             <div className={`avatar-orb${a.side === "enemy" ? " enemy-orb" : ""}`}
                                                 style={{
                                                     width: size, height: size,
-                                                    outline: isActive ? "3px solid #fde047" : targetable ? "3px solid #fca5a5" : selfTargetable ? "3px solid #67e8f9" : "none",
+                                                    outline: isActive ? "3px solid #fde047" : targetable ? "3px solid var(--red-300)" : selfTargetable ? "3px solid #67e8f9" : "none",
                                                     outlineOffset: 2,
                                                     boxShadow: targetable ? "0 0 16px 4px rgba(248,113,113,0.9)" : selfTargetable ? "0 0 16px 4px rgba(34,211,238,0.85)" : undefined,
                                                 }}>
@@ -873,7 +873,7 @@ export function BattleTowerFight({
                                                 <div style={{ height: 4, width: size, borderRadius: 2, background: "rgba(2,6,18,0.85)", border: "1px solid rgba(0,0,0,0.5)" }}>
                                                     <div style={{ width: `${pct}%`, height: "100%", borderRadius: 2, background: ringColor }} />
                                                 </div>
-                                                <div style={{ fontSize: 9, fontWeight: 700, color: "#e2e8f0", textShadow: "0 1px 3px #000", whiteSpace: "nowrap", marginTop: 1 }}>
+                                                <div style={{ fontSize: 9, fontWeight: 700, color: "var(--slate-200)", textShadow: "0 1px 3px #000", whiteSpace: "nowrap", marginTop: 1 }}>
                                                     {a.name}{isBoss ? "" : ""}
                                                 </div>
                                             </div>
@@ -888,19 +888,19 @@ export function BattleTowerFight({
                     <div style={{ marginTop: 8 }}>
                         {/* AP / chakra / stamina readout + turn status */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#0b1220", border: "1px solid #334155" }}>
-                                <strong style={{ color: "#facc15", fontSize: "1rem", lineHeight: 1 }}>{session.activeAp}</strong>
-                                <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>AP</span>
-                                <span style={{ color: "#475569" }}>·</span>
-                                <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>{session.actionsThisTurn}/5</span>
-                                <span style={{ color: "#475569" }}>·</span>
-                                <span title="Chakra" style={{ color: "#38bdf8", fontSize: "0.7rem", fontWeight: 700 }}>◆ {myChakra}</span>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#0b1220", border: "1px solid var(--slate-700)" }}>
+                                <strong style={{ color: "var(--gold)", fontSize: "1rem", lineHeight: 1 }}>{session.activeAp}</strong>
+                                <span style={{ color: "var(--text-dim)", fontSize: "0.68rem" }}>AP</span>
+                                <span style={{ color: "var(--slate-600)" }}>·</span>
+                                <span style={{ color: "var(--text-dim)", fontSize: "0.68rem" }}>{session.actionsThisTurn}/5</span>
+                                <span style={{ color: "var(--slate-600)" }}>·</span>
+                                <span title="Chakra" style={{ color: "var(--cyan)", fontSize: "0.7rem", fontWeight: 700 }}>◆ {myChakra}</span>
                                 <span title="Stamina" style={{ color: "#a3e635", fontSize: "0.7rem", fontWeight: 700 }}>⬢ {myStamina}</span>
                             </span>
-                            {reject && <span style={{ color: "#f87171", fontSize: "0.78rem" }}>⚠ {reject}</span>}
+                            {reject && <span style={{ color: "var(--red-400)", fontSize: "0.78rem" }}>⚠ {reject}</span>}
                             {!reject && targetingHint && <span style={{ color: "#7dd3fc", fontSize: "0.78rem", fontWeight: 600 }}>👉 {targetingHint}</span>}
                             {!myTurn && session.status === "active" && (
-                                <span className="hint" style={{ fontSize: "0.78rem", color: "#94a3b8", margin: 0 }}>{turnLabel || "Allies & enemies are acting…"}{afkRemaining != null ? ` · auto-passes in ${afkRemaining}s` : ""}</span>
+                                <span className="hint" style={{ fontSize: "0.78rem", color: "var(--text-dim)", margin: 0 }}>{turnLabel || "Allies & enemies are acting…"}{afkRemaining != null ? ` · auto-passes in ${afkRemaining}s` : ""}</span>
                             )}
                         </div>
 
@@ -1005,10 +1005,10 @@ export function BattleTowerFight({
 
                 {/* Enemy + log rail */}
                 <aside style={{ minWidth: 0 }}>
-                    <RailHeader icon="👹" label="Enemies" accent="#f87171" />
+                    <RailHeader icon="👹" label="Enemies" accent="var(--red-400)" />
                     {enemies.map(a => <ActorCard key={a.id} actor={a} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} boss={a.id === bossId} />)}
-                    <RailHeader icon="📜" label="Battle Log" accent="#94a3b8" mt={12} />
-                    <div style={{ maxHeight: 220, overflow: "auto", fontSize: "0.74rem", lineHeight: 1.45, color: "#cbd5e1", background: "rgba(2,6,18,0.55)", border: "1px solid #1e293b", borderRadius: 8, padding: "6px 8px" }}>
+                    <RailHeader icon="📜" label="Battle Log" accent="var(--text-dim)" mt={12} />
+                    <div style={{ maxHeight: 220, overflow: "auto", fontSize: "0.74rem", lineHeight: 1.45, color: "var(--slate-300)", background: "rgba(2,6,18,0.55)", border: "1px solid var(--slate-800)", borderRadius: 8, padding: "6px 8px" }}>
                         {session.log.slice(-30).map((line, i) => <div key={i} style={{ padding: "1px 0", borderBottom: i < Math.min(29, session.log.length - 1) ? "1px solid rgba(30,41,59,0.5)" : undefined }}>{line}</div>)}
                     </div>
                 </aside>
@@ -1057,7 +1057,7 @@ export function BattleTowerFight({
                 // ── Story floors — the original result card ──
                 <div style={{ position: "absolute", inset: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(2,6,14,0.82)" }}>
                     <div className="card" style={{ textAlign: "center", padding: "1.6rem", maxWidth: 420 }}>
-                        <h1 style={{ marginTop: 0, color: session.winner === "squad" ? "#4ade80" : "#f87171" }}>
+                        <h1 style={{ marginTop: 0, color: session.winner === "squad" ? "var(--green-400)" : "var(--red-400)" }}>
                             {session.winner === "squad" ? "🏆 Floor Cleared!" : "💀 Floor Failed"}
                         </h1>
                         {session.winner === "squad" && (
@@ -1081,7 +1081,7 @@ function tileFill(
     // Top-lit → dark-bottom gradient gives each hex a raised, beveled 3D look.
     const g = (top: string, bot: string) => `linear-gradient(180deg, ${top} 0%, ${bot} 100%)`;
     if (s.isMove) return { background: g("rgba(196,255,150,0.8)", "rgba(45,120,28,0.62)"), borderColor: "#bef264" };
-    if (s.inJ) return { background: g("rgba(147,197,253,0.62)", "rgba(29,78,216,0.55)"), borderColor: "#60a5fa" };
+    if (s.inJ) return { background: g("rgba(147,197,253,0.62)", "rgba(29,78,216,0.55)"), borderColor: "var(--blue-400)" };
     if (s.isBlocked) return { background: g("rgba(120,130,150,0.62)", "rgba(30,38,56,0.72)"), borderColor: "rgba(148,163,184,0.5)" };
     if (feat) {
         if (feat.kind === "pylon") {
@@ -1091,7 +1091,7 @@ function tileFill(
         if (feat.kind === "ward") return { background: g("rgba(226,232,240,0.6)", "rgba(71,85,105,0.64)"), borderColor: "rgba(226,232,240,0.9)" };
         if (feat.kind === "hazard") return { background: g("rgba(254,160,120,0.68)", "rgba(127,29,29,0.68)"), borderColor: "rgba(248,113,113,0.95)" };
     }
-    if (s.isGoal) return { background: g("rgba(253,224,71,0.62)", "rgba(133,77,14,0.62)"), borderColor: "#facc15" };
+    if (s.isGoal) return { background: g("rgba(253,224,71,0.62)", "rgba(133,77,14,0.62)"), borderColor: "var(--gold)" };
     // Default tile: muted grass-green top → dark forest base, matching the arena floor.
     // Translucent so the grass shows through; the dark hex outline (CSS) keeps it visible.
     return { background: g("rgba(126,162,96,0.42)", "rgba(20,38,18,0.6)"), borderColor: "rgba(60,80,45,0.6)" };
@@ -1110,23 +1110,23 @@ function featureLabel(feat: TowerFeature): string {
 function ActorCard({ actor, highlight, avatar, emoji, boss, ally }: { actor: TowerActor; highlight: boolean; avatar: string | null; emoji: string; boss?: boolean; ally?: boolean }) {
     const pct = Math.max(0, Math.min(100, (actor.hp / Math.max(1, actor.maxHp)) * 100));
     const dead = actor.hp <= 0;
-    const accent = actor.side === "squad" ? "#4ade80" : actor.side === "npc" ? "#facc15" : "#f87171";
+    const accent = actor.side === "squad" ? "var(--green-400)" : actor.side === "npc" ? "var(--gold)" : "var(--red-400)";
     return (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 7px", marginBottom: 5, borderRadius: 6, background: highlight ? "#15233b" : "rgba(11,18,32,0.7)", border: `1px solid ${highlight ? "#60a5fa" : "#1e293b"}`, opacity: dead ? 0.4 : 1 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 7px", marginBottom: 5, borderRadius: 6, background: highlight ? "#15233b" : "rgba(11,18,32,0.7)", border: `1px solid ${highlight ? "var(--blue-400)" : "var(--slate-800)"}`, opacity: dead ? 0.4 : 1 }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, overflow: "hidden", border: `2px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", background: "#0b1220" }}>
                 {avatar ? <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 15 }}>{emoji}</span>}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", gap: 4 }}>
                     <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{boss ? "👑 " : ally ? "🛡️ " : ""}{actor.name}{ally ? " (protect)" : ""}</strong>
-                    <span style={{ color: "#94a3b8", flexShrink: 0 }}>{Math.max(0, actor.hp)}/{actor.maxHp}</span>
+                    <span style={{ color: "var(--text-dim)", flexShrink: 0 }}>{Math.max(0, actor.hp)}/{actor.maxHp}</span>
                 </div>
                 <div style={{ height: 5, background: "#0b1220", borderRadius: 3, marginTop: 3 }}>
-                    <div style={{ width: `${pct}%`, height: "100%", borderRadius: 3, background: dead ? "#475569" : accent }} />
+                    <div style={{ width: `${pct}%`, height: "100%", borderRadius: 3, background: dead ? "var(--slate-600)" : accent }} />
                 </div>
                 {actor.side === "squad" && (
                     <div style={{ display: "flex", gap: 3, marginTop: 2 }}>
-                        <MiniBar val={actor.chakra} max={actor.maxChakra} color="#38bdf8" />
+                        <MiniBar val={actor.chakra} max={actor.maxChakra} color="var(--cyan)" />
                         <MiniBar val={actor.stamina} max={actor.maxStamina} color="#a3e635" />
                     </div>
                 )}

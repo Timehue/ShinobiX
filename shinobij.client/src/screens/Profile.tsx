@@ -558,7 +558,7 @@ export function Profile({
                     {(character.earnedTitles?.length ?? 0) > 0 && (
                         <div style={{ marginBottom: 16 }}>
                             <p className="act-label">Earned Titles</p>
-                            <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.6rem" }}>
+                            <p style={{ color: "var(--text-dim)", fontSize: "0.85rem", margin: "0.2rem 0 0.6rem" }}>
                                 Earned from achievements — tap one to wear it (free).
                             </p>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -572,8 +572,8 @@ export function Profile({
                                             style={{
                                                 padding: "3px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700,
                                                 cursor: "pointer", whiteSpace: "nowrap",
-                                                color: active ? "#0b1020" : "#facc15",
-                                                background: active ? "#facc15" : "rgba(250,204,21,.12)",
+                                                color: active ? "#0b1020" : "var(--gold)",
+                                                background: active ? "var(--gold)" : "rgba(250,204,21,.12)",
                                                 border: "1px solid rgba(250,204,21,.45)",
                                             }}
                                         >
@@ -585,7 +585,7 @@ export function Profile({
                         </div>
                     )}
                     <p className="act-label">Custom Title</p>
-                    <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.75rem" }}>
+                    <p style={{ color: "var(--text-dim)", fontSize: "0.85rem", margin: "0.2rem 0 0.75rem" }}>
                         {character.customTitle
                             ? <>Current: <span style={{ color: titleStyleColor(character.customTitleStyle), fontWeight: 700 }}>{character.customTitleIcon ? `${character.customTitleIcon} ` : ""}{character.customTitle}</span></>
                             : "No title set."}
@@ -615,7 +615,7 @@ export function Profile({
                         ENABLE_LEGACY being live (see legacyLive above). */}
                     {character.customTitle && legacyLive && (
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
-                            <label style={{ fontSize: ".78rem", color: "#94a3b8" }}>
+                            <label style={{ fontSize: ".78rem", color: "var(--text-dim)" }}>
                                 Style (<GameIcon name="shard" size={12} style={PF_COST} />{TITLE_STYLE_COST}):{" "}
                                 <select
                                     value={character.customTitleStyle ?? ""}
@@ -626,7 +626,7 @@ export function Profile({
                                     ))}
                                 </select>
                             </label>
-                            <label style={{ fontSize: ".78rem", color: "#94a3b8" }}>
+                            <label style={{ fontSize: ".78rem", color: "var(--text-dim)" }}>
                                 Icon (<GameIcon name="shard" size={12} style={PF_COST} />{TITLE_ICON_COST}):{" "}
                                 <select
                                     value={character.customTitleIcon ?? ""}
@@ -722,7 +722,7 @@ export function Profile({
                     );
                 })()}
                 <div className="jutsu-lens-row" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "4px 0 10px" }}>
-                    <label htmlFor="jutsu-lens-discipline" style={{ fontSize: "0.82rem", color: "#94a3b8" }}>Read effects as:</label>
+                    <label htmlFor="jutsu-lens-discipline" style={{ fontSize: "0.82rem", color: "var(--text-dim)" }}>Read effects as:</label>
                     <select
                         id="jutsu-lens-discipline"
                         value={tagLensDiscipline}
@@ -753,7 +753,7 @@ export function Profile({
                         return (
                             <>
                                 <p>Level {mastery.level}/50 | {jutsu.type} | {jutsu.element} | {jutsu.ap} AP | R{jutsu.range} | EP {displayJutsu.effectPower}</p>
-                                {(() => { const t = jutsuTargetingLabel(jutsu); return <p><strong style={{ color: "#c084fc" }}>🎯 Targeting: {t.short}</strong> — {t.detail}</p>; })()}
+                                {(() => { const t = jutsuTargetingLabel(jutsu); return <p><strong style={{ color: "var(--purple-400)" }}>🎯 Targeting: {t.short}</strong> — {t.detail}</p>; })()}
                                 <p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
                                 <p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p>
                                 <JutsuEffectCards jutsu={jutsu} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} />
@@ -764,7 +764,7 @@ export function Profile({
                         <>
                             {equippedJutsus.length > 0 && (
                                 <>
-                                    <h4 style={{ margin: "8px 0 4px", color: "#86efac", fontSize: "0.82rem" }}>✅ Equipped ({equippedJutsus.length})</h4>
+                                    <h4 style={{ margin: "8px 0 4px", color: "var(--green-300)", fontSize: "0.82rem" }}>✅ Equipped ({equippedJutsus.length})</h4>
                                     <JutsuDropdownList
                                         jutsus={equippedJutsus}
                                         label="Equipped Jutsu"
@@ -776,7 +776,7 @@ export function Profile({
                             )}
                             {availableJutsus.length > 0 && (
                                 <>
-                                    <h4 style={{ margin: "10px 0 4px", color: "#94a3b8", fontSize: "0.82rem" }}>📚 Not Equipped ({availableJutsus.length})</h4>
+                                    <h4 style={{ margin: "10px 0 4px", color: "var(--text-dim)", fontSize: "0.82rem" }}>📚 Not Equipped ({availableJutsus.length})</h4>
                                     <JutsuDropdownList
                                         jutsus={availableJutsus}
                                         label="Available Jutsu"

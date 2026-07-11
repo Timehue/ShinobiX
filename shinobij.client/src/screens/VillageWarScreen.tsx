@@ -210,79 +210,79 @@ export function VillageWarScreen({
                     type="button"
                     onClick={() => setShowWarManual(v => !v)}
                     title="How does Village War work?"
-                    style={{ padding: "0.2rem 0.55rem", fontSize: "0.85rem", borderRadius: 4, border: "1px solid #60a5fa", background: "#1e293b", color: "#60a5fa", cursor: "pointer" }}
+                    style={{ padding: "0.2rem 0.55rem", fontSize: "0.85rem", borderRadius: 4, border: "1px solid var(--blue-400)", background: "var(--slate-800)", color: "var(--blue-400)", cursor: "pointer" }}
                 >
                     ℹ How it works
                 </button>
             </div>
             {showWarManual && (
-                <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 8, padding: "1rem", marginBottom: "1rem", fontSize: "0.88rem", lineHeight: 1.55 }}>
+                <div style={{ background: "#0b1220", border: "1px solid var(--slate-700)", borderRadius: 8, padding: "1rem", marginBottom: "1rem", fontSize: "0.88rem", lineHeight: 1.55 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <strong style={{ color: "#fde047", fontSize: "1rem" }}><GiScrollUnfurled style={VW_ICON} />Village War Manual</strong>
-                        <button type="button" onClick={() => setShowWarManual(false)} style={{ padding: "0.15rem 0.5rem", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5", fontSize: "0.75rem" }}>✕ Close</button>
+                        <button type="button" onClick={() => setShowWarManual(false)} style={{ padding: "0.15rem 0.5rem", background: "#7f1d1d", borderColor: "var(--danger)", color: "var(--red-300)", fontSize: "0.75rem" }}>✕ Close</button>
                     </div>
                     <p style={{ margin: "0 0 0.5rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>Declaring war.</strong> Only your village's <em>seated Kage</em> can declare. Costs <strong>500 Honor Seals</strong> from the Kage's personal treasury. Same two villages have a <strong>7-day rematch cooldown</strong> after a war ends. Each village can only be in <strong>one war at a time</strong>.
+                        <strong style={{ color: "var(--blue-400)" }}>Declaring war.</strong> Only your village's <em>seated Kage</em> can declare. Costs <strong>500 Honor Seals</strong> from the Kage's personal treasury. Same two villages have a <strong>7-day rematch cooldown</strong> after a war ends. Each village can only be in <strong>one war at a time</strong>.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>How damage works.</strong> Each village starts with <strong>5000 War HP</strong> + a shared <strong>1000-HP War Ground sector</strong>. Each PvP fight moves both villages' HP — the winner contributes damage from <em>their</em> position; the loser's village takes extra damage if <em>they</em> were a high-value target.
+                        <strong style={{ color: "var(--blue-400)" }}>How damage works.</strong> Each village starts with <strong>5000 War HP</strong> + a shared <strong>1000-HP War Ground sector</strong>. Each PvP fight moves both villages' HP — the winner contributes damage from <em>their</em> position; the loser's village takes extra damage if <em>they</em> were a high-value target.
                     </p>
-                    <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: 0, border: "1px solid #334155", borderRadius: 6, overflow: "hidden", marginBottom: "0.6rem", fontSize: "0.82rem" }}>
-                        <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#fde047" }}>Position</div>
-                        <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#4ade80", textAlign: "right" }}>You win</div>
-                        <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#f87171", textAlign: "right" }}>You lose</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: 0, border: "1px solid var(--slate-700)", borderRadius: 6, overflow: "hidden", marginBottom: "0.6rem", fontSize: "0.82rem" }}>
+                        <div style={{ background: "var(--slate-800)", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#fde047" }}>Position</div>
+                        <div style={{ background: "var(--slate-800)", padding: "0.35rem 0.6rem", fontWeight: 700, color: "var(--green-400)", textAlign: "right" }}>You win</div>
+                        <div style={{ background: "var(--slate-800)", padding: "0.35rem 0.6rem", fontWeight: 700, color: "var(--red-400)", textAlign: "right" }}>You lose</div>
                         <div style={{ padding: "0.3rem 0.6rem" }}>Seated Kage</div>
-                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#4ade80" }}>+30 enemy HP</div>
-                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−50 your HP</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>Village Elder · Clan Head / Elder / Founder</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#4ade80" }}>+20 enemy HP</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−20 your HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "var(--green-400)" }}>+30 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "var(--red-400)" }}>−50 your HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)" }}>Village Elder · Clan Head / Elder / Founder</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)", textAlign: "right", color: "var(--green-400)" }}>+20 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)", textAlign: "right", color: "var(--red-400)" }}>−20 your HP</div>
                         <div style={{ padding: "0.3rem 0.6rem" }}>ANBU</div>
-                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#4ade80" }}>+15 enemy HP</div>
-                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#64748b" }}>−0</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>Regular villager</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#4ade80" }}>+5 enemy HP</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#64748b" }}>−0</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "var(--green-400)" }}>+15 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "var(--text-muted)" }}>−0</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)" }}>Regular villager</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)", textAlign: "right", color: "var(--green-400)" }}>+5 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)", textAlign: "right", color: "var(--text-muted)" }}>−0</div>
                     </div>
-                    <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#94a3b8" }}>
-                        Both columns stack on the same fight. Examples: a regular villager defeating a Kage = <strong style={{ color: "#4ade80" }}>+5 enemy HP</strong> (their win) AND <strong style={{ color: "#f87171" }}>−50 to the Kage's village</strong> (kill penalty) = <strong>55 total damage</strong>. Kage beats Elder = +30 +20 = 50. Regular vs regular = +5. PvP wins on the war-ground sector drain the sector AND the enemy village HP simultaneously.
+                    <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "var(--text-dim)" }}>
+                        Both columns stack on the same fight. Examples: a regular villager defeating a Kage = <strong style={{ color: "var(--green-400)" }}>+5 enemy HP</strong> (their win) AND <strong style={{ color: "var(--red-400)" }}>−50 to the Kage's village</strong> (kill penalty) = <strong>55 total damage</strong>. Kage beats Elder = +30 +20 = 50. Regular vs regular = +5. PvP wins on the war-ground sector drain the sector AND the enemy village HP simultaneously.
                     </p>
                     <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#fbbf24" }}>
                         ⚠ <strong>Clan-leadership gate:</strong> Clan Head / Clan Elder / Clan Founder only get the <strong>+20</strong> tier when their clan has <strong>at least 8 total members</strong> (you + 7 others). Smaller clans drop to the regular <strong>+5/−0</strong> tier. Village Elder seats and ANBU are unaffected.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>Home defender bonus.</strong> When you win a PvP fight in a sector your own village owns, you get <strong>+15%</strong> war HP credit. This only scales the war ledger — the actual fight is unchanged.
+                        <strong style={{ color: "var(--blue-400)" }}>Home defender bonus.</strong> When you win a PvP fight in a sector your own village owns, you get <strong>+15%</strong> war HP credit. This only scales the war ledger — the actual fight is unchanged.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>The war ground (tug of war).</strong> The war-ground sector is a contestable objective — capture it from this screen by raiding it to 0 HP, or drain its war-HP via PvP wins inside it. Each capture flips ownership, deals an extra <strong>+750 enemy HP</strong>, and resets the war ground HP to 500 so the other side can push back. The war ground can change hands repeatedly during a war.</p>
+                        <strong style={{ color: "var(--blue-400)" }}>The war ground (tug of war).</strong> The war-ground sector is a contestable objective — capture it from this screen by raiding it to 0 HP, or drain its war-HP via PvP wins inside it. Each capture flips ownership, deals an extra <strong>+750 enemy HP</strong>, and resets the war ground HP to 500 so the other side can push back. The war ground can change hands repeatedly during a war.</p>
                     <p style={{ margin: "0 0 0.5rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>War Ground Bounty.</strong> Every successful war-ground raid pays <strong>+500 ryo + 1 Fate Shard</strong>, once per UTC day per player. Independent of who wins the war — even losers get paid for showing up.
+                        <strong style={{ color: "var(--blue-400)" }}>War Ground Bounty.</strong> Every successful war-ground raid pays <strong>+500 ryo + 1 Fate Shard</strong>, once per UTC day per player. Independent of who wins the war — even losers get paid for showing up.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> A side wins when the <em>enemy village HP hits 0</em>. Capturing the war ground only deals bonus damage — it doesn't end the war alone. The Kage may also call peace (ends with no winner, no crate).
+                        <strong style={{ color: "var(--blue-400)" }}>Winning the war.</strong> A side wins when the <em>enemy village HP hits 0</em>. Capturing the war ground only deals bonus damage — it doesn't end the war alone. The Kage may also call peace (ends with no winner, no crate).
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>Decay.</strong> After 3 days, both sides lose <strong>500 war HP per UTC reset</strong> to push idle wars toward resolution. A war that nobody touches ends naturally around day 13.
+                        <strong style={{ color: "var(--blue-400)" }}>Decay.</strong> After 3 days, both sides lose <strong>500 war HP per UTC reset</strong> to push idle wars toward resolution. A war that nobody touches ends naturally around day 13.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>Rewards.</strong>
+                        <strong style={{ color: "var(--blue-400)" }}>Rewards.</strong>
                         <br />• <strong>Every winning villager:</strong> 1× Legendary War Crate.
                         <br />• <strong>MVP each side</strong> (top damage on the leaderboard): +1 extra Legendary Crate, +10,000 ryo, +50 Honor Seals, +2 Fate Shards. Even the losing-side MVP earns this.
                         <br />• <strong>Losing villagers who contributed ≥50 damage:</strong> 5,000 ryo, 25 Honor Seals, 1 Fate Shard consolation. No reward on draws.
                     </p>
-                    <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.8rem" }}>
+                    <p style={{ margin: 0, color: "var(--text-dim)", fontSize: "0.8rem" }}>
                         Rewards auto-claim on your next login or the next time you open this screen — no buttons to click for the standard crate.
                     </p>
                 </div>
             )}
-            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
+            {error && <div style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}>⚠ {error}</div>}
             {claimable.length > 0 && (
-                <div style={{ background: "linear-gradient(#1a3a1a,#0a2010)", border: "1px solid #4ade80", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
-                    <strong style={{ color: "#4ade80" }}><GiTrophy style={VW_ICON} />Victory rewards available</strong>
+                <div style={{ background: "linear-gradient(#1a3a1a,#0a2010)", border: "1px solid var(--green-400)", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
+                    <strong style={{ color: "var(--green-400)" }}><GiTrophy style={VW_ICON} />Victory rewards available</strong>
                     {claimable.map(w => (
                         <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                             <span>vs {w.villages.find(v => v !== myVillage) ?? "?"} — won {new Date(w.endedAt!).toLocaleDateString()}</span>
-                            <button onClick={() => claimVictory(w)} style={{ padding: "0.3rem 0.7rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                            <button onClick={() => claimVictory(w)} style={{ padding: "0.3rem 0.7rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
                                 Claim Reward
                             </button>
                         </div>
@@ -291,20 +291,20 @@ export function VillageWarScreen({
             )}
             {activeWar ? (
                 <>
-                    <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
-                        <div style={{ fontWeight: 700, color: "#f87171", fontSize: "1.1rem" }}>{myVillage} vs {enemyVillage}</div>
-                        <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Started {new Date(activeWar.startedAt).toLocaleDateString()}</div>
+                    <div style={{ background: "#1a1a2e", border: "1px solid var(--red-400)", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
+                        <div style={{ fontWeight: 700, color: "var(--red-400)", fontSize: "1.1rem" }}>{myVillage} vs {enemyVillage}</div>
+                        <div style={{ color: "var(--text-dim)", fontSize: "0.85rem" }}>Started {new Date(activeWar.startedAt).toLocaleDateString()}</div>
                         {activeWar.pendingUntil && activeWar.pendingUntil > Date.now() && (
                             <div style={{ marginTop: 8, padding: "0.5rem 0.7rem", background: "linear-gradient(#3b2a05, #1f1402)", border: "1px solid #fbbf24", borderRadius: 6 }}>
                                 <strong style={{ color: "#fde047" }}>⏳ War starts in {Math.max(1, Math.ceil((activeWar.pendingUntil - Date.now()) / 60_000))} min</strong>
-                                <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 0" }}>
+                                <p style={{ fontSize: "0.78rem", color: "var(--gold-400)", margin: "4px 0 0" }}>
                                     Pre-war window. No HP can drop, no PvP raid will count yet. Use this time to rally your village, queue guards, and gather pre-fight buffs.
                                 </p>
                             </div>
                         )}
                         <div style={{ marginTop: 8 }}>
-                            <div>My village HP: <strong style={{ color: "#4ade80" }}>{activeWar.hp?.[myVillage] ?? 0}</strong></div>
-                            <div>Enemy HP: <strong style={{ color: "#f87171" }}>{activeWar.hp?.[enemyVillage] ?? 0}</strong></div>
+                            <div>My village HP: <strong style={{ color: "var(--green-400)" }}>{activeWar.hp?.[myVillage] ?? 0}</strong></div>
+                            <div>Enemy HP: <strong style={{ color: "var(--red-400)" }}>{activeWar.hp?.[enemyVillage] ?? 0}</strong></div>
                             <div>War Ground (sector {activeWar.warGroundSector}): {activeWar.warGroundHp}</div>
                         </div>
                     </div>
@@ -319,10 +319,10 @@ export function VillageWarScreen({
                         const enemySide = contribs.filter(c => c.side === enemyVillage).sort((a, b) => b.damage - a.damage).slice(0, 3);
                         return (
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: "1rem" }}>
-                                <div style={{ background: "#0a1f0a", border: "1px solid #4ade80", borderRadius: 6, padding: "0.6rem" }}>
-                                    <strong style={{ color: "#4ade80" }}><GiTrophy style={VW_ICON} />{myVillage} Top Raiders</strong>
+                                <div style={{ background: "#0a1f0a", border: "1px solid var(--green-400)", borderRadius: 6, padding: "0.6rem" }}>
+                                    <strong style={{ color: "var(--green-400)" }}><GiTrophy style={VW_ICON} />{myVillage} Top Raiders</strong>
                                     {mySide.length === 0
-                                        ? <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0.4rem 0 0" }}>No raids yet. Be the first.</p>
+                                        ? <p style={{ fontSize: "0.8rem", color: "var(--text-dim)", margin: "0.4rem 0 0" }}>No raids yet. Be the first.</p>
                                         : mySide.map((c, i) => (
                                             <div key={c.name} style={{ fontSize: "0.85rem", marginTop: 4, display: "flex", justifyContent: "space-between" }}>
                                                 <span>{i + 1}. <strong>{c.name}</strong></span>
@@ -330,10 +330,10 @@ export function VillageWarScreen({
                                             </div>
                                         ))}
                                 </div>
-                                <div style={{ background: "#1f0a0a", border: "1px solid #f87171", borderRadius: 6, padding: "0.6rem" }}>
-                                    <strong style={{ color: "#f87171" }}><GiCrossedSwords style={VW_ICON} />{enemyVillage} Top Raiders</strong>
+                                <div style={{ background: "#1f0a0a", border: "1px solid var(--red-400)", borderRadius: 6, padding: "0.6rem" }}>
+                                    <strong style={{ color: "var(--red-400)" }}><GiCrossedSwords style={VW_ICON} />{enemyVillage} Top Raiders</strong>
                                     {enemySide.length === 0
-                                        ? <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0.4rem 0 0" }}>Enemy hasn't raided yet.</p>
+                                        ? <p style={{ fontSize: "0.8rem", color: "var(--text-dim)", margin: "0.4rem 0 0" }}>Enemy hasn't raided yet.</p>
                                         : enemySide.map((c, i) => (
                                             <div key={c.name} style={{ fontSize: "0.85rem", marginTop: 4, display: "flex", justifyContent: "space-between" }}>
                                                 <span>{i + 1}. <strong>{c.name}</strong></span>
@@ -345,7 +345,7 @@ export function VillageWarScreen({
                         );
                     })()}
                     <h3>Enemy Sectors — Raid to drain control</h3>
-                    <p style={{ color: "#facc15", fontSize: "0.85rem", marginTop: -4 }}>
+                    <p style={{ color: "var(--gold)", fontSize: "0.85rem", marginTop: -4 }}>
                         <GiBlackFlag style={VW_ICON} />Raiding the<strong>war-ground sector ({activeWar.warGroundSector})</strong> flips capture + drains enemy HP +500 ryo +1 Fate Shard daily bounty. The war ends when the enemy village HP hits 0.
                     </p>
                     <div style={{ display: "grid", gap: 6, maxHeight: 360, overflowY: "auto" }}>
@@ -357,20 +357,20 @@ export function VillageWarScreen({
                                     <button
                                         onClick={() => raidSector(t.sector)}
                                         disabled={t.hp <= 0}
-                                        style={{ padding: "0.3rem 0.7rem", background: t.hp > 0 ? "linear-gradient(#7f1d1d,#450a0a)" : "#333", borderColor: "#f87171", fontSize: "0.85rem" }}
+                                        style={{ padding: "0.3rem 0.7rem", background: t.hp > 0 ? "linear-gradient(#7f1d1d,#450a0a)" : "#333", borderColor: "var(--red-400)", fontSize: "0.85rem" }}
                                     >
                                         {t.hp > 0 ? <><GiCrossedSwords style={VW_ICON} />Raid (-500 HP)</> : "Captured"}
                                     </button>
                                 </div>
                             ))}
                         {territories.filter(t => (t.ownerVillage ?? "") === enemyVillage).length === 0 && (
-                            <em style={{ color: "#64748b" }}>No enemy-controlled sectors found.</em>
+                            <em style={{ color: "var(--text-muted)" }}>No enemy-controlled sectors found.</em>
                         )}
                     </div>
                 </>
             ) : (
                 <>
-                    <p style={{ color: "#94a3b8" }}>No active war involving <strong>{myVillage || "your village"}</strong>.</p>
+                    <p style={{ color: "var(--text-dim)" }}>No active war involving <strong>{myVillage || "your village"}</strong>.</p>
                     {isKage ? (
                         <div style={{ marginTop: "1rem", padding: "0.8rem", background: "#0a0a1a", borderRadius: 8 }}>
                             <h3 style={{ marginTop: 0 }}>Declare War (Kage)</h3>
@@ -387,14 +387,14 @@ export function VillageWarScreen({
                                     if (!(await gameConfirm(`Declare war on ${declareTarget}? This will cost 500 Honor Seals from your treasury.`))) return;
                                     void declareWar();
                                 }}
-                                style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}
+                                style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)" }}
                                 title={(character.honorSeals ?? 0) < 500 ? "Need 500 Honor Seals" : undefined}
                             >
                                 {declaring ? "Declaring…" : (character.honorSeals ?? 0) < 500 ? `⚔ Declare War (need 500 Seals — have ${(character.honorSeals ?? 0)})` : "⚔ Declare War — 500 Honor Seals"}
                             </button>
                         </div>
                     ) : (
-                        <p style={{ color: "#64748b", fontStyle: "italic" }}>Only the Kage of your village can declare war.</p>
+                        <p style={{ color: "var(--text-muted)", fontStyle: "italic" }}>Only the Kage of your village can declare war.</p>
                     )}
                 </>
             )}
@@ -410,9 +410,9 @@ export function VillageWarScreen({
                 );
                 if (otherWars.length === 0) return null;
                 return (
-                    <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #334155" }}>
-                        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", color: "#94a3b8" }}><GiEyeball style={VW_ICON} />Other Active Wars</h3>
-                        <p style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 0, marginBottom: "0.7rem" }}>
+                    <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid var(--slate-700)" }}>
+                        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", color: "var(--text-dim)" }}><GiEyeball style={VW_ICON} />Other Active Wars</h3>
+                        <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 0, marginBottom: "0.7rem" }}>
                             Wars not involving your village. Spectate only.
                         </p>
                         <div style={{ display: "grid", gap: 10 }}>
@@ -425,18 +425,18 @@ export function VillageWarScreen({
                                 const topB = contribs.filter(c => c.side === vB).sort((a, b) => b.damage - a.damage)[0];
                                 const ageDays = Math.floor((Date.now() - w.startedAt) / (24 * 60 * 60 * 1000));
                                 return (
-                                    <div key={w.id} style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.65rem" }}>
+                                    <div key={w.id} style={{ background: "#0b1220", border: "1px solid var(--slate-700)", borderRadius: 6, padding: "0.65rem" }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                                            <strong>{vA} <span style={{ color: "#64748b" }}>vs</span> {vB}</strong>
-                                            <small style={{ color: "#64748b" }}>Day {ageDays + 1}</small>
+                                            <strong>{vA} <span style={{ color: "var(--text-muted)" }}>vs</span> {vB}</strong>
+                                            <small style={{ color: "var(--text-muted)" }}>Day {ageDays + 1}</small>
                                         </div>
                                         <div style={{ display: "flex", gap: 12, fontSize: "0.82rem", marginTop: 4 }}>
-                                            <span style={{ color: "#4ade80" }}>{vA}: <strong>{hpA}</strong></span>
-                                            <span style={{ color: "#f87171" }}>{vB}: <strong>{hpB}</strong></span>
-                                            <span style={{ color: "#94a3b8" }}>War Ground: {w.warGroundHp}/1000</span>
+                                            <span style={{ color: "var(--green-400)" }}>{vA}: <strong>{hpA}</strong></span>
+                                            <span style={{ color: "var(--red-400)" }}>{vB}: <strong>{hpB}</strong></span>
+                                            <span style={{ color: "var(--text-dim)" }}>War Ground: {w.warGroundHp}/1000</span>
                                         </div>
                                         {(topA || topB) && (
-                                            <div style={{ display: "flex", gap: 16, fontSize: "0.78rem", marginTop: 4, color: "#94a3b8" }}>
+                                            <div style={{ display: "flex", gap: 16, fontSize: "0.78rem", marginTop: 4, color: "var(--text-dim)" }}>
                                                 {topA && <span><GiTrophy style={VW_ICON} />{vA}:<strong>{topA.name}</strong> ({topA.damage} dmg)</span>}
                                                 {topB && <span><GiTrophy style={VW_ICON} />{vB}:<strong>{topB.name}</strong> ({topB.damage} dmg)</span>}
                                             </div>

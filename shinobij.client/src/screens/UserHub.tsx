@@ -177,11 +177,13 @@ function renderRow(
     const sharedAvatar = sharedImages['avatar:' + p.name.toLowerCase()];
     const avatar = sharedAvatar || p.avatar || "";
     return (
-        <button
+        <div
             key={p.name}
-            type="button"
+            role="button"
+            tabIndex={0}
             className={`user-hub-row${p.online ? " online" : ""}`}
             onClick={() => onSelect(p.name)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p.name); } }}
         >
             <div className="user-hub-avatar">
                 {avatar
@@ -201,14 +203,13 @@ function renderRow(
                 <span className={`user-hub-dot ${p.online ? "online" : "offline"}`} />
                 <small>{p.online ? "Online" : timeAgo(p.lastSeenAt)}</small>
             </div>
-            <span
+            <button
+                type="button"
                 className={`user-hub-follow-star${isFollowed ? " following" : ""}`}
-                role="button"
-                tabIndex={0}
                 aria-label={isFollowed ? "Unfollow" : "Follow"}
                 title={isFollowed ? "Unfollow" : "Follow"}
                 onClick={(e) => { e.stopPropagation(); onToggleFollow(p.name); }}
-            >{isFollowed ? "★" : "☆"}</span>
-        </button>
+            >{isFollowed ? "★" : "☆"}</button>
+        </div>
     );
 }
