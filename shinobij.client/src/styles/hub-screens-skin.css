@@ -246,7 +246,7 @@
     background: rgba(2,6,23,0.62);
     border: 1px solid rgba(232,212,150,0.34);
     border-radius: 4px;
-    color: #facc15;
+    color: var(--gold);
     flex: 0 0 auto;
     font: 700 10px var(--font-display);
     letter-spacing: 0.1em;
@@ -289,7 +289,7 @@
     background: rgba(78,168,255,0.14);
     border: 1px solid rgba(78,168,255,0.36);
     border-radius: 3px;
-    color: #93c5fd;
+    color: var(--blue-300);
     flex: 0 0 auto;
     font-size: 9px;
     padding: 2px 5px;
@@ -298,7 +298,7 @@
 .logbook-screen .logbook-requirement-card.complete h4 span {
     background: rgba(74,222,128,0.12);
     border-color: rgba(74,222,128,0.38);
-    color: #86efac;
+    color: var(--green-300);
 }
 
 .logbook-screen .logbook-requirement-card button {

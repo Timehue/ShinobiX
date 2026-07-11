@@ -217,12 +217,12 @@ function ShopBase({
                                         <small>{isConsumable(item) ? "Consumable" : equipmentSlotLabel(item.slot)}</small>
 
                                         {levelLocked
-                                            ? <small style={{ color: "#ef4444", fontWeight: "bold" }}>🔒 Lv.{item.levelReq} Required</small>
+                                            ? <small style={{ color: "var(--danger)", fontWeight: "bold" }}>🔒 Lv.{item.levelReq} Required</small>
                                             : <small style={{ fontWeight: "bold" }}>{currencyIcon} {finalCost} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${item.cost})` : ""}{owned ? " — Owned" : ""}</small>
                                         }
 
                                         {consumableHoldCap(item) != null && (
-                                            <small style={{ color: "#86efac", fontWeight: "bold" }}>
+                                            <small style={{ color: "var(--green-300)", fontWeight: "bold" }}>
                                                 In bag: {countItem(character, item.id)} / {consumableHoldCap(item)}
                                             </small>
                                         )}
@@ -372,7 +372,7 @@ function ShopBase({
 
                                         return (
                                             <div className="shop-bulk-buy" style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
-                                                <small style={{ color: "#86efac", fontWeight: "bold" }}>In bag: {owned} / {cap}</small>
+                                                <small style={{ color: "var(--green-300)", fontWeight: "bold" }}>In bag: {owned} / {cap}</small>
 
                                                 {capLeft <= 0 ? (
                                                     <button type="button" disabled>At carry limit ({cap})</button>
@@ -384,6 +384,7 @@ function ShopBase({
                                                             <button type="button" aria-label="Less" onClick={() => setBuyQty(Math.max(1, qty - 1))} disabled={qty <= 1}>−</button>
                                                             <input
                                                                 type="number"
+                                                                aria-label="Quantity to buy"
                                                                 min={1}
                                                                 max={maxBuyable}
                                                                 value={qty}
@@ -459,7 +460,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
                     <button
                         onClick={() => openPack(1, ["legendary"], 30)}
                         disabled={character.fateShards < 30}
-                        style={{ color: "#facc15", marginLeft: 8, borderColor: "rgba(250, 204, 21, 0.5)" }}
+                        style={{ color: "var(--gold)", marginLeft: 8, borderColor: "rgba(250, 204, 21, 0.5)" }}
                     >
                         👑 Legendary Pack — 1 guaranteed Legendary card — 30 Fate Shards
                     </button>

@@ -137,7 +137,7 @@ export function HealerInjuredList({
                             <div style={{ flex: 1 }}>
                                 <strong>{p.name}</strong>
                                 <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level} · {p.village}</span>
-                                <span style={{ marginLeft: 8, color: "#f87171", fontSize: "0.8rem" }}>
+                                <span style={{ marginLeft: 8, color: "var(--red-400)", fontSize: "0.8rem" }}>
                                     HP {p.character.hp}/{p.character.maxHp}
                                 </span>
                             </div>
@@ -146,12 +146,12 @@ export function HealerInjuredList({
                                     ✚ Heal
                                 </button>
                             ) : (
-                                <span className="hint" style={{ color: "#64748b", fontSize: "0.78rem" }}>
+                                <span className="hint" style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>
                                     Healers only
                                 </span>
                             )}
                             {healMsg[p.name] && (
-                                <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "#f87171" }}>
+                                <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "var(--red-400)" }}>
                                     {healMsg[p.name]}
                                 </span>
                             )}
@@ -177,12 +177,12 @@ export function HealerInjuredList({
                                     <div style={{ flex: 1 }}>
                                         <strong>{p.name}</strong>
                                         <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level}</span>
-                                        {p.hospitalized && <span style={{ marginLeft: 8, color: "#facc15", fontSize: "0.75rem" }}>🛏️ Admitted</span>}
+                                        {p.hospitalized && <span style={{ marginLeft: 8, color: "var(--gold)", fontSize: "0.75rem" }}>🛏️ Admitted</span>}
                                         <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
                                             <div style={{ flex: 1, maxWidth: 200, height: 6, background: "rgba(148,163,184,0.2)", borderRadius: 3, overflow: "hidden" }}>
-                                                <div style={{ width: `${hpPct}%`, height: "100%", background: hpPct < 30 ? "#f87171" : hpPct < 60 ? "#facc15" : "#84cc16" }} />
+                                                <div style={{ width: `${hpPct}%`, height: "100%", background: hpPct < 30 ? "var(--red-400)" : hpPct < 60 ? "var(--gold)" : "#84cc16" }} />
                                             </div>
-                                            <span style={{ color: hpPct < 30 ? "#f87171" : "#94a3b8", fontSize: "0.78rem" }}>
+                                            <span style={{ color: hpPct < 30 ? "var(--red-400)" : "var(--text-dim)", fontSize: "0.78rem" }}>
                                                 {p.hp}/{p.maxHp}
                                             </span>
                                         </div>
@@ -191,7 +191,7 @@ export function HealerInjuredList({
                                         ✚ Heal
                                     </button>
                                     {healMsg[p.name] && (
-                                        <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "#f87171" }}>
+                                        <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "var(--red-400)" }}>
                                             {healMsg[p.name]}
                                         </span>
                                     )}

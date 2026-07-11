@@ -32,10 +32,10 @@ export function HollowGateAttunement({ character, updateCharacter, onClose }: Pr
             <div onClick={(e) => e.stopPropagation()} style={{ background: "#160f2b", border: "1px solid #7c3aed", borderRadius: 12, padding: 18, maxWidth: 520, width: "100%", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 10px 40px rgba(0,0,0,0.6)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                     <h3 style={{ margin: 0, color: "#e9d5ff" }}>⛩ Shrine Attunement</h3>
-                    <button onClick={onClose} style={{ background: "transparent", border: "1px solid #475569", color: "#cbd5e1", borderRadius: 6, padding: "2px 10px", cursor: "pointer" }}>✕</button>
+                    <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "1px solid var(--slate-600)", color: "var(--slate-300)", borderRadius: 6, padding: "2px 10px", cursor: "pointer" }}>✕</button>
                 </div>
                 <p style={{ margin: "0 0 6px", color: "#c4b5fd", fontSize: 14 }}>💎 Hollow Shards: <strong style={{ color: "#e9d5ff" }}>{shards}</strong> · spend on permanent shrine boons</p>
-                {msg && <p style={{ color: "#fca5a5", fontSize: 13, margin: "0 0 6px" }}>{msg}</p>}
+                {msg && <p style={{ color: "var(--red-300)", fontSize: 13, margin: "0 0 6px" }}>{msg}</p>}
                 {ATTUNEMENT_NODES.map((n) => {
                     const rank = attunementRank(character, n.id);
                     const cost = attunementNextCost(character, n.id);
@@ -72,8 +72,8 @@ export function HollowGateAttunement({ character, updateCharacter, onClose }: Pr
                             marginTop: 4, width: "100%", padding: 9, borderRadius: 8, fontWeight: 600,
                             cursor: shards >= KEY_FORGE_COST ? "pointer" : "default",
                             background: shards >= KEY_FORGE_COST ? "linear-gradient(#7c5a1a,#4a3510)" : "#181527",
-                            border: `1px solid ${shards >= KEY_FORGE_COST ? "#f59e0b" : "#3a3450"}`,
-                            color: shards >= KEY_FORGE_COST ? "#fde68a" : "#6b6486",
+                            border: `1px solid ${shards >= KEY_FORGE_COST ? "var(--gold-2)" : "#3a3450"}`,
+                            color: shards >= KEY_FORGE_COST ? "var(--gold-300)" : "#6b6486",
                         }}
                     >
                         🗝 Forge a Hollow Gate Key · {KEY_FORGE_COST}💎

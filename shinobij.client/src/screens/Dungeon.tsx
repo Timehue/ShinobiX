@@ -218,7 +218,7 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
     // The continuous duel plays the precomputed fight full-screen; exiting after a
     // win advances the seal (onWin), otherwise leaves the dungeon.
     return (
-        <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading the arena…</div>}>
+        <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the arena…</div>}>
             <PetColiseumDuel
                 key={duelBattle.id}
                 playerPet={duelBattle.playerPet}
