@@ -768,6 +768,18 @@ export function sanitizeCharacterSave(
         else delete char.serverTitles;
     }
 
+    // Weapon elemental attunements (server-owned). Written ONLY by
+    // api/weapon/apply-elemental-core.ts (which spends an Elemental Core). Like
+    // serverTitles/legacy, the STORED copy always wins so a tampered autosave
+    // can't attune a weapon it didn't earn — attunement grants the bloodline
+    // damage boost on that weapon (api/pvp/move.ts), so it must stay authoritative.
+    // Absent stored copy → dropped.
+    {
+        const exWeaponEls = (existing?.character as Record<string, unknown> | undefined)?.weaponElements;
+        if (exWeaponEls && typeof exWeaponEls === 'object' && !Array.isArray(exWeaponEls)) char.weaponElements = exWeaponEls;
+        else delete char.weaponElements;
+    }
+
     // Custom-title cosmetics — allowlist only (TITLE_STYLE_IDS/TITLE_ICON_SET
     // in _titles-registry.ts, mirroring the client's lib/legacy.ts). Cosmetic;
     // anything off-list clamps to ''. Legacy-wave feature: while ENABLE_LEGACY
@@ -1169,19 +1181,24 @@ export function sanitizeCharacterSave(
             if (n <= 0) continue;
             counts.set(itemId, Math.min(ITEM_STACK_MAX, (counts.get(itemId) ?? 0) + n));
         }
-        // Hollow Gate Keys are forged/crafted client-side (Key Forge 80 shards, or
-        // the Crafter recipe). Cap the per-save GAIN so a forged save can't mint a
-        // huge stack with no shard/material spend (a legit full run yields ~3). The
-        // 'hollow-gate-key' literal mirrors HOLLOW_GATE_KEY_ID in
-        // shinobij.client/src/constants/game.ts.
-        const HG_KEY_ID = 'hollow-gate-key';
-        const HG_KEY_PER_SAVE_GAIN = 10;
-        if (counts.has(HG_KEY_ID)) {
-            const exKeys = Array.isArray(exChar.itemStacks)
-                ? Math.max(0, Number((exChar.itemStacks as Array<Record<string, unknown>>)
-                    .find(s => s?.itemId === HG_KEY_ID)?.count ?? 0))
+        // Per-save GAIN caps for materials forged/dropped CLIENT-side that are NOT in
+        // SERVER_OWNED_ITEM_IDS (those are clamped to the stored count by
+        // preserveEntitledStacks below, e.g. hollow-gate-key): a forged save can't mint
+        // a huge stack with no material spend. Clamped to (previously-stored count +
+        // max legit gain per save); spending (a negative delta) is never blocked.
+        // Literals mirror shinobij.client/src/constants/game.ts. Tunable.
+        //   - elemental-shard: 0-1 per Hollow Gate boss (10 forge one Elemental Core)
+        //   - elemental-core:  forged client-side from 10 Shards each
+        const PER_SAVE_GAIN_CAP: Record<string, number> = {
+            'elemental-shard': 8,
+            'elemental-core': 3,
+        };
+        for (const [id, cap] of Object.entries(PER_SAVE_GAIN_CAP)) {
+            if (!counts.has(id)) continue;
+            const exCount = Array.isArray(exChar.itemStacks)
+                ? Math.max(0, Number((exChar.itemStacks as Array<Record<string, unknown>>).find(s => s?.itemId === id)?.count ?? 0))
                 : 0;
-            counts.set(HG_KEY_ID, Math.min(counts.get(HG_KEY_ID)!, exKeys + HG_KEY_PER_SAVE_GAIN));
+            counts.set(id, Math.min(counts.get(id)!, exCount + cap));
         }
         char.itemStacks = [...counts.entries()]
             .slice(0, ITEM_STACK_KEY_CAP)
