@@ -898,14 +898,16 @@ function sanitizeCharacterSave(incoming, existing) {
     // for that bloodline id, and a new bloodline (no stored row) caps at B Rank. A
     // genuine rank-up must come from a dedicated server-authoritative endpoint, so a
     // forged save can't self-promote to A/S (there is no Mythic-Seal faucet, by
-    // design). Gated by BLOODLINE_RANK_ENTITLEMENT; flag-off keeps the old
-    // "accept any known rank" behavior (byte-identical). Needs a one-off save:*
-    // audit of legit A/S holders before flipping (a wiped/migrated save lacking the
-    // bloodline would otherwise re-baseline its rank to B).
-    const RANK_ENTITLEMENT_ON = process.env.BLOODLINE_RANK_ENTITLEMENT === '1';
+    // design). PERMANENTLY ON (owner decision 2026-07-11): server-side anti-cheat
+    // enforcement is not optional, so this no longer reads an env flag. The old
+    // pre-flip caveat — a wiped/migrated save missing its bloodline row would
+    // re-baseline that bloodline's rank to B — is accepted: the game is in testing
+    // with a full reset pending, and rank-ups flow through a server path anyway.
+    const RANK_ENTITLEMENT_ON = true;
     // sub-1: enforce the bloodline POINT BUDGET server-side (the core PvP-balance
-    // knob, client-only today). Gated; flag-off = no-op for honest bloodlines.
-    const BLOODLINE_BUDGET_ON = process.env.BLOODLINE_BUDGET_SERVER === '1';
+    // knob). PERMANENTLY ON (same decision). Clamp, never reject: an honest
+    // within-budget bloodline is a no-op; a forged one is trimmed to legal power.
+    const BLOODLINE_BUDGET_ON = true;
     const normalizeBloodlineArray = (arr, existingArr) => {
         if (!Array.isArray(arr))
             return arr;
