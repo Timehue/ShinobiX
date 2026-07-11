@@ -12,7 +12,7 @@ const _war_role_js_1 = require("../_war-role.js");
 const _sector_war_js_1 = require("../_sector-war.js");
 const _sector_war_store_js_1 = require("../_sector-war-store.js");
 const world_state_js_1 = require("../world-state.js");
-const pet_duel_sim_js_1 = require("../_pet-sim/pet-duel-sim.js");
+const pet_duel_cinematic_js_1 = require("../_pet-sim/pet-duel-cinematic.js");
 const _pet_stat_ceil_js_1 = require("../_pet-stat-ceil.js");
 /*
  * /api/village/sector-pet — POST only. The sector-war "Pet" win-condition (Phase 7).
@@ -162,7 +162,7 @@ async function handler(req, res) {
             const defRec = (0, _war_state_js_1.normalizeVillageWarRecord)(defenderVillage, (await _storage_js_1.kv.get((0, _war_state_js_1.villageWarKey)(defenderVillage))) ?? undefined);
             const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
             const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
-            const duel = (0, pet_duel_sim_js_1.runPetDuel)(existing.p1.pet, pet, seed, 1, 1, false, false, false, terrain);
+            const duel = (0, pet_duel_cinematic_js_1.runPetDuelCinematic)(existing.p1.pet, pet, seed, 1, 1, false, false, false, terrain);
             const winner = duel.winner === 'player' ? 'p1' : duel.winner === 'enemy' ? 'p2' : 'draw';
             const session = { ...existing, p2: { name: me, pet }, status: 'done', seed, winner, terrain, updatedAt: now };
             await applyPetOutcomeToContest(session);

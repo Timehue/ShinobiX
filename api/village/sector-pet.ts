@@ -10,7 +10,7 @@ import { sectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
 import { applyContestBattleByWinner, sectorWarKey } from '../_sector-war.js';
 import { loadSectorWar, saveSectorWar, deleteSectorWar } from '../_sector-war-store.js';
 import { captureSectorForVillage } from '../world-state.js';
-import { runPetDuel } from '../_pet-sim/pet-duel-sim.js';
+import { runPetDuelCinematic } from '../_pet-sim/pet-duel-cinematic.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
 import { petStatCeil, type PetCeilStat } from '../_pet-stat-ceil.js';
 
@@ -173,7 +173,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
             const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
             const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
-            const duel = runPetDuel(existing.p1.pet, pet, seed, 1, 1, false, false, false, terrain);
+            const duel = runPetDuelCinematic(existing.p1.pet, pet, seed, 1, 1, false, false, false, terrain);
             const winner: 'p1' | 'p2' | 'draw' = duel.winner === 'player' ? 'p1' : duel.winner === 'enemy' ? 'p2' : 'draw';
             const session: SectorPetSession = { ...existing, p2: { name: me, pet }, status: 'done', seed, winner, terrain, updatedAt: now };
             await applyPetOutcomeToContest(session);

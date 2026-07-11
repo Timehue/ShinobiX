@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity, react-hooks/immutability, react-hooks/refs */
-import { useState, useEffect, useMemo, type ReactNode, type CSSProperties } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
 // Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import {
@@ -38,7 +38,14 @@ import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOS
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent } from "../lib/story-road-events";
+import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
+import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
+import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
 import { createPortal } from "react-dom";
+
+// Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
+// in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
+const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid })));
 import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
 import { SectorForeground } from "../components/SectorForeground";
@@ -273,6 +280,7 @@ export function WorldMap({
     onEnterHollowGate,
     hollowGateEventConfig,
     onEnterHollowGateEvent,
+    onDescendRift,
     setPvpBattleId,
     setPvpRole,
     setPvpBattleContext,
@@ -323,6 +331,11 @@ export function WorldMap({
     // Hollow Gate menu and hands the config back on entry.
     hollowGateEventConfig?: HollowGateEventConfig | null;
     onEnterHollowGateEvent?: (cfg: HollowGateEventConfig) => void;
+    // Descend into a wandering-quest rift (a scaled event Hollow Gate). Enters via
+    // the same event-gate path and SHARES the daily Hollow Gate run cap (a rift
+    // counts against the 2/day). If capped, the rift persists (7-day TTL) or can be
+    // abandoned at the rift; the shared cap is the backstop on the shrine-clear haul.
+    onDescendRift?: (rift: HollowRift) => void;
     setPvpBattleId: (id: string) => void;
     setPvpRole: (role: "p1" | "p2") => void;
     setPvpBattleContext: (context: SharedPvpBattleContext | null) => void;
@@ -884,6 +897,14 @@ export function WorldMap({
         const event = nextRoadEvent(character);
         return event ? [synthRoadWanderer(event, selectedSector)] : [];
     }, [character.level, character.storyProgress, character.storyTraits, selectedSector]);
+    // Hollow Gate Rift givers (lib/hollow-rifts): a rattled NPC roams the player's
+    // current sector to report a "strange energy" at a target sector. Only while a
+    // rift is available (level-gated, none active, off cooldown).
+    const riftGiverWanderers = useMemo(() => {
+        if (!isWanderersEnabled() || selectedSector == null) return [];
+        const rift = nextRift(character);
+        return rift ? [synthRiftGiver(rift, selectedSector)] : [];
+    }, [character.level, character.activeRiftQuest, character.riftCooldownUntil, selectedSector]);
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
@@ -1243,6 +1264,18 @@ export function WorldMap({
                 setCreatorEventPage(0);
                 setCreatorEventLine(0);
                 setSelectedCreatorEvent(roadEventToCreatorEvent(roadEvent, biomeForWorldSector(selectedSector)));
+            }
+            return;
+        }
+        // A rift giver reports a strange energy at a target sector — opens the
+        // intro VN (accept seals the rift + reveals its structure on the map).
+        if (w.id.startsWith(RIFT_GIVER_PREFIX)) {
+            const rift = riftBySynthId(w.id);
+            if (rift && selectedSector != null) {
+                const targetSector = riftTargetSector(character.name, rift.id);
+                setCreatorEventPage(0);
+                setCreatorEventLine(0);
+                setSelectedCreatorEvent(riftIntroEvent(rift, targetSector, biomeForWorldSector(selectedSector)));
             }
             return;
         }
@@ -1622,6 +1655,10 @@ export function WorldMap({
     // lives in App) can broadcast it; other clients render us walking to this tile.
     useEffect(() => { setLocalSectorTile(sectorPlayerPos); }, [sectorPlayerPos]);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
+    // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
+    // sector's vault structure, and the live raid screen (portaled full-screen).
+    const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string } | null>(null);
+    const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
     const [creatorEventPage, setCreatorEventPage] = useState(0);
     const [creatorEventLine, setCreatorEventLine] = useState(0);
     type ChestLoot = {
@@ -2127,6 +2164,9 @@ export function WorldMap({
         // Story road events pay nothing here — the choice was the payoff and it
         // was reported at choice time. Just close the scene.
         if (event.id.startsWith(ROAD_WANDERER_PREFIX)) { setSelectedCreatorEvent(null); return; }
+        // Rift VNs (giver report / at-the-rift): accept + descend are handled in
+        // onChoice; completing the scene just closes it.
+        if (event.id.startsWith(RIFT_GIVER_PREFIX) || isRiftDescentEventId(event.id)) { setSelectedCreatorEvent(null); return; }
         const leveled = gainXp(character, event.xpReward);
         const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
         updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
@@ -2260,7 +2300,7 @@ export function WorldMap({
         return <TriggeredVisualNovel event={sageVnEvent} character={character} pageIndex={sageVnPage} lineIndex={sageVnLine} setPageIndex={setSageVnPage} setLineIndex={setSageVnLine} onCancel={() => setSageVnEvent(null)} onComplete={() => { setSageVnEvent(null); setSageChoiceOpen(true); }} onBattle={() => { /* the Sage never fights */ }} sharedImages={sharedImages} />;
     }
     if (selectedCreatorEvent) {
-        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const t = c.trait; if (t) { updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); if (selectedCreatorEvent.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, selectedCreatorEvent.id, t); } }} sharedImages={sharedImages} />;
+        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const ev = selectedCreatorEvent; if (!ev) return; if (c.trait === RIFT_ACCEPT_MARKER) { const rift = riftBySynthId(ev.id); setSelectedCreatorEvent(null); if (rift) void acceptRift(character.name, rift.id).then((resp) => { if (resp.ok && resp.activeRiftQuest) { updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: resp.activeRiftQuest }) : prev); } else { setTimeout(() => alert(resp.reason === "busy" ? "Finish the rift you already carry first." : resp.reason === "cooldown" ? "The energy has not gathered again yet. Come back later." : "The rift could not be marked. Try again in a moment."), 40); } }); return; } if (c.trait === RIFT_DESCEND_MARKER) { const rift = riftByDescentEventId(ev.id); setSelectedCreatorEvent(null); if (rift) onDescendRift?.(rift); return; } if (c.trait === RIFT_ABANDON_MARKER) { setSelectedCreatorEvent(null); void abandonRift(character.name); updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: null }) : prev); return; } const t = c.trait; if (t) { updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); if (ev.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, ev.id, t); } }} sharedImages={sharedImages} />;
         const event = selectedCreatorEvent!;
         const eventPages = event.vnPages ?? [];
         const pages = (eventPages.length > 0 ? eventPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }]) as NonNullable<CreatorEvent["vnPages"]>;
@@ -2597,7 +2637,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers].map(w => (
+                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers, ...riftGiverWanderers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}
@@ -2606,6 +2646,109 @@ export function WorldMap({
                                     onEngage={handleWandererEngage}
                                 />
                             ))}
+
+                            {/* Hollow Gate Rift structure — the 2.5D cave/shrine stands
+                                INSIDE its target sector's scene and nowhere else, so an
+                                accepted rift is reachable only by travelling to the right
+                                sector. Clicking it opens the at-the-rift VN whose "Descend"
+                                choice drops into the scaled event gate. */}
+                            {(() => {
+                                const arq = character.activeRiftQuest;
+                                if (!arq || selectedSector !== arq.targetSector) return null;
+                                const rift = hollowRiftById(arq.id);
+                                if (!rift) return null;
+                                return (
+                                    <button
+                                        key="sector-rift-structure"
+                                        className="atlas-landmark atlas-hollowRift sector-rift-structure"
+                                        style={{
+                                            left: "50%",
+                                            top: "32%",
+                                            backgroundImage: `url(/landmarks/${rift.landmark}.webp)`,
+                                            backgroundSize: "cover",
+                                            backgroundPosition: "center",
+                                        }}
+                                        onClick={() => { setCreatorEventPage(0); setCreatorEventLine(0); setSelectedCreatorEvent(riftDescentEvent(rift, ambienceBiomeForSector(selectedSector))); }}
+                                        title={`Rift: ${rift.bossName} — descend into the Hollow Gate`}
+                                    >
+                                        <strong>🌀</strong>
+                                        <span>Rift</span>
+                                    </button>
+                                );
+                            })()}
+
+                            {/* Anbu Vault (anbuInfiltration.v1) — the enemy village's war
+                                vault stands INSIDE every enemy-held war sector for L100
+                                shinobi. Walking up (clicking it) opens the Infiltrate /
+                                Retreat prompt; Infiltrate enters the navigable vault whose
+                                inner door is guarded by a sealed Anbu snapshot. NEVER flips
+                                the sector — pure attrition (docs/anbu-infiltration-plan.md). */}
+                            {(() => {
+                                if (!anbuInfiltrationEnabled() || (character.level ?? 0) < 100 || selectedSector == null) return null;
+                                // Prefer the captured owner; fall back to the sector's home
+                                // village so the vault shows on enemy home sectors before any
+                                // sector-war capture (matches the server's ownership fallback).
+                                const owner = loadSectorTerritory(selectedSector).ownerVillage || homeVillageForSector(selectedSector);
+                                if (!owner || owner === character.village) return null;
+                                return (
+                                    <button
+                                        key="sector-anbu-vault-structure"
+                                        className="atlas-landmark sector-rift-structure"
+                                        style={{
+                                            left: "72%",
+                                            top: "38%",
+                                            backgroundImage: "url(/landmarks/anbu-vault.webp)",
+                                            backgroundSize: "contain",
+                                            backgroundRepeat: "no-repeat",
+                                            backgroundPosition: "center bottom",
+                                        }}
+                                        onClick={() => setVaultPrompt({ sector: selectedSector, village: owner })}
+                                        title={`${owner} war vault — infiltrate?`}
+                                    >
+                                        <strong>🏯</strong>
+                                        <span>War Vault</span>
+                                    </button>
+                                );
+                            })()}
+
+                            {/* Anbu Vault — Infiltrate / Retreat prompt (portaled above nav). */}
+                            {vaultPrompt && createPortal(
+                                <div style={{ position: "fixed", inset: 0, zIndex: 1000000, display: "grid", placeItems: "center", background: "rgba(4,6,12,0.72)" }} onClick={() => setVaultPrompt(null)}>
+                                    <div style={{ background: "#141926", border: "1px solid #38405a", borderRadius: 14, padding: "1.1rem 1.2rem", maxWidth: 380, width: "min(92vw, 380px)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                                        <img src="/landmarks/anbu-vault.webp" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
+                                        <h3 style={{ margin: "0.3rem 0" }}>{vaultPrompt.village} War Vault</h3>
+                                        <p style={{ fontSize: 13, opacity: 0.82, margin: "0.3rem 0 0.8rem" }}>
+                                            Their war supplies sit behind that sealed door — and one of their Anbu guards it.
+                                            Break through and you can bleed this sector's war economy. If you fall, you leave with nothing.
+                                        </p>
+                                        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                                            <button style={{ padding: "0.55rem 1.15rem" }} onClick={() => { setVaultRaid(vaultPrompt); setVaultPrompt(null); }}>Infiltrate</button>
+                                            <button style={{ padding: "0.55rem 1.15rem", opacity: 0.8 }} onClick={() => setVaultPrompt(null)}>Retreat</button>
+                                        </div>
+                                    </div>
+                                </div>,
+                                document.body,
+                            )}
+
+                            {/* Anbu Vault — the live raid (traverse → Anbu fight → spoils),
+                                portaled full-screen so the bottom nav can't paint over it. */}
+                            {vaultRaid && createPortal(
+                                <div style={{ position: "fixed", inset: 0, zIndex: 1000000, overflowY: "auto", background: "#0a0d15" }}>
+                                    <Suspense fallback={<div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", color: "#cbd5e1" }}>Slipping past the perimeter…</div>}>
+                                        <AnbuVaultRaid
+                                            character={character}
+                                            sharedImages={sharedImages}
+                                            sector={vaultRaid.sector}
+                                            targetVillage={vaultRaid.village}
+                                            creatorItems={wmCreatorItems}
+                                            savedBloodlines={savedBloodlines}
+                                            updateCharacter={updateCharacter}
+                                            onExit={() => setVaultRaid(null)}
+                                        />
+                                    </Suspense>
+                                </div>,
+                                document.body,
+                            )}
 
                             {/* Roaming weekly boss (weeklyBossRoam.v1): the boss looms in-sector
                                 and bears down on the player when this IS its current sector.
@@ -3660,6 +3803,11 @@ export function WorldMap({
                         </button>
                     );
                 })}
+
+                {/* (The Hollow Gate Rift structure is deliberately NOT drawn on the
+                    world overview. It appears only inside its target sector's scene,
+                    so a rift is reachable ONLY by going to the correct sector — see the
+                    in-sector render in the sector-stage panel.) */}
 
                 {/* Settlement life — a soft hearth glow + a rising hearth-smoke
                     wisp over each village/Central, so the towns read as lived-in.

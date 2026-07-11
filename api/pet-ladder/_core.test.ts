@@ -29,7 +29,11 @@ const team = (slug: string, mul: number): DefenseDoc => {
 
 // ── ported engines (server-authoritative resolution) ──────────────────────────
 test("resolveColiseum: deterministic, and a clearly stronger pet wins", () => {
-    const strong = pet({ id: "s", hp: 1400, attack: 220 }), weak = pet({ id: "w", hp: 400, attack: 45 });
+    // Use an engaging role. In the cinematic engine two pure kiters of the SAME role
+    // (tracker-mirror / assassin-mirror) circle-strafe to a scoreless draw regardless of
+    // stats — a known property of the promoted engine — so a decisive role (defender, which
+    // closes in) is used to prove the stronger pet wins, the common ladder case.
+    const strong = pet({ id: "s", role: "defender", hp: 1400, attack: 220 }), weak = pet({ id: "w", role: "defender", hp: 400, attack: 45 });
     assert.equal(resolveColiseum(strong, weak, 2024), true);
     assert.equal(resolveColiseum(weak, strong, 2024), false);
     assert.equal(resolveColiseum(strong, weak, 7), resolveColiseum(strong, weak, 7));
@@ -37,8 +41,10 @@ test("resolveColiseum: deterministic, and a clearly stronger pet wins", () => {
 
 test("resolveColiseum: equipped PvP gear is applied (wins more over many seeds)", () => {
     const seeds = Array.from({ length: 24 }, (_, i) => i * 41 + 3);
-    const a = pet({ id: "a", attack: 90, hp: 700, defense: 40, speed: 80 });
-    const b = pet({ id: "b", attack: 90, hp: 700, defense: 40, speed: 80 });
+    // Defender role (engages) so gear can actually swing the fight — a same-role kiter
+    // mirror (tracker/assassin) draws in the cinematic engine and would hide the effect.
+    const a = pet({ id: "a", role: "defender", attack: 90, hp: 700, defense: 40, speed: 45 });
+    const b = pet({ id: "b", role: "defender", attack: 90, hp: 700, defense: 40, speed: 45 });
     const wins = (geared: boolean) => seeds.filter((s) => resolveColiseum(geared ? { ...a, loadout: { pvp: "pvp-arena-champion-regalia" } } : a, b, s)).length;
     assert.ok(wins(true) > wins(false), `gear should win more (off=${wins(false)}, on=${wins(true)})`);
 });

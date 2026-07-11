@@ -136,6 +136,10 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
     strict_1.default.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: true }).academyTrialClaimed, true, 'cannot revert to false');
     strict_1.default.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: false }).academyTrialClaimed, false, 'not-yet-claimed stays false');
 });
+(0, node_test_1.test)('academySectorVisited: latched true — a stale save cannot un-set the sector-visit milestone (would loop the final onboarding beat)', () => {
+    strict_1.default.equal(sanitize({ academySectorVisited: false }, { academySectorVisited: true }).academySectorVisited, true, 'cannot revert to false');
+    strict_1.default.equal(sanitize({ academySectorVisited: false }, { academySectorVisited: false }).academySectorVisited, false, 'not-yet-visited stays false');
+});
 (0, node_test_1.test)('pendingCombatMissionClaims: client saves preserve server-owned claims but cannot mint or clear them', () => {
     const minted = sanitize({ level: 50, pendingCombatMissionClaims: ['combat-d-errand'] }, { level: 50, pendingCombatMissionClaims: [] });
     strict_1.default.deepEqual(minted.pendingCombatMissionClaims, [], 'client cannot add a combat claim flag');
