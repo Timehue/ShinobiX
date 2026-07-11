@@ -9,7 +9,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WIPE_PATTERNS, isProtectedKey } from './server-reset.js';
+import { WIPE_PATTERNS, authNamesRequiringRevocation, isProtectedKey } from './server-reset.js';
 
 test('full reset wipes story records, announcements, and first-only dedup keys', () => {
     for (const pattern of ['story:*', 'game:announcements', 'game:announcements-seq', 'hall:nx:*', 'village:kage:*']) {
@@ -24,4 +24,12 @@ test('protected accounts keep save, auth, AND story record together', () => {
     // Ordinary players are wiped clean on all three.
     assert.equal(isProtectedKey('save:someplayer'), false);
     assert.equal(isProtectedKey('story:someplayer'), false);
+});
+
+test('full reset revokes sessions for deleted auth rows and preserves protected accounts', () => {
+    assert.deepEqual(
+        authNamesRequiringRevocation(['auth:someplayer', 'auth:Rill', 'save:not-auth', 'auth:another']),
+        ['someplayer', 'another'],
+    );
+    assert.equal(WIPE_PATTERNS.includes('auth-session:*'), false, 'rotated epochs must survive reset');
 });

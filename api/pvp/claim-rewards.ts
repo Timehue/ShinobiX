@@ -13,6 +13,12 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import type { PvpSession } from './session.js';
+import {
+    abortEconomicReceipt,
+    commitEconomicReceipt,
+    isEconomicReceiptStorageError,
+    reserveEconomicReceipt,
+} from '../_economic-receipt.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
@@ -132,6 +138,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (session.status !== 'done' || !session.winner) {
             return res.status(409).json({ error: 'Battle not yet decided.' });
         }
+        if (session.winner !== 'p1' && session.winner !== 'p2') {
+            return res.status(409).json({ error: 'Drawn battles do not have win/loss rewards.' });
+        }
         const sessionAge = Date.now() - Number(session.createdAt ?? 0);
         if (sessionAge > SESSION_REPLAY_WINDOW_MS) {
             return res.status(409).json({ error: 'Battle session is too old to claim.' });
@@ -140,11 +149,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const loserName = (session.winner === 'p1' ? session.p2.name : session.p1.name) ?? '';
         // winnerName/loserName are stored DISPLAY names (may contain spaces);
         // canonicalize through safeName to compare with the slug `playerName`.
-        const expectedSide = outcome === 'win' ? winnerName : loserName;
-        if (!identity.admin && safeName(expectedSide) !== playerName) {
+        const playerIsWinner = safeName(winnerName) === playerName;
+        const playerIsLoser = safeName(loserName) === playerName;
+        if (!playerIsWinner && !playerIsLoser) {
             return res.status(403).json({
-                error: `Recorded ${outcome === 'win' ? 'winner' : 'loser'} of this battle is not you.`,
+                error: 'This player did not participate in the recorded battle.',
             });
+        }
+        const authoritativeOutcome = playerIsWinner ? 'win' : 'loss';
+        if (outcome !== authoritativeOutcome) {
+            return res.status(409).json({ error: 'Reported outcome conflicts with the server battle result.' });
         }
 
         const key = claimKey(playerName, battleId);
@@ -155,8 +169,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // and decremented per use in move.ts) from their own save. Runs for EVERY
         // pvp fight (ranked AND casual), independent of the rating/base-reward
         // block below, and is idempotent via a per-(player,battle) NX receipt so a
-        // claim retry can't double-deduct. Best-effort: a fighter who never claims
-        // keeps what they spent (the server-sealed cap already bounded their use).
+        // claim retry can't double-deduct. Receipt or deduction ambiguity fails
+        // the whole reward claim closed; a fighter who never claims keeps what
+        // they spent (the server-sealed cap already bounded their use).
         const claimerRole: 'p1' | 'p2' | null =
             playerName === safeName(session.p1?.name ?? '') ? 'p1'
             : playerName === safeName(session.p2?.name ?? '') ? 'p2'
@@ -165,26 +180,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (claimerRole && Object.keys(usedByClaimer).length > 0) {
             try {
                 await withSavesLocked([playerName], async () => {
-                    // Exactly-once is enforced by the save: lock (concurrent claims
-                    // for this player serialize here) + an idempotency receipt READ
-                    // before the work. The receipt is only SET after the save write
-                    // succeeds (#19): if the write throws, the receipt is never
-                    // placed, so a retry re-does the deduction instead of skipping
-                    // it and letting the player keep items the server marked used.
+                    // Reserve a durable fingerprint before mutating inventory.
+                    // A KV failure denies the whole claim; an identical retry is
+                    // a no-op, and conflicting server item-use snapshots fail.
                     const consumedKey = `pvp:items-consumed:${playerName}:${battleId}`;
-                    const already = await kv.get(consumedKey);
-                    if (already) return; // already deducted on a prior claim
+                    const itemUseFingerprint = Object.entries(usedByClaimer)
+                        .map(([id, count]) => [id, Math.max(0, Math.floor(Number(count) || 0))] as const)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([id, count]) => `${id}:${count}`)
+                        .join(',');
+                    const reservation = await reserveEconomicReceipt(kv, {
+                        key: consumedKey,
+                        fingerprint: `pvp-items:${playerName}:${battleId}:${itemUseFingerprint}`,
+                        ttlSeconds: CLAIM_TTL_SECONDS,
+                        metadata: { playerName, battleId },
+                    });
+                    if (reservation.status === 'conflict') {
+                        throw new Error(`Conflicting item-use receipt for battle ${battleId}.`);
+                    }
+                    if (reservation.status === 'replay') return;
                     const saveKey = `save:${playerName}`;
                     const record = await kv.get<Record<string, unknown>>(saveKey);
                     const char = record?.character as Record<string, unknown> | undefined;
-                    if (!record || !char) return;
+                    if (!record || !char) {
+                        await abortEconomicReceipt(kv, consumedKey, reservation);
+                        return;
+                    }
                     const updated = deductUsedItems(char, usedByClaimer);
                     const next = bumpSaveVersion({ ...record, character: updated });
-                    await kv.set(saveKey, mergePreservingImages(next, record));
-                    // Receipt set ONLY after the write lands — retry-safe deduction.
-                    await kv.set(consumedKey, { ts: Date.now() }, { ex: CLAIM_TTL_SECONDS } as never);
+                    try {
+                        await kv.set(saveKey, mergePreservingImages(next, record));
+                    } catch (error) {
+                        await abortEconomicReceipt(kv, consumedKey, reservation).catch(() => false);
+                        throw error;
+                    }
+                    await commitEconomicReceipt(kv, consumedKey, reservation, CLAIM_TTL_SECONDS);
                 });
-            } catch { /* lock contention (failClosed) → skip; a later claim retry settles */ }
+            } catch (itemErr) {
+                console.error('[pvp/claim-rewards] consumable settlement failed', itemErr);
+                return res.status(503).json({ error: 'Could not settle battle consumables. Please retry.' });
+            }
         }
 
         // ── Server-credited paths (audit #7 / Stage 3, + #8 two-sided settle) ──
@@ -247,11 +282,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (record?.character ?? null) as Record<string, unknown> | null;
                 if (!record || !char) return undefined;
-                const placed = await kv.set(`pvp:ranked-rating:${slug}:${battleId}`, { role, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
+                const ratingReceiptKey = `pvp:ranked-rating:${slug}:${battleId}`;
+                const reservation = await reserveEconomicReceipt(kv, {
+                    key: ratingReceiptKey,
+                    fingerprint: `pvp-rating:${battleId}:${winnerSlug}:${loserSlug}:${kind}:${slug}:${role}`,
+                    ttlSeconds: CLAIM_TTL_SECONDS,
+                    metadata: { battleId, slug, role, kind },
+                });
+                if (reservation.status === 'conflict') {
+                    throw new Error(`Conflicting ranked settlement for ${battleId}/${slug}.`);
+                }
                 const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind });
-                if (placed) {
+                if (reservation.status === 'reserved') {
                     const next = bumpSaveVersion({ ...record, character: { ...char, ...r.patch } });
-                    await kv.set(saveKey, mergePreservingImages(next, record));
+                    try {
+                        await kv.set(saveKey, mergePreservingImages(next, record));
+                    } catch (error) {
+                        await abortEconomicReceipt(kv, ratingReceiptKey, reservation).catch(() => false);
+                        throw error;
+                    }
+                    await commitEconomicReceipt(kv, ratingReceiptKey, reservation, CLAIM_TTL_SECONDS);
                     return { field: ratingField, value: r.newRating, delta: r.delta };
                 }
                 const cur = Number(char[ratingField]);
@@ -331,11 +381,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // settlement, winner-only for a casual base reward.
                 const locks = isRankedClaim ? [winnerSlug, loserSlug] : [winnerSlug];
                 const out = await withSavesLocked(locks, async () => {
+                    // Validate both ranked participants before the first rating
+                    // receipt or save write. Without this preflight, a missing
+                    // loser save could commit the winner's Elo and then silently
+                    // skip the other half forever.
+                    if (isRankedClaim) {
+                        const participants = [...new Set([winnerSlug, loserSlug].filter(Boolean))];
+                        if (participants.length !== 2) throw new Error('Ranked settlement requires two distinct player saves.');
+                        const records = await Promise.all(participants.map((slug) => kv.get<Record<string, unknown>>(`save:${slug}`)));
+                        if (records.some((record) => !record || !record.character || typeof record.character !== 'object')) {
+                            throw new Error('Both ranked participant saves must exist before rating settlement.');
+                        }
+                    }
                     // Caller's own claim receipt — gates the client's local
                     // self-apply (alreadyClaimed). Distinct from the per-player
                     // rating receipts below.
-                    const placedSelf = await kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
-                    const already = !placedSelf;
+                    const selfReservation = await reserveEconomicReceipt(kv, {
+                        key,
+                        fingerprint: `pvp-claim:${playerName}:${battleId}:${authoritativeOutcome}`,
+                        ttlSeconds: CLAIM_TTL_SECONDS,
+                        metadata: { playerName, battleId, outcome: authoritativeOutcome },
+                    });
+                    if (selfReservation.status === 'conflict') {
+                        throw new Error(`Conflicting PvP claim receipt for ${battleId}/${playerName}.`);
+                    }
+                    const already = selfReservation.status === 'replay';
+                    let mutationsComplete = already;
+                    try {
 
                     // Settle BOTH ratings (each exactly once across the battle).
                     const winnerRatingOut = await settleRatingFor(winnerSlug, 'winner');
@@ -351,7 +423,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const rating = claimerSlug === winnerSlug ? winnerRatingOut
                         : claimerSlug === loserSlug ? loserRatingOut
                         : undefined;
+                    mutationsComplete = true;
+                    await commitEconomicReceipt(kv, key, selfReservation, CLAIM_TTL_SECONDS);
                     return { already, rating, base };
+                    } catch (error) {
+                        if (!mutationsComplete) {
+                            await abortEconomicReceipt(kv, key, selfReservation).catch(() => false);
+                        }
+                        throw error;
+                    }
                 });
                 // Record the server-credited settlement on the durable battle
                 // receipt (Priority 4 visibility). Best-effort: never blocks or
@@ -387,41 +467,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // ── Casual path (unchanged) ─────────────────────────────────────────
+        // ── Casual path ─────────────────────────────────────────────────────
         // Atomic NX reserve. If the key already exists, we lost the race
         // (or a duplicate call) — return alreadyClaimed so the caller
         // skips the local grant entirely.
         //
-        // Fail-open is scoped to JUST this reserve step (audit #7): if the
-        // NX write throws because KV is briefly down, we still let the
-        // legitimate, already-verified winner pay out (one possible duplicate
-        // during an outage beats denying a real winner). The outer try/catch
-        // used to swallow EVERYTHING — including auth/session-verification
-        // failures above — into a misleading ok:true. Those now fall through
-        // to the outer catch and surface as a real 500, so a broken request
-        // can't masquerade as a successful claim.
-        let alreadyClaimed = false;
-        try {
-            const placed = await kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
-            alreadyClaimed = !placed;
-            const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
-            const finalChar = (finalSave?.character ?? null) as Record<string, unknown> | null;
-            if (!alreadyClaimed) {
-                await recordBetaMetric({
-                    event: 'pvp.settled',
-                    playerName,
-                    level: Number(finalChar?.level ?? 0),
-                    source: `casual:${outcome}`,
-                });
-            }
-            return res.status(200).json({ ok: true, alreadyClaimed, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
-        } catch (reserveErr) {
-            console.error('[pvp/claim-rewards] reserve failed (fail-open)', reserveErr);
-            const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
-            return res.status(200).json({ ok: true, alreadyClaimed: false, degraded: true, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
+        // Receipt storage is part of the authorization boundary. An unavailable
+        // or ambiguous store returns 503; it never tells the client to apply a
+        // reward without a durable replay guard.
+        const reservation = await reserveEconomicReceipt(kv, {
+            key,
+            fingerprint: `pvp-claim:${playerName}:${battleId}:${authoritativeOutcome}`,
+            ttlSeconds: CLAIM_TTL_SECONDS,
+            metadata: { playerName, battleId, outcome: authoritativeOutcome },
+        });
+        if (reservation.status === 'conflict') {
+            return res.status(409).json({ error: 'A conflicting reward claim already exists for this battle.' });
         }
+        await commitEconomicReceipt(kv, key, reservation, CLAIM_TTL_SECONDS);
+        const alreadyClaimed = reservation.status === 'replay';
+        const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
+        const finalChar = (finalSave?.character ?? null) as Record<string, unknown> | null;
+        if (!alreadyClaimed) {
+            await recordBetaMetric({
+                event: 'pvp.settled',
+                playerName,
+                level: Number(finalChar?.level ?? 0),
+                source: `casual:${authoritativeOutcome}`,
+            });
+        }
+        return res.status(200).json({ ok: true, alreadyClaimed, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
     } catch (err) {
         console.error('[pvp/claim-rewards]', err);
+        if (isEconomicReceiptStorageError(err)) {
+            return res.status(503).json({ error: 'Could not reserve the battle reward receipt. Please retry.' });
+        }
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

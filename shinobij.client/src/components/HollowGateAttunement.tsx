@@ -6,6 +6,7 @@
 import { useState } from "react";
 import type { Character } from "../types/character";
 import { ATTUNEMENT_NODES, attunementRank, attunementNextCost, buyAttunement, keyForgeUnlocked, forgeHollowGateKey, KEY_FORGE_COST } from "../lib/hollow-gate-attunement";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 type Props = { character: Character; updateCharacter: (c: Character) => void; onClose: () => void };
 
@@ -14,6 +15,7 @@ export function HollowGateAttunement({ character, updateCharacter, onClose }: Pr
     const shards = character.hollowShards ?? 0;
 
     function buy(id: string) {
+        if (!requireServerSettlement("hollowGateAttunement")) return;
         const r = buyAttunement(character, id);
         if (r.ok === false) { setMsg(r.reason); return; }
         updateCharacter(r.character);
@@ -21,6 +23,7 @@ export function HollowGateAttunement({ character, updateCharacter, onClose }: Pr
     }
 
     function forge() {
+        if (!requireServerSettlement("hollowGateAttunement")) return;
         const r = forgeHollowGateKey(character);
         if (r.ok === false) { setMsg(r.reason); return; }
         updateCharacter(r.character);

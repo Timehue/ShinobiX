@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useRef, useState } from "react";
 import { type AdminAccount, type AdminRole, type Screen } from "../App";
+import { PLAYER_PASSWORD_MAX_LENGTH, playerPasswordPolicyError } from "../lib/player-auth-policy";
 
 export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string, role: AdminRole) => void; setScreen: (screen: Screen) => void }) {
     // If StartScreen detected an admin name in the player login form and
@@ -101,7 +102,8 @@ export function AdminPasswordReset({ adminPw }: { adminPw: string }) {
 
     async function submit() {
         if (!targetName.trim() || !newPw.trim()) { setMsg("Enter a player name and new password."); return; }
-        if (newPw.length < 6) { setMsg("Password must be at least 6 characters."); return; }
+        const policyError = playerPasswordPolicyError(newPw);
+        if (policyError) { setMsg(policyError); return; }
         if (!adminPw) { setMsg("❌ Admin password missing. Log out and back into admin."); return; }
         setMsg("Resetting…");
         const controller = new AbortController();
@@ -128,7 +130,7 @@ export function AdminPasswordReset({ adminPw }: { adminPw: string }) {
             <p className="hint" style={{ margin: 0 }}>Set a new password for a player (e.g. for account recovery). The player's old password is not needed.</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
-                <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+                <input type="password" placeholder="New password (8-128, letter + number)" value={newPw} maxLength={PLAYER_PASSWORD_MAX_LENGTH} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
                 <button onClick={submit}>Reset</button>
             </div>
             {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}

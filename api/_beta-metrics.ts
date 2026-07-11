@@ -1,4 +1,5 @@
 import { kv, type KvLike } from './_storage.js';
+import { withTelemetryLock } from './_telemetry-lock.js';
 
 export type BetaMetricEvent =
     | 'account.registered'
@@ -136,9 +137,11 @@ export async function recordBetaMetric(input: BetaMetricInput, opts: { kv?: Beta
     try {
         const ts = input.ts ?? Date.now();
         const key = betaMetricKey(betaDateKey(ts));
-        const current = await store.get<BetaMetricDay>(key);
-        const next = applyBetaMetric(current, { ...input, ts });
-        await store.set(key, next, { ex: BETA_METRICS_RETENTION_SECONDS });
+        await withTelemetryLock(key, store, async () => {
+            const current = await store.get<BetaMetricDay>(key);
+            const next = applyBetaMetric(current, { ...input, ts });
+            await store.set(key, next, { ex: BETA_METRICS_RETENTION_SECONDS });
+        });
     } catch (e) {
         console.error('[beta-metrics] record failed:', e);
     }

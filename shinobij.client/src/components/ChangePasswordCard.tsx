@@ -8,11 +8,11 @@
  * from storage, so this works in token-first mode where the plaintext password
  * isn't persisted).
  *
- * Validation mirrors the registration rules in CharacterCreator: 8+ chars with
- * at least one letter and one number.
+ * Validation mirrors the server: 8-128 chars with a letter and a number.
  */
 import { useState } from "react";
 import { setActiveToken, setActivePlayer } from "../authFetch";
+import { PLAYER_PASSWORD_MAX_LENGTH, playerPasswordPolicyError } from "../lib/player-auth-policy";
 
 export function ChangePasswordCard({ playerName }: { playerName: string }) {
     const [current, setCurrent] = useState("");
@@ -25,10 +25,8 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
     async function submit() {
         if (busy) return;
         setMsg(null);
-        if (next.length < 8) return setMsg({ kind: "err", text: "New password must be at least 8 characters." });
-        if (!/[A-Za-z]/.test(next) || !/[0-9]/.test(next)) {
-            return setMsg({ kind: "err", text: "New password must include at least one letter and one number." });
-        }
+        const policyError = playerPasswordPolicyError(next);
+        if (policyError) return setMsg({ kind: "err", text: policyError });
         if (next !== confirm) return setMsg({ kind: "err", text: "New passwords do not match." });
         if (next === current) return setMsg({ kind: "err", text: "New password must differ from the current one." });
 
@@ -74,6 +72,7 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                     type={show ? "text" : "password"}
                     value={next}
                     onChange={(e) => setNext(e.target.value)}
+                    maxLength={PLAYER_PASSWORD_MAX_LENGTH}
                     placeholder="New password"
                     autoComplete="new-password"
                 />
@@ -81,6 +80,7 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                     type={show ? "text" : "password"}
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
+                    maxLength={PLAYER_PASSWORD_MAX_LENGTH}
                     placeholder="Confirm new password"
                     autoComplete="new-password"
                     onKeyDown={(e) => { if (e.key === "Enter") void submit(); }}
