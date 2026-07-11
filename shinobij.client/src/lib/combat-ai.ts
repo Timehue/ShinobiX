@@ -421,6 +421,23 @@ export const builtinAis: CreatorAi[] = [
         const base = makeBuiltinAi("boss-hollow-gate-warden", "Hollow Gate Warden", "👹", 60, "Hollow Gate Shrine", aiJutsuLoadout("boss"), 180, 9000, "boss");
         return { ...base, isBossAi: true };
     })(),
+    // -- Hollow Gate Rift bosses (wandering-quest scaled event gates) ---------
+    // A rift is a SHORT 1-3 floor event gate reached from a wandering-AI quest
+    // (data/hollow-rifts.ts). Its final boss is rebased to ~player+15 at 1.4x base
+    // HP by the shrine boss picker, so these are authored DELIBERATELY LIGHT (a
+    // fraction of the 9000-HP Warden) — a single winnable mini-boss, not a
+    // 9-floor grind. hpFloorExempt so the modest HP lands; isBossAi so
+    // pickShrineEncounter selects them by variant.bossAiId. Stats owner-tunable.
+    // The L15 legacy-intro boss is the SQUISHIEST of the set (lowest HP + bonus,
+    // gentle "balanced" loadout) so the player+15 rebase stays a very easy,
+    // forgiving first taste of a rift for a brand-new player.
+    ((): CreatorAi => { const b = makeBuiltinAi("rift-boss-legacy-echo", "The Unremembered", "🕯️", 20, "Hollow Gate Rift", aiJutsuLoadout("balanced"), 15, 1400, "balanced", true); return { ...b, isBossAi: true, image: "/portraits/rift-boss-legacy-echo.webp" }; })(),
+    ((): CreatorAi => { const b = makeBuiltinAi("rift-boss-hollow-stalker", "Hollow Stalker", "🌀", 48, "Hollow Gate Rift", aiJutsuLoadout("bruiser"), 60, 3600, "bruiser", true); return { ...b, isBossAi: true, image: "/portraits/rift-boss-hollow-stalker.webp" }; })(),
+    ((): CreatorAi => { const b = makeBuiltinAi("rift-boss-warren-alpha", "Warren Alpha", "🐺", 45, "Hollow Gate Rift", aiJutsuLoadout("hunter"), 70, 4000, "hunter", true); return { ...b, isBossAi: true, image: "/portraits/rift-boss-warren-alpha.webp" }; })(),
+    ((): CreatorAi => { const b = makeBuiltinAi("rift-boss-engine-echo", "Engine-Echo", "⚡", 55, "Hollow Gate Rift", aiJutsuLoadout("control"), 85, 4500, "control", true); return { ...b, isBossAi: true, image: "/portraits/rift-boss-engine-echo.webp" }; })(),
+    ((): CreatorAi => { const b = makeBuiltinAi("rift-boss-hollow-legacy", "The Hollowed Name", "👤", 65, "Hollow Gate Rift", aiJutsuLoadout("boss"), 95, 5000, "boss", true); return { ...b, isBossAi: true, image: "/portraits/rift-boss-hollow-legacy.webp" }; })(),
+    ((): CreatorAi => { const b = makeBuiltinAi("rift-boss-mirror-shard", "Mirror-Shard Warden", "🪞", 75, "Hollow Gate Rift", aiJutsuLoadout("control"), 100, 5200, "control", true); return { ...b, isBossAi: true, image: "/portraits/rift-boss-mirror-shard.webp" }; })(),
+    ((): CreatorAi => { const b = makeBuiltinAi("rift-boss-gate-heir", "Hollow Gate Heir", "🌀", 88, "Hollow Gate Rift", aiJutsuLoadout("boss"), 120, 6000, "boss", true); return { ...b, isBossAi: true, image: "/portraits/rift-boss-gate-heir.webp" }; })(),
 ];
 
 export function normalizeAiProfile(ai: Partial<CreatorAi>, allJutsus: Jutsu[] = starterJutsus): CreatorAi {
