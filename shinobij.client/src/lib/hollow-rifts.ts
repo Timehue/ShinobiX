@@ -36,6 +36,38 @@ const RIFT_ART: Record<RiftGiverArchetype, WandererArchetypeId> = {
     official: "patrol",
 };
 
+/** The same archetype face as a PUBLIC portrait path (the wanderer art copied
+ *  from src/assets/wanderers/<face>.webp into public/portraits/wanderer-<face>.webp).
+ *  A plain string path — this module stays webp-import-free so its node tests run —
+ *  so the VN speaker card shows the same face the giver wears on the sector map. */
+const RIFT_GIVER_FACE: Record<RiftGiverArchetype, string> = {
+    tracker: "wanderer-tracker",
+    pilgrim: "wanderer-pilgrim",
+    courier: "wanderer-courier",
+    soldier: "wanderer-patrol",
+    sage: "wanderer-sage",
+    broker: "wanderer-bounty-hunter",
+    official: "wanderer-patrol",
+};
+
+/** VN speaker portrait for the giver (its archetype face) and the rift boss (its
+ *  512² portrait crop) — both public /portraits/*.webp paths. */
+export function riftGiverPortrait(rift: HollowRift): string {
+    return `/portraits/${RIFT_GIVER_FACE[rift.giverArchetype]}.webp`;
+}
+export function riftBossPortrait(rift: HollowRift): string {
+    return `/portraits/${rift.bossAiId}.webp`;
+}
+/** Portrait for whoever speaks on a rift VN page: the giver wears its face, the
+ *  boss its portrait, everyone else (Narrator) none — so the slot hides instead
+ *  of showing initials. */
+function riftPortraitFor(rift: HollowRift, speaker: string): string | undefined {
+    const s = speaker.trim().toLowerCase();
+    if (s === rift.giverName.trim().toLowerCase()) return riftGiverPortrait(rift);
+    if (s === rift.bossName.trim().toLowerCase()) return riftBossPortrait(rift);
+    return undefined;
+}
+
 /** Deterministic wilderness sector for a (player, rift): stable, avoids village
  *  outskirts + central + the lava arena. The server recomputes the SAME value at
  *  accept, so client display and server seal always agree. */
@@ -50,20 +82,33 @@ export function riftTargetSector(playerName: string, riftId: string): number {
 }
 
 /** The next rift the roaming giver should offer, or null. One at a time; skipped
- *  while a rift is active or during the post-clear cooldown. Offers a rift whose
- *  LEVEL BAND [levelReq, levelMax] contains the player, rotating deterministically
- *  per UTC day among the eligible band so higher-tier rifts surface over time
- *  (a level-88 player sees the L80+ rifts, never the L30 one). */
+ *  while a rift is active or during the post-clear cooldown. Offers any rift the
+ *  player has reached (level >= levelReq, NO upper cap), PREFERRING the highest
+ *  tier reached but still surfacing lower (possibly missed) rifts sometimes, so a
+ *  rift you out-leveled is never locked out. Deterministic per UTC day. */
 export function nextRift(character: Character): HollowRift | null {
     if (character.activeRiftQuest) return null;
     if (Date.now() < (character.riftCooldownUntil ?? 0)) return null;
-    const eligible = hollowRifts.filter((r) => character.level >= r.levelReq && character.level <= r.levelMax);
+    const eligible = hollowRifts.filter((r) => character.level >= r.levelReq);
     if (!eligible.length) return null;
     const dayBucket = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
     let h = 2166136261;
     const key = `${character.name}|${dayBucket}`;
     for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return eligible[Math.abs(h) % eligible.length];
+    // Weighted pick: rank the eligible rifts by levelReq DESC and weight each
+    // 2^-rank (highest tier 1, next 1/2, next 1/4, …). The top rift draws ~half
+    // the days and each lower tier ~half as often as the one above, so the giver
+    // leans on the highest tier you've reached yet a missed lower rift still
+    // surfaces now and then. The day hash rolls a point along the summed weights.
+    const ranked = [...eligible].sort((a, b) => b.levelReq - a.levelReq);
+    const weights = ranked.map((_, i) => 0.5 ** i);
+    const total = weights.reduce((sum, w) => sum + w, 0);
+    let roll = ((Math.abs(h) % 1_000_000) / 1_000_000) * total;
+    for (let i = 0; i < ranked.length; i++) {
+        roll -= weights[i];
+        if (roll < 0) return ranked[i];
+    }
+    return ranked[ranked.length - 1];
 }
 
 /** The giver as a roaming sector wanderer (road-event pattern), placed in the
@@ -99,11 +144,12 @@ export function sectorPhrase(sector: number): string {
     return `${region} (sector ${sector})`;
 }
 
-function mapPages(pages: RiftPage[], last: number): NonNullable<CreatorEvent["vnPages"]> {
+function mapPages(pages: RiftPage[], last: number, portraitFor: (speaker: string) => string | undefined): NonNullable<CreatorEvent["vnPages"]> {
     return pages.map((page, index) => ({
         title: page.title,
         scene: page.scene,
         speaker: page.speaker,
+        rightImage: portraitFor(page.speaker),
         dialogue: page.dialogue,
         choices: index === last
             ? page.choices?.map((choice) => ({
@@ -122,6 +168,7 @@ export function riftIntroEvent(rift: HollowRift, targetSector: number, biome: Bi
     const pages = mapPages(
         rift.intro.map((p) => ({ ...p, dialogue: p.dialogue.map((line) => line.replace(/%sector/g, phrase)) })),
         rift.intro.length - 1,
+        (speaker) => riftPortraitFor(rift, speaker),
     );
     return {
         id: `${RIFT_GIVER_PREFIX}${rift.slug}`,
@@ -145,7 +192,7 @@ export function riftIntroEvent(rift: HollowRift, targetSector: number, biome: Bi
 
 /** The at-the-rift VN (before descending). */
 export function riftDescentEvent(rift: HollowRift, biome: Biome): CreatorEvent {
-    const pages = mapPages(rift.descent, rift.descent.length - 1);
+    const pages = mapPages(rift.descent, rift.descent.length - 1, (speaker) => riftPortraitFor(rift, speaker));
     return {
         id: `rift-descend-${rift.slug}`,
         name: `The Rift: ${rift.bossName}`,
