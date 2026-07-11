@@ -9,6 +9,7 @@ exports.duplicateEventIds = duplicateEventIds;
 exports.recordWarEcoEvent = recordWarEcoEvent;
 exports.readWarEcoSnapshot = readWarEcoSnapshot;
 const _storage_js_1 = require("./_storage.js");
+const _telemetry_lock_js_1 = require("./_telemetry-lock.js");
 exports.WAR_ECO_KINDS = [
     'wr.earn', 'wr.spend.declare', 'wr.spend.maintenance', 'wr.spend.merc',
     'seals.earn', 'seals.spend.structure',
@@ -95,12 +96,15 @@ async function recordWarEcoEvent(ev, opts = {}) {
             ...(ev.meta ? { meta: String(ev.meta).slice(0, 64) } : {}),
         };
         // Per-village running aggregate.
-        const aggK = warEcoAggKey(full.village);
-        const agg = (await store.get(aggK)) ?? {};
-        await store.set(aggK, applyEventToAgg(agg, full.kind, full.amount));
-        // Capped recent list (newest-first).
-        const list = (await store.get(exports.WAR_ECO_TXN_LIST_KEY)) ?? [];
-        await store.set(exports.WAR_ECO_TXN_LIST_KEY, [full, ...list].slice(0, exports.MAX_WAR_ECO_TXNS));
+        await (0, _telemetry_lock_js_1.withTelemetryLock)(exports.WAR_ECO_TXN_LIST_KEY, store, async () => {
+            const list = (await store.get(exports.WAR_ECO_TXN_LIST_KEY)) ?? [];
+            if (list.some((event) => event.eventId === full.eventId))
+                return;
+            const aggK = warEcoAggKey(full.village);
+            const agg = (await store.get(aggK)) ?? {};
+            await store.set(aggK, applyEventToAgg(agg, full.kind, full.amount));
+            await store.set(exports.WAR_ECO_TXN_LIST_KEY, [full, ...list].slice(0, exports.MAX_WAR_ECO_TXNS));
+        });
     }
     catch (e) {
         console.error('[war-telemetry] recordWarEcoEvent failed:', e);

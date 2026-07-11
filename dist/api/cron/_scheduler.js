@@ -42,6 +42,26 @@ function msUntilNextTargetHour(now) {
         next.setUTCDate(next.getUTCDate() + 1);
     return next.getTime() - now;
 }
+async function runBootSnapshotCatchUp() {
+    try {
+        const marker = await (0, snapshot_saves_js_1.readSnapshotSuccessMarker)();
+        if ((0, snapshot_saves_js_1.isSnapshotMarkerFresh)(marker)) {
+            console.log(`[cron-scheduler] backup freshness ok; last complete run ${new Date(marker.completedAt).toISOString()}.`);
+            return;
+        }
+        console.warn('[cron-scheduler] no complete snapshot run in the last 26h; starting boot catch-up.');
+    }
+    catch (err) {
+        console.error('[cron-scheduler] backup marker read failed; attempting boot catch-up:', err.message);
+    }
+    try {
+        const result = await (0, snapshot_saves_js_1.runSnapshotSaves)(NIGHTLY_BUDGET_MS);
+        console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped, ${result.failed.length} failed; ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
+    }
+    catch (err) {
+        console.error('[cron-scheduler] boot catch-up threw:', err.message);
+    }
+}
 async function fire() {
     try {
         const r = await (0, snapshot_saves_js_1.runSnapshotSaves)(NIGHTLY_BUDGET_MS);
@@ -128,6 +148,10 @@ function startSnapshotCron() {
         _interval.unref?.();
     }, delay);
     _timeout.unref?.();
+    // If the process was down across 03:00 UTC, do not wait until tomorrow.
+    // The durable marker proves freshness and the per-player 20h dedup keeps
+    // restarts or a second scheduler from creating duplicate daily copies.
+    void runBootSnapshotCatchUp();
     // Village War mercenary auto-snipe — a frequent tick so active merc bands hunt
     // low-HP enemy defenders on their own. No-op unless ENABLE_VILLAGE_WAR=1.
     _mercInterval = setInterval(() => {

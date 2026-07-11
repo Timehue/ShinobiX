@@ -11,26 +11,33 @@ const _save_version_js_1 = require("../save/_save-version.js");
 const _run_token_js_1 = require("./_run-token.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
 const _era_js_1 = require("../_era.js");
+const _economic_receipt_js_1 = require("../_economic-receipt.js");
 /*
  * /api/hollow-gate/settle  — POST only  (docs/hollow-gate-augments.md)
  *
  * The authoritative payout for a dive. Reads the sealed token (depth + entry
  * snapshot + chosen augment), computes the per-currency ceiling
- * maxHaulForDepth(depth, sealedMultiplier), and credits min(client-claimed,
- * ceiling) — anchored to the sealed entry so a crafted client can neither inflate
- * the haul nor smuggle a bigger multiplier. Death applies a server-computed ×0.5
+ * maxHaulForDepth(depth, sealedMultiplier), and adds min(client-claimed,
+ * ceiling) to the fresh trusted save balance. Raw-save growth is pinned, so this
+ * endpoint owns the currency credit. A crafted client can neither exceed the
+ * sealed ceiling nor smuggle a bigger multiplier. Death applies a server-computed ×0.5
  * claw-back. Single-use (NX hg-settled entity key → reconnect/retry/co-op pays
  * once). Body: { playerName, token, outcome: 'extract'|'death', haul: {currency:n} }.
  *
  * pure helper exported for the test.
  */
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
-/** Pure: the credited value for one currency given the sealed entry + ceiling.
- *  Never exceeds the ceiling, never restores in-run spends (min with current),
- *  and applies the death claw-back fraction. */
-function settleCurrency(current, entry, claimed, ceiling, frac) {
+/** Pure: authoritative post-settlement balance for one currency.
+ *
+ * The raw save endpoint pins Hollow Gate currency growth while a server run is
+ * open, so `current` is the trusted server balance, not a client-prewritten
+ * haul. Settle adds the bounded run credit itself. `entry` remains in the
+ * signature because it is part of the sealed token and response reconciliation,
+ * but it no longer acts as the source balance.
+ */
+function settleCurrency(current, _entry, claimed, ceiling, frac) {
     const credit = Math.floor(Math.min(Math.max(0, claimed), Math.max(0, ceiling)) * frac);
-    return Math.max(0, Math.min(num(current), Math.max(0, entry) + credit));
+    return Math.max(0, num(current)) + Math.max(0, credit);
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -42,15 +49,20 @@ async function handler(req, res) {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {}));
         const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
         const token = String(body.token ?? '').slice(0, 64);
-        const outcome = body.outcome === 'death' ? 'death' : 'extract';
+        const outcome = body.outcome === 'death' || body.outcome === 'extract' ? body.outcome : null;
         const haul = (body.haul && typeof body.haul === 'object') ? body.haul : {};
         if (!playerName || !token)
             return res.status(400).json({ error: 'Missing playerName or token.' });
+        if (!outcome)
+            return res.status(400).json({ error: 'Invalid Hollow Gate outcome.' });
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, playerName);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName)
             return res.status(403).json({ error: 'Not your run.' });
+        if (!(0, _run_token_js_1.hollowGateRunsEnabled)()) {
+            return res.status(503).json({ error: 'Hollow Gate runs are temporarily unavailable until server settlement is complete.' });
+        }
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'hollow-gate-settle', 20, 60_000, identity.name)))
             return;
         const runKey = `hg-run:${playerName}:${token}`;
@@ -63,10 +75,20 @@ async function handler(req, res) {
             return res.status(403).json({ error: 'Not your run.' });
         // Entity-keyed single-use: keyed on the RUN, so a reconnect/retry (or a
         // co-op partner reporting the same run) collapses to one credit.
-        const once = await _storage_js_1.kv.set(`hg-settled:${playerName}:${token}`, '1', { nx: true, ex: 24 * 60 * 60 }).catch(() => 'OK');
-        if (once === null)
+        const settlementReceiptKey = `hg-settled:${playerName}:${token}`;
+        const settlementReceiptTtl = 24 * 60 * 60;
+        const reservation = await (0, _economic_receipt_js_1.reserveEconomicReceipt)(_storage_js_1.kv, {
+            key: settlementReceiptKey,
+            fingerprint: `hollow-gate:${playerName}:${token}:${outcome}`,
+            ttlSeconds: settlementReceiptTtl,
+            metadata: { playerName, token, outcome },
+        });
+        if (reservation.status === 'replay') {
             return res.status(200).json({ ok: true, alreadyReported: true });
-        await _storage_js_1.kv.del(runKey).catch(() => undefined);
+        }
+        if (reservation.status === 'conflict') {
+            return res.status(409).json({ error: 'This run was already settled with a different outcome.' });
+        }
         const mult = (0, _run_token_js_1.rewardMultiplierForToken)(run);
         const ceiling = (0, _run_token_js_1.maxHaulForDepth)(run.floorDepth, mult);
         const frac = outcome === 'death' ? 0.5 : 1;
@@ -74,41 +96,60 @@ async function handler(req, res) {
         const fragmentCeiling = (0, _run_token_js_1.maxFragmentsForDepth)(run.floorDepth);
         let fragmentsClampedTo = null;
         const saveKey = `save:${playerName}`;
-        const result = await (0, _lock_js_1.withKvLock)(saveKey, async () => {
-            const fresh = await _storage_js_1.kv.get(saveKey);
-            const c = (fresh?.character ?? null);
-            if (!fresh || !c)
-                return { ok: false };
-            const next = { ...c };
-            for (const k of _run_token_js_1.HG_CLAWBACK_KEYS) {
-                const value = settleCurrency(num(c[k]), num(run.entryCurrencies[k]), num(haul[k]), ceiling[k], frac);
-                next[k] = value;
-                credited[k] = Math.max(0, value - num(run.entryCurrencies[k]));
-            }
-            // High-value forge item (Dungeon Legendary Fragment) — anti-fabrication.
-            // The client keeps its inline boss-drop grant (byte-identical, no reliability
-            // regression); here we only CLAMP this run's GAIN (current minus sealed entry)
-            // to the depth ceiling, clawing back a crafted client's excess. No-op for legit
-            // hauls. Guarded on entryFragments so tokens minted before this field skip it
-            // (a missing baseline can't distinguish run-gain from pre-run holdings).
-            const currentFragments = (0, _run_token_js_1.itemStackCount)(c.itemStacks, _run_token_js_1.HG_HIGH_VALUE_ITEM_ID);
-            const allowedFragments = typeof run.entryFragments === 'number'
-                ? (0, _run_token_js_1.clampFragmentTotal)(currentFragments, run.entryFragments, fragmentCeiling)
-                : currentFragments; // token predates the sealed baseline — skip the clamp
-            if (allowedFragments < currentFragments && Array.isArray(c.itemStacks)) {
-                const others = c.itemStacks
-                    .filter((s) => !(s && String(s.itemId ?? '') === _run_token_js_1.HG_HIGH_VALUE_ITEM_ID));
-                next.itemStacks = allowedFragments > 0
-                    ? [...others, { itemId: _run_token_js_1.HG_HIGH_VALUE_ITEM_ID, count: allowedFragments }]
-                    : others;
-                fragmentsClampedTo = allowedFragments;
-            }
-            const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...fresh, character: next });
-            await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
-            return { ok: true };
-        }, { failClosed: true });
+        let saveMutationAttempted = false;
+        let result;
+        try {
+            result = await (0, _lock_js_1.withKvLock)(saveKey, async () => {
+                const fresh = await _storage_js_1.kv.get(saveKey);
+                const c = (fresh?.character ?? null);
+                if (!fresh || !c)
+                    return { ok: false };
+                const next = { ...c };
+                for (const k of _run_token_js_1.HG_CLAWBACK_KEYS) {
+                    const value = settleCurrency(num(c[k]), num(run.entryCurrencies[k]), num(haul[k]), ceiling[k], frac);
+                    next[k] = value;
+                    credited[k] = Math.max(0, value - num(run.entryCurrencies[k]));
+                }
+                // High-value forge item (Dungeon Legendary Fragment) — anti-fabrication.
+                // The client keeps its inline boss-drop grant (byte-identical, no reliability
+                // regression); here we only CLAMP this run's GAIN (current minus sealed entry)
+                // to the depth ceiling, clawing back a crafted client's excess. No-op for legit
+                // hauls. Guarded on entryFragments so tokens minted before this field skip it
+                // (a missing baseline can't distinguish run-gain from pre-run holdings).
+                const currentFragments = (0, _run_token_js_1.itemStackCount)(c.itemStacks, _run_token_js_1.HG_HIGH_VALUE_ITEM_ID);
+                const allowedFragments = typeof run.entryFragments === 'number'
+                    ? (0, _run_token_js_1.clampFragmentTotal)(currentFragments, run.entryFragments, fragmentCeiling)
+                    : currentFragments; // token predates the sealed baseline — skip the clamp
+                if (allowedFragments < currentFragments && Array.isArray(c.itemStacks)) {
+                    const others = c.itemStacks
+                        .filter((s) => !(s && String(s.itemId ?? '') === _run_token_js_1.HG_HIGH_VALUE_ITEM_ID));
+                    next.itemStacks = allowedFragments > 0
+                        ? [...others, { itemId: _run_token_js_1.HG_HIGH_VALUE_ITEM_ID, count: allowedFragments }]
+                        : others;
+                    fragmentsClampedTo = allowedFragments;
+                }
+                const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...fresh, character: next });
+                saveMutationAttempted = true;
+                await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
+                return { ok: true };
+            }, { failClosed: true });
+            if (result.ok)
+                await (0, _economic_receipt_js_1.commitEconomicReceipt)(_storage_js_1.kv, settlementReceiptKey, reservation, settlementReceiptTtl);
+            else
+                await (0, _economic_receipt_js_1.abortEconomicReceipt)(_storage_js_1.kv, settlementReceiptKey, reservation);
+        }
+        catch (error) {
+            if (!saveMutationAttempted)
+                await (0, _economic_receipt_js_1.abortEconomicReceipt)(_storage_js_1.kv, settlementReceiptKey, reservation).catch(() => false);
+            throw error;
+        }
         if (!result.ok)
             return res.status(404).json({ error: 'Your save was not found.' });
+        await _storage_js_1.kv.del(runKey).catch((error) => {
+            // The committed settlement receipt still prevents a duplicate payout.
+            console.error('[hollow-gate/settle] run-token cleanup failed', error);
+            return 0;
+        });
         // Legacy tracking (ENABLE_LEGACY): only a successful EXTRACTION counts
         // as a clear — deaths settle currency but don't feed Legacy progress.
         // Anti-farm gate: an instant start→settle round-trip is not a dive; a
@@ -123,6 +164,9 @@ async function handler(req, res) {
     }
     catch (err) {
         console.error('[hollow-gate/settle]', err);
+        if ((0, _economic_receipt_js_1.isEconomicReceiptStorageError)(err)) {
+            return res.status(503).json({ error: 'Could not reserve the Hollow Gate settlement. Please retry.' });
+        }
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

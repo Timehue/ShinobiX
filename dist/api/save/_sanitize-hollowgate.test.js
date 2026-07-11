@@ -8,12 +8,22 @@ const strict_1 = __importDefault(require("node:assert/strict"));
 const _name__js_1 = require("./[name].js");
 const wrap = (character) => ({ character });
 const sanitize = (incoming, existing) => (0, _name__js_1.sanitizeCharacterSave)(wrap(incoming), existing ? wrap(existing) : null).character;
-(0, node_test_1.test)('attunement: each node clamped to its catalog maxRank; unknown ids dropped', () => {
-    const out = sanitize({ hollowGateAttunement: { 'extra-dive': 3, 'seasoned-delver': 9, 'key-forge': 2, 'made-up-node': 5 } }, { hollowGateAttunement: {} });
-    strict_1.default.equal(out.hollowGateAttunement['extra-dive'], 1, 'extra-dive maxRank 1');
-    strict_1.default.equal(out.hollowGateAttunement['seasoned-delver'], 2, 'seasoned-delver maxRank 2');
-    strict_1.default.equal(out.hollowGateAttunement['key-forge'], 1, 'key-forge maxRank 1');
-    strict_1.default.equal(out.hollowGateAttunement['made-up-node'], undefined, 'unknown node dropped');
+const sanitizeStrict = (incoming, existing) => {
+    const previous = process.env.STRICT_RAW_SAVE_LEDGER;
+    process.env.STRICT_RAW_SAVE_LEDGER = '1';
+    try {
+        return sanitize(incoming, existing);
+    }
+    finally {
+        if (previous === undefined)
+            delete process.env.STRICT_RAW_SAVE_LEDGER;
+        else
+            process.env.STRICT_RAW_SAVE_LEDGER = previous;
+    }
+};
+(0, node_test_1.test)('attunement: raw saves cannot buy/rank nodes; stored server ledger wins', () => {
+    const out = sanitizeStrict({ hollowGateAttunement: { 'extra-dive': 3, 'seasoned-delver': 9, 'key-forge': 2, 'made-up-node': 5 } }, { hollowGateAttunement: {} });
+    strict_1.default.deepEqual(out.hollowGateAttunement, {}, 'all raw node growth rejected');
 });
 (0, node_test_1.test)('hollowGateRun: a spendable-currency entry above current is preserved (legit mid-run spend not over-penalised)', () => {
     // Hollow Shards are spendable mid-run, so the entry snapshot can legitimately
@@ -43,17 +53,17 @@ const sanitize = (incoming, existing) => (0, _name__js_1.sanitizeCharacterSave)(
     strict_1.default.equal(run.serverSeed.length, 64, 'serverSeed capped to 64 chars');
     strict_1.default.ok(run.augmentOffers.length <= 8, 'augmentOffers length capped');
 });
-(0, node_test_1.test)('hollowGateRun: HG currencies are NOT frozen while a run token is open (anti-regression — a freeze zeroes the settle payout)', () => {
+(0, node_test_1.test)('hollowGateRun: client-prewritten currency haul is rejected even with a claimed run token', () => {
     // Load-bearing invariant (docs/hollow-gate-augments.md): the shipped settle is
     // reconcile-DOWN — settleCurrency returns min(current, entry+credit), so it NEEDS
     // the live haul present in the save. If a future change "freezes" HG-currency
     // increases while a run token is open, `current` pins to entry and every payout
     // becomes zero. This test fails if that freeze is ever introduced.
-    const out = sanitize(
+    const out = sanitizeStrict(
     // runToken open + a legit in-run accrual (within the +200 hollowShards / +1M ryo per-save caps).
     { hollowShards: 170, ryo: 9000, hollowGateRun: { floor: 3, keys: 1, runToken: 'live-token', entryCurrencies: { hollowShards: 70, ryo: 5000 } } }, { hollowShards: 70, ryo: 5000 });
-    strict_1.default.equal(out.hollowShards, 170, 'shard accrual during an open token run must persist (not frozen to entry) — settle reconciles it down later');
-    strict_1.default.equal(out.ryo, 9000, 'ryo accrual during an open token run must persist (not frozen)');
+    strict_1.default.equal(out.hollowShards, 70, 'raw save cannot prewrite shard haul');
+    strict_1.default.equal(out.ryo, 5000, 'raw save cannot prewrite ryo haul');
 });
 (0, node_test_1.test)('hollowGateRun: a legit short token + 3 offers pass through unchanged', () => {
     const out = sanitize({ hollowGateRun: { floor: 2, keys: 0, entryCurrencies: {}, runToken: 'abc123', augmentOffers: [{ id: 'keen-edge' }, { id: 'greedy-pact' }, { id: 'warded-step' }] } }, {});
@@ -61,22 +71,22 @@ const sanitize = (incoming, existing) => (0, _name__js_1.sanitizeCharacterSave)(
     strict_1.default.equal(run.runToken, 'abc123', 'short token untouched');
     strict_1.default.equal(run.augmentOffers.length, 3, 'three offers untouched');
 });
-(0, node_test_1.test)('hollow-gate-key: per-save GAIN capped above the existing stack', () => {
+(0, node_test_1.test)('hollow-gate-key: raw saves cannot create keys', () => {
     const out = sanitize({ itemStacks: [{ itemId: 'hollow-gate-key', count: 9999 }] }, { itemStacks: [{ itemId: 'hollow-gate-key', count: 2 }] });
     const keys = out.itemStacks.find(s => s.itemId === 'hollow-gate-key');
-    strict_1.default.equal(keys?.count, 12, '2 existing + 10 per-save gain cap');
+    strict_1.default.equal(keys?.count, 2, 'stored key count wins');
 });
-(0, node_test_1.test)('legit HollowGate save passes through unchanged', () => {
+(0, node_test_1.test)('HollowGate run metadata persists while ledger-owned rewards stay stored', () => {
     const out = sanitize({
         ryo: 5000,
         hollowGateAttunement: { 'greedy-hands': 2 },
         hollowGateRun: { floor: 3, keys: 1, entryCurrencies: { ryo: 4000 } },
         itemStacks: [{ itemId: 'hollow-gate-key', count: 3 }],
-    }, { ryo: 4000, itemStacks: [{ itemId: 'hollow-gate-key', count: 1 }] });
-    strict_1.default.equal(out.hollowGateAttunement['greedy-hands'], 2, 'legit rank (<= maxRank 3) untouched');
+    }, { ryo: 4000, hollowGateAttunement: {}, itemStacks: [{ itemId: 'hollow-gate-key', count: 1 }] });
+    strict_1.default.deepEqual(out.hollowGateAttunement, {}, 'attunement purchase requires a server mutation');
     strict_1.default.equal(out.hollowGateRun.entryCurrencies.ryo, 4000, 'legit entry snapshot untouched');
     const keys = out.itemStacks.find(s => s.itemId === 'hollow-gate-key');
-    strict_1.default.equal(keys?.count, 3, 'legit key gain 1->3 within cap, untouched');
+    strict_1.default.equal(keys?.count, 1, 'key creation requires a server mutation');
 });
 const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's SERVER_UTC_DATE
 (0, node_test_1.test)('dailyHollowGateRuns: a forged reset to 0 within the same UTC day is floored to the server count', () => {
@@ -98,16 +108,16 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
 (0, node_test_1.test)('level: cannot regress below the existing level (anti-rollback)', () => {
     strict_1.default.equal(sanitize({ level: 40 }, { level: 50 }).level, 50, 'a save reporting a lower level is floored to existing');
 });
-(0, node_test_1.test)('level: per-save gain capped at +5 and hard-capped at 100', () => {
-    strict_1.default.equal(sanitize({ level: 999 }, { level: 50 }).level, 55, 'gain capped to +MAX_LEVEL_GAIN (5)');
-    strict_1.default.equal(sanitize({ level: 999 }, { level: 98 }).level, 100, 'hard-capped at LEVEL_CAP (100)');
+(0, node_test_1.test)('level: raw saves cannot increase level at all', () => {
+    strict_1.default.equal(sanitizeStrict({ level: 999 }, { level: 50 }).level, 50, 'stored level wins');
+    strict_1.default.equal(sanitizeStrict({ level: 999 }, { level: 98 }).level, 98, 'stored level wins near cap too');
 });
-(0, node_test_1.test)('ryo: per-save gain capped at +1,000,000 over existing', () => {
-    strict_1.default.equal(sanitize({ ryo: 9_999_999 }, { ryo: 1000 }).ryo, 1_001_000, 'capped to exRyo + MAX_RYO_GAIN');
+(0, node_test_1.test)('ryo: raw saves cannot mint ryo', () => {
+    strict_1.default.equal(sanitizeStrict({ ryo: 9_999_999 }, { ryo: 1000 }).ryo, 1000, 'stored ryo wins');
 });
-(0, node_test_1.test)('soft currencies: per-save gain capped (fateShards +50, honorSeals +200)', () => {
-    strict_1.default.equal(sanitize({ fateShards: 9999 }, { fateShards: 10 }).fateShards, 60, 'fateShards capped to +50');
-    strict_1.default.equal(sanitize({ honorSeals: 9999 }, { honorSeals: 5 }).honorSeals, 205, 'honorSeals capped to +200');
+(0, node_test_1.test)('soft currencies: raw saves cannot mint premium currencies', () => {
+    strict_1.default.equal(sanitizeStrict({ fateShards: 9999 }, { fateShards: 10 }).fateShards, 10, 'stored fateShards win');
+    strict_1.default.equal(sanitizeStrict({ honorSeals: 9999 }, { honorSeals: 5 }).honorSeals, 5, 'stored honorSeals win');
 });
 // ── audit #1: mission/hunt daily-cap flooring + reset monotonicity + academy latch ──
 // claim-mission writes ryo + premium currency under the save lock (bypassing the
@@ -118,9 +128,9 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
     { lastDailyReset: TODAY, dailyMissionsCompleted: 12 });
     strict_1.default.equal(out.dailyMissionsCompleted, 12, 'cannot drop below the server mission count for today');
 });
-(0, node_test_1.test)('dailyMissionsCompleted: legit same-day increment kept; genuine new-day reset untouched', () => {
-    strict_1.default.equal(sanitize({ lastDailyReset: TODAY, dailyMissionsCompleted: 5 }, { lastDailyReset: TODAY, dailyMissionsCompleted: 4 }).dailyMissionsCompleted, 5, 'legit increment 4->5 kept');
-    strict_1.default.equal(sanitize({ lastDailyReset: TODAY, dailyMissionsCompleted: 0 }, { lastDailyReset: '2000-01-01', dailyMissionsCompleted: 19 }).dailyMissionsCompleted, 0, 'new-day reset (stored stamp is a prior day) is not clamped');
+(0, node_test_1.test)('dailyMissionsCompleted: raw saves cannot increment it, but a real UTC rollover resets it', () => {
+    strict_1.default.equal(sanitize({ lastDailyReset: TODAY, dailyMissionsCompleted: 5 }, { lastDailyReset: TODAY, dailyMissionsCompleted: 4 }).dailyMissionsCompleted, 4, 'raw increment is rejected');
+    strict_1.default.equal(sanitize({ lastDailyReset: TODAY, dailyMissionsCompleted: 19 }, { lastDailyReset: '2000-01-01', dailyMissionsCompleted: 19 }).dailyMissionsCompleted, 0, 'today rollover resets only the server-owned counter while preserving the shared date stamp');
 });
 (0, node_test_1.test)('dailyHuntsCompleted: floored to the server count within the same UTC day (own lastHuntReset key)', () => {
     strict_1.default.equal(sanitize({ lastHuntReset: TODAY, dailyHuntsCompleted: 0 }, { lastHuntReset: TODAY, dailyHuntsCompleted: 8 }).dailyHuntsCompleted, 8, 'cannot drop below the server hunt count for today');
@@ -190,9 +200,9 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
     strict_1.default.equal(bl.lore, 'An old desert clan technique.', 'clean lore untouched');
 });
 // ── audit #17: bankRyo clamped to a depositable ceiling (can't conjure bank principal) ──
-(0, node_test_1.test)('bankRyo: forged inflation clamped to exBank + exRyo + MAX_RYO_GAIN; legit deposits untouched', () => {
-    strict_1.default.equal(sanitize({ bankRyo: 999_000_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 1_005_000, 'conjured bankRyo clamped to the depositable ceiling');
-    strict_1.default.equal(sanitize({ bankRyo: 5_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 5_000, 'legit full deposit of held ryo untouched');
+(0, node_test_1.test)('bankRyo: raw saves cannot mutate bank principal', () => {
+    strict_1.default.equal(sanitize({ bankRyo: 999_000_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 0, 'conjured bankRyo rejected');
+    strict_1.default.equal(sanitize({ bankRyo: 5_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 0, 'deposit requires a server transaction');
     strict_1.default.equal(sanitize({ bankRyo: 10_000_000, ryo: 0 }, { bankRyo: 10_000_000, ryo: 0 }).bankRyo, 10_000_000, 'standing bank balance untouched');
 });
 // ── Hospital discharge-race guard ───────────────────────────────────────────

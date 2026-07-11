@@ -10,6 +10,9 @@ const node_path_1 = require("node:path");
 // module systems, so — like _cross-build-parity.test.ts — the drift guard reads
 // the client run lib as TEXT rather than importing it across the boundary.
 const CLIENT_RUN_SRC = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinobij.client', 'src', 'lib', 'hollow-gate-run.ts'), 'utf8');
+(0, node_test_1.test)('Hollow Gate server mutation endpoints stay release-locked until the full loot ledger is authoritative', () => {
+    node_assert_1.strict.equal((0, _run_token_js_1.hollowGateRunsEnabled)(), false);
+});
 (0, node_test_1.test)('hollowShardDrop matches the documented curve, and the client source still defines it (drift guard)', () => {
     for (let f = 1; f <= 8; f++) {
         node_assert_1.strict.equal((0, _run_token_js_1.hollowShardDrop)(f, 'chest'), 2 + f);
@@ -63,15 +66,17 @@ const CLIENT_RUN_SRC = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinob
     node_assert_1.strict.equal(d.id, 'greedy-pact');
 });
 (0, node_test_1.test)('settleCurrency clamps an over-claim to the sealed ceiling', () => {
-    // A crafted client reports a huge balance + claim; the ceiling caps the credit.
-    node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(1_000_000, 100, 5000, 50, 1), 150); // entry 100 + min(5000,50) = 150
+    // Raw save growth is pinned while the run is open; settle credits the trusted
+    // server balance itself and caps the client-reported haul.
+    node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(100, 100, 5000, 50, 1), 150);
 });
 (0, node_test_1.test)('settleCurrency applies the server death claw-back (x0.5)', () => {
-    node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(140, 100, 40, 1000, 0.5), 120); // entry 100 + floor(40*0.5)=20
+    node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(100, 100, 40, 1000, 0.5), 120);
 });
-(0, node_test_1.test)('settleCurrency never restores in-run spends (min with current balance)', () => {
-    // Player spent below their entry mid-run — settle must not refund them back up.
-    node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(80, 100, 30, 1000, 1), 80);
+(0, node_test_1.test)('settleCurrency authoritatively adds the bounded haul to the current server balance', () => {
+    // A concurrent server-side debit is preserved; the run credit is a delta on
+    // the fresh trusted balance rather than a client-prewritten final balance.
+    node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(80, 100, 30, 1000, 1), 110);
 });
 (0, node_test_1.test)('settleCurrency floors at 0 and ignores negative/junk input', () => {
     node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(-5, 0, -10, 50, 1), 0);
