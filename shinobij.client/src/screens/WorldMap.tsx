@@ -2685,7 +2685,10 @@ export function WorldMap({
                                 the sector — pure attrition (docs/anbu-infiltration-plan.md). */}
                             {(() => {
                                 if (!anbuInfiltrationEnabled() || (character.level ?? 0) < 100 || selectedSector == null) return null;
-                                const owner = loadSectorTerritory(selectedSector).ownerVillage;
+                                // Prefer the captured owner; fall back to the sector's home
+                                // village so the vault shows on enemy home sectors before any
+                                // sector-war capture (matches the server's ownership fallback).
+                                const owner = loadSectorTerritory(selectedSector).ownerVillage || homeVillageForSector(selectedSector);
                                 if (!owner || owner === character.village) return null;
                                 return (
                                     <button
