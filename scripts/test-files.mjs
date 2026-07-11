@@ -137,6 +137,7 @@ export const TEST_FILES = [
     "scripts/pvp-tags-parity.test.mjs",
     "scripts/pet-role-balance.test.ts",
     "scripts/pet-sim-parity.test.ts",
+    "scripts/pet-cinematic-parity.test.ts",
     "shinobij.client/src/App.size.test.ts",
     "shinobij.client/src/styles/font-token-guard.test.ts",
     "shinobij.client/src/lib/stats.test.ts",
