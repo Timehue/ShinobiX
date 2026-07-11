@@ -431,7 +431,10 @@ function resolveEquippedLoadout(saveCharacter, save, clientCharacter) {
             // identical to today. Pair with BLOODLINE_RANK_ENTITLEMENT so a forged
             // rank can't claim higher caps than the player legitimately earned.
             const stampRank = process.env.BLOODLINE_RANK_CAPS === '1';
-            const enforceBudget = process.env.BLOODLINE_BUDGET_SERVER === '1';
+            // Budget enforcement is PERMANENTLY ON (owner decision 2026-07-11, together
+            // with rank entitlement in the save sanitizer): server-side anti-cheat is
+            // not optional, so this no longer reads an env flag.
+            const enforceBudget = true;
             for (const b of bloodlines) {
                 if (!b || typeof b !== 'object')
                     continue;
@@ -439,8 +442,8 @@ function resolveEquippedLoadout(saveCharacter, save, clientCharacter) {
                 const blRank = typeof bl.rank === 'string' ? bl.rank : null;
                 let jutsus = bl.jutsus;
                 // Defense-in-depth: enforce the bloodline point budget here too, so a
-                // pre-existing over-budget save (written before BLOODLINE_BUDGET_SERVER
-                // was enabled) is still clamped down when it loads into a fight.
+                // pre-existing over-budget save (written before budget enforcement
+                // became permanent) is still clamped down when it loads into a fight.
                 if (enforceBudget && Array.isArray(jutsus)) {
                     jutsus = (0, _jutsu_points_js_1.enforceBloodlineBudget)(jutsus, blRank);
                 }
