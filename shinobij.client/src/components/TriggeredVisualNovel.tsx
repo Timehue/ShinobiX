@@ -76,7 +76,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // VN-only story scenes — no free battle, no XP/ryo (road-event fights come
     // only from choices). The choice itself is the payoff, recorded server-side,
     // so the free-battle affordances are hidden and the finale copy changes.
-    const isStoryInterlude = event.id.startsWith("story-interlude-") || event.id.startsWith("story-road-");
+    const isStoryInterlude = event.id.startsWith("story-interlude-") || event.id.startsWith("story-road-") || event.id.startsWith("rift-giver-") || event.id.startsWith("rift-descend-");
     // Post-finale ending epilogues ("story-epilogue-*", lib/story-epilogue.ts):
     // pure goodbye scenes — no battle, no reward, never re-offered.
     const isStoryEpilogue = event.id.startsWith("story-epilogue-");
