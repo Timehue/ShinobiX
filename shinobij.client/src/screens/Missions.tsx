@@ -30,6 +30,7 @@ import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { questbookEntry, questbookStage, metricLabel } from "../lib/questbook";
 import { WANDERER_QUEST_CATALOG, questMetricForId } from "../lib/wanderers";
 import { emissaryQuestById, emissaryByQuestId } from "../lib/legacy-emissaries";
+import { sectorPhrase } from "../lib/hollow-rifts";
 
 // Inline glyph that prefixes a tab/heading/button label — seated on the text baseline.
 const MH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -134,6 +135,9 @@ export function Missions({
         ? (emissaryQuestById(wanderBounty.id) ?? WANDERER_QUEST_CATALOG.find((q) => q.id === wanderBounty.id) ?? null)
         : null;
     const hasWanderingQuest = !!(wanderEpicEntry || wanderBounty);
+    // An accepted Hollow Gate rift shows here as a world-quest marker (the rift
+    // structure itself stands out in its target sector, never on the overview).
+    const activeRift = character.activeRiftQuest ?? null;
 
     return (
         <div className="card mission-hall">
@@ -212,7 +216,7 @@ export function Missions({
                     <GiCalendar style={MH_ICON} />Weekly
                 </button>
                 <button className={activeMissionTab === "wandering" ? "active" : ""} onClick={() => setActiveMissionTab("wandering")}>
-                    <GiCompass style={MH_ICON} />Wandering{hasWanderingQuest ? " •" : ""}
+                    <GiCompass style={MH_ICON} />World{(hasWanderingQuest || activeRift) ? " •" : ""}
                 </button>
             </div>
 
@@ -351,9 +355,22 @@ export function Missions({
             {/* -- Wandering Quests tab (sector-wanderer bounties + epics) -- */}
             {activeMissionTab === "wandering" && (
             <section className="mh-section">
-                <h3 className="mh-section-title"><GiCompass style={MH_ICON} />Wandering Quests</h3>
-                <p className="hint">Quests taken from wanderers on the roads. Wanderers <strong>roam the sectors</strong> — find a <strong>Wandering Sage</strong> (📜, the quest-giver) out on the World Map to continue or claim. Epic boss stages start from the Sage's journal.</p>
-                {!hasWanderingQuest && <p className="hint">You haven't taken any wandering quests yet. Look for a Wandering Sage in the sectors and accept one.</p>}
+                <h3 className="mh-section-title"><GiCompass style={MH_ICON} />World Quests</h3>
+                <p className="hint">Quests you pick up out in the world. Wanderers and rift-seers <strong>roam the sectors</strong> — find a <strong>Wandering Sage</strong> (📜) on the World Map to continue or claim, or travel to a <strong>marked sector</strong> to enter a Hollow Gate rift. Epic boss stages start from the Sage's journal.</p>
+                {!hasWanderingQuest && !activeRift && <p className="hint">You haven't taken any world quests yet. Look for a wanderer or a rift-seer out in the sectors and accept one.</p>}
+
+                {activeRift && (
+                    <div className="mh-fetch-card">
+                        <div className="mh-fetch-info">
+                            <strong><GiPositionMarker style={MH_ICON} />Hollow Gate Rift: {activeRift.bossName}</strong>
+                            <span className="mh-fetch-meta">A rift has torn open in {sectorPhrase(activeRift.targetSector)}.</span>
+                        </div>
+                        <div className="mh-fetch-progress-wrap">
+                            <div className="mh-fetch-progress-label"><span>Travel to the sector and descend the Hollow Gate.</span></div>
+                        </div>
+                        <span className="hint">Find the 🌀 rift structure there, descend, and defeat {activeRift.bossName} to complete the quest.</span>
+                    </div>
+                )}
 
                 {wanderEpic && wanderEpicEntry && wanderEpicStage && (() => {
                     const metric = wanderEpicStage.metric;

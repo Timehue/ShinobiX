@@ -38,6 +38,8 @@ import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOS
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent } from "../lib/story-road-events";
+import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
+import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { createPortal } from "react-dom";
 import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
@@ -273,6 +275,7 @@ export function WorldMap({
     onEnterHollowGate,
     hollowGateEventConfig,
     onEnterHollowGateEvent,
+    onDescendRift,
     setPvpBattleId,
     setPvpRole,
     setPvpBattleContext,
@@ -323,6 +326,11 @@ export function WorldMap({
     // Hollow Gate menu and hands the config back on entry.
     hollowGateEventConfig?: HollowGateEventConfig | null;
     onEnterHollowGateEvent?: (cfg: HollowGateEventConfig) => void;
+    // Descend into a wandering-quest rift (a scaled event Hollow Gate). Enters via
+    // the same event-gate path and SHARES the daily Hollow Gate run cap (a rift
+    // counts against the 2/day). If capped, the rift persists (7-day TTL) or can be
+    // abandoned at the rift; the shared cap is the backstop on the shrine-clear haul.
+    onDescendRift?: (rift: HollowRift) => void;
     setPvpBattleId: (id: string) => void;
     setPvpRole: (role: "p1" | "p2") => void;
     setPvpBattleContext: (context: SharedPvpBattleContext | null) => void;
@@ -884,6 +892,14 @@ export function WorldMap({
         const event = nextRoadEvent(character);
         return event ? [synthRoadWanderer(event, selectedSector)] : [];
     }, [character.level, character.storyProgress, character.storyTraits, selectedSector]);
+    // Hollow Gate Rift givers (lib/hollow-rifts): a rattled NPC roams the player's
+    // current sector to report a "strange energy" at a target sector. Only while a
+    // rift is available (level-gated, none active, off cooldown).
+    const riftGiverWanderers = useMemo(() => {
+        if (!isWanderersEnabled() || selectedSector == null) return [];
+        const rift = nextRift(character);
+        return rift ? [synthRiftGiver(rift, selectedSector)] : [];
+    }, [character.level, character.activeRiftQuest, character.riftCooldownUntil, selectedSector]);
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
@@ -1243,6 +1259,18 @@ export function WorldMap({
                 setCreatorEventPage(0);
                 setCreatorEventLine(0);
                 setSelectedCreatorEvent(roadEventToCreatorEvent(roadEvent, biomeForWorldSector(selectedSector)));
+            }
+            return;
+        }
+        // A rift giver reports a strange energy at a target sector — opens the
+        // intro VN (accept seals the rift + reveals its structure on the map).
+        if (w.id.startsWith(RIFT_GIVER_PREFIX)) {
+            const rift = riftBySynthId(w.id);
+            if (rift && selectedSector != null) {
+                const targetSector = riftTargetSector(character.name, rift.id);
+                setCreatorEventPage(0);
+                setCreatorEventLine(0);
+                setSelectedCreatorEvent(riftIntroEvent(rift, targetSector, biomeForWorldSector(selectedSector)));
             }
             return;
         }
@@ -2127,6 +2155,9 @@ export function WorldMap({
         // Story road events pay nothing here — the choice was the payoff and it
         // was reported at choice time. Just close the scene.
         if (event.id.startsWith(ROAD_WANDERER_PREFIX)) { setSelectedCreatorEvent(null); return; }
+        // Rift VNs (giver report / at-the-rift): accept + descend are handled in
+        // onChoice; completing the scene just closes it.
+        if (event.id.startsWith(RIFT_GIVER_PREFIX) || isRiftDescentEventId(event.id)) { setSelectedCreatorEvent(null); return; }
         const leveled = gainXp(character, event.xpReward);
         const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
         updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
@@ -2260,7 +2291,7 @@ export function WorldMap({
         return <TriggeredVisualNovel event={sageVnEvent} character={character} pageIndex={sageVnPage} lineIndex={sageVnLine} setPageIndex={setSageVnPage} setLineIndex={setSageVnLine} onCancel={() => setSageVnEvent(null)} onComplete={() => { setSageVnEvent(null); setSageChoiceOpen(true); }} onBattle={() => { /* the Sage never fights */ }} sharedImages={sharedImages} />;
     }
     if (selectedCreatorEvent) {
-        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const t = c.trait; if (t) { updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); if (selectedCreatorEvent.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, selectedCreatorEvent.id, t); } }} sharedImages={sharedImages} />;
+        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const ev = selectedCreatorEvent; if (!ev) return; if (c.trait === RIFT_ACCEPT_MARKER) { const rift = riftBySynthId(ev.id); setSelectedCreatorEvent(null); if (rift) void acceptRift(character.name, rift.id).then((resp) => { if (resp.ok && resp.activeRiftQuest) { updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: resp.activeRiftQuest }) : prev); } else { setTimeout(() => alert(resp.reason === "busy" ? "Finish the rift you already carry first." : resp.reason === "cooldown" ? "The energy has not gathered again yet. Come back later." : "The rift could not be marked. Try again in a moment."), 40); } }); return; } if (c.trait === RIFT_DESCEND_MARKER) { const rift = riftByDescentEventId(ev.id); setSelectedCreatorEvent(null); if (rift) onDescendRift?.(rift); return; } if (c.trait === RIFT_ABANDON_MARKER) { setSelectedCreatorEvent(null); void abandonRift(character.name); updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: null }) : prev); return; } const t = c.trait; if (t) { updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); if (ev.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, ev.id, t); } }} sharedImages={sharedImages} />;
         const event = selectedCreatorEvent!;
         const eventPages = event.vnPages ?? [];
         const pages = (eventPages.length > 0 ? eventPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }]) as NonNullable<CreatorEvent["vnPages"]>;
@@ -2597,7 +2628,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers].map(w => (
+                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers, ...riftGiverWanderers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}
@@ -2606,6 +2637,36 @@ export function WorldMap({
                                     onEngage={handleWandererEngage}
                                 />
                             ))}
+
+                            {/* Hollow Gate Rift structure — the 2.5D cave/shrine stands
+                                INSIDE its target sector's scene and nowhere else, so an
+                                accepted rift is reachable only by travelling to the right
+                                sector. Clicking it opens the at-the-rift VN whose "Descend"
+                                choice drops into the scaled event gate. */}
+                            {(() => {
+                                const arq = character.activeRiftQuest;
+                                if (!arq || selectedSector !== arq.targetSector) return null;
+                                const rift = hollowRiftById(arq.id);
+                                if (!rift) return null;
+                                return (
+                                    <button
+                                        key="sector-rift-structure"
+                                        className="atlas-landmark atlas-hollowRift sector-rift-structure"
+                                        style={{
+                                            left: "50%",
+                                            top: "32%",
+                                            backgroundImage: `url(/landmarks/${rift.landmark}.webp)`,
+                                            backgroundSize: "cover",
+                                            backgroundPosition: "center",
+                                        }}
+                                        onClick={() => { setCreatorEventPage(0); setCreatorEventLine(0); setSelectedCreatorEvent(riftDescentEvent(rift, ambienceBiomeForSector(selectedSector))); }}
+                                        title={`Rift: ${rift.bossName} — descend into the Hollow Gate`}
+                                    >
+                                        <strong>🌀</strong>
+                                        <span>Rift</span>
+                                    </button>
+                                );
+                            })()}
 
                             {/* Roaming weekly boss (weeklyBossRoam.v1): the boss looms in-sector
                                 and bears down on the player when this IS its current sector.
@@ -3660,6 +3721,11 @@ export function WorldMap({
                         </button>
                     );
                 })}
+
+                {/* (The Hollow Gate Rift structure is deliberately NOT drawn on the
+                    world overview. It appears only inside its target sector's scene,
+                    so a rift is reachable ONLY by going to the correct sector — see the
+                    in-sector render in the sector-stage panel.) */}
 
                 {/* Settlement life — a soft hearth glow + a rising hearth-smoke
                     wisp over each village/Central, so the towns read as lived-in.
