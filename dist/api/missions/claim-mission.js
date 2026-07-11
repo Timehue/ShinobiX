@@ -16,6 +16,7 @@ const _beta_metrics_js_1 = require("../_beta-metrics.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
 const _era_js_1 = require("../_era.js");
 const _mission_progress_receipt_js_1 = require("./_mission-progress-receipt.js");
+const _economic_receipt_js_1 = require("../_economic-receipt.js");
 const _release_flags_js_1 = require("../_release-flags.js");
 const _eligibility_js_1 = require("./_eligibility.js");
 const _mission_catalog_js_1 = require("./_mission-catalog.js");
@@ -30,12 +31,12 @@ const _mission_catalog_js_1 = require("./_mission-catalog.js");
 // Eligibility enforced server-side (against the SAVED character, not the body):
 //   • combat       — missionId must be in pendingCombatMissionClaims (queued by
 //                    the Arena win); consumed on claim. Counts toward daily cap.
-//   • field        — level requirement + daily cap. (Explore/raid progress stays
-//                    client-tracked — same trust model as raids/expeditions.)
+//   • field        — level requirement + daily cap + single-use server evidence
+//                    for every explore/raid progress event.
 //   • hunt         — Hunter Guild contract: level req + the INDEPENDENT daily
 //                    hunt cap; grants material drops (itemRewards) server-side so
-//                    they can't be minted client-side (audit M-1). Hunt progress
-//                    (explore count) stays client-tracked like field missions.
+//                    they can't be minted client-side (audit M-1). Track/kill
+//                    progress likewise requires single-use server evidence.
 //   • academy-trial— one-time (character.academyTrialClaimed). OFF the daily cap.
 //
 // Unknown / creator-authored mission ids are not paid here. Rewarded missions
@@ -133,6 +134,8 @@ async function handler(req, res) {
             let academyTrialClaimed = false;
             let academyChecklistClaimed = false;
             let progressReceiptKeyToClear = null;
+            let progressReceiptToConsume = null;
+            const claimReservations = [];
             if (missionType === 'combat') {
                 const def = (0, _mission_catalog_js_1.combatMissionByKey)(missionId);
                 if (!def)
@@ -184,10 +187,12 @@ async function handler(req, res) {
                 if (!(0, _mission_catalog_js_1.hasDailyMissionSlot)(char, todayKey))
                     return { applied: false, reason: 'daily-cap' };
                 const progressKey = (0, _mission_progress_receipt_js_1.missionProgressReceiptKey)(playerName, missionId);
-                const progress = (0, _mission_progress_receipt_js_1.validateMissionProgressReceipt)((0, _mission_progress_receipt_js_1.cleanMissionProgressReceipt)(await _storage_js_1.kv.get(progressKey).catch(() => null)), { playerName, missionId, missionType: 'field', mission: def });
+                const progressReceipt = (0, _mission_progress_receipt_js_1.cleanMissionProgressReceipt)(await _storage_js_1.kv.get(progressKey));
+                const progress = (0, _mission_progress_receipt_js_1.validateMissionProgressReceipt)(progressReceipt, { playerName, missionId, missionType: 'field', mission: def });
                 if (!progress.ok)
                     return { applied: false, reason: progress.reason };
                 progressReceiptKeyToClear = progressKey;
+                progressReceiptToConsume = progressReceipt;
                 baseXp = def.xpReward;
                 baseRyo = def.ryoReward;
                 baseStamina = def.staminaReward;
@@ -207,10 +212,12 @@ async function handler(req, res) {
                 if (!(0, _mission_catalog_js_1.hasDailyHuntSlot)(char, todayKey))
                     return { applied: false, reason: 'daily-cap' };
                 const progressKey = (0, _mission_progress_receipt_js_1.missionProgressReceiptKey)(playerName, missionId);
-                const progress = (0, _mission_progress_receipt_js_1.validateMissionProgressReceipt)((0, _mission_progress_receipt_js_1.cleanMissionProgressReceipt)(await _storage_js_1.kv.get(progressKey).catch(() => null)), { playerName, missionId, missionType: 'hunt', mission: def });
+                const progressReceipt = (0, _mission_progress_receipt_js_1.cleanMissionProgressReceipt)(await _storage_js_1.kv.get(progressKey));
+                const progress = (0, _mission_progress_receipt_js_1.validateMissionProgressReceipt)(progressReceipt, { playerName, missionId, missionType: 'hunt', mission: def });
                 if (!progress.ok)
                     return { applied: false, reason: progress.reason };
                 progressReceiptKeyToClear = progressKey;
+                progressReceiptToConsume = progressReceipt;
                 baseXp = def.xpReward;
                 baseRyo = def.ryoReward;
                 baseStamina = def.staminaReward;
@@ -242,22 +249,43 @@ async function handler(req, res) {
                 completion = 'none';
                 academyChecklistClaimed = true;
             }
-            // Per-mission idempotency for field/hunt claims: each built-in
-            // field/hunt mission is claimable at most once per UTC day (matches
-            // the UI's one-card-per-mission model). The daily cap alone doesn't
-            // stop a client re-POSTing the single highest-value mission id up to
-            // the cap, and the explore/raid prerequisite is only client-tracked,
-            // so without this the best mission is re-claimable N times/day (audit
-            // #2). The NX reserve lives inside the save lock so it settles
-            // atomically with the payout, and fails OPEN (a KV hiccup never denies
-            // a legit claim). Combat (pendingCombatMissionClaims, consumed on
-            // claim) and academy-trial (academyTrialClaimed latch) are already
-            // single-use, so only field/hunt need this.
+            // Per-mission idempotency for field/hunt claims. Both reservations
+            // fail CLOSED: without a durable latch the client could replay the
+            // reward. The daily latch enforces the one-card-per-day rule, while
+            // the long-lived evidence-bundle latch prevents a progress receipt
+            // whose cleanup failed from paying again on a later UTC day.
             if (missionType === 'field' || missionType === 'hunt') {
+                if (!progressReceiptToConsume)
+                    return { applied: false, reason: 'missing-progress-receipt' };
                 const claimKey = `missions:field-claimed:${playerName}:${missionId}:${todayKey}`;
-                const placed = await _storage_js_1.kv.set(claimKey, '1', { nx: true, ex: 26 * 60 * 60 }).catch(() => 'OK');
-                if (placed === null)
+                const dailyReservation = await (0, _economic_receipt_js_1.reserveEconomicReceipt)(_storage_js_1.kv, {
+                    key: claimKey,
+                    fingerprint: `mission:${playerName}:${missionType}:${missionId}:${todayKey}`,
+                    ttlSeconds: 26 * 60 * 60,
+                    metadata: { playerName, missionType, missionId, todayKey },
+                });
+                if (dailyReservation.status === 'conflict')
+                    return { applied: false, reason: 'claim-receipt-conflict' };
+                if (dailyReservation.status === 'replay')
                     return { applied: false, reason: 'already-claimed-today' };
+                claimReservations.push({ key: claimKey, ttl: 26 * 60 * 60, reservation: dailyReservation });
+                const evidenceKey = (0, _mission_progress_receipt_js_1.missionProgressEvidenceBundleKey)(playerName, progressReceiptToConsume);
+                const evidenceReservation = await (0, _economic_receipt_js_1.reserveEconomicReceipt)(_storage_js_1.kv, {
+                    key: evidenceKey,
+                    fingerprint: `mission-evidence:${playerName}:${missionType}:${missionId}`,
+                    ttlSeconds: 90 * 24 * 60 * 60,
+                    metadata: { playerName, missionType, missionId },
+                });
+                if (evidenceReservation.status !== 'reserved') {
+                    await Promise.all(claimReservations.map((entry) => (0, _economic_receipt_js_1.abortEconomicReceipt)(_storage_js_1.kv, entry.key, entry.reservation).catch(() => false)));
+                    return {
+                        applied: false,
+                        reason: evidenceReservation.status === 'conflict'
+                            ? 'claim-receipt-conflict'
+                            : 'progress-receipt-already-consumed',
+                    };
+                }
+                claimReservations.push({ key: evidenceKey, ttl: 90 * 24 * 60 * 60, reservation: evidenceReservation });
             }
             // ── Compute server-authoritative amounts ────────────────────────
             const xpBoosted = (0, _mission_catalog_js_1.boostAmount)(baseXp, bonusPct);
@@ -313,8 +341,14 @@ async function handler(req, res) {
             if (academyChecklistClaimed)
                 next = { ...next, academyChecklistClaimed: true };
             const updated = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
-            (0, _save_version_js_1.bumpSaveVersion)(updated);
-            await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
+            // A thrown remote acknowledgement does not prove the write failed.
+            // Never abort these receipts after the protected save was attempted.
+            await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updated), record));
+            // The save is durable now. Commit each reservation; if a commit
+            // write fails, its pending owner row remains replay-blocking.
+            for (const entry of claimReservations) {
+                await (0, _economic_receipt_js_1.commitEconomicReceipt)(_storage_js_1.kv, entry.key, entry.reservation, entry.ttl);
+            }
             if (progressReceiptKeyToClear) {
                 await _storage_js_1.kv.del(progressReceiptKeyToClear).catch(() => 0);
             }
@@ -399,6 +433,9 @@ async function handler(req, res) {
     }
     catch (err) {
         console.error('[missions/claim-mission]', err);
+        if ((0, _economic_receipt_js_1.isEconomicReceiptStorageError)(err)) {
+            return res.status(503).json({ error: 'Could not reserve the mission reward receipt. Please retry.' });
+        }
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

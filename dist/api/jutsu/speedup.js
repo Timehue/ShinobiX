@@ -113,8 +113,7 @@ async function handler(req, res) {
                     endsAt: Math.max(Date.now(), Number(activeJutsuTraining.endsAt) - minutesReduced * 60_000),
                 },
             };
-            (0, _save_version_js_1.bumpSaveVersion)(updated);
-            await _storage_js_1.kv.set(key, (0, _utils_js_1.mergePreservingImages)(updated, record));
+            await _storage_js_1.kv.set(key, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updated), record));
             return {
                 status: 200,
                 body: {

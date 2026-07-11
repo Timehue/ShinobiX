@@ -24,8 +24,8 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'GET' && req.method !== 'POST')
         return res.status(405).end();
-    if (!(0, _auth_js_1.isAdmin)(req))
-        return res.status(403).json({ error: 'Admin access required.' });
+    if (!(0, _auth_js_1.isFullAdmin)(req))
+        return res.status(403).json({ error: 'Full admin access required.' });
     if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'admin-economy', 60, 60_000))
         return;
     const body = typeof req.body === 'string'

@@ -19,6 +19,7 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _lock_js_1 = require("../_lock.js");
 async function handler(req, res) {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'POST only' });
@@ -32,19 +33,34 @@ async function handler(req, res) {
         return;
     }
     const dryRun = req.query?.dry === '1' || req.query?.dry === 'true';
+    if (!dryRun && process.env.KV_MIGRATION_WRITE_FROZEN !== '1') {
+        res.status(409).json({
+            ok: false,
+            error: 'Live migration requires KV_MIGRATION_WRITE_FROZEN=1 after legacy base writers are stopped.',
+        });
+        return;
+    }
     try {
-        const result = await (0, _storage_js_1.migrateDiskRoutedKeysToOverlay)({ dryRun });
+        const result = await (0, _lock_js_1.withKvLock)('admin:migrate-kv', () => (0, _storage_js_1.migrateDiskRoutedKeysToOverlay)({ dryRun }), { failClosed: true, ttlSec: 60 * 60, maxAttempts: 1 });
         res.status(200).json({
             ok: true,
             dryRun,
             migratedCount: result.migrated.length,
+            alreadyPresentCount: result.alreadyPresent.length,
+            conflictCount: result.conflicts.length,
             skippedCount: result.skipped.length,
             deletedFromBase: result.deleted,
             migrated: result.migrated,
+            alreadyPresent: result.alreadyPresent,
+            conflicts: result.conflicts,
             skipped: result.skipped,
         });
     }
     catch (err) {
+        if (err instanceof _lock_js_1.LockContendedError) {
+            res.status(409).json({ ok: false, error: 'Another migration is already running.' });
+            return;
+        }
         console.error('[admin/migrate-kv] failed:', err);
         res.status(500).json({ ok: false, error: 'Internal server error.' });
     }

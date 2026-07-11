@@ -3049,8 +3049,7 @@ export default function App() {
     // App-level accept for spar/ranked challenges — allows accepting from any screen,
     // not just when the player has already navigated to the Arena.
     async function acceptChallengeGlobal(challenge: DuelChallenge) {
-        if (!character) return;
-        if (!requireServerSettlement("pvpSession")) return;
+        if (!character || !requireServerSettlement("pvpSession")) return;
         if (processingChallengeIds.includes(challenge.id)) return;
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         const challenger = normalizeCharacter(challenge.challenger);
@@ -7827,8 +7826,7 @@ export default function App() {
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
                         onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster }); }}
-                        sectorAttackPlayer={async (opponent) => {
-                            if (!requireServerSettlement("pvpSession")) return;
+                        sectorAttackPlayer={async (opponent) => { if (!requireServerSettlement("pvpSession")) return;
                             if (isTraveling) {
                                 alert("You cannot attack while traveling.");
                                 return;

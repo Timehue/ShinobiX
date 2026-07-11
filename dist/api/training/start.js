@@ -8,6 +8,8 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _training_config_js_1 = require("../_training-config.js");
+const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
+const _session_js_1 = require("./_session.js");
 /*
  * /api/training/start — POST only
  *
@@ -15,16 +17,14 @@ const _training_config_js_1 = require("../_training-config.js");
  * docs/leveling-training-redesign-plan.md). The chosen stat, tier, start/end
  * timestamps and the AUTHORITATIVE stat gain + XP trickle are SEALED into the
  * token here so /api/training/complete pays out from the sealed values, not the
- * client body. The gain is computed from the tier rate and a CLAMPED
- * client-reported training bonus (village/clan bonus formula lives in a client
- * lib; clamping it here bounds the trust surface, and the save sanitizer's
- * per-save stat clamp is the hard backstop).
+ * client body. Only base tier rewards are used until village/war modifiers can
+ * be derived entirely from trusted server state.
  *
- * Gates: a daily mint cap + a per-session time-gate (complete can't redeem before
- * endsAt). Fail-open: if the client can't reach this endpoint it applies the local
- * gain (sanitizer-bounded) instead, so a hiccup never strands a player.
+ * Gates: one live session per player, a daily mint cap, and a per-session
+ * time-gate (complete can't redeem before endsAt). The client fails closed when
+ * this endpoint is unavailable.
  *
- * Body: { playerName, stat, tierId, trainingBonusPct?, warMult? }
+ * Body: { playerName, stat, tierId }
  * Token: `training-token:<player>:<uuid>`, single-use (complete deletes on redeem).
  */
 const STAT_KEYS = [
@@ -35,12 +35,6 @@ const STAT_KEYS = [
 // Generous anti-abuse ceiling, not a play-limit: an idle player restarts the 8h
 // tier ~3×/day; an active short-tier player far more. Well above legit cadence.
 const MAX_TRAINING_STARTS_PER_DAY = 96;
-// Clamp the client-reported village/clan training bonus. The real max is well
-// under this; the clamp bounds how much a tampered body can inflate the seal.
-const MAX_TRAINING_BONUS_PCT = 60;
-// Covers the 8h max tier + a long collect window (a player may close the game for
-// days). The single-use deletion + time-gate + daily cap are the real bounds.
-const TOKEN_TTL_SECONDS = 25 * 60 * 60;
 function utcDateKey() {
     return new Date().toISOString().slice(0, 10);
 }
@@ -64,8 +58,6 @@ async function handler(req, res) {
         const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
         const stat = STAT_KEYS.includes(body.stat) ? String(body.stat) : null;
         const tier = _training_config_js_1.TRAINING_TIERS.find((t) => t.id === body.tierId) ?? null;
-        const bonusPct = Math.max(0, Math.min(MAX_TRAINING_BONUS_PCT, Number(body.trainingBonusPct ?? 0) || 0));
-        const warMult = Math.max(0.5, Math.min(1, Number(body.warMult ?? 1) || 1));
         if (!playerName)
             return res.status(400).json({ error: 'Invalid player name.' });
         if (!stat)
@@ -78,30 +70,94 @@ async function handler(req, res) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only start your own training.' });
         }
-        // Daily mint cap, read-check-increment under a lock so concurrent starts
-        // can't both slip past the boundary. Fail-open (no failClosed): a rare
-        // over-mint costs a bounded stat gain, and we'd rather start than 500.
+        // The active lease, daily cap, and stamina debit share one fail-closed
+        // player-save lock so concurrent starts cannot cross any boundary.
         const today = utcDateKey();
         const dailyKey = `training-start-count:${playerName}:${today}`;
-        const capCheck = await (0, _lock_js_1.withKvLock)(dailyKey, async () => {
-            const startedToday = Number((await _storage_js_1.kv.get(dailyKey)) ?? 0);
-            if (startedToday >= MAX_TRAINING_STARTS_PER_DAY)
-                return { capped: true };
-            await _storage_js_1.kv.set(dailyKey, startedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
-            return { capped: false };
-        });
-        if (capCheck.capped) {
-            return res.status(200).json({ ok: true, reason: 'daily-training-cap', token: null });
-        }
-        const startedAt = Date.now();
-        const endsAt = startedAt + tier.ms;
-        const sealedGain = Math.max(0, Math.round((0, _training_config_js_1.trainingStatGain)(tier, tier.ms, bonusPct) * warMult));
-        const sealedXp = Math.max(0, Math.round(tier.xp * (1 + bonusPct / 100) * warMult));
-        const tokenId = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
-        await _storage_js_1.kv.set(`training-token:${playerName}:${tokenId}`, {
-            playerName, stat, tierId: tier.id, startedAt, endsAt, sealedGain, sealedXp,
-        }, { ex: TOKEN_TTL_SECONDS });
-        return res.status(200).json({ ok: true, token: tokenId, startedAt, endsAt, durationMs: tier.ms, sealedGain, sealedXp });
+        const saveKey = `save:${playerName}`;
+        const activeKey = `training-active:${playerName}`;
+        const result = await (0, _lock_js_1.withKvLock)(saveKey, async () => {
+            const record = await _storage_js_1.kv.get(saveKey);
+            const character = (record?.character ?? null);
+            if (!record || !character) {
+                return { status: 404, body: { error: 'Player save not found.' } };
+            }
+            // A missing or expired token cannot strand the account. Clear the
+            // stale lease under the save lock before accepting a new session.
+            const activeRaw = await _storage_js_1.kv.get(activeKey);
+            const active = (0, _session_js_1.normalizeActiveTrainingSession)(activeRaw);
+            const activeTokenExists = !!active && active.expiresAt > Date.now()
+                ? !!(await _storage_js_1.kv.get(`training-token:${playerName}:${active.token}`))
+                : false;
+            if ((0, _session_js_1.activeTrainingBlocksStart)(active, activeTokenExists)) {
+                return {
+                    status: 409,
+                    body: {
+                        error: 'A stat training session is already active.',
+                        reason: 'training-already-active',
+                        endsAt: active?.endsAt,
+                    },
+                };
+            }
+            if (activeRaw)
+                await _storage_js_1.kv.del(activeKey);
+            const startedToday = Math.max(0, Math.floor(Number((await _storage_js_1.kv.get(dailyKey)) ?? 0)));
+            if (startedToday >= MAX_TRAINING_STARTS_PER_DAY) {
+                return { status: 429, body: { error: 'Daily training start limit reached.', reason: 'daily-training-cap' } };
+            }
+            const stamina = Math.max(0, Math.floor(Number(character.stamina) || 0));
+            if (stamina < tier.staminaCost) {
+                return { status: 409, body: { error: 'Not enough stamina.' } };
+            }
+            const startedAt = Date.now();
+            const endsAt = startedAt + tier.ms;
+            const expiresAt = startedAt + _session_js_1.TRAINING_TOKEN_TTL_SECONDS * 1_000;
+            const { sealedGain, sealedXp } = (0, _session_js_1.trustedTrainingRewards)(tier);
+            const tokenId = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
+            const tokenKey = `training-token:${playerName}:${tokenId}`;
+            try {
+                await _storage_js_1.kv.set(tokenKey, {
+                    playerName, stat, tierId: tier.id, startedAt, endsAt, sealedGain, sealedXp,
+                }, { ex: _session_js_1.TRAINING_TOKEN_TTL_SECONDS });
+                await _storage_js_1.kv.set(activeKey, {
+                    token: tokenId, startedAt, endsAt, expiresAt,
+                }, { ex: _session_js_1.TRAINING_TOKEN_TTL_SECONDS });
+                await _storage_js_1.kv.set(dailyKey, startedToday + 1, { ex: 25 * 60 * 60 });
+                const nextCharacter = { ...character, stamina: stamina - tier.staminaCost };
+                const activeTraining = {
+                    label: `${tier.label} ${stat} Training`,
+                    stat,
+                    xp: sealedXp,
+                    statGain: sealedGain,
+                    staminaCost: tier.staminaCost,
+                    endsAt,
+                    durationMs: tier.ms,
+                    token: tokenId,
+                };
+                const saved = await (0, _mutate_player_save_js_1.writeVersionedPlayerSave)(saveKey, { ...record, activeTraining }, nextCharacter);
+                return {
+                    status: 200,
+                    body: {
+                        ok: true,
+                        token: tokenId,
+                        startedAt,
+                        endsAt,
+                        durationMs: tier.ms,
+                        sealedGain,
+                        sealedXp,
+                        staminaCost: tier.staminaCost,
+                        character: nextCharacter,
+                        _saveVersion: saved._saveVersion,
+                    },
+                };
+            }
+            catch (error) {
+                await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
+                await _storage_js_1.kv.del(activeKey).catch(() => undefined);
+                throw error;
+            }
+        }, { failClosed: true });
+        return res.status(result.status).json(result.body);
     }
     catch (err) {
         console.error('[training/start]', err);

@@ -160,8 +160,7 @@ async function handler(req, res) {
                     };
                     // Bump _saveVersion so a stale declarer tab can't refund the
                     // debit (a free war) via its next autosave (audit #2 class).
-                    (0, _save_version_js_1.bumpSaveVersion)(updated);
-                    await _storage_js_1.kv.set(saveKey, updated);
+                    await _storage_js_1.kv.set(saveKey, (0, _save_version_js_1.bumpSaveVersion)(updated));
                     return null;
                 }, { failClosed: true });
                 if (debitError)

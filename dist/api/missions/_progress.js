@@ -99,8 +99,7 @@ async function awardProfessionXp(playerName, profession, amount) {
                 professionRank: nextRank,
             },
         };
-        (0, _save_version_js_1.bumpSaveVersion)(updated);
-        await _storage_js_1.kv.set(saveKey, updated);
+        await _storage_js_1.kv.set(saveKey, (0, _save_version_js_1.bumpSaveVersion)(updated));
         return { xp: nextXp, rank: nextRank };
     }, { failClosed: true });
 }
@@ -319,8 +318,7 @@ async function awardNewbieRyo(playerName, amount) {
             ...record,
             character: { ...char, ryo: Number(char.ryo ?? 0) + amount },
         };
-        (0, _save_version_js_1.bumpSaveVersion)(updated);
-        await _storage_js_1.kv.set(saveKey, updated);
+        await _storage_js_1.kv.set(saveKey, (0, _save_version_js_1.bumpSaveVersion)(updated));
     }, { failClosed: true });
 }
 // Progress the new-shinobi dailies for a matching event kind. No-op for players
