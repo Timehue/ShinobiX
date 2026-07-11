@@ -6274,7 +6274,7 @@ export default function App() {
             maxFloor: hollowGateRunMaxFloor(hollowGateRun),
             bossDisplayName: hollowGateBossDisplayName(hollowGateRun),
             variantBossAiId: hollowGateRun?.variant?.bossAiId,
-            opts,
+            opts, gentleNonBoss: (hollowGateRun?.variant?.id ?? "").startsWith("rift-"),
         });
         if (!pick) {
             alert("The shrine refuses to reveal an opponent right now.");
