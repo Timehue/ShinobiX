@@ -25,10 +25,10 @@ exports.riftTargetSector = riftTargetSector;
 exports.RIFT_DAILY_CAP = 3; // paid rift clears per UTC day
 exports.RIFT_COOLDOWN_MS = 6 * 60 * 60 * 1000; // roaming giver stays quiet 6h after a clear
 exports.RIFT_QUESTS = {
-    // L15 legacy-intro rift: a gentle first taste + teaches what Legacies are.
+    // L12 legacy-intro rift: a gentle first taste + teaches what Legacies are.
     // Modest reward (intro tier), smaller than the L30 stalker.
     "rift-legacy-echo": {
-        id: "rift-legacy-echo", levelReq: 15, bossName: "The Unremembered",
+        id: "rift-legacy-echo", levelReq: 12, bossName: "The Unremembered",
         weight: 5, fateShards: 1, boneCharms: 8,
     },
     "rift-hollow-stalker": {
