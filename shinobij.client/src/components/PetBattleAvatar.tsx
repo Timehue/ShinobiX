@@ -81,7 +81,7 @@ export function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string;
                 {pet.trait && <p><strong>Trait:</strong> {pet.trait} — {petTraitDescriptions[pet.trait]}</p>}
                 <div className="pet-arena-jutsu-list">
                     {pet.jutsus.length ? pet.jutsus.map((jutsu) => {
-                        const kindColors: Record<string, string> = { damage: "#fca5a5", buff: "#86efac", heal: "#4ade80", debuff: "#f97316", dot: "#c084fc", move: "#93c5fd", barrier: "#7dd3fc", movelock: "#fbbf24" };
+                        const kindColors: Record<string, string> = { damage: "var(--red-300)", buff: "var(--green-300)", heal: "var(--green-400)", debuff: "#f97316", dot: "var(--purple-400)", move: "var(--blue-300)", barrier: "#7dd3fc", movelock: "#fbbf24" };
                         const kindIcons:  Record<string, string> = { damage: "⚔", buff: "⬆", heal: "✚", debuff: "⬇", dot: "☠", move: "➡", barrier: "◇", movelock: "⛓" };
                         const col  = kindColors[jutsu.kind] ?? "#aaa";
                         const icon = kindIcons[jutsu.kind]  ?? "✦";

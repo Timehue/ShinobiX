@@ -65,7 +65,7 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                 alignSelf: "flex-start",
                 background: "none",
                 border: "none",
-                color: "#94a3b8",
+                color: "var(--text-dim)",
                 cursor: "pointer",
                 display: "inline-flex",
                 alignItems: "center",
@@ -92,7 +92,7 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                     border: "1px solid rgba(250,204,21,.28)",
                 }}
             >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 5, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 5, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "var(--gold)", textTransform: "uppercase" }}>
                     <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         <GameIcon name="target" size={11} /> Next goal · {objective.title}
                     </span>
@@ -101,12 +101,12 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, fontSize: 12, fontWeight: 600, color: "#f8fafc", marginTop: 2 }}>
                     <span>
                         {req.label}
-                        {req.target > 1 && <span style={{ color: "#94a3b8", fontWeight: 500 }}> {Math.min(req.progress, req.target)}/{req.target}</span>}
+                        {req.target > 1 && <span style={{ color: "var(--text-dim)", fontWeight: 500 }}> {Math.min(req.progress, req.target)}/{req.target}</span>}
                     </span>
                     {req.goScreen && (
                         <button
                             onClick={() => navigate(req.goScreen as Screen)}
-                            style={{ cursor: "pointer", background: "none", color: "#facc15", fontWeight: 700, fontSize: 11, border: "none", padding: 0, whiteSpace: "nowrap" }}
+                            style={{ cursor: "pointer", background: "none", color: "var(--gold)", fontWeight: 700, fontSize: 11, border: "none", padding: 0, whiteSpace: "nowrap" }}
                         >
                             {req.goLabel ?? "Go"} →
                         </button>
@@ -114,7 +114,7 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                 </div>
                 {req.target > 1 && (
                     <div style={{ height: 3, borderRadius: 3, background: "rgba(148,163,184,.25)", marginTop: 5, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: "#facc15" }} />
+                        <div style={{ height: "100%", width: `${pct}%`, background: "var(--gold)" }} />
                     </div>
                 )}
             </div>
@@ -132,24 +132,24 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
             }}
         >
             <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.3, color: "var(--gold)", textTransform: "uppercase" }}>
                     <GameIcon name="target" size={13} /> Next goal · {objective.title}
                 </div>
                 <div style={{ fontWeight: 600, color: "#f8fafc", marginTop: 2 }}>
                     {req.label}
-                    {req.target > 1 && <span style={{ color: "#94a3b8", fontWeight: 500 }}> · {Math.min(req.progress, req.target)}/{req.target}</span>}
+                    {req.target > 1 && <span style={{ color: "var(--text-dim)", fontWeight: 500 }}> · {Math.min(req.progress, req.target)}/{req.target}</span>}
                 </div>
-                {req.detail && <div style={{ fontSize: 12.5, color: "#94a3b8", marginTop: 1 }}>{req.detail}</div>}
+                {req.detail && <div style={{ fontSize: 12.5, color: "var(--text-dim)", marginTop: 1 }}>{req.detail}</div>}
                 {req.target > 1 && (
                     <div style={{ height: 4, borderRadius: 4, background: "rgba(148,163,184,.25)", marginTop: 6, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: "#facc15" }} />
+                        <div style={{ height: "100%", width: `${pct}%`, background: "var(--gold)" }} />
                     </div>
                 )}
             </div>
             {req.goScreen && (
                 <button
                     onClick={() => navigate(req.goScreen as Screen)}
-                    style={{ cursor: "pointer", background: "linear-gradient(180deg, #facc15, #eab308)", color: "#1a1306", fontWeight: 700, fontSize: 13, border: "none", borderRadius: 8, padding: "8px 16px", whiteSpace: "nowrap" }}
+                    style={{ cursor: "pointer", background: "linear-gradient(180deg, var(--gold), #eab308)", color: "#1a1306", fontWeight: 700, fontSize: 13, border: "none", borderRadius: 8, padding: "8px 16px", whiteSpace: "nowrap" }}
                 >
                     {req.goLabel ?? "Go"} →
                 </button>

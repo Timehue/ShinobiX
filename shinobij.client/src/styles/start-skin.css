@@ -70,7 +70,7 @@
 .start-nav-btn {
     appearance: none;
     background: linear-gradient(180deg, rgba(13, 16, 28, 0.92), rgba(6, 8, 18, 0.96)) !important;
-    color: #fde68a;
+    color: var(--gold-300);
     border: 1px solid rgba(202, 138, 4, 0.55);
     border-radius: 10px;
     padding: 12px 36px;
@@ -171,7 +171,7 @@
 .start-card-title {
     margin: 0 0 18px !important;
     text-align: center;
-    color: #fde68a !important;
+    color: var(--gold-300) !important;
     font-family: var(--font-display);
     letter-spacing: 0.32em;
     font-size: 18px;
@@ -294,7 +294,7 @@
 }
 
 .start-eye-btn:hover {
-    color: #fde68a !important;
+    color: var(--gold-300) !important;
 }
 
 .start-eye-btn svg {
@@ -411,7 +411,7 @@
 
 .start-leaderboard-header h2 {
     margin: 0;
-    color: #fde68a;
+    color: var(--gold-300);
     font-family: var(--font-display);
     font-size: 28px;
     letter-spacing: 0.18em;
@@ -460,7 +460,7 @@
 .start-leaderboard-tab.is-active {
     background: linear-gradient(180deg, rgba(120, 53, 15, 0.55), rgba(69, 26, 3, 0.6)) !important;
     border-color: #ca8a04;
-    color: #fde68a;
+    color: var(--gold-300);
     box-shadow: 0 0 16px rgba(202, 138, 4, 0.35);
 }
 
@@ -497,8 +497,8 @@
     border-left-color: rgba(202, 138, 4, 0.6);
 }
 
-.start-leaderboard-row.top-1 { border-left-color: #facc15; }
-.start-leaderboard-row.top-2 { border-left-color: #cbd5e1; }
+.start-leaderboard-row.top-1 { border-left-color: var(--gold); }
+.start-leaderboard-row.top-2 { border-left-color: var(--slate-300); }
 .start-leaderboard-row.top-3 { border-left-color: #b45309; }
 
 .start-leaderboard-rank {
@@ -550,7 +550,7 @@
 
 .start-tournament-card h3 {
     margin: 0 0 10px;
-    color: #fde68a;
+    color: var(--gold-300);
     font-family: var(--font-display);
     letter-spacing: 0.12em;
     font-size: 18px;
@@ -597,7 +597,7 @@
 
 .start-back-button:hover {
     border-color: rgba(250, 204, 21, 0.8);
-    color: #fde68a !important;
+    color: var(--gold-300) !important;
 }
 
 /* --------- Hide app banner on start screen --------- */

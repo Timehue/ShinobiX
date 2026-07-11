@@ -46,7 +46,7 @@ export function WorldToast({ text, kicker = "World update", icon, onClose }: {
                         display: "grid",
                         placeItems: "center",
                         borderRadius: "50%",
-                        color: "#fde68a",
+                        color: "var(--gold-300)",
                         background: "rgba(120,53,15,.55)",
                         border: "1px solid rgba(250,204,21,.45)",
                         flexShrink: 0,
@@ -56,10 +56,10 @@ export function WorldToast({ text, kicker = "World update", icon, onClose }: {
                 </div>
             )}
             <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: ".72rem", letterSpacing: 0, textTransform: "uppercase", color: "#fde68a", fontWeight: 800, marginBottom: 2 }}>
+                <div style={{ fontSize: ".72rem", letterSpacing: 0, textTransform: "uppercase", color: "var(--gold-300)", fontWeight: 800, marginBottom: 2 }}>
                     {kicker}
                 </div>
-                <div style={{ fontSize: ".82rem", color: "#e2e8f0", lineHeight: 1.45 }}>
+                <div style={{ fontSize: ".82rem", color: "var(--slate-200)", lineHeight: 1.45 }}>
                     {text}
                 </div>
             </div>

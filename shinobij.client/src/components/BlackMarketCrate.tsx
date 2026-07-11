@@ -11,10 +11,10 @@ import crateOpen from "../assets/festival/bm-crate-open.webp";
 
 const TIER_META: Record<BlackMarketReward["tier"], { label: string; color: string; glow: string }> = {
     scraps:  { label: "Scraps from the Dust", color: "#9ca3af", glow: "rgba(156,163,175,0.45)" },
-    trinket: { label: "A Smuggled Trinket",   color: "#4ade80", glow: "rgba(74,222,128,0.5)" },
-    haul:    { label: "A Tidy Haul",          color: "#60a5fa", glow: "rgba(96,165,250,0.6)" },
-    relic:   { label: "A Relic Cache",        color: "#c084fc", glow: "rgba(192,132,252,0.65)" },
-    fortune: { label: "A Desert Fortune",     color: "#facc15", glow: "rgba(250,204,21,0.7)" },
+    trinket: { label: "A Smuggled Trinket",   color: "var(--green-400)", glow: "rgba(74,222,128,0.5)" },
+    haul:    { label: "A Tidy Haul",          color: "var(--blue-400)", glow: "rgba(96,165,250,0.6)" },
+    relic:   { label: "A Relic Cache",        color: "var(--purple-400)", glow: "rgba(192,132,252,0.65)" },
+    fortune: { label: "A Desert Fortune",     color: "var(--gold)", glow: "rgba(250,204,21,0.7)" },
     jackpot: { label: "BLACK SUN JACKPOT",    color: "#fbbf24", glow: "rgba(251,191,36,0.95)" },
 };
 

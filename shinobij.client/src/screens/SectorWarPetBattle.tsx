@@ -80,7 +80,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
         return (
             <div>
                 <div style={{ textAlign: "center", padding: 8, fontWeight: 700 }}>{banner}</div>
-                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading the arena…</div>}>
+                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the arena…</div>}>
                     <PetColiseumDuel key={session.seed} playerPet={session.p1.pet} enemyPet={session.p2.pet} seed={session.seed} result={result} sharedImages={{}} onExit={back} />
                 </Suspense>
             </div>
@@ -112,7 +112,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
                     <div><button onClick={send} disabled={busy || !selectedPetId}>{busy ? "…" : "Send into battle"}</button></div>
                 </>
             )}
-            {error && <p style={{ color: "#f87171" }}>{error}</p>}
+            {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}
             <div style={{ marginTop: 10 }}><button onClick={back}>← Back</button></div>
         </div>
     );

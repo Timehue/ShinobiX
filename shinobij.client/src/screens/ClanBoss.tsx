@@ -110,7 +110,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
 
             <div className="clan-raid-hp">
                 <div className="bar enemy-bar" style={{ background: "#0b1220" }}>
-                    <span style={{ width: `${hpPct}%`, background: dead ? "#64748b" : "#ef4444" }} />
+                    <span style={{ width: `${hpPct}%`, background: dead ? "var(--text-muted)" : "var(--danger)" }} />
                 </div>
                 <div className="clan-raid-hp-label"><span>{dead ? "☠ Boss defeated" : "Boss HP (your clan)"}</span><span>{mc.pool.toLocaleString()} / {mc.poolMax.toLocaleString()}</span></div>
             </div>
@@ -120,7 +120,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             {pendingRun && (
                 <button
                     onClick={() => { const p = pendingRun; setPendingRun(null); setFight(p); }}
-                    style={{ marginTop: 8, width: "100%", padding: "0.7rem", borderRadius: 8, background: "linear-gradient(#7f1d1d,#450a0a)", border: "1px solid #f87171", color: "#fecaca", fontWeight: 700, cursor: "pointer" }}
+                    style={{ marginTop: 8, width: "100%", padding: "0.7rem", borderRadius: 8, background: "linear-gradient(#7f1d1d,#450a0a)", border: "1px solid var(--red-400)", color: "#fecaca", fontWeight: 700, cursor: "pointer" }}
                 >
                     ⚔ A clanmate is assaulting the boss — Join the fight!
                 </button>
@@ -132,7 +132,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
                         {busy ? "Starting…" : mc.myAttemptsLeft > 0 ? `⚔ Assault the boss (${mc.myAttemptsLeft} left)` : "No assaults left this week"}
                     </button>
                 )}
-                {dead && <span className="hint" style={{ color: "#4ade80", fontWeight: 600 }}>✓ Your clan defeated the boss! Final standings lock at week's end.</span>}
+                {dead && <span className="hint" style={{ color: "var(--green-400)", fontWeight: 600 }}>✓ Your clan defeated the boss! Final standings lock at week's end.</span>}
             </div>
 
             {!dead && clanmates.length > 0 && (

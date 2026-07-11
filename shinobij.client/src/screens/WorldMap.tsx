@@ -666,7 +666,7 @@ export function WorldMap({
             homeTile: home,
             waypoints: [home],
             greeting: `${character.name}, your bounty is worth ${selfBounty.amount.toLocaleString()} ryo. Stand still.`,
-            tellTint: "#f87171",
+            tellTint: "var(--red-400)",
             avatarKey: "bountyHunter",
             targetName: character.name,
             bountyAmount: selfBounty.amount,
@@ -685,7 +685,7 @@ export function WorldMap({
             homeTile: home,
             waypoints: [home],
             greeting: `${favor.giver} said you might come through. Hand it over.`,
-            tellTint: "#fde68a",
+            tellTint: "var(--gold-300)",
             avatarKey: "courier",
             originSector: favor.originSector,
             targetSector: favor.targetSector,
@@ -1719,8 +1719,8 @@ export function WorldMap({
         { label: "Moonshadow", ids: [4, 5, 6, 8, 11, 15, 16, 19], color: villageAccent("Moonshadow Village"), zoom: 2.6 },
         { label: "Stormveil", ids: [21, 22, 24, 26, 27, 31, 32, 34], color: villageAccent("Stormveil Village"), zoom: 2.6 },
         { label: "Ashen Leaf", ids: [36, 37, 38, 39, 40, 41, 42, 43], color: villageAccent("Ashen Leaf Village"), zoom: 2.6 },
-        { label: "Central", ids: [55, 56, 57, 58, 59, 60], color: "#cbd5e1", zoom: 2.4 },
-        { label: "Death's Gate", ids: [99], color: "#f87171", zoom: 2.8 },
+        { label: "Central", ids: [55, 56, 57, 58, 59, 60], color: "var(--slate-300)", zoom: 2.4 },
+        { label: "Death's Gate", ids: [99], color: "var(--red-400)", zoom: 2.8 },
     ];
 
     // When the War Map is on, a sector owned by a village glows in that village's
@@ -2734,7 +2734,7 @@ export function WorldMap({
                                 portaled full-screen so the bottom nav can't paint over it. */}
                             {vaultRaid && createPortal(
                                 <div style={{ position: "fixed", inset: 0, zIndex: 1000000, overflowY: "auto", background: "#0a0d15" }}>
-                                    <Suspense fallback={<div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", color: "#cbd5e1" }}>Slipping past the perimeter…</div>}>
+                                    <Suspense fallback={<div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", color: "var(--slate-300)" }}>Slipping past the perimeter…</div>}>
                                         <AnbuVaultRaid
                                             character={character}
                                             sharedImages={sharedImages}
@@ -2779,9 +2779,9 @@ export function WorldMap({
                                             : <div style={{ fontSize: 60, lineHeight: 1, margin: "0 0 6px" }}>👹</div>}
                                         <h3 style={{ margin: "0 0 4px", color: "#ffb4a0" }}>⚔ {bossDialog.name}</h3>
                                         <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard — or flee (free, no attempt spent).</p>
-                                        <p style={{ fontSize: ".72rem", color: "#facc15", margin: "0 0 12px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
+                                        <p style={{ fontSize: ".72rem", color: "var(--gold)", margin: "0 0 12px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                            <button onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>Stand &amp; Fight</button>
+                                            <button onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700 }}>Stand &amp; Fight</button>
                                             <button onClick={fleeBoss}>Flee</button>
                                         </div>
                                     </div>
@@ -2847,7 +2847,7 @@ export function WorldMap({
                                         <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? `⚔ Your rival · Lv ${Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}` : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
                                         <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time — you won't this time."` : wandererDialog.w.greeting)}</p>
                                         {!wandererDialog.msg && wandererMemoryLine(wandererDialog.w) && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{wandererMemoryLine(wandererDialog.w)}</p>}
-                                        {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "#86efac" : "#cbd5e1", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
+                                        {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "var(--green-300)" : "var(--slate-300)", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
                                         {!wandererDialog.msg && wandererDialog.w.verb === "attack" ? (
                                             wandererDialog.peace ? (
                                                 <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
@@ -2862,7 +2862,7 @@ export function WorldMap({
                                             )
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "bountyHunter" ? (
                                             <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                                                <button disabled={wandererDialog.busy} onClick={() => startBountyHunterFight(wandererDialog.w)} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>{wandererDialog.busy ? "..." : "Stand & Fight"}</button>
+                                                <button disabled={wandererDialog.busy} onClick={() => startBountyHunterFight(wandererDialog.w)} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700 }}>{wandererDialog.busy ? "..." : "Stand & Fight"}</button>
                                                 <button onClick={dismissWandererDialog}>Flee</button>
                                             </div>
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "merchant" ? (
@@ -2933,10 +2933,10 @@ export function WorldMap({
                                                             <p style={{ fontSize: ".82rem", margin: "0 0 2px", fontWeight: 700, color: "#c4b5fd" }}>📖 {entry.title}</p>
                                                             <p style={{ fontSize: ".7rem", color: "#9aa3b2", margin: "0 0 6px" }}>Stage {epic.stage + 1} of {entry.stages.length}</p>
                                                             <p style={{ fontSize: ".8rem", margin: "0 0 8px" }}>{stage.text}</p>
-                                                            {left && <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "#f87171" : "#fbbf24" }}>{expired ? "⏳ The bell rang — your next attempt resets this stage." : `⏳ ${left} before the bell rings`}</p>}
+                                                            {left && <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "var(--red-400)" : "#fbbf24" }}>{expired ? "⏳ The bell rang — your next attempt resets this stage." : `⏳ ${left} before the bell rings`}</p>}
                                                             {stage.choice ? (
                                                                 <>
-                                                                    <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "#cbd5e1", margin: "0 0 10px" }}>{stage.choice.prompt}</p>
+                                                                    <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "var(--slate-300)", margin: "0 0 10px" }}>{stage.choice.prompt}</p>
                                                                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                                                         {stage.choice.options.map(opt => (
                                                                             <button key={opt.key} disabled={wandererDialog.busy} onClick={() => chooseEpicOption(wandererDialog.w, opt.key)} style={{ textAlign: "left", lineHeight: 1.3 }}>
@@ -2949,7 +2949,7 @@ export function WorldMap({
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    {scalesRivalry && <p style={{ fontSize: ".75rem", color: "#fca5a5", margin: "0 0 8px", fontWeight: 600 }}>⚔ He has bested you {rivalTier}× — his promoted form is that much stronger{rivalTier >= 4 ? ", and risen" : ""}.</p>}
+                                                                    {scalesRivalry && <p style={{ fontSize: ".75rem", color: "var(--red-300)", margin: "0 0 8px", fontWeight: 600 }}>⚔ He has bested you {rivalTier}× — his promoted form is that much stronger{rivalTier >= 4 ? ", and risen" : ""}.</p>}
                                                                     <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 10px" }}>Progress: {Math.min(got, stage.count)} / {stage.count} {metricLabel(stage.metric)}</p>
                                                                     <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                                                         {done && isFinal ? (
@@ -3011,7 +3011,7 @@ export function WorldMap({
                                             const got = active ? Math.max(0, ((character[(activeDef?.metric ?? questMetricForId(active.id))] as number | undefined) ?? 0) - active.baseline) : 0;
                                             return (
                                                 <>
-                                                    <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "#cbd5e1", margin: "0 0 10px" }}>{emissaryLoreLine(em, bucket)}</p>
+                                                    <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "var(--slate-300)", margin: "0 0 10px" }}>{emissaryLoreLine(em, bucket)}</p>
                                                     {active ? (
                                                         got >= active.target ? (
                                                             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
@@ -3096,7 +3096,7 @@ export function WorldMap({
                                             onClick={() => triggerCreatorEvent(event)}
                                             title={`${event.name} | Lvl ${event.levelReq}`}
                                         >
-                                            <strong style={{ color: "#facc15", fontSize: 16 }}>{event.icon}</strong>
+                                            <strong style={{ color: "var(--gold)", fontSize: 16 }}>{event.icon}</strong>
                                             <span>{event.name}</span>
                                         </button>
                                     );
@@ -3119,7 +3119,7 @@ export function WorldMap({
                                                 zIndex: 5,
                                                 background: "rgba(60,10,10,.88)",
                                                 color: "#fff",
-                                                border: "2px solid #fca5a5",
+                                                border: "2px solid var(--red-300)",
                                                 borderRadius: 8,
                                                 padding: "4px 6px",
                                                 fontSize: 10,
@@ -3144,7 +3144,7 @@ export function WorldMap({
                                             }}
                                             title={`${raid.name} | ${raid.waves} waves | Lvl ${raid.levelReq}`}
                                         >
-                                            <strong style={{ color: "#fca5a5", fontSize: 16 }}>{raid.icon}</strong>
+                                            <strong style={{ color: "var(--red-300)", fontSize: 16 }}>{raid.icon}</strong>
                                             <span>{raid.name}</span>
                                         </button>
                                     );
@@ -3524,13 +3524,13 @@ export function WorldMap({
                                     >
                                         🛡️ Challenge Guard
                                     </button>
-                                    <p className="hint" style={{ fontSize: "0.7rem", color: "#64748b", marginTop: 2 }}>
+                                    <p className="hint" style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
                                         Guard online? Real PvP. Guard offline? AI fight.
                                     </p>
                                 </>
                             ) : (
                                 <>
-                                    <p className="territory-guard-label" style={{ color: "#475569" }}>Village Undefended</p>
+                                    <p className="territory-guard-label" style={{ color: "var(--slate-600)" }}>Village Undefended</p>
                                     <button onClick={() => {
                                         setPendingPvpOpponent(null);
                                         setPendingAiProfileId(pickGuardAi(character.level));
@@ -3647,7 +3647,7 @@ export function WorldMap({
                                     style={{ padding: 8, borderRadius: 8, border: "1px solid #fbbf24", background: "linear-gradient(#b45309,#78350f)", color: "#fef3c7", fontWeight: 700, cursor: "pointer" }}
                                 >
                                     ⭐ Event: {hollowGateEventConfig.label || "Event Gate"}
-                                    <span style={{ display: "block", fontSize: 11, fontWeight: 400, color: "#fde68a" }}>
+                                    <span style={{ display: "block", fontSize: 11, fontWeight: 400, color: "var(--gold-300)" }}>
                                         {Math.max(1, hollowGateEventConfig.maxFloor ?? 1)} floor{(hollowGateEventConfig.maxFloor ?? 1) === 1 ? "" : "s"}
                                         {hollowGateEventConfig.bossName ? ` · Boss: ${hollowGateEventConfig.bossName}` : ""}
                                         {(hollowGateEventConfig.keyCost ?? 1) === 0 ? " · Free entry" : " · 1 Key"}
@@ -3656,7 +3656,7 @@ export function WorldMap({
                             )}
                             <button onClick={() => { setHollowGateMenu(false); onEnterHollowGate?.(); }} style={{ padding: 8, borderRadius: 8, border: "none", background: "linear-gradient(#7c3aed,#4c1d95)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Enter the Shrine</button>
                             <button onClick={() => { setHollowGateMenu(false); setShowAttunement(true); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}>💎 Shrine Attunement</button>
-                            <button onClick={() => setHollowGateMenu(false)} style={{ padding: 6, borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94a3b8", cursor: "pointer" }}>Cancel</button>
+                            <button onClick={() => setHollowGateMenu(false)} style={{ padding: 6, borderRadius: 8, border: "1px solid var(--slate-600)", background: "transparent", color: "var(--text-dim)", cursor: "pointer" }}>Cancel</button>
                         </div>
                     </div>
                 </div>
@@ -3738,7 +3738,7 @@ export function WorldMap({
                             <img
                                 src="/legacy/sage-marker.webp"
                                 alt=""
-                                style={{ position: "absolute", top: -12, left: -12, width: 22, height: 22, pointerEvents: "none", filter: "drop-shadow(0 0 5px #c084fc)" }}
+                                style={{ position: "absolute", top: -12, left: -12, width: 22, height: 22, pointerEvents: "none", filter: "drop-shadow(0 0 5px var(--purple-400))" }}
                                 title="A Wandering Sage waits here"
                             />
                         )}

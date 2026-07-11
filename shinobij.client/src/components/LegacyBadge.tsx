@@ -3,14 +3,14 @@
  * player-facing surface (accepted card, UserView, tavern, directory). It reuses
  * the generated /badges/legacy-<slug>.png art, but when that image is missing
  * or fails to load it degrades to a violet MONOGRAM (the legacy's initial in a
- * #c084fc box) instead of vanishing — so the mark is never fully lost.
+ * var(--purple-400) box) instead of vanishing — so the mark is never fully lost.
  *
  * Rank is owner-only: the box is the same violet for every legacy and encodes
  * no rarity/tier. Optional `stage` (>=2) adds the same aura halo used elsewhere.
  */
 import { useState } from "react";
 
-const LEGACY_ACCENT = "#c084fc";
+const LEGACY_ACCENT = "var(--purple-400)";
 
 export function LegacyBadge({ badge, name, size = 40, stage = 0, radius }: {
     badge: string | null | undefined;

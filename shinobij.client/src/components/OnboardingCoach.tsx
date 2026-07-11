@@ -321,7 +321,7 @@ export function OnboardingCoach({
             <div style={overlayStyle}>
                 <div className="card" style={{ ...cardStyle, maxWidth: 380 }}>
                     <h2 style={{ marginTop: 0 }}>Skip the Academy tutorial?</h2>
-                    <p style={{ lineHeight: 1.5, color: "#cbd5e1" }}>
+                    <p style={{ lineHeight: 1.5, color: "var(--slate-300)" }}>
                         It walks you through your first training, jutsu, gear, spar, and
                         rewards. You can’t easily restart it once it’s skipped.
                     </p>
@@ -399,7 +399,7 @@ export function OnboardingCoach({
                             onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                     )}
-                    <div style={{ color: "#facc15", fontWeight: 800, fontSize: 12, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8 }}>
+                    <div style={{ color: "var(--gold)", fontWeight: 800, fontSize: 12, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 8 }}>
                         {guideLabel} · {stepProgress[step]}
                     </div>
                     <h2 style={{ marginTop: 0 }}>Your First Spar</h2>

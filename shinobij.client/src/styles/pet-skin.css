@@ -332,7 +332,7 @@
 }
 .pet-yard-screen .pet-active-tag {
     background: rgba(111,212,122,0.15) !important;
-    color: #86efac !important;
+    color: var(--green-300) !important;
     border: 1px solid rgba(111,212,122,0.5) !important;
 }
 .pet-yard-screen .pet-2v2-tag {
@@ -475,7 +475,7 @@
     align-items: center;
     justify-content: center;
     background: rgba(20, 28, 46, 0.85);
-    color: #cbd5e1;
+    color: var(--slate-300);
     font: 700 11px Inter, sans-serif;
     line-height: 1;
     box-shadow: none;
@@ -504,7 +504,7 @@
 
 /* Prismatic swatch — a spinning rainbow wheel instead of a single color. */
 .pet-yard-screen .pet-collar-swatch.pet-collar-swatch-prismatic {
-    background: conic-gradient(from 0deg, #f87171, #fbbf24, #a3e635, #2dd4bf, #60a5fa, #c084fc, #f472b6, #f87171);
+    background: conic-gradient(from 0deg, var(--red-400), #fbbf24, #a3e635, #2dd4bf, var(--blue-400), var(--purple-400), #f472b6, var(--red-400));
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
     animation: pet-collar-swatch-spin 4s linear infinite;
 }
@@ -605,7 +605,7 @@
     letter-spacing: 0.08em;
 }
 .pet-yard-screen .training-complete {
-    color: #86efac !important;
+    color: var(--green-300) !important;
     font: 600 12px var(--font-display) !important;
     letter-spacing: 0.08em;
 }
@@ -915,7 +915,7 @@
     margin-top: 10px; padding-top: 10px;
     border-top: 1px solid var(--bsv2-gold-faint);
     font: 400 11px Inter, sans-serif !important;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 .pet-arena-screen .pet-battle-plan .bp-stats strong { color: #e8edf5; }
 .pet-arena-screen .pet-battle-plan .bp-tips {
@@ -938,10 +938,10 @@
     letter-spacing: 0.02em;
 }
 .pet-arena-screen .pet-matchup-hint .el  { color: var(--bsv2-gold-bright); }
-.pet-arena-screen .pet-matchup-hint .adv { color: #4ade80; }
-.pet-arena-screen .pet-matchup-hint .dis { color: #f87171; }
-.pet-arena-screen .pet-matchup-hint.neutral { color: #94a3b8; font-weight: 500; }
-.pet-arena-screen .pet-matchup-hint.good { display: block; color: #4ade80; border-color: rgba(74,222,128,0.4); }
+.pet-arena-screen .pet-matchup-hint .adv { color: var(--green-400); }
+.pet-arena-screen .pet-matchup-hint .dis { color: var(--red-400); }
+.pet-arena-screen .pet-matchup-hint.neutral { color: var(--text-dim); font-weight: 500; }
+.pet-arena-screen .pet-matchup-hint.good { display: block; color: var(--green-400); border-color: rgba(74,222,128,0.4); }
 .pet-arena-screen .pet-matchup-hint.warn { display: block; color: #fbbf24; border-color: rgba(251,191,36,0.4); }
 
 /* ----- Quick-challenge online players list + tips ----- */
@@ -960,8 +960,8 @@
 .pet-arena-screen .pet-challenge-row .hint { margin: 0; }
 .pet-arena-screen .pet-challenge-row button { margin-left: auto; white-space: nowrap; }
 .pet-arena-screen .pet-online-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.pet-arena-screen .pet-online-dot.on  { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.7); }
-.pet-arena-screen .pet-online-dot.off { background: #475569; }
+.pet-arena-screen .pet-online-dot.on  { background: var(--success); box-shadow: 0 0 6px rgba(34,197,94,0.7); }
+.pet-arena-screen .pet-online-dot.off { background: var(--slate-600); }
 .pet-arena-screen .pet-arena-tips {
     display: grid; gap: 5px;
     margin-top: 10px; padding: 10px;
@@ -1032,20 +1032,20 @@
     margin: 0 0 2px;
     font-size: 1.1rem;
     font-weight: 800;
-    color: #facc15;
+    color: var(--gold);
     letter-spacing: 0.01em;
 }
 .expedition-result-type {
     margin: 0;
     font-size: 0.78rem;
-    color: #94a3b8;
+    color: var(--text-dim);
     text-transform: uppercase;
     letter-spacing: 0.08em;
 }
 .expedition-result-story {
     margin: 0;
     font-size: 0.9rem;
-    color: #cbd5e1;
+    color: var(--slate-300);
     line-height: 1.6;
     padding: 12px 14px;
     background: rgba(248, 250, 252, 0.04);
@@ -1060,7 +1060,7 @@
     padding: 10px 14px;
     font-size: 0.9rem;
     font-weight: 700;
-    color: #fde68a;
+    color: var(--gold-300);
     letter-spacing: 0.02em;
 }
 .expedition-rewards-grid { display: flex; flex-direction: column; gap: 6px; }
@@ -1082,7 +1082,7 @@
     border-color: rgba(251, 146, 60, 0.45);
 }
 .expedition-reward-icon { font-size: 1.2rem; flex-shrink: 0; width: 24px; text-align: center; }
-.expedition-reward-label { flex: 1; font-size: 0.85rem; color: #94a3b8; font-weight: 600; }
+.expedition-reward-label { flex: 1; font-size: 0.85rem; color: var(--text-dim); font-weight: 600; }
 .expedition-reward-value { font-size: 0.92rem; font-weight: 800; color: #f1f5f9; }
 
 @media (max-width: 480px) {
