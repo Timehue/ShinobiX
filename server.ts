@@ -104,6 +104,8 @@ import villageWarMapHandler from './api/village/war-map.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import bankTransferHandler from './api/bank/transfer.js';
+import inventoryOpenWarCrateHandler from './api/inventory/open-war-crate.js';
+import profileSettleHandler from './api/profile/settle.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
 // startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
@@ -922,6 +924,10 @@ route('/bank/claim-interest', bankClaimInterestHandler);
 // Wallet <-> bank moves are authenticated save-lock transactions. Raw
 // autosaves cannot reproduce either side of the transfer.
 route('/bank/transfer', bankTransferHandler);
+// Paid profile changes and war-crate loot settle from the locked stored save;
+// clients only adopt the exact authoritative character returned by these APIs.
+route('/profile/settle', profileSettleHandler);
+route('/inventory/open-war-crate', inventoryOpenWarCrateHandler);
 
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
