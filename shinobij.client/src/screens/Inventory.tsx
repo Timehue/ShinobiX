@@ -31,6 +31,7 @@ import { hasCharacterElement } from "../lib/elements";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { deriveCardClashCard } from "../lib/card-clash";
 import { addItem, addItems, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 import {
     type ItemCategory,
     ITEM_CATEGORY_META,
@@ -278,6 +279,7 @@ export function Inventory({
 
     function consumeItem(entry: string) {
         if (entry === LEGENDARY_WAR_CRATE_ID) {
+            if (!requireServerSettlement("warCrateOpen")) return;
             const rewards = [WARFORGED_RELIC_ID];
             if (Math.random() < 0.35) rewards.push(DUNGEON_KEY_ID);
             // Honor Seals are Vanguard-only. Non-Vanguards get the standard
@@ -330,6 +332,7 @@ export function Inventory({
     }
 
     function sellSelectedItem(count = 1) {
+        if (!requireServerSettlement("inventorySale")) return;
         const selected = selectedInventoryItem;
         if (!selected?.item) return;
         const item = selected.item;

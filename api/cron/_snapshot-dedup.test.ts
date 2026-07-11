@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { newestSnapshotByPlayer } from './snapshot-saves.js';
+import { isPlayerSnapshotSaveKey, isSnapshotMarkerFresh, newestSnapshotByPlayer } from './snapshot-saves.js';
 
 // Guards the snapshot-dedup bucketing that replaced the per-player kv.keys() N+1.
 // The map must yield the SAME "newest snapshot ts per player" the old per-player
@@ -52,5 +52,37 @@ describe('newestSnapshotByPlayer — snapshot-dedup bucketing', () => {
             .reduce((a, b) => Math.max(a, b), 0);
         assert.equal(m.get('P'), oldNewestForP); // 40
         assert.equal(m.get('Q'), 99);
+    });
+});
+
+describe('snapshot success marker freshness', () => {
+    const now = Date.UTC(2026, 6, 10, 12);
+    const marker = (completedAt: number) => ({
+        completedAt,
+        snapshotted: 1,
+        skipped: 0,
+        total: 1,
+        elapsedMs: 10,
+    });
+
+    it('accepts a complete run inside the 26-hour recovery window', () => {
+        assert.equal(isSnapshotMarkerFresh(marker(now - 25 * 60 * 60 * 1000), now), true);
+    });
+
+    it('rejects stale, future, missing, and malformed markers', () => {
+        assert.equal(isSnapshotMarkerFresh(marker(now - 27 * 60 * 60 * 1000), now), false);
+        assert.equal(isSnapshotMarkerFresh(marker(now + 1), now), false);
+        assert.equal(isSnapshotMarkerFresh(null, now), false);
+        assert.equal(isSnapshotMarkerFresh(marker(Number.NaN), now), false);
+    });
+});
+
+describe('player snapshot key classification', () => {
+    it('accepts players and rejects case-varied admin, protected, clan, and malformed rows', () => {
+        assert.equal(isPlayerSnapshotSaveKey('save:alice'), true);
+        assert.equal(isPlayerSnapshotSaveKey('save:Aka Ito'), true);
+        for (const key of ['save:Admin 1', 'save:admin201', 'save:Rill', 'save:rill', 'save:clan-leaf', 'save:', 'world:alice']) {
+            assert.equal(isPlayerSnapshotSaveKey(key), false, key);
+        }
     });
 });

@@ -3,12 +3,13 @@ import { strict as assert } from 'node:assert';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { _makeDiskKv, _makeRoutedKv, _makeRemoteKv, type KvLike } from './_storage.js';
+import { _makeDiskKv, _makeRoutedKv, _makeRemoteKv, _migrateDiskRoutedKeys, type KvLike } from './_storage.js';
 import { consumeSingleUseToken } from './_single-use-token.js';
 
 // The routed KV splits keys across two backends — a disk overlay for the
-// disk-routed prefixes ('save:', 'save-snapshot:', 'shared:images',
-// 'shared:imgfields') and the base store for everything else. For mget the routing layer must issue ONE
+// disk-routed prefixes ('save:', 'shared:images', 'shared:imgfields') and the
+// base store for everything else. save-snapshot: is base-primary with a legacy
+// disk fallback. For mget the routing layer must issue ONE
 // batched call per backend (so the remote/Vercel overlay does a single HTTP
 // round-trip, not one per key) and then re-interleave the results back into the
 // caller's original key order. These tests pin that contract: same values, same
@@ -37,6 +38,31 @@ function makeStub(label: string, store: Record<string, unknown>, log: string[]):
         hset: unused('hset') as KvLike['hset'],
         hdel: unused('hdel') as KvLike['hdel'],
     };
+}
+
+function memoryKv(initial: Record<string, unknown> = {}): KvLike & { data: Map<string, unknown> } {
+    const data = new Map(Object.entries(initial));
+    const api: KvLike & { data: Map<string, unknown> } = {
+        data,
+        async get<T>(key: string) { return (data.has(key) ? data.get(key) : null) as T | null; },
+        async set(key, value, options) {
+            if (options?.nx && data.has(key)) return null;
+            data.set(key, structuredClone(value));
+            return 'OK';
+        },
+        async del(...keys) { let n = 0; for (const key of keys) if (data.delete(key)) n += 1; return n; },
+        async incr(key) { const n = Number(data.get(key) ?? 0) + 1; data.set(key, n); return n; },
+        async keys(pattern) {
+            const re = new RegExp('^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
+            return [...data.keys()].filter((key) => re.test(key));
+        },
+        async mget<T extends unknown[] = unknown[]>(...keys: string[]) { return keys.map((key) => (data.has(key) ? data.get(key) : null)) as (T[number] | null)[]; },
+        async hgetall<T>(key: string) { return (data.has(key) ? data.get(key) : null) as T | null; },
+        async hkeys(key: string) { const v = data.get(key); return v && typeof v === 'object' ? Object.keys(v) : []; },
+        async hset(key, fields) { data.set(key, { ...((data.get(key) as object) ?? {}), ...fields }); return Object.keys(fields).length; },
+        async hdel(key, ...fields) { const v = { ...((data.get(key) as object) ?? {}) } as Record<string, unknown>; for (const f of fields) delete v[f]; data.set(key, v); return fields.length; },
+    };
+    return api;
 }
 
 describe('_makeRoutedKv.mget', () => {
@@ -95,18 +121,133 @@ describe('_makeRoutedKv.mget', () => {
         assert.deepEqual(out, ['A', 'A', 'Q', 'A']);
     });
 
-    it('save-snapshot: routes to DISK (backups go to cPanel), auth: stays on base', async () => {
+    it('save-snapshot: routes to BASE (separate from live save disk), auth stays on base', async () => {
         const log: string[] = [];
-        const base = makeStub('base', { 'auth:alice': 'pw' }, log);
-        const disk = makeStub('disk', { 'save:alice': 'LIVE', 'save-snapshot:alice:1700000000000': 'SNAP' }, log);
+        const base = makeStub('base', { 'auth:alice': 'pw', 'save-snapshot:alice:1700000000000': 'SNAP' }, log);
+        const disk = makeStub('disk', { 'save:alice': 'LIVE' }, log);
         const out = await _makeRoutedKv(base, disk).mget('save:alice', 'save-snapshot:alice:1700000000000', 'auth:alice');
         assert.deepEqual(out, ['LIVE', 'SNAP', 'pw']);
-        // The snapshot blob must land in the DISK batch (cPanel), NOT the base
-        // store (Supabase) — and 'save:' must not swallow 'save-snapshot:'.
+        // Snapshot and auth share the base batch; the live save alone hits disk.
         assert.deepEqual([...log].sort(), [
-            'base.mget:[auth:alice]',
-            'disk.mget:[save:alice,save-snapshot:alice:1700000000000]',
+            'base.mget:[save-snapshot:alice:1700000000000,auth:alice]',
+            'disk.mget:[save:alice]',
         ].sort());
+    });
+
+    it('falls back to a legacy disk snapshot only when the base copy is absent', async () => {
+        const log: string[] = [];
+        const base = makeStub('base', {}, log);
+        const disk = makeStub('disk', { 'save-snapshot:alice:1700000000000': 'LEGACY' }, log);
+        const out = await _makeRoutedKv(base, disk).mget('save-snapshot:alice:1700000000000');
+        assert.deepEqual(out, ['LEGACY']);
+        assert.deepEqual(log, [
+            'base.mget:[save-snapshot:alice:1700000000000]',
+            'disk.mget:[save-snapshot:alice:1700000000000]',
+        ]);
+    });
+});
+
+describe('_makeRoutedKv snapshot failure-domain routing', () => {
+    it('writes new snapshots to base while live saves remain on disk', async () => {
+        const base = memoryKv();
+        const disk = memoryKv();
+        const routed = _makeRoutedKv(base, disk);
+
+        await routed.set('save:alice', { live: true });
+        await routed.set('save-snapshot:alice:100', { backup: true });
+
+        assert.deepEqual(await disk.get('save:alice'), { live: true });
+        assert.equal(await base.get('save:alice'), null);
+        assert.deepEqual(await base.get('save-snapshot:alice:100'), { backup: true });
+        assert.equal(await disk.get('save-snapshot:alice:100'), null);
+    });
+
+    it('lists both base-primary and legacy disk snapshots without duplicates', async () => {
+        const base = memoryKv({ 'save-snapshot:alice:100': 'base', 'save-snapshot:alice:200': 'both' });
+        const disk = memoryKv({ 'save-snapshot:alice:50': 'legacy', 'save-snapshot:alice:200': 'legacy-duplicate' });
+        const keys = await _makeRoutedKv(base, disk).keys('save-snapshot:alice:*');
+        assert.deepEqual(keys.sort(), [
+            'save-snapshot:alice:100',
+            'save-snapshot:alice:200',
+            'save-snapshot:alice:50',
+        ].sort());
+    });
+});
+
+describe('_migrateDiskRoutedKeys conflict safety', () => {
+    it('never overwrites a newer/different overlay value and retains the source', async () => {
+        const base = memoryKv({ 'save:alice': { _saveVersion: 2, value: 'old' } });
+        const overlay = memoryKv({ 'save:alice': { _saveVersion: 9, value: 'new' } });
+        const result = await _migrateDiskRoutedKeys(base, overlay, ['save:']);
+
+        assert.deepEqual(result.conflicts, ['save:alice']);
+        assert.deepEqual(await overlay.get('save:alice'), { _saveVersion: 9, value: 'new' });
+        assert.deepEqual(await base.get('save:alice'), { _saveVersion: 2, value: 'old' });
+        assert.equal(result.deleted, 0);
+    });
+
+    it('copies with NX, verifies, then deletes an unchanged source', async () => {
+        const base = memoryKv({ 'save:alice': { _saveVersion: 2 } });
+        const overlay = memoryKv();
+        const result = await _migrateDiskRoutedKeys(base, overlay, ['save:']);
+
+        assert.deepEqual(result.migrated, ['save:alice']);
+        assert.deepEqual(await overlay.get('save:alice'), { _saveVersion: 2 });
+        assert.equal(await base.get('save:alice'), null);
+        assert.equal(result.deleted, 1);
+    });
+
+    it('recognizes an identical destination and removes only the verified duplicate source', async () => {
+        const value = { _saveVersion: 4, character: { name: 'Alice' } };
+        const base = memoryKv({ 'save:alice': value });
+        const overlay = memoryKv({ 'save:alice': value });
+        const result = await _migrateDiskRoutedKeys(base, overlay, ['save:']);
+
+        assert.deepEqual(result.alreadyPresent, ['save:alice']);
+        assert.equal(result.conflicts.length, 0);
+        assert.equal(await base.get('save:alice'), null);
+        assert.deepEqual(await overlay.get('save:alice'), value);
+    });
+
+    it('losing the destination NX race reports a conflict without clobbering the winner', async () => {
+        const base = memoryKv({ 'save:alice': { _saveVersion: 2 } });
+        const backing = memoryKv();
+        const overlay: KvLike = {
+            ...backing,
+            async set(key, _value, options) {
+                if (options?.nx) {
+                    await backing.set(key, { _saveVersion: 10, writer: 'concurrent' });
+                    return null;
+                }
+                return backing.set(key, _value, options);
+            },
+        };
+        const result = await _migrateDiskRoutedKeys(base, overlay, ['save:']);
+
+        assert.deepEqual(result.conflicts, ['save:alice']);
+        assert.deepEqual(await backing.get('save:alice'), { _saveVersion: 10, writer: 'concurrent' });
+        assert.notEqual(await base.get('save:alice'), null);
+    });
+
+    it('detects a source mutation during copy and does not delete it', async () => {
+        const backing = memoryKv({ 'save:alice': { _saveVersion: 2 } });
+        let reads = 0;
+        const base: KvLike = {
+            ...backing,
+            async get<T>(key: string) {
+                reads += 1;
+                if (reads === 2) {
+                    await backing.set(key, { _saveVersion: 3, writer: 'concurrent' });
+                }
+                return backing.get<T>(key);
+            },
+        };
+        const overlay = memoryKv();
+        const result = await _migrateDiskRoutedKeys(base, overlay, ['save:']);
+
+        assert.deepEqual(result.conflicts, ['save:alice']);
+        assert.deepEqual(await backing.get('save:alice'), { _saveVersion: 3, writer: 'concurrent' });
+        assert.equal(result.deleted, 0);
     });
 });
 

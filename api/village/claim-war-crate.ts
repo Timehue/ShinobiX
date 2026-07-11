@@ -125,15 +125,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const side = String((parsed.kind === 'village' ? c.village : c.clan) ?? '').trim();
             const claimed = Array.isArray(c.claimedWarCrateIds) ? (c.claimedWarCrateIds as unknown[]).map(String) : [];
             const decision = warCrateClaimDecision(war, warCrateId, side, claimed, Date.now());
-            if (!decision.granted) return { ...decision, _saveVersion: Number(fresh._saveVersion ?? 0) };
-            const inventory = Array.isArray(c.inventory) ? [...(c.inventory as unknown[])] : [];
+            const currentInventory = Array.isArray(c.inventory) ? [...(c.inventory as unknown[])] : [];
+            if (!decision.granted) {
+                return {
+                    ...decision,
+                    _saveVersion: Number(fresh._saveVersion ?? 0),
+                    playerState: { inventory: currentInventory, claimedWarCrateIds: claimed },
+                };
+            }
+            const inventory = currentInventory;
             inventory.push(LEGENDARY_WAR_CRATE_ID);
             const updated = bumpSaveVersion({
                 ...fresh,
                 character: { ...c, inventory, claimedWarCrateIds: [...claimed, warCrateId] },
             });
             await kv.set(saveKey, mergePreservingImages(updated, fresh));
-            return { granted: true as const, reason: 'granted', _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
+            return {
+                granted: true as const,
+                reason: 'granted',
+                _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
+                playerState: { inventory, claimedWarCrateIds: [...claimed, warCrateId] },
+            };
         }, { failClosed: true });
 
         // Legacy tracking (ENABLE_LEGACY): a granted crate proves a won war.

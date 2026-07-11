@@ -3,7 +3,16 @@ import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { consumeSingleUseToken } from '../_single-use-token.js';
+import { withKvLock } from '../_lock.js';
+import { gainXp, type XpCharacter } from '../_xp-engine.js';
+import { statCapForLevel } from '../combat-core/formulas.js';
+import { writeVersionedPlayerSave, type PlayerSaveRecord, type PlayerCharacter } from '../save/_mutate-player-save.js';
+import {
+    MAX_TRAINING_RECEIPTS,
+    activeTrainingMatches,
+    normalizeActiveTrainingSession,
+    type ActiveTrainingSession,
+} from './_session.js';
 
 /*
  * /api/training/complete — POST only
@@ -14,11 +23,9 @@ import { consumeSingleUseToken } from '../_single-use-token.js';
  * to apply. `cancel: true` collects early, prorating the sealed reward by the
  * fraction of the tier that has elapsed (matches the client's "keep prorated
  * stats"). A not-yet-complete peek does NOT consume the token, so the player can
- * retry once the timer is up.
- *
- * Fail-open on a missing/spent token (returns ok:true, granted:false) so a stale
- * tab doesn't hard-error — the client falls back to its local (sanitizer-bounded)
- * gain in that case.
+ * retry once the timer is up. The single-session lease is cleared only after the
+ * reward receipt and updated character are durably written. A missing expired
+ * token clears its stale lease without granting a reward.
  *
  * Body: { playerName, token, cancel? }
  */
@@ -59,37 +66,115 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const tokenKey = `training-token:${playerName}:${token}`;
-        // Peek first so a premature "collect" doesn't burn the token — only a real
-        // grant consumes it.
-        const peek = await kv.get<TrainingToken>(tokenKey);
-        if (!peek) {
-            return res.status(200).json({ ok: true, granted: false, reason: 'invalid-or-spent-token' });
-        }
-        if ((peek.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
-            return res.status(403).json({ error: 'Training token does not belong to this player.' });
-        }
-        const now = Date.now();
-        if (!cancel && now < peek.endsAt) {
-            return res.status(200).json({ ok: true, granted: false, reason: 'not-yet-complete', remainingMs: peek.endsAt - now });
-        }
+        const saveKey = `save:${playerName}`;
+        const activeKey = `training-active:${playerName}`;
+        const outcome = await withKvLock(saveKey, async () => {
+            const record = await kv.get<PlayerSaveRecord>(saveKey);
+            const character = (record?.character ?? null) as PlayerCharacter | null;
+            if (!record || !character) {
+                return { status: 404 as const, body: { error: 'Player save not found.' } };
+            }
 
-        // Time-gate passed (or cancel) — atomically consume. The delete rowcount is
-        // the real double-collect gate: a racing second call gets null here.
-        const data = await consumeSingleUseToken<TrainingToken>(kv, tokenKey);
-        if (!data) {
-            return res.status(200).json({ ok: true, granted: false, reason: 'invalid-or-spent-token' });
-        }
+            const activeRaw = await kv.get<ActiveTrainingSession>(activeKey);
+            const active = normalizeActiveTrainingSession(activeRaw);
+            const activeMatches = activeTrainingMatches(active, token);
+            const persistedActive = record.activeTraining && typeof record.activeTraining === 'object'
+                ? record.activeTraining as Record<string, unknown>
+                : null;
+            const persistedToken = typeof persistedActive?.token === 'string' ? persistedActive.token : '';
+            const staleSessionMatches = activeMatches || (!active && persistedToken === token);
 
-        let gain = Math.max(0, Math.floor(data.sealedGain));
-        let xp = Math.max(0, Math.floor(data.sealedXp));
-        if (cancel) {
-            const totalMs = data.endsAt - data.startedAt;
-            const frac = totalMs > 0 ? Math.max(0, Math.min(1, (now - data.startedAt) / totalMs)) : 1;
-            gain = Math.floor(gain * frac);
-            xp = Math.floor(xp * frac);
-        }
+            const receipts = Array.isArray(record._trainingReceipts)
+                ? record._trainingReceipts.filter((value): value is string => typeof value === 'string').slice(-MAX_TRAINING_RECEIPTS)
+                : [];
+            if (receipts.includes(token)) {
+                await kv.del(tokenKey).catch(() => undefined);
+                if (activeMatches) await kv.del(activeKey).catch(() => undefined);
+                return { status: 200 as const, body: { ok: true, granted: false, reason: 'already-granted' } };
+            }
 
-        return res.status(200).json({ ok: true, granted: true, stat: data.stat, gain, xp });
+            const data = await kv.get<TrainingToken>(tokenKey);
+            if (!data) {
+                // The token TTL and active lease share an expiry. If either was
+                // lost independently, clear only the matching stale lease. No
+                // reward is granted without the sealed token.
+                if (staleSessionMatches) {
+                    await writeVersionedPlayerSave(saveKey, { ...record, activeTraining: null }, character);
+                    if (activeMatches) await kv.del(activeKey).catch(() => undefined);
+                }
+                return {
+                    status: 200 as const,
+                    body: { ok: true, granted: false, reason: 'invalid-or-spent-token', staleSessionCleared: staleSessionMatches },
+                };
+            }
+            if ((data.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+                return { status: 403 as const, body: { error: 'Training token does not belong to this player.' } };
+            }
+            if (active && !activeMatches) {
+                return { status: 409 as const, body: { error: 'This is not the active training session.' } };
+            }
+
+            const now = Date.now();
+            if (!cancel && now < data.endsAt) {
+                return {
+                    status: 200 as const,
+                    body: { ok: true, granted: false, reason: 'not-yet-complete', remainingMs: data.endsAt - now },
+                };
+            }
+
+            let gain = Math.max(0, Math.floor(data.sealedGain));
+            let xp = Math.max(0, Math.floor(data.sealedXp));
+            if (cancel) {
+                const totalMs = data.endsAt - data.startedAt;
+                const frac = totalMs > 0 ? Math.max(0, Math.min(1, (now - data.startedAt) / totalMs)) : 1;
+                gain = Math.floor(gain * frac);
+                xp = Math.floor(xp * frac);
+            }
+
+            const leveled = gainXp(character as unknown as XpCharacter, xp) as unknown as PlayerCharacter;
+            const stats = (leveled.stats && typeof leveled.stats === 'object')
+                ? leveled.stats as Record<string, unknown>
+                : {};
+            const currentStat = Math.max(0, Math.floor(Number(stats[data.stat]) || 0));
+            const cap = statCapForLevel(Math.max(1, Math.floor(Number(leveled.level) || 1)));
+            const applied = Math.max(0, Math.min(gain, cap - currentStat));
+            const nextCharacter: PlayerCharacter = {
+                ...leveled,
+                totalStatsTrained: Math.max(0, Math.floor(Number(leveled.totalStatsTrained) || 0)) + applied,
+                stats: { ...stats, [data.stat]: currentStat + applied },
+            };
+            const nextReceipts = [...receipts.filter((receipt) => receipt !== token), token].slice(-MAX_TRAINING_RECEIPTS);
+            const saved = await writeVersionedPlayerSave(
+                saveKey,
+                { ...record, _trainingReceipts: nextReceipts, activeTraining: null },
+                nextCharacter,
+            );
+            await kv.del(tokenKey).catch((error) => {
+                console.error('[training/complete] token cleanup failed after durable receipt:', error);
+            });
+            if (activeMatches) {
+                await kv.del(activeKey).catch((error) => {
+                    console.error('[training/complete] active-session cleanup failed after durable receipt:', error);
+                });
+            }
+
+            return {
+                status: 200 as const,
+                body: {
+                    ok: true,
+                    granted: true,
+                    stat: data.stat,
+                    gain,
+                    applied,
+                    xp,
+                    cap,
+                    character: nextCharacter,
+                    _saveVersion: saved._saveVersion,
+                },
+            };
+        }, { failClosed: true });
+
+        return res.status(outcome.status).json(outcome.body);
     } catch (err) {
         console.error('[training/complete]', err);
         return res.status(500).json({ error: 'Internal server error.' });

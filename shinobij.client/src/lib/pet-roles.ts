@@ -76,19 +76,18 @@ export const ROLE_RANGE: Record<PetRole, RoleRange> = {
 
 // ── Stat lean (budget-neutral-ish role tilt + small sub-role tilt) ────────────
 // Multipliers applied to the rarity base stats so a pet's BASE stats express its
-// role. Kept modest (±~20%) and clamped by capPetStats; redistributive, not
+// role. Kept modest (±~25%) and clamped by capPetStats; redistributive, not
 // inflationary, so no tier/role dominates. Training then customizes on top.
 // Owner: bruiser gains HP *and* ATK (not just ATK), trading DEF.
 export interface StatMult { hp: number; attack: number; defense: number; speed: number; }
-// Tuned against scripts/pet-role-balance.ts (live 1v1 engine). The round engine
-// rewards raw attack, so a first draft had assassin ~70% / tracker ~25%. Tracker is
-// INTENDED to be stronger in the tactical arena (range/positioning) than 1v1, so it
-// is left a bit below average here — just nudged up — while assassin is nudged down.
-// Role order preserved (assassin burstiest, defender tankiest, sage heal-reliant).
+// Tuned against scripts/pet-role-balance.ts (live 1v1 engine). Tracker's utility-
+// heavy kit needs enough baseline pressure and durability to survive until its
+// control pays off; Assassin's mark/debuff burst needs a leaner stat budget. The
+// role identities still come from their distinct kits and sub-role multipliers.
 export const ROLE_STAT_MULT: Record<PetRole, StatMult> = {
     defender: { hp: 1.10, attack: 0.94, defense: 1.10, speed: 0.94 }, // armored wall
-    tracker: { hp: 1.08, attack: 1.12, defense: 1.02, speed: 1.08 }, // ranged pressure (shines in arena)
-    assassin: { hp: 0.93, attack: 1.04, defense: 0.93, speed: 1.06 }, // burst, toned down
+    tracker: { hp: 1.24, attack: 1.23, defense: 1.14, speed: 1.12 }, // ranged pressure (shines in arena)
+    assassin: { hp: 0.90, attack: 0.98, defense: 0.91, speed: 1.04 }, // burst, toned down
     sage: { hp: 1.04, attack: 0.88, defense: 1.02, speed: 0.98 }, // backline support
 };
 export const SUBROLE_STAT_MULT: Record<PetSubRole, StatMult> = {

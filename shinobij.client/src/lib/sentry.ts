@@ -23,6 +23,7 @@ export function initSentry(): void {
         Sentry.init({
             dsn: DSN,
             environment: import.meta.env.MODE,
+            release: (import.meta.env.VITE_SENTRY_RELEASE || import.meta.env.VITE_BUILD_COMMIT) as string | undefined,
             // Errors only — no performance tracing or replay — to stay well
             // inside the free-tier monthly event quota.
             tracesSampleRate: 0,

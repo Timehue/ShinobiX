@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { isFullAdmin } from '../_auth.js';
+import { isFullAdmin, rotatePlayerSessionEpoch } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
 
@@ -19,6 +19,13 @@ const PROTECTED_STORY_KEYS = new Set(PROTECTED_NAMES.map((n) => `story:${n}`));
 export function isProtectedKey(key: string): boolean {
     const lower = key.toLowerCase();
     return PROTECTED_SAVE_KEYS.has(lower) || PROTECTED_AUTH_KEYS.has(lower) || PROTECTED_STORY_KEYS.has(lower);
+}
+
+export function authNamesRequiringRevocation(authKeys: readonly string[]): string[] {
+    return authKeys
+        .filter((key) => key.toLowerCase().startsWith('auth:') && !isProtectedKey(key))
+        .map((key) => key.slice('auth:'.length))
+        .filter(Boolean);
 }
 
 // Patterns wiped on full reset. Anything matching these is deleted.
@@ -123,6 +130,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const deleted: string[] = [];
+
+        // Revoke every affected account token before the first destructive
+        // write. The rotated epoch deliberately survives the reset: deleting
+        // auth-session:* would make a missing epoch read as zero and could
+        // resurrect an old epoch-0 v2 token even though its password row is gone.
+        const authKeys = await kv.keys('auth:*');
+        await Promise.all(authNamesRequiringRevocation(authKeys).map((name) => rotatePlayerSessionEpoch(name)));
 
         // 1. Wipe all player saves — admin saves are preserved so admin-created
         //    content (jutsus, AIs, missions, events, pets, cards, VNs) survives.

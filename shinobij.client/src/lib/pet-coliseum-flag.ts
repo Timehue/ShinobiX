@@ -76,25 +76,21 @@ export function setPetAccuracyEnabled(on: boolean): void {
 }
 
 /*
- * Account-level RANKED PET challenge flag. The dormant System-B path
- * (api/pet/ranked-start + the ranked branch of api/pet/battle-result, which
- * settles both players' `petRankedRating`) is fully built on the accept/resolve
- * side, but the SEND button (challengePlayer(opponent, "rankedPet")) was never
- * wired. When ON, a "Ranked Pet Duel" send button appears in the Arena player
- * list. DEFAULT OFF: this direct-challenge mode has had no two-client testing and
- * overlaps the already-live Pet Ladder, so it ships dark until a controlled test.
- * (The Pet Ladder — Arena → Pet Battles tab — is the primary, live pet-ranked
- * experience and is unaffected by this flag.) Per-device persisted; flip with
- * localStorage.setItem("petRankedChallenge.v1","1").
+ * Direct ranked-pet challenges are locked off until their outcome is resolved
+ * by the deterministic server engine. A client-controlled feature flag would
+ * let a modified browser revive the old local-Elo path even though the API now
+ * refuses it. The server-authoritative Pet Ladder remains available.
  */
 const PET_RANKED_CHALLENGE_KEY = "petRankedChallenge.v1";
 
 export function petRankedChallengeEnabled(): boolean {
-    try { return localStorage.getItem(PET_RANKED_CHALLENGE_KEY) === "1"; } catch { return false; }
+    return false;
 }
 
-export function setPetRankedChallengeEnabled(on: boolean): void {
-    try { localStorage.setItem(PET_RANKED_CHALLENGE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+export function setPetRankedChallengeEnabled(_on: boolean): void {
+    // Remove stale opt-ins from pre-authority builds. Intentionally cannot be
+    // enabled by client state.
+    try { localStorage.removeItem(PET_RANKED_CHALLENGE_KEY); } catch { /* storage disabled — ignore */ }
 }
 
 /*

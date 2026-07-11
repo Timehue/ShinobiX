@@ -250,3 +250,25 @@ describe('handler wiring (no orphaned endpoints)', () => {
         );
     });
 });
+
+describe('release operations wiring', () => {
+    it('reports an immutable deployment SHA from platform/build metadata', () => {
+        assert.match(serverSrc, /RAILWAY_GIT_COMMIT_SHA/, 'health must consume Railway commit metadata');
+        assert.match(serverSrc, /BUILD_COMMIT/, 'health must support a generic Docker build commit');
+        assert.match(serverSrc, /commitSource/, 'health should disclose where its commit identity came from');
+    });
+
+    it('drains normal platform termination signals', () => {
+        assert.match(serverSrc, /process\.once\(['"]SIGTERM['"]/, 'SIGTERM must trigger graceful drain');
+        assert.match(serverSrc, /process\.once\(['"]SIGINT['"]/, 'SIGINT must trigger graceful drain');
+        assert.match(serverSrc, /stopSnapshotCron\(\)/, 'shutdown must stop background cron timers');
+        assert.match(serverSrc, /stopGameLoop\(\)/, 'shutdown must stop the realtime game loop');
+    });
+
+    it('protects and coalesces the storage-mutating deep health probe', () => {
+        assert.match(serverSrc, /HEALTH_DEEP_TOKEN/, 'deep health should support a monitor token');
+        assert.match(serverSrc, /_deepHealthInFlight/, 'deep health should coalesce concurrent probes');
+        assert.match(serverSrc, /_deepHealthCache/, 'deep health should briefly cache probe results');
+        assert.match(serverSrc, /enforceRateLimit\(req, res, ['"]deep-health['"]/, 'deep health should be rate limited');
+    });
+});

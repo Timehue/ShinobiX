@@ -18,6 +18,7 @@ import { petTamerClaimFirstExpeditionToday, petTamerExpeditionMult, petTamerTrai
 import { addItem, removeItem, countItem, ownsItem } from "../lib/inventory";
 import { useWarLossDebuff } from "../lib/war-debuff";
 import { masteryBonus } from "../lib/profession-mastery";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
@@ -92,6 +93,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     }, [character.pets]);
 
     function startTraining() {
+        if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
@@ -308,6 +310,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     }
 
     function collectTraining() {
+        if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet?.training) return;
         if (Date.now() < selectedPet.training.endsAt) {
             return alert(`${selectedPet.name} needs ${formatPetTimer(selectedPet.training.endsAt - Date.now())} more.`);

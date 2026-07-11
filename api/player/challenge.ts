@@ -6,6 +6,7 @@ import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { challengeBlock } from '../_realtime/presence-gating.js';
 import { kickPlayer } from '../_realtime/notify.js';
+import { PET_RANKED_DISABLED_REASON, petRankedStartsEnabled } from '../pet/_ranked-settlement.js';
 
 const CHALLENGE_TTL = 180; // seconds (3 min) — challenge auto-cancels if unanswered
 
@@ -188,6 +189,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const record = challenge as { accepted?: boolean; declined?: boolean; battleId?: string; mode?: string };
         const fromName = challengeFromName(challenge);
+
+        // Direct ranked-pet challenges previously allowed the browser to choose
+        // the outcome. Refuse new, accepted, and routed challenges until the
+        // deterministic server engine enables the matching token flow.
+        if (record.mode === 'rankedPet' && !petRankedStartsEnabled()) {
+            return res.status(503).json({ error: PET_RANKED_DISABLED_REASON });
+        }
 
         // The challenge's fromName (sender) must match the authed identity unless admin.
         if (!identity.admin && fromName && safeName(fromName) !== identity.name) {

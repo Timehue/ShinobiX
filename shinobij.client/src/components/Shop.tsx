@@ -15,6 +15,7 @@ import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses, consumableHoldCap } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { GameIcon } from "./icons/GameIcon";
 import { BackToVillageButton } from "./BackToVillageButton";
 import type { Character } from "../types/character";
@@ -111,6 +112,7 @@ function ShopBase({
     const getShopCost = (cost: number) => discountCost(cost, shopDiscountPercent);
 
     function buy(item: GameItem, qty = 1) {
+        if (!requireServerSettlement("shopPurchase")) return;
         const finalCost = getShopCost(item.cost);
         if (item.levelReq && character.level < item.levelReq) return alert(`Requires Level ${item.levelReq}. You are Level ${character.level}.`);
 
@@ -425,6 +427,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
     const packCost = (cost: number) => discountCost(cost, shopDiscountPercent);
 
     function openPack(count: number, rarities: TileCard["rarity"][], cost: number) {
+        if (!requireServerSettlement("shopCardPack")) return;
         const wallet = currency === "fateShards" ? character.fateShards : character.ryo;
         const label = currency === "fateShards" ? "Fate Shards" : "ryo";
         const finalCost = packCost(cost);

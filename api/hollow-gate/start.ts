@@ -10,6 +10,7 @@ import {
     HG_CLAWBACK_KEYS,
     HG_HIGH_VALUE_ITEM_ID,
     itemStackCount,
+    hollowGateRunsEnabled,
     type HollowGateRunToken,
     type HgCurrencyKey,
 } from './_run-token.js';
@@ -52,6 +53,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'You can only start your own dive.' });
+        }
+        if (!hollowGateRunsEnabled()) {
+            return res.status(503).json({ error: 'Hollow Gate runs are temporarily unavailable until server settlement is complete.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-start', 20, 60_000, identity.name))) return;
 

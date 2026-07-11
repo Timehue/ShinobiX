@@ -56,8 +56,14 @@ COPY . .
 # polling. Defaults are empty so a local `docker build` with no args still works.
 ARG VITE_SUPABASE_URL=""
 ARG VITE_SUPABASE_ANON_KEY=""
+ARG VITE_SENTRY_DSN=""
+ARG VITE_SENTRY_RELEASE=""
+ARG VITE_BUILD_COMMIT=""
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
-    VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+    VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY \
+    VITE_SENTRY_DSN=$VITE_SENTRY_DSN \
+    VITE_SENTRY_RELEASE=$VITE_SENTRY_RELEASE \
+    VITE_BUILD_COMMIT=$VITE_BUILD_COMMIT
 
 # Build the server bundle (tsc → dist/) and the React client (vite →
 # shinobij.client/dist), then run the post-build sanity check (verify:dist).
@@ -69,7 +75,12 @@ RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
 FROM node:22-bookworm-slim AS runtime
 
 WORKDIR /app
-ENV NODE_ENV=production
+# Railway exposes RAILWAY_GIT_COMMIT_SHA automatically at runtime. Generic
+# Docker releases can pass --build-arg BUILD_COMMIT=<full sha>; server health
+# accepts either source and reports the full immutable revision.
+ARG BUILD_COMMIT=""
+ENV NODE_ENV=production \
+    BUILD_COMMIT=$BUILD_COMMIT
 
 # Production dependencies only (NODE_ENV=production + --omit=dev drops the build
 # toolchain — vite/three/sharp/typescript/tsx). The server (dist/server.js +

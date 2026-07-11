@@ -408,5 +408,7 @@ scripts/vfx-sources/
 
 # Playwright QA artifacts (screenshots, snapshots) generated during live testing
 .playwright-mcp/
+shinobij.client/playwright-report/
+shinobij.client/test-results/
 qa-*.jpeg
 qa-*.png
