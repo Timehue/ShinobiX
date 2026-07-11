@@ -1225,6 +1225,12 @@ export function sanitizeCharacterSave(
     // claimed, a forged save can't flip it back to false to re-claim. (audit #1)
     if (exChar.academyTrialClaimed === true) char.academyTrialClaimed = true;
 
+    // academySectorVisited latches the final onboarding beat's "visited a sector"
+    // milestone the same way: once the server has recorded it, a stale/forged save
+    // can't flip it back to false. Reverting it would strand the player on the
+    // "return to the village" step (the coach loops forever with no way to finish).
+    if (exChar.academySectorVisited === true) char.academySectorVisited = true;
+
     // Bank-interest claim window enforcement.
     //   The Bank screen (shinobij.client/src/screens/Bank.tsx) uses
     //   Date.now() to gate the "claim interest" button — a player who

@@ -608,6 +608,12 @@ export type Character = {
     academyChecklistClaimed?: boolean;
     // One-time claim gate for the onboarding "Academy Trial" mission (Workstream F).
     academyTrialClaimed?: boolean;
+    // Persisted milestone for the final "sectorReturn" onboarding beat: set true the
+    // moment the player reaches any numbered sector, so the "return to the village"
+    // completion survives coach remounts (a sector-triggered battle unmounts the
+    // coach), refreshes, and snapshot reverts. Lives on the character — not an
+    // ephemeral ref — for the same reason every other beat keys off persisted state.
+    academySectorVisited?: boolean;
     // Dismissed one-time contextual screen hints (Shop/Hospital/World Map/etc.).
     seenHints?: string[];
     geninCeremonySeen?: boolean;

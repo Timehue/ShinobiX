@@ -16,7 +16,12 @@
  *   cafeteria     -> "you've been hurt, heal yourself"; advances at full HP
  *   firstMission  -> claim first mission; advances when academyTrialClaimed
  *   logbook       -> open Logbook; advances when the Logbook is opened
- *   sectorReturn  -> visit any sector, then return to the village -> "done"
+ *   sectorReturn  -> visit any sector (latches character.academySectorVisited),
+ *                    then return to the village -> "done". The "visited" milestone
+ *                    is PERSISTED on the character rather than an ephemeral ref, so
+ *                    it survives a coach remount (a sector-triggered battle hides
+ *                    the coach), a refresh, or a snapshot revert of onboardingStep —
+ *                    otherwise the beat could never complete and looped forever.
  *
  * The chosen companion IS the guide, presented as a talking character: the
  * pet's full-body 2.5D pose standee (the coliseum cutout art via petPoseImage)
@@ -131,7 +136,6 @@ export function OnboardingCoach({
     const jutsuBaselineRef = useRef<number | null>(null);
     const loadoutBaselineRef = useRef<number | null>(null);
     const equipmentBaselineRef = useRef<number | null>(null);
-    const sectorVisitedRef = useRef(false);
     const reduced = prefersReducedMotion();
 
     useEffect(() => {
@@ -223,18 +227,22 @@ export function OnboardingCoach({
     }, [step, screen]);
 
     useEffect(() => {
-        if (step !== "sectorReturn") {
-            sectorVisitedRef.current = false;
+        if (step !== "sectorReturn") return;
+        // Latch the "visited a sector" milestone onto the character the instant the
+        // player reaches a numbered sector. Persisting it (vs. a component ref) is
+        // what keeps the beat completable after the coach is unmounted mid-visit (a
+        // sector-triggered battle sets screen "arena"), after a refresh, or after a
+        // snapshot reverts onboardingStep — the old ref reset to false on every such
+        // remount, so the return-home step could loop forever.
+        if (screen === "worldMap" && currentSector >= 1 && !character.academySectorVisited) {
+            updateCharacter({ ...character, academySectorVisited: true });
             return;
         }
-        if (screen === "worldMap" && currentSector >= 1) {
-            sectorVisitedRef.current = true;
-        }
-        if (sectorVisitedRef.current && screen === "village") {
+        if (character.academySectorVisited && screen === "village") {
             updateCharacter({ ...character, onboardingStep: "done" });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [step, screen, currentSector]);
+    }, [step, screen, currentSector, character.academySectorVisited]);
 
     useBodyScrollLock(step === "academySpar");
 
@@ -253,7 +261,11 @@ export function OnboardingCoach({
         return () => document.body.classList.remove("coach-banner-open");
     }, [bannerVisible]);
 
-    const visitedSector = screen === "worldMap" && currentSector >= 1;
+    // True once the sector has been reached — either live (on the map, in a sector)
+    // or from the persisted milestone, so the banner keeps saying "return home" even
+    // after a remount/refresh instead of resetting to "go find a sector".
+    const visitedSector =
+        Boolean(character.academySectorVisited) || (screen === "worldMap" && currentSector >= 1);
 
     // The companion's coaching line for the current banner step. Plain strings
     // so the speech-bubble typewriter can slice them.
