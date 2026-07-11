@@ -29,10 +29,10 @@ export interface RiftQuestDef {
 }
 
 export const RIFT_QUESTS: Record<string, RiftQuestDef> = {
-    // L15 legacy-intro rift: a gentle first taste + teaches what Legacies are.
+    // L12 legacy-intro rift: a gentle first taste + teaches what Legacies are.
     // Modest reward (intro tier), smaller than the L30 stalker.
     "rift-legacy-echo": {
-        id: "rift-legacy-echo", levelReq: 15, bossName: "The Unremembered",
+        id: "rift-legacy-echo", levelReq: 12, bossName: "The Unremembered",
         weight: 5, fateShards: 1, boneCharms: 8,
     },
     "rift-hollow-stalker": {

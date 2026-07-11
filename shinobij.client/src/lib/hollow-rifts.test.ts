@@ -1,13 +1,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import type { Character } from "../types/character";
 import {
     RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_GIVER_PREFIX,
     nextRift, synthRiftGiver, riftTargetSector, riftEventConfig,
     riftIntroEvent, riftDescentEvent, riftBySynthId, riftByDescentEventId, isRiftDescentEventId,
+    riftGiverPortrait, riftBossPortrait,
 } from "./hollow-rifts";
 import { hollowRifts } from "../data/hollow-rifts";
 import { builtinAis } from "./combat-ai";
+
+const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "public");
+const publicAssetExists = (p: string) => existsSync(join(PUBLIC_DIR, p.replace(/^\//, "")));
 
 function mkChar(overrides: Partial<Character>): Character {
     return { name: "Tester", level: 40, totalAiKills: 0, activeRiftQuest: null, riftCooldownUntil: 0, ...overrides } as unknown as Character;
@@ -21,25 +28,71 @@ test("nextRift gates on level, an active rift, and the post-clear cooldown", () 
     assert.equal(nextRift(mkChar({ level: 99, riftCooldownUntil: Date.now() + 60_000 })), null); // cooling down
 });
 
-test("nextRift rotates by LEVEL BAND so higher tiers surface, spanning 15-90", () => {
-    // Every level 15..90 has at least one eligible rift, and the offered one is in band.
-    for (let lvl = 15; lvl <= 90; lvl++) {
+test("nextRift offers a reached rift with NO upper cap (missed rifts stay doable)", () => {
+    // From the intro floor up, every level has an eligible rift, and the offered
+    // one is always a rift the player has reached (level >= its levelReq).
+    for (let lvl = 12; lvl <= 100; lvl++) {
         const r = nextRift(mkChar({ level: lvl, name: "Cov" }));
         assert.ok(r, `level ${lvl} has an eligible rift`);
-        assert.ok(lvl >= r!.levelReq && lvl <= r!.levelMax, `level ${lvl} -> ${r!.id} (band ${r!.levelReq}-${r!.levelMax})`);
+        assert.ok(lvl >= r!.levelReq, `level ${lvl} -> ${r!.id} (req ${r!.levelReq})`);
     }
-    // Below the intro floor (L15) no rift is offered yet.
-    assert.equal(nextRift(mkChar({ level: 14, name: "New" })), null);
-    // The L15 intro rift is the ONLY thing a low-level player sees, and it is the legacy-teaching one.
-    for (let lvl = 15; lvl <= 25; lvl++) {
+    // Below the intro floor (L12) no rift is offered yet.
+    assert.equal(nextRift(mkChar({ level: 11, name: "New" })), null);
+    // Pre-L30, the legacy-teaching intro rift is the ONLY thing offered.
+    for (let lvl = 12; lvl <= 29; lvl++) {
         assert.equal(nextRift(mkChar({ level: lvl, name: "Lo" }))?.id, "rift-legacy-echo", `level ${lvl} -> intro rift`);
     }
-    // A high-level player is never handed the L15 intro or the L30 stalker.
-    assert.notEqual(nextRift(mkChar({ level: 88, name: "Hi" }))?.id, "rift-legacy-echo");
-    assert.notEqual(nextRift(mkChar({ level: 88, name: "Hi" }))?.id, "rift-hollow-stalker");
-    // Bands are well-formed (min <= max) and the set spans up to 90+.
-    for (const r of hollowRifts) assert.ok(r.levelReq <= r.levelMax, `${r.id}: band ${r.levelReq}-${r.levelMax}`);
-    assert.ok(hollowRifts.some((r) => r.levelMax >= 90), "at least one rift reaches level 90");
+    // No rift caps out: a max-level player is still eligible for EVERY rift
+    // (including the intro one), so a rift they out-leveled remains completable.
+    assert.equal(
+        hollowRifts.filter((r) => 100 >= r.levelReq).length,
+        hollowRifts.length,
+        "every rift is eligible at max level",
+    );
+    // Every rift has a positive entry floor.
+    for (const r of hollowRifts) assert.ok(r.levelReq >= 1, `${r.id}: levelReq ${r.levelReq}`);
+});
+
+test("nextRift PREFERS the highest tier reached but still surfaces lower rifts", () => {
+    // The day hash keys on name, so sampling many names draws the weighted
+    // distribution on one UTC day. A level-45 player has the intro (L12), the
+    // stalker (L30) and the warren (L40) in reach; margins here are >5σ so the
+    // ordering can't flake regardless of which day the suite runs.
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 500; i++) {
+        const id = nextRift(mkChar({ level: 45, name: `p${i}` }))?.id ?? "none";
+        counts[id] = (counts[id] ?? 0) + 1;
+    }
+    const warren = counts["rift-beast-warren"] ?? 0;    // top tier reached (L40)
+    const stalker = counts["rift-hollow-stalker"] ?? 0;  // mid (L30)
+    const legacy = counts["rift-legacy-echo"] ?? 0;      // intro (L12)
+    // Strict tier preference: the nearer-to-level rift is offered more often…
+    assert.ok(warren > stalker, `warren ${warren} > stalker ${stalker}`);
+    assert.ok(stalker > legacy, `stalker ${stalker} > legacy ${legacy}`);
+    // …yet the out-leveled intro rift still surfaces (never locked out).
+    assert.ok(legacy >= 1, `intro rift still surfaces (got ${legacy})`);
+});
+
+test("rift VN portraits are wired to real assets (giver face + boss crop, Narrator none)", () => {
+    for (const rift of hollowRifts) {
+        const giverArt = riftGiverPortrait(rift);
+        const bossArt = riftBossPortrait(rift);
+        // The referenced files must actually be on disk (no initials fallback).
+        assert.ok(publicAssetExists(giverArt), `${rift.id}: missing giver portrait ${giverArt}`);
+        assert.ok(publicAssetExists(bossArt), `${rift.id}: missing boss portrait ${bossArt}`);
+        // Giver-spoken intro pages carry the giver's face…
+        for (const page of riftIntroEvent(rift, 20, "shadow").vnPages!) {
+            if ((page.speaker ?? "").trim().toLowerCase() === rift.giverName.trim().toLowerCase()) {
+                assert.equal(page.rightImage, giverArt, `${rift.id}: giver page portrait`);
+            }
+        }
+        // …the descent boss page carries the boss crop, the Narrator page none.
+        for (const page of riftDescentEvent(rift, "shadow").vnPages!) {
+            const sp = (page.speaker ?? "").trim().toLowerCase();
+            if (sp === rift.bossName.trim().toLowerCase()) assert.equal(page.rightImage, bossArt, `${rift.id}: boss page portrait`);
+            else if (sp === "narrator") assert.equal(page.rightImage, undefined, `${rift.id}: narrator page has no portrait`);
+        }
+    }
 });
 
 test("every rift's boss AI exists in builtinAis and is a boss", () => {
