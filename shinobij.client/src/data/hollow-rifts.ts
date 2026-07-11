@@ -44,11 +44,11 @@ export type HollowRift = {
     slug: string;
     giverName: string;
     giverArchetype: RiftGiverArchetype;
-    /** Delivery LEVEL BAND: the roaming giver offers this rift only while
-     *  levelReq <= level <= levelMax. Bands overlap so mid-levels see 1-2 rifts;
-     *  nextRift rotates among the eligible ones per day so higher tiers surface. */
+    /** Delivery FLOOR: the roaming giver offers this rift once the player reaches
+     *  levelReq. There is NO upper cap — a player who out-levels a rift can still be
+     *  offered it, so a missed rift stays doable. nextRift rotates among every rift
+     *  the player has reached, one per UTC day. */
     levelReq: number;
-    levelMax: number;
     /** Scaled run shape (short = the scale-down). Boss on the last floor. */
     floors: number;          // 1..3
     boardWidth?: number;
@@ -75,8 +75,7 @@ export const hollowRifts: HollowRift[] = [
         slug: "legacy-echo",
         giverName: "Senna Graveward",
         giverArchetype: "pilgrim",
-        levelReq: 15,
-        levelMax: 29,
+        levelReq: 12,
         floors: 1,
         theme: "legacy-echo",
         landmark: "forgotten-shrine",
@@ -153,7 +152,6 @@ export const hollowRifts: HollowRift[] = [
         giverName: "Scout Vessa",
         giverArchetype: "tracker",
         levelReq: 30,
-        levelMax: 50,
         floors: 2,
         theme: "shadow-echo",
         landmark: "hollow-rift",
@@ -222,7 +220,6 @@ export const hollowRifts: HollowRift[] = [
         giverName: "Houndmaster Bel",
         giverArchetype: "tracker",
         levelReq: 40,
-        levelMax: 62,
         floors: 2,
         theme: "beast-den",
         landmark: "rift-beast-den",
@@ -291,7 +288,6 @@ export const hollowRifts: HollowRift[] = [
         giverName: "Recorder Sann",
         giverArchetype: "official",
         levelReq: 52,
-        levelMax: 72,
         floors: 3,
         theme: "machine",
         landmark: "rift-machine",
@@ -360,7 +356,6 @@ export const hollowRifts: HollowRift[] = [
         giverName: "Keeper Oru",
         giverArchetype: "sage",
         levelReq: 62,
-        levelMax: 80,
         floors: 2,
         theme: "legacy",
         landmark: "rift-legacy",
@@ -429,7 +424,6 @@ export const hollowRifts: HollowRift[] = [
         giverName: "Broker Nemo",
         giverArchetype: "broker",
         levelReq: 70,
-        levelMax: 88,
         floors: 3,
         theme: "mirror",
         landmark: "rift-machine",
@@ -498,7 +492,6 @@ export const hollowRifts: HollowRift[] = [
         giverName: "Kite Harrow",
         giverArchetype: "broker",
         levelReq: 80,
-        levelMax: 100,
         floors: 3,
         theme: "gate",
         landmark: "rift-gate",

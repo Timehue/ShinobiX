@@ -11,6 +11,7 @@
 import { MAX_LEVEL } from "../../constants/game";
 import { clampNumber } from "../../lib/utils";
 import { hollowGateBossScaling } from "../../lib/hollow-gate-variant";
+import { aiStatsForLevel, aiHpForLevel } from "../../lib/ai-stats";
 import type { CreatorAi } from "../../types/creator-ai";
 
 // Elite-tile affixes: a tougher, flavored variant rolled for elite
@@ -34,6 +35,11 @@ export type HollowGateEliteAffix = (typeof HOLLOW_GATE_AFFIXES)[number];
 // short event gate simply never reaches the steep end of the ramp.
 export const HOLLOW_GATE_FLOOR_HP_STEP = 0.06;    // +6% enemy HP per floor of depth
 export const HOLLOW_GATE_FLOOR_STAT_STEP = 0.035; // +3.5% enemy stats per floor of depth
+
+// Rift threat-ambush foes are trash MOBS, not fair duels: after the peer rebuild
+// (see pickShrineEncounter) their stats AND HP are scaled by this — 0.9× reads as
+// a speed-bump the player rolls through. Tunable.
+export const RIFT_MOB_SCALE = 0.9;
 
 export type ShrineEncounterOpts = { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean };
 
@@ -69,9 +75,11 @@ export function pickShrineEncounter(args: {
     maxFloor: number;
     bossDisplayName: string;
     variantBossAiId?: string;
+    /** Rebuild non-boss ambushes as a fair PEER (rift tone-down). See below. */
+    gentleNonBoss?: boolean;
     opts: ShrineEncounterOpts;
 }): ShrineEncounterPick | null {
-    const { playableAis, playerLevel, floor, maxFloor, bossDisplayName, variantBossAiId, opts } = args;
+    const { playableAis, playerLevel, floor, maxFloor, bossDisplayName, variantBossAiId, gentleNonBoss, opts } = args;
     const eliteAffix = opts.isElite ? HOLLOW_GATE_AFFIXES[Math.floor(Math.random() * HOLLOW_GATE_AFFIXES.length)] : null;
     const LEVEL_BAND = 15;
     const inBand = (ai: CreatorAi) => Math.abs((ai.level ?? 1) - playerLevel) <= LEVEL_BAND;
@@ -111,7 +119,20 @@ export function pickShrineEncounter(args: {
         }
     }
     if (!chosen) return null;
-    const baseAi = chosen;
+    // Rift (and other "gentle") non-boss ambushes: rebuild the picked foe as a
+    // trash MOB — a peer stat/HP block at the player's level, then RIFT_MOB_SCALE
+    // (0.9×) so it reads as a speed-bump, not a fair duel. The ±15-level pick only
+    // clamps the NAMEPLATE, so without this a beefy hunt-tier AI (its OWN authored
+    // stats + big HP pool) could ambush the player inside a short, gentle gate.
+    // Bosses keep their own (stronger) ramp.
+    const gentle = Boolean(gentleNonBoss) && !opts.isBoss;
+    const baseAi: CreatorAi = gentle
+        ? {
+            ...chosen,
+            stats: scaleAffixStats(aiStatsForLevel(playerLevel), RIFT_MOB_SCALE),
+            hp: Math.max(1, Math.floor(aiHpForLevel(playerLevel) * RIFT_MOB_SCALE)),
+        }
+        : chosen;
 
     const encounterName = opts.isBoss
         ? bossDisplayName
@@ -133,7 +154,9 @@ export function pickShrineEncounter(args: {
     const targetLevel = playerLevel + bossFloorOffset;
     const rebasedLevel = opts.isBoss
         ? clampNumber(targetLevel, 1, MAX_LEVEL)
-        : clampNumber(baseAi.level ?? playerLevel, Math.max(1, playerLevel - LEVEL_BAND), playerLevel + LEVEL_BAND);
+        : gentle
+            ? clampNumber(playerLevel, 1, MAX_LEVEL)
+            : clampNumber(baseAi.level ?? playerLevel, Math.max(1, playerLevel - LEVEL_BAND), playerLevel + LEVEL_BAND);
     const bossHpMultiplier = opts.isBoss ? scaling.hpMult : 1;
 
     // Non-boss depth ramp — deeper floors send tougher corrupted shinobi.
