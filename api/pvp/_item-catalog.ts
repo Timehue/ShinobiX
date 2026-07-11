@@ -183,6 +183,8 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     "training-katana": {"id":"training-katana","name":"Training Katana","slot":"hand","rarity":"common","weaponRange":4,"weaponCooldown":5,"weaponEp":18,"weaponEffect":"Decrease Damage Taken","weaponEffectValue":10,"bonuses":{"taijutsuOffense":58}},
     "veil-of-the-hollow": {"id":"veil-of-the-hollow","name":"Veil of the Hollow","slot":"item","rarity":"legendary","bonuses":{}},
     "void-leech-nodachi": {"id":"void-leech-nodachi","name":"Void Leech Nodachi","slot":"hand","rarity":"mythic","weaponRange":4,"weaponCooldown":5,"weaponEp":30,"weaponEffect":"Lifesteal","weaponEffectValue":35,"bonuses":{"bukijutsuOffense":168}},
+    "war-resource-cache": {"id":"war-resource-cache","name":"War Resource Cache","slot":"item","rarity":"rare","bonuses":{}},
+    "war-supply-cache": {"id":"war-supply-cache","name":"War Supply Cache","slot":"item","rarity":"rare","bonuses":{}},
     "warforged-relic": {"id":"warforged-relic","name":"Warforged Relic","slot":"item","rarity":"legendary","bonuses":{}},
     "weekly-boss-core": {"id":"weekly-boss-core","name":"Weekly Boss Core","slot":"item","rarity":"legendary","bonuses":{}},
     "worldsplitter-katana": {"id":"worldsplitter-katana","name":"Worldsplitter Katana","slot":"hand","rarity":"mythic","weaponRange":4,"weaponCooldown":5,"weaponEp":30,"weaponEffect":"Reflect","weaponEffectValue":35,"bonuses":{"bukijutsuOffense":160}},
