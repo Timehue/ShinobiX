@@ -417,7 +417,22 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         const alert = requestSloAlert();
         if (alert) {
             console.warn(alert);
-            try { Sentry?.captureMessage(alert, 'warning'); } catch { /* reporting must never affect a response */ }
+            try {
+                // The SLO snapshot is global. This callback still runs inside
+                // the request that triggered evaluation, so explicitly replace
+                // that request's transaction label before reporting to Sentry.
+                // Otherwise a global p95 breach can look like it belongs to an
+                // innocent route such as /api/player/roster.
+                Sentry?.withScope((scope) => {
+                    scope.setTransactionName('request-slo/global');
+                    scope.setTag('request_slo_scope', 'global');
+                    scope.setContext(
+                        'request_slo',
+                        readRequestMetrics() as unknown as Record<string, unknown>,
+                    );
+                    Sentry?.captureMessage(alert, 'warning');
+                });
+            } catch { /* reporting must never affect a response */ }
         }
     });
     next();
