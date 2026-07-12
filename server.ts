@@ -236,6 +236,7 @@ import { safeEqual } from './api/_auth.js';
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
 import { isAllowedOrigin, isMalformedJsonBodyError, MALFORMED_JSON_BODY_ERROR } from './api/_utils.js';
 import { publicErrorPayload, securityHeaders } from './api/_http-security.js';
+import { evaluateLaunchControl } from './api/_launch-controls.js';
 import {
     canonicalRedirectLocation,
     isLegacyDuplicateHost,
@@ -506,6 +507,21 @@ function route(path: string, handler: AnyHandler) {
     const paths = [path, `/api${path}`];
     app.all(paths, async (req: Request, res: Response, next: NextFunction) => {
         try {
+            const control = evaluateLaunchControl({
+                path,
+                method: req.method,
+                body: req.body,
+            });
+            if (!control.allowed) {
+                res.setHeader('Cache-Control', 'no-store');
+                res.setHeader('Retry-After', String(control.retryAfterSeconds));
+                res.status(control.status).json({
+                    ok: false,
+                    error: control.error,
+                    code: control.code,
+                });
+                return;
+            }
             // Merge route params into query so Vercel-style handlers work.
             const augmented = {
                 ...req,
