@@ -282,7 +282,26 @@ describe('_makeRemoteKv transport resilience', () => {
 
     afterEach(() => { globalThis.fetch = realFetch; });
 
-    const kv = (): KvLike => _makeRemoteKv('https://proxy.example/api/kv', 'tok');
+    const kv = (): KvLike => _makeRemoteKv(
+        'https://proxy.example/api/kv',
+        'tok',
+        { allowedHosts: new Set(['proxy.example']) },
+    );
+
+    it('rejects unapproved, insecure, and ambiguous proxy destinations before fetch', () => {
+        for (const url of [
+            'http://theravensark.com/api/kv',
+            'https://evil.example/api/kv',
+            'https://theravensark.com.evil.example/api/kv',
+            'https://user:pass@theravensark.com/api/kv',
+            'https://theravensark.com:444/api/kv',
+            'https://theravensark.com/api/kv?next=evil',
+            'https://theravensark.com/api/not-kv',
+        ]) {
+            assert.throws(() => _makeRemoteKv(url, 'tok'));
+        }
+        assert.doesNotThrow(() => _makeRemoteKv('https://theravensark.com/api/kv/', 'tok'));
+    });
 
     it('retries a transient 502 and succeeds on a later attempt', async () => {
         installFetch([502, 502, 200]);
