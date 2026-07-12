@@ -155,6 +155,12 @@ export const VEIL_OF_THE_HOLLOW_ID = "veil-of-the-hollow";
 export const HOLLOW_GATE_KEY_ID = "hollow-gate-key";
 export const WARFORGED_RELIC_ID = "warforged-relic";
 export const LEGENDARY_WAR_CRATE_ID = "legendary-war-crate";
+// Elemental attunement: Shards drop from Hollow Gate bosses; 10 Shards forge one
+// Core at the Crafter; a Core is applied to a legendary/mythic weapon to attune it
+// to one of the wielder's awakened elements (see api/weapon/apply-elemental-core.ts).
+export const ELEMENTAL_SHARD_ID = "elemental-shard";
+export const ELEMENTAL_CORE_ID = "elemental-core";
+export const ELEMENTAL_SHARDS_PER_CORE = 10;
 export const WAR_CRATE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const ADMIN_DELETED_ITEM_MARKER = "__ADMIN_DELETED_ITEM__";
 

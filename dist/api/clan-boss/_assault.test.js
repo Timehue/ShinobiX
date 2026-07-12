@@ -253,7 +253,7 @@ function mkSession(opts) {
         node_assert_1.strict.match(move, /from '..\/combat-core\/resolveJutsu\.js'/, 'PvP applyJutsu should keep delegating phase order to combat-core');
         node_assert_1.strict.match(move, /resolveCoreJutsu\({/, 'PvP applyJutsu should call the combat-core resolver wrapper');
         node_assert_1.strict.match(engine, /resolveTowerPlayerJutsu/, 'tower/clan-boss hit path should go through the combat adapter seam');
-        node_assert_1.strict.match(engine, /applyJutsu as applyPvpJutsu,\s*applyDoTs,\s*tickStatuses,\s*applyGroundEffectToFighter,\s*tickGroundEffects\s*}\s*from '..\/pvp\/move\.js'/, 'tower/clan-boss still uses PvP as the player-combat truth source while phase wrappers live there');
+        node_assert_1.strict.match(engine, /applyJutsu as applyPvpJutsu,\s*applyDoTs,\s*tickStatuses,\s*applyGroundEffectToFighter,\s*tickGroundEffects,\s*characterOwnsElement\s*}\s*from '..\/pvp\/move\.js'/, 'tower/clan-boss still uses PvP as the player-combat truth source while phase wrappers live there');
         node_assert_1.strict.match(engine, /from '..\/combat-core\/formulas\.js'/, 'tower fallback damage should consume combat-core formula helpers instead of copied constants');
         node_assert_1.strict.match(adapter, /normalizeTowerPlayerJutsuCombat/, 'adapter should expose a normalized tower/clan-boss player-combat contract');
         node_assert_1.strict.doesNotMatch(engine, /function resolveTagStatuses|function resolvePostDamage/, 'tower should not duplicate PvP tag/post-damage resolver phases');

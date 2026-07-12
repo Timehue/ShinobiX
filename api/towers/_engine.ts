@@ -20,7 +20,7 @@
  * (these currently resolve as "all enemies dead"; the v1 catalog ships none of them).
  */
 import { hexDistance, filledDiskTiles } from '../pvp/_aoe.js';
-import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects } from '../pvp/move.js';
+import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu } from '../combat-adapters/clanBossAdapter.js';
 import { directDamageBaseFormula } from '../combat-core/formulas.js';
 import { GROUND_EFFECT_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
@@ -78,6 +78,9 @@ type JutsuLike = {
     id?: string; name?: string; effectPower?: number; type?: string; ap?: number;
     range?: number; element?: string; chakraCost?: number; staminaCost?: number;
     cooldown?: number; isUtility?: boolean; method?: string; target?: string; tags?: unknown[];
+    // Weapon synth sets this when the wielder lacks the weapon's element → the swing
+    // gets no bloodline damage multiplier (parity with api/pvp/move.ts resolveBaseDamage).
+    suppressBloodline?: boolean;
 };
 // Equipped weapon / consumable shape (subset of PvP's PvpItem — the sealed loadout
 // carries these). `slot` drives weapon (hand/thrown) vs consumable (item/potion).
@@ -1315,6 +1318,10 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
         const weaponJutsu: JutsuLike = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
             isUtility: false, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
+            // Elemental-weapon gate (parity with PvP): the swing rides the wielder's
+            // bloodline damage multiplier only when the weapon's element is one the
+            // wielder has awakened. No element → no boost.
+            suppressBloodline: !characterOwnsElement(actor.character, item.weaponElement),
             ...(weaponTags.length ? { tags: weaponTags } : {}),
         };
         resolveHit(session, floor, actor, wTarget, weaponJutsu, wCost);

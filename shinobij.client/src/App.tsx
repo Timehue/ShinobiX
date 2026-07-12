@@ -268,7 +268,7 @@ import {
     VEIL_OF_THE_HOLLOW_ID,
     HOLLOW_GATE_KEY_ID,
     WARFORGED_RELIC_ID,
-    LEGENDARY_WAR_CRATE_ID,
+    LEGENDARY_WAR_CRATE_ID, ELEMENTAL_SHARD_ID,
     PROTECTED_ADMIN_USERNAME,
     isProtectedAdminName,
 } from "./constants/game";
@@ -586,7 +586,7 @@ import {
     rollHollowGateAncientChest,
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
-import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
+import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop, elementalShardBossDrop } from "./lib/hollow-gate-run";
 import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun } from "./lib/hollow-gate-server";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
 import { markHollowGateSeen } from "./lib/hollow-gate-path";
@@ -5877,6 +5877,7 @@ export default function App() {
             const auraDustReward = Math.floor((isBoss ? 30 : isAmbush ? 10 : 5) * bossFloorMult);
             const honorReward = Math.floor((isBoss ? 25 : 0) * bossFloorMult);
             const bossShards = isBoss ? hollowShardDrop(runFloor, "boss") : 0;
+            const elementalShardDrop = isBoss ? elementalShardBossDrop(runFloor) : 0; // 0 or 1 (rolled once)
             const leveled = gainXp({ ...character, hp: survivingHp }, xpReward);
             // Boss drops a Dungeon Legendary Fragment + Hollow Shards; both boss
             // and non-boss wins restore some HP (boss is a roadblock, not a death).
@@ -5891,11 +5892,8 @@ export default function App() {
                 hp: Math.min(leveled.maxHp, survivingHp + (isBoss ? 60 : 20)),
             };
             if (isBoss) {
-                nextCharacter = addInventoryItems(nextCharacter, [DUNGEON_LEGENDARY_FRAGMENT_ID]);
-                nextCharacter = {
-                    ...nextCharacter,
-                    hollowGateWardenKills: (nextCharacter.hollowGateWardenKills ?? 0) + 1,
-                };
+                nextCharacter = addInventoryItems(nextCharacter, [DUNGEON_LEGENDARY_FRAGMENT_ID, ...Array(elementalShardDrop).fill(ELEMENTAL_SHARD_ID)]);
+                nextCharacter = { ...nextCharacter, hollowGateWardenKills: (nextCharacter.hollowGateWardenKills ?? 0) + 1 };
                 // RIFT final-floor clear: flush the bumped kill counter, then complete server-side.
                 const riftId = hollowGateRun?.variant?.id;
                 if (riftId?.startsWith("rift-") && hollowGateRun && hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) void pushSaveToServer(nextCharacter, currentAccountName || character.name).then(() => completeRiftRun(character.name, riftId, setCharacter, pushHollowGateLog)).catch(() => {});
@@ -5905,7 +5903,7 @@ export default function App() {
             setPendingAiProfileId("");
             onHollowGateBattleWin();
             return isBoss
-                ? `${hollowGateBossDisplayName(hollowGateRun)} defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust, +${honorReward} Honor Seals, +${bossShards} Hollow Shards, +1 Dungeon Legendary Fragment.`
+                ? `${hollowGateBossDisplayName(hollowGateRun)} defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust, +${honorReward} Honor Seals, +${bossShards} Hollow Shards, +1 Dungeon Legendary Fragment${elementalShardDrop ? ", +1 Elemental Shard" : ""}.`
                 : `Corrupted shinobi defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust.`;
         }
 
