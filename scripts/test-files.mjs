@@ -59,6 +59,7 @@ export const TEST_FILES = [
     "api/_proc-cache.test.ts",
     "api/_receipts.test.ts",
     "api/_audit.test.ts",
+    "api/_announce.test.ts",
     "api/_economy.test.ts",
     "api/_economic-receipt.test.ts",
     "api/_settlement-receipts.test.ts",
