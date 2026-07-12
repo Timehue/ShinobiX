@@ -6,6 +6,7 @@ export const TEST_FILES = [
     "cpanel-dns.test.cjs",
     "scripts/check-deployment-config.test.mjs",
     "api/_release-flags.test.ts",
+    "api/_launch-controls.test.ts",
     "api/_http-security.test.ts",
     "server-routes.test.ts",
     "api/_clan-points.test.ts",
