@@ -26,7 +26,7 @@
 # support"), breaking every Supabase read. package.json engines require Node 22+.
 
 # ── Stage 1: builder — install everything + build the server bundle + React client ──
-FROM node:22-bookworm-slim AS builder
+FROM node:22.23.1-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -72,7 +72,7 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
 RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
 # ── Stage 2: runtime — production deps + built output only (small final image) ──
-FROM node:22-bookworm-slim AS runtime
+FROM node:22.23.1-bookworm-slim AS runtime
 
 WORKDIR /app
 # Railway exposes RAILWAY_GIT_COMMIT_SHA automatically at runtime. Generic
