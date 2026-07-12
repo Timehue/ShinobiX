@@ -375,6 +375,8 @@ shinobij.client/saves/
 # Local environment / secrets (OpenAI key etc.)
 .env
 shinobij.client/.env
+**/appsettings.Development.json
+**/appsettings.*.Development.json
 
 # CI/CD deploy artifact
 deploy.zip

@@ -25,6 +25,7 @@ import { runClanBossWeekly } from './_clan-boss-weekly.js';
 import { runVillageWarDailyPass } from '../_war-daily.js';
 import { runMercAutoDeploy } from '../_merc-auto.js';
 import { runEraDailyPass } from '../_era.js';
+import { scheduledJobsDisabled } from '../_launch-controls.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MERC_TICK_MS = 10 * 60_000; // village-war mercenary auto-snipe cadence
@@ -129,6 +130,10 @@ async function fire(): Promise<void> {
  * open on their own.
  */
 export function startSnapshotCron(): void {
+    if (scheduledJobsDisabled()) {
+        console.log('[cron-scheduler] all scheduled jobs disabled via DISABLE_SCHEDULED_JOBS=1');
+        return;
+    }
     if (process.env.DISABLE_SNAPSHOT_CRON === '1') {
         console.log('[cron-scheduler] save-snapshot cron disabled via DISABLE_SNAPSHOT_CRON=1');
         return;

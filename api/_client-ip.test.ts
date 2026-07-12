@@ -42,6 +42,12 @@ describe('requestTransitedCloudflare', () => {
     it('is false for a direct (non-Cloudflare) request', () => {
         assert.equal(requestTransitedCloudflare(req({ 'x-forwarded-for': '86.123.45.67' }, '10.0.0.3')), false);
     });
+    it('rejects an injected Cloudflare hop when the proxy-facing hop is not Cloudflare', () => {
+        assert.equal(requestTransitedCloudflare(req({
+            'x-forwarded-for': '1.2.3.4, 162.158.14.68, 86.123.45.67',
+            'cf-connecting-ip': '1.2.3.4',
+        }, '10.0.0.3')), false);
+    });
 });
 
 describe('clientIp', () => {
@@ -72,13 +78,21 @@ describe('clientIp', () => {
         assert.equal(clientIp(r), '86.123.45.67');
     });
 
-    it('falls back to the first XFF hop when no CF header is present', () => {
-        const r = req({ 'x-forwarded-for': '86.123.45.67, 10.0.0.1' });
+    it('uses the proxy-facing XFF hop when Cloudflare cannot be verified', () => {
+        const r = req({ 'x-forwarded-for': '1.2.3.4, 86.123.45.67' });
         assert.equal(clientIp(r), '86.123.45.67');
     });
 
-    it('falls back to x-real-ip when XFF is absent', () => {
-        assert.equal(clientIp(req({ 'x-real-ip': '86.123.45.67' })), '86.123.45.67');
+    it('does not trust a standalone spoofable x-real-ip header', () => {
+        assert.equal(clientIp(req({ 'x-real-ip': '1.2.3.4' }, '86.123.45.67')), '86.123.45.67');
+    });
+
+    it('does not honor forged CF identity from a non-proxy-facing Cloudflare hop', () => {
+        const r = req({
+            'cf-connecting-ip': '1.2.3.4',
+            'x-forwarded-for': '9.9.9.9, 162.158.14.68, 86.123.45.67',
+        }, '10.0.0.3');
+        assert.equal(clientIp(r), '86.123.45.67');
     });
 
     it('falls back to the socket peer when no proxy headers are present', () => {
