@@ -202,6 +202,14 @@ describe('Express route parity (Railway + cPanel)', () => {
             'asset guard must run before SPA fallback so missing chunks do not receive index.html',
         );
     });
+
+    it('returns non-cacheable JSON 404s for unknown API routes before the SPA fallback', () => {
+        assert.match(serverSrc, /API route not found\./, 'unknown API guard is missing');
+        assert.ok(
+            serverSrc.indexOf('API route not found.') < serverSrc.indexOf('app.get(/(.*)/'),
+            'unknown API guard must run before the SPA fallback',
+        );
+    });
 });
 
 describe('handler wiring (no orphaned endpoints)', () => {

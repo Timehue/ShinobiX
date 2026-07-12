@@ -1222,6 +1222,11 @@ app.get(_STATIC_ASSET_URL_RE, (_req, res) => {
 
 // SPA fallback — any non-API path serves index.html so React Router handles it.
 // no-cache so a deploy never serves a stale chunk map (matches express.static above).
+app.all(/^\/api(?:\/|$)/, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(404).json({ error: 'API route not found.' });
+});
+
 app.get(/(.*)/, (_req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(join(staticDir, 'index.html'));
