@@ -169,11 +169,13 @@ describe('player auth hardening', () => {
         assert.equal(store.has('auth:legacyhero'), false);
     });
 
-    it('distinguishes an unused name from a real legacy save during verify', async () => {
+    it('does not reveal whether an ordinary account name is unused during verify', async () => {
         const unused = await post({ action: 'verify', name: 'nobody', password: 'AnyPass1' });
         assert.equal(unused.statusCode, 200);
-        assert.deepEqual(unused.body, { ok: false, unused: true });
+        assert.deepEqual(unused.body, { ok: false });
 
+        // Legacy recovery remains an explicit, admin-mediated state rather than
+        // a claimable login path.
         store.set('save:oldtimer', { character: { name: 'Old Timer' } });
         const legacy = await post({ action: 'verify', name: 'oldtimer', password: 'AnyPass1' });
         assert.equal(legacy.statusCode, 409);

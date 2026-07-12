@@ -105,6 +105,14 @@ function hashScrypt(password: string, salt: string): string {
     return `${SCRYPT_PREFIX}${SCRYPT_N}:${SCRYPT_R}:${SCRYPT_P}:${derived.toString('hex')}`;
 }
 
+// Keep nonexistent-account verification on the same expensive password path
+// as a real account. Without this dummy record, attackers can distinguish an
+// unused name both from the response body and from the missing scrypt work.
+const DUMMY_AUTH_RECORD: AuthRecord = {
+    salt: 'player-auth-enumeration-guard-v1',
+    hash: hashScrypt('DummyAccountPassword1', 'player-auth-enumeration-guard-v1'),
+};
+
 function hashLegacy(password: string, salt: string): string {
     return crypto.createHmac('sha256', salt).update(password).digest('hex');
 }
@@ -328,6 +336,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
         if (!record) {
+            // Burn the same scrypt work as an existing-account failure before
+            // consulting legacy-save recovery state. The result is deliberately
+            // ignored: this record can never authenticate a caller.
+            verifyAgainst(DUMMY_AUTH_RECORD, verifiedPassword);
             // Only a real save qualifies as legacy. The client may surface the
             // recovery state, but only authenticated adminreset can claim it.
             try {
@@ -340,7 +352,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         legacyNeedsAdmin: true,
                     });
                 }
-                return res.status(200).json({ ok: false, unused: true });
+                return res.status(200).json({ ok: false });
             } catch (err) {
                 console.error('[player-auth verify legacy]', String(err));
                 return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
