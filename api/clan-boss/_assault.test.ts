@@ -275,7 +275,7 @@ describe('clan-boss player-combat parity guard', () => {
         );
         assert.match(
             engine,
-            /applyJutsu as applyPvpJutsu,\s*applyDoTs,\s*tickStatuses,\s*applyGroundEffectToFighter,\s*tickGroundEffects\s*}\s*from '..\/pvp\/move\.js'/,
+            /applyJutsu as applyPvpJutsu,\s*applyDoTs,\s*tickStatuses,\s*applyGroundEffectToFighter,\s*tickGroundEffects,\s*characterOwnsElement\s*}\s*from '..\/pvp\/move\.js'/,
             'tower/clan-boss still uses PvP as the player-combat truth source while phase wrappers live there',
         );
         assert.match(

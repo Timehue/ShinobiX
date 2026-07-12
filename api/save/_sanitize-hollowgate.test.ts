@@ -100,6 +100,30 @@ test('hollow-gate-key: raw saves cannot create keys', () => {
     assert.equal(keys?.count, 2, 'stored key count wins');
 });
 
+test('elemental-shard / elemental-core: per-save GAIN capped above the existing stack (anti free-mint)', () => {
+    const out = sanitize(
+        { itemStacks: [{ itemId: 'elemental-shard', count: 9999 }, { itemId: 'elemental-core', count: 9999 }] },
+        { itemStacks: [{ itemId: 'elemental-shard', count: 4 }, { itemId: 'elemental-core', count: 1 }] },
+    );
+    const stacks = out.itemStacks as Array<{ itemId: string; count: number }>;
+    assert.equal(stacks.find(s => s.itemId === 'elemental-shard')?.count, 12, '4 existing + 8 per-save shard cap');
+    assert.equal(stacks.find(s => s.itemId === 'elemental-core')?.count, 4, '1 existing + 3 per-save core cap');
+});
+
+test('elemental-shard/core: a legit small gain and a forge SPEND both pass through unchanged', () => {
+    // +1 shard (legit boss drop) is within cap; forging (10 shards -> 1 core) is a
+    // negative shard delta the cap never blocks.
+    const gain = sanitize({ itemStacks: [{ itemId: 'elemental-shard', count: 5 }] }, { itemStacks: [{ itemId: 'elemental-shard', count: 4 }] });
+    assert.equal((gain.itemStacks as Array<{ itemId: string; count: number }>).find(s => s.itemId === 'elemental-shard')?.count, 5, 'legit +1 shard untouched');
+    const spend = sanitize(
+        { itemStacks: [{ itemId: 'elemental-shard', count: 2 }, { itemId: 'elemental-core', count: 2 }] },
+        { itemStacks: [{ itemId: 'elemental-shard', count: 12 }, { itemId: 'elemental-core', count: 1 }] },
+    );
+    const s = spend.itemStacks as Array<{ itemId: string; count: number }>;
+    assert.equal(s.find(x => x.itemId === 'elemental-shard')?.count, 2, 'shard spend (12->2) not blocked');
+    assert.equal(s.find(x => x.itemId === 'elemental-core')?.count, 2, 'core +1 from forge within cap');
+});
+
 test('HollowGate run metadata persists while ledger-owned rewards stay stored', () => {
     const out = sanitize(
         {

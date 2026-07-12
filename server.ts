@@ -203,6 +203,7 @@ import petBattleStartHandler from './api/pet/battle-start.js';
 import petBattleResultHandler from './api/pet/battle-result.js';
 import petRankedStartHandler from './api/pet/ranked-start.js';
 import petEvolveHandler from './api/pet/evolve.js';
+import applyElementalCoreHandler from './api/weapon/apply-elemental-core.js';
 import petGauntletHandler from './api/pet/gauntlet.js';
 import arenaLobbyHandler from './api/arena/lobby.js';
 import petLadderHandler from './api/pet-ladder/ladder.js';
@@ -1070,6 +1071,7 @@ route('/pet/battle-start',  petBattleStartHandler);
 route('/pet/battle-result', petBattleResultHandler);
 route('/pet/ranked-start',  petRankedStartHandler);
 route('/pet/evolve',        petEvolveHandler);
+route('/weapon/apply-elemental-core', applyElementalCoreHandler);
 route('/pet/gauntlet',      petGauntletHandler);
 
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────

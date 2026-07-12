@@ -25,7 +25,7 @@ import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { ArmorQuality, EquipmentSlot, GameItem, ReviewBloodline, SavedBloodline } from "../types/combat";
 import type { Rank, Screen } from "../types/core";
-import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
+import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, ELEMENTAL_CORE_ID, ELEMENTAL_SHARD_ID, ELEMENTAL_SHARDS_PER_CORE, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { PET_PVE_DURABILITY, petConsumables, petPveGear } from "../data/pet-config";
 import { armorReductionForQuality, consumableHoldCap, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { craftDungeonEvents } from "../data/vn-events";
@@ -1290,6 +1290,37 @@ export function CentralHub({
                                             {canForge
                                                 ? `Forge — ${FRAGMENTS_PER_RELIC} Fragments`
                                                 : `Need ${FRAGMENTS_PER_RELIC} Fragments (have ${fragmentCount})`}
+                                        </button>
+                                    </div>
+                                );
+                            })()}
+                            {(() => {
+                                const shardCount = countItem(character, ELEMENTAL_SHARD_ID);
+                                const coreCount = countItem(character, ELEMENTAL_CORE_ID);
+                                const canForge = shardCount >= ELEMENTAL_SHARDS_PER_CORE;
+                                function forgeCoreFromShards() {
+                                    if (shardCount < ELEMENTAL_SHARDS_PER_CORE) {
+                                        alert(`You need ${ELEMENTAL_SHARDS_PER_CORE} Elemental Shards. You have ${shardCount}.`);
+                                        return;
+                                    }
+                                    updateCharacter(
+                                        addItem(
+                                            removeItem(character, ELEMENTAL_SHARD_ID, ELEMENTAL_SHARDS_PER_CORE),
+                                            ELEMENTAL_CORE_ID,
+                                            1,
+                                        ),
+                                    );
+                                    alert(`Elemental Core forged. Consumed ${ELEMENTAL_SHARDS_PER_CORE} Elemental Shards.`);
+                                }
+                                return (
+                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#22d3ee", boxShadow: "0 0 10px rgba(34,211,238,0.22)" }}>
+                                        <strong><GameIcon name="shard" size={14} style={COST_ICON} />Elemental Core</strong>
+                                        <small>Fuse Hollow Gate elemental shards into a core that attunes a legendary or mythic weapon to one of your awakened elements.</small>
+                                        <small>Shards: <strong>{shardCount}</strong> · Cores: <strong>{coreCount}</strong></small>
+                                        <button style={{ marginTop: "auto" }} onClick={forgeCoreFromShards} disabled={!canForge}>
+                                            {canForge
+                                                ? `Forge — ${ELEMENTAL_SHARDS_PER_CORE} Shards`
+                                                : `Need ${ELEMENTAL_SHARDS_PER_CORE} Shards (have ${shardCount})`}
                                         </button>
                                     </div>
                                 );

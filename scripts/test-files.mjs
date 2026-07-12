@@ -28,6 +28,7 @@ export const TEST_FILES = [
     "api/pvp/_applyjutsu-characterization.test.ts",
     "api/pvp/_move-handler.test.ts",
     "api/pvp/_weapon-damage.test.ts",
+    "api/weapon/apply-elemental-core.test.ts",
     "api/pvp/_home-terrain.test.ts",
     "api/pvp/_consumables.test.ts",
     "api/pvp/_guard-defense.test.ts",

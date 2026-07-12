@@ -26,6 +26,8 @@ import {
     HOLLOW_GATE_KEY_ID,
     WARFORGED_RELIC_ID,
     LEGENDARY_WAR_CRATE_ID,
+    ELEMENTAL_SHARD_ID,
+    ELEMENTAL_CORE_ID,
 } from "../constants/game";
 
 export type ItemCategory = "gear" | "consumable" | "pet" | "material" | "event";
@@ -56,6 +58,8 @@ const FORGE_MATERIAL_IDS: ReadonlySet<string> = new Set([
     DUNGEON_LEGENDARY_RELIC_ID,
     DUNGEON_LEGENDARY_FRAGMENT_ID,
     VEIL_OF_THE_HOLLOW_ID,
+    ELEMENTAL_SHARD_ID,
+    ELEMENTAL_CORE_ID,
 ]);
 
 // Pet-only id prefixes: glow collars, PVP/PVE companion gear, battle

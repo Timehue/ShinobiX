@@ -640,10 +640,22 @@ function resolveEquippedPvpItems(saveCharacter: Record<string, unknown>, save: R
     )];
     if (ids.length === 0) return null;
     const getItem = buildItemLookup(save.creatorItems);
+    // Per-player weapon attunements (server-owned map; see api/weapon/apply-elemental-core.ts).
+    // Overlaid onto the resolved weapon's `weaponElement` so an attuned legendary/
+    // mythic weapon rides the wielder's bloodline boost authoritatively. Read from
+    // the AUTHORITATIVE save only; sanitizePvpItems still re-whitelists the value.
+    const weaponEls = (saveCharacter.weaponElements && typeof saveCharacter.weaponElements === 'object' && !Array.isArray(saveCharacter.weaponElements))
+        ? (saveCharacter.weaponElements as Record<string, unknown>)
+        : null;
     const resolved: unknown[] = [];
     for (const id of ids) {
         const item = getItem(id);
-        if (item) resolved.push({ ...(item as Record<string, unknown>) });
+        if (item) {
+            const el = weaponEls?.[id];
+            resolved.push(typeof el === 'string' && el
+                ? { ...(item as Record<string, unknown>), weaponElement: el }
+                : { ...(item as Record<string, unknown>) });
+        }
         // else: unknown id (not built-in, not in the player's creatorItems) → dropped.
     }
     return resolved;
