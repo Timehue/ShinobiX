@@ -288,7 +288,10 @@ export class RequestSloAlertGate {
             if (sinceAlert >= 0 && sinceAlert < this.alertIntervalMs) return null;
         }
         this.lastAlertAt = now;
-        return `[request-slo] ${snapshot.slo.breaches.join('; ')} over ${snapshot.count} requests/${Math.round(snapshot.windowMs / 60_000)}m`;
+        // This is a process-wide aggregate, not a measurement of the request
+        // that happened to trigger evaluation. Keep the scope explicit so
+        // incident tools do not mislabel the warning as route-specific.
+        return `[request-slo:global] ${snapshot.slo.breaches.join('; ')} over ${snapshot.count} requests/${Math.round(snapshot.windowMs / 60_000)}m`;
     }
 
     reset(): void {
