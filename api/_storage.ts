@@ -758,7 +758,38 @@ export function _makeDiskKv(root: string): KvLike {
 
 // ─── Remote KV (HTTP client → cPanel proxy) ──────────────────────────────────
 
-export function _makeRemoteKv(baseUrl: string, token: string): KvLike {
+const PRODUCTION_KV_PROXY_HOSTS = new Set(['theravensark.com', 'www.theravensark.com']);
+const REMOTE_KV_OPS = new Set(['get', 'set', 'del', 'keys', 'mget', 'hget', 'hset', 'hdel', 'hgetall', 'hkeys']);
+
+/**
+ * A KV proxy receives the bearer-equivalent storage token on every request, so
+ * its destination must never be an arbitrary environment/user URL. Keep the
+ * production host list compiled into the release; changing storage providers
+ * requires a reviewed code change rather than a mutable allowlist variable.
+ */
+export function _validatedRemoteKvBaseUrl(
+    raw: string,
+    allowedHosts: ReadonlySet<string> = PRODUCTION_KV_PROXY_HOSTS,
+): string {
+    let parsed: URL;
+    try { parsed = new URL(raw); } catch { throw new Error('KV_PROXY_URL must be a valid URL.'); }
+    const hostname = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.replace(/\/+$/, '');
+    if (parsed.protocol !== 'https:') throw new Error('KV_PROXY_URL must use HTTPS.');
+    if (!allowedHosts.has(hostname)) throw new Error(`KV_PROXY_URL host is not approved: ${hostname}`);
+    if (parsed.port || parsed.username || parsed.password || parsed.search || parsed.hash) {
+        throw new Error('KV_PROXY_URL must not contain credentials, a port, query, or fragment.');
+    }
+    if (pathname !== '/api/kv') throw new Error('KV_PROXY_URL path must be exactly /api/kv.');
+    return `https://${hostname}/api/kv`;
+}
+
+export function _makeRemoteKv(
+    baseUrl: string,
+    token: string,
+    opts?: { allowedHosts?: ReadonlySet<string> },
+): KvLike {
+    const safeBaseUrl = _validatedRemoteKvBaseUrl(baseUrl, opts?.allowedHosts);
     // Transport resilience. The proxy lives on the cPanel box, which is bounced
     // on every deploy (a hard worker exit) and can be OOM-killed by CloudLinux
     // under load — either drops an in-flight response as a Passenger 502
@@ -785,6 +816,7 @@ export function _makeRemoteKv(baseUrl: string, token: string): KvLike {
         body: unknown,
         opts?: { retryable?: boolean; timeoutMs?: number },
     ): Promise<T> {
+        if (!REMOTE_KV_OPS.has(op)) throw new Error(`Unsupported remote KV operation: ${op}`);
         const maxAttempts = opts?.retryable === false ? 1 : MAX_ATTEMPTS;
         const timeoutMs = opts?.timeoutMs ?? POINT_TIMEOUT_MS;
         let lastErr: unknown;
@@ -797,7 +829,7 @@ export function _makeRemoteKv(baseUrl: string, token: string): KvLike {
             const ctrl = timeoutMs > 0 ? new AbortController() : null;
             const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
             try {
-                const r = await fetch(baseUrl.replace(/\/$/, '') + '/' + op, {
+                const r = await fetch(`${safeBaseUrl}/${op}`, {
                     method: 'POST',
                     headers: { 'content-type': 'application/json', 'x-kv-token': token },
                     body: JSON.stringify(body),
