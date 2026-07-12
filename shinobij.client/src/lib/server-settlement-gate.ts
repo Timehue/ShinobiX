@@ -11,9 +11,9 @@
 export const SERVER_SETTLEMENT_STATUS = {
     profileStatRespec: true,
     profileFateShardTitle: true,
-    shopPurchase: false,
-    shopCardPack: false,
-    inventorySale: false,
+    shopPurchase: true,
+    shopCardPack: true,
+    inventorySale: true,
     warCrateOpen: true,
     clientWarCrateGrant: false,
     fieldHuntMissions: false,
