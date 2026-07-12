@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import {
   checkRepositoryDeploymentConfig,
   deploymentConfigErrors,
@@ -33,4 +34,13 @@ test('deployment config requires the repository Dockerfile', () => {
     deploymentConfigErrors({ ...valid, build: { builder: 'NIXPACKS' } })[0],
     /repository Dockerfile/,
   );
+});
+
+test('Docker build and runtime use the pinned Node 22 release toolchain', async () => {
+  const dockerfile = await readFile('Dockerfile', 'utf8');
+  const images = [...dockerfile.matchAll(/^FROM\s+(node:[^\s]+)\s+AS\s+(builder|runtime)$/gm)];
+  assert.deepEqual(images.map((m) => [m[2], m[1]]), [
+    ['builder', 'node:22.23.1-bookworm-slim'],
+    ['runtime', 'node:22.23.1-bookworm-slim'],
+  ]);
 });
