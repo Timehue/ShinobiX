@@ -1443,6 +1443,10 @@ function applyAction(session, floor, action, rng) {
         const weaponJutsu = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
             isUtility: false, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
+            // Elemental-weapon gate (parity with PvP): the swing rides the wielder's
+            // bloodline damage multiplier only when the weapon's element is one the
+            // wielder has awakened. No element → no boost.
+            suppressBloodline: !(0, move_js_1.characterOwnsElement)(actor.character, item.weaponElement),
             ...(weaponTags.length ? { tags: weaponTags } : {}),
         };
         resolveHit(session, floor, actor, wTarget, weaponJutsu, wCost);

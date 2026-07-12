@@ -105,6 +105,8 @@ const war_map_js_1 = __importDefault(require("./api/village/war-map.js"));
 const claim_war_crate_js_1 = __importDefault(require("./api/village/claim-war-crate.js"));
 const claim_interest_js_1 = __importDefault(require("./api/bank/claim-interest.js"));
 const transfer_js_2 = __importDefault(require("./api/bank/transfer.js"));
+const open_war_crate_js_1 = __importDefault(require("./api/inventory/open-war-crate.js"));
+const settle_js_2 = __importDefault(require("./api/profile/settle.js"));
 const save_snapshot_js_1 = __importDefault(require("./api/admin/save-snapshot.js"));
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
 // startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
@@ -146,7 +148,7 @@ const assault_settle_js_1 = __importDefault(require("./api/clan-boss/assault-set
 // Hollow Gate — server-authoritative run token + augments (sealed-bounds payout)
 const start_js_3 = __importDefault(require("./api/hollow-gate/start.js"));
 const choose_augment_js_1 = __importDefault(require("./api/hollow-gate/choose-augment.js"));
-const settle_js_2 = __importDefault(require("./api/hollow-gate/settle.js"));
+const settle_js_3 = __importDefault(require("./api/hollow-gate/settle.js"));
 // Clan — membership: kick (server-authoritative cross-save removal)
 const kick_js_1 = __importDefault(require("./api/clan/kick.js"));
 const mentor_js_1 = __importDefault(require("./api/clan/mentor.js"));
@@ -199,6 +201,7 @@ const battle_start_js_1 = __importDefault(require("./api/pet/battle-start.js"));
 const battle_result_js_1 = __importDefault(require("./api/pet/battle-result.js"));
 const ranked_start_js_1 = __importDefault(require("./api/pet/ranked-start.js"));
 const evolve_js_1 = __importDefault(require("./api/pet/evolve.js"));
+const apply_elemental_core_js_1 = __importDefault(require("./api/weapon/apply-elemental-core.js"));
 const gauntlet_js_1 = __importDefault(require("./api/pet/gauntlet.js"));
 const lobby_js_1 = __importDefault(require("./api/arena/lobby.js"));
 const ladder_js_1 = __importDefault(require("./api/pet-ladder/ladder.js"));
@@ -861,6 +864,10 @@ route('/bank/claim-interest', claim_interest_js_1.default);
 // Wallet <-> bank moves are authenticated save-lock transactions. Raw
 // autosaves cannot reproduce either side of the transfer.
 route('/bank/transfer', transfer_js_2.default);
+// Paid profile changes and war-crate loot settle from the locked stored save;
+// clients only adopt the exact authoritative character returned by these APIs.
+route('/profile/settle', settle_js_2.default);
+route('/inventory/open-war-crate', open_war_crate_js_1.default);
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
 // reset's `save:*` glob.
@@ -918,7 +925,7 @@ route('/clan-boss/assault-settle', assault_settle_js_1.default);
 // min(claimed, sealed ceiling) anchored to the entry snapshot, single-use.
 route('/hollow-gate/start', start_js_3.default);
 route('/hollow-gate/choose-augment', choose_augment_js_1.default);
-route('/hollow-gate/settle', settle_js_2.default);
+route('/hollow-gate/settle', settle_js_3.default);
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
 // Leadership-only. Removes the member from the clan row AND clears their
 // character.clan on their own save (the cross-save write a client can't do).
@@ -980,6 +987,7 @@ route('/pet/battle-start', battle_start_js_1.default);
 route('/pet/battle-result', battle_result_js_1.default);
 route('/pet/ranked-start', ranked_start_js_1.default);
 route('/pet/evolve', evolve_js_1.default);
+route('/weapon/apply-elemental-core', apply_elemental_core_js_1.default);
 route('/pet/gauntlet', gauntlet_js_1.default);
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
 route('/arena/lobby', lobby_js_1.default);

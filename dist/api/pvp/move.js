@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.characterOwnsElement = void 0;
 exports.applyGroundEffectToFighter = applyGroundEffectToFighter;
 exports.tickGroundEffects = tickGroundEffects;
 exports.tickStatuses = tickStatuses;
@@ -540,6 +541,12 @@ function scaledTagPercent(rawPct, masteryLevel, tagName, bloodlineRank) {
 // to 100% at JUTSU_MAX_LEVEL. Applied to Heal/Shield (hard-capped at the FLAT ceiling)
 // it leaves maxed play byte-identical while damping low-mastery heal/shield spam.
 // Mirrors client combat-math.ts masteryDamageFrac — KEEP IN SYNC (parity test).
+// characterOwnsElement lives in the leaf module ./_elements.js so the weapon
+// attunement endpoint can reuse it without importing the combat engine. Imported
+// for internal use (the weapon synth's bloodline gate) and re-exported so existing
+// importers (api/towers/_engine.ts, the tests) keep resolving it from './move.js'.
+const _elements_js_1 = require("./_elements.js");
+Object.defineProperty(exports, "characterOwnsElement", { enumerable: true, get: function () { return _elements_js_1.characterOwnsElement; } });
 // Phase 1 — EP scaling → base damage, plus the defender's diminishing-returns DR pool.
 function resolveBaseDamage(self, opponent, jutsu, wMult, biome, round, masteryLevel) {
     const offStats = self.character.stats ?? {};
@@ -554,7 +561,10 @@ function resolveBaseDamage(self, opponent, jutsu, wMult, biome, round, masteryLe
         wMult,
         biome,
         rawStatusDR: drContributionFor(self, opponent, round),
-        hasBloodlineSeal: hasStatus(self, 'Bloodline Seal', round),
+        // A weapon swing that doesn't match an awakened element carries
+        // suppressBloodline → treat it like a Bloodline Seal for THIS hit so the
+        // bloodline damage multiplier collapses to 1.0 (weapon-only; jutsu unset).
+        hasBloodlineSeal: hasStatus(self, 'Bloodline Seal', round) || jutsu.suppressBloodline === true,
     });
 }
 // Heal-amplification multiplier from the caster's ACTIVE Increase Heal statuses.
@@ -1846,6 +1856,11 @@ async function handler(req, res) {
                     effectPower: serverItem.weaponEp ?? 15,
                     ap: wApCost,
                     range: weapRange,
+                    // Elemental-weapon gate: this swing rides the wielder's bloodline
+                    // damage multiplier ONLY when the weapon's element is one the
+                    // wielder has awakened. No element (every base weapon today) → no
+                    // boost. An elemental shard/core stamps serverItem.weaponElement.
+                    suppressBloodline: !(0, _elements_js_1.characterOwnsElement)(me.character, serverItem.weaponElement),
                     tags: wTags,
                 };
                 lines.push(`${me.name} uses ${weaponJutsu.name}:`);
