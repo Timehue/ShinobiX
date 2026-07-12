@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { allow } from './_ratelimit.js';
+import { readFileSync } from 'node:fs';
+import { kv } from './_storage.js';
+import { allow, allowKv } from './_ratelimit.js';
 
 // Covers the in-memory bucket that underpins both rate-limit tiers AND the
 // strict KV-outage fallback (allowKv strict=true delegates to allow()).
@@ -37,5 +39,38 @@ describe('allow (in-memory rate bucket)', () => {
         assert.equal(allow(key, 1, 50).ok, false, 'second hit within window blocks');
         await new Promise((r) => setTimeout(r, 70));
         assert.equal(allow(key, 1, 50).ok, true, 'window elapsed → bucket resets');
+    });
+});
+
+describe('allowKv (durable rate bucket)', () => {
+    it('rejects the first request over the durable limit', async () => {
+        const original = kv.incr;
+        let count = 0;
+        kv.incr = async () => ++count;
+        try {
+            const key = `test-kv-${Math.random()}`;
+            assert.equal((await allowKv(key, 2, 60_000, true)).ok, true);
+            assert.equal((await allowKv(key, 2, 60_000, true)).ok, true);
+            assert.equal((await allowKv(key, 2, 60_000, true)).ok, false);
+        } finally {
+            kv.incr = original;
+        }
+    });
+
+    it('strict mode retains a local ceiling during a KV outage', async () => {
+        const original = kv.incr;
+        kv.incr = async () => { throw new Error('simulated outage'); };
+        try {
+            const key = `test-strict-${Math.random()}`;
+            assert.equal((await allowKv(key, 1, 60_000, true)).ok, true);
+            assert.equal((await allowKv(key, 1, 60_000, true)).ok, false);
+        } finally {
+            kv.incr = original;
+        }
+    });
+
+    it('admin login is wired to the durable strict limiter', () => {
+        const source = readFileSync('api/admin-auth.ts', 'utf8');
+        assert.match(source, /enforceRateLimitKv\([^;]+admin-auth[^;]+strict:\s*true/s);
     });
 });

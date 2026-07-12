@@ -51,6 +51,8 @@ before(async () => {
 beforeEach(() => {
     store.clear();
     failNextAuthWrite = false;
+    delete process.env.DISABLE_NEW_REGISTRATIONS;
+    delete process.env.MAINTENANCE_MODE;
 });
 
 after(() => {
@@ -101,6 +103,21 @@ async function register(name: string, password = 'StrongPass1'): Promise<Respons
 }
 
 describe('player auth hardening', () => {
+    it('honors the emergency new-registration switch without blocking login', async () => {
+        process.env.DISABLE_NEW_REGISTRATIONS = '1';
+        const blocked = await register('closedbeta', 'StrongPass1');
+        assert.equal(blocked.statusCode, 503);
+        assert.equal(blocked.body?.code, 'registrations_disabled');
+        assert.equal(store.has('auth:closedbeta'), false);
+
+        delete process.env.DISABLE_NEW_REGISTRATIONS;
+        assert.equal((await register('existingbeta', 'StrongPass1')).statusCode, 200);
+        process.env.DISABLE_NEW_REGISTRATIONS = '1';
+        const login = await post({ action: 'verify', name: 'existingbeta', password: 'StrongPass1' });
+        assert.equal(login.statusCode, 200);
+        assert.equal(login.body?.ok, true);
+    });
+
     it('enforces the account password policy server-side', async () => {
         assert.match(playerPasswordPolicyError('short1')!, /at least 8/i);
         assert.match(playerPasswordPolicyError('lettersOnly')!, /letter and one number/i);

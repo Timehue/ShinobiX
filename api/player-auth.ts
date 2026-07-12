@@ -11,6 +11,7 @@ import {
 import { withKvLock } from './_lock.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
 import { recordBetaMetric } from './_beta-metrics.js';
+import { newRegistrationsDisabled } from './_launch-controls.js';
 import crypto from 'crypto';
 
 // Usernames reserved for the protected admin account. New `register` requests
@@ -223,6 +224,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const key = authKey(name);
 
     if (action === 'register') {
+        // Keep this check inside the handler as well as the Railway/Express
+        // route boundary so a direct serverless invocation cannot bypass the
+        // emergency registration switch.
+        if (newRegistrationsDisabled()) {
+            res.setHeader('Cache-Control', 'no-store');
+            res.setHeader('Retry-After', '300');
+            return res.status(503).json({
+                ok: false,
+                error: 'New registrations are temporarily disabled.',
+                code: 'registrations_disabled',
+            });
+        }
         let registeredSessionEpoch = 0;
         // Register a new password. Fails if one already exists — use 'change' to update.
         if (typeof password !== 'string') return res.status(400).json({ ok: false, error: 'Password must be text.' });
