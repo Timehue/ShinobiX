@@ -33,7 +33,7 @@ function assertGuardBefore(
 }
 
 describe("pending server settlement policy", () => {
-    test("completed profile settlements are enabled while every pending action stays disabled", () => {
+    test("completed settlement paths are enabled while every pending action stays disabled", () => {
         const expected: PendingServerSettlementAction[] = [
             "profileStatRespec",
             "profileFateShardTitle",
@@ -57,12 +57,17 @@ describe("pending server settlement policy", () => {
         assert.equal(SERVER_SETTLEMENT_STATUS.profileStatRespec, true);
         assert.equal(SERVER_SETTLEMENT_STATUS.profileFateShardTitle, true);
         for (const action of expected) {
-            const shouldBeReady = action === "profileStatRespec" || action === "profileFateShardTitle" || action === "warCrateOpen";
+            const shouldBeReady = action === "profileStatRespec"
+                || action === "profileFateShardTitle"
+                || action === "shopPurchase"
+                || action === "shopCardPack"
+                || action === "inventorySale"
+                || action === "warCrateOpen";
             assert.equal(SERVER_SETTLEMENT_STATUS[action], shouldBeReady, `${action} readiness`);
         }
 
         let notice = "";
-        assert.equal(requireServerSettlement("shopPurchase", (message) => { notice = message; }), false);
+        assert.equal(requireServerSettlement("fieldHuntMissions", (message) => { notice = message; }), false);
         assert.match(notice, /temporarily unavailable/i);
         assert.match(notice, /Nothing was spent or changed\./);
     });

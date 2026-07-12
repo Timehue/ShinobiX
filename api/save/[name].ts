@@ -335,6 +335,7 @@ const ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS = [
     'petRankedRating',
     'professionXp',
     'professionRank',
+    'serverSettlementReceipts',
 ] as const;
 
 function strictRawSaveLedgerEnabled(): boolean {

@@ -28,6 +28,7 @@ import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { deriveCardClashCard } from "../lib/card-clash";
 import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
 import { openWarCrate } from "../lib/inventory-settlement";
+import { settleInventorySale } from "../lib/shop-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import {
     type ItemCategory,
@@ -68,6 +69,7 @@ export function Inventory({
     const [categoryFilter, setCategoryFilter] = useState<"all" | ItemCategory>("all");
     const [itemSearch, setItemSearch] = useState("");
     const warCrateBusy = useRef(false);
+    const inventorySaleBusy = useRef(false);
     const allItems = getAllItems(creatorItems);
     const allTileCards = getAllTileCards(creatorCards);
 
@@ -325,37 +327,20 @@ export function Inventory({
         return Math.floor(Math.max(0, item.cost) / 2);
     }
 
-    function sellSelectedItem(count = 1) {
+    async function sellSelectedItem(count = 1) {
         if (!requireServerSettlement("inventorySale")) return;
+        if (inventorySaleBusy.current) return;
         const selected = selectedInventoryItem;
         if (!selected?.item) return;
         const item = selected.item;
         if (!isSellableGear(item)) return alert("This item cannot be sold.");
 
         const qty = selected.source === "equipped" ? 1 : Math.max(1, Math.min(selected.count, Math.floor(count)));
-        const saleValue = sellValueForItem(item) * qty;
-
-        if (selected.source === "equipped" && selected.equipmentSlot) {
-            const normalized = normalizeEquipmentSlot(selected.equipmentSlot);
-            updateCharacter({
-                ...character,
-                ryo: character.ryo + saleValue,
-                equipment: {
-                    ...character.equipment,
-                    [normalized]: undefined,
-                    ...(normalized === "hand" ? { weapon: undefined } : {}),
-                    ...(normalized === "body" ? { armor: undefined } : {}),
-                    ...(normalized === "aura" ? { accessory: undefined } : {}),
-                },
-            });
-            setSelectedInventoryItem(null);
-            return;
-        }
-
-        updateCharacter({
-            ...removeItem(character, item.id, qty),
-            ryo: character.ryo + saleValue,
-        });
+        inventorySaleBusy.current = true;
+        const result = await settleInventorySale(character.name, item.id, selected.source, qty, selected.equipmentSlot);
+        inventorySaleBusy.current = false;
+        if (!result.ok) return alert(result.error);
+        updateCharacter(result.character);
         setSelectedInventoryItem(null);
     }
 

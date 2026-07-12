@@ -106,6 +106,8 @@ import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import bankTransferHandler from './api/bank/transfer.js';
 import inventoryOpenWarCrateHandler from './api/inventory/open-war-crate.js';
 import profileSettleHandler from './api/profile/settle.js';
+import shopSettleHandler from './api/shop/settle.js';
+import inventorySellHandler from './api/inventory/sell.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
 // startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
@@ -928,6 +930,8 @@ route('/bank/transfer', bankTransferHandler);
 // clients only adopt the exact authoritative character returned by these APIs.
 route('/profile/settle', profileSettleHandler);
 route('/inventory/open-war-crate', inventoryOpenWarCrateHandler);
+route('/shop/settle', shopSettleHandler);
+route('/inventory/sell', inventorySellHandler);
 
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
