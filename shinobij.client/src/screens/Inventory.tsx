@@ -23,7 +23,8 @@ import {
     isGloveItem,
     normalizeEquipmentSlot,
 } from "../lib/equipment";
-import { hasCharacterElement } from "../lib/elements";
+import { getCharacterElements, hasCharacterElement } from "../lib/elements";
+import { ELEMENTAL_CORE_ID } from "../constants/game";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { deriveCardClashCard } from "../lib/card-clash";
 import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
@@ -70,7 +71,12 @@ export function Inventory({
     const [itemSearch, setItemSearch] = useState("");
     const warCrateBusy = useRef(false);
     const inventorySaleBusy = useRef(false);
-    const allItems = getAllItems(creatorItems);
+    // Elemental Core attunement (server-authoritative — api/weapon/apply-elemental-core).
+    // attunePickFor holds the weaponId currently choosing an element; busy/msg drive UI.
+    const [attunePickFor, setAttunePickFor] = useState<string | null>(null);
+    const [attuneBusy, setAttuneBusy] = useState(false);
+    const [attuneMsg, setAttuneMsg] = useState("");
+    const allItems = getAllItems(creatorItems, character.weaponElements);
     const allTileCards = getAllTileCards(creatorCards);
 
     // One-time migration: gloves used to share the weapon's "hand" slot. If a
@@ -253,6 +259,39 @@ export function Inventory({
         });
 
         setSelectedInventoryItem(null);
+    }
+
+    // Apply an Elemental Core to a legendary/mythic weapon, attuning it to one of
+    // the player's awakened elements. Server-authoritative: the endpoint validates
+    // ownership + element + weapon rarity, consumes one Core, and writes the
+    // attunement to the server-owned character.weaponElements. We mirror the result
+    // locally off the latest `prev` so the UI updates without a full refetch.
+    async function applyElementalCore(weaponId: string, element: string) {
+        setAttuneBusy(true);
+        setAttuneMsg("");
+        try {
+            const res = await fetch("/api/weapon/apply-elemental-core", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, weaponId, element }),
+            });
+            const data = await res.json().catch(() => ({})) as { ok?: boolean; element?: string; error?: string };
+            if (!res.ok || !data.ok) {
+                setAttuneMsg(`❌ ${data.error ?? "Attunement failed."}`);
+                setAttuneBusy(false);
+                return;
+            }
+            updateCharacter((prev) => {
+                if (!prev) return prev;
+                const spent = removeItem(prev, ELEMENTAL_CORE_ID, 1);
+                return { ...spent, weaponElements: { ...(prev.weaponElements ?? {}), [weaponId]: element } };
+            });
+            setAttunePickFor(null);
+            setAttuneMsg(`✅ Attuned to ${element}.`);
+        } catch {
+            setAttuneMsg("❌ Network error — try again.");
+        }
+        setAttuneBusy(false);
     }
 
     function unequipItem(slot: EquipmentSlot) {
@@ -942,6 +981,42 @@ export function Inventory({
                                         >
                                             Unequip
                                         </button>
+                                    )}
+
+                                    {/* Elemental Core attunement — legendary/mythic melee weapons only. */}
+                                    {selectedGameItem && normalizeEquipmentSlot(selectedGameItem.slot) === "hand" && !isGloveItem(selectedGameItem) && (selectedGameItem.rarity === "legendary" || selectedGameItem.rarity === "mythic") && (
+                                        <>
+                                            {(() => {
+                                                const weaponId = selectedGameItem.id;
+                                                const currentEl = character.weaponElements?.[weaponId];
+                                                const coreCount = countItem(character, ELEMENTAL_CORE_ID);
+                                                const awakened = getCharacterElements(character);
+                                                if (attunePickFor === weaponId) {
+                                                    return (
+                                                        <div className="attune-picker" style={{ display: "flex", flexWrap: "wrap", gap: 6, width: "100%", alignItems: "center" }}>
+                                                            <small style={{ width: "100%", opacity: 0.85 }}>Attune to which element? (spends 1 Elemental Core)</small>
+                                                            {awakened.map((el) => (
+                                                                <button key={el} type="button" disabled={attuneBusy} onClick={() => applyElementalCore(weaponId, el)}>
+                                                                    {el}
+                                                                </button>
+                                                            ))}
+                                                            <button type="button" className="danger-button" disabled={attuneBusy} onClick={() => { setAttunePickFor(null); setAttuneMsg(""); }}>Cancel</button>
+                                                        </div>
+                                                    );
+                                                }
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        disabled={coreCount < 1 || awakened.length === 0}
+                                                        title={awakened.length === 0 ? "Awaken an element first" : coreCount < 1 ? "Forge an Elemental Core at the Crafter" : "Attune this weapon to one of your awakened elements"}
+                                                        onClick={() => { setAttuneMsg(""); setAttunePickFor(weaponId); }}
+                                                    >
+                                                        {currentEl ? `Re-attune (now ${currentEl}) — 1 Core` : `Attune with Elemental Core (have ${coreCount})`}
+                                                    </button>
+                                                );
+                                            })()}
+                                            {attuneMsg && <small style={{ width: "100%" }}>{attuneMsg}</small>}
+                                        </>
                                     )}
 
                                     {!selectedGameItem && selected.source === "backpack" && (

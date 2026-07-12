@@ -55,7 +55,7 @@ export function deletedItemMarker(id: string): GameItem {
     };
 }
 
-export function getAllItems(creatorItems: GameItem[]) {
+export function getAllItems(creatorItems: GameItem[], weaponElements?: Record<string, string>) {
     // starterItems always win for built-in stats so code updates aren't overridden by stale save data.
     // Exception: admin-generated images on starter items ARE respected — only the image field is merged.
     // Deleted items are stripped out entirely even if present in an old save file.
@@ -76,7 +76,16 @@ export function getAllItems(creatorItems: GameItem[]) {
     const starterWithImages = starterItems
         .filter(s => !adminDeletedIds.has(s.id))
         .map(s => imageOverrides.has(s.id) ? { ...s, image: imageOverrides.get(s.id) } : s);
-    return [...customOnly, ...starterWithImages].map(sanitizeArmorAndGloveItem);
+    const merged = [...customOnly, ...starterWithImages].map(sanitizeArmorAndGloveItem);
+    // Per-player weapon attunement overlay (character.weaponElements, set by the
+    // Elemental Core flow). Stamps the chosen element onto the weapon's
+    // `weaponElement` so PvE combat + the Inventory UI reflect it. PvP is
+    // re-derived server-side (resolveEquippedPvpItems), so this is display/PvE only.
+    if (!weaponElements) return merged;
+    return merged.map((item) => {
+        const el = weaponElements[item.id];
+        return el ? { ...item, weaponElement: el as GameItem["weaponElement"] } : item;
+    });
 }
 
 export function getItemById(items: GameItem[], id?: string) {

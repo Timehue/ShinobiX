@@ -67,3 +67,36 @@ function asJutsu(j) {
         node_assert_1.strict.ok(r.opponent.hp < 1000, 'the weapon still deals its damage');
     });
 });
+(0, node_test_1.describe)('weapon → bloodline multiplier gate (suppressBloodline)', () => {
+    // A wielder whose bloodline multiplies damage ×1.5 and who has awakened Fire.
+    function blFighter() {
+        const f = fighter('BL');
+        f.character = { name: 'BL', stats: {}, jutsuMastery: [], bloodlineMult: 1.5, elements: ['Fire'] };
+        return f;
+    }
+    (0, node_test_1.it)('a weapon swing WITHOUT suppressBloodline rides the bloodline mult; WITH it does not', () => {
+        const oppBoost = fighter('D1');
+        const oppGated = fighter('D2');
+        const boosted = (0, move_js_1.applyJutsu)(blFighter(), oppBoost, asJutsu({ id: 'weapon', name: 'Blade', isUtility: false, ap: 40, effectPower: 30 }), 1, 'central', 1);
+        const gated = (0, move_js_1.applyJutsu)(blFighter(), oppGated, asJutsu({ id: 'weapon', name: 'Blade', isUtility: false, ap: 40, effectPower: 30, suppressBloodline: true }), 1, 'central', 1);
+        node_assert_1.strict.ok(boosted.opponent.hp < 1000, 'the bloodline-boosted weapon deals damage');
+        node_assert_1.strict.ok(gated.opponent.hp < 1000, 'the gated weapon still deals its (unboosted) damage');
+        node_assert_1.strict.ok(gated.opponent.hp > boosted.opponent.hp, `suppressBloodline must strip the bloodline mult (boosted hp=${boosted.opponent.hp}, gated hp=${gated.opponent.hp})`);
+    });
+});
+(0, node_test_1.describe)('characterOwnsElement (weapon element ownership)', () => {
+    (0, node_test_1.it)('matches an awakened element case-insensitively, from elements[] or element', () => {
+        node_assert_1.strict.equal((0, move_js_1.characterOwnsElement)({ elements: ['Fire', 'Water'] }, 'fire'), true);
+        node_assert_1.strict.equal((0, move_js_1.characterOwnsElement)({ element: 'Lightning' }, 'Lightning'), true);
+        node_assert_1.strict.equal((0, move_js_1.characterOwnsElement)({ elements: ['Wind'] }, 'Earth'), false);
+    });
+    (0, node_test_1.it)('an empty / missing / "None" weapon element never qualifies (no-element weapon → no boost)', () => {
+        node_assert_1.strict.equal((0, move_js_1.characterOwnsElement)({ elements: ['Fire'] }, ''), false);
+        node_assert_1.strict.equal((0, move_js_1.characterOwnsElement)({ elements: ['Fire'] }, undefined), false);
+        node_assert_1.strict.equal((0, move_js_1.characterOwnsElement)({ elements: ['Fire'] }, 'None'), false);
+    });
+    (0, node_test_1.it)('a character with no elements owns nothing', () => {
+        node_assert_1.strict.equal((0, move_js_1.characterOwnsElement)({}, 'Fire'), false);
+        node_assert_1.strict.equal((0, move_js_1.characterOwnsElement)(null, 'Fire'), false);
+    });
+});
