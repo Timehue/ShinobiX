@@ -70,7 +70,7 @@ test('SLO alert gate throttles before building another expensive snapshot and ca
         };
     };
 
-    assert.match(gate.evaluate(unhealthySnapshot, 100_000) ?? '', /request-slo/);
+    assert.match(gate.evaluate(unhealthySnapshot, 100_000) ?? '', /\[request-slo:global\]/);
     assert.equal(snapshotCalls, 1);
     assert.equal(gate.evaluate(unhealthySnapshot, 114_999), null);
     assert.equal(snapshotCalls, 1, 'snapshot provider must stay off the per-request hot path');
@@ -79,6 +79,6 @@ test('SLO alert gate throttles before building another expensive snapshot and ca
     assert.equal(snapshotCalls, 2, 'the rolling window is reevaluated after 15 seconds');
 
     gate.reset();
-    assert.match(gate.evaluate(unhealthySnapshot, 115_001) ?? '', /request-slo/);
+    assert.match(gate.evaluate(unhealthySnapshot, 115_001) ?? '', /\[request-slo:global\]/);
     assert.equal(snapshotCalls, 3, 'reset permits an immediate fresh evaluation');
 });
