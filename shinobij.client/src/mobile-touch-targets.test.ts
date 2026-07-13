@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 const css = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'index.css'), 'utf8');
+const introCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'features', 'intro-cinematic', 'intro-cinematic.css'), 'utf8');
+const nextGoalSource = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'components', 'NextGoalPin.tsx'), 'utf8');
 
 function rule(selector: string): string {
     const start = css.indexOf(`${selector} {`);
@@ -29,4 +31,10 @@ test('mobile menu and profile close controls remain 44px square', () => {
 
 test('clan boss party action remains a full-size touch target', () => {
     assert.match(rule('.clan-boss-party-btn'), /min-height:\s*44px/);
+});
+
+test('onboarding overlay and next-goal controls meet the phone touch target', () => {
+    assert.match(introCss, /\.icx-skip\.icx-sound\s*\{[^}]*min-width:\s*44px/s);
+    assert.match(nextGoalSource, /minWidth:\s*44/);
+    assert.match(nextGoalSource, /minHeight:\s*44/);
 });
