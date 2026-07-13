@@ -661,6 +661,7 @@
 /* Sound opt-in toggle beside Skip (the global unmute lives under the overlay). */
 .icx-skip.icx-sound {
     right: 92px;
+    min-width: 44px;
     padding: 6px 11px;
 }
 
