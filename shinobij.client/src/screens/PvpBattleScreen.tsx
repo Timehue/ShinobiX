@@ -26,6 +26,7 @@ import { buildActionsFromPvpLog, makeBattleEntry } from "../lib/battle-log-histo
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { hexLineTiles } from "../lib/hex-path";
+import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { safeCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
@@ -987,19 +988,33 @@ export function PvpBattleScreen({
     // click on the enemy would fire a self-buff at the wrong tile.
     const jutsuRangeTiles = new Set(pendingJutsu && !pvpIsSelfTargetJutsu(pendingJutsu) ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= jutsuRange) : []);
     const groundJutsuTiles = new Set(pvpIsGroundTargetJutsu(pendingJutsu) ? allTiles.filter(t => t !== myPos && t !== oppPos && pvpDist(myPos, t) <= jutsuRange) : []);
-    const groundJutsuAffectedTiles = new Set(
-        pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu)
-            ? hoveredPvpTile !== null
-                ? pendingJutsu.method === "AOE_SPIRAL"
-                    ? allTiles.filter(t => pvpDist(hoveredPvpTile, t) <= PVP_SPIRAL_RADIUS)
-                    : pendingJutsu.method === "INSTANT_EFFECT"
-                        ? [hoveredPvpTile, ...pvpHexNeighbors(hoveredPvpTile)]
-                        : pendingJutsu.method === "AOE_CIRCLE"
-                            ? pvpHexNeighbors(hoveredPvpTile)
-                            : [hoveredPvpTile]
-                : []
-            : []
-    );
+    let groundJutsuAffectedTiles = new Set<number>();
+    if (pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu) && hoveredPvpTile !== null && groundJutsuTiles.has(hoveredPvpTile)) {
+        groundJutsuAffectedTiles = jutsuImpactPreviewTiles({
+            method: pendingJutsu.method,
+            center: hoveredPvpTile,
+            allTiles,
+            distance: pvpDist,
+            neighbors: pvpHexNeighbors,
+            spiralRadius: PVP_SPIRAL_RADIUS,
+        });
+        // A pure movement jutsu has no damage area; its hovered destination is
+        // still the impact/landing marker and must stand out from reachable range.
+        if (groundJutsuAffectedTiles.size === 0) groundJutsuAffectedTiles.add(hoveredPvpTile);
+    }
+    // Opponent-targeted area methods (especially AOE_BURST) previously had no
+    // footprint at all. Show their impact area whenever the enemy is in range.
+    const opponentJutsuAffectedTiles = pendingJutsu && !pvpIsGroundTargetJutsu(pendingJutsu) && !pvpIsSelfTargetJutsu(pendingJutsu) && jutsuRangeTiles.has(oppPos)
+        ? jutsuImpactPreviewTiles({
+            method: pendingJutsu.method,
+            center: oppPos,
+            allTiles,
+            distance: pvpDist,
+            neighbors: pvpHexNeighbors,
+            circleIncludesCenter: true,
+            spiralRadius: PVP_SPIRAL_RADIUS,
+        })
+        : new Set<number>();
     // Self/buff jutsu: the affected area is the caster's own tile. When such a
     // jutsu is armed we light up that tile as the click target so every jutsu
     // uses the same arm-then-click-target flow (self / opponent / ground).
@@ -1546,7 +1561,7 @@ export function PvpBattleScreen({
                                             Boolean(pendingJutsu && pvpIsMoveJutsu(pendingJutsu) && groundJutsuTiles.has(i));
                                         const isJutsuRange = jutsuRangeTiles.has(i) || weaponRangeTilesSet.has(i) || basicAttackRangeTiles.has(i);
                                         const isGroundTarget = groundJutsuTiles.has(i);
-                                        const isGroundAffected = groundJutsuAffectedTiles.has(i);
+                                        const isGroundAffected = groundJutsuAffectedTiles.has(i) || opponentJutsuAffectedTiles.has(i);
                                         const activeGroundEffect = activeGroundEffects.find(effect => effect.tiles.includes(i));
                                         const isActiveGroundEffect = Boolean(activeGroundEffect);
                                         const groundEffectClass = (isGroundTarget || isGroundAffected)
