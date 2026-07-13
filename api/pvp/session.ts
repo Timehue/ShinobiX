@@ -971,7 +971,8 @@ function townDefensePctFromSave(saveCharacter: Record<string, unknown> | null | 
 }
 
 export function pvpSessionCreationAllowedDuringSettlement(isAdmin: boolean): boolean {
-    return isAdmin;
+    void isAdmin;
+    return true;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -998,9 +999,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // with arbitrary stats (e.g. 999999 HP god mode).
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        if (!pvpSessionCreationAllowedDuringSettlement(identity.admin)) {
-            return res.status(503).json({ error: 'PvP sessions are temporarily unavailable while authoritative settlement is finalized. Nothing was changed.' });
-        }
         // Cap session creation. A legit player starts a duel maybe every
         // 30s in heavy play; 6/min is comfortable headroom and stops
         // KV-fill attacks that spam-create sessions. Admins skip the cap

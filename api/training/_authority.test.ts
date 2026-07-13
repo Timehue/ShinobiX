@@ -24,7 +24,10 @@ test('training start debits trusted stamina and persists a versioned save', () =
 
 test('training rewards ignore forged client modifiers and only one live lease can start', () => {
     assert.doesNotMatch(start, /trainingBonusPct|warMult/);
-    assert.doesNotMatch(client, /trainingBonusPct|warMult/);
+    const requestStart = client.indexOf("fetch('/api/training/start'");
+    const requestEnd = client.indexOf('const data = await res.json()', requestStart);
+    const startCall = client.slice(requestStart, requestEnd);
+    assert.doesNotMatch(startCall, /trainingBonusPct|warMult/, 'the start request must not send client reward modifiers');
     const tier = TRAINING_TIERS[0];
     assert.deepEqual(trustedTrainingRewards(tier), { sealedGain: 6, sealedXp: 20 });
 

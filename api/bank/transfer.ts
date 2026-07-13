@@ -34,10 +34,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identityName) return res.status(401).json({ error: 'Authentication required.' });
         if (identityName !== playerName) return res.status(403).json({ error: 'You can only use your own bank account.' });
         if (!(await enforceRateLimitKv(req, res, 'bank-transfer', 20, 60_000, identityName, { strict: true }))) return;
-        if (action === 'deposit') {
-            return res.status(503).json({ error: 'Bank deposits are temporarily unavailable while the wallet ledger is finalized. Nothing was changed.' });
-        }
-
         try {
             const out = await mutatePlayerSave(playerName, ({ character }) => {
                 const transfer = applyBankTransfer(character, action, amount);

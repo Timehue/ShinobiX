@@ -75,8 +75,8 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                 flex: "0 0 auto",
                 fontSize: size,
                 lineHeight: 1,
-                minWidth: 44,
-                minHeight: 44,
+                minWidth: compactButton ? 20 : 44,
+                minHeight: compactButton ? 20 : 44,
                 padding: 0,
             }}
         >
@@ -97,7 +97,7 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                     overflow: "hidden", position: "relative",
                 }}
             >
-                <div className="next-goal-pin-compact__heading" style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", alignItems: "center", gap: 5, paddingRight: 42, minWidth: 0, width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden", fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
+                <div className="next-goal-pin-compact__heading" style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", alignItems: "center", gap: 5, paddingRight: 24, minWidth: 0, width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden", fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
                     <GameIcon name="target" size={11} />
                     <span style={{ display: "block", minWidth: 0, maxWidth: "100%", lineHeight: 1.25, overflowWrap: "anywhere", wordBreak: "break-word" }}>
                         Next goal · {objective.title}

@@ -83,7 +83,7 @@ describe('bank transfer endpoint contract', () => {
         assert.match(handlerSource, /await mutatePlayerSave\(playerName/);
         assert.match(handlerSource, /character:\s*out\.character/);
         assert.match(handlerSource, /_saveVersion:\s*out\._saveVersion/);
-        assert.match(handlerSource, /if \(action === 'deposit'\)[\s\S]+temporarily unavailable/);
+        assert.doesNotMatch(handlerSource, /action === 'deposit'[\s\S]+temporarily unavailable/);
     });
 
     it('replaces client state from the response without a local bank-move fallback', () => {

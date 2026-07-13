@@ -163,6 +163,7 @@ export type ActiveTraining = {
 // queue time and the duration is locked then (training bonuses baked in), so when
 // the active training completes the queue auto-promotes with no further cost.
 export type QueuedJutsuTraining = {
+    serverToken?: string;
     jutsuId: string;
     label: string;
     fromLevel: number;

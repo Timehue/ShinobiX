@@ -34,7 +34,7 @@ const LEVEL_BAND_BASE = 10;
 const LEVEL_BAND_OPEN_INTERVAL_MS = 15_000; // widen by 1 level every 15s waiting
 
 function rankedPvpActionAllowedDuringSettlement(action: string): boolean {
-    return action === 'leave';
+    return ['join', 'leave', 'poll'].includes(action);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -75,12 +75,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // lock and degrades matchmaking latency for everyone. ~60/min comfortably
             // covers the client's ~2-3s poll cadence with headroom.
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'ranked-queue', 60, 60_000, identity.name))) return;
-            // Ranked remains closed until consumables are deducted for both
-            // fighters during the first authoritative settlement, independent
-            // of whether either participant voluntarily claims. Allow leave so
-            // stale pre-deploy queue rows can still be cleaned up.
+            // Keep the action allowlist explicit. Ranked consumables and rating
+            // are settled from the sealed battle record by claim-rewards.
             if (!rankedPvpActionAllowedDuringSettlement(action)) {
-                return res.status(503).json({ error: 'Ranked PvP is temporarily unavailable while authoritative item settlement is finalized.' });
+                return res.status(400).json({ error: 'Unknown ranked queue action.' });
             }
 
             // Pre-derive server-side level/elo for the join path before

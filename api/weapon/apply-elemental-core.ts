@@ -168,6 +168,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ok: true,
             weaponId: result.value.weaponId,
             element: result.value.element,
+            character: result.character,
             _saveVersion: result._saveVersion,
         });
     } catch (err) {
