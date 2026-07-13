@@ -297,4 +297,5 @@ export const TEST_FILES = [
     "scripts/unrestricted-presence-load.test.mjs",
     "scripts/unrestricted-concurrency-load.test.mjs",
     "scripts/rollback-readiness.test.mjs",
+    "shinobij.client/src/mobile-touch-targets.test.ts",
 ];
