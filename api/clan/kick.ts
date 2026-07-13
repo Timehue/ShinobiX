@@ -93,6 +93,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (targetRec && targetChar && clanSlugBare(String(targetChar.clan ?? '')) === targetSlug) {
                     const nextChar: Record<string, unknown> = { ...targetChar };
                     delete nextChar.clan;
+                    delete nextChar.clanUpgradeLevels;
+                    delete nextChar.clanDoctrine;
                     nextChar.clanFounder = false;
                     nextChar.guardQueued = false;
                     await writeVersionedPlayerSave(targetSaveKey, targetRec, nextChar);
