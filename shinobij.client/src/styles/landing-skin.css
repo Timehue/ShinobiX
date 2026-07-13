@@ -134,7 +134,7 @@
     border-radius: 999px;
     border: 1px solid rgba(250, 204, 21, 0.34);
     background: rgba(2, 6, 23, 0.46);
-    color: #fde68a;
+    color: var(--gold-300);
     font-family: var(--font-display);
     font-size: 12px;
     font-weight: 700;
@@ -264,6 +264,9 @@
 
 .landing-navlink {
     appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: none;
     background: none;
     cursor: pointer;
@@ -276,25 +279,19 @@
     text-decoration: none;
     padding: 8px 8px;
     border-radius: 8px;
-    transition: color 0.15s, background 0.15s;
+    box-shadow: none;
+    filter: none;
+    line-height: 1;
+    transform: none;
+    transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
     white-space: nowrap;
 }
 
 .landing-navlink:hover {
     color: #fff7d6;
-}
-
-.landing-navlink--cta {
-    color: #fff7d6;
-    background: linear-gradient(180deg, rgba(202, 138, 4, 0.92), rgba(120, 53, 15, 0.92));
-    border: 1px solid rgba(250, 204, 21, 0.6);
-    padding: 8px 18px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(250, 204, 21, 0.12);
-}
-
-.landing-navlink--cta:hover {
-    filter: brightness(1.09);
-    color: #fff;
+    box-shadow: none;
+    filter: none;
+    transform: none;
 }
 
 /* ── Hero ───────────────────────────────────────────────────────────────── */
@@ -383,26 +380,6 @@
     backdrop-filter: blur(2px);
 }
 
-.landing-stat-chip--live {
-    color: #bbf7d0;
-    border-color: rgba(34, 197, 94, 0.5);
-    background: rgba(6, 24, 14, 0.55);
-}
-
-.landing-live-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #22c55e;
-    box-shadow: 0 0 8px #22c55e;
-    animation: landing-pulse 1.8s ease-in-out infinite;
-}
-
-@keyframes landing-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%      { opacity: 0.45; transform: scale(0.65); }
-}
-
 .landing-hero-actions {
     display: flex;
     flex-wrap: wrap;
@@ -444,7 +421,7 @@
 }
 
 .landing-cta--ghost {
-    color: #fde68a;
+    color: var(--gold-300);
     background: rgba(2, 6, 23, 0.42);
     border: 1px solid rgba(202, 138, 4, 0.5);
     backdrop-filter: blur(3px);
@@ -585,7 +562,7 @@
 
 .landing-login-primary {
     min-height: 48px;
-    background: linear-gradient(180deg, #f59e0b, #8a3b0d) !important;
+    background: linear-gradient(180deg, var(--gold-2), #8a3b0d) !important;
     color: #fff7d6 !important;
     box-shadow:
         0 0 0 1px rgba(250, 204, 21, 0.20) inset,
@@ -601,7 +578,7 @@
     border-radius: 8px;
     border: 1px solid rgba(202, 138, 4, 0.38);
     background: rgba(2, 6, 23, 0.52);
-    color: #fde68a;
+    color: var(--gold-300);
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -648,7 +625,7 @@
 }
 
 .landing-auth-tab.is-active {
-    color: #fde68a;
+    color: var(--gold-300);
     background: linear-gradient(180deg, rgba(146, 64, 14, 0.78), rgba(69, 26, 3, 0.82));
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(250, 204, 21, 0.25);
 }
@@ -692,7 +669,7 @@
 
 .landing-scroll-cue:hover {
     opacity: 1;
-    color: #fde68a;
+    color: var(--gold-300);
     filter: brightness(1.12);
 }
 
@@ -738,7 +715,7 @@
     font-weight: 700;
     font-size: clamp(28px, 4vw, 46px);
     line-height: 1.05;
-    color: #fde68a;
+    color: var(--gold-300);
     text-shadow: 0 0 24px rgba(250, 204, 21, 0.2);
     border: none;
     padding: 0;
@@ -835,7 +812,7 @@
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 20px;
-    color: #fde68a;
+    color: var(--gold-300);
     letter-spacing: 0.02em;
     border: none;
     padding: 0;
@@ -1008,7 +985,7 @@
 
 .landing-step-title {
     margin: 0 0 9px;
-    color: #fde68a;
+    color: var(--gold-300);
     font-family: var(--font-display);
     font-size: clamp(18px, 2vw, 22px);
     line-height: 1.15;
@@ -1034,7 +1011,7 @@
 
 .landing-guide-title {
     margin: 0 0 10px;
-    color: #fde68a;
+    color: var(--gold-300);
     font-family: var(--font-display);
     font-size: clamp(22px, 3vw, 32px);
     line-height: 1.1;
@@ -1136,14 +1113,14 @@
 
 .landing-footer-links a:hover,
 .landing-footer-links button:hover {
-    color: #fde68a;
+    color: var(--gold-300);
 }
 
 .landing-footer-legal {
     max-width: 1200px;
     margin: 22px auto 0;
     padding-top: 18px;
-    color: #5b6478;
+    color: #7d879d;
     font-size: 12px;
     text-align: center;
     border-top: 1px solid rgba(148, 163, 184, 0.1);
@@ -1268,9 +1245,10 @@
         letter-spacing: 0.18em !important;
     }
     .landing-topbar-inner {
-        flex-wrap: wrap;
-        gap: 8px;
+        flex-direction: column;
+        gap: 2px;
         justify-content: center;
+        padding: 6px 10px 8px;
     }
     .landing-brand {
         padding-block: 2px;
@@ -1289,24 +1267,52 @@
         margin-bottom: 12px;
     }
     .landing-topnav {
-        justify-content: center;
-        gap: 4px;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 5px;
+        width: 100%;
     }
-    .landing-navlink {
-        font-size: 11px;
-        letter-spacing: 0.06em;
-        padding: 6px 6px;
+    .landing-topnav .landing-navlink {
+        width: 100%;
+        min-height: 32px;
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        padding: 7px 3px;
+        border: 1px solid rgba(214, 192, 129, 0.24);
+        border-radius: 999px;
+        background: linear-gradient(180deg, rgba(255, 247, 214, 0.055), rgba(6, 9, 18, 0.42));
+        box-shadow: inset 0 1px 0 rgba(255, 247, 214, 0.05), 0 3px 10px rgba(0, 0, 0, 0.2);
+        text-align: center;
     }
-    .landing-navlink--cta {
-        padding: 7px 13px;
+    .landing-topnav .landing-navlink:hover {
+        color: #fff7d6;
+        border-color: rgba(250, 204, 21, 0.52);
+        background: linear-gradient(180deg, rgba(250, 204, 21, 0.12), rgba(6, 9, 18, 0.5));
+        box-shadow: inset 0 1px 0 rgba(255, 247, 214, 0.08), 0 4px 12px rgba(0, 0, 0, 0.26);
     }
     .landing-auth-tab {
         font-size: 12px;
         letter-spacing: 0.05em;
         padding: 10px 6px;
     }
+    .landing-hero-actions {
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+    }
     .landing-hero-actions .landing-cta {
-        flex: 1 1 100%;
+        flex: none;
+    }
+    .landing-hero-actions .landing-cta--primary {
+        width: 100%;
+    }
+    .landing-hero-actions .landing-cta--ghost {
+        width: auto;
+        min-width: 0;
+        padding: 9px 12px;
+        border-color: transparent;
+        background: transparent;
+        box-shadow: none;
     }
     .landing-band-actions .landing-cta {
         flex: 1 1 100%;
@@ -1444,18 +1450,6 @@
     }
 }
 
-/* ── Mobile sticky "Play Free" CTA (thumb zone) ─────────────────────────── */
-
-.landing-mobile-cta {
-    display: none;
-}
-
-@media (max-width: 800px) {
-    .landing-mobile-cta {
-        display: none;
-    }
-}
-
 /* ── Focus-visible rings (keyboard users on the dark art) ───────────────── */
 
 .landing-cta:focus-visible,
@@ -1474,11 +1468,9 @@
 /* ── Reduced motion: stop the infinite pulse / bounce ───────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-    .landing-live-dot,
     .landing-scroll-arrow {
         animation: none !important;
     }
-    .landing-mobile-cta,
     .landing-feature-card,
     .landing-feature-media img,
     .landing-cta {

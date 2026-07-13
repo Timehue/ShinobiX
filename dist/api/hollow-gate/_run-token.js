@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AUGMENT_CATALOG = exports.HG_HIGH_VALUE_ITEM_ID = exports.HOLLOW_GATE_SERVER_DEPTH = exports.HG_CLAWBACK_KEYS = void 0;
+exports.AUGMENT_CATALOG = exports.HG_HIGH_VALUE_ITEM_ID = exports.HOLLOW_GATE_SERVER_DEPTH = exports.HG_CLAWBACK_KEYS = exports.HOLLOW_GATE_RUNS_ENABLED = void 0;
+exports.hollowGateRunsEnabled = hollowGateRunsEnabled;
 exports.canonicalHollowGateDepth = canonicalHollowGateDepth;
 exports.hollowShardDrop = hollowShardDrop;
 exports.maxShardsForDepth = maxShardsForDepth;
@@ -14,6 +15,13 @@ exports.augmentDisplay = augmentDisplay;
 exports.rollAugmentOffers = rollAugmentOffers;
 exports.rewardMultiplierForToken = rewardMultiplierForToken;
 const node_crypto_1 = require("node:crypto");
+// Release lock: current dungeon outcomes and discrete loot are still resolved
+// by the browser. Keep every server mutation endpoint closed until the server
+// owns the run events and settles the complete currency/item ledger.
+exports.HOLLOW_GATE_RUNS_ENABLED = false;
+function hollowGateRunsEnabled() {
+    return exports.HOLLOW_GATE_RUNS_ENABLED;
+}
 /*
  * Hollow Gate — server-authoritative run token + augment layer (Tier 1).
  *

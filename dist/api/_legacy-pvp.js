@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.guardDefenseDeltas = guardDefenseDeltas;
 exports.rankBand = rankBand;
 exports.extractPvpLegacyDeltas = extractPvpLegacyDeltas;
+const _utils_js_1 = require("./_utils.js");
 const RE_HEAL = /^Heal: (.+) restores (\d+) HP\.$/;
 const RE_SHIELD = /^Shield: (.+) gains (\d+) shield\.$/;
 const RE_BLOCKED = /^(\d+) absorbed by (.+)'s shield\.$/;
@@ -58,29 +59,29 @@ function extractPvpLegacyDeltas(session, winnerName, loserName) {
     for (const line of session.log ?? []) {
         let m = RE_HEAL.exec(line);
         if (m) {
-            healing[m[1]] = (healing[m[1]] ?? 0) + Number(m[2]);
+            (0, _utils_js_1.setSafeRecordValue)(healing, m[1], (healing[m[1]] ?? 0) + Number(m[2]));
             continue;
         }
         m = RE_SHIELD.exec(line);
         if (m) {
-            shieldCasts[m[1]] = (shieldCasts[m[1]] ?? 0) + 1;
+            (0, _utils_js_1.setSafeRecordValue)(shieldCasts, m[1], (shieldCasts[m[1]] ?? 0) + 1);
             continue;
         }
         m = RE_BLOCKED.exec(line);
         if (m) {
-            blocked[m[2]] = (blocked[m[2]] ?? 0) + Number(m[1]);
+            (0, _utils_js_1.setSafeRecordValue)(blocked, m[2], (blocked[m[2]] ?? 0) + Number(m[1]));
             continue;
         }
         m = RE_DAMAGE.exec(line);
         if (m) {
             const dealer = other(m[2]);
-            damageDealt[dealer] = (damageDealt[dealer] ?? 0) + Number(m[1]);
+            (0, _utils_js_1.setSafeRecordValue)(damageDealt, dealer, (damageDealt[dealer] ?? 0) + Number(m[1]));
             continue;
         }
         m = RE_WOUND_TICK.exec(line);
         if (m) {
             const dealer = other(m[1]);
-            damageDealt[dealer] = (damageDealt[dealer] ?? 0) + Number(m[2]);
+            (0, _utils_js_1.setSafeRecordValue)(damageDealt, dealer, (damageDealt[dealer] ?? 0) + Number(m[2]));
             continue;
         }
     }

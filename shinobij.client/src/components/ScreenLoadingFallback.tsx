@@ -1,3 +1,6 @@
+import { useEffect } from "react";
+
+import { notifyScreen } from "../lib/perfTelemetry";
 import type { Screen } from "../types/core";
 
 const SCREEN_MESSAGES: Partial<Record<Screen, string>> = {
@@ -30,6 +33,8 @@ const SCREEN_MESSAGES: Partial<Record<Screen, string>> = {
 };
 
 export function ScreenLoadingFallback({ screen }: { screen: Screen }) {
+    useEffect(() => { notifyScreen(screen); }, [screen]);
+
     return (
         <div
             className="lazy-screen-fallback"
@@ -42,7 +47,7 @@ export function ScreenLoadingFallback({ screen }: { screen: Screen }) {
                 display: "grid",
                 placeItems: "center",
                 textAlign: "center",
-                color: "#cbd5e1",
+                color: "var(--slate-300)",
             }}
         >
             <div
@@ -54,10 +59,10 @@ export function ScreenLoadingFallback({ screen }: { screen: Screen }) {
                     boxShadow: "0 18px 42px rgba(0,0,0,0.28)",
                 }}
             >
-                <strong style={{ display: "block", color: "#facc15", marginBottom: 4 }}>
+                <strong style={{ display: "block", color: "var(--gold)", marginBottom: 4 }}>
                     {SCREEN_MESSAGES[screen] ?? "Loading Screen"}
                 </strong>
-                <span style={{ fontSize: 13, color: "#94a3b8" }}>Restoring the next view...</span>
+                <span style={{ fontSize: 13, color: "var(--text-dim)" }}>Restoring the next view...</span>
             </div>
         </div>
     );

@@ -272,7 +272,7 @@ export function Logbook({
                     <p><strong>Combat.</strong> Spend AP on Basic Attack and Jutsu. When AP runs low, press Wait to end the turn and recover.</p>
                     <p><strong>Growth.</strong> Training raises stats over time. Jutsu grow from Training Hall levels and battle use.</p>
                     <p><strong>Missions.</strong> Finish the task, return to Mission Hall, then claim the reward.</p>
-                    <p><strong>Story.</strong> Once the Academy path is complete, visit Story Hall to begin your village story.</p>
+                    <p><strong>Story.</strong> Once the Academy path is complete, your village story finds you on its own. Revisit past chapters and choices any time in the Story Hall.</p>
                 </div>
             </details>
             {examMissions.length > 0 && (
@@ -288,7 +288,7 @@ export function Logbook({
                                 <h3>{exam.title} {passed ? "✓" : ""}</h3>
                                 {exam.summary && <p className="hint">{exam.summary}</p>}
                                 <p className="hint">Gate: level {gate?.level ?? exam.unlockLevel}. Status: <strong>{passed ? "Passed" : complete ? "Ready to pass" : "In progress"}</strong></p>
-                                {isBlocking && !complete && <p style={{ color: "#f87171", fontWeight: "bold" }}>You cannot level past {gate!.level} until you pass this exam.</p>}
+                                {isBlocking && !complete && <p style={{ color: "var(--red-400)", fontWeight: "bold" }}>You cannot level past {gate!.level} until you pass this exam.</p>}
                                 <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
                                 {!passed && <div className="menu">
                                     <button disabled={!complete} onClick={() => {

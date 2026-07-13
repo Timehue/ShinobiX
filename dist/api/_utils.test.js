@@ -3,6 +3,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const node_assert_1 = require("node:assert");
 const _utils_js_1 = require("./_utils.js");
+(0, node_test_1.describe)('safe dynamic record writes', () => {
+    (0, node_test_1.it)('creates ordinary own properties and rejects prototype keys', () => {
+        const record = {};
+        node_assert_1.strict.equal((0, _utils_js_1.setSafeRecordValue)(record, 'score', 7), true);
+        node_assert_1.strict.equal(record.score, 7);
+        node_assert_1.strict.equal((0, _utils_js_1.setSafeRecordValue)(record, '__proto__', 9), false);
+        node_assert_1.strict.equal((0, _utils_js_1.setSafeRecordValue)(record, 'constructor', 9), false);
+        node_assert_1.strict.equal(Object.getPrototypeOf(record), Object.prototype);
+        node_assert_1.strict.equal((0, _utils_js_1.deleteSafeRecordValue)(record, 'score'), true);
+        node_assert_1.strict.equal(Object.prototype.hasOwnProperty.call(record, 'score'), false);
+        node_assert_1.strict.equal((0, _utils_js_1.deleteSafeRecordValue)(record, '__proto__'), false);
+    });
+});
 (0, node_test_1.describe)('safeName', () => {
     (0, node_test_1.it)('lowercases', () => {
         node_assert_1.strict.equal((0, _utils_js_1.safeName)('RILL'), 'rill');
@@ -182,5 +195,15 @@ const _utils_js_1 = require("./_utils.js");
         const incoming = { character: { ryo: 9 } };
         const merged = (0, _utils_js_1.mergePreservingImages)(incoming, existing);
         node_assert_1.strict.deepEqual(merged.character.equipment, { hand: 'sword' }, 'omitted equipment stays preserved');
+    });
+    (0, node_test_1.it)('drops prototype-pollution keys at every object depth', () => {
+        const incoming = JSON.parse('{"safe":1,"__proto__":{"polluted":true},"nested":{"constructor":{"prototype":{"polluted":true}},"ok":2}}');
+        const merged = (0, _utils_js_1.mergePreservingImages)(incoming, {});
+        const nested = merged.nested;
+        node_assert_1.strict.equal(merged.safe, 1);
+        node_assert_1.strict.equal(nested.ok, 2);
+        node_assert_1.strict.equal(Object.prototype.hasOwnProperty.call(merged, '__proto__'), false);
+        node_assert_1.strict.equal(Object.prototype.hasOwnProperty.call(nested, 'constructor'), false);
+        node_assert_1.strict.equal({}.polluted, undefined);
     });
 });

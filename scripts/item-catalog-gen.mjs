@@ -28,6 +28,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { starterItems } from "../shinobij.client/src/data/starter-items.ts";
 import { starterSavedBloodlines } from "../shinobij.client/src/data/jutsu.ts";
+import { stackableItemIds } from "../shinobij.client/src/data/pet-config.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "api", "pvp", "_item-catalog.ts");
@@ -48,6 +49,7 @@ function pickCombatFields(item) {
     const out = { id: item.id, name: item.name, slot: item.slot, rarity: item.rarity };
     out.cost = Math.max(0, Math.floor(Number(item.cost) || 0));
     if (item.levelReq != null) out.levelReq = Math.max(1, Math.floor(Number(item.levelReq) || 1));
+    if (stackableItemIds.has(item.id)) out.stackable = true;
     if (item.armorQuality != null) out.armorQuality = item.armorQuality;
     if (item.weaponElement != null) out.weaponElement = item.weaponElement;
     if (item.weaponRange != null) out.weaponRange = item.weaponRange;
@@ -123,6 +125,7 @@ export type CatalogItem = {
     rarity: string;
     cost?: number;
     levelReq?: number;
+    stackable?: boolean;
     armorQuality?: string;
     weaponElement?: string;
     weaponRange?: number;

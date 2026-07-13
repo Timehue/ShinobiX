@@ -13,7 +13,7 @@ import { titleStyleColor, type LegacyRarity } from "../lib/legacy";
 const CHIP: CSSProperties = {
     display: "inline-block", padding: "1px 8px", borderRadius: 999,
     fontSize: ".68rem", lineHeight: 1.6, whiteSpace: "nowrap",
-    border: "1px solid rgba(148,163,184,.35)", color: "#cbd5e1",
+    border: "1px solid rgba(148,163,184,.35)", color: "var(--slate-300)",
     background: "rgba(148,163,184,.08)",
 };
 
@@ -30,7 +30,7 @@ export function PlayerNameplate({ name, level, customTitle, customTitleStyle, cu
     village?: string | null;
 }) {
     // Every legacy chip uses the same accent — rank is never revealed.
-    const rarityColor = "#c084fc";
+    const rarityColor = "var(--purple-400)";
     const titleColor = titleStyleColor(customTitleStyle);
     return (
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>

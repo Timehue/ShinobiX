@@ -115,7 +115,7 @@ export function CombatSideHud({
     isActive?: boolean;
 }) {
     const hpPct = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
-    const hpColor = hpPct > 50 ? "#22c55e" : hpPct > 25 ? "#f59e0b" : "#ef4444";
+    const hpColor = hpPct > 50 ? "var(--success)" : hpPct > 25 ? "var(--gold-2)" : "var(--danger)";
     return (
         <aside className={`combat-side-hud${isActive ? " combat-side-hud--active" : ""}`}>
             <div className="combat-hud-header">

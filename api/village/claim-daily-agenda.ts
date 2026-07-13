@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { seededVillageAgenda, verifyAgendaCompletion } from '../_village-agenda.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { MERIT_DAILY_AGENDA, meritNum } from './_village-merit.js';
 
 /*
  * /api/village/claim-daily-agenda  — POST only
@@ -149,6 +150,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ryo: num(char.ryo) + granted.ryo,
                     boneCharms: num(char.boneCharms) + granted.boneCharms,
                     honorSeals: num(char.honorSeals) + granted.honorSeals,
+                    // Personal Village Merit toward a Kage challenge (server-owned;
+                    // once/day via the NX marker above). See _village-merit.ts.
+                    villageMerit: meritNum(char.villageMerit) + MERIT_DAILY_AGENDA,
                 };
                 const next = bumpSaveVersion({ ...rec, character: nextChar });
                 await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));

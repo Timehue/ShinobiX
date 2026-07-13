@@ -96,7 +96,7 @@ export function ClanRankings({ character }: { character: Character }) {
                             <span
                                 className="clan-rank-badge"
                                 title={`${row.wins} win${row.wins === 1 ? "" : "s"} · ${row.losses} loss${row.losses === 1 ? "" : "es"} · ${row.draws} draw${row.draws === 1 ? "" : "s"}`}
-                                style={{ background: "rgba(74,222,128,0.1)", color: "#4ade80", borderColor: "rgba(74,222,128,0.28)" }}
+                                style={{ background: "rgba(74,222,128,0.1)", color: "var(--green-400)", borderColor: "rgba(74,222,128,0.28)" }}
                             >
                                 {record}
                             </span>

@@ -47,6 +47,7 @@ const _text_moderation_js_1 = require("./_text-moderation.js");
     });
     (0, node_test_1.it)('catches whitespace-separation bypass', () => {
         node_assert_1.strict.equal((0, _text_moderation_js_1.isCleanText)('n i g g e r'), false);
+        node_assert_1.strict.equal((0, _text_moderation_js_1.isCleanText)('n-i-g-g-e-r'), false);
     });
     (0, node_test_1.it)('catches repeat-char bypass', () => {
         // niiigger → collapse repeats → nigger → blocked.
@@ -56,6 +57,11 @@ const _text_moderation_js_1 = require("./_text-moderation.js");
         node_assert_1.strict.equal((0, _text_moderation_js_1.isCleanText)('Hidden Leaf Village'), true);
         node_assert_1.strict.equal((0, _text_moderation_js_1.isCleanText)('Crimson Dragons'), true);
         node_assert_1.strict.equal((0, _text_moderation_js_1.isCleanText)('Title with numbers 123'), true);
+    });
+    (0, node_test_1.it)('rejects blocked terms embedded in normalized player names without blocking normal fantasy names', () => {
+        node_assert_1.strict.equal((0, _text_moderation_js_1.isCleanPlayerName)('n1gger-ninja'), false);
+        node_assert_1.strict.equal((0, _text_moderation_js_1.isCleanPlayerName)('Hidden Leaf'), true);
+        node_assert_1.strict.equal((0, _text_moderation_js_1.isCleanPlayerName)('SkyStorm'), true);
     });
 });
 (0, node_test_1.describe)('TEXT_LIMITS', () => {

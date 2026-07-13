@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { Pet } from "../types/pet";
-import { runPetDuel, type DuelResult } from "../lib/pet-duel-sim";
+import { type DuelResult } from "../lib/pet-duel-sim";
+import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
 import { joinSectorPet, sectorPetState } from "../lib/village-war-map";
 
 /*
@@ -69,7 +70,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
 
     // Resolved → replay the deterministic duel (identical to the server) + the result.
     if (session?.status === "done" && session.p2 && session.seed != null) {
-        const result: DuelResult = runPetDuel(session.p1.pet, session.p2.pet, session.seed, 1, 1, false, false, false, session.terrain ?? null);
+        const result: DuelResult = runPetDuelCinematic(session.p1.pet, session.p2.pet, session.seed, 1, 1, false, false, false, session.terrain ?? null);
         const mine = character.name.toLowerCase() === session.p1.name.toLowerCase() ? "p1"
             : character.name.toLowerCase() === session.p2.name.toLowerCase() ? "p2" : null;
         const banner = session.winner === "draw" ? "The pet duel ended in a draw — the sector holds."
@@ -79,7 +80,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
         return (
             <div>
                 <div style={{ textAlign: "center", padding: 8, fontWeight: 700 }}>{banner}</div>
-                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading the arena…</div>}>
+                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the arena…</div>}>
                     <PetColiseumDuel key={session.seed} playerPet={session.p1.pet} enemyPet={session.p2.pet} seed={session.seed} result={result} sharedImages={{}} onExit={back} />
                 </Suspense>
             </div>
@@ -111,7 +112,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
                     <div><button onClick={send} disabled={busy || !selectedPetId}>{busy ? "…" : "Send into battle"}</button></div>
                 </>
             )}
-            {error && <p style={{ color: "#f87171" }}>{error}</p>}
+            {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}
             <div style={{ marginTop: 10 }}><button onClick={back}>← Back</button></div>
         </div>
     );

@@ -62,38 +62,41 @@ function pushFx(fx: HitFxEvent[], who: 'self' | 'opp', amount: number, kind: 'da
     if (amount > 0) fx.push({ who, amount: Math.round(amount), kind });
 }
 type RelativeVfxEvent = Omit<CombatVfxTarget, 'target'> & { who: 'self' | 'opp' };
+// durationMs values are ~25% longer than the original tuning so plates linger a
+// beat longer on screen. Keep this table in sync with the client-side
+// `COMBAT_VFX_REGISTRY` in shinobij.client/src/lib/combat-vfx.ts.
 const VFX_DEFAULTS: Record<CombatVfxKey, { durationMs: number; maxParticles: number }> = {
-    fire: { durationMs: 680, maxParticles: 20 },
-    water: { durationMs: 720, maxParticles: 18 },
-    wind: { durationMs: 620, maxParticles: 16 },
-    lightning: { durationMs: 560, maxParticles: 18 },
-    earth: { durationMs: 720, maxParticles: 16 },
-    blood: { durationMs: 680, maxParticles: 18 },
-    shadow: { durationMs: 740, maxParticles: 16 },
-    poison: { durationMs: 760, maxParticles: 16 },
-    magma: { durationMs: 760, maxParticles: 22 },
-    metal: { durationMs: 640, maxParticles: 14 },
-    slash: { durationMs: 420, maxParticles: 8 },
-    impact: { durationMs: 460, maxParticles: 10 },
-    pierce: { durationMs: 460, maxParticles: 10 },
-    heal: { durationMs: 820, maxParticles: 16 },
-    shield: { durationMs: 900, maxParticles: 14 },
-    reflect: { durationMs: 820, maxParticles: 14 },
-    absorb: { durationMs: 820, maxParticles: 14 },
-    spark: { durationMs: 560, maxParticles: 18 },
-    seal: { durationMs: 760, maxParticles: 14 },
-    wound: { durationMs: 620, maxParticles: 12 },
-    burn: { durationMs: 720, maxParticles: 18 },
-    poisonCloud: { durationMs: 900, maxParticles: 18 },
-    drain: { durationMs: 840, maxParticles: 16 },
-    cleanse: { durationMs: 760, maxParticles: 14 },
-    buff: { durationMs: 820, maxParticles: 14 },
-    debuff: { durationMs: 760, maxParticles: 14 },
-    throwable: { durationMs: 520, maxParticles: 10 },
-    weapon: { durationMs: 440, maxParticles: 8 },
-    namedWeapon: { durationMs: 620, maxParticles: 14 },
-    heavy: { durationMs: 620, maxParticles: 16 },
-    ko: { durationMs: 980, maxParticles: 24 },
+    fire: { durationMs: 850, maxParticles: 20 },
+    water: { durationMs: 900, maxParticles: 18 },
+    wind: { durationMs: 780, maxParticles: 16 },
+    lightning: { durationMs: 700, maxParticles: 18 },
+    earth: { durationMs: 900, maxParticles: 16 },
+    blood: { durationMs: 850, maxParticles: 18 },
+    shadow: { durationMs: 930, maxParticles: 16 },
+    poison: { durationMs: 950, maxParticles: 16 },
+    magma: { durationMs: 950, maxParticles: 22 },
+    metal: { durationMs: 800, maxParticles: 14 },
+    slash: { durationMs: 530, maxParticles: 8 },
+    impact: { durationMs: 580, maxParticles: 10 },
+    pierce: { durationMs: 580, maxParticles: 10 },
+    heal: { durationMs: 1030, maxParticles: 16 },
+    shield: { durationMs: 1130, maxParticles: 14 },
+    reflect: { durationMs: 1030, maxParticles: 14 },
+    absorb: { durationMs: 1030, maxParticles: 14 },
+    spark: { durationMs: 700, maxParticles: 18 },
+    seal: { durationMs: 950, maxParticles: 14 },
+    wound: { durationMs: 780, maxParticles: 12 },
+    burn: { durationMs: 900, maxParticles: 18 },
+    poisonCloud: { durationMs: 1130, maxParticles: 18 },
+    drain: { durationMs: 1050, maxParticles: 16 },
+    cleanse: { durationMs: 950, maxParticles: 14 },
+    buff: { durationMs: 1030, maxParticles: 14 },
+    debuff: { durationMs: 950, maxParticles: 14 },
+    throwable: { durationMs: 650, maxParticles: 10 },
+    weapon: { durationMs: 550, maxParticles: 8 },
+    namedWeapon: { durationMs: 780, maxParticles: 14 },
+    heavy: { durationMs: 780, maxParticles: 16 },
+    ko: { durationMs: 1230, maxParticles: 24 },
 };
 function vfxEvent(
     who: 'self' | 'opp',
@@ -117,6 +120,7 @@ function vfxEvent(
 import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
 import { writeBattleReceipt, writeActionReceipt } from '../_receipts.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { settleKageDuel, recordPendingKageSettle, kageDuelKey } from '../village/_kage-settle.js';
 import {
     TAG_ALIASES,
     STACKABLE_STATUS,
@@ -193,6 +197,13 @@ type Jutsu = {
     staminaCost?: number;
     tags?: JutsuTag[];
     battleDescription?: string;
+    // Weapon strikes set this when the wielder lacks the weapon's element (or the
+    // weapon has no element at all). resolveBaseDamage folds it into the
+    // Bloodline-Seal branch so the swing gets NO bloodline damage multiplier —
+    // the "an elemental weapon only rides the bloodline boost when its element is
+    // one the wielder has awakened" rule. Absent/false on real jutsu and basic
+    // attacks, so their bloodline boost is unchanged.
+    suppressBloodline?: boolean;
 };
 
 // Canonicalize a tag name via the shared alias map (./_tags). Sessions are
@@ -635,6 +646,13 @@ type JutsuDamageSetup = { baseDmg: number; effectiveDR: number; offStats: Record
 // to 100% at JUTSU_MAX_LEVEL. Applied to Heal/Shield (hard-capped at the FLAT ceiling)
 // it leaves maxed play byte-identical while damping low-mastery heal/shield spam.
 // Mirrors client combat-math.ts masteryDamageFrac — KEEP IN SYNC (parity test).
+// characterOwnsElement lives in the leaf module ./_elements.js so the weapon
+// attunement endpoint can reuse it without importing the combat engine. Imported
+// for internal use (the weapon synth's bloodline gate) and re-exported so existing
+// importers (api/towers/_engine.ts, the tests) keep resolving it from './move.js'.
+import { characterOwnsElement } from './_elements.js';
+export { characterOwnsElement };
+
 // Phase 1 — EP scaling → base damage, plus the defender's diminishing-returns DR pool.
 function resolveBaseDamage(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult: number, biome: string, round: number, masteryLevel: number): JutsuDamageSetup {
     const offStats = (self.character.stats as Record<string, number>) ?? {};
@@ -649,7 +667,10 @@ function resolveBaseDamage(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
         wMult,
         biome,
         rawStatusDR: drContributionFor(self, opponent, round),
-        hasBloodlineSeal: hasStatus(self, 'Bloodline Seal', round),
+        // A weapon swing that doesn't match an awakened element carries
+        // suppressBloodline → treat it like a Bloodline Seal for THIS hit so the
+        // bloodline damage multiplier collapses to 1.0 (weapon-only; jutsu unset).
+        hasBloodlineSeal: hasStatus(self, 'Bloodline Seal', round) || jutsu.suppressBloodline === true,
     });
 }
 
@@ -1801,6 +1822,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     effectPower: serverItem.weaponEp ?? 15,
                     ap: wApCost,
                     range: weapRange,
+                    // Elemental-weapon gate: this swing rides the wielder's bloodline
+                    // damage multiplier ONLY when the weapon's element is one the
+                    // wielder has awakened. No element (every base weapon today) → no
+                    // boost. An elemental shard/core stamps serverItem.weaponElement.
+                    suppressBloodline: !characterOwnsElement(me.character, serverItem.weaponElement),
                     tags: wTags,
                 };
                 lines.push(`${me.name} uses ${weaponJutsu.name}:`);
@@ -1985,6 +2011,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // support / reward dispute can be reconstructed later. Disable with
             // DISABLE_COMBAT_RECEIPTS=1.
             await writeBattleReceipt(result).catch(() => undefined);
+            // If this finished duel was an OFFICIAL Kage challenge (the server
+            // wrote a `kage-duel:<battleId>` pointer when the Kage accepted),
+            // settle the seat now so neither player has to manually press
+            // resolve. Fully authoritative: settleKageDuel re-reads the live
+            // challenge + this PvpSession and re-runs every anti-cheat gate. The
+            // manual /kage-challenge resolve action stays as a backup. Best-effort
+            // (never blocks the fight response) and idempotent (pointer + challenge
+            // are cleared on settle, so a retry no-ops).
+            if (result.winner && result.winner !== 'draw') {
+                try {
+                    const kagePtr = await kv.get<{ village?: string; challengeId?: string }>(kageDuelKey(result.battleId));
+                    if (kagePtr?.village) {
+                        // Durably record the outcome FIRST so a stuck settle can be
+                        // reconciled from it even after the 15-min session TTL, THEN
+                        // attempt the immediate settle (which deletes the record on success).
+                        await recordPendingKageSettle(kagePtr.village, result, kagePtr.challengeId);
+                        await settleKageDuel(kagePtr.village, result.battleId, Date.now(), { expectChallengeId: kagePtr.challengeId });
+                    }
+                } catch (err) {
+                    console.error('[pvp/move] kage auto-settle failed', err);
+                }
+            }
         }
         // Durable per-action combat receipt (phase 1). Best-effort + flag-gated
         // (DISABLE_COMBAT_RECEIPTS) + idempotent per moveToken. Derived from the

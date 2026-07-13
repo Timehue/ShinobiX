@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.KIND_ACCURACY = exports.ARENA_Y = exports.ARENA_X = exports.DUEL_TPS = void 0;
+exports.elementMult = elementMult;
 exports.terrainPetMult = terrainPetMult;
 exports.runPetDuel = runPetDuel;
 exports.runPetPartyDuel = runPetPartyDuel;
@@ -9,8 +10,14 @@ const petAccuracyEnabled = () => false; // server: accuracy is passed in explici
 const pet_config_js_1 = require("./pet-config.js");
 exports.DUEL_TPS = 30; // sim ticks per second
 const MAX_TICKS = exports.DUEL_TPS * 30; // 30s hard cap (authoritative). Planted uses PLANTED_CAP_TICKS.
-const PLANTED_CAP_TICKS = exports.DUEL_TPS * 45; // casual (planted) fights may run up to ~45s
-const PLANTED_TTK_HP = 2.2; // casual HP scale → longer, meatier fights (target ~25-45s). Tunable.
+const PLANTED_CAP_TICKS = exports.DUEL_TPS * 75; // casual (cinematic) fights may run up to ~75s — the dynamic motion (dash-in/out, evades) slows the damage race, and the owner wants fights to reach a REAL KO finisher rather than a timer stop
+const PLANTED_TTK_HP = 2.0; // casual HP scale → long, meaty fights that still resolve in a KO. Tunable.
+// Cinematic SUDDEN DEATH: past this point every blow ramps up (reaching ~×2.25 at the
+// cap — heals don't scale, so heal-loop and tank-grind pairings CONVERGE to a real
+// finisher instead of a timer stop). Deterministic (pure t-based scalar, no rng);
+// authoritative always ×1.
+const PLANTED_LATE_T = exports.DUEL_TPS * 50;
+const PLANTED_LATE_RAMP = exports.DUEL_TPS * 20; // dmg ×(1 + elapsed/RAMP) → ×2.25 at 75s
 const Q = 256; // state quantization (1/256 unit)
 const quant = (n) => Math.round(n * Q) / Q;
 const clamp = (n, lo, hi) => (n < lo ? lo : n > hi ? hi : n);
@@ -159,7 +166,9 @@ function buildFighter(pet, team, slot, x, y, atkMult = 1, hpMult = 1, reviveOnce
     // Planted (casual cinematic) melee/tank hold a TIGHTER face-off so they read as
     // squaring up, not pacing a big field; ranged/skirmishers still keep their kite
     // distance. Non-planted (authoritative) keeps the shipped values exactly.
-    const neutralRange = role === "ranged" ? 5.2 : role === "tank" ? (plantedMotion ? 2.3 : 2.5) : skirmisher ? 4.0 : (plantedMotion ? 2.6 : 3.0);
+    // Cinematic melee/tank hold a slightly WIDER pocket than authoritative so the
+    // orbit + dash-in reads as real movement (nose-to-nose circling reads as jitter).
+    const neutralRange = role === "ranged" ? 5.2 : role === "tank" ? (plantedMotion ? 2.7 : 2.5) : skirmisher ? 4.0 : (plantedMotion ? 3.1 : 3.0);
     const statuses = emptyStatuses();
     const ch = applyItems ? (0, pet_config_js_1.petConsumableCharges)(gp) : null;
     if (applyItems)
@@ -185,6 +194,7 @@ function buildFighter(pet, team, slot, x, y, atkMult = 1, hpMult = 1, reviveOnce
         dashT: 7, dodgeT: 6,
         dodgeChance: clamp(0.12 + speed * 0.0008 + (trait === "Swift" ? 0.12 : 0), 0.12, 0.6),
         critChance: CRIT_CHANCE + (trait === "Lucky" ? 0.1 : 0),
+        spdStat: speed,
         role, neutralRange, plantedMotion,
         // Deterministic circling direction: lead/reserve orbit opposite ways,
         // and the two sides counter-rotate, so they wheel around each other.
@@ -297,6 +307,32 @@ function applyDamage(att, tgt, ab, rng, t, events, viaProjectile) {
         events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id });
         return;
     }
+    // Cinematic SPEED EVADE: a quicker pet reads the blow and slips it — the anime
+    // "too slow!" beat, and the way SPEED visibly matters to a watcher. Chance rides
+    // the raw speed differential (small base so mirrors still land most hits); only a
+    // pet in control of its feet can evade (not stunned/staggered/rooted/mid-cast).
+    // rng() is drawn ONLY behind `tgt.plantedMotion &&`, so authoritative streams
+    // (ranked / ladder / sector-war) stay byte-identical.
+    if (tgt.plantedMotion && tgt.statuses.stunLeft <= 0 && tgt.statuses.rootLeft <= 0
+        && (tgt.state === "idle" || tgt.state === "recover" || tgt.state === "dodge")
+        && rng() < clamp(0.05 + (tgt.spdStat - att.spdStat) * 0.0014, 0.03, 0.3)) {
+        // Sidestep away from the blow (perpendicular hop, clamped inside the arena).
+        const edx = tgt.x - att.x, edy = tgt.y - att.y;
+        const ed = Math.sqrt(edx * edx + edy * edy);
+        if (ed > 1e-6 && tgt.state !== "dodge") {
+            let px = -edy / ed, py = edx / ed;
+            if (tgt.y + py * 1.5 > exports.ARENA_Y || tgt.y + py * 1.5 < -exports.ARENA_Y) {
+                px = -px;
+                py = -py;
+            }
+            tgt.moveDx = px;
+            tgt.moveDy = py;
+            tgt.state = "dodge";
+            tgt.stateLeft = tgt.dodgeT;
+        }
+        events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id, move: "Evade" });
+        return;
+    }
     const powerScale = ab ? ab.power / 100 : 1;
     const buff = att.statuses.buffLeft > 0 ? 1 + att.statuses.buffMag : 1;
     let mult = elementMult(att.element, tgt.element) * (crit ? 1.6 : 1) * Math.max(0.3, buff);
@@ -308,6 +344,9 @@ function applyDamage(att, tgt, ab, rng, t, events, viaProjectile) {
     if (att.itemsOn)
         mult *= (0, pet_config_js_1.petGearExecuteMult)(att.pet, tgt.hp, tgt.maxHp);
     const mitigation = clamp(1 - tgt.def * 0.0012, 0.35, 1);
+    // Cinematic sudden death — see PLANTED_LATE_T. Keeps long fights ENDING.
+    if (att.plantedMotion && t > PLANTED_LATE_T)
+        mult *= 1 + (t - PLANTED_LATE_T) / PLANTED_LATE_RAMP;
     const base = att.atk * DMG_SCALE * powerScale;
     let dmg = Math.max(1, Math.round(base * mult * mitigation));
     // PVP gear: defender's last-stand reduction while low; then the Smoke-Pellet
@@ -613,10 +652,11 @@ function effMoveSpeed(f) {
  *  a stamina-burning sprint the whole way. */
 function commitApproach(f, target, dist, inv, stopAt, canDash, t, events) {
     const gap = dist - stopAt;
-    // Planted pets NEVER dash — they WALK in and trade in place, so the fight reads as a
-    // planted face-off instead of flinging across the floor toward a target that already
-    // moved ("dashing at nothing"). Only the non-planted (authoritative) engine dashes.
-    if (canDash && !f.plantedMotion && gap > 0.7 && gap < 4.5 && f.stamina >= COST_DASH && f.basicCdLeft <= 0) {
+    // The dash is the explosive CLOSE into a strike (an anime attack run) — kept for the
+    // cinematic profile too, where the in-out cadence (disengage → circle → dash back in)
+    // aims it at a target that's actually holding the pocket, so it lands ON the foe
+    // rather than "dashing at nothing" like the old free-roam scrum did.
+    if (canDash && gap > 0.7 && gap < 4.5 && f.stamina >= COST_DASH && f.basicCdLeft <= 0) {
         f.moveDx = (target.x - f.x) * inv;
         f.moveDy = (target.y - f.y) * inv;
         f.stamina -= COST_DASH;
@@ -643,10 +683,11 @@ function holdNeutral(f, target, dist, inv, dx, dy) {
         mx += dx * inv * radial * speed;
         my += dy * inv * radial * speed;
     }
-    // Only RANGED pets keep circling (the kite fantasy); a planted melee/tank holds
-    // ground and squares up (a tiny residual sway so it isn't frozen). Non-planted
-    // keeps the shipped 0.55 orbit for every role.
-    const strafeMag = !f.plantedMotion ? 0.55 : f.role === "ranged" ? 0.45 : 0.12;
+    // Circling at neutral: authoritative keeps the shipped 0.55 orbit; the cinematic
+    // profile circles a touch slower (0.4) so the "sizing each other up" read stays
+    // deliberate — real footwork between exchanges, not a pinned face-off and not
+    // the old chaotic strafe-scrum.
+    const strafeMag = !f.plantedMotion ? 0.55 : f.role === "ranged" ? 0.45 : 0.4;
     const px = -dy * inv, py = dx * inv; // tangential: circle the foe
     mx += px * speed * strafeMag * f.strafeDir;
     my += py * speed * strafeMag * f.strafeDir;
@@ -817,12 +858,15 @@ function beginCast(f, idx, targetId, t, events) {
     f.pendingTargetId = targetId;
     f.state = "windup";
     f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : Math.max(1, Math.round(f.windT * plantedPaceMul(f, t)));
+    // Event payloads carry the move name + target so the renderer can "call the
+    // attack" (Pokemon-style caption BEFORE the swing lands). Payload-only — no
+    // state or rng change, so authoritative outcomes are untouched.
     if (idx >= 0 && f.abilities[idx].signature)
-        events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name });
+        events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name, targetId });
     else if (idx >= 0 && f.abilities[idx].cls === "support")
         events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: f.abilities[idx].kind, move: f.abilities[idx].name });
     else
-        events.push({ t, type: "windup", side: f.team, actorId: f.id, kind: idx >= 0 ? f.abilities[idx].kind : "damage" });
+        events.push({ t, type: "windup", side: f.team, actorId: f.id, kind: idx >= 0 ? f.abilities[idx].kind : "damage", move: idx >= 0 ? f.abilities[idx].name : undefined, targetId });
 }
 /** Resolve a wind-up that just finished. */
 function resolveCast(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled) {
@@ -831,9 +875,12 @@ function resolveCast(f, fighters, projectiles, nextProjId, rng, t, events, accur
     // FEINT (planted): the wind-up was a bluff — pay the basic cooldown so it isn't free spam,
     // deal NO damage / spend NO stamina, and skip the strike resolution. The renderer already
     // played the telegraph; the pet simply swings through and recovers (a pulled/feinted swing).
+    // The whiff below (move:"Feint") only ever fires on the planted path — pendingFeint
+    // is set exclusively behind plantedMotion, so authoritative streams stay byte-identical.
     if (f.pendingFeint) {
         f.pendingFeint = false;
         f.basicCdLeft = f.basicCdT;
+        events.push({ t, type: "whiff", side: f.team, actorId: f.id, move: "Feint" });
         return;
     }
     if (ab) {
@@ -1021,9 +1068,11 @@ function step(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnab
         case "recover":
             // Planted melee/tank stay engaged and keep trading (no back-off circle);
             // ranged still repositions ~0.3s to kite. Non-planted keeps 0.3s for all.
+            // After the strike, DISENGAGE for a beat (cinematic melee holds off a touch
+            // longer) — the back-out → circle → re-commit loop is the anime in-out cadence.
             if (--f.stateLeft <= 0) {
                 f.state = "idle";
-                f.repositionLeft = (f.plantedMotion && f.role !== "ranged") ? 0 : Math.round(exports.DUEL_TPS * 0.3);
+                f.repositionLeft = (f.plantedMotion && f.role !== "ranged") ? Math.round(exports.DUEL_TPS * 0.45) : Math.round(exports.DUEL_TPS * 0.3);
             }
             break;
         case "stagger":

@@ -7,6 +7,7 @@ import { useState } from "react";
 import type { Character } from "../types/character";
 import { ATTUNEMENT_NODES, attunementRank, attunementNextCost, buyAttunement, keyForgeUnlocked, KEY_FORGE_COST } from "../lib/hollow-gate-attunement";
 import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 type Props = { character: Character; updateCharacter: (c: Character) => void; onClose: () => void; onServerVersion?: (version: number) => void };
 
@@ -15,6 +16,7 @@ export function HollowGateAttunement({ character, updateCharacter, onClose, onSe
     const shards = character.hollowShards ?? 0;
 
     function buy(id: string) {
+        if (!requireServerSettlement("hollowGateAttunement")) return;
         const r = buyAttunement(character, id);
         if (r.ok === false) { setMsg(r.reason); return; }
         updateCharacter(r.character);
@@ -22,7 +24,9 @@ export function HollowGateAttunement({ character, updateCharacter, onClose, onSe
     }
 
     async function forge() {
-        const r = await forgeHollowGateKeyServer(character.name, 'hollowShards');
+        if (!requireServerSettlement("hollowGateAttunement")) return;
+        const forgeHollowGateKey = forgeHollowGateKeyServer;
+        const r = await forgeHollowGateKey(character.name, 'hollowShards');
         if (!r.character) { setMsg(r.error || 'The key forge failed.'); return; }
         if (typeof r._saveVersion === 'number') onServerVersion?.(r._saveVersion);
         updateCharacter(r.character);

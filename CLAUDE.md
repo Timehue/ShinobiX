@@ -56,7 +56,10 @@ Frontend (run inside `shinobij.client/`):
   Upstash/Redis KV layer has been fully migrated to Supabase (the one-off
   `migrate-upstash-*` / `import-*` scripts have been removed; see git history).
   `api/kv-proxy.ts` is the live Railway→cPanel disk-overlay proxy, not Upstash-era.
-- **`scripts/`** — one-off migration and PvP balance-simulation scripts.
+- **`scripts/`** — one-off migration and PvP balance-simulation scripts. Also
+  `gen-story-pdf.mjs` (+ `_story-pdf-build.py`): render the whole story
+  (chapters/interludes/road events) to a review PDF from the LIVE data —
+  `node --import tsx scripts/gen-story-pdf.mjs [out.pdf]` (needs `pip install reportlab`).
 - **`docs/`** — design docs (e.g. `professions.md`) and security/auth
   references. See **`docs/auth-and-anti-cheat-patterns.md`** for the token-first
   auth model and the server-minted single-use token pattern for client-reported
@@ -98,8 +101,10 @@ unreachable on both targets. `server-routes.test.ts` enforces this both ways
   changing allowed origins or custom headers (`x-admin-password`,
   `x-player-password`, `x-player-name`, `x-kv-token`, `x-client-fp`).
 - Tests are colocated as `*.test.ts` next to the code under test and run with the
-  built-in `node:test` runner via `tsx`. Add new tests to the `test` script in
-  the relevant `package.json` if they aren't picked up automatically.
+  built-in `node:test` runner via `tsx`. The root suite's file manifest lives in
+  **`scripts/test-files.mjs`** (run by `scripts/run-tests.mjs`; the list outgrew
+  the Windows cmd.exe command-line limit, so it can no longer live inline in the
+  `test` script). Add new root-suite test files there.
 - **`shinobij.client/src/App.tsx` is the legacy frontend monolith, in active
   drain** into `src/{screens,components,lib,data,constants,types}/`. Put **new**
   screens/components/helpers in their own module under those folders — **not** in

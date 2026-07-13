@@ -29,7 +29,7 @@ async function handler(req, res) {
     const assets = await (0, _asset_registry_js_1.listAssetMeta)();
     const byCategory = {};
     for (const a of assets)
-        byCategory[a.category] = (byCategory[a.category] ?? 0) + 1;
+        (0, _utils_js_1.setSafeRecordValue)(byCategory, a.category, (byCategory[a.category] ?? 0) + 1);
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({
         total: assets.length,

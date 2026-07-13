@@ -1,13 +1,17 @@
 /*
- * Pure village-state helpers — daily agenda generation, Kage challenge window
- * + normalization, treasury defaults/cleaning, and ANBU appointee
- * normalization. Extracted verbatim from App.tsx. The cache-coupled
- * load/save/normalizeVillageState stay in App.tsx (they read/reassign
- * sharedVillageStateCache).
+ * Pure village-state helpers — daily agenda generation, treasury defaults/
+ * cleaning, and ANBU appointee normalization. Extracted verbatim from App.tsx.
+ * The cache-coupled load/save/normalizeVillageState stay in App.tsx (they
+ * read/reassign sharedVillageStateCache).
+ *
+ * The old Kage-challenge vote/window helpers (support/opposition, the
+ * 23:00-03:00 window, ready-window, normalizeKageChallenges) were removed — the
+ * live succession flow is server-authoritative (/api/village/kage-challenge);
+ * see api/village/_kage-challenge.ts.
  */
 import { currentDateKey } from "./utils";
 import { cleanTreasuryItems } from "./items";
-import { type KageChallenge, type VillageAgendaTask, type VillageDailyAgenda, type VillageTreasury } from "./world-state";
+import { type VillageAgendaTask, type VillageDailyAgenda, type VillageTreasury } from "./world-state";
 
 export function normalizeAnbuAppointees(appointees?: string[]) {
     const seen = new Set<string>();
@@ -42,29 +46,6 @@ export function normalizeVillageDailyAgenda(village: string, agenda?: VillageDai
     const validTasks = !!agenda?.tasks?.length
         && agenda.tasks.every((task) => allowedKinds.has(task.kind));
     return agenda?.date === currentDateKey() && validTasks ? agenda : makeVillageDailyAgenda(village);
-}
-export const KAGE_CHALLENGE_SUPPORT_REQUIRED = 1;
-export const KAGE_CHALLENGE_CONTRIBUTION_REQUIRED = 10;
-export const KAGE_READY_WINDOW_MS = 60 * 60 * 1000;
-export function isKageChallengeWindow(now = new Date()) {
-    const hour = now.getUTCHours();
-    return hour >= 23 || hour < 3;
-}
-export function kageWindowLabel() {
-    return "23:00-03:00 server time";
-}
-export function normalizeKageChallenges(village: string, challenges?: KageChallenge[]) {
-    return (challenges ?? [])
-        .filter(challenge => challenge && challenge.id && challenge.challenger && challenge.seatedKage)
-        .map(challenge => ({
-            ...challenge,
-            village: challenge.village || village,
-            status: challenge.status ?? "open",
-            support: Array.from(new Set((challenge.support ?? []).filter(Boolean))),
-            opposition: Array.from(new Set((challenge.opposition ?? []).filter(Boolean))),
-            contributionRequired: Math.max(1, Math.floor(Number(challenge.contributionRequired ?? KAGE_CHALLENGE_CONTRIBUTION_REQUIRED))),
-        }))
-        .slice(0, 12);
 }
 export function defaultVillageTreasury(): VillageTreasury { return { ryo: 0, honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, items: [] }; }
 export function cleanVillageTreasury(t?: Partial<VillageTreasury>): VillageTreasury { return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? 0))), honorSeals: Math.max(0, Math.floor(Number(t?.honorSeals ?? 0))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? 0))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? 0))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? 0))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? 0))), items: cleanTreasuryItems(t?.items) }; }

@@ -112,8 +112,8 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
                             width: 58, height: 34, borderRadius: 8, cursor: "pointer",
                             background: b.background || "transparent",
                             backgroundSize: "cover", backgroundPosition: "center",
-                            border: bg === b.id ? "2px solid #facc15" : "1px solid rgba(255,255,255,.25)",
-                            color: "#cbd5e1", fontSize: "0.68rem", lineHeight: 1,
+                            border: bg === b.id ? "2px solid var(--gold)" : "1px solid rgba(255,255,255,.25)",
+                            color: "var(--slate-300)", fontSize: "0.68rem", lineHeight: 1,
                             display: "flex", alignItems: "center", justifyContent: "center",
                         }}
                     >

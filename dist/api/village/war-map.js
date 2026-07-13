@@ -50,7 +50,7 @@ async function handler(req, res) {
         for (const t of territories) {
             const owner = String(t.ownerVillage ?? '').trim();
             if (owner)
-                heldCount[owner] = (heldCount[owner] ?? 0) + 1;
+                (0, _utils_js_1.setSafeRecordValue)(heldCount, owner, (heldCount[owner] ?? 0) + 1);
         }
         const villages = _war_map_sectors_js_1.WAR_VILLAGES.map((v, i) => {
             const record = (0, _war_state_js_1.normalizeVillageWarRecord)(v, warRaws[i] ?? undefined);

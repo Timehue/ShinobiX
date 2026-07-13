@@ -14,18 +14,23 @@
 import { hollowGateReachableSet, bspSplit, bspRoomInNode, bspRoomCenter, bspCarveCorridor, type BSPRect } from "./hollow-gate-bsp";
 import { generateHollowGateMazeRun } from "./hollow-gate-maze";
 import { generateHollowGateFloor } from "./hollow-gate-generate";
+import { hollowGateRunMaxFloor, hollowGateVariantDims } from "./hollow-gate-variant";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H, HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { petTreatItems, petRarityOrder } from "../data/pet-config";
 import { starterItems } from "../data/starter-items";
 import { cloneEncounterPet } from "./pet-balance";
-import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain } from "../types/character";
+import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain, HollowGateVariant } from "../types/character";
 import type { Pet, PetRarity } from "../types/pet";
 
 // ── Hand-designed ASCII layouts ─────────────────────────────────────────
 //
-// Each entry is a multi-line string parsed by `parseHollowGateLayout`.
-// Symbols (case-sensitive):
+// `parseHollowGateLayout` + `buildRunFromParsedLayout` below turn a
+// multi-line ASCII string into a playable floor. The three original 15×11
+// set-pieces were retired when the shrine grid grew to 25×17 (they were
+// authored for the old single-screen board — see git history to resurrect
+// them as drafting stock). The parser stays for future authored set-pieces
+// at the new scale. Symbols (case-sensitive):
 //   #   wall (impassable)
 //   .   room floor — lights up the whole connected room when entered
 //   ,   corridor floor — single-tile visibility
@@ -33,64 +38,13 @@ import type { Pet, PetRarity } from "../types/pet";
 //   P   spawn (room_floor underneath)            — exactly one per layout
 //   X   exit / leave tile (room_floor underneath) — exactly one per layout
 //   T   target — boss on F5, descend stairs F1-4  — exactly one per layout
-//   t   torch decoration   (room_floor underneath)
-//   b   barrel decoration  (room_floor underneath)
-//   p   plant decoration   (room_floor underneath)
-//   s   skull decoration   (room_floor underneath)
+//   t/b/p/s  torch / barrel / plant / skull decoration (room_floor underneath)
 //
 // Rules:
 // - Width auto-derived from the longest row; shorter rows are right-padded
 //   with '#'. So every row doesn't need to be the same length.
 // - Reachability (spawn→exit AND spawn→target) is validated; layouts that
-//   fail validation are silently skipped and the next one is tried. If none
-//   parse, the BSP generator runs as a fallback.
-// - To add a layout, just append another string to this array — no other
-//   code change required.
-const HOLLOW_GATE_LAYOUTS: string[] = [
-    // ── 1. Hollow Threshold ────────────────────────────────────────────
-    // Three rooms: spawn top-left, target top-right, exit bottom.
-    // Two doors funnel into the main east-west corridor.
-`###############
-#.t...#......t#
-#.....+.......#
-#..P..#...T...#
-#....s#......b#
-###+#######+###
-#,,,,,,,,,,,,,#
-#####+##+######
-#...........t.#
-#.X..p........#
-###############`,
-
-    // ── 2. Crossroads ──────────────────────────────────────────────────
-    // Six small rooms in a 3×2 grid around a central east-west corridor.
-`###############
-#.....#...#...#
-#..P..+.t.+.T.#
-#.....#...#...#
-######+...+####
-#,,,,,,,,,,,,,#
-######+...+####
-#.....#...#...#
-#.X.s.+.b.+.p.#
-#.....#...#...#
-###############`,
-
-    // ── 3. The Loop ────────────────────────────────────────────────────
-    // Outer corridor frames a central chamber holding the target.
-    // Bottom row has three small rooms (spawn / mid / exit).
-`###############
-#,,,,,,,,,,,,,#
-#,#####+#####,#
-#,#.........#,#
-#,+....T....+,#
-#,#.........#,#
-#,#####+#####,#
-#,,,,,,,,,,,,,#
-###+###,###+###
-#.P.#...#...X.#
-###############`,
-];
+//   fail validation return null from the parser.
 
 type ParsedHollowGateLayout = {
     width: number;
@@ -310,7 +264,7 @@ export function buildRunFromParsedLayout(
         }
     }
 
-    const battleCount = 4 + Math.min(3, floor);
+    const battleCount = 4 + Math.min(5, floor);   // grows to floor 5, plateaus at 9 (deep-floor density)
     const trapCount = 3 + Math.floor(floor / 2);
 
     function walkableNeighbors(idx: number): number {
@@ -447,35 +401,36 @@ export function buildRunFromParsedLayout(
     };
 }
 
-export function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
-    const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
+export function generateHollowGateShrineRun(floor = 1, variant?: HollowGateVariant): HollowGateShrineRun {
+    // The run's own shape wins: an event variant can shorten the gate (its
+    // final floor holds the boss) and shrink the board. No variant = the
+    // standard shrine, byte-identical to before variants existed.
+    const isFinalFloor = floor >= hollowGateRunMaxFloor({ variant });
+    const dims = hollowGateVariantDims(variant);
+    const stamp = (run: HollowGateShrineRun): HollowGateShrineRun => (variant ? { ...run, variant } : run);
 
-    // Primary: ONE coherent generator (lib/hollow-gate-generate) — rooms + MST
-    // corridors + guaranteed connectivity + distance-map content. This replaced the
-    // old three-styles-at-random roll, which is what made floors feel inconsistent
-    // and "not make sense" (research: docs/hollow-gate-loop.md §dungeon-gen). The two
-    // raw procedural styles (recursive-maze, x-sorted BSP) are retired from the roll
-    // and kept only as defensive fallbacks. ~15% of floors still use a hand-authored
-    // ASCII set-piece for variety (authored skeleton + procedural flesh).
-    if (Math.random() < 0.15) {
-        const shuffled = [...HOLLOW_GATE_LAYOUTS].sort(() => Math.random() - 0.5);
-        for (const layoutSrc of shuffled) {
-            const parsed = parseHollowGateLayout(layoutSrc);
-            if (parsed) return buildRunFromParsedLayout(parsed, floor, isFinalFloor);
-        }
-    }
+    // ONE coherent generator (lib/hollow-gate-generate) — rooms + MST corridors +
+    // guaranteed connectivity + room-ROLE content (guarded stairs, locked treasury,
+    // sanctum, keeper alcove). This replaced the old three-styles-at-random roll,
+    // which is what made floors feel inconsistent and "not make sense" (research:
+    // docs/hollow-gate-loop.md §dungeon-gen). The hand-authored 15×11 ASCII
+    // set-pieces are retired from the roll too — they were authored for the old
+    // single-screen grid and their content was uniform scatter; the parser +
+    // builder below stay for future authored set-pieces at the new scale. The two
+    // raw procedural styles (recursive-maze, x-sorted BSP) remain defensive
+    // fallbacks only.
     try {
-        return generateHollowGateFloor(floor, isFinalFloor);
+        return stamp(generateHollowGateFloor(floor, isFinalFloor, dims));
     } catch {
-        try { return generateHollowGateMazeRun(floor, isFinalFloor); } catch { return generateHollowGateShrineRunBSP(floor); }
+        try { return stamp(generateHollowGateMazeRun(floor, isFinalFloor, dims)); } catch { return stamp(generateHollowGateShrineRunBSP(floor, isFinalFloor, dims)); }
     }
 }
 
-function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
-    const w = HOLLOW_GATE_SHRINE_W;
-    const h = HOLLOW_GATE_SHRINE_H;
+function generateHollowGateShrineRunBSP(floor = 1, isFinal?: boolean, dims?: { width: number; height: number }): HollowGateShrineRun {
+    const w = dims?.width ?? HOLLOW_GATE_SHRINE_W;
+    const h = dims?.height ?? HOLLOW_GATE_SHRINE_H;
     const total = w * h;
-    const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
+    const isFinalFloor = isFinal ?? (floor >= HOLLOW_GATE_MAX_FLOOR);
 
     // ── 1. BSP partition the grid into 5-7 rooms ──────────────────────────
     const rootNode: BSPRect = { x: 0, y: 0, w, h };
@@ -655,7 +610,7 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
         }
     }
 
-    const battleCount = 4 + Math.min(3, floor);
+    const battleCount = 4 + Math.min(5, floor);   // grows to floor 5, plateaus at 9 (deep-floor density)
     const trapCount = 3 + Math.floor(floor / 2);
 
     // Dead-end trap bias: corridors with only 1 walkable neighbor are natural
@@ -863,6 +818,21 @@ export function computeHollowGateVisible(run: HollowGateShrineRun): Set<number> 
                 if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
                 const nIdx = ny * w + nx;
                 if (run.tiles[nIdx]?.terrain === "door") visible.add(nIdx);
+            }
+        }
+        // Doorway peek: standing IN a doorway shows one tile of whatever lies
+        // beyond it (no flood — a sliver of corridor). Without this, vision
+        // from a door is room-only and the corridor past it stays unknowable
+        // until a blind step — which walled off click-to-move exploration.
+        if (playerTile.terrain === "door") {
+            const px = playerIdx % w;
+            const py = Math.floor(playerIdx / w);
+            for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                const nx = px + dx;
+                const ny = py + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                const nIdx = ny * w + nx;
+                if (run.tiles[nIdx] && run.tiles[nIdx].terrain !== "wall") visible.add(nIdx);
             }
         }
         addWallsAroundLitTiles();

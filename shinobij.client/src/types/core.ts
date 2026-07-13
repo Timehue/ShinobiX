@@ -22,7 +22,6 @@ export type Screen =
     | "professionPicker"
     | "professions"
     | "village"
-    | "villageLore"
     | "profile"
     | "inventory"
     | "logbook"

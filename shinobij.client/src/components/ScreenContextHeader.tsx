@@ -1,25 +1,26 @@
-import type { IconType } from "react-icons";
-import {
-  GiAnvil,
-  GiBattleGear,
-  GiBookCover,
-  GiCastle,
-  GiFireSpellCast,
-  GiKnapsack,
-  GiNinjaHeroicStance,
-  GiPawPrint,
-  GiScrollUnfurled,
-  GiShop,
-  GiTempleGate,
-  GiTreasureMap,
-} from "react-icons/gi";
 import type { Screen } from "../types/core";
+
+// Text glyphs keep this shell in the initial bundle without pulling the large
+// game-icons module into every route. They inherit the same framed treatment as
+// the previous SVGs and remain decorative to assistive technology.
+const GiAnvil = "⚒";
+const GiBattleGear = "⚔";
+const GiBookCover = "▤";
+const GiCastle = "♜";
+const GiFireSpellCast = "✦";
+const GiKnapsack = "▣";
+const GiNinjaHeroicStance = "人";
+const GiPawPrint = "◆";
+const GiScrollUnfurled = "≡";
+const GiShop = "◇";
+const GiTempleGate = "門";
+const GiTreasureMap = "⌖";
 
 type ContextDefinition = {
   eyebrow: string;
   title: string;
   description: string;
-  icon: IconType;
+  icon: string;
 };
 
 const fallback: ContextDefinition = {
@@ -35,7 +36,6 @@ const screenContext: Partial<Record<Screen, ContextDefinition>> = {
   professionPicker: { eyebrow: "Career path", title: "Choose a Profession", description: "Select the discipline that shapes your trade skills.", icon: GiAnvil },
   professions: { eyebrow: "Career mastery", title: "Professions", description: "Develop trade skills, recipes, and mastery rewards.", icon: GiAnvil },
   village: { eyebrow: "Home territory", title: "Village", description: "Village services, training, and local paths.", icon: GiTempleGate },
-  villageLore: { eyebrow: "Village archive", title: "Village Lore", description: "History, leaders, and the identity of your home.", icon: GiBookCover },
   centralHub: { eyebrow: "Hidden district", title: "Central Hub", description: "Bloodlines, legacies, and advanced systems.", icon: GiCastle },
   worldMap: { eyebrow: "World operation", title: "World Map", description: "Travel sectors, territory, and active encounters.", icon: GiTreasureMap },
   profile: { eyebrow: "Shinobi dossier", title: "Character", description: "Identity, progression, combat record, and legacy.", icon: GiNinjaHeroicStance },
@@ -89,11 +89,10 @@ const screenContext: Partial<Record<Screen, ContextDefinition>> = {
 
 export function ScreenContextHeader({ screen, village }: { screen: Screen; village: string }) {
   const context = screenContext[screen] ?? fallback;
-  const Icon = context.icon;
   const villageLabel = village.replace(/\s+Village$/i, "");
   return (
     <div className="journey-context" aria-label={`${context.title} screen`}>
-      <span className="journey-context-icon" aria-hidden="true"><Icon /></span>
+      <span className="journey-context-icon" aria-hidden="true">{context.icon}</span>
       <span className="journey-context-copy">
         <span className="journey-context-eyebrow">{context.eyebrow}</span>
         <strong>{context.title}</strong>

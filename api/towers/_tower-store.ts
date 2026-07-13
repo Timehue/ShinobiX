@@ -21,7 +21,7 @@
  */
 import { kv as realKv } from '../_storage.js';
 import { withKvLock as realWithKvLock } from '../_lock.js';
-import { mergePreservingImages } from '../_utils.js';
+import { mergePreservingImages, setSafeRecordValue } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { gainXp, type XpCharacter } from '../_xp-engine.js';
 import { deductUsedItems } from '../pvp/claim-rewards.js';
@@ -186,7 +186,7 @@ function usedItemsForMember(session: TowerSession, slug: string): Record<string,
         if (a.side !== 'squad' || a.ownerSlug !== slug || !a.itemsUsed) continue;
         for (const [id, rawN] of Object.entries(a.itemsUsed)) {
             const n = Math.max(0, Math.floor(Number(rawN) || 0));
-            if (id && n > 0) used[id] = (used[id] ?? 0) + n;
+            if (id && n > 0) setSafeRecordValue(used, id, (used[id] ?? 0) + n);
         }
     }
     return used;

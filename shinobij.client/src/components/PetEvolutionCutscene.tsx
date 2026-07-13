@@ -231,15 +231,15 @@ const CUTSCENE_CSS = `
     animation: pet-evo-name-pulse 900ms ease-in-out infinite;
 }
 @keyframes pet-evo-name-pulse { 0%, 100% { opacity: 0.78; } 50% { opacity: 1; } }
-.pet-evo-name-new { font-size: clamp(24px, 6vw, 44px); color: #facc15; display: flex; flex-direction: column; gap: 4px; }
+.pet-evo-name-new { font-size: clamp(24px, 6vw, 44px); color: var(--gold); display: flex; flex-direction: column; gap: 4px; }
 .pet-evo-name-new.slam { animation: pet-evo-slam 420ms cubic-bezier(.2,1.4,.4,1) both; }
 @keyframes pet-evo-slam { from { transform: scale(2.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .pet-evo-evolved-tag { font-size: 0.5em; letter-spacing: 0.3em; color: #a78bfa; }
-.pet-evo-rarity { font-size: 0.45em; text-transform: uppercase; color: #fde68a; opacity: 0.85; letter-spacing: 0.2em; }
+.pet-evo-rarity { font-size: 0.45em; text-transform: uppercase; color: var(--gold-300); opacity: 0.85; letter-spacing: 0.2em; }
 
 .pet-evo-skip {
     position: absolute; top: 16px; right: 16px; z-index: 2;
-    background: rgba(255,255,255,0.12); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.12); color: var(--slate-200); border: 1px solid rgba(255,255,255,0.2);
     border-radius: 8px; padding: 6px 12px; font-size: 0.85rem; cursor: pointer;
 }
 .pet-evo-continue {

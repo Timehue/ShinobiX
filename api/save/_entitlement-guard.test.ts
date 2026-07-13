@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
+    capStringArrayItemGain,
     isHighRiskTileCardId,
     isServerOwnedItemId,
     preserveEntitledStacks,
@@ -37,6 +38,19 @@ describe('_entitlement-guard', () => {
                 isServerOwnedItemId,
             ),
             ['shinobi-vest', 'weekly-boss-core'],
+        );
+    });
+
+    it('allows one locally settled dungeon relic per save but clamps bulk minting', () => {
+        assert.equal(isServerOwnedItemId('dungeon-legendary-relic'), false);
+        assert.deepEqual(
+            capStringArrayItemGain(
+                ['sword', 'dungeon-legendary-relic', 'dungeon-legendary-relic', 'dungeon-legendary-relic'],
+                ['dungeon-legendary-relic'],
+                'dungeon-legendary-relic',
+                1,
+            ),
+            ['sword', 'dungeon-legendary-relic', 'dungeon-legendary-relic'],
         );
     });
 
