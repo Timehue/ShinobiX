@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { captureBracketedStores, digestOverlay, digestRows, readOverlayDirectory, representativeRecords, sameConnection, validatePayload, writeOverlayDirectory } from './kv-backup.mjs';
+import { captureBracketedStores, digestOverlay, digestRows, readOverlayDirectory, representativeRecords, sameConnection, validatePayload, validatedProxyBase, writeOverlayDirectory } from './kv-backup.mjs';
 
 const baseRows = [
     { key: 'pvp:battle-1', value: { winner: 'alice' }, expires_at: null, updated_at: '2026-07-12T00:00:02.000Z' },
@@ -87,5 +87,13 @@ describe('hybrid KV backup evidence helpers', () => {
             ),
             /changed throughout/i,
         );
+    });
+
+    it('maps only the reviewed production proxy destinations to literal URLs', () => {
+        assert.equal(validatedProxyBase('https://theravensark.com/api/kv'), 'https://theravensark.com/api/kv');
+        assert.equal(validatedProxyBase('https://www.theravensark.com/api/kv/'), 'https://www.theravensark.com/api/kv');
+        for (const value of ['http://theravensark.com/api/kv', 'https://evil.example/api/kv', 'https://theravensark.com/api/kv?next=evil', 'https://theravensark.com:444/api/kv']) {
+            assert.throws(() => validatedProxyBase(value), /approved|must not/i);
+        }
     });
 });

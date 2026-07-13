@@ -10,7 +10,10 @@ const zip = promisify(gzip);
 const unzip = promisify(gunzip);
 const { Client } = pg;
 const OVERLAY_PATTERNS = ['save:*', 'shared:images*', 'shared:imgfields*'];
-const APPROVED_SOURCE_PROXY_HOSTS = new Set(['theravensark.com', 'www.theravensark.com']);
+const APPROVED_SOURCE_PROXY_BASES = new Map([
+    ['theravensark.com', 'https://theravensark.com/api/kv'],
+    ['www.theravensark.com', 'https://www.theravensark.com/api/kv'],
+]);
 
 function stableDigest(items, projector) {
     const hash = createHash('sha256');
@@ -129,18 +132,18 @@ export function sameConnection(sourceUrl, targetUrl) {
     return source.protocol === target.protocol && source.host === target.host && source.port === target.port && source.database === target.database;
 }
 
-function validatedProxyBase(raw) {
+export function validatedProxyBase(raw) {
     if (!raw) throw new Error('KV_PROXY_URL is required for a complete backup.');
     const parsed = new URL(raw);
     const host = parsed.hostname.toLowerCase();
     const path = parsed.pathname.replace(/\/+$/, '');
-    if (parsed.protocol !== 'https:' || !APPROVED_SOURCE_PROXY_HOSTS.has(host) || path !== '/api/kv') {
+    if (parsed.protocol !== 'https:' || !APPROVED_SOURCE_PROXY_BASES.has(host) || path !== '/api/kv') {
         throw new Error('KV_PROXY_URL must be the approved HTTPS production /api/kv endpoint.');
     }
     if (parsed.port || parsed.username || parsed.password || parsed.search || parsed.hash) {
         throw new Error('KV_PROXY_URL must not contain credentials, a port, query, or fragment.');
     }
-    return `https://${host}/api/kv`;
+    return APPROVED_SOURCE_PROXY_BASES.get(host);
 }
 
 async function proxyCall(base, token, op, body) {
