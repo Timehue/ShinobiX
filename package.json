@@ -20,6 +20,7 @@
         "test:release-assets": "node scripts/check-release-assets.mjs",
         "sizecheck": "node scripts/check-build-size.mjs",
         "release:health": "node scripts/release-health-check.mjs",
+        "check:rollback-readiness": "node scripts/rollback-readiness.mjs",
         "test:backup": "node --test scripts/kv-backup.test.mjs",
         "test:unrestricted-load": "node --test scripts/unrestricted-presence-load.test.mjs scripts/unrestricted-concurrency-load.test.mjs",
         "drill:concurrency": "node scripts/unrestricted-concurrency-load.mjs",
