@@ -12,7 +12,7 @@
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { applyJutsu } from './move.js';
+import { applyJutsu, characterOwnsElement } from './move.js';
 import type { PvpFighter } from './session.js';
 
 function fighter(name: string, hp = 1000): PvpFighter {
@@ -70,5 +70,41 @@ describe('PvP weapon damage', () => {
         assert.ok(st, "the weapon's Increase Generals tag should apply a status to the wielder");
         assert.equal(st?.rounds, 2, 'buff lasts 2 rounds');
         assert.ok(r.opponent.hp < 1000, 'the weapon still deals its damage');
+    });
+});
+
+describe('weapon → bloodline multiplier gate (suppressBloodline)', () => {
+    // A wielder whose bloodline multiplies damage ×1.5 and who has awakened Fire.
+    function blFighter(): PvpFighter {
+        const f = fighter('BL');
+        f.character = { name: 'BL', stats: {}, jutsuMastery: [], bloodlineMult: 1.5, elements: ['Fire'] };
+        return f;
+    }
+
+    it('a weapon swing WITHOUT suppressBloodline rides the bloodline mult; WITH it does not', () => {
+        const oppBoost = fighter('D1');
+        const oppGated = fighter('D2');
+        const boosted = applyJutsu(blFighter(), oppBoost, asJutsu({ id: 'weapon', name: 'Blade', isUtility: false, ap: 40, effectPower: 30 }), 1, 'central', 1);
+        const gated = applyJutsu(blFighter(), oppGated, asJutsu({ id: 'weapon', name: 'Blade', isUtility: false, ap: 40, effectPower: 30, suppressBloodline: true }), 1, 'central', 1);
+        assert.ok(boosted.opponent.hp < 1000, 'the bloodline-boosted weapon deals damage');
+        assert.ok(gated.opponent.hp < 1000, 'the gated weapon still deals its (unboosted) damage');
+        assert.ok(gated.opponent.hp > boosted.opponent.hp, `suppressBloodline must strip the bloodline mult (boosted hp=${boosted.opponent.hp}, gated hp=${gated.opponent.hp})`);
+    });
+});
+
+describe('characterOwnsElement (weapon element ownership)', () => {
+    it('matches an awakened element case-insensitively, from elements[] or element', () => {
+        assert.equal(characterOwnsElement({ elements: ['Fire', 'Water'] }, 'fire'), true);
+        assert.equal(characterOwnsElement({ element: 'Lightning' }, 'Lightning'), true);
+        assert.equal(characterOwnsElement({ elements: ['Wind'] }, 'Earth'), false);
+    });
+    it('an empty / missing / "None" weapon element never qualifies (no-element weapon → no boost)', () => {
+        assert.equal(characterOwnsElement({ elements: ['Fire'] }, ''), false);
+        assert.equal(characterOwnsElement({ elements: ['Fire'] }, undefined), false);
+        assert.equal(characterOwnsElement({ elements: ['Fire'] }, 'None'), false);
+    });
+    it('a character with no elements owns nothing', () => {
+        assert.equal(characterOwnsElement({}, 'Fire'), false);
+        assert.equal(characterOwnsElement(null, 'Fire'), false);
     });
 });

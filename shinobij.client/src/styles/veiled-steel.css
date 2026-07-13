@@ -302,6 +302,13 @@ html body.ui-scroll-locked {
   transform: rotate(45deg);
 }
 
+.journey-context-icon {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .journey-context-icon svg {
   width: 22px;
   height: 22px;

@@ -94,8 +94,7 @@ async function handler(req, res) {
                     dailyDonationDate: today,
                 },
             };
-            (0, _save_version_js_1.bumpSaveVersion)(updatedRecord);
-            await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updatedRecord, record));
+            await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updatedRecord), record));
             // Credit the shared clan pool under the pool's OWN lock. The outer
             // lock above is the DONOR's `save:<name>` lock, which does NOT
             // serialize two different donors — without this, two concurrent

@@ -68,8 +68,7 @@ async function handler(req, res) {
                     professionChosenAt: Date.now(),
                 },
             };
-            (0, _save_version_js_1.bumpSaveVersion)(updated);
-            await _storage_js_1.kv.set(key, (0, _utils_js_1.mergePreservingImages)(updated, existing));
+            await _storage_js_1.kv.set(key, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updated), existing));
             return { status: 200, body: { ok: true, profession } };
         });
         return res.status(outcome.status).json(outcome.body);

@@ -35,6 +35,12 @@ export function defaultClanWarHistory(_name: string): ClanWarRecord[] { return [
 export function enhanceClanData(data: ClanData & Partial<EnhancedClanData>): EnhancedClanData { return { ...data, doctrine: normalizeDoctrine(data.doctrine), recruitment: typeof data.recruitment === "string" ? data.recruitment.slice(0, 300) : "", level: clampNumber(Math.floor(Number(data.level ?? 1)), 1, 100), xp: Math.max(0, Math.floor(Number(data.xp ?? 0))), treasury: cleanClanTreasury(data.treasury), upgrades: cleanClanUpgrades(data.upgrades), warHistory: data.warHistory?.length ? data.warHistory : defaultClanWarHistory(data.name), activeWar: data.activeWar, roleOverrides: data.roleOverrides ?? {}, joinRequests: (data.joinRequests ?? []).filter((request) => request?.name), notices: normalizeNoticePosts(data.notices) }; }
 export function clanXpNeeded(level: number) { return Math.floor(500 + level * 275 + Math.pow(level, 1.22) * 45); }
 export function addClanXp(data: EnhancedClanData, amount: number): EnhancedClanData { let next = { ...data, xp: data.xp + Math.max(0, Math.floor(amount)) }; while (next.level < 100 && next.xp >= clanXpNeeded(next.level)) next = { ...next, xp: next.xp - clanXpNeeded(next.level), level: next.level + 1 }; return next; }
+// Member-count scaling for clan-XP GAINS — mirrors clanXpMemberScale in
+// api/clan/_mission-catalog.ts (server source of truth). 10–15 members = 1.0×
+// (capped there); small clans dampened so a 1–5 member clan can't rush hall
+// tiers. KEEP IN SYNC with the server. Used by the ClanHall donation path.
+export function clanXpMemberScale(memberCount: number): number { const n = Math.max(0, Math.floor(Number(memberCount) || 0)); if (n <= 2) return 0.2; if (n <= 5) return 0.4; if (n <= 9) return 0.7; return 1; }
+export function scaledClanXp(amount: number, memberCount: number): number { return Math.max(0, Math.floor((Number(amount) || 0) * clanXpMemberScale(memberCount))); }
 export function clanMemberBoostPercent(memberCount: number) { return clanBoostTiers.find(tier => memberCount >= tier.min && memberCount <= tier.max)?.percent ?? 0; }
 // Percent-point effect of a clan building at its current level, from the
 // clan-upgrades table. Flat-HP / recon buildings (War Room, Scout Network)

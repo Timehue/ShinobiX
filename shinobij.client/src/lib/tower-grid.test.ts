@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     towerXy, towerPosFromXY, towerHexDistance, towerNeighbors, towerTilesInRange,
-    towerHexPixel, towerLayerSize, HEX_W, HEX_H,
+    towerHexPixel, towerLayerSize, towerClosingRingTiles, HEX_W, HEX_H,
 } from './tower-grid.js';
 
 describe('Battle Towers client grid geometry', () => {
@@ -37,6 +37,24 @@ describe('Battle Towers client grid geometry', () => {
         for (const n of towerNeighbors(pos, w, h)) assert.ok(r1.has(n), `neighbor ${n} in range 1`);
         // a range-2 set is strictly larger than range-1
         assert.ok(towerTilesInRange(pos, 2, w, h).size > r1.size);
+    });
+
+    it('closing ring mirrors the server: empty pre-close, contracts monotonically, spares the core', () => {
+        const w = 24, h = 16;
+        const ring = { pct: 5, fromRound: 8, minRadius: 3 };
+        const center = Math.floor(h / 2) * w + Math.floor(w / 2);
+        assert.deepEqual(towerClosingRingTiles(w, h, [], ring, 1), [], 'nothing lethal before it closes');
+        assert.deepEqual(towerClosingRingTiles(w, h, [], ring, 8), [], 'still fully open at fromRound');
+        const r12 = towerClosingRingTiles(w, h, [], ring, 12);
+        const r18 = towerClosingRingTiles(w, h, [], ring, 18);
+        assert.ok(r12.length > 0 && r18.length > r12.length, 'lethal area grows as the ring contracts');
+        for (const t of r18) assert.ok(towerHexDistance(t, center, w) > 3, 'the minRadius core is never lethal');
+        assert.ok(!r18.includes(center), 'centre always safe');
+        // blocked tiles are excluded (they cannot hold a unit)
+        const blockedProbe = r18[0]!;
+        assert.ok(!towerClosingRingTiles(w, h, [blockedProbe], ring, 18).includes(blockedProbe));
+        // no config → no ring
+        assert.deepEqual(towerClosingRingTiles(w, h, [], undefined, 30), []);
     });
 
     it('pixel layout: odd columns are offset down half a hex; layer grows with the grid', () => {

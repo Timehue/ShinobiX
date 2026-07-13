@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { cors } from '../_utils.js';
+import { cors, setSafeRecordValue } from '../_utils.js';
 import { isAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { listAssetMeta, findDuplicates } from '../_asset-registry.js';
@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const assets = await listAssetMeta();
     const byCategory: Record<string, number> = {};
-    for (const a of assets) byCategory[a.category] = (byCategory[a.category] ?? 0) + 1;
+    for (const a of assets) setSafeRecordValue(byCategory, a.category, (byCategory[a.category] ?? 0) + 1);
 
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({

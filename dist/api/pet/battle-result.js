@@ -358,8 +358,7 @@ async function handler(req, res) {
                 dailyPetWins: dailyPetWins + 1,
                 lastDailyReset: today,
             };
-            const updated = { ...record, character: updatedChar };
-            (0, _save_version_js_1.bumpSaveVersion)(updated);
+            const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: updatedChar });
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
             if (casualBattleTokenKey)
                 await _storage_js_1.kv.del(casualBattleTokenKey).catch(() => undefined);

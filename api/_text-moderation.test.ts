@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { sanitizeUserText, isCleanText, TEXT_LIMITS } from './_text-moderation.js';
+import { sanitizeUserText, isCleanPlayerName, isCleanText, TEXT_LIMITS } from './_text-moderation.js';
 
 describe('sanitizeUserText', () => {
     it('returns empty string for non-strings', () => {
@@ -55,6 +55,7 @@ describe('sanitizeUserText', () => {
 
     it('catches whitespace-separation bypass', () => {
         assert.equal(isCleanText('n i g g e r'), false);
+        assert.equal(isCleanText('n-i-g-g-e-r'), false);
     });
 
     it('catches repeat-char bypass', () => {
@@ -66,6 +67,12 @@ describe('sanitizeUserText', () => {
         assert.equal(isCleanText('Hidden Leaf Village'), true);
         assert.equal(isCleanText('Crimson Dragons'), true);
         assert.equal(isCleanText('Title with numbers 123'), true);
+    });
+
+    it('rejects blocked terms embedded in normalized player names without blocking normal fantasy names', () => {
+        assert.equal(isCleanPlayerName('n1gger-ninja'), false);
+        assert.equal(isCleanPlayerName('Hidden Leaf'), true);
+        assert.equal(isCleanPlayerName('SkyStorm'), true);
     });
 });
 

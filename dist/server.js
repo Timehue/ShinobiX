@@ -20,12 +20,13 @@ require("./api/_force-ipv4.js");
 const game_loop_js_1 = require("./api/_realtime/game-loop.js");
 const socket_js_1 = require("./api/_realtime/socket.js");
 const _scheduler_js_1 = require("./api/cron/_scheduler.js");
-const _storage_js_1 = require("./api/_storage.js");
 const compression_1 = __importDefault(require("compression"));
 const express_1 = __importDefault(require("express"));
 const node_http_1 = require("node:http");
 const node_crypto_1 = require("node:crypto");
 const node_path_1 = require("node:path");
+const _ratelimit_js_1 = require("./api/_ratelimit.js");
+const _request_metrics_js_1 = require("./api/_request-metrics.js");
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
 // only — those types are erased at compile time, so there is zero runtime
@@ -43,8 +44,6 @@ const roster_js_1 = __importDefault(require("./api/player/roster.js"));
 const leaderboards_js_1 = __importDefault(require("./api/player/leaderboards.js"));
 const trade_js_1 = __importDefault(require("./api/player/trade.js"));
 const daily_login_js_1 = __importDefault(require("./api/player/daily-login.js"));
-const profile_title_js_1 = __importDefault(require("./api/player/profile-title.js"));
-const stat_respec_js_1 = __importDefault(require("./api/player/stat-respec.js"));
 const black_market_js_1 = __importDefault(require("./api/festival/black-market.js"));
 const sunscar_js_1 = __importDefault(require("./api/festival/sunscar.js"));
 const session_js_1 = __importDefault(require("./api/pvp/session.js"));
@@ -88,34 +87,6 @@ const spire_leaderboard_js_1 = __importDefault(require("./api/towers/spire-leade
 const expedition_start_js_1 = __importDefault(require("./api/missions/expedition-start.js"));
 const start_js_2 = __importDefault(require("./api/training/start.js"));
 const complete_js_1 = __importDefault(require("./api/training/complete.js"));
-const forge_js_1 = __importDefault(require("./api/bloodlines/forge.js"));
-const open_pack_js_1 = __importDefault(require("./api/card-clash/open-pack.js"));
-const settle_js_2 = __importDefault(require("./api/story/settle.js"));
-const explore_js_1 = __importDefault(require("./api/world/explore.js"));
-const open_chest_js_1 = __importDefault(require("./api/world/open-chest.js"));
-const forge_key_js_1 = __importDefault(require("./api/hollow-gate/forge-key.js"));
-const locked_door_js_1 = __importDefault(require("./api/hollow-gate/locked-door.js"));
-const choose_starter_js_1 = __importDefault(require("./api/pet/choose-starter.js"));
-const encounter_start_js_1 = __importDefault(require("./api/pet/encounter-start.js"));
-const befriend_js_1 = __importDefault(require("./api/pet/befriend.js"));
-const progress_js_1 = __importDefault(require("./api/pet/progress.js"));
-const purchase_js_1 = __importDefault(require("./api/shop/purchase.js"));
-const sell_js_1 = __importDefault(require("./api/shop/sell.js"));
-const forge_js_2 = __importDefault(require("./api/craft/forge.js"));
-const named_js_1 = __importDefault(require("./api/craft/named.js"));
-const sync_js_1 = __importDefault(require("./api/achievements/sync.js"));
-const run_js_1 = __importDefault(require("./api/endless/run.js"));
-const claim_js_1 = __importDefault(require("./api/events/claim.js"));
-const jutsu_ryo_js_1 = __importDefault(require("./api/training/jutsu-ryo.js"));
-const feed_js_1 = __importDefault(require("./api/aura/feed.js"));
-const rank_up_js_1 = __importDefault(require("./api/hunter/rank-up.js"));
-const roll_js_1 = __importDefault(require("./api/awakening/roll.js"));
-const pass_js_1 = __importDefault(require("./api/exams/pass.js"));
-const mastery_js_1 = __importDefault(require("./api/profession/mastery.js"));
-const elder_focus_js_1 = __importDefault(require("./api/village/elder-focus.js"));
-const run_js_2 = __importDefault(require("./api/dungeon/run.js"));
-const upgrade_js_1 = __importDefault(require("./api/village/upgrade.js"));
-const hollow_gate_unlock_js_1 = __importDefault(require("./api/village/hollow-gate-unlock.js"));
 const lock_js_1 = __importDefault(require("./api/battle/lock.js"));
 const transfer_js_1 = __importDefault(require("./api/village/treasury/transfer.js"));
 const donate_js_1 = __importDefault(require("./api/village/treasury/donate.js"));
@@ -129,11 +100,46 @@ const sector_war_js_1 = __importDefault(require("./api/village/sector-war.js"));
 const war_merc_js_1 = __importDefault(require("./api/village/war-merc.js"));
 const sector_card_js_1 = __importDefault(require("./api/village/sector-card.js"));
 const sector_pet_js_1 = __importDefault(require("./api/village/sector-pet.js"));
+const anbu_infiltration_js_1 = __importDefault(require("./api/village/anbu-infiltration.js"));
 const war_map_js_1 = __importDefault(require("./api/village/war-map.js"));
 const claim_war_crate_js_1 = __importDefault(require("./api/village/claim-war-crate.js"));
-const open_war_crate_js_1 = __importDefault(require("./api/village/open-war-crate.js"));
 const claim_interest_js_1 = __importDefault(require("./api/bank/claim-interest.js"));
 const transfer_js_2 = __importDefault(require("./api/bank/transfer.js"));
+const open_war_crate_js_1 = __importDefault(require("./api/inventory/open-war-crate.js"));
+const settle_js_2 = __importDefault(require("./api/profile/settle.js"));
+const settle_js_3 = __importDefault(require("./api/shop/settle.js"));
+const sell_js_1 = __importDefault(require("./api/inventory/sell.js"));
+const sync_js_1 = __importDefault(require("./api/achievements/sync.js"));
+const feed_js_1 = __importDefault(require("./api/aura/feed.js"));
+const roll_js_1 = __importDefault(require("./api/awakening/roll.js"));
+const forge_js_1 = __importDefault(require("./api/bloodlines/forge.js"));
+const open_pack_js_1 = __importDefault(require("./api/card-clash/open-pack.js"));
+const forge_js_2 = __importDefault(require("./api/craft/forge.js"));
+const named_js_1 = __importDefault(require("./api/craft/named.js"));
+const run_js_1 = __importDefault(require("./api/dungeon/run.js"));
+const run_js_2 = __importDefault(require("./api/endless/run.js"));
+const claim_js_1 = __importDefault(require("./api/events/claim.js"));
+const pass_js_1 = __importDefault(require("./api/exams/pass.js"));
+const forge_key_js_1 = __importDefault(require("./api/hollow-gate/forge-key.js"));
+const locked_door_js_1 = __importDefault(require("./api/hollow-gate/locked-door.js"));
+const rank_up_js_1 = __importDefault(require("./api/hunter/rank-up.js"));
+const befriend_js_1 = __importDefault(require("./api/pet/befriend.js"));
+const choose_starter_js_1 = __importDefault(require("./api/pet/choose-starter.js"));
+const encounter_start_js_1 = __importDefault(require("./api/pet/encounter-start.js"));
+const progress_js_1 = __importDefault(require("./api/pet/progress.js"));
+const profile_title_js_1 = __importDefault(require("./api/player/profile-title.js"));
+const stat_respec_js_1 = __importDefault(require("./api/player/stat-respec.js"));
+const mastery_js_1 = __importDefault(require("./api/profession/mastery.js"));
+const purchase_js_1 = __importDefault(require("./api/shop/purchase.js"));
+const sell_js_2 = __importDefault(require("./api/shop/sell.js"));
+const settle_js_4 = __importDefault(require("./api/story/settle.js"));
+const jutsu_ryo_js_1 = __importDefault(require("./api/training/jutsu-ryo.js"));
+const elder_focus_js_1 = __importDefault(require("./api/village/elder-focus.js"));
+const hollow_gate_unlock_js_1 = __importDefault(require("./api/village/hollow-gate-unlock.js"));
+const open_war_crate_js_2 = __importDefault(require("./api/village/open-war-crate.js"));
+const upgrade_js_1 = __importDefault(require("./api/village/upgrade.js"));
+const explore_js_1 = __importDefault(require("./api/world/explore.js"));
+const open_chest_js_1 = __importDefault(require("./api/world/open-chest.js"));
 const save_snapshot_js_1 = __importDefault(require("./api/admin/save-snapshot.js"));
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
 // startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
@@ -175,7 +181,7 @@ const assault_settle_js_1 = __importDefault(require("./api/clan-boss/assault-set
 // Hollow Gate — server-authoritative run token + augments (sealed-bounds payout)
 const start_js_3 = __importDefault(require("./api/hollow-gate/start.js"));
 const choose_augment_js_1 = __importDefault(require("./api/hollow-gate/choose-augment.js"));
-const settle_js_3 = __importDefault(require("./api/hollow-gate/settle.js"));
+const settle_js_5 = __importDefault(require("./api/hollow-gate/settle.js"));
 // Clan — membership: kick (server-authoritative cross-save removal)
 const kick_js_1 = __importDefault(require("./api/clan/kick.js"));
 const mentor_js_1 = __importDefault(require("./api/clan/mentor.js"));
@@ -196,10 +202,14 @@ const queue_combat_claim_js_1 = __importDefault(require("./api/missions/queue-co
 const record_progress_js_1 = __importDefault(require("./api/missions/record-progress.js"));
 const wanderer_gift_js_1 = __importDefault(require("./api/sector/wanderer-gift.js"));
 const wanderer_quest_js_1 = __importDefault(require("./api/sector/wanderer-quest.js"));
+const rift_quest_js_1 = __importDefault(require("./api/sector/rift-quest.js"));
 const wanderer_ambush_js_1 = __importDefault(require("./api/sector/wanderer-ambush.js"));
 const wanderer_service_js_1 = __importDefault(require("./api/sector/wanderer-service.js"));
 const questbook_js_1 = __importDefault(require("./api/sector/questbook.js"));
 const merc_roam_js_1 = __importDefault(require("./api/sector/merc-roam.js"));
+// Story — server-authoritative interlude + road-event record (rebuild foundation)
+const interlude_js_1 = __importDefault(require("./api/story/interlude.js"));
+const road_event_js_1 = __importDefault(require("./api/story/road-event.js"));
 // Legacy system (ENABLE_LEGACY) — earned identity paths + Wandering Sage
 const definitions_js_1 = __importDefault(require("./api/legacy/definitions.js"));
 const stats_js_1 = __importDefault(require("./api/legacy/stats.js"));
@@ -224,6 +234,7 @@ const battle_start_js_1 = __importDefault(require("./api/pet/battle-start.js"));
 const battle_result_js_1 = __importDefault(require("./api/pet/battle-result.js"));
 const ranked_start_js_1 = __importDefault(require("./api/pet/ranked-start.js"));
 const evolve_js_1 = __importDefault(require("./api/pet/evolve.js"));
+const apply_elemental_core_js_1 = __importDefault(require("./api/weapon/apply-elemental-core.js"));
 const gauntlet_js_1 = __importDefault(require("./api/pet/gauntlet.js"));
 const lobby_js_1 = __importDefault(require("./api/arena/lobby.js"));
 const ladder_js_1 = __importDefault(require("./api/pet-ladder/ladder.js"));
@@ -255,6 +266,7 @@ const _auth_js_1 = require("./api/_auth.js");
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
 const _utils_js_1 = require("./api/_utils.js");
 const _http_security_js_1 = require("./api/_http-security.js");
+const _launch_controls_js_1 = require("./api/_launch-controls.js");
 const _canonical_domain_js_1 = require("./api/_canonical-domain.js");
 // ─── Sentry (optional, env-gated server error reporting) ───────────────────────
 // Activates ONLY when SENTRY_DSN is set. The require is guarded so a cPanel box
@@ -272,6 +284,12 @@ if (process.env.SENTRY_DSN) {
         Sentry.init({
             dsn: process.env.SENTRY_DSN,
             environment: process.env.NODE_ENV || 'production',
+            release: [
+                process.env.RAILWAY_GIT_COMMIT_SHA,
+                process.env.BUILD_COMMIT,
+                process.env.GIT_COMMIT_SHA,
+                process.env.SOURCE_VERSION,
+            ].map((value) => String(value ?? '').trim()).find((value) => /^[0-9a-f]{7,64}$/i.test(value)),
             tracesSampleRate: 0,
             sendDefaultPii: false,
         });
@@ -282,6 +300,72 @@ if (process.env.SENTRY_DSN) {
         Sentry = null;
     }
 }
+// ─── Process-level resilience ──────────────────────────────────────────────────
+// The HTTP server handle, assigned once it's created below. Referenced by
+// gracefulShutdown so a restart or an uncaught crash can drain in-flight
+// requests before exiting, instead of severing them mid-response.
+let _httpServer;
+let _shutdownStarted = false;
+// Drain in-flight requests, then exit so the supervisor respawns a fresh worker
+// (Passenger on cPanel, the platform on Railway). A bare process.exit() cuts
+// whatever request is in flight — on cPanel that reaches the caller as a
+// Passenger 502 "Incomplete response received from application" (exactly the
+// GET /api/save/* error this guards against). server.close() stops accepting new
+// connections and fires its callback once active requests finish;
+// closeIdleConnections() drops parked keep-alive sockets so the callback isn't
+// held open by an idle client. A bounded backstop force-exits if draining stalls
+// (a slow/streaming response), so a restart can never hang forever.
+function gracefulShutdown(code, reason) {
+    if (_shutdownStarted)
+        return;
+    _shutdownStarted = true;
+    console.log(`[shutdown] draining in-flight requests (${reason})`);
+    (0, game_loop_js_1.stopGameLoop)();
+    (0, _scheduler_js_1.stopSnapshotCron)();
+    let exited = false;
+    const exit = (how) => {
+        if (exited)
+            return;
+        exited = true;
+        console.log(`[shutdown] exiting worker (${reason}: ${how})`);
+        process.exit(code);
+    };
+    const backstop = setTimeout(() => exit('drain-timeout'), 4_000);
+    backstop.unref?.();
+    if (_httpServer) {
+        _httpServer.close(() => exit('drained'));
+        _httpServer.closeIdleConnections();
+    }
+    else {
+        exit('no-server'); // crashed during startup — nothing to drain
+    }
+}
+// Last-resort crash guards — but ONLY when Sentry is not active. Sentry's Node
+// SDK registers its own uncaughtException/unhandledRejection integrations
+// (capture + flush + exit); registering ours alongside would fight it. So on
+// Railway (Sentry on) Sentry owns this path; on cPanel (Sentry usually absent —
+// it needs a manual "Run NPM Install") these are the only net. Without them a
+// single stray async throw kills the worker mid-response as a 502 AND leaves no
+// app-level stack trace (the blind spot this investigation hit). An
+// unhandledRejection is logged and SURVIVED — Node 22 would otherwise crash the
+// worker, and a rejection is rarely process-corrupting. An uncaughtException is
+// logged with its stack, then drained-and-exited: the process state is undefined
+// after one, so we don't resume — but we exit cleanly instead of hard-crashing.
+if (!Sentry) {
+    process.on('unhandledRejection', (reason) => {
+        console.error('[fatal-guard] unhandledRejection (surviving):', reason instanceof Error ? (reason.stack ?? reason.message) : reason);
+    });
+    process.on('uncaughtException', (err) => {
+        console.error('[fatal-guard] uncaughtException:', err?.stack ?? err);
+        gracefulShutdown(1, 'uncaughtException');
+    });
+}
+// Railway and other container supervisors use SIGTERM for deploy replacement.
+// Drain exactly the same way as an operator restart or fatal exception so an
+// in-flight save/reward write is not cut in half. Railway should allow at least
+// 10 seconds of deployment draining; our own bounded backstop exits after 4s.
+process.once('SIGTERM', () => gracefulShutdown(0, 'SIGTERM'));
+process.once('SIGINT', () => gracefulShutdown(0, 'SIGINT'));
 // ─── App setup ───────────────────────────────────────────────────────────────
 // Village War Map is now ALWAYS ON (Combat/Card/Pet sector wars, mercenaries, the
 // merc cron). Every handler + cron gates on ENABLE_VILLAGE_WAR==='1', so default it
@@ -330,6 +414,42 @@ app.use((req, res, next) => {
         : (0, node_crypto_1.randomUUID)().slice(0, 8);
     req.id = id;
     res.setHeader('x-request-id', id);
+    next();
+});
+// Short rolling request telemetry for release health. It is intentionally
+// in-process, bounded, and path-grouped: no player names are retained and a
+// request flood cannot grow memory without limit. A protected deep-health call
+// exposes p50/p95/p99 and 5xx rates; sustained SLO breaches also emit a
+// throttled warning to logs and Sentry.
+app.use((req, res, next) => {
+    const started = process.hrtime.bigint();
+    res.once('finish', () => {
+        const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000;
+        (0, _request_metrics_js_1.recordRequestMetric)({
+            method: req.method,
+            path: req.path,
+            statusCode: res.statusCode,
+            durationMs,
+        });
+        const alert = (0, _request_metrics_js_1.requestSloAlert)();
+        if (alert) {
+            console.warn(alert);
+            try {
+                // The SLO snapshot is global. This callback still runs inside
+                // the request that triggered evaluation, so explicitly replace
+                // that request's transaction label before reporting to Sentry.
+                // Otherwise a global p95 breach can look like it belongs to an
+                // innocent route such as /api/player/roster.
+                Sentry?.withScope((scope) => {
+                    scope.setTransactionName('request-slo/global');
+                    scope.setTag('request_slo_scope', 'global');
+                    scope.setContext('request_slo', (0, _request_metrics_js_1.readRequestMetrics)());
+                    Sentry?.captureMessage(alert, 'warning');
+                });
+            }
+            catch { /* reporting must never affect a response */ }
+        }
+    });
     next();
 });
 // Global CORS — restrict to known origins so a malicious site can't initiate
@@ -393,6 +513,21 @@ function route(path, handler) {
     const paths = [path, `/api${path}`];
     app.all(paths, async (req, res, next) => {
         try {
+            const control = (0, _launch_controls_js_1.evaluateLaunchControl)({
+                path,
+                method: req.method,
+                body: req.body,
+            });
+            if (!control.allowed) {
+                res.setHeader('Cache-Control', 'no-store');
+                res.setHeader('Retry-After', String(control.retryAfterSeconds));
+                res.status(control.status).json({
+                    ok: false,
+                    error: control.error,
+                    code: control.code,
+                });
+                return;
+            }
             // Merge route params into query so Vercel-style handlers work.
             const augmented = {
                 ...req,
@@ -412,6 +547,17 @@ function route(path, handler) {
 // (auto-deploy smoke test)
 // Cached at module-load time so each request is a free read.
 const _BUILD_INFO = (() => {
+    const startedAt = new Date().toISOString();
+    const configured = [
+        process.env.RAILWAY_GIT_COMMIT_SHA,
+        process.env.BUILD_COMMIT,
+        process.env.GIT_COMMIT_SHA,
+        process.env.SOURCE_VERSION,
+    ].map((value) => String(value ?? '').trim()).find((value) => /^[0-9a-f]{7,64}$/i.test(value));
+    if (configured) {
+        const commit = configured.toLowerCase();
+        return { commit, commitShort: commit.slice(0, 8), commitSource: 'environment', startedAt };
+    }
     try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const fs = require('node:fs');
@@ -423,20 +569,72 @@ const _BUILD_INFO = (() => {
         const sha = ref
             ? fs.readFileSync(path.join(__dirname, '..', '.git', ref), 'utf8').trim()
             : head;
-        return { commit: sha.slice(0, 8), startedAt: new Date().toISOString() };
+        if (!/^[0-9a-f]{7,64}$/i.test(sha))
+            throw new Error('invalid git commit');
+        const commit = sha.toLowerCase();
+        return { commit, commitShort: commit.slice(0, 8), commitSource: 'git', startedAt };
     }
     catch {
-        return { commit: 'unknown', startedAt: new Date().toISOString() };
+        return { commit: 'unknown', commitShort: 'unknown', commitSource: 'unknown', startedAt };
     }
 })();
+const _DEEP_HEALTH_CACHE_MS = Math.min(60_000, Math.max(1_000, Number(process.env.DEEP_HEALTH_CACHE_MS) || 15_000));
+let _deepHealthCache = null;
+let _deepHealthInFlight = null;
+function deepHealthAuthorized(req) {
+    const expected = String(process.env.HEALTH_DEEP_TOKEN ?? '').trim();
+    // Local development can run the probe without secret plumbing. Production
+    // fails closed: the deep route mutates storage and exposes topology/metrics.
+    if (!expected)
+        return process.env.NODE_ENV !== 'production';
+    const authorization = headerValue(req.headers.authorization);
+    const bearer = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+    const explicit = headerValue(req.headers['x-health-token']);
+    const provided = explicit || bearer;
+    return !!provided && (0, _auth_js_1.safeEqual)(provided, expected);
+}
+async function getDbHealthProbe() {
+    const now = Date.now();
+    if (_deepHealthCache && _deepHealthCache.expiresAt > now) {
+        return { result: _deepHealthCache.result, source: 'hit' };
+    }
+    if (_deepHealthInFlight) {
+        return { result: await _deepHealthInFlight, source: 'shared' };
+    }
+    const pending = runDbHealthProbe();
+    _deepHealthInFlight = pending;
+    try {
+        const result = await pending;
+        _deepHealthCache = { result, expiresAt: Date.now() + _DEEP_HEALTH_CACHE_MS };
+        return { result, source: 'miss' };
+    }
+    finally {
+        if (_deepHealthInFlight === pending)
+            _deepHealthInFlight = null;
+    }
+}
+async function sendDeepHealth(req, res) {
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (!deepHealthAuthorized(req)) {
+        res.status(401).json({ ok: false, error: 'Deep health token required.', ..._BUILD_INFO });
+        return;
+    }
+    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'deep-health', 30, 60_000))
+        return;
+    const { result, source } = await getDbHealthProbe();
+    res.setHeader('X-Health-Probe', source);
+    res.status(result.ok ? 200 : 503).json({
+        ...result,
+        requestMetrics: (0, _request_metrics_js_1.readRequestMetrics)(),
+        ..._BUILD_INFO,
+    });
+}
 app.get(['/health', '/api/health'], async (req, res) => {
     // Default: cheap process-liveness (what Railway's configured health check
     // hits — must stay fast so a slow DB can't flap the deploy). ?deep=1 runs
     // the full DB/KV readiness probe (same as /health/db).
     if (req.query.deep === '1') {
-        res.setHeader('Cache-Control', 'no-store');
-        const result = await runDbHealthProbe();
-        res.status(result.ok ? 200 : 503).json({ ...result, ..._BUILD_INFO });
+        await sendDeepHealth(req, res);
         return;
     }
     res.json({ ok: true, ..._BUILD_INFO });
@@ -448,7 +646,9 @@ app.get(['/health', '/api/health'], async (req, res) => {
 // those endpoints depend on against throwaway probe keys (base store: get/set/
 // set-nx/hset/hdel/del, plus the disk-routed `save:` overlay), so an operator
 // can tell a DB outage apart from a code bug. Reachable at /health/db or
-// /health?deep=1. Never cached. Returns 503 (not 200) when any check fails.
+// /health?deep=1. The expensive probe is single-flight and briefly cached so a
+// public request burst cannot amplify into repeated KV/overlay writes. Returns
+// 503 (not 200) when any check fails.
 async function runDbHealthProbe() {
     const checks = {};
     const t0 = Date.now();
@@ -487,17 +687,25 @@ async function runDbHealthProbe() {
         const disk = await kv.get(diskKey);
         checks.diskRead = !!disk && disk.probe === token;
         await kv.del(diskKey).catch(() => undefined);
+        const { isSnapshotMarkerFresh, readSnapshotSuccessMarker } = await import('./api/cron/snapshot-saves.js');
+        const marker = await readSnapshotSuccessMarker();
+        const fresh = isSnapshotMarkerFresh(marker);
+        const backup = {
+            completedAt: marker?.completedAt,
+            ageMs: marker?.completedAt ? Math.max(0, Date.now() - marker.completedAt) : undefined,
+            fresh,
+        };
+        if (process.env.REQUIRE_FRESH_BACKUP === '1')
+            checks.backupFresh = fresh;
         const ok = Object.values(checks).every(Boolean);
-        return { ok, checks, latencyMs: Date.now() - t0, saveStore };
+        return { ok, checks, latencyMs: Date.now() - t0, saveStore, backup };
     }
     catch (err) {
         return { ok: false, checks, latencyMs: Date.now() - t0, saveStore, error: err.message };
     }
 }
-app.get(['/health/db', '/api/health/db'], async (_req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
-    const result = await runDbHealthProbe();
-    res.status(result.ok ? 200 : 503).json({ ...result, ..._BUILD_INFO });
+app.get(['/health/db', '/api/health/db'], async (req, res) => {
+    await sendDeepHealth(req, res);
 });
 // Normalize a possibly-array header to a single string (Express can hand
 // back string[] for repeated headers).
@@ -553,11 +761,10 @@ app.post(['/restart', '/api/restart'], (req, res) => {
     }
     console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`);
     res.json({ ok: true, restarting: true, prevCommit: _BUILD_INFO.commit });
-    // Give the response a chance to flush before exiting.
-    setTimeout(() => {
-        console.log('[restart] exiting worker on operator request');
-        process.exit(0);
-    }, 250);
+    // Let THIS response flush, then drain any OTHER in-flight requests before
+    // exiting. The old hard process.exit(0) severed concurrent requests — on
+    // cPanel a save-read proxied here mid-restart came back as a Passenger 502.
+    setTimeout(() => gracefulShutdown(0, 'operator restart'), 250);
 });
 // ─── API routes ───────────────────────────────────────────────────────────────
 // Save — dynamic :name param merged into req.query.name for the handler.
@@ -657,34 +864,6 @@ route('/missions/expedition-start', expedition_start_js_1.default);
 // stat's gain; complete time-gates + consumes it and returns the sealed amount.
 route('/training/start', start_js_2.default);
 route('/training/complete', complete_js_1.default);
-// Custom bloodline purchase — atomically debits the rank material and issues a
-// one-use entitlement consumed by the ordinary save sanitizer.
-route('/bloodlines/forge', forge_js_1.default);
-route('/card-clash/open-pack', open_pack_js_1.default);
-route('/story/settle', settle_js_2.default);
-route('/world/explore', explore_js_1.default);
-route('/world/open-chest', open_chest_js_1.default);
-route('/hollow-gate/forge-key', forge_key_js_1.default);
-route('/hollow-gate/locked-door', locked_door_js_1.default);
-route('/pet/choose-starter', choose_starter_js_1.default);
-route('/pet/encounter-start', encounter_start_js_1.default);
-route('/pet/befriend', befriend_js_1.default);
-route('/shop/purchase', purchase_js_1.default);
-route('/shop/sell', sell_js_1.default);
-route('/craft/forge', forge_js_2.default);
-route('/craft/named', named_js_1.default);
-route('/achievements/sync', sync_js_1.default);
-route('/endless/run', run_js_1.default);
-route('/events/claim', claim_js_1.default);
-route('/training/jutsu-ryo', jutsu_ryo_js_1.default);
-route('/aura/feed', feed_js_1.default);
-route('/hunter/rank-up', rank_up_js_1.default);
-route('/awakening/roll', roll_js_1.default);
-route('/exams/pass', pass_js_1.default);
-route('/village/elder-focus', elder_focus_js_1.default);
-route('/dungeon/run', run_js_2.default);
-route('/village/upgrade', upgrade_js_1.default);
-route('/village/hollow-gate-unlock', hollow_gate_unlock_js_1.default);
 // Village treasury — atomic Kage-gift endpoint that replaces the broken
 // 2-write client flow (deduct treasury + patch recipient).
 route('/village/treasury/transfer', transfer_js_1.default);
@@ -721,6 +900,11 @@ route('/village/sector-card', sector_card_js_1.default);
 // pet duel resolved server-side by the generated pet engine (api/pet-sim), settling
 // the same contest Control HP. The client replays the same (pets, seed). Gated.
 route('/village/sector-pet', sector_pet_js_1.default);
+// Anbu Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
+// turn-in action switch): fight a daily-sealed Anbu snapshot (Battle Towers
+// engine) to skim 1% of the enemy war economy into turn-in caches. NEVER flips
+// sector ownership. Gated (404 unless ENABLE_VILLAGE_WAR=1 + ENABLE_ANBU_INFILTRATION=1).
+route('/village/anbu-infiltration', anbu_infiltration_js_1.default);
 // Village War Map — read-only aggregator for the client War-Map panel (Phase 6):
 // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
 // GET only, gated (404 unless ENABLE_VILLAGE_WAR=1).
@@ -729,9 +913,6 @@ route('/village/war-map', war_map_js_1.default);
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.
 route('/village/claim-war-crate', claim_war_crate_js_1.default);
-// Opening consumes one stored server-issued crate and commits all protected
-// item/currency rewards in the same locked player-save mutation.
-route('/village/open-war-crate', open_war_crate_js_1.default);
 // Village War Map — mercenaries (Phase 5): the Kage spends village WR to field a
 // 2-day AI merc squad (comeback + Barracks discounted) that fights in Combat
 // sector wars. POST hire/list/attack, gated (404 unless ENABLE_VILLAGE_WAR=1).
@@ -739,7 +920,15 @@ route('/village/war-merc', war_merc_js_1.default);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', claim_interest_js_1.default);
+// Wallet <-> bank moves are authenticated save-lock transactions. Raw
+// autosaves cannot reproduce either side of the transfer.
 route('/bank/transfer', transfer_js_2.default);
+// Paid profile changes and war-crate loot settle from the locked stored save;
+// clients only adopt the exact authoritative character returned by these APIs.
+route('/profile/settle', settle_js_2.default);
+route('/inventory/open-war-crate', open_war_crate_js_1.default);
+route('/shop/settle', settle_js_3.default);
+route('/inventory/sell', sell_js_1.default);
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
 // reset's `save:*` glob.
@@ -797,7 +986,7 @@ route('/clan-boss/assault-settle', assault_settle_js_1.default);
 // min(claimed, sealed ceiling) anchored to the entry snapshot, single-use.
 route('/hollow-gate/start', start_js_3.default);
 route('/hollow-gate/choose-augment', choose_augment_js_1.default);
-route('/hollow-gate/settle', settle_js_3.default);
+route('/hollow-gate/settle', settle_js_5.default);
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
 // Leadership-only. Removes the member from the clan row AND clears their
 // character.clan on their own save (the cross-save write a client can't do).
@@ -822,10 +1011,14 @@ route('/missions/record-progress', record_progress_js_1.default);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift', wanderer_gift_js_1.default);
 route('/sector/wanderer-quest', wanderer_quest_js_1.default);
+route('/sector/rift-quest', rift_quest_js_1.default);
 route('/sector/wanderer-ambush', wanderer_ambush_js_1.default);
 route('/sector/wanderer-service', wanderer_service_js_1.default);
 route('/sector/questbook', questbook_js_1.default);
 route('/sector/merc-roam', merc_roam_js_1.default);
+// ─── Story (server-authoritative interlude + road-event record) ────────────────
+route('/story/interlude', interlude_js_1.default);
+route('/story/road-event', road_event_js_1.default);
 // ─── Legacy system (ENABLE_LEGACY) ─────────────────────────────────────────────
 // Earned identity paths: definitions codex, per-player stats/eligibility, the
 // Wandering Sage offer flow (permanent one-legacy-forever choice), trials,
@@ -855,7 +1048,7 @@ route('/pet/battle-start', battle_start_js_1.default);
 route('/pet/battle-result', battle_result_js_1.default);
 route('/pet/ranked-start', ranked_start_js_1.default);
 route('/pet/evolve', evolve_js_1.default);
-route('/pet/progress', progress_js_1.default);
+route('/weapon/apply-elemental-core', apply_elemental_core_js_1.default);
 route('/pet/gauntlet', gauntlet_js_1.default);
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
 route('/arena/lobby', lobby_js_1.default);
@@ -866,9 +1059,6 @@ route('/jutsu/speedup', speedup_js_1.default);
 route('/jutsu/train-with-seals', train_with_seals_js_1.default);
 // ─── Profession ────────────────────────────────────────────────────────────────
 route('/profession/choose', choose_js_1.default);
-route('/profession/mastery', mastery_js_1.default);
-route('/player/profile-title', profile_title_js_1.default);
-route('/player/stat-respec', stat_respec_js_1.default);
 // ─── Player: injured villagers (Hospital screen) ───────────────────────────────
 route('/player/injured-villagers', injured_villagers_js_1.default);
 // ─── Weekly boss (Hall of Legends) ─────────────────────────────────────────────
@@ -884,6 +1074,39 @@ route('/admin/audit-log', audit_log_js_1.default);
 route('/admin/economy', economy_js_1.default);
 route('/admin/economy-reconcile', economy_reconcile_js_1.default);
 route('/admin/beta-metrics', beta_metrics_js_1.default);
+// Release-handoff endpoints. Express has no folder-convention routing, so every
+// handler added during the feature and settlement work must be mounted here.
+route('/achievements/sync', sync_js_1.default);
+route('/aura/feed', feed_js_1.default);
+route('/awakening/roll', roll_js_1.default);
+route('/bloodlines/forge', forge_js_1.default);
+route('/card-clash/open-pack', open_pack_js_1.default);
+route('/craft/forge', forge_js_2.default);
+route('/craft/named', named_js_1.default);
+route('/dungeon/run', run_js_1.default);
+route('/endless/run', run_js_2.default);
+route('/events/claim', claim_js_1.default);
+route('/exams/pass', pass_js_1.default);
+route('/hollow-gate/forge-key', forge_key_js_1.default);
+route('/hollow-gate/locked-door', locked_door_js_1.default);
+route('/hunter/rank-up', rank_up_js_1.default);
+route('/pet/befriend', befriend_js_1.default);
+route('/pet/choose-starter', choose_starter_js_1.default);
+route('/pet/encounter-start', encounter_start_js_1.default);
+route('/pet/progress', progress_js_1.default);
+route('/player/profile-title', profile_title_js_1.default);
+route('/player/stat-respec', stat_respec_js_1.default);
+route('/profession/mastery', mastery_js_1.default);
+route('/shop/purchase', purchase_js_1.default);
+route('/shop/sell', sell_js_2.default);
+route('/story/settle', settle_js_4.default);
+route('/training/jutsu-ryo', jutsu_ryo_js_1.default);
+route('/village/elder-focus', elder_focus_js_1.default);
+route('/village/hollow-gate-unlock', hollow_gate_unlock_js_1.default);
+route('/village/open-war-crate', open_war_crate_js_2.default);
+route('/village/upgrade', upgrade_js_1.default);
+route('/world/explore', explore_js_1.default);
+route('/world/open-chest', open_chest_js_1.default);
 // NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
 // `npm test` if the client calls an /api path that isn't registered here, or if
 // an api/** handler file is never wired in. There is no folder-convention
@@ -995,7 +1218,9 @@ app.use((err, req, res, _next) => {
         }
         return;
     }
-    console.error(`[server error] [req ${reqId}] ${req.method} ${req.path} —`, err);
+    // Keep request-controlled values out of the format-string position. Some
+    // loggers interpret percent directives in their first argument.
+    console.error('[server error]', '[req]', reqId, req.method, req.path, err);
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting
     // failure mask the 500. No-op when Sentry is disabled (SENTRY_DSN unset).
@@ -1016,6 +1241,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 // Phusion Passenger sets the PORT env var automatically.
 // When running locally, defaults to 3000.
 const server = (0, node_http_1.createServer)(app);
+_httpServer = server; // expose to gracefulShutdown (drain-before-exit on restart/crash)
 // Phase 2/Step 3: attach the Socket.IO realtime layer to the SAME HTTP server
 // (registers the sweep→presence:gone listener). No-op when DISABLE_REALTIME=1;
 // the client then falls back to the HTTP heartbeat. Done before startGameLoop
@@ -1029,38 +1255,4 @@ server.listen(PORT, () => {
     // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
     (0, _scheduler_js_1.startSnapshotCron)();
 });
-let shuttingDown = false;
-const SHUTDOWN_GRACE_MS = 10_000;
-async function shutdown(signal) {
-    if (shuttingDown) {
-        console.error(`[shutdown] second ${signal}; forcing exit`);
-        process.exit(1);
-    }
-    shuttingDown = true;
-    console.log(`[shutdown] ${signal} received; draining`);
-    (0, _scheduler_js_1.stopSnapshotCron)();
-    (0, game_loop_js_1.stopGameLoop)();
-    const httpClosed = new Promise((resolve) => server.close(() => resolve()));
-    const timeout = setTimeout(() => {
-        console.error(`[shutdown] grace period exceeded (${SHUTDOWN_GRACE_MS}ms); closing remaining connections`);
-        server.closeAllConnections?.();
-    }, SHUTDOWN_GRACE_MS);
-    timeout.unref?.();
-    try {
-        await (0, socket_js_1.closeSocketServer)();
-        await httpClosed;
-        await (0, _storage_js_1.closeStoragePool)();
-        console.log('[shutdown] complete');
-        process.exitCode = 0;
-    }
-    catch (err) {
-        console.error('[shutdown] failed:', err);
-        process.exitCode = 1;
-    }
-    finally {
-        clearTimeout(timeout);
-    }
-}
-process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
-process.on('SIGINT', () => { void shutdown('SIGINT'); });
 exports.default = app;

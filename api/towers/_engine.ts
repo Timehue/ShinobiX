@@ -20,12 +20,13 @@
  * (these currently resolve as "all enemies dead"; the v1 catalog ships none of them).
  */
 import { hexDistance, filledDiskTiles } from '../pvp/_aoe.js';
-import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects } from '../pvp/move.js';
+import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu } from '../combat-adapters/clanBossAdapter.js';
 import { directDamageBaseFormula } from '../combat-core/formulas.js';
+import { deleteSafeRecordValue, setSafeRecordValue } from '../_utils.js';
 import { GROUND_EFFECT_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
-import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor } from './_floor-catalog.js';
+import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
 import {
     type TowerSession,
     type TowerActor,
@@ -78,6 +79,9 @@ type JutsuLike = {
     id?: string; name?: string; effectPower?: number; type?: string; ap?: number;
     range?: number; element?: string; chakraCost?: number; staminaCost?: number;
     cooldown?: number; isUtility?: boolean; method?: string; target?: string; tags?: unknown[];
+    // Weapon synth sets this when the wielder lacks the weapon's element → the swing
+    // gets no bloodline damage multiplier (parity with api/pvp/move.ts resolveBaseDamage).
+    suppressBloodline?: boolean;
 };
 // Equipped weapon / consumable shape (subset of PvP's PvpItem — the sealed loadout
 // carries these). `slot` drives weapon (hand/thrown) vs consumable (item/potion).
@@ -115,8 +119,8 @@ function spendItemCharge(actor: TowerActor, itemId: string): boolean {
     if (!itemId) return true;
     const have = actor.itemCharges?.[itemId] ?? 0;
     if (have <= 0) return false;
-    (actor.itemCharges ??= {})[itemId] = Math.max(0, have - 1);
-    (actor.itemsUsed ??= {})[itemId] = Math.max(0, Math.floor(Number(actor.itemsUsed?.[itemId] ?? 0))) + 1;
+    setSafeRecordValue((actor.itemCharges ??= {}), itemId, Math.max(0, have - 1));
+    setSafeRecordValue((actor.itemsUsed ??= {}), itemId, Math.max(0, Math.floor(Number(actor.itemsUsed?.[itemId] ?? 0))) + 1);
     return true;
 }
 
@@ -143,19 +147,61 @@ function isTileBlocked(session: TowerSession, tile: number, ignoreId?: string): 
     return !!occupantAt(session, tile, ignoreId);
 }
 
-// Greedy one-step move toward `to`, avoiding blocked/occupied tiles. Deterministic
-// (ties broken by lowest tile index). Returns `from` if no step improves distance.
+// One-step move toward `to`, avoiding blocked/occupied tiles. Deterministic (ties broken
+// by lowest tile index). Returns `from` if no step gets closer.
+// When the floor has NO static terrain (blockedTiles empty — every shipped story / spire /
+// clan floor), this is the ORIGINAL greedy step, byte-for-byte, so those runs recompute
+// identically. Only floors that scatter terrain fall through to the BFS path, which routes
+// AROUND walls/dead-ends the single-step greedy would stall on (a stall would time the floor
+// out and score it as a squad loss — an unfair, non-combat lockout).
 function nextStepToward(session: TowerSession, from: number, to: number, ignoreId?: string): number {
     const w = session.map.width;
-    const here = hexDistance(from, to, w);
-    let best = from;
-    let bestD = here;
-    for (const n of towerNeighbors(from, w, session.map.height).sort((a, b) => a - b)) {
-        if (isTileBlocked(session, n, ignoreId)) continue;
-        const d = hexDistance(n, to, w);
-        if (d < bestD) { bestD = d; best = n; }
+    if (session.map.blockedTiles.length === 0) {
+        const here = hexDistance(from, to, w);
+        let best = from;
+        let bestD = here;
+        for (const n of towerNeighbors(from, w, session.map.height).sort((a, b) => a - b)) {
+            if (isTileBlocked(session, n, ignoreId)) continue;
+            const d = hexDistance(n, to, w);
+            if (d < bestD) { bestD = d; best = n; }
+        }
+        return best;
     }
-    return best;
+    return bfsNextStepToward(session, from, to, ignoreId);
+}
+
+// Terrain-aware next step: a deterministic BFS over free tiles returning the FIRST hop of a
+// shortest path toward whichever reachable tile sits CLOSEST to `to` — so a unit walled off
+// from its target routes around the obstacle instead of stalling. Neighbours expand in
+// ascending tile-index order and the goal tile is chosen by (hexDistance-to-`to` asc,
+// tile-index asc), so the pick is a pure function of board state (no RNG / wall-clock) and the
+// settle recompute reproduces it byte-for-byte. Frontier is bounded by w*h (each tile visited
+// once). Returns `from` when nothing gets closer (pickAiAction then falls through to `wait`,
+// exactly as the greedy step did on a dead end).
+function bfsNextStepToward(session: TowerSession, from: number, to: number, ignoreId?: string): number {
+    const w = session.map.width, h = session.map.height;
+    const parent = new Int32Array(w * h).fill(-2); // -2 = unvisited, -1 = root (`from`)
+    parent[from] = -1;
+    const queue: number[] = [from];
+    let best = from;
+    let bestD = hexDistance(from, to, w);
+    for (let head = 0; head < queue.length; head++) {
+        const cur = queue[head]!;
+        const d = hexDistance(cur, to, w);
+        if (d < bestD || (d === bestD && cur < best)) { bestD = d; best = cur; }
+        for (const nb of towerNeighbors(cur, w, h).sort((a, b) => a - b)) {
+            if (parent[nb] !== -2 || isTileBlocked(session, nb, ignoreId)) continue;
+            parent[nb] = cur;
+            queue.push(nb);
+        }
+    }
+    if (best === from) return from;
+    let node = best; // walk parent pointers back to the first hop out of `from`
+    while (parent[node] !== from) {
+        if (parent[node]! < 0) return from; // safety (best is always in from's tree, so unreachable in practice)
+        node = parent[node]!;
+    }
+    return node;
 }
 
 // ─── Damage (faithful port of resolveBaseDamage core; deterministic) ─────────
@@ -210,6 +256,62 @@ function wardDefendMult(session: TowerSession, target: TowerActor): number {
         if (f.kind === 'ward' && f.tiles.includes(target.pos)) mult *= 1 - f.percent / 100;
     }
     return Math.max(0, mult);
+}
+// ─── Board objects (fonts / shrines) — pure occupancy each round ─────────────────
+// Hard ceiling on the combined shrine buff so multi-shrine stacking can never approach the
+// one-shot ceiling (the analog of SPIRE_ENRAGE_CAP / DEBUFF_TAKEN_CAP for held ground).
+export const SHRINE_TEAM_CAP = 1.12;
+/** Team damage bonus while the attacker's SIDE holds a shrine (a living squad/enemy unit
+ *  standing on its tile). Product over held shrines, hard-capped at SHRINE_TEAM_CAP, and
+ *  SKIPPED entirely for an enraged attacker — story enrage is uncapped, so the shrine term
+ *  must never compound it (the floor-10 guard; the validator also bans authoring that mix). */
+function shrineAttackMult(session: TowerSession, attacker: TowerActor): number {
+    const objects = session.map.boardObjects;
+    if (!objects || objects.length === 0) return 1;
+    if (attacker.side !== 'squad' && attacker.side !== 'enemy') return 1;
+    if (Number(attacker.character.enrage ?? 0) > 0) return 1;
+    let mult = 1;
+    for (const o of objects) {
+        if (o.kind !== 'shrine' || !o.tiles || o.tiles.length === 0) continue;
+        const held = session.actors.some(a => a.hp > 0 && a.side === attacker.side && o.tiles!.includes(a.pos));
+        if (held) mult *= 1 + Math.max(0, o.percent) / 100;
+    }
+    return Math.min(mult, SHRINE_TEAM_CAP);
+}
+/** Round-end font restore: the living unit standing on a font (any side) recovers
+ *  min(cap, percent% of its max) of the font's resource. The absolute `cap` is the
+ *  anti-stall guard (a high-max unit can't out-sustain incoming DPS camping a font);
+ *  squad HP restores honour the Endless Spire heal-cut like Basic Heal does. */
+function applyRoundFonts(session: TowerSession): void {
+    const objects = session.map.boardObjects;
+    if (!objects || objects.length === 0) return;
+    for (const o of objects) {
+        if (o.kind !== 'font' || !o.tiles || o.tiles.length === 0) continue;
+        for (const a of session.actors) {
+            if (a.hp <= 0 || !o.tiles.includes(a.pos)) continue;
+            const label = o.label ?? 'the font';
+            if (o.resource === 'hp') {
+                let amt = Math.min(Math.max(1, Math.floor(o.cap)), Math.max(1, Math.floor((a.maxHp * o.percent) / 100)));
+                if (a.side === 'squad') {
+                    const cut = healcutPct(session);
+                    if (cut > 0) amt = Math.max(0, Math.floor(amt * (1 - cut / 100)));
+                }
+                const before = a.hp;
+                a.hp = Math.min(a.maxHp, a.hp + amt);
+                if (a.hp > before) session.log.push(`${a.name} restores ${a.hp - before} HP at ${label}.`);
+            } else if (o.resource === 'chakra') {
+                const amt = Math.min(Math.max(1, Math.floor(o.cap)), Math.max(1, Math.floor((a.maxChakra * o.percent) / 100)));
+                const before = a.chakra;
+                a.chakra = Math.min(a.maxChakra, a.chakra + amt);
+                if (a.chakra > before) session.log.push(`${a.name} draws ${a.chakra - before} chakra from ${label}.`);
+            } else {
+                const amt = Math.min(Math.max(1, Math.floor(o.cap)), Math.max(1, Math.floor((a.maxStamina * o.percent) / 100)));
+                const before = a.stamina;
+                a.stamina = Math.min(a.maxStamina, a.stamina + amt);
+                if (a.stamina > before) session.log.push(`${a.name} recovers ${a.stamina - before} stamina at ${label}.`);
+            }
+        }
+    }
 }
 /** Endless Spire 'debuff' keystones raise INCOMING damage on a squad target. The summed
  *  vulnerability is HARD-CAPPED at DEBUFF_TAKEN_CAP — the direct analog of SPIRE_ENRAGE_CAP:
@@ -339,6 +441,11 @@ function computeHazardTelegraph(session: TowerSession): number[] {
         if (m.kind !== 'hazard' || m.variant === 'proximity') continue;
         for (const t of spireHazardTiles(session, m, session.round)) out.add(t);
     }
+    // Story "board attacks back": paint the closing ring + a primed boss strike + any geyser
+    // erupting this round so the squad gets this round to step off. Absent → adds nothing.
+    for (const t of closingRingTiles(session, session.round)) out.add(t);
+    for (const t of dynamicHazardTiles(session, session.round)) out.add(t);
+    if (session.bossStrike && session.bossStrike.round === session.round) for (const t of session.bossStrike.tiles) out.add(t);
     return [...out].sort((a, b) => a - b);
 }
 
@@ -388,6 +495,50 @@ function summonAdds(session: TowerSession): void {
     }
     if (added > 0) session.log.push(`${boss.name} summons ${added} reinforcement${added !== 1 ? 's' : ''}!`);
 }
+/** Phase-drop pillars: a boss with `phasePillars` SHATTERS the arena at each HP gate, erupting
+ *  up to N impassable stone pillars from the ground. The board reshapes as the fight escalates.
+ *  Safety is load-bearing and mirrors scatterTerrain's geometric argument:
+ *    • every new pillar is NON-ADJACENT to every existing blocked tile (and each other), so the
+ *      global "no two blocked cells touch" invariant holds → the free region can never be
+ *      bisected and the arena stays fully connected, with no flood-fill needed;
+ *    • never on a living unit, a feature flower, an objective/goal tile or its neighbours;
+ *    • never seals a living unit's LAST free neighbour (no soft-lock);
+ *    • total blocked capped at 10% of the board (same ceiling as scatterTerrain).
+ *  Deterministic: an LCG salted from (session.seed, gates fired so far) — no RNG/wall-clock —
+ *  so the settle recompute reproduces every eruption. Bosses without phasePillars never call this. */
+function dropPhasePillars(session: TowerSession, boss: TowerActor): void {
+    const want = Math.max(0, Math.min(3, Math.floor(Number(boss.character.phasePillars ?? 0))));
+    if (want <= 0) return;
+    const w = session.map.width, h = session.map.height;
+    const maxBlocked = Math.floor(w * h * 0.10);
+    const blocked = new Set(session.map.blockedTiles);
+    const reserved = new Set<number>();
+    for (const t of session.map.objectiveTiles) { reserved.add(t); for (const nb of towerNeighbors(t, w, h)) reserved.add(nb); }
+    for (const f of session.map.features ?? []) for (const t of f.tiles) reserved.add(t);
+    // never bury a board object (a shrine/font must stay reachable + visible)
+    for (const o of session.map.boardObjects ?? []) for (const t of o.tiles ?? []) reserved.add(t);
+    const living = session.actors.filter(a => a.hp > 0);
+    const occupied = new Set(living.map(a => a.pos));
+    const freeNeighbors = (pos: number, minus: number) =>
+        towerNeighbors(pos, w, h).filter(t => t !== minus && !blocked.has(t) && !occupied.has(t)).length;
+    let s = (((session.seed >>> 0) ^ 0x27d4eb2f ^ Math.imul(session.phaseState.triggeredPhases.length, 0x9e3779b9)) >>> 0) || 1;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
+    let added = 0;
+    for (let attempt = 0; attempt < 200 && added < want && blocked.size < maxBlocked; attempt++) {
+        const cx = 1 + Math.floor(rnd() * Math.max(1, w - 2));
+        const cy = 1 + Math.floor(rnd() * Math.max(1, h - 2));
+        const t = cy * w + cx;
+        if (blocked.has(t) || occupied.has(t) || reserved.has(t)) continue;
+        if (towerNeighbors(t, w, h).some(nb => blocked.has(nb))) continue; // non-adjacency invariant
+        // never seal an adjacent living unit's last exit
+        if (living.some(a => a.pos !== t && towerNeighbors(a.pos, w, h).includes(t) && freeNeighbors(a.pos, t) === 0)) continue;
+        blocked.add(t);
+        session.map.blockedTiles.push(t);
+        added++;
+    }
+    if (added > 0) session.log.push(`${boss.name} shatters the arena — ${added} stone pillar${added !== 1 ? 's' : ''} erupt${added === 1 ? 's' : ''} from the ground!`);
+}
+
 /** Fired when the boss crosses an HP-phase gate. */
 function applyBossPhaseMechanic(session: TowerSession, boss: TowerActor): void {
     const m = String(boss.character.mechanic ?? '');
@@ -398,6 +549,22 @@ function applyBossPhaseMechanic(session: TowerSession, boss: TowerActor): void {
         summonAdds(session);
     }
     // 'bulwark' is passive (damage reduction while guards live); 'regen' fires per round.
+}
+
+/** Aegis: a fresh SHIELD at each phase gate — pure shield points consumed by the normal
+ *  damage pipeline (the resolver already spends boss.shield), so it delays the kill without
+ *  any regen/stall risk. Total live shield is hard-capped at AEGIS_SHIELD_MAX_PCT of maxHp
+ *  so back-to-back gates can't stack a wall. Bosses without `aegis` never enter (byte-identical). */
+export const AEGIS_SHIELD_MAX_PCT = 25;
+function applyBossAegis(session: TowerSession, boss: TowerActor): void {
+    const cfg = boss.character.aegis as { shieldPct?: number } | undefined;
+    const pct = Math.max(0, Math.min(AEGIS_SHIELD_MAX_PCT, Math.floor(Number(cfg?.shieldPct ?? 0))));
+    if (pct <= 0) return;
+    const ceiling = Math.floor((boss.maxHp * AEGIS_SHIELD_MAX_PCT) / 100);
+    const grant = Math.min(Math.floor((boss.maxHp * pct) / 100), Math.max(0, ceiling - boss.shield));
+    if (grant <= 0) return;
+    boss.shield += grant;
+    session.log.push(`${boss.name} raises an aegis — a shield of ${grant} forms around it!`);
 }
 /** Per-round heal for a 'regen' boss. In the ENDLESS SPIRE the heal is 7% of CURRENT HP (self-
  *  limiting), plus the sealed FLAT cap (session.regenFlatCap): a boss near full still drains you
@@ -427,6 +594,161 @@ function applyExtraPhaseShockwave(session: TowerSession, boss: TowerActor): void
         const dmg = Math.max(1, Math.floor((a.maxHp * EXTRA_PHASE_BLAST_PCT) / 100));
         a.hp = Math.max(0, a.hp - dmg);
         session.log.push(`${a.name} is caught in the blast for ${dmg} (${a.hp}/${a.maxHp}).`);
+    }
+}
+
+// ─── Telegraphed boss strikes + closing ring (story "board attacks back") ────────
+// A recurring, DODGEABLE AOE the boss telegraphs at round start and detonates at round end, plus
+// a shrinking safe-zone finale. Both chip the SQUAD for a flat % of maxHp applied OUTSIDE the wMult
+// product (like applyRoundHazards / EXTRA_PHASE_BLAST_PCT), so they never interact with enrage /
+// statFactor and can't one-shot. Both are pure functions of (map, round[, snapshotted boss pos]),
+// so settle recompute reproduces them; a boss/floor with no config never sets state → byte-identical.
+export const BOSS_STRIKE_MAX_PCT = 14; // hard ceiling on a single strike's chip
+
+function bossStrikeConfig(boss: TowerActor): { kind: string; pct: number; radius: number; everyRounds: number; firstRound: number } | undefined {
+    const c = boss.character.bossStrike as { kind?: string; pct?: number; radius?: number; everyRounds?: number; firstRound?: number } | undefined;
+    if (!c || !c.kind) return undefined;
+    const everyRounds = Math.max(2, Math.floor(Number(c.everyRounds ?? 3)));
+    return {
+        kind: String(c.kind),
+        pct: Math.max(1, Math.min(BOSS_STRIKE_MAX_PCT, Math.floor(Number(c.pct ?? 8)))),
+        radius: Math.max(0, Math.min(2, Math.floor(Number(c.radius ?? 1)))),
+        everyRounds,
+        firstRound: Math.max(1, Math.floor(Number(c.firstRound ?? everyRounds))),
+    };
+}
+/** Where a strike centres, snapshotted at prime time: on the boss ('nova') or the nearest living
+ *  squad member ('volley'). Deterministic (min distance, id tie-break). */
+function bossStrikeCenter(session: TowerSession, boss: TowerActor, kind: string): number {
+    if (kind !== 'volley') return boss.pos;
+    const w = session.map.width;
+    let center = boss.pos, bestD = Infinity;
+    for (const s of livingOnSide(session, 'squad').sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
+        const d = hexDistance(boss.pos, s.pos, w);
+        if (d < bestD) { bestD = d; center = s.pos; }
+    }
+    return center;
+}
+/** Prime the boss's telegraphed strike for THIS round when its cadence hits. Snapshots the blast
+ *  tiles NOW (round start), so the telegraph the squad sees is exactly what detonates at round end
+ *  even if the boss moves. No-op when the boss is dead / has no strike / is off-cadence. */
+function primeBossStrike(session: TowerSession): void {
+    const id = session.phaseState.bossId;
+    const boss = id ? getActor(session, id) : undefined;
+    if (!boss || boss.hp <= 0) return;
+    const cfg = bossStrikeConfig(boss);
+    if (!cfg) return;
+    const round = session.round;
+    if (round < cfg.firstRound || (round - cfg.firstRound) % cfg.everyRounds !== 0) return;
+    const center = bossStrikeCenter(session, boss, cfg.kind);
+    const blocked = new Set(session.map.blockedTiles);
+    const tiles = [...filledDiskTiles(center, cfg.radius, session.map.width, session.map.height)]
+        .filter(t => !blocked.has(t)).sort((a, b) => a - b);
+    if (tiles.length === 0) return;
+    session.bossStrike = {
+        tiles, round, pct: cfg.pct, kind: cfg.kind, center,
+        label: cfg.kind === 'volley' ? `${boss.name}'s barrage` : cfg.kind === 'slam' ? `${boss.name}'s seismic slam` : `${boss.name}'s nova`,
+    };
+    session.log.push(`⚠ ${session.bossStrike.label} charges — the marked ground erupts at round's end!`);
+}
+/** Max hex distance from the board centre to any corner — the ring's fully-open start radius. */
+function boardRingRadius(w: number, h: number): number {
+    const center = Math.floor(h / 2) * w + Math.floor(w / 2);
+    let m = 0;
+    for (const corner of [0, w - 1, (h - 1) * w, (h - 1) * w + (w - 1)]) m = Math.max(m, hexDistance(center, corner, w));
+    return m;
+}
+/** Tiles OUTSIDE the closing ring's safe radius for `round` — empty until it starts shrinking, and
+ *  the safe core never drops below minRadius. Pure function of (map, round). */
+function closingRingTiles(session: TowerSession, round: number): number[] {
+    const cfg = session.map.closingRing;
+    if (!cfg) return [];
+    const w = session.map.width, h = session.map.height;
+    const center = Math.floor(h / 2) * w + Math.floor(w / 2);
+    const fromRound = Math.max(1, Math.floor(Number(cfg.fromRound ?? 6)));
+    const minRadius = Math.max(1, Math.floor(Number(cfg.minRadius ?? 3)));
+    const maxR = boardRingRadius(w, h);
+    const radius = Math.max(minRadius, maxR - Math.max(0, round - fromRound));
+    if (radius >= maxR) return []; // nothing lethal yet
+    const blocked = new Set(session.map.blockedTiles);
+    const out: number[] = [];
+    for (let t = 0; t < w * h; t++) if (!blocked.has(t) && hexDistance(t, center, w) > radius) out.push(t);
+    return out;
+}
+// ─── Dynamic hazards (geyser vents — recurring, round-timed board danger) ─────────
+/** A geyser erupts at the END of a round on its fixed cadence. Pure predicate of the round. */
+function geyserErupts(hz: { everyRounds: number; firstRound?: number }, round: number): boolean {
+    const every = Math.max(2, Math.floor(Number(hz.everyRounds) || 3));
+    const first = Math.max(1, Math.floor(Number(hz.firstRound ?? every)));
+    return round >= first && (round - first) % every === 0;
+}
+/** The vent tiles erupting at the END of `round` (for the telegraph + AI avoidance). Pure. */
+function dynamicHazardTiles(session: TowerSession, round: number): number[] {
+    const hazards = session.map.dynamicHazards;
+    if (!hazards || hazards.length === 0) return [];
+    const out = new Set<number>();
+    for (const hz of hazards) if (geyserErupts(hz, round)) for (const t of hz.tiles ?? []) out.add(t);
+    return [...out].sort((a, b) => a - b);
+}
+/** Round-end: an erupting geyser scalds EVERY living unit standing on it (any side — neutral board
+ *  danger the AI dodges), flat %-maxHp. Absent → no-op (byte-identical). */
+function applyRoundDynamicHazards(session: TowerSession): void {
+    const hazards = session.map.dynamicHazards;
+    if (!hazards || hazards.length === 0) return;
+    for (const hz of hazards) {
+        if (!geyserErupts(hz, session.round)) continue;
+        const tiles = new Set(hz.tiles ?? []);
+        const pct = Math.max(1, Math.floor(Number(hz.pct) || 4));
+        for (const a of session.actors) {
+            if (a.hp <= 0 || !tiles.has(a.pos)) continue;
+            const dmg = Math.max(1, Math.floor((a.maxHp * pct) / 100));
+            a.hp = Math.max(0, a.hp - dmg);
+            session.log.push(`${a.name} is scalded by an erupting geyser for ${dmg} (${a.hp}/${a.maxHp}).`);
+        }
+    }
+}
+/** Shove `actor` up to `dist` tiles directly AWAY from `centerTile` (seismic-slam knockback).
+ *  Deterministic (first legal outward neighbour in tile-index order); stops at walls/edges/units. */
+function pushAwayFrom(session: TowerSession, actor: TowerActor, centerTile: number, dist: number): void {
+    const w = session.map.width, h = session.map.height;
+    const distTo = (t: number) => hexDistance(t, centerTile, w);
+    let pos = actor.pos;
+    for (let step = 0; step < dist; step++) {
+        const here = distTo(pos);
+        const next = towerNeighbors(pos, w, h).sort((a, b) => a - b)
+            .find(t => t !== centerTile && !isTileBlocked(session, t, actor.id) && distTo(t) > here);
+        if (next === undefined) break;
+        pos = next;
+    }
+    if (pos !== actor.pos) { actor.pos = pos; session.log.push(`${actor.name} is hurled back by the shockwave!`); }
+}
+/** Round-end: detonate a primed boss strike + chip anyone caught outside the closing ring. Squad
+ *  only (boss/adds/escort exempt), flat %-maxHp outside wMult; the strike is cleared so it fires once. */
+function applyBossStrikeAndRing(session: TowerSession): void {
+    const strike = session.bossStrike;
+    if (strike && strike.round === session.round) {
+        const zone = new Set(strike.tiles);
+        const isSlam = strike.kind === 'slam';
+        for (const a of session.actors) {
+            if (a.hp <= 0 || a.side !== 'squad' || !zone.has(a.pos)) continue;
+            const dmg = Math.max(1, Math.floor((a.maxHp * strike.pct) / 100));
+            a.hp = Math.max(0, a.hp - dmg);
+            session.log.push(`${a.name} is caught in ${strike.label} for ${dmg} (${a.hp}/${a.maxHp}).`);
+            // Seismic slam: hurl the caught shinobi away from the blast centre (can toss them into a
+            // hazard/geyser — the combo). Only when the boss is alive to have thrown it.
+            if (isSlam && a.hp > 0 && typeof strike.center === 'number') pushAwayFrom(session, a, strike.center, 2);
+        }
+        session.bossStrike = undefined;
+    }
+    const ring = session.map.closingRing;
+    if (ring) {
+        const lethal = new Set(closingRingTiles(session, session.round));
+        if (lethal.size) for (const a of session.actors) {
+            if (a.hp <= 0 || a.side !== 'squad' || !lethal.has(a.pos)) continue;
+            const dmg = Math.max(1, Math.floor((a.maxHp * Math.max(1, Number(ring.pct ?? SUDDEN_DEATH_PCT))) / 100));
+            a.hp = Math.max(0, a.hp - dmg);
+            session.log.push(`${a.name} is caught in the closing ring for ${dmg} (${a.hp}/${a.maxHp}).`);
+        }
     }
 }
 
@@ -675,6 +997,7 @@ function resolveHit(
     const wMult = selfCast ? 1 : (
         pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
         * attackerEnrageMult(session, actor) * bulwarkMult(session, target)
+        * shrineAttackMult(session, actor)
         * Math.max(0, Number(actor.character.towerDmgScale ?? 1))
         * ascensionDmgMult * incomingDebuffMult
     );
@@ -753,7 +1076,7 @@ function spendPoison(session: TowerSession, actor: TowerActor, ck: number, st: n
 function tickCooldowns(actor: TowerActor): void {
     for (const k of Object.keys(actor.cooldowns)) {
         const n = (actor.cooldowns[k] ?? 0) - 1;
-        if (n > 0) actor.cooldowns[k] = n; else delete actor.cooldowns[k];
+        if (n > 0) setSafeRecordValue(actor.cooldowns, k, n); else deleteSafeRecordValue(actor.cooldowns, k);
     }
 }
 function refreshAp(session: TowerSession): void {
@@ -782,9 +1105,12 @@ export function startRound(session: TowerSession): void {
     rebuildTurnQueue(session);
     session.activeIndex = 0;
     refreshAp(session);
-    // Endless Spire: surface the tiles that will burn at THIS round's end so the squad can
-    // pre-position during their turns. Deterministic hazards only (proximity is reactive).
-    // Story runs (no modifierStack) leave the field undefined → unchanged wire.
+    // Prime the boss's telegraphed strike (if its cadence hits this round) BEFORE computing the
+    // telegraph, so the freshly-snapshotted blast is surfaced to the squad this round.
+    primeBossStrike(session);
+    // Surface the tiles that will burn at THIS round's end (spire hazards + closing ring + boss
+    // strike) so the squad can pre-position during their turns. Deterministic hazards only
+    // (proximity is reactive). Floors with none leave the field undefined → unchanged wire.
     const tele = computeHazardTelegraph(session);
     if (tele.length) session.map.nextRoundHazardTiles = tele;
     else delete session.map.nextRoundHazardTiles;
@@ -859,6 +1185,8 @@ function tickBossPhases(session: TowerSession): void {
         session.phaseState.triggeredPhases.push(t);
         session.log.push(`${boss.name} enters a new phase (${t}% HP).`);
         applyBossPhaseMechanic(session, boss); // enrage / summon fire at each gate
+        dropPhasePillars(session, boss); // a 'phasePillars' boss reshapes the arena at each gate
+        applyBossAegis(session, boss); // an 'aegis' boss raises a fresh (capped) shield at each gate
         // Wave 3: the desperation blast fires on the sealed extra gate (once).
         if (session.extraPhaseThreshold != null && t === session.extraPhaseThreshold) applyExtraPhaseShockwave(session, boss);
     }
@@ -991,10 +1319,14 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
         const weaponJutsu: JutsuLike = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
             isUtility: false, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
+            // Elemental-weapon gate (parity with PvP): the swing rides the wielder's
+            // bloodline damage multiplier only when the weapon's element is one the
+            // wielder has awakened. No element → no boost.
+            suppressBloodline: !characterOwnsElement(actor.character, item.weaponElement),
             ...(weaponTags.length ? { tags: weaponTags } : {}),
         };
         resolveHit(session, floor, actor, wTarget, weaponJutsu, wCost);
-        if (wCdTurns > 0) actor.cooldowns[wCdKey] = wCdTurns;
+        if (wCdTurns > 0) setSafeRecordValue(actor.cooldowns, wCdKey, wCdTurns);
         return { applied: true };
     }
 
@@ -1013,7 +1345,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
             actor.chakra = Math.max(0, actor.chakra - ck);
             actor.stamina = Math.max(0, actor.stamina - st);
             spendPoison(session, actor, ck, st, session.round);
-            if (Number(jSelf.cooldown ?? 0) > 0) actor.cooldowns[action.jutsuId] = Number(jSelf.cooldown);
+            if (Number(jSelf.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jSelf.cooldown));
             return { applied: true };
         }
     }
@@ -1046,7 +1378,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
             actor.chakra = Math.max(0, actor.chakra - ck);
             actor.stamina = Math.max(0, actor.stamina - st);
             spendPoison(session, actor, ck, st, session.round);
-            if (Number(jm.cooldown ?? 0) > 0) actor.cooldowns[action.jutsuId] = Number(jm.cooldown);
+            if (Number(jm.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jm.cooldown));
             session.activeAp -= cost;
             session.actionsThisTurn += 1;
             session.log.push(`${actor.name} uses ${jm.name ?? 'a body flicker'} — flickers to hex ${tile}.`);
@@ -1110,7 +1442,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
             actor.chakra = Math.max(0, actor.chakra - ck);
             actor.stamina = Math.max(0, actor.stamina - st);
             spendPoison(session, actor, ck, st, session.round);
-            if (Number(jg.cooldown ?? 0) > 0) actor.cooldowns[action.jutsuId] = Number(jg.cooldown);
+            if (Number(jg.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jg.cooldown));
             return { applied: true };
         }
     }
@@ -1166,7 +1498,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
             session.log.push(`${actor.name} uses ${item.name ?? 'an item'}.`);
             runJutsu(session, actor, actor, itemJutsu, 1);
         }
-        if (iCdTurns > 0) actor.cooldowns[iCdKey] = iCdTurns;
+        if (iCdTurns > 0) setSafeRecordValue(actor.cooldowns, iCdKey, iCdTurns);
         session.activeAp -= iCost;
         session.actionsThisTurn += 1;
         checkTowerWinner(session, floor);
@@ -1210,7 +1542,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
         actor.chakra = Math.max(0, actor.chakra - chakraCost);
         actor.stamina = Math.max(0, actor.stamina - staminaCost);
         spendPoison(session, actor, chakraCost, staminaCost, session.round);
-        if (Number(jutsu.cooldown ?? 0) > 0) actor.cooldowns[action.jutsuId] = Number(jutsu.cooldown);
+        if (Number(jutsu.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jutsu.cooldown));
     }
     return { applied: true };
 }
@@ -1234,6 +1566,9 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     applyRoundGroundEffects(session); // re-apply persistent ground zones to units standing in them, then tick
     applyRoundStatusTicks(session); // bleed Wound/Poison/Drain + expire statuses (PvP DoT math)
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
+    applyBossStrikeAndRing(session); // detonate the telegraphed boss strike + closing-ring chip
+    applyRoundDynamicHazards(session); // erupt any geyser vents scheduled for this round
+    applyRoundFonts(session);   // fonts restore whoever holds them (capped; heal-cut honoured)
     applyBossRegen(session);    // a 'regen' boss heals each round
     checkTowerWinner(session, floor);
     if (session.status !== 'active') return;
@@ -1268,16 +1603,164 @@ function bestAffordableJutsu(session: TowerSession, actor: TowerActor, dist: num
         .sort((a, b) => (Number(b.effectPower ?? 0) - Number(a.effectPower ?? 0)) || (String(a.id) < String(b.id) ? -1 : 1));
     return opts[0];
 }
+// ─── Focus-fire target selection (deterministic; opt-in via character.aiTargetMode) ──
+// A boss/enemy carrying an authored aiTargetMode chooses its victim by PRIORITY instead
+// of the generic nearest-opponent. Every key is an integer (hp / defense composite /
+// sustain-jutsu count / hex distance) with an id tie-break, so the pick is a pure function
+// of session state — settle recompute reproduces it byte-for-byte, and an actor with no
+// aiTargetMode never reaches this code (nearest-opponent, unchanged). See _floor-catalog
+// TOWER_TARGET_MODES.
+const FOCUS_SUPPORT_TAGS = new Set(['Heal', 'Lifesteal', 'Siphon', 'Shield', 'Absorb', 'Reflect']);
+function actorSupportScore(actor: TowerActor): number {
+    const list = actor.character.jutsu;
+    if (!Array.isArray(list)) return 0;
+    let n = 0;
+    for (const j of list as Array<{ tags?: unknown[] }>) {
+        if (!j || !Array.isArray(j.tags)) continue;
+        if ((j.tags as Array<{ name?: unknown }>).some(t => typeof t?.name === 'string' && FOCUS_SUPPORT_TAGS.has(canonicalTagName(t.name)))) n++;
+    }
+    return n;
+}
+function actorDefComposite(actor: TowerActor): number {
+    const s = (actor.character.stats as Record<string, number>) ?? {};
+    return (Number(s.taijutsuDefense) || 0) + (Number(s.bukijutsuDefense) || 0)
+        + (Number(s.genjutsuDefense) || 0) + (Number(s.ninjutsuDefense) || 0);
+}
+/** True when `attacker` could actually strike `opp` THIS turn — an affordable in-range jutsu
+ *  or an adjacent basic attack. Used so a focusing boss never walks past a reachable kill to
+ *  chase a far-off priority target. */
+function canHitThisTurn(session: TowerSession, attacker: TowerActor, opp: TowerActor): boolean {
+    const d = hexDistance(attacker.pos, opp.pos, session.map.width);
+    if (d <= 1 && canAct(session, BASIC_ATTACK_AP)) return true;
+    return !!bestAffordableJutsu(session, attacker, d);
+}
+function pickFocusTarget(session: TowerSession, actor: TowerActor, mode: TowerTargetMode): TowerActor | undefined {
+    const w = session.map.width;
+    const opps = opponentsOf(session, actor);
+    if (opps.length === 0) return undefined;
+    // Prefer targets the actor can hit now; only advance on the global priority pick when none.
+    const hittable = opps.filter(o => canHitThisTurn(session, actor, o));
+    const pool = hittable.length ? hittable : opps;
+    const dist = (o: TowerActor) => hexDistance(actor.pos, o.pos, w);
+    const idcmp = (a: TowerActor, b: TowerActor) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    let cmp: (a: TowerActor, b: TowerActor) => number;
+    if (mode === 'squishiest') cmp = (a, b) => (actorDefComposite(a) - actorDefComposite(b)) || (a.hp - b.hp) || (dist(a) - dist(b)) || idcmp(a, b);
+    else if (mode === 'support') cmp = (a, b) => (actorSupportScore(b) - actorSupportScore(a)) || (a.hp - b.hp) || (dist(a) - dist(b)) || idcmp(a, b);
+    else cmp = (a, b) => (a.hp - b.hp) || (dist(a) - dist(b)) || idcmp(a, b); // 'lowest-hp'
+    return [...pool].sort(cmp)[0];
+}
+
+// ─── AI board-awareness: seek beneficial objects, avoid detrimental tiles ─────
+// A light overlay on the move decision so AI actors (enemies, async allies, AFK humans) walk
+// TOWARD board objects worth holding and AROUND tiles that would hurt them. Deterministic (pure
+// over session state — no RNG/wall-clock), and a strict NO-OP on a floor with no board objects,
+// no hazard features, no telegraph and no ground zones → the AI is byte-identical to the plain
+// nearest-opponent policy there. Combat stays primary: this only runs when the actor can't attack
+// this turn (the move branch of pickAiAction).
+const AI_SEEK_RANGE = 6; // don't abandon the fight to chase a distant object
+
+/** Tiles that would DAMAGE `actor` if it ends the round on them: feature hazards (any side), the
+ *  squad-targeted telegraph (boss strikes / closing ring / spire hazards — squad only), and the
+ *  hostile-owned persistent ground zones. Mirrors who each source actually chips. */
+function aiDangerTiles(session: TowerSession, actor: TowerActor): Set<number> {
+    const danger = new Set<number>();
+    for (const f of session.map.features ?? []) if (f.kind === 'hazard') for (const t of f.tiles) danger.add(t);
+    for (const t of dynamicHazardTiles(session, session.round)) danger.add(t); // geysers erupt on both sides
+    if (actor.side === 'squad') for (const t of session.map.nextRoundHazardTiles ?? []) danger.add(t);
+    for (const z of session.groundEffects ?? []) {
+        const bitesMe = z.owner === 'p1' ? actor.side === 'enemy' : (actor.side === 'squad' || actor.side === 'npc');
+        if (bitesMe) for (const t of z.tiles) danger.add(t);
+    }
+    return danger;
+}
+/** True when `actor` stands on a shrine its own team benefits from holding (so it should hold). */
+function aiOnHeldShrine(session: TowerSession, actor: TowerActor): boolean {
+    for (const o of session.map.boardObjects ?? []) {
+        if (o.kind === 'shrine' && (o.tiles ?? []).includes(actor.pos)) return true;
+    }
+    return false;
+}
+/** The tile of the most worthwhile beneficial object for `actor` to head toward (or undefined):
+ *  a shrine its team does NOT already hold (contest it), or a font for a resource it's low on.
+ *  Only within AI_SEEK_RANGE. Deterministic (integer score, then distance, then tile-id). */
+function aiBeneficialGoal(session: TowerSession, actor: TowerActor): number | undefined {
+    const objects = session.map.boardObjects;
+    if (!objects || objects.length === 0) return undefined;
+    const w = session.map.width;
+    let bestTile: number | undefined;
+    let bestScore = 0, bestDist = Infinity;
+    for (const o of objects) {
+        const tile = (o.tiles ?? [])[0];
+        if (tile === undefined || tile === actor.pos) continue;
+        let score = 0;
+        if (o.kind === 'shrine') {
+            const heldByMyTeam = session.actors.some(a => a.hp > 0 && a.side === actor.side && a.pos === tile);
+            if (!heldByMyTeam) score = 3;
+        } else { // font — want it when low on that resource; an urgent low-hp need ranks up with shrines
+            const frac = o.resource === 'hp' ? actor.hp / Math.max(1, actor.maxHp)
+                : o.resource === 'chakra' ? actor.chakra / Math.max(1, actor.maxChakra)
+                : actor.stamina / Math.max(1, actor.maxStamina);
+            if (frac < 0.6) score = (o.resource === 'hp' && frac < 0.35) ? 3 : 2;
+        }
+        if (score === 0) continue;
+        const d = hexDistance(actor.pos, tile, w);
+        if (d > AI_SEEK_RANGE) continue;
+        if (score > bestScore
+            || (score === bestScore && d < bestDist)
+            || (score === bestScore && d === bestDist && bestTile !== undefined && tile < bestTile)) {
+            bestTile = tile; bestScore = score; bestDist = d;
+        }
+    }
+    return bestTile;
+}
+/** One step toward `dest` that avoids `actor`'s danger tiles when it can; a unit standing IN danger
+ *  flees to a safe neighbour even off-route. Falls back to the terrain-aware nextStepToward when no
+ *  danger applies, so danger-free floors are byte-identical. */
+function aiSafeStepToward(session: TowerSession, actor: TowerActor, dest: number, danger: Set<number>): number {
+    const from = actor.pos;
+    const base = nextStepToward(session, from, dest, actor.id);
+    if (danger.size === 0) return base; // fast path — unchanged policy
+    if (base !== from && !danger.has(base)) return base; // the natural step is already safe
+    const w = session.map.width, h = session.map.height;
+    const here = hexDistance(from, dest, w);
+    const free = towerNeighbors(from, w, h).filter(n => !isTileBlocked(session, n, actor.id)).sort((a, b) => a - b);
+    const safeProgress = free.find(n => !danger.has(n) && hexDistance(n, dest, w) < here);
+    if (safeProgress !== undefined) return safeProgress;      // safe step that still gets closer
+    if (danger.has(from)) {                                    // in danger + no safe progress → flee anywhere safe
+        const anySafe = free.find(n => !danger.has(n));
+        if (anySafe !== undefined) return anySafe;
+    }
+    if (!danger.has(from)) return from;                        // safe now → hold rather than step into danger
+    return base;                                               // last resort: progress through danger
+}
+
 export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () => number): TowerAction {
     void rng;
-    const target = nearestOpponent(session, actor);
+    // A boss/enemy with an authored aiTargetMode focus-fires by priority; everyone else keeps
+    // the nearest-opponent policy → floors that set no targetMode are byte-identical.
+    const focusMode = actor.side === 'enemy'
+        ? String((actor.character as { aiTargetMode?: unknown }).aiTargetMode ?? '')
+        : '';
+    const target = (focusMode ? pickFocusTarget(session, actor, focusMode as TowerTargetMode) : undefined)
+        ?? nearestOpponent(session, actor);
     if (!target) return { actorId: actor.id, type: 'wait' };
     const dist = hexDistance(actor.pos, target.pos, session.map.width);
+    // Combat first: attack if we possibly can this turn.
     const j = bestAffordableJutsu(session, actor, dist);
     if (j && j.id) return { actorId: actor.id, type: 'jutsu', jutsuId: j.id, targetId: target.id };
     if (dist <= 1 && canAct(session, BASIC_ATTACK_AP)) return { actorId: actor.id, type: 'attack', targetId: target.id };
     if (canAct(session, MOVE_AP)) {
-        const step = nextStepToward(session, actor.pos, target.pos, actor.id);
+        // Can't attack → move. Head for a board object worth holding (or hold a shrine we're on),
+        // else approach the target — and step there while dodging danger tiles.
+        const danger = aiDangerTiles(session, actor);
+        let dest = target.pos;
+        if (!danger.has(actor.pos) && aiOnHeldShrine(session, actor)) {
+            dest = actor.pos; // hold contested ground instead of wandering off it
+        } else {
+            const boon = aiBeneficialGoal(session, actor);
+            if (boon !== undefined) dest = boon;
+        }
+        const step = aiSafeStepToward(session, actor, dest, danger);
         if (step !== actor.pos) return { actorId: actor.id, type: 'move', tile: step };
     }
     return { actorId: actor.id, type: 'wait' };

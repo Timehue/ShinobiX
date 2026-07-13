@@ -20,9 +20,10 @@ import { GAME_STATE_API, LEGENDARY_WAR_CRATE_ID, TERRITORY_CONTROL_MAX, TERRITOR
 import type { TreasuryItemStack } from "./items";
 import { villages } from "../data/sectors";
 import { warCrateServerAuthEnabled } from "./war-crate-flag";
+import { isServerSettlementReady } from "./server-settlement-gate";
 import { biomeWeatherTables } from "../data/world";
 import { clampNumber, currentDateKey, currentMonthKey } from "./utils";
-import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeKageChallenges, normalizeVillageDailyAgenda } from "./village-state";
+import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { makeNoticePost, normalizeNoticePosts } from "./clan-notices";
 import { sharedClanWarCache } from "./clan-war-api";
 import { addItem, countItem, removeItem } from "./inventory";
@@ -210,36 +211,29 @@ export function hydrateSharedGameState(data: {
 export type VillageTreasury = { ryo: number; honorSeals: number; fateShards: number; boneCharms: number; auraStones: number; mythicSeals: number; items: TreasuryItemStack[]; };
 export type VillageTreasuryCurrencyKey = Exclude<keyof VillageTreasury, "items">;
 type DetailedVillageWarRecord = { opponent: string; winner: string; finalScore: string; topDefender: string; topAttacker: string; mvpClan: string; rewards: string; date: string; };
-export type KageHistoryEntry = { name: string; village: string; seatedAt: number; endedAt?: number };
+// Mirrors the server-owned reign record (api/village/_kage-challenge.ts
+// KageHistoryEntry). The Kage system now writes this on every seat change; the
+// Council Hall reads it from /api/village/kage (authoritative), not from any
+// client-synthesized timestamp.
+export type KageEndReason = "defeated" | "forfeit" | "admin-reset" | "abdicated";
+export type KageHistoryEntry = {
+    name: string;
+    village: string;
+    seatedAt: number;
+    endedAt?: number;
+    endedReason?: KageEndReason;
+    wonBy?: string;
+    defenseCount?: number;
+};
 type VillageAgendaKind = "missions" | "explore" | "ai" | "pet" | "control";
 export type VillageAgendaTask = { id: string; kind: VillageAgendaKind; label: string; target: number };
 export type VillageDailyAgenda = { date: string; tasks: VillageAgendaTask[] };
-export type KageChallengeStatus = "open" | "supported" | "accepted" | "ready" | "resolved" | "expired";
-export type KageChallenge = {
-    id: string;
-    village: string;
-    challenger: string;
-    seatedKage: string;
-    status: KageChallengeStatus;
-    createdAt: number;
-    support: string[];
-    opposition: string[];
-    acceptedAt?: number;
-    readyWindowEndsAt?: number;
-    challengerReadyAt?: number;
-    kageReadyAt?: number;
-    officialDuelSentAt?: number;
-    battleId?: string;
-    winner?: string;
-    resolvedAt?: number;
-    contributionRequired: number;
-};
-export type VillageState = { treasury: VillageTreasury; contributionPoints: number; notices: string[]; noticePosts: NoticePost[]; warRecords: DetailedVillageWarRecord[]; kageSystemUnlocked: boolean; firstLiberator?: string; seatedKage?: string; anbuAppointees: string[]; kageHistory?: KageHistoryEntry[]; kageChallenges: KageChallenge[]; dailyAgenda: VillageDailyAgenda; hollowGateUnlockedUntil?: number; };
+export type VillageState = { treasury: VillageTreasury; contributionPoints: number; notices: string[]; noticePosts: NoticePost[]; warRecords: DetailedVillageWarRecord[]; kageSystemUnlocked: boolean; firstLiberator?: string; seatedKage?: string; anbuAppointees: string[]; kageHistory?: KageHistoryEntry[]; dailyAgenda: VillageDailyAgenda; hollowGateUnlockedUntil?: number; };
 function defaultVillageWarRecords(village: string): DetailedVillageWarRecord[] { const leadership = villageLeadership[village]; return (leadership?.pastWars ?? ["No recorded wars yet."]).map((war, index) => ({ opponent: war.replace(/^Won |^Lost |^Draw at /, ""), winner: war.startsWith("Won") ? village : war.startsWith("Lost") ? "Enemy Village" : "Draw", finalScore: index === 0 ? "112 - 88" : index === 1 ? "76 - 91" : "64 - 64", topDefender: leadership?.elders?.[index % 3] ?? "Village Guard", topAttacker: leadership?.kage ?? "Kage Council", mvpClan: index === 0 ? "Fated Reunion" : "Unclaimed", rewards: index === 0 ? "Village XP / guard medals" : "Archive record", date: index === 0 ? "Recent Season" : "Previous Season" })); }
-function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, anbuAppointees: ["", "", ""], kageChallenges: [], dailyAgenda: makeVillageDailyAgenda(village), hollowGateUnlockedUntil: 0 }; }
+function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, anbuAppointees: ["", "", ""], dailyAgenda: makeVillageDailyAgenda(village), hollowGateUnlockedUntil: 0 }; }
 function sharedVillageStateKey(village: string) { return village.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 let sharedVillageStateCache: Record<string, VillageState> = {};
-export function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); const notices = state?.notices?.length ? state.notices.slice(0, 8) : base.notices; return { treasury: cleanVillageTreasury(state?.treasury), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices, /* Do NOT fold legacy `notices` strings into noticePosts: makeNoticePost stamps each with Date.now(), so a village whose noticePosts were stripped server-side (System-authored posts fail the author===caller check) would re-mint the string board into fresh, re-timestamped "System" orders on every load. The Orders board shows persisted structured posts only. */ noticePosts: normalizeNoticePosts(state?.noticePosts), warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, anbuAppointees: normalizeAnbuAppointees(state?.anbuAppointees), kageHistory: state?.kageHistory ?? [], kageChallenges: normalizeKageChallenges(village, state?.kageChallenges), dailyAgenda: normalizeVillageDailyAgenda(village, state?.dailyAgenda), hollowGateUnlockedUntil: Math.max(0, Math.floor(Number(state?.hollowGateUnlockedUntil ?? base.hollowGateUnlockedUntil ?? 0))) || 0 }; }
+export function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); const notices = state?.notices?.length ? state.notices.slice(0, 8) : base.notices; return { treasury: cleanVillageTreasury(state?.treasury), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices, /* Do NOT fold legacy `notices` strings into noticePosts: makeNoticePost stamps each with Date.now(), so a village whose noticePosts were stripped server-side (System-authored posts fail the author===caller check) would re-mint the string board into fresh, re-timestamped "System" orders on every load. The Orders board shows persisted structured posts only. */ noticePosts: normalizeNoticePosts(state?.noticePosts), warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, anbuAppointees: normalizeAnbuAppointees(state?.anbuAppointees), kageHistory: state?.kageHistory ?? [], dailyAgenda: normalizeVillageDailyAgenda(village, state?.dailyAgenda), hollowGateUnlockedUntil: Math.max(0, Math.floor(Number(state?.hollowGateUnlockedUntil ?? base.hollowGateUnlockedUntil ?? 0))) || 0 }; }
 export function loadVillageState(village: string): VillageState { return sharedVillageStateCache[sharedVillageStateKey(village)] ?? defaultVillageState(village); }
 
 // ── Hollow Gate: 30-day timed village unlock ────────────────────────────
@@ -783,14 +777,14 @@ export function unlockVillageKageSystem(village: string, playerName: string): Vi
     const current = loadVillageState(village);
     if (current.kageSystemUnlocked) return current;
     const announcement = `The false Kage of ${village} has fallen. ${playerName} has broken the Hollow Gate Pact. The Kage seat is now open.`;
-    const existingHistory = current.kageHistory ?? [];
-    const newEntry: KageHistoryEntry = { name: playerName, village, seatedAt: Date.now() };
+    // Reign history is now server-owned (the POST /api/village/kage 'unlock' above
+    // opens the first liberator's reign). Do NOT synthesize a client-side entry
+    // with Date.now() — that stamped a bogus, per-viewer seating time.
     const next = normalizeVillageState(village, {
         ...current,
         kageSystemUnlocked: true,
         firstLiberator: playerName,
         seatedKage: playerName,
-        kageHistory: [...existingHistory, newEntry],
         notices: [announcement, `${playerName} has claimed the first open Kage seat of ${village}.`, "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open.", ...current.notices].slice(0, 8),
     });
     saveVillageState(village, next);
@@ -801,12 +795,16 @@ export function claimPendingWarCrates(
     character: Character,
     clanData: { warHistory?: { result: string; warCrateId?: string; endedAt?: number }[] } | null,
 ): { character: Character; count: number; mvp?: boolean; consolation?: boolean } {
+    // The generic save route cannot settle payouts. Until every war-reward
+    // branch has a dedicated endpoint, never derive inventory/currency/latches
+    // from the browser's cached war state. Winner crates still flow through
+    // claimServerWarCrates, whose endpoint validates and writes the save.
+    if (!isServerSettlementReady("clientWarCrateGrant")) return { character, count: 0 };
     const claimed = new Set(character.claimedWarCrateIds ?? []);
-    // Release authority is mandatory. Winner crates are claimed by
-    // claimServerWarCrates; MVP/consolation/lifetime awards remain disabled until
-    // their own server settlement validates the authoritative war contribution.
+    // P0.2c: when warCrateServerAuth.v1 is ON, WINNER crates (village + clan) defer to
+    // claimServerWarCrates (server-validated); the MVP / consolation / lifetime-stat
+    // branches below stay inline (currency-only, already sanitizer-capped).
     const serverAuthCrates = warCrateServerAuthEnabled();
-    if (serverAuthCrates) return { character, count: 0 };
     const cratesToAdd: string[] = [];   // LEGENDARY_WAR_CRATE_ID inventory pushes
     const idsToAdd: string[] = [];      // claimedWarCrateIds bookkeeping
     let ryoBonus = 0;
@@ -1019,8 +1017,10 @@ export function claimPendingWarCrates(
  * the shared village-war cache (village wins), the shared clan-war cache (live clan
  * wins), and clanData.warHistory (older clan wins that aged out of the cache); the
  * server validates each against the authoritative world:war / clan-war record.
- * Returns only warCrateIds the server actually granted. Network failures remain
- * pending for the next poll; there is no local mint fallback.
+ * Returns the warCrateIds it actually granted. Called from the post-poll sweep, so
+ * the war-end state has already propagated server-side (no race). Network and
+ * server failures fail closed and are retried by the next polling sweep; only an
+ * explicit granted response is mirrored into client state.
  */
 export async function claimServerWarCrates(
     character: Character,
@@ -1058,7 +1058,9 @@ export async function claimServerWarCrates(
             const res = (await r.json().catch(() => null)) as { granted?: boolean } | null;
             if (res?.granted) granted.push(warCrateId);
             // a definitive granted:false (server says not-winner / already-claimed / …) is respected.
-        } catch { /* retry on the next poll; never mint locally */ }
+        } catch {
+            // Fail closed. The polling caller retries after connectivity returns.
+        }
     }
     return granted;
 }
@@ -1066,8 +1068,8 @@ export async function claimServerWarCrates(
 /**
  * Apply server-granted war crates (village + clan) to the character locally (mirror)
  * so the player's next save reflects them. Deduped against claimedWarCrateIds (the
- * poll may already have synced the server's write). Lifetime war stats are server
- * tracked and are deliberately not incremented by this mirror. Use with a
+ * poll may already have synced the server's write) and bumps warsWon per new crate,
+ * matching the inline claimPendingWarCrates winner-crate behavior. Use with a
  * functional setCharacter so it composes on the LATEST character, never a stale snapshot.
  */
 export function applyWarCrateGrants(character: Character, warCrateIds: string[]): { character: Character; count: number } {
@@ -1079,6 +1081,7 @@ export function applyWarCrateGrants(character: Character, warCrateIds: string[])
             ...character,
             inventory: [...character.inventory, ...fresh.map(() => LEGENDARY_WAR_CRATE_ID)],
             claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...fresh],
+            warsWon: (character.warsWon ?? 0) + fresh.length,
         },
         count: fresh.length,
     };

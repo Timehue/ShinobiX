@@ -83,38 +83,42 @@ type CombatVfxDefaults = {
     maxParticles: number;
 };
 
+// durationMs values are ~25% longer than the original tuning so plates linger a
+// beat longer on screen. Keep this table in sync with the server-side
+// `VFX_DEFAULTS` in api/pvp/move.ts (PvP sends its own durations; Arena reads
+// these directly).
 export const COMBAT_VFX_REGISTRY: Record<CombatVfxKey, CombatVfxDefaults> = {
-    fire: { durationMs: 680, maxParticles: 20 },
-    water: { durationMs: 720, maxParticles: 18 },
-    wind: { durationMs: 620, maxParticles: 16 },
-    lightning: { durationMs: 560, maxParticles: 18 },
-    earth: { durationMs: 720, maxParticles: 16 },
-    blood: { durationMs: 680, maxParticles: 18 },
-    shadow: { durationMs: 740, maxParticles: 16 },
-    poison: { durationMs: 760, maxParticles: 16 },
-    magma: { durationMs: 760, maxParticles: 22 },
-    metal: { durationMs: 640, maxParticles: 14 },
-    slash: { durationMs: 420, maxParticles: 8 },
-    impact: { durationMs: 460, maxParticles: 10 },
-    pierce: { durationMs: 460, maxParticles: 10 },
-    heal: { durationMs: 820, maxParticles: 16 },
-    shield: { durationMs: 900, maxParticles: 14 },
-    reflect: { durationMs: 820, maxParticles: 14 },
-    absorb: { durationMs: 820, maxParticles: 14 },
-    spark: { durationMs: 560, maxParticles: 18 },
-    seal: { durationMs: 760, maxParticles: 14 },
-    wound: { durationMs: 620, maxParticles: 12 },
-    burn: { durationMs: 720, maxParticles: 18 },
-    poisonCloud: { durationMs: 900, maxParticles: 18 },
-    drain: { durationMs: 840, maxParticles: 16 },
-    cleanse: { durationMs: 760, maxParticles: 14 },
-    buff: { durationMs: 820, maxParticles: 14 },
-    debuff: { durationMs: 760, maxParticles: 14 },
-    throwable: { durationMs: 520, maxParticles: 10 },
-    weapon: { durationMs: 440, maxParticles: 8 },
-    namedWeapon: { durationMs: 620, maxParticles: 14 },
-    heavy: { durationMs: 620, maxParticles: 16 },
-    ko: { durationMs: 980, maxParticles: 24 },
+    fire: { durationMs: 850, maxParticles: 20 },
+    water: { durationMs: 900, maxParticles: 18 },
+    wind: { durationMs: 780, maxParticles: 16 },
+    lightning: { durationMs: 700, maxParticles: 18 },
+    earth: { durationMs: 900, maxParticles: 16 },
+    blood: { durationMs: 850, maxParticles: 18 },
+    shadow: { durationMs: 930, maxParticles: 16 },
+    poison: { durationMs: 950, maxParticles: 16 },
+    magma: { durationMs: 950, maxParticles: 22 },
+    metal: { durationMs: 800, maxParticles: 14 },
+    slash: { durationMs: 530, maxParticles: 8 },
+    impact: { durationMs: 580, maxParticles: 10 },
+    pierce: { durationMs: 580, maxParticles: 10 },
+    heal: { durationMs: 1030, maxParticles: 16 },
+    shield: { durationMs: 1130, maxParticles: 14 },
+    reflect: { durationMs: 1030, maxParticles: 14 },
+    absorb: { durationMs: 1030, maxParticles: 14 },
+    spark: { durationMs: 700, maxParticles: 18 },
+    seal: { durationMs: 950, maxParticles: 14 },
+    wound: { durationMs: 780, maxParticles: 12 },
+    burn: { durationMs: 900, maxParticles: 18 },
+    poisonCloud: { durationMs: 1130, maxParticles: 18 },
+    drain: { durationMs: 1050, maxParticles: 16 },
+    cleanse: { durationMs: 950, maxParticles: 14 },
+    buff: { durationMs: 1030, maxParticles: 14 },
+    debuff: { durationMs: 950, maxParticles: 14 },
+    throwable: { durationMs: 650, maxParticles: 10 },
+    weapon: { durationMs: 550, maxParticles: 8 },
+    namedWeapon: { durationMs: 780, maxParticles: 14 },
+    heavy: { durationMs: 780, maxParticles: 16 },
+    ko: { durationMs: 1230, maxParticles: 24 },
 };
 
 const SUPPORT_TAGS = new Set([
@@ -334,6 +338,31 @@ export function resolveCombatVfxSpec(intent: CombatVfxIntent = {}): CombatVfxSpe
     };
 }
 
+// Anchor key for a resolved plate: the board tile(s) it will actually paint on.
+// Area/ground plates carry their own tile list; every other plate renders on a
+// single tile — the caster's or target's current tile — passed in as
+// `renderTile`. Keying on the *real* render tile (not the anchor type) means a
+// single-tile effect that lands on a fighter's own tile collapses against that
+// fighter's other plates, so two plates on the same pixel always dedupe to one.
+export function combatVfxAnchorKey(spec: Pick<CombatVfxSpec, "tiles">, renderTile: number): string {
+    return (spec.tiles?.length ? spec.tiles : [renderTile]).join(",");
+}
+
+// Keep only the first plate per anchor. One action can stack two VFX on a single
+// fighter (a hit plus its shield/reflect reaction, a weapon plus its tag effect,
+// several DoTs ticking together); collapsing them to one avoids the doubled,
+// blurry read. Effects on genuinely different fighters/tiles keep distinct keys
+// and both still play. Order is preserved, so the primary (first) plate wins.
+export function dedupeCombatVfx<T>(events: T[], anchorKey: (event: T) => string): T[] {
+    const seen = new Set<string>();
+    return events.filter((event) => {
+        const key = anchorKey(event);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
 export function safeCombatVfxSpec(spec: Partial<CombatVfxSpec> | null | undefined): CombatVfxSpec {
     const key = spec?.key && spec.key in COMBAT_VFX_REGISTRY ? spec.key : "impact";
     const defaults = COMBAT_VFX_REGISTRY[key];
@@ -341,7 +370,7 @@ export function safeCombatVfxSpec(spec: Partial<CombatVfxSpec> | null | undefine
         key,
         target: spec?.target ?? "target",
         intensity: spec?.intensity ?? "normal",
-        durationMs: Math.max(120, Math.min(1200, Number(spec?.durationMs ?? defaults.durationMs))),
+        durationMs: Math.max(120, Math.min(1400, Number(spec?.durationMs ?? defaults.durationMs))),
         persistent: Boolean(spec?.persistent),
         maxParticles: Math.max(0, Math.min(24, Number(spec?.maxParticles ?? defaults.maxParticles))),
         tiles: spec?.tiles?.slice(0, 18),

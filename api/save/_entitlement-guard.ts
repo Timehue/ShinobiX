@@ -1,16 +1,22 @@
 import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
+import { CACHE_ITEM_IDS } from '../_anbu-infiltration.js';
 
 const SERVER_OWNED_ITEM_IDS = new Set([
     'weekly-boss-core',
     'dungeon-key',
-    'dungeon-legendary-relic',
     'dungeon-legendary-fragment',
+    'hollow-gate-key',
     'veil-of-the-hollow',
     'warforged-relic',
     'legendary-war-crate',
     'hunt-legendary-material',
     'hunt-ancient-beast-core',
     'hunt-titan-bone',
+    // Anbu Vault Infiltration war caches — minted ONLY by the raid settle
+    // (api/_anbu-infiltration-store.ts), redeemed only by its turn-in. A client
+    // save can spend them, never mint them.
+    CACHE_ITEM_IDS.warSupply,
+    CACHE_ITEM_IDS.warResources,
 ]);
 
 function countStrings(raw: unknown): Map<string, number> {
@@ -72,6 +78,29 @@ export function isServerOwnedItemId(itemId: string): boolean {
 export function isHighRiskTileCardId(cardId: string): boolean {
     const rarity = BUILTIN_CLASH[cardId]?.rarity;
     return rarity === 'epic' || rarity === 'legendary';
+}
+
+export function capStringArrayItemGain(
+    incoming: unknown,
+    existing: unknown,
+    itemId: string,
+    maxGain: number,
+): string[] | null {
+    if (!Array.isArray(incoming)) return null;
+    const allowed = (countStrings(existing).get(itemId) ?? 0) + Math.max(0, Math.floor(maxGain));
+    let kept = 0;
+    const out: string[] = [];
+    for (const raw of incoming) {
+        if (typeof raw !== 'string' || !raw) continue;
+        if (raw !== itemId) {
+            out.push(raw);
+            continue;
+        }
+        if (kept >= allowed) continue;
+        kept += 1;
+        out.push(raw);
+    }
+    return out;
 }
 
 export function preserveEntitledStringArray(

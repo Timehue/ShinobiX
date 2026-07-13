@@ -26,13 +26,13 @@ function msg(ts, text = 'hi') {
         node_assert_1.strict.deepEqual((0, _storage_js_1.messagesSince)(buf, 0).map(m => m.ts), [10, 20, 30]);
         node_assert_1.strict.deepEqual((0, _storage_js_1.messagesSince)(null, 5), []);
     });
-    (0, node_test_1.it)('cleanChatText trims, rejects empty, and censors slur content', () => {
+    (0, node_test_1.it)('cleanChatText trims, rejects empty, and blocks prohibited content', () => {
         node_assert_1.strict.equal((0, _storage_js_1.cleanChatText)('  hello team  '), 'hello team');
         node_assert_1.strict.equal((0, _storage_js_1.cleanChatText)('   '), null, 'whitespace-only rejected');
         node_assert_1.strict.equal((0, _storage_js_1.cleanChatText)(''), null);
         node_assert_1.strict.equal((0, _storage_js_1.cleanChatText)(undefined), null);
-        const censored = (0, _storage_js_1.cleanChatText)('you nigger');
-        node_assert_1.strict.ok(censored && !/nigger/i.test(censored), `slur should be censored, got "${censored}"`);
+        node_assert_1.strict.equal((0, _storage_js_1.cleanChatText)('you nigger'), null);
+        node_assert_1.strict.equal((0, _storage_js_1.cleanChatText)('you n1gger'), null);
     });
     (0, node_test_1.it)('cleanChatText caps overly long input rather than rejecting it', () => {
         const long = 'a'.repeat(5000);

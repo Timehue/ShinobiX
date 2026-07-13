@@ -13,7 +13,7 @@
 .patch-notes-intro {
     margin: 0;
     font-size: var(--fs-sm);
-    color: #cbd5e1;
+    color: var(--slate-300);
     line-height: var(--lh-base);
 }
 

@@ -3,9 +3,12 @@ import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { withKvLock } from '../_lock.js';
+import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { applyTrainingGrant } from './_grant.js';
 import { parseLegacyTraining } from './_legacy.js';
+import { gainXp } from '../_xp-engine.js';
+import { MAX_TRAINING_RECEIPTS } from './_session.js';
 
 interface TrainingToken {
     playerName: string;
@@ -50,33 +53,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only complete your own training.' });
 
         const tokenKey = token ? `training-token:${playerName}:${token}` : '';
+        const saveKey = `save:${playerName}`;
         const now = Date.now();
-        const result = await mutatePlayerSave(playerName, async ({ record, character }) => {
-            const redeemed = Array.isArray(character.redeemedTrainingTokens)
-                ? (character.redeemedTrainingTokens as unknown[]).filter((v): v is TrainingRedemption => !!v && typeof v === 'object' && typeof (v as TrainingRedemption).token === 'string')
+        const result = await withKvLock(saveKey, async () => {
+            const record = await kv.get<Record<string, unknown>>(saveKey);
+            const character = record?.character as Record<string, unknown> | undefined;
+            if (!record || !character) return { ok: false as const, status: 404, error: 'Player save not found.' };
+            const receipts = Array.isArray(record._trainingReceipts)
+                ? record._trainingReceipts.filter((v): v is string => typeof v === 'string')
                 : [];
             const legacyData = legacy ? parseLegacyTraining(record.activeTraining) : null;
-            const priorLegacy = legacy && !record.activeTraining
-                ? [...redeemed].reverse().find((entry) => entry.token.startsWith('legacy'))
-                : undefined;
-            if (priorLegacy) {
-                return {
-                    ok: true as const,
-                    character,
-                    recordPatch: { activeTraining: null },
-                    value: { granted: true, alreadyGranted: true, ...priorLegacy },
-                };
-            }
             if (legacy && !legacyData) return { ok: false as const, status: 409, error: 'No eligible legacy training session was found.' };
             const redemptionToken = legacyData?.token ?? token;
-            const prior = redeemed.find((entry) => entry.token === redemptionToken);
-            if (prior) {
-                return {
-                    ok: true as const,
-                    character,
-                    recordPatch: { activeTraining: null },
-                    value: { granted: true, alreadyGranted: true, ...prior },
-                };
+            if (receipts.includes(token)) {
+                return { ok: true as const, character, _saveVersion: Number(record._saveVersion ?? 0), value: { granted: true, alreadyGranted: true, token: redemptionToken } };
             }
 
             const data = legacyData ?? await kv.get<TrainingToken>(tokenKey);
@@ -96,18 +86,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 gain = Math.floor(gain * fraction);
                 xp = Math.floor(xp * fraction);
             }
-            const grant = applyTrainingGrant(character, data.stat, gain, xp);
+            const leveled = gainXp(character, xp) as Record<string, unknown>;
+            const grant = applyTrainingGrant(leveled, data.stat, gain, 0);
             const redemption: TrainingRedemption = { token: redemptionToken, stat: data.stat, gain, xp, applied: grant.applied, cap: grant.cap };
-            return {
-                ok: true as const,
-                character: { ...grant.character, redeemedTrainingTokens: [...redeemed.slice(-99), redemption] },
-                recordPatch: { activeTraining: null },
-                value: { granted: true, alreadyGranted: false, ...redemption },
-            };
-        });
+            const nextReceipts = [...receipts.filter((entry) => entry !== redemptionToken), redemptionToken].slice(-MAX_TRAINING_RECEIPTS);
+            const nextCharacter = { ...grant.character, redeemedTrainingTokens: [redemption] };
+            const written = await writeVersionedPlayerSave(saveKey, {
+                ...record,
+                _trainingReceipts: nextReceipts,
+                activeTraining: null,
+            }, nextCharacter);
+            return { ok: true as const, character: nextCharacter, _saveVersion: written._saveVersion, value: { granted: true, alreadyGranted: false, ...redemption } };
+        }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
-        if (tokenKey) await kv.del(tokenKey).catch(() => undefined);
+        if (tokenKey) await kv.del(tokenKey).catch(() => console.error('active-session cleanup failed after durable receipt'));
+        await kv.del(`training-active:${playerName}`).catch(() => console.error('active-session cleanup failed after durable receipt'));
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (err) {
         console.error('[training/complete]', err);

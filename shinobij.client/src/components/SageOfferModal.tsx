@@ -90,14 +90,14 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.65)", padding: 12 }}>
             <div className="card" style={{ maxWidth: 460, width: "94%", maxHeight: "88dvh", overflowY: "auto", padding: 16 }} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10 }}>
-                    <img src={wanderingSagePortrait} alt="Wandering Sage" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: "50%", border: "2px solid #c084fc" }} />
+                    <img src={wanderingSagePortrait} alt="Wandering Sage" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: "50%", border: "2px solid var(--purple-400)" }} />
                     <div>
                         <h3 style={{ margin: 0 }}>The Wandering Sage</h3>
                         <p style={{ margin: 0, fontSize: ".75rem", color: "#9aa3b2" }}>“Your path has opened these legacies to you.”</p>
                     </div>
                 </div>
 
-                <p style={{ margin: "0 0 10px", fontSize: ".76rem", color: "#cbd5e1" }}>
+                <p style={{ margin: "0 0 10px", fontSize: ".76rem", color: "var(--slate-300)" }}>
                     A <b>Legacy</b> is a permanent identity path — it grants you a <b>signature technique</b> and
                     deepens through five stages as you prove it. It is separate from your bloodline, and forever.
                 </p>
@@ -118,11 +118,11 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                                 key={o.legacyId}
                                 type="button"
                                 onClick={() => { setSelected(o.legacyId); document.getElementById(`offer-card-${o.legacyId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}
-                                style={{ flex: 1, minWidth: 0, textAlign: "center", cursor: "pointer", border: `1px solid ${selected === o.legacyId ? "#c084fc" : "rgba(148,163,184,.25)"}`, background: selected === o.legacyId ? "rgba(192,132,252,.12)" : "transparent", borderRadius: 10, padding: "8px 6px" }}
+                                style={{ flex: 1, minWidth: 0, textAlign: "center", cursor: "pointer", border: `1px solid ${selected === o.legacyId ? "var(--purple-400)" : "rgba(148,163,184,.25)"}`, background: selected === o.legacyId ? "rgba(192,132,252,.12)" : "transparent", borderRadius: 10, padding: "8px 6px" }}
                             >
                                 {o.badge && <img src={`/badges/legacy-${o.badge}.png`} alt="" style={{ width: 30, height: 30, borderRadius: 6, display: "block", margin: "0 auto 4px" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
                                 <div style={{ fontSize: ".68rem", fontWeight: 700, color: "#e9d5ff", lineHeight: 1.15 }}>{o.name.replace(/^Legacy of the /, "")}</div>
-                                <div style={{ fontSize: ".6rem", color: "#94a3b8", textTransform: "capitalize", marginTop: 2 }}>{o.category}{o.villageAffinity ? ` · ${o.villageAffinity}` : ""}</div>
+                                <div style={{ fontSize: ".6rem", color: "var(--text-dim)", textTransform: "capitalize", marginTop: 2 }}>{o.category}{o.villageAffinity ? ` · ${o.villageAffinity}` : ""}</div>
                                 {o.signature?.name && <div style={{ fontSize: ".6rem", color: "#c4b5fd", marginTop: 2 }}>◆ {o.signature.name}</div>}
                             </button>
                         ))}
@@ -135,7 +135,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                         id={`offer-card-${o.legacyId}`}
                         onClick={() => setSelected(selected === o.legacyId ? null : o.legacyId)}
                         style={{
-                            border: `1px solid ${selected === o.legacyId ? "#c084fc" : "rgba(148,163,184,.25)"}`,
+                            border: `1px solid ${selected === o.legacyId ? "var(--purple-400)" : "rgba(148,163,184,.25)"}`,
                             borderRadius: 10, padding: "10px 12px", marginBottom: 8, cursor: "pointer",
                             background: selected === o.legacyId ? "rgba(148,163,184,.08)" : "transparent",
                         }}
@@ -149,12 +149,12 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                                     />
                                 )}
-                                <b style={{ color: "#c084fc" }}>{o.name}</b>
+                                <b style={{ color: "var(--purple-400)" }}>{o.name}</b>
                             </span>
                         </div>
-                        <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "#cbd5e1", fontStyle: "italic" }}>{o.flavor}</p>
+                        <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "var(--slate-300)", fontStyle: "italic" }}>{o.flavor}</p>
                         <p style={{ margin: "4px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
-                            Title on awakening: <b style={{ color: "#e2e8f0" }}>{o.title}</b>
+                            Title on awakening: <b style={{ color: "var(--slate-200)" }}>{o.title}</b>
                             {o.villageAffinity ? ` · Favored by ${o.villageAffinity}` : ""}
                         </p>
                         {o.signature && (
@@ -169,7 +169,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                             <button
                                 disabled={busy}
                                 onClick={(e) => { e.stopPropagation(); void handleAccept(o.legacyId); }}
-                                style={{ marginTop: 8, width: "100%", background: "#c084fc", color: "#0b1020", fontWeight: 700 }}
+                                style={{ marginTop: 8, width: "100%", background: "var(--purple-400)", color: "#0b1020", fontWeight: 700 }}
                             >
                                 Accept This Path
                             </button>

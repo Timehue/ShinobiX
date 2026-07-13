@@ -26,11 +26,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports._diskKvForProxy = exports.saveStoreKind = exports.kv = void 0;
 exports.closeStoragePool = closeStoragePool;
+exports._toSqlPattern = _toSqlPattern;
+exports._makeDiskKv = _makeDiskKv;
+exports._validatedRemoteKvBaseUrl = _validatedRemoteKvBaseUrl;
+exports._makeRemoteKv = _makeRemoteKv;
 exports._makeRoutedKv = _makeRoutedKv;
+exports._migrateDiskRoutedKeys = _migrateDiskRoutedKeys;
 exports.migrateDiskRoutedKeysToOverlay = migrateDiskRoutedKeysToOverlay;
 const _readCache = new Map();
 // These prefixes change too rapidly to benefit from caching.
-const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:'];
+const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:'];
 function _shouldCache(key) {
     return !_noCachePrefixes.some(p => key.startsWith(p));
 }
@@ -117,8 +122,12 @@ function getPool() {
     });
     return _pool;
 }
-function toSqlPattern(pattern) {
+function _toSqlPattern(pattern) {
     return pattern
+        // PostgreSQL LIKE treats backslash as its default escape character.
+        // Escape it first so a caller cannot use `\%` / `\_` to undo the
+        // literal escaping below.
+        .replace(/\\/g, '\\\\')
         .replace(/%/g, '\\%')
         .replace(/_/g, '\\_')
         .replace(/\*/g, '%')
@@ -178,7 +187,7 @@ const pgKv = {
         return Number(rows[0].kv_incr);
     },
     async keys(pattern) {
-        const { rows } = await getPool().query(`SELECT key FROM public.kv_store WHERE key LIKE $1 AND (expires_at IS NULL OR expires_at > now())`, [toSqlPattern(pattern)]);
+        const { rows } = await getPool().query(`SELECT key FROM public.kv_store WHERE key LIKE $1 AND (expires_at IS NULL OR expires_at > now())`, [_toSqlPattern(pattern)]);
         return rows.map((r) => r.key);
     },
     async mget(...keys) {
@@ -365,7 +374,7 @@ const supabaseKv = {
         // confuse the PostgREST filter parser and cause consistent 500 errors.
         const { data, error } = await db
             .from('kv_store').select('key, expires_at')
-            .like('key', toSqlPattern(pattern));
+            .like('key', _toSqlPattern(pattern));
         if (error)
             throw new Error(`kv.keys(${pattern}): ${error.message}`);
         const now = Date.now();
@@ -433,19 +442,22 @@ const supabaseKv = {
 //
 // Routing rule: a key matches DISK when its prefix is one of:
 //   save:                 — player save blobs
-//   save-snapshot:        — daily/manual backup copies of those saves (full
-//                           blobs, 90-day TTL). Kept on the same free cPanel
-//                           disk as the live saves they copy, so backups don't
-//                           pile up on Supabase. NOTE: 'save:' does NOT match
-//                           'save-snapshot:' (5th char ':' vs '-'), so this
-//                           prefix is required explicitly.
 //   shared:images*        — uploaded image blobs (incl. bloodline images)
 //   shared:imgfields*     — uploaded image hash fields
 //
-// All other keys keep using pgKv / supabaseKv as before.
-const _DISK_PREFIXES = ['save:', 'save-snapshot:', 'shared:images', 'shared:imgfields'];
+// save-snapshot: is intentionally base-primary (Supabase/Postgres) so backup
+// and live data do not share the disk/proxy failure domain.
+// Live saves stay on the disk/proxy overlay; snapshots deliberately do NOT.
+// Backups are written to the independent base database so losing the overlay
+// cannot erase both the live save and its recovery copy. Legacy snapshots that
+// already live on disk remain readable through the routing fallback below.
+const _DISK_PREFIXES = ['save:', 'shared:images', 'shared:imgfields'];
+const _SNAPSHOT_PREFIX = 'save-snapshot:';
 function _routesToDisk(keyOrPattern) {
     return _DISK_PREFIXES.some((p) => keyOrPattern.startsWith(p));
+}
+function _routesToSnapshotBase(keyOrPattern) {
+    return keyOrPattern.startsWith(_SNAPSHOT_PREFIX);
 }
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const _fs = require('node:fs');
@@ -514,6 +526,76 @@ async function _diskUnlink(root, key) {
         throw e;
     }
 }
+// ─── Disk RMW serialization ───────────────────────────────────────────────────
+//
+// hset/hdel (and set-nx) on the disk overlay are read-modify-write over a
+// single JSON file: read the whole hash, merge/delete fields, rewrite the file.
+// Unserialized, concurrent writers interleave (both read the same snapshot,
+// then the last write wins) and silently drop each other's fields — reproduced
+// 2026-07-09 as image ids missing from the shared:imgfields:<cat> manifest
+// after parallel POST /api/images publishes, while every image stayed
+// individually servable via its own shared:img:<id> key (a plain set).
+// api/images.ts's "HSET is atomic per-field" contract is enforced HERE.
+// Two layers, both required:
+//   1. An in-process promise chain, keyed module-wide by root+key — covers
+//      concurrent requests inside one Node process, including across BOTH
+//      _makeDiskKv instances (kv's _diskOverlay and the /api/kv proxy's
+//      _diskKvForProxy share the same root).
+//   2. A <keyfile>.lock file created with O_EXCL — covers concurrent
+//      processes; Passenger may run several app processes on one DISK_KV_DIR.
+// Plain set/del stay lock-free: whole-value writes are already atomic via
+// _diskWrite's tmp+rename. Lock files never collide with data: _walkJson only
+// picks *.json, and '<key>.json.lock' doesn't end in '.json'.
+const _LOCK_STALE_MS = 10_000; // steal a lock older than this (crashed holder)
+const _LOCK_WAIT_MS = 10_000; // then give up (throw) — caller surfaces a 500, client retries
+async function _acquireDiskLock(lockPath) {
+    const deadline = Date.now() + _LOCK_WAIT_MS;
+    let delay = 15;
+    for (;;) {
+        try {
+            await _fs.promises.writeFile(lockPath, String(process.pid), { flag: 'wx' });
+            return;
+        }
+        catch (e) {
+            if (e.code !== 'EEXIST')
+                throw e;
+        }
+        const st = await _fs.promises.stat(lockPath).catch(() => null);
+        if (st && Date.now() - st.mtimeMs > _LOCK_STALE_MS) {
+            await _fs.promises.unlink(lockPath).catch(() => { }); // stale — steal it
+            continue;
+        }
+        if (Date.now() >= deadline) {
+            throw new Error(`disk kv: timed out waiting for lock ${lockPath}`);
+        }
+        await new Promise((r) => setTimeout(r, delay));
+        delay = Math.min(delay * 2, 200);
+    }
+}
+const _diskRmwChains = new Map();
+async function _withDiskKeyLock(root, key, fn) {
+    const chainKey = JSON.stringify([root, key]); // unambiguous root/key boundary
+    const prev = _diskRmwChains.get(chainKey) ?? Promise.resolve();
+    const run = prev.then(async () => {
+        const lockPath = _keyToPath(root, key) + '.lock';
+        await _fs.promises.mkdir(_nodePath.dirname(lockPath), { recursive: true });
+        await _acquireDiskLock(lockPath);
+        try {
+            return await fn();
+        }
+        finally {
+            await _fs.promises.unlink(lockPath).catch(() => { });
+        }
+    });
+    // Chain survives rejections (next op still runs); drop the map entry once idle.
+    const tail = run.then(() => { }, () => { });
+    _diskRmwChains.set(chainKey, tail);
+    void tail.then(() => {
+        if (_diskRmwChains.get(chainKey) === tail)
+            _diskRmwChains.delete(chainKey);
+    });
+    return run;
+}
 async function _walkJson(dir, out) {
     let entries;
     try {
@@ -548,12 +630,18 @@ function _makeDiskKv(root) {
             return rec.value;
         },
         async set(key, value, options) {
-            if (options?.nx) {
-                const existing = await _diskRead(root, key);
-                if (existing && !isExpired(existing.expires_at))
-                    return null;
-            }
             const exp = options?.ex ? expiresAt(options.ex) : null;
+            if (options?.nx) {
+                // Check-then-write — serialize like the other RMW ops so two
+                // concurrent nx claimers can't both observe "absent" and both win.
+                return _withDiskKeyLock(root, key, async () => {
+                    const existing = await _diskRead(root, key);
+                    if (existing && !isExpired(existing.expires_at))
+                        return null;
+                    await _diskWrite(root, key, { value, expires_at: exp });
+                    return 'OK';
+                });
+            }
             await _diskWrite(root, key, { value, expires_at: exp });
             return 'OK';
         },
@@ -598,39 +686,131 @@ function _makeDiskKv(root) {
             return all && typeof all === 'object' ? Object.keys(all) : [];
         },
         async hset(key, fields) {
-            const existing = (await this.get(key)) ?? {};
-            await this.set(key, { ...existing, ...fields });
-            return Object.keys(fields).length;
+            // Serialized RMW — see _withDiskKeyLock. Unserialized, concurrent
+            // hsets read the same snapshot and the last write drops the other
+            // writers' fields (lost image-manifest ids under parallel publishes).
+            return _withDiskKeyLock(root, key, async () => {
+                const existing = (await this.get(key)) ?? {};
+                await this.set(key, { ...existing, ...fields });
+                return Object.keys(fields).length;
+            });
         },
         async hdel(key, ...fields) {
             if (!fields.length)
                 return 0;
-            const existing = (await this.get(key)) ?? {};
-            for (const f of fields)
-                delete existing[f];
-            await this.set(key, existing);
-            return fields.length;
+            return _withDiskKeyLock(root, key, async () => {
+                const existing = (await this.get(key)) ?? {};
+                for (const f of fields)
+                    delete existing[f];
+                await this.set(key, existing);
+                return fields.length;
+            });
         },
     };
 }
 // ─── Remote KV (HTTP client → cPanel proxy) ──────────────────────────────────
-function _makeRemoteKv(baseUrl, token) {
-    async function call(op, body) {
-        const r = await fetch(baseUrl.replace(/\/$/, '') + '/' + op, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', 'x-kv-token': token },
-            body: JSON.stringify(body),
-        });
-        if (!r.ok)
-            throw new Error(`remoteKv ${op}: HTTP ${r.status} ${await r.text().catch(() => '')}`);
-        return (await r.json());
+const PRODUCTION_KV_PROXY_HOSTS = new Set(['theravensark.com', 'www.theravensark.com']);
+const REMOTE_KV_OPS = new Set(['get', 'set', 'del', 'keys', 'mget', 'hget', 'hset', 'hdel', 'hgetall', 'hkeys']);
+/**
+ * A KV proxy receives the bearer-equivalent storage token on every request, so
+ * its destination must never be an arbitrary environment/user URL. Keep the
+ * production host list compiled into the release; changing storage providers
+ * requires a reviewed code change rather than a mutable allowlist variable.
+ */
+function _validatedRemoteKvBaseUrl(raw, allowedHosts = PRODUCTION_KV_PROXY_HOSTS) {
+    let parsed;
+    try {
+        parsed = new URL(raw);
+    }
+    catch {
+        throw new Error('KV_PROXY_URL must be a valid URL.');
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    const pathname = parsed.pathname.replace(/\/+$/, '');
+    if (parsed.protocol !== 'https:')
+        throw new Error('KV_PROXY_URL must use HTTPS.');
+    if (!allowedHosts.has(hostname))
+        throw new Error(`KV_PROXY_URL host is not approved: ${hostname}`);
+    if (parsed.port || parsed.username || parsed.password || parsed.search || parsed.hash) {
+        throw new Error('KV_PROXY_URL must not contain credentials, a port, query, or fragment.');
+    }
+    if (pathname !== '/api/kv')
+        throw new Error('KV_PROXY_URL path must be exactly /api/kv.');
+    return `https://${hostname}/api/kv`;
+}
+function _makeRemoteKv(baseUrl, token, opts) {
+    const safeBaseUrl = _validatedRemoteKvBaseUrl(baseUrl, opts?.allowedHosts);
+    // Transport resilience. The proxy lives on the cPanel box, which is bounced
+    // on every deploy (a hard worker exit) and can be OOM-killed by CloudLinux
+    // under load — either drops an in-flight response as a Passenger 502
+    // ("Incomplete response received from application"). Un-retried, that single
+    // blip surfaced as a player-facing 500 on a save/clan read (the exact GET
+    // /api/save/clan-* Sentry error). A short bounded retry on transient
+    // failures (network error, request timeout, or 502/503/504) turns almost all
+    // of them into a successful second attempt — the blip stays invisible.
+    //
+    // Idempotency: only safe-to-repeat ops are retried. Reads always are; plain
+    // set/del/hset/hdel re-apply identically (same body; last-write-wins). The
+    // one unsafe case opts OUT via { retryable: false } — a set with nx is a
+    // check-then-write claim, so a lost 2xx response would make the retry see
+    // its own prior claim and wrongly report "not claimed". (incr composes from
+    // a retryable get + a retryable plain set below, which stays correct because
+    // the recomputed value is deterministic given the same prior read.)
+    const RETRY_STATUS = new Set([502, 503, 504]);
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 150; // linear backoff between tries: 150ms, 300ms
+    const POINT_TIMEOUT_MS = 8_000; // abort a hung point op; bulk scans pass 0 (no timeout)
+    async function call(op, body, opts) {
+        if (!REMOTE_KV_OPS.has(op))
+            throw new Error(`Unsupported remote KV operation: ${op}`);
+        const maxAttempts = opts?.retryable === false ? 1 : MAX_ATTEMPTS;
+        const timeoutMs = opts?.timeoutMs ?? POINT_TIMEOUT_MS;
+        let lastErr;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            let transient = false;
+            // Per-attempt timeout using the same AbortController idiom as the
+            // Supabase fetchWithTimeout above. Skipped (no signal) when
+            // timeoutMs <= 0 so a legitimately slow keys/mget scan over a big
+            // cPanel keyspace is never aborted mid-walk.
+            const ctrl = timeoutMs > 0 ? new AbortController() : null;
+            const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+            try {
+                const r = await fetch(`${safeBaseUrl}/${op}`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json', 'x-kv-token': token },
+                    body: JSON.stringify(body),
+                    signal: ctrl?.signal,
+                });
+                if (r.ok)
+                    return (await r.json());
+                lastErr = new Error(`remoteKv ${op}: HTTP ${r.status} ${await r.text().catch(() => '')}`);
+                transient = RETRY_STATUS.has(r.status);
+            }
+            catch (e) {
+                // fetch threw: DNS/connection error, or the abort timeout fired
+                // (AbortError). Both are transient — worth another attempt.
+                lastErr = e;
+                transient = true;
+            }
+            finally {
+                if (timer)
+                    clearTimeout(timer);
+            }
+            if (!transient || attempt >= maxAttempts)
+                break;
+            await new Promise((res) => setTimeout(res, RETRY_DELAY_MS * attempt));
+        }
+        throw lastErr;
     }
     return {
         async get(key) {
             return (await call('get', { key })).value;
         },
         async set(key, value, options) {
-            return (await call('set', { key, value, options })).result;
+            // nx claims are check-then-write: not safe to retry (a lost 2xx would
+            // make the retry observe the existing claim and report "not claimed").
+            // Plain sets re-apply the same value — retryable.
+            return (await call('set', { key, value, options }, { retryable: !options?.nx })).result;
         },
         async del(...keys) {
             return (await call('del', { keys })).count;
@@ -645,10 +825,15 @@ function _makeRemoteKv(baseUrl, token) {
             return next;
         },
         async keys(pattern) {
-            return (await call('keys', { pattern })).keys;
+            // Whole-keyspace walk on the cPanel disk — legitimately slow over a
+            // large save keyspace, so no client abort timeout (timeoutMs: 0).
+            // Still retried on transient transport failures.
+            return (await call('keys', { pattern }, { timeoutMs: 0 })).keys;
         },
         async mget(...keys) {
-            return (await call('mget', { keys })).values;
+            // Batched multi-key read — can be large (the snapshot cron mgets many
+            // saves at once); no client abort timeout for the same reason as keys.
+            return (await call('mget', { keys }, { timeoutMs: 0 })).values;
         },
         async hgetall(key) {
             return (await call('get', { key })).value;
@@ -689,8 +874,14 @@ function _makeRoutedKv(base, disk) {
     async function diskGet(key) {
         return disk.get(key);
     }
+    async function snapshotGet(key) {
+        const primary = await base.get(key);
+        return primary === null ? disk.get(key) : primary;
+    }
     return {
         async get(key) {
+            if (_routesToSnapshotBase(key))
+                return snapshotGet(key);
             return _routesToDisk(key) ? diskGet(key) : base.get(key);
         },
         async set(key, value, options) {
@@ -698,18 +889,29 @@ function _makeRoutedKv(base, disk) {
         },
         async del(...keys) {
             const { diskKeys, baseKeys } = split(keys);
+            const snapshotKeys = keys.filter(_routesToSnapshotBase);
             // For disk-routed keys, also delete the legacy copy on base.
-            const [a, b, c] = await Promise.all([
+            // Snapshot keys are base-primary but also delete any legacy disk
+            // copy so an expired/deleted backup cannot reappear via fallback.
+            const [a, b, c, d] = await Promise.all([
                 diskKeys.length ? disk.del(...diskKeys) : Promise.resolve(0),
                 baseKeys.length ? base.del(...baseKeys) : Promise.resolve(0),
                 diskKeys.length ? base.del(...diskKeys).catch(() => 0) : Promise.resolve(0),
+                snapshotKeys.length ? disk.del(...snapshotKeys).catch(() => 0) : Promise.resolve(0),
             ]);
-            return a + b + c;
+            return a + b + c + d;
         },
         async incr(key, options) {
             return _routesToDisk(key) ? disk.incr(key, options) : base.incr(key, options);
         },
         async keys(pattern) {
+            if (_routesToSnapshotBase(pattern)) {
+                const [primary, legacy] = await Promise.all([
+                    base.keys(pattern),
+                    disk.keys(pattern).catch(() => []),
+                ]);
+                return [...new Set([...primary, ...legacy])];
+            }
             return _routesToDisk(pattern) ? disk.keys(pattern) : base.keys(pattern);
         },
         async mget(...keys) {
@@ -728,9 +930,18 @@ function _makeRoutedKv(base, disk) {
             let di = 0, bi = 0;
             for (const src of order)
                 out.push(src === 'disk' ? diskVals[di++] : baseVals[bi++]);
+            const fallbackIndexes = keys
+                .map((key, index) => ({ key, index }))
+                .filter(({ key, index }) => _routesToSnapshotBase(key) && out[index] === null);
+            if (fallbackIndexes.length) {
+                const legacy = await disk.mget(...fallbackIndexes.map(({ key }) => key));
+                fallbackIndexes.forEach(({ index }, i) => { out[index] = legacy[i]; });
+            }
             return out;
         },
         async hgetall(key) {
+            if (_routesToSnapshotBase(key))
+                return snapshotGet(key);
             return _routesToDisk(key) ? diskGet(key) : base.hgetall(key);
         },
         async hkeys(key) {
@@ -744,34 +955,81 @@ function _makeRoutedKv(base, disk) {
         },
     };
 }
-// One-shot migration helper. Walks all disk-routed keys on the base backend,
-// copies each to the disk backend, then deletes the base copy. Idempotent.
-// Exposed via /api/admin/migrate-kv (admin-auth required).
-async function migrateDiskRoutedKeysToOverlay(opts) {
-    if (!_diskOverlay)
-        throw new Error('No disk overlay configured (set DISK_KV_DIR or KV_PROXY_URL).');
+function migrationValueEqual(a, b) {
+    // KV values are JSON-compatible. A conservative false negative is safe: it
+    // reports a conflict and retains both copies instead of deleting anything.
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+/**
+ * Conflict-safe migration core with injectable stores for race tests.
+ * Destination writes are NX, then read back and compared. The source is read a
+ * second time before deletion. A newer/different overlay value is NEVER
+ * replaced, and any source mutation leaves the source intact for operator
+ * review. Callers must freeze legacy base writers during a live migration.
+ */
+async function _migrateDiskRoutedKeys(base, overlay, prefixes, opts) {
     const migrated = [];
+    const alreadyPresent = [];
+    const conflicts = [];
     const skipped = [];
     let deleted = 0;
-    for (const prefix of _DISK_PREFIXES) {
-        const ks = await _baseKv.keys(prefix + '*');
+    for (const prefix of prefixes) {
+        const ks = await base.keys(prefix + '*');
         for (const k of ks) {
-            const v = await _baseKv.get(k);
-            if (v === null || v === undefined) {
+            const source = await base.get(k);
+            if (source === null || source === undefined) {
                 skipped.push(k);
+                continue;
+            }
+            const destination = await overlay.get(k);
+            if (destination !== null && destination !== undefined) {
+                if (!migrationValueEqual(source, destination)) {
+                    conflicts.push(k);
+                    continue;
+                }
+                if (!opts?.dryRun) {
+                    const sourceReadBack = await base.get(k);
+                    if (!migrationValueEqual(source, sourceReadBack)) {
+                        conflicts.push(k);
+                        continue;
+                    }
+                    deleted += await base.del(k).catch(() => 0);
+                }
+                alreadyPresent.push(k);
                 continue;
             }
             if (opts?.dryRun) {
                 migrated.push(k);
                 continue;
             }
-            await _diskOverlay.set(k, v);
+            // NX closes the check->write race with a concurrent overlay writer.
+            const claimed = await overlay.set(k, source, { nx: true });
+            const readBack = await overlay.get(k);
+            if (!claimed || !migrationValueEqual(source, readBack)) {
+                conflicts.push(k);
+                continue;
+            }
+            // A concurrent source change must never be deleted as if it were the
+            // older value we copied. The endpoint additionally requires an
+            // explicit write-freeze acknowledgement for live runs.
+            const sourceReadBack = await base.get(k);
+            if (!migrationValueEqual(source, sourceReadBack)) {
+                conflicts.push(k);
+                continue;
+            }
             migrated.push(k);
-            const n = await _baseKv.del(k).catch(() => 0);
+            const n = await base.del(k).catch(() => 0);
             deleted += n;
         }
     }
-    return { migrated, skipped, deleted };
+    return { migrated, alreadyPresent, conflicts, skipped, deleted };
+}
+// One-shot migration helper. Snapshots are intentionally excluded: they now
+// stay on the independent base store as disaster-recovery copies.
+async function migrateDiskRoutedKeysToOverlay(opts) {
+    if (!_diskOverlay)
+        throw new Error('No disk overlay configured (set DISK_KV_DIR or KV_PROXY_URL).');
+    return _migrateDiskRoutedKeys(_baseKv, _diskOverlay, _DISK_PREFIXES, opts);
 }
 // ─── Export the right backend ─────────────────────────────────────────────────
 //

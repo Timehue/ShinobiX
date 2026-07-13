@@ -30,8 +30,8 @@ const HINTS: Partial<Record<Screen, string>> = {
 
 const bannerStyle: React.CSSProperties = {
     position: "fixed", left: "50%", bottom: 16, transform: "translateX(-50%)",
-    maxWidth: 520, width: "calc(100% - 24px)", background: "#0f172a",
-    border: "1px solid #38bdf8", borderRadius: 12, padding: "10px 14px",
+    maxWidth: 520, width: "calc(100% - 24px)", background: "var(--slate-900)",
+    border: "1px solid var(--cyan)", borderRadius: 12, padding: "10px 14px",
     display: "flex", alignItems: "center", gap: 10, color: "#e0f2fe",
     zIndex: 8500, boxShadow: "0 6px 24px rgba(0,0,0,0.5)", fontSize: 14,
 };

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, bumpSaveVersion } from './_save-version.js';
+import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, bumpSaveVersion, storedSaveVersion, nextSaveVersion, matchesStoredSaveVersion } from './_save-version.js';
 
 describe('parseBaseSaveVersion', () => {
     it('returns the number for a valid finite version (including 0)', () => {
@@ -19,10 +19,41 @@ describe('parseBaseSaveVersion', () => {
         assert.equal(parseBaseSaveVersion({}), null);
     });
 
+    it('rejects negative, fractional, and unsafe counters', () => {
+        assert.equal(parseBaseSaveVersion(-1), null);
+        assert.equal(parseBaseSaveVersion(1.5), null);
+        assert.equal(parseBaseSaveVersion(Number.MAX_SAFE_INTEGER + 1), null);
+    });
+
     it('does not reinterpret a present version as missing (guard invariant)', () => {
         // The 409 guard fires only when parse !== null AND version < stored.
         // A present version of 0 must stay 0 (not be treated as "missing").
         assert.notEqual(parseBaseSaveVersion(0), null);
+    });
+});
+
+describe('stored/next save versions', () => {
+    it('treats only an absent legacy stamp as zero', () => {
+        assert.equal(storedSaveVersion(undefined), 0);
+        assert.equal(storedSaveVersion(null), 0);
+        assert.equal(storedSaveVersion(7), 7);
+        assert.throws(() => storedSaveVersion(-1), /invalid/i);
+        assert.throws(() => storedSaveVersion(1.25), /invalid/i);
+    });
+
+    it('increments the maximum live/snapshot version and stays safe', () => {
+        assert.equal(nextSaveVersion(4, 9), 10);
+        assert.equal(nextSaveVersion(undefined), 1);
+        assert.throws(() => nextSaveVersion(Number.MAX_SAFE_INTEGER), /exhausted/i);
+    });
+});
+
+describe('matchesStoredSaveVersion', () => {
+    it('accepts only exact equality and rejects stale, future, and missing bases', () => {
+        assert.equal(matchesStoredSaveVersion(7, 7), true);
+        assert.equal(matchesStoredSaveVersion(6, 7), false, 'stale');
+        assert.equal(matchesStoredSaveVersion(8, 7), false, 'future');
+        assert.equal(matchesStoredSaveVersion(null, 7), false, 'missing/invalid');
     });
 });
 

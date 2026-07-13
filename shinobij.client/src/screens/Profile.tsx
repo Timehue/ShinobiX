@@ -30,6 +30,8 @@ import { getCharacterElements } from "../lib/elements";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { getAllJutsus, playerLensDiscipline } from "../App";
+import { settleProfileAction, type ProfileSettlementAction } from "../lib/profile-settlement";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 type ProfileDossierRow = {
     label: string;
@@ -149,6 +151,16 @@ export function Profile({
     // bloodline/specialty discipline. Purely cosmetic — does not touch stats.
     const [tagLensDiscipline, setTagLensDiscipline] = useState<JutsuType>(() => playerLensDiscipline(character));
 
+    async function runPaidProfileAction(action: ProfileSettlementAction): Promise<boolean> {
+        const result = await settleProfileAction(character.name, action);
+        if (!result.ok) {
+            alert(result.error);
+            return false;
+        }
+        updateCharacter(result.character);
+        return true;
+    }
+
     useEffect(() => {
         if (!selectedAchievement) return;
         const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedAchievement(null); };
@@ -189,6 +201,7 @@ export function Profile({
     // (only gains are clamped), so this client write persists cleanly. HP/Chakra/
     // Stamina pools are untouched (they are not allocatable stats).
     async function respecStats() {
+        if (!requireServerSettlement("profileStatRespec")) return;
         const RESPEC_COST = 50;
         if ((character.fateShards ?? 0) < RESPEC_COST) {
             setStatWarning(`Respec costs ${RESPEC_COST} 🔮 Fate Shards — you have ${character.fateShards ?? 0}.`);
@@ -203,13 +216,7 @@ export function Profile({
         }
         if (!(await gameConfirm(`Reset all 12 stats to base and refund every earned point (${refund}) into your allocatable pool for ${RESPEC_COST} 🔮 Fate Shards? Nothing is lost — you re-allocate as you wish.`))) return;
         setStatWarning("");
-        const response = await fetch('/api/player/stat-respec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name }) });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data?.character) {
-            setStatWarning(String(data?.error ?? 'Respec failed.'));
-            return;
-        }
-        updateCharacter(data.character as Character);
+        await runPaidProfileAction({ type: 'respec-stats' });
     }
 
     async function mutateProfileTitle(action: 'title' | 'style' | 'icon', value: string): Promise<boolean> {
@@ -220,10 +227,11 @@ export function Profile({
     }
 
     async function purchaseTitle() {
+        if (!requireServerSettlement("profileFateShardTitle")) return;
         const trimmed = titleInput.trim().slice(0, 15);
         if (!trimmed) return alert("Enter a title first.");
         if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} 🔮 Fate Shards.`);
-        await mutateProfileTitle('title', trimmed);
+        await runPaidProfileAction({ type: 'purchase-title', title: trimmed });
     }
 
     async function clearTitle() {
@@ -234,22 +242,26 @@ export function Profile({
     // once per change; both are server-allowlisted at save time so nothing
     // outside the pickers ever persists. Cosmetic only — never stats.
     async function purchaseTitleStyle(styleId: string) {
+        if (!requireServerSettlement("profileFateShardTitle")) return;
         if ((character.customTitleStyle ?? "") === styleId) return;
         if (styleId !== "" && (character.fateShards ?? 0) < TITLE_STYLE_COST) {
             return alert(`Title styles cost ${TITLE_STYLE_COST} 🔮 Fate Shards.`);
         }
         const cost = styleId === "" ? 0 : TITLE_STYLE_COST;
         if (cost > 0 && !(await gameConfirm(`Restyle your title for ${cost} 🔮 Fate Shards?`, { title: "Title Style", confirmLabel: "Restyle" }))) return;
-        await mutateProfileTitle('style', styleId);
+        if (styleId === '') await mutateProfileTitle('style', styleId);
+        else await runPaidProfileAction({ type: 'purchase-title-style', styleId });
     }
     async function purchaseTitleIcon(icon: string) {
+        if (!requireServerSettlement("profileFateShardTitle")) return;
         if ((character.customTitleIcon ?? "") === icon) return;
         if (icon !== "" && (character.fateShards ?? 0) < TITLE_ICON_COST) {
             return alert(`Title icons cost ${TITLE_ICON_COST} 🔮 Fate Shards.`);
         }
         const cost = icon === "" ? 0 : TITLE_ICON_COST;
         if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} 🔮 Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return;
-        await mutateProfileTitle('icon', icon);
+        if (icon === '') await mutateProfileTitle('icon', icon);
+        else await runPaidProfileAction({ type: 'purchase-title-icon', icon });
     }
 
     // Wear an earned title (free) — earned titles come from title-granting

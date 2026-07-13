@@ -99,8 +99,7 @@ async function awardProfessionXp(playerName, profession, amount) {
                 professionRank: nextRank,
             },
         };
-        (0, _save_version_js_1.bumpSaveVersion)(updated);
-        await _storage_js_1.kv.set(saveKey, updated);
+        await _storage_js_1.kv.set(saveKey, (0, _save_version_js_1.bumpSaveVersion)(updated));
         return { xp: nextXp, rank: nextRank };
     }, { failClosed: true });
 }
@@ -180,11 +179,19 @@ function getMissionPoolSafeCount(profession) {
 // Load (or issue) today's missions for a player. Returns null if profession
 // doesn't have missions. Vanguard Rank 6+ gets 4 missions instead of 3
 // (the Rank 6 even-rank perk).
-async function loadOrIssueDailyMissions(playerName, profession, now = new Date()) {
+async function loadOrIssueDailyMissions(playerName, profession, now = new Date(),
+// The daily endpoint and progress reporters already load the character to
+// decide the profession/eligibility.  Accept that trusted, server-loaded
+// value so a mission-panel refresh does not make a second identical
+// save:<player> database round trip.  `undefined` preserves the public
+// helper's standalone behaviour; `null` means the caller already checked
+// and there is no character record.
+loadedCharacter = undefined) {
     const today = utcDateKey(now);
     // Look up current rank to determine daily mission slot count.
-    const record = await _storage_js_1.kv.get(`save:${playerName}`);
-    const char = record?.character;
+    const char = loadedCharacter === undefined
+        ? (await _storage_js_1.kv.get(`save:${playerName}`))?.character
+        : loadedCharacter ?? undefined;
     const currentRank = Number(char?.professionRank ?? 1);
     const slotCount = (profession === 'vanguard' && currentRank >= 6) ? 4 : 3;
     const existing = await _storage_js_1.kv.get(dailyKey(playerName));
@@ -225,7 +232,7 @@ async function reportMissionEvent(opts) {
     // both increment to N+1, and the second write clobber the first.
     const dKey = dailyKey(playerName);
     const result = await (0, _lock_js_1.withKvLock)(dKey, async () => {
-        const state = await loadOrIssueDailyMissions(playerName, profession, now);
+        const state = await loadOrIssueDailyMissions(playerName, profession, now, char);
         if (!state)
             return { xpAwarded: 0, missionsCompleted: [] };
         let xpAwarded = 0;
@@ -319,8 +326,7 @@ async function awardNewbieRyo(playerName, amount) {
             ...record,
             character: { ...char, ryo: Number(char.ryo ?? 0) + amount },
         };
-        (0, _save_version_js_1.bumpSaveVersion)(updated);
-        await _storage_js_1.kv.set(saveKey, updated);
+        await _storage_js_1.kv.set(saveKey, (0, _save_version_js_1.bumpSaveVersion)(updated));
     }, { failClosed: true });
 }
 // Progress the new-shinobi dailies for a matching event kind. No-op for players

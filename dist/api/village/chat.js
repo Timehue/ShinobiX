@@ -127,6 +127,8 @@ async function handler(req, res) {
             // Moderate + length-cap before persisting. Profanity is masked
             // with asterisks; PII patterns are redacted. Admins bypass so
             // they can still send command-style messages with URLs.
+            if (!identity.admin && !(0, _text_moderation_js_1.isCleanText)(text))
+                return res.status(400).json({ error: 'Message contains blocked content.' });
             const safeText = identity.admin ? text.slice(0, _text_moderation_js_1.TEXT_LIMITS.chatMessage) : (0, _text_moderation_js_1.sanitizeUserText)(text, _text_moderation_js_1.TEXT_LIMITS.chatMessage);
             if (!safeText)
                 return res.status(400).json({ error: 'Empty message after moderation.' });

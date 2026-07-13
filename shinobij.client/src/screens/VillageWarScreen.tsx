@@ -182,7 +182,7 @@ export function VillageWarScreen({
         // the other side out of the discrepancy.
         const crateId = `war-crate-${war.id}`;
         if ((character.claimedWarCrateIds ?? []).includes(crateId)) return;
-        const response = await fetch('/api/village/claim-war-crate', {
+        const response = await fetch("/api/village/claim-war-crate", {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ playerName: character.name, warCrateId: crateId }),
         }).catch(() => null);

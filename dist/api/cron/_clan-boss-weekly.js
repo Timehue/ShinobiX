@@ -63,10 +63,21 @@ async function settleWeek(week, now) {
         const progressList = (progressKeys.length ? await _storage_js_1.kv.mget(...progressKeys) : [])
             .filter(Boolean);
         const ranked = (0, _storage_js_2.rankClanBoss)(progressList);
+        // Per-clan damage, so clans that chipped the boss but finished off the
+        // podium still earn XP-only "engaged" progress toward hall growth.
+        const damageByClan = new Map(progressList.map((p) => [p.clanName, (0, _storage_js_2.clanBossDamageDealt)(p)]));
         for (const entry of ranked) {
-            const reward = entry.rank <= 3
-                ? _storage_js_2.CB_REWARDS[entry.rank]
-                : (entry.killed ? _storage_js_2.CB_PARTICIPATION_REWARD : null);
+            let reward;
+            if (entry.rank <= 3) {
+                reward = _storage_js_2.CB_REWARDS[entry.rank];
+            }
+            else if (entry.killed) {
+                reward = _storage_js_2.CB_PARTICIPATION_REWARD;
+            }
+            else {
+                const engagedXp = (0, _storage_js_2.clanBossEngagedXp)(damageByClan.get(entry.clanName) ?? 0);
+                reward = engagedXp > 0 ? { ryo: 0, fateShards: 0, boneCharms: 0, clanXp: engagedXp } : null;
+            }
             if (reward)
                 await creditClanTreasury(entry.clanName, reward, week.weekId);
         }
@@ -98,7 +109,10 @@ async function creditClanTreasury(clanName, reward, weekId) {
         const rec = await _storage_js_1.kv.get(clanKey);
         if (!rec)
             return;
-        const leveled = (0, _mission_catalog_js_1.addClanXpServer)(Number(rec.xp ?? 0), Number(rec.level ?? 1), reward.clanXp);
+        // Member-scaled clan XP (10–15 members = 1.0×; small clans dampened,
+        // capped) so a tiny clan can't rush hall tiers off the weekly boss.
+        const memberCount = Array.isArray(rec.members) ? rec.members.length : 0;
+        const leveled = (0, _mission_catalog_js_1.addClanXpServer)(Number(rec.xp ?? 0), Number(rec.level ?? 1), (0, _mission_catalog_js_1.scaledClanXp)(reward.clanXp, memberCount));
         const treasury = { ...(rec.treasury ?? {}) };
         treasury.ryo = Number(treasury.ryo ?? 0) + reward.ryo;
         treasury.fateShards = Number(treasury.fateShards ?? 0) + reward.fateShards;

@@ -38,7 +38,11 @@ async function handler(req, res) {
                 missions: newbie.missions,
             });
         }
-        const state = await (0, _progress_js_1.loadOrIssueDailyMissions)(playerName, profession);
+        // `record` was just read to establish the player's profession.  Passing
+        // its character through removes a second save:<player> database read
+        // from the latency-sensitive panel load without changing authorization
+        // or mission issuance semantics.
+        const state = await (0, _progress_js_1.loadOrIssueDailyMissions)(playerName, profession, new Date(), char ?? null);
         if (!state) {
             return res.status(200).json({ profession, missions: [] });
         }

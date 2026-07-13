@@ -1,25 +1,13 @@
-// Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
-/* eslint-disable react-hooks/set-state-in-effect */
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { type AdminAccount, type AdminRole, type Screen } from "../App";
+import { PLAYER_PASSWORD_MAX_LENGTH, playerPasswordPolicyError } from "../lib/player-auth-policy";
 
 export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string, role: AdminRole) => void; setScreen: (screen: Screen) => void }) {
-    // If StartScreen detected an admin name in the player login form and
-    // forwarded the typed password, pull it from sessionStorage and
-    // auto-submit so the user doesn't have to retype. The key is consumed
-    // immediately so a stale stash from a previous flow doesn't auto-submit
-    // again on a manual visit to this screen.
-    const [password, setPassword] = useState(() => {
-        const prefilled = sessionStorage.getItem("admin:prefill-pw") ?? "";
-        if (prefilled) sessionStorage.removeItem("admin:prefill-pw");
-        return prefilled;
-    });
+    // Require direct entry on this screen; never shuttle an admin password
+    // through browser storage merely to avoid retyping it.
+    const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    // Guard against double-submit if React StrictMode / re-render fires the
-    // auto-submit effect twice.
-    const autoSubmittedRef = useRef(false);
-
     async function submit() {
         const pw = password.trim();
         if (!pw) return;
@@ -59,23 +47,12 @@ export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAcc
         }
     }
 
-    // Auto-submit if the password was prefilled from the start screen.
-    // The ref guard makes this idempotent against React StrictMode's
-    // double-effect-invocation in dev.
-    useEffect(() => {
-        if (autoSubmittedRef.current) return;
-        if (password && !loading && !error) {
-            autoSubmittedRef.current = true;
-            void submit();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
     return (
         <div className="card creator-card">
             <h2>Admin Login</h2>
-            <label>Password</label>
+            <label htmlFor="admin-login-pw">Password</label>
             <input
+                id="admin-login-pw"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -101,7 +78,8 @@ export function AdminPasswordReset({ adminPw }: { adminPw: string }) {
 
     async function submit() {
         if (!targetName.trim() || !newPw.trim()) { setMsg("Enter a player name and new password."); return; }
-        if (newPw.length < 6) { setMsg("Password must be at least 6 characters."); return; }
+        const policyError = playerPasswordPolicyError(newPw);
+        if (policyError) { setMsg(policyError); return; }
         if (!adminPw) { setMsg("❌ Admin password missing. Log out and back into admin."); return; }
         setMsg("Resetting…");
         const controller = new AbortController();
@@ -127,11 +105,11 @@ export function AdminPasswordReset({ adminPw }: { adminPw: string }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <p className="hint" style={{ margin: 0 }}>Set a new password for a player (e.g. for account recovery). The player's old password is not needed.</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
-                <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+                <input aria-label="Player name" placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
+                <input type="password" aria-label="New password" placeholder="New password (8-128, letter + number)" value={newPw} maxLength={PLAYER_PASSWORD_MAX_LENGTH} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
                 <button onClick={submit}>Reset</button>
             </div>
-            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
+            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", margin: 0 }}>{msg}</p>}
         </div>
     );
 }
@@ -162,10 +140,10 @@ export function AdminClearAuthLock({ adminPw }: { adminPw: string }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <p className="hint" style={{ margin: 0 }}>Use when a player has a password record but no save data (stuck in "account exists" loop). Clears the auth lock so they can re-register with the same name.</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
+                <input aria-label="Player name" placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
                 <button onClick={submit}>Clear Auth Lock</button>
             </div>
-            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
+            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", margin: 0 }}>{msg}</p>}
         </div>
     );
 }

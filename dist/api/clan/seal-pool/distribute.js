@@ -110,8 +110,7 @@ async function handler(req, res) {
                         honorSeals: Number(freshChar.honorSeals ?? 0) + amount,
                     },
                 };
-                (0, _save_version_js_1.bumpSaveVersion)(updatedRecipient);
-                await _storage_js_1.kv.set(recipientSaveKey, (0, _utils_js_1.mergePreservingImages)(updatedRecipient, freshRecord));
+                await _storage_js_1.kv.set(recipientSaveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updatedRecipient), freshRecord));
                 credited = true; // only reachable after the atomic set resolved
             }, { failClosed: true });
         }

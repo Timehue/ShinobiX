@@ -32,7 +32,6 @@ type VillageStateBlob = {
     seatedKage?: string;
     anbuAppointees?: string[];
     kageHistory?: unknown[];
-    kageChallenges?: Array<Record<string, unknown>>;
     dailyAgenda?: Record<string, unknown>;
     hollowGateUnlockedUntil?: number;
     hollowGateExpiryNoticedFor?: number;
@@ -47,13 +46,6 @@ type ValidatorContext = {
 
 const TREASURY_KEYS = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals'] as const;
 
-// Lazy-expiry window for kage challenges. A challenge that's been open
-// (not yet "resolved" / "expired") for more than 7 days is auto-expired
-// on the next write so an abandoned challenge doesn't block the village
-// forever. Picked 7 days because the official-duel ready window is
-// only minutes wide; anything older is dead.
-const KAGE_CHALLENGE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-
 // #17 — village-treasury currencies are CREDITED ONLY by server endpoints now,
 // not the save blob: player donations via /api/village/treasury/donate, and the
 // daily-agenda reward via /api/village/claim-daily-agenda. Both atomically move
@@ -64,7 +56,6 @@ const KAGE_CHALLENGE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 const MAX_CONTRIBUTION_INCREASE_PER_CALL = 5_000;
 const MAX_NOTICE_POSTS = 60;     // matches client cap
-const MAX_KAGE_CHALLENGES = 16;  // open-set ceiling
 const MAX_ANBU_APPOINTEES = 12;
 
 function num(v: unknown, fallback = 0): number {
@@ -345,71 +336,11 @@ export async function validateVillageStateWrite(
         }
     }
 
-    // ── kageChallenges ──────────────────────────────────────────────
-    // Adds must have challenger === caller. Updates to existing entries
-    // are allowed when the caller is the original challenger, the seated
-    // Kage, or admin.
-    if (Array.isArray(incoming.kageChallenges)) {
-        const prevChals = Array.isArray(prev.kageChallenges) ? prev.kageChallenges : [];
-        const prevById = new Map(prevChals.map((c) => [String((c as Record<string, unknown>).id ?? ''), c]));
-        const incomingChals = incoming.kageChallenges.slice(0, MAX_KAGE_CHALLENGES);
-        const cleaned: typeof incomingChals = [];
-        for (const raw of incomingChals) {
-            const chal = (raw ?? {}) as Record<string, unknown>;
-            const id = String(chal.id ?? '');
-            const existing = id ? prevById.get(id) : undefined;
-            if (!existing) {
-                // New challenge — challenger must be caller.
-                if (!ctx.isAdmin && lower(chal.challenger) !== ctx.callerName) {
-                    suppressed.push(`kageChallenge rejected (challenger "${lower(chal.challenger)}" ≠ caller)`);
-                    continue;
-                }
-                // Server-stamp createdAt. Never trust the client — a future
-                // value would make the lazy-expiry below never fire, keeping a
-                // challenge actionable forever.
-                chal.createdAt = Date.now();
-                cleaned.push(chal);
-            } else {
-                // Update — caller must be challenger, seatedKage, or admin.
-                const orig = existing as Record<string, unknown>;
-                const origChallenger = lower(orig.challenger);
-                const origSeatedKage = lower(orig.seatedKage);
-                const canMutate = ctx.isAdmin
-                    || ctx.callerName === origChallenger
-                    || ctx.callerName === origSeatedKage
-                    || callerIsSeatedKage;
-                if (!canMutate) {
-                    cleaned.push(existing); // discard edit, keep original
-                    suppressed.push(`kageChallenge update on "${id}" rejected (not party to challenge)`);
-                } else {
-                    // Preserve the server-stamped createdAt across updates; the
-                    // client may patch status/response but must not re-stamp the clock.
-                    if (orig.createdAt != null) chal.createdAt = orig.createdAt;
-                    cleaned.push(chal);
-                }
-            }
-        }
-        next.kageChallenges = cleaned;
-    }
-
-    // ── Lazy-expire stale kage challenges ───────────────────────────
-    // Independent of the incoming write: if the resulting list contains
-    // any challenge that's been open more than KAGE_CHALLENGE_MAX_AGE_MS
-    // without resolving, flip its status to "expired" so the UI stops
-    // showing it as actionable. Idempotent on subsequent writes.
-    if (Array.isArray(next.kageChallenges) && next.kageChallenges.length > 0) {
-        const now = Date.now();
-        next.kageChallenges = next.kageChallenges.map((raw) => {
-            const c = (raw ?? {}) as Record<string, unknown>;
-            const status = String(c.status ?? '');
-            if (status === 'resolved' || status === 'expired') return c;
-            const created = num(c.createdAt, 0);
-            if (created > 0 && now - created > KAGE_CHALLENGE_MAX_AGE_MS) {
-                return { ...c, status: 'expired' };
-            }
-            return c;
-        });
-    }
+    // ── kageChallenges (legacy) ─────────────────────────────────────
+    // The old client-side vote/window challenge model is gone; succession is
+    // server-authoritative (/api/village/kage-challenge). Shed the field from
+    // any blob that still carries it — nothing reads it anymore.
+    if ('kageChallenges' in next) delete (next as Record<string, unknown>).kageChallenges;
 
     // ── warRecords, kageHistory ─────────────────────────────────────
     // Append-only sanity: never SHORTER than before unless admin.

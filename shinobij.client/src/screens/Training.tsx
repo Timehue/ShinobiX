@@ -33,6 +33,7 @@ import { getCharacterElements } from "../lib/elements";
 import { useWarLossDebuff } from "../lib/war-debuff";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { mutateJutsuRyoTraining } from "../lib/jutsu-ryo-api";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { CHARACTER_XP_GAIN_MULTIPLIER, JUTSU_TRAINING_CAP } from "../constants/game";
 import { getAllJutsus, playerLensDiscipline } from "../App";
 import { TRAINING_TIERS, trainingStatGain } from "../lib/training-config";
@@ -91,10 +92,10 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         if (activeTraining) return alert("You are already training.");
         if (character.stamina < timer.staminaCost) return alert("Not enough stamina.");
         try {
-            const res = await fetch('/api/training/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, stat: selectedStat, tierId: timer.id, trainingBonusPct: trainingXpBonus, warMult: warDebuff.xpMult }) });
+            const res = await fetch('/api/training/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, stat: selectedStat, tierId: timer.id }) });
             const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data?.token || !data?.activeTraining) throw new Error(String(data?.error ?? 'Training could not be started.'));
-            updateCharacter({ ...character, ...(data.character ?? {}) });
+            if (!res.ok || !data?.token || !data?.character || !data?.activeTraining) throw new Error(String(data?.error ?? 'Training could not be started.'));
+            updateCharacter(data.character as Character);
             setActiveTraining(data.activeTraining as ActiveTraining);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be started. Please retry.');
@@ -455,6 +456,7 @@ export function JutsuTrainingHall({
     }
 
     async function startPaidJutsuTraining() {
+        if (!requireServerSettlement("timedJutsuTraining")) return;
         if (activeJutsuTraining) return alert("You are already training a jutsu.");
         if (!selectedJutsuId) return alert("Pick a jutsu first.");
 
@@ -472,7 +474,7 @@ export function JutsuTrainingHall({
 
         const cost = jutsuTrainingCost(mastery.level);
         if (mastery.level > 0 && character.ryo < cost) return alert(`Not enough ryo. You need ${cost}.`);
-        const result = await mutateJutsuRyoTraining(character.name, 'start', { jutsuId: selectedJutsu.id, label: selectedJutsu.name, trainingBonusPct: Math.max(0, jutsuTrainingBonus + (1 - warDebuff.jutsuTimeMult) * 100) });
+        const result = await mutateJutsuRyoTraining(character.name, 'start', { jutsuId: selectedJutsu.id, label: selectedJutsu.name, bonusPct: Math.max(0, jutsuTrainingBonus + (1 - warDebuff.jutsuTimeMult) * 100) });
         if (!result.character) return alert(result.error || 'Jutsu training could not be started.');
         updateCharacter(result.character);
         setActiveJutsuTraining(result.activeJutsuTraining ?? null);
@@ -480,6 +482,7 @@ export function JutsuTrainingHall({
     }
 
     async function completePaidJutsuTraining() {
+        if (!requireServerSettlement("timedJutsuTraining")) return;
         if (!activeJutsuTraining) return;
         if (Date.now() < activeJutsuTraining.endsAt) {
             alert(`Training still has ${formatTrainingTime(activeJutsuTraining.endsAt - Date.now())} left.`);
@@ -496,6 +499,7 @@ export function JutsuTrainingHall({
 
     // Cancellation/refund is derived from the server-sealed active session.
     async function cancelPaidJutsuTraining() {
+        if (!requireServerSettlement("timedJutsuTraining")) return;
         if (!activeJutsuTraining) return;
         const refund = Math.floor(activeJutsuTraining.ryoCost * 0.5);
         if (!(await gameConfirm(`Cancel ${activeJutsuTraining.label} training? You'll get ${refund} ryo back (50% of ${activeJutsuTraining.ryoCost}) and forfeit the training progress.`))) return;
@@ -509,6 +513,7 @@ export function JutsuTrainingHall({
 
     // The server derives remaining time, debits ryo, and grants the level atomically.
     async function finishWithRyo() {
+        if (!requireServerSettlement("timedJutsuTraining")) return;
         if (!activeJutsuTraining) return;
         const remainingMs = activeJutsuTraining.endsAt - Date.now();
         if (remainingMs <= 0) return;
@@ -527,15 +532,36 @@ export function JutsuTrainingHall({
     // locked NOW; the global runner (lib/jutsu-training-queue) promotes it the moment
     // the active training completes. Stored on activeJutsuTraining.next.
     function queueNextJutsuTraining() {
-        return alert('Queued jutsu training is temporarily unavailable while server settlement is enforced.');
+        if (!requireServerSettlement("timedJutsuTraining")) return;
+        if (!activeJutsuTraining) return alert("Start a training first, then queue the next one.");
+        if (activeJutsuTraining.next) return alert("A 2nd jutsu is already queued.");
+        const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId);
+        if (!selectedJutsu || !canEquipElementJutsu(character, selectedJutsu, savedBloodlines)) return alert("Choose an eligible jutsu first.");
+        const fromLevel = selectedJutsu.id === activeJutsuTraining.jutsuId
+            ? activeJutsuTraining.toLevel
+            : getJutsuMastery(character, selectedJutsu.id).level;
+        if (fromLevel >= ryoTrainCap) return alert("That jutsu is already at its Training Hall cap.");
+        if (fromLevel === 0) return alert("Train a level 0 jutsu directly to unlock it for free.");
+        const cost = jutsuTrainingCost(fromLevel);
+        if (character.ryo < cost) return alert(`Not enough ryo to queue. You need ${cost}.`);
+        const baseDuration = jutsuTrainingDuration(fromLevel);
+        const durationMs = Math.max(60_000, Math.floor(baseDuration * Math.max(0.1, 1 - jutsuTrainingBonus / 100) * warDebuff.jutsuTimeMult));
+        updateCharacter({ ...character, ryo: character.ryo - cost });
+        setActiveJutsuTraining({
+            ...activeJutsuTraining,
+            next: { jutsuId: selectedJutsu.id, label: selectedJutsu.name, fromLevel, toLevel: Math.min(ryoTrainCap, fromLevel + 1), ryoCost: cost, durationMs },
+        });
     }
 
     // Remove the queued 2nd training before it starts — full ryo refund (it never ran).
     async function cancelQueuedJutsuTraining() {
+        if (!requireServerSettlement("timedJutsuTraining")) return;
         if (!activeJutsuTraining?.next) return;
         const queued = activeJutsuTraining.next;
         if (!(await gameConfirm(`Remove the queued ${queued.label} training? You'll get all ${queued.ryoCost} ryo back — it hasn't started.`))) return;
-        alert('Legacy queued training refunds require support migration; no unverified ryo was credited.');
+        updateCharacter({ ...character, ryo: character.ryo + queued.ryoCost });
+        setActiveJutsuTraining({ ...activeJutsuTraining, next: null });
+        alert(`Queued training removed. Refunded ${queued.ryoCost} ryo.`);
     }
 
     const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId);

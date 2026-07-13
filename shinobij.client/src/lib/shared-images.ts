@@ -17,6 +17,23 @@
 
 import { ANIMATED_MAX_MB } from "../constants/game";
 
+/** Restrict image sinks to raster data, our image API, or HTTP(S) URLs. */
+export function safeImageSource(value: string): string {
+    const source = String(value ?? '').trim();
+    if (!source) return '';
+    if (/^data:image\/(?:png|jpe?g|webp|gif|avif);base64,[a-z0-9+/=\s]+$/i.test(source)) return source;
+    if (/^\/api\/img(?:\/|\?|$)/.test(source)) return source;
+    try {
+        const parsed = new URL(source);
+        if ((parsed.protocol === 'https:' || parsed.protocol === 'http:') && !parsed.username && !parsed.password) {
+            return parsed.href;
+        }
+    } catch {
+        // Relative and malformed URLs are rejected.
+    }
+    return '';
+}
+
 export function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): Promise<string> {
     return new Promise((resolve) => {
         const img = new Image();

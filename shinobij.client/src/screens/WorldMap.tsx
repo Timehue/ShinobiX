@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity, react-hooks/immutability, react-hooks/refs */
-import { useState, useEffect, useMemo, type ReactNode, type CSSProperties } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
 // Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import {
@@ -10,36 +10,20 @@ import {
     GiExitDoor,
     GiHealthPotion,
     GiOpenTreasureChest,
-    GiOpenBook,
     GiPawPrint,
-    GiPlainCircle,
-    GiPortal,
-    GiCrystalGrowth,
-    GiExpand,
-    GiSandsOfTime,
     GiShield,
-    GiSleepy,
-    GiSunRadiations,
-    GiDeathSkull,
-    GiDaemonSkull,
-    GiNinjaHead,
-    GiLightningStorm,
-    GiMapleLeaf,
-    GiWolfHead,
-    GiMoon,
-    GiPagoda,
 } from "react-icons/gi";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
-import type { Character, PlayerRecord } from "../types/character";
+import type { Character, HollowGateEventConfig, PlayerRecord } from "../types/character";
 import { gameConfirm } from "../components/GameAlert";
 import type { CreatorAi } from "../types/creator-ai";
-import type { CreatorRaid } from "../types/missions";
+import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import type { Pet } from "../types/pet";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
-import { getAllTileCards } from "../data/tile-cards";
+import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { addStoryTrait } from "../lib/character-progress";
 import { SceneAmbience } from "../components/SceneAmbience";
@@ -49,10 +33,19 @@ import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
+import { WANDERER_PENDING_KEY, type WandererFightResult } from "../lib/wanderer-fight";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
+import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent } from "../lib/story-road-events";
+import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
+import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
+import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
 import { createPortal } from "react-dom";
+
+// Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
+// in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
+const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid })));
 import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
 import { SectorForeground } from "../components/SectorForeground";
@@ -63,16 +56,17 @@ import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { HollowGateAttunement } from "../components/HollowGateAttunement";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { WorldToast } from "../components/WorldToast";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_MAP } from "../data/sector-map-manifest";
 import { SECTOR_POINTS } from "../data/sector-points";
-import { rewardSummary } from "../lib/currency";
-import { scaleWandererPetOpponent } from "../lib/pet-balance";
+import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
+import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter, scaleWandererPetOpponent } from "../lib/pet-balance";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { biomeForWorldSector, sectorRegionName, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
-import { makeId, sameSector } from "../lib/utils";
+import { currentDateKey, makeId, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
@@ -84,6 +78,7 @@ import { playerNameTile } from "../lib/sector-tile";
 import { defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { getAllItems } from "../lib/items";
 import { getBloodlineMultiplier } from "../lib/combat-math";
 import { cwListWars } from "../lib/clan-war-api";
@@ -91,7 +86,7 @@ import { fetchClanData } from "../lib/clan-api";
 import { scoutIntelTier } from "../lib/clan-upgrades";
 import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
-import { petTraitDescriptions } from "../data/pet-config";
+import { petTraitDescriptions, petTreatItems, stackableItemIds } from "../data/pet-config";
 import { starterItems } from "../data/starter-items";
 import worldMapBg from "../assets/Maps/world_map.webp";
 import castleImg from "../assets/castle.webp";
@@ -107,6 +102,7 @@ import meadow2SectorImg from "../assets/sectors/meadow2.webp";
 import meadowSectorImg from "../assets/sectors/meadow.webp";
 import stormveilVillageImg from "../assets/sectors/stormveil-village.webp";
 import {
+    gainXp,
     getPvpJutsuLoadout,
     normalizeCharacter,
     type CreatorEvent,
@@ -132,6 +128,7 @@ import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorFo
 import { SageWhisper } from "../components/SageWhisper";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { SageOfferModal } from "../components/SageOfferModal";
+import { huntReadyForFight, huntRequiredTracks, huntTrailSector } from "../lib/hunt-trail";
 
 
 // Which scene-image theme each sector shows. Single source of truth shared by
@@ -242,6 +239,9 @@ function interiorTileFromKey(key: string): number {
     return row * 12 + col;
 }
 
+type ActiveHuntTrail = { mission: CreatorMission; sector: number; progress: number; requiredTracks: number };
+type HuntToast = { id: number; kicker: string; text: string };
+
 export function WorldMap({
     setCurrentBiome,
     setScreen,
@@ -251,6 +251,7 @@ export function WorldMap({
     creatorRaids,
     petEncounterVn,
     ancientChestVn,
+    editablePets,
     setPendingAiProfileId,
     setPendingPvpOpponent,
     setRaidBattleKind,
@@ -278,6 +279,9 @@ export function WorldMap({
     onStartEventEncounter,
     onDungeonFound,
     onEnterHollowGate,
+    hollowGateEventConfig,
+    onEnterHollowGateEvent,
+    onDescendRift,
     setPvpBattleId,
     setPvpRole,
     setPvpBattleContext,
@@ -285,8 +289,7 @@ export function WorldMap({
     savedBloodlines,
     creatorJutsus: wmCreatorJutsus,
     creatorItems: wmCreatorItems,
-    onImmediateSave: _onImmediateSave,
-    onServerVersion,
+    onImmediateSave,
     onLaunchWeeklyBoss,
 }: {
     setCurrentBiome: (biome: Biome) => void;
@@ -297,6 +300,7 @@ export function WorldMap({
     creatorRaids: CreatorRaid[];
     petEncounterVn: CreatorEvent;
     ancientChestVn: CreatorEvent;
+    editablePets: Pet[];
     setPendingAiProfileId: (id: string) => void;
     setPendingPvpOpponent: (c: Character | null) => void;
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
@@ -324,6 +328,15 @@ export function WorldMap({
     onStartEventEncounter: (event: CreatorEvent, battle?: EventEncounterBattle) => void;
     onDungeonFound: () => void;
     onEnterHollowGate?: () => void;
+    // Active event gate (admin-authored) — shows the event entry in the
+    // Hollow Gate menu and hands the config back on entry.
+    hollowGateEventConfig?: HollowGateEventConfig | null;
+    onEnterHollowGateEvent?: (cfg: HollowGateEventConfig) => void;
+    // Descend into a wandering-quest rift (a scaled event Hollow Gate). Enters via
+    // the same event-gate path and SHARES the daily Hollow Gate run cap (a rift
+    // counts against the 2/day). If capped, the rift persists (7-day TTL) or can be
+    // abandoned at the rift; the shared cap is the backstop on the shrine-clear haul.
+    onDescendRift?: (rift: HollowRift) => void;
     setPvpBattleId: (id: string) => void;
     setPvpRole: (role: "p1" | "p2") => void;
     setPvpBattleContext: (context: SharedPvpBattleContext | null) => void;
@@ -332,7 +345,6 @@ export function WorldMap({
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
     onImmediateSave?: (char: Character) => void;
-    onServerVersion?: (version: number) => void;
     // Launch the REAL weekly-boss fight. The Phase 3 roaming encounter routes
     // through App's launchWeeklyBossFight so damage → the shared leaderboard and
     // the 3-attempt cap — same path as the "Fight Boss" button.
@@ -348,6 +360,24 @@ export function WorldMap({
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
     const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
+    const [huntToast, setHuntToast] = useState<HuntToast | null>(null);
+    const activeHuntTrails = useMemo<ActiveHuntTrail[]>(() => (
+        builtinHuntMissions
+            .filter((mission) => acceptedMissionIds.includes(mission.id) && Boolean(mission.aiProfileId))
+            .map((mission) => {
+                const progress = missionProgress[mission.id] ?? 0;
+                const requiredTracks = huntRequiredTracks(mission);
+                if (progress >= requiredTracks) return null;
+                return {
+                    mission,
+                    sector: huntTrailSector(mission, progress, character.name),
+                    progress,
+                    requiredTracks,
+                };
+            })
+            .filter((trail): trail is ActiveHuntTrail => Boolean(trail))
+    ), [acceptedMissionIds, missionProgress, character.name]);
+    const huntTrailForSector = (sector: number) => activeHuntTrails.find((trail) => trail.sector === sector);
 
     // Returning from an explore ambush: reopen the sector detail the player was in
     // (set by exploreSector before the fight). One-shot — consumed on this mount so
@@ -452,6 +482,7 @@ export function WorldMap({
     }
 
     async function startPvpRaid(opponent: Character, sector: number, biome: Biome, weather: WeatherType) {
+        if (!requireServerSettlement("pvpSession")) return;
         setCurrentSector(sector);
         setCurrentBiome(biome);
         setCurrentWeather(weather);
@@ -637,7 +668,7 @@ export function WorldMap({
             homeTile: home,
             waypoints: [home],
             greeting: `${character.name}, your bounty is worth ${selfBounty.amount.toLocaleString()} ryo. Stand still.`,
-            tellTint: "#f87171",
+            tellTint: "var(--red-400)",
             avatarKey: "bountyHunter",
             targetName: character.name,
             bountyAmount: selfBounty.amount,
@@ -656,7 +687,7 @@ export function WorldMap({
             homeTile: home,
             waypoints: [home],
             greeting: `${favor.giver} said you might come through. Hand it over.`,
-            tellTint: "#fde68a",
+            tellTint: "var(--gold-300)",
             avatarKey: "courier",
             originSector: favor.originSector,
             targetSector: favor.targetSector,
@@ -709,7 +740,7 @@ export function WorldMap({
         return () => clearInterval(id);
     }, []);
     // The sector the boss is rampaging in right now — the world map highlights this
-    // node (a pulsing ring + boss flag) instead of a floating portrait marker, per
+    // node (a pulsing ring + 👹 flag) instead of a floating portrait marker, per
     // owner feedback ("the highlighted area it is in is enough"). Recomputes on the
     // poll (roamingBoss) and the slow tick (roamBossTick).
     const weeklyBossSector = useMemo(() => {
@@ -860,6 +891,22 @@ export function WorldMap({
         const spawn = rollEmissarySpawn(character.name, character.level, legacyCategory, wandererDayBucket(new Date()));
         return spawn && spawn.sector === selectedSector ? [spawn.wanderer] : [];
     }, [legacyServerLive, character.name, character.level, legacyCategory, selectedSector]);
+    // Story road events (docs/fable-5-story-rebuild.md §10): the next eligible
+    // event's NPC walks WHATEVER sector the player is in — the road finds them.
+    // Completion is trait-presence, so the memo re-evaluates when traits change.
+    const roadWanderers = useMemo(() => {
+        if (!isWanderersEnabled() || selectedSector == null) return [];
+        const event = nextRoadEvent(character);
+        return event ? [synthRoadWanderer(event, selectedSector)] : [];
+    }, [character.level, character.storyProgress, character.storyTraits, selectedSector]);
+    // Hollow Gate Rift givers (lib/hollow-rifts): a rattled NPC roams the player's
+    // current sector to report a "strange energy" at a target sector. Only while a
+    // rift is available (level-gated, none active, off cooldown).
+    const riftGiverWanderers = useMemo(() => {
+        if (!isWanderersEnabled() || selectedSector == null) return [];
+        const rift = nextRift(character);
+        return rift ? [synthRiftGiver(rift, selectedSector)] : [];
+    }, [character.level, character.activeRiftQuest, character.riftCooldownUntil, selectedSector]);
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
@@ -892,19 +939,19 @@ export function WorldMap({
     // off robbers builds character.robberStreak; at 5, the next bandit springs an
     // AMBUSH gauntlet — 3 robbers then a boss, back-to-back (your HP carries). The
     // chain is driven client-side: a localStorage handoff survives the arena trip,
-    // and a totalAiKills delta tells a win from a loss. Each arena fight pays its
-    // own existing (server-safe) rewards, so there's no new currency surface.
-    const WANDERER_PENDING_KEY = "wandererFight.pending.v1";
+    // and the Arena stamps the authoritative win/loss onto the handoff record (see
+    // lib/wanderer-fight). Each arena fight pays its own existing (server-safe)
+    // rewards, so there's no new currency surface.
 
     function buildRobberAi(level: number, tag: string, stage = 0): CreatorAi {
         const lvl = Math.max(1, Math.min(100, Math.round(level)));
-        const ai = makeBuiltinAi(`wanderer-rob-${tag}-${lvl}`, "Road Bandit", "", lvl, "Wandering Road", [], 0, undefined, "bruiser");
+        const ai = makeBuiltinAi(`wanderer-rob-${tag}-${lvl}`, "Road Bandit", "🥷", lvl, "Wandering Road", [], 0, undefined, "bruiser");
         ai.image = wandererRobberPortrait(stage); // a different face per gang member
         return ai;
     }
     function buildBossAi(level: number): CreatorAi {
         const lvl = Math.max(1, Math.min(100, Math.round(level)));
-        const ai = makeBuiltinAi(`wanderer-boss-${lvl}`, "Bandit Warlord", "", lvl, "Wandering Road", [], 8, undefined, "boss");
+        const ai = makeBuiltinAi(`wanderer-boss-${lvl}`, "Bandit Warlord", "💀", lvl, "Wandering Road", [], 8, undefined, "boss");
         ai.image = WANDERER_BOSS_PORTRAIT;
         return ai;
     }
@@ -938,7 +985,7 @@ export function WorldMap({
         const lvl = Math.max(1, Math.min(100, character.level + (nem ? Math.max(1, nem.tier) : 1)));
         const name = nem ? nem.name : w.name;
         const statBonus = nem ? Math.min(12, Math.max(1, nem.tier) * 2) : 0;
-        const ai = makeBuiltinAi(`wanderer-${nem ? "nemesis" : w.id}`, name, "", lvl, "Wandering Road", [], statBonus, undefined, "bruiser");
+        const ai = makeBuiltinAi(`wanderer-${nem ? "nemesis" : w.id}`, name, nem ? "😡" : "🥷", lvl, "Wandering Road", [], statBonus, undefined, "bruiser");
         ai.image = nem ? WANDERER_NEMESIS_PORTRAIT : wandererAvatar(w.avatarKey);
         launchWandererArenaFight(ai, "single", 0, selectedSector, { name, level: lvl, nemesis: !!nem });
     }
@@ -1095,15 +1142,17 @@ export function WorldMap({
                 const parts = [`${d.reward.ryo} ryo`];
                 if (d.reward.fateShards > 0) parts.push(`${d.reward.fateShards} fate shard${d.reward.fateShards === 1 ? "" : "s"}`);
                 if (d.reward.boneCharms > 0) parts.push(`${d.reward.boneCharms} bone charm${d.reward.boneCharms === 1 ? "" : "s"}`);
-                setTimeout(() => alert(`You broke the ambush and felled their warlord! Loot: ${parts.join(", ")}.`), 40);
+                setTimeout(() => alert(`You overwhelmed the bandits and felled their warlord! Loot: ${parts.join(", ")}.`), 40);
                 return;
             }
         } catch { /* fall through to the no-loot message */ }
         updateCharacter(prev => prev ? ({ ...prev, robberStreak: 0 }) : prev);
-        setTimeout(() => alert("You broke the ambush and felled their warlord! The roads are yours again."), 40);
+        setTimeout(() => alert("You overwhelmed the bandits and felled their warlord! The roads are yours again."), 40);
     }
-    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number }) {
-        const won = (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
+    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number }) {
+        // Prefer the authoritative outcome the Arena stamped on the record; fall back to
+        // the totalAiKills delta only for legacy records written before the stamp existed.
+        const won = p.result ? p.result === "win" : (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
         if (p.mode === "patrol") {
             if (won) setTimeout(() => alert(p.hostile ? "You broke the patrol's line and sent them running." : "The patrol yields after a clean spar."), 40);
             else setTimeout(() => alert(p.hostile ? "The patrol overwhelms you and leaves you for the healers." : "The patrol drops you, then drags you clear of the road."), 40);
@@ -1185,7 +1234,7 @@ export function WorldMap({
         let raw: string | null;
         try { raw = localStorage.getItem(WANDERER_PENDING_KEY); if (raw) localStorage.removeItem(WANDERER_PENDING_KEY); } catch { return; }
         if (!raw) return;
-        let p: { mode: string; stage: number; sector: number; baselineKills: number; at: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number };
+        let p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; at: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number };
         try { p = JSON.parse(raw); } catch { return; }
         if (!p || Date.now() - (p.at || 0) > 30 * 60 * 1000) return;
         resolveWandererFight(p);
@@ -1206,6 +1255,29 @@ export function WorldMap({
                 setSageVnPage(0);
                 setSageVnLine(0);
                 setSageVnEvent(buildSageVnEvent(sageOffer, character.name));
+            }
+            return;
+        }
+        // A story road event opens its VN directly (no verb dialog) — same
+        // pattern as the Sage. The event stays available until a choice is made.
+        if (w.id.startsWith(ROAD_WANDERER_PREFIX)) {
+            const roadEvent = roadEventBySynthId(w.id);
+            if (roadEvent && selectedSector != null) {
+                setCreatorEventPage(0);
+                setCreatorEventLine(0);
+                setSelectedCreatorEvent(roadEventToCreatorEvent(roadEvent, biomeForWorldSector(selectedSector)));
+            }
+            return;
+        }
+        // A rift giver reports a strange energy at a target sector — opens the
+        // intro VN (accept seals the rift + reveals its structure on the map).
+        if (w.id.startsWith(RIFT_GIVER_PREFIX)) {
+            const rift = riftBySynthId(w.id);
+            if (rift && selectedSector != null) {
+                const targetSector = riftTargetSector(character.name, rift.id);
+                setCreatorEventPage(0);
+                setCreatorEventLine(0);
+                setSelectedCreatorEvent(riftIntroEvent(rift, targetSector, biomeForWorldSector(selectedSector)));
             }
             return;
         }
@@ -1241,7 +1313,7 @@ export function WorldMap({
         if (sec == null) return;
         const village = (character.village ?? "").trim();
         coolWanderer(w.id, MERC_CLIENT_HIDE_MS);
-        setWandererDialog({ w, busy: true, msg: "A mercenary closes in…" });
+        setWandererDialog({ w, busy: true, msg: "⚔ A mercenary closes in…" });
         try {
             const r = await engageMerc(character.name, village, sec, w.id);
             const msg = r.error ? r.error
@@ -1564,8 +1636,6 @@ export function WorldMap({
         return () => clearInterval(t);
     }, [wandererDialog, character.activeQuestbook?.deadline]);
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
-    const [activePetEncounterToken, setActivePetEncounterToken] = useState<string | null>(null);
-    const [petBefriendBusy, setPetBefriendBusy] = useState(false);
     const [petVnDone, setPetVnDone] = useState(false);
     const [petVnPage, setPetVnPage] = useState(0);
     const [petVnLine, setPetVnLine] = useState(0);
@@ -1587,6 +1657,10 @@ export function WorldMap({
     // lives in App) can broadcast it; other clients render us walking to this tile.
     useEffect(() => { setLocalSectorTile(sectorPlayerPos); }, [sectorPlayerPos]);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
+    // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
+    // sector's vault structure, and the live raid screen (portaled full-screen).
+    const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string } | null>(null);
+    const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
     const [creatorEventPage, setCreatorEventPage] = useState(0);
     const [creatorEventLine, setCreatorEventLine] = useState(0);
     type ChestLoot = {
@@ -1647,8 +1721,8 @@ export function WorldMap({
         { label: "Moonshadow", ids: [4, 5, 6, 8, 11, 15, 16, 19], color: villageAccent("Moonshadow Village"), zoom: 2.6 },
         { label: "Stormveil", ids: [21, 22, 24, 26, 27, 31, 32, 34], color: villageAccent("Stormveil Village"), zoom: 2.6 },
         { label: "Ashen Leaf", ids: [36, 37, 38, 39, 40, 41, 42, 43], color: villageAccent("Ashen Leaf Village"), zoom: 2.6 },
-        { label: "Central", ids: [55, 56, 57, 58, 59, 60], color: "#cbd5e1", zoom: 2.4 },
-        { label: "Death's Gate", ids: [99], color: "#f87171", zoom: 2.8 },
+        { label: "Central", ids: [55, 56, 57, 58, 59, 60], color: "var(--slate-300)", zoom: 2.4 },
+        { label: "Death's Gate", ids: [99], color: "var(--red-400)", zoom: 2.8 },
     ];
 
     // When the War Map is on, a sector owned by a village glows in that village's
@@ -1812,48 +1886,94 @@ export function WorldMap({
         return () => window.removeEventListener('keydown', handleKey);
     }, [selectedSector]);
 
-    function claimChest(_loot: ChestLoot) {
+    function rollAncientChest(sector: number, allCards: TileCard[]): ChestLoot {
+        // Always: XP scaled to sector
+        const xp = 50 + Math.floor(sector * 2);
+
+        // 50%: Ryo 100–500
+        const ryo = Math.random() < 0.5
+            ? 100 + Math.floor(Math.random() * 401)
+            : undefined;
+
+        // Loot slot roll (item, card, or currency)
+        const lootRoll = Math.random();
+        let itemId: string | undefined;
+        let cardId: string | undefined;
+        let fateShards: number | undefined;
+        let boneCharms: number | undefined;
+        let auraStones: number | undefined;
+        const auraDust = Math.random() < 0.2 ? 5 + Math.floor(Math.random() * 11) : undefined;
+
+        if (lootRoll < 0.2) {
+            // 20% - pet treat
+            const treat = petTreatItems[Math.floor(Math.random() * petTreatItems.length)];
+            itemId = treat.id;
+        } else if (lootRoll < 0.55) {
+            // 35% - random common gear item
+            const commons = starterItems.filter((i) => i.rarity === "common" && i.slot !== "item");
+            if (commons.length) itemId = commons[Math.floor(Math.random() * commons.length)].id;
+        } else if (lootRoll < 0.65) {
+            // 10% - random rare gear item
+            const rares = starterItems.filter((i) => i.rarity === "rare" && i.slot !== "item");
+            if (rares.length) itemId = rares[Math.floor(Math.random() * rares.length)].id;
+        } else if (lootRoll < 0.83) {
+            // 18% - random common tile card
+            const commonCards = allCards.filter((c) => c.rarity === "common");
+            if (commonCards.length) cardId = commonCards[Math.floor(Math.random() * commonCards.length)].id;
+        } else if (lootRoll < 0.92) {
+            // 9% - random rare tile card
+            const rareCards = allCards.filter((c) => c.rarity === "rare");
+            if (rareCards.length) cardId = rareCards[Math.floor(Math.random() * rareCards.length)].id;
+        } else if (lootRoll < 0.97) {
+            // 5% - 1 Fate Shard
+            fateShards = 1;
+        } else if (lootRoll < 0.99) {
+            // 2% - 1 Bone Charm
+            boneCharms = 1;
+        } else {
+            // 1% - 1 Aura Stone
+            auraStones = 1;
+        }
+
+        return { xp, ryo, itemId, cardId, fateShards, boneCharms, auraStones, auraDust };
+    }
+
+    function claimChest(loot: ChestLoot) {
+        const leveled = gainXp(character, loot.xp);
+        const newInventory = loot.itemId && (stackableItemIds.has(loot.itemId) || !character.inventory.includes(loot.itemId))
+            ? [...character.inventory, loot.itemId]
+            : character.inventory;
+        const newTileCards = loot.cardId && !character.tileCards.includes(loot.cardId)
+            ? [...character.tileCards, loot.cardId]
+            : character.tileCards;
+        updateCharacter({
+            ...leveled,
+            ryo: leveled.ryo + (loot.ryo ?? 0),
+            fateShards: leveled.fateShards + (loot.fateShards ?? 0),
+            boneCharms: (leveled.boneCharms ?? 0) + (loot.boneCharms ?? 0),
+            auraStones: (leveled.auraStones ?? 0) + (loot.auraStones ?? 0),
+            auraDust: (leveled.auraDust ?? 0) + (loot.auraDust ?? 0),
+            inventory: newInventory,
+            tileCards: newTileCards,
+        });
         setActiveChest(null);
         setChestVnDone(false);
         setChestVnPage(0);
         setChestVnLine(0);
     }
 
-    async function openAncientChest(sector: number): Promise<boolean> {
-        const response = await fetch('/api/world/open-chest', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName: character.name, sector, requestId: makeId() }),
-        });
-        const data = await response.json().catch(() => null) as { error?: string; loot?: ChestLoot; character?: Character; _saveVersion?: number } | null;
-        if (!response.ok || !data?.loot || !data.character) {
-            alert(data?.error === 'daily-limit' ? 'Daily Ancient Chest limit reached.' : 'The chest seal failed to open. Please try again.');
-            return false;
-        }
-        if (typeof data._saveVersion === 'number') onServerVersion?.(data._saveVersion);
-        updateCharacter(data.character);
-        setActiveChest(data.loot);
-        setChestVnPage(0); setChestVnLine(0); setChestVnDone(false);
-        return true;
-    }
-
-    async function exploreSector(sector: number) {
+    function exploreSector(sector: number) {
         const dailyTiles = character.dailyTilesExplored ?? 0;
         if (dailyTiles >= 150) {
             alert("Daily tile exploration limit reached (150/150). Resets at midnight UTC.");
             return;
         }
-        const exploreResponse = await fetch('/api/world/explore', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName: character.name, sector, requestId: makeId() }),
-        });
-        const exploreData = await exploreResponse.json().catch(() => null) as { error?: string; reward?: { xp: number; ryo: number }; character?: Character; _saveVersion?: number } | null;
-        if (!exploreResponse.ok || !exploreData?.character || !exploreData.reward) {
-            alert(exploreData?.error === 'daily-limit' ? 'Daily tile exploration limit reached (150/150).' : 'Exploration could not be committed. Please try again.');
-            return;
-        }
-        if (typeof exploreData._saveVersion === 'number') onServerVersion?.(exploreData._saveVersion);
-        const exploredCharacter = exploreData.character;
-        updateCharacter(exploredCharacter);
+        const exploredCharacter = {
+            ...character,
+            totalTilesExplored: (character.totalTilesExplored ?? 0) + 1,
+            dailyTilesExplored: dailyTiles + 1,
+            lastDailyReset: currentDateKey(),
+        };
         const biome = biomeForSector(sector);
         setSelectedVillageTerritory(null);
         setSelectedSector(sector);
@@ -1866,28 +1986,13 @@ export function WorldMap({
             onDungeonFound();
             return;
         }
-        let petEncounter: Pet | null = null;
-        let petEncounterToken: string | null = null;
-        try {
-            const response = await fetch('/api/pet/encounter-start', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerName: character.name }),
-            });
-            const data = await response.json().catch(() => null) as { pet?: Pet | null; token?: string } | null;
-            if (response.ok && data?.pet && data.token) {
-                petEncounter = data.pet;
-                petEncounterToken = data.token;
-            }
-        } catch {
-            // Exploration can continue when the optional encounter roll is unavailable.
-        }
+        const petEncounter = rollPetEncounter(editablePets);
 
-        if (petEncounter && petEncounterToken) {
+        if (petEncounter) {
             updateCharacter(exploredCharacter);
             recordMissionExplore(sector);
 
             setActivePetEncounter(petEncounter);
-            setActivePetEncounterToken(petEncounterToken);
             setPetVnDone(false);
             setPetVnPage(0);
             setPetVnLine(0);
@@ -1896,7 +2001,14 @@ export function WorldMap({
 
         // 15% — Ancient Chest found
         if (Math.random() < 0.15) {
-            if (await openAncientChest(sector)) recordMissionExplore(sector);
+            updateCharacter(exploredCharacter);
+            recordMissionExplore(sector);
+
+            const allCards = getAllTileCards([]);
+            setActiveChest(rollAncientChest(sector, allCards));
+            setChestVnPage(0);
+            setChestVnLine(0);
+            setChestVnDone(false);
             return;
         }
 
@@ -1931,8 +2043,17 @@ export function WorldMap({
             return;
         }
 
+        const xpReward = 20 + Math.floor(sector / 5);
+        const ryoReward = 10 + Math.floor(sector / 4);
+        const leveled = gainXp(exploredCharacter, xpReward);
+
         recordMissionExplore(sector);
-        alert("Sector " + sector + " explored. +" + effectiveCharacterXpGain(character, exploreData.reward.xp) + " XP and +" + exploreData.reward.ryo + " ryo.");
+        updateCharacter({
+            ...leveled,
+            ryo: leveled.ryo + ryoReward,
+        });
+
+        alert("Sector " + sector + " explored. +" + effectiveCharacterXpGain(character, xpReward) + " XP and +" + ryoReward + " ryo.");
     }
     function huntSector(sector: number) {
         if (sector < 1 || sector > 60) {
@@ -1947,42 +2068,16 @@ export function WorldMap({
         setCurrentWeather(weatherForSector(sector, biome));
         setCurrentSector(sector);
 
-        const activeHuntMission = builtinHuntMissions.find(
-            (mission) =>
-                acceptedMissionIds.includes(mission.id) &&
-                mission.targetSector === sector &&
-                mission.aiProfileId
-        );
-
-        if (!activeHuntMission) {
-            alert(`No accepted hunt contract is active in Sector ${sector}.`);
+        const activeTrail = huntTrailForSector(sector);
+        if (!activeTrail) {
+            setHuntToast({
+                id: Date.now(),
+                kicker: "No active trail",
+                text: `No accepted hunt trail is active in Sector ${sector}. Check the paw marker on the world map for your current lead.`,
+            });
             return;
         }
-
-        const requiredTracks = activeHuntMission.exploreCount ?? 1;
-        const currentProgress = missionProgress[activeHuntMission.id] ?? 0;
-        const nextProgress = Math.min(requiredTracks, currentProgress + 1);
-
-        if (nextProgress < requiredTracks) {
-            recordMissionProgress?.(activeHuntMission.id, "hunt-track");
-            // Still gathering tracks — advance the tracking counter and stop.
-            setMissionProgress((current) => ({
-                ...current,
-                [activeHuntMission.id]: Math.max(nextProgress, current[activeHuntMission.id] ?? 0),
-            }));
-            alert(`${activeHuntMission.name}: tracks found in Sector ${sector}. ${nextProgress}/${requiredTracks}`);
-            return;
-        }
-
-        // Final track = the kill attempt. Do NOT complete progress here — that
-        // is what let a player claim the hunt reward after dying/fleeing. Hold
-        // the counter at requiredTracks-1; winBattle() completes it on an actual
-        // kill via onHuntBeastDefeated. Losing leaves it here so the beast can be
-        // re-engaged without re-tracking.
-        setMissionProgress((current) => ({
-            ...current,
-            [activeHuntMission.id]: Math.max(requiredTracks - 1, current[activeHuntMission.id] ?? 0),
-        }));
+        const activeHuntMission = activeTrail.mission;
 
         const huntAi = playableAis.find((ai) => ai.id === activeHuntMission.aiProfileId);
         if (!huntAi) {
@@ -1990,7 +2085,50 @@ export function WorldMap({
             return;
         }
 
-        alert(`You've tracked down the ${huntAi.name}! Prepare to fight!`);
+        const requiredTracks = activeTrail.requiredTracks;
+        const currentProgress = activeTrail.progress;
+        const nextProgress = Math.min(requiredTracks, currentProgress + 1);
+
+        if (!huntReadyForFight(activeHuntMission, currentProgress)) {
+            recordMissionProgress?.(activeHuntMission.id, "hunt-track");
+            // Advance the sealed track counter. The kill still has to happen in Arena.
+            setMissionProgress((current) => ({
+                ...current,
+                [activeHuntMission.id]: Math.max(nextProgress, current[activeHuntMission.id] ?? 0),
+            }));
+            const nextSector = huntTrailSector(activeHuntMission, nextProgress, character.name);
+            const finalTrackFound = huntReadyForFight(activeHuntMission, nextProgress);
+            setHuntToast({
+                id: Date.now(),
+                kicker: finalTrackFound ? "The trail closes" : "Fresh tracks",
+                text: finalTrackFound
+                    ? `${huntAi.name} circles back toward ${sectorRegionName(nextSector)}, Sector ${nextSector}. Follow the trail there to force the fight.`
+                    : `The sign cuts toward ${sectorRegionName(nextSector)}, Sector ${nextSector}. Trail ${nextProgress}/${Math.max(1, requiredTracks - 1)}.`,
+            });
+            if (nextSector !== sector) {
+                beginSectorTravel(nextSector, () => {
+                    const nextBiome = biomeForSector(nextSector);
+                    setCurrentBiome(nextBiome);
+                    setCurrentWeather(weatherForSector(nextSector, nextBiome));
+                    setCurrentSector(nextSector);
+                    setSelectedSector(nextSector);
+                });
+            }
+            return;
+        }
+
+        // Do not complete progress here; onHuntBeastDefeated does that only after
+        // Arena reports a real win. Losing leaves the trail hot for a rematch.
+        setMissionProgress((current) => ({
+            ...current,
+            [activeHuntMission.id]: Math.max(requiredTracks - 1, current[activeHuntMission.id] ?? 0),
+        }));
+
+        setHuntToast({
+            id: Date.now(),
+            kicker: "Fight sprung",
+            text: `${huntAi.name} breaks cover in Sector ${sector}.`,
+        });
         setPendingAiProfileId(huntAi.id);
         setRaidBattleKind("raidAi");
         setScreen("arena");
@@ -2019,10 +2157,22 @@ export function WorldMap({
             setSelectedCreatorEvent(event);
             return;
         }
-        alert(event.icon + " " + event.name + "\n\n" + event.dialogue.join("\n") + "\n\nNarrative event — no server-published reward.");
+        const leveled = gainXp(character, event.xpReward);
+        const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
+        updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
+        alert(event.icon + " " + event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards, character));
     }
     function completeCreatorEvent(event: CreatorEvent) {
-        alert(event.name + " complete. Narrative event — no server-published reward.");
+        // Story road events pay nothing here — the choice was the payoff and it
+        // was reported at choice time. Just close the scene.
+        if (event.id.startsWith(ROAD_WANDERER_PREFIX)) { setSelectedCreatorEvent(null); return; }
+        // Rift VNs (giver report / at-the-rift): accept + descend are handled in
+        // onChoice; completing the scene just closes it.
+        if (event.id.startsWith(RIFT_GIVER_PREFIX) || isRiftDescentEventId(event.id)) { setSelectedCreatorEvent(null); return; }
+        const leveled = gainXp(character, event.xpReward);
+        const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
+        updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
+        alert(event.name + " complete. " + rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards, character) + ".");
         setSelectedCreatorEvent(null);
     }
     if (activePetEncounter && !petVnDone) {
@@ -2061,7 +2211,7 @@ export function WorldMap({
                     <div className={"vn-stage vn-biome-forest" + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
                         <div className="vn-backdrop"><span className="vn-village-silhouette" /></div>
                         <div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : character.name.slice(0, 2).toUpperCase()}</div>
-                        <div className="vn-character hero-character">{(() => { const heroImg = petCardImage(activePetEncounter, sharedImages); return heroImg ? <img src={heroImg} alt={activePetEncounter.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : <GameIcon name="paw" size={48} title={activePetEncounter.name} />; })()}</div>
+                        <div className="vn-character hero-character">{(() => { const heroImg = petCardImage(activePetEncounter, sharedImages); return heroImg ? <img src={heroImg} alt={activePetEncounter.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : "🐾"; })()}</div>
                         <div className="vn-scene-card">{page.scene || vn.vnScene || "Something moves through the undergrowth."}</div>
                         <div className="vn-dialogue">
                             <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
@@ -2103,11 +2253,11 @@ export function WorldMap({
 
                 <div className="menu">
                     <button
-                        disabled={!petDecisionReady || petBefriendBusy}
-                        onClick={async () => {
+                        disabled={!petDecisionReady}
+                        onClick={() => {
                             // Ignore clicks during the grace window — a rapid-click
                             // carried over from the VN must not auto-resolve this.
-                            if (!petDecisionReady || petBefriendBusy) return;
+                            if (!petDecisionReady) return;
                             // Re-read length inside the handler in case of fast double-click.
                             if (character.pets.length >= 5) {
                                 return alert("Your Pet Yard is full (5/5). Release a pet before befriending another.");
@@ -2115,50 +2265,24 @@ export function WorldMap({
                             // Capture the encounter and clear it immediately so a second
                             // click before re-render finds no encounter and does nothing.
                             const encounter = activePetEncounter;
-                            const token = activePetEncounterToken;
-                            if (!token) return alert('This encounter has expired. Explore again to find another pet.');
-                            setPetBefriendBusy(true);
+                            setActivePetEncounter(null);
+                            const trait = rollPetTrait(encounter.rarity);
+                            const petWithTrait = applyPetTraitBonuses({ ...encounter, trait }, trait);
+                            const updatedChar = { ...character, pets: [...character.pets, petWithTrait] };
+                            updateCharacter(updatedChar);
                             // Explicitly push to server so the pet isn't lost on reload
                             // before the auto-save interval fires.
-                            try {
-                                const response = await fetch('/api/pet/befriend', {
-                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ playerName: character.name, token }),
-                                });
-                                const data = await response.json().catch(() => null) as {
-                                    character?: Character;
-                                    _saveVersion?: number;
-                                    trait?: keyof typeof petTraitDescriptions | null;
-                                    error?: string;
-                                } | null;
-                                if (!response.ok || !data?.character) {
-                                    const message = data?.error === 'pet-yard-full'
-                                        ? 'Your Pet Yard is full (5/5). Release a pet before befriending another.'
-                                        : 'The pet encounter expired before it could be claimed.';
-                                    return alert(message);
-                                }
-                                if (typeof data._saveVersion === 'number') onServerVersion?.(data._saveVersion);
-                                updateCharacter(data.character);
-                                setActivePetEncounter(null);
-                                setActivePetEncounterToken(null);
-                                const trait = data.trait;
-                                alert(trait
-                                    ? `${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}`
-                                    : `${encounter.name} is already in your Pet Yard.`);
-                            } catch {
-                                alert('The pet could not be befriended. Please try again.');
-                            } finally {
-                                setPetBefriendBusy(false);
-                            }
+                            onImmediateSave?.(updatedChar);
+                            alert(`${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}`);
                         }}
                     >
-                        {petBefriendBusy ? "Befriending…" : petDecisionReady ? "Befriend Pet" : "Befriend Pet…"}
+                        {petDecisionReady ? "Befriend Pet" : "Befriend Pet…"}
                     </button>
 
                     <button
                         className="danger-button"
                         disabled={!petDecisionReady}
-                        onClick={() => { if (petDecisionReady) { setActivePetEncounter(null); setActivePetEncounterToken(null); } }}
+                        onClick={() => { if (petDecisionReady) setActivePetEncounter(null); }}
                     >
                         Leave
                     </button>
@@ -2178,7 +2302,7 @@ export function WorldMap({
         return <TriggeredVisualNovel event={sageVnEvent} character={character} pageIndex={sageVnPage} lineIndex={sageVnLine} setPageIndex={setSageVnPage} setLineIndex={setSageVnLine} onCancel={() => setSageVnEvent(null)} onComplete={() => { setSageVnEvent(null); setSageChoiceOpen(true); }} onBattle={() => { /* the Sage never fights */ }} sharedImages={sharedImages} />;
     }
     if (selectedCreatorEvent) {
-        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const t = c.trait; if (t) updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); }} sharedImages={sharedImages} />;
+        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const ev = selectedCreatorEvent; if (!ev) return; if (c.trait === RIFT_ACCEPT_MARKER) { const rift = riftBySynthId(ev.id); setSelectedCreatorEvent(null); if (rift) void acceptRift(character.name, rift.id).then((resp) => { if (resp.ok && resp.activeRiftQuest) { updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: resp.activeRiftQuest }) : prev); } else { setTimeout(() => alert(resp.reason === "busy" ? "Finish the rift you already carry first." : resp.reason === "cooldown" ? "The energy has not gathered again yet. Come back later." : "The rift could not be marked. Try again in a moment."), 40); } }); return; } if (c.trait === RIFT_DESCEND_MARKER) { const rift = riftByDescentEventId(ev.id); setSelectedCreatorEvent(null); if (rift) onDescendRift?.(rift); return; } if (c.trait === RIFT_ABANDON_MARKER) { setSelectedCreatorEvent(null); void abandonRift(character.name); updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: null }) : prev); return; } const t = c.trait; if (t) { updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); if (ev.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, ev.id, t); } }} sharedImages={sharedImages} />;
         const event = selectedCreatorEvent!;
         const eventPages = event.vnPages ?? [];
         const pages = (eventPages.length > 0 ? eventPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }]) as NonNullable<CreatorEvent["vnPages"]>;
@@ -2356,7 +2480,7 @@ export function WorldMap({
         // every registered player tagged with their last-saved sector) minus
         // anyone who is currently LIVE here. Previously these offline players were
         // shown as if they were live and the attack 404'd ("Target not online") —
-        // the ghost-in-the-sector bug. Now they're rendered distinctly with a resting
+        // the ghost-in-the-sector bug. Now they're rendered distinctly with a 💤
         // badge and routed to the server-authoritative sleeper-KO flow. Capped so
         // a sector everyone last passed through (e.g. the default sector) can't
         // flood the panel. A village / Central logout saves currentSector 0, so
@@ -2386,16 +2510,16 @@ export function WorldMap({
                 avatar: sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '',
             }))
             : [];
-        const activeHuntMissionForSector = selectedSector >= 1 && selectedSector <= 60
-            ? builtinHuntMissions.find((mission) =>
-                acceptedMissionIds.includes(mission.id) &&
-                mission.targetSector === selectedSector &&
-                mission.aiProfileId
-            )
+        const activeHuntTrailForSector = selectedSector >= 1 && selectedSector <= 60
+            ? huntTrailForSector(selectedSector)
             : undefined;
+        const activeHuntMissionForSector = activeHuntTrailForSector?.mission;
         const activeHuntAiForSector = activeHuntMissionForSector?.aiProfileId
             ? playableAis.find((ai) => ai.id === activeHuntMissionForSector.aiProfileId)
             : undefined;
+        const activeHuntReadyForFight = activeHuntMissionForSector
+            ? huntReadyForFight(activeHuntMissionForSector, activeHuntTrailForSector?.progress ?? 0)
+            : false;
 
         // New sector look: a painted top-down adventure MAP behind the grid (flag-gated,
         // off by default). Replaces the 2D vista stack when active. Custom-territory
@@ -2486,9 +2610,9 @@ export function WorldMap({
                                                     <div key={p.name} className="other-player-map-dot" title={`${p.name} Lv ${p.level}`}>
                                                         {(sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '')
                                                             ? <img className="tiny-map-avatar other-player-map-avatar" src={sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || ''} alt={p.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                                            : <span className="other-player-map-emoji"><GiNinjaHead size={14} aria-hidden="true" /></span>
+                                                            : <span className="other-player-map-emoji">🥷</span>
                                                         }
-                                                        <span className="other-player-map-name">{p.name}{p.__sleeping ? <GiSleepy size={12} aria-label="Resting" /> : null}</span>
+                                                        <span className="other-player-map-name">{p.name}{p.__sleeping ? " 💤" : ""}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -2515,7 +2639,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers].map(w => (
+                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers, ...riftGiverWanderers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}
@@ -2524,6 +2648,109 @@ export function WorldMap({
                                     onEngage={handleWandererEngage}
                                 />
                             ))}
+
+                            {/* Hollow Gate Rift structure — the 2.5D cave/shrine stands
+                                INSIDE its target sector's scene and nowhere else, so an
+                                accepted rift is reachable only by travelling to the right
+                                sector. Clicking it opens the at-the-rift VN whose "Descend"
+                                choice drops into the scaled event gate. */}
+                            {(() => {
+                                const arq = character.activeRiftQuest;
+                                if (!arq || selectedSector !== arq.targetSector) return null;
+                                const rift = hollowRiftById(arq.id);
+                                if (!rift) return null;
+                                return (
+                                    <button
+                                        key="sector-rift-structure"
+                                        className="atlas-landmark atlas-hollowRift sector-rift-structure"
+                                        style={{
+                                            left: "50%",
+                                            top: "32%",
+                                            backgroundImage: `url(/landmarks/${rift.landmark}.webp)`,
+                                            backgroundSize: "cover",
+                                            backgroundPosition: "center",
+                                        }}
+                                        onClick={() => { setCreatorEventPage(0); setCreatorEventLine(0); setSelectedCreatorEvent(riftDescentEvent(rift, ambienceBiomeForSector(selectedSector))); }}
+                                        title={`Rift: ${rift.bossName} — descend into the Hollow Gate`}
+                                    >
+                                        <strong>🌀</strong>
+                                        <span>Rift</span>
+                                    </button>
+                                );
+                            })()}
+
+                            {/* Anbu Vault (anbuInfiltration.v1) — the enemy village's war
+                                vault stands INSIDE every enemy-held war sector for L100
+                                shinobi. Walking up (clicking it) opens the Infiltrate /
+                                Retreat prompt; Infiltrate enters the navigable vault whose
+                                inner door is guarded by a sealed Anbu snapshot. NEVER flips
+                                the sector — pure attrition (docs/anbu-infiltration-plan.md). */}
+                            {(() => {
+                                if (!anbuInfiltrationEnabled() || (character.level ?? 0) < 100 || selectedSector == null) return null;
+                                // Prefer the captured owner; fall back to the sector's home
+                                // village so the vault shows on enemy home sectors before any
+                                // sector-war capture (matches the server's ownership fallback).
+                                const owner = loadSectorTerritory(selectedSector).ownerVillage || homeVillageForSector(selectedSector);
+                                if (!owner || owner === character.village) return null;
+                                return (
+                                    <button
+                                        key="sector-anbu-vault-structure"
+                                        className="atlas-landmark sector-rift-structure"
+                                        style={{
+                                            left: "72%",
+                                            top: "38%",
+                                            backgroundImage: "url(/landmarks/anbu-vault.webp)",
+                                            backgroundSize: "contain",
+                                            backgroundRepeat: "no-repeat",
+                                            backgroundPosition: "center bottom",
+                                        }}
+                                        onClick={() => setVaultPrompt({ sector: selectedSector, village: owner })}
+                                        title={`${owner} war vault — infiltrate?`}
+                                    >
+                                        <strong>🏯</strong>
+                                        <span>War Vault</span>
+                                    </button>
+                                );
+                            })()}
+
+                            {/* Anbu Vault — Infiltrate / Retreat prompt (portaled above nav). */}
+                            {vaultPrompt && createPortal(
+                                <div style={{ position: "fixed", inset: 0, zIndex: 1000000, display: "grid", placeItems: "center", background: "rgba(4,6,12,0.72)" }} onClick={() => setVaultPrompt(null)}>
+                                    <div style={{ background: "#141926", border: "1px solid #38405a", borderRadius: 14, padding: "1.1rem 1.2rem", maxWidth: 380, width: "min(92vw, 380px)", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                                        <img src="/landmarks/anbu-vault.webp" alt="" style={{ width: 120, height: 120, objectFit: "contain" }} />
+                                        <h3 style={{ margin: "0.3rem 0" }}>{vaultPrompt.village} War Vault</h3>
+                                        <p style={{ fontSize: 13, opacity: 0.82, margin: "0.3rem 0 0.8rem" }}>
+                                            Their war supplies sit behind that sealed door — and one of their Anbu guards it.
+                                            Break through and you can bleed this sector's war economy. If you fall, you leave with nothing.
+                                        </p>
+                                        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                                            <button style={{ padding: "0.55rem 1.15rem" }} onClick={() => { setVaultRaid(vaultPrompt); setVaultPrompt(null); }}>Infiltrate</button>
+                                            <button style={{ padding: "0.55rem 1.15rem", opacity: 0.8 }} onClick={() => setVaultPrompt(null)}>Retreat</button>
+                                        </div>
+                                    </div>
+                                </div>,
+                                document.body,
+                            )}
+
+                            {/* Anbu Vault — the live raid (traverse → Anbu fight → spoils),
+                                portaled full-screen so the bottom nav can't paint over it. */}
+                            {vaultRaid && createPortal(
+                                <div style={{ position: "fixed", inset: 0, zIndex: 1000000, overflowY: "auto", background: "#0a0d15" }}>
+                                    <Suspense fallback={<div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", color: "var(--slate-300)" }}>Slipping past the perimeter…</div>}>
+                                        <AnbuVaultRaid
+                                            character={character}
+                                            sharedImages={sharedImages}
+                                            sector={vaultRaid.sector}
+                                            targetVillage={vaultRaid.village}
+                                            creatorItems={wmCreatorItems}
+                                            savedBloodlines={savedBloodlines}
+                                            updateCharacter={updateCharacter}
+                                            onExit={() => setVaultRaid(null)}
+                                        />
+                                    </Suspense>
+                                </div>,
+                                document.body,
+                            )}
 
                             {/* Roaming weekly boss (weeklyBossRoam.v1): the boss looms in-sector
                                 and bears down on the player when this IS its current sector.
@@ -2551,12 +2778,12 @@ export function WorldMap({
                                     <div className="card" style={{ maxWidth: 380, width: "88%", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
                                         {bossDialog.portrait
                                             ? <img src={bossDialog.portrait} alt={bossDialog.name} style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />
-                                            : <div style={{ fontSize: 60, lineHeight: 1, margin: "0 0 6px" }}><GiDaemonSkull size={60} aria-hidden="true" /></div>}
-                                        <h3 style={{ margin: "0 0 4px", color: "#ffb4a0" }}><GiCrossedSwords aria-hidden="true" /> {bossDialog.name}</h3>
+                                            : <div style={{ fontSize: 60, lineHeight: 1, margin: "0 0 6px" }}>👹</div>}
+                                        <h3 style={{ margin: "0 0 4px", color: "#ffb4a0" }}>⚔ {bossDialog.name}</h3>
                                         <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard — or flee (free, no attempt spent).</p>
-                                        <p style={{ fontSize: ".72rem", color: "#facc15", margin: "0 0 12px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
+                                        <p style={{ fontSize: ".72rem", color: "var(--gold)", margin: "0 0 12px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                            <button onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>Stand &amp; Fight</button>
+                                            <button onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700 }}>Stand &amp; Fight</button>
                                             <button onClick={fleeBoss}>Flee</button>
                                         </div>
                                     </div>
@@ -2591,6 +2818,15 @@ export function WorldMap({
                                     }}
                                 />
                             )}
+                            {huntToast && (
+                                <WorldToast
+                                    key={huntToast.id}
+                                    kicker={huntToast.kicker}
+                                    text={huntToast.text}
+                                    icon={<GiPawPrint size={22} />}
+                                    onClose={() => setHuntToast(null)}
+                                />
+                            )}
                             {whisper && (
                                 <SageWhisper
                                     text={whisper.text}
@@ -2610,10 +2846,10 @@ export function WorldMap({
                                             style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
                                         />
                                         <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.nemesis && character.wandererNemesis ? character.wandererNemesis.name : wandererDialog.w.name}</h3>
-                                        <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? `Your rival · Lv ${Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}` : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
+                                        <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? `⚔ Your rival · Lv ${Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}` : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
                                         <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time — you won't this time."` : wandererDialog.w.greeting)}</p>
                                         {!wandererDialog.msg && wandererMemoryLine(wandererDialog.w) && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{wandererMemoryLine(wandererDialog.w)}</p>}
-                                        {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "#86efac" : "#cbd5e1", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
+                                        {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "var(--green-300)" : "var(--slate-300)", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
                                         {!wandererDialog.msg && wandererDialog.w.verb === "attack" ? (
                                             wandererDialog.peace ? (
                                                 <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
@@ -2628,7 +2864,7 @@ export function WorldMap({
                                             )
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "bountyHunter" ? (
                                             <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                                                <button disabled={wandererDialog.busy} onClick={() => startBountyHunterFight(wandererDialog.w)} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>{wandererDialog.busy ? "..." : "Stand & Fight"}</button>
+                                                <button disabled={wandererDialog.busy} onClick={() => startBountyHunterFight(wandererDialog.w)} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700 }}>{wandererDialog.busy ? "..." : "Stand & Fight"}</button>
                                                 <button onClick={dismissWandererDialog}>Flee</button>
                                             </div>
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "merchant" ? (
@@ -2696,13 +2932,13 @@ export function WorldMap({
                                                     const expired = left === "0:00";
                                                     return (
                                                         <>
-                                                            <p style={{ fontSize: ".82rem", margin: "0 0 2px", fontWeight: 700, color: "#c4b5fd" }}><GiOpenBook aria-hidden="true" /> {entry.title}</p>
+                                                            <p style={{ fontSize: ".82rem", margin: "0 0 2px", fontWeight: 700, color: "#c4b5fd" }}>📖 {entry.title}</p>
                                                             <p style={{ fontSize: ".7rem", color: "#9aa3b2", margin: "0 0 6px" }}>Stage {epic.stage + 1} of {entry.stages.length}</p>
                                                             <p style={{ fontSize: ".8rem", margin: "0 0 8px" }}>{stage.text}</p>
-                                                            {left && <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "#f87171" : "#fbbf24" }}><GiSandsOfTime aria-hidden="true" /> {expired ? "The bell rang — your next attempt resets this stage." : `${left} before the bell rings`}</p>}
+                                                            {left && <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "var(--red-400)" : "#fbbf24" }}>{expired ? "⏳ The bell rang — your next attempt resets this stage." : `⏳ ${left} before the bell rings`}</p>}
                                                             {stage.choice ? (
                                                                 <>
-                                                                    <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "#cbd5e1", margin: "0 0 10px" }}>{stage.choice.prompt}</p>
+                                                                    <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "var(--slate-300)", margin: "0 0 10px" }}>{stage.choice.prompt}</p>
                                                                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                                                         {stage.choice.options.map(opt => (
                                                                             <button key={opt.key} disabled={wandererDialog.busy} onClick={() => chooseEpicOption(wandererDialog.w, opt.key)} style={{ textAlign: "left", lineHeight: 1.3 }}>
@@ -2715,7 +2951,7 @@ export function WorldMap({
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    {scalesRivalry && <p style={{ fontSize: ".75rem", color: "#fca5a5", margin: "0 0 8px", fontWeight: 600 }}><GiCrossedSwords aria-hidden="true" /> He has bested you {rivalTier}× — his promoted form is that much stronger{rivalTier >= 4 ? ", and risen" : ""}.</p>}
+                                                                    {scalesRivalry && <p style={{ fontSize: ".75rem", color: "var(--red-300)", margin: "0 0 8px", fontWeight: 600 }}>⚔ He has bested you {rivalTier}× — his promoted form is that much stronger{rivalTier >= 4 ? ", and risen" : ""}.</p>}
                                                                     <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 10px" }}>Progress: {Math.min(got, stage.count)} / {stage.count} {metricLabel(stage.metric)}</p>
                                                                     <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                                                         {done && isFinal ? (
@@ -2723,7 +2959,7 @@ export function WorldMap({
                                                                         ) : done ? (
                                                                             <button disabled={wandererDialog.busy} onClick={() => advanceEpic(false)}>{wandererDialog.busy ? "…" : "Continue"}</button>
                                                                         ) : bossArena ? (
-                                                                            <button onClick={() => fightEpicBoss(wandererDialog.w)}><GiCrossedSwords aria-hidden="true" /> Fight {bossName}</button>
+                                                                            <button onClick={() => fightEpicBoss(wandererDialog.w)}>⚔ Fight {bossName}</button>
                                                                         ) : null}
                                                                         <button onClick={() => abandonEpic(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon</button>
                                                                         <button onClick={() => setWandererDialog(null)}>Leave</button>
@@ -2757,7 +2993,7 @@ export function WorldMap({
                                             return (
                                                 <>
                                                     <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Task: {def.label}</p>
-                                                    {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}><GiOpenBook aria-hidden="true" /> Epic available: “{offer.title}” — a long, hard tale in stages.</p>}
+                                                    {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}>📖 Epic available: “{offer.title}” — a long, hard tale in stages.</p>}
                                                     <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                                         <button disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept task"}</button>
                                                         {offer && <button disabled={wandererDialog.busy} onClick={() => acceptEpic(wandererDialog.w, offer.id)} style={{ background: "linear-gradient(#3b2f6b,#1e1b3a)", borderColor: "#a78bfa" }}>{wandererDialog.busy ? "…" : "Begin epic"}</button>}
@@ -2777,7 +3013,7 @@ export function WorldMap({
                                             const got = active ? Math.max(0, ((character[(activeDef?.metric ?? questMetricForId(active.id))] as number | undefined) ?? 0) - active.baseline) : 0;
                                             return (
                                                 <>
-                                                    <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "#cbd5e1", margin: "0 0 10px" }}>{emissaryLoreLine(em, bucket)}</p>
+                                                    <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "var(--slate-300)", margin: "0 0 10px" }}>{emissaryLoreLine(em, bucket)}</p>
                                                     {active ? (
                                                         got >= active.target ? (
                                                             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
@@ -2862,7 +3098,7 @@ export function WorldMap({
                                             onClick={() => triggerCreatorEvent(event)}
                                             title={`${event.name} | Lvl ${event.levelReq}`}
                                         >
-                                            <strong style={{ color: "#facc15", fontSize: 16 }}>{event.icon}</strong>
+                                            <strong style={{ color: "var(--gold)", fontSize: 16 }}>{event.icon}</strong>
                                             <span>{event.name}</span>
                                         </button>
                                     );
@@ -2885,7 +3121,7 @@ export function WorldMap({
                                                 zIndex: 5,
                                                 background: "rgba(60,10,10,.88)",
                                                 color: "#fff",
-                                                border: "2px solid #fca5a5",
+                                                border: "2px solid var(--red-300)",
                                                 borderRadius: 8,
                                                 padding: "4px 6px",
                                                 fontSize: 10,
@@ -2910,7 +3146,7 @@ export function WorldMap({
                                             }}
                                             title={`${raid.name} | ${raid.waves} waves | Lvl ${raid.levelReq}`}
                                         >
-                                            <strong style={{ color: "#fca5a5", fontSize: 16 }}>{raid.icon}</strong>
+                                            <strong style={{ color: "var(--red-300)", fontSize: 16 }}>{raid.icon}</strong>
                                             <span>{raid.name}</span>
                                         </button>
                                     );
@@ -3083,6 +3319,25 @@ export function WorldMap({
                                 })
                             )}
                         </section>
+                        {activeHuntMissionForSector && activeHuntTrailForSector && (
+                            <section className="sector-presence sector-panel-card">
+                                <div className="sector-panel-card-head">
+                                    <h4><GiPawPrint aria-hidden="true" />Hunt Trail</h4>
+                                    <span className={`sector-status-pill ${activeHuntReadyForFight ? "is-owned" : ""}`}>
+                                        {activeHuntReadyForFight ? "Fight" : "Tracking"}
+                                    </span>
+                                </div>
+                                <p className="sector-owner-line">
+                                    <strong>{activeHuntAiForSector?.name ?? "Target"}</strong>
+                                    <span>{Math.min(activeHuntTrailForSector.progress, Math.max(0, activeHuntTrailForSector.requiredTracks - 1))}/{Math.max(1, activeHuntTrailForSector.requiredTracks - 1)} trail</span>
+                                </p>
+                                <p className="sector-empty-note">
+                                    {activeHuntReadyForFight
+                                        ? "The trail is hot. Start the fight from this sector."
+                                        : "Search the sign here; the trail may move before the target shows itself."}
+                                </p>
+                            </section>
+                        )}
                         <div className="sector-action-grid" aria-label="Sector actions">
                             <button type="button" className="sector-action-btn is-primary" onClick={() => exploreSector(selectedSector)}>
                                 <span className="sector-action-icon" aria-hidden="true"><GiCompass /></span>
@@ -3091,7 +3346,7 @@ export function WorldMap({
                             {activeHuntMissionForSector && (
                                 <button type="button" className="sector-action-btn" onClick={() => huntSector(selectedSector)}>
                                     <span className="sector-action-icon" aria-hidden="true"><GiPawPrint /></span>
-                                    <span>Hunt {activeHuntAiForSector?.name ?? "Beast"}</span>
+                                    <span>{activeHuntReadyForFight ? "Fight" : "Track"} {activeHuntAiForSector?.name ?? "Target"}</span>
                                 </button>
                             )}
                             <button type="button" className="sector-action-btn" onClick={() => restInSector(selectedSector)}>
@@ -3169,7 +3424,7 @@ export function WorldMap({
 
                     <aside className="instance-actions">
                         <h3>{loc.name}</h3>
-                        <p className="territory-hostile-tag">Hostile Territory</p>
+                        <p className="territory-hostile-tag">⚠️ Hostile Territory</p>
                         <p>{weatherEffects[weather].effect}</p>
                         <button onClick={() => exploreSector(virtualSector)}>Explore Territory</button>
                         <button onClick={() => restInSector(virtualSector)}>Recover</button>
@@ -3178,7 +3433,7 @@ export function WorldMap({
                         <div className="territory-guard-section">
                             {territoryGuards.length > 0 ? (
                                 <>
-                                    <p className="territory-guard-label"><GiShield aria-hidden="true" /> Village Guarded</p>
+                                    <p className="territory-guard-label">🛡️ Village Guarded</p>
                                     {territoryGuards.map(g => (
                                         <p key={g.name} className="territory-guard-name">
                                             {g.name} <span className="territory-guard-lvl">Lv.{g.level}</span>{g.defenseBonusPercent ? <span className="territory-guard-lvl"> DEF +{g.defenseBonusPercent.toFixed(1)}%</span> : null}
@@ -3187,6 +3442,7 @@ export function WorldMap({
                                     <button
                                         className="territory-raid-btn"
                                         onClick={async () => {
+                                            if (!requireServerSettlement("pvpSession")) return;
                                             const guard = territoryGuards[0];
                                             setCurrentSector(virtualSector);
                                             setCurrentBiome(biome);
@@ -3269,15 +3525,15 @@ export function WorldMap({
                                             setScreen("arena");
                                         }}
                                     >
-                                        <GiShield aria-hidden="true" /> Challenge Guard
+                                        🛡️ Challenge Guard
                                     </button>
-                                    <p className="hint" style={{ fontSize: "0.7rem", color: "#64748b", marginTop: 2 }}>
+                                    <p className="hint" style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
                                         Guard online? Real PvP. Guard offline? AI fight.
                                     </p>
                                 </>
                             ) : (
                                 <>
-                                    <p className="territory-guard-label" style={{ color: "#475569" }}>Village Undefended</p>
+                                    <p className="territory-guard-label" style={{ color: "var(--slate-600)" }}>Village Undefended</p>
                                     <button onClick={() => {
                                         setPendingPvpOpponent(null);
                                         setPendingAiProfileId(pickGuardAi(character.level));
@@ -3376,7 +3632,7 @@ export function WorldMap({
                     <div className="wm-zoom-controls">
                         <button className="wm-zoom-btn" aria-label="Zoom in" onClick={wmZoom.zoomIn}>+</button>
                         <button className="wm-zoom-btn" aria-label="Zoom out" onClick={wmZoom.zoomOut}>−</button>
-                        <button type="button" className="wm-zoom-btn" aria-label="Reset view" style={{ fontSize: 15 }} onClick={wmZoom.reset}><GiExpand aria-hidden="true" /></button>
+                        <button className="wm-zoom-btn" aria-label="Reset view" style={{ fontSize: 15 }} onClick={wmZoom.reset}>⤢</button>
                     </div>
                 </div>
             ) : (
@@ -3385,17 +3641,30 @@ export function WorldMap({
             {hollowGateMenu && (
                 <div onClick={() => setHollowGateMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 8999, background: "rgba(2,6,23,0.8)", display: "grid", placeItems: "center", padding: 16 }}>
                     <div onClick={(e) => e.stopPropagation()} style={{ background: "#160f2b", border: "1px solid #7c3aed", borderRadius: 12, padding: 20, maxWidth: 380, width: "100%", textAlign: "center" }}>
-                        <h3 style={{ marginTop: 0, color: "#e9d5ff" }}><GiPortal aria-hidden="true" /> The Hollow Gate</h3>
+                        <h3 style={{ marginTop: 0, color: "#e9d5ff" }}>⛩ The Hollow Gate</h3>
                         <p style={{ color: "#c4b5fd", fontSize: 14 }}>The broken torii waits. Steel yourself, or attune to the shrine with the Hollow Shards you've torn from its depths.</p>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {hollowGateEventConfig?.active && (
+                                <button
+                                    onClick={() => { setHollowGateMenu(false); onEnterHollowGateEvent?.(hollowGateEventConfig); }}
+                                    style={{ padding: 8, borderRadius: 8, border: "1px solid #fbbf24", background: "linear-gradient(#b45309,#78350f)", color: "#fef3c7", fontWeight: 700, cursor: "pointer" }}
+                                >
+                                    ⭐ Event: {hollowGateEventConfig.label || "Event Gate"}
+                                    <span style={{ display: "block", fontSize: 11, fontWeight: 400, color: "var(--gold-300)" }}>
+                                        {Math.max(1, hollowGateEventConfig.maxFloor ?? 1)} floor{(hollowGateEventConfig.maxFloor ?? 1) === 1 ? "" : "s"}
+                                        {hollowGateEventConfig.bossName ? ` · Boss: ${hollowGateEventConfig.bossName}` : ""}
+                                        {(hollowGateEventConfig.keyCost ?? 1) === 0 ? " · Free entry" : " · 1 Key"}
+                                    </span>
+                                </button>
+                            )}
                             <button onClick={() => { setHollowGateMenu(false); onEnterHollowGate?.(); }} style={{ padding: 8, borderRadius: 8, border: "none", background: "linear-gradient(#7c3aed,#4c1d95)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Enter the Shrine</button>
-                            <button type="button" onClick={() => { setHollowGateMenu(false); setShowAttunement(true); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}><GiCrystalGrowth aria-hidden="true" /> Shrine Attunement</button>
-                            <button onClick={() => setHollowGateMenu(false)} style={{ padding: 6, borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94a3b8", cursor: "pointer" }}>Cancel</button>
+                            <button onClick={() => { setHollowGateMenu(false); setShowAttunement(true); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}>💎 Shrine Attunement</button>
+                            <button onClick={() => setHollowGateMenu(false)} style={{ padding: 6, borderRadius: 8, border: "1px solid var(--slate-600)", background: "transparent", color: "var(--text-dim)", cursor: "pointer" }}>Cancel</button>
                         </div>
                     </div>
                 </div>
             )}
-            {showAttunement && <HollowGateAttunement character={character} updateCharacter={updateCharacter} onServerVersion={onServerVersion} onClose={() => setShowAttunement(false)} />}
+            {showAttunement && <HollowGateAttunement character={character} updateCharacter={updateCharacter} onClose={() => setShowAttunement(false)} />}
             {/* World-map viewport. Legacy: a horizontal-scroll box on narrow
                 screens. With worldMapZoom.v1 (mobile default): a fit-to-screen
                 pinch / drag zoom surface driven by useWorldMapZoom. */}
@@ -3441,37 +3710,38 @@ export function WorldMap({
                 <div className="atlas-region-label label-fire">Land of Fire</div>
                 <div className="atlas-region-label label-ice">Land of Glaciers</div>
                 {sectorPoints.map((sector) => {
+                    const huntTrail = huntTrailForSector(sector.id);
+                    const sectorTitle = sector.id === 99
+                        ? "Death's Gate - PvP zone: 2x XP, Ryo & Jutsu XP, 5% Bone Charm on win"
+                        : huntTrail
+                            ? `${huntTrail.mission.name} trail | Sector ${sector.id}`
+                            : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`;
                     return (
                     <button
-                        type="button"
                         key={sector.id}
                         className={
                             (sector.id === 99
                                 ? "atlas-sector atlas-sector-deaths-gate"
                                 : "atlas-sector atlas-sector-" + biomeForSector(sector.id))
                             + (sector.id === weeklyBossSector ? " atlas-sector-weekly-boss" : "")
+                            + (huntTrail ? " atlas-sector-hunt-trail" : "")
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         onClick={() => triggerTravelPoint(sector.id)}
-                        aria-label={sector.id === 99 ? "Death's Gate" : sector.id === 35 ? "Sunscar Festival" : `Sector ${sector.id}`}
-                        title={sector.id === 99 ? "Death's Gate — PvP zone: 2× XP, Ryo & Jutsu XP · 5% Bone Charm on win" : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`}
+                        title={sectorTitle}
                     >
-                        {sector.id === 99
-                            ? <GiDeathSkull size={18} aria-hidden="true" />
-                            : sector.id === 35
-                                ? <GiSunRadiations size={18} aria-hidden="true" />
-                                : sector.id}
+                        {sector.id === 99 ? "💀" : sector.id === 35 ? "☀️" : sector.id}
                         {scoutedSectors.has(sector.id) && (
                             <span
                                 style={{ position: "absolute", top: -5, right: -5, fontSize: 11, lineHeight: 1, filter: "drop-shadow(0 0 2px #000)", pointerEvents: "none" }}
                                 title={scoutDotTitle(scoutedSectors.get(sector.id)!, (scoutInfo.tier || 1) as 1 | 2 | 3)}
-                            ><GiPlainCircle size={10} aria-hidden="true" />{scoutedSectors.get(sector.id)!.length > 1 ? scoutedSectors.get(sector.id)!.length : ""}</span>
+                            >🔴{scoutedSectors.get(sector.id)!.length > 1 ? scoutedSectors.get(sector.id)!.length : ""}</span>
                         )}
                         {sageOffer?.status === "spawned" && sageOffer.sector === sector.id && (
                             <img
                                 src="/legacy/sage-marker.webp"
                                 alt=""
-                                style={{ position: "absolute", top: -12, left: -12, width: 22, height: 22, pointerEvents: "none", filter: "drop-shadow(0 0 5px #c084fc)" }}
+                                style={{ position: "absolute", top: -12, left: -12, width: 22, height: 22, pointerEvents: "none", filter: "drop-shadow(0 0 5px var(--purple-400))" }}
                                 title="A Wandering Sage waits here"
                             />
                         )}
@@ -3479,7 +3749,13 @@ export function WorldMap({
                             <span
                                 className="atlas-boss-flag"
                                 title={`${roamingBoss?.bossName ?? "Weekly Boss"} is rampaging here — travel in to challenge it`}
-                            ><GiDaemonSkull size={18} aria-hidden="true" /></span>
+                            >👹</span>
+                        )}
+                        {huntTrail && (
+                            <span
+                                className="atlas-hunt-flag"
+                                title={`${huntTrail.mission.name} trail is active here`}
+                            ><GiPawPrint /></span>
                         )}
                     </button>
                 ); })}
@@ -3490,7 +3766,7 @@ export function WorldMap({
                 {isVillageWarMapEnabled() && <SectorOwnershipOverlay sectorPoints={sectorPoints} />}
 
                 {/* Roaming weekly boss: the boss's current sector NODE is highlighted
-                    in-place (pulsing ring + boss flag, see weeklyBossSector above and
+                    in-place (pulsing ring + 👹 flag, see weeklyBossSector above and
                     .atlas-sector-weekly-boss in index.css) rather than a floating
                     portrait marker — per owner feedback that the sector highlight
                     alone is enough. The tracker screen still shows the hop countdown. */}
@@ -3507,22 +3783,10 @@ export function WorldMap({
                     const landmarkImage = location.type === "hollowGate"
                         ? sharedImages["landmark:hollow-gate"]
                         : undefined;
-                    const landmarkGlyph = location.name === "Stormveil Village"
-                        ? <GiLightningStorm size={20} aria-hidden="true" />
-                        : location.name === "Ashen Leaf Village"
-                            ? <GiMapleLeaf size={20} aria-hidden="true" />
-                            : location.name === "Frostfang Village"
-                                ? <GiWolfHead size={20} aria-hidden="true" />
-                                : location.name === "Moonshadow Village"
-                                    ? <GiMoon size={20} aria-hidden="true" />
-                                    : location.type === "central"
-                                        ? <GiPagoda size={21} aria-hidden="true" />
-                                        : <GiPortal size={20} aria-hidden="true" />;
                     return (
                         <button
                             key={location.name}
-                            className={"atlas-landmark atlas-" + location.type + (location.type === "hollowGate" && !landmarkImage ? " atlas-hollowGate-fallback" : "")}
-                            type="button"
+                            className={"atlas-landmark atlas-" + location.type}
                             style={{
                                 left: location.x + "%",
                                 top: location.y + "%",
@@ -3536,13 +3800,17 @@ export function WorldMap({
                             }}
                             onClick={() => enterLandmark(location)}
                             title={location.name}
-                            aria-label={location.name}
                         >
-                            <strong aria-hidden="true">{landmarkGlyph}</strong>
+                            <strong>{location.icon}</strong>
                             <span>{location.name}</span>
                         </button>
                     );
                 })}
+
+                {/* (The Hollow Gate Rift structure is deliberately NOT drawn on the
+                    world overview. It appears only inside its target sector's scene,
+                    so a rift is reachable ONLY by going to the correct sector — see the
+                    in-sector render in the sector-stage panel.) */}
 
                 {/* Settlement life — a soft hearth glow + a rising hearth-smoke
                     wisp over each village/Central, so the towns read as lived-in.
@@ -3699,6 +3967,15 @@ export function WorldMap({
                 roll + rumor effects fire on mount, before a sector is opened
                 (final-gate finding). SageWhisper portals to <body>, so this
                 mount and the sector-view mount can never double-render. */}
+            {huntToast && (
+                <WorldToast
+                    key={huntToast.id}
+                    kicker={huntToast.kicker}
+                    text={huntToast.text}
+                    icon={<GiPawPrint size={22} />}
+                    onClose={() => setHuntToast(null)}
+                />
+            )}
             {whisper && (
                 <SageWhisper
                     text={whisper.text}

@@ -42,6 +42,12 @@ export type TowerFeature =
     | { kind: 'ward'; tiles: number[]; percent: number; label?: string }
     | { kind: 'hazard'; tiles: number[]; percent: number; label?: string };
 
+/** A board object — a tile worth HOLDING. Fonts restore whoever stands on them at round
+ *  end (any side, capped); shrines grant the holding team a capped damage bonus. */
+export type TowerBoardObject =
+    | { kind: 'font'; resource: 'hp' | 'chakra' | 'stamina'; percent: number; cap: number; tiles?: number[]; label?: string }
+    | { kind: 'shrine'; percent: number; tiles?: number[]; label?: string };
+
 export type TowerMap = {
     width: number;
     height: number;
@@ -50,12 +56,21 @@ export type TowerMap = {
     blockedTiles: number[];
     hazardTiles: number[];
     objectiveTiles: number[];
+    /** board objects (fonts / shrines) with resolved tiles — drawn + tinted on the board */
+    boardObjects?: TowerBoardObject[];
+    /** dynamic hazards (geyser vents) with resolved tiles — drawn on the board; the tiles about
+     *  to erupt also come through nextRoundHazardTiles (crimson telegraph) so they pulse a round ahead */
+    dynamicHazards?: Array<{ kind: string; tiles: number[]; pct: number; everyRounds: number; firstRound?: number }>;
     /** positional battlefield features (pylons/wards/hazards) — drawn on the board */
     features?: TowerFeature[];
     /** Endless Spire telegraph: tiles that will burn at the END of the current round from
      *  ascension hazard keystones (exact deterministic hazards only). Painted as a danger
      *  overlay so the squad can pre-position; absent for story runs. */
     nextRoundHazardTiles?: number[];
+    /** Closing-ring hazard (story boss finale): the safe zone shrinks toward centre each
+     *  round; tiles outside it chip the squad at round end. Client re-derives the lethal
+     *  tiles via towerClosingRingTiles (a byte-mirror of the server) to paint them ember. */
+    closingRing?: { pct?: number; fromRound?: number; minRadius?: number };
 };
 
 export type TowerObjectiveState = {
@@ -110,6 +125,9 @@ export type TowerSession = {
     dmgMult?: number;
     /** the sealed modifiers, rendered as manifest chips */
     modifierStack?: TowerModifier[];
+    /** the boss's currently-primed telegraphed strike: the exact tiles that detonate at the
+     *  END of `round` (painted violet, distinct from the crimson spire hazards) */
+    bossStrike?: { tiles: number[]; round: number; pct: number; kind: string; label: string };
 };
 
 /** Mirrors the server TURN_AFK_MS — how long a player has before their turn auto-passes. */

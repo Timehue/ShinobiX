@@ -95,6 +95,8 @@ async function handler(req, res) {
             const recipientSave = await _storage_js_1.kv.get(`save:${recipient}`);
             if (!recipientSave)
                 return res.status(404).json({ error: 'No such player.' });
+            if (!(0, _text_moderation_js_1.isCleanText)(text))
+                return res.status(400).json({ error: 'Message contains blocked content.' });
             const safeText = (0, _text_moderation_js_1.sanitizeUserText)(text, _text_moderation_js_1.TEXT_LIMITS.chatMessage);
             if (!safeText)
                 return res.status(400).json({ error: 'Empty message after moderation.' });

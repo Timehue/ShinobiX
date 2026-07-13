@@ -40,7 +40,7 @@ export type LegacyMomentData =
 
 export function LegacyMoment({ moment, onClose }: { moment: LegacyMomentData; onClose: () => void }) {
     // Rank is owner-only — every legacy ceremony uses the same legacy accent.
-    const color = "#c084fc";
+    const color = "var(--purple-400)";
     return createPortal(
         <div
             className="rankup-backdrop"
@@ -72,8 +72,8 @@ export function LegacyMoment({ moment, onClose }: { moment: LegacyMomentData; on
                             </span>
                         )}
                         <h2 className="rankup-rank" style={{ fontSize: "1.35rem" }}>{moment.kindName}</h2>
-                        <p style={{ fontSize: ".82rem", color: "#cbd5e1", margin: "4px 0 2px", fontWeight: 700 }}>{moment.legacyName}</p>
-                        <p style={{ fontSize: ".8rem", color: "#e2e8f0", fontStyle: "italic", lineHeight: 1.5, margin: "10px 0 4px" }}>
+                        <p style={{ fontSize: ".82rem", color: "var(--slate-300)", margin: "4px 0 2px", fontWeight: 700 }}>{moment.legacyName}</p>
+                        <p style={{ fontSize: ".8rem", color: "var(--slate-200)", fontStyle: "italic", lineHeight: 1.5, margin: "10px 0 4px" }}>
                             “{moment.text}”
                         </p>
                         <p style={{ fontSize: ".72rem", color: "#9aa3b2", margin: "2px 0 0" }}>— {moment.speaker?.name ?? "the Wandering Sage"}</p>
@@ -98,7 +98,7 @@ export function LegacyMoment({ moment, onClose }: { moment: LegacyMomentData; on
                             </span>
                         )}
                         <h2 className="rankup-rank" style={{ fontSize: "1.3rem", color }}>{moment.stageName}</h2>
-                        <p style={{ fontSize: ".82rem", color: "#cbd5e1", margin: "2px 0 0", fontWeight: 700 }}>{moment.legacyName}</p>
+                        <p style={{ fontSize: ".82rem", color: "var(--slate-300)", margin: "2px 0 0", fontWeight: 700 }}>{moment.legacyName}</p>
                         {moment.grantedTitle && (
                             <p style={{ margin: "10px 0 0" }}>
                                 <span style={{
@@ -107,7 +107,7 @@ export function LegacyMoment({ moment, onClose }: { moment: LegacyMomentData; on
                                 }}>« {moment.grantedTitle} »</span>
                             </p>
                         )}
-                        <p style={{ fontSize: ".79rem", color: "#e2e8f0", fontStyle: "italic", lineHeight: 1.5, margin: "12px 0 0" }}>
+                        <p style={{ fontSize: ".79rem", color: "var(--slate-200)", fontStyle: "italic", lineHeight: 1.5, margin: "12px 0 0" }}>
                             “{moment.text}”
                         </p>
                         <button type="button" className="rankup-continue" onClick={onClose} autoFocus>Continue</button>

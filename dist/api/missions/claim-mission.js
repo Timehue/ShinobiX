@@ -306,8 +306,10 @@ async function handler(req, res) {
             if (missionType === 'field' || missionType === 'hunt') {
                 next = { ...next, claimedServerMissions: [...claimedServerMissions, missionReceipt] };
             }
-            const updated = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
-            (0, _save_version_js_1.bumpSaveVersion)(updated);
+            const updated = (0, _save_version_js_1.bumpSaveVersion)({
+                ...applyClaimedMissionState(record, missionType, missionId),
+                character: next,
+            });
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
             if (progressReceiptKeyToClear) {
                 await _storage_js_1.kv.del(progressReceiptKeyToClear).catch(() => 0);

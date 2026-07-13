@@ -31,6 +31,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RESERVED_TITLE_TERMS = exports.TEXT_LIMITS = void 0;
 exports.sanitizeUserText = sanitizeUserText;
 exports.isCleanText = isCleanText;
+exports.isCleanPlayerName = isCleanPlayerName;
 exports.hasReservedTitleTerm = hasReservedTitleTerm;
 exports.isAllowedCustomTitle = isAllowedCustomTitle;
 // Per-field text length ceilings. Anything beyond is silently truncated.
@@ -179,12 +180,37 @@ function isCleanText(input) {
         return true;
     const collapsedWithSpace = leetCollapsePreserveSpace(input);
     const collapsedNoSpace = leetCollapseStripSpace(input);
+    // Also join punctuation-separated letters so an in-chat spelling like
+    // "n-i-g-g-e-r" cannot evade the normal word-boundary scan. Restrict this
+    // compact pass to longer blocked terms to avoid accidental matches inside
+    // ordinary prose from short abbreviations.
+    const collapsedCompact = leetCollapse(collapsedNoSpace.replace(/[^a-z0-9]/g, ''));
     for (const canonical of COLLAPSED_BLOCKLIST) {
         const re = new RegExp(`(^|[^a-z0-9])(${canonical})(?=[^a-z0-9]|$)`, 'i');
         if (re.test(collapsedWithSpace) || re.test(collapsedNoSpace))
             return false;
+        const compactTerm = canonical.replace(/[^a-z0-9]/g, '');
+        if (compactTerm.length >= 4 && collapsedCompact.includes(compactTerm))
+            return false;
     }
     return true;
+}
+/**
+ * Strict identity variant for new player names. Usernames have no reliable
+ * word boundaries, so a blocked term embedded in a name must be rejected
+ * rather than relying on the prose-oriented boundary matcher above. Very
+ * short shorthand terms are deliberately excluded here to avoid false
+ * positives in otherwise harmless fantasy names.
+ */
+function isCleanPlayerName(input) {
+    if (typeof input !== 'string')
+        return false;
+    const canonical = leetCollapseStripSpace(input).replace(/[^a-z0-9]/g, '');
+    if (!canonical)
+        return false;
+    return !COLLAPSED_BLOCKLIST
+        .filter((term) => term.length >= 4)
+        .some((term) => canonical.includes(term));
 }
 // ─── Custom-title moderation (docs/legacy-system-plan.md §11.4) ─────────────
 //
