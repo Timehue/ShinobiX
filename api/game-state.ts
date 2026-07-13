@@ -87,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     clanPetBattles,
                     weeklyBossAiId: weeklyBossAiId ?? null,
                 };
-                const builtEtag = `W/"${createHash('sha1').update(JSON.stringify(built)).digest('base64')}"`;
+                const builtEtag = `W/"${createHash('sha256').update(JSON.stringify(built)).digest('base64')}"`;
                 return { payload: built, etag: builtEtag };
             });
 
