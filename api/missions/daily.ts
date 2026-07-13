@@ -39,7 +39,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        const state = await loadOrIssueDailyMissions(playerName, profession);
+        // `record` was just read to establish the player's profession.  Passing
+        // its character through removes a second save:<player> database read
+        // from the latency-sensitive panel load without changing authorization
+        // or mission issuance semantics.
+        const state = await loadOrIssueDailyMissions(playerName, profession, new Date(), char ?? null);
         if (!state) {
             return res.status(200).json({ profession, missions: [] });
         }

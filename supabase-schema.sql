@@ -275,3 +275,24 @@ select cron.schedule(
     '*/2 * * * *',            -- every 2 minutes
     $$ select public.kv_delete_expired(); $$
 );
+
+-- â”€â”€ Data API RPC hardening â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- PostgreSQL grants EXECUTE on newly-created functions to PUBLIC by default.
+-- These helpers mutate the game's KV table and are called only by the trusted
+-- API using the Supabase service-role key (or a direct server Postgres URL).
+-- Do not leave them callable through the anonymous/authenticated Data API.
+--
+-- Run this section in production after confirming the game server has its
+-- service-role key/DATABASE_URL.  It is idempotent and does not affect the
+-- browser's Realtime SELECT policy above.
+revoke all on function public.kv_set_nx(text, jsonb, timestamptz) from public, anon, authenticated;
+revoke all on function public.kv_incr(text, timestamptz) from public, anon, authenticated;
+revoke all on function public.kv_hset(text, jsonb) from public, anon, authenticated;
+revoke all on function public.kv_hdel(text, text[]) from public, anon, authenticated;
+revoke all on function public.kv_delete_expired() from public, anon, authenticated;
+
+grant execute on function public.kv_set_nx(text, jsonb, timestamptz) to service_role;
+grant execute on function public.kv_incr(text, timestamptz) to service_role;
+grant execute on function public.kv_hset(text, jsonb) to service_role;
+grant execute on function public.kv_hdel(text, text[]) to service_role;
+grant execute on function public.kv_delete_expired() to service_role;
