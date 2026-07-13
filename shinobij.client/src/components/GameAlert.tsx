@@ -18,27 +18,85 @@
  * is synchronous (returns a boolean), it is NOT monkey-patched; call sites
  * `await gameConfirm(...)` instead.
  */
-// Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
-/* eslint-disable react-hooks/set-state-in-effect */
 // This module intentionally co-locates gameConfirm() (the imperative API) with its
 // host component so they share the request singleton — disable the Fast-Refresh
 // "only export components" rule for that deliberate mix.
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 
-type Listener = (message: string) => void;
+type AlertRequest = { message: string; restoreFocus: HTMLElement | null };
+type Listener = (request: AlertRequest) => void;
 
 let activeListener: Listener | null = null;
-let pendingMessages: string[] = [];
+let pendingMessages: AlertRequest[] = [];
+
+function useDialogFocusTrap(
+    open: boolean,
+    cardRef: RefObject<HTMLDivElement | null>,
+    restoreFocusRef: RefObject<HTMLElement | null>,
+) {
+    useEffect(() => {
+        if (!open) return;
+        const previouslyFocused = restoreFocusRef.current ?? document.activeElement as HTMLElement | null;
+        const card = cardRef.current;
+        const focusableSelector = [
+            "button:not([disabled])",
+            "[href]",
+            "input:not([disabled])",
+            "select:not([disabled])",
+            "textarea:not([disabled])",
+            "[tabindex]:not([tabindex='-1'])",
+        ].join(",");
+        const focusables = () => Array.from(card?.querySelectorAll<HTMLElement>(focusableSelector) ?? []);
+
+        // autoFocus remains authoritative for the preferred action. This fallback
+        // covers dialogs whose browser does not honor it or whose content changes.
+        if (!card?.contains(document.activeElement)) (focusables()[0] ?? card)?.focus();
+
+        function trapTab(e: KeyboardEvent) {
+            if (e.key !== "Tab") return;
+            const items = focusables();
+            if (!items.length) {
+                e.preventDefault();
+                card?.focus();
+                return;
+            }
+            const first = items[0];
+            const last = items[items.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+
+        window.addEventListener("keydown", trapTab);
+        return () => {
+            window.removeEventListener("keydown", trapTab);
+            // A portal teardown can move focus back to <body> after an
+            // immediate focus() call. Restore on the next frame, once React
+            // has removed the dialog node, and only if the opener still exists.
+            requestAnimationFrame(() => {
+                if (previouslyFocused?.isConnected) previouslyFocused.focus();
+            });
+        };
+    }, [open, cardRef, restoreFocusRef]);
+}
 
 function showGameAlert(message: string): void {
-    if (activeListener) activeListener(message);
+    const request: AlertRequest = {
+        message,
+        restoreFocus: document.activeElement as HTMLElement | null,
+    };
+    if (activeListener) activeListener(request);
     // Collapse a duplicate of the message already at the back of the pending
     // buffer — repeated identical alerts (e.g. mashing a button that errors the
     // same way) shouldn't stack into "N more notices queued".
-    else if (pendingMessages[pendingMessages.length - 1] !== message) pendingMessages.push(message);
+    else if (pendingMessages[pendingMessages.length - 1]?.message !== message) pendingMessages.push(request);
 }
 
 // Replace window.alert once, at module import time. Stash the original on
@@ -51,15 +109,25 @@ if (typeof window !== "undefined" && !(window as unknown as { __gameAlertInstall
 }
 
 export function GameAlertHost() {
-    const [queue, setQueue] = useState<string[]>([]);
+    const [queue, setQueue] = useState<AlertRequest[]>([]);
+    const cardRef = useRef<HTMLDivElement>(null);
+    const restoreFocusRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
         // Skip a message identical to the one already at the back of the queue so
         // the same alert can't pile up (see showGameAlert's pending-buffer dedupe).
-        activeListener = (m: string) => setQueue((q) => (q[q.length - 1] === m ? q : [...q, m]));
+        activeListener = (request) => setQueue((q) => {
+            if (q[q.length - 1]?.message === request.message) return q;
+            if (q.length === 0) restoreFocusRef.current = request.restoreFocus;
+            return [...q, request];
+        });
         if (pendingMessages.length > 0) {
-            setQueue((q) => [...q, ...pendingMessages]);
+            const pending = pendingMessages;
             pendingMessages = [];
+            setQueue((q) => {
+                if (q.length === 0) restoreFocusRef.current = pending[0]?.restoreFocus ?? null;
+                return [...q, ...pending];
+            });
         }
         return () => {
             activeListener = null;
@@ -81,10 +149,11 @@ export function GameAlertHost() {
     }, [queue.length]);
 
     useBodyScrollLock(queue.length > 0);
+    useDialogFocusTrap(queue.length > 0, cardRef, restoreFocusRef);
 
     if (queue.length === 0) return null;
 
-    const current = queue[0];
+    const current = queue[0].message;
     const moreCount = queue.length - 1;
 
     // Portal to <body> so the modal escapes the .app-shell stacking context.
@@ -94,10 +163,12 @@ export function GameAlertHost() {
     return createPortal(
         <div className="game-alert-backdrop" onClick={dismiss} role="presentation">
             <div
+                ref={cardRef}
                 className="game-alert-card"
                 role="alertdialog"
                 aria-modal="true"
                 aria-label="Notice"
+                tabIndex={-1}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="game-alert-header">
@@ -122,7 +193,9 @@ export function GameAlertHost() {
                             // Enter on the focused button dismissed TWO queued
                             // alerts (one from the button's native click, one
                             // from the window listener firing dismiss too).
-                            if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+                            // Escape intentionally bubbles to the dialog-level
+                            // handler so keyboard dismissal works while OK is focused.
+                            if (e.key === "Enter" || e.key === " ") {
                                 e.stopPropagation();
                             }
                         }}
@@ -150,7 +223,12 @@ export type GameConfirmOptions = {
     danger?: boolean;       // red Confirm button for destructive actions
 };
 
-type ConfirmRequest = { message: string; opts?: GameConfirmOptions; resolve: (ok: boolean) => void };
+type ConfirmRequest = {
+    message: string;
+    opts?: GameConfirmOptions;
+    resolve: (ok: boolean) => void;
+    restoreFocus: HTMLElement | null;
+};
 
 let activeConfirmListener: ((req: ConfirmRequest) => void) | null = null;
 let pendingConfirms: ConfirmRequest[] = [];
@@ -163,7 +241,12 @@ let pendingConfirms: ConfirmRequest[] = [];
  */
 export function gameConfirm(message: string, opts?: GameConfirmOptions): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
-        const req: ConfirmRequest = { message: String(message ?? ""), opts, resolve };
+        const req: ConfirmRequest = {
+            message: String(message ?? ""),
+            opts,
+            resolve,
+            restoreFocus: typeof document === "undefined" ? null : document.activeElement as HTMLElement | null,
+        };
         if (activeConfirmListener) activeConfirmListener(req);
         else pendingConfirms.push(req);
     });
@@ -171,12 +254,21 @@ export function gameConfirm(message: string, opts?: GameConfirmOptions): Promise
 
 export function GameConfirmHost() {
     const [queue, setQueue] = useState<ConfirmRequest[]>([]);
+    const cardRef = useRef<HTMLDivElement>(null);
+    const restoreFocusRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
-        activeConfirmListener = (req) => setQueue((q) => [...q, req]);
+        activeConfirmListener = (req) => setQueue((q) => {
+            if (q.length === 0) restoreFocusRef.current = req.restoreFocus;
+            return [...q, req];
+        });
         if (pendingConfirms.length > 0) {
-            setQueue((q) => [...q, ...pendingConfirms]);
+            const pending = pendingConfirms;
             pendingConfirms = [];
+            setQueue((q) => {
+                if (q.length === 0) restoreFocusRef.current = pending[0]?.restoreFocus ?? null;
+                return [...q, ...pending];
+            });
         }
         return () => {
             activeConfirmListener = null;
@@ -205,6 +297,7 @@ export function GameConfirmHost() {
     }, [queue.length]);
 
     useBodyScrollLock(queue.length > 0);
+    useDialogFocusTrap(queue.length > 0, cardRef, restoreFocusRef);
 
     if (queue.length === 0) return null;
 
@@ -215,10 +308,12 @@ export function GameConfirmHost() {
     return createPortal(
         <div className="game-alert-backdrop" onClick={() => settle(false)} role="presentation">
             <div
+                ref={cardRef}
                 className="game-alert-card"
                 role="alertdialog"
                 aria-modal="true"
                 aria-label={opts.title ?? "Confirm"}
+                tabIndex={-1}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="game-alert-header">

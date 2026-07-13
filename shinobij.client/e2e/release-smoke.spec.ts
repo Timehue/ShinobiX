@@ -1,5 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { existsSync, readdirSync } from 'node:fs';
+
+const sentryBundlePresent = existsSync('dist/assets')
+    && readdirSync('dist/assets').some((name) => /^sentry-vendor-.*\.js$/.test(name));
 
 test.beforeEach(async ({ page }) => {
     // Vite preview is intentionally static; the real Express server owns this
@@ -85,8 +89,27 @@ test('landing and creator have no serious WCAG A/AA axe violations', async ({ pa
     expect(creator.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([]);
 });
 
+test('themed alerts trap focus and restore the invoking control', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    const opener = startCreateButton(page);
+    await opener.focus();
+
+    await page.evaluate(() => window.alert('Focus safety check'));
+    const dialog = page.getByRole('alertdialog', { name: 'Notice' });
+    await expect(dialog).toBeVisible();
+    await expect(page.getByRole('button', { name: 'OK' })).toBeFocused();
+
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'OK' })).toBeFocused();
+    await page.keyboard.press('Escape');
+
+    await expect(dialog).toBeHidden();
+    await expect(opener).toBeFocused();
+});
+
 test('production error reporting stays lazy and fails open', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-desktop', 'one production-bundle assertion is sufficient');
+    test.skip(!process.env.CI && !sentryBundlePresent, 'local bundle was built without VITE_SENTRY_DSN; CI always exercises the enabled path');
 
     const sentryChunks: string[] = [];
     const envelopes: string[] = [];
