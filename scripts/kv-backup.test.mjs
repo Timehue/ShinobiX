@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { captureBracketedStores, digestOverlay, digestRows, readOverlayDirectory, representativeRecords, sameConnection, validatePayload, validatedProxyBase, writeOverlayDirectory } from './kv-backup.mjs';
+import { captureBracketedStores, digestOverlay, digestRows, readOverlayDirectory, representativeRecords, sameConnection, validatePayload, validateTargetSchemaEvidence, validatedProxyBase, writeOverlayDirectory } from './kv-backup.mjs';
 
 const baseRows = [
     { key: 'pvp:battle-1', value: { winner: 'alice' }, expires_at: null, updated_at: '2026-07-12T00:00:02.000Z' },
@@ -95,5 +95,27 @@ describe('hybrid KV backup evidence helpers', () => {
         for (const value of ['http://theravensark.com/api/kv', 'https://evil.example/api/kv', 'https://theravensark.com/api/kv?next=evil', 'https://theravensark.com:444/api/kv']) {
             assert.throws(() => validatedProxyBase(value), /approved|must not/i);
         }
+    });
+
+    it('requires the hardened Supabase table, indexes, RLS policy, and read-only anon grant', () => {
+        const good = {
+            columns: [
+                { column_name: 'key', data_type: 'text', is_nullable: 'NO' },
+                { column_name: 'value', data_type: 'jsonb', is_nullable: 'NO' },
+                { column_name: 'expires_at', data_type: 'timestamp with time zone', is_nullable: 'YES' },
+                { column_name: 'updated_at', data_type: 'timestamp with time zone', is_nullable: 'NO' },
+            ],
+            indexes: ['kv_store_pkey', 'kv_store_expires_at_idx', 'kv_store_key_pattern_idx'],
+            rlsEnabled: true,
+            anonReadPolicy: true,
+            anonCanSelect: true,
+            anonCanInsert: false,
+            anonCanUpdate: false,
+            anonCanDelete: false,
+        };
+        assert.equal(validateTargetSchemaEvidence(good), good);
+        assert.throws(() => validateTargetSchemaEvidence({ ...good, rlsEnabled: false }), /RLS|privileges/i);
+        assert.throws(() => validateTargetSchemaEvidence({ ...good, anonCanInsert: true }), /RLS|privileges/i);
+        assert.throws(() => validateTargetSchemaEvidence({ ...good, indexes: ['kv_store_pkey'] }), /missing index/i);
     });
 });
