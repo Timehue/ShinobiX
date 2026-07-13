@@ -235,6 +235,56 @@ async function identity(client, url) {
     };
 }
 
+export function validateTargetSchemaEvidence(evidence) {
+    const expectedColumns = [
+        ['key', 'text', 'NO'],
+        ['value', 'jsonb', 'NO'],
+        ['expires_at', 'timestamp with time zone', 'YES'],
+        ['updated_at', 'timestamp with time zone', 'NO'],
+    ];
+    const actualColumns = evidence.columns.map((column) => [column.column_name, column.data_type, column.is_nullable]);
+    if (JSON.stringify(actualColumns) !== JSON.stringify(expectedColumns)) throw new Error('Target kv_store schema does not match supabase-schema.sql.');
+    for (const name of ['kv_store_pkey', 'kv_store_expires_at_idx', 'kv_store_key_pattern_idx']) {
+        if (!evidence.indexes.includes(name)) throw new Error(`Target schema is missing index ${name}.`);
+    }
+    if (!evidence.rlsEnabled || !evidence.anonReadPolicy || !evidence.anonCanSelect || evidence.anonCanInsert || evidence.anonCanUpdate || evidence.anonCanDelete) {
+        throw new Error('Target kv_store RLS or anon privileges do not match the hardened schema.');
+    }
+    return evidence;
+}
+
+async function inspectTargetSchema(client) {
+    const columns = (await client.query(`
+        select column_name, data_type, is_nullable
+        from information_schema.columns
+        where table_schema = 'public' and table_name = 'kv_store'
+        order by ordinal_position
+    `)).rows;
+    const indexes = (await client.query(`
+        select indexname from pg_indexes
+        where schemaname = 'public' and tablename = 'kv_store'
+    `)).rows.map((row) => row.indexname);
+    const controls = (await client.query(`
+        select
+            coalesce((select relrowsecurity from pg_class where oid = 'public.kv_store'::regclass), false) as rls_enabled,
+            exists(select 1 from pg_policies where schemaname = 'public' and tablename = 'kv_store' and policyname = 'kv_store_anon_select') as anon_read_policy,
+            has_table_privilege('anon', 'public.kv_store', 'SELECT') as anon_can_select,
+            has_table_privilege('anon', 'public.kv_store', 'INSERT') as anon_can_insert,
+            has_table_privilege('anon', 'public.kv_store', 'UPDATE') as anon_can_update,
+            has_table_privilege('anon', 'public.kv_store', 'DELETE') as anon_can_delete
+    `)).rows[0];
+    return validateTargetSchemaEvidence({
+        columns,
+        indexes,
+        rlsEnabled: controls.rls_enabled,
+        anonReadPolicy: controls.anon_read_policy,
+        anonCanSelect: controls.anon_can_select,
+        anonCanInsert: controls.anon_can_insert,
+        anonCanUpdate: controls.anon_can_update,
+        anonCanDelete: controls.anon_can_delete,
+    });
+}
+
 async function writeJson(path, value) {
     const absolute = resolve(path);
     await mkdir(dirname(absolute), { recursive: true });
@@ -357,7 +407,7 @@ async function restoreBackup(inPath, overlayRoot, requestedKeys = []) {
                 throw new Error('Refusing to restore into the source database.');
             }
         }
-        await target.query(`create table if not exists public.kv_store (key text primary key, value jsonb not null, expires_at timestamptz null, updated_at timestamptz not null default now())`);
+        await inspectTargetSchema(target);
         const count = Number((await target.query(`select count(*)::int n from public.kv_store`)).rows[0].n);
         if (count > 0) throw new Error('Target kv_store is not empty; refusing overwrite.');
         await writeOverlayDirectory(overlayRoot, payload.overlay.entries);

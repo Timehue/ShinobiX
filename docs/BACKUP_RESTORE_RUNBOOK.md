@@ -6,7 +6,7 @@ Production must have Supabase platform backups or PITR enabled, with the plan an
 
 Production is a two-store system: transactional/snapshot data is in Postgres, while live `save:*`, `shared:images*`, and `shared:imgfields*` records are on the authenticated cPanel disk overlay. A database-only export is intentionally rejected as incomplete.
 
-Create a new, disposable Supabase project and an empty local directory for its isolated overlay. Never point `TARGET_DATABASE_URL` at production. Set the credentials locally (do not paste them into chat or commit them), then run:
+Create a new, disposable Supabase project and apply [`supabase-schema.sql`](../supabase-schema.sql) through its SQL editor. The drill refuses a bare or incorrectly secured table: the expected columns, indexes, RLS setting, `kv_store_anon_select` policy, and read-only anon grant must all be present. Create an empty local directory for the isolated overlay. Never point `TARGET_DATABASE_URL` at production. Set the credentials locally (do not paste them into chat or commit them), then run:
 
 ```powershell
 $env:DATABASE_URL = '<production pooler URL>'
