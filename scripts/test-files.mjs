@@ -206,6 +206,7 @@ export const TEST_FILES = [
     "shinobij.client/src/lib/currency.test.ts",
     "shinobij.client/src/lib/daily-briefing-core.test.ts",
     "shinobij.client/src/lib/daily-mission-cache.test.ts",
+    "shinobij.client/src/lib/screen-cache.test.ts",
     "shinobij.client/src/lib/logbook-objectives.test.ts",
     "shinobij.client/src/professionLogic.test.ts",
     "shinobij.client/src/lib/profession-mastery.test.ts",
