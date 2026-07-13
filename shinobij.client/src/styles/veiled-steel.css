@@ -139,8 +139,13 @@ html body.ui-scroll-locked {
 
 .app-shell:not(.screen-start) .next-goal-pin-compact__close {
   position: absolute;
-  top: 5px;
-  right: 5px;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  font-size: 11px !important;
 }
 
 .app-shell:not(.screen-start) .next-goal-pin-compact__body {

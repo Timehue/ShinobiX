@@ -35,6 +35,6 @@ test('clan boss party action remains a full-size touch target', () => {
 
 test('onboarding overlay and next-goal controls meet the phone touch target', () => {
     assert.match(introCss, /\.icx-skip\.icx-sound\s*\{[^}]*min-width:\s*44px/s);
-    assert.match(nextGoalSource, /minWidth:\s*44/);
-    assert.match(nextGoalSource, /minHeight:\s*44/);
+    assert.match(nextGoalSource, /minWidth:\s*compactButton \? 20 : 44/);
+    assert.match(nextGoalSource, /minHeight:\s*compactButton \? 20 : 44/);
 });

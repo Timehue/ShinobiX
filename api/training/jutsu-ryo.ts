@@ -4,7 +4,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
-import { settleJutsuRyoTraining, startJutsuRyoTraining, type ServerJutsuTraining } from './_jutsu-ryo.js';
+import { advanceQueuedJutsuRyoTraining, cancelQueuedJutsuRyoTraining, queueJutsuRyoTraining, settleJutsuRyoTraining, startJutsuRyoTraining, type ServerJutsuTraining } from './_jutsu-ryo.js';
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 
 const JUTSU_ID = /^[a-z0-9][a-z0-9-]{1,63}$/;
@@ -16,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? '')); const action = String(body.action ?? ''); const requestId = String(body.requestId ?? '');
-        if (!playerName || !['start', 'complete', 'cancel', 'finish'].includes(action) || !REQUEST_ID.test(requestId)) return res.status(400).json({ error: 'Invalid jutsu training request.' });
+        if (!playerName || !['start', 'complete', 'cancel', 'finish', 'queue', 'cancel-queue', 'advance'].includes(action) || !REQUEST_ID.test(requestId)) return res.status(400).json({ error: 'Invalid jutsu training request.' });
         const identity = await authedPlayerOrAdmin(req, playerName); if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your training.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'jutsu-ryo', 20, 60_000, identity.name))) return;
@@ -24,21 +24,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const receipts = Array.isArray(character.redeemedJutsuTrainingActions) ? (character.redeemedJutsuTrainingActions as Receipt[]).slice(-127) : [];
             if (receipts.some((entry) => entry?.requestId === requestId)) return { ok: true as const, character, recordPatch: { activeJutsuTraining: record.activeJutsuTraining ?? null }, value: { activeJutsuTraining: record.activeJutsuTraining ?? null, replayed: true, cost: 0, refund: 0 } };
             let changed;
-            if (action === 'start') {
-                if (record.activeJutsuTraining) return { ok: false as const, status: 409, error: 'jutsu-training-already-active' };
-                const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase(); if (!JUTSU_ID.test(jutsuId)) return { ok: false as const, status: 400, error: 'invalid-jutsu-id' };
+            const jutsuIsKnown = (jutsuId: string) => {
                 const learned = Array.isArray(character.jutsuMastery) && (character.jutsuMastery as Array<{ jutsuId?: unknown }>).some((row) => row?.jutsuId === jutsuId);
                 const customJutsus = [
                     ...(Array.isArray(record.creatorJutsus) ? record.creatorJutsus as unknown[] : []),
                     ...(Array.isArray(record.savedBloodlines) ? (record.savedBloodlines as Array<{ jutsus?: unknown[] }>).flatMap((bloodline) => Array.isArray(bloodline?.jutsus) ? bloodline.jutsus : []) : []),
                 ];
                 const customKnown = customJutsus.some((entry) => entry && typeof entry === 'object' && String((entry as Record<string, unknown>).id ?? '').toLowerCase() === jutsuId);
-                if (!JUTSU_CATALOG[jutsuId] && !customKnown && !learned) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
+                return Boolean(JUTSU_CATALOG[jutsuId] || customKnown || learned);
+            };
+            if (action === 'start') {
+                if (record.activeJutsuTraining) return { ok: false as const, status: 409, error: 'jutsu-training-already-active' };
+                const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase(); if (!JUTSU_ID.test(jutsuId)) return { ok: false as const, status: 400, error: 'invalid-jutsu-id' };
+                if (!jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
                 changed = startJutsuRyoTraining(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), body.trainingBonusPct);
             } else {
                 const active = record.activeJutsuTraining && typeof record.activeJutsuTraining === 'object' ? record.activeJutsuTraining as ServerJutsuTraining : null;
                 if (!active || active.serverToken !== String(body.serverToken ?? '')) return { ok: false as const, status: 409, error: 'invalid-or-legacy-jutsu-training' };
-                changed = settleJutsuRyoTraining(character, active, action as 'complete' | 'cancel' | 'finish', Date.now());
+                if (action === 'queue') {
+                    const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase();
+                    if (!JUTSU_ID.test(jutsuId) || !jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
+                    changed = queueJutsuRyoTraining(character, active, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), body.trainingBonusPct);
+                } else if (action === 'cancel-queue') {
+                    changed = cancelQueuedJutsuRyoTraining(character, active);
+                } else if (action === 'advance') {
+                    changed = advanceQueuedJutsuRyoTraining(character, active, Date.now());
+                } else {
+                    changed = settleJutsuRyoTraining(character, active, action as 'complete' | 'cancel' | 'finish', Date.now());
+                    if (changed.ok && (action === 'complete' || action === 'finish') && active.next) {
+                        const startedAt = Date.now();
+                        changed = {
+                            ...changed,
+                            active: {
+                                serverToken: active.next.serverToken,
+                                jutsuId: active.next.jutsuId,
+                                label: active.next.label,
+                                fromLevel: active.next.fromLevel,
+                                toLevel: active.next.toLevel,
+                                ryoCost: active.next.ryoCost,
+                                startedAt,
+                                endsAt: startedAt + active.next.durationMs,
+                                next: null,
+                                autoClaim: true,
+                            },
+                        };
+                    }
+                }
             }
             if (!changed.ok) return { ok: false as const, status: 409, error: changed.reason };
             const nextCharacter = { ...(changed.character as Record<string, unknown>), redeemedJutsuTrainingActions: [...receipts, { requestId, action }].slice(-128) };

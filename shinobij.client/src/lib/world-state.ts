@@ -1065,6 +1065,63 @@ export async function claimServerWarCrates(
     return granted;
 }
 
+export type ServerWarRewardClaim = {
+    character: Character;
+    granted: boolean;
+    crates: number;
+    mvp: boolean;
+    consolation: boolean;
+    lifetimeDamage: number;
+};
+
+/**
+ * Settle every non-history war reward against its authoritative server record.
+ * Unlike claimPendingWarCrates, no cached winner/MVP/contribution value is trusted
+ * for a durable mutation; the cache supplies only the canonical kind/id to claim.
+ */
+export async function claimServerWarRewards(character: Character): Promise<ServerWarRewardClaim | null> {
+    const now = Date.now();
+    const candidates = new Map<string, { kind: "village" | "clan"; warId: string }>();
+    for (const war of Object.values(sharedVillageWarCache)) {
+        if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
+        if (war.villages.includes(character.village)) candidates.set(`village:${war.id}`, { kind: "village", warId: war.id });
+    }
+    if (character.clan) {
+        for (const war of Object.values(sharedClanWarCache)) {
+            if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
+            if (war.clans.includes(character.clan)) candidates.set(`clan:${war.id}`, { kind: "clan", warId: war.id });
+        }
+    }
+    if (candidates.size === 0) return null;
+
+    let latest: Character | null = null;
+    let granted = false;
+    let crates = 0;
+    let mvp = false;
+    let consolation = false;
+    let lifetimeDamage = 0;
+    for (const candidate of candidates.values()) {
+        try {
+            const response = await fetch("/api/war/claim-reward", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, ...candidate }),
+            });
+            if (!response.ok) continue;
+            const result = await response.json() as Partial<ServerWarRewardClaim>;
+            if (result.character) latest = result.character;
+            granted ||= result.granted === true;
+            crates += Number(result.crates ?? 0);
+            mvp ||= result.mvp === true;
+            consolation ||= result.consolation === true;
+            lifetimeDamage += Number(result.lifetimeDamage ?? 0);
+        } catch {
+            // Fail closed; the next world/clan poll retries the idempotent claim.
+        }
+    }
+    return latest ? { character: latest, granted, crates, mvp, consolation, lifetimeDamage } : null;
+}
+
 /**
  * Apply server-granted war crates (village + clan) to the character locally (mirror)
  * so the player's next save reflects them. Deduped against claimedWarCrateIds (the

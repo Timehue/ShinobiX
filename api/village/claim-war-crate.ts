@@ -126,7 +126,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!decision.granted) return { ...decision, character: c, _saveVersion: Number(fresh._saveVersion ?? 0) };
             const inventory = Array.isArray(c.inventory) ? [...(c.inventory as unknown[])] : [];
             inventory.push(LEGENDARY_WAR_CRATE_ID);
-            const nextCharacter = { ...c, inventory, claimedWarCrateIds: [...claimed, warCrateId] };
+            const nextCharacter = {
+                ...c,
+                inventory,
+                claimedWarCrateIds: [...claimed, warCrateId],
+                warsWon: Math.max(0, Number(c.warsWon ?? 0)) + 1,
+            };
             const updated = bumpSaveVersion({
                 ...fresh,
                 character: nextCharacter,

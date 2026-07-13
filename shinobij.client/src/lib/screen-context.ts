@@ -10,6 +10,7 @@ const NATIVE_CONTEXT_HEADER_SCREENS: ReadonlySet<Screen> = new Set([
   "missions",
   "townHall",
   "tavern",
+  "worldMap",
 ]);
 
 export function shouldShowScreenContextHeader(screen: Screen): boolean {

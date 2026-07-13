@@ -9,6 +9,18 @@ export type ServerJutsuTraining = {
     ryoCost: number;
     startedAt: number;
     endsAt: number;
+    next?: ServerQueuedJutsuTraining | null;
+    autoClaim?: boolean;
+};
+
+export type ServerQueuedJutsuTraining = {
+    serverToken: string;
+    jutsuId: string;
+    label: string;
+    fromLevel: number;
+    toLevel: number;
+    ryoCost: number;
+    durationMs: number;
 };
 
 const whole = (value: unknown): number => Math.max(0, Math.floor(Number(value) || 0));
@@ -64,4 +76,80 @@ export function settleJutsuRyoTraining(character: Record<string, unknown>, activ
     if (whole(character.ryo) < finishCost) return { ok: false as const, reason: 'not-enough-ryo' as const };
     const debited = { ...character, ryo: whole(character.ryo) - finishCost };
     return { ok: true as const, character: applyJutsuLevel(debited, active.jutsuId, active.toLevel), active: null, cost: finishCost, refund: 0 };
+}
+
+export function queueJutsuRyoTraining(
+    character: Record<string, unknown>,
+    active: ServerJutsuTraining,
+    jutsuId: string,
+    label: string,
+    token: string,
+    bonusPct: unknown,
+) {
+    if (active.next) return { ok: false as const, reason: 'jutsu-training-queue-full' as const };
+    const fromLevel = active.jutsuId === jutsuId ? active.toLevel : currentJutsuLevel(character, jutsuId);
+    const cap = jutsuRyoTrainingCap(character.level);
+    if (fromLevel <= 0) return { ok: false as const, reason: 'train-level-zero-directly' as const };
+    if (fromLevel >= cap) return { ok: false as const, reason: 'jutsu-at-training-cap' as const };
+    const cost = jutsuRyoTrainingCost(fromLevel);
+    if (whole(character.ryo) < cost) return { ok: false as const, reason: 'not-enough-ryo' as const };
+    const queued: ServerQueuedJutsuTraining = {
+        serverToken: token,
+        jutsuId,
+        label: label.slice(0, 80),
+        fromLevel,
+        toLevel: fromLevel + 1,
+        ryoCost: cost,
+        durationMs: jutsuRyoTrainingDuration(fromLevel, bonusPct),
+    };
+    return {
+        ok: true as const,
+        character: { ...character, ryo: whole(character.ryo) - cost },
+        active: { ...active, next: queued },
+        cost,
+        refund: 0,
+    };
+}
+
+export function cancelQueuedJutsuRyoTraining(character: Record<string, unknown>, active: ServerJutsuTraining) {
+    if (!active.next) return { ok: false as const, reason: 'jutsu-training-queue-empty' as const };
+    const refund = whole(active.next.ryoCost);
+    return {
+        ok: true as const,
+        character: { ...character, ryo: whole(character.ryo) + refund },
+        active: { ...active, next: null },
+        cost: 0,
+        refund,
+    };
+}
+
+export function advanceQueuedJutsuRyoTraining(character: Record<string, unknown>, active: ServerJutsuTraining, now: number) {
+    let nextCharacter = character;
+    let current: ServerJutsuTraining | null = active;
+    for (let step = 0; current && step < 4 && now >= current.endsAt; step += 1) {
+        if (current.next) {
+            nextCharacter = applyJutsuLevel(nextCharacter, current.jutsuId, current.toLevel);
+            const queued: ServerQueuedJutsuTraining = current.next;
+            const startedAt: number = current.endsAt;
+            current = {
+                serverToken: queued.serverToken,
+                jutsuId: queued.jutsuId,
+                label: queued.label,
+                fromLevel: queued.fromLevel,
+                toLevel: queued.toLevel,
+                ryoCost: queued.ryoCost,
+                startedAt,
+                endsAt: startedAt + queued.durationMs,
+                next: null,
+                autoClaim: true,
+            };
+            continue;
+        }
+        if (current.autoClaim) {
+            nextCharacter = applyJutsuLevel(nextCharacter, current.jutsuId, current.toLevel);
+            current = null;
+        }
+        break;
+    }
+    return { ok: true as const, character: nextCharacter, active: current, cost: 0, refund: 0 };
 }

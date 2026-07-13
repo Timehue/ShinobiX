@@ -5,8 +5,9 @@
  */
 import { useCallback, useRef, useState } from "react";
 import type { Character } from "../types/character";
-import { ATTUNEMENT_NODES, attunementRank, attunementNextCost, buyAttunement, keyForgeUnlocked, KEY_FORGE_COST } from "../lib/hollow-gate-attunement";
+import { ATTUNEMENT_NODES, attunementRank, attunementNextCost, keyForgeUnlocked, KEY_FORGE_COST } from "../lib/hollow-gate-attunement";
 import { forgeHollowGateKeyServer as forgeHollowGateKey } from "../lib/hollow-gate-forge-api";
+import { buyHollowGateAttunementServer } from "../lib/hollow-gate-attunement-api";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { gameConfirm } from "./GameAlert";
 import { Modal } from "./ui/Modal";
@@ -16,19 +17,31 @@ type Props = { character: Character; updateCharacter: (c: Character) => void; on
 export function HollowGateAttunement({ character, updateCharacter, onClose, onServerVersion }: Props) {
     const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
     const [forgeBusy, setForgeBusy] = useState(false);
+    const [attuneBusy, setAttuneBusy] = useState(false);
     const forgeBusyRef = useRef(false);
     const shards = character.hollowShards ?? 0;
 
-    function buy(id: string) {
+    async function buy(id: string) {
         if (!requireServerSettlement("hollowGateAttunement")) return;
-        const r = buyAttunement(character, id);
-        if (r.ok === false) { setStatus({ text: r.reason, ok: false }); return; }
-        updateCharacter(r.character);
+        if (attuneBusy) return;
+        setAttuneBusy(true);
         setStatus(null);
+        try {
+            const result = await buyHollowGateAttunementServer(character.name, id);
+            if (!result.character) {
+                setStatus({ text: result.error || "The attunement did not return an updated save.", ok: false });
+                return;
+            }
+            if (typeof result._saveVersion === "number") onServerVersion?.(result._saveVersion);
+            updateCharacter(result.character);
+            setStatus({ text: "Attunement purchased.", ok: true });
+        } finally {
+            setAttuneBusy(false);
+        }
     }
 
     async function forge() {
-        if (!requireServerSettlement("hollowGateAttunement")) return;
+        if (!requireServerSettlement("hollowGateKeyForge")) return;
         if (forgeBusyRef.current) return;
         if (shards < KEY_FORGE_COST) {
             setStatus({ text: `You need ${KEY_FORGE_COST} Hollow Shards to forge a key.`, ok: false });
@@ -66,7 +79,7 @@ export function HollowGateAttunement({ character, updateCharacter, onClose, onSe
     const close = useCallback(() => { if (!forgeBusyRef.current) onClose(); }, [onClose]);
 
     return (
-        <Modal open onClose={close} title="⛩ Shrine Attunement" size="md" disableBackdropClose={forgeBusy}>
+        <Modal open onClose={close} title="⛩ Shrine Attunement" size="md" disableBackdropClose={forgeBusy || attuneBusy}>
             <div style={{ color: "#e9d5ff" }}>
                 <p style={{ margin: "0 0 6px", color: "#c4b5fd", fontSize: 14 }}>💎 Hollow Shards: <strong style={{ color: "#e9d5ff" }}>{shards}</strong> · spend on permanent shrine boons</p>
                 {status && <p role="status" aria-live="polite" style={{ color: status.ok ? "#86efac" : "#fca5a5", fontSize: 13, margin: "0 0 6px" }}>{status.text}</p>}
@@ -90,8 +103,8 @@ export function HollowGateAttunement({ character, updateCharacter, onClose, onSe
                                 </strong>
                                 <button
                                     type="button"
-                                    disabled={!canBuy}
-                                    onClick={() => buy(n.id)}
+                                    disabled={!canBuy || attuneBusy}
+                                    onClick={() => { void buy(n.id); }}
                                     style={{
                                         padding: "4px 10px", borderRadius: 6, fontSize: 12, whiteSpace: "nowrap", cursor: canBuy ? "pointer" : "default",
                                         background: canBuy ? "linear-gradient(#3b2d6b,#241a45)" : "#181527",

@@ -32,8 +32,8 @@ function assertGuardBefore(
     assert.ok(guard < mutation, `${functionName} must gate before ${firstMutation}`);
 }
 
-describe("pending server settlement policy", () => {
-    test("completed settlement paths are enabled while every pending action stays disabled", () => {
+describe("server settlement policy", () => {
+    test("every protected action has a completed server settlement", () => {
         const expected: PendingServerSettlementAction[] = [
             "profileStatRespec",
             "profileFateShardTitle",
@@ -47,29 +47,22 @@ describe("pending server settlement policy", () => {
             "hollowGateRun",
             "petTraining",
             "hollowGateAttunement",
+            "hollowGateKeyForge",
             "creatorItemCraft",
             "timedJutsuTraining",
+            "timedJutsuTrainingQueue",
             "bankDeposit",
             "rankedPvp",
             "pvpSession",
         ];
         assert.deepEqual(Object.keys(SERVER_SETTLEMENT_STATUS).sort(), expected.sort());
-        assert.equal(SERVER_SETTLEMENT_STATUS.profileStatRespec, true);
-        assert.equal(SERVER_SETTLEMENT_STATUS.profileFateShardTitle, true);
         for (const action of expected) {
-            const shouldBeReady = action === "profileStatRespec"
-                || action === "profileFateShardTitle"
-                || action === "shopPurchase"
-                || action === "shopCardPack"
-                || action === "inventorySale"
-                || action === "warCrateOpen";
-            assert.equal(SERVER_SETTLEMENT_STATUS[action], shouldBeReady, `${action} readiness`);
+            assert.equal(SERVER_SETTLEMENT_STATUS[action], true, `${action} readiness`);
         }
 
         let notice = "";
-        assert.equal(requireServerSettlement("fieldHuntMissions", (message) => { notice = message; }), false);
-        assert.match(notice, /temporarily unavailable/i);
-        assert.match(notice, /Nothing was spent or changed\./);
+        assert.equal(requireServerSettlement("fieldHuntMissions", (message) => { notice = message; }), true);
+        assert.equal(notice, "");
     });
 
     test("profile, shops, inventory, pets, attunement, and crafting gate before local writes", () => {
@@ -97,8 +90,8 @@ describe("pending server settlement policy", () => {
         assertGuardBefore(petYard, "collectTraining", "petTraining", "updateCharacter(");
 
         const attunement = source("../components/HollowGateAttunement.tsx");
-        assertGuardBefore(attunement, "buy", "hollowGateAttunement", "buyAttunement(");
-        assertGuardBefore(attunement, "forge", "hollowGateAttunement", "forgeHollowGateKey(");
+        assertGuardBefore(attunement, "buy", "hollowGateAttunement", "buyHollowGateAttunementServer(");
+        assertGuardBefore(attunement, "forge", "hollowGateKeyForge", "forgeHollowGateKey(");
 
         const hub = source("../screens/CentralHub.tsx");
         assertGuardBefore(hub, "forgeNamedWeapon", "creatorItemCraft", "setCreatorItems(");
@@ -127,7 +120,8 @@ describe("pending server settlement policy", () => {
         assertGuardBefore(arena, "joinRankedQueue", "rankedPvp", "setRankedQueueActive(");
         assertGuardBefore(arena, "acceptChallenge", "pvpSession", "setDuelChallenges(");
         const rankedServer = source("../../../api/pvp/ranked-queue.ts");
-        assert.match(rankedServer, /rankedPvpActionAllowedDuringSettlement\(action\)[\s\S]+Ranked PvP is temporarily unavailable/);
+        assert.match(rankedServer, /rankedPvpActionAllowedDuringSettlement\(action\)/);
+        assert.doesNotMatch(rankedServer, /Ranked PvP is temporarily unavailable/);
 
         const appPvp = source("../App.tsx");
         assertGuardBefore(appPvp, "acceptChallengeGlobal", "pvpSession", "setProcessingChallengeIds(");
@@ -143,7 +137,8 @@ describe("pending server settlement policy", () => {
         assert.ok(guardRaid >= 0 && guardGate >= 0 && guardGate < guardRaid, "village-guard PvP must gate before session creation");
 
         const pvpSessionServer = source("../../../api/pvp/session.ts");
-        assert.match(pvpSessionServer, /!pvpSessionCreationAllowedDuringSettlement\(identity\.admin\)[\s\S]+status\(503\)[\s\S]+Nothing was changed/);
+        assert.match(pvpSessionServer, /pvpSessionCreationAllowedDuringSettlement\(isAdmin: boolean\): boolean \{[\s\S]*return true;/);
+        assert.doesNotMatch(pvpSessionServer, /PvP sessions are temporarily unavailable/);
     });
 
     test("timed jutsu training and background queue settlement cannot mutate locally", () => {
@@ -152,16 +147,17 @@ describe("pending server settlement policy", () => {
         assertGuardBefore(training, "completePaidJutsuTraining", "timedJutsuTraining", "updateCharacter(");
         assertGuardBefore(training, "cancelPaidJutsuTraining", "timedJutsuTraining", "updateCharacter(");
         assertGuardBefore(training, "finishWithRyo", "timedJutsuTraining", "updateCharacter(");
-        assertGuardBefore(training, "queueNextJutsuTraining", "timedJutsuTraining", "updateCharacter(");
-        assertGuardBefore(training, "cancelQueuedJutsuTraining", "timedJutsuTraining", "updateCharacter(");
+        assertGuardBefore(training, "queueNextJutsuTraining", "timedJutsuTrainingQueue", "updateCharacter(");
+        assertGuardBefore(training, "cancelQueuedJutsuTraining", "timedJutsuTrainingQueue", "updateCharacter(");
 
         const queue = source("./jutsu-training-queue.ts");
-        const gate = queue.indexOf('isServerSettlementReady("timedJutsuTraining")');
-        const localGrant = queue.indexOf("setCharacter((prev)", gate);
-        assert.ok(gate >= 0 && localGrant > gate, "the background runner must gate before granting mastery");
+        const gate = queue.indexOf('isServerSettlementReady("timedJutsuTrainingQueue")');
+        const serverAdvance = queue.indexOf('mutateJutsuRyoTraining(playerName, "advance"', gate);
+        assert.ok(gate >= 0 && serverAdvance > gate, "the background runner must gate before server reconciliation");
+        assert.doesNotMatch(queue.slice(gate), /applyJutsuTrainingLevel\(/, "the runtime runner must not grant mastery locally");
     });
 
-    test("war rewards fail closed with no network or feature-flag fallback", () => {
+    test("war rewards settle on the server and fail closed with no network fallback", () => {
         const world = source("./world-state.ts");
         const pending = functionSlice(world, "claimPendingWarCrates");
         assert.ok(
@@ -175,6 +171,8 @@ describe("pending server settlement policy", () => {
         assert.match(claim, /if \(!r\.ok\) continue;/);
         assert.doesNotMatch(claim, /if \(!r\.ok\)[^\n]*granted\.push/);
         assert.doesNotMatch(claim, /catch\s*\{[^}]*granted\.push/s);
+        assert.match(world, /fetch\("\/api\/war\/claim-reward"/);
+        assert.match(world, /export async function claimServerWarRewards/);
 
         const flag = source("./war-crate-flag.ts");
         assert.match(flag, /warCrateServerAuthEnabled\(\): boolean \{\s*return true;/);

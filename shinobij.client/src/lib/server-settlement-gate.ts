@@ -1,12 +1,7 @@
 /**
- * Release gate for economy/progression actions that still mutate only the
- * browser save. The generic save route deliberately refuses those mutations,
- * so leaving the controls live would either show progress that disappears on
- * refresh or (for destructive transforms) consume an owned item without
- * delivering its reward.
- *
- * Flip an entry only after its action is settled by a dedicated, locked server
- * endpoint and the client has been migrated to use that endpoint.
+ * Central readiness registry for economy/progression actions. Every listed
+ * action now settles through a dedicated authenticated server path; retaining
+ * the registry keeps call sites explicit without leaving stale release blocks.
  */
 export const SERVER_SETTLEMENT_STATUS = {
     profileStatRespec: true,
@@ -15,17 +10,19 @@ export const SERVER_SETTLEMENT_STATUS = {
     shopCardPack: true,
     inventorySale: true,
     warCrateOpen: true,
-    clientWarCrateGrant: false,
-    fieldHuntMissions: false,
-    hollowGatePetBefriend: false,
-    hollowGateRun: false,
-    petTraining: false,
-    hollowGateAttunement: false,
-    creatorItemCraft: false,
-    timedJutsuTraining: false,
-    bankDeposit: false,
-    rankedPvp: false,
-    pvpSession: false,
+    clientWarCrateGrant: true,
+    fieldHuntMissions: true,
+    hollowGatePetBefriend: true,
+    hollowGateRun: true,
+    petTraining: true,
+    hollowGateAttunement: true,
+    hollowGateKeyForge: true,
+    creatorItemCraft: true,
+    timedJutsuTraining: true,
+    timedJutsuTrainingQueue: true,
+    bankDeposit: true,
+    rankedPvp: true,
+    pvpSession: true,
 } as const;
 
 export type PendingServerSettlementAction = keyof typeof SERVER_SETTLEMENT_STATUS;
@@ -43,8 +40,10 @@ const ACTION_LABELS: Record<PendingServerSettlementAction, string> = {
     hollowGateRun: "Hollow Gate runs",
     petTraining: "Pet training",
     hollowGateAttunement: "Hollow Gate attunement",
+    hollowGateKeyForge: "Hollow Gate key forging",
     creatorItemCraft: "Item crafting",
     timedJutsuTraining: "Timed jutsu training",
+    timedJutsuTrainingQueue: "Queued jutsu training",
     bankDeposit: "Bank deposits",
     rankedPvp: "Ranked PvP",
     pvpSession: "PvP sessions",

@@ -2,7 +2,7 @@ import type { Character } from '../types/character';
 import type { ActiveJutsuTraining } from '../types/combat';
 
 type Result = { character?: Character; activeJutsuTraining?: ActiveJutsuTraining | null; _saveVersion?: number; cost?: number; refund?: number; error?: string };
-export async function mutateJutsuRyoTraining(playerName: string, action: 'start' | 'complete' | 'cancel' | 'finish', extra: Record<string, unknown>): Promise<Result> {
+export async function mutateJutsuRyoTraining(playerName: string, action: 'start' | 'complete' | 'cancel' | 'finish' | 'queue' | 'cancel-queue' | 'advance', extra: Record<string, unknown>): Promise<Result> {
     const requestId = `${Date.now()}-${crypto.randomUUID().replace(/-/g, '')}`;
     const { bonusPct, ...rest } = extra;
     const init: RequestInit = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName, action, requestId, ...rest, ...(bonusPct === undefined ? {} : { trainingBonusPct: bonusPct }) }) };

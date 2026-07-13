@@ -537,8 +537,8 @@ export function JutsuTrainingHall({
     // Queue a 2nd jutsu training behind the active one. Ryo is paid + the duration
     // locked NOW; the global runner (lib/jutsu-training-queue) promotes it the moment
     // the active training completes. Stored on activeJutsuTraining.next.
-    function queueNextJutsuTraining() {
-        if (!requireServerSettlement("timedJutsuTraining")) return;
+    async function queueNextJutsuTraining() {
+        if (!requireServerSettlement("timedJutsuTrainingQueue")) return;
         if (!activeJutsuTraining) return alert("Start a training first, then queue the next one.");
         if (activeJutsuTraining.next) return alert("A 2nd jutsu is already queued.");
         const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId);
@@ -550,24 +550,30 @@ export function JutsuTrainingHall({
         if (fromLevel === 0) return alert("Train a level 0 jutsu directly to unlock it for free.");
         const cost = jutsuTrainingCost(fromLevel);
         if (character.ryo < cost) return alert(`Not enough ryo to queue. You need ${cost}.`);
-        const baseDuration = jutsuTrainingDuration(fromLevel);
-        const durationMs = Math.max(60_000, Math.floor(baseDuration * Math.max(0.1, 1 - jutsuTrainingBonus / 100) * warDebuff.jutsuTimeMult));
-        updateCharacter({ ...character, ryo: character.ryo - cost });
-        setActiveJutsuTraining({
-            ...activeJutsuTraining,
-            next: { jutsuId: selectedJutsu.id, label: selectedJutsu.name, fromLevel, toLevel: Math.min(ryoTrainCap, fromLevel + 1), ryoCost: cost, durationMs },
+        if (!activeJutsuTraining.serverToken) return alert('This legacy training cannot accept a secure queue.');
+        const result = await mutateJutsuRyoTraining(character.name, 'queue', {
+            serverToken: activeJutsuTraining.serverToken,
+            jutsuId: selectedJutsu.id,
+            label: selectedJutsu.name,
+            trainingBonusPct: Math.max(0, jutsuTrainingBonus + (1 - warDebuff.jutsuTimeMult) * 100),
         });
+        if (!result.character) return alert(result.error || 'The jutsu queue could not be saved.');
+        updateCharacter(result.character);
+        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
     }
 
     // Remove the queued 2nd training before it starts — full ryo refund (it never ran).
     async function cancelQueuedJutsuTraining() {
-        if (!requireServerSettlement("timedJutsuTraining")) return;
+        if (!requireServerSettlement("timedJutsuTrainingQueue")) return;
         if (!activeJutsuTraining?.next) return;
         const queued = activeJutsuTraining.next;
         if (!(await gameConfirm(`Remove the queued ${queued.label} training? You'll get all ${queued.ryoCost} ryo back — it hasn't started.`))) return;
-        updateCharacter({ ...character, ryo: character.ryo + queued.ryoCost });
-        setActiveJutsuTraining({ ...activeJutsuTraining, next: null });
-        alert(`Queued training removed. Refunded ${queued.ryoCost} ryo.`);
+        if (!activeJutsuTraining.serverToken) return alert('This legacy queue cannot be refunded safely.');
+        const result = await mutateJutsuRyoTraining(character.name, 'cancel-queue', { serverToken: activeJutsuTraining.serverToken });
+        if (!result.character) return alert(result.error || 'The queued training could not be removed.');
+        updateCharacter(result.character);
+        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+        alert(`Queued training removed. Refunded ${result.refund ?? queued.ryoCost} ryo.`);
     }
 
     const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId);
