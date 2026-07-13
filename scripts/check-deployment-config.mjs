@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 export const REQUIRED_RAILWAY_DEPLOYMENT = Object.freeze({
   numReplicas: 1,
   startCommand: 'node dist/server.js',
+  healthcheckPath: '/health',
 });
 
 export function deploymentConfigErrors(config) {
@@ -18,6 +19,9 @@ export function deploymentConfigErrors(config) {
   }
   if (config.deploy?.startCommand !== REQUIRED_RAILWAY_DEPLOYMENT.startCommand) {
     errors.push(`deploy.startCommand must be exactly "${REQUIRED_RAILWAY_DEPLOYMENT.startCommand}"`);
+  }
+  if (config.deploy?.healthcheckPath !== REQUIRED_RAILWAY_DEPLOYMENT.healthcheckPath) {
+    errors.push(`deploy.healthcheckPath must be exactly "${REQUIRED_RAILWAY_DEPLOYMENT.healthcheckPath}"`);
   }
   if (config.build?.builder !== 'DOCKERFILE' || config.build?.dockerfilePath !== 'Dockerfile') {
     errors.push('build must use the repository Dockerfile');
