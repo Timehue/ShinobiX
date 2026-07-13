@@ -294,4 +294,5 @@ export const TEST_FILES = [
     "api/save/_save-integrity.test.ts",
     "api/admin/_capability-policy.test.ts",
     "scripts/kv-backup.test.mjs",
+    "scripts/unrestricted-presence-load.test.mjs",
 ];
