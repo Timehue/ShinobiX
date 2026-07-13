@@ -7,7 +7,7 @@
  * The buffer is a fixed-size ring (CLAN_CHAT_MAX_MESSAGES); the GET endpoint
  * serves a `since`-cursor slice so an idle poll returns an empty list.
  */
-import { sanitizeUserText, TEXT_LIMITS } from '../../_text-moderation.js';
+import { isCleanText, sanitizeUserText, TEXT_LIMITS } from '../../_text-moderation.js';
 
 export const CLAN_CHAT_KEY_PREFIX = 'clan-chat:';
 export const CLAN_CHAT_MAX_MESSAGES = 50;
@@ -28,6 +28,7 @@ export function clanChatKey(slug: string): string {
  * rejected. Returns null only when nothing is left after trimming.
  */
 export function cleanChatText(input: unknown): string | null {
+    if (!isCleanText(input)) return null;
     return sanitizeUserText(input, TEXT_LIMITS.chatMessage) || null;
 }
 
