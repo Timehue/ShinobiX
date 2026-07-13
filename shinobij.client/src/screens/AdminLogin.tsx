@@ -1,26 +1,15 @@
 // Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { type AdminAccount, type AdminRole, type Screen } from "../App";
 import { PLAYER_PASSWORD_MAX_LENGTH, playerPasswordPolicyError } from "../lib/player-auth-policy";
 
 export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string, role: AdminRole) => void; setScreen: (screen: Screen) => void }) {
-    // If StartScreen detected an admin name in the player login form and
-    // forwarded the typed password, pull it from sessionStorage and
-    // auto-submit so the user doesn't have to retype. The key is consumed
-    // immediately so a stale stash from a previous flow doesn't auto-submit
-    // again on a manual visit to this screen.
-    const [password, setPassword] = useState(() => {
-        const prefilled = sessionStorage.getItem("admin:prefill-pw") ?? "";
-        if (prefilled) sessionStorage.removeItem("admin:prefill-pw");
-        return prefilled;
-    });
+    // Require direct entry on this screen; never shuttle an admin password
+    // through browser storage merely to avoid retyping it.
+    const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    // Guard against double-submit if React StrictMode / re-render fires the
-    // auto-submit effect twice.
-    const autoSubmittedRef = useRef(false);
-
     async function submit() {
         const pw = password.trim();
         if (!pw) return;
@@ -59,18 +48,6 @@ export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAcc
             setLoading(false);
         }
     }
-
-    // Auto-submit if the password was prefilled from the start screen.
-    // The ref guard makes this idempotent against React StrictMode's
-    // double-effect-invocation in dev.
-    useEffect(() => {
-        if (autoSubmittedRef.current) return;
-        if (password && !loading && !error) {
-            autoSubmittedRef.current = true;
-            void submit();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     return (
         <div className="card creator-card">
