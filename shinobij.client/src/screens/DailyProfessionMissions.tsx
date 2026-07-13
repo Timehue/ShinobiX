@@ -39,8 +39,8 @@ const PROFESSION_ACCENT: Record<Profession, string> = {
 };
 
 export function DailyProfessionMissions({ character }: { character: Character }) {
-    const [data, setData] = useState<Response | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState<Response | null>(() => readDailyMissionCache(character.name, character.profession ?? null) as Response | null);
+    const [loading, setLoading] = useState(() => !readDailyMissionCache(character.name, character.profession ?? null));
     const [error, setError] = useState<string | null>(null);
     // Track which mission IDs we've already seen as completed so we don't
     // double-toast on subsequent polls.
@@ -68,18 +68,23 @@ export function DailyProfessionMissions({ character }: { character: Character })
         // This removes the blank 3-5s panel on repeat navigation without ever
         // using cached data to grant rewards or authorize an action.
         const cached = readDailyMissionCache(character.name, character.profession ?? null);
-        if (cached) {
-            setData(cached as Response);
-            setLoading(false);
-            seededRef.current = true;
-            for (const mission of cached.missions as DailyMission[]) {
-                if (mission.completedAt) seenCompletedRef.current.add(mission.id);
+        // Hydrate after the effect's synchronous setup so the cache state does
+        // not trigger a cascading render from inside the effect body.
+        queueMicrotask(() => {
+            if (cancelled) return;
+            if (cached) {
+                setData(cached as Response);
+                setLoading(false);
+                seededRef.current = true;
+                for (const mission of cached.missions as DailyMission[]) {
+                    if (mission.completedAt) seenCompletedRef.current.add(mission.id);
+                }
+            } else {
+                setData(null);
+                setLoading(true);
             }
-        } else {
-            setData(null);
-            setLoading(true);
-        }
-        setError(null);
+            setError(null);
+        });
         async function fetchMissions() {
             try {
                 const res = await fetch(`/api/missions/daily?playerName=${encodeURIComponent(character.name)}`);
