@@ -1,0 +1,1 @@
+async function e(e,t){let n=await fetch(`/api/hollow-gate/forge-key`,{method:`POST`,headers:{"Content-Type":`application/json`},body:JSON.stringify({playerName:e,source:t})}),r=await n.json().catch(()=>null);return n.ok?r??{error:`The key forge returned no result.`}:{error:r?.error||`The key forge failed.`}}export{e as t};
