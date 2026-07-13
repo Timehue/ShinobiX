@@ -1,6 +1,6 @@
 // Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../App";
 
@@ -27,12 +27,14 @@ export function ClanSealPool({
 }) {
     const [pool, setPool] = useState<PoolResponse | null>(null);
     const [busy, setBusy] = useState(false);
+    const busyRef = useRef(false);
     const [msg, setMsg] = useState<string | null>(null);
     const [donateAmount, setDonateAmount] = useState(10);
     const [distributeAmount, setDistributeAmount] = useState(10);
     const [recipient, setRecipient] = useState("");
     const [escorters, setEscorters] = useState<string[]>([]);
     const [escortBusy, setEscortBusy] = useState(false);
+    const escortBusyRef = useRef(false);
 
     const isVanguard = character.profession === "vanguard";
     const isPetTamer = character.profession === "petTamer";
@@ -72,7 +74,8 @@ export function ClanSealPool({
     }, [character.clan]);
 
     async function toggleEscortOffer() {
-        if (escortBusy || !isPetTamer) return;
+        if (escortBusyRef.current || !isPetTamer) return;
+        escortBusyRef.current = true;
         setEscortBusy(true); setMsg(null);
         try {
             const endpoint = iAmEscorting ? '/api/clan/pet-escort/cancel' : '/api/clan/pet-escort/offer';
@@ -86,11 +89,12 @@ export function ClanSealPool({
             else setMsg(iAmEscorting ? '✅ Escort offer canceled' : '✅ Escort offer active for 1 hour');
             void fetchEscorters();
         } catch { setMsg('❌ Network error'); }
-        setEscortBusy(false);
+        finally { escortBusyRef.current = false; setEscortBusy(false); }
     }
 
     async function donate() {
-        if (busy || !isVanguard) return;
+        if (busyRef.current || !isVanguard) return;
+        busyRef.current = true;
         setBusy(true); setMsg(null);
         try {
             const res = await fetch('/api/clan/seal-pool/donate', {
@@ -111,12 +115,13 @@ export function ClanSealPool({
                 setMsg(`✅ Donated ${data.donated} Seals`);
                 void fetchPool();
             }
-        } catch { setMsg('❌ Network error'); }
-        setBusy(false);
+        } catch { setMsg('❌ Donation unconfirmed — refresh before retrying.'); }
+        finally { busyRef.current = false; setBusy(false); }
     }
 
     async function distribute() {
-        if (busy || !isLeader || !recipient.trim()) return;
+        if (busyRef.current || !isLeader || !recipient.trim()) return;
+        busyRef.current = true;
         setBusy(true); setMsg(null);
         try {
             const res = await fetch('/api/clan/seal-pool/distribute', {
@@ -136,8 +141,8 @@ export function ClanSealPool({
                 setRecipient("");
                 void fetchPool();
             }
-        } catch { setMsg('❌ Network error'); }
-        setBusy(false);
+        } catch { setMsg('❌ Distribution unconfirmed — refresh before retrying.'); }
+        finally { busyRef.current = false; setBusy(false); }
     }
 
     if (!character.clan) return null;

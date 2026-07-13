@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
 import type { Character } from "../types/character";
@@ -32,6 +32,7 @@ import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { getAllJutsus, playerLensDiscipline } from "../App";
 import { settleProfileAction, type ProfileSettlementAction } from "../lib/profile-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 
 type ProfileDossierRow = {
     label: string;
@@ -61,6 +62,7 @@ export function Profile({
     onDeleteCharacter?: () => void;
 }) {
     const [feedingAura, setFeedingAura] = useState(false);
+    const feedingAuraRef = useRef(false);
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const allItems = getAllItems(creatorItems);
     // Every distinct equipped id across all slots (weapon, armor pieces, the
@@ -79,13 +81,15 @@ export function Profile({
     async function feedAuraSphere() {
         if (character.auraSphereLevel >= 300) return alert("Your Aura Sphere is already eternal.");
         if ((character.auraDust ?? 0) < auraDustNeeded) return alert(`You need ${auraDustNeeded} Aura Dust.`);
-        if (feedingAura) return;
+        if (feedingAuraRef.current) return;
+        feedingAuraRef.current = true;
         setFeedingAura(true);
         try {
             updateCharacter(await feedAuraSphereServer(character.name));
         } catch (error) {
             alert(error instanceof Error ? error.message : "Aura Sphere feed failed.");
         } finally {
+            feedingAuraRef.current = false;
             setFeedingAura(false);
         }
     }
@@ -133,6 +137,8 @@ export function Profile({
     const [statInputs, setStatInputs] = useState<Partial<Record<keyof Stats, number>>>({});
     const [statWarning, setStatWarning] = useState("");
     const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
+    const [profileMutationBusy, setProfileMutationBusy] = useState(false);
+    const profileMutationBusyRef = useRef(false);
     // Title style/icon pickers are a Legacy-wave feature: shown only once the
     // SERVER's ENABLE_LEGACY is confirmed live (session-cached probe), so a
     // player can never spend shards on a cosmetic the save sanitizer would
@@ -159,6 +165,18 @@ export function Profile({
         }
         updateCharacter(result.character);
         return true;
+    }
+
+    async function runProfileMutation(action: () => Promise<boolean>): Promise<boolean> {
+        if (profileMutationBusyRef.current) return false;
+        profileMutationBusyRef.current = true;
+        setProfileMutationBusy(true);
+        try {
+            return await action();
+        } finally {
+            profileMutationBusyRef.current = false;
+            setProfileMutationBusy(false);
+        }
     }
 
     useEffect(() => {
@@ -214,16 +232,23 @@ export function Profile({
             setTimeout(() => setStatWarning(""), 4000);
             return;
         }
-        if (!(await gameConfirm(`Reset all 12 stats to base and refund every earned point (${refund}) into your allocatable pool for ${RESPEC_COST} 🔮 Fate Shards? Nothing is lost — you re-allocate as you wish.`))) return;
-        setStatWarning("");
-        await runPaidProfileAction({ type: 'respec-stats' });
+        await runProfileMutation(async () => {
+            if (!(await gameConfirm(`Reset all 12 stats to base and refund every earned point (${refund}) into your allocatable pool for ${RESPEC_COST} 🔮 Fate Shards? Nothing is lost — you re-allocate as you wish.`))) return false;
+            setStatWarning("");
+            return runPaidProfileAction({ type: 'respec-stats' });
+        });
     }
 
     async function mutateProfileTitle(action: 'title' | 'style' | 'icon', value: string): Promise<boolean> {
-        const response = await fetch('/api/player/profile-title', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, action, value }) });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data?.character) { alert(String(data?.error ?? 'Profile update failed.')); return false; }
-        updateCharacter(data.character as Character); return true;
+        try {
+            const response = await fetch('/api/player/profile-title', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, action, value }) });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data?.character) { alert(String(data?.error ?? AMBIGUOUS_ACTION_MESSAGE)); return false; }
+            updateCharacter(data.character as Character); return true;
+        } catch {
+            alert(AMBIGUOUS_ACTION_MESSAGE);
+            return false;
+        }
     }
 
     async function purchaseTitle() {
@@ -231,11 +256,18 @@ export function Profile({
         const trimmed = titleInput.trim().slice(0, 15);
         if (!trimmed) return alert("Enter a title first.");
         if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} 🔮 Fate Shards.`);
-        await runPaidProfileAction({ type: 'purchase-title', title: trimmed });
+        await runProfileMutation(async () => {
+            if (!(await gameConfirm(`Set your custom title to “${trimmed}” for ${TITLE_COST} 🔮 Fate Shards?`, { title: "Custom Title", confirmLabel: "Set Title" }))) return false;
+            return runPaidProfileAction({ type: 'purchase-title', title: trimmed });
+        });
     }
 
     async function clearTitle() {
-        if (await mutateProfileTitle('title', '')) setTitleInput("");
+        await runProfileMutation(async () => {
+            const changed = await mutateProfileTitle('title', '');
+            if (changed) setTitleInput("");
+            return changed;
+        });
     }
 
     // Title cosmetics (handoff pricing tiers): style color + icon are paid
@@ -248,9 +280,12 @@ export function Profile({
             return alert(`Title styles cost ${TITLE_STYLE_COST} 🔮 Fate Shards.`);
         }
         const cost = styleId === "" ? 0 : TITLE_STYLE_COST;
-        if (cost > 0 && !(await gameConfirm(`Restyle your title for ${cost} 🔮 Fate Shards?`, { title: "Title Style", confirmLabel: "Restyle" }))) return;
-        if (styleId === '') await mutateProfileTitle('style', styleId);
-        else await runPaidProfileAction({ type: 'purchase-title-style', styleId });
+        await runProfileMutation(async () => {
+            if (cost > 0 && !(await gameConfirm(`Restyle your title for ${cost} 🔮 Fate Shards?`, { title: "Title Style", confirmLabel: "Restyle" }))) return false;
+            return styleId === ''
+                ? mutateProfileTitle('style', styleId)
+                : runPaidProfileAction({ type: 'purchase-title-style', styleId });
+        });
     }
     async function purchaseTitleIcon(icon: string) {
         if (!requireServerSettlement("profileFateShardTitle")) return;
@@ -259,16 +294,23 @@ export function Profile({
             return alert(`Title icons cost ${TITLE_ICON_COST} 🔮 Fate Shards.`);
         }
         const cost = icon === "" ? 0 : TITLE_ICON_COST;
-        if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} 🔮 Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return;
-        if (icon === '') await mutateProfileTitle('icon', icon);
-        else await runPaidProfileAction({ type: 'purchase-title-icon', icon });
+        await runProfileMutation(async () => {
+            if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} 🔮 Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return false;
+            return icon === ''
+                ? mutateProfileTitle('icon', icon)
+                : runPaidProfileAction({ type: 'purchase-title-icon', icon });
+        });
     }
 
     // Wear an earned title (free) — earned titles come from title-granting
     // achievements (see TITLE_ACHIEVEMENT_IDS), distinct from the paid free-text
     // custom title below.
     async function equipTitle(title: string) {
-        if (await mutateProfileTitle('title', title)) setTitleInput(title);
+        await runProfileMutation(async () => {
+            const changed = await mutateProfileTitle('title', title);
+            if (changed) setTitleInput(title);
+            return changed;
+        });
     }
 
     function toggleJutsu(id: string) {
@@ -628,12 +670,12 @@ export function Profile({
                         <button
                             className="profile-title-btn"
                             onClick={purchaseTitle}
-                            disabled={(character.fateShards ?? 0) < TITLE_COST || !titleInput.trim()}
+                            disabled={profileMutationBusy || (character.fateShards ?? 0) < TITLE_COST || !titleInput.trim()}
                         >
                             Set Title — <GameIcon name="shard" size={14} style={PF_COST} />{TITLE_COST}
                         </button>
                         {character.customTitle && (
-                            <button className="danger-button" onClick={clearTitle}>Clear</button>
+                            <button className="danger-button" onClick={clearTitle} disabled={profileMutationBusy}>Clear</button>
                         )}
                     </div>
                     {/* Title cosmetics — style color + icon (handoff pricing tiers).
@@ -646,6 +688,7 @@ export function Profile({
                                 <select
                                     value={character.customTitleStyle ?? ""}
                                     onChange={(e) => void purchaseTitleStyle(e.target.value)}
+                                    disabled={profileMutationBusy}
                                 >
                                     {TITLE_STYLES.map((s) => (
                                         <option key={s.id} value={s.id}>{s.label}</option>
@@ -657,6 +700,7 @@ export function Profile({
                                 <select
                                     value={character.customTitleIcon ?? ""}
                                     onChange={(e) => void purchaseTitleIcon(e.target.value)}
+                                    disabled={profileMutationBusy}
                                 >
                                     {TITLE_ICONS.map((i) => (
                                         <option key={i || "none"} value={i}>{i || "— none —"}</option>
@@ -696,7 +740,7 @@ export function Profile({
                     <span className={`stat-points-badge ${character.unspentStats === 0 ? "stat-points-empty" : ""}`}>
                         {character.unspentStats} point{character.unspentStats !== 1 ? "s" : ""} available
                     </span>
-                    <button type="button" onClick={respecStats} title="Reset all 12 stats to base and refund your points to re-allocate (costs 50 Fate Shards)" style={{ marginLeft: 8, fontSize: "0.8rem", padding: "4px 10px" }}>🔄 Respec — 50 🔮</button>
+                    <button type="button" onClick={respecStats} disabled={profileMutationBusy} title="Reset all 12 stats to base and refund your points to re-allocate (costs 50 Fate Shards)" style={{ marginLeft: 8, fontSize: "0.8rem", padding: "4px 10px" }}>🔄 Respec — 50 🔮</button>
                 </div>
                 {statWarning && <p className="stat-warning">{statWarning}</p>}
 

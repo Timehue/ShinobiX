@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord } from "../types/character";
 import type { Screen } from "../types/core";
@@ -15,6 +15,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
+    const busyRef = useRef(false);
     const [declareTarget, setDeclareTarget] = useState("");
     const [composeMode, setComposeMode] = useState<CwChallengeMode>("pvp1v1");
     // composePartner is unused now that 2v2 is queue-based, but kept as
@@ -95,12 +96,21 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     // surfaces the error, so this is a display gate, not the security boundary.
     const canLead = character.clanFounder === true || myAppointedRole === "Leader" || myAppointedRole === "Officer";
 
+    async function runClanMutation<T>(action: () => Promise<T>): Promise<T | null> {
+        if (busyRef.current) return null;
+        busyRef.current = true;
+        setBusy(true);
+        try { return await action(); }
+        finally { busyRef.current = false; setBusy(false); }
+    }
+
     async function handleDeclare() {
         if (!declareTarget) return;
-        if (!(await gameConfirm(`Declare clan war on ${declareTarget}? Both clans will see this in the Shinobi Council Hall.`))) return;
-        setBusy(true);
-        const result = await cwDeclareWar(declareTarget);
-        setBusy(false);
+        const result = await runClanMutation(async () => {
+            if (!(await gameConfirm(`Declare clan war on ${declareTarget}? Both clans will see this in the Shinobi Council Hall.`))) return null;
+            return cwDeclareWar(declareTarget);
+        });
+        if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
         setError("");
         setDeclareTarget("");
@@ -112,13 +122,12 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     // A second clanmate has to call join-send to convert it to pending.
     async function handleSend() {
         if (!myWar) return;
-        setBusy(true);
-        const result = await cwChallengeAction({
+        const result = await runClanMutation(() => cwChallengeAction({
             action: "send",
             warId: myWar.id,
             mode: composeMode,
-        });
-        setBusy(false);
+        }));
+        if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
         setError("");
         setComposePartner("");
@@ -127,9 +136,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
     async function handleJoinSend(challengeId: string) {
         if (!myWar) return;
-        setBusy(true);
-        const result = await cwChallengeAction({ action: "join-send", warId: myWar.id, challengeId });
-        setBusy(false);
+        const result = await runClanMutation(() => cwChallengeAction({ action: "join-send", warId: myWar.id, challengeId }));
+        if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
         setError("");
         await refresh();
@@ -137,9 +145,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
     async function handleLeaveSend(challengeId: string) {
         if (!myWar) return;
-        setBusy(true);
-        const result = await cwChallengeAction({ action: "leave-send", warId: myWar.id, challengeId });
-        setBusy(false);
+        const result = await runClanMutation(() => cwChallengeAction({ action: "leave-send", warId: myWar.id, challengeId }));
+        if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
         setError("");
         await refresh();
@@ -149,13 +156,12 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     // clanmate has to call join-accept to fill the second slot.
     async function handleAccept(ch: CwChallenge) {
         if (!myWar) return;
-        setBusy(true);
-        const result = await cwChallengeAction({
+        const result = await runClanMutation(() => cwChallengeAction({
             action: "accept",
             warId: myWar.id,
             challengeId: ch.id,
-        });
-        setBusy(false);
+        }));
+        if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
         setError("");
         await refresh();
@@ -163,9 +169,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
     async function handleJoinAccept(challengeId: string) {
         if (!myWar) return;
-        setBusy(true);
-        const result = await cwChallengeAction({ action: "join-accept", warId: myWar.id, challengeId });
-        setBusy(false);
+        const result = await runClanMutation(() => cwChallengeAction({ action: "join-accept", warId: myWar.id, challengeId }));
+        if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
         setError("");
         await refresh();
@@ -173,9 +178,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
     async function handleLeaveAccept(challengeId: string) {
         if (!myWar) return;
-        setBusy(true);
-        const result = await cwChallengeAction({ action: "leave-accept", warId: myWar.id, challengeId });
-        setBusy(false);
+        const result = await runClanMutation(() => cwChallengeAction({ action: "leave-accept", warId: myWar.id, challengeId }));
+        if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
         setError("");
         await refresh();
@@ -183,9 +187,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
     async function handleCancel(challengeId: string) {
         if (!myWar) return;
-        setBusy(true);
-        const result = await cwChallengeAction({ action: "cancel", warId: myWar.id, challengeId });
-        setBusy(false);
+        const result = await runClanMutation(() => cwChallengeAction({ action: "cancel", warId: myWar.id, challengeId }));
+        if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
         setError("");
         await refresh();
@@ -193,9 +196,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
     async function handleDecline(challengeId: string) {
         if (!myWar) return;
-        setBusy(true);
-        const result = await cwChallengeAction({ action: "decline", warId: myWar.id, challengeId });
-        setBusy(false);
+        const result = await runClanMutation(() => cwChallengeAction({ action: "decline", warId: myWar.id, challengeId }));
+        if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
         setError("");
         await refresh();

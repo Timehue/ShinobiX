@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { HealerInjuredList } from "../components/HealerInjuredList";
 import { clearSectorReopen } from "../lib/sector-return";
@@ -35,6 +35,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
     const effectiveUntil = serverUntil > 0 ? serverUntil : mountTime + 60_000;
     const [now, setNow] = useState(() => Date.now());
     const [busy, setBusy] = useState(false);
+    const busyRef = useRef(false);
 
     // Arriving at the hospital means a KO (or a normal visit). Either way, drop
     // any pending "return to the sector you were exploring" latch (set before an
@@ -84,8 +85,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
     }
 
     async function discharge() {
-        if (busy) return;
+        if (busyRef.current) return;
         if (character.ryo < dischargeCost) return alert(`Not enough ryo. You need ${dischargeCost} ryo to be discharged.`);
+        busyRef.current = true;
         setBusy(true);
         try {
             // Up to two attempts. A 400 "not hospitalized" immediately after a fresh KO
@@ -120,6 +122,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
         } catch {
             alert('Network error — discharge failed.');
         } finally {
+            busyRef.current = false;
             setBusy(false);
         }
     }
@@ -128,7 +131,8 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
     // decision (validator will reject if timer hasn't actually expired), so
     // we route through the same endpoint with paySkip=false.
     async function freeCheckout() {
-        if (busy) return;
+        if (busyRef.current) return;
+        busyRef.current = true;
         setBusy(true);
         try {
             const res = await fetch('/api/player/heal', {
@@ -150,14 +154,16 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
         } catch {
             alert('Network error — check-out failed.');
         } finally {
+            busyRef.current = false;
             setBusy(false);
         }
     }
 
     async function topUp() {
-        if (busy) return;
+        if (busyRef.current) return;
         if (!isHealer) return alert("Only Healers can heal at the hospital. Non-Healers must wait the 60-second admission timer or pay the discharge fee.");
         if (character.ryo < topUpCost) return alert("Not enough ryo.");
+        busyRef.current = true;
         setBusy(true);
         try {
             const res = await fetch('/api/player/heal', {
@@ -181,6 +187,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
         } catch {
             alert('Network error - heal failed.');
         } finally {
+            busyRef.current = false;
             setBusy(false);
         }
     }

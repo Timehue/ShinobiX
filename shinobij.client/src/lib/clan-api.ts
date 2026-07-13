@@ -55,7 +55,7 @@ export async function writeClanData(data: ClanData): Promise<void> {
             body: JSON.stringify(data),
         });
     } catch {
-        throw new ClanSaveError(0, "Couldn't reach the clan server. Check your connection and try again.");
+        throw new ClanSaveError(0, "Clan save unconfirmed. Refresh before retrying.");
     }
     if (!res.ok) {
         let detail = "";
@@ -68,9 +68,18 @@ export async function writeClanData(data: ClanData): Promise<void> {
     }
 }
 export async function postGuardQueue(action: "queue" | "dequeue", payload: object): Promise<void> {
-    await fetch(`/api/village-guard/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    }).catch(() => { });
+    let res: Response;
+    try {
+        res = await fetch(`/api/village-guard/${action}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+    } catch {
+        throw new ClanSaveError(0, "Guard status unconfirmed. Refresh before retrying.");
+    }
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        throw new ClanSaveError(res.status, data.error || `Guard queue update failed (HTTP ${res.status}).`);
+    }
 }
