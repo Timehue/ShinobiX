@@ -5,11 +5,12 @@
  */
 import { useState } from "react";
 import type { Character } from "../types/character";
-import { ATTUNEMENT_NODES, attunementRank, attunementNextCost, buyAttunement, keyForgeUnlocked, forgeHollowGateKey, KEY_FORGE_COST } from "../lib/hollow-gate-attunement";
+import { ATTUNEMENT_NODES, attunementRank, attunementNextCost, buyAttunement, keyForgeUnlocked, KEY_FORGE_COST } from "../lib/hollow-gate-attunement";
+import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
 
-type Props = { character: Character; updateCharacter: (c: Character) => void; onClose: () => void };
+type Props = { character: Character; updateCharacter: (c: Character) => void; onClose: () => void; onServerVersion?: (version: number) => void };
 
-export function HollowGateAttunement({ character, updateCharacter, onClose }: Props) {
+export function HollowGateAttunement({ character, updateCharacter, onClose, onServerVersion }: Props) {
     const [msg, setMsg] = useState("");
     const shards = character.hollowShards ?? 0;
 
@@ -20,9 +21,10 @@ export function HollowGateAttunement({ character, updateCharacter, onClose }: Pr
         setMsg("");
     }
 
-    function forge() {
-        const r = forgeHollowGateKey(character);
-        if (r.ok === false) { setMsg(r.reason); return; }
+    async function forge() {
+        const r = await forgeHollowGateKeyServer(character.name, 'hollowShards');
+        if (!r.character) { setMsg(r.error || 'The key forge failed.'); return; }
+        if (typeof r._saveVersion === 'number') onServerVersion?.(r._saveVersion);
         updateCharacter(r.character);
         setMsg("Forged a Hollow Gate Key.");
     }
@@ -66,7 +68,7 @@ export function HollowGateAttunement({ character, updateCharacter, onClose }: Pr
                 })}
                 {keyForgeUnlocked(character) && (
                     <button
-                        onClick={forge}
+                        onClick={() => { void forge(); }}
                         disabled={shards < KEY_FORGE_COST}
                         style={{
                             marginTop: 4, width: "100%", padding: 9, borderRadius: 8, fontWeight: 600,

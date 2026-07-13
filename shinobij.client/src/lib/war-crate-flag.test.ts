@@ -10,22 +10,22 @@ class MemStore {
     clear(): void { this.m.clear(); }
 }
 
-test("warCrateServerAuth: default ON, opt-out only via exactly '0'", () => {
+test("warCrateServerAuth: mandatory even when legacy storage requests opt-out", () => {
     (globalThis as unknown as { localStorage: MemStore }).localStorage = new MemStore();
     try {
-        assert.equal(warCrateServerAuthEnabled(), true);           // unset → ON (server-authoritative default)
+        assert.equal(warCrateServerAuthEnabled(), true);
         setWarCrateServerAuthEnabled(false);
-        assert.equal(warCrateServerAuthEnabled(), false);
+        assert.equal(warCrateServerAuthEnabled(), true);
         setWarCrateServerAuthEnabled(true);
         assert.equal(warCrateServerAuthEnabled(), true);
         localStorage.setItem("warCrateServerAuth.v1", "false");
-        assert.equal(warCrateServerAuthEnabled(), true);           // only literal "0" disables
+        assert.equal(warCrateServerAuthEnabled(), true);
     } finally {
         delete (globalThis as Partial<{ localStorage: unknown }>).localStorage;
     }
 });
 
-test("warCrateServerAuth: OFF when storage is unavailable", () => {
+test("warCrateServerAuth: remains mandatory when storage is unavailable", () => {
     delete (globalThis as Partial<{ localStorage: unknown }>).localStorage;
-    assert.equal(warCrateServerAuthEnabled(), false);
+    assert.equal(warCrateServerAuthEnabled(), true);
 });

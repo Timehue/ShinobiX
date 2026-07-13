@@ -11,6 +11,9 @@ const _entitlement_guard_js_1 = require("./_entitlement-guard.js");
         node_assert_1.strict.equal((0, _entitlement_guard_js_1.isHighRiskTileCardId)('tc-121'), true);
         node_assert_1.strict.equal((0, _entitlement_guard_js_1.isHighRiskTileCardId)('tc-21'), false);
     });
+    (0, node_test_1.it)('conserves all ordinary item ownership across array-to-stack migration', () => {
+        node_assert_1.strict.deepEqual((0, _entitlement_guard_js_1.preserveOwnedItems)(['shinobi-vest', 'forged-item'], [{ itemId: 'pet-treat', count: 3 }, { itemId: 'forged-stack', count: 9 }], ['shinobi-vest', 'pet-treat', 'pet-treat', 'pet-treat'], []), { inventory: ['shinobi-vest'], itemStacks: [{ itemId: 'pet-treat', count: 3 }] });
+    });
     (0, node_test_1.it)('preserves existing guarded inventory but drops new additions', () => {
         node_assert_1.strict.deepEqual((0, _entitlement_guard_js_1.preserveEntitledStringArray)(['shinobi-vest', 'weekly-boss-core', 'weekly-boss-core', 'dungeon-key'], ['weekly-boss-core'], _entitlement_guard_js_1.isServerOwnedItemId), ['shinobi-vest', 'weekly-boss-core']);
     });

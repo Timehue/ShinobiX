@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { type Character, getBankInterestPercent } from "../App";
 import { sendCurrency, previewCredit, TRADE_CURRENCIES, TRADE_CURRENCY_LABELS, TRADE_MINS, TRADE_CAPS, TRADE_TAX_PCT, type TradeCurrency } from "../lib/player-trade";
 import { BackToVillageButton } from "../components/BackToVillageButton";
@@ -11,6 +11,8 @@ const BANK_INTEREST_PRINCIPAL_CAP = 10_000_000;
 
 export function Bank({ character, updateCharacter, onBack }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onBack: () => void }) {
     const [amount, setAmount] = useState(0);
+    const [bankBusy, setBankBusy] = useState(false);
+    const bankBusyRef = useRef(false);
     // ── Direct transfer (player-to-player send) state ──
     const [sendTo, setSendTo] = useState("");
     const [sendCurr, setSendCurr] = useState<TradeCurrency>("ryo");
@@ -35,8 +37,10 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
         // Server is authoritative — reflect the debit locally so autosave converges.
         // Functional updater: deduct off the LATEST character, not the stale render
         // capture, so a concurrent currency change isn't clobbered.
-        const debit = res.debit ?? value;
-        updateCharacter((prev) => prev ? ({ ...prev, [sendCurr]: Math.max(0, Math.floor(Number((prev as unknown as Record<string, unknown>)[sendCurr] ?? 0)) - debit) }) : prev);
+        updateCharacter((prev) => prev ? ({
+            ...prev,
+            [sendCurr]: res.senderBalance ?? Math.max(0, Math.floor(Number((prev as unknown as Record<string, unknown>)[sendCurr]) || 0)),
+        }) : prev);
         setSendAmount(0);
         setSendTo("");
         alert(`Sent ${(res.debit ?? value).toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]} to ${res.toPlayer ?? to}. They received ${(res.credit ?? 0).toLocaleString()} (${(res.burned ?? 0).toLocaleString()} burned as tax).`);
@@ -48,19 +52,33 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
     const canClaimInterest = character.bankRyo > 0 && interestPercent > 0 && Date.now() >= nextClaimAt;
     const projectedInterest = Math.max(0, Math.floor(Math.min(character.bankRyo, BANK_INTEREST_PRINCIPAL_CAP) * (interestPercent / 100)));
 
-    function deposit() {
+    async function transferBankRyo(direction: "deposit" | "withdraw") {
         // Number.isFinite guard: a non-numeric input yields NaN, and `NaN > ryo`
         // is false — without this the transfer would proceed and write `ryo - NaN
         // = NaN`, corrupting the save.
         const value = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
-        if (value > character.ryo) return alert("Not enough ryo.");
-        updateCharacter({ ...character, ryo: character.ryo - value, bankRyo: character.bankRyo + value });
-    }
-
-    function withdraw() {
-        const value = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
-        if (value > character.bankRyo) return alert("Not enough banked ryo.");
-        updateCharacter({ ...character, ryo: character.ryo + value, bankRyo: character.bankRyo - value });
+        if (value <= 0) return alert("Enter a positive amount.");
+        if (direction === "deposit" && value > character.ryo) return alert("Not enough ryo.");
+        if (direction === "withdraw" && value > character.bankRyo) return alert("Not enough banked ryo.");
+        if (bankBusyRef.current) return;
+        bankBusyRef.current = true;
+        setBankBusy(true);
+        try {
+            const response = await fetch("/api/bank/transfer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, direction, amount: value }),
+            });
+            const data = await response.json().catch(() => null) as { error?: string; character?: Character } | null;
+            if (!response.ok || !data?.character) throw new Error(data?.error || "Bank transfer failed.");
+            updateCharacter(data.character);
+            setAmount(0);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Bank transfer failed.");
+        } finally {
+            bankBusyRef.current = false;
+            setBankBusy(false);
+        }
     }
 
     async function claimInterest() {
@@ -74,7 +92,7 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
         // can no longer inflate the amount or replay via a rolled-back clock. We add
         // the returned `claimed` delta to our OWN bankRyo (preserving concurrent
         // deposits/withdrawals) and re-assert via autosave — the two converge.
-        let data: { ok?: boolean; eligible?: boolean; claimed?: number; error?: string; lastBankInterestAt?: number; reason?: string };
+        let data: { ok?: boolean; eligible?: boolean; claimed?: number; bankRyo?: number; error?: string; lastBankInterestAt?: number; reason?: string };
         try {
             const res = await fetch("/api/bank/claim-interest", {
                 method: "POST",
@@ -89,9 +107,8 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
         if (!data.eligible || !data.claimed || data.claimed <= 0) {
             return alert("Bank interest isn't available yet — try again later.");
         }
-        const claimed = data.claimed;
         const claimedAt = data.lastBankInterestAt ?? Date.now();
-        updateCharacter((prev) => prev ? ({ ...prev, bankRyo: prev.bankRyo + claimed, lastBankInterestAt: claimedAt }) : prev);
+        updateCharacter((prev) => prev ? ({ ...prev, bankRyo: data.bankRyo ?? prev.bankRyo, lastBankInterestAt: claimedAt }) : prev);
         alert(`Bank interest claimed: +${data.claimed.toLocaleString()} ryo.`);
     }
 
@@ -108,8 +125,8 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
             <label>Amount</label>
             <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
             <div className="menu">
-                <button onClick={deposit}>Deposit</button>
-                <button onClick={withdraw}>Withdraw</button>
+                <button onClick={() => void transferBankRyo("deposit")} disabled={bankBusy}>Deposit</button>
+                <button onClick={() => void transferBankRyo("withdraw")} disabled={bankBusy}>Withdraw</button>
                 <button onClick={claimInterest} disabled={!canClaimInterest}>Collect Interest</button>
             </div>
             <p className="hint">Town Hall Bank upgrade gives +0.01% interest per level (max 0.5%/day at level 50). Interest can be collected once every 24 hours.</p>

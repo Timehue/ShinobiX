@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
-    aiFightReward, AI_FIGHT_SOFT_CAP_PER_DAY, AI_FIGHT_REDUCED_MULT,
+    aiFightReward, AI_FIGHT_SOFT_CAP_PER_DAY, AI_FIGHT_HARD_CAP_PER_DAY, AI_FIGHT_REDUCED_MULT,
     MAX_AI_FIGHT_XP, MAX_AI_FIGHT_RYO,
 } from './_ai-fight-reward.js';
 
@@ -21,6 +21,13 @@ describe('_ai-fight-reward — daily soft-cap (P0.2b)', () => {
         assert.equal(r.xp, Math.floor(100 * AI_FIGHT_REDUCED_MULT));
         assert.equal(r.ryo, Math.floor(80 * AI_FIGHT_REDUCED_MULT));
         assert.equal(r.capped, true);
+    });
+
+    it('pays zero beyond the daily hard cap', () => {
+        assert.deepEqual(
+            aiFightReward(125, 90, AI_FIGHT_HARD_CAP_PER_DAY + 1),
+            { xp: 0, ryo: 0, capped: true },
+        );
     });
 
     it('clamps the per-fight base (anti-inflation)', () => {

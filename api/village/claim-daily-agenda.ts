@@ -127,7 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // `granted` delta to its OWN balance (not the absolute — so concurrent ryo
         // gains elsewhere survive) and re-asserts via autosave; the two converge.
         const personalMarker = `agenda-personal:${playerName.toLowerCase()}:${date}`;
-        let personal: { alreadyClaimed: boolean; granted: { ryo: number; boneCharms: number; honorSeals: number }; saveVersion: number };
+        let personal: { alreadyClaimed: boolean; granted: { ryo: number; boneCharms: number; honorSeals: number }; balances: { ryo: number; boneCharms: number; honorSeals: number }; saveVersion: number };
         try {
             const out = await withKvLock(`save:${playerName}`, async () => {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -136,7 +136,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const seals = char.profession === 'vanguard' ? AGENDA_PERSONAL.honorSeals : 0;
                 const placed = await kv.set(personalMarker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
                 if (placed !== 'OK') {
-                    return { alreadyClaimed: true, granted: { ryo: 0, boneCharms: 0, honorSeals: 0 }, saveVersion: Number(rec._saveVersion ?? 0) };
+                    return {
+                        alreadyClaimed: true,
+                        granted: { ryo: 0, boneCharms: 0, honorSeals: 0 },
+                        balances: { ryo: num(char.ryo), boneCharms: num(char.boneCharms), honorSeals: num(char.honorSeals) },
+                        saveVersion: Number(rec._saveVersion ?? 0),
+                    };
                 }
                 const granted = { ryo: AGENDA_PERSONAL.ryo, boneCharms: AGENDA_PERSONAL.boneCharms, honorSeals: seals };
                 const nextChar = {
@@ -147,7 +152,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 const next = bumpSaveVersion({ ...rec, character: nextChar });
                 await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));
-                return { alreadyClaimed: false, granted, saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) };
+                return {
+                    alreadyClaimed: false,
+                    granted,
+                    balances: { ryo: num(nextChar.ryo), boneCharms: num(nextChar.boneCharms), honorSeals: num(nextChar.honorSeals) },
+                    saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0),
+                };
             }, { failClosed: true });
             if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
             personal = out;

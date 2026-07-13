@@ -1,14 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
+const node_crypto_1 = require("node:crypto");
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _ai_fight_reward_js_1 = require("./_ai-fight-reward.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
-const _single_use_token_js_1 = require("../_single-use-token.js");
+const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
+const _xp_engine_js_1 = require("../_xp-engine.js");
 const _ai_fight_token_js_1 = require("./_ai-fight-token.js");
+const _ai_fight_secondary_js_1 = require("./_ai-fight-secondary.js");
 // P0.2b — server-authoritative daily SOFT-CAP for AI-fight XP/ryo.
 //
 // The client reports the base XP/ryo it computed for an AI win with a single-use
@@ -56,27 +59,46 @@ async function handler(req, res) {
         if (!aiFightToken) {
             return res.status(200).json({ ok: true, xp: 0, ryo: 0, capped: false, dailyCount: null, reason: 'missing-ai-fight-token' });
         }
-        const tokenData = await (0, _single_use_token_js_1.consumeSingleUseToken)(_storage_js_1.kv, (0, _ai_fight_token_js_1.aiFightTokenKey)(playerName, aiFightToken));
-        if (!tokenData) {
-            return res.status(200).json({ ok: true, xp: 0, ryo: 0, capped: false, dailyCount: null, reason: 'invalid-or-spent-ai-fight-token' });
-        }
-        if ((tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
-            return res.status(403).json({ error: 'AI fight token does not belong to this player.' });
-        }
-        const claim = (0, _ai_fight_token_js_1.validateAiFightRewardClaim)(tokenData, body.xp, body.ryo);
-        if (!claim.ok) {
-            return res.status(200).json({ ok: true, xp: 0, ryo: 0, capped: false, dailyCount: null, reason: claim.reason });
-        }
-        // Authoritative running daily count (atomic; TTL so date keys self-evict).
-        const dailyCount = await _storage_js_1.kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: _ai_fight_reward_js_1.AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
-        const reward = (0, _ai_fight_reward_js_1.aiFightReward)(claim.xp, claim.ryo, dailyCount);
+        const tokenKey = (0, _ai_fight_token_js_1.aiFightTokenKey)(playerName, aiFightToken);
+        const result = await (0, _mutate_player_save_js_1.mutatePlayerSave)(playerName, async ({ character }) => {
+            const redeemed = Array.isArray(character.redeemedAiFightRewards)
+                ? character.redeemedAiFightRewards.filter((entry) => !!entry && typeof entry === 'object' && typeof entry.token === 'string')
+                : [];
+            const prior = redeemed.find((entry) => entry.token === aiFightToken);
+            if (prior)
+                return { ok: true, character, value: { ...prior, replayed: true } };
+            const tokenData = await _storage_js_1.kv.get(tokenKey);
+            if (!tokenData)
+                return { ok: false, status: 409, error: 'AI fight token is invalid or already spent.' };
+            if ((tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+                return { ok: false, status: 403, error: 'AI fight token does not belong to this player.' };
+            }
+            const claim = (0, _ai_fight_token_js_1.validateAiFightRewardClaim)(tokenData, body.xp, body.ryo);
+            if (!claim.ok)
+                return { ok: false, status: 409, error: claim.reason };
+            const dailyCount = await _storage_js_1.kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: _ai_fight_reward_js_1.AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
+            const reward = (0, _ai_fight_reward_js_1.aiFightReward)(claim.xp, claim.ryo, dailyCount);
+            const leveled = (0, _xp_engine_js_1.gainXp)(character, reward.xp);
+            const paid = { ...leveled, ryo: Number(leveled.ryo ?? 0) + reward.ryo };
+            const nextCharacter = (0, _ai_fight_secondary_js_1.applyAiFightSecondaryRewards)(paid, tokenData, dailyCount <= _ai_fight_reward_js_1.AI_FIGHT_HARD_CAP_PER_DAY, (0, node_crypto_1.randomInt)(100) < 15);
+            const redemption = { token: aiFightToken, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount };
+            return {
+                ok: true,
+                character: { ...nextCharacter, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] },
+                value: { ...redemption, replayed: false },
+            };
+        });
+        if (!result.ok)
+            return res.status(result.status).json({ error: result.error });
+        await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
+        const reward = result.value;
+        const dailyCount = reward.dailyCount;
         // Legacy tracking (ENABLE_LEGACY): PvE kill credit follows the same
         // daily soft cap as the reward — grinding past it stops feeding Legacy
         // eligibility too. Style kills bucket by the save's declared specialty.
-        if ((0, _legacy_track_js_1.legacyEnabled)() && dailyCount <= _ai_fight_reward_js_1.AI_FIGHT_SOFT_CAP_PER_DAY) {
+        if (!reward.replayed && (0, _legacy_track_js_1.legacyEnabled)() && dailyCount <= _ai_fight_reward_js_1.AI_FIGHT_SOFT_CAP_PER_DAY) {
             try {
-                const record = await _storage_js_1.kv.get(`save:${playerName}`);
-                const char = record?.character;
+                const char = result.character;
                 const deltas = { pveKills: 1 };
                 const specialty = String(char?.specialty ?? '');
                 if (specialty === 'Ninjutsu')
@@ -95,7 +117,7 @@ async function handler(req, res) {
                 console.error('[report-ai-fight] legacy tracking failed:', legacyErr);
             }
         }
-        return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount });
+        return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, character: result.character, _saveVersion: result._saveVersion });
     }
     catch (err) {
         console.error('[missions/report-ai-fight]', err);

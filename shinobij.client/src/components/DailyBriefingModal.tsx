@@ -140,8 +140,8 @@ export function DailyBriefingModal({
                     if (!prev) return prev;
                     return {
                         ...prev,
-                        ryo: prev.ryo + res.granted.ryo,
-                        fateShards: (prev.fateShards ?? 0) + res.granted.fateShards,
+                        ryo: res.balances.ryo,
+                        fateShards: res.balances.fateShards,
                         loginStreak: res.streak,
                         lastLoginRewardDate: today,
                     };

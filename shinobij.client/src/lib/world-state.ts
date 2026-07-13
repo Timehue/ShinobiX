@@ -802,10 +802,11 @@ export function claimPendingWarCrates(
     clanData: { warHistory?: { result: string; warCrateId?: string; endedAt?: number }[] } | null,
 ): { character: Character; count: number; mvp?: boolean; consolation?: boolean } {
     const claimed = new Set(character.claimedWarCrateIds ?? []);
-    // P0.2c: when warCrateServerAuth.v1 is ON, WINNER crates (village + clan) defer to
-    // claimServerWarCrates (server-validated); the MVP / consolation / lifetime-stat
-    // branches below stay inline (currency-only, already sanitizer-capped).
+    // Release authority is mandatory. Winner crates are claimed by
+    // claimServerWarCrates; MVP/consolation/lifetime awards remain disabled until
+    // their own server settlement validates the authoritative war contribution.
     const serverAuthCrates = warCrateServerAuthEnabled();
+    if (serverAuthCrates) return { character, count: 0 };
     const cratesToAdd: string[] = [];   // LEGENDARY_WAR_CRATE_ID inventory pushes
     const idsToAdd: string[] = [];      // claimedWarCrateIds bookkeeping
     let ryoBonus = 0;
@@ -1018,11 +1019,8 @@ export function claimPendingWarCrates(
  * the shared village-war cache (village wins), the shared clan-war cache (live clan
  * wins), and clanData.warHistory (older clan wins that aged out of the cache); the
  * server validates each against the authoritative world:war / clan-war record.
- * Returns the warCrateIds it actually granted. Called from the post-poll sweep, so
- * the war-end state has already propagated server-side (no race). A network/5xx
- * failure falls back to the id (the caller grants it locally) so a legitimately-won
- * crate is never lost to an outage; a definitive decline (not your win / already
- * claimed / expired) is respected.
+ * Returns only warCrateIds the server actually granted. Network failures remain
+ * pending for the next poll; there is no local mint fallback.
  */
 export async function claimServerWarCrates(
     character: Character,
@@ -1056,13 +1054,11 @@ export async function claimServerWarCrates(
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ playerName: character.name, warCrateId }),
             });
-            if (!r.ok) { granted.push(warCrateId); continue; } // 5xx → local fallback (never lose a legit crate)
+            if (!r.ok) continue;
             const res = (await r.json().catch(() => null)) as { granted?: boolean } | null;
             if (res?.granted) granted.push(warCrateId);
             // a definitive granted:false (server says not-winner / already-claimed / …) is respected.
-        } catch {
-            granted.push(warCrateId); // network error → local fallback
-        }
+        } catch { /* retry on the next poll; never mint locally */ }
     }
     return granted;
 }
@@ -1070,8 +1066,8 @@ export async function claimServerWarCrates(
 /**
  * Apply server-granted war crates (village + clan) to the character locally (mirror)
  * so the player's next save reflects them. Deduped against claimedWarCrateIds (the
- * poll may already have synced the server's write) and bumps warsWon per new crate,
- * matching the inline claimPendingWarCrates winner-crate behavior. Use with a
+ * poll may already have synced the server's write). Lifetime war stats are server
+ * tracked and are deliberately not incremented by this mirror. Use with a
  * functional setCharacter so it composes on the LATEST character, never a stale snapshot.
  */
 export function applyWarCrateGrants(character: Character, warCrateIds: string[]): { character: Character; count: number } {
@@ -1083,7 +1079,6 @@ export function applyWarCrateGrants(character: Character, warCrateIds: string[])
             ...character,
             inventory: [...character.inventory, ...fresh.map(() => LEGENDARY_WAR_CRATE_ID)],
             claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...fresh],
-            warsWon: (character.warsWon ?? 0) + fresh.length,
         },
         count: fresh.length,
     };

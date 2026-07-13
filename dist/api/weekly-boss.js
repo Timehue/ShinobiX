@@ -332,6 +332,12 @@ async function distributeRewardsIfExpired(boss) {
                             rankTitle: leveled.rankTitle,
                             ryo: Math.max(0, Number(freshChar.ryo ?? 0)) + entry.ryo,
                             inventory: currentInventory,
+                            weeklyBossKills: {
+                                ...(freshChar.weeklyBossKills && typeof freshChar.weeklyBossKills === 'object'
+                                    ? freshChar.weeklyBossKills
+                                    : {}),
+                                [weekKey]: finalBoss.aiId,
+                            },
                         },
                     };
                     (0, _save_version_js_1.bumpSaveVersion)(updated);

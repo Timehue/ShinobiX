@@ -47,6 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             opponentLevel: body.opponentLevel,
             baseXp: reward.xp,
             baseRyo: reward.ryo,
+            battleKind: body.battleKind,
         });
         await kv.set(aiFightTokenKey(playerName, token), record, { ex: AI_FIGHT_TOKEN_TTL_SECONDS });
 

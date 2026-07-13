@@ -5,6 +5,7 @@ import {
     hollowGateServerEnabled,
     computeHollowGateHaul,
     applyServerSettle,
+    reconcileHollowGateSettle,
     applyHollowGateRunEndLocal,
     buildAugmentPickerEvent,
     shouldResumeAugmentPicker,
@@ -51,6 +52,28 @@ test("applyServerSettle never touches non-currency fields", () => {
     assert.equal(reconciled.level, 42);
     assert.equal(reconciled.name, "Rin");
     assert.equal(reconciled.ryo, 8);
+});
+
+test("computeHollowGateHaul carries bounded-at-server XP and item claims from the run", () => {
+    const haul = computeHollowGateHaul(char({ ryo: 10 }), { ryo: 0 }, {
+        earnedXp: 1234, earnedFragments: 2, earnedVeils: 1,
+    } as unknown as HollowGateShrineRun);
+    assert.equal(haul.xp, 1234);
+    assert.equal(haul.fragments, 2);
+    assert.equal(haul.veils, 1);
+});
+
+test("reconcileHollowGateSettle prefers the complete committed character", () => {
+    const local = char({ ryo: 999999, hollowShards: 999999, level: 2 });
+    const committed = char({ ryo: 1400, hollowShards: 50, level: 3 });
+    const reconciled = reconcileHollowGateSettle(local, { ryo: 1000 }, {
+        ok: true,
+        credited: { ryo: 999999 },
+        character: committed,
+    });
+    assert.equal(reconciled.ryo, 1400);
+    assert.equal(reconciled.hollowShards, 50);
+    assert.equal(reconciled.level, 3);
 });
 
 test("applyHollowGateRunEndLocal: extract keeps everything and clears the run", () => {

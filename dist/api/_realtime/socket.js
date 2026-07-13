@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getIo = getIo;
+exports.closeSocketServer = closeSocketServer;
 exports.attachSocketServer = attachSocketServer;
 const _auth_js_1 = require("../_auth.js");
 const online_store_js_1 = require("./online-store.js");
@@ -18,6 +19,15 @@ const _utils_js_1 = require("../_utils.js");
 let _io = null;
 function getIo() {
     return _io;
+}
+async function closeSocketServer() {
+    const io = _io;
+    _io = null;
+    (0, game_loop_js_1.setOnSweep)(null);
+    (0, notify_js_1.setRealtimeEmitter)(null);
+    if (!io)
+        return;
+    await new Promise((resolve) => io.close(() => resolve()));
 }
 function sectorRoom(sector) {
     return `sector:${sector}`;

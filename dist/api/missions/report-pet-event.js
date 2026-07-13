@@ -10,6 +10,7 @@ const _save_version_js_1 = require("../save/_save-version.js");
 const _progress_js_1 = require("./_progress.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
+const _progress_js_2 = require("../pet/_progress.js");
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
 // Expedition, x1.2 if petEscortBonusReady is consumed).
@@ -105,6 +106,9 @@ async function handler(req, res) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only report your own events.' });
         }
+        if (event === 'pet-train') {
+            return res.status(410).json({ error: 'Pet training progress is recorded only when a sealed training session completes.' });
+        }
         // Cheap pre-lock peek; the authoritative read happens under the lock below.
         const saveKey = `save:${playerName}`;
         const preCheck = await _storage_js_1.kv.get(saveKey);
@@ -136,7 +140,9 @@ async function handler(req, res) {
         // minted before the non-Tamer half-rate path redeeming at full Tamer rate.
         let rewardScale = 1;
         let tamerToken = true;
+        let expeditionPetId = '';
         let expeditionTokenKey = null;
+        let expeditionReceipt = '';
         if (event === 'expedition' || event === 'long-expedition') {
             const tokRaw = typeof body.expeditionToken === 'string' && body.expeditionToken.trim() ? body.expeditionToken.trim() : undefined;
             const tok = tokRaw && /^[A-Za-z0-9]+$/.test(tokRaw) ? tokRaw : undefined;
@@ -154,6 +160,7 @@ async function handler(req, res) {
             }
             // Remember the token key; it is consumed under the save lock below.
             expeditionTokenKey = tokenKey;
+            expeditionReceipt = tok;
             // Drive all reward math from the SEALED token values, not the client
             // body — including the expedition/long-expedition split (long fires
             // extra mission progress) which is re-derived from the sealed duration.
@@ -169,6 +176,7 @@ async function handler(req, res) {
             // carries rewardScale 0.5 and tamer=false → half currency, no XP/missions.
             rewardScale = Math.max(0, Math.min(1, Number(tokenData.rewardScale ?? 1)));
             tamerToken = tokenData.tamer !== false;
+            expeditionPetId = String(tokenData.petId ?? '');
         }
         // For expedition events, server computes Tamer XP AND the Ryo + drop
         // currencies (previously client-trusted). Pet stat/XP gains stay
@@ -200,11 +208,15 @@ async function handler(req, res) {
                 if (!char)
                     return; // race: save deleted mid-call
                 if (expeditionTokenKey) {
-                    const consumed = await _storage_js_1.kv.del(expeditionTokenKey);
-                    if (consumed <= 0) {
+                    const receipts = Array.isArray(char.redeemedPetExpeditionTokens)
+                        ? char.redeemedPetExpeditionTokens.filter((entry) => typeof entry === 'string').slice(-63)
+                        : [];
+                    if (receipts.includes(expeditionReceipt)) {
+                        await _storage_js_1.kv.del(expeditionTokenKey).catch(() => undefined);
                         tokenAlreadySpent = true;
                         return;
                     }
+                    char.redeemedPetExpeditionTokens = [...receipts, expeditionReceipt];
                 }
                 const today = utcDateKey();
                 const sameDay = char.lastExpeditionClaimDate === today;
@@ -213,6 +225,14 @@ async function handler(req, res) {
                 const dailyCap = MAX_EXPEDITIONS_PER_DAY + ((0, _profession_mastery_js_1.masteryHasCapstone)('petTamer', char.masterySpec, 'caravan-master') ? 2 : 0);
                 if (claimedToday >= dailyCap) {
                     dailyCapHit = true;
+                    const pets = Array.isArray(char.pets) ? char.pets : [];
+                    const nextPets = pets.map((pet) => String(pet?.id ?? '') === expeditionPetId
+                        ? (0, _progress_js_2.settleServerPetExpedition)(pet, expType ?? 'scout', durationMinutes, 1).pet
+                        : pet);
+                    const cappedUpdated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: { ...char, pets: nextPets } });
+                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(cappedUpdated, record));
+                    if (expeditionTokenKey)
+                        await _storage_js_1.kv.del(expeditionTokenKey).catch(() => undefined);
                     return;
                 }
                 const isFirstToday = claimedToday === 0;
@@ -236,10 +256,16 @@ async function handler(req, res) {
                     foundFate = Math.random() < (FATE_RATE[expType] + dropBonus * 0.1) * expMaterialMult * rewardScale ? 1 : 0;
                 }
                 // Stamp daily tracking + consume escort bonus + apply currencies.
+                const pets = Array.isArray(char.pets) ? char.pets : [];
+                const petXpMult = (tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) * (isFirstToday ? 2 : 1) : 1);
+                const nextPets = pets.map((pet) => String(pet?.id ?? '') === expeditionPetId
+                    ? (0, _progress_js_2.settleServerPetExpedition)(pet, expType ?? 'scout', durationMinutes, petXpMult).pet
+                    : pet);
                 const updated = {
                     ...record,
                     character: {
                         ...char,
+                        pets: nextPets,
                         lastExpeditionClaimDate: today,
                         expeditionsClaimedToday: claimedToday + 1,
                         ryo: Number(char.ryo ?? 0) + ryoEarned,
@@ -251,6 +277,8 @@ async function handler(req, res) {
                 };
                 (0, _save_version_js_1.bumpSaveVersion)(updated);
                 await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
+                if (expeditionTokenKey)
+                    await _storage_js_1.kv.del(expeditionTokenKey).catch(() => undefined);
             }, { failClosed: true });
             if (tokenAlreadySpent) {
                 return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
@@ -272,6 +300,7 @@ async function handler(req, res) {
                     foundAura: 0,
                     foundFate: 0,
                     missionsCompleted: [],
+                    character: capRecord?.character ?? null,
                     _saveVersion: Number(capRecord?._saveVersion ?? 0),
                 });
             }
@@ -321,6 +350,12 @@ async function handler(req, res) {
             foundBone,
             foundAura,
             foundFate,
+            balances: {
+                ryo: Number(finalChar?.ryo ?? 0),
+                boneCharms: Number(finalChar?.boneCharms ?? 0),
+                auraStones: Number(finalChar?.auraStones ?? 0),
+                fateShards: Number(finalChar?.fateShards ?? 0),
+            },
             missionXpAwarded,
             missionsCompleted: [...missionsCompleted, ...extraCompleted],
             ...(isTamer ? {
@@ -328,6 +363,7 @@ async function handler(req, res) {
                 professionRank: Number(finalChar?.professionRank ?? 1),
             } : {}),
             _saveVersion: Number(finalRecord?._saveVersion ?? 0),
+            character: finalChar,
         });
     }
     catch (err) {

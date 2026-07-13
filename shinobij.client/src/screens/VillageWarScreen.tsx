@@ -5,8 +5,7 @@ import { GiCrossedSwords, GiScrollUnfurled, GiTrophy, GiEyeball, GiBlackFlag } f
 const VW_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord } from "../types/character";
-import { TERRITORY_HP_MAX, LEGENDARY_WAR_CRATE_ID } from "../constants/game";
-import { currentDateKey } from "../lib/utils";
+import { TERRITORY_HP_MAX } from "../constants/game";
 import { VILLAGE_WAR_HP_MAX, type TerritoryRecord, type VillageWarRecord } from "../lib/world-state";
 import { gameConfirm } from "../components/GameAlert";
 
@@ -18,11 +17,13 @@ export function VillageWarScreen({
     updateCharacter,
     playerRoster,
     onBack,
+    onServerVersion,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
     playerRoster: PlayerRecord[];
     onBack: () => void;
+    onServerVersion?: (version: number) => void;
 }) {
     const [wars, setWars] = useState<VillageWarRecord[]>([]);
     const [territories, setTerritories] = useState<TerritoryRecord[]>([]);
@@ -114,20 +115,7 @@ export function VillageWarScreen({
                 const data = await r.json().catch(() => ({}));
                 throw new Error(data.error ?? `HTTP ${r.status}`);
             }
-            // A: war-ground bounty — +500 ryo + 1 Fate Shard, once per day,
-            // for raiding the war-ground sector specifically. Applies whether
-            // you reduce the sector's HP all the way to 0 or just chip it.
-            const today = currentDateKey();
             const isWarGround = sector === activeWar.warGroundSector;
-            const bountyEligible = isWarGround && character.warGroundBountyDate !== today;
-            updateCharacter({
-                ...character,
-                totalVillageRaids: (character.totalVillageRaids ?? 0) + 1,
-                villageWarRaidProgress: (character.villageWarRaidProgress ?? 0) + 1,
-                ryo: (character.ryo ?? 0) + (bountyEligible ? 500 : 0),
-                fateShards: (character.fateShards ?? 0) + (bountyEligible ? 1 : 0),
-                warGroundBountyDate: bountyEligible ? today : character.warGroundBountyDate,
-            });
             await refresh();
             // B (tug of war): capturing the war ground no longer ends the
             // war. Instead it flips ownership (capturedBy), refreshes the
@@ -185,7 +173,7 @@ export function VillageWarScreen({
         !(character.claimedWarCrateIds ?? []).includes(`war-crate-${w.id}`)
     );
 
-    function claimVictory(war: VillageWarRecord) {
+    async function claimVictory(war: VillageWarRecord) {
         // Canonical winner reward: 1× Legendary War Crate, dedup via
         // claimedWarCrateIds. Matches claimPendingWarCrates exactly so
         // whichever path the player triggers first delivers the same
@@ -193,13 +181,15 @@ export function VillageWarScreen({
         // that the auto-sweep didn't, so first-touch silently locked
         // the other side out of the discrepancy.
         const crateId = `war-crate-${war.id}`;
-        const claimed = character.claimedWarCrateIds ?? [];
-        if (claimed.includes(crateId)) return;
-        updateCharacter({
-            ...character,
-            inventory: [...character.inventory, LEGENDARY_WAR_CRATE_ID],
-            claimedWarCrateIds: [...claimed, crateId],
-        });
+        if ((character.claimedWarCrateIds ?? []).includes(crateId)) return;
+        const response = await fetch('/api/village/claim-war-crate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerName: character.name, warCrateId: crateId }),
+        }).catch(() => null);
+        const data = response ? await response.json().catch(() => null) as { character?: Character; _saveVersion?: number } | null : null;
+        if (!response?.ok || !data?.character) return setError('The war reward could not be verified. It will retry on the next refresh.');
+        if (typeof data._saveVersion === 'number') onServerVersion?.(data._saveVersion);
+        updateCharacter(data.character);
     }
 
     return (

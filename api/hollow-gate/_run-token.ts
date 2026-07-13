@@ -26,6 +26,14 @@ export const HG_CLAWBACK_KEYS = [
 ] as const;
 export type HgCurrencyKey = (typeof HG_CLAWBACK_KEYS)[number];
 
+// The shipped shrine has exactly five floors. Never let a client widen its own
+// payout envelope by requesting a deeper synthetic run at token mint time.
+export const HOLLOW_GATE_SERVER_DEPTH = 5;
+
+export function canonicalHollowGateDepth(): number {
+    return HOLLOW_GATE_SERVER_DEPTH;
+}
+
 // VERBATIM mirror of the client hollowShardDrop (lib/hollow-gate-run.ts). The
 // drift test asserts this matches the client for every floor/source.
 export function hollowShardDrop(floor: number, source: 'chest' | 'lockedChest' | 'boss' | 'shardVein'): number {
@@ -95,6 +103,16 @@ export const HG_HIGH_VALUE_ITEM_ID = 'dungeon-legendary-fragment';
  *  exploit. Backstopped by the per-save itemStacks caps. */
 export function maxFragmentsForDepth(depth: number): number {
     return Math.max(2, Math.min(40, Math.floor(Number(depth) || 1) * 2));
+}
+
+/** Loose but finite ceilings for non-currency run rewards claimed at settle. */
+export function maxXpForDepth(depth: number, rewardMultiplier = 1): number {
+    const d = Math.max(1, Math.min(20, Math.floor(Number(depth) || 1)));
+    return Math.ceil(d * 10_000 * Math.max(1, Number(rewardMultiplier) || 1));
+}
+
+export function maxVeilsForDepth(depth: number): number {
+    return Math.max(1, Math.min(21, Math.floor(Number(depth) || 1) + 1));
 }
 
 /** Count of a given item id held as counted `itemStacks` ([{itemId,count}]). Used

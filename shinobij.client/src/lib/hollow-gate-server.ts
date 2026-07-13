@@ -3,10 +3,8 @@
  *
  * Wires the inert Tier-1 endpoints (api/hollow-gate/{start,choose-augment,settle}
  * — see docs/hollow-gate-augments.md) into the live dive. Everything here is
- * behind the `hollowGateServer.v1` flag (default OFF) and degrades gracefully:
- * if the flag is off, the server is unreachable, or no token is minted
- * (SESSION_SECRET unset / daily-cap), the run falls back to the existing
- * client-authoritative path verbatim — nothing breaks (token-first invariant).
+ * mandatory in release gameplay. If the server is unreachable or no token is
+ * minted, the dive stays blocked instead of falling back to client authority.
  *
  * Trust model: at START the server seals the entry-currency snapshot + dive
  * depth + the chosen augment's REWARD multiplier into a single-use token. At
@@ -24,14 +22,11 @@ import { HOLLOW_GATE_CLAWBACK_KEYS, clawBackHollowGateLoot } from "./hollow-gate
 export type HollowGateOutcome = "extract" | "death";
 
 // ── Feature flag ──────────────────────────────────────────────────────────────
-// NOW DEFAULT ON — the server-authoritative run loop (anti-cheat: rewards are
-// sealed + settled server-side instead of client-trusted) is the default. It
-// degrades gracefully, so a server hiccup falls back to the local flow. Opt OUT
-// per-device with localStorage `hollowGateServer.v1 = "off"`.
+// The server-authoritative run loop is mandatory in the browser. The false value
+// in non-browser test/SSR contexts prevents orchestration helpers from attempting
+// network calls while keeping shipped gameplay non-downgradable.
 export function hollowGateServerEnabled(): boolean {
-    // Browser (storage available): ON unless explicitly "off". No-storage / SSR /
-    // node-test: fall back to OFF so the run-loop tests stay deterministic.
-    try { return window.localStorage?.getItem("hollowGateServer.v1") !== "off"; } catch { return false; }
+    return typeof window !== "undefined";
 }
 
 // ── Modal shape (structurally compatible with App's HollowGateEventModal) ──────
@@ -45,11 +40,15 @@ export type HollowGateStartResult = {
     seed?: string;
     augmentOffers?: HollowGateAugmentOffer[];
     reason?: string;
+    character?: Character;
+    _saveVersion?: number;
 };
 export type HollowGateSettleResult = {
     ok: boolean;
     outcome?: HollowGateOutcome;
     credited?: Partial<Record<string, number>>;
+    character?: Character | null;
+    _saveVersion?: number;
     reason?: string;
     alreadyReported?: boolean;
 };
@@ -106,12 +105,15 @@ export async function settleHollowGateRun(
 
 /** Gross run haul (current − entry, floored at 0) per clawback currency. This is
  *  the CLAIMED amount we report to settle; the server clamps it to its ceiling. */
-export function computeHollowGateHaul(character: Character, entry?: Partial<Record<string, number>>): Record<string, number> {
+export function computeHollowGateHaul(character: Character, entry?: Partial<Record<string, number>>, run?: HollowGateShrineRun | null): Record<string, number> {
     const out: Record<string, number> = {};
     const c = character as Record<string, unknown>;
     for (const k of HOLLOW_GATE_CLAWBACK_KEYS) {
         out[k] = Math.max(0, num(c[k]) - num(entry?.[k]));
     }
+    out.xp = Math.max(0, Math.floor(num(run?.earnedXp)));
+    out.fragments = Math.max(0, Math.floor(num(run?.earnedFragments)));
+    out.veils = Math.max(0, Math.floor(num(run?.earnedVeils)));
     return out;
 }
 
@@ -131,6 +133,17 @@ export function applyServerSettle(
         next[k] = num(entry?.[k]) + Math.max(0, num(credited[k]));
     }
     return next as unknown as Character;
+}
+
+/** Adopt the full committed save when available. Reconstructing credited balances
+ *  remains only as a rolling-deploy fallback for an older API response. */
+export function reconcileHollowGateSettle(
+    character: Character,
+    entry: Partial<Record<string, number>> | undefined,
+    result: HollowGateSettleResult,
+): Character {
+    if (result.character) return { ...character, ...result.character };
+    return result.credited ? applyServerSettle(character, entry, result.credited) : character;
 }
 
 /** Today's CLIENT-side run-end result (the no-token fallback). Death claws back
@@ -200,11 +213,15 @@ export function settleHollowGateRunOnly(
     if (!run?.runToken || !hollowGateServerEnabled()) return;
     const token = run.runToken;
     const entry = run.entryCurrencies;
-    const haul = computeHollowGateHaul(characterForHaul, entry);
+    const haul = computeHollowGateHaul(characterForHaul, entry, run);
     void settleHollowGateRun(characterForHaul.name, token, outcome, haul).then((res) => {
-        if (res?.ok && res.credited) {
-            setCharacter((prev) => (prev ? applyServerSettle(prev, entry, res.credited!) : prev));
-        }
+        if (!res?.ok) return;
+        setCharacter((prev) => {
+            if (!prev) return prev;
+            // Prefer the full stored character. The credited-balance fallback keeps
+            // compatibility with an older server during a rolling deployment.
+            return reconcileHollowGateSettle(prev, entry, res);
+        });
     });
 }
 

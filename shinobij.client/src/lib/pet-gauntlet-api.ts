@@ -23,6 +23,7 @@ export interface GauntletReward {
     ryo: number;
     fateShards: number;
     boneCharms: number;
+    balances: { ryo: number; fateShards: number; boneCharms: number };
     score: number;
     rank: number | null;
     weekKey: string;

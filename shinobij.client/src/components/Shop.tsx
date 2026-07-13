@@ -6,11 +6,10 @@
  * (prices/discount formulas unchanged). getAllTileCards + the TileCard type
  * are imported back from ../App.
  */
-/* eslint-disable react-hooks/purity */ // Math.random in card-pack draw; matches App.tsx's file-wide suppression (verbatim)
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { getAllItems } from "../lib/items";
-import { addItem, countItem } from "../lib/inventory";
+import { countItem } from "../lib/inventory";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses, consumableHoldCap } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
@@ -20,18 +19,21 @@ import { BackToVillageButton } from "./BackToVillageButton";
 import type { Character } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
+import { openCardPack, type CardPackType } from "../lib/card-pack";
+import { makeId } from "../lib/utils";
 
 function ShopBase({
-    character, updateCharacter, creatorItems, title, subtitle, filterRarities, currency = "ryo", onBack, backLabel,
+    character, updateCharacter, creatorItems, title, subtitle, filterRarities, currency = "ryo", onBack, backLabel, onServerVersion,
 }: {
     character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[];
     title: string; subtitle: string; filterRarities: GameItem["rarity"][];
-    currency?: "ryo" | "fateShards"; onBack: () => void; backLabel?: string;
+    currency?: "ryo" | "fateShards"; onBack: () => void; backLabel?: string; onServerVersion?: (version: number) => void;
 }) {
     const [selectedItem, setSelectedItem] = useState<GameItem | null>(null);
     // Bulk-buy quantity for capped consumables/throwables/potions. Reset to 1
     // whenever a different item popup opens.
     const [buyQty, setBuyQty] = useState(1);
+    const [purchaseBusy, setPurchaseBusy] = useState(false);
 
     // Lock background scroll + allow Escape-to-close while the item popup is open.
     useBodyScrollLock(selectedItem !== null);
@@ -110,7 +112,7 @@ function ShopBase({
     const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const getShopCost = (cost: number) => discountCost(cost, shopDiscountPercent);
 
-    function buy(item: GameItem, qty = 1) {
+    async function buy(item: GameItem, qty = 1) {
         const finalCost = getShopCost(item.cost);
         if (item.levelReq && character.level < item.levelReq) return alert(`Requires Level ${item.levelReq}. You are Level ${character.level}.`);
 
@@ -128,16 +130,17 @@ function ShopBase({
 
         const total = finalCost * n;
         if (wallet < total) return alert(`Not enough ${currencyLabel}.`);
-
-        const update = currency === "fateShards"
-            ? { fateShards: character.fateShards - total }
-            : { ryo: character.ryo - total };
-
-        // addItem routes stackables (potions/throwables/consumables) into the
-        // counted itemStacks store and pushes uniques onto inventory[] — so a
-        // bought potion stacks immediately instead of piling up one inventory
-        // entry per copy (which would also pressure the 500-entry save cap).
-        updateCharacter(addItem({ ...character, ...update }, item.id, n));
+        if (purchaseBusy) return;
+        setPurchaseBusy(true);
+        const response = await fetch('/api/shop/purchase', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerName: character.name, itemId: item.id, qty: n, requestId: makeId() }),
+        });
+        const result = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
+        setPurchaseBusy(false);
+        if (!response.ok || !result?.character) return alert(result?.error || 'Purchase was not committed.');
+        if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
+        updateCharacter(result.character);
 
         // Keep the popup open for capped consumables so the player can watch the
         // owned/cap count update and keep buying; close it for one-off gear.
@@ -349,8 +352,8 @@ function ShopBase({
                                             return (
                                                 <button
                                                     type="button"
-                                                    onClick={() => buy(selectedItem)}
-                                                    disabled={alreadyOwned(selectedItem) || wallet < unit}
+                                                    onClick={() => { void buy(selectedItem); }}
+                                                    disabled={purchaseBusy || alreadyOwned(selectedItem) || wallet < unit}
                                                 >
                                                     {alreadyOwned(selectedItem)
                                                         ? "Owned"
@@ -393,7 +396,7 @@ function ShopBase({
                                                             <button type="button" aria-label="More" onClick={() => setBuyQty(Math.min(maxBuyable, qty + 1))} disabled={qty >= maxBuyable}>+</button>
                                                             <button type="button" onClick={() => setBuyQty(maxBuyable)} disabled={qty >= maxBuyable}>Max</button>
                                                         </div>
-                                                        <button type="button" onClick={() => buy(selectedItem, qty)}>
+                                                        <button type="button" disabled={purchaseBusy} onClick={() => { void buy(selectedItem, qty); }}>
                                                             Buy {qty} for {currencyIcon} {unit * qty} {currencyLabel}
                                                         </button>
                                                     </>
@@ -420,22 +423,25 @@ function ShopBase({
     );
 }
 
-function CardPackSection({ character, updateCharacter, currency, creatorCards }: { character: Character; updateCharacter: (c: Character) => void; currency: "ryo" | "fateShards"; creatorCards: TileCard[] }) {
+function CardPackSection({ character, updateCharacter, currency, creatorCards, onServerVersion }: { character: Character; updateCharacter: (c: Character) => void; currency: "ryo" | "fateShards"; creatorCards: TileCard[]; onServerVersion?: (version: number) => void }) {
     const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const packCost = (cost: number) => discountCost(cost, shopDiscountPercent);
+    const [packBusy, setPackBusy] = useState(false);
 
-    function openPack(count: number, rarities: TileCard["rarity"][], cost: number) {
+    async function openPack(packType: CardPackType, cost: number) {
         const wallet = currency === "fateShards" ? character.fateShards : character.ryo;
         const label = currency === "fateShards" ? "Fate Shards" : "ryo";
         const finalCost = packCost(cost);
         if (wallet < finalCost) return alert(`Not enough ${label}.`);
+        if (packBusy) return;
+        setPackBusy(true);
+        const result = await openCardPack(character.name, packType);
+        setPackBusy(false);
+        if (!result.ok || !result.character || !result.cards) return alert(result.error || "Could not open the card pack.");
         const allCards = getAllTileCards(creatorCards);
-        const pool = allCards.filter((c) => rarities.includes(c.rarity));
-        const drawn: string[] = [];
-        for (let i = 0; i < count; i++) drawn.push(pool[Math.floor(Math.random() * pool.length)].id);
-        const costUpdate = currency === "fateShards" ? { fateShards: character.fateShards - finalCost } : { ryo: character.ryo - finalCost };
-        updateCharacter({ ...character, ...costUpdate, tileCards: [...character.tileCards, ...drawn] });
-        alert(`Pack opened!\n• ${drawn.map((id) => allCards.find((c) => c.id === id)?.name ?? id).join("\n• ")}`);
+        if (typeof result._saveVersion === "number") onServerVersion?.(result._saveVersion);
+        updateCharacter(result.character);
+        alert(`Pack opened!\n• ${result.cards.map((id) => allCards.find((c) => c.id === id)?.name ?? id).join("\n• ")}`);
     }
 
     return (
@@ -444,21 +450,21 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
             <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>Collect cards for Shinobi Card Clash at the Card Hall.</p>
             <p style={{ marginBottom: "0.8rem" }}>Collection: <strong>{character.tileCards.length}</strong> cards</p>
             {currency === "ryo" && (
-                <button onClick={() => openPack(5, ["common", "rare"], 250)} disabled={character.ryo < packCost(250)}>
+                <button onClick={() => void openPack("standard", 250)} disabled={packBusy || character.ryo < packCost(250)}>
                     Standard Pack — 5 cards (Common / Rare) — {packCost(250)} ryo{shopDiscountPercent > 0 ? " discounted" : ""}
                 </button>
             )}
             {currency === "fateShards" && (
                 <>
-                    <button onClick={() => openPack(1, ["epic"], 10)} disabled={character.fateShards < 10} style={{ color: "#ce93d8" }}>
+                    <button onClick={() => void openPack("epic", 10)} disabled={packBusy || character.fateShards < packCost(10)} style={{ color: "#ce93d8" }}>
                         <GameIcon name="crystal" size={13} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} /> Epic Pack — 1 guaranteed Epic card — 10 Fate Shards
                     </button>
                     {/* Legendary pack — sits right next to the Epic pack, costs
                         3× as much for the corresponding tier jump. Same draw
                         mechanic, just filtered to legendary rarity. */}
                     <button
-                        onClick={() => openPack(1, ["legendary"], 30)}
-                        disabled={character.fateShards < 30}
+                        onClick={() => void openPack("legendary", 30)}
+                        disabled={packBusy || character.fateShards < packCost(30)}
                         style={{ color: "#facc15", marginLeft: 8, borderColor: "rgba(250, 204, 21, 0.5)" }}
                     >
                         👑 Legendary Pack — 1 guaranteed Legendary card — 30 Fate Shards
@@ -469,7 +475,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
     );
 }
 
-export function Shop({ character, updateCharacter, creatorItems, creatorCards, onBack }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void }) {
+export function Shop({ character, updateCharacter, creatorItems, creatorCards, onBack, onServerVersion }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void; onServerVersion?: (version: number) => void }) {
     return (
         <>
             <ShopBase
@@ -481,13 +487,14 @@ export function Shop({ character, updateCharacter, creatorItems, creatorCards, o
                 filterRarities={["common", "uncommon", "rare", "epic"]}
                 currency="ryo"
                 onBack={onBack}
+                onServerVersion={onServerVersion}
             />
-            <CardPackSection character={character} updateCharacter={updateCharacter} currency="ryo" creatorCards={creatorCards} />
+            <CardPackSection character={character} updateCharacter={updateCharacter} currency="ryo" creatorCards={creatorCards} onServerVersion={onServerVersion} />
         </>
     );
 }
 
-export function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCards, onBack }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void }) {
+export function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCards, onBack, onServerVersion }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void; onServerVersion?: (version: number) => void }) {
     return (
         <>
             <ShopBase
@@ -500,8 +507,9 @@ export function GrandMarketplace({ character, updateCharacter, creatorItems, cre
                 currency="fateShards"
                 onBack={onBack}
                 backLabel="← Central Hub"
+                onServerVersion={onServerVersion}
             />
-            <CardPackSection character={character} updateCharacter={updateCharacter} currency="fateShards" creatorCards={creatorCards} />
+            <CardPackSection character={character} updateCharacter={updateCharacter} currency="fateShards" creatorCards={creatorCards} onServerVersion={onServerVersion} />
         </>
     );
 }

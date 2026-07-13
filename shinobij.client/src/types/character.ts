@@ -134,12 +134,18 @@ export type HollowGateShrineRun = {
     runToken?: string;
     serverSeed?: string;
     augmentOffers?: HollowGateAugmentOffer[];
-    chosenAugment?: HollowGateAugmentOffer | null;
-};
+      chosenAugment?: HollowGateAugmentOffer | null;
+      // Untrusted run tallies claimed at settlement. The server clamps each to
+      // the sealed run depth before committing XP or high-value items.
+      earnedXp?: number;
+      earnedFragments?: number;
+      earnedVeils?: number;
+  };
 
 // ── Endless Tower run state ───────────────────────────────────────────────
 
-export type EndlessTowerRun = {
+  export type EndlessTowerRun = {
+      runToken?: string;
     wave: number;
     bankedRyo: number;
     bankedXp: number;
@@ -301,6 +307,11 @@ export type Character = {
     cardClashTutorialSeen?: boolean;
     element?: string;
     elements?: string[];
+    claimedAwakenings?: string[];
+    redeemedAwakeningActions?: string[];
+    activeDungeonRun?: { token: string; startedAt: number } | null;
+    redeemedDungeonRuns?: string[];
+    redeemedHollowGateRuns?: string[];
     boneCharms: number;
     auraStones: number;
     mythicSeals: number;

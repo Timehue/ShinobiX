@@ -11,9 +11,14 @@
  * trait/content tweaks without re-touching this file).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AI_FIGHT_DAILY_COUNT_TTL_SECONDS = exports.MAX_AI_FIGHT_RYO = exports.MAX_AI_FIGHT_XP = exports.AI_FIGHT_REDUCED_MULT = exports.AI_FIGHT_SOFT_CAP_PER_DAY = void 0;
+exports.AI_FIGHT_DAILY_COUNT_TTL_SECONDS = exports.MAX_AI_FIGHT_RYO = exports.MAX_AI_FIGHT_XP = exports.AI_FIGHT_REDUCED_MULT = exports.AI_FIGHT_HARD_CAP_PER_DAY = exports.AI_FIGHT_SOFT_CAP_PER_DAY = void 0;
 exports.aiFightReward = aiFightReward;
 exports.AI_FIGHT_SOFT_CAP_PER_DAY = 50; // full reward for the first N AI wins/day
+// Absolute ceiling on paid AI wins. The battle token reduces arbitrary claims,
+// but the server does not simulate the client-side PvE fight, so an attacker can
+// still mint valid start tokens directly. Past this bound the token is consumed
+// and the win pays zero, limiting the daily blast radius.
+exports.AI_FIGHT_HARD_CAP_PER_DAY = 100;
 exports.AI_FIGHT_REDUCED_MULT = 0.25; // reward multiplier past the soft cap
 exports.MAX_AI_FIGHT_XP = 150; // per-fight base XP clamp (legit max 125)
 exports.MAX_AI_FIGHT_RYO = 150; // per-fight base ryo clamp (legit max 90)
@@ -26,7 +31,10 @@ exports.AI_FIGHT_DAILY_COUNT_TTL_SECONDS = 26 * 60 * 60;
 function aiFightReward(claimedXp, claimedRyo, dailyCountIncludingThis) {
     const xpBase = Math.max(0, Math.min(exports.MAX_AI_FIGHT_XP, Math.floor(Number(claimedXp) || 0)));
     const ryoBase = Math.max(0, Math.min(exports.MAX_AI_FIGHT_RYO, Math.floor(Number(claimedRyo) || 0)));
-    const overCap = Number(dailyCountIncludingThis) > exports.AI_FIGHT_SOFT_CAP_PER_DAY;
+    const count = Math.max(0, Math.floor(Number(dailyCountIncludingThis) || 0));
+    if (count > exports.AI_FIGHT_HARD_CAP_PER_DAY)
+        return { xp: 0, ryo: 0, capped: true };
+    const overCap = count > exports.AI_FIGHT_SOFT_CAP_PER_DAY;
     const mult = overCap ? exports.AI_FIGHT_REDUCED_MULT : 1;
     return { xp: Math.floor(xpBase * mult), ryo: Math.floor(ryoBase * mult), capped: overCap };
 }

@@ -86,9 +86,6 @@ function seedForWeek(idx) { return (Math.imul(idx + 1, 2654435761) >>> 0) & 0x7f
 const dayStamp = () => new Date().toISOString().slice(0, 10);
 const tokenKey = (id) => `petgauntlet:tok:${id}`;
 const lbKey = (weekKey) => `petgauntlet:lb:${weekKey}`;
-const rewardCountKey = (slug, day) => `petgauntlet:rewarded:${slug}:${day}`;
-const shardClaimKey = (slug, day) => `petgauntlet:fateshard:${slug}:${day}`;
-const charmClaimKey = (slug, day) => `petgauntlet:bonecharm:${slug}:${day}`;
 const clampInt = (v, lo, hi) => {
     const n = Math.floor(Number(v));
     if (!Number.isFinite(n))
@@ -132,7 +129,9 @@ async function handler(req, res) {
                 return;
             const idx = currentWeekIndex();
             const weekKey = weekKeyOf(idx);
-            const used = Number((await _storage_js_1.kv.get(rewardCountKey(me, dayStamp()))) ?? 0);
+            const startSave = await _storage_js_1.kv.get(`save:${me}`);
+            const startChar = (startSave?.character ?? null);
+            const used = startChar?.petGauntletRewardDate === dayStamp() ? Number(startChar.petGauntletRewardCount ?? 0) : 0;
             const rewardEligible = used < REWARDED_RUNS_PER_DAY;
             const sealed = {
                 player: me, weekKey, seed: seedForWeek(idx), rewardEligible,
@@ -151,13 +150,7 @@ async function handler(req, res) {
                 return res.status(400).json({ error: 'Missing run token.' });
             // Atomically consume the token (read + delete under its own lock) so a
             // replayed report can't be paid twice.
-            const sealed = await (0, _lock_js_1.withKvLock)(tokenKey(id), async () => {
-                const doc = await _storage_js_1.kv.get(tokenKey(id));
-                if (!doc)
-                    return null;
-                await _storage_js_1.kv.del(tokenKey(id));
-                return doc;
-            }, { failClosed: true });
+            const sealed = await _storage_js_1.kv.get(tokenKey(id));
             if (!sealed)
                 return res.status(409).json({ error: 'Run token already used or expired.' });
             if (sealed.player !== me)
@@ -169,12 +162,6 @@ async function handler(req, res) {
             //    the daily rewarded-run cap (re-checked atomically here so abandoned
             //    runs never burn a slot). ─────────────────────────────────────────
             let ryo = 0;
-            if (sealed.rewardEligible && roundsCleared > 0) {
-                const used = await _storage_js_1.kv.incr(rewardCountKey(me, dayStamp()), { ex: 36 * 3600 });
-                if (used <= REWARDED_RUNS_PER_DAY) {
-                    ryo = sealed.perRound * roundsCleared + (roundsCleared >= sealed.maxRounds ? sealed.clearBonus : 0);
-                }
-            }
             // Premium-currency buys (Fate Shard / Bone Charm) bank ONLY if the run
             // cleared round 9, and at most once/day each (the NX claim flags below).
             // SERVER-AUTHORITATIVE on the COST: the run must have been able to AFFORD
@@ -196,45 +183,65 @@ async function handler(req, res) {
             let grantedFateShards = 0;
             let grantedBoneCharms = 0;
             let saveVersion = 0;
+            let balances = { ryo: 0, fateShards: 0, boneCharms: 0 };
+            let saveMissing = false;
+            let settled = false;
             const saveKey = `save:${me}`;
             await (0, _lock_js_1.withKvLock)(saveKey, async () => {
                 const record = await _storage_js_1.kv.get(saveKey);
                 const char = record?.character;
-                if (!record || !char)
+                if (!record || !char) {
+                    saveMissing = true;
                     return;
+                }
                 saveVersion = Number(record._saveVersion ?? 0);
                 name = String(char.name ?? me).slice(0, 40);
                 if (typeof char.village === 'string')
                     village = char.village;
+                balances = { ryo: Number(char.ryo ?? 0), fateShards: Number(char.fateShards ?? 0), boneCharms: Number(char.boneCharms ?? 0) };
                 // Daily once-per-currency claim via NX; fail CLOSED (a KV hiccup just
                 // means no grant this time — never a double-grant, never a crash).
-                if (wantShard) {
-                    try {
-                        if (await _storage_js_1.kv.set(shardClaimKey(me, day), '1', { nx: true, ex: 26 * 3600 }) === 'OK')
-                            grantedFateShards = 1;
-                    }
-                    catch { /* no grant */ }
+                const receipts = Array.isArray(char.redeemedPetGauntletRuns) ? char.redeemedPetGauntletRuns : [];
+                const prior = receipts.find((entry) => entry.token === id);
+                if (prior) {
+                    ryo = Number(prior.ryo ?? 0);
+                    grantedFateShards = Number(prior.fateShards ?? 0);
+                    grantedBoneCharms = Number(prior.boneCharms ?? 0);
+                    await _storage_js_1.kv.del(tokenKey(id)).catch(() => undefined);
+                    settled = true;
+                    return;
                 }
-                if (wantCharm) {
-                    try {
-                        if (await _storage_js_1.kv.set(charmClaimKey(me, day), '1', { nx: true, ex: 26 * 3600 }) === 'OK')
-                            grantedBoneCharms = 1;
-                    }
-                    catch { /* no grant */ }
-                }
-                if (ryo > 0 || grantedFateShards > 0 || grantedBoneCharms > 0) {
-                    const next = {
-                        ...char,
-                        ryo: Number(char.ryo ?? 0) + ryo,
-                        fateShards: Number(char.fateShards ?? 0) + grantedFateShards,
-                        boneCharms: Number(char.boneCharms ?? 0) + grantedBoneCharms,
-                    };
-                    const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: next });
-                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
-                    saveVersion = Number(updated._saveVersion ?? 0);
-                }
+                const rewardedToday = char.petGauntletRewardDate === day ? Math.max(0, Number(char.petGauntletRewardCount ?? 0)) : 0;
+                const rewardThisRun = sealed.rewardEligible && roundsCleared > 0 && rewardedToday < REWARDED_RUNS_PER_DAY;
+                ryo = rewardThisRun ? sealed.perRound * roundsCleared + (roundsCleared >= sealed.maxRounds ? sealed.clearBonus : 0) : 0;
+                const premiumToday = char.petGauntletPremiumDate === day;
+                grantedFateShards = wantShard && (!premiumToday || char.petGauntletFateClaimed !== true) ? 1 : 0;
+                grantedBoneCharms = wantCharm && (!premiumToday || char.petGauntletBoneClaimed !== true) ? 1 : 0;
+                const receipt = { token: id, ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms };
+                const next = {
+                    ...char,
+                    ryo: Number(char.ryo ?? 0) + ryo,
+                    fateShards: Number(char.fateShards ?? 0) + grantedFateShards,
+                    boneCharms: Number(char.boneCharms ?? 0) + grantedBoneCharms,
+                    petGauntletRewardDate: day,
+                    petGauntletRewardCount: rewardedToday + (rewardThisRun ? 1 : 0),
+                    petGauntletPremiumDate: day,
+                    petGauntletFateClaimed: (premiumToday && char.petGauntletFateClaimed === true) || grantedFateShards > 0,
+                    petGauntletBoneClaimed: (premiumToday && char.petGauntletBoneClaimed === true) || grantedBoneCharms > 0,
+                    redeemedPetGauntletRuns: [...receipts.slice(-49), receipt],
+                };
+                const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: next });
+                await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
+                await _storage_js_1.kv.del(tokenKey(id)).catch(() => undefined);
+                settled = true;
+                saveVersion = Number(updated._saveVersion ?? 0);
+                balances = { ryo: Number(next.ryo), fateShards: Number(next.fateShards), boneCharms: Number(next.boneCharms) };
             }, { failClosed: true });
             // ── Update the weekly leaderboard (best-per-player). ────────────────
+            if (saveMissing)
+                return res.status(404).json({ error: 'Player save not found.' });
+            if (!settled)
+                return res.status(503).json({ error: 'Gauntlet result could not be settled. Please retry.' });
             let rank = null;
             await (0, _lock_js_1.withKvLock)(lbKey(sealed.weekKey), async () => {
                 const list = (await _storage_js_1.kv.get(lbKey(sealed.weekKey))) ?? [];
@@ -252,7 +259,7 @@ async function handler(req, res) {
                 const pos = trimmed.findIndex((e) => e.slug === me);
                 rank = pos >= 0 ? pos + 1 : null;
             }, { failClosed: true });
-            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft, _saveVersion: saveVersion });
+            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, balances, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft, _saveVersion: saveVersion });
         }
         return res.status(400).json({ error: 'Invalid action.' });
     }

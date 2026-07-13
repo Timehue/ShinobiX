@@ -4,24 +4,21 @@ import "../styles/pet-skin.css";
 import type { Character } from "../types/character";
 import type { Pet, PetExpeditionType, PetTrainingType } from "../types/pet";
 import type { Screen } from "../types/core";
-import { boostAmount, getPetXpBonus } from "../lib/village-upgrades";
-import { capPetStats, collectPetTraining, gainPetXp, petTrainingGains, petTrainingPreview, petXpNeeded } from "../lib/pet-balance";
+import { getPetXpBonus } from "../lib/village-upgrades";
+import { capPetStats, gainPetXp, petTrainingPreview, petXpNeeded } from "../lib/pet-balance";
 import { nextEvolution, EVOLUTION_STONE_NAMES, petVisualId } from "../data/pet-evolutions";
 import { petEvolveCutsceneEnabled } from "../lib/pet-coliseum-flag";
 import { PetEvolutionCutscene } from "../components/PetEvolutionCutscene";
 import { gameConfirm } from "../components/GameAlert";
 import { currentDateKey, formatPetTimer } from "../lib/utils";
-import { increasePetHappiness, isPetOnExpedition, petDisplayName, petHappiness } from "../lib/pet";
+import { isPetOnExpedition, petDisplayName, petHappiness } from "../lib/pet";
 import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petExpeditionStories, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions } from "../data/pet-config";
 import { petTamerClaimFirstExpeditionToday, petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
-import { addItem, removeItem, countItem, ownsItem } from "../lib/inventory";
-import { useWarLossDebuff } from "../lib/war-debuff";
-import { masteryBonus } from "../lib/profession-mastery";
+import { countItem, ownsItem } from "../lib/inventory";
 
-export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void }) {
+export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave: _onImmediateSave }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
-    const warDebuff = useWarLossDebuff(character.village);
     const [trainingType, setTrainingType] = useState<PetTrainingType>("strength");
     const [trainingDuration, setTrainingDuration] = useState(petTrainingDurations[0].ms);
     const [expeditionType, setExpeditionType] = useState<PetExpeditionType>("scout");
@@ -91,7 +88,16 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // including it tore down + rebuilt the timer every single second.
     }, [character.pets]);
 
-    function startTraining() {
+    async function runPetProgress(action: string, extra: Record<string, unknown> = {}) {
+        if (!selectedPet) throw new Error('Pet not found.');
+        const res = await fetch('/api/pet/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, action, ...extra }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.character) throw new Error(String(data?.error ?? 'Pet update failed.'));
+        updateCharacter(data.character as Character);
+        return data as { character: Character; pet?: Pet; missionsCompleted?: Array<{ id: string; name: string; xpReward: number }> };
+    }
+
+    async function startTraining() {
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
@@ -102,14 +108,8 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // Pet Tamer training-speed bonus shortens the wait but the durationMs
         // multiplier (which scales gains) stays at the picked tier so we
         // don't accidentally double-dip on payouts.
-        const speedPct = petTamerTrainingSpeedPct(character);
-        const effectiveDuration = Math.max(60_000, Math.floor(trainingDuration * Math.max(0.5, 1 - speedPct / 100)));
-        const nextCharacter: Character = {
-            ...character,
-            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, training: { type: trainingType, endsAt: Date.now() + effectiveDuration, durationMs: trainingDuration } } : p),
-        };
-        updateCharacter(nextCharacter);
-        onImmediateSave?.(nextCharacter);
+        try { await runPetProgress('start-training', { focus: trainingType, durationMs: trainingDuration }); }
+        catch (error) { alert(error instanceof Error ? error.message : 'Training could not be started.'); }
     }
 
     async function startExpedition() {
@@ -128,11 +128,9 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // token. On a genuine server/network failure we block (don't waste an
         // expedition that would have earned currency). Past the daily reward cap
         // the trip still runs with no token — the same 12/day currency ceiling.
-        const petMaxed = selectedPet.level >= selectedPet.maxLevel;
-        const wantsToken = character.profession === "petTamer" || petMaxed;
         let token: string | undefined;
-        if (wantsToken) {
-            let data: { token?: string; reason?: string } | null;
+        {
+            let data: { token?: string; reason?: string; character?: Character } | null;
             try {
                 const r = await fetch('/api/missions/expedition-start', {
                     method: 'POST',
@@ -149,37 +147,20 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
             // response — don't burn a currency-earning expedition. For a non-Tamer
             // it just means the server doesn't see the pet as maxed yet (e.g. a
             // not-yet-synced save), so let the trip run tokenless rather than trap it.
-            if (!token && data?.reason !== "daily-mint-cap" && character.profession === "petTamer") {
+            if (!token || !data?.character) {
                 return alert("Couldn't start the expedition. Please try again.");
             }
+            updateCharacter(data.character as Character);
         }
 
         // For Pet Tamers this write lands AFTER the expedition-start await, so a
         // concurrent regen/heartbeat/achievement setState could clobber it. Build
         // the next character from the LATEST `prev` (not the render capture) and
         // capture the result so onImmediateSave persists exactly what we wrote.
-        let nextCharacter: Character | null = null;
-        updateCharacter(prev => {
-            if (!prev) return prev;
-            const built: Character = {
-                ...prev,
-                // Clear the active-pet pointer with `null` (not undefined): undefined
-                // is dropped from the save JSON and the old id gets re-injected on
-                // reload, whereas null persists and reads as falsy everywhere. The
-                // cast keeps the literal valid against the string-typed field while
-                // emitting the null the save layer needs.
-                activePetId: (prev.activePetId === selectedPet.id ? null : prev.activePetId) as string | undefined,
-                activePetId2v2: prev.activePetId2v2 === selectedPet.id ? undefined : prev.activePetId2v2,
-                pets: prev.pets.map((p) => p.id === selectedPet.id ? { ...p, expedition: { type: option.type, startedAt: Date.now(), endsAt: Date.now() + option.durationMs, durationMs: option.durationMs, token } } : p),
-            };
-            nextCharacter = built;
-            return built;
-        });
-        if (nextCharacter) onImmediateSave?.(nextCharacter);
         alert(`${petDisplayName(selectedPet)} started ${option.label}. It cannot battle or join PvE until it returns.`);
     }
 
-    function collectExpedition() {
+    async function collectExpedition() {
         if (!selectedPet?.expedition) return;
         if (Date.now() < selectedPet.expedition.endsAt)
             return alert(`${petDisplayName(selectedPet)} returns in ${formatPetTimer(selectedPet.expedition.endsAt - Date.now())}.`);
@@ -225,13 +206,6 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
 
         // Apply pet state changes immediately. Currencies (Ryo / drops) wait for
         // server response below to avoid client-trusted reward farming.
-        const nextCharacter: Character = {
-            ...firstResult.nextCharacter,
-            pets: firstResult.nextCharacter.pets.map((p) => p.id === selectedPet.id ? returnedPet : p),
-        };
-        updateCharacter(nextCharacter);
-        onImmediateSave?.(nextCharacter);
-
         setExpeditionResult({
             petName: petDisplayName(selectedPet),
             summary, expType, ryo: 0, xp, statGain,
@@ -261,6 +235,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                 }),
             }).then(r => r.ok ? r.json() : null).then(data => {
                 if (!data) return;
+                if (data.character) updateCharacter(data.character as Character);
                 const completed: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data.missionsCompleted) ? data.missionsCompleted : [];
                 for (const m of completed) {
                     window.dispatchEvent(new CustomEvent('profession-mission-complete', {
@@ -287,10 +262,10 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                     escortConsumed = !!prev.petEscortBonusReady && data.expeditionXp > 0;
                     return {
                         ...prev,
-                        ryo: (prev.ryo ?? 0) + ryoEarned,
-                        boneCharms: (prev.boneCharms ?? 0) + foundBone,
-                        auraStones: (prev.auraStones ?? 0) + foundAura,
-                        fateShards: (prev.fateShards ?? 0) + foundFate,
+                        ryo: Number(data.balances?.ryo ?? prev.ryo),
+                        boneCharms: Number(data.balances?.boneCharms ?? prev.boneCharms ?? 0),
+                        auraStones: Number(data.balances?.auraStones ?? prev.auraStones ?? 0),
+                        fateShards: Number(data.balances?.fateShards ?? prev.fateShards ?? 0),
                         professionXp: typeof data.professionXp === 'number' ? data.professionXp : (prev.professionXp ?? 0),
                         professionRank: typeof data.professionRank === 'number' ? data.professionRank : (prev.professionRank ?? 1),
                         petEscortBonusReady: escortConsumed ? false : prev.petEscortBonusReady,
@@ -307,39 +282,27 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         }
     }
 
-    function collectTraining() {
+    async function collectTraining() {
         if (!selectedPet?.training) return;
         if (Date.now() < selectedPet.training.endsAt) {
             return alert(`${selectedPet.name} needs ${formatPetTimer(selectedPet.training.endsAt - Date.now())} more.`);
         }
         // -10% pet training XP while the village is "demoralized" from a war loss,
         // and +Mentor mastery bonus (PvE/utility). Combined into one XP multiplier.
-        const trainXpMult = warDebuff.xpMult * (1 + masteryBonus(character, "petTrainXpPct") / 100);
         const focus = selectedPet.training.type;
-        const completedBase = collectPetTraining(selectedPet, trainXpMult);
-        const gains = petTrainingGains(selectedPet);
-        const baseXp = focus === "bond" ? gains.xp + Math.round(gains.xp * 0.35) : gains.xp;
-        // Village pet-XP boost, applied with the SAME training focus so the bonus
-        // XP's level-ups build the same stat the session was training.
-        const bonusXp = Math.max(0, Math.round((boostAmount(baseXp, petXpBonus) - baseXp) * trainXpMult));
-        const completed = bonusXp > 0 ? gainPetXp(completedBase, bonusXp, focus) : completedBase;
-        const leveledUp = completed.level > selectedPet.level;
-        updateCharacter({ ...character, pets: character.pets.map((p) => p.id === selectedPet.id ? completed : p) });
-        alert(`${selectedPet.name} completed ${focus} training!${leveledUp ? ` Now Level ${completed.level}.` : ""}${bonusXp > 0 ? ` +${bonusXp} bonus pet XP.` : ""}`);
+        let data: Awaited<ReturnType<typeof runPetProgress>>;
+        try {
+            data = await runPetProgress('complete-training');
+            alert(`${selectedPet.name} completed ${focus} training!${data.pet && data.pet.level > selectedPet.level ? ` Now Level ${data.pet.level}.` : ""}`);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Training could not be collected.');
+            return;
+        }
         // Pet Tamer mission progress for "pet-train" — rate-limited server-side.
-        if (character.profession === "petTamer") {
-            fetch('/api/missions/report-pet-event', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerName: character.name, event: 'pet-train' }),
-            }).then(r => r.ok ? r.json() : null).then(data => {
-                const completedMissions: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
-                for (const m of completedMissions) {
-                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
-                        detail: { name: m.name, xp: m.xpReward, profession: 'petTamer' },
-                    }));
-                }
-            }).catch(() => { /* best-effort */ });
+        for (const mission of data.missionsCompleted ?? []) {
+            window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                detail: { name: mission.name, xp: mission.xpReward, profession: 'petTamer' },
+            }));
         }
     }
 
@@ -350,79 +313,50 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     // Equip a glow collar (or clear it with id = undefined) on the selected
     // pet's Collar slot. Cosmetic unlock model: the collar stays in inventory
     // and can be equipped on any pet, so equipping just records the id.
-    function equipCollar(collarId?: string) {
+    async function equipCollar(collarId?: string) {
         if (!selectedPet) return;
         if (collarId && !ownsItem(character, collarId)) return;
-        updateCharacter({
-            ...character,
-            pets: character.pets.map((p) => p.id === selectedPet.id
-                ? { ...p, loadout: { ...p.loadout, collar: collarId } }
-                : p),
-        });
+        try { await runPetProgress('equip', { slot: 'collar', itemId: collarId }); } catch (error) { alert(error instanceof Error ? error.message : 'Equip failed.'); }
     }
 
     // Equip PVP battle gear (or clear with id = undefined) on the selected pet.
     // Same unlock model as collars: the gear stays in inventory and can be
     // equipped on any pet, so this just records the id on pet.loadout.pvp.
-    function equipPvpGear(gearId?: string) {
+    async function equipPvpGear(gearId?: string) {
         if (!selectedPet) return;
         if (gearId && !ownsItem(character, gearId)) return;
-        updateCharacter({
-            ...character,
-            pets: character.pets.map((p) => p.id === selectedPet.id
-                ? { ...p, loadout: { ...p.loadout, pvp: gearId } }
-                : p),
-        });
+        try { await runPetProgress('equip', { slot: 'pvp', itemId: gearId }); } catch (error) { alert(error instanceof Error ? error.message : 'Equip failed.'); }
     }
 
     // Equip a battle consumable (or clear with id = undefined). It's installed
     // from inventory into the slot and spent the next time the pet fights;
     // unequipping before then returns it to inventory.
-    function equipConsumable(consumableId?: string) {
+    async function equipConsumable(consumableId?: string) {
         if (!selectedPet) return;
         const current = selectedPet.loadout?.consumable;
         if (consumableId === current) return;
         if (consumableId && !ownsItem(character, consumableId)) return;
-        // Install the new one (consume from the stack) and return the old one.
-        let next = character;
-        if (consumableId) next = removeItem(next, consumableId, 1);
-        if (current) next = addItem(next, current, 1);
-        updateCharacter({
-            ...next,
-            pets: character.pets.map((p) => p.id === selectedPet.id
-                ? { ...p, loadout: { ...p.loadout, consumable: consumableId } }
-                : p),
-        });
+        try { await runPetProgress('equip', { slot: 'consumable', itemId: consumableId }); } catch (error) { alert(error instanceof Error ? error.message : 'Equip failed.'); }
     }
 
     // Equip PVE companion gear (or clear with id = undefined). Consumable model:
     // equipping installs one piece from inventory at full durability; the piece
     // already in the slot is discarded (its remaining durability is lost).
-    function equipPveGear(gearId?: string) {
+    async function equipPveGear(gearId?: string) {
         if (!selectedPet) return;
         const current = selectedPet.loadout?.pve;
         if (gearId === current) return; // no change
         if (gearId && !ownsItem(character, gearId)) return; // must own one to install
-        const next = gearId ? removeItem(character, gearId, 1) : character;
-        updateCharacter({
-            ...next,
-            pets: character.pets.map((p) => p.id === selectedPet.id
-                ? { ...p, loadout: { ...p.loadout, pve: gearId, pveDurability: gearId ? PET_PVE_DURABILITY : undefined } }
-                : p),
-        });
+        try { await runPetProgress('equip', { slot: 'pve', itemId: gearId }); } catch (error) { alert(error instanceof Error ? error.message : 'Equip failed.'); }
     }
 
-    function petSelectedPet() {
+    async function petSelectedPet() {
         if (!selectedPet) return;
         setPetHeartBurst(Date.now());
-        const happierPet = increasePetHappiness(selectedPet);
-        updateCharacter({
-            ...character,
-            pets: character.pets.map((p) => p.id === selectedPet.id ? happierPet : p),
-        });
+        try { await runPetProgress('pet'); } catch { /* harmless; retry on next interaction */ }
     }
 
-    function feedPet(treat: typeof petFeedItems[number]) {
+    async function feedPet(treat: typeof petFeedItems[number]) {
         if (!selectedPet) return;
         if (!ownsItem(character, treat.id)) {
             return alert(`You need ${treat.name} to feed ${selectedPet.name}.`);
@@ -434,25 +368,20 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
             return alert(`${petDisplayName(selectedPet)} is at max level (${selectedPet.maxLevel}) — treats no longer give XP.`);
         }
 
-        const fedPet = increasePetHappiness(gainPetXp(selectedPet, treat.xp));
-        updateCharacter({
-            ...removeItem(character, treat.id, 1),
-            pets: character.pets.map((p) => p.id === selectedPet.id ? fedPet : p),
-        });
-        alert(`${selectedPet.name} ate ${treat.name} and gained ${treat.xp} XP. Happiness +10%.${fedPet.level > selectedPet.level ? ` Level ${fedPet.level}!` : ""}`);
+        try {
+            const data = await runPetProgress('feed', { itemId: treat.id });
+            alert(`${selectedPet.name} ate ${treat.name} and gained ${treat.xp} XP. Happiness +10%.${data.pet && data.pet.level > selectedPet.level ? ` Level ${data.pet.level}!` : ""}`);
+        } catch (error) { alert(error instanceof Error ? error.message : 'Feeding failed.'); }
     }
 
-    function setNickname() {
+    async function setNickname() {
         if (!selectedPet) return;
         const nick = nicknameInput.trim();
         if (!nick) { setNicknameMsg("Enter a nickname first."); return; }
         if (nick.length > 24) { setNicknameMsg("Max 24 characters."); return; }
         if (character.fateShards < 10) { setNicknameMsg("❌ Need 10 Fate Shards."); return; }
-        updateCharacter({
-            ...character,
-            fateShards: character.fateShards - 10,
-            pets: character.pets.map(p => p.id === selectedPet.id ? { ...p, nickname: nick } : p),
-        });
+        try { await runPetProgress('nickname', { nickname: nick }); }
+        catch (error) { setNicknameMsg(error instanceof Error ? error.message : 'Nickname update failed.'); return; }
         setNicknameInput("");
         setNicknameMsg(`✅ Nickname set to "${nick}"`);
     }
@@ -460,14 +389,10 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     async function releasePet() {
         if (!selectedPet) return;
         if (!(await gameConfirm(`Release ${selectedPet.name}? This cannot be undone.`, { danger: true, confirmLabel: "Release" }))) return;
-        const updatedPets = character.pets.filter((p) => p.id !== selectedPet.id);
-        updateCharacter({
-            ...character,
-            pets: updatedPets,
-            activePetId: character.activePetId === selectedPet.id ? updatedPets[0]?.id : character.activePetId,
-            activePetId2v2: character.activePetId2v2 === selectedPet.id ? undefined : character.activePetId2v2,
-        });
-        setSelectedPetId(updatedPets[0]?.id ?? "");
+        try {
+            const data = await runPetProgress('release');
+            setSelectedPetId(data.character.pets[0]?.id ?? "");
+        } catch (error) { alert(error instanceof Error ? error.message : 'Pet could not be released.'); }
     }
 
     // Server-authoritative starter evolution. The endpoint validates the level

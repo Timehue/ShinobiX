@@ -38,6 +38,7 @@ export type ClaimMissionResult =
         completion: "daily" | "total" | "none" | "hunt";
         academyTrialClaimed?: boolean;
         academyChecklistClaimed?: boolean;
+        character?: Character;
         _saveVersion?: number;
     }
     | {
@@ -77,6 +78,10 @@ export function applyServerMissionReward(
     result: Extract<ClaimMissionResult, { applied: true }>,
     gainXp: (c: Character, amount: number) => Character,
 ): Character {
+    // Current servers return the final character committed under the save lock.
+    // Keep the reward-mirroring branch only for a rolling deploy against an
+    // older backend; once every server is upgraded this fallback can be removed.
+    if (result.character) return { ...character, ...result.character };
     let next = gainXp(character, result.reward.xpBoosted);
     next = { ...next, ryo: next.ryo + result.reward.ryo };
     if (result.reward.stamina > 0) {
