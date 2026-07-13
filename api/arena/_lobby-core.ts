@@ -75,8 +75,15 @@ const JOIN_ORDER: Array<{ team: Team; slot: 0 | 1 }> = [
 
 /** Generate a join code from a byte source (handler passes crypto bytes). */
 export function codeFromBytes(bytes: ArrayLike<number>): string {
+    // The alphabet intentionally contains 32 symbols. A low-bit mask therefore
+    // maps each uniformly random byte without the modulo-bias pattern flagged by
+    // security scanners (256 is exactly divisible by 32).
+    if ((CODE_ALPHABET.length & (CODE_ALPHABET.length - 1)) !== 0) {
+        throw new Error('Join-code alphabet length must be a power of two.');
+    }
+    const mask = CODE_ALPHABET.length - 1;
     let out = "";
-    for (let i = 0; i < CODE_LEN; i++) out += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length];
+    for (let i = 0; i < CODE_LEN; i++) out += CODE_ALPHABET[bytes[i] & mask];
     return out;
 }
 
