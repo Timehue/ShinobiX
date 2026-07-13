@@ -8,6 +8,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
+const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
 /*
  * /api/missions/expedition-start  — POST only
  *
@@ -97,12 +98,14 @@ async function handler(req, res) {
         const realLevel = Number(thePet?.level ?? 0);
         const realMaxLevel = Number(thePet?.maxLevel ?? 100);
         const petMaxed = !!thePet && realLevel >= realMaxLevel;
-        if (!isTamer && !petMaxed) {
-            // Non-Tamer with a non-maxed (or unknown) pet: no currency path, no token.
-            return res.status(200).json({ ok: true, petTamer: false, token: null });
-        }
+        if (!thePet)
+            return res.status(404).json({ error: 'Pet not found.' });
+        if (realLevel < 20)
+            return res.status(409).json({ error: 'Pet must reach level 20.' });
+        if (thePet.training || thePet.expedition)
+            return res.status(409).json({ error: 'Pet is already busy.' });
         // Half rate for the non-Tamer maxed-pet path; full rate for Pet Tamers.
-        const rewardScale = isTamer ? 1 : 0.5;
+        const rewardScale = isTamer ? 1 : petMaxed ? 0.5 : 0;
         // Seal the level used by the ryo formula: the verified maxed level for the
         // non-Tamer path, the (clamped) body value for Tamers (unchanged behavior).
         const sealedPetLevel = isTamer ? petLevel : Math.max(1, Math.min(100, realLevel));
@@ -156,7 +159,22 @@ async function handler(req, res) {
             rewardScale,
             tamer: isTamer,
         }, { ex: EXPEDITION_TOKEN_TTL_SECONDS });
-        return res.status(200).json({ ok: true, petTamer: isTamer, token: tokenId, durationMinutes, endsAt });
+        const mutation = await (0, _mutate_player_save_js_1.mutatePlayerSave)(playerName, ({ character }) => {
+            const storedPets = Array.isArray(character.pets) ? character.pets : [];
+            const currentIndex = storedPets.findIndex((pet) => String(pet?.id ?? '') === petId);
+            if (currentIndex < 0)
+                return { ok: false, status: 404, error: 'Pet not found.' };
+            const currentPet = storedPets[currentIndex];
+            if (currentPet.training || currentPet.expedition)
+                return { ok: false, status: 409, error: 'Pet is already busy.' };
+            const nextPets = storedPets.map((pet, i) => i === currentIndex ? { ...pet, expedition: { type: expType, startedAt: mintedAt, endsAt, durationMs: durationMinutes * 60_000, token: tokenId } } : pet);
+            return { ok: true, character: { ...character, pets: nextPets }, value: { petId } };
+        });
+        if (!mutation.ok) {
+            await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
+            return res.status(mutation.status).json({ error: mutation.error });
+        }
+        return res.status(200).json({ ok: true, petTamer: isTamer, token: tokenId, durationMinutes, endsAt, character: mutation.character, _saveVersion: mutation._saveVersion });
     }
     catch (err) {
         console.error('[missions/expedition-start]', err);

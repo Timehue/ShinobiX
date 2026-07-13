@@ -15,6 +15,7 @@ const _player_ips_js_1 = require("../_player-ips.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _stat_growth_js_1 = require("../_stat-growth.js");
 const _beta_metrics_js_1 = require("../_beta-metrics.js");
+const _mission_catalog_js_1 = require("../missions/_mission-catalog.js");
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
 // the evidence by 23+ hours. 2 hours gives players with bad connections,
@@ -309,6 +310,24 @@ async function handler(req, res) {
                             summary = { ...summary, unspentStats: newUnspent, statGrowth: { allocated: g.allocated, unspentGain: g.unspentGain } };
                         }
                     }
+                    const month = new Date().toISOString().slice(0, 7);
+                    const monthlyKills = finalChar.pvpKillMonth === month ? Number(finalChar.monthlyPvpKills) || 0 : 0;
+                    finalChar = {
+                        ...finalChar,
+                        auraDust: Math.max(0, Number(finalChar.auraDust) || 0) + 6,
+                        inventory: (0, _mission_catalog_js_1.grantTerritoryScrollsToInventory)(finalChar, 5),
+                        totalPvpKills: Math.max(0, Math.floor(Number(finalChar.totalPvpKills) || 0)) + 1,
+                        monthlyPvpKills: monthlyKills + 1,
+                        pvpKillMonth: month,
+                    };
+                    summary = {
+                        ...summary,
+                        auraDust: Number(finalChar.auraDust),
+                        inventory: finalChar.inventory,
+                        totalPvpKills: Number(finalChar.totalPvpKills),
+                        monthlyPvpKills: Number(finalChar.monthlyPvpKills),
+                        pvpKillMonth: month,
+                    };
                     const next = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: finalChar });
                     await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(next, record));
                     return summary;
@@ -322,6 +341,11 @@ async function handler(req, res) {
                     maxChakra: Number(char.maxChakra) || 0,
                     maxStamina: Number(char.maxStamina) || 0,
                     unspentStats: Number(char.unspentStats) || 0,
+                    auraDust: Number(char.auraDust) || 0,
+                    inventory: Array.isArray(char.inventory) ? char.inventory : [],
+                    totalPvpKills: Number(char.totalPvpKills) || 0,
+                    monthlyPvpKills: Number(char.monthlyPvpKills) || 0,
+                    pvpKillMonth: typeof char.pvpKillMonth === 'string' ? char.pvpKillMonth : '',
                 };
             };
             try {

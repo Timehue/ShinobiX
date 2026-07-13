@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
+const _economy_tx_js_1 = require("../_economy-tx.js");
 const _kage_challenge_js_1 = require("./_kage-challenge.js");
 /*
  * /api/village/kage-challenge — POST only
@@ -95,6 +96,16 @@ async function handler(req, res) {
                 });
                 if (!elig.ok)
                     return { status: 403, body: { error: elig.reason } };
+                const txId = (0, _economy_tx_js_1.makeEconomyTxId)('kage-challenge-declare');
+                await (0, _economy_tx_js_1.reserveEconomyTx)({
+                    id: txId,
+                    kind: 'kage-challenge-declare',
+                    debitKey: `save:${playerName}`,
+                    creditKey: key,
+                    resource: 'honorSeals',
+                    amount: _kage_challenge_js_1.KAGE_DECLARE_SEAL_COST,
+                    meta: { playerName, village, challengerName },
+                });
                 // Stake the 500 seals (debit the challenger's save) BEFORE opening
                 // the challenge — committed first, like the treasury-donate pattern.
                 const debit = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
@@ -107,13 +118,39 @@ async function handler(req, res) {
                     const nextChar = { ...c, honorSeals: num(c.honorSeals) - _kage_challenge_js_1.KAGE_DECLARE_SEAL_COST };
                     const nextRec = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
                     await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(nextRec, rec));
-                    return { ok: true };
+                    return { ok: true, character: nextChar, _saveVersion: Number(nextRec._saveVersion ?? 0) };
                 }, { failClosed: true });
-                if (!debit.ok)
+                if (!debit.ok) {
+                    await (0, _economy_tx_js_1.completeEconomyTx)(txId, { note: 'Declaration rejected before debit.' }).catch(() => undefined);
                     return { status: 400, body: { error: `Challenging costs ${_kage_challenge_js_1.KAGE_DECLARE_SEAL_COST} Honor Seals.` } };
+                }
+                await (0, _economy_tx_js_1.markEconomyTx)(txId, 'debit-applied').catch(() => undefined);
                 const next = { ...state, challenge: (0, _kage_challenge_js_1.newChallenge)(challengerName, now) };
-                await _storage_js_1.kv.set(key, next);
-                return { status: 200, body: { ok: true, challenge: next.challenge } };
+                try {
+                    await _storage_js_1.kv.set(key, next);
+                }
+                catch (challengeError) {
+                    try {
+                        const refunded = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
+                            const rec = await _storage_js_1.kv.get(`save:${playerName}`);
+                            const c = (rec?.character ?? null);
+                            if (!rec || !c)
+                                throw new Error('Player save missing during Kage stake refund.');
+                            const nextChar = { ...c, honorSeals: num(c.honorSeals) + _kage_challenge_js_1.KAGE_DECLARE_SEAL_COST };
+                            const nextRec = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
+                            await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(nextRec, rec));
+                            return nextChar;
+                        }, { failClosed: true });
+                        await (0, _economy_tx_js_1.completeEconomyTx)(txId, { note: 'Challenge-state write failed; stake refunded.' }).catch(() => undefined);
+                        return { status: 503, body: { error: 'The challenge could not be opened, so your Honor Seals were refunded. Please retry.', character: refunded } };
+                    }
+                    catch (refundError) {
+                        await (0, _economy_tx_js_1.failEconomyTx)(txId, refundError, { note: 'Challenge-state write and automatic stake refund both failed.', meta: { playerName, village, challengerName, challengeError: String(challengeError) } }).catch(() => undefined);
+                        return { status: 503, body: { error: 'The challenge could not be opened and the stake refund needs administrator reconciliation. Please do not retry.' } };
+                    }
+                }
+                await (0, _economy_tx_js_1.completeEconomyTx)(txId).catch(() => undefined);
+                return { status: 200, body: { ok: true, challenge: next.challenge, character: debit.character, _saveVersion: debit._saveVersion } };
             }, { failClosed: true });
             if (out.status === 200)
                 await audit(village, { action: 'declare', challenger: challengerName });

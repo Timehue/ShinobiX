@@ -22,6 +22,7 @@ import { HealerHub } from "./professions/HealerHub";
 import { VanguardHub } from "./professions/VanguardHub";
 import { PetTamerHub } from "./professions/PetTamerHub";
 import type { Character, PlayerRecord, Profession, Screen } from "../App";
+import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 
 // Mirrors api/profession/choose.ts PROFESSION_UNLOCK_LEVEL.
 const PROFESSION_UNLOCK_LEVEL = 13;
@@ -30,6 +31,12 @@ const CARD_IMAGE: Record<Profession, string> = {
     healer: healerBg,
     vanguard: vanguardBg,
     petTamer: petTamerBg,
+};
+
+const PROFESSION_ICON: Record<Profession, GameIconName> = {
+    healer: "hp",
+    vanguard: "sword",
+    petTamer: "paw",
 };
 
 export function Professions({
@@ -114,7 +121,7 @@ export function Professions({
                         />
                         <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                <span style={{ fontSize: 30, color: info.accent, lineHeight: 1 }}>{info.icon}</span>
+                                <span style={{ color: info.accent, lineHeight: 1 }}><GameIcon name={PROFESSION_ICON[info.id]} size={30} /></span>
                                 <div>
                                     <h3 style={{ margin: 0, color: info.accent, fontSize: 20 }}>{info.name}</h3>
                                     <p style={{ margin: "2px 0 0", color: "#c4b5fd", fontStyle: "italic", fontSize: 13 }}>{info.tagline}</p>

@@ -237,9 +237,9 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                 const c = charRef.current;
                 updateCharacter({
                     ...c,
-                    ryo: (c.ryo ?? 0) + rep.ryo,
-                    fateShards: (c.fateShards ?? 0) + (rep.fateShards ?? 0),
-                    boneCharms: (c.boneCharms ?? 0) + (rep.boneCharms ?? 0),
+                    ryo: rep.balances.ryo,
+                    fateShards: rep.balances.fateShards,
+                    boneCharms: rep.balances.boneCharms,
                 });
             }
         })();

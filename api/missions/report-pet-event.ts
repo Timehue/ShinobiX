@@ -8,6 +8,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from './_progress.js';
 import { masteryHasCapstone } from '../_profession-mastery.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
+import { settleServerPetExpedition } from '../pet/_progress.js';
 
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
@@ -99,6 +100,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only report your own events.' });
         }
+        if (event === 'pet-train') {
+            return res.status(410).json({ error: 'Pet training progress is recorded only when a sealed training session completes.' });
+        }
 
         // Cheap pre-lock peek; the authoritative read happens under the lock below.
         const saveKey = `save:${playerName}`;
@@ -132,7 +136,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // minted before the non-Tamer half-rate path redeeming at full Tamer rate.
         let rewardScale = 1;
         let tamerToken = true;
+        let expeditionPetId = '';
         let expeditionTokenKey: string | null = null;
+        let expeditionReceipt = '';
         if (event === 'expedition' || event === 'long-expedition') {
             const tokRaw: string | undefined = typeof body.expeditionToken === 'string' && body.expeditionToken.trim() ? body.expeditionToken.trim() : undefined;
             const tok = tokRaw && /^[A-Za-z0-9]+$/.test(tokRaw) ? tokRaw : undefined;
@@ -140,7 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({ ok: true, petTamer: true, reason: 'missing-expedition-token', ...NO_REWARD });
             }
             const tokenKey = `pet-exp-token:${playerName}:${tok}`;
-            const tokenData = await kv.get<{ playerName?: string; expType?: ExpType; durationMinutes?: number; petLevel?: number; endsAt?: number; expRewardMult?: number; expMaterialMult?: number; rewardScale?: number; tamer?: boolean }>(tokenKey);
+            const tokenData = await kv.get<{ playerName?: string; petId?: string; expType?: ExpType; durationMinutes?: number; petLevel?: number; endsAt?: number; expRewardMult?: number; expMaterialMult?: number; rewardScale?: number; tamer?: boolean }>(tokenKey);
             if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
             }
@@ -150,6 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             // Remember the token key; it is consumed under the save lock below.
             expeditionTokenKey = tokenKey;
+            expeditionReceipt = tok;
             // Drive all reward math from the SEALED token values, not the client
             // body — including the expedition/long-expedition split (long fires
             // extra mission progress) which is re-derived from the sealed duration.
@@ -164,6 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // carries rewardScale 0.5 and tamer=false → half currency, no XP/missions.
             rewardScale = Math.max(0, Math.min(1, Number(tokenData.rewardScale ?? 1)));
             tamerToken = tokenData.tamer !== false;
+            expeditionPetId = String(tokenData.petId ?? '');
         }
 
         // For expedition events, server computes Tamer XP AND the Ryo + drop
@@ -195,11 +203,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const char = record?.character as Record<string, unknown> | undefined;
                 if (!char) return; // race: save deleted mid-call
                 if (expeditionTokenKey) {
-                    const consumed = await kv.del(expeditionTokenKey);
-                    if (consumed <= 0) {
+                    const receipts = Array.isArray(char.redeemedPetExpeditionTokens)
+                        ? (char.redeemedPetExpeditionTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
+                        : [];
+                    if (receipts.includes(expeditionReceipt)) {
+                        await kv.del(expeditionTokenKey).catch(() => undefined);
                         tokenAlreadySpent = true;
                         return;
                     }
+                    char.redeemedPetExpeditionTokens = [...receipts, expeditionReceipt];
                 }
 
                 const today = utcDateKey();
@@ -209,6 +221,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const dailyCap = MAX_EXPEDITIONS_PER_DAY + (masteryHasCapstone('petTamer', char.masterySpec, 'caravan-master') ? 2 : 0);
                 if (claimedToday >= dailyCap) {
                     dailyCapHit = true;
+                    const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
+                    const nextPets = pets.map((pet) => String(pet?.id ?? '') === expeditionPetId
+                        ? settleServerPetExpedition(pet, expType ?? 'scout', durationMinutes, 1).pet
+                        : pet);
+                    const cappedUpdated = bumpSaveVersion({ ...record, character: { ...char, pets: nextPets } });
+                    await kv.set(saveKey, mergePreservingImages(cappedUpdated, record));
+                    if (expeditionTokenKey) await kv.del(expeditionTokenKey).catch(() => undefined);
                     return;
                 }
                 const isFirstToday = claimedToday === 0;
@@ -236,10 +255,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 // Stamp daily tracking + consume escort bonus + apply currencies.
+                const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
+                const petXpMult = (tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) * (isFirstToday ? 2 : 1) : 1);
+                const nextPets = pets.map((pet) => String(pet?.id ?? '') === expeditionPetId
+                    ? settleServerPetExpedition(pet, expType ?? 'scout', durationMinutes, petXpMult).pet
+                    : pet);
                 const updated = {
                     ...record,
                     character: {
                         ...char,
+                        pets: nextPets,
                         lastExpeditionClaimDate: today,
                         expeditionsClaimedToday: claimedToday + 1,
                         ryo: Number(char.ryo ?? 0) + ryoEarned,
@@ -251,6 +276,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 bumpSaveVersion(updated);
                 await kv.set(saveKey, mergePreservingImages(updated, record));
+                if (expeditionTokenKey) await kv.del(expeditionTokenKey).catch(() => undefined);
             }, { failClosed: true });
             if (tokenAlreadySpent) {
                 return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
@@ -273,6 +299,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     foundAura: 0,
                     foundFate: 0,
                     missionsCompleted: [],
+                    character: capRecord?.character ?? null,
                     _saveVersion: Number(capRecord?._saveVersion ?? 0),
                 });
             }
@@ -327,6 +354,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             foundBone,
             foundAura,
             foundFate,
+            balances: {
+                ryo: Number(finalChar?.ryo ?? 0),
+                boneCharms: Number(finalChar?.boneCharms ?? 0),
+                auraStones: Number(finalChar?.auraStones ?? 0),
+                fateShards: Number(finalChar?.fateShards ?? 0),
+            },
             missionXpAwarded,
             missionsCompleted: [...missionsCompleted, ...extraCompleted],
             ...(isTamer ? {
@@ -334,6 +367,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 professionRank: Number(finalChar?.professionRank ?? 1),
             } : {}),
             _saveVersion: Number(finalRecord?._saveVersion ?? 0),
+            character: finalChar,
         });
     } catch (err) {
         console.error('[missions/report-pet-event]', err);

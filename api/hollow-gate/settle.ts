@@ -8,13 +8,16 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     HG_CLAWBACK_KEYS,
     HG_HIGH_VALUE_ITEM_ID,
-    clampFragmentTotal,
+    HOLLOW_GATE_SERVER_DEPTH,
     itemStackCount,
     maxFragmentsForDepth,
     maxHaulForDepth,
+    maxVeilsForDepth,
+    maxXpForDepth,
     rewardMultiplierForToken,
     type HollowGateRunToken,
 } from './_run-token.js';
+import { gainXp } from '../_xp-engine.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 
@@ -34,12 +37,25 @@ import { bumpEraContribution } from '../_era.js';
 
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
-/** Pure: the credited value for one currency given the sealed entry + ceiling.
- *  Never exceeds the ceiling, never restores in-run spends (min with current),
- *  and applies the death claw-back fraction. */
+/** Pure: credit a sealed, ceiling-bounded haul onto the stored wallet.
+ * Generic saves cannot pre-credit the haul, so settlement is the sole positive
+ * writer. In-run spending is preserved and the total stays within entry+credit. */
 export function settleCurrency(current: number, entry: number, claimed: number, ceiling: number, frac: number): number {
     const credit = Math.floor(Math.min(Math.max(0, claimed), Math.max(0, ceiling)) * frac);
-    return Math.max(0, Math.min(num(current), Math.max(0, entry) + credit));
+    return Math.max(0, Math.min(num(current) + credit, Math.max(0, entry) + credit));
+}
+
+export function addCountedItem(itemStacks: unknown, itemId: string, amountRaw: unknown): Array<Record<string, unknown>> {
+    const amount = Math.max(0, Math.floor(num(amountRaw)));
+    const stacks = Array.isArray(itemStacks) ? itemStacks as Array<Record<string, unknown>> : [];
+    if (!amount) return stacks;
+    let found = false;
+    const next = stacks.map((stack) => {
+        if (!stack || String(stack.itemId ?? '') !== itemId) return stack;
+        found = true;
+        return { ...stack, count: Math.max(0, Math.floor(num(stack.count))) + amount };
+    });
+    return found ? next : [...next, { itemId, count: amount }];
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -64,14 +80,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const run = await kv.get<HollowGateRunToken>(runKey);
         // Graceful: a stale client (or SESSION_SECRET unset re-mint) just gets a
         // no-op — never a save-breaking error (token-first invariant).
-        if (!run) return res.status(200).json({ ok: true, reason: 'invalid-or-spent' });
+        if (!run) {
+            // A retry can arrive after the single-use run token was consumed. Return
+            // the current committed character so the client can still reconcile a
+            // response that was lost after the save write succeeded.
+            const current = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            return res.status(200).json({
+                ok: true,
+                reason: 'invalid-or-spent',
+                character: current?.character ?? null,
+                _saveVersion: Number(current?._saveVersion ?? 0),
+            });
+        }
         if (run.playerName.toLowerCase() !== playerName.toLowerCase()) return res.status(403).json({ error: 'Not your run.' });
 
-        // Entity-keyed single-use: keyed on the RUN, so a reconnect/retry (or a
-        // co-op partner reporting the same run) collapses to one credit.
-        const once = await kv.set(`hg-settled:${playerName}:${token}`, '1', { nx: true, ex: 24 * 60 * 60 }).catch(() => 'OK' as const);
-        if (once === null) return res.status(200).json({ ok: true, alreadyReported: true });
-        await kv.del(runKey).catch(() => undefined);
+        const runAgeMs = Date.now() - Number(run.mintedAt ?? 0);
+        if (outcome === 'extract' && runAgeMs < 3 * 60 * 1000) {
+            return res.status(409).json({ error: 'The run is too new to extract.' });
+        }
 
         const mult = rewardMultiplierForToken(run);
         const ceiling = maxHaulForDepth(run.floorDepth, mult);
@@ -84,48 +110,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await withKvLock(saveKey, async () => {
             const fresh = await kv.get<Record<string, unknown>>(saveKey);
             const c = (fresh?.character ?? null) as Record<string, unknown> | null;
-            if (!fresh || !c) return { ok: false as const };
-            const next: Record<string, unknown> = { ...c };
+            if (!fresh || !c) return { ok: false as const, character: null, _saveVersion: 0 };
+            const redeemedRuns = Array.isArray(c.redeemedHollowGateRuns)
+                ? (c.redeemedHollowGateRuns as unknown[]).filter((entry): entry is string => typeof entry === 'string')
+                : [];
+            if (redeemedRuns.includes(token)) {
+                return { ok: true as const, alreadyReported: true as const, character: c, _saveVersion: Number(fresh._saveVersion ?? 0) };
+            }
+            let next: Record<string, unknown> = { ...c };
             for (const k of HG_CLAWBACK_KEYS) {
                 const value = settleCurrency(num(c[k]), num(run.entryCurrencies[k]), num(haul[k]), ceiling[k], frac);
                 next[k] = value;
                 credited[k] = Math.max(0, value - num(run.entryCurrencies[k]));
             }
-            // High-value forge item (Dungeon Legendary Fragment) — anti-fabrication.
-            // The client keeps its inline boss-drop grant (byte-identical, no reliability
-            // regression); here we only CLAMP this run's GAIN (current minus sealed entry)
-            // to the depth ceiling, clawing back a crafted client's excess. No-op for legit
-            // hauls. Guarded on entryFragments so tokens minted before this field skip it
-            // (a missing baseline can't distinguish run-gain from pre-run holdings).
-            const currentFragments = itemStackCount(c.itemStacks, HG_HIGH_VALUE_ITEM_ID);
-            const allowedFragments = typeof run.entryFragments === 'number'
-                ? clampFragmentTotal(currentFragments, run.entryFragments, fragmentCeiling)
-                : currentFragments; // token predates the sealed baseline — skip the clamp
-            if (allowedFragments < currentFragments && Array.isArray(c.itemStacks)) {
-                const others = (c.itemStacks as Array<Record<string, unknown>>)
-                    .filter((s) => !(s && String(s.itemId ?? '') === HG_HIGH_VALUE_ITEM_ID));
-                next.itemStacks = allowedFragments > 0
-                    ? [...others, { itemId: HG_HIGH_VALUE_ITEM_ID, count: allowedFragments }]
-                    : others;
-                fragmentsClampedTo = allowedFragments;
+            // Generic saves reject XP and ownership additions. Credit the bounded
+            // run tallies here so legitimate Hollow Gate rewards survive autosave.
+            const xpCredit = Math.floor(Math.min(Math.max(0, num(haul.xp)), maxXpForDepth(run.floorDepth, mult)));
+            next = gainXp(next, xpCredit) as Record<string, unknown>;
+            const fragmentCredit = Math.min(Math.max(0, Math.floor(num(haul.fragments))), fragmentCeiling);
+            const veilCredit = Math.min(Math.max(0, Math.floor(num(haul.veils))), maxVeilsForDepth(run.floorDepth));
+            next.itemStacks = addCountedItem(next.itemStacks, HG_HIGH_VALUE_ITEM_ID, fragmentCredit);
+            next.itemStacks = addCountedItem(next.itemStacks, 'veil-of-the-hollow', veilCredit);
+            // Each cleared Warden contributes one of the claimed fragments; the
+            // sealed depth bounds this counter even though the Tier-1 run model
+            // does not re-simulate each room.
+            if (outcome === 'extract' && run.floorDepth === HOLLOW_GATE_SERVER_DEPTH && fragmentCredit > 0) {
+                next.hollowGateWardenKills = num(next.hollowGateWardenKills) + 1;
             }
-            const updated = bumpSaveVersion({ ...fresh, character: next });
+            next.redeemedHollowGateRuns = [...redeemedRuns.slice(-99), token];
+            fragmentsClampedTo = itemStackCount(next.itemStacks, HG_HIGH_VALUE_ITEM_ID);
+            const updated: Record<string, unknown> = bumpSaveVersion({ ...fresh, character: next });
             await kv.set(saveKey, mergePreservingImages(updated, fresh));
-            return { ok: true as const };
+            return {
+                ok: true as const,
+                alreadyReported: false as const,
+                character: next,
+                _saveVersion: Number(updated._saveVersion ?? 0),
+            };
         }, { failClosed: true });
 
         if (!result.ok) return res.status(404).json({ error: 'Your save was not found.' });
+        await kv.set(`hg-settled:${playerName}:${token}`, '1', { ex: 24 * 60 * 60 }).catch(() => undefined);
+        await kv.del(runKey).catch(() => undefined);
+        if (result.alreadyReported) {
+            return res.status(200).json({ ok: true, alreadyReported: true, character: result.character, _saveVersion: result._saveVersion });
+        }
         // Legacy tracking (ENABLE_LEGACY): only a successful EXTRACTION counts
         // as a clear — deaths settle currency but don't feed Legacy progress.
         // Anti-farm gate: an instant start→settle round-trip is not a dive; a
         // clear needs the run to have lived a few real minutes (the currency
         // ceiling already bounds the loot side; verification finding).
-        const runAgeMs = Date.now() - Number((run as { mintedAt?: number }).mintedAt ?? 0);
         if (outcome === 'extract' && runAgeMs >= 3 * 60 * 1000) {
             await bumpLegacyStats(playerName, { hollowGateClears: 1, dungeonClears: 1, eliteKills: 2 });
             await bumpEraContribution('gateClears');
         }
-        return res.status(200).json({ ok: true, outcome, credited, fragmentsClampedTo });
+        return res.status(200).json({
+            ok: true,
+            outcome,
+            credited,
+            fragmentsClampedTo,
+            character: result.character,
+            _saveVersion: result._saveVersion,
+        });
     } catch (err) {
         console.error('[hollow-gate/settle]', err);
         return res.status(500).json({ error: 'Internal server error.' });

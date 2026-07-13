@@ -24,7 +24,7 @@ export function previewCredit(amount: number): number {
     return Math.max(0, Math.floor(Math.max(0, Math.floor(amount)) * (1 - TRADE_TAX_PCT)));
 }
 
-export type TradeResult = { ok: boolean; error?: string; debit?: number; credit?: number; burned?: number; toPlayer?: string; duplicate?: boolean };
+export type TradeResult = { ok: boolean; error?: string; debit?: number; credit?: number; burned?: number; toPlayer?: string; senderBalance?: number; duplicate?: boolean };
 
 export async function sendCurrency(playerName: string, toPlayer: string, currency: TradeCurrency, amount: number): Promise<TradeResult> {
     // A per-attempt nonce makes a network-retry idempotent server-side (no double debit).

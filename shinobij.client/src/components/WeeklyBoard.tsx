@@ -25,17 +25,15 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
         const res = await claimWeeklyMission(character.name, missionId);
         setBusy(null);
         if (!res.ok) { alert(weeklyClaimErrorText(res)); return; }
+        if (res.balances) {
+            updateCharacter((prev) => prev ? {
+                ...prev,
+                ryo: res.balances!.ryo,
+                fateShards: res.balances!.fateShards,
+                boneCharms: res.balances!.boneCharms,
+            } : prev);
+        }
         if (res.reward) {
-            const reward = res.reward;
-            updateCharacter((prev) => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    ryo: prev.ryo + (reward.ryo ?? 0),
-                    fateShards: (prev.fateShards ?? 0) + (reward.fateShards ?? 0),
-                    boneCharms: (prev.boneCharms ?? 0) + (reward.boneCharms ?? 0),
-                };
-            });
             alert(`Reward claimed: ${rewardText(res.reward)}.`);
         }
         setBoard((b) => b ? { ...b, missions: b.missions.map((m) => m.id === missionId ? { ...m, claimed: true } : m) } : b);

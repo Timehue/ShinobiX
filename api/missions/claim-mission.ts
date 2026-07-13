@@ -176,6 +176,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const record = await kv.get<Record<string, unknown>>(saveKey);
             const char = record?.character as SaveChar | undefined;
             if (!record || !char) return { applied: false, reason: 'no-save' };
+            const missionReceipt = `${todayKey}:${missionType}:${missionId}`;
+            const claimedServerMissions = Array.isArray(char.claimedServerMissions)
+                ? (char.claimedServerMissions as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-99)
+                : [];
+            if ((missionType === 'field' || missionType === 'hunt') && claimedServerMissions.includes(missionReceipt)) {
+                return { applied: false, reason: 'already-claimed-today' };
+            }
 
             const bonusPct = missionRewardBonusPct(char);
 
@@ -275,22 +282,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 academyChecklistClaimed = true;
             }
 
-            // Per-mission idempotency for field/hunt claims: each built-in
-            // field/hunt mission is claimable at most once per UTC day (matches
-            // the UI's one-card-per-mission model). The daily cap alone doesn't
-            // stop a client re-POSTing the single highest-value mission id up to
-            // the cap, and the explore/raid prerequisite is only client-tracked,
-            // so without this the best mission is re-claimable N times/day (audit
-            // #2). The NX reserve lives inside the save lock so it settles
-            // atomically with the payout, and fails OPEN (a KV hiccup never denies
-            // a legit claim). Combat (pendingCombatMissionClaims, consumed on
-            // claim) and academy-trial (academyTrialClaimed latch) are already
-            // single-use, so only field/hunt need this.
-            if (missionType === 'field' || missionType === 'hunt') {
-                const claimKey = `missions:field-claimed:${playerName}:${missionId}:${todayKey}`;
-                const placed = await kv.set(claimKey, '1', { nx: true, ex: 26 * 60 * 60 }).catch(() => 'OK' as const);
-                if (placed === null) return { applied: false, reason: 'already-claimed-today' };
-            }
+            // Field/hunt idempotency is appended to claimedServerMissions in the
+            // same character write as the payout below. This blocks replay
+            // without an external pre-reservation that could strand a reward.
 
             // ── Compute server-authoritative amounts ────────────────────────
             const xpBoosted = boostAmount(baseXp, bonusPct);
@@ -343,6 +337,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (academyTrialClaimed) next = { ...next, academyTrialClaimed: true };
             if (academyChecklistClaimed) next = { ...next, academyChecklistClaimed: true };
+            if (missionType === 'field' || missionType === 'hunt') {
+                next = { ...next, claimedServerMissions: [...claimedServerMissions, missionReceipt] };
+            }
 
             const updated: Record<string, unknown> = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
             bumpSaveVersion(updated);
@@ -375,6 +372,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // claim's save lock has released (no nested locking). Best-effort — a
         // failure here must never fail the (already-applied) claim.
         let finalSaveVersion = outcome.applied ? outcome.saveVersion : 0;
+        let finalCharacter: Record<string, unknown> | null = null;
         if (outcome.applied) {
             try {
                 await reportNewbieEvent({ playerName, kind: 'newbie-missions' });
@@ -405,6 +403,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const finalRecord = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
             const finalChar = (finalRecord?.character ?? null) as Record<string, unknown> | null;
+            finalCharacter = finalChar;
             await recordBetaMetric({
                 event: betaEventForMissionType(missionType),
                 playerName,
@@ -422,7 +421,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (outcome.applied) {
             const { saveVersion, ...body } = outcome;
-            return res.status(200).json({ ok: true, ...body, _saveVersion: finalSaveVersion });
+            return res.status(200).json({ ok: true, ...body, character: finalCharacter, _saveVersion: finalSaveVersion });
         }
         return res.status(200).json({ ok: true, ...outcome });
     } catch (err) {

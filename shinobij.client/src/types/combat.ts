@@ -172,6 +172,7 @@ export type QueuedJutsuTraining = {
 };
 
 export type ActiveJutsuTraining = {
+    serverToken?: string;
     jutsuId: string;
     label: string;
     fromLevel: number;

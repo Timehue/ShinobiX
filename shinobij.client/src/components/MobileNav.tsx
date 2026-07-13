@@ -100,19 +100,19 @@ export const MobileNav = memo(function MobileNav({
                     <span className="mnb-icon"><GiHealthNormal size={24} /></span>
                     You
                 </button>
-                <button className="mobile-nav-btn" onClick={() => go("worldMap")} onPointerDown={() => preloadScreen("worldMap")}>
+                <button className="mobile-nav-btn" aria-current={screen === "worldMap" ? "page" : undefined} onClick={() => go("worldMap")} onPointerDown={() => preloadScreen("worldMap")}>
                     <span className="mnb-icon"><GiTreasureMap size={24} /></span>
                     Travel
                 </button>
-                <button className="mobile-nav-btn" onClick={() => go("tavern")} onPointerDown={() => preloadScreen("tavern")}>
+                <button className="mobile-nav-btn" aria-current={screen === "tavern" ? "page" : undefined} onClick={() => go("tavern")} onPointerDown={() => preloadScreen("tavern")}>
                     <span className="mnb-icon"><GiBeerStein size={24} /></span>
                     Tavern
                 </button>
-                <button className="mobile-nav-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}>
+                <button className="mobile-nav-btn" aria-current={screen === "profile" ? "page" : undefined} onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}>
                     <span className="mnb-icon"><GiNinjaHeroicStance size={24} /></span>
                     Char
                 </button>
-                <button className="mobile-nav-btn" onClick={() => go("inventory")} onPointerDown={() => preloadScreen("inventory")}>
+                <button className="mobile-nav-btn" aria-current={screen === "inventory" ? "page" : undefined} onClick={() => go("inventory")} onPointerDown={() => preloadScreen("inventory")}>
                     <span className="mnb-icon"><GiKnapsack size={24} /></span>
                     Items
                 </button>
@@ -137,7 +137,7 @@ export const MobileNav = memo(function MobileNav({
             {open && (
                 <div className="mobile-menu-overlay" role="dialog" aria-modal="true" aria-label="Shinobi menu">
                     <div className="mobile-menu-header">
-                        <span className="mobile-menu-title">🥷 SHINOBI MENU</span>
+                        <span className="mobile-menu-title"><GiNinjaHeroicStance size={22} aria-hidden="true" /> SHINOBI MENU</span>
                         <button className="mobile-menu-close" aria-label="Close menu" autoFocus onClick={() => setOpen(false)}>✕</button>
                     </div>
 

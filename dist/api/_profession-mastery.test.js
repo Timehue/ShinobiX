@@ -61,3 +61,11 @@ const HEAL_CAP = 49_275;
     strict_1.default.equal((0, _profession_mastery_js_1.masteryHasCapstone)('petTamer', {}, 'caravan-master'), false);
     strict_1.default.equal((0, _profession_mastery_js_1.masteryHasCapstone)('petTamer', { 'exp-rewards': 3 }, 'exp-rewards'), false); // not a capstone
 });
+(0, node_test_1.test)('applyMasteryInvestment accepts exactly one affordable legal rank', () => {
+    const xp = VAN_CAP + 6 * 15_000;
+    strict_1.default.deepEqual((0, _profession_mastery_js_1.applyMasteryInvestment)('vanguard', xp, {}, 'seal-gap'), { 'seal-gap': 1 });
+    strict_1.default.equal((0, _profession_mastery_js_1.applyMasteryInvestment)('vanguard', VAN_CAP, {}, 'seal-gap'), null);
+    strict_1.default.equal((0, _profession_mastery_js_1.applyMasteryInvestment)('vanguard', xp, { 'seal-gap': 3 }, 'seal-gap'), null);
+    strict_1.default.equal((0, _profession_mastery_js_1.applyMasteryInvestment)('vanguard', xp, { 'seal-gap': 3 }, 'warmonger'), null);
+    strict_1.default.deepEqual((0, _profession_mastery_js_1.applyMasteryInvestment)('vanguard', VAN_CAP + 8 * 15_000, { 'seal-gap': 3, 'seal-cap': 1 }, 'warmonger'), { 'seal-gap': 3, 'seal-cap': 1, warmonger: 1 });
+});

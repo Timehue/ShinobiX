@@ -25,6 +25,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports._diskKvForProxy = exports.saveStoreKind = exports.kv = void 0;
+exports.closeStoragePool = closeStoragePool;
 exports._makeRoutedKv = _makeRoutedKv;
 exports.migrateDiskRoutedKeysToOverlay = migrateDiskRoutedKeysToOverlay;
 const _readCache = new Map();
@@ -65,6 +66,12 @@ function _cacheInvalidate(...keys) {
 const pg_1 = __importDefault(require("pg"));
 const { Pool } = pg_1.default;
 let _pool = null;
+async function closeStoragePool() {
+    const pool = _pool;
+    _pool = null;
+    if (pool)
+        await pool.end();
+}
 function getPool() {
     if (_pool)
         return _pool;

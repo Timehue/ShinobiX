@@ -41,7 +41,7 @@ export function StarterPetSelect({
     sharedImages = {},
 }: {
     character: Character;
-    onChoose: (pet: Pet) => void;
+    onChoose: (pet: Pet) => void | Promise<void>;
     sharedImages?: Record<string, string>;
 }) {
     // Stage is derived, not a separate machine: intro (until "started"), then
@@ -258,7 +258,7 @@ export function StarterPetSelect({
                         Back
                     </button>
                     <button
-                        onClick={() => onChoose(option.pet)}
+                        onClick={() => { void onChoose(option.pet); }}
                         style={{
                             background: `linear-gradient(135deg, ${option.accent}, ${option.accent}cc)`,
                             borderColor: option.accent,

@@ -13,6 +13,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import type { PvpSession } from './session.js';
+import { grantTerritoryScrollsToInventory } from '../missions/_mission-catalog.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
@@ -219,7 +220,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const loserSlug = safeName(loserName);
             const claimerSlug = playerName; // already safeName()'d above
             type RatingOut = { field: string; value: number; delta: number };
-            type BaseOut = ReturnType<typeof creditPvpWinBase>['summary'];
+            type BaseOut = ReturnType<typeof creditPvpWinBase>['summary'] & {
+                auraDust?: number;
+                inventory?: unknown[];
+                totalPvpKills?: number;
+                monthlyPvpKills?: number;
+                pvpKillMonth?: string;
+            };
 
             // Ladder-integrity guard (audit #2): when the two fighters share a
             // recent IP or browser fingerprint, this ranked match is almost
@@ -310,6 +317,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             summary = { ...summary, unspentStats: newUnspent, statGrowth: { allocated: g.allocated as Record<string, number>, unspentGain: g.unspentGain } };
                         }
                     }
+                    const month = new Date().toISOString().slice(0, 7);
+                    const monthlyKills = finalChar.pvpKillMonth === month ? Number(finalChar.monthlyPvpKills) || 0 : 0;
+                    finalChar = {
+                        ...finalChar,
+                        auraDust: Math.max(0, Number(finalChar.auraDust) || 0) + 6,
+                        inventory: grantTerritoryScrollsToInventory(finalChar, 5),
+                        totalPvpKills: Math.max(0, Math.floor(Number(finalChar.totalPvpKills) || 0)) + 1,
+                        monthlyPvpKills: monthlyKills + 1,
+                        pvpKillMonth: month,
+                    };
+                    summary = {
+                        ...summary,
+                        auraDust: Number(finalChar.auraDust),
+                        inventory: finalChar.inventory,
+                        totalPvpKills: Number(finalChar.totalPvpKills),
+                        monthlyPvpKills: Number(finalChar.monthlyPvpKills),
+                        pvpKillMonth: month,
+                    } as typeof summary;
                     const next = bumpSaveVersion({ ...record, character: finalChar });
                     await kv.set(saveKey, mergePreservingImages(next, record));
                     return summary;
@@ -323,6 +348,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     maxChakra: Number(char.maxChakra) || 0,
                     maxStamina: Number(char.maxStamina) || 0,
                     unspentStats: Number(char.unspentStats) || 0,
+                    auraDust: Number(char.auraDust) || 0,
+                    inventory: Array.isArray(char.inventory) ? char.inventory : [],
+                    totalPvpKills: Number(char.totalPvpKills) || 0,
+                    monthlyPvpKills: Number(char.monthlyPvpKills) || 0,
+                    pvpKillMonth: typeof char.pvpKillMonth === 'string' ? char.pvpKillMonth : '',
                 };
             };
 

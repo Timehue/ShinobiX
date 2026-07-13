@@ -1,10 +1,11 @@
 import type { ButtonHTMLAttributes } from "react";
+import { FiX } from "react-icons/fi";
 
 export interface CloseButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   label?: string;
 }
 
-/** Canonical ✕ close button for modals/popups. Standardizes the 5+ variants. */
+/** Canonical close control for dialogs, drawers, and popovers. */
 export function CloseButton({ label = "Close", className = "", ...rest }: CloseButtonProps) {
   return (
     <button
@@ -13,7 +14,7 @@ export function CloseButton({ label = "Close", className = "", ...rest }: CloseB
       aria-label={label}
       {...rest}
     >
-      {"✕"}
+      <FiX aria-hidden="true" />
     </button>
   );
 }

@@ -82,13 +82,13 @@ const STORED_LEGACY = { legacyId: 'duel-sovereign', stage: 2, titles: ['Duel Ini
         strict_1.default.equal('customTitleIcon' in out, false, 'icon deleted when none stored');
     });
 });
-(0, node_test_1.test)('cosmetics flag ON: allowlisted values pass; off-list values clamp to the free default', () => {
+(0, node_test_1.test)('cosmetics flag ON: generic saves cannot bypass paid title-cosmetic settlement', () => {
     withLegacyFlag(true, () => {
         const ok = sanitize({ customTitleStyle: 'royal', customTitleIcon: '👑' }, {});
-        strict_1.default.equal(ok.customTitleStyle, 'royal', 'allowlisted style kept');
-        strict_1.default.equal(ok.customTitleIcon, '👑', 'allowlisted icon kept');
+        strict_1.default.equal(ok.customTitleStyle, undefined, 'unstored style rejected');
+        strict_1.default.equal(ok.customTitleIcon, undefined, 'unstored icon rejected');
         const bad = sanitize({ customTitleStyle: 'hax-rainbow', customTitleIcon: '💀' }, {});
-        strict_1.default.equal(bad.customTitleStyle, '', 'off-list style clamped to empty');
-        strict_1.default.equal(bad.customTitleIcon, '', 'off-list icon clamped to empty');
+        strict_1.default.equal(bad.customTitleStyle, undefined, 'off-list style rejected');
+        strict_1.default.equal(bad.customTitleIcon, undefined, 'off-list icon rejected');
     });
 });

@@ -9,7 +9,7 @@ import { gameConfirm } from "./GameAlert";
 import type { Character } from "../types/character";
 import {
     MASTERY_TREES, masteryLevel, masteryPointsAvailable, masteryPointsSpent,
-    pointsInPath, canIncrement, incrementNode, masteryHasCapstone,
+    pointsInPath, canIncrement, masteryHasCapstone,
     activeMasteryEffects, MASTERY_RESPEC_COST, CAPSTONE_PATH_GATE, MASTERY_MAX_LEVEL,
 } from "../lib/profession-mastery";
 
@@ -34,17 +34,24 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
     const available = masteryPointsAvailable(character);
     const spec = character.masterySpec ?? {};
 
-    function invest(nodeId: string) {
+    async function mutateMastery(action: 'invest' | 'respec', nodeId?: string) {
+        const response = await fetch('/api/profession/mastery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, action, nodeId }) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data?.character) throw new Error(String(data?.error ?? 'Mastery update failed.'));
+        updateCharacter(data.character as Character);
+    }
+
+    async function invest(nodeId: string) {
         const check = canIncrement(character, nodeId);
         if (check.ok === false) { alert(check.reason); return; }
-        updateCharacter({ ...character, masterySpec: incrementNode(character, nodeId) });
+        try { await mutateMastery('invest', nodeId); } catch (error) { alert(error instanceof Error ? error.message : 'Mastery update failed.'); }
     }
 
     async function respec() {
         if (spent <= 0) return;
         if (character.ryo < MASTERY_RESPEC_COST) { alert(`Respec costs ${MASTERY_RESPEC_COST.toLocaleString()} ryo.`); return; }
         if (!(await gameConfirm(`Refund all mastery points for ${MASTERY_RESPEC_COST.toLocaleString()} ryo?`))) return;
-        updateCharacter({ ...character, ryo: character.ryo - MASTERY_RESPEC_COST, masterySpec: {} });
+        try { await mutateMastery('respec'); } catch (error) { alert(error instanceof Error ? error.message : 'Mastery respec failed.'); }
     }
 
     return (

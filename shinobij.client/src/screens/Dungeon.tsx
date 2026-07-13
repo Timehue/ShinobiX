@@ -11,7 +11,6 @@ import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
 import { defaultVnPortrait, defaultVnScene, splitDialogueLine } from "../lib/vn";
-import { currentDateKey } from "../lib/utils";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
@@ -133,7 +132,7 @@ export function DungeonEncounter({
     );
 }
 
-export function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onLeave, sharedImages = {}, enemyOverride, enemyOwner = "Dungeon Beast", dungeonPetImage }: { character: Character; updateCharacter: (character: Character) => void; editablePets: Pet[]; onWin: () => void; onLeave: () => void; sharedImages?: Record<string, string>; enemyOverride?: Pet; enemyOwner?: string; dungeonPetImage?: string }) {
+export function DungeonPetBattle({ character, updateCharacter: _updateCharacter, editablePets, onWin, onLeave, sharedImages = {}, enemyOverride, enemyOwner = "Dungeon Beast", dungeonPetImage }: { character: Character; updateCharacter: (character: Character) => void; editablePets: Pet[]; onWin: () => void; onLeave: () => void; sharedImages?: Record<string, string>; enemyOverride?: Pet; enemyOwner?: string; dungeonPetImage?: string }) {
     const defaultPetId = character.activePetId ?? character.pets[0]?.id ?? "";
     const [chosenPetId, setChosenPetId] = useState(defaultPetId);
     const selectedPet = character.pets.find((pet) => pet.id === chosenPetId) ?? character.pets[0];
@@ -171,10 +170,8 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
         // pure client-side PvE (no server re-sim), so the casual planted-face-off
         // motion is ON (last arg true); intervening optional args keep their defaults.
         const duel = runPetDuel(selectedPet, enemyPet, seed, petTamerPveMultiplier(character), petPveHpMult(character), petAlphaBond(character), false, undefined, undefined, true);
-        const outcome = duel.result;
         setDuelNonce(nextDuelId);
         setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet, seed, id: nextDuelId });
-        if (outcome === "win") updateCharacter({ ...character, totalPetWins: (character.totalPetWins ?? 0) + 1, dailyPetWins: (character.dailyPetWins ?? 0) + 1, lastDailyReset: currentDateKey() });
     }
     if (!selectedPet) {
         return (

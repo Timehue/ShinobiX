@@ -7,6 +7,7 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import type { PvpSession } from '../pvp/session.js';
+import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../_economy-tx.js';
 import {
     canDeclareChallenge, isChallengeExpired, newChallenge, applyPress,
     applySeatTransfer, applyDefense, applyExpiry,
@@ -101,9 +102,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
                 if (!elig.ok) return { status: 403, body: { error: elig.reason } };
 
+                const txId = makeEconomyTxId('kage-challenge-declare');
+                await reserveEconomyTx({
+                    id: txId,
+                    kind: 'kage-challenge-declare',
+                    debitKey: `save:${playerName}`,
+                    creditKey: key,
+                    resource: 'honorSeals',
+                    amount: KAGE_DECLARE_SEAL_COST,
+                    meta: { playerName, village, challengerName },
+                });
+
                 // Stake the 500 seals (debit the challenger's save) BEFORE opening
                 // the challenge — committed first, like the treasury-donate pattern.
-                const debit = await withKvLock<{ ok: boolean }>(`save:${playerName}`, async () => {
+                const debit = await withKvLock<{ ok: boolean; character?: Record<string, unknown>; _saveVersion?: number }>(`save:${playerName}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const c = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !c) return { ok: false };
@@ -111,13 +123,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const nextChar = { ...c, honorSeals: num(c.honorSeals) - KAGE_DECLARE_SEAL_COST };
                     const nextRec = bumpSaveVersion({ ...rec, character: nextChar });
                     await kv.set(`save:${playerName}`, mergePreservingImages(nextRec, rec));
-                    return { ok: true };
+                    return { ok: true, character: nextChar, _saveVersion: Number((nextRec as Record<string, unknown>)._saveVersion ?? 0) };
                 }, { failClosed: true });
-                if (!debit.ok) return { status: 400, body: { error: `Challenging costs ${KAGE_DECLARE_SEAL_COST} Honor Seals.` } };
+                if (!debit.ok) {
+                    await completeEconomyTx(txId, { note: 'Declaration rejected before debit.' }).catch(() => undefined);
+                    return { status: 400, body: { error: `Challenging costs ${KAGE_DECLARE_SEAL_COST} Honor Seals.` } };
+                }
+                await markEconomyTx(txId, 'debit-applied').catch(() => undefined);
 
                 const next = { ...state, challenge: newChallenge(challengerName, now) };
-                await kv.set(key, next);
-                return { status: 200, body: { ok: true, challenge: next.challenge } };
+                try {
+                    await kv.set(key, next);
+                } catch (challengeError) {
+                    try {
+                        const refunded = await withKvLock(`save:${playerName}`, async () => {
+                            const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                            const c = (rec?.character ?? null) as Record<string, unknown> | null;
+                            if (!rec || !c) throw new Error('Player save missing during Kage stake refund.');
+                            const nextChar = { ...c, honorSeals: num(c.honorSeals) + KAGE_DECLARE_SEAL_COST };
+                            const nextRec = bumpSaveVersion({ ...rec, character: nextChar });
+                            await kv.set(`save:${playerName}`, mergePreservingImages(nextRec, rec));
+                            return nextChar;
+                        }, { failClosed: true });
+                        await completeEconomyTx(txId, { note: 'Challenge-state write failed; stake refunded.' }).catch(() => undefined);
+                        return { status: 503, body: { error: 'The challenge could not be opened, so your Honor Seals were refunded. Please retry.', character: refunded } };
+                    } catch (refundError) {
+                        await failEconomyTx(txId, refundError, { note: 'Challenge-state write and automatic stake refund both failed.', meta: { playerName, village, challengerName, challengeError: String(challengeError) } }).catch(() => undefined);
+                        return { status: 503, body: { error: 'The challenge could not be opened and the stake refund needs administrator reconciliation. Please do not retry.' } };
+                    }
+                }
+                await completeEconomyTx(txId).catch(() => undefined);
+                return { status: 200, body: { ok: true, challenge: next.challenge, character: debit.character, _saveVersion: debit._saveVersion } };
             }, { failClosed: true });
 
             if (out.status === 200) await audit(village, { action: 'declare', challenger: challengerName });

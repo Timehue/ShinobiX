@@ -4,6 +4,10 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
+import { runPetDuel, runPetPartyDuel } from '../_pet-sim/pet-duel-sim.js';
+import type { Pet } from '../_pet-sim/pet-types.js';
+import { SERVER_ARENA_PETS } from './_arena-ai.js';
+import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 
 /*
  * /api/pet/battle-start - POST only
@@ -29,6 +33,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const reportKeyRaw = typeof body.reportKey === 'string' ? body.reportKey.slice(0, 64) : '';
         const reportKey = /^[A-Za-z0-9:_-]+$/.test(reportKeyRaw) ? reportKeyRaw : '';
         const mode = body.mode === '2v2' ? '2v2' : '1v1';
+        const playerPetIds: string[] = Array.isArray(body.playerPetIds) ? body.playerPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
+        const opponentPetIds: string[] = Array.isArray(body.opponentPetIds) ? body.opponentPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
+        const seed = Number.isSafeInteger(Number(body.seed)) ? Number(body.seed) : Date.now();
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!reportKey) return res.status(400).json({ error: 'Missing or invalid reportKey.' });
@@ -40,6 +47,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-battle-start', 30, 60_000, identity.name))) return;
 
+        const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        const myChar = mySave?.character as Record<string, unknown> | undefined;
+        const myPets = Array.isArray(myChar?.pets) ? myChar.pets as Array<Record<string, unknown>> : [];
+        const playerPets = playerPetIds.map((id) => myPets.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
+        if (!playerPets.length) return res.status(409).json({ error: 'A stored player pet is required.' });
+        let opponentPets: Pet[] = [];
+        let isAiOpponent = false;
+        if (opponentName) {
+            const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentName}`);
+            const oppChar = oppSave?.character as Record<string, unknown> | undefined;
+            const stored = Array.isArray(oppChar?.pets) ? oppChar.pets as Array<Record<string, unknown>> : [];
+            opponentPets = opponentPetIds.map((id) => stored.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
+        }
+        if (!opponentPets.length) { opponentPets = opponentPetIds.map((id) => SERVER_ARENA_PETS[id]).filter(Boolean); isAiOpponent = opponentPets.length > 0; }
+        if (!opponentPets.length) return res.status(409).json({ error: 'A server-known opponent pet is required.' });
+        const rank = Math.max(0, Math.min(10, Number(myChar?.professionRank) || 0));
+        const damageMult = isAiOpponent && myChar?.profession === 'petTamer' ? 1 + (5 + rank * 1.5 + masteryBonus(myChar.profession, myChar.masterySpec, 'petPveDamagePct')) / 100 : 1;
+        const hpMult = isAiOpponent ? 1 + masteryBonus(myChar?.profession, myChar?.masterySpec, 'petPveHpPct') / 100 : 1;
+        const revive = isAiOpponent && masteryHasCapstone(myChar?.profession, myChar?.masterySpec, 'alpha-bond');
+        const result = mode === '2v2'
+            ? runPetPartyDuel(playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null, seed, damageMult, hpMult, revive, false, false, true).result
+            : runPetDuel(playerPets[0], opponentPets[0], seed, damageMult, hpMult, revive, false, false, null, true).result;
+
         const token = randomUUID().replace(/-/g, '');
         await kv.set(`pet:battle-token:${playerName}:${token}`, {
             playerName,
@@ -48,6 +78,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             reportKey,
             mode,
             createdAt: Date.now(),
+            playerPetIds,
+            authoritativeOutcome: result,
         }, { ex: TOKEN_TTL_SECONDS });
 
         return res.status(200).json({ ok: true, token, reportKey });

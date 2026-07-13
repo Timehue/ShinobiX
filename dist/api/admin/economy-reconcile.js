@@ -7,6 +7,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _utils_js_1 = require("../_utils.js");
 const _economy_tx_js_1 = require("../_economy-tx.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 function num(v) {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
@@ -41,12 +42,34 @@ async function handler(req, res) {
                 return { status: 200, body: { ok: true, tx, alreadyComplete: true } };
             if (tx.state !== 'needs-reconcile')
                 return { status: 409, body: { error: `Transaction is ${tx.state}, not needs-reconcile.` } };
-            if (tx.kind !== 'clan-territory-collect-supply' || tx.resource !== 'warSupply') {
-                return { status: 400, body: { error: 'This transaction type cannot be reconciled automatically.' } };
-            }
             const amount = Math.max(0, Math.floor(Number(tx.amount) || 0));
             if (amount <= 0)
                 return { status: 400, body: { error: 'Transaction has no amount to reconcile.' } };
+            const isHonorSealRefund = tx.resource === 'honorSeals'
+                && (tx.kind === 'hollow-gate-unlock' || tx.kind === 'kage-challenge-declare');
+            if (isHonorSealRefund) {
+                const saveKey = String(tx.debitKey ?? '');
+                if (!saveKey.startsWith('save:'))
+                    return { status: 400, body: { error: 'Transaction has no valid player save key.' } };
+                let character = null;
+                await (0, _lock_js_1.withKvLock)(saveKey, async () => {
+                    const record = await _storage_js_1.kv.get(saveKey);
+                    const current = (record?.character ?? null);
+                    if (!record || !current)
+                        throw new Error('Player save not found.');
+                    character = { ...current, honorSeals: Math.max(0, num(current.honorSeals)) + amount };
+                    const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character });
+                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
+                }, { failClosed: true });
+                const completed = await (0, _economy_tx_js_1.completeEconomyTx)(tx.id, {
+                    note: 'Admin reconciled failed cross-record Honor Seal refund.',
+                    meta: { ...(tx.meta ?? {}), reconciledAt: Date.now(), reconciledBy: 'admin' },
+                });
+                return { status: 200, body: { ok: true, tx: completed, credited: amount, character } };
+            }
+            if (tx.kind !== 'clan-territory-collect-supply' || tx.resource !== 'warSupply') {
+                return { status: 400, body: { error: 'This transaction type cannot be reconciled automatically.' } };
+            }
             const creditKey = String(tx.creditKey ?? '');
             if (!creditKey)
                 return { status: 400, body: { error: 'Transaction has no credit key.' } };

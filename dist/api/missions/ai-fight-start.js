@@ -44,6 +44,7 @@ async function handler(req, res) {
             opponentLevel: body.opponentLevel,
             baseXp: reward.xp,
             baseRyo: reward.ryo,
+            battleKind: body.battleKind,
         });
         await _storage_js_1.kv.set((0, _ai_fight_token_js_1.aiFightTokenKey)(playerName, token), record, { ex: _ai_fight_token_js_1.AI_FIGHT_TOKEN_TTL_SECONDS });
         return res.status(200).json({

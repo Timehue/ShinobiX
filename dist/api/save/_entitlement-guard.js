@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.preserveOwnedItems = preserveOwnedItems;
 exports.isServerOwnedItemId = isServerOwnedItemId;
 exports.isHighRiskTileCardId = isHighRiskTileCardId;
 exports.preserveEntitledStringArray = preserveEntitledStringArray;
@@ -44,6 +45,30 @@ function stackCounts(raw) {
         counts.set(itemId, (counts.get(itemId) ?? 0) + count);
     }
     return counts;
+}
+function preserveOwnedItems(incomingInventory, incomingStacks, existingInventory, existingStacks) {
+    const allowed = countStrings(existingInventory);
+    for (const [id, count] of stackCounts(existingStacks))
+        allowed.set(id, (allowed.get(id) ?? 0) + count);
+    const used = new Map();
+    const inventory = [];
+    if (Array.isArray(incomingInventory)) {
+        for (const raw of incomingInventory) {
+            const id = typeof raw === 'string' ? raw : '';
+            if (!id || (used.get(id) ?? 0) >= (allowed.get(id) ?? 0))
+                continue;
+            used.set(id, (used.get(id) ?? 0) + 1);
+            inventory.push(id);
+        }
+    }
+    const itemStacks = [];
+    for (const [itemId, requested] of stackCounts(incomingStacks)) {
+        const remaining = Math.max(0, (allowed.get(itemId) ?? 0) - (used.get(itemId) ?? 0));
+        const count = Math.min(requested, remaining);
+        if (count > 0)
+            itemStacks.push({ itemId, count });
+    }
+    return { inventory, itemStacks };
 }
 function isServerOwnedItemId(itemId) {
     return SERVER_OWNED_ITEM_IDS.has(itemId);
