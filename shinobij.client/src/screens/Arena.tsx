@@ -50,6 +50,7 @@ import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPv
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { jutsuTargetingLabel } from "../lib/jutsu-effects";
+import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
 import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, pvpAffectsOpponent, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { hasCharacterElement, weatherElementOf } from "../lib/elements";
@@ -1560,19 +1561,29 @@ export function Arena({
     }
 
     function jutsuAoeTiles(jutsu: Jutsu | null | undefined) {
-        if (!jutsu || jutsu.method !== "AOE_CIRCLE") return new Set<number>();
-        if (isGroundEffectJutsu(jutsu)) return new Set<number>();
-        if (isMoveJutsu(jutsu)) return new Set<number>(); // Move+AOE_CIRCLE uses hover-based ring preview
+        if (!jutsu || isGroundEffectJutsu(jutsu) || isMoveJutsu(jutsu)) return new Set<number>();
         if (!jutsuRangeTiles(jutsu).has(enemyPos)) return new Set<number>();
-        return new Set([enemyPos, ...hexNeighbors(enemyPos)]);
+        return jutsuImpactPreviewTiles({
+            method: jutsu.method,
+            center: enemyPos,
+            allTiles: Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile),
+            distance,
+            neighbors: hexNeighbors,
+            circleIncludesCenter: true,
+        });
     }
 
     function groundAffectedTiles(jutsu: Jutsu | null | undefined, groundTile: number | null) {
         if (!jutsu || !isGroundEffectJutsu(jutsu)) return new Set<number>();
         if (groundTile === null) return new Set<number>();
-        if (jutsu.method === "INSTANT_EFFECT") return new Set([groundTile, ...hexNeighbors(groundTile)]);
-        if (jutsu.method === "AOE_CIRCLE") return new Set(hexNeighbors(groundTile));
-        return new Set([groundTile]);
+        const impact = jutsuImpactPreviewTiles({
+            method: jutsu.method,
+            center: groundTile,
+            allTiles: Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile),
+            distance,
+            neighbors: hexNeighbors,
+        });
+        return impact.size > 0 ? impact : new Set([groundTile]);
     }
 
     function weaponRangeTiles(item: GameItem | null | undefined) {
@@ -4964,6 +4975,27 @@ export function Arena({
     const activeJutsuAoeTiles = useMemo(() => jutsuAoeTiles(pendingTargetJutsu), [pendingTargetJutsu, playerPos, enemyPos]);
     const activeWeaponRangeTiles = useMemo(() => weaponRangeTiles(pendingTargetWeapon), [pendingTargetWeapon, playerPos]);
     const activeGroundAffectedTiles = useMemo(() => groundAffectedTiles(pendingTargetJutsu, hoveredBattleTile), [pendingTargetJutsu, hoveredBattleTile]);
+    const activeMoveAffectedTiles = useMemo(() => {
+        if (!pendingTargetJutsu || !isMoveJutsu(pendingTargetJutsu) || hoveredBattleTile === null) return new Set<number>();
+        const landingTile = hoveredBattleTile;
+        const validLandingTile =
+            distance(playerPos, landingTile) >= 1 &&
+            distance(playerPos, landingTile) <= moveJutsuRange(pendingTargetJutsu) &&
+            landingTile !== playerPos &&
+            landingTile !== enemyPos &&
+            !barrierTiles.some((barrier) => barrier.tile === landingTile);
+        if (!validLandingTile) return new Set<number>();
+        const impact = jutsuImpactPreviewTiles({
+            method: pendingTargetJutsu.method,
+            center: landingTile,
+            allTiles: Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile),
+            distance,
+            neighbors: hexNeighbors,
+        });
+        // Pure movement has no damage footprint, but the hovered destination
+        // still needs a marker distinct from the green reachable-range tiles.
+        return impact.size > 0 ? impact : new Set([landingTile]);
+    }, [pendingTargetJutsu, hoveredBattleTile, playerPos, enemyPos, barrierTiles]);
     const boardGrid = useMemo(() => (
         Array.from({ length: gridHeight }).map((_, row) =>
             Array.from({ length: gridWidth }).map((_, col) => {
@@ -4974,11 +5006,7 @@ export function Arena({
                 const isBarrierTile = barrierTiles.some((b) => b.tile === i);
                 const isGroundZoneTile = groundZones.some((z) => z.tiles.includes(i));
                 const isJutsuRangeTile = (activeJutsuRangeTiles.has(i) && !(pendingTargetJutsu && isMoveJutsu(pendingTargetJutsu))) || activeWeaponRangeTiles.has(i);
-                const isMoveAoeAffectedTile = pendingTargetJutsu != null &&
-                    isMoveJutsu(pendingTargetJutsu) &&
-                    pendingTargetJutsu.method === "AOE_CIRCLE" &&
-                    hoveredBattleTile !== null &&
-                    hexNeighbors(hoveredBattleTile).includes(i);
+                const isMoveAoeAffectedTile = activeMoveAffectedTiles.has(i);
                 const isJutsuAoeTile = activeJutsuAoeTiles.has(i);
                 const isJutsuAoeCenterTile = pendingTargetJutsu?.method === "AOE_CIRCLE" && i === enemyPos && isJutsuAoeTile;
                 const isGroundAffectedTile = activeGroundAffectedTiles.has(i);
@@ -5044,7 +5072,7 @@ export function Arena({
                 );
             })
         )
-    ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, character.avatarImage, character.name, opponentAvatar, opponentName]);
+    ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, activeMoveAffectedTiles, character.avatarImage, character.name, opponentAvatar, opponentName]);
 
     if (!battleStarted) {
         const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
