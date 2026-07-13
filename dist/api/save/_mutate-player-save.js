@@ -4,16 +4,16 @@ exports.versionedPlayerRecord = versionedPlayerRecord;
 exports.writeVersionedPlayerSave = writeVersionedPlayerSave;
 exports.mutatePlayerSave = mutatePlayerSave;
 const _save_version_js_1 = require("./_save-version.js");
-function versionedPlayerRecord(currentRecord, nextCharacter) {
-    const record = (0, _save_version_js_1.bumpSaveVersion)({ ...currentRecord, character: nextCharacter });
+function versionedPlayerRecord(currentRecord, nextCharacter, recordPatch = {}) {
+    const record = (0, _save_version_js_1.bumpSaveVersion)({ ...currentRecord, ...recordPatch, character: nextCharacter });
     return { record, _saveVersion: Number(record._saveVersion ?? 0) };
 }
-async function writeVersionedPlayerSave(saveKey, currentRecord, nextCharacter) {
+async function writeVersionedPlayerSave(saveKey, currentRecord, nextCharacter, recordPatch = {}) {
     const [{ kv }, { mergePreservingImages }] = await Promise.all([
         import('../_storage.js'),
         import('../_utils.js'),
     ]);
-    const out = versionedPlayerRecord(currentRecord, nextCharacter);
+    const out = versionedPlayerRecord(currentRecord, nextCharacter, recordPatch);
     await kv.set(saveKey, mergePreservingImages(out.record, currentRecord));
     return out;
 }
@@ -37,7 +37,7 @@ async function mutatePlayerSave(playerNameRaw, mutate) {
             return decision;
         // Bump _saveVersion on server-side player mutations so stale client
         // autosaves refetch instead of overwriting the credited/debited save.
-        const out = await writeVersionedPlayerSave(saveKey, record, decision.character);
+        const out = await writeVersionedPlayerSave(saveKey, record, decision.character, decision.recordPatch);
         return {
             ok: true,
             value: decision.value,

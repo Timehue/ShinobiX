@@ -51,6 +51,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const me = identity.name;
         const opponent = safeName(typeof body.opponentName === 'string' ? body.opponentName : '');
+        const petId = typeof body.petId === 'string' ? body.petId.slice(0, 64) : '';
+        const seed = Math.floor(Number(body.seed));
         if (!opponent) return res.status(400).json({ error: 'Missing opponentName.' });
         if (opponent === me) return res.status(400).json({ error: 'You cannot start a ranked match against yourself.' });
 
@@ -62,12 +64,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!meSave?.character) return res.status(400).json({ error: 'Your character save was not found.' });
         if (!oppSave?.character) return res.status(404).json({ error: 'Opponent save not found.' });
 
+        const meChar = meSave.character as Record<string, unknown>;
+        const oppChar = oppSave.character as Record<string, unknown>;
+        const myPets = Array.isArray(meChar.pets) ? meChar.pets as Array<Record<string, unknown>> : [];
+        const oppPets = Array.isArray(oppChar.pets) ? oppChar.pets as Array<Record<string, unknown>> : [];
+        const myPet = myPets.find((pet) => String(pet?.id ?? '') === petId) ?? myPets.find((pet) => String(pet?.id ?? '') === String(meChar.activePetId ?? '')) ?? myPets[0];
+        const oppPet = oppPets.find((pet) => String(pet?.id ?? '') === String(oppChar.activePetId ?? '')) ?? oppPets[0];
+        if (!myPet || !oppPet) return res.status(409).json({ error: 'Both players need an available pet.' });
+
         const token = randomUUID();
         await kv.set(`pet:ranked-token:${token}`, {
             a: me,
             b: opponent,
             aRating: petRatingOf(meSave),
             bRating: petRatingOf(oppSave),
+            aPet: myPet,
+            bPet: oppPet,
+            seed: Number.isSafeInteger(seed) ? seed : Date.now(),
             createdAt: Date.now(),
         }, { ex: TOKEN_TTL_SECONDS });
 

@@ -206,6 +206,14 @@ async function handler(req, res) {
                 const char = (rec?.character ?? null);
                 if (!rec || !char)
                     return { status: 404, body: { error: 'Your save was not found.' } };
+                const receiptId = `${sealed.id}:${Number(sealed.at ?? 0)}`;
+                const receipts = Array.isArray(char.redeemedQuestbookRuns) ? char.redeemedQuestbookRuns : [];
+                const prior = receipts.find((receiptEntry) => receiptEntry.id === receiptId);
+                if (prior) {
+                    await _storage_js_1.kv.set(doneKeyFor(playerName, sealed.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS }).catch(() => undefined);
+                    await _storage_js_1.kv.del(questKey).catch(() => undefined);
+                    return { status: 200, body: { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo), fateShards: num(prior.fateShards), title: prior.title, standings: prior.standings, clearedRivalry: prior.clearedRivalry === true } };
+                }
                 const now = Date.now();
                 // A timed final stage must still be within its deadline.
                 if ((0, _questbook_js_1.stageTimerMs)(stage) > 0 && sealed.deadline && now > sealed.deadline) {
@@ -221,9 +229,6 @@ async function handler(req, res) {
                 if (!(0, _questbook_js_1.questStageComplete)(num(sealed.baseline), current, stage.count)) {
                     return { status: 200, body: { ok: false, reason: 'incomplete', stage: finalIdx, progress: Math.max(0, current - num(sealed.baseline)), target: stage.count } };
                 }
-                const consumed = await _storage_js_1.kv.del(questKey);
-                if (consumed <= 0)
-                    return { status: 200, body: { ok: false, reason: 'none' } };
                 // Apply sealed branch effects to the reward.
                 const fx = (0, _questbook_js_1.aggregateChoiceEffects)(entry, choices);
                 const ryo = Math.round((0, _questbook_js_1.questBookRyo)(num(char.level) || 1, entry.weight) * fx.ryoMult);
@@ -238,12 +243,14 @@ async function handler(req, res) {
                 for (const s of fx.standings)
                     if (!questStandings.includes(s))
                         questStandings.push(s);
-                const updated = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null };
+                const receipt = { id: receiptId, ryo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry };
+                const updated = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null, redeemedQuestbookRuns: [...receipts.slice(-49), receipt] };
                 // The capstone ends the rivalry for good (its whole point).
                 if (entry.clearsRivalry)
                     updated.wandererNemesis = null;
                 await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
                 await _storage_js_1.kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
+                await _storage_js_1.kv.del(questKey).catch(() => undefined);
                 return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);

@@ -4,6 +4,7 @@ exports.default = handler;
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _storage_js_1 = require("../_storage.js");
 const _tower_store_js_1 = require("./_tower-store.js");
 /*
  * POST /api/towers/settle — finalize a completed tower run.
@@ -54,7 +55,18 @@ async function handler(req, res) {
                     ? await (0, _tower_store_js_1.settleAssistForAlly)({ session, slug })
                     : await (0, _tower_store_js_1.settleFloorForMember)({ session, slug });
         }
-        return res.status(200).json({ runId, winner: session.winner, results, consumables });
+        // Return only the caller's committed character. The results map may cover
+        // multiple squad members, but their private save data must not be exposed.
+        const responseSlug = callerSlug ?? (0, _utils_js_1.safeName)(playerName);
+        const committed = await _storage_js_1.kv.get(`save:${responseSlug}`);
+        return res.status(200).json({
+            runId,
+            winner: session.winner,
+            results,
+            consumables,
+            character: committed?.character ?? null,
+            _saveVersion: Number(committed?._saveVersion ?? 0),
+        });
     }
     catch (err) {
         console.error('[towers/settle]', err);

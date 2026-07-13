@@ -14,6 +14,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.masteryBudget = masteryBudget;
 exports.masteryBonus = masteryBonus;
 exports.masteryHasCapstone = masteryHasCapstone;
+exports.applyMasteryInvestment = applyMasteryInvestment;
 exports.sanitizeMasterySpec = sanitizeMasterySpec;
 const NODE_COST = 1;
 const CAPSTONE_COST = 2;
@@ -79,6 +80,27 @@ function masteryHasCapstone(profession, spec, capstoneId) {
     if (!n)
         return false;
     return num(spec[capstoneId]) >= 1;
+}
+function applyMasteryInvestment(profession, professionXp, spec, nodeId) {
+    if (!isProf(profession))
+        return null;
+    const node = TREES[profession].find((entry) => entry.id === nodeId);
+    if (!node)
+        return null;
+    const current = sanitizeMasterySpec(profession, spec, masteryBudget(profession, professionXp));
+    const rank = Math.max(0, num(current[nodeId]));
+    if (rank >= maxRank(node))
+        return null;
+    if (node.capstone) {
+        const pathPoints = TREES[profession]
+            .filter((entry) => entry.path === node.path && !entry.capstone)
+            .reduce((total, entry) => total + Math.max(0, num(current[entry.id])), 0);
+        if (pathPoints < CAPSTONE_GATE)
+            return null;
+    }
+    const proposal = { ...current, [nodeId]: rank + 1 };
+    const cleaned = sanitizeMasterySpec(profession, proposal, masteryBudget(profession, professionXp));
+    return cleaned[nodeId] === rank + 1 ? cleaned : null;
 }
 /**
  * Clamp a (possibly forged) masterySpec to what `budget` allows: legal node ids,

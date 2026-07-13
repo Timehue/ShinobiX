@@ -2,6 +2,8 @@ import { MAX_AI_FIGHT_RYO, MAX_AI_FIGHT_XP } from './_ai-fight-reward.js';
 
 export const AI_FIGHT_TOKEN_TTL_SECONDS = 20 * 60;
 
+export type AiFightBattleKind = 'practice' | 'mission' | 'raidAi' | 'defense' | 'explore' | 'endless';
+
 export type AiFightToken = {
     playerName: string;
     tokenId: string;
@@ -13,6 +15,7 @@ export type AiFightToken = {
     rewardSource?: 'server-save' | 'legacy-client';
     opponentId?: string;
     opponentLevel?: number;
+    battleKind?: AiFightBattleKind;
 };
 
 export type AiFightRewardClaim =
@@ -32,7 +35,7 @@ export function createAiFightTokenRecord(
     playerName: string,
     tokenId: string,
     now = Date.now(),
-    context: { opponentId?: unknown; opponentLevel?: unknown; baseXp?: unknown; baseRyo?: unknown } = {},
+    context: { opponentId?: unknown; opponentLevel?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown } = {},
 ): AiFightToken {
     const opponentIdRaw = typeof context.opponentId === 'string' ? context.opponentId.trim().slice(0, 96) : '';
     const opponentId = /^[A-Za-z0-9:_-]+$/.test(opponentIdRaw) ? opponentIdRaw : undefined;
@@ -42,12 +45,21 @@ export function createAiFightTokenRecord(
         : undefined;
     const baseXp = Math.max(0, Math.min(MAX_AI_FIGHT_XP, Math.floor(Number(context.baseXp ?? NaN))));
     const baseRyo = Math.max(0, Math.min(MAX_AI_FIGHT_RYO, Math.floor(Number(context.baseRyo ?? NaN))));
+    const battleKindRaw = typeof context.battleKind === 'string' ? context.battleKind : '';
+    const battleKind: AiFightBattleKind = battleKindRaw === 'mission'
+        || battleKindRaw === 'raidAi'
+        || battleKindRaw === 'defense'
+        || battleKindRaw === 'explore'
+        || battleKindRaw === 'endless'
+        ? battleKindRaw
+        : 'practice';
     return {
         playerName,
         tokenId,
         mintedAt: now,
         maxXp: MAX_AI_FIGHT_XP,
         maxRyo: MAX_AI_FIGHT_RYO,
+        battleKind,
         ...(Number.isFinite(baseXp) ? { baseXp } : {}),
         ...(Number.isFinite(baseRyo) ? { baseRyo } : {}),
         ...(Number.isFinite(baseXp) && Number.isFinite(baseRyo) ? { rewardSource: 'server-save' as const } : {}),

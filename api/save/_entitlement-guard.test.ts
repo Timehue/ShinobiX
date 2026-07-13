@@ -5,6 +5,7 @@ import {
     isServerOwnedItemId,
     preserveEntitledStacks,
     preserveEntitledStringArray,
+    preserveOwnedItems,
 } from './_entitlement-guard.js';
 
 describe('_entitlement-guard', () => {
@@ -14,6 +15,18 @@ describe('_entitlement-guard', () => {
         assert.equal(isHighRiskTileCardId('tc-41'), true);
         assert.equal(isHighRiskTileCardId('tc-121'), true);
         assert.equal(isHighRiskTileCardId('tc-21'), false);
+    });
+
+    it('conserves all ordinary item ownership across array-to-stack migration', () => {
+        assert.deepEqual(
+            preserveOwnedItems(
+                ['shinobi-vest', 'forged-item'],
+                [{ itemId: 'pet-treat', count: 3 }, { itemId: 'forged-stack', count: 9 }],
+                ['shinobi-vest', 'pet-treat', 'pet-treat', 'pet-treat'],
+                [],
+            ),
+            { inventory: ['shinobi-vest'], itemStacks: [{ itemId: 'pet-treat', count: 3 }] },
+        );
     });
 
     it('preserves existing guarded inventory but drops new additions', () => {

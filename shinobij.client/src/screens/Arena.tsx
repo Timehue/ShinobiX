@@ -5,7 +5,7 @@ import "../styles/battle-skin.css";
 import {
     GiCrossedSwords, GiTrophy, GiLadder, GiEyeball, GiBoxingGlove, GiPawPrint,
     GiColiseum, GiLaurelsTrophy, GiSkullCrossedBones, GiFirstAidKit, GiScrollUnfurled,
-    GiVillage, GiNextButton,
+    GiVillage, GiNextButton, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase, GiShield,
 } from "react-icons/gi";
 // Inline style for a glyph that prefixes button/heading text — seats it on the baseline.
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -17,7 +17,7 @@ import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } 
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
 import type { Pet, PetJutsu } from "../types/pet";
-import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY, jutsuLevelCapForLevel, perRankStatCap, COMBAT_RESOURCES_V2 } from "../constants/game";
+import { JUTSU_MAX_LEVEL, MAX_LEVEL, STUN_AP_PENALTY, jutsuLevelCapForLevel, perRankStatCap, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { ArenaBattlePersister } from "../components/ArenaBattlePersister";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { SparCoach } from "../components/SparCoach";
@@ -29,7 +29,6 @@ import { useBattleTabs } from "../lib/use-battle-tabs";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { buildActionsFromPveHistory, makeBattleEntry } from "../lib/battle-log-history";
 import { playPetSfx } from "../lib/pet-sfx";
-import { masteryHasCapstone } from "../lib/profession-mastery";
 import { isMercAiId } from "../lib/merc-ai";
 import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
@@ -42,12 +41,11 @@ import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, capWoundStacks, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, masteryDamageFrac, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
 import { petRankedChallengeEnabled } from "../lib/pet-coliseum-flag";
 import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
-import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
 import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { resolveCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
-import { cappedPostDamage, gainJutsuXpForRank, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter, v2ResourceRegen, v2PoisonOnSpend, v2JutsuResourceCost, jutsuResourceDisplay } from "../lib/jutsu-scaling";
+import { cappedPostDamage, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter, v2ResourceRegen, v2PoisonOnSpend, v2JutsuResourceCost, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence, weeklyBossGuardedHit, weeklyBossDamageMultiplier, isWeeklyBossOpenRound } from "../lib/pve-difficulty";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
@@ -80,21 +78,17 @@ import { enhanceClanData } from "../lib/clan-math";
 import { fetchClanData } from "../lib/clan-api";
 import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import {
-    gainXp,
     getAllJutsus,
     getPvpJutsuLoadout,
     isAdminAccountName,
     normalizeCharacter,
-    nonVanguardCharmSubstitute,
-    nonVanguardShardSubstitute,
     playerLensDiscipline,
-    vanguardOnlyHonorSeals,
     type DuelChallenge,
     type PendingArenaStoryBattle,
     type PvpSessionState,
     type SharedPvpBattleContext,
 } from "../App";
-import { activeVillageWarsFor, damageSectorTerritory, grantTerritoryScrolls, loadArenaActiveFights, loadArenaTournament, loadSectorTerritory, recordVillageWarRaid, saveArenaActiveFights, saveArenaTournament, savePendingClanPetBattle, sectorRaidDamageAmount, unregisterLocalFight, type ArenaSpectatorFight, type ArenaTournament, type TerritoryBuffStat } from "../lib/world-state";
+import { activeVillageWarsFor, damageSectorTerritory, loadArenaActiveFights, loadArenaTournament, loadSectorTerritory, saveArenaActiveFights, saveArenaTournament, savePendingClanPetBattle, sectorRaidDamageAmount, unregisterLocalFight, type ArenaSpectatorFight, type ArenaTournament, type TerritoryBuffStat } from "../lib/world-state";
 
 export function Arena({
     lobbyMode = "battleArena",
@@ -167,10 +161,10 @@ export function Arena({
     sharedImages?: Record<string, string>;
     endlessBattleActive?: boolean;
     endlessBattleWave?: number;
-    onEndlessWin?: (wave: number) => void;
+    onEndlessWin?: (wave: number, aiFightToken: string, vitals: { hp: number; chakra: number; stamina: number }) => void;
     onEndlessBattleEnd?: () => void;
     pendingStoryBattle?: PendingArenaStoryBattle | null;
-    onPendingStoryBattleWin?: (survivingHp: number) => string;
+    onPendingStoryBattleWin?: (survivingHp: number, aiFightToken?: string) => string | Promise<string>;
     onPendingStoryBattleContinue?: () => void;
     onDungeonFail?: () => void;
     onWeeklyBossLogDamage?: (damageDealt: number, damageEvents?: WeeklyBossDamageProofEvent[]) => void;
@@ -739,6 +733,38 @@ export function Arena({
         easyHoldBurst ? jutsus.filter((jutsu) => !pveIsBurstJutsuAp(jutsu.ap)) : jutsus;
     const [battleEnded, setBattleEnded] = useState(false);
     const [battleResult, setBattleResult] = useState<"win" | "loss" | "fled" | null>(null);
+    // Mint the reward token when an AI battle begins, not after the client says
+    // it won. This binds each redemption to one battle lifecycle and prevents
+    // the victory handler from manufacturing a fresh token on demand.
+    const aiFightTokenPromiseRef = useRef<Promise<string> | null>(null);
+    useEffect(() => {
+        if (!battleStarted || battleEnded || opponentCharacter || (!aiFightServerAuthEnabled() && !pendingStoryBattle)) return;
+        if (aiFightTokenPromiseRef.current) return;
+        const payload = {
+            playerName: character.name,
+            opponentId: pendingAiProfile?.id ?? "",
+            opponentLevel: aiLevel,
+            battleKind: endlessBattleActive
+                ? "endless"
+                : raidBattleKind === "defense"
+                ? "defense"
+                : raidBattleKind === "raidAi"
+                    ? "raidAi"
+                    : exploreAmbushActive
+                        ? "explore"
+                        : missionBattleActive
+                            ? "mission"
+                            : "practice",
+        };
+        aiFightTokenPromiseRef.current = fetch("/api/missions/ai-fight-start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        })
+            .then((response) => response.ok ? response.json() : null)
+            .then((data: { token?: unknown } | null) => typeof data?.token === "string" ? data.token : "")
+            .catch(() => "");
+    }, [battleStarted, battleEnded, opponentCharacter, character.name, pendingAiProfile?.id, aiLevel, pendingStoryBattle, raidBattleKind, exploreAmbushActive, missionBattleActive]);
     // Battle-end sting — a victory chime on a win, a KO thud on a loss/flee.
     // Routes through the pet SFX engine's master mute, so it's silent by default.
     useEffect(() => {
@@ -1299,12 +1325,14 @@ export function Arena({
         // accepted notice, so both sides report it (the server NX-dedups per
         // token, settling both accounts once). Mint failure → local Elo fallback.
         let petRankedToken: string | undefined;
+        const challengePet = isPetMode ? (character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet))) : undefined;
+        const petBattleSeed = isPetMode ? Date.now() + Math.floor(Math.random() * 100000) : undefined;
         if (mode === "rankedPet") {
             try {
                 const tokRes = await fetch("/api/pet/ranked-start", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ opponentName: opponent.name }),
+                    body: JSON.stringify({ opponentName: opponent.name, petId: challengePet?.id, seed: petBattleSeed }),
                 });
                 if (tokRes.ok) petRankedToken = ((await tokRes.json()) as { matchToken?: string }).matchToken;
             } catch { /* fall back to local Elo estimate */ }
@@ -1316,8 +1344,8 @@ export function Arena({
             challenger: character,
             challengerJutsus: getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character),
             challengerBloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
-            challengerPetId: isPetMode ? (character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet)))?.id : undefined,
-            petBattleSeed: isPetMode ? Date.now() + Math.floor(Math.random() * 100000) : undefined,
+            challengerPetId: challengePet?.id,
+            petBattleSeed,
             // Pet ranked: stamp my account-level pet Elo so the responder's
             // accepted-notice carries both ratings for symmetric deltas.
             challengerPetRating: mode === "rankedPet" ? (character.petRankedRating ?? 1000) : undefined,
@@ -2220,7 +2248,7 @@ export function Arena({
             if (movePoisonDmg > 0) { setPlayerHp((hp) => Math.max(0, hp - movePoisonDmg)); queueHitFx("p", movePoisonDmg, "damage"); addCombatLog(`Poison: ${character.name} takes ${movePoisonDmg} damage from exertion.`, "effects", character.name); }
 
             updateCharacter({
-                ...gainJutsuXpForRank(character, pendingTargetJutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent)),
+                ...character,
                 hp: Math.max(0, character.hp - scaled.healthCost - movePoisonDmg),
                 chakra: Math.max(0, character.chakra - scaled.chakraCost),
                 stamina: Math.max(0, character.stamina - scaled.staminaCost),
@@ -2392,15 +2420,6 @@ export function Arena({
 
         updateCharacter({ ...character, stamina: Math.max(0, character.stamina - 10) });
         setLog(`Basic Attack hit for ${finalDamage} damage.`);
-    }
-
-    function combatItemInitials(name: string) {
-        return name
-            .split(/\s+/)
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((part) => part[0]?.toUpperCase() ?? "")
-            .join("") || "IT";
     }
 
     function itemBonusTotal(item: GameItem) {
@@ -2860,12 +2879,23 @@ export function Arena({
         // spend to preserve and falls back to `character`.
         const base = baseCharacter ?? character;
         if (pendingStoryBattle) {
-            const rewardLog = onPendingStoryBattleWin?.(playerHp) ?? `${opponentName} defeated. Story battle complete.`;
             setBattleEnded(true);
             setBattleResult("win");
-            setLog(rewardLog);
-            addCombatLog(rewardLog, "storyVictory", character.name);
             setRaidBattleKind("none");
+            const fallback = `${opponentName} defeated. Story battle complete.`;
+            const tokenRequest = aiFightTokenPromiseRef.current ?? Promise.resolve("");
+            void tokenRequest
+                .then((token) => onPendingStoryBattleWin?.(playerHp, token) ?? fallback)
+                .then((rewardLog) => {
+                    setLog(rewardLog);
+                    addCombatLog(rewardLog, "storyVictory", character.name);
+                })
+                .catch(() => {
+                    const failed = `${opponentName} defeated, but the story reward could not be verified. Retry from the story screen.`;
+                    setLog(failed);
+                    addCombatLog(failed, "storyVictory", character.name);
+                });
+            aiFightTokenPromiseRef.current = null;
             return;
         }
 
@@ -2950,65 +2980,14 @@ export function Arena({
         const ryoGain = activeTrait === "Lucky" ? 90 : 75;
         const honorSealGain = raidBattleKind === "defense" ? 20 : raidBattleKind === "raidAi" ? 5 : 0;
         const auraDustGain = raidBattleKind === "defense" ? 8 : raidBattleKind === "raidAi" ? 4 : 0;
-        const defeatedAiIds = pendingAiProfile?.id && !(base.defeatedAiIds ?? []).includes(pendingAiProfile.id)
-            ? [...(base.defeatedAiIds ?? []), pendingAiProfile.id]
-            : base.defeatedAiIds ?? [];
-        // Per-AI kill count for the Bestiary (kill-count tiers).
-        const aiKills = pendingAiProfile?.id
-            ? { ...(base.aiKills ?? {}), [pendingAiProfile.id]: ((base.aiKills ?? {})[pendingAiProfile.id] ?? 0) + 1 }
-            : (base.aiKills ?? {});
         const territoryScrollReward = 1;
         const territoryRaidDamageAmount = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? sectorRaidDamageAmount(currentSector) : 0;
         const territoryRaidDamage = territoryRaidDamageAmount > 0 ? damageSectorTerritory(currentSector, territoryRaidDamageAmount) : null;
-        // Village War HP/ground damage is gated to PvP raids only. AI raids
-        // would let a single player solo-grind enemy village HP to zero
-        // while no enemy is online — defeats the whole point of village
-        // war as a player-vs-player meta. The win-condition is unchanged:
-        // PvP raids still drive both warGroundHp and the enemy village HP.
-        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector, playerRoster) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-        // P0.2c: when warCrateServerAuth.v1 is ON the village-war WINNER crate is
-        // granted server-side (claimServerVillageWarCrates via the post-poll sweep,
-        // validated against the authoritative war record), so winBattle stops adding
-        // it inline. Flag OFF → inline grant exactly as before (byte-identical). Kept
-        // out of the async grant path so it never races the P0.2b updateCharacter.
-        const grantWarCrateInline = villageWarRaid.warCrate && !warCrateServerAuthEnabled();
-        // Assemble the win-reward character from a (possibly soft-capped) XP/ryo
-        // pair. Everything it captures above is computed ONCE (the territory /
-        // village-war side effects mutate shared state, so they must not re-run);
-        // buildWin itself is pure apart from the single Ironclad bonecharm roll,
-        // and is called exactly once per win — synchronously when the flag is OFF,
-        // or once inside the fetch .then/.catch when ON — so that roll never doubles.
-        const buildWin = (effXp: number, effRyo: number): Character => {
-            const leveled = gainXp({ ...base, hp: playerHp }, effXp);
-            const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
-            const winCharacter: Character = {
-                ...rewarded,
-                ...villageWarRaid.characterPatch,
-                ryo: rewarded.ryo + effRyo + villageWarRaid.bountyRyo,
-                fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards + nonVanguardShardSubstitute(rewarded, honorSealGain),
-                honorSeals: (rewarded.honorSeals ?? 0) + vanguardOnlyHonorSeals(rewarded, honorSealGain),
-                auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
-                stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
-                // + Vanguard mastery (Ironclad): a chance at a Bone Charm per AI kill.
-                boneCharms: (rewarded.boneCharms ?? 0) + nonVanguardCharmSubstitute(rewarded, honorSealGain) + (masteryHasCapstone(character, "ironclad") && Math.random() < 0.15 ? 1 : 0),
-                inventory: grantWarCrateInline ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
-                claimedWarCrateIds: grantWarCrateInline && villageWarRaid.warCrateId
-                    ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
-                    : (rewarded.claimedWarCrateIds ?? []),
-                // clanBattleContrib intentionally NOT incremented here — it's a
-                // PvP-only contribution counter and the AI-only branch shouldn't
-                // touch it (the save endpoint also caps growth, but the cleaner
-                // contract is "only PvP wins move clan-war contribs").
-                totalAiKills: (rewarded.totalAiKills ?? 0) + 1,
-                dailyAiKills: (rewarded.dailyAiKills ?? 0) + 1,
-                totalVillageRaids: (rewarded.totalVillageRaids ?? 0) + (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer" ? 1 : 0),
-                defeatedAiIds,
-                aiKills,
-            };
-            // Mission battles credit completion (daily slot / clan contrib / lifetime)
-            // ONLY on an actual AI win — never at battle start — so losing or fleeing a
-            // mission no longer counts. raidBattleKind === "none" excludes raids.
-            return missionBattleActive && raidBattleKind === "none" ? markMissionCompleted(winCharacter) : winCharacter;
+        const buildWin = (serverCharacter?: Partial<Character>): Character => {
+            if (!serverCharacter) return { ...base, hp: Math.min(base.hp, playerHp) };
+            const committed = { ...base, ...serverCharacter } as Character;
+            const reconciled = { ...committed, hp: Math.min(committed.hp, playerHp) };
+            return missionBattleActive && raidBattleKind === "none" ? markMissionCompleted(reconciled) : reconciled;
         };
         // AI XP/ryo is server-capped. The battle-end UI and territory /
         // village-war side effects above already ran synchronously, so only the
@@ -3022,14 +3001,9 @@ export function Arena({
                 xp: xpGain,
                 ryo: ryoGain,
             };
-            fetch("/api/missions/ai-fight-start", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(rewardPayload),
-            })
-                .then((r) => (r.ok ? r.json() : null))
-                .then((start: { token?: unknown } | null) => {
-                    const aiFightToken = typeof start?.token === "string" ? start.token : "";
+            const tokenRequest = aiFightTokenPromiseRef.current ?? Promise.resolve("");
+            tokenRequest
+                .then((aiFightToken) => {
                     if (!aiFightToken) return null;
                     return fetch("/api/missions/report-ai-fight", {
                         method: "POST",
@@ -3037,14 +3011,13 @@ export function Arena({
                         body: JSON.stringify({ ...rewardPayload, aiFightToken }),
                     }).then((r) => (r.ok ? r.json() : null));
                 })
-                .then((data: { xp?: unknown; ryo?: unknown } | null) => {
-                    const okXp = typeof data?.xp === "number" ? data.xp : 0;
-                    const okRyo = typeof data?.ryo === "number" ? data.ryo : 0;
-                    updateCharacter(buildWin(okXp, okRyo));
+                .then((data: { xp?: unknown; ryo?: unknown; character?: Partial<Character> } | null) => {
+                    updateCharacter(buildWin(data?.character));
                 })
-                .catch(() => updateCharacter(buildWin(0, 0)));
+                .catch(() => updateCharacter({ ...base, hp: playerHp }));
+            aiFightTokenPromiseRef.current = null;
         } else {
-            updateCharacter(buildWin(xpGain, ryoGain));
+            updateCharacter({ ...base, hp: Math.min(base.hp, playerHp) });
         }
         if (exploreAmbushActive && raidBattleKind === "none") {
             // Explore-mission credit deferred from exploreSector — granted only
@@ -3071,7 +3044,7 @@ export function Arena({
         setBattleResult("win");
         const scrollNote = ` +${territoryScrollReward} Territory Control Scroll.`;
         const raidNote = territoryRaidDamage?.ownerClan ? ` Sector ${currentSector} HP -${territoryRaidDamageAmount}.` : territoryRaidDamage ? ` Sector ${currentSector} control broken.` : "";
-        const villageWarNote = `${villageWarRaid.note}${villageWarRaid.warCrate ? " Your village won the war. +1 Legendary War Crate." : ""}`;
+        const villageWarNote = "";
         const effectiveXpGain = effectiveCharacterXpGain(character, xpGain);
         setLog(`${opponentName} defeated. +${effectiveXpGain} XP, +${ryoGain} ryo, +15 stamina.${bonusNote}${honorNote}${auraDustNote}${scrollNote}${raidNote}${villageWarNote}`);
         addCombatLog(`${opponentName} is defeated. ${character.name} gains ${effectiveXpGain} XP, ${ryoGain} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}${scrollNote}${raidNote}${villageWarNote}`);
@@ -3596,7 +3569,7 @@ export function Arena({
         setJutsuCooldowns((c) => ({ ...c, [jutsu.id]: jutsu.cooldown }));
 
         const postJutsuCharacter: Character = {
-            ...gainJutsuXpForRank(character, jutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent)),
+            ...character,
             hp: Math.max(0, character.hp - scaled.healthCost - poisonSpendDmg),
             chakra: Math.max(0, character.chakra - scaled.chakraCost),
             stamina: Math.max(0, character.stamina - scaled.staminaCost),
@@ -5057,15 +5030,15 @@ export function Arena({
                         onMouseLeave={() => setHoveredBattleTile(null)}
                         onClick={() => handleTileClickRef.current(i)}
                     >
-                        {isBarrierTile ? "🛡"
-                            : i === playerPos ? (character.avatarImage ? "" : "🥷")
+                        {isBarrierTile ? <GiShield aria-hidden="true" />
+                            : i === playerPos ? (character.avatarImage ? "" : character.name.slice(0, 2).toUpperCase())
                             : i === enemyPos ? (isImageAvatar(opponentAvatar) ? "" : opponentAvatar)
                                 : ""}
                     </button>
                 );
             })
         )
-    ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, character.avatarImage, opponentAvatar, opponentName]);
+    ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, character.avatarImage, character.name, opponentAvatar, opponentName]);
 
     if (!battleStarted) {
         const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
@@ -5311,7 +5284,7 @@ export function Arena({
                                             <p>Level {player.level} | {player.village} | {player.specialty}</p>
                                             <div className="menu">
                                                 <button onClick={() => challengePlayer(player)}>Send Spar Challenge</button>
-                                                {petRankedChallengeEnabled() && <button onClick={() => challengePlayer(player, "rankedPet")}>Ranked Pet Duel ⚔</button>}
+                                                {petRankedChallengeEnabled() && <button onClick={() => challengePlayer(player, "rankedPet")}><GiCrossedSwords aria-hidden="true" /> Ranked Pet Duel</button>}
                                             </div>
                                         </div>
                                     ))}
@@ -5537,7 +5510,7 @@ export function Arena({
                     <div className="battle-hud-sidebar">
                         <CombatSideHud
                             name={character.name}
-                            avatar={character.avatarImage || "🥷"}
+                            avatar={character.avatarImage || character.name.slice(0, 2).toUpperCase()}
                             hp={playerHp}
                             maxHp={character.maxHp}
                             chakra={character.chakra}
@@ -5557,7 +5530,7 @@ export function Arena({
                 {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
                     name={character.name}
-                    avatar={character.avatarImage || "🥷"}
+                    avatar={character.avatarImage || character.name.slice(0, 2).toUpperCase()}
                     hp={playerHp}
                     maxHp={character.maxHp}
                     chakra={character.chakra}
@@ -5585,8 +5558,8 @@ export function Arena({
                                     textShadow: isWeeklyBossOpenRound(turn) ? "0 0 10px rgba(255,209,102,0.55)" : "none",
                                 }}>
                                     {isWeeklyBossOpenRound(turn)
-                                        ? "💥 GUARD DOWN — STRIKE NOW (2× damage)"
-                                        : "🛡️ GUARD UP — chip away, wait for the opening"}
+                                        ? "GUARD DOWN — STRIKE NOW (2× damage)"
+                                        : "GUARD UP — chip away, wait for the opening"}
                                 </p>
                             )}
                         </div>
@@ -5604,10 +5577,10 @@ export function Arena({
                         <span className="twp-strip-label">Weather</span>
                         <span className="twp-strip-value">{weatherEffects[currentWeather].name}</span>
                         {weatherEffects[currentWeather].positiveElement && (
-                            <span className="twp-buff twp-positive">🔺 {weatherEffects[currentWeather].positiveElement} +5%</span>
+                            <span className="twp-buff twp-positive">{weatherEffects[currentWeather].positiveElement} +5%</span>
                         )}
                         {weatherEffects[currentWeather].negativeElement && (
-                            <span className="twp-buff twp-negative">🔻 {weatherEffects[currentWeather].negativeElement} -2%</span>
+                            <span className="twp-buff twp-negative">{weatherEffects[currentWeather].negativeElement} -2%</span>
                         )}
                     </div>
 
@@ -5720,7 +5693,7 @@ export function Arena({
                                         <div key="pet-actor-orb" className={`avatar-orb pet-summon-orb${orbGlowClass}`} style={style as React.CSSProperties}>
                                             {petImg
                                                 ? <img className="tiny-map-avatar" src={petImg} alt={petDisplayName(pet)} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                                : <span style={{ fontSize: ORB * 0.5 }}>🐾</span>}
+                                                : <span style={{ fontSize: ORB * 0.5 }}><GiPawPrint aria-hidden="true" /></span>}
                                             {collarVisual?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
                                         </div>
                                     );
@@ -5844,11 +5817,11 @@ export function Arena({
                                         const isOnCooldown = cooldown > 0;
                                         const image = jutsu.image;
 
-                                        const fallbackIcon =
-                                            jutsu.type === "Taijutsu" ? "👊" :
-                                                jutsu.type === "Bukijutsu" ? "⚔️" :
-                                                    jutsu.type === "Genjutsu" ? "👁️" :
-                                                        "🌀";
+                                        const FallbackIcon =
+                                            jutsu.type === "Taijutsu" ? GiBoxingGlove :
+                                                jutsu.type === "Bukijutsu" ? GiCrossedSwords :
+                                                    jutsu.type === "Genjutsu" ? GiEyeball :
+                                                        GiFireSpellCast;
 
                                         return (
                                             <div
@@ -5873,7 +5846,7 @@ export function Arena({
                                                         {image ? (
                                                             <img src={image} alt={jutsu.name} />
                                                         ) : (
-                                                            <strong>{fallbackIcon}</strong>
+                                                            <strong><FallbackIcon size={22} aria-hidden="true" /></strong>
                                                         )}
                                                     </span>
 
@@ -5905,7 +5878,7 @@ export function Arena({
                                     {combatEquippedItems.map((item) => {
                                         const slot = normalizeEquipmentSlot(item.slot);
                                         const isWeapon = slot === "hand" || slot === "thrown";
-                                        const icon = slot === "thrown" ? "🎯" : slot === "hand" ? "⚔" : slot === "potion" ? "🧪" : "💼";
+                                        const ItemIcon = slot === "thrown" ? GiTargeted : slot === "hand" ? GiCrossedSwords : slot === "potion" ? GiHealthPotion : GiBriefcase;
                                         const itemAp = item.apCost ?? (slot === "thrown" ? 40 : slot === "hand" ? 40 : 35);
                                         const weaponDisplayRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
                                         // Consumables (thrown/item/potion) show remaining supply and disable
@@ -5945,7 +5918,7 @@ export function Arena({
                                                         {item.image ? (
                                                             <img src={item.image} alt={item.name} />
                                                         ) : (
-                                                            <strong>{icon || combatItemInitials(item.name)}</strong>
+                                                            <strong><ItemIcon size={22} aria-hidden="true" /></strong>
                                                         )}
                                                     </span>
                                                     <span className="combat-jutsu-name">{item.name}</span>
@@ -6011,7 +5984,7 @@ export function Arena({
 
                                             {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return (
                                                 <p className="combat-jutsu-detail-desc">
-                                                    <strong style={{ color: "#c084fc" }}>🎯 {t.short}:</strong> {t.detail}
+                                                    <strong style={{ color: "#c084fc" }}><GiTargeted aria-hidden="true" /> {t.short}:</strong> {t.detail}
                                                 </p>
                                             ); })()}
 
@@ -6131,7 +6104,13 @@ export function Arena({
                                 <button
                                     className="admin-button"
                                     style={{ background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "1rem", padding: "0.7rem 1.5rem" }}
-                                    onClick={() => onEndlessWin?.(endlessBattleWave)}
+                                    onClick={() => {
+                                        const tokenRequest = aiFightTokenPromiseRef.current ?? Promise.resolve("");
+                                        void tokenRequest.then((token) => {
+                                            aiFightTokenPromiseRef.current = null;
+                                            onEndlessWin?.(endlessBattleWave, token, { hp: playerHp, chakra: character.chakra, stamina: character.stamina });
+                                        });
+                                    }}
                                 >
                                     <GiNextButton style={ARENA_ICON} />Next Wave
                                 </button>
@@ -6163,10 +6142,10 @@ export function Arena({
                                         : battleResult === "fled"
                                             ? "Escaped"
                                             : pendingStoryBattle?.kind === "dungeonAi"
-                                                ? "💀 The Seal Rejects You"
+                                                ? "The Seal Rejects You"
                                                 : pendingStoryBattle?.kind === "weeklyBoss"
-                                                    ? "💀 Knocked Out by the Weekly Boss"
-                                                    : "💥 Knocked Out"}
+                                                    ? "Knocked Out by the Weekly Boss"
+                                                    : "Knocked Out"}
                                 </h2>
                                 <p>{log}</p>
                                 {pendingStoryBattle?.kind === "weeklyBoss" && (battleResult === "loss" || battleResult === "fled") ? (

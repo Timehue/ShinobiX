@@ -11,6 +11,11 @@
  */
 
 export const AI_FIGHT_SOFT_CAP_PER_DAY = 50;   // full reward for the first N AI wins/day
+// Absolute ceiling on paid AI wins. The battle token reduces arbitrary claims,
+// but the server does not simulate the client-side PvE fight, so an attacker can
+// still mint valid start tokens directly. Past this bound the token is consumed
+// and the win pays zero, limiting the daily blast radius.
+export const AI_FIGHT_HARD_CAP_PER_DAY = 100;
 export const AI_FIGHT_REDUCED_MULT = 0.25;     // reward multiplier past the soft cap
 export const MAX_AI_FIGHT_XP = 150;            // per-fight base XP clamp (legit max 125)
 export const MAX_AI_FIGHT_RYO = 150;           // per-fight base ryo clamp (legit max 90)
@@ -26,7 +31,9 @@ export type AiFightReward = { xp: number; ryo: number; capped: boolean };
 export function aiFightReward(claimedXp: unknown, claimedRyo: unknown, dailyCountIncludingThis: number): AiFightReward {
     const xpBase = Math.max(0, Math.min(MAX_AI_FIGHT_XP, Math.floor(Number(claimedXp) || 0)));
     const ryoBase = Math.max(0, Math.min(MAX_AI_FIGHT_RYO, Math.floor(Number(claimedRyo) || 0)));
-    const overCap = Number(dailyCountIncludingThis) > AI_FIGHT_SOFT_CAP_PER_DAY;
+    const count = Math.max(0, Math.floor(Number(dailyCountIncludingThis) || 0));
+    if (count > AI_FIGHT_HARD_CAP_PER_DAY) return { xp: 0, ryo: 0, capped: true };
+    const overCap = count > AI_FIGHT_SOFT_CAP_PER_DAY;
     const mult = overCap ? AI_FIGHT_REDUCED_MULT : 1;
     return { xp: Math.floor(xpBase * mult), ryo: Math.floor(ryoBase * mult), capped: overCap };
 }

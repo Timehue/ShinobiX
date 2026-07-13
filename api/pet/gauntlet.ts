@@ -91,9 +91,6 @@ const dayStamp = () => new Date().toISOString().slice(0, 10);
 
 const tokenKey = (id: string) => `petgauntlet:tok:${id}`;
 const lbKey = (weekKey: string) => `petgauntlet:lb:${weekKey}`;
-const rewardCountKey = (slug: string, day: string) => `petgauntlet:rewarded:${slug}:${day}`;
-const shardClaimKey = (slug: string, day: string) => `petgauntlet:fateshard:${slug}:${day}`;
-const charmClaimKey = (slug: string, day: string) => `petgauntlet:bonecharm:${slug}:${day}`;
 
 const clampInt = (v: unknown, lo: number, hi: number): number => {
     const n = Math.floor(Number(v));
@@ -138,7 +135,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!enforceRateLimit(req, res, 'pet-gauntlet-start', 10, 60_000, me)) return;
             const idx = currentWeekIndex();
             const weekKey = weekKeyOf(idx);
-            const used = Number((await kv.get<number>(rewardCountKey(me, dayStamp()))) ?? 0);
+            const startSave = await kv.get<Record<string, unknown>>(`save:${me}`);
+            const startChar = (startSave?.character ?? null) as Record<string, unknown> | null;
+            const used = startChar?.petGauntletRewardDate === dayStamp() ? Number(startChar.petGauntletRewardCount ?? 0) : 0;
             const rewardEligible = used < REWARDED_RUNS_PER_DAY;
             const sealed: SealedRun = {
                 player: me, weekKey, seed: seedForWeek(idx), rewardEligible,
@@ -157,12 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Atomically consume the token (read + delete under its own lock) so a
             // replayed report can't be paid twice.
-            const sealed = await withKvLock<SealedRun | null>(tokenKey(id), async () => {
-                const doc = await kv.get<SealedRun>(tokenKey(id));
-                if (!doc) return null;
-                await kv.del(tokenKey(id));
-                return doc;
-            }, { failClosed: true });
+            const sealed = await kv.get<SealedRun>(tokenKey(id));
             if (!sealed) return res.status(409).json({ error: 'Run token already used or expired.' });
             if (sealed.player !== me) return res.status(403).json({ error: 'Run token belongs to another player.' });
 
@@ -174,12 +168,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             //    the daily rewarded-run cap (re-checked atomically here so abandoned
             //    runs never burn a slot). ─────────────────────────────────────────
             let ryo = 0;
-            if (sealed.rewardEligible && roundsCleared > 0) {
-                const used = await kv.incr(rewardCountKey(me, dayStamp()), { ex: 36 * 3600 });
-                if (used <= REWARDED_RUNS_PER_DAY) {
-                    ryo = sealed.perRound * roundsCleared + (roundsCleared >= sealed.maxRounds ? sealed.clearBonus : 0);
-                }
-            }
             // Premium-currency buys (Fate Shard / Bone Charm) bank ONLY if the run
             // cleared round 9, and at most once/day each (the NX claim flags below).
             // SERVER-AUTHORITATIVE on the COST: the run must have been able to AFFORD
@@ -201,32 +189,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let grantedFateShards = 0;
             let grantedBoneCharms = 0;
             let saveVersion = 0;
+            let balances = { ryo: 0, fateShards: 0, boneCharms: 0 };
+            let saveMissing = false;
+            let settled = false;
             const saveKey = `save:${me}`;
             await withKvLock(saveKey, async () => {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = record?.character as Record<string, unknown> | undefined;
-                if (!record || !char) return;
+                if (!record || !char) { saveMissing = true; return; }
                 saveVersion = Number(record._saveVersion ?? 0);
                 name = String(char.name ?? me).slice(0, 40);
                 if (typeof char.village === 'string') village = char.village;
+                balances = { ryo: Number(char.ryo ?? 0), fateShards: Number(char.fateShards ?? 0), boneCharms: Number(char.boneCharms ?? 0) };
                 // Daily once-per-currency claim via NX; fail CLOSED (a KV hiccup just
                 // means no grant this time — never a double-grant, never a crash).
-                if (wantShard) { try { if (await kv.set(shardClaimKey(me, day), '1', { nx: true, ex: 26 * 3600 }) === 'OK') grantedFateShards = 1; } catch { /* no grant */ } }
-                if (wantCharm) { try { if (await kv.set(charmClaimKey(me, day), '1', { nx: true, ex: 26 * 3600 }) === 'OK') grantedBoneCharms = 1; } catch { /* no grant */ } }
-                if (ryo > 0 || grantedFateShards > 0 || grantedBoneCharms > 0) {
-                    const next = {
-                        ...char,
-                        ryo: Number(char.ryo ?? 0) + ryo,
-                        fateShards: Number(char.fateShards ?? 0) + grantedFateShards,
-                        boneCharms: Number(char.boneCharms ?? 0) + grantedBoneCharms,
-                    };
-                    const updated = bumpSaveVersion({ ...record, character: next });
-                    await kv.set(saveKey, mergePreservingImages(updated, record));
-                    saveVersion = Number((updated as Record<string, unknown>)._saveVersion ?? 0);
+                const receipts = Array.isArray(char.redeemedPetGauntletRuns) ? char.redeemedPetGauntletRuns as Array<Record<string, unknown>> : [];
+                const prior = receipts.find((entry) => entry.token === id);
+                if (prior) {
+                    ryo = Number(prior.ryo ?? 0); grantedFateShards = Number(prior.fateShards ?? 0); grantedBoneCharms = Number(prior.boneCharms ?? 0);
+                    await kv.del(tokenKey(id)).catch(() => undefined);
+                    settled = true; return;
                 }
+                const rewardedToday = char.petGauntletRewardDate === day ? Math.max(0, Number(char.petGauntletRewardCount ?? 0)) : 0;
+                const rewardThisRun = sealed.rewardEligible && roundsCleared > 0 && rewardedToday < REWARDED_RUNS_PER_DAY;
+                ryo = rewardThisRun ? sealed.perRound * roundsCleared + (roundsCleared >= sealed.maxRounds ? sealed.clearBonus : 0) : 0;
+                const premiumToday = char.petGauntletPremiumDate === day;
+                grantedFateShards = wantShard && (!premiumToday || char.petGauntletFateClaimed !== true) ? 1 : 0;
+                grantedBoneCharms = wantCharm && (!premiumToday || char.petGauntletBoneClaimed !== true) ? 1 : 0;
+                const receipt = { token: id, ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms };
+                const next = {
+                    ...char,
+                    ryo: Number(char.ryo ?? 0) + ryo,
+                    fateShards: Number(char.fateShards ?? 0) + grantedFateShards,
+                    boneCharms: Number(char.boneCharms ?? 0) + grantedBoneCharms,
+                    petGauntletRewardDate: day,
+                    petGauntletRewardCount: rewardedToday + (rewardThisRun ? 1 : 0),
+                    petGauntletPremiumDate: day,
+                    petGauntletFateClaimed: (premiumToday && char.petGauntletFateClaimed === true) || grantedFateShards > 0,
+                    petGauntletBoneClaimed: (premiumToday && char.petGauntletBoneClaimed === true) || grantedBoneCharms > 0,
+                    redeemedPetGauntletRuns: [...receipts.slice(-49), receipt],
+                };
+                const updated = bumpSaveVersion({ ...record, character: next });
+                await kv.set(saveKey, mergePreservingImages(updated, record));
+                await kv.del(tokenKey(id)).catch(() => undefined);
+                settled = true;
+                saveVersion = Number((updated as Record<string, unknown>)._saveVersion ?? 0);
+                balances = { ryo: Number(next.ryo), fateShards: Number(next.fateShards), boneCharms: Number(next.boneCharms) };
             }, { failClosed: true });
 
             // ── Update the weekly leaderboard (best-per-player). ────────────────
+            if (saveMissing) return res.status(404).json({ error: 'Player save not found.' });
+            if (!settled) return res.status(503).json({ error: 'Gauntlet result could not be settled. Please retry.' });
             let rank: number | null = null;
             await withKvLock(lbKey(sealed.weekKey), async () => {
                 const list = (await kv.get<LbEntry[]>(lbKey(sealed.weekKey))) ?? [];
@@ -241,7 +254,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 rank = pos >= 0 ? pos + 1 : null;
             }, { failClosed: true });
 
-            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft, _saveVersion: saveVersion });
+            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, balances, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft, _saveVersion: saveVersion });
         }
 
         return res.status(400).json({ error: 'Invalid action.' });

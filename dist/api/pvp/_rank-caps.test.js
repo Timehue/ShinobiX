@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const node_assert_1 = require("node:assert");
 const session_js_1 = require("./session.js");
+const _jutsu_points_js_1 = require("../_jutsu-points.js");
 // P0.1 sub-2 — the server stamps a bloodline's rank onto its jutsu in
 // resolveEquippedLoadout so combat (move.ts woundCapForJutsu / ampTagCapForRank)
 // applies the correct per-rank caps. Authoritative: rank comes from the save's
@@ -53,5 +54,19 @@ const session_js_1 = require("./session.js");
             const out = (0, session_js_1.resolveEquippedLoadout)({ equippedJutsuIds: ['bl-x'] }, bSave, client);
             node_assert_1.strict.equal(out[0].bloodlineRank, 'B Rank');
         });
+    });
+    (0, node_test_1.it)('always enforces the saved bloodline point budget before combat', () => {
+        const jutsus = Array.from({ length: 5 }, (_, i) => ({
+            id: `forged-${i}`,
+            name: 'Forged',
+            ap: 60,
+            range: 4,
+            effectPower: 50,
+            cooldown: 7,
+            tags: [{ name: 'Copy' }, { name: 'Mirror' }, { name: 'Stun' }],
+        }));
+        const forgedSave = { savedBloodlines: [{ rank: 'B Rank', jutsus }] };
+        const out = (0, session_js_1.resolveEquippedLoadout)({ equippedJutsuIds: jutsus.map((j) => j.id) }, forgedSave, {});
+        node_assert_1.strict.ok((0, _jutsu_points_js_1.bloodlinePoints)(out, 'B Rank') <= 7);
     });
 });

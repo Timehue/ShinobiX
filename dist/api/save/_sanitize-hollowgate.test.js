@@ -43,7 +43,7 @@ const sanitize = (incoming, existing) => (0, _name__js_1.sanitizeCharacterSave)(
     strict_1.default.equal(run.serverSeed.length, 64, 'serverSeed capped to 64 chars');
     strict_1.default.ok(run.augmentOffers.length <= 8, 'augmentOffers length capped');
 });
-(0, node_test_1.test)('hollowGateRun: HG currencies are NOT frozen while a run token is open (anti-regression — a freeze zeroes the settle payout)', () => {
+(0, node_test_1.test)('hollowGateRun: HG currency gains wait for authoritative settlement', () => {
     // Load-bearing invariant (docs/hollow-gate-augments.md): the shipped settle is
     // reconcile-DOWN — settleCurrency returns min(current, entry+credit), so it NEEDS
     // the live haul present in the save. If a future change "freezes" HG-currency
@@ -52,8 +52,8 @@ const sanitize = (incoming, existing) => (0, _name__js_1.sanitizeCharacterSave)(
     const out = sanitize(
     // runToken open + a legit in-run accrual (within the +200 hollowShards / +1M ryo per-save caps).
     { hollowShards: 170, ryo: 9000, hollowGateRun: { floor: 3, keys: 1, runToken: 'live-token', entryCurrencies: { hollowShards: 70, ryo: 5000 } } }, { hollowShards: 70, ryo: 5000 });
-    strict_1.default.equal(out.hollowShards, 170, 'shard accrual during an open token run must persist (not frozen to entry) — settle reconciles it down later');
-    strict_1.default.equal(out.ryo, 9000, 'ryo accrual during an open token run must persist (not frozen)');
+    strict_1.default.equal(out.hollowShards, 70, 'generic saves cannot pre-credit server-settled shards');
+    strict_1.default.equal(out.ryo, 5000, 'generic saves cannot pre-credit server-settled ryo');
 });
 (0, node_test_1.test)('hollowGateRun: a legit short token + 3 offers pass through unchanged', () => {
     const out = sanitize({ hollowGateRun: { floor: 2, keys: 0, entryCurrencies: {}, runToken: 'abc123', augmentOffers: [{ id: 'keen-edge' }, { id: 'greedy-pact' }, { id: 'warded-step' }] } }, {});
@@ -61,10 +61,10 @@ const sanitize = (incoming, existing) => (0, _name__js_1.sanitizeCharacterSave)(
     strict_1.default.equal(run.runToken, 'abc123', 'short token untouched');
     strict_1.default.equal(run.augmentOffers.length, 3, 'three offers untouched');
 });
-(0, node_test_1.test)('hollow-gate-key: per-save GAIN capped above the existing stack', () => {
+(0, node_test_1.test)('hollow-gate-key: generic saves cannot mint keys', () => {
     const out = sanitize({ itemStacks: [{ itemId: 'hollow-gate-key', count: 9999 }] }, { itemStacks: [{ itemId: 'hollow-gate-key', count: 2 }] });
     const keys = out.itemStacks.find(s => s.itemId === 'hollow-gate-key');
-    strict_1.default.equal(keys?.count, 12, '2 existing + 10 per-save gain cap');
+    strict_1.default.equal(keys?.count, 2, 'stored key entitlement is preserved exactly');
 });
 (0, node_test_1.test)('legit HollowGate save passes through unchanged', () => {
     const out = sanitize({
@@ -76,7 +76,7 @@ const sanitize = (incoming, existing) => (0, _name__js_1.sanitizeCharacterSave)(
     strict_1.default.equal(out.hollowGateAttunement['greedy-hands'], 2, 'legit rank (<= maxRank 3) untouched');
     strict_1.default.equal(out.hollowGateRun.entryCurrencies.ryo, 4000, 'legit entry snapshot untouched');
     const keys = out.itemStacks.find(s => s.itemId === 'hollow-gate-key');
-    strict_1.default.equal(keys?.count, 3, 'legit key gain 1->3 within cap, untouched');
+    strict_1.default.equal(keys?.count, 1, 'key gains require the authoritative forge endpoint');
 });
 const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's SERVER_UTC_DATE
 (0, node_test_1.test)('dailyHollowGateRuns: a forged reset to 0 within the same UTC day is floored to the server count', () => {
@@ -98,16 +98,17 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
 (0, node_test_1.test)('level: cannot regress below the existing level (anti-rollback)', () => {
     strict_1.default.equal(sanitize({ level: 40 }, { level: 50 }).level, 50, 'a save reporting a lower level is floored to existing');
 });
-(0, node_test_1.test)('level: per-save gain capped at +5 and hard-capped at 100', () => {
-    strict_1.default.equal(sanitize({ level: 999 }, { level: 50 }).level, 55, 'gain capped to +MAX_LEVEL_GAIN (5)');
-    strict_1.default.equal(sanitize({ level: 999 }, { level: 98 }).level, 100, 'hard-capped at LEVEL_CAP (100)');
+(0, node_test_1.test)('level: generic saves cannot originate a gain', () => {
+    strict_1.default.equal(sanitize({ level: 999 }, { level: 50 }).level, 50);
+    strict_1.default.equal(sanitize({ level: 999 }, { level: 98 }).level, 98);
 });
-(0, node_test_1.test)('ryo: per-save gain capped at +1,000,000 over existing', () => {
-    strict_1.default.equal(sanitize({ ryo: 9_999_999 }, { ryo: 1000 }).ryo, 1_001_000, 'capped to exRyo + MAX_RYO_GAIN');
+(0, node_test_1.test)('ryo: generic saves may spend but cannot originate a gain', () => {
+    strict_1.default.equal(sanitize({ ryo: 9_999_999 }, { ryo: 1000 }).ryo, 1000);
+    strict_1.default.equal(sanitize({ ryo: 900 }, { ryo: 1000 }).ryo, 900);
 });
-(0, node_test_1.test)('soft currencies: per-save gain capped (fateShards +50, honorSeals +200)', () => {
-    strict_1.default.equal(sanitize({ fateShards: 9999 }, { fateShards: 10 }).fateShards, 60, 'fateShards capped to +50');
-    strict_1.default.equal(sanitize({ honorSeals: 9999 }, { honorSeals: 5 }).honorSeals, 205, 'honorSeals capped to +200');
+(0, node_test_1.test)('soft currencies: generic saves may spend but cannot originate gains', () => {
+    strict_1.default.equal(sanitize({ fateShards: 9999 }, { fateShards: 10 }).fateShards, 10);
+    strict_1.default.equal(sanitize({ honorSeals: 9999 }, { honorSeals: 5 }).honorSeals, 5);
 });
 // ── audit #1: mission/hunt daily-cap flooring + reset monotonicity + academy latch ──
 // claim-mission writes ryo + premium currency under the save lock (bypassing the
@@ -136,32 +137,48 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
     strict_1.default.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: true }).academyTrialClaimed, true, 'cannot revert to false');
     strict_1.default.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: false }).academyTrialClaimed, false, 'not-yet-claimed stays false');
 });
+(0, node_test_1.test)('Mythic Seals: generic saves may spend but cannot mint server-issued seals', () => {
+    strict_1.default.equal(sanitize({ mythicSeals: 9999 }, { mythicSeals: 7 }).mythicSeals, 7, 'client increase is rejected');
+    strict_1.default.equal(sanitize({ mythicSeals: 3 }, { mythicSeals: 7 }).mythicSeals, 3, 'legitimate client-side crafting spend remains allowed');
+});
+(0, node_test_1.test)('creator items: persisted weapon EP matches the authoritative combat ceiling', () => {
+    const out = (0, _name__js_1.sanitizeCharacterSave)({
+        character: { name: 'Audit' },
+        creatorItems: [
+            { id: 'forged-weapon', slot: 'hand', weaponEp: 999_999 },
+            { id: 'legit-named-weapon', slot: 'hand', weaponEp: 35 },
+        ],
+    }, { character: { name: 'Audit' }, creatorItems: [] });
+    strict_1.default.equal(out.creatorItems[0].weaponEp, 60, 'forged EP clamps to the PvP ceiling');
+    strict_1.default.equal(out.creatorItems[1].weaponEp, 35, 'legitimate named-weapon EP is unchanged');
+});
 (0, node_test_1.test)('pendingCombatMissionClaims: client saves preserve server-owned claims but cannot mint or clear them', () => {
     const minted = sanitize({ level: 50, pendingCombatMissionClaims: ['combat-d-errand'] }, { level: 50, pendingCombatMissionClaims: [] });
     strict_1.default.deepEqual(minted.pendingCombatMissionClaims, [], 'client cannot add a combat claim flag');
     const preserved = sanitize({ level: 50, pendingCombatMissionClaims: [] }, { level: 50, pendingCombatMissionClaims: ['combat-d-errand'] });
     strict_1.default.deepEqual(preserved.pendingCombatMissionClaims, ['combat-d-errand'], 'client cannot clear a server-queued flag');
 });
-(0, node_test_1.test)('hollowGateWardenKills: per-save gain clamped to +3 (audit #10 — weekly-board counter)', () => {
-    strict_1.default.equal(sanitize({ hollowGateWardenKills: 9999 }, { hollowGateWardenKills: 4 }).hollowGateWardenKills, 7, 'capped to existing + 3');
+(0, node_test_1.test)('hollowGateWardenKills: generic saves cannot advance the weekly-board counter', () => {
+    strict_1.default.equal(sanitize({ hollowGateWardenKills: 9999 }, { hollowGateWardenKills: 4 }).hollowGateWardenKills, 4, 'frozen to the stored server value');
 });
 // ── audit #3 / #14: bloodline jutsu effectPower clamped to the legit ceiling (50), AP floored at 40 ──
 // Legit bloodline effectPower is always {0, 40, 50} (lib/bloodline-templates.ts:87)
 // and AP is 40/60/80 — so the clamp neutralizes a forged ~4x nuke while leaving every
 // honest bloodline untouched.
+const sanitizeGrandfatheredBloodline = (bloodline) => sanitize({ savedBloodlines: [bloodline] }, { savedBloodlines: [{ id: bloodline.id, rank: bloodline.rank, jutsus: [] }] });
 (0, node_test_1.test)('savedBloodlines: a forged jutsu effectPower 200 / ap 1 is clamped to 50 / 40', () => {
-    const out = sanitize({ savedBloodlines: [{ rank: 'A Rank', jutsus: [{ id: 'bl-1', effectPower: 200, ap: 1 }] }] }, {});
+    const out = sanitizeGrandfatheredBloodline({ id: 'existing-forged', rank: 'A Rank', jutsus: [{ id: 'bl-1', effectPower: 200, ap: 1 }] });
     const j = out.savedBloodlines[0].jutsus[0];
     strict_1.default.equal(j.effectPower, 50, 'effectPower clamped to the legit nuke ceiling 50');
     strict_1.default.equal(j.ap, 40, 'ap floored to 40');
 });
 (0, node_test_1.test)('savedBloodlines: legit jutsu (nuke 50@60, standard 40@60, utility 0@40, 40@80) pass through unchanged', () => {
-    const out = sanitize({ savedBloodlines: [{ rank: 'S Rank', jutsus: [
-                    { id: 'n', effectPower: 50, ap: 60 },
-                    { id: 's', effectPower: 40, ap: 60 },
-                    { id: 'u', effectPower: 0, ap: 40 },
-                    { id: 'big', effectPower: 40, ap: 80 },
-                ] }] }, {});
+    const out = sanitizeGrandfatheredBloodline({ id: 'existing-legit', rank: 'S Rank', jutsus: [
+            { id: 'n', effectPower: 50, ap: 60 },
+            { id: 's', effectPower: 40, ap: 60 },
+            { id: 'u', effectPower: 0, ap: 40 },
+            { id: 'big', effectPower: 40, ap: 80 },
+        ] });
     const js = out.savedBloodlines[0].jutsus;
     strict_1.default.deepEqual([js[0].effectPower, js[0].ap], [50, 60], 'nuke untouched');
     strict_1.default.deepEqual([js[1].effectPower, js[1].ap], [40, 60], 'standard untouched');
@@ -170,9 +187,9 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
 });
 // ── audit #16: bloodline name/lore + jutsu name/battleDescription go through text moderation ──
 (0, node_test_1.test)('savedBloodlines: name/lore + jutsu name/battleDescription run through the text sanitizer + length caps', () => {
-    const out = sanitize({ savedBloodlines: [{ rank: 'B Rank',
-                name: 'X'.repeat(200), lore: 'Y'.repeat(900),
-                jutsus: [{ id: 'j', name: 'Z'.repeat(200), battleDescription: 'W'.repeat(900) }] }] }, {});
+    const out = sanitizeGrandfatheredBloodline({ id: 'existing-text', rank: 'B Rank',
+        name: 'X'.repeat(200), lore: 'Y'.repeat(900),
+        jutsus: [{ id: 'j', name: 'Z'.repeat(200), battleDescription: 'W'.repeat(900) }] });
     const bl = out.savedBloodlines[0];
     strict_1.default.ok(bl.name.length <= 80, 'bloodline name capped to storyName limit (80)');
     strict_1.default.ok(bl.lore.length <= 600, 'bloodline lore capped to description limit (600)');
@@ -180,16 +197,16 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
     strict_1.default.ok(bl.jutsus[0].battleDescription.length <= 600, 'jutsu battleDescription capped');
 });
 (0, node_test_1.test)('savedBloodlines: a clean short bloodline name/lore is preserved verbatim', () => {
-    const out = sanitize({ savedBloodlines: [{ rank: 'A Rank', name: 'Crimson Veil', lore: 'An old desert clan technique.', jutsus: [] }] }, {});
+    const out = sanitizeGrandfatheredBloodline({ id: 'existing-clean', rank: 'A Rank', name: 'Crimson Veil', lore: 'An old desert clan technique.', jutsus: [] });
     const bl = out.savedBloodlines[0];
     strict_1.default.equal(bl.name, 'Crimson Veil', 'clean name untouched');
     strict_1.default.equal(bl.lore, 'An old desert clan technique.', 'clean lore untouched');
 });
 // ── audit #17: bankRyo clamped to a depositable ceiling (can't conjure bank principal) ──
-(0, node_test_1.test)('bankRyo: forged inflation clamped to exBank + exRyo + MAX_RYO_GAIN; legit deposits untouched', () => {
-    strict_1.default.equal(sanitize({ bankRyo: 999_000_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 1_005_000, 'conjured bankRyo clamped to the depositable ceiling');
-    strict_1.default.equal(sanitize({ bankRyo: 5_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 5_000, 'legit full deposit of held ryo untouched');
-    strict_1.default.equal(sanitize({ bankRyo: 10_000_000, ryo: 0 }, { bankRyo: 10_000_000, ryo: 0 }).bankRyo, 10_000_000, 'standing bank balance untouched');
+(0, node_test_1.test)('bankRyo and interest timestamp are immutable through generic saves', () => {
+    const out = sanitize({ bankRyo: 999_000_000, lastBankInterestAt: 9_999_999, ryo: 0 }, { bankRyo: 5_000, lastBankInterestAt: 123_456, ryo: 5_000 });
+    strict_1.default.equal(out.bankRyo, 5_000);
+    strict_1.default.equal(out.lastBankInterestAt, 123_456);
 });
 // ── Hospital discharge-race guard ───────────────────────────────────────────
 // A paid discharge / Healer heal / free checkout clears `hospitalized` server-

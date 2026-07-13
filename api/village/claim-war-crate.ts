@@ -119,19 +119,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const outcome = await withKvLock(saveKey, async () => {
             const fresh = await kv.get<Record<string, unknown>>(saveKey);
             const c = (fresh?.character ?? null) as Record<string, unknown> | null;
-            if (!fresh || !c) return { granted: false as const, reason: 'no-save' };
+            if (!fresh || !c) return { granted: false as const, reason: 'no-save', character: null };
             const side = String((parsed.kind === 'village' ? c.village : c.clan) ?? '').trim();
             const claimed = Array.isArray(c.claimedWarCrateIds) ? (c.claimedWarCrateIds as unknown[]).map(String) : [];
             const decision = warCrateClaimDecision(war, warCrateId, side, claimed, Date.now());
-            if (!decision.granted) return { ...decision, _saveVersion: Number(fresh._saveVersion ?? 0) };
+            if (!decision.granted) return { ...decision, character: c, _saveVersion: Number(fresh._saveVersion ?? 0) };
             const inventory = Array.isArray(c.inventory) ? [...(c.inventory as unknown[])] : [];
             inventory.push(LEGENDARY_WAR_CRATE_ID);
+            const nextCharacter = { ...c, inventory, claimedWarCrateIds: [...claimed, warCrateId] };
             const updated = bumpSaveVersion({
                 ...fresh,
-                character: { ...c, inventory, claimedWarCrateIds: [...claimed, warCrateId] },
+                character: nextCharacter,
             });
             await kv.set(saveKey, mergePreservingImages(updated, fresh));
-            return { granted: true as const, reason: 'granted', _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
+            return { granted: true as const, reason: 'granted', character: nextCharacter, _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
         }, { failClosed: true });
 
         // Legacy tracking (ENABLE_LEGACY): a granted crate proves a won war.

@@ -7,6 +7,7 @@
  * the auth headers. The session types mirror the server's TowerSession shape (the repo
  * duplicates server↔client combat types the same way for PvP).
  */
+import type { Character } from '../types/character';
 
 export type TowerSide = 'squad' | 'enemy' | 'npc';
 
@@ -153,6 +154,8 @@ export type TowerSettleResponse = {
     winner: TowerSession['winner'];
     results: Record<string, TowerSettleResult>;
     consumables?: Record<string, TowerConsumedItemsResult>;
+    character?: Character | null;
+    _saveVersion?: number;
 };
 
 export type TowerFloorMeta = {

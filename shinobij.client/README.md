@@ -1,73 +1,68 @@
-# React + TypeScript + Vite
+# Shinobi Journey Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the Vite/React client for ShinobiX. The public game UI currently uses
+the **Shinobi Journey** brand while the repository and backend package use the
+**ShinobiX** name.
 
-Currently, two official plugins are available:
+![Client demo preview](../docs/screenshots/demo.gif)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What This Client Contains
 
-## React Compiler
+- Cinematic landing page, login, character creator, and guide/leaderboard entry
+  points.
+- Main game shell with profile, currencies, menu navigation, mobile nav, and
+  save/logout flow.
+- Core play screens for village, missions, training, jutsu, inventory, combat,
+  PvP, towers, pets, clans, professions, card clash, world map, and late-game
+  systems.
+- Local development API middleware for saves, auth, presence, village guard,
+  and image-generation endpoints.
+- Client-side tests for stats, progression, jutsu, inventory, combat UI helpers,
+  pets, towers, Hollow Gate, cards, notifications, and beta guards.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Requirements
 
-## Expanding the ESLint configuration
+- Node.js 22 or newer.
+- Root dependencies installed if you are running the full repo build.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Local Development
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd shinobij.client
+npm ci
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The dev server starts on a local HTTPS URL, usually:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+https://127.0.0.1:5173/
 ```
+
+Vite may create or reuse a local development certificate.
+
+## Scripts
+
+```bash
+npm run dev      # Start Vite locally
+npm run build    # Type-check and build the client
+npm run lint     # Run ESLint
+npm run preview  # Preview the production build
+```
+
+## Screenshots
+
+Repository media lives in `../docs/screenshots/`.
+
+| Character creation | Tactical combat |
+| --- | --- |
+| ![Character creator](../docs/screenshots/character-creator.png) | ![Combat screen](../docs/screenshots/combat.png) |
+
+## Notes For Contributors
+
+- Keep game screenshots grounded in real local or staging captures.
+- Prefer existing screen and UI patterns before adding new visual systems.
+- Treat combat, rewards, currency, saves, and creator tools as
+  balance-sensitive surfaces.
+- Run the focused client tests for any change touching `src/lib`, combat UI,
+  progression, or save behavior.

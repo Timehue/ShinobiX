@@ -12,7 +12,7 @@ import { CLAN_UPGRADE_DEFS, clanUpgradeCost, isClanUpgradeMaxed } from "../lib/c
 import type { Character } from "../types/character";
 import { ClanImageMark } from "../components/Marks";
 import { gameConfirm } from "../components/GameAlert";
-import type { ClanJoinRequest, ClanMemberEntry, ClanRole, ClanTreasury, ClanTreasuryCurrencyKey, ClanUpgradeKey, ClanWarRecord, EnhancedClanData, NoticePostType } from "../types/clan";
+import type { ClanJoinRequest, ClanMemberEntry, ClanRole, ClanTreasury, ClanTreasuryCurrencyKey, ClanUpgradeKey, EnhancedClanData, NoticePostType } from "../types/clan";
 import { ClanSealPool } from "../screens/ClanSealPool";
 import { ClanRankings } from "./ClanRankings";
 import { ClanBoss } from "./ClanBoss";
@@ -29,22 +29,22 @@ import { DoctrineCrest } from "../components/DoctrineCrest";
 import { ClanHallTierArt } from "../components/ClanHallTierArt";
 import { ClanUpgradeIcon } from "../components/ClanUpgradeIcon";
 import { fetchMentorView, assignStudent, claimMentor, releaseStudent, MENTOR_MILESTONE_LABEL, type MentorView } from "../lib/clan-mentor";
-import { addClanXp, canManageClan, clanBoostTiers, clanContribTotal, clanHallTier, clanMemberBoostPercent, clanRoleOf, clanUpgradeBonus, clanXpNeeded, cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
+import { canManageClan, clanBoostTiers, clanContribTotal, clanHallTier, clanMemberBoostPercent, clanRoleOf, clanXpNeeded, cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
 import { clanLore } from "../data/clan-lore";
 import { postClanTreasuryDonation, postClanUpgradePurchase, postClanKick, fetchClaimedClanMissions, postClanMissionClaim } from "../lib/player-api";
 import { clampNumber } from "../lib/utils";
 import { clanSlug, fetchClanData, fetchClanDataDetailed, postGuardQueue, writeClanData } from "../lib/clan-api";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
-import { removeItem, ownsItem } from "../lib/inventory";
+import { ownsItem } from "../lib/inventory";
 import { getTownDefenseGuardBonus } from "../lib/village-upgrades";
 import { makeNoticePost, normalizeNoticePosts, noticeTypeLabel } from "../lib/clan-notices";
 import { readImageFile } from "../lib/shared-images";
-import { villageForOutskirtsSector, villages } from "../data/sectors";
+import { villageForOutskirtsSector } from "../data/sectors";
 import { weatherEffects } from "../data/world";
 import { ClanWarsPanel } from "../components/ClanWarsPanel";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { ClanExchange } from "../components/ClanExchange";
-import { applyWarCrateGrants, claimPendingWarCrates, claimServerWarCrates, clanOwnedTerritories, clanTerritoryStartingScore, clanTerritoryWarMultiplier, damageSectorTerritory, grantTerritoryScrolls, isVillageAnbu, loadAllSectorTerritories, loadSectorTerritory, removeTerritoryScrolls, saveSectorTerritory, sectorRaidDamageAmount, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
+import { applyWarCrateGrants, claimPendingWarCrates, claimServerWarCrates, clanOwnedTerritories, clanTerritoryStartingScore, clanTerritoryWarMultiplier, isVillageAnbu, loadAllSectorTerritories, loadSectorTerritory, saveSectorTerritory, sectorRaidDamageAmount, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
 
 export function ClanHall({ character, updateCharacter, creatorItems, setScreen, towerHostLoadout, sharedImages, onRecordBattle }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; creatorItems: GameItem[]; setScreen: (s: Screen) => void; towerHostLoadout?: TowerHostLoadout; sharedImages?: Record<string, string>; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
@@ -239,8 +239,8 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         const r = await claimMentor(character.name, student);
         if (!r.ok) return alert(r.error ?? "Could not claim mentor rewards.");
         if (r.claimed === 0) { fetchMentorView(character.name).then(setMentorView); return alert("No new milestones to claim yet."); }
-        if (r.character) updateCharacter(r.character);
-        else updateCharacter((prev) => prev ? ({ ...prev, honorSeals: (prev.honorSeals ?? 0) + r.seals, clanEventContrib: (prev.clanEventContrib ?? 0) + r.contrib }) : prev);
+        if (!r.character) return alert('The mentor reward was not committed; retry after the server reconnects.');
+        updateCharacter(r.character);
         fetchMentorView(character.name).then(setMentorView);
         alert(`Mentor reward for ${student}'s progress: +${r.seals} Honor Seals, +${r.contrib} clan contribution.`);
     }
@@ -399,13 +399,10 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         if (!clanData) return; const amount = Math.max(1, Math.floor(donation)); if (character.ryo < amount) return alert("Not enough ryo.");
         setDonateBusy(true);
         try {
-            const treasury = await postClanTreasuryDonation(character.name, clanData.name, { currency: "ryo", amount });
-            if (!treasury) return;
-            await saveClan(addClanXp({ ...clanData, treasury: cleanClanTreasury(treasury as Partial<ClanTreasury>) }, Math.floor(amount / 35)));
-            // Functional updater: deduct off the LATEST character so a concurrent
-            // change isn't clobbered by the stale render capture.
-            const contrib = Math.max(1, Math.floor(amount / 1000));
-            updateCharacter((prev) => prev ? ({ ...prev, ryo: prev.ryo - amount, clanEventContrib: (prev.clanEventContrib ?? 0) + contrib }) : prev);
+            const result = await postClanTreasuryDonation(character.name, clanData.name, { currency: "ryo", amount });
+            if (!result) return;
+            setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
+            updateCharacter(result.character);
         } finally {
             setDonateBusy(false);
         }
@@ -415,11 +412,10 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         if (!clanData) return; const current = character[currency] ?? 0; if (current < amount) return alert(`Not enough ${currency}.`);
         setDonateBusy(true);
         try {
-            const treasury = await postClanTreasuryDonation(character.name, clanData.name, { currency, amount });
-            if (!treasury) return;
-            await saveClan(addClanXp({ ...clanData, treasury: cleanClanTreasury(treasury as Partial<ClanTreasury>) }, amount * 200));
-            // Functional updater: deduct off the LATEST character, not the stale capture.
-            updateCharacter((prev) => prev ? ({ ...prev, [currency]: (prev[currency] ?? 0) - amount, clanEventContrib: (prev.clanEventContrib ?? 0) + amount } as Character) : prev);
+            const result = await postClanTreasuryDonation(character.name, clanData.name, { currency, amount });
+            if (!result) return;
+            setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
+            updateCharacter(result.character);
         } finally {
             setDonateBusy(false);
         }
@@ -431,12 +427,10 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         if (!ownsItem(character, clanDonateItemId)) return alert("You do not have that item.");
         setDonateBusy(true);
         try {
-            const treasury = await postClanTreasuryDonation(character.name, clanData.name, { itemId: clanDonateItemId });
-            if (!treasury) return;
-            await saveClan(addClanXp({ ...clanData, treasury: cleanClanTreasury(treasury as Partial<ClanTreasury>) }, 50));
-            // Functional updater: remove the item off the LATEST character, not the stale capture.
-            const itemId = clanDonateItemId;
-            updateCharacter((prev) => prev ? ({ ...removeItem(prev, itemId, 1), clanEventContrib: (prev.clanEventContrib ?? 0) + 1 }) : prev);
+            const result = await postClanTreasuryDonation(character.name, clanData.name, { itemId: clanDonateItemId });
+            if (!result) return;
+            setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
+            updateCharacter(result.character);
         } finally {
             setDonateBusy(false);
         }
@@ -448,11 +442,10 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         if (count <= 0) return alert("You do not have any Territory Control Scrolls.");
         setDonateBusy(true);
         try {
-            const treasury = await postClanTreasuryDonation(character.name, clanData.name, { itemId: TERRITORY_CONTROL_SCROLL_ID, count });
-            if (!treasury) return;
-            await saveClan(addClanXp({ ...clanData, treasury: cleanClanTreasury(treasury as Partial<ClanTreasury>) }, count * 20));
-            // Functional updater: remove the scrolls off the LATEST character, not the stale capture.
-            updateCharacter((prev) => prev ? ({ ...removeTerritoryScrolls(prev, count), clanEventContrib: (prev.clanEventContrib ?? 0) + count }) : prev);
+            const result = await postClanTreasuryDonation(character.name, clanData.name, { itemId: TERRITORY_CONTROL_SCROLL_ID, count });
+            if (!result) return;
+            setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
+            updateCharacter(result.character);
             alert(`Donated ${count} Territory Control Scroll${count === 1 ? "" : "s"} to the clan hall.`);
         } finally {
             setDonateBusy(false);
@@ -516,17 +509,6 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, clanSendItemId) } }));
         alert(`Sent ${itemDisplayName(clanSendItemId, allClanItems)} to ${clanSendPlayer}.`);
     }
-    // Legacy scripted clan-war helpers — superseded by the live /api/clan/war/*
-    // endpoints. Kept in case the maintainer wants the bot-clan fallback mode
-    // back; underscore-prefixed to silence lint.
-    async function _startClanWar() {
-        if (!clanData) return; if (clanData.activeWar) return alert("Your clan already has an active war.");
-        const rivals = ["Iron Lanterns", "Black Rain Circle", "Crimson Market Ronin", "White Ridge Pack"];
-        await saveClan({ ...clanData, activeWar: { opponentClan: rivals[(clanData.warHistory.length + clanData.level) % rivals.length], enemyVillage: villages[(villages.indexOf(character.village) + 1) % villages.length], ourScore: clanTerritoryStartingScore(clanData.name), enemyScore: 0, startedAt: Date.now(), endsAt: Date.now() + 48 * 60 * 60 * 1000 } });
-    }
-    void _startClanWar;
-    async function _addWarScore(points: number) { if (!clanData?.activeWar) return; const boosted = Math.max(1, Math.round(points * (1 + clanUpgradeBonus(clanData, "warRoom") / 100) * clanTerritoryWarMultiplier(clanData.name))); await saveClan({ ...clanData, activeWar: { ...clanData.activeWar, ourScore: clanData.activeWar.ourScore + boosted, enemyScore: clanData.activeWar.enemyScore + Math.floor(points / 2) } }); updateCharacter({ ...character, auraDust: (character.auraDust ?? 0) + Math.max(1, points) }); }
-    void _addWarScore;
     async function purchaseUpgrade(key: ClanUpgradeKey) {
         if (!clanData) return;
         setUpgradeBusy(key);
@@ -570,17 +552,6 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         });
     }
     void _spendWarSupplyOnActiveWar;
-    async function _resolveClanWar() {
-        if (!clanData?.activeWar) return; const war = clanData.activeWar; const result: ClanWarRecord["result"] = war.ourScore > war.enemyScore ? "Won" : war.ourScore < war.enemyScore ? "Lost" : "Draw";
-        const now = Date.now();
-        const record: ClanWarRecord = { opponent: war.opponentClan, result, finalScore: `${war.ourScore} - ${war.enemyScore}`, topAttacker: character.name, topDefender: character.guardQueued ? character.name : "Village Guard", mvpClan: result === "Won" ? clanData.name : result === "Lost" ? war.opponentClan : "None", reward: result === "Won" ? "4,000 ryo / 800 Clan XP / War Crate (all members)" : result === "Draw" ? "1,500 ryo / 300 Clan XP" : "250 Clan XP", date: new Date().toLocaleDateString(), endedAt: now, warCrateId: result === "Won" ? `clan-crate-${clanData.name}-${now}` : undefined };
-        if (result === "Lost") loadAllSectorTerritories().filter(territory => territory.ownerClan === clanData.name).slice(0, 1).forEach(territory => damageSectorTerritory(territory.sector, 10000));
-        await saveClan(addClanXp({ ...clanData, activeWar: undefined, warHistory: [record, ...clanData.warHistory].slice(0, 12), treasury: { ...clanData.treasury, ryo: clanData.treasury.ryo + (result === "Won" ? 4000 : result === "Draw" ? 1500 : 0) } }, result === "Won" ? 800 : result === "Draw" ? 300 : 250));
-        // Territory scrolls + aura dust still go to the player who ends the war.
-        // The war crate itself is now distributed to ALL members via claimPendingWarCrates.
-        if (result === "Won") updateCharacter({ ...grantTerritoryScrolls(character, 25), auraDust: (character.auraDust ?? 0) + 5 });
-    }
-    void _resolveClanWar;
     function refreshTerritoryPanel() { setTerritoryRefresh(value => value + 1); }
     async function donateTerritoryScrolls(sector: number, count = 1) {
         if (!clanData) return;

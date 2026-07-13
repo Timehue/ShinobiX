@@ -1,0 +1,1553 @@
+/* =============================================================================
+   THE VEILED STEEL UI SYSTEM
+   Final player-facing presentation layer. It is intentionally imported after
+   the legacy skins so one coherent material, type, state, and shell language
+   reaches every route while screen-by-screen markup migration continues.
+   ============================================================================= */
+
+:root {
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html,
+body,
+#root {
+  background: var(--sj-void);
+}
+
+body {
+  color: var(--sj-text-primary);
+  font-family: var(--font-body);
+}
+
+html body.ui-scroll-locked {
+  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+}
+
+.app-shell:not(.screen-start) {
+  --village-accent: var(--sj-spirit);
+  --village-accent-soft: var(--sj-spirit-bright);
+  color: var(--sj-text-primary);
+  font-family: var(--font-body);
+}
+
+.app-shell[data-village*="Ashen"] {
+  --village-accent: var(--village-ashen);
+  --village-accent-soft: var(--village-ashen-soft);
+}
+
+.app-shell[data-village*="Stormveil"] {
+  --village-accent: var(--village-storm);
+  --village-accent-soft: var(--village-storm-soft);
+}
+
+.app-shell[data-village*="Frostfang"] {
+  --village-accent: var(--village-frost);
+  --village-accent-soft: var(--village-frost-soft);
+}
+
+.app-shell[data-village*="Moonshadow"] {
+  --village-accent: var(--village-moon);
+  --village-accent-soft: var(--village-moon-soft);
+}
+
+.app-shell:not(.screen-start) :where(h1, h2, h3, h4) {
+  color: var(--sj-text-primary);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.035em;
+  text-wrap: balance;
+}
+
+.app-shell:not(.screen-start) :where(
+  .stat-box,
+  .left-profile-stat,
+  .resource-line,
+  .profile-dossier-row,
+  .stat-current,
+  .stat-max,
+  .stack-count,
+  .equip-slot-count,
+  time
+) {
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shell:not(.screen-start) :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--sj-spirit-bright);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(116, 173, 189, 0.16);
+}
+
+.app-shell:not(.screen-start) .app-background {
+  filter: saturate(0.72) contrast(1.06) brightness(0.66);
+}
+
+.app-shell:not(.screen-start)::after {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(90deg, rgba(8, 11, 15, 0.76), transparent 22%, transparent 78%, rgba(8, 11, 15, 0.74)),
+    radial-gradient(circle at 50% 0%, rgba(116, 173, 189, 0.06), transparent 38%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,0.009) 0 1px, transparent 1px 8px);
+}
+
+/* ---------------------------------------------------------- application shell */
+
+.app-shell:not(.screen-start) .left-profile-card,
+.app-shell:not(.screen-start) .right-menu-panel {
+  border-color: var(--sj-border-soft);
+  background-color: rgba(10, 15, 20, 0.94);
+  background-blend-mode: multiply, normal;
+  box-shadow: inset 0 1px 0 var(--sj-border-faint), 0 18px 46px rgba(0, 0, 0, 0.32);
+}
+
+.app-shell:not(.screen-start) .left-profile-card {
+  border-right: 1px solid color-mix(in srgb, var(--village-accent) 48%, var(--sj-border-soft));
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.app-shell:not(.screen-start) .left-profile-card > * {
+  max-width: 100%;
+}
+
+.app-shell:not(.screen-start) .next-goal-pin-compact {
+  align-self: stretch;
+  flex: 0 0 auto;
+  inline-size: auto !important;
+  max-inline-size: none !important;
+  margin-inline: 0 !important;
+  overflow: hidden;
+}
+
+.app-shell:not(.screen-start) .next-goal-pin-compact__heading,
+.app-shell:not(.screen-start) .next-goal-pin-compact__body {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.app-shell:not(.screen-start) .next-goal-pin-compact__close {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+.app-shell:not(.screen-start) .next-goal-pin-compact__body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app-shell:not(.screen-start) .right-menu-panel {
+  border-left: 1px solid color-mix(in srgb, var(--village-accent) 42%, var(--sj-border-soft));
+}
+
+.app-shell:not(.screen-start) .left-profile-avatar {
+  border: 1px solid color-mix(in srgb, var(--village-accent-soft) 62%, var(--sj-border-strong));
+  border-radius: var(--r-sm);
+  background: var(--sj-surface-low);
+  box-shadow: inset 0 0 0 4px rgba(8, 11, 15, 0.75), 0 12px 28px rgba(0, 0, 0, 0.36);
+}
+
+.app-shell:not(.screen-start) .left-profile-name {
+  color: var(--sj-text-primary);
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+}
+
+.app-shell:not(.screen-start) .left-profile-rank,
+.app-shell:not(.screen-start) .left-profile-stat {
+  color: var(--sj-text-secondary);
+}
+
+.app-shell:not(.screen-start) .right-menu-panel h3 {
+  margin: var(--space-3, 12px) 0 var(--space-2, 8px);
+  color: var(--sj-gold-bright);
+  font-size: 0.78rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.app-shell:not(.screen-start) .right-menu-header-row > button,
+.app-shell:not(.screen-start) .right-menu-buttons button {
+  min-height: 38px;
+  color: var(--sj-text-secondary);
+  font-family: var(--font-body);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  background: linear-gradient(180deg, rgba(41, 55, 68, 0.78), rgba(18, 24, 32, 0.9));
+  border: 1px solid var(--sj-border-soft);
+  border-radius: var(--r-xs);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.045);
+  transition:
+    color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    background var(--motion-fast) ease,
+    transform var(--motion-instant) ease;
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons button:hover {
+  color: var(--sj-text-primary);
+  border-color: color-mix(in srgb, var(--village-accent-soft) 56%, var(--sj-border-soft));
+  background: linear-gradient(180deg, rgba(49, 65, 79, 0.92), rgba(25, 34, 44, 0.96));
+  transform: translateY(-1px);
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons button[aria-current="page"] {
+  color: var(--sj-text-primary);
+  border-color: color-mix(in srgb, var(--village-accent-soft) 70%, var(--sj-border-strong));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--village-accent) 26%, transparent), transparent 72%),
+    var(--sj-surface-high);
+  box-shadow: inset 3px 0 var(--village-accent-soft), inset 0 1px rgba(255,255,255,0.06);
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons button > svg {
+  color: var(--village-accent-soft);
+  filter: none;
+}
+
+.app-shell:not(.screen-start) .center-game {
+  color: var(--sj-text-primary);
+  background-color: rgba(8, 11, 15, 0.54);
+}
+
+/* Fight boards replace the application rails with their own combat HUD. Once
+   that chrome is hidden, release both reserved gutters so the board can use the
+   entire shell width instead of staying trapped in the desktop center column. */
+.app-shell:not(.screen-start) .center-game.battle-focus {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* The journey banner becomes a persistent, contextual command header. */
+.app-shell:not(.screen-start) .journey-banner {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-height: 110px;
+  overflow: hidden;
+  border: 1px solid var(--sj-border-soft);
+  border-radius: var(--r-sm);
+  background-color: var(--sj-surface-low);
+  background-blend-mode: luminosity;
+  box-shadow: inset 0 1px var(--sj-border-faint), 0 10px 28px rgba(0, 0, 0, 0.2);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.app-shell:not(.screen-start) .journey-banner::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  content: "";
+  background:
+    linear-gradient(90deg, rgba(8, 11, 15, 0.98) 0%, rgba(13, 18, 24, 0.88) 38%, rgba(13, 18, 24, 0.54) 72%, rgba(8, 11, 15, 0.82) 100%),
+    linear-gradient(180deg, transparent, rgba(8, 11, 15, 0.56));
+}
+
+.journey-context {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  width: min(690px, 68%);
+  min-width: 0;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.screen-context-shell {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  min-height: 76px;
+  margin-bottom: var(--sp-3);
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(8, 11, 15, 0.98), rgba(18, 24, 32, 0.9) 58%, rgba(8, 11, 15, 0.82)),
+    repeating-linear-gradient(115deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 8px);
+  border: 1px solid var(--sj-border-soft);
+  border-left: 3px solid var(--village-accent);
+  border-radius: var(--r-sm);
+  box-shadow: inset 0 1px var(--sj-border-faint), 0 10px 24px rgba(0,0,0,0.18);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.screen-context-shell .journey-context {
+  width: 100%;
+  min-height: 76px;
+}
+
+.journey-context-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  color: var(--village-accent-soft);
+  background: color-mix(in srgb, var(--village-accent) 12%, var(--sj-surface));
+  border: 1px solid color-mix(in srgb, var(--village-accent) 52%, var(--sj-border-soft));
+  border-radius: var(--r-xs);
+  transform: rotate(45deg);
+}
+
+.journey-context-icon svg {
+  width: 22px;
+  height: 22px;
+  transform: rotate(-45deg);
+}
+
+.journey-context-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.journey-context-eyebrow,
+.journey-context-village {
+  color: var(--village-accent-soft);
+  font-size: var(--fs-2xs);
+  font-weight: 750;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.journey-context-copy > strong {
+  overflow: hidden;
+  color: var(--sj-text-primary);
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 1.5vw, 1.55rem);
+  font-weight: 600;
+  letter-spacing: 0.045em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journey-context-description {
+  overflow: hidden;
+  color: var(--sj-text-secondary);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journey-context-village {
+  align-self: start;
+  max-width: 16ch;
+  padding: 5px 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--village-accent) 38%, var(--sj-border-soft));
+  border-radius: var(--r-xs);
+  background: rgba(8, 11, 15, 0.52);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell:not(.screen-start) .journey-live-stats {
+  z-index: 2;
+}
+
+.app-shell:not(.screen-start) .journey-live-stats .stat-box {
+  min-width: 72px;
+  border-color: var(--sj-border-soft);
+  border-radius: var(--r-xs);
+  background: rgba(8, 11, 15, 0.68);
+  box-shadow: inset 0 1px var(--sj-border-faint);
+}
+
+.app-shell:not(.screen-start) .journey-live-stats .stat-box span {
+  color: var(--sj-text-muted);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.12em;
+}
+
+.app-shell:not(.screen-start) .journey-live-stats .stat-box strong {
+  color: var(--sj-text-primary);
+}
+
+/* ----------------------------------------------------------- shared materials */
+
+.ui-panel,
+.app-shell:not(.screen-start) :where(
+  .card,
+  .summary-box,
+  .profile-build-panel,
+  .profile-overview-panel,
+  .inventory-equipped-panel,
+  .inventory-backpack-panel,
+  .town-hall-panel,
+  .admin-subpanel
+) {
+  color: var(--sj-text-primary);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.022), transparent 42%),
+    color-mix(in srgb, var(--sj-surface-low) 96%, transparent);
+  border: 1px solid var(--sj-border-soft);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 1px var(--sj-border-faint), 0 12px 26px rgba(0, 0, 0, 0.16);
+}
+
+.ui-panel {
+  position: relative;
+  padding: var(--sp-5);
+}
+
+.ui-panel--steel {
+  background:
+    repeating-linear-gradient(105deg, transparent 0 9px, rgba(255,255,255,0.012) 9px 10px),
+    linear-gradient(145deg, var(--sj-surface-high), var(--sj-surface-low));
+}
+
+.ui-panel--scroll {
+  color: #28251f;
+  background: linear-gradient(135deg, #d2c4a5, #b9aa8a);
+  border-color: rgba(63, 50, 32, 0.32);
+}
+
+.ui-panel--spirit {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(116, 173, 189, 0.13), transparent 44%),
+    linear-gradient(145deg, #18232b, #10161d);
+  border-color: rgba(116, 173, 189, 0.34);
+}
+
+.ui-panel--prestige {
+  background:
+    linear-gradient(125deg, rgba(209, 167, 88, 0.08), transparent 38%),
+    linear-gradient(145deg, #1b1a18, #0d1014);
+  border-color: rgba(209, 167, 88, 0.38);
+}
+
+.ui-panel--interactive {
+  transition: transform var(--motion-normal) ease, border-color var(--motion-normal) ease, background var(--motion-normal) ease;
+}
+
+.ui-panel--interactive:hover {
+  border-color: var(--sj-border-strong);
+  transform: translateY(-2px);
+}
+
+.app-shell:not(.screen-start) :where(.card, .profile-page-card, .inventory-page) > h2:first-of-type,
+.app-shell:not(.screen-start) :where(.summary-box, .profile-build-panel, .inventory-equipped-panel, .inventory-backpack-panel) h2,
+.app-shell:not(.screen-start) :where(.summary-box, .profile-build-panel, .inventory-equipped-panel, .inventory-backpack-panel) h3 {
+  color: var(--sj-text-primary);
+}
+
+.app-shell:not(.screen-start) :where(.hint, small, .inventory-empty, .profile-dossier-row span, .stat-group-heading span) {
+  color: var(--sj-text-muted);
+}
+
+/* --------------------------------------------------------------- controls */
+
+.ui-btn {
+  min-height: 40px;
+  padding-inline: var(--sp-4);
+  border-radius: var(--r-xs);
+  letter-spacing: 0.025em;
+  transition:
+    color var(--motion-fast) ease,
+    background var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    transform var(--motion-instant) ease;
+}
+
+.ui-btn--primary {
+  color: #17130d;
+  border-color: var(--sj-gold-bright);
+  background: linear-gradient(180deg, var(--sj-gold-bright), var(--sj-gold));
+  box-shadow: inset 0 1px rgba(255,255,255,0.35), 0 5px 12px rgba(0,0,0,0.2);
+}
+
+.ui-btn--secondary {
+  color: var(--sj-text-primary);
+  border-color: var(--sj-border-strong);
+  background: linear-gradient(180deg, var(--sj-surface-raised), var(--sj-surface));
+}
+
+.ui-btn--danger {
+  color: #fff;
+  border-color: var(--sj-seal-bright);
+  background: linear-gradient(180deg, var(--sj-seal-bright), var(--sj-seal));
+}
+
+.ui-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+}
+
+.ui-btn:disabled,
+.ui-btn[aria-disabled="true"] {
+  color: var(--sj-text-disabled);
+  border-color: var(--sj-border-faint);
+  background: var(--sj-surface-low);
+  opacity: 0.72;
+}
+
+.ui-btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.ui-close-btn {
+  width: 44px;
+  height: 44px;
+  color: var(--sj-text-secondary);
+  border-radius: var(--r-xs);
+  background: var(--sj-surface-high);
+  border-color: var(--sj-border-soft);
+}
+
+.ui-close-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.app-shell:not(.screen-start) :where(input:not([type="range"]), select, textarea) {
+  min-height: 42px;
+  color: var(--sj-text-primary);
+  caret-color: var(--sj-spirit-bright);
+  background: var(--sj-background);
+  border: 1px solid var(--sj-border-soft);
+  border-radius: var(--r-xs);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.22);
+}
+
+.app-shell:not(.screen-start) :where(input, select, textarea):hover:not(:disabled) {
+  border-color: var(--sj-border-strong);
+}
+
+.app-shell:not(.screen-start) :where(input, select, textarea):disabled {
+  color: var(--sj-text-disabled);
+  background: var(--sj-surface-low);
+}
+
+/* --------------------------------------------------------- badges + progress */
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 24px;
+  padding: 3px var(--sp-2);
+  color: var(--sj-text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  border: 1px solid var(--sj-border-soft);
+  border-radius: var(--r-xs);
+  background: var(--sj-surface-low);
+}
+
+.ui-badge--gold { color: var(--sj-gold-bright); border-color: rgba(209, 167, 88, 0.42); }
+.ui-badge--success { color: #a7d0af; border-color: rgba(112, 170, 128, 0.44); }
+.ui-badge--danger { color: #e7a0a4; border-color: rgba(198, 83, 89, 0.48); }
+.ui-badge--info { color: #a9c7d9; border-color: rgba(109, 159, 189, 0.46); }
+.ui-badge--spirit { color: var(--sj-spirit-bright); border-color: rgba(116, 173, 189, 0.5); }
+
+.ui-progress {
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.ui-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  color: var(--sj-text-secondary);
+  font-size: var(--fs-xs);
+}
+
+.ui-progress-meta strong { color: var(--sj-text-primary); font-variant-numeric: tabular-nums; }
+
+.ui-progress-track {
+  height: 8px;
+  overflow: hidden;
+  background: var(--sj-void);
+  border: 1px solid var(--sj-border-faint);
+  border-radius: 2px;
+}
+
+.ui-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--sj-gold);
+  transition: width var(--motion-normal) ease;
+}
+
+.ui-progress--health .ui-progress-fill { background: var(--sj-danger); }
+.ui-progress--chakra .ui-progress-fill { background: var(--sj-info); }
+.ui-progress--stamina .ui-progress-fill { background: var(--sj-success); }
+.ui-progress--ap .ui-progress-fill { background: var(--sj-warning); }
+.ui-progress--spirit .ui-progress-fill { background: var(--sj-spirit); }
+
+/* -------------------------------------------------------- modal / toast depth */
+
+.ui-modal-backdrop,
+.item-popup-backdrop,
+.achievement-detail-overlay {
+  background: rgba(8, 11, 15, 0.84);
+  backdrop-filter: blur(4px);
+}
+
+.ui-modal-card,
+.item-popup-card,
+.achievement-detail-card {
+  color: var(--sj-text-primary);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.025), transparent 38%),
+    linear-gradient(150deg, var(--sj-surface), var(--sj-background));
+  border-color: var(--sj-border-strong);
+  border-radius: var(--r-md);
+  box-shadow: 0 28px 70px rgba(0,0,0,0.52), inset 0 1px var(--sj-border-faint);
+}
+
+.ui-modal-title { color: var(--sj-text-primary); }
+
+.item-popup-modal {
+  padding: 0;
+}
+
+.item-popup-modal .item-popup-card {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+
+.item-popup-modal :where(.item-popup-detail-grid, .item-popup-effect-box) {
+  color: var(--sj-text-secondary);
+  background: var(--sj-surface-low);
+  border: 1px solid var(--sj-border-soft);
+  border-radius: var(--r-xs);
+}
+
+.item-popup-modal :where(.item-popup-detail-grid, .item-popup-effect-box) strong,
+.item-popup-modal .item-popup-effect-box h4 {
+  color: var(--sj-text-primary);
+}
+
+.item-popup-modal .item-popup-actions button {
+  min-height: 42px;
+  padding: var(--sp-2) var(--sp-4);
+  font-family: var(--font-body);
+  font-weight: 750;
+  border-radius: var(--r-xs);
+}
+
+.item-popup-modal .item-action-primary {
+  color: #17130d;
+  background: linear-gradient(180deg, var(--sj-gold-bright), var(--sj-gold));
+  border-color: var(--sj-gold-bright);
+}
+
+.item-popup-modal .item-action-secondary {
+  color: var(--sj-text-primary);
+  background: linear-gradient(180deg, var(--sj-surface-raised), var(--sj-surface));
+  border-color: var(--sj-border-strong);
+}
+
+.item-popup-modal .item-action-ghost {
+  color: var(--sj-text-secondary);
+  background: transparent;
+  border-color: var(--sj-border-soft);
+}
+
+/* ------------------------------------------------ representative game screens */
+
+.app-shell:not(.screen-start) .profile-mobile-tabs {
+  gap: 2px;
+  padding: 4px;
+  background: rgba(8, 11, 15, 0.74);
+  border: 1px solid var(--sj-border-soft);
+  border-radius: var(--r-sm);
+}
+
+.app-shell:not(.screen-start) .profile-mobile-tabs .pmtab {
+  min-height: 42px;
+  color: var(--sj-text-muted);
+  font-family: var(--font-body);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  box-shadow: none;
+}
+
+.app-shell:not(.screen-start) .profile-mobile-tabs .pmtab:hover {
+  color: var(--sj-text-primary);
+  background: var(--sj-surface-low);
+}
+
+.app-shell:not(.screen-start) .profile-mobile-tabs .pmtab-active {
+  color: var(--sj-spirit-bright);
+  background: linear-gradient(180deg, rgba(116, 173, 189, 0.13), rgba(116, 173, 189, 0.045));
+  border-color: rgba(116, 173, 189, 0.38);
+  box-shadow: inset 0 -2px var(--sj-spirit);
+}
+
+.app-shell:not(.screen-start) .profile-dossier-section {
+  border-color: var(--sj-border-soft);
+  background: color-mix(in srgb, var(--sj-background) 82%, transparent);
+}
+
+.app-shell:not(.screen-start) .profile-dossier-section > h3 {
+  color: var(--sj-gold-bright);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.app-shell:not(.screen-start) .profile-dossier-row {
+  border-color: var(--sj-border-faint);
+  background: rgba(8, 11, 15, 0.36);
+}
+
+.app-shell:not(.screen-start) .profile-dossier-row strong {
+  color: var(--sj-text-primary);
+}
+
+.app-shell:not(.screen-start) .inventory-page {
+  gap: var(--sp-4);
+}
+
+.app-shell:not(.screen-start) .inventory-equipped-panel,
+.app-shell:not(.screen-start) .inventory-backpack-panel {
+  padding: var(--sp-4);
+}
+
+.app-shell:not(.screen-start) .inventory-equipped-panel {
+  background:
+    radial-gradient(ellipse at center, rgba(116, 173, 189, 0.075), transparent 54%),
+    linear-gradient(145deg, var(--sj-surface), var(--sj-background));
+}
+
+.app-shell:not(.screen-start) .character-equip-slot,
+.app-shell:not(.screen-start) .backpack-item {
+  border-width: 1px;
+  border-color: var(--sj-border-soft);
+  border-radius: var(--r-xs);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.025), transparent 48%),
+    var(--sj-surface-low);
+  box-shadow: inset 0 1px var(--sj-border-faint);
+  transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.app-shell:not(.screen-start) .character-equip-slot:hover,
+.app-shell:not(.screen-start) .backpack-item:hover {
+  border-color: var(--sj-border-strong);
+  background: var(--sj-surface);
+  transform: translateY(-2px);
+}
+
+.app-shell:not(.screen-start) .character-equip-slot.slot-filter-active {
+  border-color: var(--sj-spirit-bright);
+  box-shadow: inset 0 0 0 2px rgba(116, 173, 189, 0.18);
+}
+
+.app-shell:not(.screen-start) .character-equip-slot:not(.filled) {
+  color: var(--sj-text-secondary);
+}
+
+.app-shell:not(.screen-start) .equip-slot-label {
+  position: relative;
+  z-index: 2;
+  display: block;
+  max-width: 100%;
+  color: var(--sj-text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+  font-weight: 750;
+  line-height: 1.1;
+  letter-spacing: 0.055em;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.app-shell:not(.screen-start) .character-equip-slot.filled .equip-slot-label {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  padding: 2px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  color: var(--sj-text-primary);
+  background: rgba(5, 9, 14, 0.82);
+}
+
+.app-shell:not(.screen-start) .equip-slot-initials {
+  color: var(--sj-text-primary);
+}
+
+.app-shell:not(.screen-start) .character-equip-slot .equip-slot-item-name {
+  position: absolute !important;
+  right: 3px;
+  bottom: 3px;
+  left: 3px;
+  z-index: 2;
+  width: auto;
+  margin: 0;
+  padding: 2px 3px !important;
+  background: rgba(5, 9, 14, 0.82) !important;
+}
+
+.app-shell:not(.screen-start) :where(.rarity-common) { --item-rarity: var(--rarity-common); }
+.app-shell:not(.screen-start) :where(.rarity-uncommon) { --item-rarity: var(--rarity-uncommon); }
+.app-shell:not(.screen-start) :where(.rarity-rare) { --item-rarity: var(--rarity-rare); }
+.app-shell:not(.screen-start) :where(.rarity-epic) { --item-rarity: var(--rarity-epic); }
+.app-shell:not(.screen-start) :where(.rarity-legendary) { --item-rarity: var(--rarity-legendary); }
+.app-shell:not(.screen-start) :where(.rarity-mythic) { --item-rarity: var(--rarity-mythic); }
+
+.app-shell:not(.screen-start) :where(.character-equip-slot, .backpack-item, .tile-card-inventory-card)[class*="rarity-"] {
+  border-color: color-mix(in srgb, var(--item-rarity, var(--rarity-common)) 68%, var(--sj-border-soft));
+  box-shadow: inset 3px 0 var(--item-rarity, var(--rarity-common)), inset 0 1px var(--sj-border-faint);
+}
+
+.app-shell:not(.screen-start) .inventory-tabs {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--sj-border-soft);
+  border-radius: var(--r-xs);
+  background: var(--sj-background);
+}
+
+.app-shell:not(.screen-start) .inventory-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 38px;
+  color: var(--sj-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+
+.app-shell:not(.screen-start) .inventory-tabs button svg {
+  color: var(--sj-spirit-bright);
+}
+
+.app-shell:not(.screen-start) .inventory-tabs button.active {
+  color: var(--sj-text-primary);
+  border-color: var(--sj-border-strong);
+  background: var(--sj-surface-high);
+  box-shadow: inset 0 -2px var(--sj-spirit);
+}
+
+.app-shell:not(.screen-start) .training-guide-panel {
+  color: var(--sj-text-secondary);
+  background:
+    linear-gradient(90deg, rgba(116, 173, 189, 0.08), transparent 74%),
+    var(--sj-surface-low);
+  border: 1px solid var(--sj-border-soft);
+  border-left: 3px solid var(--sj-spirit);
+  border-radius: var(--r-sm);
+}
+
+.app-shell:not(.screen-start) .training-guide-panel > strong {
+  color: var(--sj-spirit-bright);
+  font-family: var(--font-display);
+  letter-spacing: 0.05em;
+}
+
+.app-shell:not(.screen-start) .stat-group {
+  border-color: var(--sj-border-faint);
+  background: rgba(8, 11, 15, 0.26);
+}
+
+.app-shell:not(.screen-start) .location-button {
+  min-height: 74px;
+  color: var(--sj-text-secondary);
+  background: linear-gradient(145deg, var(--sj-surface-high), var(--sj-surface-low));
+  border: 1px solid var(--sj-border-soft);
+  border-radius: var(--r-sm);
+  box-shadow: inset 0 1px var(--sj-border-faint);
+  transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.app-shell:not(.screen-start) .location-button:hover:not(:disabled) {
+  color: var(--sj-text-primary);
+  border-color: var(--sj-border-strong);
+  transform: translateY(-2px);
+}
+
+.app-shell:not(.screen-start) .location-button.selected,
+.app-shell:not(.screen-start) .location-button[aria-pressed="true"] {
+  color: var(--sj-text-primary);
+  border-color: var(--sj-spirit-bright);
+  background:
+    linear-gradient(135deg, rgba(116, 173, 189, 0.16), transparent 62%),
+    var(--sj-surface-high);
+  box-shadow: inset 3px 0 var(--sj-spirit), inset 0 1px var(--sj-border-faint);
+}
+
+.app-shell:not(.screen-start) .danger-button {
+  color: #f6e7e7;
+  background: linear-gradient(180deg, #a94349, #762e33);
+  border-color: var(--sj-seal-bright);
+}
+
+/* -------------------------------------------------------------- mobile shell */
+
+.mobile-bottom-nav,
+.mobile-menu-overlay {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.025), transparent 35%),
+    rgba(13, 18, 24, 0.98);
+  border-color: var(--sj-border-soft);
+  box-shadow: 0 -14px 36px rgba(0, 0, 0, 0.38), inset 0 1px var(--sj-border-faint);
+}
+
+.mobile-nav-btn,
+.mobile-menu-btn {
+  min-width: 44px;
+  min-height: 52px;
+  color: var(--sj-text-muted);
+  font-family: var(--font-body);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+}
+
+.mobile-nav-btn[aria-current="page"],
+.mobile-nav-btn:hover,
+.mobile-menu-btn:hover {
+  color: var(--sj-text-primary);
+  border-color: var(--sj-border-soft);
+  background: rgba(116, 173, 189, 0.09);
+}
+
+.mobile-nav-btn[aria-current="page"] {
+  box-shadow: inset 0 2px var(--village-accent-soft);
+}
+
+.mobile-nav-btn .mnb-icon,
+.mobile-menu-btn > svg {
+  color: var(--village-accent-soft);
+}
+
+.mobile-menu-header {
+  border-bottom: 1px solid var(--sj-border-soft);
+}
+
+.mobile-menu-title {
+  color: var(--sj-text-primary);
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 1280px) and (min-width: 981px) {
+  .journey-context {
+    width: 63%;
+    padding-inline: var(--sp-4);
+  }
+
+  .journey-context-description,
+  .journey-context-village {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .app-shell:not(.screen-start)::after {
+    background: linear-gradient(180deg, rgba(8, 11, 15, 0.54), rgba(8, 11, 15, 0.74));
+  }
+
+  .app-shell:not(.screen-start) .center-game {
+    background-color: rgba(8, 11, 15, 0.5);
+  }
+
+  .app-shell:not(.screen-start) .journey-banner {
+    min-height: 94px;
+    background-position: center;
+  }
+
+  .journey-context {
+    width: 100%;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    padding: var(--sp-3) var(--sp-4);
+  }
+
+  .journey-context-icon {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 800px) {
+  .app-shell:not(.screen-start) .center-game {
+    padding: var(--sp-2) var(--sp-2) calc(104px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .app-shell:not(.screen-start) .journey-banner {
+    min-height: 82px;
+    margin-bottom: var(--sp-2);
+  }
+
+  .screen-context-shell {
+    min-height: 62px;
+    margin-bottom: var(--sp-2);
+  }
+
+  .screen-context-shell .journey-context {
+    min-height: 62px;
+  }
+
+  .journey-context {
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+  }
+
+  .journey-context-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .journey-context-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .journey-context-description,
+  .journey-context-village {
+    display: none;
+  }
+
+  .journey-context-copy > strong {
+    font-size: 1rem;
+  }
+
+  .app-shell:not(.screen-start) :where(.card, .summary-box, .profile-build-panel, .profile-overview-panel, .inventory-equipped-panel, .inventory-backpack-panel) {
+    border-radius: var(--r-sm);
+  }
+
+  .app-shell:not(.screen-start) .inventory-equipped-panel,
+  .app-shell:not(.screen-start) .inventory-backpack-panel {
+    padding: var(--sp-3);
+  }
+
+  .ui-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .ui-modal-card {
+    max-width: none;
+    max-height: min(92dvh, 860px);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell:not(.screen-start) .journey-banner {
+    min-height: 72px;
+    height: 72px;
+  }
+
+  .journey-context-eyebrow {
+    font-size: 9px;
+  }
+
+  .app-shell:not(.screen-start) .profile-mobile-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .app-shell:not(.screen-start) .profile-mobile-tabs .pmtab {
+    min-width: 0;
+    padding-inline: 4px;
+    font-size: 10px;
+  }
+
+  .mobile-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* ------------------------------------------------------ density refinement */
+
+:root {
+  --side-rail-w: clamp(176px, 13.25vw, 208px);
+  --right-menu-w: clamp(174px, 12.5vw, 196px);
+  --main-gutter: clamp(6px, 0.75vw, 12px);
+}
+
+.app-shell:not(.screen-start) {
+  --side-rail-w: clamp(176px, 13.25vw, 208px);
+  --right-menu-w: clamp(174px, 12.5vw, 196px);
+  --main-gutter: clamp(6px, 0.75vw, 12px);
+}
+
+.screen-context-shell,
+.screen-context-shell .journey-context {
+  box-sizing: border-box;
+}
+
+.screen-context-shell {
+  min-height: 78px;
+}
+
+.screen-context-shell .journey-context {
+  min-height: 76px;
+}
+
+.app-shell:not(.screen-start) :where(.profile-page-card, .inventory-page, .center-game > .card) {
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.app-shell:not(.screen-start) .center-game > :where(.screen-context-shell, .profile-page-card, .inventory-page, .card) {
+  width: 100%;
+  max-width: 1280px !important;
+  margin-inline: auto;
+}
+
+.app-shell:not(.screen-start) .inventory-page {
+  min-height: 0;
+  grid-template-columns: minmax(320px, 0.88fr) minmax(420px, 1.12fr);
+}
+
+.app-shell:not(.screen-start) .inventory-character-layout {
+  min-height: 500px;
+}
+
+.app-shell:not(.screen-start) .character-equip-slot {
+  width: 66px;
+  height: 66px;
+  font-size: 0.78rem;
+}
+
+.app-shell:not(.screen-start) .inventory-page h2 {
+  font-size: 1.35rem;
+}
+
+.app-shell:not(.screen-start) .backpack-grid {
+  grid-template-columns: repeat(auto-fill, minmax(112px, 128px));
+  justify-content: start;
+  gap: 8px;
+}
+
+.app-shell:not(.screen-start) .backpack-item {
+  min-height: 150px;
+  grid-template-rows: 48px auto 1fr auto;
+  gap: 4px;
+  padding: 7px;
+}
+
+.app-shell:not(.screen-start) .backpack-item strong {
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.app-shell:not(.screen-start) .backpack-item p {
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.app-shell:not(.screen-start) .backpack-item button {
+  min-height: 30px;
+  font-size: 0.72rem;
+}
+
+.item-popup-modal {
+  width: min(900px, calc(100vw - 48px));
+}
+
+.item-popup-modal .item-popup-top {
+  grid-template-columns: 156px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.item-popup-modal .item-popup-art-box {
+  width: 156px;
+  min-height: 156px;
+  aspect-ratio: 1;
+  align-self: start;
+}
+
+.item-popup-modal .item-popup-description,
+.item-popup-modal :where(.item-popup-detail-grid, .item-popup-effect-grid) p {
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.item-popup-modal .item-popup-flavor {
+  margin-top: 8px;
+  color: var(--sj-text-muted);
+  font-style: italic;
+}
+
+@media (min-width: 981px) {
+  .app-shell:not(.screen-start) {
+    --right-menu-w: clamp(230px, 16vw, 255px);
+  }
+
+  .app-shell:not(.screen-start) .left-profile-card {
+    padding: 48px 12px 16px !important;
+    font-size: 0.86rem !important;
+  }
+
+  .app-shell:not(.screen-start) .right-menu-panel {
+    padding: clamp(132px, 17vh, 158px) 10px 12px !important;
+  }
+
+  .app-shell:not(.screen-start) .right-menu-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .app-shell:not(.screen-start) .right-menu-buttons button {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 32px;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 5px 6px;
+    font-size: 0.75rem;
+  }
+
+  .app-shell:not(.screen-start) .right-menu-buttons button > svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .app-shell:not(.screen-start) .center-game > .card:has(> .training-guide-panel) {
+    padding: clamp(18px, 1.5vw, 24px) !important;
+  }
+
+  .app-shell:not(.screen-start) .center-game > .card:has(> .training-guide-panel) .location-button {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 48px !important;
+    padding: 8px 10px !important;
+    font-size: 0.88rem !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  .app-shell:not(.screen-start) .center-game > .card:has(> .training-guide-panel) .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .app-shell:not(.screen-start) .center-game > .card:has(> .training-guide-panel) > .location-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 801px) {
+  .screen-context-shell .journey-context {
+    padding: 10px 16px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .app-shell:not(.screen-start) .inventory-page {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1100px) {
+  .app-shell:not(.screen-start) {
+    --side-rail-w: 190px;
+    --right-menu-w: 220px;
+    --main-gutter: 6px;
+  }
+
+  .app-shell:not(.screen-start) .left-profile-card {
+    height: calc(100dvh - 24px) !important;
+    padding-inline: 8px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-width: thin;
+  }
+
+  .app-shell:not(.screen-start) .right-menu-panel {
+    padding-inline: 8px !important;
+  }
+
+  .app-shell:not(.screen-start) .right-menu-buttons button {
+    padding-inline: 5px;
+    font-size: 0.7rem;
+  }
+
+  .app-shell:not(.screen-start) .center-game > .card:has(> .training-guide-panel) .stat-group-list {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .app-shell:not(.screen-start) .center-game > .card:has(> .training-guide-panel) .stat-group .stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 800px) {
+  .screen-context-shell,
+  .screen-context-shell .journey-context {
+    min-height: 60px;
+  }
+
+  .app-shell:not(.screen-start) .inventory-character-layout {
+    min-height: 510px;
+  }
+
+  .item-popup-modal {
+    width: 100%;
+  }
+
+  .item-popup-modal .item-popup-top {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .item-popup-modal .item-popup-art-box {
+    width: 120px;
+    min-height: 120px;
+    margin-inline: auto;
+  }
+
+  .mobile-bottom-nav {
+    min-height: 66px;
+  }
+
+  .mobile-nav-btn,
+  .mobile-menu-btn {
+    min-height: 56px;
+    font-size: 0.6875rem;
+  }
+
+  .app-shell:not(.screen-start) .center-game > .card:has(> .training-guide-panel) .location-button {
+    box-sizing: border-box;
+    min-height: 68px !important;
+    padding: 7px !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell:not(.screen-start) .profile-page-card .profile-mobile-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    overflow: hidden !important;
+  }
+
+  .app-shell:not(.screen-start) .profile-page-card .profile-mobile-tabs .pmtab {
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 42px !important;
+    padding-inline: 6px !important;
+    overflow: hidden;
+    font-size: 0.7rem !important;
+    letter-spacing: 0.04em !important;
+    text-overflow: ellipsis;
+  }
+
+  .app-shell:not(.screen-start) .profile-page-card .sic-hero {
+    grid-template-columns: 88px minmax(0, 1fr) !important;
+    gap: 12px !important;
+    justify-items: stretch;
+    text-align: left;
+  }
+
+  .app-shell:not(.screen-start) .profile-page-card .sic-avatar-stack {
+    gap: 6px;
+  }
+
+  .app-shell:not(.screen-start) .profile-page-card .sic-avatar {
+    width: 84px !important;
+    height: 84px !important;
+  }
+
+  .app-shell:not(.screen-start) .profile-page-card .sic-avatar-upload-button {
+    width: 84px;
+    padding: 6px 4px;
+    font-size: 0.65rem;
+  }
+
+  .app-shell:not(.screen-start) .profile-page-card .sic-name-row,
+  .app-shell:not(.screen-start) .profile-page-card :where(.sic-chip-row, .sic-badge-row) {
+    justify-content: flex-start;
+  }
+
+  .app-shell:not(.screen-start) .profile-page-card .sic-name-row h3 {
+    font-size: 1.25rem;
+  }
+
+  .app-shell:not(.screen-start) .profile-page-card .sic-summary {
+    margin-block: 6px 0;
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  .app-shell:not(.screen-start) .profile-page-card .sic-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+  }
+
+  .app-shell:not(.screen-start) .profile-page-card .sic-stat {
+    min-height: 76px;
+    padding: 9px;
+  }
+
+  .app-shell:not(.screen-start) .center-game > .card:has(> .training-guide-panel) .location-button {
+    min-height: 64px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .app-shell:not(.screen-start) .center-game > .card:has(> .training-guide-panel) .stat-group .location-button small {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto;
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+    transition-duration: 1ms;
+  }
+}
+
+@media (forced-colors: active) {
+  .journey-context-icon,
+  .ui-panel,
+  .ui-badge,
+  .ui-progress-track {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* Pet Yard was authored as a fixed, full-viewport scene. Inside the current
+   application shell that made it cover the shared location header and created
+   a second competing scroll container. Keep its artwork, but let the route
+   participate in the center column's normal document flow. */
+.app-shell.screen-pets .center-game > .pet-yard-screen {
+  position: relative !important;
+  inset: auto !important;
+  z-index: auto !important;
+  width: 100% !important;
+  min-height: calc(100dvh - 108px);
+  overflow: visible !important;
+}
+
+.app-shell.screen-pets .pet-yard-overlay {
+  min-height: calc(100dvh - 108px) !important;
+}
+
+/* The Hollow Gate normally uses an admin-supplied landmark image. When that
+   optional asset is absent, keep the point of interest legible and clickable
+   instead of rendering an empty dark square. */
+.atlas-hollowGate.atlas-hollowGate-fallback {
+  border-color: color-mix(in srgb, var(--sj-spirit) 72%, var(--sj-border-strong)) !important;
+  background:
+    radial-gradient(circle at 50% 28%, color-mix(in srgb, var(--sj-spirit) 22%, transparent), transparent 62%),
+    linear-gradient(180deg, var(--sj-surface-high), var(--sj-void)) !important;
+}
+
+.atlas-hollowGate.atlas-hollowGate-fallback strong {
+  display: block !important;
+  color: var(--sj-gold-bright) !important;
+  font: 700 0.75rem/1 var(--font-interface) !important;
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 980px) {
+  .app-shell.screen-pets .center-game > .pet-yard-screen,
+  .app-shell.screen-pets .pet-yard-overlay {
+    min-height: calc(100dvh - 154px) !important;
+  }
+
+  .app-shell.screen-pets .pet-yard-screen button {
+    min-height: 44px !important;
+  }
+}
+
+/* Tavern intentionally stays pinned above the mobile navigation so its
+   transcript remains the sole scroller. Its own header supplies the route
+   context, so the fixed surface starts at the viewport edge. */
+.app-shell.screen-tavern .tavern-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 800px) {
+  .app-shell:not(.screen-start) .mthd-back {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .app-shell.screen-tavern .tavern-screen {
+    top: 0 !important;
+    height: auto !important;
+  }
+
+  .app-shell.screen-tavern .tavern-compose :where(input, button) {
+    min-height: 44px;
+  }
+
+  .app-shell.screen-inventory :where(.inventory-tabs > button, .backpack-item > button) {
+    min-height: 44px !important;
+    height: auto !important;
+  }
+
+  .app-shell.screen-storyHall :where(.vn-controls button, .vn-choice-row button) {
+    min-height: 44px !important;
+    height: auto !important;
+  }
+
+  .app-shell.screen-townHall .town-tabs > button {
+    min-height: 44px !important;
+    height: auto !important;
+  }
+}
+
+.mobile-menu-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Replace legacy font sigils on atlas landmarks with the shared vector icon
+   language. The painted map already supplies the full village labels. */
+.atlas-landmark.atlas-village::before,
+.atlas-landmark.atlas-central::before {
+  content: none !important;
+}
+
+.atlas-landmark.atlas-village strong,
+.atlas-landmark.atlas-central strong {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+}

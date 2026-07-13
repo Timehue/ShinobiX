@@ -20,6 +20,7 @@ require("./api/_force-ipv4.js");
 const game_loop_js_1 = require("./api/_realtime/game-loop.js");
 const socket_js_1 = require("./api/_realtime/socket.js");
 const _scheduler_js_1 = require("./api/cron/_scheduler.js");
+const _storage_js_1 = require("./api/_storage.js");
 const compression_1 = __importDefault(require("compression"));
 const express_1 = __importDefault(require("express"));
 const node_http_1 = require("node:http");
@@ -42,6 +43,8 @@ const roster_js_1 = __importDefault(require("./api/player/roster.js"));
 const leaderboards_js_1 = __importDefault(require("./api/player/leaderboards.js"));
 const trade_js_1 = __importDefault(require("./api/player/trade.js"));
 const daily_login_js_1 = __importDefault(require("./api/player/daily-login.js"));
+const profile_title_js_1 = __importDefault(require("./api/player/profile-title.js"));
+const stat_respec_js_1 = __importDefault(require("./api/player/stat-respec.js"));
 const black_market_js_1 = __importDefault(require("./api/festival/black-market.js"));
 const sunscar_js_1 = __importDefault(require("./api/festival/sunscar.js"));
 const session_js_1 = __importDefault(require("./api/pvp/session.js"));
@@ -85,6 +88,34 @@ const spire_leaderboard_js_1 = __importDefault(require("./api/towers/spire-leade
 const expedition_start_js_1 = __importDefault(require("./api/missions/expedition-start.js"));
 const start_js_2 = __importDefault(require("./api/training/start.js"));
 const complete_js_1 = __importDefault(require("./api/training/complete.js"));
+const forge_js_1 = __importDefault(require("./api/bloodlines/forge.js"));
+const open_pack_js_1 = __importDefault(require("./api/card-clash/open-pack.js"));
+const settle_js_2 = __importDefault(require("./api/story/settle.js"));
+const explore_js_1 = __importDefault(require("./api/world/explore.js"));
+const open_chest_js_1 = __importDefault(require("./api/world/open-chest.js"));
+const forge_key_js_1 = __importDefault(require("./api/hollow-gate/forge-key.js"));
+const locked_door_js_1 = __importDefault(require("./api/hollow-gate/locked-door.js"));
+const choose_starter_js_1 = __importDefault(require("./api/pet/choose-starter.js"));
+const encounter_start_js_1 = __importDefault(require("./api/pet/encounter-start.js"));
+const befriend_js_1 = __importDefault(require("./api/pet/befriend.js"));
+const progress_js_1 = __importDefault(require("./api/pet/progress.js"));
+const purchase_js_1 = __importDefault(require("./api/shop/purchase.js"));
+const sell_js_1 = __importDefault(require("./api/shop/sell.js"));
+const forge_js_2 = __importDefault(require("./api/craft/forge.js"));
+const named_js_1 = __importDefault(require("./api/craft/named.js"));
+const sync_js_1 = __importDefault(require("./api/achievements/sync.js"));
+const run_js_1 = __importDefault(require("./api/endless/run.js"));
+const claim_js_1 = __importDefault(require("./api/events/claim.js"));
+const jutsu_ryo_js_1 = __importDefault(require("./api/training/jutsu-ryo.js"));
+const feed_js_1 = __importDefault(require("./api/aura/feed.js"));
+const rank_up_js_1 = __importDefault(require("./api/hunter/rank-up.js"));
+const roll_js_1 = __importDefault(require("./api/awakening/roll.js"));
+const pass_js_1 = __importDefault(require("./api/exams/pass.js"));
+const mastery_js_1 = __importDefault(require("./api/profession/mastery.js"));
+const elder_focus_js_1 = __importDefault(require("./api/village/elder-focus.js"));
+const run_js_2 = __importDefault(require("./api/dungeon/run.js"));
+const upgrade_js_1 = __importDefault(require("./api/village/upgrade.js"));
+const hollow_gate_unlock_js_1 = __importDefault(require("./api/village/hollow-gate-unlock.js"));
 const lock_js_1 = __importDefault(require("./api/battle/lock.js"));
 const transfer_js_1 = __importDefault(require("./api/village/treasury/transfer.js"));
 const donate_js_1 = __importDefault(require("./api/village/treasury/donate.js"));
@@ -100,7 +131,9 @@ const sector_card_js_1 = __importDefault(require("./api/village/sector-card.js")
 const sector_pet_js_1 = __importDefault(require("./api/village/sector-pet.js"));
 const war_map_js_1 = __importDefault(require("./api/village/war-map.js"));
 const claim_war_crate_js_1 = __importDefault(require("./api/village/claim-war-crate.js"));
+const open_war_crate_js_1 = __importDefault(require("./api/village/open-war-crate.js"));
 const claim_interest_js_1 = __importDefault(require("./api/bank/claim-interest.js"));
+const transfer_js_2 = __importDefault(require("./api/bank/transfer.js"));
 const save_snapshot_js_1 = __importDefault(require("./api/admin/save-snapshot.js"));
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
 // startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
@@ -124,14 +157,14 @@ const donate_js_2 = __importDefault(require("./api/clan/seal-pool/donate.js"));
 const distribute_js_1 = __importDefault(require("./api/clan/seal-pool/distribute.js"));
 // Clan — treasury donate (atomic)
 const donate_js_3 = __importDefault(require("./api/clan/treasury/donate.js"));
-const transfer_js_2 = __importDefault(require("./api/clan/treasury/transfer.js"));
+const transfer_js_3 = __importDefault(require("./api/clan/treasury/transfer.js"));
 // Clan — territory war-supply collect (server-authoritative)
 const collect_supply_js_1 = __importDefault(require("./api/clan/territory/collect-supply.js"));
 // Clan — upgrade tree purchase (server-authoritative spend from treasury)
-const purchase_js_1 = __importDefault(require("./api/clan/upgrade/purchase.js"));
+const purchase_js_2 = __importDefault(require("./api/clan/upgrade/purchase.js"));
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
-const claim_js_1 = __importDefault(require("./api/clan/mission/claim.js"));
-const purchase_js_2 = __importDefault(require("./api/clan/exchange/purchase.js"));
+const claim_js_2 = __importDefault(require("./api/clan/mission/claim.js"));
+const purchase_js_3 = __importDefault(require("./api/clan/exchange/purchase.js"));
 // Clan — text chat (own capped KV key; membership-gated; cheap since-cursor polling)
 const get_js_2 = __importDefault(require("./api/clan/chat/get.js"));
 const send_js_1 = __importDefault(require("./api/clan/chat/send.js"));
@@ -142,7 +175,7 @@ const assault_settle_js_1 = __importDefault(require("./api/clan-boss/assault-set
 // Hollow Gate — server-authoritative run token + augments (sealed-bounds payout)
 const start_js_3 = __importDefault(require("./api/hollow-gate/start.js"));
 const choose_augment_js_1 = __importDefault(require("./api/hollow-gate/choose-augment.js"));
-const settle_js_2 = __importDefault(require("./api/hollow-gate/settle.js"));
+const settle_js_3 = __importDefault(require("./api/hollow-gate/settle.js"));
 // Clan — membership: kick (server-authoritative cross-save removal)
 const kick_js_1 = __importDefault(require("./api/clan/kick.js"));
 const mentor_js_1 = __importDefault(require("./api/clan/mentor.js"));
@@ -624,6 +657,34 @@ route('/missions/expedition-start', expedition_start_js_1.default);
 // stat's gain; complete time-gates + consumes it and returns the sealed amount.
 route('/training/start', start_js_2.default);
 route('/training/complete', complete_js_1.default);
+// Custom bloodline purchase — atomically debits the rank material and issues a
+// one-use entitlement consumed by the ordinary save sanitizer.
+route('/bloodlines/forge', forge_js_1.default);
+route('/card-clash/open-pack', open_pack_js_1.default);
+route('/story/settle', settle_js_2.default);
+route('/world/explore', explore_js_1.default);
+route('/world/open-chest', open_chest_js_1.default);
+route('/hollow-gate/forge-key', forge_key_js_1.default);
+route('/hollow-gate/locked-door', locked_door_js_1.default);
+route('/pet/choose-starter', choose_starter_js_1.default);
+route('/pet/encounter-start', encounter_start_js_1.default);
+route('/pet/befriend', befriend_js_1.default);
+route('/shop/purchase', purchase_js_1.default);
+route('/shop/sell', sell_js_1.default);
+route('/craft/forge', forge_js_2.default);
+route('/craft/named', named_js_1.default);
+route('/achievements/sync', sync_js_1.default);
+route('/endless/run', run_js_1.default);
+route('/events/claim', claim_js_1.default);
+route('/training/jutsu-ryo', jutsu_ryo_js_1.default);
+route('/aura/feed', feed_js_1.default);
+route('/hunter/rank-up', rank_up_js_1.default);
+route('/awakening/roll', roll_js_1.default);
+route('/exams/pass', pass_js_1.default);
+route('/village/elder-focus', elder_focus_js_1.default);
+route('/dungeon/run', run_js_2.default);
+route('/village/upgrade', upgrade_js_1.default);
+route('/village/hollow-gate-unlock', hollow_gate_unlock_js_1.default);
 // Village treasury — atomic Kage-gift endpoint that replaces the broken
 // 2-write client flow (deduct treasury + patch recipient).
 route('/village/treasury/transfer', transfer_js_1.default);
@@ -668,6 +729,9 @@ route('/village/war-map', war_map_js_1.default);
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.
 route('/village/claim-war-crate', claim_war_crate_js_1.default);
+// Opening consumes one stored server-issued crate and commits all protected
+// item/currency rewards in the same locked player-save mutation.
+route('/village/open-war-crate', open_war_crate_js_1.default);
 // Village War Map — mercenaries (Phase 5): the Kage spends village WR to field a
 // 2-day AI merc squad (comeback + Barracks discounted) that fights in Combat
 // sector wars. POST hire/list/attack, gated (404 unless ENABLE_VILLAGE_WAR=1).
@@ -675,6 +739,7 @@ route('/village/war-merc', war_merc_js_1.default);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', claim_interest_js_1.default);
+route('/bank/transfer', transfer_js_2.default);
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
 // reset's `save:*` glob.
@@ -705,17 +770,17 @@ route('/clan/seal-pool/distribute', distribute_js_1.default);
 // ─── Clan: treasury donate ─────────────────────────────────────────────────────
 // Atomic player donation (debit donor save + credit clan treasury).
 route('/clan/treasury/donate', donate_js_3.default);
-route('/clan/treasury/transfer', transfer_js_2.default);
+route('/clan/treasury/transfer', transfer_js_3.default);
 // ─── Clan: collect territory war supply (server-authoritative) ──────────────────
 // Scans owned world:territory:* sectors, accrues + zeroes them, credits treasury.
 route('/clan/territory/collect-supply', collect_supply_js_1.default);
 // ─── Clan: upgrade tree purchase (server-authoritative spend) ───────────────────
 // Locks the clan row, debits treasury ryo + warSupply, increments the building.
-route('/clan/upgrade/purchase', purchase_js_1.default);
+route('/clan/upgrade/purchase', purchase_js_2.default);
 // ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
 // GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
-route('/clan/mission/claim', claim_js_1.default);
-route('/clan/exchange/purchase', purchase_js_2.default);
+route('/clan/mission/claim', claim_js_2.default);
+route('/clan/exchange/purchase', purchase_js_3.default);
 // ─── Clan chat: membership-gated text chat (GET since-cursor, POST send) ────────
 route('/clan/chat/get', get_js_2.default);
 route('/clan/chat/send', send_js_1.default);
@@ -732,7 +797,7 @@ route('/clan-boss/assault-settle', assault_settle_js_1.default);
 // min(claimed, sealed ceiling) anchored to the entry snapshot, single-use.
 route('/hollow-gate/start', start_js_3.default);
 route('/hollow-gate/choose-augment', choose_augment_js_1.default);
-route('/hollow-gate/settle', settle_js_2.default);
+route('/hollow-gate/settle', settle_js_3.default);
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
 // Leadership-only. Removes the member from the clan row AND clears their
 // character.clan on their own save (the cross-save write a client can't do).
@@ -790,6 +855,7 @@ route('/pet/battle-start', battle_start_js_1.default);
 route('/pet/battle-result', battle_result_js_1.default);
 route('/pet/ranked-start', ranked_start_js_1.default);
 route('/pet/evolve', evolve_js_1.default);
+route('/pet/progress', progress_js_1.default);
 route('/pet/gauntlet', gauntlet_js_1.default);
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
 route('/arena/lobby', lobby_js_1.default);
@@ -800,6 +866,9 @@ route('/jutsu/speedup', speedup_js_1.default);
 route('/jutsu/train-with-seals', train_with_seals_js_1.default);
 // ─── Profession ────────────────────────────────────────────────────────────────
 route('/profession/choose', choose_js_1.default);
+route('/profession/mastery', mastery_js_1.default);
+route('/player/profile-title', profile_title_js_1.default);
+route('/player/stat-respec', stat_respec_js_1.default);
 // ─── Player: injured villagers (Hospital screen) ───────────────────────────────
 route('/player/injured-villagers', injured_villagers_js_1.default);
 // ─── Weekly boss (Hall of Legends) ─────────────────────────────────────────────
@@ -875,6 +944,7 @@ const _HASHED_ASSET_RE = /[\\/]assets[\\/].*-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/i;
 // changes the URL and never waits on this TTL. JS/CSS/JSON are excluded here so no
 // chunk map or data manifest can go stale.
 const _STATIC_MEDIA_RE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf)$/i;
+const _STATIC_ASSET_URL_RE = /^\/(?:assets|badges|music|sfx|sector-map|scenes)\/.+\.[a-z0-9]+$/i;
 app.use((req, res, next) => {
     if ((0, _canonical_domain_js_1.shouldRedirectToCanonical)(req.headers.host, req.path)) {
         res.redirect(301, (0, _canonical_domain_js_1.canonicalRedirectLocation)(req.originalUrl));
@@ -898,8 +968,20 @@ app.use(express_1.default.static(staticDir, {
         }
     },
 }));
+// If a browser has an old Vite chunk URL after a deploy, do not let the SPA
+// fallback serve index.html at that .js/.css URL. Module scripts require a JS
+// MIME type; caching HTML under a chunk URL strands players until the bad cache
+// entry expires. Real client routes still fall through to the SPA fallback.
+app.get(_STATIC_ASSET_URL_RE, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(404).type('text/plain').send('Static asset not found');
+});
 // SPA fallback — any non-API path serves index.html so React Router handles it.
 // no-cache so a deploy never serves a stale chunk map (matches express.static above).
+app.all(/^\/api(?:\/|$)/, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(404).json({ error: 'API route not found.' });
+});
 app.get(/(.*)/, (_req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile((0, node_path_1.join)(staticDir, 'index.html'));
@@ -947,4 +1029,38 @@ server.listen(PORT, () => {
     // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
     (0, _scheduler_js_1.startSnapshotCron)();
 });
+let shuttingDown = false;
+const SHUTDOWN_GRACE_MS = 10_000;
+async function shutdown(signal) {
+    if (shuttingDown) {
+        console.error(`[shutdown] second ${signal}; forcing exit`);
+        process.exit(1);
+    }
+    shuttingDown = true;
+    console.log(`[shutdown] ${signal} received; draining`);
+    (0, _scheduler_js_1.stopSnapshotCron)();
+    (0, game_loop_js_1.stopGameLoop)();
+    const httpClosed = new Promise((resolve) => server.close(() => resolve()));
+    const timeout = setTimeout(() => {
+        console.error(`[shutdown] grace period exceeded (${SHUTDOWN_GRACE_MS}ms); closing remaining connections`);
+        server.closeAllConnections?.();
+    }, SHUTDOWN_GRACE_MS);
+    timeout.unref?.();
+    try {
+        await (0, socket_js_1.closeSocketServer)();
+        await httpClosed;
+        await (0, _storage_js_1.closeStoragePool)();
+        console.log('[shutdown] complete');
+        process.exitCode = 0;
+    }
+    catch (err) {
+        console.error('[shutdown] failed:', err);
+        process.exitCode = 1;
+    }
+    finally {
+        clearTimeout(timeout);
+    }
+}
+process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+process.on('SIGINT', () => { void shutdown('SIGINT'); });
 exports.default = app;

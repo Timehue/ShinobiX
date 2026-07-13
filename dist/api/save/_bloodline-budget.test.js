@@ -7,55 +7,60 @@ const node_test_1 = require("node:test");
 const strict_1 = __importDefault(require("node:assert/strict"));
 const _name__js_1 = require("./[name].js");
 const _jutsu_points_js_1 = require("../_jutsu-points.js");
-const sanitizeChar = (incoming, existing) => (0, _name__js_1.sanitizeCharacterSave)({ character: incoming }, existing ? { character: existing } : null).character;
-const mkForgedBloodline = () => ({
-    id: 'bl-forged', name: 'Forged', rank: 'S Rank', totalPoints: 99,
-    // 5 jutsu x {Copy 3, Mirror 3, Stun 2} = 40 pts, vs a B-rank budget of 7.
+const mkBloodline = (id = 'bl-forged', rank = 'S Rank') => ({
+    id, name: 'Forged', rank, totalPoints: 99,
+    // 5 jutsu x {Copy 3, Mirror 3, Stun 2} = 40 points.
     jutsus: Array.from({ length: 5 }, (_, i) => ({
-        id: `bf-${i}`, name: 'X', type: 'Ninjutsu', ap: 60, range: 4, effectPower: 50, cooldown: 7,
+        id: `${id}-${i}`, name: 'X', type: 'Ninjutsu', ap: 60, range: 4, effectPower: 50, cooldown: 7,
         tags: [{ name: 'Copy' }, { name: 'Mirror' }, { name: 'Stun' }],
     })),
 });
-const mkChar = () => ({ name: 'Tester', level: 50, savedBloodlines: [mkForgedBloodline()] });
-function withFlags(on, fn) {
-    const keys = ['BLOODLINE_RANK_ENTITLEMENT', 'BLOODLINE_BUDGET_SERVER'];
-    const prev = keys.map((k) => process.env[k]);
-    keys.forEach((k) => { if (on)
-        process.env[k] = '1';
-    else
-        delete process.env[k]; });
-    try {
-        fn();
-    }
-    finally {
-        keys.forEach((k, i) => { if (prev[i] === undefined)
-            delete process.env[k];
-        else
-            process.env[k] = prev[i]; });
-    }
-}
-(0, node_test_1.test)('flags OFF: forged S-rank + over-budget tags pass through (legacy behavior)', () => {
-    withFlags(false, () => {
-        const bl = sanitizeChar(mkChar(), null).savedBloodlines[0];
-        strict_1.default.equal(bl.rank, 'S Rank'); // rank not clamped
-        strict_1.default.equal(bl.jutsus[0].tags.length, 3); // tags not stripped
-    });
+const incoming = (bloodlines, extra = {}) => ({
+    character: { name: 'Tester', level: 50 },
+    savedBloodlines: bloodlines,
+    ...extra,
 });
-(0, node_test_1.test)('flags ON: new bloodline clamps rank to B (entitlement) + strips tags to budget, never rejected', () => {
-    withFlags(true, () => {
-        const c = sanitizeChar(mkChar(), null);
-        strict_1.default.ok(Array.isArray(c.savedBloodlines), 'save was not rejected');
-        const bl = c.savedBloodlines[0];
-        strict_1.default.equal(bl.rank, 'B Rank', 'forged S clamped to B (no prior entitlement)');
-        strict_1.default.equal(bl.jutsus.length, 5, 'jutsu are never dropped — only tags');
-        strict_1.default.ok((0, _jutsu_points_js_1.bloodlinePoints)(bl.jutsus, 'B Rank') <= 7, 'clamped within the B-rank budget');
-    });
+const stored = (bloodlines = [], pendingBloodlineForges = []) => ({
+    character: { name: 'Tester', level: 50 },
+    savedBloodlines: bloodlines,
+    pendingBloodlineForges,
 });
-(0, node_test_1.test)('flags ON: an existing A-rank entitlement is preserved (claimed S clamped DOWN to A)', () => {
-    withFlags(true, () => {
-        const existing = { savedBloodlines: [{ id: 'bl-forged', name: 'Forged', rank: 'A Rank', jutsus: [], totalPoints: 0 }] };
-        const bl = sanitizeChar(mkChar(), existing).savedBloodlines[0];
-        strict_1.default.equal(bl.rank, 'A Rank', 'rank only goes DOWN to the stored entitlement, never up to the claimed S');
-        strict_1.default.ok((0, _jutsu_points_js_1.bloodlinePoints)(bl.jutsus, 'A Rank') <= 10, 'clamped within the A-rank budget');
-    });
+const entitlement = (rank, id = '12345678-1234-1234-1234-123456789abc') => ({
+    id, rank, issuedAt: 1_750_000_000_000,
+});
+(0, node_test_1.test)('new bloodline without a server forge entitlement is discarded', () => {
+    const out = (0, _name__js_1.sanitizeCharacterSave)(incoming([mkBloodline()]), stored());
+    strict_1.default.deepEqual(out.savedBloodlines, []);
+});
+(0, node_test_1.test)('incoming payload cannot forge its own pending entitlement', () => {
+    const forged = entitlement('S Rank');
+    const out = (0, _name__js_1.sanitizeCharacterSave)(incoming([mkBloodline()], { pendingBloodlineForges: [forged] }), stored());
+    strict_1.default.deepEqual(out.savedBloodlines, []);
+    strict_1.default.deepEqual(out.pendingBloodlineForges, []);
+});
+(0, node_test_1.test)('exact-rank server entitlement accepts one new bloodline, consumes purchase, and applies point budget', () => {
+    const out = (0, _name__js_1.sanitizeCharacterSave)(incoming([mkBloodline('bl-paid', 'S Rank')]), stored([], [entitlement('S Rank')]));
+    const bloodlines = out.savedBloodlines;
+    strict_1.default.equal(bloodlines.length, 1);
+    strict_1.default.equal(bloodlines[0].rank, 'S Rank');
+    strict_1.default.ok((0, _jutsu_points_js_1.bloodlinePoints)(bloodlines[0].jutsus, 'S Rank') <= 11);
+    strict_1.default.deepEqual(out.pendingBloodlineForges, []);
+});
+(0, node_test_1.test)('forge entitlement is rank-specific and remains pending after a mismatched attempt', () => {
+    const pending = entitlement('A Rank');
+    const out = (0, _name__js_1.sanitizeCharacterSave)(incoming([mkBloodline('bl-wrong-rank', 'S Rank')]), stored([], [pending]));
+    strict_1.default.deepEqual(out.savedBloodlines, []);
+    strict_1.default.deepEqual(out.pendingBloodlineForges, [pending]);
+});
+(0, node_test_1.test)('existing A-rank id is grandfathered but cannot self-promote to S', () => {
+    const existing = mkBloodline('bl-existing', 'A Rank');
+    const out = (0, _name__js_1.sanitizeCharacterSave)(incoming([mkBloodline('bl-existing', 'S Rank')]), stored([existing]));
+    const bloodline = out.savedBloodlines[0];
+    strict_1.default.equal(bloodline.rank, 'A Rank');
+    strict_1.default.ok((0, _jutsu_points_js_1.bloodlinePoints)(bloodline.jutsus, 'A Rank') <= 10);
+});
+(0, node_test_1.test)('one entitlement cannot authorize two new bloodline ids', () => {
+    const out = (0, _name__js_1.sanitizeCharacterSave)(incoming([mkBloodline('bl-one', 'B Rank'), mkBloodline('bl-two', 'B Rank')]), stored([], [entitlement('B Rank')]));
+    strict_1.default.deepEqual(out.savedBloodlines.map((bl) => bl.id), ['bl-one']);
+    strict_1.default.deepEqual(out.pendingBloodlineForges, []);
 });

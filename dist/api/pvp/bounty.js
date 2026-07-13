@@ -117,8 +117,10 @@ async function handler(req, res) {
                     const result = (0, _bounty_js_1.placeBounty)({ placerName: identity.admin ? playerName : (char.name ?? playerName), targetName: targetDisplay, amount, placerRyo: num(char.ryo), targetExists, board }, now);
                     if (!result.ok)
                         return { ok: false, reason: result.reason };
-                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: { ...char, ryo: num(char.ryo) - result.amount } }), rec));
-                    return { ok: true, board: result.board, debited: result.amount };
+                    const balance = num(char.ryo) - result.amount;
+                    const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: { ...char, ryo: balance } });
+                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(updated, rec));
+                    return { ok: true, board: result.board, debited: result.amount, balance, saveVersion: Number(updated._saveVersion ?? 0) };
                 }, { failClosed: true });
                 if (!debit.ok)
                     return { status: 400, body: { error: debit.reason ?? 'Could not place the bounty.' } };
@@ -143,7 +145,7 @@ async function handler(req, res) {
                     }
                     throw boardErr;
                 }
-                return { status: 200, body: { ok: true, bounties: debit.board.bounties } };
+                return { status: 200, body: { ok: true, bounties: debit.board.bounties, balances: { ryo: debit.balance }, _saveVersion: debit.saveVersion } };
             }, { failClosed: true });
             if (out.status === 200)
                 await _storage_js_1.kv.set(`${AUDIT_PREFIX}place:${Date.now()}`, { ts: now, placer: playerName, target: targetSlug, amount }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
@@ -263,8 +265,10 @@ async function handler(req, res) {
                     const char = (rec?.character ?? null);
                     if (!rec || !char)
                         return { ok: false };
-                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: { ...char, ryo: num(char.ryo) + result.amount } }), rec));
-                    return { ok: true };
+                    const balance = num(char.ryo) + result.amount;
+                    const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: { ...char, ryo: balance } });
+                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(updated, rec));
+                    return { ok: true, balance, saveVersion: Number(updated._saveVersion ?? 0) };
                 }, { failClosed: true });
                 if (!credit.ok) {
                     // Winner's save vanished — release the idempotency receipt so a
@@ -273,7 +277,7 @@ async function handler(req, res) {
                     return { status: 404, body: { error: 'Your save was not found.' } };
                 }
                 await _storage_js_1.kv.set(BOUNTY_KEY, result.board);
-                return { status: 200, body: { ok: true, amount: result.amount, target: loserName }, paid: result.amount };
+                return { status: 200, body: { ok: true, amount: result.amount, target: loserName, balances: { ryo: credit.balance }, _saveVersion: credit.saveVersion }, paid: result.amount };
             }, { failClosed: true });
             if (out.paid)
                 await _storage_js_1.kv.set(`${AUDIT_PREFIX}claim:${Date.now()}`, { ts: now, winner: playerName, target: (0, _utils_js_1.safeName)(loserName), amount: out.paid, battleId }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);

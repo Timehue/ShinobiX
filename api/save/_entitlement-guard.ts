@@ -38,6 +38,33 @@ function stackCounts(raw: unknown): Map<string, number> {
     return counts;
 }
 
+export function preserveOwnedItems(
+    incomingInventory: unknown,
+    incomingStacks: unknown,
+    existingInventory: unknown,
+    existingStacks: unknown,
+): { inventory: string[]; itemStacks: Array<{ itemId: string; count: number }> } {
+    const allowed = countStrings(existingInventory);
+    for (const [id, count] of stackCounts(existingStacks)) allowed.set(id, (allowed.get(id) ?? 0) + count);
+    const used = new Map<string, number>();
+    const inventory: string[] = [];
+    if (Array.isArray(incomingInventory)) {
+        for (const raw of incomingInventory) {
+            const id = typeof raw === 'string' ? raw : '';
+            if (!id || (used.get(id) ?? 0) >= (allowed.get(id) ?? 0)) continue;
+            used.set(id, (used.get(id) ?? 0) + 1);
+            inventory.push(id);
+        }
+    }
+    const itemStacks: Array<{ itemId: string; count: number }> = [];
+    for (const [itemId, requested] of stackCounts(incomingStacks)) {
+        const remaining = Math.max(0, (allowed.get(itemId) ?? 0) - (used.get(itemId) ?? 0));
+        const count = Math.min(requested, remaining);
+        if (count > 0) itemStacks.push({ itemId, count });
+    }
+    return { inventory, itemStacks };
+}
+
 export function isServerOwnedItemId(itemId: string): boolean {
     return SERVER_OWNED_ITEM_IDS.has(itemId);
 }

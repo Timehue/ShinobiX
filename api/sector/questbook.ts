@@ -138,7 +138,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const rec = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
-
                 const now = Date.now();
                 // Timer: lazily arm a missing deadline (migrates in-flight epics); else
                 // enforce expiry → reset to the timer's reset stage.
@@ -230,6 +229,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
+                const receiptId = `${sealed.id}:${Number(sealed.at ?? 0)}`;
+                const receipts = Array.isArray(char.redeemedQuestbookRuns) ? char.redeemedQuestbookRuns as Array<Record<string, unknown>> : [];
+                const prior = receipts.find((receiptEntry) => receiptEntry.id === receiptId);
+                if (prior) {
+                    await kv.set(doneKeyFor(playerName, sealed.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS }).catch(() => undefined);
+                    await kv.del(questKey).catch(() => undefined);
+                    return { status: 200, body: { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo), fateShards: num(prior.fateShards), title: prior.title, standings: prior.standings, clearedRivalry: prior.clearedRivalry === true } };
+                }
+
                 const now = Date.now();
                 // A timed final stage must still be within its deadline.
                 if (stageTimerMs(stage) > 0 && sealed.deadline && now > sealed.deadline) {
@@ -247,9 +255,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ok: false, reason: 'incomplete', stage: finalIdx, progress: Math.max(0, current - num(sealed.baseline)), target: stage.count } };
                 }
 
-                const consumed = await kv.del(questKey);
-                if (consumed <= 0) return { status: 200, body: { ok: false, reason: 'none' } };
-
                 // Apply sealed branch effects to the reward.
                 const fx = aggregateChoiceEffects(entry, choices);
                 const ryo = Math.round(questBookRyo(num(char.level) || 1, entry.weight) * fx.ryoMult);
@@ -263,11 +268,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const questStandings = [...prevStandings];
                 for (const s of fx.standings) if (!questStandings.includes(s)) questStandings.push(s);
 
-                const updated: Record<string, unknown> = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null };
+                const receipt = { id: receiptId, ryo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry };
+                const updated: Record<string, unknown> = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null, redeemedQuestbookRuns: [...receipts.slice(-49), receipt] };
                 // The capstone ends the rivalry for good (its whole point).
                 if (entry.clearsRivalry) updated.wandererNemesis = null;
                 await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
                 await kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
+                await kv.del(questKey).catch(() => undefined);
                 return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry } };
             }, { failClosed: true });
 

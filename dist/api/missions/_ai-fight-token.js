@@ -24,12 +24,21 @@ function createAiFightTokenRecord(playerName, tokenId, now = Date.now(), context
         : undefined;
     const baseXp = Math.max(0, Math.min(_ai_fight_reward_js_1.MAX_AI_FIGHT_XP, Math.floor(Number(context.baseXp ?? NaN))));
     const baseRyo = Math.max(0, Math.min(_ai_fight_reward_js_1.MAX_AI_FIGHT_RYO, Math.floor(Number(context.baseRyo ?? NaN))));
+    const battleKindRaw = typeof context.battleKind === 'string' ? context.battleKind : '';
+    const battleKind = battleKindRaw === 'mission'
+        || battleKindRaw === 'raidAi'
+        || battleKindRaw === 'defense'
+        || battleKindRaw === 'explore'
+        || battleKindRaw === 'endless'
+        ? battleKindRaw
+        : 'practice';
     return {
         playerName,
         tokenId,
         mintedAt: now,
         maxXp: _ai_fight_reward_js_1.MAX_AI_FIGHT_XP,
         maxRyo: _ai_fight_reward_js_1.MAX_AI_FIGHT_RYO,
+        battleKind,
         ...(Number.isFinite(baseXp) ? { baseXp } : {}),
         ...(Number.isFinite(baseRyo) ? { baseRyo } : {}),
         ...(Number.isFinite(baseXp) && Number.isFinite(baseRyo) ? { rewardSource: 'server-save' } : {}),

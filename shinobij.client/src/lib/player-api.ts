@@ -27,16 +27,16 @@ export async function postPlayerChallengeNotice(targetName: string, challenge: D
 // Atomic village-treasury donation — village twin of the clan helper above
 // (api/village/treasury/donate.ts). Returns the server-credited treasury
 // (contributionPoints / notice stay client-side), or null on failure.
-export async function postVillageTreasuryDonation(playerName: string, village: string, donation: TreasuryDonationBody): Promise<Record<string, unknown> | null> {
+export async function postVillageTreasuryDonation(playerName: string, village: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character } | null> {
     try {
         const res = await fetch("/api/village/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, village, ...donation }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown> };
-        if (!res.ok || !data.ok || !data.treasury) { alert(data.error || "Donation failed. Please try again."); return null; }
-        return data.treasury;
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character };
+        if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || "Donation failed. Please try again."); return null; }
+        return { treasury: data.treasury, character: data.character };
     } catch {
         alert("Donation failed. Please try again.");
         return null;
@@ -48,16 +48,16 @@ export async function postVillageTreasuryDonation(playerName: string, village: s
 // the old "credit treasury without a matching debit" gap. Returns the
 // server-credited treasury (clan XP / clanEventContrib are still applied
 // client-side on top of it), or null on failure (alerts the player).
-export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<Record<string, unknown> | null> {
+export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; xp: number; level: number } | null> {
     try {
         const res = await fetch("/api/clan/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ playerName, clan, ...donation }),
         });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown> };
-        if (!res.ok || !data.ok || !data.treasury) { alert(data.error || "Donation failed. Please try again."); return null; }
-        return data.treasury;
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; xp?: number; level?: number };
+        if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || "Donation failed. Please try again."); return null; }
+        return { treasury: data.treasury, character: data.character, xp: data.xp ?? 0, level: data.level ?? 1 };
     } catch {
         alert("Donation failed. Please try again.");
         return null;

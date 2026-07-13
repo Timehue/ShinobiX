@@ -18,11 +18,15 @@ export function useBodyScrollLock(active: boolean): void {
         if (_lockCount === 0) {
             _savedOverflow = document.body.style.overflow;
             document.body.style.overflow = "hidden";
+            document.body.classList.add("ui-scroll-locked");
         }
         _lockCount++;
         return () => {
             _lockCount = Math.max(0, _lockCount - 1);
-            if (_lockCount === 0) document.body.style.overflow = _savedOverflow;
+            if (_lockCount === 0) {
+                document.body.style.overflow = _savedOverflow;
+                document.body.classList.remove("ui-scroll-locked");
+            }
         };
     }, [active]);
 }

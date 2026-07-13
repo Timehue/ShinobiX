@@ -9,7 +9,7 @@ import type { SavedBloodline } from "../types/combat";
 import { CardVisual } from "../components/Marks";
 import { DAILY_MISSION_LIMIT, EXAM_LEVEL_GATES } from "../constants/game";
 import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
-import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
+import { rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { clampNumber, currentDateKey } from "../lib/utils";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
@@ -22,6 +22,7 @@ import {
     type CreatorEvent,
 } from "../App";
 import { activeVillageWarsFor, claimVillageWarDailyMission, loadVillageState, weatherForSector, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
+import { passRankExamServer } from "../lib/exam-api";
 
 export function Logbook({
     character,
@@ -90,7 +91,7 @@ export function Logbook({
         examProctorExists: creatorAis.some((ai) => ai.id === "builtin-ai-exam-proctor"),
         rogueNinjaExists: creatorAis.some((ai) => ai.id === "builtin-ai-rogue-ninja"),
         isKage: character.level >= 80 && loadVillageState(character.village).seatedKage?.toLowerCase() === character.name.toLowerCase(),
-        isElder: Boolean(character.elderFocus),
+        isElder: loadVillageState(character.village).anbuAppointees.some((name) => name.toLowerCase() === character.name.toLowerCase()),
     };
     const objectives = buildLogbookObjectives(character, objectiveContext);
     const currentObjective = currentLogbookObjective(character, objectiveContext);
@@ -137,16 +138,7 @@ export function Logbook({
 
     function claimRewardEvent(event: CreatorEvent) {
         if (character.level < event.levelReq) return alert(`Requires level ${event.levelReq}.`);
-        const leveled = gainXp(character, event.xpReward);
-        const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
-        updateCharacter({
-            ...rewarded,
-            ryo: rewarded.ryo + event.ryoReward,
-            stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward),
-            clanEventContrib: (rewarded.clanEventContrib ?? 0) + 1,
-            clanContribMonth: new Date().toISOString().slice(0, 7),
-        });
-        alert(`${event.name} complete. ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards, character)}.`);
+        alert(`${event.name} is narrative-only until its reward is published in the server catalog.`);
     }
 
     function startRaid(raid: CreatorRaid) {
@@ -300,8 +292,10 @@ export function Logbook({
                                 <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
                                 {!passed && <div className="menu">
                                     <button disabled={!complete} onClick={() => {
-                                        updateCharacter({ ...character, examsPassed: [...(character.examsPassed ?? []), exam.examKey] });
-                                        setCeremonyTitle(exam.title);
+                                        void passRankExamServer(character.name, exam.examKey).then((next) => {
+                                            updateCharacter(next);
+                                            setCeremonyTitle(exam.title);
+                                        }).catch((error) => alert(error instanceof Error ? error.message : "Rank exam could not be verified."));
                                     }}>{complete ? `Pass ${exam.title}` : "Requirements Incomplete"}</button>
                                 </div>}
                             </section>

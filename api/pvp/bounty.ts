@@ -115,14 +115,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const out = await withKvLock<{ status: number; body: unknown }>(BOUNTY_KEY, async () => {
                 const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
-                const debit = await withKvLock<{ ok: boolean; reason?: string; board?: BountyBoard; debited?: number }>(`save:${playerName}`, async () => {
+                const debit = await withKvLock<{ ok: boolean; reason?: string; board?: BountyBoard; debited?: number; balance?: number; saveVersion?: number }>(`save:${playerName}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !char) return { ok: false, reason: 'Your save was not found.' };
                     const result = placeBounty({ placerName: identity.admin ? playerName : (char.name as string ?? playerName), targetName: targetDisplay, amount, placerRyo: num(char.ryo), targetExists, board }, now);
                     if (!result.ok) return { ok: false, reason: result.reason };
-                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: { ...char, ryo: num(char.ryo) - result.amount } }), rec));
-                    return { ok: true, board: result.board, debited: result.amount };
+                    const balance = num(char.ryo) - result.amount;
+                    const updated = bumpSaveVersion({ ...rec, character: { ...char, ryo: balance } });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(updated, rec));
+                    return { ok: true, board: result.board, debited: result.amount, balance, saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
                 }, { failClosed: true });
                 if (!debit.ok) return { status: 400, body: { error: debit.reason ?? 'Could not place the bounty.' } };
                 try {
@@ -143,7 +145,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     throw boardErr;
                 }
-                return { status: 200, body: { ok: true, bounties: debit.board!.bounties } };
+                return { status: 200, body: { ok: true, bounties: debit.board!.bounties, balances: { ryo: debit.balance }, _saveVersion: debit.saveVersion } };
             }, { failClosed: true });
 
             if (out.status === 200) await kv.set(`${AUDIT_PREFIX}place:${Date.now()}`, { ts: now, placer: playerName, target: targetSlug, amount }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
@@ -259,12 +261,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
                 const result = claimBounty(board, loserName);
                 if (!result.ok) return { status: 200, body: { ok: true, amount: 0 } }; // no bounty on the loser — harmless no-op
-                const credit = await withKvLock<{ ok: boolean }>(`save:${playerName}`, async () => {
+                const credit = await withKvLock<{ ok: boolean; balance?: number; saveVersion?: number }>(`save:${playerName}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !char) return { ok: false };
-                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: { ...char, ryo: num(char.ryo) + result.amount } }), rec));
-                    return { ok: true };
+                    const balance = num(char.ryo) + result.amount;
+                    const updated = bumpSaveVersion({ ...rec, character: { ...char, ryo: balance } });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(updated, rec));
+                    return { ok: true, balance, saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
                 }, { failClosed: true });
                 if (!credit.ok) {
                     // Winner's save vanished — release the idempotency receipt so a
@@ -273,7 +277,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 404, body: { error: 'Your save was not found.' } };
                 }
                 await kv.set(BOUNTY_KEY, result.board);
-                return { status: 200, body: { ok: true, amount: result.amount, target: loserName }, paid: result.amount };
+                return { status: 200, body: { ok: true, amount: result.amount, target: loserName, balances: { ryo: credit.balance }, _saveVersion: credit.saveVersion }, paid: result.amount };
             }, { failClosed: true });
 
             if (out.paid) await kv.set(`${AUDIT_PREFIX}claim:${Date.now()}`, { ts: now, winner: playerName, target: safeName(loserName), amount: out.paid, battleId }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);

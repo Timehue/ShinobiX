@@ -80,6 +80,24 @@ export function masteryHasCapstone(profession: unknown, spec: unknown, capstoneI
     return num((spec as Record<string, unknown>)[capstoneId]) >= 1;
 }
 
+export function applyMasteryInvestment(profession: unknown, professionXp: unknown, spec: unknown, nodeId: string): Record<string, number> | null {
+    if (!isProf(profession)) return null;
+    const node = TREES[profession].find((entry) => entry.id === nodeId);
+    if (!node) return null;
+    const current = sanitizeMasterySpec(profession, spec, masteryBudget(profession, professionXp));
+    const rank = Math.max(0, num(current[nodeId]));
+    if (rank >= maxRank(node)) return null;
+    if (node.capstone) {
+        const pathPoints = TREES[profession]
+            .filter((entry) => entry.path === node.path && !entry.capstone)
+            .reduce((total, entry) => total + Math.max(0, num(current[entry.id])), 0);
+        if (pathPoints < CAPSTONE_GATE) return null;
+    }
+    const proposal = { ...current, [nodeId]: rank + 1 };
+    const cleaned = sanitizeMasterySpec(profession, proposal, masteryBudget(profession, professionXp));
+    return cleaned[nodeId] === rank + 1 ? cleaned : null;
+}
+
 /**
  * Clamp a (possibly forged) masterySpec to what `budget` allows: legal node ids,
  * ranks ≤ max, capstone gates satisfied, total spend ≤ budget. Greedy: normal

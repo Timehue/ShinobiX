@@ -7,14 +7,17 @@ import {
     clampFragmentTotal,
     itemStackCount,
     maxFragmentsForDepth,
+    maxVeilsForDepth,
+    maxXpForDepth,
     maxHaulForDepth,
     maxShardsForDepth,
     AUGMENT_CATALOG,
     rollAugmentOffers,
     rewardMultiplierForToken,
     augmentDisplay,
+    canonicalHollowGateDepth,
 } from './_run-token.js';
-import { settleCurrency } from './settle.js';
+import { addCountedItem, settleCurrency } from './settle.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -22,6 +25,13 @@ import { join } from 'node:path';
 // module systems, so — like _cross-build-parity.test.ts — the drift guard reads
 // the client run lib as TEXT rather than importing it across the boundary.
 const CLIENT_RUN_SRC = readFileSync(join('shinobij.client', 'src', 'lib', 'hollow-gate-run.ts'), 'utf8');
+
+test('the server seals the shipped five-floor depth regardless of client input', () => {
+    assert.equal(canonicalHollowGateDepth(), 5);
+    const startSource = readFileSync(join('api', 'hollow-gate', 'start.ts'), 'utf8');
+    assert.ok(startSource.includes('const floorDepth = canonicalHollowGateDepth()'));
+    assert.equal(startSource.includes('Number(body.floorDepth'), false);
+});
 
 test('hollowShardDrop matches the documented curve, and the client source still defines it (drift guard)', () => {
     for (let f = 1; f <= 8; f++) {
@@ -89,9 +99,9 @@ test('settleCurrency applies the server death claw-back (x0.5)', () => {
     assert.equal(settleCurrency(140, 100, 40, 1000, 0.5), 120); // entry 100 + floor(40*0.5)=20
 });
 
-test('settleCurrency never restores in-run spends (min with current balance)', () => {
-    // Player spent below their entry mid-run — settle must not refund them back up.
-    assert.equal(settleCurrency(80, 100, 30, 1000, 1), 80);
+test('settleCurrency preserves an in-run spend while crediting the earned haul', () => {
+    // Entry 100, spend 20, earn 30 => 110 (the spend is not refunded).
+    assert.equal(settleCurrency(80, 100, 30, 1000, 1), 110);
 });
 
 test('settleCurrency floors at 0 and ignores negative/junk input', () => {
@@ -117,6 +127,21 @@ test('maxFragmentsForDepth grows with depth, clamps to 2..40, and is always posi
     assert.equal(maxFragmentsForDepth(0), 2, 'floors at the min ceiling');
     assert.equal(maxFragmentsForDepth(999), 40, 'clamps at 40');
     assert.equal(maxFragmentsForDepth(NaN as unknown as number), 2, 'junk → floor');
+});
+
+test('XP and Veil settlement ceilings are finite and depth-bounded', () => {
+    assert.equal(maxXpForDepth(5), 50_000);
+    assert.equal(maxXpForDepth(5, 2), 100_000);
+    assert.equal(maxVeilsForDepth(5), 6);
+    assert.equal(maxVeilsForDepth(999), 21);
+});
+
+test('addCountedItem creates and increments only the requested stack', () => {
+    assert.deepEqual(addCountedItem([], 'fragment', 2), [{ itemId: 'fragment', count: 2 }]);
+    assert.deepEqual(addCountedItem([{ itemId: 'fragment', count: 2 }, { itemId: 'other', count: 4 }], 'fragment', 3), [
+        { itemId: 'fragment', count: 5 }, { itemId: 'other', count: 4 },
+    ]);
+    assert.deepEqual(addCountedItem([{ itemId: 'fragment', count: 2 }], 'fragment', -10), [{ itemId: 'fragment', count: 2 }]);
 });
 
 test('itemStackCount sums the counted-stack total for an item id', () => {

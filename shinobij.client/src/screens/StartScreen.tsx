@@ -94,8 +94,8 @@ const FEATURES: Feature[] = [
         img: PVP_IMG,
     },
     {
-        tag: "Progression", title: "Train Your Power",
-        blurb: "Train stats, improve jutsu, take missions, and grow from a new recruit into a stronger shinobi over time.",
+        tag: "Progression", title: "Master the Shinobi Arts",
+        blurb: "Train your attributes, master new jutsu, and rise from academy recruit to legendary shinobi.",
         img: villageImg,
     },
     {
@@ -434,7 +434,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                             <BrandLockup variant="hero" />
                         </h1>
                         <p className="landing-tagline">
-                            Create your shinobi, train your power, and step into a world of
+                            Create your shinobi, master your jutsu, and step into a world of
                             rival villages, hidden paths, and hard-earned legend.
                         </p>
 
@@ -561,8 +561,8 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         </li>
                         <li>
                             <span className="landing-step-num">02</span>
-                            <h3 className="landing-step-title">Train Your Power</h3>
-                            <p className="landing-step-desc">Build stats, unlock jutsu, and take missions that grow your character over time.</p>
+                            <h3 className="landing-step-title">Master the Shinobi Arts</h3>
+                            <p className="landing-step-desc">Train your attributes, master new jutsu, and earn your rank through missions.</p>
                         </li>
                         <li>
                             <span className="landing-step-num">03</span>

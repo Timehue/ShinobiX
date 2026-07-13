@@ -130,7 +130,7 @@ async function handler(req, res) {
             await _storage_js_1.kv.set(villageStateKey, { ...stateRec, treasury: debit.value.nextTreasury });
             await (0, _economy_tx_js_1.completeEconomyTx)(txId);
             txState = 'complete';
-            return { ok: true, treasury: debit.value.nextTreasury, _saveVersion: debit._saveVersion };
+            return { ok: true, treasury: debit.value.nextTreasury, character: debit.character, _saveVersion: debit._saveVersion };
         }, { failClosed: true });
         if (!result.ok)
             return res.status(result.status).json({ error: result.error });
@@ -149,7 +149,7 @@ async function handler(req, res) {
                 ? Math.max(0, Math.floor(donation.amount))
                 : Math.max(0, Math.floor(donation.count)) * 500,
         });
-        return res.status(200).json({ ok: true, treasury: result.treasury, _saveVersion: result._saveVersion });
+        return res.status(200).json({ ok: true, treasury: result.treasury, character: result.character, _saveVersion: result._saveVersion });
     }
     catch (err) {
         if (txId && txState && txState !== 'complete') {

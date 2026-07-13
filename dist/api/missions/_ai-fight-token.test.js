@@ -11,6 +11,7 @@ const _ai_fight_token_js_1 = require("./_ai-fight-token.js");
             opponentLevel: 42.9,
             baseXp: 125,
             baseRyo: 90,
+            battleKind: 'defense',
         });
         node_assert_1.strict.equal(token.playerName, 'Player');
         node_assert_1.strict.equal(token.tokenId, 'abc123');
@@ -22,6 +23,10 @@ const _ai_fight_token_js_1 = require("./_ai-fight-token.js");
         node_assert_1.strict.equal(token.rewardSource, 'server-save');
         node_assert_1.strict.equal(token.opponentId, 'forest-ai:1');
         node_assert_1.strict.equal(token.opponentLevel, 42);
+        node_assert_1.strict.equal(token.battleKind, 'defense');
+    });
+    (0, node_test_1.it)('normalizes unknown battle kinds to non-paying practice', () => {
+        node_assert_1.strict.equal((0, _ai_fight_token_js_1.createAiFightTokenRecord)('Player', 'abc123', 123, { battleKind: 'forged' }).battleKind, 'practice');
     });
     (0, node_test_1.it)('cleans token ids for key use', () => {
         node_assert_1.strict.equal((0, _ai_fight_token_js_1.cleanAiFightToken)(' abcDEF123 '), 'abcDEF123');

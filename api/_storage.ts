@@ -68,6 +68,12 @@ const { Pool } = pg;
 
 let _pool: pg.Pool | null = null;
 
+export async function closeStoragePool(): Promise<void> {
+    const pool = _pool;
+    _pool = null;
+    if (pool) await pool.end();
+}
+
 function getPool(): pg.Pool {
     if (_pool) return _pool;
 

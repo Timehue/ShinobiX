@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { resolveEquippedLoadout } from './session.js';
+import { bloodlinePoints } from '../_jutsu-points.js';
 
 // P0.1 sub-2 — the server stamps a bloodline's rank onto its jutsu in
 // resolveEquippedLoadout so combat (move.ts woundCapForJutsu / ampTagCapForRank)
@@ -49,5 +50,24 @@ describe('resolveEquippedLoadout — bloodline rank stamp (BLOODLINE_RANK_CAPS)'
             const out = resolveEquippedLoadout({ equippedJutsuIds: ['bl-x'] }, bSave, client) as Array<Record<string, unknown>>;
             assert.equal(out[0]!.bloodlineRank, 'B Rank');
         });
+    });
+
+    it('always enforces the saved bloodline point budget before combat', () => {
+        const jutsus = Array.from({ length: 5 }, (_, i) => ({
+            id: `forged-${i}`,
+            name: 'Forged',
+            ap: 60,
+            range: 4,
+            effectPower: 50,
+            cooldown: 7,
+            tags: [{ name: 'Copy' }, { name: 'Mirror' }, { name: 'Stun' }],
+        }));
+        const forgedSave = { savedBloodlines: [{ rank: 'B Rank', jutsus }] };
+        const out = resolveEquippedLoadout(
+            { equippedJutsuIds: jutsus.map((j) => j.id) },
+            forgedSave,
+            {},
+        ) as typeof jutsus;
+        assert.ok(bloodlinePoints(out, 'B Rank') <= 7);
     });
 });

@@ -10,6 +10,12 @@ const node_path_1 = require("node:path");
 // module systems, so — like _cross-build-parity.test.ts — the drift guard reads
 // the client run lib as TEXT rather than importing it across the boundary.
 const CLIENT_RUN_SRC = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinobij.client', 'src', 'lib', 'hollow-gate-run.ts'), 'utf8');
+(0, node_test_1.test)('the server seals the shipped five-floor depth regardless of client input', () => {
+    node_assert_1.strict.equal((0, _run_token_js_1.canonicalHollowGateDepth)(), 5);
+    const startSource = (0, node_fs_1.readFileSync)((0, node_path_1.join)('api', 'hollow-gate', 'start.ts'), 'utf8');
+    node_assert_1.strict.ok(startSource.includes('const floorDepth = canonicalHollowGateDepth()'));
+    node_assert_1.strict.equal(startSource.includes('Number(body.floorDepth'), false);
+});
 (0, node_test_1.test)('hollowShardDrop matches the documented curve, and the client source still defines it (drift guard)', () => {
     for (let f = 1; f <= 8; f++) {
         node_assert_1.strict.equal((0, _run_token_js_1.hollowShardDrop)(f, 'chest'), 2 + f);
@@ -69,9 +75,9 @@ const CLIENT_RUN_SRC = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinob
 (0, node_test_1.test)('settleCurrency applies the server death claw-back (x0.5)', () => {
     node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(140, 100, 40, 1000, 0.5), 120); // entry 100 + floor(40*0.5)=20
 });
-(0, node_test_1.test)('settleCurrency never restores in-run spends (min with current balance)', () => {
-    // Player spent below their entry mid-run — settle must not refund them back up.
-    node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(80, 100, 30, 1000, 1), 80);
+(0, node_test_1.test)('settleCurrency preserves an in-run spend while crediting the earned haul', () => {
+    // Entry 100, spend 20, earn 30 => 110 (the spend is not refunded).
+    node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(80, 100, 30, 1000, 1), 110);
 });
 (0, node_test_1.test)('settleCurrency floors at 0 and ignores negative/junk input', () => {
     node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(-5, 0, -10, 50, 1), 0);
@@ -90,6 +96,19 @@ const CLIENT_RUN_SRC = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinob
     node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(0), 2, 'floors at the min ceiling');
     node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(999), 40, 'clamps at 40');
     node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(NaN), 2, 'junk → floor');
+});
+(0, node_test_1.test)('XP and Veil settlement ceilings are finite and depth-bounded', () => {
+    node_assert_1.strict.equal((0, _run_token_js_1.maxXpForDepth)(5), 50_000);
+    node_assert_1.strict.equal((0, _run_token_js_1.maxXpForDepth)(5, 2), 100_000);
+    node_assert_1.strict.equal((0, _run_token_js_1.maxVeilsForDepth)(5), 6);
+    node_assert_1.strict.equal((0, _run_token_js_1.maxVeilsForDepth)(999), 21);
+});
+(0, node_test_1.test)('addCountedItem creates and increments only the requested stack', () => {
+    node_assert_1.strict.deepEqual((0, settle_js_1.addCountedItem)([], 'fragment', 2), [{ itemId: 'fragment', count: 2 }]);
+    node_assert_1.strict.deepEqual((0, settle_js_1.addCountedItem)([{ itemId: 'fragment', count: 2 }, { itemId: 'other', count: 4 }], 'fragment', 3), [
+        { itemId: 'fragment', count: 5 }, { itemId: 'other', count: 4 },
+    ]);
+    node_assert_1.strict.deepEqual((0, settle_js_1.addCountedItem)([{ itemId: 'fragment', count: 2 }], 'fragment', -10), [{ itemId: 'fragment', count: 2 }]);
 });
 (0, node_test_1.test)('itemStackCount sums the counted-stack total for an item id', () => {
     const stacks = [{ itemId: 'dungeon-legendary-fragment', count: 3 }, { itemId: 'other', count: 9 }];

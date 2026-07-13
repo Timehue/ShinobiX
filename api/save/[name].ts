@@ -12,19 +12,19 @@ import { sanitizeUserText, isCleanText, isAllowedCustomTitle, TEXT_LIMITS } from
 import { isKnownEarnedTitle, isServerCreditedTitle, normalizeTitleKey, appendCustomTitleLog, TITLE_STYLE_IDS, TITLE_ICON_SET } from '../_titles-registry.js';
 import { legacyEnabled } from '../_legacy-track.js';
 import { KNOWN_TAG_NAMES, canonicalTagName } from '../pvp/_tags.js';
-import { masteryBudget, sanitizeMasterySpec } from '../_profession-mastery.js';
 import { combatMissionByKey } from '../missions/_mission-catalog.js';
 import {
-    isHighRiskTileCardId,
-    isServerOwnedItemId,
-    preserveEntitledStacks,
     preserveEntitledStringArray,
+    preserveOwnedItems,
 } from './_entitlement-guard.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
+import { applyCanonicalFirstSave } from './_first-save-baseline.js';
+import { preserveStatPointEntitlement } from './_stat-entitlement.js';
+import { parseBloodlineForgeRank, readPendingBloodlineForges } from '../bloodlines/_forge.js';
 
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
@@ -148,20 +148,16 @@ const REGISTRY_REFRESH_MS = 60_000;
 // values (high-level players with lots of ryo) are preserved while exploit spikes
 // (editing localStorage / fetch body) are clamped.
 
-const MAX_RYO_GAIN = 1_000_000;           // max ryo a player can earn per save cycle
+// Ordinary player saves may spend stored balances, but never originate gains.
+// Every positive grant must be committed by an authenticated domain endpoint.
 const CURRENCY_CAPS: Record<string, number> = {
-    fateShards: 50,
-    boneCharms: 50,
-    auraStones: 50,
-    // NOTE: auraDust may clip legitimate rewards from bosses / events that grant
-    // > 100 dust in a single save cycle. Tune this cap if players report missing dust.
-    auraDust: 100,
-    mythicSeals: 50,
-    honorSeals: 200,
-    // Hollow Gate-only currency. Generous per-save gain cap — well above the
-    // most a legit run can bank in one autosave cycle — since it's spent only
-    // inside the shrine, so a tampered pile has a small blast radius.
-    hollowShards: 200,
+    fateShards: 0,
+    boneCharms: 0,
+    auraStones: 0,
+    auraDust: 0,
+    mythicSeals: 0,
+    honorSeals: 0,
+    hollowShards: 0,
 };
 const SERVER_OWNED_CLAN_POINT_FIELDS = [
     'clanPoints',
@@ -171,15 +167,7 @@ const SERVER_OWNED_CLAN_POINT_FIELDS = [
     'clanPointHistory',
     'clanExchangePurchases',
 ] as const;
-const MAX_STAT_GAIN = 500;   // per individual stat per save cycle
-// Total stat-points (sum across all 12 stats) a single save can grant.
-// Without this, the per-stat cap could be multiplied by 12 stats = 6000
-// total points per save. 1000 is generous — legitimate training tops out
-// well below that per save cycle.
-const MAX_TOTAL_STAT_GAIN = 1000;
-const MAX_LEVEL_GAIN = 5;    // levels that can be gained between saves
 const LEVEL_CAP = 100;
-const MAX_PROFESSION_XP_GAIN = 5000; // per save cycle (covers normal play + mission XP)
 const MAX_PROFESSION_RANK = 10;
 // Healer uses 1.5× the baseline. Cumulative threshold to enter each rank,
 // idx 1..10. Used to clamp client-reported rank against client-reported XP.
@@ -228,7 +216,7 @@ const MAX_CURRENCY_PER_MINUTE: Record<string, number> = {
     boneCharms: 500,
     auraStones: 500,
     auraDust: 2000,
-    mythicSeals: 500,
+    mythicSeals: 0,
     honorSeals: 2000,
     hollowShards: 2000,
 };
@@ -299,6 +287,7 @@ export function sanitizeCharacterSave(
     incoming: Record<string, unknown>,
     existing: Record<string, unknown> | null,
 ): Record<string, unknown> {
+    const isFirstSave = existing == null;
     const inChar = incoming.character as Record<string, unknown> | undefined;
     // First-save case (no existing): clamp against a fresh baseline so a brand-
     // new account can't submit absurd starting values.
@@ -348,19 +337,17 @@ export function sanitizeCharacterSave(
                 ...(Array.isArray(storedServer) ? (storedServer as string[]) : []),
             ].map((t) => normalizeTitleKey(String(t))));
             char.customTitle = serverOwned.has(norm) ? masked : '';
+        } else if (titleChanged && isKnownEarnedTitle(masked)) {
+            // Achievement-title impersonation is blocked in every release flag
+            // state. Only the stored server-synced vault can authorize it.
+            const storedServer = (existing?.character as Record<string, unknown> | undefined)?.serverTitles;
+            const owned = new Set([
+                ...(Array.isArray(exChar.earnedTitles) ? (exChar.earnedTitles as string[]) : []).map((t) => normalizeTitleKey(String(t))),
+                ...(Array.isArray(storedServer) ? (storedServer as string[]) : []).map((t) => normalizeTitleKey(String(t))),
+            ]);
+            char.customTitle = owned.has(norm) ? masked : '';
         } else if (legacyEnabled() && titleChanged) {
-            if (isKnownEarnedTitle(masked)) {
-                // Achievement titles: earnedTitles is acceptable (same
-                // client-trust level as the achievements that grant them).
-                const storedServer = (existing?.character as Record<string, unknown> | undefined)?.serverTitles;
-                const owned = new Set([
-                    ...(Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : []).map((t) => normalizeTitleKey(String(t))),
-                    ...(Array.isArray(storedServer) ? (storedServer as string[]) : []).map((t) => normalizeTitleKey(String(t))),
-                ]);
-                char.customTitle = owned.has(norm) ? masked : '';
-            } else {
-                char.customTitle = isAllowedCustomTitle(masked) ? masked : '';
-            }
+            char.customTitle = isAllowedCustomTitle(masked) ? masked : '';
         } else {
             char.customTitle = masked;
         }
@@ -435,39 +422,28 @@ export function sanitizeCharacterSave(
         char.nindoBg = (typeof char.nindoBg === 'string' && NINDO_BG_IDS.has(char.nindoBg)) ? char.nindoBg : '';
     }
 
-    // Level: monotonic. Cap upward gain at +MAX_LEVEL_GAIN/save and hard-cap at
-    // LEVEL_CAP — but ALSO floor at the existing level so a stale/frozen client
-    // save (e.g. one replayed after a silent token-expiry) can never REGRESS a
-    // player's level. Levels only ever increase through play; admin saves bypass
-    // this sanitizer (the !isAdminSave gate), so admin tooling can still correct
-    // a level directly. (xp is intentionally NOT floored: it's per-level progress
-    // that resets on level-up, and the client clamps it to xpNeeded(level) on load.)
+    // Core XP/level progression is server-issued. Ordinary saves preserve the
+    // committed values exactly; domain reward handlers use gainXp under the save
+    // lock and admin saves bypass this sanitizer.
     const exLevel = Math.max(1, Number(exChar.level ?? 1));
-    const inLevel = Math.max(1, Number(char.level ?? 1));
-    char.level = Math.min(LEVEL_CAP, Math.max(exLevel, Math.min(inLevel, exLevel + MAX_LEVEL_GAIN)));
+    char.level = Math.min(LEVEL_CAP, exLevel);
+    char.xp = Math.max(0, Number(exChar.xp ?? 0));
+    if (exChar.experience !== undefined) char.experience = Math.max(0, Number(exChar.experience) || 0);
+    else delete char.experience;
 
-    // Ryo: cap the gain per cycle; can't go below zero.
+    // Wallet values may decrease through existing client-side sinks, but all
+    // increases must already exist in the stored save from a domain command.
     const exRyo = Math.max(0, Number(exChar.ryo ?? 0));
     const inRyo = Math.max(0, Number(char.ryo ?? 0));
-    char.ryo = Math.min(inRyo, exRyo + MAX_RYO_GAIN);
+    char.ryo = Math.min(inRyo, exRyo);
 
-    // Bank balance: bankRyo is a client-written field (deposit/withdraw happen
-    // client-side; there is no server bank-move endpoint). A forged save could set
-    // it to anything, inflating wealth + the leaderboard and earning interest on
-    // unearned principal (audit #17). Bank interest is server-credited under lock
-    // (api/bank/claim-interest, capped at a 10M principal) and so never flows
-    // through this POST, so the only client-legit way bankRyo GROWS via a save is
-    // a deposit of held ryo. Cap the upper bound to what the player could actually
-    // have deposited — prior bankRyo + prior wallet ryo + one cycle's ryo gain —
-    // which never touches a legit deposit. Withdrawals (bankRyo shrinking) are
-    // unaffected; the ryo gain cap above already meters draining bank to wallet.
-    if (char.bankRyo != null) {
-        const exBank = Math.max(0, Number(exChar.bankRyo ?? 0));
-        const bankCeil = exBank + exRyo + MAX_RYO_GAIN;
-        char.bankRyo = Math.max(0, Math.min(Number(char.bankRyo) || 0, bankCeil));
-    }
+    // Bank principal and its interest clock are server-owned. Deposits,
+    // withdrawals, and interest claims all mutate the versioned save under its
+    // lock, so an ordinary autosave may only re-assert the stored values.
+    char.bankRyo = Math.max(0, Math.floor(Number(exChar.bankRyo) || 0));
+    char.lastBankInterestAt = Math.max(0, Math.floor(Number(exChar.lastBankInterestAt) || 0));
 
-    // Soft currencies: same gain-cap pattern.
+    // Premium/material currencies: decreases pass, increases do not.
     for (const [key, maxGain] of Object.entries(CURRENCY_CAPS)) {
         const exVal = Math.max(0, Number(exChar[key] ?? 0));
         const inVal = Math.max(0, Number(char[key] ?? 0));
@@ -517,7 +493,7 @@ export function sanitizeCharacterSave(
     }
 
     // Profession: lock the profession choice (server-side picker writes it
-    // via /api/profession/choose), cap XP gains per save, and recompute rank
+    // via /api/profession/choose), reject client XP gains, and recompute rank
     // from XP so a malicious client can't claim higher rank than its XP earns.
     //
     // Two-state lockdown:
@@ -531,7 +507,7 @@ export function sanitizeCharacterSave(
     char.profession = exChar.profession;
     const exProfXp = Math.max(0, Number(exChar.professionXp ?? 0));
     const inProfXp = Math.max(0, Number(char.professionXp ?? 0));
-    const cappedProfXp = Math.min(inProfXp, exProfXp + MAX_PROFESSION_XP_GAIN);
+    const cappedProfXp = Math.min(inProfXp, exProfXp);
     char.professionXp = cappedProfXp;
     if (char.profession) {
         char.professionRank = rankFromXp(char.profession, cappedProfXp);
@@ -549,39 +525,98 @@ export function sanitizeCharacterSave(
     // value and char.professionXp is capped above — otherwise masteryBudget()
     // would see the still-raw client professionXp and validate an over-spent
     // tree (or a forged profession). Reads char.professionXp (the capped value).
-    if (char.masterySpec !== undefined) {
-        char.masterySpec = sanitizeMasterySpec(char.profession, char.masterySpec, masteryBudget(char.profession, char.professionXp));
+    if (!isFirstSave) {
+        if (exChar.masterySpec !== undefined) char.masterySpec = exChar.masterySpec;
+        else delete char.masterySpec;
+    }
+    if (!isFirstSave) {
+        for (const field of ['customTitle', 'customTitleStyle', 'customTitleIcon'] as const) {
+            if (exChar[field] !== undefined) char[field] = exChar[field]; else delete char[field];
+        }
     }
 
-    // Individual stats: can't gain more than MAX_STAT_GAIN per stat per save.
-    // Then a second pass clamps the TOTAL across-all-stats gain to
-    // MAX_TOTAL_STAT_GAIN so the per-stat cap can't be multiplied by 12.
-    const inStats = char.stats as Record<string, number> | undefined;
-    const exStats = exChar.stats as Record<string, number> | undefined;
-    if (inStats && typeof inStats === 'object' && exStats && typeof exStats === 'object') {
-        const s: Record<string, number> = { ...inStats };
-        for (const k of Object.keys(s)) {
-            const exV = Math.max(0, Number(exStats[k] ?? 0));
-            s[k] = Math.min(Math.max(0, Number(s[k] ?? 0)), exV + MAX_STAT_GAIN);
-        }
-        // Total-across-all-stats clamp. If the proposed delta is over
-        // MAX_TOTAL_STAT_GAIN, scale every stat's delta proportionally
-        // so the total fits. Existing values aren't touched.
-        let totalDelta = 0;
-        for (const k of Object.keys(s)) {
-            const exV = Math.max(0, Number(exStats[k] ?? 0));
-            totalDelta += Math.max(0, s[k] - exV);
-        }
-        if (totalDelta > MAX_TOTAL_STAT_GAIN) {
-            const scale = MAX_TOTAL_STAT_GAIN / totalDelta;
-            for (const k of Object.keys(s)) {
-                const exV = Math.max(0, Number(exStats[k] ?? 0));
-                const delta = Math.max(0, s[k] - exV);
-                s[k] = exV + Math.floor(delta * scale);
-            }
-        }
-        char.stats = s;
+    // Stat points are an entitlement, not a client-authored gain. Ordinary
+    // saves may spend the stored unspent pool or perform the paid full respec,
+    // but training/combat must credit new points directly to the stored save.
+    const statEntitlement = preserveStatPointEntitlement(char, exChar);
+    char.stats = statEntitlement.stats;
+    char.unspentStats = statEntitlement.unspentStats;
+    char.totalStatsTrained = Math.max(0, Math.floor(Number(exChar.totalStatsTrained) || 0));
+    if (Array.isArray(exChar.redeemedTrainingTokens)) char.redeemedTrainingTokens = exChar.redeemedTrainingTokens;
+    else delete char.redeemedTrainingTokens;
+    if (Array.isArray(exChar.redeemedJutsuTrainingActions)) char.redeemedJutsuTrainingActions = exChar.redeemedJutsuTrainingActions;
+    else delete char.redeemedJutsuTrainingActions;
+    if (Array.isArray(exChar.redeemedAiFightRewards)) char.redeemedAiFightRewards = exChar.redeemedAiFightRewards;
+    else delete char.redeemedAiFightRewards;
+    // Sector exploration rewards and their dedicated daily cap are advanced
+    // only by /api/world/explore. Generic saves cannot replay or reset them.
+    for (const field of ['serverExploreDate', 'serverExploresToday', 'redeemedSectorExplorations'] as const) {
+        if (exChar[field] !== undefined) char[field] = exChar[field];
+        else delete char[field];
     }
+    for (const field of ['serverChestDate', 'serverChestsToday', 'redeemedAncientChests'] as const) {
+        if (exChar[field] !== undefined) char[field] = exChar[field];
+        else delete char[field];
+    }
+    if (Array.isArray(exChar.redeemedShopPurchases)) char.redeemedShopPurchases = exChar.redeemedShopPurchases;
+    else delete char.redeemedShopPurchases;
+    if (Array.isArray(exChar.redeemedShopSales)) char.redeemedShopSales = exChar.redeemedShopSales;
+    else delete char.redeemedShopSales;
+    if (Array.isArray(exChar.redeemedCrafts)) char.redeemedCrafts = exChar.redeemedCrafts;
+    else delete char.redeemedCrafts;
+    if (Array.isArray(exChar.redeemedNamedForges)) char.redeemedNamedForges = exChar.redeemedNamedForges;
+    else delete char.redeemedNamedForges;
+    // Achievement unlocks and payout claims advance together in
+    // /api/achievements/sync. Generic saves cannot add, remove, or replay them.
+    for (const field of ['unlockedAchievements', 'achievementUnlockedAt', 'claimedAchievementRewards', 'earnedTitles'] as const) {
+        if (exChar[field] !== undefined) char[field] = exChar[field];
+        else delete char[field];
+    }
+    // Endless Tower entry, wave progression, milestone currencies, cashout,
+    // daily counters, and leaderboards are committed by /api/endless/run.
+    for (const field of ['endlessTowerRun', 'endlessTowerBestWave', 'totalEndlessTowerWins', 'dailyTowerXp', 'dailyEndlessRuns', 'dailyEndlessDate', 'redeemedEndlessActions'] as const) {
+        if (exChar[field] !== undefined) char[field] = exChar[field];
+        else delete char[field];
+    }
+    // Main-story progression and its redemption ledger are advanced only by
+    // /api/story/settle after an exact next-boss AI token is consumed. Generic
+    // saves may reassert UI state but cannot skip chapters or replay rewards.
+    char.storyProgress = Math.max(0, Math.min(9, Math.floor(Number(exChar.storyProgress) || 0)));
+    if (Array.isArray(exChar.redeemedStoryBattles)) char.redeemedStoryBattles = exChar.redeemedStoryBattles;
+    else delete char.redeemedStoryBattles;
+    // One-time Academy spar payout latch, written by /api/story/settle.
+    if (exChar.academySparClaimed === true) char.academySparClaimed = true;
+    else delete char.academySparClaimed;
+    if (exChar.starterPetClaimed === true) char.starterPetClaimed = true;
+    else delete char.starterPetClaimed;
+    if (Array.isArray(exChar.redeemedPetEncounters)) char.redeemedPetEncounters = exChar.redeemedPetEncounters;
+    else delete char.redeemedPetEncounters;
+    if (Array.isArray(exChar.claimedCreatorEvents)) char.claimedCreatorEvents = exChar.claimedCreatorEvents;
+    else delete char.claimedCreatorEvents;
+    if (Array.isArray(exChar.claimedWarCrateIds)) char.claimedWarCrateIds = exChar.claimedWarCrateIds;
+    else delete char.claimedWarCrateIds;
+    // These progression fields are written by dedicated, proof-bearing server
+    // flows. Generic saves may mirror them but cannot mint achievement or combat
+    // entitlement by increasing them.
+    if (!isFirstSave) {
+        for (const field of ['auraSphereLevel', 'redeemedAuraFeeds', 'battleTowerAscension', 'rankedSeasonsWon', 'weeklyBossKills', 'defeatedAiIds', 'hunterRank', 'redeemedHunterRanks', 'element', 'elements', 'claimedAwakenings', 'redeemedAwakeningActions', 'elderFocus', 'activeDungeonRun', 'redeemedDungeonRuns', 'redeemedHollowGateRuns', 'redeemedPetBattleTokens', 'redeemedPetExpeditionTokens', 'claimedServerMissions', 'redeemedPetGauntletRuns', 'petGauntletRewardDate', 'petGauntletRewardCount', 'petGauntletPremiumDate', 'petGauntletFateClaimed', 'petGauntletBoneClaimed', 'redeemedWandererQuests', 'redeemedWandererAmbushes', 'wandererAmbushRewardDate', 'wandererAmbushRewardCount', 'redeemedQuestbookRuns', 'villageUpgrades'] as const) {
+            if (exChar[field] !== undefined) char[field] = exChar[field];
+            else delete char[field];
+        }
+    }
+    // Jutsu mastery is advanced only by server training endpoints. The retired
+    // client per-cast XP path is not trusted by generic saves. Character creation
+    // may seed level-one rows, but cannot bootstrap trained levels or stored XP.
+    if (isFirstSave) {
+        const seen = new Set<string>();
+        char.jutsuMastery = (Array.isArray(inChar.jutsuMastery) ? inChar.jutsuMastery : [])
+            .filter((row): row is Record<string, unknown> => !!row && typeof row === 'object')
+            .map((row) => String(row.jutsuId ?? '').trim().toLowerCase())
+            .filter((id) => /^[a-z0-9][a-z0-9-]{1,63}$/.test(id) && !seen.has(id) && Boolean(seen.add(id)))
+            .slice(0, 100)
+            .map((jutsuId) => ({ jutsuId, level: 1, xp: 0 }));
+    } else if (Array.isArray(exChar.jutsuMastery)) char.jutsuMastery = exChar.jutsuMastery;
+    else char.jutsuMastery = [];
 
     // HP / chakra / stamina must not exceed their own max fields.
     if (Number(char.hp ?? 0) > Number(char.maxHp ?? char.hp)) char.hp = char.maxHp;
@@ -595,53 +630,53 @@ export function sanitizeCharacterSave(
     // limiter further bounds aggregate growth. Counters can never decrease
     // (clients legitimately don't reset these).
     const LIFETIME_COUNTERS: Record<string, number> = {
-        totalPvpKills: 10,
-        totalAiKills: 30,
-        totalVillageRaids: 10,
-        warsWon: 3,
-        warMvpCount: 3,
-        lifetimeWarDamage: 50_000,
-        monthlyPvpKills: 10,
-        dailyAiKills: 30,
+        totalPvpKills: 0,
+        totalAiKills: 0,
+        totalVillageRaids: 0,
+        warsWon: 0,
+        warMvpCount: 0,
+        lifetimeWarDamage: 0,
+        monthlyPvpKills: 0,
+        dailyAiKills: 0,
         // Leaderboard / Hall-of-Legends counters — feed Hall pages directly,
         // so a tampered save can pad them to claim top spots. All are
         // upward-only by gameplay design. Server-side win endpoints
         // (api/pet/battle-result, etc.) are the legitimate increment path;
         // these caps stop a direct save POST from spoofing.
-        totalPetWins: 30,
-        totalEndlessTowerWins: 5,
+        totalPetWins: 0,
+        totalEndlessTowerWins: 0,
         // Battle Towers leaderboard stats — BOTH fully server-authoritative. Only
         // api/towers/settle.ts writes them (bypassing this sanitizer), so maxDelta 0 pins
         // each to the stored value and a tampered client save can neither raise nor lower
         // them (bestFloor must be 0 too, else a client inflates the depth leaderboard +5/save).
         battleTowerBestFloor: 0,
         battleTowerRating: 0,
-        totalTournamentsCompleted: 3,
-        totalTilesExplored: 200,
+        totalTournamentsCompleted: 0,
+        totalTilesExplored: 0,
         // Hollow Gate Warden (F5 boss) kills — client-incremented and read by the
         // weekly board (wk-gate-*). Was the one weekly-board counter with no
         // per-save clamp, so a tampered save could pad it to auto-complete the
         // weekly Hollow Gate mission (audit #10). The daily run cap (~2-4 dives)
         // bounds legit warden kills well under 3/save.
-        hollowGateWardenKills: 3,
-        rankedWins: 20,
-        rankedLosses: 20,
+        hollowGateWardenKills: 0,
+        rankedWins: 0,
+        rankedLosses: 0,
         // Village-war mission counter (drives the "War Veteran" achievement
         // path). Without a clamp, a tampered save can jump 0 → 999K in one
         // POST. 5/save matches the raid cap pacing.
-        villageWarMissionsCompleted: 5,
+        villageWarMissionsCompleted: 0,
         // Stats trained + missions completed lifetime counters — used by
         // achievements but never decreased through legitimate play.
-        totalStatsTrained: 100,
-        totalMissionsCompleted: 5,
+        totalStatsTrained: 0,
+        totalMissionsCompleted: 0,
         // Shinobi Card Clash lifetime tallies — feed quest metrics (e.g. the
         // Card Hall progression). Client-incremented per duel, so without a
         // per-save clamp a tampered save could jump these 0 → 999K to
         // auto-complete a "win N card games" quest. A single save can only
         // resolve a handful of duels, so +5 each tracks legit pacing (audit #26).
-        cardClashWins: 5,
-        cardClashLosses: 5,
-        cardClashDraws: 5,
+        cardClashWins: 0,
+        cardClashLosses: 0,
+        cardClashDraws: 0,
     };
     for (const [field, maxDelta] of Object.entries(LIFETIME_COUNTERS)) {
         const inV = Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));
@@ -663,12 +698,12 @@ export function sanitizeCharacterSave(
     const MONTHLY_CLAN_CONTRIB_CAPS: Record<string, { absMax: number; maxDelta: number }> = {
         // +1 per PvP win → 30 days × 20 fights/day = 600/month upper bound;
         // 1500 leaves comfortable headroom for the most-active legit player.
-        clanBattleContrib: { absMax: 1500, maxDelta: 20 },
+        clanBattleContrib: { absMax: 1500, maxDelta: 0 },
         // Treasury donations can grant variable amounts (ryo / 1000 or 1-per-
         // donation depending on currency) — a bit higher cap and delta.
-        clanEventContrib:  { absMax: 5000, maxDelta: 200 },
+        clanEventContrib:  { absMax: 5000, maxDelta: 0 },
         // +1 per completed clan mission; ~5/save tracks the totalMissionsCompleted pacing.
-        clanMissionContrib: { absMax: 1000, maxDelta: 10 },
+        clanMissionContrib: { absMax: 1000, maxDelta: 0 },
     };
     for (const [field, { absMax, maxDelta }] of Object.entries(MONTHLY_CLAN_CONTRIB_CAPS)) {
         const inV = Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));
@@ -710,7 +745,33 @@ export function sanitizeCharacterSave(
     // silently lose the extras on next reload (which is what the old load-
     // time .slice(0, 5) did). Preserve the active pet if it's in the cut.
     const PET_CAP = 5;
-    const inPets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : null;
+    const existingPets = Array.isArray(exChar.pets) ? exChar.pets as Array<Record<string, unknown>> : [];
+    const existingPetById = new Map(existingPets.map((pet) => [String(pet?.id ?? ''), pet]));
+    const submittedPets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
+    const PET_IDENTITY_FIELDS = [
+        'id', 'rarity', 'maxLevel', 'jutsus', 'unlockedForPve', 'trait', 'element',
+        'evolutionStage', 'wildSpawnable', 'role', 'subRole', 'updatedAt',
+        // Combat progression, timers, paid identity, and gear are all committed
+        // by dedicated pet endpoints. A generic save may remove a pet, but it
+        // cannot train, feed, rename, equip, or fabricate expedition state.
+        'level', 'xp', 'hp', 'attack', 'defense', 'speed', 'happiness',
+        'training', 'expedition', 'nickname', 'loadout',
+    ] as const;
+    // Pet acquisition and combat identity are server-issued. Existing IDs are
+    // grandfathered; unknown additions are discarded. Progression is preserved
+    // from the stored pet and advances only through server mutations.
+    char.pets = submittedPets
+        .filter((pet) => existingPetById.has(String(pet?.id ?? '')))
+        .map((pet) => {
+            const stored = existingPetById.get(String(pet.id))!;
+            const next = { ...pet };
+            for (const field of PET_IDENTITY_FIELDS) {
+                if (stored[field] !== undefined) next[field] = stored[field];
+                else delete next[field];
+            }
+            return next;
+        });
+    const inPets = char.pets as Array<Record<string, unknown>>;
     if (inPets && inPets.length > PET_CAP) {
         const activeId = String(char.activePetId ?? '');
         const active = activeId ? inPets.find(p => String(p?.id) === activeId) : null;
@@ -743,8 +804,6 @@ export function sanitizeCharacterSave(
     if (Array.isArray(char.inventory) && (char.inventory as unknown[]).length > INVENTORY_CAP) {
         char.inventory = (char.inventory as unknown[]).slice(0, INVENTORY_CAP);
     }
-    const entitledInventory = preserveEntitledStringArray(char.inventory, exChar.inventory, isServerOwnedItemId);
-    if (entitledInventory) char.inventory = entitledInventory;
     // Counted stacks for bulk consumables (client lib/inventory.ts moves
     // stackable ids out of inventory[] into here, which is what keeps the cap
     // above from overflowing for hoarders). Validate structurally so a tampered
@@ -779,9 +838,13 @@ export function sanitizeCharacterSave(
         char.itemStacks = [...counts.entries()]
             .slice(0, ITEM_STACK_KEY_CAP)
             .map(([itemId, count]) => ({ itemId, count }));
-        const entitledStacks = preserveEntitledStacks(char.itemStacks, exChar.itemStacks, isServerOwnedItemId);
-        if (entitledStacks) char.itemStacks = entitledStacks;
     }
+    // All item ownership is server-issued. Conserve the combined inventory +
+    // counted-stack entitlement so load-time array→stack migration remains
+    // lossless while arbitrary additions in either representation are dropped.
+    const ownedItems = preserveOwnedItems(char.inventory, char.itemStacks, exChar.inventory, exChar.itemStacks);
+    char.inventory = ownedItems.inventory;
+    char.itemStacks = ownedItems.itemStacks;
     // ─── examsPassed validation ───────────────────────────────────────────────
     // Rank exams: genin/chunin/jonin/specialJonin gate level progression
     // (EXAM_LEVEL_GATES in App.tsx). A forged save could POST
@@ -840,6 +903,10 @@ export function sanitizeCharacterSave(
         seenExams.add(e);
     }
     char.examsPassed = validatedExams.slice(0, 4);
+    // Final authority boundary: the dedicated /api/exams/pass flow evaluates
+    // the complete checklist (including mastery, clan, named AI defeats, and
+    // live Kage/ANBU leadership). Generic saves only preserve its committed list.
+    if (!isFirstSave) char.examsPassed = exExams.filter((exam, index) => KNOWN_EXAMS.has(exam) && exExams.indexOf(exam) === index).slice(0, 4);
 
     // ─── pendingCombatMissionClaims validation ────────────────────────────────
     // Combat-mission claims are server-owned by the queue and claim endpoints.
@@ -883,23 +950,22 @@ export function sanitizeCharacterSave(
     const RAW_BLOODLINE_IMAGE_MAX_BYTES = 250_000;  // 250 KB inline cap
     const KNOWN_BLOODLINE_RANKS = new Set(['B Rank', 'A Rank', 'S Rank']);
     const BLOODLINE_RANK_ORDER: Record<string, number> = { 'B Rank': 0, 'A Rank': 1, 'S Rank': 2 };
-    // sub-3: bloodline rank entitlement. A plain save POST may only LOWER a
-    // bloodline's rank, never raise it — the entitlement is the rank already stored
-    // for that bloodline id, and a new bloodline (no stored row) caps at B Rank. A
-    // genuine rank-up must come from a dedicated server-authoritative endpoint, so a
-    // forged save can't self-promote to A/S (there is no Mythic-Seal faucet, by
-    // design). Gated by BLOODLINE_RANK_ENTITLEMENT; flag-off keeps the old
-    // "accept any known rank" behavior (byte-identical). Needs a one-off save:*
-    // audit of legit A/S holders before flipping (a wiped/migrated save lacking the
-    // bloodline would otherwise re-baseline its rank to B).
-    const RANK_ENTITLEMENT_ON = process.env.BLOODLINE_RANK_ENTITLEMENT === '1';
+    // sub-3: bloodline acquisition/rank entitlement. Existing bloodlines are
+    // grandfathered by stable id at their stored rank. A new bloodline—or an
+    // upward rank change—requires a one-use entitlement issued only by
+    // POST /api/bloodlines/forge after its material cost is debited under the
+    // player-save lock. Generic save payloads cannot create, edit, or replay the
+    // top-level pendingBloodlineForges field; this sanitizer preserves the stored
+    // list and consumes at most one exact-rank entitlement per accepted forge.
+    const pendingBloodlineForges = readPendingBloodlineForges(existing?.pendingBloodlineForges);
+    const consumedBloodlineForgeIds = new Set<string>();
     // sub-1: enforce the bloodline POINT BUDGET server-side (the core PvP-balance
-    // knob, client-only today). Gated; flag-off = no-op for honest bloodlines.
-    const BLOODLINE_BUDGET_ON = process.env.BLOODLINE_BUDGET_SERVER === '1';
-    const normalizeBloodlineArray = (arr: unknown, existingArr: unknown): unknown[] => {
+    // knob). BloodlineMaker already applies this exact budget, so honest content
+    // is unchanged while forged extra tags are stripped deterministically.
+    const normalizeBloodlineArray = (arr: unknown, existingArr: unknown, mayConsumeForge = false): unknown[] => {
         if (!Array.isArray(arr)) return arr as unknown[];
         const existingRankById = new Map<string, string>();
-        if (RANK_ENTITLEMENT_ON && Array.isArray(existingArr)) {
+        if (Array.isArray(existingArr)) {
             for (const eb of existingArr as Array<Record<string, unknown>>) {
                 if (eb && typeof eb === 'object') {
                     const eid = String(eb.id ?? '');
@@ -911,15 +977,28 @@ export function sanitizeCharacterSave(
         return (arr as Array<Record<string, unknown>>).slice(0, BLOODLINE_CAP).map((bl) => {
             if (!bl || typeof bl !== 'object') return {};
             const out: Record<string, unknown> = { ...bl };
-            // Rank — fall back to B Rank if unknown, then (sub-3) clamp DOWN to the
-            // player's entitlement (the rank already stored for this bloodline id).
-            // Never raises rank; a legit downgrade is allowed.
+            // Existing ids may retain or lower their stored rank. New ids and rank
+            // upgrades must consume an exact-rank forge purchase. With no purchase,
+            // a new entry is discarded rather than silently granting free B rank.
             const rawRank = String(out.rank ?? '');
             let rank = KNOWN_BLOODLINE_RANKS.has(rawRank) ? rawRank : 'B Rank';
-            if (RANK_ENTITLEMENT_ON) {
-                const blId = String(out.id ?? '');
-                const entitled = (blId && existingRankById.get(blId)) || 'B Rank';
-                if ((BLOODLINE_RANK_ORDER[rank] ?? 0) > (BLOODLINE_RANK_ORDER[entitled] ?? 0)) rank = entitled;
+            const blId = String(out.id ?? '');
+            const storedRank = blId ? existingRankById.get(blId) : undefined;
+            const isUpgrade = storedRank !== undefined
+                && (BLOODLINE_RANK_ORDER[rank] ?? 0) > (BLOODLINE_RANK_ORDER[storedRank] ?? 0);
+            if (!storedRank || isUpgrade) {
+                const requestedRank = parseBloodlineForgeRank(rawRank);
+                const forge = mayConsumeForge && requestedRank
+                    ? pendingBloodlineForges.find((entry) => entry.rank === requestedRank && !consumedBloodlineForgeIds.has(entry.id))
+                    : undefined;
+                if (forge) {
+                    consumedBloodlineForgeIds.add(forge.id);
+                    rank = forge.rank;
+                } else if (!storedRank) {
+                    return null;
+                } else {
+                    rank = storedRank;
+                }
             }
             out.rank = rank;
             // Strip inline SVG / oversized image data — let shared image
@@ -983,15 +1062,15 @@ export function sanitizeCharacterSave(
             });
             // sub-1: enforce the bloodline point budget across the now numeric-clamped
             // jutsu. Strips the lowest-point tags down to the rank budget; clamp,
-            // never reject. Flag-off = no-op (an honest within-budget bloodline is
-            // unchanged). Uses the entitlement-clamped out.rank set above.
-            if (BLOODLINE_BUDGET_ON && Array.isArray(out.jutsus)) {
+            // never reject. Honest within-budget bloodlines are unchanged. Uses
+            // the entitlement-clamped out.rank set above.
+            if (Array.isArray(out.jutsus)) {
                 const blRank = typeof out.rank === 'string' ? out.rank : null;
                 out.jutsus = enforceBloodlineBudget(out.jutsus as RawJutsu[], blRank) as unknown[];
                 out.totalPoints = Math.min(20, bloodlinePoints(out.jutsus as RawJutsu[], blRank));
             }
             return out;
-        });
+        }).filter((bl): bl is Record<string, unknown> => bl !== null);
     };
     // The live client persists savedBloodlines at the TOP LEVEL of the save
     // record; older/admin shapes nest it under character. Normalize whichever is
@@ -1000,7 +1079,7 @@ export function sanitizeCharacterSave(
     // nested copy, which is empty for live payloads. (PvP re-clamps at session
     // create, so this closes a defense-in-depth / false-confidence gap, not a live
     // hole.) The top-level copy is normalized into the return object below.
-    if (Array.isArray(char.savedBloodlines)) char.savedBloodlines = normalizeBloodlineArray(char.savedBloodlines, (exChar as Record<string, unknown>).savedBloodlines);
+    if (Array.isArray(char.savedBloodlines)) char.savedBloodlines = normalizeBloodlineArray(char.savedBloodlines, (exChar as Record<string, unknown>).savedBloodlines, false);
 
     // ─── endlessTowerRun shape validation ─────────────────────────────────────
     // Run state is client-tracked then collected via save. Forged saves can
@@ -1042,6 +1121,9 @@ export function sanitizeCharacterSave(
         // ceiling (the token path) — see docs/hollow-gate-augments.md.
         if (run.runToken != null) run.runToken = String(run.runToken).slice(0, 64);
         if (run.serverSeed != null) run.serverSeed = String(run.serverSeed).slice(0, 64);
+        if (run.earnedXp != null) run.earnedXp = Math.max(0, Math.min(200_000, Math.floor(Number(run.earnedXp) || 0)));
+        if (run.earnedFragments != null) run.earnedFragments = Math.max(0, Math.min(40, Math.floor(Number(run.earnedFragments) || 0)));
+        if (run.earnedVeils != null) run.earnedVeils = Math.max(0, Math.min(25, Math.floor(Number(run.earnedVeils) || 0)));
         if (Array.isArray(run.augmentOffers) && (run.augmentOffers as unknown[]).length > 8) {
             run.augmentOffers = (run.augmentOffers as unknown[]).slice(0, 8);
         }
@@ -1067,11 +1149,13 @@ export function sanitizeCharacterSave(
         char.defeatedAiIds = (char.defeatedAiIds as unknown[]).slice(-DEFEATED_AI_IDS_CAP);
     }
 
-    const TILE_CARD_CAP = 500;
+    // The 1,000-card collector achievement must remain reachable; keep a small
+    // safety margin above it while still bounding save payload growth.
+    const TILE_CARD_CAP = 1200;
     if (Array.isArray(char.tileCards) && (char.tileCards as unknown[]).length > TILE_CARD_CAP) {
         char.tileCards = (char.tileCards as unknown[]).slice(0, TILE_CARD_CAP);
     }
-    const entitledTileCards = preserveEntitledStringArray(char.tileCards, exChar.tileCards, isHighRiskTileCardId);
+    const entitledTileCards = preserveEntitledStringArray(char.tileCards, exChar.tileCards, () => true);
     if (entitledTileCards) char.tileCards = entitledTileCards;
 
     // ─── battleHistory caps ───────────────────────────────────────────────────
@@ -1214,29 +1298,6 @@ export function sanitizeCharacterSave(
     // claimed, a forged save can't flip it back to false to re-claim. (audit #1)
     if (exChar.academyTrialClaimed === true) char.academyTrialClaimed = true;
 
-    // Bank-interest claim window enforcement.
-    //   The Bank screen (shinobij.client/src/screens/Bank.tsx) uses
-    //   Date.now() to gate the "claim interest" button — a player who
-    //   sets their system clock forward can claim multiple times per
-    //   real day, banking interest that wasn't earned. Server clamps:
-    //   if the client tries to advance lastBankInterestAt by less than
-    //   24h (per the SERVER's clock vs the prior stamp), revert the
-    //   stamp. The implied bankRyo gain isn't surgically reverted —
-    //   any abuse is bounded by the per-save ryo gain cap (1M) and
-    //   the 60s rolling-window limiter when the player tries to
-    //   withdraw the inflated bankRyo back to wallet ryo.
-    const BANK_INTEREST_WINDOW_MS = 24 * 60 * 60 * 1000;
-    const exBankAt = Number(exChar.lastBankInterestAt ?? 0);
-    const inBankAt = Number(char.lastBankInterestAt ?? 0);
-    if (inBankAt > exBankAt) {
-        const elapsed = Date.now() - exBankAt;
-        if (exBankAt > 0 && elapsed < BANK_INTEREST_WINDOW_MS) {
-            // Reject the stamp advance. Existing bankRyo stays as-is
-            // (the abuse-bound caveats above apply).
-            char.lastBankInterestAt = exBankAt;
-        }
-    }
-
     // Hospital timer enforcement.
     //   - If save flips hospitalized false → true, server stamps both
     //     hospitalizedUntil AND hospitalizedAt. The latter is read by
@@ -1329,7 +1390,10 @@ export function sanitizeCharacterSave(
                     if (/^data:image\/svg/i.test(img) || img.length > RAW_BLOODLINE_IMAGE_MAX_BYTES) out.image = undefined;
                 }
                 // Weapon numerics — match sanitizePvpItems bounds (api/pvp/session.ts).
-                if (out.weaponEp != null) out.weaponEp = Math.max(0, Math.min(600, Number(out.weaponEp) || 0));
+                // Match the authoritative PvP item ceiling. Named weapons roll
+                // 30-35 EP, so 60 preserves legitimate/custom headroom while
+                // preventing a persisted 600-EP item from dominating PvE modes.
+                if (out.weaponEp != null) out.weaponEp = Math.max(0, Math.min(60, Number(out.weaponEp) || 0));
                 if (out.weaponRange != null) out.weaponRange = Math.max(0, Math.min(30, Number(out.weaponRange) || 0));
                 if (out.weaponCooldown != null) out.weaponCooldown = Math.max(0, Math.min(30, Number(out.weaponCooldown) || 0));
                 if (out.apCost != null) out.apCost = Math.max(0, Math.min(200, Number(out.apCost) || 40));
@@ -1361,22 +1425,26 @@ export function sanitizeCharacterSave(
                 // forged item can't ship a 999999 stat (PvP also caps total stats
                 // at MAX_STAT, this is storage hygiene).
                 if (out.bonuses && typeof out.bonuses === 'object') {
-                    // sub-5: clamp custom-item bonuses to the built-in legendary
-                    // baseline (passive %s <=1, shield <=100, vitals <=150, specialty
-                    // total scaled to the per-slot budget) so a forged item can't
-                    // out-scale real gear. Flag-off keeps the legacy [0,1000] clamp.
-                    if (process.env.ITEM_BONUS_BUDGET === '1') return budgetItemBonuses(out);
-                    const bonuses = out.bonuses as Record<string, unknown>;
-                    for (const k of Object.keys(bonuses)) {
-                        bonuses[k] = Math.max(0, Math.min(1000, Number(bonuses[k]) || 0));
-                    }
+                    // sub-5: clamp custom-item bonuses to the maximum legitimate
+                    // built-in/Named-Armor envelope. Honest forge rolls are no-ops;
+                    // forged passives, shields, vitals, and specialty totals are bounded.
+                    return budgetItemBonuses(out);
                 }
                 return out;
             });
     }
 
-    const out: Record<string, unknown> = { ...incoming, character: char };
-    if (Array.isArray(incoming.savedBloodlines)) out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines);
+    const out: Record<string, unknown> = {
+        ...incoming,
+        character: isFirstSave ? applyCanonicalFirstSave(char) : char,
+    };
+    // Stat training is server-created and server-cleared. A generic autosave
+    // cannot forge, replace, or replay the top-level session descriptor.
+    if (!isFirstSave) out.activeTraining = existing?.activeTraining ?? null;
+    if (!isFirstSave) out.activeJutsuTraining = existing?.activeJutsuTraining ?? null;
+    if (Array.isArray(incoming.savedBloodlines)) out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines, true);
+    // Server-owned, single-use purchase ledger. Incoming copies are ignored.
+    out.pendingBloodlineForges = pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));
     if (sanitizedCreatorItems !== undefined) out.creatorItems = sanitizedCreatorItems;
     return out;
 }

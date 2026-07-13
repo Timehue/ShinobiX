@@ -14,9 +14,10 @@
 // No-op on cPanel (gated on the env var) so it never clobbers app.js's dispatcher.
 import './api/_force-ipv4.js';
 
-import { startGameLoop } from './api/_realtime/game-loop.js';
-import { attachSocketServer } from './api/_realtime/socket.js';
-import { startSnapshotCron } from './api/cron/_scheduler.js';
+import { startGameLoop, stopGameLoop } from './api/_realtime/game-loop.js';
+import { attachSocketServer, closeSocketServer } from './api/_realtime/socket.js';
+import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
+import { closeStoragePool } from './api/_storage.js';
 import compression from 'compression';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
@@ -41,6 +42,8 @@ import rosterHandler     from './api/player/roster.js';
 import playerLeaderboardsHandler from './api/player/leaderboards.js';
 import playerTradeHandler from './api/player/trade.js';
 import dailyLoginHandler  from './api/player/daily-login.js';
+import profileTitleHandler from './api/player/profile-title.js';
+import statRespecHandler from './api/player/stat-respec.js';
 import blackMarketHandler from './api/festival/black-market.js';
 import sunscarFestivalHandler from './api/festival/sunscar.js';
 import pvpSessionHandler from './api/pvp/session.js';
@@ -84,6 +87,34 @@ import towersSpireLeaderboardHandler from './api/towers/spire-leaderboard.js';
 import expeditionStartHandler from './api/missions/expedition-start.js';
 import trainingStartHandler from './api/training/start.js';
 import trainingCompleteHandler from './api/training/complete.js';
+import bloodlineForgeHandler from './api/bloodlines/forge.js';
+import cardClashOpenPackHandler from './api/card-clash/open-pack.js';
+import storySettleHandler from './api/story/settle.js';
+import worldExploreHandler from './api/world/explore.js';
+import worldOpenChestHandler from './api/world/open-chest.js';
+import hollowGateForgeKeyHandler from './api/hollow-gate/forge-key.js';
+import hollowGateLockedDoorHandler from './api/hollow-gate/locked-door.js';
+import petChooseStarterHandler from './api/pet/choose-starter.js';
+import petEncounterStartHandler from './api/pet/encounter-start.js';
+import petBefriendHandler from './api/pet/befriend.js';
+import petProgressHandler from './api/pet/progress.js';
+import shopPurchaseHandler from './api/shop/purchase.js';
+import shopSellHandler from './api/shop/sell.js';
+import craftForgeHandler from './api/craft/forge.js';
+import craftNamedHandler from './api/craft/named.js';
+import achievementSyncHandler from './api/achievements/sync.js';
+import endlessRunHandler from './api/endless/run.js';
+import eventClaimHandler from './api/events/claim.js';
+import jutsuRyoTrainingHandler from './api/training/jutsu-ryo.js';
+import auraFeedHandler from './api/aura/feed.js';
+import hunterRankUpHandler from './api/hunter/rank-up.js';
+import awakeningRollHandler from './api/awakening/roll.js';
+import examPassHandler from './api/exams/pass.js';
+import professionMasteryHandler from './api/profession/mastery.js';
+import elderFocusHandler from './api/village/elder-focus.js';
+import dungeonRunHandler from './api/dungeon/run.js';
+import villageUpgradeHandler from './api/village/upgrade.js';
+import hollowGateUnlockHandler from './api/village/hollow-gate-unlock.js';
 import battleLockHandler  from './api/battle/lock.js';
 import villageTreasuryTransferHandler from './api/village/treasury/transfer.js';
 import villageTreasuryDonateHandler from './api/village/treasury/donate.js';
@@ -99,7 +130,9 @@ import villageSectorCardHandler from './api/village/sector-card.js';
 import villageSectorPetHandler  from './api/village/sector-pet.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
+import villageOpenWarCrateHandler from './api/village/open-war-crate.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
+import bankTransferHandler from './api/bank/transfer.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
 // startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
@@ -675,6 +708,34 @@ route('/missions/expedition-start', expeditionStartHandler);
 // stat's gain; complete time-gates + consumes it and returns the sealed amount.
 route('/training/start', trainingStartHandler);
 route('/training/complete', trainingCompleteHandler);
+// Custom bloodline purchase — atomically debits the rank material and issues a
+// one-use entitlement consumed by the ordinary save sanitizer.
+route('/bloodlines/forge', bloodlineForgeHandler);
+route('/card-clash/open-pack', cardClashOpenPackHandler);
+route('/story/settle', storySettleHandler);
+route('/world/explore', worldExploreHandler);
+route('/world/open-chest', worldOpenChestHandler);
+route('/hollow-gate/forge-key', hollowGateForgeKeyHandler);
+route('/hollow-gate/locked-door', hollowGateLockedDoorHandler);
+route('/pet/choose-starter', petChooseStarterHandler);
+route('/pet/encounter-start', petEncounterStartHandler);
+route('/pet/befriend', petBefriendHandler);
+route('/shop/purchase', shopPurchaseHandler);
+route('/shop/sell', shopSellHandler);
+route('/craft/forge', craftForgeHandler);
+route('/craft/named', craftNamedHandler);
+route('/achievements/sync', achievementSyncHandler);
+route('/endless/run', endlessRunHandler);
+route('/events/claim', eventClaimHandler);
+route('/training/jutsu-ryo', jutsuRyoTrainingHandler);
+route('/aura/feed', auraFeedHandler);
+route('/hunter/rank-up', hunterRankUpHandler);
+route('/awakening/roll', awakeningRollHandler);
+route('/exams/pass', examPassHandler);
+route('/village/elder-focus', elderFocusHandler);
+route('/dungeon/run', dungeonRunHandler);
+route('/village/upgrade', villageUpgradeHandler);
+route('/village/hollow-gate-unlock', hollowGateUnlockHandler);
 
 // Village treasury — atomic Kage-gift endpoint that replaces the broken
 // 2-write client flow (deduct treasury + patch recipient).
@@ -720,6 +781,9 @@ route('/village/war-map', villageWarMapHandler);
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.
 route('/village/claim-war-crate', villageClaimWarCrateHandler);
+// Opening consumes one stored server-issued crate and commits all protected
+// item/currency rewards in the same locked player-save mutation.
+route('/village/open-war-crate', villageOpenWarCrateHandler);
 // Village War Map — mercenaries (Phase 5): the Kage spends village WR to field a
 // 2-day AI merc squad (comeback + Barracks discounted) that fights in Combat
 // sector wars. POST hire/list/attack, gated (404 unless ENABLE_VILLAGE_WAR=1).
@@ -727,6 +791,7 @@ route('/village/war-merc', villageWarMercHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', bankClaimInterestHandler);
+route('/bank/transfer', bankTransferHandler);
 
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
@@ -860,6 +925,7 @@ route('/pet/battle-start',  petBattleStartHandler);
 route('/pet/battle-result', petBattleResultHandler);
 route('/pet/ranked-start',  petRankedStartHandler);
 route('/pet/evolve',        petEvolveHandler);
+route('/pet/progress',      petProgressHandler);
 route('/pet/gauntlet',      petGauntletHandler);
 
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
@@ -874,6 +940,9 @@ route('/jutsu/train-with-seals', jutsuTrainWithSealsHandler);
 
 // ─── Profession ────────────────────────────────────────────────────────────────
 route('/profession/choose', professionChooseHandler);
+route('/profession/mastery', professionMasteryHandler);
+route('/player/profile-title', profileTitleHandler);
+route('/player/stat-respec', statRespecHandler);
 
 // ─── Player: injured villagers (Hospital screen) ───────────────────────────────
 route('/player/injured-villagers', injuredVillagersHandler);
@@ -959,6 +1028,7 @@ const _HASHED_ASSET_RE = /[\\/]assets[\\/].*-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/i;
 // changes the URL and never waits on this TTL. JS/CSS/JSON are excluded here so no
 // chunk map or data manifest can go stale.
 const _STATIC_MEDIA_RE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf)$/i;
+const _STATIC_ASSET_URL_RE = /^\/(?:assets|badges|music|sfx|sector-map|scenes)\/.+\.[a-z0-9]+$/i;
 
 app.use((req, res, next) => {
     if (shouldRedirectToCanonical(req.headers.host, req.path)) {
@@ -983,8 +1053,22 @@ app.use(express.static(staticDir, {
     },
 }));
 
+// If a browser has an old Vite chunk URL after a deploy, do not let the SPA
+// fallback serve index.html at that .js/.css URL. Module scripts require a JS
+// MIME type; caching HTML under a chunk URL strands players until the bad cache
+// entry expires. Real client routes still fall through to the SPA fallback.
+app.get(_STATIC_ASSET_URL_RE, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(404).type('text/plain').send('Static asset not found');
+});
+
 // SPA fallback — any non-API path serves index.html so React Router handles it.
 // no-cache so a deploy never serves a stale chunk map (matches express.static above).
+app.all(/^\/api(?:\/|$)/, (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(404).json({ error: 'API route not found.' });
+});
+
 app.get(/(.*)/, (_req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(join(staticDir, 'index.html'));
@@ -1035,5 +1119,42 @@ server.listen(PORT, () => {
     // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
     startSnapshotCron();
 });
+
+let shuttingDown = false;
+const SHUTDOWN_GRACE_MS = 10_000;
+
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
+    if (shuttingDown) {
+        console.error(`[shutdown] second ${signal}; forcing exit`);
+        process.exit(1);
+    }
+    shuttingDown = true;
+    console.log(`[shutdown] ${signal} received; draining`);
+    stopSnapshotCron();
+    stopGameLoop();
+
+    const httpClosed = new Promise<void>((resolve) => server.close(() => resolve()));
+    const timeout = setTimeout(() => {
+        console.error(`[shutdown] grace period exceeded (${SHUTDOWN_GRACE_MS}ms); closing remaining connections`);
+        server.closeAllConnections?.();
+    }, SHUTDOWN_GRACE_MS);
+    timeout.unref?.();
+
+    try {
+        await closeSocketServer();
+        await httpClosed;
+        await closeStoragePool();
+        console.log('[shutdown] complete');
+        process.exitCode = 0;
+    } catch (err) {
+        console.error('[shutdown] failed:', err);
+        process.exitCode = 1;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+process.on('SIGINT', () => { void shutdown('SIGINT'); });
 
 export default app;

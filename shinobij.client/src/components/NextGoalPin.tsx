@@ -56,11 +56,13 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
         try { localStorage.setItem(DISMISS_KEY, objective.id); } catch { /* private mode — just hide for the session */ }
         setDismissedId(objective.id);
     };
-    const closeBtn = (size: number) => (
+    const closeBtn = (size: number, compactButton = false) => (
         <button
+            type="button"
             onClick={dismiss}
             aria-label="Hide this goal"
             title="Hide — returns on your next goal"
+            className={compactButton ? "next-goal-pin-compact__close" : undefined}
             style={{
                 alignSelf: "flex-start",
                 background: "none",
@@ -73,8 +75,8 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                 flex: "0 0 auto",
                 fontSize: size,
                 lineHeight: 1,
-                minWidth: 40,
-                minHeight: 40,
+                minWidth: compactButton ? 28 : 40,
+                minHeight: compactButton ? 28 : 40,
                 padding: 0,
             }}
         >
@@ -90,23 +92,28 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                     margin: "8px 0 0", padding: "7px 9px", borderRadius: 8,
                     background: "linear-gradient(90deg, rgba(250,204,21,.10), rgba(250,204,21,.03))",
                     border: "1px solid rgba(250,204,21,.28)",
+                    boxSizing: "border-box", minWidth: 0, width: "auto", maxWidth: "none",
+                    alignSelf: "stretch",
+                    overflow: "hidden", position: "relative",
                 }}
             >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 5, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        <GameIcon name="target" size={11} /> Next goal · {objective.title}
+                <div className="next-goal-pin-compact__heading" style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", alignItems: "center", gap: 5, paddingRight: 24, minWidth: 0, width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden", fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
+                    <GameIcon name="target" size={11} />
+                    <span style={{ display: "block", minWidth: 0, maxWidth: "100%", lineHeight: 1.25, overflowWrap: "anywhere", wordBreak: "break-word" }}>
+                        Next goal · {objective.title}
                     </span>
-                    {closeBtn(12)}
+                    {closeBtn(12, true)}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, fontSize: 12, fontWeight: 600, color: "#f8fafc", marginTop: 2 }}>
-                    <span>
+                <div className="next-goal-pin-compact__body" style={{ display: "grid", minWidth: 0, gap: 4, fontSize: 12, fontWeight: 600, color: "#f8fafc", marginTop: 2 }}>
+                    <span style={{ display: "block", minWidth: 0, maxWidth: "100%", overflowWrap: "anywhere", wordBreak: "break-word" }}>
                         {req.label}
                         {req.target > 1 && <span style={{ color: "#94a3b8", fontWeight: 500 }}> {Math.min(req.progress, req.target)}/{req.target}</span>}
                     </span>
                     {req.goScreen && (
                         <button
+                            type="button"
                             onClick={() => navigate(req.goScreen as Screen)}
-                            style={{ cursor: "pointer", background: "none", color: "#facc15", fontWeight: 700, fontSize: 11, border: "none", padding: 0, whiteSpace: "nowrap" }}
+                            style={{ justifySelf: "start", maxWidth: "100%", cursor: "pointer", background: "none", color: "#facc15", fontWeight: 700, fontSize: 11, border: "none", padding: 0, whiteSpace: "normal", textAlign: "left", overflowWrap: "anywhere" }}
                         >
                             {req.goLabel ?? "Go"} →
                         </button>
@@ -148,6 +155,7 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
             </div>
             {req.goScreen && (
                 <button
+                    type="button"
                     onClick={() => navigate(req.goScreen as Screen)}
                     style={{ cursor: "pointer", background: "linear-gradient(180deg, #facc15, #eab308)", color: "#1a1306", fontWeight: 700, fontSize: 13, border: "none", borderRadius: 8, padding: "8px 16px", whiteSpace: "nowrap" }}
                 >

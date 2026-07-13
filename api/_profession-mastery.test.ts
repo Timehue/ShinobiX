@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { masteryBudget, sanitizeMasterySpec, masteryBonus, masteryHasCapstone } from './_profession-mastery.js';
+import { masteryBudget, sanitizeMasterySpec, masteryBonus, masteryHasCapstone, applyMasteryInvestment } from './_profession-mastery.js';
 
 const VAN_CAP = 32_850;
 const HEAL_CAP = 49_275;
@@ -64,4 +64,13 @@ test('masteryHasCapstone reflects the spec', () => {
     assert.equal(masteryHasCapstone('petTamer', { 'caravan-master': 1 }, 'caravan-master'), true);
     assert.equal(masteryHasCapstone('petTamer', {}, 'caravan-master'), false);
     assert.equal(masteryHasCapstone('petTamer', { 'exp-rewards': 3 }, 'exp-rewards'), false); // not a capstone
+});
+
+test('applyMasteryInvestment accepts exactly one affordable legal rank', () => {
+    const xp = VAN_CAP + 6 * 15_000;
+    assert.deepEqual(applyMasteryInvestment('vanguard', xp, {}, 'seal-gap'), { 'seal-gap': 1 });
+    assert.equal(applyMasteryInvestment('vanguard', VAN_CAP, {}, 'seal-gap'), null);
+    assert.equal(applyMasteryInvestment('vanguard', xp, { 'seal-gap': 3 }, 'seal-gap'), null);
+    assert.equal(applyMasteryInvestment('vanguard', xp, { 'seal-gap': 3 }, 'warmonger'), null);
+    assert.deepEqual(applyMasteryInvestment('vanguard', VAN_CAP + 8 * 15_000, { 'seal-gap': 3, 'seal-cap': 1 }, 'warmonger'), { 'seal-gap': 3, 'seal-cap': 1, warmonger: 1 });
 });

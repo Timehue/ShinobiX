@@ -121,6 +121,13 @@ async function handler(req, res) {
             const char = record?.character;
             if (!record || !char)
                 return { applied: false, reason: 'no-save' };
+            const missionReceipt = `${todayKey}:${missionType}:${missionId}`;
+            const claimedServerMissions = Array.isArray(char.claimedServerMissions)
+                ? char.claimedServerMissions.filter((entry) => typeof entry === 'string').slice(-99)
+                : [];
+            if ((missionType === 'field' || missionType === 'hunt') && claimedServerMissions.includes(missionReceipt)) {
+                return { applied: false, reason: 'already-claimed-today' };
+            }
             const bonusPct = (0, _mission_catalog_js_1.missionRewardBonusPct)(char);
             // ── Resolve mission + per-type eligibility ──────────────────────
             let baseXp = 0, baseRyo = 0, baseStamina = 0;
@@ -241,23 +248,9 @@ async function handler(req, res) {
                 completion = 'none';
                 academyChecklistClaimed = true;
             }
-            // Per-mission idempotency for field/hunt claims: each built-in
-            // field/hunt mission is claimable at most once per UTC day (matches
-            // the UI's one-card-per-mission model). The daily cap alone doesn't
-            // stop a client re-POSTing the single highest-value mission id up to
-            // the cap, and the explore/raid prerequisite is only client-tracked,
-            // so without this the best mission is re-claimable N times/day (audit
-            // #2). The NX reserve lives inside the save lock so it settles
-            // atomically with the payout, and fails OPEN (a KV hiccup never denies
-            // a legit claim). Combat (pendingCombatMissionClaims, consumed on
-            // claim) and academy-trial (academyTrialClaimed latch) are already
-            // single-use, so only field/hunt need this.
-            if (missionType === 'field' || missionType === 'hunt') {
-                const claimKey = `missions:field-claimed:${playerName}:${missionId}:${todayKey}`;
-                const placed = await _storage_js_1.kv.set(claimKey, '1', { nx: true, ex: 26 * 60 * 60 }).catch(() => 'OK');
-                if (placed === null)
-                    return { applied: false, reason: 'already-claimed-today' };
-            }
+            // Field/hunt idempotency is appended to claimedServerMissions in the
+            // same character write as the payout below. This blocks replay
+            // without an external pre-reservation that could strand a reward.
             // ── Compute server-authoritative amounts ────────────────────────
             const xpBoosted = (0, _mission_catalog_js_1.boostAmount)(baseXp, bonusPct);
             const ryoBoosted = (0, _mission_catalog_js_1.boostAmount)(baseRyo, bonusPct);
@@ -310,6 +303,9 @@ async function handler(req, res) {
                 next = { ...next, academyTrialClaimed: true };
             if (academyChecklistClaimed)
                 next = { ...next, academyChecklistClaimed: true };
+            if (missionType === 'field' || missionType === 'hunt') {
+                next = { ...next, claimedServerMissions: [...claimedServerMissions, missionReceipt] };
+            }
             const updated = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
             (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
@@ -339,6 +335,7 @@ async function handler(req, res) {
         // claim's save lock has released (no nested locking). Best-effort — a
         // failure here must never fail the (already-applied) claim.
         let finalSaveVersion = outcome.applied ? outcome.saveVersion : 0;
+        let finalCharacter = null;
         if (outcome.applied) {
             try {
                 await (0, _progress_js_1.reportNewbieEvent)({ playerName, kind: 'newbie-missions' });
@@ -375,6 +372,7 @@ async function handler(req, res) {
             }
             const finalRecord = await _storage_js_1.kv.get(saveKey).catch(() => null);
             const finalChar = (finalRecord?.character ?? null);
+            finalCharacter = finalChar;
             await (0, _beta_metrics_js_1.recordBetaMetric)({
                 event: betaEventForMissionType(missionType),
                 playerName,
@@ -391,7 +389,7 @@ async function handler(req, res) {
         }
         if (outcome.applied) {
             const { saveVersion, ...body } = outcome;
-            return res.status(200).json({ ok: true, ...body, _saveVersion: finalSaveVersion });
+            return res.status(200).json({ ok: true, ...body, character: finalCharacter, _saveVersion: finalSaveVersion });
         }
         return res.status(200).json({ ok: true, ...outcome });
     }

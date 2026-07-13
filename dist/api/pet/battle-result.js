@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _ranked_rating_js_1 = require("../_ranked-rating.js");
+const pet_duel_sim_js_1 = require("../_pet-sim/pet-duel-sim.js");
 // Pet Arena reward recorder. Non-ranked wins require a short-lived start token
 // minted by /api/pet/battle-start for the same reportKey. The battle is still
 // client-resolved, but bare result-only reward posts no longer pay out.
@@ -47,7 +48,7 @@ async function handler(req, res) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
-        const outcome = (body.outcome === 'win' || body.outcome === 'loss') ? body.outcome : null;
+        let outcome = (body.outcome === 'win' || body.outcome === 'loss' || body.outcome === 'draw') ? body.outcome : null;
         // Ranked-pet-ladder marker (audit #7 / Stage 3). LIVE — the client sends
         // this from the pet-ranked queue (shinobij.client/src/screens/PetArena.tsx
         // posts { ranked: true, matchToken } here). When true the SERVER owns the
@@ -84,11 +85,13 @@ async function handler(req, res) {
         // botted client omit it (or randomize per call) and farm the daily
         // cap with zero real battles. Admins and 'loss' outcomes are exempt
         // because losses don't pay out so duplicates are harmless.
-        if (outcome === 'win' && !identity.admin && !reportKey) {
-            return res.status(400).json({ error: 'Missing or invalid reportKey for win.' });
+        if (!identity.admin && !reportKey) {
+            return res.status(400).json({ error: 'Missing or invalid reportKey.' });
         }
         let casualBattleTokenKey = null;
-        if (outcome === 'win' && !ranked && !identity.admin) {
+        let casualBattleReceipt = '';
+        let casualPetIds = [];
+        if (!ranked && !identity.admin) {
             if (!battleToken)
                 return res.status(400).json({ error: 'A valid pet battle start token is required.' });
             const tokenKey = `pet:battle-token:${playerName}:${battleToken}`;
@@ -99,8 +102,14 @@ async function handler(req, res) {
             if (tokenData.reportKey !== reportKey) {
                 return res.status(403).json({ error: 'Pet battle token does not match this battle report.' });
             }
+            if (tokenData.authoritativeOutcome !== 'win' && tokenData.authoritativeOutcome !== 'loss' && tokenData.authoritativeOutcome !== 'draw') {
+                return res.status(409).json({ error: 'Pet battle token lacks an authoritative outcome.' });
+            }
+            outcome = tokenData.authoritativeOutcome;
             opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(tokenData.opponentLevel ?? opponentLevelRaw))));
             casualBattleTokenKey = tokenKey;
+            casualBattleReceipt = battleToken;
+            casualPetIds = Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [];
         }
         // ── opponentLevel cross-check ─────────────────────────────────
         // When the client tells us who the opponent was, verify the
@@ -181,6 +190,42 @@ async function handler(req, res) {
                 return res.status(403).json({ error: 'Match token does not name you.' });
             }
             const callerIsA = tok.a === playerName;
+            if (!tok.aPet || !tok.bPet || !Number.isSafeInteger(tok.seed)) {
+                return res.status(409).json({ error: 'Ranked token lacks a sealed combat snapshot.' });
+            }
+            const aIsCanonical = tok.a <= tok.b;
+            const simulated = (0, pet_duel_sim_js_1.runPetDuel)((aIsCanonical ? tok.aPet : tok.bPet), (aIsCanonical ? tok.bPet : tok.aPet), Number(tok.seed), 1, 1, false).result;
+            if (simulated === 'draw') {
+                const settleDrawPet = async (slug, petSnapshot) => {
+                    const sk = `save:${slug}`;
+                    const record = await _storage_js_1.kv.get(sk);
+                    const char = (record?.character ?? null);
+                    if (!record || !char)
+                        return;
+                    const combatPetId = String(petSnapshot.id ?? '');
+                    const pets = Array.isArray(char.pets) ? char.pets : [];
+                    const nextPets = pets.map((pet) => String(pet?.id ?? '') === combatPetId && pet.loadout && typeof pet.loadout === 'object'
+                        ? { ...pet, loadout: { ...pet.loadout, consumable: undefined } }
+                        : pet);
+                    const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: { ...char, pets: nextPets } });
+                    await _storage_js_1.kv.set(sk, (0, _utils_js_1.mergePreservingImages)(updated, record));
+                };
+                try {
+                    const [k1, k2] = [`save:${tok.a}`, `save:${tok.b}`].sort();
+                    await (0, _lock_js_1.withKvLock)(k1, () => (0, _lock_js_1.withKvLock)(k2, async () => {
+                        await settleDrawPet(tok.a, tok.aPet);
+                        await settleDrawPet(tok.b, tok.bPet);
+                    }, { failClosed: true }), { failClosed: true });
+                    const finalSave = await _storage_js_1.kv.get(`save:${playerName}`);
+                    return res.status(200).json({ ok: true, ranked: true, outcome: 'draw', reward: 0, character: finalSave?.character ?? null, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
+                }
+                catch (rankedErr) {
+                    console.error('[pet/battle-result] ranked draw settlement failed', rankedErr);
+                    return res.status(503).json({ error: 'Could not record ranked draw — please retry.' });
+                }
+            }
+            const aWon = aIsCanonical ? simulated === 'win' : simulated === 'loss';
+            outcome = callerIsA === aWon ? 'win' : 'loss';
             const opponentName = callerIsA ? tok.b : tok.a;
             const myRating = Number(callerIsA ? tok.aRating : tok.bRating);
             const oppRating = Number(callerIsA ? tok.bRating : tok.aRating);
@@ -199,7 +244,12 @@ async function handler(req, res) {
                 const placed = await _storage_js_1.kv.set(`pet:ranked-settled:${slug}:${matchToken}`, { role, ts: Date.now() }, { nx: true, ex: RANKED_RECEIPT_TTL_SECONDS });
                 const r = (0, _ranked_rating_js_1.creditRankedOutcome)(char, { role, winnerRating, loserRating, kind: 'pet' });
                 if (placed) {
-                    const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: { ...char, ...r.patch } });
+                    const combatPetId = String((slug === tok.a ? tok.aPet : tok.bPet)?.id ?? '');
+                    const pets = Array.isArray(char.pets) ? char.pets : [];
+                    const nextPets = pets.map((pet) => String(pet?.id ?? '') === combatPetId && pet.loadout && typeof pet.loadout === 'object'
+                        ? { ...pet, loadout: { ...pet.loadout, consumable: undefined } }
+                        : pet);
+                    const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: { ...char, ...r.patch, pets: nextPets } });
                     await _storage_js_1.kv.set(sk, (0, _utils_js_1.mergePreservingImages)(updated, record));
                     return { field: 'petRankedRating', value: r.newRating, delta: r.delta };
                 }
@@ -215,7 +265,8 @@ async function handler(req, res) {
                     return { rating: playerName === winnerName ? w : l };
                 }, { failClosed: true }), { failClosed: true });
                 const finalSave = await _storage_js_1.kv.get(`save:${playerName}`).catch(() => null);
-                return res.status(200).json({ ok: true, ranked: true, reward: 0, rating: out.rating, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
+                const finalChar = (finalSave?.character ?? null);
+                return res.status(200).json({ ok: true, ranked: true, reward: 0, rating: out.rating, character: finalChar, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
             }
             catch (rankedErr) {
                 // Lock contention/outage (failClosed) — receipt NOT placed, so
@@ -234,18 +285,29 @@ async function handler(req, res) {
             if (!char)
                 return { error: 'no-character' };
             if (casualBattleTokenKey) {
-                const consumed = await _storage_js_1.kv.del(casualBattleTokenKey);
-                if (consumed <= 0) {
+                const receipts = Array.isArray(char.redeemedPetBattleTokens)
+                    ? char.redeemedPetBattleTokens.filter((entry) => typeof entry === 'string').slice(-63)
+                    : [];
+                if (receipts.includes(casualBattleReceipt)) {
+                    await _storage_js_1.kv.del(casualBattleTokenKey).catch(() => undefined);
                     return {
                         ok: true,
                         reward: 0,
                         reason: 'invalid-or-spent-pet-battle-token',
                         totalPetWins: Number(char.totalPetWins ?? 0),
                         dailyPetWins: Number(char.dailyPetWins ?? 0),
+                        balances: { ryo: Number(char.ryo ?? 0) },
                         _saveVersion: Number(record._saveVersion ?? 0),
+                        character: char,
                     };
                 }
+                char.redeemedPetBattleTokens = [...receipts, casualBattleReceipt];
             }
+            const pets = Array.isArray(char.pets) ? char.pets : [];
+            const spentPets = pets.map((pet) => casualPetIds.includes(String(pet?.id ?? '')) && pet.loadout && typeof pet.loadout === 'object'
+                ? { ...pet, loadout: { ...pet.loadout, consumable: undefined } }
+                : pet);
+            const spentChar = { ...char, pets: spentPets };
             const today = utcDateKey();
             const lastReset = String(char.lastDailyReset ?? '');
             // Reset daily counters when the UTC day rolls over.
@@ -253,31 +315,44 @@ async function handler(req, res) {
             // Loss: no reward, but still track win streak metadata. We don't
             // currently store losses anywhere — return ok so the client UI
             // can show "recorded" instead of silently no-op'ing.
-            if (outcome === 'loss') {
+            if (outcome === 'loss' || outcome === 'draw') {
+                const spentRecord = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: spentChar });
+                await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(spentRecord, record));
+                if (casualBattleTokenKey)
+                    await _storage_js_1.kv.del(casualBattleTokenKey).catch(() => undefined);
                 return {
                     ok: true,
+                    outcome,
                     reward: 0,
                     totalPetWins: Number(char.totalPetWins ?? 0),
                     dailyPetWins,
-                    _saveVersion: Number(record._saveVersion ?? 0),
+                    balances: { ryo: Number(char.ryo ?? 0) },
+                    _saveVersion: Number(spentRecord._saveVersion ?? 0),
+                    character: spentChar,
                 };
             }
             // Daily cap: stop further reward grants once the cap is hit, but
             // still acknowledge the call (so a streamer grinding all day
             // doesn't see error spam — they just stop earning).
             if (dailyPetWins >= DAILY_ARENA_WIN_CAP) {
+                const spentRecord = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: spentChar });
+                await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(spentRecord, record));
+                if (casualBattleTokenKey)
+                    await _storage_js_1.kv.del(casualBattleTokenKey).catch(() => undefined);
                 return {
                     ok: true,
                     reward: 0,
                     capped: true,
                     totalPetWins: Number(char.totalPetWins ?? 0),
                     dailyPetWins,
+                    balances: { ryo: Number(char.ryo ?? 0) },
                     _saveVersion: Number(record._saveVersion ?? 0),
+                    character: spentChar,
                 };
             }
             const reward = petArenaRyoReward(opponentLevel);
             const updatedChar = {
-                ...char,
+                ...spentChar,
                 ryo: Number(char.ryo ?? 0) + reward,
                 totalPetWins: Number(char.totalPetWins ?? 0) + 1,
                 dailyPetWins: dailyPetWins + 1,
@@ -286,12 +361,16 @@ async function handler(req, res) {
             const updated = { ...record, character: updatedChar };
             (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
+            if (casualBattleTokenKey)
+                await _storage_js_1.kv.del(casualBattleTokenKey).catch(() => undefined);
             return {
                 ok: true,
                 reward,
                 totalPetWins: updatedChar.totalPetWins,
                 dailyPetWins: updatedChar.dailyPetWins,
+                balances: { ryo: Number(updatedChar.ryo) },
                 _saveVersion: Number(updated._saveVersion ?? 0),
+                character: updatedChar,
             };
         }, { failClosed: true });
         if ('error' in result) {

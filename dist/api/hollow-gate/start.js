@@ -1,11 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.consumeHollowGateKey = consumeHollowGateKey;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const node_crypto_1 = require("node:crypto");
+const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
 const _run_token_js_1 = require("./_run-token.js");
 /*
  * /api/hollow-gate/start  — POST only  (docs/hollow-gate-augments.md)
@@ -24,9 +26,27 @@ const DEFAULT_DAILY_RUN_CAP = 2; // base 2/day; attunement raises it in the clie
 // the token must outlive a dive the player walks away from and finishes later. 24h
 // comfortably covers any same-day resume; a run older than that has already crossed
 // the UTC daily-cap reset, and an expired token just reverts that run to the
-// client-authoritative path (settle no-ops gracefully — never a save break).
+// non-browser compatibility path; shipped browser gameplay requires this seal.
 const RUN_TTL_SEC = 24 * 60 * 60;
 function utcDateKey() { return new Date().toISOString().slice(0, 10); }
+function consumeHollowGateKey(character) {
+    const itemId = 'hollow-gate-key';
+    const stacks = Array.isArray(character.itemStacks) ? character.itemStacks : [];
+    let removed = false;
+    const nextStacks = stacks.map((stack) => {
+        if (removed || String(stack?.itemId ?? '') !== itemId || Number(stack?.count) <= 0)
+            return stack;
+        removed = true;
+        return { ...stack, count: Math.max(0, Math.floor(Number(stack.count) || 0) - 1) };
+    }).filter((stack) => Number(stack?.count) > 0);
+    if (removed)
+        return { ...character, itemStacks: nextStacks };
+    const inventory = Array.isArray(character.inventory) ? character.inventory : [];
+    const index = inventory.indexOf(itemId);
+    if (index < 0)
+        return null;
+    return { ...character, inventory: inventory.filter((_, i) => i !== index) };
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -36,7 +56,7 @@ async function handler(req, res) {
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {}));
         const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
-        const floorDepth = Math.max(1, Math.min(20, Math.floor(Number(body.floorDepth ?? 5)) || 5));
+        const floorDepth = (0, _run_token_js_1.canonicalHollowGateDepth)();
         if (!playerName)
             return res.status(400).json({ error: 'Missing playerName.' });
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, playerName);
@@ -47,37 +67,55 @@ async function handler(req, res) {
         }
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'hollow-gate-start', 20, 60_000, identity.name)))
             return;
-        const rec = await _storage_js_1.kv.get(`save:${playerName}`);
-        const char = (rec?.character ?? null);
-        if (!char)
-            return res.status(404).json({ error: 'Your save was not found.' });
-        // Server-stamped daily-run cap (fixes #7 — not derived from client state).
-        const cap = DEFAULT_DAILY_RUN_CAP + Math.max(0, Math.floor(Number(char.hollowGateRunBonus ?? 0)));
-        const ord = await _storage_js_1.kv.incr(`hg-runs:${playerName}:${utcDateKey()}`, { ex: 25 * 60 * 60 });
-        if (ord > cap)
-            return res.status(200).json({ ok: true, reason: 'daily-cap', token: null });
-        // Seal the entry snapshot of the clawback-eligible currencies.
-        const entry = {};
-        for (const k of _run_token_js_1.HG_CLAWBACK_KEYS)
-            entry[k] = Math.max(0, Math.floor(Number(char[k]) || 0));
-        // P0.2c: seal the entry count of the high-value forge item so settle can clamp
-        // this run's GAIN to the ceiling (anti-fabrication, byte-identical for legit).
-        const entryFragments = (0, _run_token_js_1.itemStackCount)(char.itemStacks, _run_token_js_1.HG_HIGH_VALUE_ITEM_ID);
-        const offers = (0, _run_token_js_1.rollAugmentOffers)(3);
-        const token = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
-        const runToken = {
-            playerName,
-            mintedAt: Date.now(),
-            floorDepth,
-            seed: (0, node_crypto_1.randomUUID)(),
-            entryCurrencies: entry,
-            entryFragments,
-            offeredAugmentIds: offers.map((o) => o.id),
-            chosenAugmentId: null,
-            dailyRunOrdinal: ord,
-        };
-        await _storage_js_1.kv.set(`hg-run:${playerName}:${token}`, runToken, { ex: RUN_TTL_SEC });
-        return res.status(200).json({ ok: true, token, seed: runToken.seed, augmentOffers: offers.map(_run_token_js_1.augmentDisplay) });
+        let issued = null;
+        const mutation = await (0, _mutate_player_save_js_1.mutatePlayerSave)(playerName, async ({ character }) => {
+            const cap = DEFAULT_DAILY_RUN_CAP + Math.max(0, Math.floor(Number(character.hollowGateRunBonus ?? 0)));
+            const ord = await _storage_js_1.kv.incr(`hg-runs:${playerName}:${utcDateKey()}`, { ex: 25 * 60 * 60 });
+            if (!identity.admin && ord > cap)
+                return { ok: false, status: 429, error: 'daily-cap' };
+            const afterKey = identity.admin ? character : consumeHollowGateKey(character);
+            if (!afterKey)
+                return { ok: false, status: 409, error: 'hollow-gate-key-required' };
+            const entry = {};
+            for (const k of _run_token_js_1.HG_CLAWBACK_KEYS)
+                entry[k] = Math.max(0, Math.floor(Number(character[k]) || 0));
+            const offers = (0, _run_token_js_1.rollAugmentOffers)(3);
+            const token = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
+            const runToken = {
+                playerName, mintedAt: Date.now(), floorDepth, seed: (0, node_crypto_1.randomUUID)(),
+                entryCurrencies: entry,
+                entryFragments: (0, _run_token_js_1.itemStackCount)(character.itemStacks, _run_token_js_1.HG_HIGH_VALUE_ITEM_ID),
+                offeredAugmentIds: offers.map((o) => o.id), chosenAugmentId: null,
+                dailyRunOrdinal: ord,
+            };
+            issued = { token, runToken, offers };
+            return {
+                ok: true,
+                character: {
+                    ...afterKey,
+                    dailyHollowGateRuns: ord,
+                    lastDailyReset: utcDateKey(),
+                },
+                value: { token },
+            };
+        });
+        if (!mutation.ok) {
+            if (mutation.error === 'daily-cap')
+                return res.status(200).json({ ok: true, reason: 'daily-cap', token: null });
+            return res.status(mutation.status).json({ error: mutation.error });
+        }
+        if (!issued)
+            return res.status(500).json({ error: 'Run token was not issued.' });
+        const committed = issued;
+        await _storage_js_1.kv.set(`hg-run:${playerName}:${committed.token}`, committed.runToken, { ex: RUN_TTL_SEC });
+        return res.status(200).json({
+            ok: true,
+            token: committed.token,
+            seed: committed.runToken.seed,
+            augmentOffers: committed.offers.map(_run_token_js_1.augmentDisplay),
+            character: mutation.character,
+            _saveVersion: mutation._saveVersion,
+        });
     }
     catch (err) {
         console.error('[hollow-gate/start]', err);

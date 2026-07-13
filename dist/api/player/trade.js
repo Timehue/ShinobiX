@@ -112,11 +112,12 @@ async function handler(req, res) {
             const plan = (0, _trade_core_js_1.planTrade)(currency, amount, num(senderChar[currency]));
             if (!plan.ok)
                 return { status: 400, body: { error: plan.reason } };
-            const senderUpdated = (0, _save_version_js_1.bumpSaveVersion)({ ...senderRec, character: { ...senderChar, [currency]: num(senderChar[currency]) - plan.debit } });
+            const senderBalance = num(senderChar[currency]) - plan.debit;
+            const senderUpdated = (0, _save_version_js_1.bumpSaveVersion)({ ...senderRec, character: { ...senderChar, [currency]: senderBalance } });
             await _storage_js_1.kv.set(senderKey, (0, _utils_js_1.mergePreservingImages)(senderUpdated, senderRec));
             const recipientUpdated = (0, _save_version_js_1.bumpSaveVersion)({ ...recipientRec, character: { ...recipientChar, [currency]: num(recipientChar[currency]) + plan.credit } });
             await _storage_js_1.kv.set(recipientKey, (0, _utils_js_1.mergePreservingImages)(recipientUpdated, recipientRec));
-            return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay } };
+            return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay, senderBalance } };
         }, { failClosed: true }), { failClosed: true });
         if (out.status === 200) {
             // Record the idempotency receipt only on success: a retry of THIS

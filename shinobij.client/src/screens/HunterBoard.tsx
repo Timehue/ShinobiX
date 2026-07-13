@@ -13,6 +13,8 @@ import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
 import { builtinHuntMissions } from "../data/missions";
 import { gainXp } from "../App";
+import { rankUpHunterServer } from "../lib/hunter-rank-api";
+import { countItem } from "../lib/inventory";
 
 export function HunterBoard({
     character,
@@ -38,26 +40,21 @@ export function HunterBoard({
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
 
     function invCount(itemId: string) {
-        return character.inventory.filter((id) => id === itemId).length;
+        return countItem(character, itemId);
     }
 
-    function removeFromInventory(inv: string[], itemId: string, qty: number): string[] {
-        let removed = 0;
-        return inv.filter((id) => {
-            if (id === itemId && removed < qty) { removed++; return false; }
-            return true;
-        });
-    }
-
-    function rankUp() {
+    async function rankUp() {
         if (hunterRank >= HUNTER_RANKUP.length) return alert("You have reached the highest Hunter Rank.");
         const req = HUNTER_RANKUP[hunterRank];
         if (invCount(req.itemId) < req.qty) {
             return alert(`You need ${req.qty}x ${HUNT_MATERIAL_NAMES[req.itemId]} to advance your Hunter Rank.`);
         }
-        const newInv = removeFromInventory(character.inventory, req.itemId, req.qty);
-        updateCharacter({ ...character, inventory: newInv, hunterRank: hunterRank + 1 });
-        alert(`Hunter Rank advanced! You are now a ${HUNTER_RANK_LABELS[hunterRank + 1]}.`);
+        try {
+            updateCharacter(await rankUpHunterServer(character.name));
+            alert(`Hunter Rank advanced! You are now a ${HUNTER_RANK_LABELS[hunterRank + 1]}.`);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Hunter Rank advancement failed.");
+        }
     }
 
     function acceptHunt(mission: CreatorMission) {

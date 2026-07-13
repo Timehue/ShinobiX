@@ -6,6 +6,8 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
+import { runPetDuel } from '../_pet-sim/pet-duel-sim.js';
+import type { Pet } from '../_pet-sim/pet-types.js';
 
 // Pet Arena reward recorder. Non-ranked wins require a short-lived start token
 // minted by /api/pet/battle-start for the same reportKey. The battle is still
@@ -17,7 +19,7 @@ const DAILY_ARENA_WIN_CAP = 100;       // max server-validated wins per UTC day
 // must not re-apply the Elo swing. Matches the 24h receipt in pvp/claim-rewards.ts.
 const RANKED_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 
-type PetBattleOutcome = 'win' | 'loss';
+type PetBattleOutcome = 'win' | 'loss' | 'draw';
 
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
@@ -45,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
-        const outcome = (body.outcome === 'win' || body.outcome === 'loss') ? body.outcome as PetBattleOutcome : null;
+        let outcome = (body.outcome === 'win' || body.outcome === 'loss' || body.outcome === 'draw') ? body.outcome as PetBattleOutcome : null;
         // Ranked-pet-ladder marker (audit #7 / Stage 3). LIVE — the client sends
         // this from the pet-ranked queue (shinobij.client/src/screens/PetArena.tsx
         // posts { ranked: true, matchToken } here). When true the SERVER owns the
@@ -81,23 +83,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // botted client omit it (or randomize per call) and farm the daily
         // cap with zero real battles. Admins and 'loss' outcomes are exempt
         // because losses don't pay out so duplicates are harmless.
-        if (outcome === 'win' && !identity.admin && !reportKey) {
-            return res.status(400).json({ error: 'Missing or invalid reportKey for win.' });
+        if (!identity.admin && !reportKey) {
+            return res.status(400).json({ error: 'Missing or invalid reportKey.' });
         }
 
         let casualBattleTokenKey: string | null = null;
-        if (outcome === 'win' && !ranked && !identity.admin) {
+        let casualBattleReceipt = '';
+        let casualPetIds: string[] = [];
+        if (!ranked && !identity.admin) {
             if (!battleToken) return res.status(400).json({ error: 'A valid pet battle start token is required.' });
             const tokenKey = `pet:battle-token:${playerName}:${battleToken}`;
-            const tokenData = await kv.get<{ playerName?: string; reportKey?: string; opponentLevel?: number }>(tokenKey);
+            const tokenData = await kv.get<{ playerName?: string; reportKey?: string; opponentLevel?: number; playerPetIds?: string[]; authoritativeOutcome?: 'win' | 'loss' | 'draw' }>(tokenKey);
             if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 return res.status(200).json({ ok: true, reward: 0, reason: 'invalid-or-spent-pet-battle-token' });
             }
             if (tokenData.reportKey !== reportKey) {
                 return res.status(403).json({ error: 'Pet battle token does not match this battle report.' });
             }
+            if (tokenData.authoritativeOutcome !== 'win' && tokenData.authoritativeOutcome !== 'loss' && tokenData.authoritativeOutcome !== 'draw') {
+                return res.status(409).json({ error: 'Pet battle token lacks an authoritative outcome.' });
+            }
+            outcome = tokenData.authoritativeOutcome;
             opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(tokenData.opponentLevel ?? opponentLevelRaw))));
             casualBattleTokenKey = tokenKey;
+            casualBattleReceipt = battleToken;
+            casualPetIds = Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [];
         }
 
         // ── opponentLevel cross-check ─────────────────────────────────
@@ -171,7 +181,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Arena.tsx mints the token via api/pet/ranked-start.ts.)
             const matchToken = typeof body.matchToken === 'string' ? body.matchToken.trim() : '';
             const tok = matchToken
-                ? await kv.get<{ a: string; b: string; aRating: number; bRating: number }>(`pet:ranked-token:${matchToken}`)
+                ? await kv.get<{ a: string; b: string; aRating: number; bRating: number; aPet?: Record<string, unknown>; bPet?: Record<string, unknown>; seed?: number }>(`pet:ranked-token:${matchToken}`)
                 : null;
             if (!tok) {
                 return res.status(400).json({ error: 'A valid pet ranked match token is required (start via /api/pet/ranked-start).' });
@@ -180,6 +190,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(403).json({ error: 'Match token does not name you.' });
             }
             const callerIsA = tok.a === playerName;
+            if (!tok.aPet || !tok.bPet || !Number.isSafeInteger(tok.seed)) {
+                return res.status(409).json({ error: 'Ranked token lacks a sealed combat snapshot.' });
+            }
+            const aIsCanonical = tok.a <= tok.b;
+            const simulated = runPetDuel(
+                (aIsCanonical ? tok.aPet : tok.bPet) as unknown as Pet,
+                (aIsCanonical ? tok.bPet : tok.aPet) as unknown as Pet,
+                Number(tok.seed), 1, 1, false,
+            ).result;
+            if (simulated === 'draw') {
+                const settleDrawPet = async (slug: string, petSnapshot: Record<string, unknown>) => {
+                    const sk = `save:${slug}`;
+                    const record = await kv.get<Record<string, unknown>>(sk);
+                    const char = (record?.character ?? null) as Record<string, unknown> | null;
+                    if (!record || !char) return;
+                    const combatPetId = String(petSnapshot.id ?? '');
+                    const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
+                    const nextPets = pets.map((pet) => String(pet?.id ?? '') === combatPetId && pet.loadout && typeof pet.loadout === 'object'
+                        ? { ...pet, loadout: { ...(pet.loadout as Record<string, unknown>), consumable: undefined } }
+                        : pet);
+                    const updated = bumpSaveVersion({ ...record, character: { ...char, pets: nextPets } });
+                    await kv.set(sk, mergePreservingImages(updated, record));
+                };
+                try {
+                    const [k1, k2] = [`save:${tok.a}`, `save:${tok.b}`].sort();
+                    await withKvLock(k1, () => withKvLock(k2, async () => {
+                        await settleDrawPet(tok.a, tok.aPet!);
+                        await settleDrawPet(tok.b, tok.bPet!);
+                    }, { failClosed: true }), { failClosed: true });
+                    const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                    return res.status(200).json({ ok: true, ranked: true, outcome: 'draw', reward: 0, character: finalSave?.character ?? null, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
+                } catch (rankedErr) {
+                    console.error('[pet/battle-result] ranked draw settlement failed', rankedErr);
+                    return res.status(503).json({ error: 'Could not record ranked draw — please retry.' });
+                }
+            }
+            const aWon = aIsCanonical ? simulated === 'win' : simulated === 'loss';
+            outcome = callerIsA === aWon ? 'win' : 'loss';
             const opponentName = callerIsA ? tok.b : tok.a;
             const myRating = Number(callerIsA ? tok.aRating : tok.bRating);
             const oppRating = Number(callerIsA ? tok.bRating : tok.aRating);
@@ -198,7 +246,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const placed = await kv.set(`pet:ranked-settled:${slug}:${matchToken}`, { role, ts: Date.now() }, { nx: true, ex: RANKED_RECEIPT_TTL_SECONDS } as never);
                 const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind: 'pet' });
                 if (placed) {
-                    const updated = bumpSaveVersion({ ...record, character: { ...char, ...r.patch } });
+                    const combatPetId = String((slug === tok.a ? tok.aPet : tok.bPet)?.id ?? '');
+                    const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
+                    const nextPets = pets.map((pet) => String(pet?.id ?? '') === combatPetId && pet.loadout && typeof pet.loadout === 'object'
+                        ? { ...pet, loadout: { ...(pet.loadout as Record<string, unknown>), consumable: undefined } }
+                        : pet);
+                    const updated = bumpSaveVersion({ ...record, character: { ...char, ...r.patch, pets: nextPets } });
                     await kv.set(sk, mergePreservingImages(updated, record));
                     return { field: 'petRankedRating', value: r.newRating, delta: r.delta };
                 }
@@ -215,7 +268,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { rating: playerName === winnerName ? w : l };
                 }, { failClosed: true }), { failClosed: true });
                 const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
-                return res.status(200).json({ ok: true, ranked: true, reward: 0, rating: out.rating, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
+                const finalChar = (finalSave?.character ?? null) as Record<string, unknown> | null;
+                return res.status(200).json({ ok: true, ranked: true, reward: 0, rating: out.rating, character: finalChar, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
             } catch (rankedErr) {
                 // Lock contention/outage (failClosed) — receipt NOT placed, so
                 // the client can safely retry. 503 signals "transient, retry".
@@ -232,18 +286,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const char = record.character as Record<string, unknown> | undefined;
             if (!char) return { error: 'no-character' as const };
             if (casualBattleTokenKey) {
-                const consumed = await kv.del(casualBattleTokenKey);
-                if (consumed <= 0) {
+                const receipts = Array.isArray(char.redeemedPetBattleTokens)
+                    ? (char.redeemedPetBattleTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
+                    : [];
+                if (receipts.includes(casualBattleReceipt)) {
+                    await kv.del(casualBattleTokenKey).catch(() => undefined);
                     return {
                         ok: true,
                         reward: 0,
                         reason: 'invalid-or-spent-pet-battle-token',
                         totalPetWins: Number(char.totalPetWins ?? 0),
                         dailyPetWins: Number(char.dailyPetWins ?? 0),
+                        balances: { ryo: Number(char.ryo ?? 0) },
                         _saveVersion: Number(record._saveVersion ?? 0),
+                        character: char,
                     };
                 }
+                char.redeemedPetBattleTokens = [...receipts, casualBattleReceipt];
             }
+            const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
+            const spentPets = pets.map((pet) => casualPetIds.includes(String(pet?.id ?? '')) && pet.loadout && typeof pet.loadout === 'object'
+                ? { ...pet, loadout: { ...(pet.loadout as Record<string, unknown>), consumable: undefined } }
+                : pet);
+            const spentChar = { ...char, pets: spentPets };
 
             const today = utcDateKey();
             const lastReset = String(char.lastDailyReset ?? '');
@@ -253,13 +318,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Loss: no reward, but still track win streak metadata. We don't
             // currently store losses anywhere — return ok so the client UI
             // can show "recorded" instead of silently no-op'ing.
-            if (outcome === 'loss') {
+            if (outcome === 'loss' || outcome === 'draw') {
+                const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
+                await kv.set(saveKey, mergePreservingImages(spentRecord, record));
+                if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
                 return {
                     ok: true,
+                    outcome,
                     reward: 0,
                     totalPetWins: Number(char.totalPetWins ?? 0),
                     dailyPetWins,
-                    _saveVersion: Number(record._saveVersion ?? 0),
+                    balances: { ryo: Number(char.ryo ?? 0) },
+                    _saveVersion: Number((spentRecord as Record<string, unknown>)._saveVersion ?? 0),
+                    character: spentChar,
                 };
             }
 
@@ -267,19 +338,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // still acknowledge the call (so a streamer grinding all day
             // doesn't see error spam — they just stop earning).
             if (dailyPetWins >= DAILY_ARENA_WIN_CAP) {
+                const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
+                await kv.set(saveKey, mergePreservingImages(spentRecord, record));
+                if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
                 return {
                     ok: true,
                     reward: 0,
                     capped: true,
                     totalPetWins: Number(char.totalPetWins ?? 0),
                     dailyPetWins,
+                    balances: { ryo: Number(char.ryo ?? 0) },
                     _saveVersion: Number(record._saveVersion ?? 0),
+                    character: spentChar,
                 };
             }
 
             const reward = petArenaRyoReward(opponentLevel);
             const updatedChar = {
-                ...char,
+                ...spentChar,
                 ryo: Number(char.ryo ?? 0) + reward,
                 totalPetWins: Number(char.totalPetWins ?? 0) + 1,
                 dailyPetWins: dailyPetWins + 1,
@@ -288,12 +364,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const updated = { ...record, character: updatedChar };
             bumpSaveVersion(updated);
             await kv.set(saveKey, mergePreservingImages(updated, record));
+            if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
             return {
                 ok: true,
                 reward,
                 totalPetWins: updatedChar.totalPetWins,
                 dailyPetWins: updatedChar.dailyPetWins,
+                balances: { ryo: Number(updatedChar.ryo) },
                 _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
+                character: updatedChar,
             };
         }, { failClosed: true });
 

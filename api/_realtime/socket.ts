@@ -53,6 +53,15 @@ export function getIo(): IOServer | null {
     return _io;
 }
 
+export async function closeSocketServer(): Promise<void> {
+    const io = _io;
+    _io = null;
+    setOnSweep(null);
+    setRealtimeEmitter(null);
+    if (!io) return;
+    await new Promise<void>((resolve) => io.close(() => resolve()));
+}
+
 function sectorRoom(sector: number): string {
     return `sector:${sector}`;
 }

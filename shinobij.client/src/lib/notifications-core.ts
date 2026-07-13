@@ -64,8 +64,9 @@ export interface BattleChromeInputs {
 }
 
 export function shouldHideBattleChrome(inputs: BattleChromeInputs): boolean {
-    return isBattleViewScreen(inputs.screen)
-        || (inputs.screen === "arenaDistrict" && inputs.arenaBattleActive)
+    const isArenaLobby = inputs.screen === "arena" || inputs.screen === "battleArena" || inputs.screen === "arenaDistrict";
+    return (isBattleViewScreen(inputs.screen) && inputs.screen !== "arena" && inputs.screen !== "battleArena")
+        || (isArenaLobby && inputs.arenaBattleActive)
         || (inputs.screen === "petArena" && inputs.petBattleActive);
 }
 

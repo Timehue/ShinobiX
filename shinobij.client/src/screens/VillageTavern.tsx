@@ -6,6 +6,8 @@ import {
 import { type PlayerRecord } from "../types/character";
 import { titleStyleColor, isLegacyServerLive } from "../lib/legacy";
 import { tavernGossipLine } from "../lib/legacy-rumors";
+import { GameIcon } from "../components/icons/GameIcon";
+import { GiCrown, GiLaurelCrown, GiTalk } from "react-icons/gi";
 
 // Server-added optional fields (api/village/chat.ts ChatMessage): paid title
 // cosmetics + legacy prestige derived from the author's save, and the
@@ -197,9 +199,9 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
     return (
         <div className="card tavern-screen">
             <div className="tavern-header">
-                <button className="back-button" onClick={onBack}>← Back</button>
+                <button className="back-button" type="button" onClick={onBack}>← Back</button>
                 <div>
-                    <h2>🍶 {character.village} Tavern</h2>
+                    <h2><GameIcon name="flask" size={22} /> {character.village} Tavern</h2>
                     <p className="tavern-subtitle">Village members only — speak freely.</p>
                 </div>
             </div>
@@ -212,7 +214,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                         fontSize: ".82rem", fontStyle: "italic", color: "#c9b8e8", lineHeight: 1.4,
                     }}
                 >
-                    <span style={{ fontStyle: "normal", opacity: .7, marginRight: 6 }}>🗣️ Overheard</span>
+                    <span style={{ fontStyle: "normal", opacity: .7, marginRight: 6 }}><GiTalk aria-hidden="true" /> Overheard</span>
                     {gossip}
                 </div>
             )}
@@ -256,7 +258,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                                         style={onViewProfile ? { cursor: "pointer" } : undefined}
                                         title={onViewProfile ? `View ${m.author}'s profile` : undefined}
                                     >{m.author}</span>
-                                    {isKage && <span className="tavern-kage" title={`${character.village} Kage`}>👑 Kage</span>}
+                                    {isKage && <span className="tavern-kage" title={`${character.village} Kage`}><GiCrown aria-hidden="true" /> Kage</span>}
                                     {rankTitle && <span className="tavern-rank">{rankTitle}</span>}
                                     {customTitle && (
                                         <span className="tavern-custom-title" style={titleStyle ? { color: titleStyleColor(titleStyle) } : undefined}>
@@ -270,7 +272,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                                         <span
                                             title={`Legacy — Stage ${STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}`}
                                             style={{ fontSize: ".72rem", fontWeight: 800, color: "#c084fc" }}
-                                        >★{STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}</span>
+                                        ><GiLaurelCrown aria-hidden="true" />{STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}</span>
                                     )}
                                     <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                                     <button
@@ -318,7 +320,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                         maxLength={300}
                         disabled={sending}
                     />
-                    <button className="tavern-send-btn" onClick={() => void send()} disabled={!input.trim() || sending}>
+                    <button type="button" className="tavern-send-btn" onClick={() => void send()} disabled={!input.trim() || sending}>
                         {sending ? "…" : "→ Send"}
                     </button>
                 </div>

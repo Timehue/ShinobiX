@@ -68,6 +68,13 @@ async function handler(req, res) {
                 const char = (rec?.character ?? null);
                 if (!rec || !char)
                     return { status: 404, body: { error: 'Your save was not found.' } };
+                const receiptId = `${fresh.baseline}:${Number(fresh.at ?? 0)}`;
+                const receipts = Array.isArray(char.redeemedWandererAmbushes) ? char.redeemedWandererAmbushes : [];
+                const prior = receipts.find((entry) => entry.id === receiptId);
+                if (prior) {
+                    await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
+                    return { status: 200, body: { ok: true, replayed: true, reward: prior.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) } } };
+                }
                 if (!(0, _wanderer_ambush_js_1.ambushCleared)(num(fresh.baseline), num(char.totalAiKills))) {
                     return { status: 200, body: { ok: false, reason: 'incomplete' } };
                 }
@@ -75,24 +82,23 @@ async function handler(req, res) {
                 // inside the save lock and before payout. The delete rowcount is
                 // the consume gate; a storage failure must not fail open into a
                 // replayable reward token.
-                const countKey = `wanderer-ambush-count:${playerName}:${today}`;
-                const claimedSoFar = Number((await _storage_js_1.kv.get(countKey)) ?? 0);
+                const claimedSoFar = char.wandererAmbushRewardDate === today ? Math.max(0, num(char.wandererAmbushRewardCount)) : 0;
                 if (claimedSoFar >= _wanderer_ambush_js_1.AMBUSH_REWARDS_PER_DAY) {
                     return { status: 200, body: { ok: false, reason: 'daily-cap' } };
                 }
-                const consumed = await _storage_js_1.kv.del(tokenKey);
-                if (consumed <= 0)
-                    return { status: 200, body: { ok: false, reason: 'none' } };
-                await _storage_js_1.kv.incr(countKey, { ex: 25 * 60 * 60 });
                 const reward = (0, _wanderer_ambush_js_1.rollAmbushReward)(num(char.level) || 1, Math.random);
                 const updated = {
                     ...char,
                     ryo: num(char.ryo) + reward.ryo,
                     fateShards: num(char.fateShards) + reward.fateShards,
                     boneCharms: num(char.boneCharms) + reward.boneCharms,
+                    wandererAmbushRewardDate: today,
+                    wandererAmbushRewardCount: claimedSoFar + 1,
+                    redeemedWandererAmbushes: [...receipts.slice(-49), { id: receiptId, reward }],
                 };
                 const record = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated });
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(record, rec));
+                await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
                 return {
                     status: 200,
                     body: {
@@ -104,7 +110,7 @@ async function handler(req, res) {
             }, { failClosed: true });
             // Legacy tracking (ENABLE_LEGACY): a cleared ambush gauntlet is a
             // hidden find + an elite takedown (the warlord boss).
-            if (out.status === 200 && out.body?.ok === true) {
+            if (out.status === 200 && out.body?.ok === true && !out.body.replayed) {
                 await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { hiddenFinds: 1, eliteKills: 1 });
                 await (0, _era_js_1.bumpEraContribution)('discoveries');
             }
