@@ -10,6 +10,7 @@
 // HP damage on completion based on the tier.
 
 import { kv } from '../../_storage.js';
+import { setSafeRecordValue } from '../../_utils.js';
 
 export type ChallengeMode = 'pvp1v1' | 'pvp2v2' | 'pet1v1' | 'pet2v2' | 'tilecards';
 
@@ -209,7 +210,7 @@ export function computeMvpByClan(war: ClanWar): Record<string, string> {
             }
         }
         const top = [...tallies.entries()].sort(([, a], [, b]) => b.wins - a.wins || b.damage - a.damage)[0];
-        if (top) mvp[clan] = top[0];
+        if (top) setSafeRecordValue(mvp, clan, top[0]);
     }
     return mvp;
 }
@@ -295,7 +296,7 @@ export function applyLazyClanWarExpiry(
                 if (ch.status === 'pending') {
                     const defender = next.clans.find(c => c !== ch.fromClan);
                     if (defender) {
-                        updatedHp[defender] = Math.max(0, (updatedHp[defender] ?? 0) - EXPIRY_PENALTY_HP);
+                        setSafeRecordValue(updatedHp, defender, Math.max(0, (updatedHp[defender] ?? 0) - EXPIRY_PENALTY_HP));
                         appliedExpiryDamage = true;
                     }
                 }
@@ -371,7 +372,7 @@ export function applyFinalResult(war: ClanWar, ch: ClanChallenge, result: Challe
 
     const updatedHp = { ...war.hp };
     if (loserClanName && dmg > 0 && result !== 'draw') {
-        updatedHp[loserClanName] = Math.max(0, (war.hp[loserClanName] ?? 0) - dmg);
+        setSafeRecordValue(updatedHp, loserClanName, Math.max(0, (war.hp[loserClanName] ?? 0) - dmg));
     }
 
     const completed: ClanChallenge = {

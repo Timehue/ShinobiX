@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, safeName, setSafeRecordValue } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import {
@@ -51,12 +51,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         for (const a of session.actors.filter(x => x.side === 'squad')) {
             const slug = a.ownerSlug;
             if (!slug) continue;
-            consumables[slug] = await settleConsumedItemsForMember({ session, slug });
-            results[slug] = spire
+            setSafeRecordValue(consumables, slug, await settleConsumedItemsForMember({ session, slug }));
+            setSafeRecordValue(results, slug, spire
                 ? await settleSpireForMember({ session, slug })
                 : a.ai
                     ? await settleAssistForAlly({ session, slug })
-                    : await settleFloorForMember({ session, slug });
+                    : await settleFloorForMember({ session, slug }));
         }
         return res.status(200).json({ runId, winner: session.winner, results, consumables });
     } catch (err) {

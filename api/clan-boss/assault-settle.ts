@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, safeName, setSafeRecordValue } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { awardClanPointsToPlayerSave } from '../_clan-points.js';
@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         for (const a of session.actors.filter(x => x.side === 'squad')) {
             const slug = a.ownerSlug;
             if (!slug) continue;
-            consumables[slug] = await settleConsumedItemsForMember({ session, slug });
+            setSafeRecordValue(consumables, slug, await settleConsumedItemsForMember({ session, slug }));
         }
 
         let awardedCharacter: Record<string, unknown> | undefined;

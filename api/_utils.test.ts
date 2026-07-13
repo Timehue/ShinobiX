@@ -8,7 +8,23 @@ import {
     clanRecordKey,
     parseJsonBody,
     isMalformedJsonBodyError,
+    setSafeRecordValue,
+    deleteSafeRecordValue,
 } from './_utils.js';
+
+describe('safe dynamic record writes', () => {
+    it('creates ordinary own properties and rejects prototype keys', () => {
+        const record: Record<string, number> = {};
+        assert.equal(setSafeRecordValue(record, 'score', 7), true);
+        assert.equal(record.score, 7);
+        assert.equal(setSafeRecordValue(record, '__proto__', 9), false);
+        assert.equal(setSafeRecordValue(record, 'constructor', 9), false);
+        assert.equal(Object.getPrototypeOf(record), Object.prototype);
+        assert.equal(deleteSafeRecordValue(record, 'score'), true);
+        assert.equal(Object.prototype.hasOwnProperty.call(record, 'score'), false);
+        assert.equal(deleteSafeRecordValue(record, '__proto__'), false);
+    });
+});
 
 describe('safeName', () => {
     it('lowercases', () => {
