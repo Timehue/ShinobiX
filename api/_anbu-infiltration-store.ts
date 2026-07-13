@@ -33,7 +33,7 @@
  */
 import { kv as realKv } from './_storage.js';
 import { withKvLock as realWithKvLock } from './_lock.js';
-import { mergePreservingImages, safeName } from './_utils.js';
+import { mergePreservingImages, safeName, setSafeRecordValue } from './_utils.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 import { collectTerritorySupply } from './_territory-supply.js';
 import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
@@ -175,7 +175,9 @@ export async function pickAnbuDefender(village: string, appointees: string[], de
         const t = num(lastMap[slug], 0);
         if (t < best) { best = t; pick = slug; }
     }
-    await kv.set(key, { ...lastMap, [pick]: now() }, { ex: ANBU_LAST_DEF_TTL });
+    const nextLastMap = { ...lastMap };
+    setSafeRecordValue(nextLastMap, pick, now());
+    await kv.set(key, nextLastMap, { ex: ANBU_LAST_DEF_TTL });
     return pick;
 }
 

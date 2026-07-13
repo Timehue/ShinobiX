@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID, randomBytes } from 'crypto';
 import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, safeName, setSafeRecordValue } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
@@ -522,7 +522,7 @@ export function stripNonCombatFields(character: Record<string, unknown>): Record
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(character)) {
         if (SESSION_STRIP_CHAR_FIELDS.has(k)) continue;
-        out[k] = v;
+        setSafeRecordValue(out, k, v);
     }
     return out;
 }
@@ -830,7 +830,7 @@ function clampStatsObject(raw: unknown): Record<string, number> {
     // labels). Only the formula-facing stats above are clamped.
     for (const [k, v] of Object.entries(src)) {
         if (CLAMPED_STAT_FIELDS.includes(k as typeof CLAMPED_STAT_FIELDS[number])) continue;
-        if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') out[k] = v as number;
+        if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') setSafeRecordValue(out, k, v as number);
     }
     return out;
 }
@@ -904,9 +904,9 @@ export function sealItemCharges(
         if (typeof id !== 'string' || !id) continue;
         if (slot === 'potion') {
             const owned = invChar ? ownedItemCount(invChar, id) : POTION_USES_PER_BATTLE;
-            charges[id] = Math.min(owned, POTION_USES_PER_BATTLE);
+            setSafeRecordValue(charges, id, Math.min(owned, POTION_USES_PER_BATTLE));
         } else if (invChar) {
-            charges[id] = ownedItemCount(invChar, id);
+            setSafeRecordValue(charges, id, ownedItemCount(invChar, id));
         }
     }
     return charges;

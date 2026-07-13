@@ -23,6 +23,7 @@ import { hexDistance, filledDiskTiles } from '../pvp/_aoe.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu } from '../combat-adapters/clanBossAdapter.js';
 import { directDamageBaseFormula } from '../combat-core/formulas.js';
+import { deleteSafeRecordValue, setSafeRecordValue } from '../_utils.js';
 import { GROUND_EFFECT_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
 import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor, type TowerTargetMode } from './_floor-catalog.js';
@@ -118,8 +119,8 @@ function spendItemCharge(actor: TowerActor, itemId: string): boolean {
     if (!itemId) return true;
     const have = actor.itemCharges?.[itemId] ?? 0;
     if (have <= 0) return false;
-    (actor.itemCharges ??= {})[itemId] = Math.max(0, have - 1);
-    (actor.itemsUsed ??= {})[itemId] = Math.max(0, Math.floor(Number(actor.itemsUsed?.[itemId] ?? 0))) + 1;
+    setSafeRecordValue((actor.itemCharges ??= {}), itemId, Math.max(0, have - 1));
+    setSafeRecordValue((actor.itemsUsed ??= {}), itemId, Math.max(0, Math.floor(Number(actor.itemsUsed?.[itemId] ?? 0))) + 1);
     return true;
 }
 
@@ -1075,7 +1076,7 @@ function spendPoison(session: TowerSession, actor: TowerActor, ck: number, st: n
 function tickCooldowns(actor: TowerActor): void {
     for (const k of Object.keys(actor.cooldowns)) {
         const n = (actor.cooldowns[k] ?? 0) - 1;
-        if (n > 0) actor.cooldowns[k] = n; else delete actor.cooldowns[k];
+        if (n > 0) setSafeRecordValue(actor.cooldowns, k, n); else deleteSafeRecordValue(actor.cooldowns, k);
     }
 }
 function refreshAp(session: TowerSession): void {
@@ -1325,7 +1326,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
             ...(weaponTags.length ? { tags: weaponTags } : {}),
         };
         resolveHit(session, floor, actor, wTarget, weaponJutsu, wCost);
-        if (wCdTurns > 0) actor.cooldowns[wCdKey] = wCdTurns;
+        if (wCdTurns > 0) setSafeRecordValue(actor.cooldowns, wCdKey, wCdTurns);
         return { applied: true };
     }
 
@@ -1344,7 +1345,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
             actor.chakra = Math.max(0, actor.chakra - ck);
             actor.stamina = Math.max(0, actor.stamina - st);
             spendPoison(session, actor, ck, st, session.round);
-            if (Number(jSelf.cooldown ?? 0) > 0) actor.cooldowns[action.jutsuId] = Number(jSelf.cooldown);
+            if (Number(jSelf.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jSelf.cooldown));
             return { applied: true };
         }
     }
@@ -1377,7 +1378,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
             actor.chakra = Math.max(0, actor.chakra - ck);
             actor.stamina = Math.max(0, actor.stamina - st);
             spendPoison(session, actor, ck, st, session.round);
-            if (Number(jm.cooldown ?? 0) > 0) actor.cooldowns[action.jutsuId] = Number(jm.cooldown);
+            if (Number(jm.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jm.cooldown));
             session.activeAp -= cost;
             session.actionsThisTurn += 1;
             session.log.push(`${actor.name} uses ${jm.name ?? 'a body flicker'} — flickers to hex ${tile}.`);
@@ -1441,7 +1442,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
             actor.chakra = Math.max(0, actor.chakra - ck);
             actor.stamina = Math.max(0, actor.stamina - st);
             spendPoison(session, actor, ck, st, session.round);
-            if (Number(jg.cooldown ?? 0) > 0) actor.cooldowns[action.jutsuId] = Number(jg.cooldown);
+            if (Number(jg.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jg.cooldown));
             return { applied: true };
         }
     }
@@ -1497,7 +1498,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
             session.log.push(`${actor.name} uses ${item.name ?? 'an item'}.`);
             runJutsu(session, actor, actor, itemJutsu, 1);
         }
-        if (iCdTurns > 0) actor.cooldowns[iCdKey] = iCdTurns;
+        if (iCdTurns > 0) setSafeRecordValue(actor.cooldowns, iCdKey, iCdTurns);
         session.activeAp -= iCost;
         session.actionsThisTurn += 1;
         checkTowerWinner(session, floor);
@@ -1541,7 +1542,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
         actor.chakra = Math.max(0, actor.chakra - chakraCost);
         actor.stamina = Math.max(0, actor.stamina - staminaCost);
         spendPoison(session, actor, chakraCost, staminaCost, session.round);
-        if (Number(jutsu.cooldown ?? 0) > 0) actor.cooldowns[action.jutsuId] = Number(jutsu.cooldown);
+        if (Number(jutsu.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jutsu.cooldown));
     }
     return { applied: true };
 }

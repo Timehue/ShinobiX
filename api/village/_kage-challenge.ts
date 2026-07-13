@@ -26,6 +26,8 @@
  * can render a real permanent record instead of client-synthesized timestamps.
  */
 
+import { setSafeRecordValue } from '../_utils.js';
+
 export const KAGE_ACCEPT_OBLIGATION_MS = 30 * 60_000;        // 30 min of overlap
 export const KAGE_CHALLENGE_EXPIRY_MS = 48 * 60 * 60_000;    // 48h wall-clock
 export const KAGE_POST_DEFENSE_GRACE_MS = 24 * 60 * 60_000;  // 24h wall-clock
@@ -323,7 +325,7 @@ export function applySeatTransfer(
 /** State after the Kage successfully defends: +defense, clear challenge, grace + cooldown. */
 export function applyDefense(state: KageStateLike, challengerName: string, now: number): KageStateLike {
     const cooldowns = { ...(state.challengerCooldowns ?? {}) };
-    cooldowns[lower(challengerName)] = now + KAGE_LOSS_COOLDOWN_MS;
+    setSafeRecordValue(cooldowns, lower(challengerName), now + KAGE_LOSS_COOLDOWN_MS);
     const defended = incrementDefense(state);
     return {
         ...defended,
@@ -337,7 +339,7 @@ export function applyDefense(state: KageStateLike, challengerName: string, now: 
 export function applyExpiry(state: KageStateLike, now: number): KageStateLike {
     const challenge = state.challenge;
     const cooldowns = { ...(state.challengerCooldowns ?? {}) };
-    if (challenge) cooldowns[lower(challenge.challenger)] = now + KAGE_LOSS_COOLDOWN_MS;
+    if (challenge) setSafeRecordValue(cooldowns, lower(challenge.challenger), now + KAGE_LOSS_COOLDOWN_MS);
     return { ...state, challenge: null, challengerCooldowns: pruneCooldowns(cooldowns, now) };
 }
 
@@ -354,6 +356,6 @@ export function applyAdminReset(state: KageStateLike, village: string, now: numb
 // Keep the cooldown map from growing unbounded — drop entries already elapsed.
 function pruneCooldowns(cooldowns: Record<string, number>, now: number): Record<string, number> {
     const out: Record<string, number> = {};
-    for (const [k, v] of Object.entries(cooldowns)) if (v > now) out[k] = v;
+    for (const [k, v] of Object.entries(cooldowns)) if (v > now) setSafeRecordValue(out, k, v);
     return out;
 }

@@ -58,8 +58,8 @@ export function isSafeRecordKey(key: string): boolean {
     return !PROTOTYPE_POLLUTION_KEYS.has(key);
 }
 
-function defineSafeRecordValue(target: Record<string, unknown>, key: string, value: unknown): void {
-    if (!isSafeRecordKey(key)) return;
+export function setSafeRecordValue<T>(target: Record<string, T>, key: string, value: T): boolean {
+    if (!isSafeRecordKey(key)) return false;
     // defineProperty never invokes Object.prototype.__proto__'s setter and keeps
     // dynamic JSON keys as plain enumerable data properties.
     Object.defineProperty(target, key, {
@@ -68,6 +68,12 @@ function defineSafeRecordValue(target: Record<string, unknown>, key: string, val
         enumerable: true,
         configurable: true,
     });
+    return true;
+}
+
+export function deleteSafeRecordValue<T>(target: Record<string, T>, key: string): boolean {
+    if (!isSafeRecordKey(key)) return false;
+    return Reflect.deleteProperty(target, key);
 }
 
 export function mergePreservingImages(incoming: unknown, existing: unknown): unknown {
@@ -105,16 +111,16 @@ export function mergePreservingImages(incoming: unknown, existing: unknown): unk
     // normal auto-save, so this change is a no-op there.
     const merged: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(ex)) {
-        defineSafeRecordValue(merged, key, value);
+        setSafeRecordValue(merged, key, value);
     }
     for (const [key, value] of Object.entries(inc)) {
         if (!isSafeRecordKey(key)) continue;
         const existingValue = Object.prototype.hasOwnProperty.call(ex, key) ? ex[key] : undefined;
         if (isImageField(key, value) && value === '' && typeof existingValue === 'string' && String(existingValue).startsWith('data:image')) {
-            defineSafeRecordValue(merged, key, existingValue);
+            setSafeRecordValue(merged, key, existingValue);
             continue;
         }
-        defineSafeRecordValue(
+        setSafeRecordValue(
             merged,
             key,
             value && typeof value === 'object'
