@@ -9,6 +9,7 @@ import {
 import { battleEntryCost, payBattleEntry, BATTLE_FREE_FLOORS } from "../lib/entry-fee";
 import { subscribeFollowing } from "../lib/friends";
 import { LoadingState } from "../components/ui/LoadingState";
+import { readScreenCache, writeScreenCache } from "../lib/screen-cache";
 import spireBanner from "../assets/towers/spire.webp";
 import spireKeyArt from "../assets/towers/spire-banner.webp";
 import wardenPortrait from "../assets/towers/enemies/warden.webp";
@@ -17,6 +18,14 @@ import ravagerPortrait from "../assets/towers/enemies/ravager.webp";
 import sovereignPortrait from "../assets/towers/enemies/sovereign.webp";
 
 const MAX_ALLIES = 3; // you + up to 3 = a 4-player squad
+const FLOOR_CACHE_KEY = "tower-floors";
+const FLOOR_CACHE_TTL_MS = 5 * 60_000;
+
+function isTowerFloorList(value: unknown): value is TowerFloorMeta[] {
+    return Array.isArray(value) && value.every((floor) =>
+        !!floor && typeof floor === "object" && Number.isFinite((floor as TowerFloorMeta).id),
+    );
+}
 const SPIRE_PORTRAIT: Record<SpireBossKey, string> = {
     warden: wardenPortrait, revenant: revenantPortrait, ravager: ravagerPortrait, sovereign: sovereignPortrait,
 };
@@ -57,9 +66,9 @@ export function BattleTowersLobby({
     onEnter: (runId: string, session: TowerSession) => void;
     onBack: () => void;
 }) {
-    const [floors, setFloors] = useState<TowerFloorMeta[]>([]);
+    const [floors, setFloors] = useState<TowerFloorMeta[]>(() => readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList) ?? []);
     const [selected, setSelected] = useState<number | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(() => !readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList));
     const [starting, setStarting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [allies, setAllies] = useState<string[]>([]);
@@ -97,8 +106,16 @@ export function BattleTowersLobby({
 
     useEffect(() => {
         let alive = true;
+        const cached = readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList);
+        if (cached) {
+            setFloors(cached);
+            setSelected(cached[0]?.id ?? null);
+            setLoading(false);
+        } else {
+            setLoading(true);
+        }
         fetchTowerFloors()
-            .then(f => { if (alive) { setFloors(f); setSelected(f[0]?.id ?? null); } })
+            .then(f => { if (alive) { setFloors(f); setSelected(f[0]?.id ?? null); writeScreenCache(FLOOR_CACHE_KEY, f, FLOOR_CACHE_TTL_MS); } })
             .catch(e => { if (alive) setError(String(e?.message ?? e)); })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };

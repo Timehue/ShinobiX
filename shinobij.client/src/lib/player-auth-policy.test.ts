@@ -41,4 +41,26 @@ describe("legacy account recovery classification", () => {
         assert.match(changeHandler, /sendJson\(res, 409/);
         assert.match(changeHandler, /sendJson\(res, 404/);
     });
+
+    it("local-dev register and verify mirror the production token-first contract", () => {
+        const viteSource = readFileSync(new URL("../../vite.config.ts", import.meta.url), "utf8");
+        assert.match(viteSource, /function issueDevSessionToken\(playerId: string\)/);
+        const registerStart = viteSource.indexOf("if (action === 'register')");
+        const verifyStart = viteSource.indexOf("if (action === 'verify')", registerStart);
+        const changeStart = viteSource.indexOf("if (action === 'change')", verifyStart);
+        assert.notEqual(registerStart, -1);
+        assert.notEqual(verifyStart, -1);
+        assert.notEqual(changeStart, -1);
+        assert.match(viteSource.slice(registerStart, verifyStart), /token: issueDevSessionToken\(playerId\)/);
+        assert.match(viteSource.slice(verifyStart, changeStart), /token: issueDevSessionToken\(playerId\)/);
+    });
+
+    it("local-dev supports authenticated shared avatar publication", () => {
+        const viteSource = readFileSync(new URL("../../vite.config.ts", import.meta.url), "utf8");
+        assert.match(viteSource, /server\.middlewares\.use\('\/api\/images'/);
+        assert.match(viteSource, /const playerName = devTokenPlayer\(req\)/);
+        assert.match(viteSource, /You can only set your own avatar/);
+        assert.match(viteSource, /MAX_DEV_AVATAR_BYTES/);
+        assert.match(viteSource, /await updateDevImages\(imagePath/);
+    });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { LoadingState } from "../components/ui/LoadingState";
+import { readDailyMissionCache, writeDailyMissionCache } from "../lib/daily-mission-cache";
 import type { Character, Profession } from "../App";
 
 type DailyMission = {
@@ -62,6 +63,23 @@ export function DailyProfessionMissions({ character }: { character: Character })
         seenCompletedRef.current = new Set();
         seededRef.current = false;
         let cancelled = false;
+        // Show the same player's last server-confirmed daily state immediately
+        // (per tab and UTC date), then still refresh from the server below.
+        // This removes the blank 3-5s panel on repeat navigation without ever
+        // using cached data to grant rewards or authorize an action.
+        const cached = readDailyMissionCache(character.name, character.profession);
+        if (cached) {
+            setData(cached as Response);
+            setLoading(false);
+            seededRef.current = true;
+            for (const mission of cached.missions as DailyMission[]) {
+                if (mission.completedAt) seenCompletedRef.current.add(mission.id);
+            }
+        } else {
+            setData(null);
+            setLoading(true);
+        }
+        setError(null);
         async function fetchMissions() {
             try {
                 const res = await fetch(`/api/missions/daily?playerName=${encodeURIComponent(character.name)}`);
@@ -88,6 +106,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                 }
                 seededRef.current = true;
                 setData(json);
+                writeDailyMissionCache(character.name, character.profession, json);
                 setLoading(false);
             } catch {
                 if (!cancelled) {
@@ -118,12 +137,12 @@ export function DailyProfessionMissions({ character }: { character: Character })
             </h3>
             {loading && <LoadingState />}
             {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}
-            {!loading && !error && data && missions.length === 0 && (
+            {!loading && data && missions.length === 0 && (
                 <p className="hint" style={{ margin: 0 }}>
                     No daily missions available right now.
                 </p>
             )}
-            {!loading && !error && data && missions.length > 0 && (
+            {!loading && data && missions.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {missions.map(m => {
                         const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
