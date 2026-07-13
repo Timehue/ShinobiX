@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { getActiveSilence } from './admin/moderation.js';
 import { withKvLock } from './_lock.js';
-import { sanitizeUserText, TEXT_LIMITS } from './_text-moderation.js';
+import { isCleanText, sanitizeUserText, TEXT_LIMITS } from './_text-moderation.js';
 
 /*
  * /api/messages — player-to-player direct messages (mail).
@@ -109,6 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const recipientSave = await kv.get<Record<string, unknown>>(`save:${recipient}`);
             if (!recipientSave) return res.status(404).json({ error: 'No such player.' });
 
+            if (!isCleanText(text)) return res.status(400).json({ error: 'Message contains blocked content.' });
             const safeText = sanitizeUserText(text, TEXT_LIMITS.chatMessage);
             if (!safeText) return res.status(400).json({ error: 'Empty message after moderation.' });
 

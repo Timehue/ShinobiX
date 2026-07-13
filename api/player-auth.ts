@@ -12,6 +12,7 @@ import { withKvLock } from './_lock.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
 import { recordBetaMetric } from './_beta-metrics.js';
 import { newRegistrationsDisabled } from './_launch-controls.js';
+import { isCleanPlayerName } from './_text-moderation.js';
 import crypto from 'crypto';
 
 // Usernames reserved for the protected admin account. New `register` requests
@@ -247,6 +248,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // collapses to '' and would write the bare `auth:` / `save:` keys.
         if (!safeName(name)) {
             return res.status(400).json({ ok: false, error: 'Pick a name with at least one letter or number.' });
+        }
+
+        // Names are public identity, so reject blocked terms outright instead
+        // of masking them. The check normalizes common leetspeak, punctuation,
+        // spacing, and repeated letters before matching.
+        if (!isCleanPlayerName(name)) {
+            return res.status(400).json({
+                ok: false,
+                error: 'That username is not allowed. Pick a different name.',
+            });
         }
 
         // Reserved-shape defense: storage-layer prefixes like `clan-` route
