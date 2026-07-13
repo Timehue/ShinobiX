@@ -143,7 +143,7 @@ export async function postClanExchangePurchase(
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string } & Partial<ClanExchangePurchaseResponse>;
         if (!res.ok || !data.ok || !data.character) {
-            alert(data.error || "Exchange purchase failed. Please try again.");
+            alert(data.error || "Exchange purchase was not confirmed. Refresh your character before trying again.");
             return null;
         }
         return {
@@ -155,7 +155,7 @@ export async function postClanExchangePurchase(
             reveal: data.reveal,
         };
     } catch {
-        alert("Exchange purchase failed. Please try again.");
+        alert("The exchange server did not confirm whether the purchase completed. Refresh your character before trying again.");
         return null;
     }
 }

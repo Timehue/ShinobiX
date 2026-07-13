@@ -1,7 +1,8 @@
-import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import { ClanImageMark } from "./Marks";
+import { CloseButton } from "./ui/CloseButton";
+import { Modal } from "./ui/Modal";
 import type { Character } from "../types/character";
 import type { ClanTreasury, EnhancedClanData } from "../types/clan";
 import type { GameItem } from "../types/combat";
@@ -206,16 +207,22 @@ export function ClanExchange({
     const [confirming, setConfirming] = useState<ExchangeItem | null>(null);
     const [busyItem, setBusyItem] = useState<string | null>(null);
     const [reveal, setReveal] = useState<ClanExchangePurchaseResponse["reveal"] | null>(null);
+    const purchaseBusyRef = useRef(false);
     const clanPoints = num(character.clanPoints);
     const weeklyEarned = character.weeklyClanPointsWeek === isoWeekKey() ? num(character.weeklyClanPoints) : 0;
     const weekPct = Math.min(100, (weeklyEarned / CLAN_POINTS_WEEKLY_CAP) * 100);
     const xpNeed = clanXpNeeded(clanData.level);
     const tier = clanData.level >= 10 ? 3 : clanData.level >= 5 ? 2 : 1;
-    const modalRoot = typeof document !== "undefined" ? document.body : null;
     const itemsByTier = useMemo(() => [1, 2, 3].map((t) => EXCHANGE_ITEMS.filter((item) => item.tier === t)), []);
     const featured = useMemo(() => EXCHANGE_ITEMS.filter((item) => FEATURED_IDS.has(item.id)), []);
+    const closeConfirmation = useCallback(() => {
+        if (!purchaseBusyRef.current) setConfirming(null);
+    }, []);
+    const closeReveal = useCallback(() => setReveal(null), []);
 
     async function purchase(item: ExchangeItem) {
+        if (purchaseBusyRef.current) return;
+        purchaseBusyRef.current = true;
         setBusyItem(item.id);
         try {
             const result = await postClanExchangePurchase(character.name, clanData.name, item.id);
@@ -224,6 +231,7 @@ export function ClanExchange({
             if (result.reveal) setReveal(result.reveal);
             setConfirming(null);
         } finally {
+            purchaseBusyRef.current = false;
             setBusyItem(null);
         }
     }
@@ -288,10 +296,18 @@ export function ClanExchange({
 
             {children}
 
-            {modalRoot && confirming && createPortal(
-                <div className="modal-overlay">
-                    <div className="modal clan-exchange-modal">
-                        <button className="modal-close" onClick={() => setConfirming(null)} aria-label="Close">x</button>
+            <Modal
+                open={confirming !== null}
+                onClose={closeConfirmation}
+                ariaLabel={confirming ? `Confirm purchase of ${confirming.name}` : "Confirm clan exchange purchase"}
+                size="md"
+                bare
+                disableBackdropClose={busyItem !== null}
+                className="clan-exchange-modal"
+            >
+                {confirming && (
+                    <>
+                        <CloseButton className="modal-close" onClick={closeConfirmation} disabled={busyItem !== null} />
                         <span className={`clan-exchange-rarity ${confirming.rarity}`}>{confirming.rarity}</span>
                         <h3>{confirming.name}</h3>
                         <p>{confirming.description}</p>
@@ -305,26 +321,31 @@ export function ClanExchange({
                         </div>
                         <div className="menu">
                             <button onClick={() => void purchase(confirming)} disabled={busyItem === confirming.id}>{busyItem === confirming.id ? "Purchasing..." : "Confirm Purchase"}</button>
-                            <button className="ghost-button" onClick={() => setConfirming(null)}>Cancel</button>
+                            <button className="ghost-button" onClick={closeConfirmation} disabled={busyItem !== null}>Cancel</button>
                         </div>
-                    </div>
-                </div>,
-                modalRoot,
-            )}
+                    </>
+                )}
+            </Modal>
 
-            {modalRoot && reveal && createPortal(
-                <div className="modal-overlay">
-                    <div className="modal clan-exchange-modal clan-exchange-reveal">
-                        <button className="modal-close" onClick={() => setReveal(null)} aria-label="Close">x</button>
+            <Modal
+                open={reveal !== null}
+                onClose={closeReveal}
+                ariaLabel={reveal ? `${reveal.name} added to inventory` : "Clan exchange reward"}
+                size="md"
+                bare
+                className="clan-exchange-modal clan-exchange-reveal"
+            >
+                {reveal && (
+                    <>
+                        <CloseButton className="modal-close" onClick={closeReveal} />
                         <span className={`clan-exchange-rarity ${reveal.rarity.toLowerCase()}`}>{reveal.rarity}</span>
                         <h3>{reveal.name}</h3>
                         <p>{reveal.slot} cache item added to inventory.</p>
                         <div className="clan-exchange-reveal-mark">{reveal.slot === "hand" || reveal.slot === "weapon" ? <GameIcon name="sword" size={58} /> : <GameIcon name="shield" size={58} />}</div>
-                        <button onClick={() => setReveal(null)}>Claimed</button>
-                    </div>
-                </div>,
-                modalRoot,
-            )}
+                        <button onClick={closeReveal}>Claimed</button>
+                    </>
+                )}
+            </Modal>
         </div>
     );
 }
