@@ -451,7 +451,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         </div>
 
                         <div className="landing-hero-actions">
-                            <button type="button" className="landing-cta landing-cta--primary" onClick={onOpenCreate}>
+                            <button type="button" className="landing-cta landing-cta--primary" data-testid="start-create" onClick={onOpenCreate}>
                                 Enter the World
                             </button>
                             <a className="landing-cta landing-cta--ghost" href={DISCORD_URL} target="_blank" rel="noopener noreferrer">
