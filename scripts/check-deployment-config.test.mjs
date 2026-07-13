@@ -8,7 +8,7 @@ import {
 
 const valid = {
   build: { builder: 'DOCKERFILE', dockerfilePath: 'Dockerfile' },
-  deploy: { numReplicas: 1, startCommand: 'node dist/server.js' },
+  deploy: { numReplicas: 1, startCommand: 'node dist/server.js', healthcheckPath: '/health' },
 };
 
 test('repository Railway deployment remains single-instance and starts built server', async () => {
@@ -27,6 +27,14 @@ test('deployment config rejects replica drift and source-server start commands',
     deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, startCommand: 'tsx server.ts' } })[0],
     /node dist\/server\.js/,
   );
+});
+
+test('deployment config requires the unauthenticated shallow health endpoint', () => {
+  const errors = deploymentConfigErrors({
+    ...valid,
+    deploy: { ...valid.deploy, healthcheckPath: '/health/db' },
+  });
+  assert.match(errors.join(' '), /healthcheckPath must be exactly "\/health"/);
 });
 
 test('deployment config requires the repository Dockerfile', () => {
