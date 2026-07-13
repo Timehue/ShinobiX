@@ -19,7 +19,11 @@
         "test:mission-eligibility": "node scripts/check-mission-eligibility.mjs",
         "test:release-assets": "node scripts/check-release-assets.mjs",
         "sizecheck": "node scripts/check-build-size.mjs",
-        "release:health": "node scripts/release-health-check.mjs"
+        "release:health": "node scripts/release-health-check.mjs",
+        "test:backup": "node --test scripts/kv-backup.test.mjs",
+        "backup:kv": "node scripts/kv-backup.mjs export",
+        "restore:kv": "node scripts/kv-backup.mjs restore",
+        "drill:restore": "node scripts/kv-backup.mjs drill"
     },
     "dependencies": {
         "@sentry/node": "^10.58.0",
