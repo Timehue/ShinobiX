@@ -467,11 +467,7 @@ export type { CreatorEvent, StoryStep };
 // moved to ./types/missions and imported back near the top of this file.
 
 type PlayerAccountSave = {
-    // Legacy: plaintext password (no-token deployments only). Token-issuing
-    // servers store `token` instead and never persist this (audit M5).
-    password?: string;
-    // Per-account session token (24h). Present once the account has logged into
-    // a token-issuing server; supersedes `password`.
+    // Per-account session token (24h). Reusable passwords are never persisted.
     token?: string;
     snapshot?: {
         character: Character;
@@ -1174,7 +1170,16 @@ function accountKey(name: string) {
 function loadPlayerAccounts(): PlayerAccounts {
     try {
         const raw = localStorage.getItem(PLAYER_ACCOUNTS_STORAGE);
-        return raw ? JSON.parse(raw) : {};
+        const accounts = (raw ? JSON.parse(raw) : {}) as Record<string, PlayerAccountSave & { password?: unknown }>;
+        let scrubbed = false;
+        for (const account of Object.values(accounts)) {
+            if (account && Object.prototype.hasOwnProperty.call(account, 'password')) {
+                delete account.password;
+                scrubbed = true;
+            }
+        }
+        if (scrubbed) localStorage.setItem(PLAYER_ACCOUNTS_STORAGE, JSON.stringify(accounts));
+        return accounts;
     } catch {
         return {};
     }
@@ -3477,14 +3482,9 @@ export default function App() {
         // in authFetch now makes credentials available; setActivePlayer here syncs them
         // back into sessionStorage for the rest of this session).
         if (localAccountName) {
-            // getActivePlayer/Password already read from localStorage via the fallback,
-            // but we call setActivePlayer here to populate sessionStorage for the session.
-            const persistedPw = localStorage.getItem('shinobix:activePasswordPersist');
-            // Token-first (M5): when a session token is persisted (localStorage),
-            // auth rides on it and no password is stored — this call just re-syncs
-            // the name into sessionStorage. When no token exists (legacy / no-token
-            // server) the persisted password is restored as the credential.
-            setActivePlayer(localAccountName, persistedPw ?? undefined);
+            // Re-sync the non-secret name into sessionStorage. authFetch reads the
+            // persisted session token directly; no password fallback exists.
+            setActivePlayer(localAccountName);
 
             // ── Phase 1.3: optimistic instant-paint for HUB refreshes ──────────
             // If the URL hash says the player was on a deep-linkable HUB screen
@@ -4680,17 +4680,13 @@ export default function App() {
         }
 
         const accounts = loadPlayerAccounts();
-        // M5: on a token-issuing server, store the per-account token and DROP the
-        // plaintext password. Only persist the password when no token was issued
-        // (SESSION_SECRET unset), since then it's the only credential available.
-        accounts[key] = regToken
-            ? { ...(accounts[key] ?? {}), token: regToken, password: undefined }
-            : { ...(accounts[key] ?? {}), password };
+        if (!regToken) {
+            alert("The server did not issue a secure session token. Account creation is paused; contact an administrator.");
+            return;
+        }
+        accounts[key] = { ...(accounts[key] ?? {}), token: regToken };
         savePlayerAccounts(accounts);
-        // Pass the password so the global authFetch interceptor can attach
-        // x-player-name / x-player-password to every /api/ request from now on.
-        // (The token captured above is preferred; password is the fallback.)
-        setActivePlayer(newCharacter.name, password);
+        setActivePlayer(newCharacter.name);
 
         const characterToCreate = await import("./features/character-creator/starterAvatarPublish").then(({ publishStarterAvatarForCharacter }) => publishStarterAvatarForCharacter(newCharacter, (id, image) => setSharedImages(prev => ({ ...prev, [id]: image })))).catch((error) => { console.warn("[createPlayerAccount] starter avatar publish failed", error); return newCharacter; });
         setCurrentAccountName(characterToCreate.name); setCharacter(characterToCreate);
@@ -4780,9 +4776,6 @@ export default function App() {
     }
 
     async function loginPlayerAccount(name: string, password: string) {
-        const accounts = loadPlayerAccounts();
-        const account = accounts[accountKey(name)];
-
         async function loginFetch(input: RequestInfo | URL, init?: RequestInit, timeoutMs = 15000) {
             const controller = new AbortController();
             const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -4828,7 +4821,7 @@ export default function App() {
                     return;
                 }
                 if (authRes.ok) {
-                    authOk = authData.ok === true;
+                    authOk = authData.ok === true && typeof authData.token === 'string' && authData.token.length > 0;
                     authVerified = true;
                     // Store the session token so every later /api/ request uses
                     // the cheap HMAC path instead of re-running scrypt server-side.
@@ -4843,7 +4836,7 @@ export default function App() {
                         if (mk) {
                             const maccs = loadPlayerAccounts();
                             if (maccs[mk]) {
-                                maccs[mk] = { ...maccs[mk], token: authData.token, password: undefined };
+                                maccs[mk] = { ...maccs[mk], token: authData.token };
                                 savePlayerAccounts(maccs);
                             }
                         }
@@ -4853,17 +4846,12 @@ export default function App() {
                     authVerified = true;
                 }
             } catch {
-                // Network/timeout error — retry once, then fall back to local cache
+                // Network/timeout error — retry once, then require an online login.
             }
         }
         if (!authVerified) {
-            // Both attempts failed (network down / persistent timeout)
-            if (account?.password) {
-                authOk = account.password === password;
-            } else {
-                alert("Could not reach server to verify password. Check your connection and try again.");
-                return;
-            }
+            alert("Could not reach server to verify password. Check your connection and try again.");
+            return;
         }
 
         if (!authOk) {
@@ -4874,7 +4862,7 @@ export default function App() {
         // Prime the authFetch interceptor *before* the save GET fires.
         // Without this, the interceptor has no credentials and the backend
         // returns 401, which the UI mistranslates as "no save found".
-        setActivePlayer(name, password);
+        setActivePlayer(name);
 
         // Instant-paint from localStorage while the save fetch is in flight.
         // The cached preview is written on every successful server save (both
@@ -4901,8 +4889,7 @@ export default function App() {
                 if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
                 saveRes = await loginFetch(
                     `/api/save/${encodeURIComponent(name.toLowerCase())}`,
-                    // authFetch uses the minted token here; when SESSION_SECRET is
-                    // unset, its existing password fallback remains active.
+                    // authFetch uses the minted token here.
                     undefined,
                     20000,
                 );
@@ -4939,7 +4926,7 @@ export default function App() {
             setCurrentAccountName("");
             setScreen("start");
             alert(`No save data was found for "${name}". Your login lock has been cleared — please create a new character with the same name and password.`);
-        } else if (!account) {
+        } else {
             alert("No save found for that name. Check spelling or create a new character.");
         }
     }
@@ -4948,10 +4935,7 @@ export default function App() {
         if (!character) return;
         if (!(await gameConfirm(`Delete "${character.name}"? This permanently removes your character and all save data. This cannot be undone.`, { title: "Delete Character", confirmLabel: "Delete", danger: true }))) return;
         const accountName = currentAccountName || character.name;
-        const localAccounts = loadPlayerAccounts();
-        const localPw = localAccounts[accountKey(accountName)]?.password
-            ?? window.prompt("Enter your password to delete this character from the server.")?.trim()
-            ?? "";
+        const localPw = window.prompt("Enter your password to delete this character from the server.")?.trim() ?? "";
         if (!localPw) {
             alert("Password required to delete a server account.");
             return;
@@ -4971,8 +4955,7 @@ export default function App() {
         savePlayerAccounts(accounts);
         setCharacter(null);
         setCurrentAccountName("");
-        // Account deleted — also wipe the persisted password + session token
-        // (same credential-clear as logoutPlayer; the account no longer exists).
+        // Account deleted — also wipe the persisted session token.
         setActivePlayer(null);
         setActiveTraining(null);
         setActiveJutsuTraining(null);
@@ -7461,15 +7444,9 @@ export default function App() {
                         onLogin={loginPlayerAccount}
                         initialName={restoreFailed ? bootAccountName : ""}
                         notice={restoreFailed ? "Your session timed out — log back in to restore your save. No progress is lost." : ""}
-                        onAdmin={(prefilledPassword) => {
-                            // If the user typed "Admin 1" / "Admin 2" in the
-                            // player login form, the StartScreen forwards the
-                            // password they typed so they don't have to retype
-                            // it on the admin screen. Stash it in
-                            // sessionStorage where AdminLogin reads it.
-                            if (prefilledPassword) {
-                                sessionStorage.setItem("admin:prefill-pw", prefilledPassword);
-                            }
+                        onAdmin={() => {
+                            // The dedicated admin screen requires direct entry;
+                            // never shuttle this credential through storage.
                             navigate(adminLoggedIn ? "adminPanel" : "adminLogin");
                         }}
                     />
