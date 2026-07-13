@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { gzip, gunzip } from 'node:zlib';
 import { promisify } from 'node:util';
@@ -344,10 +345,8 @@ async function listFiles(root) {
     return out;
 }
 
-export async function writeOverlayDirectory(root, entries) {
-    const absolute = resolve(root);
-    await mkdir(absolute, { recursive: true });
-    if ((await readdir(absolute)).length) throw new Error('TARGET_DISK_KV_DIR must be empty.');
+export async function writeOverlayDirectory(entries) {
+    const absolute = await mkdtemp(resolve(tmpdir(), 'shinobix-restore-overlay-'));
     for (const entry of entries) {
         const target = diskPath(absolute, entry.key);
         await mkdir(dirname(target), { recursive: true });
@@ -390,9 +389,8 @@ async function verifyRepresentatives(target, overlayRoot, payload, requestedKeys
     return expected.map((sample) => ({ ...sample, verified: true }));
 }
 
-async function restoreBackup(inPath, overlayRoot, requestedKeys = []) {
+async function restoreBackup(inPath, requestedKeys = []) {
     if (process.env.ALLOW_ISOLATED_RESTORE !== '1') throw new Error('Set ALLOW_ISOLATED_RESTORE=1 for an explicitly isolated target.');
-    if (!overlayRoot) throw new Error('TARGET_DISK_KV_DIR or --target-overlay-dir is required.');
     if (sameConnection(process.env.DATABASE_URL, process.env.TARGET_DATABASE_URL)) throw new Error('Refusing to restore into the source database endpoint.');
     const started = Date.now();
     const { payload, file } = await readBackup(inPath);
@@ -410,7 +408,7 @@ async function restoreBackup(inPath, overlayRoot, requestedKeys = []) {
         await inspectTargetSchema(target);
         const count = Number((await target.query(`select count(*)::int n from public.kv_store`)).rows[0].n);
         if (count > 0) throw new Error('Target kv_store is not empty; refusing overwrite.');
-        await writeOverlayDirectory(overlayRoot, payload.overlay.entries);
+        const overlayRoot = await writeOverlayDirectory(payload.overlay.entries);
         await target.query('begin');
         for (const row of payload.base.rows) {
             await target.query(`insert into public.kv_store(key,value,expires_at,updated_at) values($1,$2::jsonb,$3,$4)`, [row.key, JSON.stringify(row.value), row.expires_at, row.updated_at]);
@@ -422,7 +420,7 @@ async function restoreBackup(inPath, overlayRoot, requestedKeys = []) {
         if (restoredOverlay.length !== payload.overlay.keyCount || digestOverlay(restoredOverlay) !== payload.overlay.sha256) throw new Error('Post-restore overlay verification mismatch.');
         const representatives = await verifyRepresentatives(target, overlayRoot, payload, requestedKeys);
         return {
-            file, target: targetId, targetOverlay: { kind: 'disk', pathHash: safeKeyLabel(resolve(overlayRoot)) },
+            file, target: targetId, targetOverlay: { kind: 'disk', pathHash: safeKeyLabel(resolve(overlayRoot)) }, targetOverlayDir: overlayRoot,
             baseRowCount: rows.length, overlayKeyCount: restoredOverlay.length,
             saveCount: restoredOverlay.filter((entry) => entry.key.startsWith('save:')).length,
             baseSha256: digestRows(rows), overlaySha256: digestOverlay(restoredOverlay), representatives,
@@ -447,16 +445,15 @@ async function run(argv = process.argv.slice(2)) {
         console.log(JSON.stringify({ ok: true, mode, file, createdAt: payload.createdAt, baseRowCount: payload.base.rowCount, overlayKeyCount: payload.overlay.keyCount, saveCount: payload.overlay.saveCount, baseSha256: payload.base.sha256, overlaySha256: payload.overlay.sha256, representatives: representativeRecords(allRecords(payload), args.all('--representative-key')) }));
         return;
     }
-    const targetOverlay = args.one('--target-overlay-dir') || process.env.TARGET_DISK_KV_DIR;
     if (mode === 'restore') {
-        const out = await restoreBackup(args.one('--in'), targetOverlay, args.all('--representative-key'));
+        const out = await restoreBackup(args.one('--in'), args.all('--representative-key'));
         console.log(JSON.stringify({ ok: true, mode, ...out }));
         return;
     }
     if (mode === 'drill') {
         const drillStartedAt = new Date();
         const exported = await exportBackup(args.one('--out'));
-        const restored = await restoreBackup(exported.file, targetOverlay, args.all('--representative-key'));
+        const restored = await restoreBackup(exported.file, args.all('--representative-key'));
         const completedAt = new Date();
         const evidence = {
             format: 'shinobix-restore-evidence-v2', ok: true,
@@ -473,10 +470,10 @@ async function run(argv = process.argv.slice(2)) {
         };
         if (!evidence.sourceAndTargetDiffer || !evidence.fullDatasetVerified) throw new Error('Restore evidence invariants failed.');
         const evidenceFile = await writeJson(args.one('--evidence-out') || 'release-audit/evidence/backup-restore.json', evidence);
-        console.log(JSON.stringify({ ok: true, mode, evidenceFile, ...evidence }));
+        console.log(JSON.stringify({ ok: true, mode, evidenceFile, targetOverlayDir: restored.targetOverlayDir, ...evidence }));
         return;
     }
-    throw new Error('Usage: kv-backup.mjs export --out <file> | inspect --in <file> | restore --in <file> --target-overlay-dir <empty-dir> | drill --out <file> --target-overlay-dir <empty-dir> --evidence-out <file>');
+    throw new Error('Usage: kv-backup.mjs export --out <file> | inspect --in <file> | restore --in <file> | drill --out <file> --evidence-out <file>');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
