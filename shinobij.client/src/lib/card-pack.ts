@@ -26,6 +26,6 @@ export async function openCardPack(playerName: string, packType: CardPackType): 
         }
         return data;
     } catch {
-        return { ok: false, error: 'Could not reach the card shop. Please try again.' };
+        return { ok: false, error: 'Pack opening unconfirmed. Refresh before retrying.' };
     }
 }

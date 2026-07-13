@@ -65,6 +65,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
     // reward), so it's never claimable.
     const [claimedClanMissions, setClaimedClanMissions] = useState<string[]>([]);
     const [clanMissionClaimBusy, setClanMissionClaimBusy] = useState<string | null>(null);
+    const clanMissionClaimBusyRef = useRef(false);
     // "ok" while data loaded fine, "notFound" when the server has no record
     // for this clan (e.g. it was wiped by a reset), "error" for transient
     // failures (network down, 5xx). Used to pick a clearer error UI.
@@ -73,15 +74,18 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
     const [clanListLoading, setClanListLoading] = useState(false);
     const [guardList, setGuardList] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
     const [guardBusy, setGuardBusy] = useState(false);
+    const guardBusyRef = useRef(false);
     const [donation, setDonation] = useState(1000);
     // In-flight guard for treasury donations — blocks the double-tap that would
     // POST the donation twice and double-credit the clan treasury.
     const [donateBusy, setDonateBusy] = useState(false);
+    const donateBusyRef = useRef(false);
     const [clanDonateItemId, setClanDonateItemId] = useState("");
     const [clanSendItemId, setClanSendItemId] = useState("");
     const [clanSendPlayer, setClanSendPlayer] = useState("");
     const [clanSendCurrency, setClanSendCurrency] = useState<ClanTreasuryCurrencyKey>("ryo");
     const [clanSendAmount, setClanSendAmount] = useState(1);
+    const clanTransferBusyRef = useRef(false);
     const [territorySector, setTerritorySector] = useState(40);
     const [territoryWeather, setTerritoryWeather] = useState<WeatherType>("clear");
     const [territoryBuffStat, setTerritoryBuffStat] = useState<TerritoryBuffStat>("bukijutsuOffense");
@@ -91,8 +95,10 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
     const [clanNoticeBody, setClanNoticeBody] = useState("");
     const [clanNoticeSector, setClanNoticeSector] = useState("");
     const [upgradeBusy, setUpgradeBusy] = useState<ClanUpgradeKey | "">("");
+    const upgradeBusyRef = useRef(false);
     const [clanDeleteBusy, setClanDeleteBusy] = useState(false);
     const clanDeleteBusyRef = useRef(false);
+    const clanSaveBusyRef = useRef(false);
     const allClanItems = getAllItems(creatorItems);
     const clanInventoryStacks = inventoryItemStacks(character, allClanItems);
     const clanTreasuryItems = cleanTreasuryItems(clanData?.treasury.items);
@@ -100,10 +106,23 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
     function myMemberEntry(): ClanMemberEntry {
         return { name: character.name, village: character.village, level: character.level, specialty: character.specialty, battleContrib: character.clanBattleContrib ?? 0, eventContrib: character.clanEventContrib ?? 0, missionContrib: character.clanMissionContrib ?? 0, isFounder: character.clanFounder ?? false, month: new Date().toISOString().slice(0, 7) };
     }
-    async function saveClan(next: EnhancedClanData) {
-        const enhanced = enhanceClanData(next); setClanData(enhanced);
-        try { await writeClanData(enhanced); }
-        catch (e) { alert(e instanceof Error ? e.message : "Clan changes couldn't be saved. Please retry."); }
+    async function saveClan(next: EnhancedClanData): Promise<boolean> {
+        if (clanSaveBusyRef.current) {
+            alert("Another clan change is still saving. Wait for it to finish and try again.");
+            return false;
+        }
+        clanSaveBusyRef.current = true;
+        const enhanced = enhanceClanData(next);
+        try {
+            await writeClanData(enhanced);
+            setClanData(enhanced);
+            return true;
+        } catch (e) {
+            alert(e instanceof Error ? e.message : "Clan changes couldn't be saved. Please retry.");
+            return false;
+        } finally {
+            clanSaveBusyRef.current = false;
+        }
     }
 
     // Claim a completed clan mission. The server recomputes progress + credits
@@ -111,7 +130,8 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
     // treasury + xp/level onto local display state (no writeClanData round-trip —
     // the server already persisted, so it would only be a zero-delta write).
     async function claimClanMission(missionKey: string) {
-        if (!clanData) return;
+        if (!clanData || clanMissionClaimBusyRef.current) return;
+        clanMissionClaimBusyRef.current = true;
         setClanMissionClaimBusy(missionKey);
         try {
             const result = await postClanMissionClaim(character.name, clanData.name, missionKey);
@@ -127,6 +147,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
             const def = clanMissionDefinitions.find((m) => m.key === missionKey);
             alert(`Clan mission reward claimed!${def ? ` ${def.reward}` : ""}`);
         } finally {
+            clanMissionClaimBusyRef.current = false;
             setClanMissionClaimBusy(null);
         }
     }
@@ -256,8 +277,9 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
     useEffect(() => { setRecruitmentDraft(clanData?.recruitment ?? ""); }, [clanData?.name]);
     async function saveRecruitment() {
         if (!clanData) return;
-        await saveClan({ ...clanData, recruitment: recruitmentDraft.slice(0, 300) });
-        alert("Recruitment pitch updated.");
+        if (await saveClan({ ...clanData, recruitment: recruitmentDraft.slice(0, 300) })) {
+            alert("Recruitment pitch updated.");
+        }
     }
 
     async function createClan() {
@@ -408,16 +430,28 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         }
     }
     async function toggleGuard() {
-        const queued = character.guardQueued ?? false; setGuardBusy(true);
-        // Functional updaters: both writes land after the postGuardQueue await,
-        // so a concurrent regen/heartbeat setState could otherwise be clobbered.
-        if (queued) { await postGuardQueue("dequeue", { name: character.name, village: character.village }); updateCharacter((prev) => prev ? ({ ...prev, guardQueued: false }) : prev); }
-        else { await postGuardQueue("queue", { name: character.name, village: character.village, level: character.level, defenseBonusPercent: getTownDefenseGuardBonus(character) }); updateCharacter((prev) => prev ? ({ ...prev, guardQueued: true }) : prev); }
-        setGuardBusy(false);
+        if (guardBusyRef.current) return;
+        const queued = character.guardQueued ?? false;
+        guardBusyRef.current = true;
+        setGuardBusy(true);
+        try {
+            await postGuardQueue(queued ? "dequeue" : "queue", queued
+                ? { name: character.name, village: character.village }
+                : { name: character.name, village: character.village, level: character.level, defenseBonusPercent: getTownDefenseGuardBonus(character) });
+            // Only reflect a status the server accepted. Functional update also
+            // preserves any regen/heartbeat write that landed while awaiting it.
+            updateCharacter((prev) => prev ? ({ ...prev, guardQueued: !queued }) : prev);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Guard queue update failed. Your local status was not changed.");
+        } finally {
+            guardBusyRef.current = false;
+            setGuardBusy(false);
+        }
     }
     async function donateRyo() {
-        if (donateBusy) return;
+        if (donateBusyRef.current) return;
         if (!clanData) return; const amount = Math.max(1, Math.floor(donation)); if (character.ryo < amount) return alert("Not enough ryo.");
+        donateBusyRef.current = true;
         setDonateBusy(true);
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { currency: "ryo", amount });
@@ -425,12 +459,14 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
             setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
             updateCharacter(result.character);
         } finally {
+            donateBusyRef.current = false;
             setDonateBusy(false);
         }
     }
     async function donateSpecial(currency: Exclude<ClanTreasuryCurrencyKey, "ryo">, amount: number) {
-        if (donateBusy) return;
+        if (donateBusyRef.current) return;
         if (!clanData) return; const current = character[currency] ?? 0; if (current < amount) return alert(`Not enough ${currency}.`);
+        donateBusyRef.current = true;
         setDonateBusy(true);
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { currency, amount });
@@ -438,14 +474,16 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
             setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
             updateCharacter(result.character);
         } finally {
+            donateBusyRef.current = false;
             setDonateBusy(false);
         }
     }
     async function donateClanItem() {
-        if (donateBusy) return;
+        if (donateBusyRef.current) return;
         if (!clanData) return;
         if (!clanDonateItemId) return alert("Choose an item to donate.");
         if (!ownsItem(character, clanDonateItemId)) return alert("You do not have that item.");
+        donateBusyRef.current = true;
         setDonateBusy(true);
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { itemId: clanDonateItemId });
@@ -453,14 +491,16 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
             setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
             updateCharacter(result.character);
         } finally {
+            donateBusyRef.current = false;
             setDonateBusy(false);
         }
     }
     async function donateAllTerritoryScrollsToClan() {
-        if (donateBusy) return;
+        if (donateBusyRef.current) return;
         if (!clanData) return;
         const count = territoryScrollCount(character);
         if (count <= 0) return alert("You do not have any Territory Control Scrolls.");
+        donateBusyRef.current = true;
         setDonateBusy(true);
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { itemId: TERRITORY_CONTROL_SCROLL_ID, count });
@@ -469,15 +509,18 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
             updateCharacter(result.character);
             alert(`Donated ${count} Territory Control Scroll${count === 1 ? "" : "s"} to the clan hall.`);
         } finally {
+            donateBusyRef.current = false;
             setDonateBusy(false);
         }
     }
     async function sendClanCurrency() {
+        if (clanTransferBusyRef.current) return;
         if (!clanData) return;
         if (!canManageClan(myRole)) return alert("Only clan leadership can send treasury resources.");
         const amount = Math.max(1, Math.floor(clanSendAmount));
         if (!clanSendPlayer) return alert("Choose a clan member.");
         if ((clanData.treasury[clanSendCurrency] ?? 0) < amount) return alert("Not enough treasury resources.");
+        clanTransferBusyRef.current = true;
         // Route through the atomic server endpoint (audit #18). The old
         // grant-then-save flow PATCHed the recipient's save directly, which
         // /api/save 403s for non-admins — so leadership gifts silently failed.
@@ -493,27 +536,26 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
                 const data = await r.json().catch(() => ({}));
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
+            if (clanSendPlayer === character.name) {
+                // Functional updater preserves concurrent regen/heartbeat writes.
+                updateCharacter((prev) => prev ? ({ ...prev, [clanSendCurrency]: (prev[clanSendCurrency] ?? 0) + amount } as Character) : prev);
+            }
+            setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, [clanSendCurrency]: clanData.treasury[clanSendCurrency] - amount } }));
+            alert(`Sent ${amount.toLocaleString()} ${clanSendCurrency} to ${clanSendPlayer}.`);
         } catch (err) {
             return alert(`Transfer failed: ${(err as Error).message}`);
+        } finally {
+            clanTransferBusyRef.current = false;
         }
-        // Server already persisted both sides — reflect the deduction in local
-        // clan state (no redundant clan write) and credit the actor's in-memory
-        // character if they gifted themselves.
-        if (clanSendPlayer === character.name) {
-            // Functional updater: this self-gift credit lands after the transfer
-            // await, so a concurrent regen/heartbeat setState could otherwise drop
-            // it (relative add off the latest character).
-            updateCharacter((prev) => prev ? ({ ...prev, [clanSendCurrency]: (prev[clanSendCurrency] ?? 0) + amount } as Character) : prev);
-        }
-        setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, [clanSendCurrency]: clanData.treasury[clanSendCurrency] - amount } }));
-        alert(`Sent ${amount.toLocaleString()} ${clanSendCurrency} to ${clanSendPlayer}.`);
     }
     async function sendClanItem() {
+        if (clanTransferBusyRef.current) return;
         if (!clanData) return;
         if (!canManageClan(myRole)) return alert("Only clan leadership can send treasury items.");
         if (!clanSendPlayer) return alert("Choose a clan member.");
         if (!clanSendItemId) return alert("Choose an item.");
         if (!clanData.treasury.items.some(stack => stack.itemId === clanSendItemId && stack.count > 0)) return alert("That item is not in the clan treasury.");
+        clanTransferBusyRef.current = true;
         try {
             const r = await fetch("/api/clan/treasury/transfer", {
                 method: "POST",
@@ -524,19 +566,26 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
                 const data = await r.json().catch(() => ({}));
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
+            setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, clanSendItemId) } }));
+            alert(`Sent ${itemDisplayName(clanSendItemId, allClanItems)} to ${clanSendPlayer}.`);
         } catch (err) {
             return alert(`Transfer failed: ${(err as Error).message}`);
+        } finally {
+            clanTransferBusyRef.current = false;
         }
-        setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, clanSendItemId) } }));
-        alert(`Sent ${itemDisplayName(clanSendItemId, allClanItems)} to ${clanSendPlayer}.`);
     }
     async function purchaseUpgrade(key: ClanUpgradeKey) {
-        if (!clanData) return;
+        if (!clanData || upgradeBusyRef.current) return;
+        upgradeBusyRef.current = true;
         setUpgradeBusy(key);
-        const result = await postClanUpgradePurchase(character.name, clanData.name, key);
-        setUpgradeBusy("");
-        if (result) {
-            setClanData({ ...clanData, upgrades: { ...clanData.upgrades, ...(result.upgrades as Record<ClanUpgradeKey, number>) }, treasury: cleanClanTreasury(result.treasury) });
+        try {
+            const result = await postClanUpgradePurchase(character.name, clanData.name, key);
+            if (result) {
+                setClanData({ ...clanData, upgrades: { ...clanData.upgrades, ...(result.upgrades as Record<ClanUpgradeKey, number>) }, treasury: cleanClanTreasury(result.treasury) });
+            }
+        } finally {
+            upgradeBusyRef.current = false;
+            setUpgradeBusy("");
         }
     }
     async function collectTerritoryWarSupply() {

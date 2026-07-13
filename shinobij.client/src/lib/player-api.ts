@@ -6,6 +6,7 @@
  */
 import type { DuelChallenge } from "../App";
 import type { Character } from "../types/character";
+import { AMBIGUOUS_ACTION_MESSAGE } from "./ambiguous-action";
 
 export async function postPlayerChallengeNotice(targetName: string, challenge: DuelChallenge) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -35,10 +36,10 @@ export async function postVillageTreasuryDonation(playerName: string, village: s
             body: JSON.stringify({ playerName, village, ...donation }),
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character };
-        if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || "Donation failed. Please try again."); return null; }
+        if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
         return { treasury: data.treasury, character: data.character };
     } catch {
-        alert("Donation failed. Please try again.");
+        alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;
     }
 }
@@ -56,10 +57,10 @@ export async function postClanTreasuryDonation(playerName: string, clan: string,
             body: JSON.stringify({ playerName, clan, ...donation }),
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; xp?: number; level?: number };
-        if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || "Donation failed. Please try again."); return null; }
+        if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
         return { treasury: data.treasury, character: data.character, xp: data.xp ?? 0, level: data.level ?? 1 };
     } catch {
-        alert("Donation failed. Please try again.");
+        alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;
     }
 }
@@ -81,10 +82,10 @@ export async function postClanUpgradePurchase(
             body: JSON.stringify({ playerName, clan, upgradeKey }),
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; upgrades?: Record<string, number>; treasury?: Record<string, unknown> };
-        if (!res.ok || !data.ok || !data.upgrades || !data.treasury) { alert(data.error || "Upgrade failed. Please try again."); return null; }
+        if (!res.ok || !data.ok || !data.upgrades || !data.treasury) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
         return { upgrades: data.upgrades, treasury: data.treasury };
     } catch {
-        alert("Upgrade failed. Please try again.");
+        alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;
     }
 }
@@ -113,10 +114,10 @@ export async function postClanMissionClaim(
             body: JSON.stringify({ playerName, clan, missionKey }),
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; xp?: number; level?: number; claimed?: string[]; character?: Character };
-        if (!res.ok || !data.ok || !data.treasury) { alert(data.error || "Claim failed. Please try again."); return null; }
+        if (!res.ok || !data.ok || !data.treasury) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
         return { treasury: data.treasury, xp: data.xp ?? 0, level: data.level ?? 1, claimed: Array.isArray(data.claimed) ? data.claimed : [], character: data.character };
     } catch {
-        alert("Claim failed. Please try again.");
+        alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;
     }
 }
@@ -143,7 +144,7 @@ export async function postClanExchangePurchase(
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string } & Partial<ClanExchangePurchaseResponse>;
         if (!res.ok || !data.ok || !data.character) {
-            alert(data.error || "Exchange purchase was not confirmed. Refresh your character before trying again.");
+            alert(data.error || AMBIGUOUS_ACTION_MESSAGE);
             return null;
         }
         return {
@@ -155,7 +156,7 @@ export async function postClanExchangePurchase(
             reveal: data.reveal,
         };
     } catch {
-        alert("The exchange server did not confirm whether the purchase completed. Refresh your character before trying again.");
+        alert(AMBIGUOUS_ACTION_MESSAGE);
         return null;
     }
 }

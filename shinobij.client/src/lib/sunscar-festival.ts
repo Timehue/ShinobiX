@@ -47,7 +47,7 @@ async function postSunscar<T>(body: Record<string, unknown>, fallback: string): 
         if (!res.ok || !data.ok) return { ...data, ok: false, error: data.error || fallback };
         return { ...data, ok: true };
     } catch {
-        return { ok: false, error: fallback } as T & { ok: boolean; error?: string };
+        return { ok: false, error: "Festival action unconfirmed. Refresh before retrying." } as T & { ok: boolean; error?: string };
     }
 }
 

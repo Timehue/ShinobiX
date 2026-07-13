@@ -39,6 +39,6 @@ export async function sendCurrency(playerName: string, toPlayer: string, currenc
         if (!res.ok || !data.ok) return { ok: false, error: data.error || 'Could not send.' };
         return data;
     } catch {
-        return { ok: false, error: 'Could not send. Please try again.' };
+        return { ok: false, error: 'Transfer unconfirmed. Refresh before retrying.' };
     }
 }

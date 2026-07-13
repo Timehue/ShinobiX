@@ -48,7 +48,87 @@ describe("permanent action interaction safety", () => {
     test("ambiguous exchange failures tell players to refresh before retrying", () => {
         const playerApi = source("./player-api.ts");
         const purchase = between(playerApi, "export async function postClanExchangePurchase", "// Server-authoritative clan kick");
-        assert.match(purchase, /did not confirm whether the purchase completed/);
-        assert.match(purchase, /Refresh your character before trying again/);
+        assert.match(purchase, /AMBIGUOUS_ACTION_MESSAGE/);
+    });
+
+    test("guard queue failures cannot be adopted as local success", () => {
+        const api = source("./clan-api.ts");
+        const guardRequest = api.slice(api.indexOf("export async function postGuardQueue"));
+        assert.match(guardRequest, /if \(!res\.ok\)/);
+        assert.doesNotMatch(guardRequest, /catch\(\(\) => \{ \}\)/);
+
+        for (const relative of ["../screens/ClanHall.tsx", "../screens/TownHall.tsx"]) {
+            const screen = source(relative);
+            const toggle = between(screen, relative.includes("ClanHall") ? "async function toggleGuard" : "async function toggleTownGuard", relative.includes("ClanHall") ? "\n    async function donateRyo" : "\n    const isSeatedKage");
+            const request = toggle.indexOf("await postGuardQueue(");
+            const localWrite = toggle.indexOf("updateCharacter(");
+            assert.match(toggle, /if \(guardBusyRef\.current\) return;/);
+            assert.ok(request >= 0 && localWrite > request, `${relative} must update local guard state only after server success`);
+            assert.match(toggle, /finally\s*\{[\s\S]*guardBusyRef\.current = false;/);
+        }
+    });
+
+    test("clan document changes are shown only after persistence succeeds", () => {
+        const hall = source("../screens/ClanHall.tsx");
+        const save = between(hall, "async function saveClan", "\n    // Claim a completed clan mission");
+        const request = save.indexOf("await writeClanData(enhanced)");
+        const localWrite = save.indexOf("setClanData(enhanced)");
+        assert.ok(request >= 0 && localWrite > request, "clan state must not optimistically claim an unpersisted save");
+        assert.match(save, /return true;/);
+        assert.match(save, /return false;/);
+
+        const recruitment = between(hall, "async function saveRecruitment", "\n    async function createClan");
+        assert.match(recruitment, /if \(await saveClan/);
+        assert.match(recruitment, /Recruitment pitch updated\./);
+    });
+
+    test("resource-spending screens use synchronous duplicate guards", () => {
+        const cases: Array<[string, string]> = [
+            ["../components/Shop.tsx", "purchaseBusyRef"],
+            ["../screens/Bank.tsx", "sendingRef"],
+            ["../screens/ClanBattlesTab.tsx", "busyRef"],
+            ["../screens/ClanHall.tsx", "donateBusyRef"],
+            ["../screens/ClanSealPool.tsx", "busyRef"],
+            ["../screens/Hospital.tsx", "busyRef"],
+            ["../screens/PetYard.tsx", "evolveBusyRef"],
+            ["../screens/Profile.tsx", "profileMutationBusyRef"],
+            ["../screens/SunscarFestival.tsx", "bmBusyRef"],
+            ["../screens/TownHall.tsx", "donateBusyRef"],
+            ["../screens/Training.tsx", "busyRef"],
+        ];
+        for (const [relative, refName] of cases) {
+            const file = source(relative);
+            assert.match(file, new RegExp(`if \\(.*${refName}\\.current`), `${relative} must check ${refName} synchronously`);
+            assert.match(file, new RegExp(`${refName}\\.current = true;`), `${relative} must acquire ${refName}`);
+            assert.match(file, new RegExp(`${refName}\\.current = false;`), `${relative} must release ${refName}`);
+        }
+    });
+
+    test("ambiguous paid-action failures direct players to refresh", () => {
+        assert.match(source("./ambiguous-action.ts"), /AMBIGUOUS_ACTION_MESSAGE = "Action unconfirmed\. Refresh before retrying\."/);
+        const profileSettlement = source("./profile-settlement.ts");
+        assert.match(profileSettlement, /AMBIGUOUS_ACTION_MESSAGE/);
+
+        const shop = source("../components/Shop.tsx");
+        assert.match(shop, /AMBIGUOUS_ACTION_MESSAGE/);
+
+        const training = source("../screens/Training.tsx");
+        assert.match(training, /AMBIGUOUS_ACTION_MESSAGE/);
+
+        for (const relative of ["./player-trade.ts", "./card-pack.ts", "./black-market.ts", "./sunscar-festival.ts", "./player-api.ts"]) {
+            assert.match(source(relative), /unconfirmed|response lost|AMBIGUOUS_ACTION_MESSAGE/i, `${relative} must label an ambiguous response`);
+            if (relative !== "./player-api.ts") assert.match(source(relative), /Refresh before retrying/i, `${relative} must not encourage a blind retry`);
+        }
+    });
+
+    test("shop and permanent legacy choice use the canonical accessible modal", () => {
+        const shop = source("../components/Shop.tsx");
+        assert.match(shop, /<Modal open onClose=\{closeItem\}/);
+        assert.doesNotMatch(shop, /createPortal|useBodyScrollLock/);
+
+        const sage = source("../components/SageOfferModal.tsx");
+        assert.match(sage, /<Modal open onClose=\{close\}/);
+        assert.match(sage, /if \(busyRef\.current\) return;/);
+        assert.doesNotMatch(sage, /createPortal/);
     });
 });

@@ -1,4 +1,5 @@
 import type { Character } from '../types/character';
+import { AMBIGUOUS_ACTION_MESSAGE } from './ambiguous-action';
 
 export type ProfileSettlementAction =
     | { type: 'respec-stats' }
@@ -24,10 +25,10 @@ export async function settleProfileAction(
             cost?: number;
         };
         if (!response.ok || !data.ok || !data.character) {
-            return { ok: false, error: data.error || 'Could not update your profile. Please retry.' };
+            return { ok: false, error: data.error || AMBIGUOUS_ACTION_MESSAGE };
         }
         return { ok: true, character: data.character, changed: data.changed === true, cost: Number(data.cost ?? 0) };
     } catch {
-        return { ok: false, error: 'Could not update your profile. Please retry.' };
+        return { ok: false, error: AMBIGUOUS_ACTION_MESSAGE };
     }
 }
