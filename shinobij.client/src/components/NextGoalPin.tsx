@@ -73,8 +73,8 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                 flex: "0 0 auto",
                 fontSize: size,
                 lineHeight: 1,
-                minWidth: 40,
-                minHeight: 40,
+                minWidth: 44,
+                minHeight: 44,
                 padding: 0,
             }}
         >

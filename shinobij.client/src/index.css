@@ -10882,7 +10882,7 @@ textarea {
 .clan-boss-party-btn {
     display: inline-flex;
     align-items: center;
-    min-height: 40px;
+    min-height: 44px;
     max-width: 100%;
     padding: 6px 12px;
     border-radius: 999px;
@@ -21462,10 +21462,10 @@ button.combat-jutsu-button,
   }
 
   .mobile-menu-close {
-    flex: 0 0 40px;
-    width: 40px !important;
-    min-width: 40px;
-    height: 40px;
+    flex: 0 0 44px;
+    width: 44px !important;
+    min-width: 44px;
+    height: 44px;
     border-radius: 50%;
     border: 1px solid rgba(248,113,113,0.42);
     background: linear-gradient(145deg, rgba(127,29,29,0.55), rgba(15,23,42,0.82));
@@ -21668,7 +21668,7 @@ button.combat-jutsu-button,
 
   /* General mobile touch improvements */
   button {
-    min-height: 40px;
+    min-height: 44px;
   }
 
   .start-grid {
@@ -21744,10 +21744,10 @@ button.combat-jutsu-button,
 }
 
 .mobile-profile-sheet-close {
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
-  min-height: 36px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   border-radius: 50%;
   border: 1px solid var(--slate-700);
   background: rgba(51, 65, 85, 0.5);
