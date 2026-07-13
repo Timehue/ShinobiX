@@ -128,4 +128,56 @@ describe('snapshot run health', () => {
             kv.set = originalSet;
         }
     });
+
+    it('recovers an interrupted run without duplicating completed snapshots', async () => {
+        const originalKeys = kv.keys;
+        const originalGet = kv.get;
+        const originalSet = kv.set;
+        const originalNow = Date.now;
+        const records = new Map<string, unknown>();
+        for (let index = 1; index <= 9; index += 1) {
+            records.set(`save:recovery-${index}`, { character: { name: `Recovery ${index}`, level: index } });
+        }
+        let now = 1_800_000_000_000;
+        let snapshotWrites = 0;
+        Date.now = () => now;
+        kv.keys = async (pattern: string) => {
+            if (pattern === 'save:*') return [...records.keys()].filter((key) => key.startsWith('save:'));
+            if (pattern === 'save-snapshot:*') return [...records.keys()].filter((key) => key.startsWith('save-snapshot:'));
+            return [];
+        };
+        kv.get = async <T = unknown>(key: string) => (records.get(key) ?? null) as T | null;
+        kv.set = async (key: string, value: unknown) => {
+            records.set(key, value);
+            if (key.startsWith('save-snapshot:')) {
+                snapshotWrites += 1;
+                if (snapshotWrites === 8) now += 101;
+            }
+            return 'OK' as const;
+        };
+
+        try {
+            const interrupted = await runSnapshotSaves(100);
+            assert.equal(interrupted.ok, false);
+            assert.equal(interrupted.truncated, true);
+            assert.equal(interrupted.processed, 8);
+            assert.equal(interrupted.snapshotted, 8);
+            assert.equal(records.has(SNAPSHOT_SUCCESS_KEY), false);
+
+            now += 1_000;
+            const recovered = await runSnapshotSaves(5_000);
+            assert.equal(recovered.ok, true);
+            assert.equal(recovered.truncated, false);
+            assert.equal(recovered.processed, 9);
+            assert.equal(recovered.skipped, 8);
+            assert.equal(recovered.snapshotted, 1);
+            assert.equal(snapshotWrites, 9, 'retry must not rewrite the first completed batch');
+            assert.equal(records.has(SNAPSHOT_SUCCESS_KEY), true);
+        } finally {
+            Date.now = originalNow;
+            kv.keys = originalKeys;
+            kv.get = originalGet;
+            kv.set = originalSet;
+        }
+    });
 });
