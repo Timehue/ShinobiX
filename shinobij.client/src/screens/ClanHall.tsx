@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0) + the game's currency emblems.
 import {
     GiThreeFriends, GiUpgrade, GiCrossedSwords, GiTreasureMap, GiScrollUnfurled,
@@ -91,6 +91,8 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
     const [clanNoticeBody, setClanNoticeBody] = useState("");
     const [clanNoticeSector, setClanNoticeSector] = useState("");
     const [upgradeBusy, setUpgradeBusy] = useState<ClanUpgradeKey | "">("");
+    const [clanDeleteBusy, setClanDeleteBusy] = useState(false);
+    const clanDeleteBusyRef = useRef(false);
     const allClanItems = getAllItems(creatorItems);
     const clanInventoryStacks = inventoryItemStacks(character, allClanItems);
     const clanTreasuryItems = cleanTreasuryItems(clanData?.treasury.items);
@@ -341,7 +343,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         }
         // Functional updater: lands after the fetchClanData/writeClanData awaits,
         // so a concurrent regen/heartbeat setState could otherwise be clobbered.
-        updateCharacter((prev) => prev ? ({ ...prev, clan: undefined, clanFounder: false, guardQueued: false }) : prev);
+        updateCharacter((prev) => prev ? ({ ...prev, clan: undefined, clanFounder: false, guardQueued: false, clanUpgradeLevels: undefined, clanDoctrine: undefined }) : prev);
         setClanData(null);
     }
     // Reclaim a clan name that exists on the player's character but has been
@@ -378,13 +380,32 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         setClanLoadStatus("ok");
     }
     async function deleteClan() {
-        if (!character.clan || !character.clanFounder) return;
-        if (!(await gameConfirm(`Delete "${character.clan}"? This permanently removes the clan for all members and cannot be undone.`, { danger: true, confirmLabel: "Delete" }))) return;
-        await fetch(`/api/save/${clanSlug(character.clan)}`, { method: "DELETE" }).catch(() => {});
-        // Functional updater: lands after the DELETE await, so a concurrent
-        // regen/heartbeat setState could otherwise be clobbered by the stale capture.
-        updateCharacter((prev) => prev ? ({ ...prev, clan: undefined, clanFounder: false, guardQueued: false }) : prev);
-        setClanData(null);
+        if (!character.clan || !character.clanFounder || clanDeleteBusyRef.current) return;
+        clanDeleteBusyRef.current = true;
+        const clanNameToDelete = character.clan;
+        try {
+            if (!(await gameConfirm(`Delete "${clanNameToDelete}"? This permanently removes its hall, treasury, roster, and upgrades. Other members may need to leave the missing clan manually. This data cannot be recovered.`, { danger: true, confirmLabel: "Delete" }))) return;
+            setClanDeleteBusy(true);
+            let response: Response;
+            try {
+                response = await fetch(`/api/save/${clanSlug(clanNameToDelete)}`, { method: "DELETE" });
+            } catch {
+                alert("The clan server did not confirm whether deletion completed. Refresh the game to check before trying again.");
+                return;
+            }
+            const data = await response.json().catch(() => ({})) as { ok?: boolean; error?: string };
+            if (!response.ok || data.ok !== true) {
+                alert(data.error || `Clan deletion failed (HTTP ${response.status}). Nothing was changed locally.`);
+                return;
+            }
+            // Functional updater: lands after the verified DELETE response, so a concurrent
+            // regen/heartbeat setState cannot be clobbered by the stale capture.
+            updateCharacter((prev) => prev ? ({ ...prev, clan: undefined, clanFounder: false, guardQueued: false, clanUpgradeLevels: undefined, clanDoctrine: undefined }) : prev);
+            setClanData(null);
+        } finally {
+            clanDeleteBusyRef.current = false;
+            setClanDeleteBusy(false);
+        }
     }
     async function toggleGuard() {
         const queued = character.guardQueued ?? false; setGuardBusy(true);
@@ -771,7 +792,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
         {view === "hall" && canManageClan(myRole) && <div className="summary-box"><h3><GiMegaphone style={CH_ICON} />Recruitment Pitch</h3><p className="hint">Shown to players browsing for a clan. Make your case (max 300 characters).</p><textarea value={recruitmentDraft} maxLength={300} rows={3} onChange={e => setRecruitmentDraft(e.target.value)} placeholder="e.g. Active war clan — daily clan wars, friendly veterans, newcomers mentored. Join us!" /><div className="menu"><button onClick={() => void saveRecruitment()}>Save Pitch</button></div></div>}
         <div className="menu" style={{ marginTop: 12 }}>
             <button className="danger-button" onClick={leaveClan}>Leave Clan</button>
-            {character.clanFounder && <button className="danger-button" onClick={deleteClan}>Delete Clan</button>}
+            {character.clanFounder && <button className="danger-button" onClick={deleteClan} disabled={clanDeleteBusy}>{clanDeleteBusy ? "Deleting Clan..." : "Delete Clan"}</button>}
         </div>
     </div>;
 }

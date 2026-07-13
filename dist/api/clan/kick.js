@@ -91,6 +91,8 @@ async function handler(req, res) {
                 if (targetRec && targetChar && (0, _kick_core_js_1.clanSlugBare)(String(targetChar.clan ?? '')) === targetSlug) {
                     const nextChar = { ...targetChar };
                     delete nextChar.clan;
+                    delete nextChar.clanUpgradeLevels;
+                    delete nextChar.clanDoctrine;
                     nextChar.clanFounder = false;
                     nextChar.guardQueued = false;
                     await (0, _mutate_player_save_js_1.writeVersionedPlayerSave)(targetSaveKey, targetRec, nextChar);
