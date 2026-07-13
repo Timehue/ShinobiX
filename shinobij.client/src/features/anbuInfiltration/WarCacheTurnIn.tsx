@@ -59,7 +59,7 @@ export function WarCacheTurnIn({
         setBusy(true); setNote(null);
         try {
             const res = await turnInInfilCaches(character.name, cfg.cache);
-            if (!res.ok) {
+            if (res.ok === false) {
                 setNote(res.reason === "cap-reached"
                     ? (dest === "clan" ? "Clan point cap reached for now — try again later this week." : "Turn-in limit reached for now.")
                     : "Nothing to turn in.");

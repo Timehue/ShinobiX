@@ -323,7 +323,7 @@ export function Inventory({
             warCrateBusy.current = true;
             try {
                 const result = await openWarCrate(character.name);
-                if (!result.ok) return alert(result.error);
+                if (result.ok === false) return alert(result.error);
                 updateCharacter(result.character);
                 setSelectedInventoryItem(null);
                 const honorMsg = result.rewards.honorSeals > 0
@@ -378,7 +378,7 @@ export function Inventory({
         inventorySaleBusy.current = true;
         const result = await settleInventorySale(character.name, item.id, selected.source, qty, selected.equipmentSlot);
         inventorySaleBusy.current = false;
-        if (!result.ok) return alert(result.error);
+        if (result.ok === false) return alert(result.error);
         updateCharacter(result.character);
         setSelectedInventoryItem(null);
     }

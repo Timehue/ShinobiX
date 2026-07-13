@@ -1826,7 +1826,7 @@ export function AdminPanel({
         setMissionTargetSector(currentSector);
         const mission = missionFromForm();
         const eligibility = validateCreatorMissionEligibility(mission);
-        if (!eligibility.ok) return alert(eligibility.message);
+        if (eligibility.ok === false) return alert(eligibility.message);
         setCreatorMissions([...creatorMissions, mission]);
         alert(`${mission.name} created and added to Mission Hall.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
@@ -1836,7 +1836,7 @@ export function AdminPanel({
         if (!editingMissionId) return alert("Load an existing mission first.");
         const mission = missionFromForm(editingMissionId);
         const eligibility = validateCreatorMissionEligibility(mission);
-        if (!eligibility.ok) return alert(eligibility.message);
+        if (eligibility.ok === false) return alert(eligibility.message);
         setCreatorMissions(creatorMissions.some((existing) => existing.id === mission.id)
             ? creatorMissions.map((existing) => existing.id === mission.id ? mission : existing)
             : [...creatorMissions, mission]);

@@ -134,7 +134,7 @@ export function Profile({
         profileSettlementBusy.current = true;
         try {
             const result = await settleProfileAction(character.name, action);
-            if (!result.ok) {
+            if (result.ok === false) {
                 alert(result.error);
                 return false;
             }
