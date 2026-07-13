@@ -6,11 +6,9 @@
  * (prices/discount formulas unchanged). getAllTileCards + the TileCard type
  * are imported back from ../App.
  */
-import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useState, useRef } from "react";
 import { getAllItems } from "../lib/items";
 import { countItem } from "../lib/inventory";
-import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses, consumableHoldCap } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
@@ -22,6 +20,8 @@ import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { openCardPack, type CardPackType } from "../lib/card-pack";
 import { makeId } from "../lib/utils";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
+import { Modal } from "./ui/Modal";
 
 function ShopBase({
     character, updateCharacter, creatorItems, title, subtitle, filterRarities, currency = "ryo", onBack, backLabel, onServerVersion,
@@ -35,15 +35,9 @@ function ShopBase({
     // whenever a different item popup opens.
     const [buyQty, setBuyQty] = useState(1);
     const [purchaseBusy, setPurchaseBusy] = useState(false);
+    const purchaseBusyRef = useRef(false);
 
-    // Lock background scroll + allow Escape-to-close while the item popup is open.
-    useBodyScrollLock(selectedItem !== null);
-    useEffect(() => {
-        if (!selectedItem) return;
-        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedItem(null); };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, [selectedItem]);
+    const closeItem = useCallback(() => { if (!purchaseBusyRef.current) setSelectedItem(null); }, []);
 
     // Open an item's popup, resetting the bulk-buy quantity to 1 for a fresh
     // start. (The render also clamps the shown qty to what's buyable, so a stale
@@ -132,22 +126,29 @@ function ShopBase({
 
         const total = finalCost * n;
         if (wallet < total) return alert(`Not enough ${currencyLabel}.`);
-        if (purchaseBusy) return;
+        if (purchaseBusyRef.current) return;
+        purchaseBusyRef.current = true;
         setPurchaseBusy(true);
-        const response = await fetch('/api/shop/purchase', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName: character.name, itemId: item.id, qty: n, requestId: makeId() }),
-        });
-        const result = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
-        setPurchaseBusy(false);
-        if (!response.ok || !result?.character) return alert(result?.error || 'Purchase was not committed.');
-        if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
-        updateCharacter(result.character);
+        try {
+            const response = await fetch('/api/shop/purchase', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name, itemId: item.id, qty: n, requestId: makeId() }),
+            });
+            const result = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
+            if (!response.ok || !result?.character) return alert(result?.error || AMBIGUOUS_ACTION_MESSAGE);
+            if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
+            updateCharacter(result.character);
 
-        // Keep the popup open for capped consumables so the player can watch the
-        // owned/cap count update and keep buying; close it for one-off gear.
-        if (cap == null) setSelectedItem(null);
-        else setBuyQty(1);
+            // Keep the popup open for capped consumables so the player can watch the
+            // owned/cap count update and keep buying; close it for one-off gear.
+            if (cap == null) setSelectedItem(null);
+            else setBuyQty(1);
+        } catch {
+            alert(AMBIGUOUS_ACTION_MESSAGE);
+        } finally {
+            purchaseBusyRef.current = false;
+            setPurchaseBusy(false);
+        }
     }
 
     const alreadyOwned = (item: GameItem) =>
@@ -239,13 +240,13 @@ function ShopBase({
                 );
             })}
 
-            {selectedItem && createPortal(
-                <div className="item-popup-backdrop" onClick={() => setSelectedItem(null)}>
-                    <div className="item-popup-card" onClick={(e) => e.stopPropagation()}>
+            {selectedItem && (
+                <Modal open onClose={closeItem} ariaLabel={`${selectedItem.name} item details`} size="lg" bare className="item-popup-card" disableBackdropClose={purchaseBusy}>
                         <button
                             type="button"
                             className="item-popup-close"
-                            onClick={() => setSelectedItem(null)}
+                            onClick={closeItem}
+                            disabled={purchaseBusy}
                             aria-label="Close"
                         >
                             ×
@@ -410,16 +411,15 @@ function ShopBase({
                                     <button
                                         type="button"
                                         className="danger-button"
-                                        onClick={() => setSelectedItem(null)}
+                                        onClick={closeItem}
+                                        disabled={purchaseBusy}
                                     >
                                         Close
                                     </button>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>,
-                document.body,
+                </Modal>
             )}
         </div>
     );
@@ -429,6 +429,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards, o
     const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const packCost = (cost: number) => discountCost(cost, shopDiscountPercent);
     const [packBusy, setPackBusy] = useState(false);
+    const packBusyRef = useRef(false);
 
     async function openPack(packType: CardPackType, cost: number) {
         if (!requireServerSettlement("shopCardPack")) return;
@@ -436,15 +437,20 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards, o
         const label = currency === "fateShards" ? "Fate Shards" : "ryo";
         const finalCost = packCost(cost);
         if (wallet < finalCost) return alert(`Not enough ${label}.`);
-        if (packBusy) return;
+        if (packBusyRef.current) return;
+        packBusyRef.current = true;
         setPackBusy(true);
-        const result = await openCardPack(character.name, packType);
-        setPackBusy(false);
-        if (!result.ok || !result.character || !result.cards) return alert(result.error || "Could not open the card pack.");
-        const allCards = getAllTileCards(creatorCards);
-        if (typeof result._saveVersion === "number") onServerVersion?.(result._saveVersion);
-        updateCharacter(result.character);
-        alert(`Pack opened!\n• ${result.cards.map((id) => allCards.find((c) => c.id === id)?.name ?? id).join("\n• ")}`);
+        try {
+            const result = await openCardPack(character.name, packType);
+            if (!result.ok || !result.character || !result.cards) return alert(result.error || "Could not open the card pack.");
+            const allCards = getAllTileCards(creatorCards);
+            if (typeof result._saveVersion === "number") onServerVersion?.(result._saveVersion);
+            updateCharacter(result.character);
+            alert(`Pack opened!\n• ${result.cards.map((id) => allCards.find((c) => c.id === id)?.name ?? id).join("\n• ")}`);
+        } finally {
+            packBusyRef.current = false;
+            setPackBusy(false);
+        }
     }
 
     return (

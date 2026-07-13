@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0). NOTE: the dice/slot symbols
 // (🦂🪙👁️⚔️🌙⭐) are gameplay data the win-check compares — left as emoji on purpose.
@@ -40,53 +40,65 @@ export function SunscarFestival({
 
     // -- Black Market gamble (server-authoritative ryo sink) --
     const [bmBusy, setBmBusy] = useState(false);
+    const bmBusyRef = useRef(false);
     const [bmUsed, setBmUsed] = useState<number | null>(null);
     const [bmReveal, setBmReveal] = useState<BlackMarketReward | null>(null);
     const [diceBusy, setDiceBusy] = useState(false);
+    const diceBusyRef = useRef(false);
 
     async function pullBlackMarketGamble() {
-        if (bmBusy) return;
+        if (bmBusyRef.current) return;
         if (character.ryo < BLACK_MARKET_COST) {
             setFestivalLog(`The Broker: "${BLACK_MARKET_COST.toLocaleString()} ryo buys a pull. Come back when your purse is heavier."`);
             return;
         }
         // No confirm() gate — the pull goes straight to the tap-to-open crate reveal.
+        bmBusyRef.current = true;
         setBmBusy(true);
-        const res = await pullBlackMarket(character.name);
-        setBmBusy(false);
-        if (!res.ok || !res.reward || !res.character) {
+        try {
+            const res = await pullBlackMarket(character.name);
+            if (!res.ok || !res.reward || !res.character) {
+                if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
+                setFestivalLog(`The Broker: ${res.error ?? "Not today."}`);
+                return;
+            }
+            const reward = res.reward;
+            updateCharacter(res.character);
             if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
-            setFestivalLog(`The Broker: ${res.error ?? "Not today."}`);
-            return;
+            setBmReveal(reward); // tap-to-open crate reveal
+            const flourish = reward.tier === "jackpot" ? "💥 " : "";
+            setFestivalLog(`The Broker: ${flourish}${reward.label} — ${describeReward(reward)}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? BLACK_MARKET_DAILY_CAP} pulls today)`);
+        } finally {
+            bmBusyRef.current = false;
+            setBmBusy(false);
         }
-        const reward = res.reward;
-        updateCharacter(res.character);
-        if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
-        setBmReveal(reward); // tap-to-open crate reveal
-        const flourish = reward.tier === "jackpot" ? "💥 " : "";
-        setFestivalLog(`The Broker: ${flourish}${reward.label} — ${describeReward(reward)}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? BLACK_MARKET_DAILY_CAP} pulls today)`);
     }
 
     async function rollDice() {
-        if (diceBusy) return;
+        if (diceBusyRef.current) return;
+        diceBusyRef.current = true;
         setDiceBusy(true);
-        const res = await rollFateDice(character.name);
-        setDiceBusy(false);
-        if (!res.ok || !res.reward || !res.roll || !res.character) {
-            setFestivalLog(`Kael: ${res.error ?? "The dice refuse to roll."}`);
-            return;
+        try {
+            const res = await rollFateDice(character.name);
+            if (!res.ok || !res.reward || !res.roll || !res.character) {
+                setFestivalLog(`Kael: ${res.error ?? "The dice refuse to roll."}`);
+                return;
+            }
+            updateCharacter(res.character);
+            setDiceResult(res.roll.map((symbol) => FATE_DICE_GLYPHS[symbol]));
+            const parts = [
+                res.reward.boneCharms > 0 && `+${res.reward.boneCharms} Bone Charms`,
+                res.reward.fateShards > 0 && `+${res.reward.fateShards} Fate Shards`,
+                res.reward.auraStones > 0 && `+${res.reward.auraStones} Aura Stones`,
+                res.reward.ryo > 0 && `+${res.reward.ryo} ryo`,
+                res.reward.xp > 0 && `+${effectiveCharacterXpGain(character, res.reward.xp)} XP`,
+                res.reward.stamina > 0 && `+${res.reward.stamina} stamina`,
+            ].filter(Boolean).join(", ");
+            setFestivalLog(`Kael: ${res.message ?? "The dice settle."} ${parts}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? 5} spins today)`);
+        } finally {
+            diceBusyRef.current = false;
+            setDiceBusy(false);
         }
-        updateCharacter(res.character);
-        setDiceResult(res.roll.map((symbol) => FATE_DICE_GLYPHS[symbol]));
-        const parts = [
-            res.reward.boneCharms > 0 && `+${res.reward.boneCharms} Bone Charms`,
-            res.reward.fateShards > 0 && `+${res.reward.fateShards} Fate Shards`,
-            res.reward.auraStones > 0 && `+${res.reward.auraStones} Aura Stones`,
-            res.reward.ryo > 0 && `+${res.reward.ryo} ryo`,
-            res.reward.xp > 0 && `+${effectiveCharacterXpGain(character, res.reward.xp)} XP`,
-            res.reward.stamina > 0 && `+${res.reward.stamina} stamina`,
-        ].filter(Boolean).join(", ");
-        setFestivalLog(`Kael: ${res.message ?? "The dice settle."} ${parts}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? 5} spins today)`);
     }
 
     // -- Card Clash wager vs Miraa --------------------------------------------

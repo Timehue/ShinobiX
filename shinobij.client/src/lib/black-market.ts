@@ -41,7 +41,7 @@ export async function pullBlackMarket(playerName: string): Promise<BlackMarketRe
         if (!res.ok || !data.ok) return { ok: false, error: data.error || 'The black market turns you away.', dailyUsed: data.dailyUsed, dailyCap: data.dailyCap };
         return data;
     } catch {
-        return { ok: false, error: 'The black market turns you away. Try again.' };
+        return { ok: false, error: 'Pull unconfirmed. Refresh before retrying.' };
     }
 }
 
