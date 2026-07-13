@@ -1,4 +1,4 @@
-import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { Character } from "../types/character";
 import { applyWarCrateGrants, claimServerWarCrates, claimServerWarRewards } from "./world-state";
 import { warCrateServerAuthEnabled } from "./war-crate-flag";
@@ -10,14 +10,20 @@ export function useWarRewardClaims(
     worldStateVersion: number,
     clanWarStateVersion: number,
 ): void {
+    const characterRef = useRef(character);
     useEffect(() => {
-        if (!character || !warCrateServerAuthEnabled()) return;
+        characterRef.current = character;
+    }, [character]);
+
+    useEffect(() => {
+        const claimCharacter = characterRef.current;
+        if (!claimCharacter || !warCrateServerAuthEnabled()) return;
         let cancelled = false;
         void (async () => {
-            const ids = await claimServerWarCrates(character);
+            const ids = await claimServerWarCrates(claimCharacter);
             if (cancelled) return;
             if (ids.length) setCharacter((prev) => prev ? applyWarCrateGrants(prev, ids).character : prev);
-            const reward = await claimServerWarRewards(character);
+            const reward = await claimServerWarRewards(claimCharacter);
             if (cancelled || !reward) return;
             setCharacter(reward.character);
             if (reward.crates > 0) alert(`You received ${reward.crates} Legendary War Crate${reward.crates > 1 ? "s" : ""} from recent war rewards! Check your inventory.`);
