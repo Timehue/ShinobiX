@@ -102,6 +102,7 @@ import villageSectorPetHandler  from './api/village/sector-pet.js';
 import anbuInfiltrationHandler from './api/village/anbu-infiltration.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
+import warClaimRewardHandler from './api/war/claim-reward.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import bankTransferHandler from './api/bank/transfer.js';
 import inventoryOpenWarCrateHandler from './api/inventory/open-war-crate.js';
@@ -120,6 +121,7 @@ import endlessRunHandler from './api/endless/run.js';
 import eventsClaimHandler from './api/events/claim.js';
 import examsPassHandler from './api/exams/pass.js';
 import hollowGateForgeKeyHandler from './api/hollow-gate/forge-key.js';
+import hollowGateAttuneHandler from './api/hollow-gate/attune.js';
 import hollowGateLockedDoorHandler from './api/hollow-gate/locked-door.js';
 import hunterRankUpHandler from './api/hunter/rank-up.js';
 import petBefriendHandler from './api/pet/befriend.js';
@@ -235,6 +237,7 @@ import petBattleResultHandler from './api/pet/battle-result.js';
 import petRankedStartHandler from './api/pet/ranked-start.js';
 import petEvolveHandler from './api/pet/evolve.js';
 import applyElementalCoreHandler from './api/weapon/apply-elemental-core.js';
+import forgeElementalCoreHandler from './api/weapon/forge-elemental-core.js';
 import petGauntletHandler from './api/pet/gauntlet.js';
 import arenaLobbyHandler from './api/arena/lobby.js';
 import petLadderHandler from './api/pet-ladder/ladder.js';
@@ -979,6 +982,9 @@ route('/village/war-map', villageWarMapHandler);
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.
 route('/village/claim-war-crate', villageClaimWarCrateHandler);
+// Complete post-war settlement: winner crate, per-side MVP, contributor
+// consolation, and lifetime war statistics are derived from locked server records.
+route('/war/claim-reward', warClaimRewardHandler);
 // Village War Map — mercenaries (Phase 5): the Kage spends village WR to field a
 // 2-day AI merc squad (comeback + Barracks discounted) that fights in Combat
 // sector wars. POST hire/list/attack, gated (404 unless ENABLE_VILLAGE_WAR=1).
@@ -1065,6 +1071,7 @@ route('/clan-boss/assault-settle', clanBossAssaultSettleHandler);
 route('/hollow-gate/start', hollowGateStartHandler);
 route('/hollow-gate/choose-augment', hollowGateChooseAugmentHandler);
 route('/hollow-gate/settle', hollowGateSettleHandler);
+route('/hollow-gate/attune', hollowGateAttuneHandler);
 
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
 // Leadership-only. Removes the member from the clan row AND clears their
@@ -1134,6 +1141,7 @@ route('/pet/battle-result', petBattleResultHandler);
 route('/pet/ranked-start',  petRankedStartHandler);
 route('/pet/evolve',        petEvolveHandler);
 route('/weapon/apply-elemental-core', applyElementalCoreHandler);
+route('/weapon/forge-elemental-core', forgeElementalCoreHandler);
 route('/pet/gauntlet',      petGauntletHandler);
 
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────

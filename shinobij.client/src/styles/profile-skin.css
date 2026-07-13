@@ -1428,6 +1428,27 @@
     padding: 4px 6px !important;
     cursor: pointer;
 }
+
+.item-popup-actions .attune-picker {
+    width: 100%;
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid rgba(34, 211, 238, 0.35);
+    border-radius: 6px;
+    background: rgba(8, 47, 73, 0.22);
+}
+
+.item-popup-actions .attune-picker-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.item-popup-actions .attune-message {
+    width: 100%;
+    color: var(--blue-300);
+}
 .inventory-page .inventory-search-clear:hover {
     color: var(--bsv2-gold-bright) !important;
 }

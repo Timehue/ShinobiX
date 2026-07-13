@@ -174,9 +174,11 @@ import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-
 import { mergePlayerRoster } from "./lib/roster-merge";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
-import { applyWarCrateGrants, claimPendingWarCrates, claimServerWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
+import { damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
+import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
+import { befriendHollowGatePetServer, rollHollowLockedDoorServer } from "./lib/hollow-gate-locked-door-api";
 import { registerSectorBattle, resolveSectorBattle } from "./lib/village-war-map";
 import { masteryBonus } from "./lib/profession-mastery";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
@@ -1747,25 +1749,7 @@ export default function App() {
     // Also covers clan war crates now that claimPendingWarCrates scans
     // sharedClanWarCache; ClanHall fires its own claim too once clanData
     // is loaded.
-    useEffect(() => {
-        if (!character) return;
-        const { character: updated, count, mvp, consolation } = claimPendingWarCrates(character, null);
-        if (count > 0 || mvp || consolation) {
-            setCharacter(updated);
-            if (count > 0) alert(`You received ${count} Legendary War Crate${count > 1 ? "s" : ""} from a recent war victory! Check your inventory.`);
-            else if (mvp) alert(`MVP rewards delivered: bonus ryo, honor seals, and fate shards added to your account.`);
-            else if (consolation) alert(`Consolation rewards from a recent war loss have been added to your account.`);
-        }
-        // P0.2c: server-authoritative village-war winner crates (warCrateServerAuth.v1).
-        // Runs post-poll — the war-end state has already propagated — so the server's
-        // verdict is authoritative; the functional setCharacter avoids clobbering a
-        // concurrent poll, and applyWarCrateGrants dedups + no-ops when nothing's new.
-        if (warCrateServerAuthEnabled()) {
-            void claimServerWarCrates(updated).then((ids) => {
-                if (ids.length) setCharacter((prev) => prev ? applyWarCrateGrants(prev, ids).character : prev);
-            });
-        }
-    }, [worldStateVersion, clanWarStateVersion]);
+    useWarRewardClaims(character, setCharacter, worldStateVersion, clanWarStateVersion);
 
     // Light-weight clan war polling — keeps sharedClanWarCache fresh so
     // ended-war rewards auto-claim. 30s cadence is enough (7-day claim window).
@@ -4519,7 +4503,7 @@ export default function App() {
     }, []);
     // Global wiring: auto-promote a queued 2nd jutsu training (activeJutsuTraining.next)
     // the instant the active one finishes — works on any screen. Logic in lib/jutsu-training-queue.
-    useJutsuTrainingQueueRunner(activeJutsuTraining, setActiveJutsuTrainingNow, setCharacter);
+    useJutsuTrainingQueueRunner(character?.name ?? "", activeJutsuTraining, setActiveJutsuTrainingNow, setCharacter);
 
     useEffect(() => {
         if (!character || !currentAccountName) { latestSaveRef.current = null; return; }
@@ -6763,9 +6747,72 @@ export default function App() {
             case "locked": {
                 if (hollowGateRun.keys > 0) {
                     pushHollowGateLog(`${flavor} You spend a Shrine Key to open it.`);
-                    markResolved({ keysDelta: -1 });
-                    // Sealed-door table: 50% Ancient Chest, 25% Trap (lethal-capable),
-                    // 24% rare / 0.8% legendary / 0.2% mythic pet encounter.
+                    const serverRunToken = hollowGateRun.runToken;
+                    if (!serverRunToken) {
+                        pushHollowGateLog("This legacy run has no server seal. Leave and begin a new run before opening locked doors.");
+                        return;
+                    }
+                    void (async () => {
+                        const result = await rollHollowLockedDoorServer(character.name, serverRunToken, `floor:${hollowGateRun.floor}:tile:${idx}`);
+                        if (!result) {
+                            pushHollowGateLog("The sealed door did not answer. Your Shrine Key was not spent; try again.");
+                            return;
+                        }
+                        markResolved({ keysDelta: -1 });
+                        if (result.outcome === "chest" && result.loot) {
+                            const loot = result.loot;
+                            setCharacter((prev) => {
+                                if (!prev) return prev;
+                                const leveled = gainXp(prev, loot.xp);
+                                return { ...leveled, ryo: leveled.ryo + (loot.ryo ?? 0), fateShards: (leveled.fateShards ?? 0) + (loot.fateShards ?? 0), boneCharms: (leveled.boneCharms ?? 0) + (loot.boneCharms ?? 0), auraStones: (leveled.auraStones ?? 0) + (loot.auraStones ?? 0), auraDust: (leveled.auraDust ?? 0) + (loot.auraDust ?? 0), hollowShards: (leveled.hollowShards ?? 0) + loot.hollowShards };
+                            });
+                            const lines = [`+${effectiveCharacterXpGain(character, loot.xp)} XP`];
+                            if (loot.ryo) lines.push(`+${loot.ryo} ryo`); if (loot.fateShards) lines.push(`+${loot.fateShards} Fate Shard`);
+                            if (loot.boneCharms) lines.push(`+${loot.boneCharms} Bone Charm`); if (loot.auraStones) lines.push(`+${loot.auraStones} Aura Stone`); if (loot.auraDust) lines.push(`+${loot.auraDust} Aura Dust`);
+                            lines.push(`+${loot.hollowShards} Hollow Shards`);
+                            pushHollowGateLog(`Ancient Chest opened. ${lines.join(", ")}.`);
+                            setHollowGateEvent({ title: "Ancient Chest", body: `Behind the chains, an ancient chest creaks open.\n\n${lines.join("\n")}`, kind: "chest", choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }] });
+                            return;
+                        }
+                        if (result.outcome === "trap") {
+                            const damage = Math.max(1, Math.floor(character.maxHp * HOLLOW_GATE_TRAP_DMG_PCT));
+                            const nextHp = Math.max(0, character.hp - damage);
+                            const willDie = nextHp <= 0;
+                            const secondWind = willDie && hollowGateRun.secondWindArmed ? tryHollowGateSecondWind(hollowGateRun, character) : null;
+                            if (secondWind) {
+                                setCharacter(secondWind.character); setHollowGateRun(secondWind.run);
+                                pushHollowGateLog(`The cursed seal drains your last breath - then ${secondWind.log}`);
+                                setHollowGateEvent({ title: "Second Wind", body: secondWind.log, kind: "trap", choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
+                                return;
+                            }
+                            setCharacter({ ...character, hp: nextHp, hospitalized: willDie || character.hospitalized });
+                            pushHollowGateLog(`Trap behind the door! You take ${damage} HP damage.`);
+                            setHollowGateEvent({ title: willDie ? "Cursed Trap Door" : "Trap Door", body: willDie ? "The binding seal drains the last of your chakra. Your shrine run ends." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: willDie ? "Leave Shrine" : "Press On", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (willDie) { leaveHollowGateShrine({ death: true }); setScreen("hospital"); } } }] });
+                            return;
+                        }
+                        const encounter = result.pet;
+                        const petToken = result.petToken;
+                        if (!encounter || !petToken) {
+                            setHollowGateEvent({ title: "Empty Chamber", body: "A presence stirs, then fades away.", kind: "locked", choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }] });
+                            return;
+                        }
+                        const rarity = result.rarity ?? encounter.rarity;
+                        pushHollowGateLog(`A ${rarity} pet emerges from behind the sealed door: ${encounter.name}.`);
+                        setHollowGateEvent({
+                            title: `${String(rarity).charAt(0).toUpperCase() + String(rarity).slice(1)} Pet Encounter`,
+                            body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name} - Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (${character.pets.length}/5)`,
+                            kind: "pet_event",
+                            choices: [{ label: `Befriend ${encounter.name}`, tone: "primary", onSelect: () => {
+                                if (!requireServerSettlement("hollowGatePetBefriend")) return;
+                                void befriendHollowGatePetServer(character.name, petToken).then((befriended) => {
+                                    if (!befriended.character) return alert(befriended.error || "The pet could not be befriended.");
+                                    setCharacter(befriended.character); pushHollowGateLog(`${encounter.name} joined you!${befriended.trait ? ` Trait: ${befriended.trait}.` : ""}`); setHollowGateEvent(null);
+                                });
+                            } }, { label: "Leave it", onSelect: () => setHollowGateEvent(null) }],
+                        });
+                    })();
+                    return; /* Legacy client-side locked-door table retained only as history.
+                    Server-authoritative roll/befriend above is the sole runtime path.
                     const roll = Math.random();
                     if (roll < 0.50) {
                         // ANCIENT CHEST
@@ -6909,7 +6956,7 @@ export default function App() {
                             pushHollowGateLog(`%c${rarity.toUpperCase()} aura detected.`);
                             void rarityColor; // referenced for clarity; actual coloring not in this simple log
                         }
-                    }
+                    } */
                 } else {
                     pushHollowGateLog(`${flavor} Without a Shrine Key, the door will not open.`);
                     setHollowGateEvent({

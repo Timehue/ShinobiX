@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-// Release lock: current dungeon outcomes and discrete loot are still resolved
-// by the browser. Keep every server mutation endpoint closed until the server
-// owns the run events and settles the complete currency/item ledger.
-export const HOLLOW_GATE_RUNS_ENABLED = false;
+// The run token seals entry, depth, augment choice, payout ceilings, and
+// single-use settlement. Browser combat remains presentation-only; every
+// durable gain is reconciled through the locked settlement endpoint.
+export const HOLLOW_GATE_RUNS_ENABLED = true;
 
 export function hollowGateRunsEnabled(): boolean {
     return HOLLOW_GATE_RUNS_ENABLED;

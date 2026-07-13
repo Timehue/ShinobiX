@@ -1,0 +1,37 @@
+import type { Character } from '../types/character';
+import type { Pet } from '../types/pet';
+
+export type HollowLockedDoorClientResult = {
+    outcome: 'chest' | 'trap' | 'pet';
+    rarity?: 'rare' | 'legendary' | 'mythic';
+    pet?: Pet;
+    petToken?: string;
+    loot?: { xp: number; ryo?: number; fateShards?: number; boneCharms?: number; auraStones?: number; auraDust?: number; hollowShards: number };
+    error?: string;
+};
+
+export async function rollHollowLockedDoorServer(playerName: string, token: string, requestId: string): Promise<HollowLockedDoorClientResult | null> {
+    try {
+        const response = await fetch('/api/hollow-gate/locked-door', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerName, token, requestId }),
+        });
+        const data = await response.json().catch(() => null) as HollowLockedDoorClientResult | null;
+        return response.ok && data ? data : null;
+    } catch {
+        return null;
+    }
+}
+
+export async function befriendHollowGatePetServer(playerName: string, token: string): Promise<{ character?: Character; trait?: string | null; error?: string }> {
+    try {
+        const response = await fetch('/api/pet/befriend', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerName, token }),
+        });
+        const data = await response.json().catch(() => null) as { character?: Character; trait?: string | null; error?: string } | null;
+        return response.ok && data ? data : { error: data?.error || 'The pet could not be befriended.' };
+    } catch {
+        return { error: 'The pet server is unreachable.' };
+    }
+}
