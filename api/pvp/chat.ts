@@ -6,7 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { getActiveSilence } from '../admin/moderation.js';
 import { withKvLock } from '../_lock.js';
 import type { PvpSession } from './session.js';
-import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
+import { isCleanText, sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 
 type BattleChatMessage = {
     author: string;
@@ -114,6 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Moderate before persisting — masks profanity, redacts PII,
             // caps length. Empty post after sanitization is rejected so
             // the chat log doesn't carry blank lines.
+            if (!identity.admin && !isCleanText(text)) return res.status(400).json({ error: 'Message contains blocked content.' });
             const safeText = identity.admin ? text.slice(0, TEXT_LIMITS.chatMessage) : sanitizeUserText(text, TEXT_LIMITS.chatMessage);
             if (!safeText) return res.status(400).json({ error: 'Empty message after moderation.' });
 

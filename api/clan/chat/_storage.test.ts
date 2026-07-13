@@ -28,13 +28,13 @@ describe('clan chat storage', () => {
         assert.deepEqual(messagesSince(null, 5), []);
     });
 
-    it('cleanChatText trims, rejects empty, and censors slur content', () => {
+    it('cleanChatText trims, rejects empty, and blocks prohibited content', () => {
         assert.equal(cleanChatText('  hello team  '), 'hello team');
         assert.equal(cleanChatText('   '), null, 'whitespace-only rejected');
         assert.equal(cleanChatText(''), null);
         assert.equal(cleanChatText(undefined), null);
-        const censored = cleanChatText('you nigger');
-        assert.ok(censored && !/nigger/i.test(censored), `slur should be censored, got "${censored}"`);
+        assert.equal(cleanChatText('you nigger'), null);
+        assert.equal(cleanChatText('you n1gger'), null);
     });
 
     it('cleanChatText caps overly long input rather than rejecting it', () => {

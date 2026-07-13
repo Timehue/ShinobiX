@@ -161,6 +161,13 @@ describe('player auth hardening', () => {
         assert.equal(await verifyPlayerPassword('policyuser', 'Original1'), true);
     });
 
+    it('rejects blocked usernames server-side, including a leetspeak variant', async () => {
+        const blocked = await register('n1gger-ninja', 'StrongPass1');
+        assert.equal(blocked.statusCode, 400);
+        assert.match(String(blocked.body?.error), /not allowed/i);
+        assert.equal(store.has('auth:n1gger-ninja'), false);
+    });
+
     it('does not let change claim an unused name', async () => {
         const result = await post({
             action: 'change',
