@@ -126,6 +126,15 @@ function createDevAuthRecord(password: string): DevAuthRecord {
     return { salt, hash: hashDevPassword(password, salt) };
 }
 
+// The production API returns a signed, revocable session token after register
+// and verify. Local Vite middleware has no production SESSION_SECRET or shared
+// epoch store, but the client still correctly refuses password-only sessions.
+// Mint an opaque dev-only token so authenticated browser journeys exercise the
+// same token-first client path. This value is accepted nowhere outside Vite.
+function issueDevSessionToken(playerId: string) {
+    return `dev.${Buffer.from(playerId).toString('base64url')}.${randomBytes(32).toString('base64url')}`;
+}
+
 function devPasswordMatches(record: DevAuthRecord, password: string) {
     const expected = Buffer.from(record.hash, 'hex');
     const actual = Buffer.from(hashDevPassword(password, record.salt), 'hex');
@@ -467,7 +476,7 @@ export default defineConfig({
 
                             store[playerId] = createDevAuthRecord(password);
                             saveDevAuthStore(authPath, store);
-                            sendJson(res, 200, { ok: true });
+                            sendJson(res, 200, { ok: true, token: issueDevSessionToken(playerId) });
                             return;
                         }
 
@@ -487,7 +496,8 @@ export default defineConfig({
                                 }
                                 return;
                             }
-                            sendJson(res, 200, { ok: devPasswordMatches(record, password) });
+                            const ok = devPasswordMatches(record, password);
+                            sendJson(res, 200, { ok, ...(ok ? { token: issueDevSessionToken(playerId) } : {}) });
                             return;
                         }
 
