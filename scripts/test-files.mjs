@@ -296,4 +296,5 @@ export const TEST_FILES = [
     "scripts/kv-backup.test.mjs",
     "scripts/unrestricted-presence-load.test.mjs",
     "scripts/unrestricted-concurrency-load.test.mjs",
+    "scripts/rollback-readiness.test.mjs",
 ];
