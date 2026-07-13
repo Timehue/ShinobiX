@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { safeName, cors } from '../_utils.js';
+import { safeName, cors, setSafeRecordValue } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -138,10 +138,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const currentStat = Math.max(0, Math.floor(Number(stats[data.stat]) || 0));
             const cap = statCapForLevel(Math.max(1, Math.floor(Number(leveled.level) || 1)));
             const applied = Math.max(0, Math.min(gain, cap - currentStat));
+            const nextStats = { ...stats };
+            setSafeRecordValue(nextStats, data.stat, currentStat + applied);
             const nextCharacter: PlayerCharacter = {
                 ...leveled,
                 totalStatsTrained: Math.max(0, Math.floor(Number(leveled.totalStatsTrained) || 0)) + applied,
-                stats: { ...stats, [data.stat]: currentStat + applied },
+                stats: nextStats,
             };
             const nextReceipts = [...receipts.filter((receipt) => receipt !== token), token].slice(-MAX_TRAINING_RECEIPTS);
             const saved = await writeVersionedPlayerSave(

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cachedFor } from './_proc-cache.js';
-import { cors, safeName } from './_utils.js';
+import { cors, safeName, setSafeRecordValue } from './_utils.js';
 import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     villageStateKeys.forEach((k, i) => {
                         if (stateValues[i] != null) {
                             const name = k.slice(VILLAGE_STATE_PREFIX.length);
-                            villageStates[name] = stateValues[i];
+                            setSafeRecordValue(villageStates, name, stateValues[i]);
                         }
                     });
                 }
@@ -75,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     clanPetBattleKeys.forEach((k, i) => {
                         if (battleValues[i] != null) {
                             const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
-                            clanPetBattles[name] = battleValues[i];
+                            setSafeRecordValue(clanPetBattles, name, battleValues[i]);
                         }
                     });
                 }

@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
 import { enforceBloodlineBudget, bloodlinePoints, type RawJutsu } from '../_jutsu-points.js';
-import { safeName, mergePreservingImages, cors, parseJsonBody } from '../_utils.js';
+import { safeName, mergePreservingImages, cors, parseJsonBody, setSafeRecordValue } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin, isFullAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -563,7 +563,7 @@ function enforceRawSaveLedgerBoundary(
     for (const [key, rawStored] of Object.entries(exStats)) {
         const current = Math.max(0, Math.floor(Number(rawStored) || 0));
         if (!ALLOCATABLE_STAT_FIELDS.has(key)) {
-            nextStats[key] = current;
+            setSafeRecordValue(nextStats, key, current);
             continue;
         }
         const desiredRaw = requestedStats?.[key];
@@ -571,7 +571,7 @@ function enforceRawSaveLedgerBoundary(
             ? Math.max(current, Math.min(cap, Math.floor(Number(desiredRaw))))
             : current;
         const applied = Math.min(allocationBudget, Math.max(0, desired - current));
-        nextStats[key] = current + applied;
+        setSafeRecordValue(nextStats, key, current + applied);
         allocationBudget -= applied;
     }
     const allocated = Object.entries(nextStats).reduce((sum, [key, value]) => {
@@ -902,7 +902,7 @@ export function sanitizeCharacterSave(
             const max = HG_ATTUNEMENT_MAX_RANK[k];
             if (max === undefined) continue; // unknown node — drop it
             const v = Math.max(0, Math.min(max, Math.floor(Number(att[k]) || 0)));
-            if (v > 0) clamped[k] = v;
+            if (v > 0) setSafeRecordValue(clamped, k, v);
         }
         char.hollowGateAttunement = clamped;
     }
@@ -964,7 +964,7 @@ export function sanitizeCharacterSave(
         const s: Record<string, number> = { ...inStats };
         for (const k of Object.keys(s)) {
             const exV = Math.max(0, Number(exStats[k] ?? 0));
-            s[k] = Math.min(Math.max(0, Number(s[k] ?? 0)), exV + MAX_STAT_GAIN);
+            setSafeRecordValue(s, k, Math.min(Math.max(0, Number(s[k] ?? 0)), exV + MAX_STAT_GAIN));
         }
         // Total-across-all-stats clamp. If the proposed delta is over
         // MAX_TOTAL_STAT_GAIN, scale every stat's delta proportionally
@@ -979,7 +979,7 @@ export function sanitizeCharacterSave(
             for (const k of Object.keys(s)) {
                 const exV = Math.max(0, Number(exStats[k] ?? 0));
                 const delta = Math.max(0, s[k] - exV);
-                s[k] = exV + Math.floor(delta * scale);
+                setSafeRecordValue(s, k, exV + Math.floor(delta * scale));
             }
         }
         char.stats = s;
@@ -2253,7 +2253,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 const ex = Number(exStats[k] ?? 0);
                                 const inv = Number(inStats[k] ?? 0);
                                 const d = Math.max(0, inv - ex);
-                                if (d > 0) statDelta[k] = d;
+                                if (d > 0) setSafeRecordValue(statDelta, k, d);
                             }
                             // Premium / power-material currency deltas (anti-tamper window).
                             const currencyDelta: Record<string, number> = {};

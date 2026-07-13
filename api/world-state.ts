@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
-import { cors, safeName, clanRecordKey } from './_utils.js';
+import { cors, safeName, clanRecordKey, setSafeRecordValue } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
@@ -460,7 +460,7 @@ function applyWarDecay(war: VillageWar, now: number = Date.now()): { war: Villag
     const newHp: Record<string, number> = {};
     for (const v of war.villages) {
         const before = Number(war.hp?.[v] ?? VILLAGE_WAR_HP_MAX);
-        newHp[v] = Math.max(0, before - totalDamage);
+        setSafeRecordValue(newHp, v, Math.max(0, before - totalDamage));
     }
 
     const a = newHp[war.villages[0]];
