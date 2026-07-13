@@ -54,4 +54,13 @@ describe("legacy account recovery classification", () => {
         assert.match(viteSource.slice(registerStart, verifyStart), /token: issueDevSessionToken\(playerId\)/);
         assert.match(viteSource.slice(verifyStart, changeStart), /token: issueDevSessionToken\(playerId\)/);
     });
+
+    it("local-dev supports authenticated shared avatar publication", () => {
+        const viteSource = readFileSync(new URL("../../vite.config.ts", import.meta.url), "utf8");
+        assert.match(viteSource, /server\.middlewares\.use\('\/api\/images'/);
+        assert.match(viteSource, /const playerName = devTokenPlayer\(req\)/);
+        assert.match(viteSource, /You can only set your own avatar/);
+        assert.match(viteSource, /MAX_DEV_AVATAR_BYTES/);
+        assert.match(viteSource, /await updateDevImages\(imagePath/);
+    });
 });

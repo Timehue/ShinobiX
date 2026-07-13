@@ -83,6 +83,8 @@ type OpenAiImageResponse = {
 const PRESENCE_TTL_MS = 60_000;
 const MAX_PROMPT_LENGTH = 1_500;
 const MAX_LABEL_LENGTH = 120;
+const MAX_DEV_IMAGE_CHARS = 3_000_000;
+const MAX_DEV_AVATAR_BYTES = 2 * 1024 * 1024;
 
 function recordId(value: unknown) {
     return value && typeof value === 'object' && 'id' in value
@@ -111,6 +113,7 @@ type DevAuthRecord = {
 };
 
 type DevAuthStore = Record<string, DevAuthRecord>;
+const devSessionTokens = new Map<string, string>();
 
 function isReservedDevAuthName(playerId: string) {
     return RESERVED_DEV_AUTH_NAMES.has(playerId)
@@ -132,7 +135,73 @@ function createDevAuthRecord(password: string): DevAuthRecord {
 // Mint an opaque dev-only token so authenticated browser journeys exercise the
 // same token-first client path. This value is accepted nowhere outside Vite.
 function issueDevSessionToken(playerId: string) {
-    return `dev.${Buffer.from(playerId).toString('base64url')}.${randomBytes(32).toString('base64url')}`;
+    const token = `dev.${Buffer.from(playerId).toString('base64url')}.${randomBytes(32).toString('base64url')}`;
+    devSessionTokens.set(token, playerId);
+    return token;
+}
+
+function devTokenPlayer(req: IncomingMessage): string | null {
+    const token = req.headers['x-player-token'];
+    const claimedName = req.headers['x-player-name'];
+    if (typeof token !== 'string' || typeof claimedName !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 3 || parts[0] !== 'dev' || !parts[2]) return null;
+    const issuedTo = devSessionTokens.get(token);
+    if (!issuedTo) return null;
+    try {
+        const tokenName = safeName(Buffer.from(parts[1], 'base64url').toString('utf8'));
+        return tokenName && tokenName === issuedTo && tokenName === safeName(claimedName) ? tokenName : null;
+    } catch {
+        return null;
+    }
+}
+
+function validDevImage(image: string) {
+    if (image.length > MAX_DEV_IMAGE_CHARS) return false;
+    if (/^https?:\/\//i.test(image)) {
+        try {
+            const host = new URL(image).hostname.toLowerCase();
+            return host.includes('.') && host !== 'localhost' && !/^127\./.test(host);
+        } catch {
+            return false;
+        }
+    }
+    return /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(image);
+}
+
+function decodedDevImageBytes(image: string) {
+    const b64 = image.slice(image.indexOf(',') + 1);
+    const padding = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+    return Math.floor((b64.length * 3) / 4) - padding;
+}
+
+type DevImageStore = Record<string, string>;
+let devImageWriteChain = Promise.resolve();
+
+function loadDevImages(imagePath: string): DevImageStore {
+    if (!fs.existsSync(imagePath)) return {};
+    try {
+        const parsed = JSON.parse(fs.readFileSync(imagePath, 'utf8')) as unknown;
+        return parsed && typeof parsed === 'object' ? parsed as DevImageStore : {};
+    } catch {
+        return {};
+    }
+}
+
+function saveDevImages(imagePath: string, images: DevImageStore) {
+    const tmpPath = `${imagePath}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(images), 'utf8');
+    fs.renameSync(tmpPath, imagePath);
+}
+
+async function updateDevImages(imagePath: string, update: (images: DevImageStore) => void) {
+    const write = devImageWriteChain.then(() => {
+        const images = loadDevImages(imagePath);
+        update(images);
+        saveDevImages(imagePath, images);
+    });
+    devImageWriteChain = write.catch(() => undefined);
+    await write;
 }
 
 function devPasswordMatches(record: DevAuthRecord, password: string) {
@@ -408,6 +477,66 @@ export default defineConfig({
                 const savesDir = path.resolve(process.cwd(), 'saves');
                 if (!fs.existsSync(savesDir)) fs.mkdirSync(savesDir, { recursive: true });
                 const authPath = path.join(savesDir, '_auth.json');
+                const imagePath = path.join(savesDir, '_images.json');
+
+                server.middlewares.use('/api/images', async (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method === 'GET') {
+                        const url = new URL(req.url ?? '/', 'http://vite.local');
+                        const category = (url.searchParams.get('cat') ?? '').trim();
+                        const images = loadDevImages(imagePath);
+                        const filtered = category
+                            ? Object.fromEntries(Object.entries(images).filter(([id]) => {
+                                const prefix = id.split(':')[0];
+                                const cat = prefix === 'vn'
+                                    ? 'event'
+                                    : ['petbody', 'petsheet', 'petlayers'].includes(prefix) ? 'pet' : prefix;
+                                return cat === category;
+                            }))
+                            : images;
+                        sendJson(res, 200, url.searchParams.has('ids') ? Object.keys(filtered) : filtered);
+                        return;
+                    }
+
+                    if (req.method === 'POST') {
+                        const playerName = devTokenPlayer(req);
+                        const adminPassword = req.headers['x-admin-password'];
+                        const isDevAdmin = typeof adminPassword === 'string'
+                            && ((env.ADMIN_PASSWORD && devStringMatches(env.ADMIN_PASSWORD, adminPassword))
+                                || (env.ADMIN_CONTENT_PASSWORD && devStringMatches(env.ADMIN_CONTENT_PASSWORD, adminPassword)));
+                        if (!playerName && !isDevAdmin) {
+                            sendJson(res, 401, { error: 'Authentication required.' });
+                            return;
+                        }
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        const { id, image } = parsed.body as { id?: string; image?: string };
+                        if (!id || typeof image !== 'string' || id.length > 256 || !validDevImage(image)) {
+                            sendJson(res, 400, { error: 'Invalid image id or image.' });
+                            return;
+                        }
+                        const [prefix, ...rest] = id.split(':');
+                        const imageOwner = safeName(rest.join(':'));
+                        if (!isDevAdmin && prefix === 'avatar' && imageOwner !== playerName) {
+                            sendJson(res, 403, { error: 'You can only set your own avatar.' });
+                            return;
+                        }
+                        if (prefix === 'avatar' && (!image.startsWith('data:image/') || decodedDevImageBytes(image) > MAX_DEV_AVATAR_BYTES)) {
+                            sendJson(res, 400, { error: 'Avatar image must be an uploaded image under 2 MB.' });
+                            return;
+                        }
+                        const adminOnly = new Set(['jutsu', 'item', 'card', 'event', 'vn', 'ai', 'shrine', 'landmark', 'bloodline', 'leader']);
+                        if (!isDevAdmin && adminOnly.has(prefix)) {
+                            sendJson(res, 403, { error: `${prefix} images are admin-only.` });
+                            return;
+                        }
+                        await updateDevImages(imagePath, images => { images[id] = image; });
+                        res.writeHead(200);
+                        res.end();
+                        return;
+                    }
+
+                    next();
+                });
 
                 server.middlewares.use('/api/clans/list', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'GET') { next(); return; }

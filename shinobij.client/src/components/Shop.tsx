@@ -136,7 +136,7 @@ function ShopBase({
         purchaseBusy.current = true;
         const result = await settleShopItemPurchase(character.name, item.id, n);
         purchaseBusy.current = false;
-        if (!result.ok) return alert(result.error);
+        if (result.ok === false) return alert(result.error);
         updateCharacter(result.character);
 
         // Keep the popup open for capped consumables so the player can watch the
@@ -436,7 +436,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
         packBusy.current = true;
         const result = await settleShopCardPack(character.name, packId);
         packBusy.current = false;
-        if (!result.ok) return alert(result.error);
+        if (result.ok === false) return alert(result.error);
         const allCards = getAllTileCards(creatorCards);
         updateCharacter(result.character);
         alert(`Pack opened!\n• ${result.settlement.drawn.map((id) => allCards.find((c) => c.id === id)?.name ?? id).join("\n• ")}`);
