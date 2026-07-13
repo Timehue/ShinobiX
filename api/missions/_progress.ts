@@ -224,11 +224,19 @@ export async function loadOrIssueDailyMissions(
     playerName: string,
     profession: Profession,
     now = new Date(),
+    // The daily endpoint and progress reporters already load the character to
+    // decide the profession/eligibility.  Accept that trusted, server-loaded
+    // value so a mission-panel refresh does not make a second identical
+    // save:<player> database round trip.  `undefined` preserves the public
+    // helper's standalone behaviour; `null` means the caller already checked
+    // and there is no character record.
+    loadedCharacter: Record<string, unknown> | null | undefined = undefined,
 ): Promise<DailyMissionsState | null> {
     const today = utcDateKey(now);
     // Look up current rank to determine daily mission slot count.
-    const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-    const char = record?.character as Record<string, unknown> | undefined;
+    const char = loadedCharacter === undefined
+        ? (await kv.get<Record<string, unknown>>(`save:${playerName}`))?.character as Record<string, unknown> | undefined
+        : loadedCharacter ?? undefined;
     const currentRank = Number(char?.professionRank ?? 1);
     const slotCount = (profession === 'vanguard' && currentRank >= 6) ? 4 : 3;
 
@@ -283,7 +291,7 @@ export async function reportMissionEvent(opts: {
     // both increment to N+1, and the second write clobber the first.
     const dKey = dailyKey(playerName);
     const result = await withKvLock(dKey, async () => {
-        const state = await loadOrIssueDailyMissions(playerName, profession, now);
+        const state = await loadOrIssueDailyMissions(playerName, profession, now, char);
         if (!state) return { xpAwarded: 0, missionsCompleted: [] as CompletedMissionInfo[] };
 
         let xpAwarded = 0;
