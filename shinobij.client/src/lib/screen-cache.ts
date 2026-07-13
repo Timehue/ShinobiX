@@ -2,9 +2,10 @@
  * Short-lived, per-tab JSON cache for read-only screen data.
  *
  * This is intentionally sessionStorage rather than localStorage: a browser tab
- * can render its last confirmed view immediately, but no data survives logout
- * or gets treated as durable game state. Callers must still refresh their API
- * data and must not use a cached value to authorize or settle an action.
+ * can render its last confirmed view immediately, but the cache disappears
+ * when that tab closes. Player-specific callers must include the canonical
+ * player identity in their key. Callers must still refresh their API data and
+ * must not use a cached value to authorize or settle an action.
  */
 
 const PREFIX = 'shinobix:screen-cache:v1:';
