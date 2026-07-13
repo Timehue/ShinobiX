@@ -371,8 +371,6 @@ import {
 import {
     petRarityOrder,
     petTrainingOptions,
-    petTreatItems,
-    stackableItemIds,
     petFeedXpForItem,
 } from "./data/pet-config";
 export { petTrainingOptions, petFeedXpForItem };
@@ -583,7 +581,6 @@ import {
 // (a live, admin-tunable binding) so the generator stays App-free + testable.
 import {
     generateHollowGateShrineRun,
-    rollHollowGateAncientChest,
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop, elementalShardBossDrop } from "./lib/hollow-gate-run";
@@ -669,7 +666,6 @@ export { adminIconOptions } from "./data/admin-icons";
 import {
     balanceBuiltInPetTemplate,
     registerPublishedPetTemplates, normalizePetTemplate, renormalizedIfChanged,
-    rollPetTrait,
     applyPetTraitBonuses,
     collectPetTraining,
     gainPetXp,
