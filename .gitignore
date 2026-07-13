@@ -418,3 +418,5 @@ qa-*.png
 # Disposable authenticated load-test credentials and local evidence
 load-accounts*.json
 presence-load-evidence*.json
+disposable-concurrency*.json
+concurrency-load-evidence*.json
