@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rm } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { captureBracketedStores, digestOverlay, digestRows, readOverlayDirectory, representativeRecords, sameConnection, validatePayload, validateTargetSchemaEvidence, validatedProxyBase, writeOverlayDirectory } from './kv-backup.mjs';
 
@@ -50,12 +48,10 @@ describe('hybrid KV backup evidence helpers', () => {
     });
 
     it('round-trips the production disk-overlay file format into an empty target', async () => {
-        const root = await mkdtemp(join(tmpdir(), 'shinobix-overlay-test-'));
+        const root = await writeOverlayDirectory(overlayEntries);
         try {
-            await writeOverlayDirectory(root, overlayEntries);
             const restored = await readOverlayDirectory(root);
             assert.equal(digestOverlay(restored), digestOverlay(overlayEntries));
-            await assert.rejects(() => writeOverlayDirectory(root, overlayEntries), /must be empty/i);
         } finally {
             await rm(root, { recursive: true, force: true });
         }
