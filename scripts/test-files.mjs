@@ -191,6 +191,7 @@ export const TEST_FILES = [
     "shinobij.client/src/lib/legacy-rumors.test.ts",
     "shinobij.client/src/lib/elements.test.ts",
     "shinobij.client/src/lib/nindo-bbcode.test.ts",
+    "shinobij.client/src/lib/shared-images.test.ts",
     "shinobij.client/src/lib/vn.test.ts",
     "shinobij.client/src/lib/clan-doctrines.test.ts",
     "shinobij.client/src/lib/battle-log-format.test.ts",
