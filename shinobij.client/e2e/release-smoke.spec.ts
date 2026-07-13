@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
     // Vite preview is intentionally static; the real Express server owns this
@@ -18,6 +18,11 @@ function captureRuntimeFailures(page: Page): string[] {
         if (response.status() >= 400) failures.push(`http ${response.status()}: ${response.url()}`);
     });
     return failures;
+}
+
+function startCreateButton(page: Page): Locator {
+    // The visible marketing copy can evolve without changing this journey.
+    return page.getByTestId('start-create');
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
@@ -44,11 +49,11 @@ async function expectLoadedVisibleImages(page: Page): Promise<void> {
 test('landing and creator journey render without runtime, image, or responsive failures', async ({ page }) => {
     const runtimeFailures = captureRuntimeFailures(page);
     await page.goto('/', { waitUntil: 'networkidle' });
-    await expect(page.getByRole('button', { name: 'Create Your Shinobi' })).toBeVisible();
+    await expect(startCreateButton(page)).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await expectLoadedVisibleImages(page);
 
-    await page.getByRole('button', { name: 'Create Your Shinobi' }).click();
+    await startCreateButton(page).click();
     await expect(page.getByRole('heading', { name: 'Begin as a Shinobi' })).toBeVisible();
     await page.getByRole('button', { name: 'Choose Village' }).click();
     await page.locator('.cc-village-card').first().click();
@@ -72,7 +77,7 @@ test('landing and creator have no serious WCAG A/AA axe violations', async ({ pa
         .analyze();
     expect(landing.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([]);
 
-    await page.getByRole('button', { name: 'Create Your Shinobi' }).click();
+    await startCreateButton(page).click();
     await expect(page.getByRole('heading', { name: 'Begin as a Shinobi' })).toBeVisible();
     const creator = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
@@ -94,7 +99,7 @@ test('production error reporting stays lazy and fails open', async ({ page }, te
     });
 
     await page.goto('/', { waitUntil: 'networkidle' });
-    await expect(page.getByRole('button', { name: 'Create Your Shinobi' })).toBeVisible();
+    await expect(startCreateButton(page)).toBeVisible();
     expect(sentryChunks).toEqual([]);
 
     await page.evaluate(() => {
@@ -106,5 +111,5 @@ test('production error reporting stays lazy and fails open', async ({ page }, te
 
     await expect.poll(() => sentryChunks.some((url) => url.includes('/assets/sentry-vendor-'))).toBe(true);
     await expect.poll(() => envelopes.length).toBeGreaterThan(0);
-    await expect(page.getByRole('button', { name: 'Create Your Shinobi' })).toBeVisible();
+    await expect(startCreateButton(page)).toBeVisible();
 });
