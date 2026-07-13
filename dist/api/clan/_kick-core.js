@@ -60,7 +60,7 @@ function resolveClanKick(clanRec, actorRole, actorNorm, targetNorm) {
     for (const [k, v] of Object.entries(overrides)) {
         if ((0, _utils_js_1.safeName)(k) === targetNorm || k.toLowerCase() === targetNorm)
             continue;
-        nextRoleOverrides[k] = v;
+        (0, _utils_js_1.setSafeRecordValue)(nextRoleOverrides, k, v);
     }
     const joinRequests = Array.isArray(clanRec.joinRequests) ? clanRec.joinRequests : [];
     const nextJoinRequests = joinRequests.filter((r) => !isTarget(r?.name));

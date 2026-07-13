@@ -1,4 +1,5 @@
 import { kv } from './_storage.js';
+import { withTelemetryLock } from './_telemetry-lock.js';
 
 // ─── Village-War economy telemetry (Phase 8) ──────────────────────────────────
 //
@@ -165,12 +166,14 @@ export async function recordWarEcoEvent(
             ...(ev.meta ? { meta: String(ev.meta).slice(0, 64) } : {}),
         };
         // Per-village running aggregate.
-        const aggK = warEcoAggKey(full.village);
-        const agg = (await store.get<WarEcoAgg>(aggK)) ?? {};
-        await store.set(aggK, applyEventToAgg(agg, full.kind, full.amount));
-        // Capped recent list (newest-first).
-        const list = (await store.get<WarEcoEvent[]>(WAR_ECO_TXN_LIST_KEY)) ?? [];
-        await store.set(WAR_ECO_TXN_LIST_KEY, [full, ...list].slice(0, MAX_WAR_ECO_TXNS));
+        await withTelemetryLock(WAR_ECO_TXN_LIST_KEY, store, async () => {
+            const list = (await store.get<WarEcoEvent[]>(WAR_ECO_TXN_LIST_KEY)) ?? [];
+            if (list.some((event) => event.eventId === full.eventId)) return;
+            const aggK = warEcoAggKey(full.village);
+            const agg = (await store.get<WarEcoAgg>(aggK)) ?? {};
+            await store.set(aggK, applyEventToAgg(agg, full.kind, full.amount));
+            await store.set(WAR_ECO_TXN_LIST_KEY, [full, ...list].slice(0, MAX_WAR_ECO_TXNS));
+        });
     } catch (e) {
         console.error('[war-telemetry] recordWarEcoEvent failed:', e);
     }

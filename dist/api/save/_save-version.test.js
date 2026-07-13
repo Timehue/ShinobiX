@@ -18,10 +18,37 @@ const _save_version_js_1 = require("./_save-version.js");
         node_assert_1.strict.equal((0, _save_version_js_1.parseBaseSaveVersion)(-Infinity), null);
         node_assert_1.strict.equal((0, _save_version_js_1.parseBaseSaveVersion)({}), null);
     });
+    (0, node_test_1.it)('rejects negative, fractional, and unsafe counters', () => {
+        node_assert_1.strict.equal((0, _save_version_js_1.parseBaseSaveVersion)(-1), null);
+        node_assert_1.strict.equal((0, _save_version_js_1.parseBaseSaveVersion)(1.5), null);
+        node_assert_1.strict.equal((0, _save_version_js_1.parseBaseSaveVersion)(Number.MAX_SAFE_INTEGER + 1), null);
+    });
     (0, node_test_1.it)('does not reinterpret a present version as missing (guard invariant)', () => {
         // The 409 guard fires only when parse !== null AND version < stored.
         // A present version of 0 must stay 0 (not be treated as "missing").
         node_assert_1.strict.notEqual((0, _save_version_js_1.parseBaseSaveVersion)(0), null);
+    });
+});
+(0, node_test_1.describe)('stored/next save versions', () => {
+    (0, node_test_1.it)('treats only an absent legacy stamp as zero', () => {
+        node_assert_1.strict.equal((0, _save_version_js_1.storedSaveVersion)(undefined), 0);
+        node_assert_1.strict.equal((0, _save_version_js_1.storedSaveVersion)(null), 0);
+        node_assert_1.strict.equal((0, _save_version_js_1.storedSaveVersion)(7), 7);
+        node_assert_1.strict.throws(() => (0, _save_version_js_1.storedSaveVersion)(-1), /invalid/i);
+        node_assert_1.strict.throws(() => (0, _save_version_js_1.storedSaveVersion)(1.25), /invalid/i);
+    });
+    (0, node_test_1.it)('increments the maximum live/snapshot version and stays safe', () => {
+        node_assert_1.strict.equal((0, _save_version_js_1.nextSaveVersion)(4, 9), 10);
+        node_assert_1.strict.equal((0, _save_version_js_1.nextSaveVersion)(undefined), 1);
+        node_assert_1.strict.throws(() => (0, _save_version_js_1.nextSaveVersion)(Number.MAX_SAFE_INTEGER), /exhausted/i);
+    });
+});
+(0, node_test_1.describe)('matchesStoredSaveVersion', () => {
+    (0, node_test_1.it)('accepts only exact equality and rejects stale, future, and missing bases', () => {
+        node_assert_1.strict.equal((0, _save_version_js_1.matchesStoredSaveVersion)(7, 7), true);
+        node_assert_1.strict.equal((0, _save_version_js_1.matchesStoredSaveVersion)(6, 7), false, 'stale');
+        node_assert_1.strict.equal((0, _save_version_js_1.matchesStoredSaveVersion)(8, 7), false, 'future');
+        node_assert_1.strict.equal((0, _save_version_js_1.matchesStoredSaveVersion)(null, 7), false, 'missing/invalid');
     });
 });
 (0, node_test_1.describe)('isVersionlessPlayerSave (#14 step 2 reject condition)', () => {

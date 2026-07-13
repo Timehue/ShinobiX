@@ -37,16 +37,15 @@ const BOSS_BY_FLOOR = [
     'warden', 'revenant', 'ravager', 'warden', 'sovereign', // 11-15
     'warden', 'revenant', 'ravager', 'revenant', 'sovereign', // 16-20
 ];
-// Per-floor authored boss HP (index 0 = floor 1). Targets from the endgame re-stat sim:
-// tuned so a maxed 4-human squad (~5.2-6.0k DPS/round after boss def 7500 + armor) clears in
-// ~5 rounds (F1, approachable) up to ~14 rounds (F20, brutal) — accounting for each mechanic
-// (bulwark ~1.7× TTK tax → lower raw HP; regen flat-capped drag; summon add-clear tax). These
-// are STARTING numbers pending the final against-the-engine re-sim.
+// Per-floor authored boss HP (index 0 = floor 1). Floors 8-20 are locked by the deterministic
+// real-engine release sim in scripts/spire-balance.test.ts. HP stays the per-encounter tuning
+// knob because each boss mechanic adds a very different TTK tax; global stat/damage changes
+// would also perturb the already-shipped story tower.
 const HP_BY_FLOOR = [
     17600, 13800, 25000, 21000, 36300, // 1-5
-    19300, 33300, 28000, 24800, 46600, // 6-10
-    35000, 27500, 45800, 38700, 62200, // 11-15
-    42200, 35800, 54100, 35800, 72500, // 16-20
+    19300, 33300, 49000, 31000, 54000, // 6-10
+    51000, 31800, 46500, 52000, 51000, // 11-15
+    52600, 32400, 40000, 28000, 44000, // 16-20
 ];
 /** The four milestone floors (title/border unlocks; keys namespaced spire-tier-N in settle). */
 exports.SPIRE_MILESTONE_FLOORS = new Set([5, 10, 15, 20]);

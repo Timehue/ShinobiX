@@ -10,6 +10,7 @@ import { villages } from "../../data/sectors";
 import { BLOODLINE_PRESENTATION, CREATOR_STEPS, STARTER_AVATARS, getVillageTheme } from "./characterCreatorCopy";
 import type { CreatorStep, IdentityErrors, StarterAvatarId } from "./characterCreatorTypes";
 import { hasIdentityErrors, validateIdentity } from "./characterCreatorUtils";
+import { PLAYER_PASSWORD_MAX_LENGTH } from "../../lib/player-auth-policy";
 import "./character-creator.css";
 
 const STEP_ORDER = CREATOR_STEPS.map((step) => step.id);
@@ -153,7 +154,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                 return (
                     <div className="cc-copy-stack">
                         <p className="cc-kicker">Shape Your Identity</p>
-                        <h2>Name and Enter the Village</h2>
+                        <h2>Name and Enter the World</h2>
                         <p>
                             Your village, bloodline, and portrait are set. Add the name other players see
                             and the password that protects this save.
@@ -182,6 +183,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                                         id="cc-password"
                                         type={showPassword ? "text" : "password"}
                                         value={password}
+                                        maxLength={PLAYER_PASSWORD_MAX_LENGTH}
                                         onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder="Create a login password"
@@ -203,6 +205,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                                         id="cc-confirm-password"
                                         type={showConfirmPassword ? "text" : "password"}
                                         value={confirmPassword}
+                                        maxLength={PLAYER_PASSWORD_MAX_LENGTH}
                                         onBlur={() => setTouched((prev) => ({ ...prev, confirmPassword: true }))}
                                         onChange={(e) => setConfirmPassword(e.target.value)}
                                         placeholder="Retype password"
@@ -318,7 +321,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
         bloodline: "Choose Avatar",
         avatar: "Preview Shinobi",
         preview: "Name and Password",
-        identity: submitting ? "Creating..." : "Enter the Village",
+        identity: submitting ? "Creating..." : "Enter the World",
     };
 
     function handlePrimaryAction() {
@@ -336,10 +339,11 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                     <button type="button" className="cc-back-link" onClick={previousStep}>
                         {stepIndex === 0 ? "Back to Landing" : "Back"}
                     </button>
-                    <div className="cc-progress" aria-label="Character creation progress">
+                    <div className="cc-progress" role="list" aria-label="Character creation progress">
                         {CREATOR_STEPS.map((progressStep, index) => (
                             <span
                                 key={progressStep.id}
+                                role="listitem"
                                 className={`cc-progress-step ${index <= stepIndex ? "is-active" : ""}`}
                             >
                                 <i aria-hidden="true" />

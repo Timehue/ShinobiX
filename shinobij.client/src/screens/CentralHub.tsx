@@ -21,22 +21,18 @@ const HDR_ICON = { verticalAlign: "-0.12em", marginRight: "0.35rem" } as const;
 // Small inline glyph for currency/cost lines.
 const COST_ICON = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import { visiblePoll } from "../lib/poll";
-import { fetchBountyBoard, type BountyEntry } from "../lib/pvp-bounty";
-import { buildReputationProfile, findBountyForTarget, formatReputationNumber, sortBountiesByAmount } from "../lib/reputation-profile";
 import type { Character } from "../types/character";
-import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
-import { commitNamedForgeServer, forgeServer, rollNamedForgeServer, NAMED_ARMOR_SPECIALS, NAMED_WEAPON_TAGS } from "../lib/craft-api";
 import type { CreatorAi } from "../types/creator-ai";
 import type { ArmorQuality, EquipmentSlot, GameItem, ReviewBloodline, SavedBloodline } from "../types/combat";
 import type { Rank, Screen } from "../types/core";
-import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
-import { rollAwakeningServer } from "../lib/awakening-api";
+import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, ELEMENTAL_CORE_ID, ELEMENTAL_SHARD_ID, ELEMENTAL_SHARDS_PER_CORE, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { PET_PVE_DURABILITY, petConsumables, petPveGear } from "../data/pet-config";
 import { armorReductionForQuality, consumableHoldCap, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { craftDungeonEvents } from "../data/vn-events";
-import { elementIcon, getCharacterElements } from "../lib/elements";
+import { elementIcon, getCharacterElements, rollAwakeningElements, rollNewAwakeningElement, uniqueElements } from "../lib/elements";
 import { getAllItems } from "../lib/items";
-import { countItem } from "../lib/inventory";
+import { addItem, removeItem, countItem } from "../lib/inventory";
+import { makeId } from "../lib/utils";
 import { publishSharedImage, readImageFile } from "../lib/shared-images";
 import { starterSavedBloodlines } from "../data/jutsu";
 import { tagMatchesName } from "../lib/tags";
@@ -53,6 +49,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { NextGoalPin } from "../components/NextGoalPin";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 // Fantasy glyph per craft material — gives the forge's material list real
 // imagery instead of plain rows. Tiered by point value (see craftTier) for
@@ -102,7 +99,6 @@ export function CentralHub({
     setCreatorItems,
     playableAis,
     sharedImages = {},
-    onServerVersion,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
@@ -113,12 +109,11 @@ export function CentralHub({
     setTriggeredEvents: React.Dispatch<React.SetStateAction<string[]>>;
     onStartEndlessBattle: () => void;
     onStartDungeon: (event: CreatorEvent) => void;
-    onOpenBloodlineMaker: (rank: Rank) => Promise<{ ok: boolean; error?: string }>;
+    onOpenBloodlineMaker: (rank: Rank) => void;
     creatorItems: GameItem[];
     setCreatorItems: (items: GameItem[]) => void;
     playableAis: CreatorAi[];
     sharedImages?: Record<string, string>;
-    onServerVersion?: (version: number) => void;
 }) {
     const [centralLog, setCentralLog] = useState(
         "Welcome to Central — the neutral heart of the shinobi world."
@@ -126,7 +121,6 @@ export function CentralHub({
     const [showArchives, setShowArchives] = useState(false);
     const [showAwakening, setShowAwakening] = useState(false);
     const [awakeningMsg, setAwakeningMsg] = useState("");
-    const [bloodlineForgeBusy, setBloodlineForgeBusy] = useState(false);
     const [showCelestialPanel, setShowCelestialPanel] = useState(false);
     const [showDungeonPanel, setShowDungeonPanel] = useState(false);
     const [showCrafter, setShowCrafter] = useState(false);
@@ -142,7 +136,6 @@ export function CentralHub({
     // war (different war.id) gets a fresh banner that hasn't been
     // dismissed yet. Storage key holds a JSON array of war IDs.
     const [activeWarBanner, setActiveWarBanner] = useState<VillageWarRecord | null>(null);
-    const [hubBounties, setHubBounties] = useState<BountyEntry[] | null>(null);
     const [dismissedWarIds, setDismissedWarIds] = useState<Set<string>>(() => {
         try {
             const raw = localStorage.getItem("dismissedWarBanners.v1");
@@ -151,13 +144,6 @@ export function CentralHub({
             return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
         } catch { return new Set(); }
     });
-    useEffect(() => {
-        let alive = true;
-        void fetchBountyBoard().then((entries) => {
-            if (alive) setHubBounties(entries);
-        });
-        return () => { alive = false; };
-    }, []);
     function dismissWarBanner(warId: string) {
         const next = new Set(dismissedWarIds);
         next.add(warId);
@@ -189,16 +175,35 @@ export function CentralHub({
     }, [character.village]);
 
     // Named Weapon forge state
-    type NamedWeaponRoll = { token: string; ep: number; range: 3 | 4 | 5; offenseVal: number; tags: Array<{ name: string; percent: number }> };
+    type NamedWeaponRoll = { ep: number; range: 3 | 4 | 5; offenseVal: number; tags: Array<{ name: string; percent: number }> };
     const [namedWeaponRoll, setNamedWeaponRoll] = useState<NamedWeaponRoll | null>(null);
     const [namedWeaponName, setNamedWeaponName] = useState("Unnamed Blade");
     const [namedWeaponImage, setNamedWeaponImage] = useState("");
     const [namedWeaponFlavorText, setNamedWeaponFlavorText] = useState("");
 
-    async function rollNamedWeapon() {
-        const result = await rollNamedForgeServer<Omit<NamedWeaponRoll, 'token'>>(character.name, 'weapon');
-        if (!result.token || !result.roll) return alert(result.error || 'The named weapon roll failed.');
-        setNamedWeaponRoll({ ...result.roll, token: result.token });
+    const NAMED_WEAPON_TAGS = [
+        "Siphon", "Absorb", "Poison", "Wound",
+        "Reflect", "Shield", "Drain", "Ignition", "Heal",
+        "Increase Damage Given", "Increase Generals", "Decrease Damage Taken",
+    ];
+
+    function rollNamedWeapon() {
+        const ranges: (3 | 4 | 5)[] = [3, 4, 5];
+        const range = ranges[Math.floor(Math.random() * 3)];
+        const ep = 30 + Math.floor(Math.random() * 6); // 30–35
+        const offenseVal = 168 + Math.floor(Math.random() * 13); // 168–180
+        const useSingle = Math.random() < 0.5;
+        const shuffled = [...NAMED_WEAPON_TAGS].sort(() => Math.random() - 0.5);
+        let tags: Array<{ name: string; percent: number }>;
+        if (useSingle) {
+            tags = [{ name: shuffled[0], percent: 35 + Math.floor(Math.random() * 6) }]; // 35–40%
+        } else {
+            tags = [
+                { name: shuffled[0], percent: 15 + Math.floor(Math.random() * 6) }, // 15–20%
+                { name: shuffled[1], percent: 15 + Math.floor(Math.random() * 6) },
+            ];
+        }
+        setNamedWeaponRoll({ ep, range, offenseVal, tags });
     }
 
     // Named Weapon uses premium currencies, not hunt-material craft points
@@ -219,21 +224,79 @@ export function CentralHub({
         );
     }
 
-    async function forgeNamedWeapon() {
+    function forgeNamedWeapon() {
+        if (!requireServerSettlement("creatorItemCraft")) return;
         if (!namedWeaponRoll) return;
         const available = namedWeaponCurrencyPts();
         if (available < NW_COST) {
             alert(`Not enough materials. Need ${NW_COST} forge pts, you have ${available}.`);
             return;
         }
-        const result = await commitNamedForgeServer(character.name, namedWeaponRoll.token, namedWeaponName, namedWeaponFlavorText);
-        if (!result.character || !result.item) return alert(result.error || 'The named weapon forge failed.');
-        if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
-        const item = { ...result.item, image: namedWeaponImage || undefined };
+        // Greedy consume: spend lowest-value currencies first
+        let remaining = NW_COST;
+        let bc = character.boneCharms ?? 0;
+        let fs = character.fateShards ?? 0;
+        let as_ = character.auraStones ?? 0;
+        let ms = character.mythicSeals ?? 0;
+        // Order: boneCharms (5), fateShards (5), auraStones (25), mythicSeals (75)
+        const spend = (count: number, pts: number, cur: number): [number, number] => {
+            const use = Math.min(cur, Math.ceil(remaining / pts));
+            const actual = Math.min(use, cur);
+            return [cur - actual, remaining - actual * pts];
+        };
+        [bc, remaining] = spend(bc, NW_CURRENCY_PTS.boneCharms, bc);
+        [fs, remaining] = spend(fs, NW_CURRENCY_PTS.fateShards, fs);
+        [as_, remaining] = spend(as_, NW_CURRENCY_PTS.auraStones, as_);
+        [ms, remaining] = spend(ms, NW_CURRENCY_PTS.mythicSeals, ms);
+
+        const id = `named-weapon-${makeId()}`;
+        const tagDesc = namedWeaponRoll.tags.map((t) => `${t.name} ${t.percent}%`).join(", ");
+        const item: GameItem = {
+            id,
+            name: namedWeaponName.trim() || "Named Weapon",
+            slot: "hand",
+            rarity: "legendary",
+            cost: 0,
+            description: namedWeaponFlavorText.trim() || `A master-forged weapon. Tags: ${tagDesc}.`,
+            image: namedWeaponImage || undefined,
+            weaponEp: namedWeaponRoll.ep,
+            apCost: 40,
+            weaponRange: namedWeaponRoll.range,
+            // Standard 5-round weapon cooldown — matches every catalog named weapon
+            // so forged weapons can't be spammed every turn. (Both combat engines
+            // also default a missing cooldown to 5, so already-forged weapons in
+            // saves are covered too.)
+            weaponCooldown: 5,
+            weaponTags: namedWeaponRoll.tags,
+            flavorText: namedWeaponFlavorText.trim() || undefined,
+            bonuses: {
+                ninjutsuOffense: namedWeaponRoll.offenseVal,
+                taijutsuOffense: namedWeaponRoll.offenseVal,
+                bukijutsuOffense: namedWeaponRoll.offenseVal,
+                genjutsuOffense: namedWeaponRoll.offenseVal,
+            },
+        };
         setCreatorItems([...creatorItems, item]);
-        updateCharacter(result.character);
-        if (namedWeaponImage) void publishSharedImage('item:' + item.id, namedWeaponImage);
-        setNamedWeaponRoll(null); setNamedWeaponName("Unnamed Blade"); setNamedWeaponImage(""); setNamedWeaponFlavorText("");
+        updateCharacter({
+            ...character,
+            inventory: [...character.inventory, id],
+            boneCharms: bc,
+            fateShards: fs,
+            auraStones: as_,
+            mythicSeals: ms,
+        });
+        // Persist the forged item's image to the shared store. Saves strip inline
+        // base64 images, so without this publish the picture would vanish on the
+        // next reload — it re-hydrates from shared:img:item:<id>.
+        if (item.image) {
+            void publishSharedImage('item:' + id, item.image).then((ok) => {
+                if (!ok) alert(`Heads up — ${item.name} was forged, but its image couldn't be saved to the server, so it may not stick after a reload.`);
+            });
+        }
+        setNamedWeaponRoll(null);
+        setNamedWeaponName("Unnamed Blade");
+        setNamedWeaponImage("");
+        setNamedWeaponFlavorText("");
         alert(`${item.name} has been forged and added to your inventory!`);
     }
 
@@ -244,7 +307,6 @@ export function CentralHub({
     // pts, same currency conversion) so both top-tier crafts use the
     // same currency sink.
     type NamedArmorRoll = {
-        token: string;
         slot: EquipmentSlot;
         armorQuality: ArmorQuality; // Elite / Legendary / Mythic (6 / 7 / 8 %)
         offenseVal: number;         // 25 – 35, applied to all 4 offense stats
@@ -269,77 +331,151 @@ export function CentralHub({
         { value: "hand",  label: "Gloves" },
     ];
 
-    async function rollNamedArmor() {
-        const result = await rollNamedForgeServer<Omit<NamedArmorRoll, 'token'>>(character.name, 'armor', namedArmorSlot);
-        if (!result.token || !result.roll) return alert(result.error || 'The named armor roll failed.');
-        setNamedArmorRoll({ ...result.roll, token: result.token });
+    const NAMED_ARMOR_SPECIALS: Array<{ kind: string; bonusKey: string; valueRoll: () => number }> = [
+        { kind: "Absorb",          bonusKey: "absorbPercent",    valueRoll: () => +(0.08 + Math.random() * 1.92).toFixed(2) },   // 0.08 – 2.00 %
+        { kind: "Shield",          bonusKey: "shield",           valueRoll: () => 75 + Math.floor(Math.random() * 76) },         // 75 – 150 HP
+        { kind: "Reflect",         bonusKey: "reflectPercent",   valueRoll: () => +(0.08 + Math.random() * 1.92).toFixed(2) },   // 0.08 – 2.00 %
+        { kind: "Life Steal",      bonusKey: "lifeStealPercent", valueRoll: () => +(0.08 + Math.random() * 1.92).toFixed(2) },   // 0.08 – 2.00 %
+        { kind: "Increase Damage", bonusKey: "damagePercent",    valueRoll: () => +(0.75 + Math.random() * 0.75).toFixed(2) },   // 0.75 – 1.50 %
+    ];
+
+    function rollNamedArmor() {
+        const qualities: ArmorQuality[] = ["Elite", "Legendary", "Mythic"];
+        const armorQuality = qualities[Math.floor(Math.random() * qualities.length)];
+        const offenseVal = 25 + Math.floor(Math.random() * 11); // 25 – 35
+        const defenseVal = 25 + Math.floor(Math.random() * 11);
+        const tpl = NAMED_ARMOR_SPECIALS[Math.floor(Math.random() * NAMED_ARMOR_SPECIALS.length)];
+        const special = { kind: tpl.kind, bonusKey: tpl.bonusKey, value: tpl.valueRoll() };
+        setNamedArmorRoll({ slot: namedArmorSlot, armorQuality, offenseVal, defenseVal, special });
     }
 
-    async function forgeNamedArmor() {
+    function forgeNamedArmor() {
+        if (!requireServerSettlement("creatorItemCraft")) return;
         if (!namedArmorRoll) return;
         const available = namedWeaponCurrencyPts(); // shared cost pool with Named Weapon
         if (available < NW_COST) {
             alert(`Not enough materials. Need ${NW_COST} forge pts, you have ${available}.`);
             return;
         }
-        const result = await commitNamedForgeServer(character.name, namedArmorRoll.token, namedArmorName, namedArmorFlavorText);
-        if (!result.character || !result.item) return alert(result.error || 'The named armor forge failed.');
-        if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
-        const item = { ...result.item, image: namedArmorImage || undefined };
+        // Greedy consume identical to forgeNamedWeapon — spend cheapest first.
+        let remaining = NW_COST;
+        let bc = character.boneCharms ?? 0;
+        let fs = character.fateShards ?? 0;
+        let as_ = character.auraStones ?? 0;
+        let ms = character.mythicSeals ?? 0;
+        const spend = (cur: number, pts: number): [number, number] => {
+            const use = Math.min(cur, Math.ceil(remaining / pts));
+            const actual = Math.min(use, cur);
+            return [cur - actual, remaining - actual * pts];
+        };
+        [bc, remaining]  = spend(bc,  NW_CURRENCY_PTS.boneCharms);
+        [fs, remaining]  = spend(fs,  NW_CURRENCY_PTS.fateShards);
+        [as_, remaining] = spend(as_, NW_CURRENCY_PTS.auraStones);
+        [ms, remaining]  = spend(ms,  NW_CURRENCY_PTS.mythicSeals);
+
+        const slotLabel = NAMED_ARMOR_SLOTS.find((s) => s.value === namedArmorRoll.slot)?.label ?? "Armor";
+        // Hand-slot pieces must contain "glove" or "gauntlet" in their name for
+        // isArmorOrGloveItem to treat them as armor — auto-append if missing.
+        let finalName = namedArmorName.trim() || `Named ${slotLabel}`;
+        if (namedArmorRoll.slot === "hand" && !/glove|gauntlet/i.test(finalName)) {
+            finalName = `${finalName} Gauntlets`;
+        }
+
+        const bonuses: GameItem["bonuses"] = {
+            ninjutsuOffense: namedArmorRoll.offenseVal,
+            taijutsuOffense: namedArmorRoll.offenseVal,
+            bukijutsuOffense: namedArmorRoll.offenseVal,
+            genjutsuOffense: namedArmorRoll.offenseVal,
+            ninjutsuDefense: namedArmorRoll.defenseVal,
+            taijutsuDefense: namedArmorRoll.defenseVal,
+            bukijutsuDefense: namedArmorRoll.defenseVal,
+            genjutsuDefense: namedArmorRoll.defenseVal,
+            [namedArmorRoll.special.bonusKey]: namedArmorRoll.special.value,
+        };
+
+        const reductionPct = Math.round(armorReductionForQuality(namedArmorRoll.armorQuality) * 100);
+        const specialDesc = namedArmorRoll.special.kind === "Shield"
+            ? `Shield +${namedArmorRoll.special.value}`
+            : namedArmorRoll.special.kind === "Increase Damage"
+                ? `${namedArmorRoll.special.kind} ${namedArmorRoll.special.value}%`
+                : `${namedArmorRoll.special.kind} ${namedArmorRoll.special.value}%`;
+
+        const id = `named-armor-${makeId()}`;
+        const item: GameItem = {
+            id,
+            name: finalName,
+            slot: namedArmorRoll.slot,
+            rarity: "legendary",
+            armorQuality: namedArmorRoll.armorQuality,
+            cost: 0,
+            description: namedArmorFlavorText.trim() ||
+                `A master-forged ${slotLabel.toLowerCase()} piece. ${reductionPct}% damage reduction. ${specialDesc}.`,
+            image: namedArmorImage || undefined,
+            levelReq: 30,
+            flavorText: namedArmorFlavorText.trim() || undefined,
+            bonuses,
+        };
         setCreatorItems([...creatorItems, item]);
-        updateCharacter(result.character);
-        if (namedArmorImage) void publishSharedImage('item:' + item.id, namedArmorImage);
-        setNamedArmorRoll(null); setNamedArmorName("Unnamed Vestige"); setNamedArmorImage(""); setNamedArmorFlavorText("");
-        alert(`${item.name} has been forged and added to your inventory!`);
+        updateCharacter({
+            ...character,
+            inventory: [...character.inventory, id],
+            boneCharms: bc,
+            fateShards: fs,
+            auraStones: as_,
+            mythicSeals: ms,
+        });
+        // Persist the forged image to the shared store (saves strip inline base64,
+        // so it re-hydrates from shared:img:item:<id> on reload).
+        if (item.image) {
+            void publishSharedImage('item:' + id, item.image).then((ok) => {
+                if (!ok) alert(`Heads up — ${finalName} was forged, but its image couldn't be saved to the server, so it may not stick after a reload.`);
+            });
+        }
+        setNamedArmorRoll(null);
+        setNamedArmorName("Unnamed Vestige");
+        setNamedArmorImage("");
+        setNamedArmorFlavorText("");
+        alert(`${finalName} has been forged and added to your inventory!`);
     }
 
-    async function awakeningFreeRoll() {
-        const claimed = character.claimedAwakenings ?? [];
-        const isFreeAtLv2 = character.level >= 2 && !claimed.includes(AWAKENING_FREE_LV2_ID);
-        const isFreeAtLv20 = character.level >= 20 && !claimed.includes(AWAKENING_FREE_LV20_ID);
+    function awakeningFreeRoll() {
+        const isFreeAtLv2 = character.level >= 2 && !triggeredEvents.includes(AWAKENING_FREE_LV2_ID);
+        const isFreeAtLv20 = character.level >= 20 && !triggeredEvents.includes(AWAKENING_FREE_LV20_ID);
+        const currentElements = getCharacterElements(character);
+        const element = rollNewAwakeningElement(currentElements);
+        const nextElements = uniqueElements([...currentElements, element]);
         const eventId = isFreeAtLv2 ? AWAKENING_FREE_LV2_ID : isFreeAtLv20 ? AWAKENING_FREE_LV20_ID : null;
         if (!eventId) return;
-        try {
-            const next = await rollAwakeningServer(character.name, eventId);
-            updateCharacter(next);
-            if (!triggeredEvents.includes(eventId)) setTriggeredEvents((ids) => [...ids, eventId]);
-            setAwakeningMsg(`? The stone pulses! Your awakened elements: ${getCharacterElements(next).join(" / ")}.`);
-        } catch (error) { setAwakeningMsg(`? ${error instanceof Error ? error.message : "Elemental awakening failed."}`); }
+        setTriggeredEvents((ids) => [...ids, eventId]);
+        updateCharacter({ ...character, element: nextElements[0], elements: nextElements });
+        setAwakeningMsg(`? The stone pulses with ${element} chakra! Your awakened elements: ${nextElements.join(" / ")}.`);
     }
 
-    async function awakeningPaidRoll() {
+    function awakeningPaidRoll() {
         if (character.fateShards < 10) {
             setAwakeningMsg("❌ Not enough Fate Shards — you need 10 to reroll your element.");
             return;
         }
-        try {
-            const next = await rollAwakeningServer(character.name, 'paid');
-            updateCharacter(next);
-            setAwakeningMsg(`? The stone swirls and reveals: ${getCharacterElements(next).join(" / ")}! Your awakened elements have been rerolled (-10 Fate Shards).`);
-        } catch (error) { setAwakeningMsg(`? ${error instanceof Error ? error.message : "Elemental awakening failed."}`); }
+        const currentElements = getCharacterElements(character);
+        const nextElements = rollAwakeningElements(Math.max(1, currentElements.length));
+        updateCharacter({ ...character, fateShards: character.fateShards - 10, element: nextElements[0], elements: nextElements });
+        setAwakeningMsg(`? The stone swirls and reveals: ${nextElements.join(" / ")}! Your awakened elements have been rerolled (-10 Fate Shards).`);
     }
 
-    async function awakeningCreateBloodline(rank: Rank, materialKey: "boneCharms" | "auraStones" | "mythicSeals", cost: number) {
+    function awakeningCreateBloodline(rank: Rank, materialKey: "boneCharms" | "auraStones" | "mythicSeals", cost: number) {
         if ((character[materialKey] ?? 0) < cost) {
             const label = materialKey === "boneCharms" ? "Bone Charms" : materialKey === "auraStones" ? "Aura Stones" : "Mythic Seals";
             setAwakeningMsg(`? Not enough ${label} — you need ${cost}.`);
             return;
         }
-        if (bloodlineForgeBusy) return;
-        setBloodlineForgeBusy(true);
-        const result = await onOpenBloodlineMaker(rank);
-        setBloodlineForgeBusy(false);
-        if (!result.ok) {
-            setAwakeningMsg(`? ${result.error || "The bloodline forge could not be purchased."}`);
-            return;
-        }
+        updateCharacter({ ...character, [materialKey]: (character[materialKey] ?? 0) - cost });
         setShowAwakening(false);
         setCentralLog(`${rank} bloodline forge purchased. Finish building it in the Bloodline Maker.`);
+        onOpenBloodlineMaker(rank);
     }
 
-    const claimedAwakenings = character.claimedAwakenings ?? [];
-    const hasFreeRoll = (character.level >= 2 && !claimedAwakenings.includes(AWAKENING_FREE_LV2_ID))
-        || (character.level >= 20 && !claimedAwakenings.includes(AWAKENING_FREE_LV20_ID));
+    const hasFreeRoll = (character.level >= 2 && !triggeredEvents.includes(AWAKENING_FREE_LV2_ID))
+        || (character.level >= 20 && !triggeredEvents.includes(AWAKENING_FREE_LV20_ID));
     const weeklyBossOverrideAi = sharedWeeklyBossAiIdCache ? playableAis.find(ai => ai.id === sharedWeeklyBossAiIdCache) ?? null : null;
     // Schedule is consumed locally inside claimWeeklyBoss (fresh per-click compute);
     // the top-level binding is kept for potential future hub UI use.
@@ -411,6 +547,19 @@ export function CentralHub({
     // Burn materials cheapest-first until costPts is paid. Returns a new
     // Character with the consumed materials removed from BOTH stores (hunt drops
     // live in inventory[], relics in itemStacks); does not mutate state.
+    function consumeCraftPoints(costPts: number): Character {
+        const ordered = Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1]);
+        let next = character;
+        let remaining = costPts;
+        for (const [id, pts] of ordered) {
+            while (remaining > 0 && countItem(next, id) > 0) {
+                next = removeItem(next, id, 1);
+                remaining -= pts;
+            }
+        }
+        return next;
+    }
+
     // Points-based weapon/armor crafting — both tabs draw from the unified
     // pool above, just like Supplies. Armor sits one tier above the
     // equivalent weapon rarity (hence the higher point cost). Ryo stays as
@@ -431,31 +580,33 @@ export function CentralHub({
         return 800; // legendary
     }
 
-    async function craftExistingWeapon(item: GameItem) {
+    function craftExistingWeapon(item: GameItem) {
+        if (!requireServerSettlement("creatorItemCraft")) return;
         const costPts = weaponCraftPoints(item);
         const ryo = craftRyoForRarity(item.rarity);
         if (character.level < (item.levelReq ?? 1)) return alert(`Requires level ${item.levelReq ?? 1}.`);
         if (character.ryo < ryo) return alert(`Not enough ryo. Need ${ryo.toLocaleString()}.`);
         const total = craftPointsTotal();
         if (total < costPts) return alert(`Not enough materials. Need ${costPts} craft points, you have ${total}.`);
-        const result = await forgeServer(character.name, 'weapon', item.id);
-        if (!result.character) return alert(result.error || 'The weapon forge failed.');
-        if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
-        updateCharacter(result.character);
+        updateCharacter({
+            ...addItem(consumeCraftPoints(costPts), item.id, 1),
+            ryo: character.ryo - ryo,
+        });
         alert(`${item.name} forged and added to your inventory.`);
     }
 
-    async function craftExistingArmor(item: GameItem) {
+    function craftExistingArmor(item: GameItem) {
+        if (!requireServerSettlement("creatorItemCraft")) return;
         const costPts = armorCraftPoints(item);
         const ryo = craftRyoForRarity(item.rarity);
         if (character.level < (item.levelReq ?? 1)) return alert(`Requires level ${item.levelReq ?? 1}.`);
         if (character.ryo < ryo) return alert(`Not enough ryo. Need ${ryo.toLocaleString()}.`);
         const total = craftPointsTotal();
         if (total < costPts) return alert(`Not enough materials. Need ${costPts} craft points, you have ${total}.`);
-        const result = await forgeServer(character.name, 'armor', item.id);
-        if (!result.character) return alert(result.error || 'The armor forge failed.');
-        if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
-        updateCharacter(result.character);
+        updateCharacter({
+            ...addItem(consumeCraftPoints(costPts), item.id, 1),
+            ryo: character.ryo - ryo,
+        });
         alert(`${item.name} forged and added to your inventory.`);
     }
 
@@ -551,14 +702,6 @@ export function CentralHub({
             action: () => setShowCelestialPanel(true),
         },
     ];
-    const sortedHubBounties = sortBountiesByAmount(hubBounties ?? []);
-    const topBounty = sortedHubBounties[0] ?? null;
-    const selfBounty = findBountyForTarget(hubBounties ?? [], character.name);
-    const reputationProfile = buildReputationProfile(character, { bounty: selfBounty });
-    const reputationMetrics = reputationProfile.metrics.filter((metric) =>
-        metric.id === "ranked" || metric.id === "pvp" || metric.id === "bounty" || metric.id === "war"
-    );
-
     return (
         <div className="central-hub">
             {/* Drifting golden motes + god-ray sweep + time-of-day wash + a few
@@ -581,44 +724,6 @@ export function CentralHub({
                 {centralLog}
             </div>
 
-            <section className="reputation-snapshot" aria-label="Reputation snapshot">
-                <div className="reputation-snapshot-heading">
-                    <div>
-                        <p className="rep-kicker">Reputation</p>
-                        <h2>{character.name}</h2>
-                        <span>{reputationProfile.subtitle}</span>
-                    </div>
-                    <div className="rep-actions">
-                        <button type="button" onClick={() => setScreen("profile")}>Profile</button>
-                        <button type="button" onClick={() => setScreen("hallOfLegends")}>Hall</button>
-                    </div>
-                </div>
-                <div className="rep-snapshot-grid">
-                    {reputationMetrics.map((metric) => (
-                        <div className={`rep-snapshot-stat rep-tone-${metric.tone ?? "neutral"}`} key={metric.id}>
-                            <span>{metric.label}</span>
-                            <strong>{metric.value}</strong>
-                            {metric.detail ? <small>{metric.detail}</small> : null}
-                        </div>
-                    ))}
-                </div>
-                <div className="rep-public-board">
-                    <span className="rep-board-label">Most Wanted</span>
-                    {hubBounties === null ? (
-                        <strong>Checking bounty board...</strong>
-                    ) : topBounty ? (
-                        <strong>{topBounty.target} - {formatReputationNumber(topBounty.amount)} ryo</strong>
-                    ) : (
-                        <strong>No active bounties</strong>
-                    )}
-                    <small>
-                        {selfBounty
-                            ? `Your bounty: ${formatReputationNumber(selfBounty.amount)} ryo`
-                            : "Only active public bounty contracts are shown."}
-                    </small>
-                </div>
-            </section>
-
             {/* Active-war alert: only renders when the player's village
                 is in an active war and the banner hasn't been dismissed
                 this session. Click-through routes to the Town Hall, which
@@ -638,7 +743,7 @@ export function CentralHub({
                             background: isPending
                                 ? "linear-gradient(90deg, #3b2a05, #1a1a2e, #3b2a05)"
                                 : "linear-gradient(90deg, #450a0a, #1a1a2e, #450a0a)",
-                            border: `2px solid ${isPending ? "#fbbf24" : "#f87171"}`,
+                            border: `2px solid ${isPending ? "#fbbf24" : "var(--red-400)"}`,
                             borderRadius: 8,
                             padding: "0.8rem 1rem",
                             margin: "0 0 1rem",
@@ -656,13 +761,13 @@ export function CentralHub({
                             {isPending ? (
                                 <>
                                     <strong style={{ color: "#fde047", fontSize: "1.05rem" }}>⏳ {character.village} vs {enemy} — War starts in {minsToWar} min</strong>
-                                    <div style={{ fontSize: "0.82rem", color: "#fcd34d", marginTop: 4 }}>
+                                    <div style={{ fontSize: "0.82rem", color: "var(--gold-400)", marginTop: 4 }}>
                                         Pre-war window. Rally your village, queue guards, gather pre-fight buffs. No HP can drop until the timer expires.
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <strong style={{ color: "#fca5a5", fontSize: "1.05rem" }}>⚔ {character.village} is at War with {enemy}</strong>
+                                    <strong style={{ color: "var(--red-300)", fontSize: "1.05rem" }}>⚔ {character.village} is at War with {enemy}</strong>
                                     <div style={{ fontSize: "0.82rem", color: "#fde047", marginTop: 4, display: "flex", gap: 16, flexWrap: "wrap" }}>
                                         <span>Day {ageDays + 1}</span>
                                         <span>{myVillage}: <strong>{myHp.toLocaleString()}</strong> HP</span>
@@ -675,13 +780,13 @@ export function CentralHub({
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                             <button
                                 onClick={() => setScreen("townHall")}
-                                style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", color: "#fee2e2", padding: "0.4rem 0.8rem", fontSize: "0.85rem", fontWeight: 700 }}
+                                style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", color: "#fee2e2", padding: "0.4rem 0.8rem", fontSize: "0.85rem", fontWeight: 700 }}
                             >
                                 Join the Fight →
                             </button>
                             <button
                                 onClick={() => dismissWarBanner(activeWarBanner.id)}
-                                style={{ background: "transparent", border: "1px solid #475569", color: "#94a3b8", padding: "0.15rem 0.5rem", fontSize: "0.7rem" }}
+                                style={{ background: "transparent", border: "1px solid var(--slate-600)", color: "var(--text-dim)", padding: "0.15rem 0.5rem", fontSize: "0.7rem" }}
                                 title="Hide this banner for this war (a new war will surface a fresh one)"
                             >
                                 Dismiss
@@ -741,8 +846,8 @@ export function CentralHub({
                             <div>· Die → all banked ryo/XP is lost. Hospital trip applies. <strong>Milestone currencies stay credited.</strong></div>
                             <div style={{ marginTop: 6 }}><strong>Kill milestones</strong> (auto-credited, repeat every 20 kills):</div>
                             <div>· Kills 5, 10 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span></div>
-                            <div>· Kill 15 → <span style={{ color: "#facc15" }}>+5 Fate Shards</span></div>
-                            <div>· Kill 20 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span> &amp; <span style={{ color: "#facc15" }}>+5 Fate Shards</span></div>
+                            <div>· Kill 15 → <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
+                            <div>· Kill 20 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span> &amp; <span style={{ color: "var(--gold)" }}>+5 Fate Shards</span></div>
                             <div>· Pattern repeats: 25/30 bone, 35 fate, 40 both, and so on.</div>
                             <div style={{ marginTop: 6 }}><strong>Rest stops:</strong> every 10th kill automatically restores 33% HP and 50% chakra &amp; stamina.</div>
                         </div>
@@ -870,7 +975,7 @@ export function CentralHub({
                                 {hasFreeRoll ? (
                                     <button className="awakening-free-btn" onClick={awakeningFreeRoll}>
                                         <GiSparkles style={HDR_ICON} />Awaken Element — FREE
-                                        <small>{character.level >= 2 && !claimedAwakenings.includes(AWAKENING_FREE_LV2_ID) ? "(Level 2 reward)" : "(Level 20 reward)"}</small>
+                                        <small>{character.level >= 20 && !triggeredEvents.includes(AWAKENING_FREE_LV20_ID) ? "(Level 20 reward)" : "(Level 2 reward)"}</small>
                                     </button>
                                 ) : (
                                     <button
@@ -920,7 +1025,7 @@ export function CentralHub({
                                     <button
                                         className="awakening-forge-btn"
                                         onClick={() => awakeningCreateBloodline("B Rank", "boneCharms", 100)}
-                                        disabled={bloodlineForgeBusy || (character.boneCharms ?? 0) < 100}
+                                        disabled={(character.boneCharms ?? 0) < 100}
                                     >
                                         Forge B Rank Bloodline
                                     </button>
@@ -932,7 +1037,7 @@ export function CentralHub({
                                     <button
                                         className="awakening-forge-btn"
                                         onClick={() => awakeningCreateBloodline("A Rank", "auraStones", 100)}
-                                        disabled={bloodlineForgeBusy || (character.auraStones ?? 0) < 100}
+                                        disabled={(character.auraStones ?? 0) < 100}
                                     >
                                         Forge A Rank Bloodline
                                     </button>
@@ -944,7 +1049,7 @@ export function CentralHub({
                                     <button
                                         className="awakening-forge-btn"
                                         onClick={() => awakeningCreateBloodline("S Rank", "mythicSeals", 100)}
-                                        disabled={bloodlineForgeBusy || (character.mythicSeals ?? 0) < 100}
+                                        disabled={(character.mythicSeals ?? 0) < 100}
                                     >
                                         Forge S Rank Bloodline
                                     </button>
@@ -966,10 +1071,11 @@ export function CentralHub({
                 // the same factor ("raise the materials to compensate"). Capped
                 // consumables clamp the batch to the carry cap so crafting can't
                 // exceed what the shop lets you hold; affordability clamps the rest.
-                async function craftRecipe(
-                    recipe: { name: string; cost: number; recipeId?: string; itemId?: string; per?: number },
+                function craftRecipe(
+                    recipe: { name: string; cost: number; itemId?: string; per?: number; grant?: (c: Character) => Character },
                     qty: number,
                 ) {
+                    if (!requireServerSettlement("creatorItemCraft")) return;
                     const affordable = Math.floor(totalPts / recipe.cost);
                     if (affordable < 1) return alert(`Not enough materials. Need ${recipe.cost} craft points, you have ${totalPts}.`);
                     let n = Math.min(Math.max(1, Math.floor(qty)), affordable);
@@ -986,21 +1092,21 @@ export function CentralHub({
                         }
                     }
 
-                    const result = await forgeServer(character.name, 'supply', recipe.recipeId ?? recipe.itemId ?? '', n);
-                    if (!result.character) return alert(result.error || 'The supply forge failed.');
-                    if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
-                    updateCharacter(result.character);
+                    let next = consumeCraftPoints(recipe.cost * n);
+                    if (recipe.itemId) next = addItem(next, recipe.itemId, (recipe.per ?? 1) * n);
+                    else if (recipe.grant) for (let i = 0; i < n; i++) next = recipe.grant(next);
+                    updateCharacter(next);
                     alert(`Crafted ${n}× ${recipe.name}.`);
                 }
 
                 // Item recipes carry { itemId, per } so a batch craft can add the
                 // right count via addItem (stackables → itemStacks) and clamp to
                 // the carry cap; currency recipes (dust/charm) carry a `grant` fn.
-                const recipes: Array<{ name: string; cost: number; desc: string; recipeId?: string; itemId?: string; per?: number }> = [
+                const recipes: Array<{ name: string; cost: number; desc: string; itemId?: string; per?: number; grant?: (c: Character) => Character }> = [
                     { name: "Pet Treats", cost: 50, desc: "1× Treats (+100 pet XP)", itemId: "pet-treat", per: 1 },
                     { name: "Elemental Treats", cost: 100, desc: "1× Elemental Treats (+250 pet XP)", itemId: "elemental-pet-treat", per: 1 },
-                    { name: "Aura Dust", cost: 50, desc: "+50 Aura Dust", recipeId: "currency:aura-dust" },
-                    { name: "Bone Charm", cost: 1000, desc: "+1 Bone Charm", recipeId: "currency:bone-charm" },
+                    { name: "Aura Dust", cost: 50, desc: "+50 Aura Dust", grant: (c: Character) => ({ ...c, auraDust: (c.auraDust ?? 0) + 50 }) },
+                    { name: "Bone Charm", cost: 1000, desc: "+1 Bone Charm", grant: (c: Character) => ({ ...c, boneCharms: (c.boneCharms ?? 0) + 1 }) },
                     // Thrown weapons
                     { name: "Shuriken ×3", cost: 15, desc: "3× Shuriken (22 EP thrown)", itemId: "thrown-shuriken", per: 3 },
                     { name: "Senbon ×1", cost: 30, desc: "1× Senbon (300 dmg/round, 2 rounds)", itemId: "thrown-senbon", per: 1 },
@@ -1106,31 +1212,37 @@ export function CentralHub({
                                 const fateShardCount = character.fateShards ?? 0;
                                 const canCraftWithKeys = dungeonKeyCount >= HOLLOW_GATE_KEY_DUNGEON_KEY_COST;
                                 const canCraftWithShards = fateShardCount >= HOLLOW_GATE_KEY_FATE_SHARD_COST;
-                                async function craftHollowGateKeyWithDungeonKeys() {
+                                function craftHollowGateKeyWithDungeonKeys() {
+                                    if (!requireServerSettlement("creatorItemCraft")) return;
                                     if (dungeonKeyCount < HOLLOW_GATE_KEY_DUNGEON_KEY_COST) {
                                         alert(`You need ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys. You have ${dungeonKeyCount}.`);
                                         return;
                                     }
-                                    const result = await forgeHollowGateKeyServer(character.name, 'dungeonKeys');
-                                    if (!result.character) return alert(result.error || 'The key forge failed.');
-                                    if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
-                                    updateCharacter(result.character);
+                                    updateCharacter(
+                                        addItem(
+                                            removeItem(character, DUNGEON_KEY_ID, HOLLOW_GATE_KEY_DUNGEON_KEY_COST),
+                                            HOLLOW_GATE_KEY_ID,
+                                            1,
+                                        ),
+                                    );
                                     alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys.`);
                                 }
-                                async function craftHollowGateKeyWithFateShards() {
+                                function craftHollowGateKeyWithFateShards() {
+                                    if (!requireServerSettlement("creatorItemCraft")) return;
                                     if ((character.fateShards ?? 0) < HOLLOW_GATE_KEY_FATE_SHARD_COST) {
                                         alert(`You need ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards. You have ${character.fateShards ?? 0}.`);
                                         return;
                                     }
-                                    const result = await forgeHollowGateKeyServer(character.name, 'fateShards');
-                                    if (!result.character) return alert(result.error || 'The key forge failed.');
-                                    if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
-                                    updateCharacter(result.character);
+                                    updateCharacter({
+                                        ...character,
+                                        fateShards: (character.fateShards ?? 0) - HOLLOW_GATE_KEY_FATE_SHARD_COST,
+                                        inventory: [...character.inventory, HOLLOW_GATE_KEY_ID],
+                                    });
                                     alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards.`);
                                 }
                                 const ownedKeys = countItem(character, HOLLOW_GATE_KEY_ID);
                                 return (
-                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#a855f7", boxShadow: "0 0 10px rgba(168,85,247,0.22)" }}>
+                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "var(--purple-500)", boxShadow: "0 0 10px rgba(168,85,247,0.22)" }}>
                                         <strong><GiTempleGate style={COST_ICON} />Hollow Gate Key</strong>
                                         <small>Shrine pass. Bypasses village unlock + 2/day cap.</small>
                                         <small>You own: <strong>{ownedKeys}</strong></small>
@@ -1154,19 +1266,23 @@ export function CentralHub({
                                 const fragmentCount = countItem(character, DUNGEON_LEGENDARY_FRAGMENT_ID);
                                 const relicCount = countItem(character, DUNGEON_LEGENDARY_RELIC_ID);
                                 const canForge = fragmentCount >= FRAGMENTS_PER_RELIC;
-                                async function forgeRelicFromFragments() {
+                                function forgeRelicFromFragments() {
+                                    if (!requireServerSettlement("creatorItemCraft")) return;
                                     if (fragmentCount < FRAGMENTS_PER_RELIC) {
                                         alert(`You need ${FRAGMENTS_PER_RELIC} Dungeon Legendary Fragments. You have ${fragmentCount}.`);
                                         return;
                                     }
-                                    const result = await forgeServer(character.name, 'relic', DUNGEON_LEGENDARY_RELIC_ID);
-                                    if (!result.character) return alert(result.error || 'The relic forge failed.');
-                                    if (typeof result._saveVersion === 'number') onServerVersion?.(result._saveVersion);
-                                    updateCharacter(result.character);
+                                    updateCharacter(
+                                        addItem(
+                                            removeItem(character, DUNGEON_LEGENDARY_FRAGMENT_ID, FRAGMENTS_PER_RELIC),
+                                            DUNGEON_LEGENDARY_RELIC_ID,
+                                            1,
+                                        ),
+                                    );
                                     alert(`Dungeon Legendary Relic forged. Consumed ${FRAGMENTS_PER_RELIC} Fragments.`);
                                 }
                                 return (
-                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#facc15", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
+                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "var(--gold)", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
                                         <strong><GameIcon name="shard" size={14} style={COST_ICON} />Dungeon Legendary Relic</strong>
                                         <small>Combine Hollow Gate Warden fragments into a legendary relic.</small>
                                         <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
@@ -1174,6 +1290,37 @@ export function CentralHub({
                                             {canForge
                                                 ? `Forge — ${FRAGMENTS_PER_RELIC} Fragments`
                                                 : `Need ${FRAGMENTS_PER_RELIC} Fragments (have ${fragmentCount})`}
+                                        </button>
+                                    </div>
+                                );
+                            })()}
+                            {(() => {
+                                const shardCount = countItem(character, ELEMENTAL_SHARD_ID);
+                                const coreCount = countItem(character, ELEMENTAL_CORE_ID);
+                                const canForge = shardCount >= ELEMENTAL_SHARDS_PER_CORE;
+                                function forgeCoreFromShards() {
+                                    if (shardCount < ELEMENTAL_SHARDS_PER_CORE) {
+                                        alert(`You need ${ELEMENTAL_SHARDS_PER_CORE} Elemental Shards. You have ${shardCount}.`);
+                                        return;
+                                    }
+                                    updateCharacter(
+                                        addItem(
+                                            removeItem(character, ELEMENTAL_SHARD_ID, ELEMENTAL_SHARDS_PER_CORE),
+                                            ELEMENTAL_CORE_ID,
+                                            1,
+                                        ),
+                                    );
+                                    alert(`Elemental Core forged. Consumed ${ELEMENTAL_SHARDS_PER_CORE} Elemental Shards.`);
+                                }
+                                return (
+                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#22d3ee", boxShadow: "0 0 10px rgba(34,211,238,0.22)" }}>
+                                        <strong><GameIcon name="shard" size={14} style={COST_ICON} />Elemental Core</strong>
+                                        <small>Fuse Hollow Gate elemental shards into a core that attunes a legendary or mythic weapon to one of your awakened elements.</small>
+                                        <small>Shards: <strong>{shardCount}</strong> · Cores: <strong>{coreCount}</strong></small>
+                                        <button style={{ marginTop: "auto" }} onClick={forgeCoreFromShards} disabled={!canForge}>
+                                            {canForge
+                                                ? `Forge — ${ELEMENTAL_SHARDS_PER_CORE} Shards`
+                                                : `Need ${ELEMENTAL_SHARDS_PER_CORE} Shards (have ${shardCount})`}
                                         </button>
                                     </div>
                                 );
@@ -1220,7 +1367,7 @@ export function CentralHub({
                                                     <strong>{recipe.name}</strong>
                                                     <small>{recipe.desc}</small>
                                                     {cap != null && (
-                                                        <small style={{ color: "#86efac" }}>In bag: {owned} / {cap}</small>
+                                                        <small style={{ color: "var(--green-300)" }}>In bag: {owned} / {cap}</small>
                                                     )}
                                                 </div>
                                             </div>

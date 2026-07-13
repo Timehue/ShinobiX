@@ -110,7 +110,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                             return (
                                 <div key={i} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "78%", background: mine ? "#1e3a8a" : "#1f2937", border: `1px solid ${mine ? "#3b82f6" : "#374151"}`, borderRadius: 10, padding: "6px 10px" }}>
                                     <div style={{ fontSize: 13, color: "#e5e7eb", wordBreak: "break-word" }}>{m.text}</div>
-                                    <div style={{ fontSize: 9, color: "#94a3b8", marginTop: 2, textAlign: "right" }}>{timeAgo(m.ts)}</div>
+                                    <div style={{ fontSize: 9, color: "var(--text-dim)", marginTop: 2, textAlign: "right" }}>{timeAgo(m.ts)}</div>
                                 </div>
                             );
                         })}
@@ -119,7 +119,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                         <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(active, draft); }} placeholder={`Message ${active}…`} maxLength={500} style={{ flex: 1 }} />
                         <button disabled={busy || !draft.trim()} onClick={() => void send(active, draft)}>Send</button>
                     </div>
-                    {error && <p className="hint" style={{ color: "#f87171", marginTop: 6 }}>{error}</p>}
+                    {error && <p className="hint" style={{ color: "var(--red-400)", marginTop: 6 }}>{error}</p>}
                 </div>
             ) : (
                 <>
@@ -130,7 +130,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                             <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(composeTo, draft); }} placeholder="Message…" maxLength={500} style={{ flex: 1, minWidth: 160 }} />
                             <button disabled={busy || !composeTo.trim() || !draft.trim()} onClick={() => void send(composeTo, draft)}>Send</button>
                         </div>
-                        {error && <p className="hint" style={{ color: "#f87171", marginTop: 6 }}>{error}</p>}
+                        {error && <p className="hint" style={{ color: "var(--red-400)", marginTop: 6 }}>{error}</p>}
                     </div>
                     <div className="summary-box">
                         <strong>Inbox</strong>
@@ -139,12 +139,12 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                         ) : (
                             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
                                 {inbox.map((e) => (
-                                    <button key={e.with} onClick={() => { setActive(e.with); setError(""); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", padding: "6px 10px", background: e.unread > 0 ? "#1e293b" : "transparent", border: "1px solid #334155", borderRadius: 8 }}>
+                                    <button key={e.with} onClick={() => { setActive(e.with); setError(""); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", padding: "6px 10px", background: e.unread > 0 ? "var(--slate-800)" : "transparent", border: "1px solid var(--slate-700)", borderRadius: 8 }}>
                                         <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                                             <strong style={{ color: "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{e.with}{e.unread > 0 ? ` (${e.unread})` : ""}</strong>
-                                            <small style={{ color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>{e.lastText}</small>
+                                            <small style={{ color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>{e.lastText}</small>
                                         </span>
-                                        <small style={{ color: "#64748b", flexShrink: 0, marginLeft: 8 }}>{timeAgo(e.lastTs)}</small>
+                                        <small style={{ color: "var(--text-muted)", flexShrink: 0, marginLeft: 8 }}>{timeAgo(e.lastTs)}</small>
                                     </button>
                                 ))}
                             </div>

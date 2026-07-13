@@ -137,8 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     jutsuMastery: newMastery,
                 },
             };
-            bumpSaveVersion(updated);
-            await kv.set(key, mergePreservingImages(updated, record));
+            await kv.set(key, mergePreservingImages(bumpSaveVersion(updated), record));
 
             return {
                 status: 200 as const,

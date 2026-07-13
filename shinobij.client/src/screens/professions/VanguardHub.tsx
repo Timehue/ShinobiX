@@ -49,7 +49,7 @@ export function VanguardHub({
             {/* Honor Seal economy */}
             <div className="summary-box" style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center", margin: "1rem 0" }}>
                 <span>🪙 Honor Seals: <strong style={{ color: ACCENT }}>{(character.honorSeals ?? 0).toLocaleString()}</strong></span>
-                <span style={{ color: "#94a3b8" }}>·</span>
+                <span style={{ color: "var(--text-dim)" }}>·</span>
                 <span>This kill: <strong style={{ color: ACCENT }}>{VANGUARD_SEALS_PER_KILL[rank]} Seal{VANGUARD_SEALS_PER_KILL[rank] === 1 ? "" : "s"}</strong></span>
             </div>
 
@@ -80,8 +80,8 @@ export function VanguardHub({
                             background: r === rank ? `${ACCENT}22` : "rgba(15,18,34,0.5)",
                         }}
                     >
-                        <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>R{r}</div>
-                        <div style={{ fontWeight: 700, color: r === rank ? ACCENT : "#e2e8f0" }}>{VANGUARD_SEALS_PER_KILL[r]}</div>
+                        <div style={{ fontSize: "0.68rem", color: "var(--text-dim)" }}>R{r}</div>
+                        <div style={{ fontWeight: 700, color: r === rank ? ACCENT : "var(--slate-200)" }}>{VANGUARD_SEALS_PER_KILL[r]}</div>
                     </div>
                 ))}
             </div>

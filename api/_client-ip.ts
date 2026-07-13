@@ -10,8 +10,10 @@
  * group unrelated players by data center. See `clientIp()` below.
  *
  * Trust model: `CF-Connecting-IP` is only honored when we can corroborate that
- * the request actually transited Cloudflare — i.e. the immediate peer or some
- * `X-Forwarded-For` hop is within Cloudflare's published ranges. If a request
+ * the request actually transited Cloudflare — i.e. the immediate peer or the
+ * proxy-facing (right-most) valid `X-Forwarded-For` hop is within Cloudflare's
+ * published ranges. Trusting any hop lets a direct-origin attacker inject a
+ * fake Cloudflare address before Railway appends the real direct peer. If a request
  * reaches the origin *directly* (local dev, or a direct-to-origin hit that
  * bypasses Cloudflare) the header is ignored and we fall back to the previous
  * XFF/socket logic. This keeps a direct-to-origin caller from spoofing an
@@ -190,27 +192,27 @@ function firstHeader(req: IpRequestLike, name: string): string | undefined {
     return Array.isArray(raw) ? raw[0] : raw;
 }
 
-/** Every IP we saw on the wire: the immediate peer plus each XFF hop. */
-function requestHopIps(req: IpRequestLike): string[] {
-    const hops: string[] = [];
+function forwardedIps(req: IpRequestLike): string[] {
     const xff = firstHeader(req, 'x-forwarded-for');
-    if (xff) for (const h of xff.split(',')) if (h.trim()) hops.push(h.trim());
-    if (req.socket?.remoteAddress) hops.push(req.socket.remoteAddress);
-    return hops;
+    if (!xff) return [];
+    return xff.split(',').map((h) => h.trim()).filter((h) => Boolean(h) && parseIp(h) !== null);
 }
 
-/** True if any hop is a Cloudflare edge IP — i.e. the request transited Cloudflare. */
+/** True only when the proxy-facing verified hop is a Cloudflare edge. */
 export function requestTransitedCloudflare(req: IpRequestLike): boolean {
-    return requestHopIps(req).some(isCloudflareIp);
+    if (req.socket?.remoteAddress && isCloudflareIp(req.socket.remoteAddress)) return true;
+    const forwarded = forwardedIps(req);
+    return forwarded.length > 0 && isCloudflareIp(forwarded[forwarded.length - 1]);
 }
 
 /**
  * Resolve the real client IP for a request.
  *
  * Honors `CF-Connecting-IP` when the request demonstrably came through
- * Cloudflare; otherwise falls back to the first `X-Forwarded-For` hop, then
- * `x-real-ip`, then `req.ip` / the socket peer. Returns null if nothing usable
- * is present.
+ * Cloudflare; otherwise uses the proxy-facing valid `X-Forwarded-For` hop,
+ * then `req.ip` / the socket peer. The right-most fallback is conservative:
+ * a platform proxy may group callers, but a direct-origin attacker cannot
+ * rotate a forged left-most value to evade an IP bucket.
  */
 export function clientIp(req: IpRequestLike): string | null {
     const cf = firstHeader(req, 'cf-connecting-ip');
@@ -218,12 +220,8 @@ export function clientIp(req: IpRequestLike): string | null {
         return normalizeIp(cf);
     }
 
-    const xff = firstHeader(req, 'x-forwarded-for');
-    const fromXff = xff?.split(',')[0]?.trim();
-    if (fromXff) return fromXff;
-
-    const real = firstHeader(req, 'x-real-ip');
-    if (real && real.trim()) return real.trim();
+    const forwarded = forwardedIps(req);
+    if (forwarded.length > 0) return normalizeIp(forwarded[forwarded.length - 1]);
 
     const fallback = req.ip || req.socket?.remoteAddress;
     return fallback ? fallback.trim() : null;

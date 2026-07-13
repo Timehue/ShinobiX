@@ -341,8 +341,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 next = { ...next, claimedServerMissions: [...claimedServerMissions, missionReceipt] };
             }
 
-            const updated: Record<string, unknown> = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
-            bumpSaveVersion(updated);
+            const updated = bumpSaveVersion<Record<string, unknown>>({
+                ...applyClaimedMissionState(record, missionType, missionId),
+                character: next,
+            });
             await kv.set(saveKey, mergePreservingImages(updated, record));
             if (progressReceiptKeyToClear) {
                 await kv.del(progressReceiptKeyToClear).catch(() => 0);

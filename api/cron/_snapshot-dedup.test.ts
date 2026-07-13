@@ -1,6 +1,13 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { newestSnapshotByPlayer } from './snapshot-saves.js';
+import { kv } from '../_storage.js';
+import {
+    isPlayerSnapshotSaveKey,
+    isSnapshotMarkerFresh,
+    newestSnapshotByPlayer,
+    runSnapshotSaves,
+    SNAPSHOT_SUCCESS_KEY,
+} from './snapshot-saves.js';
 
 // Guards the snapshot-dedup bucketing that replaced the per-player kv.keys() N+1.
 // The map must yield the SAME "newest snapshot ts per player" the old per-player
@@ -52,5 +59,125 @@ describe('newestSnapshotByPlayer — snapshot-dedup bucketing', () => {
             .reduce((a, b) => Math.max(a, b), 0);
         assert.equal(m.get('P'), oldNewestForP); // 40
         assert.equal(m.get('Q'), 99);
+    });
+});
+
+describe('snapshot success marker freshness', () => {
+    const now = Date.UTC(2026, 6, 10, 12);
+    const marker = (completedAt: number) => ({
+        completedAt,
+        snapshotted: 1,
+        skipped: 0,
+        total: 1,
+        elapsedMs: 10,
+    });
+
+    it('accepts a complete run inside the 26-hour recovery window', () => {
+        assert.equal(isSnapshotMarkerFresh(marker(now - 25 * 60 * 60 * 1000), now), true);
+    });
+
+    it('rejects stale, future, missing, and malformed markers', () => {
+        assert.equal(isSnapshotMarkerFresh(marker(now - 27 * 60 * 60 * 1000), now), false);
+        assert.equal(isSnapshotMarkerFresh(marker(now + 1), now), false);
+        assert.equal(isSnapshotMarkerFresh(null, now), false);
+        assert.equal(isSnapshotMarkerFresh(marker(Number.NaN), now), false);
+    });
+});
+
+describe('player snapshot key classification', () => {
+    it('accepts real players (including the protected admin player) and rejects probes/shared rows', () => {
+        assert.equal(isPlayerSnapshotSaveKey('save:alice'), true);
+        assert.equal(isPlayerSnapshotSaveKey('save:Aka Ito'), true);
+        assert.equal(isPlayerSnapshotSaveKey('save:Rill'), true);
+        assert.equal(isPlayerSnapshotSaveKey('save:rill'), true);
+        for (const key of ['save:Admin 1', 'save:admin201', 'save:clan-leaf', 'save:health-probe-123', 'save:', 'world:alice']) {
+            assert.equal(isPlayerSnapshotSaveKey(key), false, key);
+        }
+    });
+});
+
+describe('snapshot run health', () => {
+    it('does not publish a success marker when one valid save is mixed with a corrupt player row', async () => {
+        const originalKeys = kv.keys;
+        const originalGet = kv.get;
+        const originalSet = kv.set;
+        const records = new Map<string, unknown>([
+            ['save:valid-player', { character: { name: 'Valid Player', level: 10 } }],
+            ['save:broken-player', { notCharacter: true }],
+        ]);
+
+        kv.keys = async (pattern: string) => pattern === 'save:*'
+            ? ['save:valid-player', 'save:broken-player']
+            : [];
+        kv.get = async <T = unknown>(key: string) => (records.get(key) ?? null) as T | null;
+        kv.set = async (key: string, value: unknown) => {
+            records.set(key, value);
+            return 'OK' as const;
+        };
+
+        try {
+            const result = await runSnapshotSaves(5_000);
+            assert.equal(result.ok, false);
+            assert.equal(result.validPlayers, 1);
+            assert.equal(result.snapshotted, 1);
+            assert.deepEqual(result.failed, ['save:broken-player']);
+            assert.equal(records.has(SNAPSHOT_SUCCESS_KEY), false);
+        } finally {
+            kv.keys = originalKeys;
+            kv.get = originalGet;
+            kv.set = originalSet;
+        }
+    });
+
+    it('recovers an interrupted run without duplicating completed snapshots', async () => {
+        const originalKeys = kv.keys;
+        const originalGet = kv.get;
+        const originalSet = kv.set;
+        const originalNow = Date.now;
+        const records = new Map<string, unknown>();
+        for (let index = 1; index <= 9; index += 1) {
+            records.set(`save:recovery-${index}`, { character: { name: `Recovery ${index}`, level: index } });
+        }
+        let now = 1_800_000_000_000;
+        let snapshotWrites = 0;
+        Date.now = () => now;
+        kv.keys = async (pattern: string) => {
+            if (pattern === 'save:*') return [...records.keys()].filter((key) => key.startsWith('save:'));
+            if (pattern === 'save-snapshot:*') return [...records.keys()].filter((key) => key.startsWith('save-snapshot:'));
+            return [];
+        };
+        kv.get = async <T = unknown>(key: string) => (records.get(key) ?? null) as T | null;
+        kv.set = async (key: string, value: unknown) => {
+            records.set(key, value);
+            if (key.startsWith('save-snapshot:')) {
+                snapshotWrites += 1;
+                if (snapshotWrites === 8) now += 101;
+            }
+            return 'OK' as const;
+        };
+
+        try {
+            const interrupted = await runSnapshotSaves(100);
+            assert.equal(interrupted.ok, false);
+            assert.equal(interrupted.truncated, true);
+            assert.equal(interrupted.processed, 8);
+            assert.equal(interrupted.snapshotted, 8);
+            assert.equal(records.has(SNAPSHOT_SUCCESS_KEY), false);
+
+            now += 1_000;
+            const recovered = await runSnapshotSaves(5_000);
+            assert.equal(recovered.ok, true);
+            assert.equal(recovered.truncated, false);
+            assert.equal(recovered.processed, 9);
+            assert.equal(recovered.skipped, 8);
+            assert.equal(recovered.snapshotted, 1);
+            assert.equal(snapshotWrites, 9, 'retry must not rewrite the first completed batch');
+            assert.equal(records.has(SNAPSHOT_SUCCESS_KEY), true);
+        } finally {
+            Date.now = originalNow;
+            kv.keys = originalKeys;
+            kv.get = originalGet;
+            kv.set = originalSet;
+        }
     });
 });

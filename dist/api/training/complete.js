@@ -5,9 +5,12 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _lock_js_1 = require("../_lock.js");
 const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
 const _grant_js_1 = require("./_grant.js");
 const _legacy_js_1 = require("./_legacy.js");
+const _xp_engine_js_1 = require("../_xp-engine.js");
+const _session_js_1 = require("./_session.js");
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -40,34 +43,22 @@ async function handler(req, res) {
         if (!identity.admin && identity.name !== playerName)
             return res.status(403).json({ error: 'Can only complete your own training.' });
         const tokenKey = token ? `training-token:${playerName}:${token}` : '';
+        const saveKey = `save:${playerName}`;
         const now = Date.now();
-        const result = await (0, _mutate_player_save_js_1.mutatePlayerSave)(playerName, async ({ record, character }) => {
-            const redeemed = Array.isArray(character.redeemedTrainingTokens)
-                ? character.redeemedTrainingTokens.filter((v) => !!v && typeof v === 'object' && typeof v.token === 'string')
+        const result = await (0, _lock_js_1.withKvLock)(saveKey, async () => {
+            const record = await _storage_js_1.kv.get(saveKey);
+            const character = record?.character;
+            if (!record || !character)
+                return { ok: false, status: 404, error: 'Player save not found.' };
+            const receipts = Array.isArray(record._trainingReceipts)
+                ? record._trainingReceipts.filter((v) => typeof v === 'string')
                 : [];
             const legacyData = legacy ? (0, _legacy_js_1.parseLegacyTraining)(record.activeTraining) : null;
-            const priorLegacy = legacy && !record.activeTraining
-                ? [...redeemed].reverse().find((entry) => entry.token.startsWith('legacy'))
-                : undefined;
-            if (priorLegacy) {
-                return {
-                    ok: true,
-                    character,
-                    recordPatch: { activeTraining: null },
-                    value: { granted: true, alreadyGranted: true, ...priorLegacy },
-                };
-            }
             if (legacy && !legacyData)
                 return { ok: false, status: 409, error: 'No eligible legacy training session was found.' };
             const redemptionToken = legacyData?.token ?? token;
-            const prior = redeemed.find((entry) => entry.token === redemptionToken);
-            if (prior) {
-                return {
-                    ok: true,
-                    character,
-                    recordPatch: { activeTraining: null },
-                    value: { granted: true, alreadyGranted: true, ...prior },
-                };
+            if (receipts.includes(token)) {
+                return { ok: true, character, _saveVersion: Number(record._saveVersion ?? 0), value: { granted: true, alreadyGranted: true, token: redemptionToken } };
             }
             const data = legacyData ?? await _storage_js_1.kv.get(tokenKey);
             if (!data)
@@ -86,19 +77,23 @@ async function handler(req, res) {
                 gain = Math.floor(gain * fraction);
                 xp = Math.floor(xp * fraction);
             }
-            const grant = (0, _grant_js_1.applyTrainingGrant)(character, data.stat, gain, xp);
+            const leveled = (0, _xp_engine_js_1.gainXp)(character, xp);
+            const grant = (0, _grant_js_1.applyTrainingGrant)(leveled, data.stat, gain, 0);
             const redemption = { token: redemptionToken, stat: data.stat, gain, xp, applied: grant.applied, cap: grant.cap };
-            return {
-                ok: true,
-                character: { ...grant.character, redeemedTrainingTokens: [...redeemed.slice(-99), redemption] },
-                recordPatch: { activeTraining: null },
-                value: { granted: true, alreadyGranted: false, ...redemption },
-            };
-        });
+            const nextReceipts = [...receipts.filter((entry) => entry !== redemptionToken), redemptionToken].slice(-_session_js_1.MAX_TRAINING_RECEIPTS);
+            const nextCharacter = { ...grant.character, redeemedTrainingTokens: [redemption] };
+            const written = await (0, _mutate_player_save_js_1.writeVersionedPlayerSave)(saveKey, {
+                ...record,
+                _trainingReceipts: nextReceipts,
+                activeTraining: null,
+            }, nextCharacter);
+            return { ok: true, character: nextCharacter, _saveVersion: written._saveVersion, value: { granted: true, alreadyGranted: false, ...redemption } };
+        }, { failClosed: true });
         if (!result.ok)
             return res.status(result.status).json({ error: result.error });
         if (tokenKey)
-            await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
+            await _storage_js_1.kv.del(tokenKey).catch(() => console.error('active-session cleanup failed after durable receipt'));
+        await _storage_js_1.kv.del(`training-active:${playerName}`).catch(() => console.error('active-session cleanup failed after durable receipt'));
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     }
     catch (err) {

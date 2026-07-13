@@ -145,8 +145,8 @@ export function ClanSealPool({
     return (
         <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(250,204,21,0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(250,204,21,0.45)", marginTop: "0.75rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                <strong style={{ color: "#facc15" }}>🏅 Clan Honor Seal Pool</strong>
-                <span style={{ color: "#facc15", fontWeight: 600 }}>
+                <strong style={{ color: "var(--gold)" }}>🏅 Clan Honor Seal Pool</strong>
+                <span style={{ color: "var(--gold)", fontWeight: 600 }}>
                     {pool?.balance.toLocaleString() ?? "—"} Seals
                 </span>
             </div>
@@ -169,7 +169,7 @@ export function ClanSealPool({
                     <button
                         onClick={() => void donate()}
                         disabled={busy || donateAmount > remainingToday || donateAmount < 1}
-                        style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "#facc15" }}
+                        style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "var(--gold)" }}
                     >
                         {busy ? "…" : `Donate ${donateAmount} Seals`}
                     </button>
@@ -179,7 +179,7 @@ export function ClanSealPool({
                 </div>
             )}
             {!isVanguard && (
-                <p className="hint" style={{ margin: "0 0 8px", fontSize: "0.78rem", color: "#94a3b8" }}>
+                <p className="hint" style={{ margin: "0 0 8px", fontSize: "0.78rem", color: "var(--text-dim)" }}>
                     Only Vanguards can donate to the pool.
                 </p>
             )}
@@ -205,7 +205,7 @@ export function ClanSealPool({
                     <button
                         onClick={() => void distribute()}
                         disabled={busy || !recipient.trim() || distributeAmount < 1 || (pool?.balance ?? 0) < distributeAmount}
-                        style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "#facc15" }}
+                        style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "var(--gold)" }}
                     >
                         {busy ? "…" : "Give"}
                     </button>
@@ -225,7 +225,7 @@ export function ClanSealPool({
                             Active escorts: <strong style={{ color: "#84cc16" }}>{escorters.join(", ")}</strong>
                         </p>
                     ) : (
-                        <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.78rem", color: "#94a3b8" }}>
+                        <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.78rem", color: "var(--text-dim)" }}>
                             No active escort offers in your clan.
                         </p>
                     )}
@@ -246,7 +246,7 @@ export function ClanSealPool({
                 </div>
             )}
 
-            {msg && <p className="hint" style={{ margin: "8px 0 6px", color: msg.startsWith("✅") ? "#facc15" : "#f87171" }}>{msg}</p>}
+            {msg && <p className="hint" style={{ margin: "8px 0 6px", color: msg.startsWith("✅") ? "var(--gold)" : "var(--red-400)" }}>{msg}</p>}
 
             {pool && pool.log.length > 0 && (
                 <details>

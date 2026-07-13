@@ -25,6 +25,7 @@ exports.isTentativeAutoConfirmable = isTentativeAutoConfirmable;
 exports.applyFinalResult = applyFinalResult;
 exports.redactClanWarForViewer = redactClanWarForViewer;
 const _storage_js_1 = require("../../_storage.js");
+const _utils_js_1 = require("../../_utils.js");
 // ── Constants ───────────────────────────────────────────────────────
 exports.CLAN_WAR_HP_MAX = 1000;
 // Damage per challenge type on win. Tier: combat > pet battle > cards.
@@ -157,7 +158,7 @@ function computeMvpByClan(war) {
         }
         const top = [...tallies.entries()].sort(([, a], [, b]) => b.wins - a.wins || b.damage - a.damage)[0];
         if (top)
-            mvp[clan] = top[0];
+            (0, _utils_js_1.setSafeRecordValue)(mvp, clan, top[0]);
     }
     return mvp;
 }
@@ -233,7 +234,7 @@ function applyLazyClanWarExpiry(war, now = Date.now()) {
                 if (ch.status === 'pending') {
                     const defender = next.clans.find(c => c !== ch.fromClan);
                     if (defender) {
-                        updatedHp[defender] = Math.max(0, (updatedHp[defender] ?? 0) - exports.EXPIRY_PENALTY_HP);
+                        (0, _utils_js_1.setSafeRecordValue)(updatedHp, defender, Math.max(0, (updatedHp[defender] ?? 0) - exports.EXPIRY_PENALTY_HP));
                         appliedExpiryDamage = true;
                     }
                 }
@@ -304,7 +305,7 @@ function applyFinalResult(war, ch, result, now) {
     const loserClanName = winnerClanName ? war.clans.find(c => c !== winnerClanName) : undefined;
     const updatedHp = { ...war.hp };
     if (loserClanName && dmg > 0 && result !== 'draw') {
-        updatedHp[loserClanName] = Math.max(0, (war.hp[loserClanName] ?? 0) - dmg);
+        (0, _utils_js_1.setSafeRecordValue)(updatedHp, loserClanName, Math.max(0, (war.hp[loserClanName] ?? 0) - dmg));
     }
     const completed = {
         ...ch,

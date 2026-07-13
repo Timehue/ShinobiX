@@ -135,7 +135,27 @@ import { readFileSync } from "node:fs";
 // components/{BattleLogHistoryPanel,BattleActionBlock}.tsx, NOT here.
 // -> 8,398 (drained PetArenaBattlefield, HollowGateShrineView, default VN data,
 // village-leadership data, toast stacks, and stale migration breadcrumbs out of App.tsx).
-const MAX_LINES = 8_500;
+// -> 8,432 (story-rebuild foundation: drained storyToCreatorEvent + the story
+// auto-trigger selection/image-overlay logic → lib/story-trigger (net −43 vs the
+// pre-change count); the interlude wiring itself is +5: the completion report
+// call, the interlude guard on the milestone storyProgress advance, and the lib
+// import. Interlude DATA lives in data/story-interludes.ts, never here.)
+// -> 8,471 (+39 MANDATORY seam fixes from the story-rebuild adversarial audit,
+// all App-core wiring that cannot move to a module: the same-commit VN trigger
+// claim ref + session interlude-dismissal set (both effects + onCancel), the
+// interlude consumed-at-completion block in completeTriggeredEvent, the
+// flush-then-unlock at the two finale battle-win sites (reads App-local
+// pushSaveToServer/currentAccountName), and the explicit returnScreen param on
+// startTriggeredEventArenaBattle. Decision LOGIC stays in lib/story-trigger.)
+// → 8,451 (net −23 this session: +1 for the spar isFriendlyDuel hoist in
+// handlePvpWin, then −24 by extracting the global incoming-challenge banner into
+// components/IncomingChallengeModal.tsx — a centered, clickable, <body>-portaled
+// popup replacing the old un-clickable red-strobe banner. App keeps only the
+// ~13-line render wiring; the modal + its CSS live in their own module.)
+// → 8,441 (net −10: retired the VillageLoreScreen route + StarterPetSelect
+// overlay wiring in favor of the single IntroCinematic overlay mount — the
+// spirit-fox intro cinematic + companion gift live in features/intro-cinematic/.)
+const MAX_LINES = 8_446;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

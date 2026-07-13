@@ -95,8 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     dailyDonationDate: today,
                 },
             };
-            bumpSaveVersion(updatedRecord);
-            await kv.set(saveKey, mergePreservingImages(updatedRecord, record));
+            await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updatedRecord), record));
 
             // Credit the shared clan pool under the pool's OWN lock. The outer
             // lock above is the DONOR's `save:<name>` lock, which does NOT

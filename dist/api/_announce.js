@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.HALL_KEY = exports.ANNOUNCEMENTS_KEY = void 0;
 exports.announce = announce;
 exports.postVillageHerald = postVillageHerald;
+exports.validatedDiscordWebhookUrl = validatedDiscordWebhookUrl;
 exports.recentAnnouncements = recentAnnouncements;
 exports.addHallEntry = addHallEntry;
 exports.readHallEntries = readHallEntries;
@@ -127,8 +128,28 @@ async function postVillageHerald(villageName, title, message) {
 const DISCORD_EMBED_COLORS = {
     low: 0x9aa3b2, medium: 0x60a5fa, high: 0xf59e0b, mythic: 0xc084fc,
 };
+const DISCORD_WEBHOOK_HOSTS = new Set(['discord.com', 'www.discord.com', 'discordapp.com']);
+const DISCORD_WEBHOOK_PATH = /^\/api\/webhooks\/\d{10,30}\/[A-Za-z0-9._-]{20,200}$/;
+function validatedDiscordWebhookUrl(raw) {
+    let parsed;
+    try {
+        parsed = new URL(raw);
+    }
+    catch {
+        return null;
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    if (parsed.protocol !== 'https:' || !DISCORD_WEBHOOK_HOSTS.has(hostname))
+        return null;
+    if (parsed.port || parsed.username || parsed.password || parsed.search || parsed.hash)
+        return null;
+    if (!DISCORD_WEBHOOK_PATH.test(parsed.pathname))
+        return null;
+    return `https://${hostname}${parsed.pathname}`;
+}
 async function postDiscordWebhook(a) {
-    const url = process.env.DISCORD_ANNOUNCE_WEBHOOK_URL;
+    const configured = process.env.DISCORD_ANNOUNCE_WEBHOOK_URL;
+    const url = configured ? validatedDiscordWebhookUrl(configured) : null;
     if (!url)
         return;
     try {

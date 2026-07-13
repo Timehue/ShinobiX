@@ -1,12 +1,31 @@
+/*
+ * JourneyGuide — the village's top-left first-session panel. During the
+ * Academy tutorial it renders the starter COMPANION's guided-step checklist
+ * (the same 9 beats the OnboardingCoach speech bubble walks through), so the
+ * two never give competing instructions: the panel is the status roadmap, the
+ * bubble carries the current instruction + action button.
+ *
+ * The old objective-list Journey Guide (lib/journey-guide.ts buildJourneyGuide)
+ * only ever showed during the tutorial, so this replaces its render entirely;
+ * the lib builder stays as the tested spec for logbook/daily-briefing parity.
+ * After the tutorial ("done") the panel hides, as before.
+ */
 import { useState } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
-import { buildJourneyGuide } from "../lib/journey-guide";
+import { buildCompanionSteps } from "../lib/journey-guide";
+import { petPoseImage } from "../lib/pet-battle-anim";
 import { GameIcon } from "./icons/GameIcon";
 
 function readCollapsed(key: string): boolean {
     try {
-        return localStorage.getItem(key) === "1";
+        const stored = localStorage.getItem(key);
+        if (stored === "1") return true;
+        if (stored === "0") return false;
+        // No saved preference: default COLLAPSED on phones, where the coach
+        // speech bubble already carries the current step + action and the full
+        // roadmap would otherwise overlap it. Expanded by default on desktop.
+        return typeof window !== "undefined" && window.innerWidth <= 800;
     } catch {
         return false;
     }
@@ -14,8 +33,9 @@ function readCollapsed(key: string): boolean {
 
 function writeCollapsed(key: string, collapsed: boolean) {
     try {
-        if (collapsed) localStorage.setItem(key, "1");
-        else localStorage.removeItem(key);
+        // Store the explicit choice both ways so it sticks past the mobile
+        // default (an expand on mobile must not re-collapse on the next mount).
+        localStorage.setItem(key, collapsed ? "1" : "0");
     } catch {
         // Storage can be disabled; the guide still works for this session.
     }
@@ -23,34 +43,42 @@ function writeCollapsed(key: string, collapsed: boolean) {
 
 export function JourneyGuide({
     character,
-    setScreen,
 }: {
     character: Character;
     setScreen: (screen: Screen) => void;
 }) {
     const storageKey = `journeyGuideCollapsed:${character.name}`;
     const [collapsed, setCollapsedState] = useState(() => readCollapsed(storageKey));
-    const guide = buildJourneyGuide(character);
+    const steps = buildCompanionSteps(character);
 
-    if (!guide.shouldShow || !guide.primaryObjective) return null;
+    if (!steps) return null;
 
     const setCollapsed = (next: boolean) => {
         setCollapsedState(next);
         writeCollapsed(storageKey, next);
     };
-    const primary = guide.primaryObjective;
+    const guidePet = character.pets.find((p) => p.id === character.activePetId) ?? character.pets[0] ?? null;
+    const guideArt = guidePet ? petPoseImage(guidePet, {}) : "";
+    const doneCount = steps.filter((s) => s.state === "done").length;
+    const current = steps.find((s) => s.state === "now");
+
+    const petBadge = guideArt && (
+        <img
+            src={guideArt}
+            alt=""
+            style={{ width: 44, height: 44, objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.5))" }}
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+        />
+    );
 
     if (collapsed) {
         return (
-            <aside className="journey-guide journey-guide-collapsed" aria-label="Journey Guide">
+            <aside className="journey-guide journey-guide-collapsed" aria-label="Companion guidance">
                 <div>
-                    <strong><GameIcon name="target" size={15} /> Journey Guide</strong>
-                    <span>{primary.title}</span>
+                    <strong><GameIcon name="target" size={15} /> {guidePet?.name ?? "Academy Guide"}</strong>
+                    <span>{current?.title ?? "Academy Training"}</span>
                 </div>
-                <button type="button" onClick={() => setScreen(primary.screen)}>
-                    {primary.actionLabel}
-                </button>
-                <button type="button" className="journey-guide-icon-btn" onClick={() => setCollapsed(false)} aria-label="Show Journey Guide details">
+                <button type="button" className="journey-guide-icon-btn" onClick={() => setCollapsed(false)} aria-label="Show companion guidance details">
                     +
                 </button>
             </aside>
@@ -58,46 +86,42 @@ export function JourneyGuide({
     }
 
     return (
-        <aside className="journey-guide" aria-label="Journey Guide">
+        <aside className="journey-guide" aria-label="Companion guidance">
             <div className="journey-guide-header">
-                <div>
-                    <span className="journey-guide-kicker">First Steps</span>
-                    <h2>Journey Guide</h2>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {petBadge}
+                    <div>
+                        <span className="journey-guide-kicker">Your Companion's Guidance</span>
+                        <h2>{guidePet ? `${guidePet.name}'s Path` : "Academy Path"}</h2>
+                    </div>
                 </div>
-                <button type="button" className="journey-guide-icon-btn" onClick={() => setCollapsed(true)} aria-label="Collapse Journey Guide">
+                <button type="button" className="journey-guide-icon-btn" onClick={() => setCollapsed(true)} aria-label="Collapse companion guidance">
                     -
                 </button>
             </div>
             <p className="journey-guide-arrival">
-                Welcome to {character.village}. Train your body, take rookie missions, and earn your place in the village.
+                Welcome to {character.village}. {guidePet ? `${guidePet.name} will walk you through each step below.` : "Your guide will walk you through each step below."}
             </p>
-            <div className="journey-guide-progress" aria-label={`${guide.completedCount} of ${guide.totalCount} first steps complete`}>
-                <span>{guide.completedCount}/{guide.totalCount} complete</span>
+            <div className="journey-guide-progress" aria-label={`${doneCount} of ${steps.length} training steps complete`}>
+                <span>{doneCount}/{steps.length} complete</span>
                 <div>
-                    <i style={{ width: `${Math.round((guide.completedCount / guide.totalCount) * 100)}%` }} />
+                    <i style={{ width: `${Math.round((doneCount / steps.length) * 100)}%` }} />
                 </div>
             </div>
             <ol className="journey-guide-list">
-                {guide.objectives.map((objective) => (
-                    <li className={objective.complete ? "complete" : objective.id === primary.id ? "active" : ""} key={objective.id}>
-                        <span className="journey-guide-check" aria-hidden="true">{objective.complete ? "Done" : "Next"}</span>
+                {steps.map((step) => (
+                    <li className={step.state === "done" ? "complete" : step.state === "now" ? "active" : ""} key={step.id}>
+                        <span className="journey-guide-check" aria-hidden="true">
+                            {step.state === "done" ? "Done" : step.state === "now" ? "Now" : "Next"}
+                        </span>
                         <div>
-                            <strong>{objective.title}</strong>
-                            <small>{objective.detail}</small>
+                            <strong>{step.title}</strong>
                         </div>
-                        {!objective.complete && (
-                            <button type="button" onClick={() => setScreen(objective.screen)}>
-                                {objective.actionLabel}
-                            </button>
-                        )}
                     </li>
                 ))}
             </ol>
             <div className="journey-guide-footer">
-                <button type="button" className="start-primary-btn" onClick={() => setScreen(primary.screen)}>
-                    {primary.actionLabel}
-                </button>
-                <span>Rewards come from the existing mission, training, and Logbook claims.</span>
+                <span>Follow {guidePet?.name ?? "your guide"}&apos;s speech bubble below — it always points at the next step.</span>
             </div>
         </aside>
     );

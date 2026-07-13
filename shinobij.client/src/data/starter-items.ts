@@ -175,6 +175,11 @@ export const starterItems: GameItem[] = [
     { id: "hunt-ancient-beast-core", name: "Ancient Beast Core", slot: "item", rarity: "epic", cost: 0, description: "The crystallized chakra core of an ancient beast. Extremely rare crafting material.", bonuses: {} },
     { id: "hunt-titan-bone", name: "Titan Bone", slot: "item", rarity: "epic", cost: 0, description: "A massive bone fragment from the Worldstorm Dragon. Near-indestructible.", bonuses: {} },
     { id: "hunt-legendary-material", name: "Legendary Material", slot: "item", rarity: "legendary", cost: 0, description: "A rare drop from S-rank beasts. Worth 50 craft points in the Crafter. Required for max hunter rank.", bonuses: {} },
+    // -- Anbu Vault Infiltration war caches (anbuInfiltration.v1) ---------------
+    // Server-minted ONLY (raid settle; the save sanitizer blocks client mints).
+    // Ids KEEP IN SYNC with api/_anbu-infiltration.ts CACHE_ITEM_IDS.
+    { id: "war-supply-cache", name: "War Supply Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-supply-cache.webp", description: "War supplies skimmed from an enemy sector's vault. Turn in at your Clan Hall — 2 caches per clan point.", bonuses: {} },
+    { id: "war-resource-cache", name: "War Resource Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-resource-cache.webp", description: "War resources bled from an enemy village's war chest. Turn in at your Town Hall — 1 village merit each.", bonuses: {} },
     // -- Weapon forging materials ----------------------------------------------
     { id: "weekly-boss-core", name: "Weekly Boss Core", slot: "item", rarity: "legendary", cost: 0, description: "A time-gated core from the weekly boss. Used to forge epic and legendary weapons.", bonuses: {} },
     { id: "dungeon-key", name: "Dungeon Key", slot: "item", rarity: "rare", cost: 0, description: "A key that opens one Hidden Dungeon run. Drops from weekly bosses and war crates.", bonuses: {} },
@@ -184,6 +189,9 @@ export const starterItems: GameItem[] = [
     { id: "hollow-gate-key", name: "Hollow Gate Key", slot: "item", rarity: "rare", cost: 0, description: "A bone-pale key etched with Hollow Gate sigils. One-time use — consumed each time you enter the Hollow Gate Shrine. Your village Kage must also have purchased the Hollow Gate unlock. Crafted at the Crafter from 5 Dungeon Keys or 10 Fate Shards; granted on completing your village story.", bonuses: {} },
     { id: "warforged-relic", name: "Warforged Relic", slot: "item", rarity: "legendary", cost: 0, description: "A battle-marked relic from a war crate. Used to forge legendary weapons.", bonuses: {} },
     { id: "legendary-war-crate", name: "Legendary War Crate", slot: "item", rarity: "legendary", cost: 0, description: "A crate awarded for major clan or village war victories. Open it for a Warforged Relic and a chance at a Dungeon Key.", bonuses: {} },
+    // -- Elemental attunement (Shards → Core → weapon element) ------------------
+    { id: "elemental-shard", name: "Elemental Shard", slot: "item", rarity: "epic", cost: 0, image: "/item-elemental-shard.webp", description: "A jagged mote of crystallized elemental chakra shed by a Hollow Gate boss. Combine 10 at the Crafter to forge an Elemental Core.", bonuses: {} },
+    { id: "elemental-core", name: "Elemental Core", slot: "item", rarity: "legendary", cost: 0, image: "/item-elemental-core.webp", description: "A stable orb of pure elemental chakra forged from 10 Elemental Shards. Apply it to a legendary or mythic weapon to attune it to one of your awakened elements — an attuned weapon rides your bloodline's power on every strike.", bonuses: {} },
     // -- Throwable weapons -------------------------------------------------------
     {
         id: "thrown-shuriken",

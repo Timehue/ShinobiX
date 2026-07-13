@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { computeMapControlReward } from '../_map-control-reward.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { MERIT_MAP_CONTROL, meritNum } from './_village-merit.js';
 
 /*
  * /api/village/claim-map-control  — POST only
@@ -132,6 +133,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     honorSeals: num(char.honorSeals) + granted.honorSeals,
                     boneCharms: num(char.boneCharms) + granted.boneCharms,
                     fateShards: num(char.fateShards) + granted.fateShards,
+                    // Personal Village Merit toward a Kage challenge (server-owned;
+                    // once/day via the NX marker above). See _village-merit.ts.
+                    villageMerit: meritNum(char.villageMerit) + MERIT_MAP_CONTROL,
                 };
                 const next = bumpSaveVersion({ ...rec, character: nextChar });
                 await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));

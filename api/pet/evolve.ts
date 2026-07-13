@@ -81,8 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const updatedChar = { ...char, pets: nextPets, inventory: nextInventory };
             const updated = { ...record, character: updatedChar };
-            bumpSaveVersion(updated);
-            await kv.set(saveKey, mergePreservingImages(updated, record));
+            await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated), record));
             return { ok: true as const, pet: evolved, stage: check.nextStage };
         }, { failClosed: true });
 

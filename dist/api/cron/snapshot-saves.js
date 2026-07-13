@@ -1,6 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.SNAPSHOT_FRESHNESS_MS = exports.SNAPSHOT_SUCCESS_KEY = void 0;
 exports.newestSnapshotByPlayer = newestSnapshotByPlayer;
+exports.isSnapshotMarkerFresh = isSnapshotMarkerFresh;
+exports.readSnapshotSuccessMarker = readSnapshotSuccessMarker;
+exports.isPlayerSnapshotSaveKey = isPlayerSnapshotSaveKey;
 exports.runSnapshotSaves = runSnapshotSaves;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
@@ -36,7 +40,10 @@ const _auth_js_1 = require("../_auth.js");
  */
 const SAVE_PREFIX = 'save:';
 const SNAPSHOT_PREFIX = 'save-snapshot:';
+exports.SNAPSHOT_SUCCESS_KEY = 'backup:save-snapshots:last-success';
 const SNAPSHOT_TTL_SECONDS = 90 * 24 * 60 * 60;
+const SNAPSHOT_SUCCESS_TTL_SECONDS = 180 * 24 * 60 * 60;
+exports.SNAPSHOT_FRESHNESS_MS = 26 * 60 * 60 * 1000;
 const SKIP_IF_RECENT_MS = 20 * 60 * 60 * 1000; // 20h — covers cron retries
 const MAX_PARALLEL = 8; // throttle KV writes
 const MAX_RUNTIME_MS = 25_000; // leave 5s headroom on a 30s fn
@@ -72,6 +79,16 @@ function newestSnapshotByPlayer(snapshotKeys) {
     }
     return newest;
 }
+function isSnapshotMarkerFresh(marker, now = Date.now(), maxAgeMs = exports.SNAPSHOT_FRESHNESS_MS) {
+    const completedAt = Number(marker?.completedAt ?? 0);
+    return Number.isSafeInteger(completedAt)
+        && completedAt > 0
+        && now >= completedAt
+        && now - completedAt <= maxAgeMs;
+}
+async function readSnapshotSuccessMarker() {
+    return await _storage_js_1.kv.get(exports.SNAPSHOT_SUCCESS_KEY);
+}
 // Cron auth: a Bearer CRON_SECRET only. (The old `x-vercel-cron` header
 // shortcut was removed — Vercel is retired, and a merely-present request header
 // is trivially spoofable, so it amounted to unauthenticated trust.)
@@ -91,13 +108,14 @@ function isCronAuthorized(req) {
 async function runBatches(items, worker, deadline) {
     let snapshotted = 0;
     let skipped = 0;
+    let validPlayers = 0;
     const failed = [];
     let cursor = 0;
     while (cursor < items.length) {
         if (Date.now() > deadline)
             break;
         const slice = items.slice(cursor, cursor + MAX_PARALLEL);
-        cursor += MAX_PARALLEL;
+        cursor += slice.length;
         const results = await Promise.all(slice.map(async (it) => {
             try {
                 return await worker(it);
@@ -107,6 +125,8 @@ async function runBatches(items, worker, deadline) {
             }
         }));
         results.forEach((r, i) => {
+            if (r.validPlayer)
+                validPlayers += 1;
             if (r.ok)
                 snapshotted += 1;
             else if (r.skip)
@@ -121,7 +141,18 @@ async function runBatches(items, worker, deadline) {
         if (cursor < items.length)
             await new Promise((resolve) => setImmediate(resolve));
     }
-    return { snapshotted, skipped, failed, processed: cursor, total: items.length };
+    return { snapshotted, skipped, validPlayers, failed, processed: cursor, total: items.length };
+}
+/** True only for canonical individual-player save rows. */
+function isPlayerSnapshotSaveKey(key) {
+    if (!key.startsWith(SAVE_PREFIX))
+        return false;
+    const name = (0, _utils_js_1.safeName)(key.slice(SAVE_PREFIX.length));
+    if (!name)
+        return false;
+    // Admin/content records and shared clan blobs are backed up separately and
+    // must never be enough to refresh the player-backup health marker.
+    return !name.startsWith('health-probe-') && !name.startsWith('admin') && !name.startsWith('clan-');
 }
 /**
  * Core snapshot pass — extracted from the HTTP handler so the always-on
@@ -146,15 +177,13 @@ async function runSnapshotSaves(maxRuntimeMs = MAX_RUNTIME_MS) {
     // happen before this point, so the early return is side-effect free.
     if (saveKeys.length === 0) {
         console.error('[cron/snapshot-saves] ALARM: zero save:* rows found — KV overlay/proxy likely misconfigured (check KV_PROXY_URL / KV_PROXY_TOKEN). Snapshotted 0 players.');
-        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
+        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
     }
-    // Filter out admin saves — they don't represent player progress and bloat
-    // the snapshot table. Admin accounts (`save:Admin*`, `save:Rill`) store
-    // content authoring data which has its own backups.
-    const playerSaveKeys = saveKeys.filter(k => {
-        const name = k.slice(SAVE_PREFIX.length);
-        return !name.startsWith('Admin ') && name !== 'Rill';
-    });
+    const playerSaveKeys = saveKeys.filter(isPlayerSnapshotSaveKey);
+    if (playerSaveKeys.length === 0) {
+        console.error('[cron/snapshot-saves] ALARM: save:* rows exist but none are player saves — refusing to refresh backup health from admin/clan data only.');
+        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
+    }
     // Dedup source: ONE scan of all snapshot keys, bucketed to the newest ts per
     // player — replacing a per-player kv.keys() inside the loop (an N+1 of full
     // disk-overlay tree walks on cPanel). If this scan fails we fall back to NO
@@ -172,16 +201,20 @@ async function runSnapshotSaves(maxRuntimeMs = MAX_RUNTIME_MS) {
         // Dedup: skip if this player already has a snapshot within the last
         // SKIP_IF_RECENT_MS window. Also makes a double run (e.g. two schedulers)
         // a harmless no-op. Sourced from the single up-front scan above.
+        const live = await _storage_js_1.kv.get(saveKey);
+        if (!live || !live.character || typeof live.character !== 'object' || Array.isArray(live.character)) {
+            // A corrupt/malformed player row is a backup failure, not a normal
+            // dedup skip. Otherwise one healthy player could refresh the global
+            // success marker while any number of broken saves were omitted.
+            return { ok: false, validPlayer: false, err: 'missing or malformed character' };
+        }
         const newest = newestByPlayer.get(playerName) ?? 0;
         if (newest > 0 && Date.now() - newest < SKIP_IF_RECENT_MS) {
-            return { ok: false, skip: true };
+            return { ok: false, skip: true, validPlayer: true };
         }
-        const live = await _storage_js_1.kv.get(saveKey);
-        if (!live)
-            return { ok: false, skip: true };
         const ts = Date.now();
         await _storage_js_1.kv.set(snapshotKey(playerName, ts), live, { ex: SNAPSHOT_TTL_SECONDS });
-        return { ok: true };
+        return { ok: true, validPlayer: true };
     }, deadline);
     const elapsed = Date.now() - startedAt;
     const truncated = result.processed < result.total;
@@ -193,7 +226,36 @@ async function runSnapshotSaves(maxRuntimeMs = MAX_RUNTIME_MS) {
     if (writeOutage) {
         console.error(`[cron/snapshot-saves] ALARM: ${result.failed.length} snapshot writes failed and 0 succeeded — snapshot store may be down. Sample: ${result.failed.slice(0, 5).join(', ')}`);
     }
-    return { ok: !writeOutage, emptyKeyspace: false, writeOutage, ...result, elapsedMs: elapsed, truncated };
+    const complete = result.validPlayers > 0 && !writeOutage && !truncated && result.failed.length === 0;
+    let healthMarkerFailed = false;
+    let completedAt;
+    if (complete) {
+        completedAt = Date.now();
+        const marker = {
+            completedAt,
+            snapshotted: result.snapshotted,
+            skipped: result.skipped,
+            total: result.validPlayers,
+            elapsedMs: elapsed,
+        };
+        try {
+            await _storage_js_1.kv.set(exports.SNAPSHOT_SUCCESS_KEY, marker, { ex: SNAPSHOT_SUCCESS_TTL_SECONDS });
+        }
+        catch (err) {
+            healthMarkerFailed = true;
+            console.error(`[cron/snapshot-saves] ALARM: snapshots completed but the success marker could not be stored: ${err instanceof Error ? err.message : String(err)}`);
+        }
+    }
+    return {
+        ok: complete && !healthMarkerFailed,
+        emptyKeyspace: result.validPlayers === 0,
+        writeOutage,
+        ...result,
+        elapsedMs: elapsed,
+        truncated,
+        healthMarkerFailed,
+        completedAt,
+    };
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -218,7 +280,7 @@ async function handler(req, res) {
                 total: 0,
             });
         }
-        return res.status(r.writeOutage ? 500 : 200).json({
+        return res.status(r.ok ? 200 : 500).json({
             ok: r.ok,
             snapshotted: r.snapshotted,
             skipped: r.skipped,
@@ -227,6 +289,8 @@ async function handler(req, res) {
             total: r.total,
             elapsedMs: r.elapsedMs,
             truncated: r.truncated,
+            completedAt: r.completedAt,
+            healthMarkerFailed: r.healthMarkerFailed,
             warning: r.writeOutage
                 ? 'Every snapshot write failed — the snapshot store may be unavailable. No player was backed up this run.'
                 : undefined,

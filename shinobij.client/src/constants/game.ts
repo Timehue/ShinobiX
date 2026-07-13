@@ -155,6 +155,12 @@ export const VEIL_OF_THE_HOLLOW_ID = "veil-of-the-hollow";
 export const HOLLOW_GATE_KEY_ID = "hollow-gate-key";
 export const WARFORGED_RELIC_ID = "warforged-relic";
 export const LEGENDARY_WAR_CRATE_ID = "legendary-war-crate";
+// Elemental attunement: Shards drop from Hollow Gate bosses; 10 Shards forge one
+// Core at the Crafter; a Core is applied to a legendary/mythic weapon to attune it
+// to one of the wielder's awakened elements (see api/weapon/apply-elemental-core.ts).
+export const ELEMENTAL_SHARD_ID = "elemental-shard";
+export const ELEMENTAL_CORE_ID = "elemental-core";
+export const ELEMENTAL_SHARDS_PER_CORE = 10;
 export const WAR_CRATE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export const ADMIN_DELETED_ITEM_MARKER = "__ADMIN_DELETED_ITEM__";
 
@@ -169,20 +175,25 @@ export function isProtectedAdminName(name: string | undefined | null): boolean {
 }
 
 // ── Hollow gate shrine grid dimensions ───────────────────────────────────
-// Changing these mid-run would break saved layouts.
-// 15×11 = 165 cells gives enough room for the BSP generator to carve 5-7
-// distinct rooms of 3×3 to 4×5 connected by 1-tile corridors.
-export const HOLLOW_GATE_SHRINE_W = 15;
-export const HOLLOW_GATE_SHRINE_H = 11;
+// These size NEW floors only — a saved run carries its own width/height, so an
+// old 15×11 mid-run save keeps rendering and resuming unchanged.
+// 25×17 = 425 cells: real chambers (from 4×3 up to ~9×7) connected by
+// corridors, explored through a scrolling camera viewport (Zelda-DS-style
+// dungeon scale) instead of the old cramped single-screen board.
+export const HOLLOW_GATE_SHRINE_W = 25;
+export const HOLLOW_GATE_SHRINE_H = 17;
 
-// How deep a shrine run goes before the Warden (boss) floor. Admin-tunable at
-// runtime via setHollowGateMaxFloor (the AdminPanel). Lives here — not in App.tsx
-// — so ./lib/hollow-gate-dungeon can read it without importing App (which would
-// drag the whole module graph + index.css and make the generator untestable). An
-// imported binding can't be reassigned cross-module, so the setter lives here
-// beside the let; importers (App, AdminPanel, the dungeon generator) see the live
-// value.
-export let HOLLOW_GATE_MAX_FLOOR = 5;
+// How deep a shrine run goes before the Warden (boss) floor. The standard gate
+// is a full NINE-floor descent that gets progressively harder (enemies stiffen
+// with depth in features/hollowGate/encounter; content counts grow; the boss
+// waits on floor 9). Event gates override this per-run via HollowGateVariant.
+// Admin-tunable at runtime via setHollowGateMaxFloor (the AdminPanel). Lives
+// here — not in App.tsx — so ./lib/hollow-gate-dungeon can read it without
+// importing App (which would drag the whole module graph + index.css and make
+// the generator untestable). An imported binding can't be reassigned
+// cross-module, so the setter lives here beside the let; importers (App,
+// AdminPanel, the dungeon generator) see the live value.
+export let HOLLOW_GATE_MAX_FLOOR = 9;
 export function setHollowGateMaxFloor(v: number) { HOLLOW_GATE_MAX_FLOOR = v; }
 
 // Exam gates: players cannot level past these thresholds without passing the corresponding exam.

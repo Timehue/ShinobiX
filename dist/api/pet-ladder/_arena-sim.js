@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SCROLL_FIRST_SPAWN = exports.ARENA_Y = exports.ARENA_X = exports.WIN_SCORE = exports.MAX_SECONDS = exports.ARENA_TPS = void 0;
 exports.runPetArenaMatch = runPetArenaMatch;
+const _utils_js_1 = require("../_utils.js");
 const _fullmask_js_1 = require("./_fullmask.js");
 const _pet_gear_js_1 = require("./_pet-gear.js");
 exports.ARENA_TPS = 30;
@@ -690,7 +691,7 @@ function assignPeels(fs) {
                 }
             }
             if (pick) {
-                out[def.id] = pick.id;
+                (0, _utils_js_1.setSafeRecordValue)(out, def.id, pick.id);
                 taken.add(pick.id);
             }
         }
@@ -713,7 +714,7 @@ function assignPeels(fs) {
                     pick = a;
             }
             if (pick)
-                out[pick.id] = carrier.id;
+                (0, _utils_js_1.setSafeRecordValue)(out, pick.id, carrier.id);
         }
     }
     return out;

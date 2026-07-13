@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { stampPlayerIp } from '../_player-ips.js';
 import { recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from '../admin/moderation.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
 
 // Presence now lives in the in-memory online store (api/_realtime/online-store.ts)
@@ -113,6 +114,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         const pendingAttacker = stored.pendingAttacker ?? null;
         onlineStore.clearPendingAttacker(name);
+        // Throttled cross-worker presence beat (fallback for consumers like the
+        // Kage accept-obligation clock). See _realtime/_presence-beat.ts.
+        stampPresenceBeat(name);
 
         await Promise.all([
             pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),

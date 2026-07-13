@@ -1,0 +1,158 @@
+/* OnboardingCoach "talking companion" presentation — the tutorial guide is the
+   player's starter pet as a full-body 2.5D pose standee (the same transparent
+   coliseum cutout art) standing beside a speech bubble, instead of a flat menu
+   bar. The fixed-position wrapper keeps the .onboarding-coach-banner class so
+   index.css's mobile bottom-nav clearance override still applies. */
+
+.coach-guide {
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    pointer-events: none; /* only the bubble re-enables — pet + gaps click through */
+}
+
+.coach-guide-pet {
+    width: clamp(88px, 12vmin, 128px);
+    height: auto;
+    flex-shrink: 0;
+    /* Decorative standee — must NOT eat taps. On mobile it overlaps whatever
+       screen the tutorial sent you to; if it captured pointer events it would
+       block that screen's own controls (e.g. Start Training) sitting behind it. */
+    pointer-events: none;
+    filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.55));
+    animation: coach-pet-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both,
+               coach-pet-bob 3.2s ease-in-out 420ms infinite;
+    transform-origin: 50% 100%;
+    margin-right: -6px;
+    position: relative;
+    z-index: 1;
+}
+/* While the bubble line is typing, the standee "speaks" — a livelier wiggle. */
+.coach-guide-pet.is-talking {
+    animation: coach-pet-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both,
+               coach-pet-talk 460ms ease-in-out 420ms infinite;
+}
+@keyframes coach-pet-in {
+    from { opacity: 0; transform: translateY(14px) scale(0.7); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes coach-pet-bob {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-5px) scale(1.015); }
+}
+@keyframes coach-pet-talk {
+    0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+    30%      { transform: translateY(-3px) rotate(-1.6deg) scale(1.03, 0.98); }
+    70%      { transform: translateY(-1px) rotate(1.2deg) scale(0.99, 1.02); }
+}
+
+.coach-guide-bubble {
+    position: relative;
+    /* The bubble itself is click-through — only its buttons (below) re-enable
+       taps. On mobile the bubble overlaps the screen the tutorial sent you to;
+       if the whole bubble captured taps it would block that screen's own
+       controls sitting behind its text. */
+    pointer-events: none;
+    flex: 1 1 auto;
+    min-width: 0;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.97), rgba(7, 12, 23, 0.98));
+    border: 2px solid rgba(250, 204, 21, 0.6);
+    border-radius: 14px;
+    border-bottom-left-radius: 4px;
+    padding: 10px 14px 12px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(250, 204, 21, 0.08);
+    animation: coach-bubble-in 300ms ease-out 140ms both;
+}
+/* Speech-bubble tail pointing down-left at the standee. */
+.coach-guide-bubble::before {
+    content: "";
+    position: absolute;
+    left: -9px;
+    bottom: 14px;
+    width: 14px;
+    height: 14px;
+    background: rgba(10, 16, 30, 0.98);
+    border-left: 2px solid rgba(250, 204, 21, 0.6);
+    border-bottom: 2px solid rgba(250, 204, 21, 0.6);
+    transform: rotate(45deg);
+    border-bottom-left-radius: 3px;
+}
+@keyframes coach-bubble-in {
+    from { opacity: 0; transform: translateX(-8px) scale(0.96); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* Label + Skip share the top row; Skip is corner-anchored, far from the CTA. */
+.coach-guide-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 3px;
+}
+.coach-guide-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--gold);
+    font-weight: 800;
+    font-size: 10.5px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    line-height: 1.3;
+}
+.coach-skip-link {
+    flex-shrink: 0;
+    pointer-events: auto; /* re-enabled over the click-through bubble */
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    text-decoration: underline;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 6px;
+    margin: -3px -5px 0 0; /* hug the corner without shrinking the tap area */
+}
+.coach-skip-link:hover { color: var(--slate-200); }
+
+.coach-guide-line {
+    margin: 0;
+    color: #f1f5f9;
+    line-height: 1.45;
+    font-size: 14px;
+    /* Reserve ~2 lines so the bubble doesn't pump while the typewriter runs. */
+    min-height: 2.6em;
+}
+
+.coach-guide-actions {
+    pointer-events: auto; /* the primary button re-enables over the click-through bubble */
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.lite-fx .coach-guide-pet,
+.lite-fx .coach-guide-pet.is-talking {
+    animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    .coach-guide-pet,
+    .coach-guide-pet.is-talking,
+    .coach-guide-bubble {
+        animation: none;
+    }
+}
+
+/* Mobile: while the coaching banner is up (body class set by OnboardingCoach),
+   lift the scroll area's bottom padding clear of the banner (~205px tall at the
+   bottom) so a screen's OWN bottom-anchored controls scroll to rest ABOVE it —
+   e.g. Training's "Start {timer}" tiles, the first tutorial step. The banner is
+   click-through except its buttons, so this is about VISIBILITY, not just taps.
+   !important + the compound selector beat the base .center-game padding rules. */
+@media (max-width: 800px) {
+    body.coach-banner-open .center-game {
+        padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+}

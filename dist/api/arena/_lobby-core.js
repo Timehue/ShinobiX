@@ -42,9 +42,16 @@ const JOIN_ORDER = [
 ];
 /** Generate a join code from a byte source (handler passes crypto bytes). */
 function codeFromBytes(bytes) {
+    // The alphabet intentionally contains 32 symbols. A low-bit mask therefore
+    // maps each uniformly random byte without the modulo-bias pattern flagged by
+    // security scanners (256 is exactly divisible by 32).
+    if ((exports.CODE_ALPHABET.length & (exports.CODE_ALPHABET.length - 1)) !== 0) {
+        throw new Error('Join-code alphabet length must be a power of two.');
+    }
+    const mask = exports.CODE_ALPHABET.length - 1;
     let out = "";
     for (let i = 0; i < exports.CODE_LEN; i++)
-        out += exports.CODE_ALPHABET[bytes[i] % exports.CODE_ALPHABET.length];
+        out += exports.CODE_ALPHABET[bytes[i] & mask];
     return out;
 }
 function emptySlots() {

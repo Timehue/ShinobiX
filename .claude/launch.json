@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "client-dev",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set DEV_SERVER_PORT=%PORT%&& set VITE_SKIP_HTTPS=1&& npm run dev --prefix shinobij.client"],
+      "port": 5173,
+      "autoPort": true
+    }
+  ]
+}

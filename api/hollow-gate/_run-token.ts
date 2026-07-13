@@ -1,5 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
+// Release lock: current dungeon outcomes and discrete loot are still resolved
+// by the browser. Keep every server mutation endpoint closed until the server
+// owns the run events and settles the complete currency/item ledger.
+export const HOLLOW_GATE_RUNS_ENABLED = false;
+
+export function hollowGateRunsEnabled(): boolean {
+    return HOLLOW_GATE_RUNS_ENABLED;
+}
+
 /*
  * Hollow Gate — server-authoritative run token + augment layer (Tier 1).
  *

@@ -3,19 +3,23 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import type * as React from "react";
 import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT } from "./authFetch";
 import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAlert";
+import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
-import { ScreenContextHeader } from "./components/ScreenContextHeader";
+import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
-import { mutateEndlessRun } from "./lib/endless-api";
-import { claimBuiltinEventReward } from "./lib/event-claim-api";
+import { payEndlessEntry, endlessEntryCost } from "./lib/entry-fee";
 import { warnLocalSaveUnavailable } from "./lib/recovery";
 import { shouldShowScreenContextHeader } from "./lib/screen-context";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
+import { runSingleFlight } from "./lib/single-flight";
+import { requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
+import { preloadScreen } from "./lib/screen-preload";
+import { imageCategoriesForScreen } from "./lib/screen-image-categories";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
 import { presenceCharacter } from "./lib/presence-character";
@@ -33,6 +37,9 @@ import {
     getActiveAuraSphereBonuses,
 } from "./lib/aura-sphere";
 import {
+    applyCurrencyRewards,
+} from "./lib/currency";
+import {
     defaultVillageUpgrades,
     normalizeVillageUpgrades,
     discountCost,
@@ -45,11 +52,11 @@ import {
     addInventoryItems,
 } from "./lib/items";
 import { removeItem, countItem, ownsItem, normalizeInventory } from "./lib/inventory";
-import { mutateDungeonRunServer } from "./lib/dungeon-api";
 import { getAllTileCards, type TileCard } from "./data/tile-cards";
 import {
     scaleJutsuTagsForDisplay,
 } from "./lib/jutsu-scaling";
+import { useJutsuTrainingQueueRunner } from "./lib/jutsu-training-queue";
 import {
     jutsuEffectInfo,
     jutsuDisplayAtLevel,
@@ -68,6 +75,7 @@ import {
     endlessScaleFactor,
     endlessWaveReward,
     endlessTowerMilestoneReward,
+    applyTowerCashOut,
 } from "./lib/endless-tower";
 export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import {
@@ -89,7 +97,7 @@ import {
     dailyMissionsCompleted,
     dailyHuntsCompleted,
     rankTitleForLevel,
-    addStoryTrait,
+    applyStoryChoice, deriveStoryTraits,
 } from "./lib/character-progress";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
 import {
@@ -105,18 +113,18 @@ import {
 installAuthFetch();
 import shinobiBanner from './assets/shinobi-banner.webp'
 import backgroundImage from "./assets/background-image.webp";
-import academySparringPartnerImg from "./assets/academy/academy-sparring-partner.webp";
-import academyTrainingDummyImg from "./assets/academy/academy-training-dummy.webp";
+import { academyTrainingDummyImg, withAcademySparringPortrait } from "./lib/academy-ai-art";
+const ScreenContextHeader = lazyWithRetry(() => import("./components/ScreenContextHeader").then(m => ({ default: m.ScreenContextHeader })));
 const Inventory = lazyWithRetry(() => import("./screens/Inventory").then(m => ({ default: m.Inventory })));
 const Hospital = lazyWithRetry(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
 const VillageTavern = lazyWithRetry(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
 const AdminLogin = lazyWithRetry(() => import("./screens/AdminLogin").then(m => ({ default: m.AdminLogin })));
 const Cafeteria = lazyWithRetry(() => import("./screens/Cafeteria").then(m => ({ default: m.Cafeteria })));
-const VillageLoreScreen = lazyWithRetry(() => import("./screens/VillageLoreScreen").then(m => ({ default: m.VillageLoreScreen })));
 const HallOfLegends = lazyWithRetry(() => import("./screens/HallOfLegends").then(m => ({ default: m.HallOfLegends })));
 const ProfessionPicker = lazyWithRetry(() => import("./screens/ProfessionPicker").then(m => ({ default: m.ProfessionPicker })));
 const Professions = lazyWithRetry(() => import("./screens/Professions").then(m => ({ default: m.Professions })));
-const StarterPetSelect = lazyWithRetry(() => import("./screens/StarterPetSelect").then(m => ({ default: m.StarterPetSelect })));
+const loadIntroCinematic = () => import("./features/intro-cinematic/IntroCinematic").then(m => ({ default: m.IntroCinematic }));
+const IntroCinematic = lazyWithRetry(loadIntroCinematic);
 
 const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: m.Bank })));
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
@@ -132,11 +140,10 @@ const Logbook = lazyWithRetry(() => import("./screens/Logbook").then(m => ({ def
 const HunterBoard = lazyWithRetry(() => import("./screens/HunterBoard").then(m => ({ default: m.HunterBoard })));
 const Missions = lazyWithRetry(() => import("./screens/Missions").then(m => ({ default: m.Missions })));
 const StoryHall = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryHall })));
+const StoryBoss = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryBoss })));
 const TownHall = lazyWithRetry(() => import("./screens/TownHall").then(m => ({ default: m.TownHall })));
 const ClanHall = lazyWithRetry(() => import("./screens/ClanHall").then(m => ({ default: m.ClanHall })));
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, postBattleLock, endlessCtxKey, arenaStoryCtxKey, fetchBattleLockStatus, battleResumeStateExists, readEndlessContext, readArenaStoryContext, type ClientBattleLock } from "./lib/battle-save";
-import { purchaseBloodlineForge } from "./lib/bloodline-forge";
-import { chooseStarterPetServer } from "./lib/pet-acquisition-api";
 import { allProgressMissions, builtinHuntMissions, missionRaidProgressKey, missionRaidRequirement } from "./data/missions";
 import { postPlayerChallengeNotice } from "./lib/player-api";
 import { EXAM_LEVEL_GATES } from "./constants/game";
@@ -167,8 +174,9 @@ import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-
 import { mergePlayerRoster } from "./lib/roster-merge";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
-import { applyWarCrateGrants, claimPendingWarCrates, claimServerWarCrates, damageSectorTerritory, extendHollowGateUnlock, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
+import { applyWarCrateGrants, claimPendingWarCrates, claimServerWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
+import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { registerSectorBattle, resolveSectorBattle } from "./lib/village-war-map";
 import { masteryBonus } from "./lib/profession-mastery";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
@@ -209,6 +217,7 @@ import {
     type HollowGateTileKind,
     type HollowGateTile,
     type HollowGateShrineRun,
+    type HollowGateEventConfig,
     type EndlessTowerRun,
     type Character,
     type PlayerRecord,
@@ -256,12 +265,12 @@ import {
     AURA_SPHERE_ITEM_ID,
     DUNGEON_VN_ID,
     DUNGEON_KEY_ID,
+    DUNGEON_LEGENDARY_RELIC_ID,
     DUNGEON_LEGENDARY_FRAGMENT_ID,
     VEIL_OF_THE_HOLLOW_ID,
     HOLLOW_GATE_KEY_ID,
-    HOLLOW_GATE_MAX_FLOOR,
     WARFORGED_RELIC_ID,
-    LEGENDARY_WAR_CRATE_ID,
+    LEGENDARY_WAR_CRATE_ID, ELEMENTAL_SHARD_ID,
     PROTECTED_ADMIN_USERNAME,
     isProtectedAdminName,
 } from "./constants/game";
@@ -292,7 +301,8 @@ export {
 import {
 } from "./constants/hunter";
 
-import { type Achievement, ACHIEVEMENTS } from "./constants/achievements";
+import { type Achievement, ACHIEVEMENTS, achievementReward } from "./constants/achievements";
+import { nextEarnedTitles } from "./lib/earned-titles";
 
 export type { PetArenaFrame, PetBattleFighter, PetBattleRecord } from "./types/pet-arena";
 
@@ -315,7 +325,6 @@ import {
 export { armorReductionForQuality, consolidateItemBonuses };
 
 import {
-    clampNumber,
     currentMonthKey,
     currentDateKey,
     makeId,
@@ -324,7 +333,7 @@ import {
 
 import {
     effectiveCharacterXpGain,
-    applyServerBaseReward, type PvpWinBaseSummary,
+    rankedDelta, applyServerBaseReward, type PvpWinBaseSummary,
 } from "./lib/progression";
 
 const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
@@ -347,7 +356,8 @@ import { starterItems } from "./data/starter-items";
 import { rawPetPool } from "./data/pet-pool";
 import { STARTER_PETS } from "./data/starter-pets";
 import { STARTER_EVOLUTIONS } from "./data/pet-evolutions";
-import { storylines, villageBiomeMap, getCurrentStory } from "./data/storylines";
+import { villageBiomeMap } from "./data/storylines";
+import { nextStoryTrigger, overlayVnImages, reportStoryInterlude, interludeChosenTrait, selectStoryEpilogueEvent } from "./lib/story-trigger";
 import {
     awakeningLv2VnEvent,
     auraSphereLv9VnEvent,
@@ -359,6 +369,8 @@ import {
 import {
     petRarityOrder,
     petTrainingOptions,
+    petTreatItems,
+    stackableItemIds,
     petFeedXpForItem,
 } from "./data/pet-config";
 export { petTrainingOptions, petFeedXpForItem };
@@ -438,6 +450,7 @@ export type SharedPvpBattleContext = {
 // Equipment/armor-derived combat stats (armor factor, raw DR, item-bonus sum,
 // PvP loadout) + the active-pet trait helper extracted to ./lib/equipment-stats.
 import {
+    getActivePetTrait,
     getCharacterArmorFactor,
     getCharacterArmorRawDR,
     getEquippedItemBonus,
@@ -456,11 +469,7 @@ export type { CreatorEvent, StoryStep };
 // moved to ./types/missions and imported back near the top of this file.
 
 type PlayerAccountSave = {
-    // Legacy: plaintext password (no-token deployments only). Token-issuing
-    // servers store `token` instead and never persist this (audit M5).
-    password?: string;
-    // Per-account session token (24h). Present once the account has logged into
-    // a token-issuing server; supersedes `password`.
+    // Per-account session token (24h). Reusable passwords are never persisted.
     token?: string;
     snapshot?: {
         character: Character;
@@ -543,7 +552,10 @@ export type PendingArenaStoryBattle =
 
 // HOLLOW_GATE_SHRINE_W / H moved to ./constants/game.
 // Runtime-tunable from the admin panel.
-export let HOLLOW_GATE_THREAT_PER_STEP = 7;
+// THREAT_PER_STEP was 7 on the old 15×11 board (~20 steps to cross). The 25×17
+// board takes ~34 steps to cross, so 4/step keeps threat-per-floor-crossing
+// equivalent (34×4≈136 vs 20×7=140) — same ambush cadence, bigger dungeon.
+export let HOLLOW_GATE_THREAT_PER_STEP = 4;
 export let HOLLOW_GATE_THREAT_AMBUSH = 100;
 // HOLLOW_GATE_MAX_FLOOR moved to ./constants/game so ./lib/hollow-gate-dungeon
 // can read it without importing App (keeps the generator unit-testable).
@@ -569,12 +581,19 @@ import {
 // (a live, admin-tunable binding) so the generator stays App-free + testable.
 import {
     generateHollowGateShrineRun,
+    rollHollowGateAncientChest,
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
-import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
+import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop, elementalShardBossDrop } from "./lib/hollow-gate-run";
 import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun } from "./lib/hollow-gate-server";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
+import { markHollowGateSeen } from "./lib/hollow-gate-path";
+import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
+import { pickShrineEncounter, scaleAffixStats } from "./features/hollowGate/encounter";
+import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig, normalizeHollowGateEventConfig } from "./lib/hollow-gate-variant";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
+import { riftEventConfig, completeRiftRun } from "./lib/rift-run";
+import type { HollowRift } from "./data/hollow-rifts";
 import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
 export type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
 type PendingEventEncounter = {
@@ -631,8 +650,6 @@ function preloadBattleEntryAssets(biome: Biome, sector: number) {
     const urls = sector === 99 ? DEATHSGATE_ARENA_ART : ARENA_ART_BY_BIOME[biome];
     urls.forEach(preloadBattleArtUrl);
 }
-// villageLore lives in ./data/village-lore; screens/VillageLoreScreen imports
-// it directly from there.
 // specialties + jutsuElements live in ./data/jutsu (imported above for internal
 // use; JutsuDropdownList imports them directly from ./data/jutsu).
 // adminIconOptions moved to ./data/admin-icons; re-exported for existing importers.
@@ -650,6 +667,8 @@ export { adminIconOptions } from "./data/admin-icons";
 import {
     balanceBuiltInPetTemplate,
     registerPublishedPetTemplates, normalizePetTemplate, renormalizedIfChanged,
+    rollPetTrait,
+    applyPetTraitBonuses,
     collectPetTraining,
     gainPetXp,
     scaleEventPetOpponent,
@@ -770,6 +789,8 @@ function normalizeAdminCharacter(character: Character): Character {
         ...normalized,
         stats: maxedStats(),
         unspentStats: 0,
+        // Admins are name-gated out of every tutorial surface — never a live step.
+        onboardingStep: "done",
     };
 }
 
@@ -1060,7 +1081,7 @@ export function normalizeCharacter(parsed: Character): Character {
         maxStamina,
         rankTitle: parsed.rankTitle ?? rankFromLevel(level),
         storyTitle: parsed.storyTitle ?? "",
-        storyTraits: Array.isArray(parsed.storyTraits) ? parsed.storyTraits.filter(Boolean) : [],
+        storyTraits: deriveStoryTraits(Array.isArray(parsed.storyTraits) ? parsed.storyTraits.filter(Boolean) : []),
         inventory: parsed.inventory ?? [],
         equipment: parsed.equipment ?? {},
         stats,
@@ -1151,7 +1172,16 @@ function accountKey(name: string) {
 function loadPlayerAccounts(): PlayerAccounts {
     try {
         const raw = localStorage.getItem(PLAYER_ACCOUNTS_STORAGE);
-        return raw ? JSON.parse(raw) : {};
+        const accounts = (raw ? JSON.parse(raw) : {}) as Record<string, PlayerAccountSave & { password?: unknown }>;
+        let scrubbed = false;
+        for (const account of Object.values(accounts)) {
+            if (account && Object.prototype.hasOwnProperty.call(account, 'password')) {
+                delete account.password;
+                scrubbed = true;
+            }
+        }
+        if (scrubbed) localStorage.setItem(PLAYER_ACCOUNTS_STORAGE, JSON.stringify(accounts));
+        return accounts;
     } catch {
         return {};
     }
@@ -1291,8 +1321,8 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         stamina: maxStaminaForLevel(1),
         maxStamina: maxStaminaForLevel(1),
         rankTitle: "Academy Student",
-        // Begin onboarding at the Academy intro modal; "Begin Academy Training"
-        // hands off to the choose-your-companion overlay (StarterPetSelect).
+        // Begin onboarding inside the intro cinematic (the spirit-fox summons +
+        // companion gift); completing it advances straight to "training".
         onboardingStep: "academyIntro",
         stats: baseStats(),
         unspentStats: STARTING_STAT_POINTS,
@@ -1354,6 +1384,7 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
 function createAdminCharacter(adminName: AdminAccount = "Admin 1"): Character {
     return {
         ...createCharacter(adminName, "Stormveil Village", "Ninjutsu", "Admin Core"),
+        onboardingStep: "done", // admins skip the cinematic + Academy Path
         level: 100,
         xp: 0,
         ryo: 999999,
@@ -1416,38 +1447,8 @@ export function stringifyServerSavePayload(payload: unknown) {
     return JSON.stringify(payload, (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
 }
 
-export function storyToCreatorEvent(step: StoryStep, village: string, index: number): CreatorEvent {
-    const slug = village.toLowerCase().replace(/\W+/g, "-");
-    const pages = step.pages?.length ? step.pages : [{
-        title: step.cinematicTitle,
-        scene: step.scene,
-        speaker: "Narrator",
-        dialogue: step.dialogue,
-        choices: [],
-    }];
-    return {
-        id: `story-${slug}-${step.levelReq}-${index}`,
-        name: `${village}: ${step.title}`,
-        biome: step.biome ?? villageBiomeMap[village] ?? "central",
-        icon: step.bossIcon,
-        eventKind: "visualNovel",
-        trigger: "manual",
-        vnTitle: step.title,
-        vnScene: step.scene,
-        vnSpeaker: pages[0]?.speaker ?? "Narrator",
-        image: "",
-        aiProfileId: step.aiProfileId,
-        village,
-        kageFinale: step.kageFinale,
-        liberatorTitle: step.liberatorTitle,
-        vnPages: pages,
-        levelReq: step.levelReq,
-        xpReward: step.rewardXp,
-        ryoReward: step.rewardRyo,
-        staminaReward: 0,
-        dialogue: step.dialogue,
-    };
-}
+// storyToCreatorEvent drained to lib/story-trigger (re-exported for the AdminPanel import site).
+export { storyToCreatorEvent } from "./lib/story-trigger";
 
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
@@ -1571,8 +1572,8 @@ export default function App() {
     // bootKind is set first (before notifyScreen) so a refresh isn't misread as
     // a cold-start. notifyRestoreComplete only fires for an actual restore
     // (a previously-logged-in account was on disk).
-    useEffect(() => { perfSetBootKind(bootAccountName ? "refresh" : "cold-start"); }, []);
-    useEffect(() => { perfNotifyScreen(screen); }, [screen]);
+    useLayoutEffect(() => { perfSetBootKind(bootAccountName ? "refresh" : "cold-start"); }, []);
+    useLayoutEffect(() => { perfNotifyScreen(screen); }, [screen]);
     useEffect(() => { if (bootAccountName && !restoringSession) perfNotifyRestoreComplete(); }, [restoringSession]);
     // ── PvP session persistence ─────────────────────────────────────────
     // PvP keys are declared / used here, but the useEffect that consumes
@@ -1627,34 +1628,52 @@ export default function App() {
     // load (so existing players don't get a flood of toasts). After that, any
     // newly-eligible achievement fires a toast and is persisted.
     const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
-    const achievementSyncInFlightRef = useRef(false);
     useEffect(() => {
         if (!character) return;
         const eligibleIds = ACHIEVEMENTS.filter(a => a.check(character)).map(a => a.id);
         const prior = character.unlockedAchievements;
 
-        const initialized = Array.isArray(prior);
-        const priorSet = new Set(prior ?? []);
-        if (initialized && eligibleIds.every(id => priorSet.has(id))) return;
-        if (achievementSyncInFlightRef.current) return;
-        achievementSyncInFlightRef.current = true;
-        void fetch('/api/achievements/sync', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName: character.name }),
-        }).then(async (response) => {
-            const data = await response.json().catch(() => null) as {
-                character?: Character; _saveVersion?: number; newlyUnlocked?: string[];
-            } | null;
-            if (!response.ok || !data?.character) return;
-            if (typeof data._saveVersion === 'number') latestSaveVersionRef.current = data._saveVersion;
-            setCharacter(data.character);
-            if (initialized) {
-                const unlocked = (data.newlyUnlocked ?? [])
-                    .map(id => ACHIEVEMENTS.find(a => a.id === id))
-                    .filter((a): a is Achievement => !!a);
-                if (unlocked.length) setAchievementToasts(prev => [...prev, ...unlocked]);
-            }
-        }).catch(() => {}).finally(() => { achievementSyncInFlightRef.current = false; });
+        // Earned titles — union-sync with unlocked title achievements (lib/earned-titles).
+        const newTitles = nextEarnedTitles(character, eligibleIds);
+        if (newTitles) setCharacter(c => c ? { ...c, earnedTitles: newTitles } : c);
+        if (!prior) {
+            // First load — silent backfill, no toasts
+            const now = Date.now();
+            const stamps: Record<string, number> = {};
+            for (const id of eligibleIds) stamps[id] = now;
+            setCharacter(c => c ? { ...c, unlockedAchievements: eligibleIds, achievementUnlockedAt: stamps } : c);
+            return;
+        }
+
+        const priorSet = new Set(prior);
+        const newlyUnlocked = eligibleIds.filter(id => !priorSet.has(id));
+        if (newlyUnlocked.length === 0) return;
+
+        const now = Date.now();
+        const stamps = { ...(character.achievementUnlockedAt ?? {}) };
+        for (const id of newlyUnlocked) stamps[id] = now;
+        // One-time reward payout for each newly-unlocked achievement. Only fires
+        // here (the `prior`-exists branch), never on the first-load backfill
+        // above — so existing players don't get a retroactive windfall.
+        let rewardRyo = 0, rewardShards = 0;
+        for (const id of newlyUnlocked) {
+            const a = ACHIEVEMENTS.find(x => x.id === id);
+            if (!a) continue;
+            const r = achievementReward(a);
+            rewardRyo += r.ryo; rewardShards += r.fateShards;
+        }
+        setCharacter(c => c ? {
+            ...c,
+            unlockedAchievements: [...prior, ...newlyUnlocked],
+            achievementUnlockedAt: stamps,
+            ryo: c.ryo + rewardRyo,
+            fateShards: (c.fateShards ?? 0) + rewardShards,
+        } : c);
+
+        const unlocked = newlyUnlocked
+            .map(id => ACHIEVEMENTS.find(a => a.id === id))
+            .filter((a): a is Achievement => !!a);
+        setAchievementToasts(prev => [...prev, ...unlocked]);
     }, [character]);
 
     // Auto-dismiss toasts one at a time so a flood doesn't pile up forever.
@@ -1811,17 +1830,22 @@ export default function App() {
         });
     }, [editablePets]);
     useEffect(() => {
-        if (!tabVisible) return; // pause when tab hidden
+        if (!tabVisible || !character?.name || restoringSession) return;
         let alive = true;
+        let inFlight = false;
         async function refreshWorldState() {
+            if (inFlight) return;
+            inFlight = true;
             try {
-                const response = await fetch(WORLD_STATE_API, { cache: "no-cache" }); // no-cache: revalidate via the api/world-state.ts ETag, 304 on unchanged polls → no re-download. Freshness identical.
+                const response = await fetch(WORLD_STATE_API, { cache: "no-cache", signal: AbortSignal.timeout(12000) }); // no-cache: revalidate via the api/world-state.ts ETag, 304 on unchanged polls → no re-download. Freshness identical.
                 if (!response.ok) return;
                 const data = await response.json();
                 if (!alive) return;
                 if (hydrateSharedWorldState(data)) setWorldStateVersion(version => version + 1);
             } catch {
                 // Offline/dev fallback keeps the current in-memory world state until the API is available.
+            } finally {
+                inFlight = false;
             }
         }
         refreshWorldState(); // fetch fresh data on tab return
@@ -1830,21 +1854,26 @@ export default function App() {
             alive = false;
             clearInterval(id);
         };
-    }, [tabVisible]);
+    }, [character?.name, restoringSession, tabVisible]);
     useEffect(() => {
-        if (!tabVisible) return; // pause when tab hidden
+        if (!tabVisible || !character?.name || restoringSession) return;
         let alive = true;
+        let inFlight = false;
         async function refreshSharedGameState() {
+            if (inFlight) return;
+            inFlight = true;
             try {
                 const owner = characterRef.current?.name ?? currentAccountName;
                 setSharedGameStateOwnerName(owner); // seeds the POST (pendingClanPetBattle) owner; NOT sent as a GET query (would fragment the CDN cache key)
-                const response = await fetch(GAME_STATE_API, { cache: "no-cache" }); // no-cache (not no-store): browser revalidates via the api/game-state.ts ETag, gets 304 on unchanged frames → no re-download. Freshness identical.
+                const response = await fetch(GAME_STATE_API, { cache: "no-cache", signal: AbortSignal.timeout(12000) }); // no-cache (not no-store): browser revalidates via the api/game-state.ts ETag, gets 304 on unchanged frames → no re-download. Freshness identical.
                 if (!response.ok) return;
                 const data = await response.json();
                 if (!alive) return;
                 if (hydrateSharedGameState(data)) setSharedGameStateVersion(version => version + 1);
             } catch {
                 // Shared game state will refresh again on the next heartbeat-sized poll.
+            } finally {
+                inFlight = false;
             }
         }
         refreshSharedGameState(); // fetch fresh data on tab return
@@ -1853,14 +1882,14 @@ export default function App() {
             alive = false;
             clearInterval(id);
         };
-    }, [currentAccountName, character?.name, tabVisible]);
+    }, [currentAccountName, character?.name, restoringSession, tabVisible]);
     // Village leadership portraits are large base64 images that change rarely,
     // so they ride a separate slow poll (api/game-state.ts ?images=1) instead of
     // the 5s game-state frame — keeping the hot frame ~355KB lighter per poll.
     // Only logged-in players need them (Town Hall / admin), so this stays idle
     // pre-login. Bumps the shared version itself when the portraits actually change.
     useEffect(() => {
-        if (!tabVisible || !character?.name) return;
+        if (!tabVisible || !character?.name || restoringSession || (screen !== "townHall" && screen !== "adminPanel")) return;
         let alive = true;
         let lastSig = "";
         async function refreshLeadershipImages() {
@@ -1885,7 +1914,7 @@ export default function App() {
             alive = false;
             clearInterval(id);
         };
-    }, [character?.name, tabVisible]);
+    }, [character?.name, restoringSession, screen, tabVisible]);
     useEffect(() => {
         setEditablePets((currentPets) => {
             const mergedPets = mergeMissingBuiltInPets(currentPets);
@@ -2005,27 +2034,36 @@ export default function App() {
     const [hollowGateHiddenChamber, setHollowGateHiddenChamber] = useState<HiddenChamberState>(null);
     // Intro VN page index — null = not showing, 0..N = pages of the intro sequence.
     const [hollowGateIntroPage, setHollowGateIntroPage] = useState<number | null>(null);
+    // Shared event-gate config (admin-authored, distributed via the admin-save
+    // content channel like creator content; lib/hollow-gate-variant normalizes).
+    const [hollowGateEventConfig, setHollowGateEventConfig] = useState<HollowGateEventConfig | null>(null);
+    // Move side-effect queue. moveHollowGatePlayer's step effects (tile fire /
+    // logs / ambush) MUST NOT be read from a local `let` right after
+    // setHollowGateRun — React only runs the state updater eagerly when its
+    // queue is empty, so during click-to-walk (rapid steps + log churn) the
+    // updater runs late and the local reads stale, silently DROPPING the tile
+    // fire ("walked over a chest and nothing happened"). Instead each step
+    // pushes its effects here from inside the updater, and a macrotask drain
+    // (which runs after React has flushed every queued updater) processes them.
+    const hollowGateMoveFxRef = useRef<Array<{
+        wallBump: boolean;
+        blockMessage?: string;
+        committedTheme?: string;
+        torchSputtered: boolean;
+        justResolved: { tile: HollowGateTile; nx: number; ny: number; nextThreat: number } | null;
+        ambushImmediate: boolean;
+    }>>([]);
 
-    // Hollow Gate Shrine — WASD / Arrow keys move the player one tile.
-    // Only active while the shrine screen is open, no event/chamber modal is up,
-    // and focus is not in a text field.
-    useEffect(() => {
-        if (screen !== "hollowGateShrine") return;
-        function handleKey(e: KeyboardEvent) {
-            const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-            if (tag === "input" || tag === "textarea" || tag === "select") return;
-            const k = e.key.toLowerCase();
-            if (k === "w" || k === "arrowup") { e.preventDefault(); moveHollowGatePlayer(0, -1); return; }
-            if (k === "s" || k === "arrowdown") { e.preventDefault(); moveHollowGatePlayer(0, 1); return; }
-            if (k === "a" || k === "arrowleft") { e.preventDefault(); moveHollowGatePlayer(-1, 0); return; }
-            if (k === "d" || k === "arrowright") { e.preventDefault(); moveHollowGatePlayer(1, 0); return; }
-        }
-        window.addEventListener("keydown", handleKey);
-        return () => window.removeEventListener("keydown", handleKey);
-    // moveHollowGatePlayer reads current state via closure — re-bind when run / modal state changes
-    // so the closure always sees the freshest values.
-     
-    }, [screen, hollowGateRun, hollowGateEvent, hollowGateHiddenChamber]);
+    // Hollow Gate Shrine movement — click-to-walk (sector-style pathing) plus
+    // the WASD/arrow key handler, both owned by the walk hook. Every walked
+    // step goes through moveHollowGatePlayer, so costs/events are identical
+    // to manual movement.
+    const { walkTo: hollowGateWalkTo, walkTarget: hollowGateWalkTarget } = useHollowGateWalk({
+        active: screen === "hollowGateShrine",
+        run: hollowGateRun,
+        blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null,
+        moveStep: moveHollowGatePlayer,
+    });
 
     // Persist the in-progress shrine run to the character so it survives refresh:
     // mirror local hollowGateRun into character.hollowGateRun whenever it changes inside the shrine.
@@ -2401,6 +2439,8 @@ export default function App() {
     const [activeTriggeredEvent, setActiveTriggeredEvent] = useState<CreatorEvent | null>(null);
     const [activeTriggerReturnScreen, setActiveTriggerReturnScreen] = useState<Screen>("village");
     const [pendingArenaStoryBattle, setPendingArenaStoryBattle] = useState<PendingArenaStoryBattle | null>(null);
+    // Finale-lane capture + queued ending epilogue (lib/story-epilogue.ts). Lane is set when a kageFinale VN battle choice is picked; the queued VN pops when the player leaves the arena after the win.
+    const storyEpilogueRef = useRef<{ lane: string | null; queued: CreatorEvent | null }>({ lane: null, queued: null });
     const [triggerPage, setTriggerPage] = useState(0);
     const [triggerLine, setTriggerLine] = useState(0);
     const [activeDungeonEvent, setActiveDungeonEvent] = useState<CreatorEvent | null>(null);
@@ -2433,6 +2473,7 @@ export default function App() {
     // Lets the socket "kick" handler trigger an off-cycle heartbeat without the
     // heartbeat being in scope (it's redefined each effect run).
     const heartbeatRef = useRef<() => void>(() => {});
+    const heartbeatInFlightRef = useRef(false);
     // Throttles the per-beat roster ingest (see heartbeat) so the cross-device
     // player list isn't re-normalized + re-set on the hot 1s combat/explore beat.
     const lastRosterMergeAt = useRef(0);
@@ -2550,11 +2591,14 @@ export default function App() {
                 displayName: char.name,
                 tile: presenceBody.tile,
             });
+            if (heartbeatInFlightRef.current) return;
+            heartbeatInFlightRef.current = true;
             try {
                 const res = await fetch('/api/player/heartbeat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(presenceBody),
+                    signal: AbortSignal.timeout(12000),
                 });
                 if (!res.ok) return;
                 const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string } | null; forceReload?: boolean } = await res.json();
@@ -2565,16 +2609,16 @@ export default function App() {
                     // to player keys, not their own, so a signal on "admin1" should not
                     // disrupt the admin session. Just ack and continue.
                     if (adminLoggedIn) {
-                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST" });
+                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
                         return;
                     }
-                    const saveRes = await fetch(`/api/save/${encodeURIComponent(accountName)}`);
+                    const saveRes = await fetch(`/api/save/${encodeURIComponent(accountName)}`, { signal: AbortSignal.timeout(12000) });
                     if (saveRes.ok) {
                         const snap = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
                         // Apply full snapshot so all admin-given changes (pets, currencies,
                         // items, etc.) are reflected across the entire player state.
                         applyServerSnapshot(snap);
-                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST" });
+                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
                     } else {
                         // Save was deleted (account reset) — also clear localStorage so the
                         // stale level-100 snapshot can't be reloaded on the next login.
@@ -2587,7 +2631,7 @@ export default function App() {
                         setCharacter(null);
                         setCurrentAccountName("");
                         setScreen("start");
-                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST" });
+                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST", signal: AbortSignal.timeout(12000) });
                     }
                     return;
                 }
@@ -2640,6 +2684,8 @@ export default function App() {
                 }
             } catch {
                 // Server unavailable — silently skip
+            } finally {
+                heartbeatInFlightRef.current = false;
             }
         }
 
@@ -2751,19 +2797,16 @@ export default function App() {
             const ch2 = challenge.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id)
                 ?? challenge.challenger.pets.find(p => p.id !== ch1.id);
             if (ch1 && ch2) {
-                challengerParty = [ch1, ch2] as [Pet, Pet];
+                const selectedChallengerParty = [ch1, ch2] as [Pet, Pet];
+                challengerParty = selectedChallengerParty;
                 // Smart 2v2 picker: given the challenger's locked-in lead+reserve,
                 // pick MY lead+reserve to maximize summed matchup score (stat
                 // ratio × element edge × trait counter penalty). Falls back to
                 // top-2-by-level if the picker can't decide (shouldn't happen
                 // with 2+ available pets).
-                let smart: [Pet, Pet] | null = null;
-                try {
-                    const { pickBestPartyOrder } = await import("./lib/pet-battle-sim");
-                    smart = pickBestPartyOrder(myAvailable, challengerParty);
-                } catch {
-                    // Keep the null fallback selected above when the lazy helper fails.
-                }
+                const smart = await import("./lib/pet-battle-sim")
+                    .then(({ pickBestPartyOrder }) => pickBestPartyOrder(myAvailable, selectedChallengerParty))
+                    .catch((): [Pet, Pet] | null => null);
                 if (smart) {
                     myParty = smart;
                 } else {
@@ -3013,7 +3056,7 @@ export default function App() {
     // App-level accept for spar/ranked challenges — allows accepting from any screen,
     // not just when the player has already navigated to the Arena.
     async function acceptChallengeGlobal(challenge: DuelChallenge) {
-        if (!character) return;
+        if (!character || !requireServerSettlement("pvpSession")) return;
         if (processingChallengeIds.includes(challenge.id)) return;
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         const challenger = normalizeCharacter(challenge.challenger);
@@ -3413,18 +3456,12 @@ export default function App() {
                 }
                 setScreen(target);
             })();
-            // Re-hydrate images after KV restore — clears the loaded-cats guard so
-            // loadCategory fires again and overwrites the empty image strings that
-            // pushSaveToServer strips before sending to KV.
-            // Also clear sessionStorage image cache so we always get fresh KV data
-            // after login rather than serving stale cached images.
+            // Re-hydrate the visible screen after restore. Preserve the valid
+            // session manifest cache instead of forcing an eight-request reload.
             loadedCatsRef.current.clear();
-            clearImgCache();
             setTimeout(() => {
-                void loadCategory('item'); void loadCategory('pet');
-                void loadCategory('card'); void loadCategory('jutsu');
-                void loadCategory('event'); void loadCategory('avatar');
-                void loadCategory('ai'); void loadCategory('bloodline');
+                void loadCategory('avatar');
+                loadScreenImageCategories(screenRef.current);
             }, 0);
         }
 
@@ -3447,14 +3484,9 @@ export default function App() {
         // in authFetch now makes credentials available; setActivePlayer here syncs them
         // back into sessionStorage for the rest of this session).
         if (localAccountName) {
-            // getActivePlayer/Password already read from localStorage via the fallback,
-            // but we call setActivePlayer here to populate sessionStorage for the session.
-            const persistedPw = localStorage.getItem('shinobix:activePasswordPersist');
-            // Token-first (M5): when a session token is persisted (localStorage),
-            // auth rides on it and no password is stored — this call just re-syncs
-            // the name into sessionStorage. When no token exists (legacy / no-token
-            // server) the persisted password is restored as the credential.
-            setActivePlayer(localAccountName, persistedPw ?? undefined);
+            // Re-sync the non-secret name into sessionStorage. authFetch reads the
+            // persisted session token directly; no password fallback exists.
+            setActivePlayer(localAccountName);
 
             // ── Phase 1.3: optimistic instant-paint for HUB refreshes ──────────
             // If the URL hash says the player was on a deep-linkable HUB screen
@@ -3480,7 +3512,7 @@ export default function App() {
             let didOptimisticPaint = false;
             try {
                 const hubHash = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
-                const OPTIMISTIC_HUB_SCREENS = new Set<string>(["village", "villageLore", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
+                const OPTIMISTIC_HUB_SCREENS = new Set<string>(["village", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
                 if (OPTIMISTIC_HUB_SCREENS.has(hubHash)) {
                     const preview = readSavePreview(localAccountName);
                     if (preview && preview.character) {
@@ -3588,6 +3620,7 @@ export default function App() {
             petEncounterVn,
             ancientChestVn,
             editablePets,
+            hollowGateEventConfig,
             ...overrides,
         };
     }
@@ -3766,6 +3799,12 @@ export default function App() {
         if (snap.creatorItems) setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[]));
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
         if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn as CreatorEvent);
+        // Event-gate config: recency-merged like the other shared content so
+        // whichever admin edited it last wins across both admin slots.
+        if (snap.hollowGateEventConfig) {
+            const nextCfg = normalizeHollowGateEventConfig(snap.hollowGateEventConfig);
+            if (nextCfg) setHollowGateEventConfig(prev => (!prev || (nextCfg.updatedAt ?? 0) >= (prev.updatedAt ?? 0)) ? nextCfg : prev);
+        }
         // Publish admin-edited pet kits globally (normalizePet adopts authored templates).
         return snap.editablePets ? registerPublishedPetTemplates(snap.editablePets as Pet[]) : false;
     }
@@ -3780,21 +3819,9 @@ export default function App() {
         const petTemplatesChanged = available.map(applySharedAdminContentSnapshot).some(Boolean);
         // Re-normalize the live roster so loaded pets adopt freshly-pulled admin kits.
         if (petTemplatesChanged) setCharacter((prev) => prev ? { ...prev, pets: prev.pets.map(normalizePet) } : prev);
-        loadedCatsRef.current.delete('jutsu');
-        loadedCatsRef.current.delete('bloodline');
-        loadedCatsRef.current.delete('event');
-        loadedCatsRef.current.delete('ai');
-        loadedCatsRef.current.delete('item');
-        loadedCatsRef.current.delete('card');
-        clearImgCache();
-        setTimeout(() => {
-            void loadCategory('jutsu');
-            void loadCategory('bloodline');
-            void loadCategory('event');
-            void loadCategory('ai');
-            void loadCategory('item');
-            void loadCategory('card');
-        }, 0);
+        // Image manifests have their own short-lived cache and screen-specific
+        // loader. Pulling shared metadata must not invalidate every image bucket.
+        loadScreenImageCategories(screenRef.current);
     }
 
     function saveAccountProgress(characterToSave: Character, accountName = currentAccountName) {
@@ -3859,9 +3886,20 @@ export default function App() {
     }, [activeTriggeredEvent, character, screen, triggeredEvents]);
 
     // Auto-trigger level-gated creator VN events (eventKind === "visualNovel", no special trigger)
+    // The two VN auto-trigger effects below run in the same commit and would
+    // both fire on the same stale null activeTriggeredEvent (last writer wins,
+    // the first scene lost but marked seen). The ref is the same-commit claim;
+    // it clears when the active VN closes.
+    const vnTriggerClaimRef = useRef(false);
+    useEffect(() => { if (!activeTriggeredEvent) vnTriggerClaimRef.current = false; }, [activeTriggeredEvent]);
+    // Interlude scenes dismissed THIS SESSION (skipped / closed without a
+    // choice). Deliberately not persisted: a refresh re-offers the beat instead
+    // of permanently losing it and its finale reckoning gate.
+    const dismissedStoryScenesRef = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
         if (isBattleFlowScreen(screen)) return;
+        if (normalizeOnboardingStep(character.onboardingStep) !== "done") return; // never consume a VN beneath the cinematic/tutorial
         const candidate = creatorEvents.find(
             (ev) =>
                 ev.eventKind === "visualNovel" &&
@@ -3870,6 +3908,8 @@ export default function App() {
                 character.level >= ev.levelReq
         );
         if (!candidate) return;
+        if (vnTriggerClaimRef.current) return;
+        vnTriggerClaimRef.current = true;
         setTriggeredEvents((ids) => [...ids, candidate.id]);
         setActiveTriggeredEvent(candidate);
         setActiveTriggerReturnScreen(screen);
@@ -3877,46 +3917,32 @@ export default function App() {
         setTriggerLine(0);
     }, [activeTriggeredEvent, character, creatorEvents, screen, triggeredEvents]);
 
-    // Auto-trigger the multi-page story chapter VN when a player first reaches the required level.
-    // Uses TriggeredVisualNovel (full vnPages reader) instead of the flat StoryHall dialogue.
-    // Rewards are 0 here — XP/ryo come from beating the boss after the VN.
+    // Auto-trigger the next story beat — a milestone chapter VN (boss) or a
+    // VN-only interlude (road scene) — when the player qualifies. Selection and
+    // ordering live in lib/story-trigger. Rewards are 0 here: chapter XP/ryo come
+    // from beating the boss; interludes pay story only (traits + server record).
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
         // Don't interrupt battle flows — let the VN fire after the player returns.
         if (isBattleFlowScreen(screen)) return;
         // Gate the village story behind tutorial completion (skip sets "done").
         if (normalizeOnboardingStep(character.onboardingStep) !== "done") return;
-        const step = getCurrentStory(character);
-        if (!step || character.level < step.levelReq) return;
-        const village = character.storyVillage || character.village;
-        const storyLine = storylines[village] || [];
-        const index = storyLine.findIndex(s => s.levelReq === step.levelReq);
-        if (index < 0) return;
-        const eventId = `story-${village.toLowerCase().replace(/\W+/g, "-")}-${step.levelReq}-${index}`;
-        if (triggeredEvents.includes(eventId)) return;
-        // Prefer the admin-edited version from creatorEvents (contains uploaded images,
-        // custom dialogue, etc.) over the hardcoded storyToCreatorEvent fallback.
-        // Then overlay any KV-stored images that landed in sharedImages.
-        const edited = creatorEvents.find(e => e.id === eventId);
-        const base = edited ?? storyToCreatorEvent(step, village, index);
-        const vnEvent: CreatorEvent = {
-            ...base,
-            xpReward: 0,
-            ryoReward: 0,
-            ...(sharedImages['event:' + eventId + ':bg']     ? { image:       sharedImages['event:' + eventId + ':bg'] }     : {}),
-            ...(sharedImages['event:' + eventId + ':avatar'] ? { avatarImage: sharedImages['event:' + eventId + ':avatar'] } : {}),
-            ...(base.vnPages ? {
-                vnPages: base.vnPages.map((p, i) => ({
-                    ...p,
-                    ...(sharedImages[`vn:${eventId}:page:${i}`]       ? { image:      sharedImages[`vn:${eventId}:page:${i}`] }       : {}),
-                    ...(sharedImages[`vn:${eventId}:page:${i}:left`]  ? { leftImage:  sharedImages[`vn:${eventId}:page:${i}:left`] }  : {}),
-                    ...(sharedImages[`vn:${eventId}:page:${i}:right`] ? { rightImage: sharedImages[`vn:${eventId}:page:${i}:right`] } : {}),
-                }))
-            } : {}),
-        };
-        setTriggeredEvents(ids => [...ids, eventId]);
+        // Don't fire beneath the forced ProfessionPicker modal (level 13+, no
+        // profession) — it out-z-indexes the VN and traps input until picked.
+        if (character.level >= 13 && !character.profession) return;
+        const next = nextStoryTrigger(character, triggeredEvents, [...dismissedStoryScenesRef.current]);
+        if (!next) return;
+        if (vnTriggerClaimRef.current) return;
+        vnTriggerClaimRef.current = true;
+        // Prefer the admin-edited version from creatorEvents (uploaded images,
+        // custom dialogue, etc.), then overlay any KV-stored images.
+        const edited = creatorEvents.find(e => e.id === next.eventId);
+        const vnEvent = overlayVnImages({ ...(edited ?? next.base), xpReward: 0, ryoReward: 0 }, next.eventId, sharedImages);
+        // Interludes are consumed at COMPLETION (once a choice is made), not at
+        // fire time — a refresh mid-scene must re-offer the beat, not lose it.
+        if (!next.eventId.startsWith("story-interlude-")) setTriggeredEvents(ids => ids.includes(next.eventId) ? ids : [...ids, next.eventId]);
         setActiveTriggeredEvent(vnEvent);
-        setActiveTriggerReturnScreen("storyHall");
+        setActiveTriggerReturnScreen(next.returnScreen === "storyHall" ? "storyHall" : screen);
         setTriggerPage(0);
         setTriggerLine(0);
     }, [activeTriggeredEvent, character, creatorEvents, screen, sharedImages, triggeredEvents]);
@@ -3973,6 +3999,7 @@ export default function App() {
     // embedded image fields so all existing display code works without changes.
     // A ref prevents duplicate fetches even when called from multiple effects.
     const loadedCatsRef = useRef<Set<string>>(new Set());
+    const loadingCatsRef = useRef<Map<string, Promise<void>>>(new Map());
 
     // Applies fetched images into the relevant React state arrays.
     // Extracted so applySnapshot can call it after the KV restore to avoid
@@ -4197,8 +4224,12 @@ export default function App() {
     // Revert any single category by removing it here.
     const URL_MODE_CATEGORIES = new Set<string>(['event', 'card', 'item', 'jutsu', 'ai', 'shrine', 'landmark', 'avatar', 'pet', 'bloodline']);
 
-    async function loadCategory(cat: string) {
-        if (loadedCatsRef.current.has(cat)) return;
+    function loadCategory(cat: string): Promise<void> {
+        if (loadedCatsRef.current.has(cat)) return Promise.resolve();
+        return runSingleFlight(loadingCatsRef.current, cat, () => loadCategoryOnce(cat));
+    }
+
+    async function loadCategoryOnce(cat: string): Promise<void> {
         const urlMode = URL_MODE_CATEGORIES.has(cat);
         // Do NOT mark loaded yet — only mark after a successful fetch so that
         // transient failures (Supabase cold start, timeout) allow retry.
@@ -4268,23 +4299,14 @@ export default function App() {
         // Both attempts failed — leave loadedCatsRef unset so next screen visit retries
     }
 
-    // Preload ALL image categories so they're warm regardless of which screen
-    // the player visits first. GATED so the ~30MB of base64 buckets are NOT
-    // pulled on an anonymous cold landing: every pre-login surface
-    // (StartScreen, CharacterCreator, the public leaderboard, AdminLogin) renders
-    // NO sharedImages, so nothing visible depends on these before the player is
-    // entering the game. We preload as soon as EITHER a character exists (logged
-    // in / created / admin — admin login sets a character) OR a session restore
-    // is in flight (a logged-in refresh, in-game momentarily). Because
-    // restoringSession is already true at mount on a logged-in refresh, those
-    // players get the EXACT same eager-preload timing as before — only true cold
-    // landings (which never render these images) are spared the download. The
-    // per-screen loader below, plus the login / restore / admin reload paths,
-    // independently guarantee a screen never lacks an image it would otherwise
-    // show, so this gate can only DELAY the anonymous case, never drop a load.
+    // Warm only shell-critical avatar metadata at login/restore. Route-specific
+    // categories are requested by the map below when they can actually render.
     useEffect(() => {
         if (!character?.name && !restoringSession) return;
-        void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); void loadCategory('shrine'); void loadCategory('landmark');
+        // The shell needs only the player's avatar. Other tiny manifests load
+        // when their screen is selected, so they cannot contend with restore,
+        // the destination chunk, or the first playable paint.
+        void loadCategory('avatar');
     }, [character?.name, restoringSession]);
 
     // ── Avatar cache-fill for live players ────────────────────────────────
@@ -4353,23 +4375,14 @@ export default function App() {
     // retired when the torch-lit catacomb terrain set landed — it canvas-sliced
     // the brown-brick pack over those keys and clobbered the published door.
 
-    // Screen ? image categories map
-    useEffect(() => {
-        if (screen === 'worldMap')                              { void loadCategory('avatar'); void loadCategory('event'); }
-        else if (screen === 'pets' || screen === 'petArena')    { void loadCategory('pet'); }
-        else if (screen === 'jutsuTraining')                    { void loadCategory('jutsu'); }
-        else if (screen === 'shop' || screen === 'profile' || screen === 'inventory' || screen === 'adminPanel') {
-            void loadCategory('item');
-            void loadCategory('ai');
-            void loadCategory('bloodline');
-        }
-        else if (screen === 'shinobiTiles')                     { void loadCategory('card'); }
-        else if (screen === 'arena' || screen === 'battleArena'){ void loadCategory('avatar'); void loadCategory('jutsu'); void loadCategory('ai'); }
-        else if (screen === 'bloodlineMaker')                   { void loadCategory('bloodline'); void loadCategory('jutsu'); }
-        else if (screen === 'storyHall')                        { void loadCategory('event'); }
-        else if (screen === 'logbook')                          { void loadCategory('event'); void loadCategory('ai'); }
+    // Screen -> image categories map. These manifests do not block the screen;
+    // images fill progressively from browser/CDN-cached /api/img URLs.
+    function loadScreenImageCategories(activeScreen: Screen): void {
+        for (const category of imageCategoriesForScreen(activeScreen)) void loadCategory(category);
+    }
 
-    }, [screen]);
+    useEffect(() => { loadScreenImageCategories(screen); }, [screen]);
+    useEffect(() => { if (activeTriggeredEvent) void loadCategory('event'); }, [activeTriggeredEvent]);
 
     // The choose-your-companion overlay (onboardingStep === "starter") renders
     // starter portraits from sharedImages['pet:<id>'], but it's not a
@@ -4379,7 +4392,7 @@ export default function App() {
     // Idempotent — loadCategory's loadedCatsRef guard skips a re-fetch.
     useEffect(() => {
         // academyIntro preloads a beat early so portraits are ready at "Begin".
-        if (character?.onboardingStep === "starter" || character?.onboardingStep === "academyIntro") void loadCategory('pet');
+        if (character?.onboardingStep === "starter" || character?.onboardingStep === "academyIntro" || character?.onboardingStep === "companionIntro") void loadCategory('pet');
     }, [character?.onboardingStep]);
 
     // Keep a ref to the latest save payload so the interval always uses current data.
@@ -4504,6 +4517,10 @@ export default function App() {
         setActiveJutsuTraining(t);
         flushSaveRef.current = true;
     }, []);
+    // Global wiring: auto-promote a queued 2nd jutsu training (activeJutsuTraining.next)
+    // the instant the active one finishes — works on any screen. Logic in lib/jutsu-training-queue.
+    useJutsuTrainingQueueRunner(activeJutsuTraining, setActiveJutsuTrainingNow, setCharacter);
+
     useEffect(() => {
         if (!character || !currentAccountName) { latestSaveRef.current = null; return; }
         // Detect genuine local character changes (reference inequality = new React state).
@@ -4635,6 +4652,9 @@ export default function App() {
     }, []);
 
     async function createPlayerAccount(newCharacter: Character, password: string) {
+        // Registration gives us a useful network window to warm the cinematic
+        // that appears immediately after the first save succeeds.
+        void loadIntroCinematic().catch(() => {});
         const key = accountKey(newCharacter.name);
         let regToken: string | undefined;
         try {
@@ -4662,17 +4682,13 @@ export default function App() {
         }
 
         const accounts = loadPlayerAccounts();
-        // M5: on a token-issuing server, store the per-account token and DROP the
-        // plaintext password. Only persist the password when no token was issued
-        // (SESSION_SECRET unset), since then it's the only credential available.
-        accounts[key] = regToken
-            ? { ...(accounts[key] ?? {}), token: regToken, password: undefined }
-            : { ...(accounts[key] ?? {}), password };
+        if (!regToken) {
+            alert("The server did not issue a secure session token. Account creation is paused; contact an administrator.");
+            return;
+        }
+        accounts[key] = { ...(accounts[key] ?? {}), token: regToken };
         savePlayerAccounts(accounts);
-        // Pass the password so the global authFetch interceptor can attach
-        // x-player-name / x-player-password to every /api/ request from now on.
-        // (The token captured above is preferred; password is the fallback.)
-        setActivePlayer(newCharacter.name, password);
+        setActivePlayer(newCharacter.name);
 
         const characterToCreate = await import("./features/character-creator/starterAvatarPublish").then(({ publishStarterAvatarForCharacter }) => publishStarterAvatarForCharacter(newCharacter, (id, image) => setSharedImages(prev => ({ ...prev, [id]: image })))).catch((error) => { console.warn("[createPlayerAccount] starter avatar publish failed", error); return newCharacter; });
         setCurrentAccountName(characterToCreate.name); setCharacter(characterToCreate);
@@ -4684,7 +4700,9 @@ export default function App() {
         setTriggeredEvents([]);
         setPendingAiProfileId("");
         setCurrentSector(40);
-        setScreen("villageLore");
+        // Land directly on the village; the intro cinematic (gated on the fresh
+        // save's onboardingStep === "academyIntro") plays as an overlay above it.
+        setScreen("village");
         // Surface a failed FIRST save instead of swallowing it. A silent first-save
         // failure is the precondition for total character loss: the character lives
         // only in memory, and on the next refresh the login save-GET 404s and the
@@ -4751,23 +4769,15 @@ export default function App() {
         // Mirror the freshly-applied state to the localStorage preview cache
         // so the next login can paint instantly before the save round-trip.
         writeSavePreview(snap.character.name, snap);
-        // Re-hydrate images after login — server save strips base64 images to stay
-        // within payload limits. Clear the loaded-cats guard and sessionStorage cache
-        // so loadCategory re-fetches from KV and patches image fields back in.
+        // Re-hydrate the active screen after login while keeping valid manifests.
         loadedCatsRef.current.clear();
-        clearImgCache();
         setTimeout(() => {
-            void loadCategory('item'); void loadCategory('pet');
-            void loadCategory('card'); void loadCategory('jutsu');
-            void loadCategory('event'); void loadCategory('avatar');
-            void loadCategory('ai'); void loadCategory('bloodline');
+            void loadCategory('avatar');
+            loadScreenImageCategories(screenRef.current);
         }, 0);
     }
 
     async function loginPlayerAccount(name: string, password: string) {
-        const accounts = loadPlayerAccounts();
-        const account = accounts[accountKey(name)];
-
         async function loginFetch(input: RequestInfo | URL, init?: RequestInit, timeoutMs = 15000) {
             const controller = new AbortController();
             const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -4781,7 +4791,6 @@ export default function App() {
         // Always verify password against the server first — this is the authoritative check.
         // Local localStorage only provides a fast-path pre-check.
         let authOk = false;
-        let legacy = false;
         let authVerified = false;
         // Retry up to 2 times — handles Supabase cold starts (first call often slow)
         for (let attempt = 0; attempt < 2 && !authVerified; attempt++) {
@@ -4793,11 +4802,18 @@ export default function App() {
                     body: JSON.stringify({ action: 'verify', name: name.trim().toLowerCase(), password }),
                 }, 15000);
                 if (authRes.status === 503) continue; // storage unavailable — retry
+                const authData = await authRes.json().catch(() => ({})) as PlayerAuthResponse;
+                if (requiresLegacyAdminRecovery(authRes.status, authData)) {
+                    // A save without a server credential cannot be claimed from
+                    // localStorage. Only authenticated admin recovery may bind a
+                    // password to it, so never enter the offline/local fallback.
+                    alert("This legacy account does not yet have a server password. For your security, an administrator must verify ownership and reset the password before you can sign in.");
+                    return;
+                }
                 if (authRes.status === 403) {
                     // Account is banned. Show the ban detail and bail out — don't
                     // fall back to local cache, the server explicitly refused.
-                    const banData = await authRes.json().catch(() => ({})) as { ban?: { until: number; reason: string; permanent?: boolean } };
-                    const b = banData.ban;
+                    const b = authData.ban;
                     if (b) {
                         const when = b.permanent ? "permanently" : `until ${new Date(b.until).toLocaleString()}`;
                         alert(`⛔ Your account is banned ${when}.\n\nReason: ${b.reason || "(no reason given)"}`);
@@ -4807,9 +4823,7 @@ export default function App() {
                     return;
                 }
                 if (authRes.ok) {
-                    const authData = await authRes.json() as { ok: boolean; legacy?: boolean; token?: string };
-                    authOk = authData.ok;
-                    legacy = authData.legacy ?? false;
+                    authOk = authData.ok === true && typeof authData.token === 'string' && authData.token.length > 0;
                     authVerified = true;
                     // Store the session token so every later /api/ request uses
                     // the cheap HMAC path instead of re-running scrypt server-side.
@@ -4824,7 +4838,7 @@ export default function App() {
                         if (mk) {
                             const maccs = loadPlayerAccounts();
                             if (maccs[mk]) {
-                                maccs[mk] = { ...maccs[mk], token: authData.token, password: undefined };
+                                maccs[mk] = { ...maccs[mk], token: authData.token };
                                 savePlayerAccounts(maccs);
                             }
                         }
@@ -4834,17 +4848,12 @@ export default function App() {
                     authVerified = true;
                 }
             } catch {
-                // Network/timeout error — retry once, then fall back to local cache
+                // Network/timeout error — retry once, then require an online login.
             }
         }
         if (!authVerified) {
-            // Both attempts failed (network down / persistent timeout)
-            if (account?.password) {
-                authOk = account.password === password;
-            } else {
-                alert("Could not reach server to verify password. Check your connection and try again.");
-                return;
-            }
+            alert("Could not reach server to verify password. Check your connection and try again.");
+            return;
         }
 
         if (!authOk) {
@@ -4852,20 +4861,10 @@ export default function App() {
             return;
         }
 
-        // Legacy account verified (no server hash yet) AND we have local data proving
-        // this is the real owner — silently upgrade to server-side password now.
-        if (legacy && account && account.password === password) {
-            void fetch('/api/player-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'register', name: name.trim().toLowerCase(), password }),
-            });
-        }
-
         // Prime the authFetch interceptor *before* the save GET fires.
         // Without this, the interceptor has no credentials and the backend
         // returns 401, which the UI mistranslates as "no save found".
-        setActivePlayer(name, password);
+        setActivePlayer(name);
 
         // Instant-paint from localStorage while the save fetch is in flight.
         // The cached preview is written on every successful server save (both
@@ -4890,10 +4889,10 @@ export default function App() {
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
                 if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
-                // Explicit auth headers — belt-and-suspenders alongside the interceptor.
                 saveRes = await loginFetch(
                     `/api/save/${encodeURIComponent(name.toLowerCase())}`,
-                    { headers: { 'x-player-name': name, 'x-player-password': password } },
+                    // authFetch uses the minted token here.
+                    undefined,
                     20000,
                 );
                 if (saveRes.status !== 503) break; // 503 = storage unavailable, retry
@@ -4929,7 +4928,7 @@ export default function App() {
             setCurrentAccountName("");
             setScreen("start");
             alert(`No save data was found for "${name}". Your login lock has been cleared — please create a new character with the same name and password.`);
-        } else if (!account) {
+        } else {
             alert("No save found for that name. Check spelling or create a new character.");
         }
     }
@@ -4938,10 +4937,7 @@ export default function App() {
         if (!character) return;
         if (!(await gameConfirm(`Delete "${character.name}"? This permanently removes your character and all save data. This cannot be undone.`, { title: "Delete Character", confirmLabel: "Delete", danger: true }))) return;
         const accountName = currentAccountName || character.name;
-        const localAccounts = loadPlayerAccounts();
-        const localPw = localAccounts[accountKey(accountName)]?.password
-            ?? window.prompt("Enter your password to delete this character from the server.")?.trim()
-            ?? "";
+        const localPw = window.prompt("Enter your password to delete this character from the server.")?.trim() ?? "";
         if (!localPw) {
             alert("Password required to delete a server account.");
             return;
@@ -4961,8 +4957,7 @@ export default function App() {
         savePlayerAccounts(accounts);
         setCharacter(null);
         setCurrentAccountName("");
-        // Account deleted — also wipe the persisted password + session token
-        // (same credential-clear as logoutPlayer; the account no longer exists).
+        // Account deleted — also wipe the persisted session token.
         setActivePlayer(null);
         setActiveTraining(null);
         setActiveJutsuTraining(null);
@@ -5147,13 +5142,25 @@ export default function App() {
         return scaled.id;
     }
 
-    async function startEndlessBattle() {
+    function startEndlessBattle() {
         if (!character) return;
-        const result = await mutateEndlessRun(character.name, 'start');
-        if (!result.character || !result.run) return alert(result.error || 'The Endless Tower entry could not be verified.');
-        if (typeof result._saveVersion === 'number') latestSaveVersionRef.current = result._saveVersion;
-        const wave = result.run.wave;
-        setCharacter(result.character);
+        // Restore in-progress run, or start a new one at wave 1.
+        const existing = character.endlessTowerRun;
+        // Fresh-run entry fee (first Endless run each day is free; resuming is free).
+        let base = character;
+        if (!existing || existing.wave <= 0) {
+            const paid = payEndlessEntry(character);
+            if (!paid) return alert(`Entry costs ${endlessEntryCost(character).toLocaleString()} ryo — your first Endless run each day is free. Not enough ryo.`);
+            base = paid;
+        }
+        const wave = existing && existing.wave > 0 ? existing.wave : 1;
+        const run: EndlessTowerRun = existing ?? {
+            wave: 1,
+            bankedRyo: 0,
+            bankedXp: 0,
+            startedAt: Date.now(),
+        };
+        setCharacter({ ...base, endlessTowerRun: run });
         setEndlessBattleActive(true);
         setEndlessBattleWave(wave);
         setPendingAiProfileId(pickRandomEndlessAi(wave));
@@ -5161,44 +5168,86 @@ export default function App() {
         navigate("arena");
     }
 
-    async function handleEndlessWin(currentWave: number, aiFightToken: string, vitals: { hp: number; chakra: number; stamina: number }) {
-        if (!character?.endlessTowerRun?.runToken || !aiFightToken) return alert('The tower win could not be verified. Retry this wave.');
-        const result = await mutateEndlessRun(character.name, 'win', { runToken: character.endlessTowerRun.runToken, aiFightToken, wave: currentWave, ...vitals });
-        if (!result.character || !result.run) return alert(result.error || 'The tower win could not be committed.');
-        if (typeof result._saveVersion === 'number') latestSaveVersionRef.current = result._saveVersion;
-        setCharacter(result.character);
-        const notices: string[] = [];
-        if (result.milestone?.boneCharms) notices.push(`+${result.milestone.boneCharms} Bone Charms`);
-        if (result.milestone?.fateShards) notices.push(`+${result.milestone.fateShards} Fate Shards`);
-        if (currentWave % 10 === 0) notices.push('33% HP heal · 50% chakra & stamina refill');
-        if (notices.length) alert(`⭐ ${currentWave}-Kill Milestone! ${notices.join(' · ')}.`);
-        const next = result.run.wave;
+    function handleEndlessWin(currentWave: number) {
+        const reward = endlessWaveReward(currentWave, character?.level ?? 1);
+        // Kill-milestone payouts (bone charms / fate shards every 5 kills,
+        // 4-step cycle) and the per-10-kill heal/restore. Both are credited
+        // directly to the player's character — no banking, no death-loss.
+        const milestonePayout = endlessTowerMilestoneReward(currentWave);
+        const isHealMilestone = currentWave > 0 && currentWave % 10 === 0;
+        const milestoneNotices: string[] = [];
+        setCharacter((current) => {
+            if (!current) return current;
+            const nextWave = currentWave + 1;
+            const prevRun = current.endlessTowerRun ?? { wave: 1, bankedRyo: 0, bankedXp: 0, startedAt: Date.now(), highestMilestoneClaimed: 0 };
+            const alreadyClaimed = prevRun.highestMilestoneClaimed ?? 0;
+            // Only grant the 5-kill payout if this wave is a new milestone
+            // (guards against accidental re-fires from save reloads).
+            const milestoneIsNew = currentWave > 0 && currentWave % 5 === 0 && currentWave > alreadyClaimed;
+            const grantedBone = milestoneIsNew ? milestonePayout.boneCharms : 0;
+            const grantedFate = milestoneIsNew ? milestonePayout.fateShards : 0;
+            if (milestoneIsNew && grantedBone > 0) milestoneNotices.push(`+${grantedBone} Bone Charms`);
+            if (milestoneIsNew && grantedFate > 0) milestoneNotices.push(`+${grantedFate} Fate Shards`);
+            const updatedRun: EndlessTowerRun = {
+                ...prevRun,
+                wave: nextWave,
+                bankedRyo: prevRun.bankedRyo + reward.ryo,
+                bankedXp: prevRun.bankedXp + reward.xp,
+                highestMilestoneClaimed: milestoneIsNew ? currentWave : alreadyClaimed,
+            };
+            // 10-kill rest stop: top HP up by 33% and refill 50% of
+            // chakra/stamina. Stacks with the wave's regular HP carry —
+            // we just bump current vitals (capped at max).
+            const healHp = isHealMilestone ? Math.floor((current.maxHp ?? 0) * 0.33) : 0;
+            const refillChakra = isHealMilestone ? Math.floor((current.maxChakra ?? 0) * 0.5) : 0;
+            const refillStamina = isHealMilestone ? Math.floor((current.maxStamina ?? 0) * 0.5) : 0;
+            if (isHealMilestone) milestoneNotices.push("33% HP heal · 50% chakra & stamina refill");
+            return {
+                ...current,
+                totalEndlessTowerWins: (current.totalEndlessTowerWins ?? 0) + 1,
+                endlessTowerBestWave: Math.max(current.endlessTowerBestWave ?? 0, currentWave),
+                endlessTowerRun: updatedRun,
+                boneCharms: (current.boneCharms ?? 0) + grantedBone,
+                fateShards: (current.fateShards ?? 0) + grantedFate,
+                hp: Math.min(current.maxHp ?? 0, Math.max(0, (current.hp ?? 0) + healHp)),
+                chakra: Math.min(current.maxChakra ?? 0, Math.max(0, (current.chakra ?? 0) + refillChakra)),
+                stamina: Math.min(current.maxStamina ?? 0, Math.max(0, (current.stamina ?? 0) + refillStamina)),
+            };
+        });
+        if (milestoneNotices.length > 0) {
+            // Defer the alert so the state update commits first — otherwise
+            // the next render that React queues can flicker the pre-credit
+            // values into the milestone toast.
+            setTimeout(() => alert(`⭐ ${currentWave}-Kill Milestone! ${milestoneNotices.join(" · ")}.`), 30);
+        }
+        const next = currentWave + 1;
         setEndlessBattleWave(next);
         setPendingAiProfileId(pickRandomEndlessAi(next));
         setArenaKey(k => k + 1);
     }
 
     // Called when the player loses — banked rewards are lost on death.
-    async function endEndlessBattle() {
-        if (!character?.endlessTowerRun?.runToken) return;
-        const result = await mutateEndlessRun(character.name, 'abandon', { runToken: character.endlessTowerRun.runToken, death: true });
-        if (!result.character) return alert(result.error || 'The tower collapse could not be committed.');
-        if (typeof result._saveVersion === 'number') latestSaveVersionRef.current = result._saveVersion;
+    function endEndlessBattle() {
         setEndlessBattleActive(false);
         setEndlessBattleWave(0);
         setTemporaryStoryAi(null);
-        setCharacter(result.character);
+        setCharacter((current) => current ? { ...current, endlessTowerRun: null } : current);
     }
 
     // Retreat & bank: convert banked ryo/xp into actual progress, clear the run.
-    async function bankEndlessRewards() {
+    function bankEndlessRewards() {
         if (!character) return;
         const run = character.endlessTowerRun;
-        if (!run?.runToken) return alert('This legacy tower run cannot be paid safely. Start a new server-sealed run.');
-        const result = await mutateEndlessRun(character.name, 'cashout', { runToken: run.runToken });
-        if (!result.character) return alert(result.error || 'The tower cashout could not be committed.');
-        if (typeof result._saveVersion === 'number') latestSaveVersionRef.current = result._saveVersion;
-        setCharacter(result.character);
+        if (!run || (run.bankedRyo === 0 && run.bankedXp === 0)) {
+            setEndlessBattleActive(false);
+            setEndlessBattleWave(0);
+            setTemporaryStoryAi(null);
+            setCharacter({ ...character, endlessTowerRun: null });
+            return;
+        }
+        // Credit via gainXp + daily tower-XP soft cap (a raw xp+= would be clamped
+        // away by the new curve, and uncapped tower XP would bypass the level curve).
+        setCharacter(applyTowerCashOut(character, run, currentDateKey(), gainXp));
         setEndlessBattleActive(false);
         setEndlessBattleWave(0);
         setTemporaryStoryAi(null);
@@ -5372,18 +5421,44 @@ export default function App() {
         }
 
         if (nextScreen === "worldMap") setWorldMapKey((k) => k + 1);
+        perfNotifyScreen(nextScreen);
+        preloadScreen(nextScreen);
         setScreen(nextScreen);
     }
 
-    async function completeTriggeredEvent(event: CreatorEvent) {
-        if (character && event.id === AURA_SPHERE_VN_ID) {
-            const result = await claimBuiltinEventReward(character.name, event.id);
-            if (!result.character) return alert(result.error || 'The Aura Sphere grant could not be verified.');
-            if (typeof result._saveVersion === 'number') latestSaveVersionRef.current = result._saveVersion;
-            setCharacter(result.character);
-        } else if (event.xpReward || event.ryoReward || event.staminaReward || Object.values(event.currencyRewards ?? {}).some(Number)) {
-            alert('This creator event is narrative-only until its reward is published in the server catalog.');
+    function completeTriggeredEvent(event: CreatorEvent) {
+        if (character) {
+            // Interludes: a made choice consumes the beat (persisted) and reports
+            // to the server story record; closing without choosing only dismisses
+            // it for this session so a refresh re-offers the scene.
+            if (event.id.startsWith("story-interlude-")) {
+                if (interludeChosenTrait(character, event.id)) {
+                    void reportStoryInterlude(character, event.id);
+                    setTriggeredEvents(ids => ids.includes(event.id) ? ids : [...ids, event.id]);
+                } else {
+                    dismissedStoryScenesRef.current.add(event.id);
+                }
+            }
+            const leveled = gainXp(character, event.xpReward);
+            const isRewardEvent = event.eventKind !== "visualNovel";
+            const rewardInventory = event.id === AURA_SPHERE_VN_ID && !leveled.inventory.includes(AURA_SPHERE_ITEM_ID) && !Object.values(leveled.equipment).includes(AURA_SPHERE_ITEM_ID)
+                ? [...leveled.inventory, AURA_SPHERE_ITEM_ID]
+                : leveled.inventory;
+            const nextCharacter: Character = {
+                ...applyCurrencyRewards(leveled, event.currencyRewards),
+                ryo: leveled.ryo + event.ryoReward,
+                stamina: Math.min(leveled.maxStamina, leveled.stamina + event.staminaReward),
+                clanEventContrib: (leveled.clanEventContrib ?? 0) + (isRewardEvent ? 1 : 0),
+                clanContribMonth: new Date().toISOString().slice(0, 7),
+                inventory: rewardInventory,
+            };
+            // No kageFinale handling here: closing the finale VN without fighting
+            // must NOT unlock the Kage system or grant the title. The legitimate
+            // consequence path is the battle WIN in completePendingArenaStoryBattle
+            // (and StoryBoss.winBossFight for the legacy Hall screen).
+            setCharacter(nextCharacter);
         }
+
         setActiveTriggeredEvent(null);
         setScreen(activeTriggerReturnScreen);
     }
@@ -5392,15 +5467,16 @@ export default function App() {
         return creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent;
     }
 
-    async function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent) {
+    function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent) {
         if (!character) return;
         const event = dungeonOverride ?? dungeonEventTemplate();
         if (character.level < event.levelReq) return;
-        if (!ownsItem(character, DUNGEON_KEY_ID) && !character.activeDungeonRun?.token) return alert("You need a Dungeon Key to open this relic dungeon.");
-        try {
-            const started = await mutateDungeonRunServer(character.name, 'start');
-            setCharacter(started.character);
-        } catch (error) { return alert(error instanceof Error ? error.message : 'The dungeon seal could not be opened.'); }
+        // The explore-tile Hidden Dungeon (no override) is free to enter; only the
+        // Central Hub relic dungeons (passed as an override) stay gated behind a key.
+        if (dungeonOverride) {
+            if (!ownsItem(character, DUNGEON_KEY_ID)) return alert("You need a Dungeon Key to open this relic dungeon.");
+            setCharacter(removeItem(character, DUNGEON_KEY_ID, 1));
+        }
         setActiveDungeonEvent(event);
         setDungeonStage("intro");
         setDungeonPage(0);
@@ -5500,7 +5576,6 @@ export default function App() {
     }
 
     function leaveDungeon() {
-        if (character?.activeDungeonRun?.token) void mutateDungeonRunServer(character.name, 'abandon', character.activeDungeonRun.token).then((out) => setCharacter(out.character)).catch(() => undefined);
         setActiveDungeonEvent(null);
         setDungeonStage("intro");
         setDungeonPage(0);
@@ -5518,7 +5593,6 @@ export default function App() {
     // all dungeon state and routes them to their village.
     function failDungeon() {
         if (!character) return;
-        if (character.activeDungeonRun?.token) void mutateDungeonRunServer(character.name, 'abandon', character.activeDungeonRun.token).then((out) => setCharacter(out.character)).catch(() => undefined);
         setActiveDungeonEvent(null);
         setDungeonStage("intro");
         setDungeonPage(0);
@@ -5530,14 +5604,10 @@ export default function App() {
         setScreen("village");
     }
 
-    async function completeDungeon() {
+    function completeDungeon() {
         if (!character || !activeDungeonEvent) return;
-        const token = character.activeDungeonRun?.token;
-        if (!token) return alert('The dungeon run has no server seal. No reward was granted.');
-        let settled;
-        try { settled = await mutateDungeonRunServer(character.name, 'settle', token); }
-        catch (error) { return alert(error instanceof Error ? error.message : 'The dungeon reward could not be verified.'); }
-        setCharacter(settled.character);
+        const rewarded = addInventoryItems(applyCurrencyRewards(character, activeDungeonEvent.currencyRewards), [DUNGEON_LEGENDARY_RELIC_ID]);
+        setCharacter(rewarded);
         alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards, +1 Dungeon Legendary Relic.`);
         setActiveDungeonEvent(null);
         setDungeonStage("complete");
@@ -5656,7 +5726,10 @@ export default function App() {
 
     function startTriggeredEventArenaBattle(
         event: CreatorEvent,
-        battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]
+        battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"],
+        // Explicit return target for same-tick callers (WorldMap road events):
+        // reading activeTriggerReturnScreen here would see the stale pre-set value.
+        returnScreen?: Screen,
     ) {
         if (battle?.encounterType === "pet") {
             setPendingEventEncounter({ event, battle });
@@ -5701,7 +5774,7 @@ export default function App() {
         }
         setPendingPvpOpponent(null);
         setRaidBattleKind("none");
-        setPendingArenaStoryBattle({ kind: "triggeredEvent", event, battle, returnScreen: activeTriggerReturnScreen });
+        setPendingArenaStoryBattle({ kind: "triggeredEvent", event, battle, returnScreen: returnScreen ?? activeTriggerReturnScreen });
         setPendingAiProfileId(aiProfileId);
         setCurrentBiome(event.biome);
         setCurrentWeather(weatherForBiome(event.biome));
@@ -5710,24 +5783,33 @@ export default function App() {
         setScreen("arena");
     }
 
-    async function completePendingArenaStoryBattle(survivingHp: number, aiFightToken = "") {
+    async function completePendingArenaStoryBattle(survivingHp: number, aiFightToken?: string) {
         if (!pendingArenaStoryBattle || !character) return "Story battle complete.";
 
-        if (pendingArenaStoryBattle.kind === "storyBoss") {
-            const { step } = pendingArenaStoryBattle;
-            if (!aiFightToken) return `${step.bossName} defeated, but no server battle token was available. No story reward was granted.`;
+        if (pendingArenaStoryBattle.kind === "storyBoss" || pendingArenaStoryBattle.kind === "academySparring") {
+            if (!aiFightToken) throw new Error("The story battle token is missing. Retry the battle from the story screen.");
             const response = await fetch('/api/story/settle', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerName: character.name, aiFightToken, survivingHp }),
+                body: JSON.stringify({
+                    playerName: character.name,
+                    aiFightToken,
+                    survivingHp,
+                    kind: pendingArenaStoryBattle.kind,
+                }),
             });
-            const data = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number; xp?: number; ryo?: number; auraDust?: number; finale?: boolean } | null;
-            if (!response.ok || !data?.character) return data?.error || `${step.bossName} defeated, but the story reward was not committed.`;
-            if (typeof data._saveVersion === 'number') latestSaveVersionRef.current = data._saveVersion;
+            const data = await response.json().catch(() => ({})) as { character?: Character; error?: string; xp?: number; ryo?: number; auraDust?: number; finale?: boolean };
+            if (!response.ok || !data.character) throw new Error(data.error || "The story reward could not be verified.");
             setCharacter(data.character);
-            if (data.finale) unlockVillageKageSystem(character.village, character.name);
+            setTemporaryStoryAi(null);
             setPendingAiProfileId("");
-            return `${step.bossName} defeated. +${data.xp ?? step.rewardXp} XP, +${data.ryo ?? step.rewardRyo} ryo, +${data.auraDust ?? 12} Aura Dust${data.finale ? ", +1 Hollow Gate Key" : ""}. Story advanced.`;
+            if (data.finale) {
+                unlockVillageKageSystem(data.character.storyVillage || data.character.village, data.character.name);
+                storyEpilogueRef.current.queued = selectStoryEpilogueEvent(data.character, storyEpilogueRef.current.lane);
+            }
+            return pendingArenaStoryBattle.kind === "academySparring"
+                ? `Sparring match won! +${data.xp ?? 60} XP, +${data.ryo ?? 30} ryo.`
+                : `${(pendingArenaStoryBattle as Extract<PendingArenaStoryBattle, { kind: "storyBoss" }>).step.bossName} defeated. +${data.xp ?? 0} XP, +${data.ryo ?? 0} ryo, +${data.auraDust ?? 0} Aura Dust. Story advanced.`;
         }
 
         if (pendingArenaStoryBattle.kind === "dungeonAi") {
@@ -5736,22 +5818,6 @@ export default function App() {
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");
             return "Dungeon Warden defeated. The second seal opens: win the shinobi tile game to continue.";
-        }
-
-        if (pendingArenaStoryBattle.kind === "academySparring") {
-            if (!aiFightToken) return "The spar was won, but no server battle token was available. No onboarding reward was granted.";
-            const response = await fetch('/api/story/settle', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerName: character.name, aiFightToken, survivingHp, kind: 'academySparring' }),
-            });
-            const data = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number; xp?: number; ryo?: number } | null;
-            if (!response.ok || !data?.character) return data?.error || "The Academy spar reward was not committed.";
-            if (typeof data._saveVersion === 'number') latestSaveVersionRef.current = data._saveVersion;
-            setCharacter(data.character);
-            setTemporaryStoryAi(null);
-            setPendingAiProfileId("");
-            return `Sparring match won! You bested the Academy training dummy. +${data.xp ?? 60} XP, +${data.ryo ?? 30} ryo. You were clipped in the exchange; heal up at the Cafeteria.`;
         }
 
         if (pendingArenaStoryBattle.kind === "hollowGateShrine") {
@@ -5767,6 +5833,7 @@ export default function App() {
             const auraDustReward = Math.floor((isBoss ? 30 : isAmbush ? 10 : 5) * bossFloorMult);
             const honorReward = Math.floor((isBoss ? 25 : 0) * bossFloorMult);
             const bossShards = isBoss ? hollowShardDrop(runFloor, "boss") : 0;
+            const elementalShardDrop = isBoss ? elementalShardBossDrop(runFloor) : 0; // 0 or 1 (rolled once)
             const leveled = gainXp({ ...character, hp: survivingHp }, xpReward);
             // Boss drops a Dungeon Legendary Fragment + Hollow Shards; both boss
             // and non-boss wins restore some HP (boss is a roadblock, not a death).
@@ -5781,18 +5848,18 @@ export default function App() {
                 hp: Math.min(leveled.maxHp, survivingHp + (isBoss ? 60 : 20)),
             };
             if (isBoss) {
-                nextCharacter = addInventoryItems(nextCharacter, [DUNGEON_LEGENDARY_FRAGMENT_ID]);
-                nextCharacter = {
-                    ...nextCharacter,
-                    hollowGateWardenKills: (nextCharacter.hollowGateWardenKills ?? 0) + 1,
-                };
+                nextCharacter = addInventoryItems(nextCharacter, [DUNGEON_LEGENDARY_FRAGMENT_ID, ...Array(elementalShardDrop).fill(ELEMENTAL_SHARD_ID)]);
+                nextCharacter = { ...nextCharacter, hollowGateWardenKills: (nextCharacter.hollowGateWardenKills ?? 0) + 1 };
+                // RIFT final-floor clear: flush the bumped kill counter, then complete server-side.
+                const riftId = hollowGateRun?.variant?.id;
+                if (riftId?.startsWith("rift-") && hollowGateRun && hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) void pushSaveToServer(nextCharacter, currentAccountName || character.name).then(() => completeRiftRun(character.name, riftId, setCharacter, pushHollowGateLog)).catch(() => {});
             }
             setCharacter(nextCharacter);
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");
-            onHollowGateBattleWin(xpReward, isBoss ? 1 : 0);
+            onHollowGateBattleWin();
             return isBoss
-                ? `Hollow Gate Warden defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust, +${honorReward} Honor Seals, +${bossShards} Hollow Shards, +1 Dungeon Legendary Fragment.`
+                ? `${hollowGateBossDisplayName(hollowGateRun)} defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust, +${honorReward} Honor Seals, +${bossShards} Hollow Shards, +1 Dungeon Legendary Fragment${elementalShardDrop ? ", +1 Elemental Shard" : ""}.`
                 : `Corrupted shinobi defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust.`;
         }
 
@@ -5811,28 +5878,61 @@ export default function App() {
         const { event, battle } = pendingArenaStoryBattle;
         const xpReward = battle?.xpReward ?? event.xpReward;
         const ryoReward = battle?.ryoReward ?? event.ryoReward;
-        // Auto-triggered story chapters use the same server settlement as the
-        // Story Hall route. The opponent id sealed into aiFightToken must match
-        // the next canonical village milestone; claimed amounts are ignored.
-        if (event.id.startsWith("story-")) {
-            const bossName = battle?.bossName ?? event.name;
-            if (!aiFightToken) return `${bossName} defeated, but no server battle token was available. No story reward was granted.`;
-            const response = await fetch('/api/story/settle', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerName: character.name, aiFightToken, survivingHp }),
-            });
-            const data = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number; xp?: number; ryo?: number; auraDust?: number; finale?: boolean } | null;
-            if (!response.ok || !data?.character) return data?.error || `${bossName} defeated, but the story reward was not committed.`;
-            if (typeof data._saveVersion === 'number') latestSaveVersionRef.current = data._saveVersion;
-            setCharacter(data.character);
-            if (data.finale) unlockVillageKageSystem(character.village, character.name);
-            setPendingAiProfileId("");
-            return `${bossName} defeated. +${data.xp ?? xpReward} XP, +${data.ryo ?? ryoReward} ryo, +${data.auraDust ?? 12} Aura Dust${data.finale ? ", +1 Hollow Gate Key" : ""}. Story advanced.`;
+        const leveled = gainXp({ ...character, hp: survivingHp }, xpReward);
+        const isRewardEvent = event.eventKind !== "visualNovel";
+        const rewardInventory = event.id === AURA_SPHERE_VN_ID && !leveled.inventory.includes(AURA_SPHERE_ITEM_ID) && !Object.values(leveled.equipment).includes(AURA_SPHERE_ITEM_ID)
+            ? [...leveled.inventory, AURA_SPHERE_ITEM_ID]
+            : leveled.inventory;
+        let nextCharacter: Character = {
+            ...applyCurrencyRewards(leveled, event.currencyRewards),
+            ryo: leveled.ryo + ryoReward,
+            stamina: Math.min(leveled.maxStamina, leveled.stamina + event.staminaReward),
+            clanEventContrib: (leveled.clanEventContrib ?? 0) + (isRewardEvent ? 1 : 0),
+            clanBattleContrib: (leveled.clanBattleContrib ?? 0) + 1,
+            clanContribMonth: new Date().toISOString().slice(0, 7),
+            inventory: rewardInventory,
+        };
+        if (event.kageFinale && event.village === character.village) {
+            // Story finale grants a Hollow Gate Key — a personal shrine pass.
+            nextCharacter = addInventoryItems({
+                ...nextCharacter,
+                storyTitle: event.liberatorTitle ?? nextCharacter.storyTitle,
+                rankTitle: event.liberatorTitle ?? nextCharacter.rankTitle,
+            }, [HOLLOW_GATE_KEY_ID]);
         }
-        setCharacter({ ...character, hp: Math.min(character.hp, Math.max(0, survivingHp)) });
+        // Story chapter battles (triggered via auto-VN) must advance storyProgress just
+        // like kind:"storyBoss" does. The event id always starts with "story-" for these.
+        // Interludes ("story-interlude-*") and road events ("story-road-*") are story
+        // scenes: a battle launched from one must NOT advance the milestone index
+        // (that would skip a chapter).
+        const isStoryChapterBattle = event.id.startsWith("story-") && !event.id.startsWith("story-interlude-") && !event.id.startsWith("story-road-");
+        if (isStoryChapterBattle) {
+            nextCharacter = {
+                ...nextCharacter,
+                storyProgress: character.storyProgress + 1,
+                auraDust: (nextCharacter.auraDust ?? 0) + 12,
+                hp: Math.min(nextCharacter.maxHp, survivingHp + 25),
+                stamina: Math.min(nextCharacter.maxStamina, nextCharacter.stamina + 20),
+                chakra: Math.min(nextCharacter.maxChakra, nextCharacter.chakra + 20),
+            };
+        }
+        if (event.kageFinale && event.village === character.village) {
+            // Flush-then-unlock, AFTER storyProgress+1 is on nextCharacter: the
+            // kage gate reads the SAVED character, so unlocking before the save
+            // commits 403s and silently drops the liberator grant. (TownHall also
+            // retries the unlock as a self-heal.)
+            void pushSaveToServer(nextCharacter, currentAccountName || character.name)
+                .then(() => unlockVillageKageSystem(character.storyVillage || character.village, character.name))
+                .catch(() => undefined);
+            storyEpilogueRef.current.queued = selectStoryEpilogueEvent(nextCharacter, storyEpilogueRef.current.lane);
+        }
+        setCharacter(nextCharacter);
         setPendingAiProfileId("");
-        return `${battle?.bossName ?? event.name} defeated. This creator encounter is narrative-only until its reward is published in the server catalog.`;
+        const displayedXpReward = effectiveCharacterXpGain(character, xpReward);
+        const kageFinaleBonus = event.kageFinale && event.village === character.village ? ", +1 Hollow Gate Key" : "";
+        return isStoryChapterBattle
+            ? `${battle?.bossName ?? event.name} defeated. +${displayedXpReward} XP, +${ryoReward} ryo, +12 Aura Dust${kageFinaleBonus}. Story advanced.`
+            : `${battle?.bossName ?? event.name} defeated. +${displayedXpReward} XP, +${ryoReward} ryo${kageFinaleBonus}. Event reward claimed.`;
     }
 
     function continuePendingArenaStoryBattle() {
@@ -5859,6 +5959,8 @@ export default function App() {
                 return;
             }
         }
+        // A finale win queued an ending epilogue: show it now that the arena is done. Completing it lands on returnScreen (activeTriggerReturnScreen); it pays nothing and never re-fires.
+        if (storyEpilogueRef.current.queued) { setActiveTriggeredEvent(storyEpilogueRef.current.queued); setActiveTriggerReturnScreen(returnScreen); setTriggerPage(0); setTriggerLine(0); storyEpilogueRef.current = { lane: null, queued: null }; }
         setScreen(returnScreen);
     }
 
@@ -5873,8 +5975,13 @@ export default function App() {
         if (isPetOnExpedition(pet)) return false;
         return Boolean(pet.unlockedForPve);
     }
-    async function enterHollowGateShrine() {
+    async function enterHollowGateShrine(eventCfg?: HollowGateEventConfig) {
+        if (!requireServerSettlement("hollowGateRun")) return;
         if (!character) return;
+        // Event gates reshape the run (fewer floors / smaller board / bespoke
+        // boss) and may relax the entry gates; the standard shrine when absent.
+        const variant = eventCfg ? variantFromEventConfig(eventCfg) : undefined;
+        const gateName = eventCfg?.label || (eventCfg ? "Event Gate" : "Hollow Gate Shrine");
         // Restore an in-progress run, if any. Resuming a run is always free —
         // the key was already consumed when the run was started. The Character
         // normalizer resets daily counters at midnight UTC.
@@ -5893,20 +6000,23 @@ export default function App() {
 
         // Entry rules — BOTH conditions required to start a new run:
         //   (1) The Kage has purchased the Hollow Gate upgrade for this village.
-        //   (2) The player owns a Hollow Gate Key, which is consumed on entry.
+        //       (Event gates skip this unless the config demands it.)
+        //   (2) The player owns a Hollow Gate Key, consumed on entry (event
+        //       gates may set keyCost 0 = free entry).
         const village = loadVillageState(character.village);
-        if (!isHollowGateUnlocked(village)) {
+        if ((!eventCfg || eventCfg.requiresUnlock) && !isHollowGateUnlocked(village)) {
             alert("The Hollow Gate seal is still bound. Your village Kage must purchase the Hollow Gate upgrade from the Town Hall before anyone can enter.");
             return;
         }
+        const keyCost = eventCfg ? (eventCfg.keyCost ?? 1) : 1;
         const ownedKeys = countItem(character, HOLLOW_GATE_KEY_ID);
-        if (ownedKeys <= 0) {
-            alert("You need a Hollow Gate Key to enter the shrine. Forge one at the Crafter (5 Dungeon Keys or 10 Fate Shards), or complete your village story.");
+        if (keyCost > 0 && ownedKeys <= 0) {
+            alert("You need a Hollow Gate Key to enter the shrine. Forge one from Hollow Shards in Shrine Attunement (Key Forge), pry one from shrine chests, or complete your village story.");
             return;
         }
         // Daily run cap — hard-capped at 2 regardless of key inventory. The
         // shrine itself refuses to open more than twice between dawns.
-        // Counter is reset when lastDailyReset != today.
+        // Counter is reset when lastDailyReset != today. Event runs share it.
         const todayKey = currentDateKey();
         const runsToday = character.lastDailyReset === todayKey ? (character.dailyHollowGateRuns ?? 0) : 0;
         const DAILY_HOLLOW_GATE_CAP = 2 + attunementDailyBonus(character);
@@ -5914,34 +6024,35 @@ export default function App() {
             alert(`The Hollow Gate Shrine refuses to open again today. You've already entered ${runsToday}/${DAILY_HOLLOW_GATE_CAP} times. Return at dawn.`);
             return;
         }
-        const ok = await gameConfirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`, { title: "Hollow Gate", confirmLabel: "Enter" });
+        const floorsLine = eventCfg ? `\nEvent gate: ${hollowGateRunMaxFloor({ variant })} floor${hollowGateRunMaxFloor({ variant }) === 1 ? "" : "s"}, final boss: ${hollowGateBossDisplayName({ variant })}.` : "";
+        const keyLine = keyCost > 0 ? `This consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.` : "Entry is free for this event.";
+        const ok = await gameConfirm(`Enter the ${gateName}?\n${floorsLine}\n${keyLine}\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`, { title: gateName, confirmLabel: "Enter" });
         if (!ok) return;
 
         // Server daily-cap HARD-block (audit #7): with the server-auth flag on, ask the
-        // server BEFORE spending the Key. A daily-cap response or an unreachable
-        // seal blocks entry; release gameplay has no token-less fallback.
+        // server BEFORE spending the Key — a 'daily-cap' reply (e.g. a backdated reset
+        // that beat the client gate) blocks the dive. Unreachable / SESSION unset → null
+        // → token-less fallback (the dive opens client-authoritative, as today).
         let serverStart: Awaited<ReturnType<typeof startHollowGateServerRun>> = null;
         if (hollowGateServerEnabled()) {
-            serverStart = await startHollowGateServerRun(character.name, HOLLOW_GATE_MAX_FLOOR);
+            // The settle ceiling scales with floorDepth — a short event gate
+            // declares its OWN depth so its ceiling matches the shorter run.
+            serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }));
             if (serverStart?.reason === "daily-cap") {
                 alert("The Hollow Gate has already taken its measure of you today. Return at dawn.");
                 return;
             }
-            if (!serverStart?.token) {
-                alert("The Hollow Gate seal could not be verified. Reconnect before entering; your Key was not consumed.");
-                return;
-            }
-            if (typeof serverStart._saveVersion === 'number') latestSaveVersionRef.current = serverStart._saveVersion;
         }
 
-        // The start endpoint atomically consumed exactly one Key. The local
-        // fallback is unreachable in browser gameplay and exists only for pure harnesses.
-        const afterKey = serverStart?.character ?? removeItem(character, HOLLOW_GATE_KEY_ID, 1);
+        // Consume exactly one Hollow Gate Key (free-entry events skip this).
+        const afterKey = keyCost > 0 ? removeItem(character, HOLLOW_GATE_KEY_ID, 1) : character;
 
-        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
+        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1, variant), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
         setHollowGateRun(run);
         setHollowGateLog([
-            "You press a Hollow Gate Key against the broken torii. The seal bends. You descend.",
+            keyCost > 0
+                ? "You press a Hollow Gate Key against the broken torii. The seal bends. You descend."
+                : `The ${gateName} stands open — the seal parts on its own. You descend.`,
         ]);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
@@ -5991,10 +6102,11 @@ export default function App() {
     // to playtest the shrine without burning a real key or waiting for a Kage.
     // Still uses the same generator / state setup as the normal entry, and
     // still records the run on the character so resume / persistence works.
-    function adminTestEnterHollowGateShrine() {
+    function adminTestEnterHollowGateShrine(eventCfg?: HollowGateEventConfig) {
         if (!character) return;
         // Resume an existing run if the admin has one — same behavior as
-        // the live entry. Otherwise start a fresh run with no gates.
+        // the live entry. Otherwise start a fresh run with no gates (with the
+        // event variant applied when the panel is playtesting an event gate).
         if (character.hollowGateRun && !character.hollowGateRun.completed) {
             setHollowGateRun(character.hollowGateRun);
             setHollowGateLog(prev => prev.length ? prev : ["(Admin test) Resuming the unfinished run."]);
@@ -6006,10 +6118,11 @@ export default function App() {
             resumeHollowGateServerRun({ playerName: character.name, run: character.hollowGateRun, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
             return;
         }
-        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
+        const variant = eventCfg ? variantFromEventConfig(eventCfg) : undefined;
+        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1, variant), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
         setHollowGateRun(run);
         setHollowGateLog([
-            "(Admin test) You step through the broken torii — no seal, no key. The Hollow Gate echoes greet you anyway.",
+            `(Admin test) You step through the broken torii — no seal, no key.${eventCfg ? ` Event gate: ${eventCfg.label || eventCfg.id}.` : ""} The Hollow Gate echoes greet you anyway.`,
         ]);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
@@ -6022,7 +6135,7 @@ export default function App() {
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
         // Same server run layer as the live entry (flag-gated; no-op when off).
-        void beginHollowGateServerRun({ playerName: character.name, floorDepth: HOLLOW_GATE_MAX_FLOOR, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+        void beginHollowGateServerRun({ playerName: character.name, floorDepth: hollowGateRunMaxFloor({ variant }), setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
     }
     // Weighted-random ambush — triggered when the threat meter hits the
     // ambush threshold (default 100). Picks one of three encounter types:
@@ -6034,11 +6147,11 @@ export default function App() {
     // ALWAYS fires something — the player never gets a free pass.
     function triggerHollowGateAmbush() {
         if (!character) return;
-        // F5 ambush → boss fight. Avoids the climax getting cheated by a
-        // random ambush firing before the Warden tile. The player still
-        // sees the boss fight + the F5 shrine-cleared modal on win.
-        if ((hollowGateRun?.floor ?? 1) >= HOLLOW_GATE_MAX_FLOOR) {
-            pushHollowGateLog("The corridor itself tears open — the Hollow Gate Warden steps through the seal!");
+        // Final-floor ambush → boss fight. Avoids the climax getting cheated by
+        // a random ambush firing before the boss tile. The player still sees
+        // the boss fight + the shrine-cleared modal on win.
+        if ((hollowGateRun?.floor ?? 1) >= hollowGateRunMaxFloor(hollowGateRun)) {
+            pushHollowGateLog(`The corridor itself tears open — ${hollowGateBossDisplayName(hollowGateRun)} steps through the seal!`);
             startHollowGateBattle({ isBoss: true });
             return;
         }
@@ -6105,88 +6218,23 @@ export default function App() {
     }
     function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean }) {
         if (!character) return;
-        // Elite-tile affixes: a tougher, flavored variant rolled for elite
-        // encounters. Build-time HP/stat modifiers only (no battle-engine
-        // changes) applied to the cloned shrine AI below, plus a nameplate tag.
-        const HOLLOW_GATE_AFFIXES = [
-            { name: "Colossal", hpMult: 1.4, statMult: 1.0 },
-            { name: "Brutish", hpMult: 1.25, statMult: 1.05 },
-            { name: "Savage", hpMult: 1.1, statMult: 1.12 },
-            { name: "Frenzied", hpMult: 0.9, statMult: 1.2 },
-        ] as const;
-        const eliteAffix = opts.isElite ? HOLLOW_GATE_AFFIXES[Math.floor(Math.random() * HOLLOW_GATE_AFFIXES.length)] : null;
-        const scaleAffixStats = (stats: CreatorAi["stats"], mult: number): CreatorAi["stats"] =>
-            mult === 1 ? stats : (Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, Math.max(1, Math.round(Number(v) * mult))])) as CreatorAi["stats"]);
-        const LEVEL_BAND = 15;
-        const playerLevel = character.level;
-        const inBand = (ai: CreatorAi) => Math.abs((ai.level ?? 1) - playerLevel) <= LEVEL_BAND;
-
-        const normalAis = playableAis.filter(ai => !ai.isBossAi);
-        const bossAis = playableAis.filter(ai => ai.isBossAi);
-
-        // Boss tile prefers the dedicated Hollow Gate Warden; falls back to any
-        // boss-type AI within ±15 levels; finally to closest boss overall.
-        // Ambush + normal battles pick a random non-boss AI within ±15 levels.
-        let chosen: CreatorAi | undefined;
-        if (opts.isBoss) {
-            const warden = bossAis.find(ai => ai.id === "boss-hollow-gate-warden");
-            const bossBand = bossAis.filter(inBand);
-            if (warden) {
-                // Use the warden but rebase its level to the player's level so the
-                // fight scales to the player. The encounter wrapper below clones the AI.
-                chosen = warden;
-            } else if (bossBand.length > 0) {
-                chosen = bossBand[Math.floor(Math.random() * bossBand.length)];
-            } else if (bossAis.length > 0) {
-                // Fall back to the boss closest in level.
-                chosen = [...bossAis].sort((a, b) =>
-                    Math.abs((a.level ?? 1) - playerLevel) - Math.abs((b.level ?? 1) - playerLevel)
-                )[0];
-            }
-        } else {
-            const normalBand = normalAis.filter(inBand);
-            if (normalBand.length > 0) {
-                chosen = normalBand[Math.floor(Math.random() * normalBand.length)];
-            } else if (normalAis.length > 0) {
-                chosen = [...normalAis].sort((a, b) =>
-                    Math.abs((a.level ?? 1) - playerLevel) - Math.abs((b.level ?? 1) - playerLevel)
-                )[0];
-            }
-        }
-
-        if (!chosen) {
+        // Opponent pick + scaling live in features/hollowGate/encounter (pure,
+        // variant-aware): the boss ramp runs over the gate's OWN floor count and
+        // an event variant may point the final fight at any authored AI.
+        const pick = pickShrineEncounter({
+            playableAis,
+            playerLevel: character.level,
+            floor: hollowGateRun?.floor ?? 1,
+            maxFloor: hollowGateRunMaxFloor(hollowGateRun),
+            bossDisplayName: hollowGateBossDisplayName(hollowGateRun),
+            variantBossAiId: hollowGateRun?.variant?.bossAiId,
+            opts, gentleNonBoss: (hollowGateRun?.variant?.id ?? "").startsWith("rift-"),
+        });
+        if (!pick) {
             alert("The shrine refuses to reveal an opponent right now.");
             return;
         }
-        const baseAi = chosen;
-
-        // Wrap as a Hollow Gate themed encounter and rebase the AI's level
-        // to within the band of the player so the battle is fair.
-        const encounterName = opts.isBoss
-            ? "Hollow Gate Warden"
-            : opts.isAmbush
-                ? "Hollow Gate Ambush"
-                : opts.isBeast
-                    ? `Hollow Beast: ${baseAi.name}`
-                    : eliteAffix
-                        ? `${eliteAffix.name} ${baseAi.name}`
-                        : `Corrupted ${baseAi.name}`;
-        // Boss difficulty scales with the floor of the run:
-        //   Floor 1 -> playerLevel - 5
-        //   Floor 2 -> playerLevel
-        //   Floor 3 -> playerLevel + 5
-        //   Floor 4 -> playerLevel + 10
-        //   Floor 5 -> playerLevel + 15
-        // (Currently bosses only exist on Floor 5 in fresh runs, but a legacy
-        // save with a non-final-floor boss tile still scales correctly.)
-        const floor = hollowGateRun?.floor ?? 1;
-        const bossFloorOffset = opts.isBoss ? Math.min(LEVEL_BAND, -5 + (floor - 1) * 5) : 0;
-        const targetLevel = playerLevel + bossFloorOffset;
-        const rebasedLevel = opts.isBoss
-            ? clampNumber(targetLevel, 1, MAX_LEVEL)
-            : clampNumber(baseAi.level ?? playerLevel, Math.max(1, playerLevel - LEVEL_BAND), playerLevel + LEVEL_BAND);
-        // Bosses also scale HP by floor (1.0x .. 1.4x).
-        const bossHpMultiplier = opts.isBoss ? 1 + Math.max(0, floor - 1) * 0.1 : 1;
+        const { baseAi, encounterName, rebasedLevel, bossHpMultiplier, floorHpMult, floorStatMult, eliteAffix } = pick;
 
         // PET CO-COMBAT — multi-pronged simulation since Arena doesn't support
         // a co-combatant slot. When the player has a battle-ready pet, we:
@@ -6216,9 +6264,11 @@ export default function App() {
         // ONLY to this per-dive enemy clone, never the shared engine. Composes with
         // the elite affix + pet pre-damage already factored above.
         const aug = hollowGateAugmentEffects(hollowGateRun);
-        const augStatMult = (eliteAffix?.statMult ?? 1) * aug.enemyStatMult;
+        // floorHpMult / floorStatMult = the depth ramp (1.0 for the boss, which
+        // has its own stronger scaling in bossHpMultiplier). No double-scaling.
+        const augStatMult = (eliteAffix?.statMult ?? 1) * aug.enemyStatMult * floorStatMult;
         const totalHpShave = Math.min(0.9, hpShavePct + aug.enemyHpShavePct);
-        const scaledHp = Math.max(1, Math.floor(baseAi.hp * bossHpMultiplier * (eliteAffix?.hpMult ?? 1) * aug.enemyHpMult));
+        const scaledHp = Math.max(1, Math.floor(baseAi.hp * bossHpMultiplier * floorHpMult * (eliteAffix?.hpMult ?? 1) * aug.enemyHpMult));
         const shrineAi: CreatorAi = {
             ...baseAi,
             id: `hollow-gate-${baseAi.id}-${Date.now()}`,
@@ -6272,7 +6322,7 @@ export default function App() {
             keepers: t.filter(x => x.kind === "npc" && x.resolved).length,
         };
         return [
-            `Floor reached: ${stats.floors} / ${HOLLOW_GATE_MAX_FLOOR}`,
+            `Floor reached: ${stats.floors} / ${hollowGateRunMaxFloor(hollowGateRun)}`,
             `Chests opened: ${stats.chests}`,
             `Shinobi defeated: ${stats.battles}`,
             `Hollow Beasts felled: ${stats.beasts}`,
@@ -6284,7 +6334,7 @@ export default function App() {
         ].join("\n");
     }
 
-    async function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number) {
+    function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number) {
         if (!hollowGateRun || !character) return;
         const idx = y * hollowGateRun.width + x;
         const flavor = hollowGateFlavorFor(tile.kind);
@@ -6297,7 +6347,7 @@ export default function App() {
         // produced the "WASD teleports back" bug — the move took, then a stale
         // setTimeout fired markResolved with closure.hollowGateRun, snapping the
         // player back. Patches now only touch resolved/keys/torch.
-        function markResolved(patch?: { keysDelta?: number; setKeys?: number; torchDelta?: number; setTorch?: number; earnedXp?: number; earnedFragments?: number; earnedVeils?: number }) {
+        function markResolved(patch?: { keysDelta?: number; setKeys?: number; torchDelta?: number; setTorch?: number }) {
             setHollowGateRun(prev => {
                 if (!prev) return prev;
                 const tiles = prev.tiles.slice();
@@ -6312,9 +6362,6 @@ export default function App() {
                     ...prev,
                     keys,
                     torch: Math.max(0, Math.min(10, torchRaw)),
-                    earnedXp: (prev.earnedXp ?? 0) + (patch?.earnedXp ?? 0),
-                    earnedFragments: (prev.earnedFragments ?? 0) + (patch?.earnedFragments ?? 0),
-                    earnedVeils: (prev.earnedVeils ?? 0) + (patch?.earnedVeils ?? 0),
                     tiles,
                 };
             });
@@ -6536,7 +6583,7 @@ export default function App() {
                 // Chests also refill the Torch of Reiki by 2.
                 const torchRefill = 2;
                 pushHollowGateLog(`Chest opened. +${ryoGain} ryo, +${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `, +${auraDustGain} Aura Dust` : ""}, +${auraStoneGain} Aura Stones, +${boneCharmGain} Bone Charms, +${shardGain} Hollow Shards${keyGain ? ", +1 Shrine Key" : ""}, +${torchRefill} Torch.`);
-                markResolved({ keysDelta: keyGain, torchDelta: torchRefill, earnedXp: xpGain });
+                markResolved({ keysDelta: keyGain, torchDelta: torchRefill });
                 setHollowGateEvent({
                     title: "Shrine Offering Chest",
                     body: `${flavor}\n\n+${ryoGain} ryo\n+${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `\n+${auraDustGain} Aura Dust` : ""}\n+${auraStoneGain} Aura Stones\n+${boneCharmGain} Bone Charms\n+${shardGain} Hollow Shards${keyGain ? "\n+1 Shrine Key" : ""}`,
@@ -6599,9 +6646,9 @@ export default function App() {
                 // Staircase to the next floor. Carries torch + keys forward and
                 // gives a small torch refill. Resolved on use.
                 pushHollowGateLog(flavor);
-                if (hollowGateRun.floor >= HOLLOW_GATE_MAX_FLOOR) {
-                    // Defensive — shouldn't happen since Floor 5 never spawns a
-                    // descend tile, but if it somehow does, treat as exit.
+                if (hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) {
+                    // Defensive — shouldn't happen since the final floor never
+                    // spawns a descend tile, but if it somehow does, treat as exit.
                     setHollowGateEvent({
                         title: "Bottomless Staircase",
                         body: "The staircase coils into the dark, leading nowhere.\n\nThis is the deepest floor.",
@@ -6620,20 +6667,10 @@ export default function App() {
                             label: "Descend Deeper",
                             tone: "primary",
                             onSelect: () => {
-                                const next = applyAttunementToRun(generateHollowGateShrineRun(hollowGateRun.floor + 1), character, false);
-                                setHollowGateRun({
-                                    ...next,
-                                    keys: hollowGateRun.keys,
-                                    torch: Math.min(10, hollowGateRun.torch + 4),
-                                    entryCurrencies: hollowGateRun.entryCurrencies,
-                                    runToken: hollowGateRun.runToken,
-                                    serverSeed: hollowGateRun.serverSeed,
-                                    augmentOffers: hollowGateRun.augmentOffers,
-                                    chosenAugment: hollowGateRun.chosenAugment,
-                                    earnedXp: hollowGateRun.earnedXp,
-                                    earnedFragments: hollowGateRun.earnedFragments,
-                                    earnedVeils: hollowGateRun.earnedVeils,
-                                });
+                                // The run's variant rides along so an event gate keeps its
+                                // shape (floors / board / boss) on every floor below.
+                                const next = applyAttunementToRun(generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant), character, false);
+                                setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4), entryCurrencies: hollowGateRun.entryCurrencies });
                                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
                                 setHollowGateEvent(null);
                             },
@@ -6725,56 +6762,20 @@ export default function App() {
             }
             case "locked": {
                 if (hollowGateRun.keys > 0) {
+                    pushHollowGateLog(`${flavor} You spend a Shrine Key to open it.`);
+                    markResolved({ keysDelta: -1 });
                     // Sealed-door table: 50% Ancient Chest, 25% Trap (lethal-capable),
                     // 24% rare / 0.8% legendary / 0.2% mythic pet encounter.
-                    if (!hollowGateRun.runToken) {
-                        setHollowGateEvent({
-                            title: "Sealed Door",
-                            body: "The server seal cannot verify this chamber. Your Shrine Key was not consumed; reconnect and try again.",
-                            kind: "locked",
-                            choices: [{ label: "Step Back", onSelect: () => setHollowGateEvent(null) }],
-                        });
-                        return;
-                    }
-                    const response = await fetch('/api/hollow-gate/locked-door', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            playerName: character.name,
-                            token: hollowGateRun.runToken,
-                            requestId: `${hollowGateRun.floor}:${idx}`,
-                        }),
-                    }).catch(() => null);
-                    const serverDoor = response ? await response.json().catch(() => null) as {
-                        outcome?: 'chest' | 'trap' | 'pet';
-                        rarity?: PetRarity;
-                        pet?: Pet;
-                        petToken?: string;
-                        loot?: { xp: number; ryo?: number; fateShards?: number; boneCharms?: number; auraStones?: number; auraDust?: number; hollowShards: number };
-                    } | null : null;
-                    if (!response?.ok || !serverDoor?.outcome) {
-                        setHollowGateEvent({
-                            title: "Sealed Door",
-                            body: "The chamber seal did not answer. Your Shrine Key was not consumed; try again when the connection returns.",
-                            kind: "locked",
-                            choices: [{ label: "Step Back", onSelect: () => setHollowGateEvent(null) }],
-                        });
-                        return;
-                    }
-                    markResolved({ keysDelta: -1 });
-                    pushHollowGateLog(`${flavor} You spend a Shrine Key to open it.`);
-                    const roll = serverDoor.outcome === 'chest' ? 0.1
-                        : serverDoor.outcome === 'trap' ? 0.6
-                        : serverDoor.rarity === 'mythic' ? 0.999
-                        : serverDoor.rarity === 'legendary' ? 0.995 : 0.8;
+                    const roll = Math.random();
                     if (roll < 0.50) {
                         // ANCIENT CHEST
-                        const loot = serverDoor.loot;
-                        if (!loot) {
-                            setHollowGateEvent({ title: "Ancient Chest", body: "The server seal did not contain a loot grant. Nothing was credited.", kind: "locked", choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null) }] });
-                            return;
-                        }
+                        const loot = rollHollowGateAncientChest(hollowGateRun.floor);
                         const leveled = gainXp(character, loot.xp);
-                        const lockedShards = loot.hollowShards;
+                        const lockedShards = hollowShardDrop(hollowGateRun.floor, "lockedChest");
+                        // Stack only flagged-stackable items; skip non-stackable dups.
+                        const shouldAddItem = loot.itemId && (
+                            stackableItemIds.has(loot.itemId) || !character.inventory.includes(loot.itemId)
+                        );
                         const next: Character = {
                             ...leveled,
                             ryo: leveled.ryo + (loot.ryo ?? 0),
@@ -6783,13 +6784,17 @@ export default function App() {
                             auraStones: (leveled.auraStones ?? 0) + (loot.auraStones ?? 0),
                             auraDust: (leveled.auraDust ?? 0) + (loot.auraDust ?? 0),
                             hollowShards: (leveled.hollowShards ?? 0) + lockedShards,
+                            inventory: shouldAddItem && loot.itemId ? [...leveled.inventory, loot.itemId] : leveled.inventory,
                         };
                         setCharacter(next);
-                        setHollowGateRun(prev => prev ? { ...prev, earnedXp: (prev.earnedXp ?? 0) + loot.xp } : prev);
                         const lootLines: string[] = [
                             `+${effectiveCharacterXpGain(character, loot.xp)} XP`,
                         ];
                         if (loot.ryo) lootLines.push(`+${loot.ryo} ryo`);
+                        if (loot.itemId && shouldAddItem) {
+                            const item = starterItems.find(it => it.id === loot.itemId) ?? petTreatItems.find(t => t.id === loot.itemId);
+                            lootLines.push(`+1 ${item?.name ?? loot.itemId}`);
+                        }
                         if (loot.fateShards) lootLines.push(`+${loot.fateShards} Fate Shard`);
                         if (loot.boneCharms) lootLines.push(`+${loot.boneCharms} Bone Charm`);
                         if (loot.auraStones) lootLines.push(`+${loot.auraStones} Aura Stone`);
@@ -6856,7 +6861,10 @@ export default function App() {
                         else if (roll < 0.998) rarity = "legendary";
                         else rarity = "mythic";
 
-                        const encounter = serverDoor.pet;
+                        // Use the canonical petPool (full built-in pool) rather than editablePets
+                        // so each rarity band always has variety even if admins haven't seeded
+                        // the editable pool yet.
+                        const encounter = pickHollowGateEncounterPet(petPool, rarity);
                         if (!encounter) {
                             // Defensive — should never happen with the standard pet pool, but bail safely.
                             pushHollowGateLog("A presence stirs behind the door, then fades away.");
@@ -6877,27 +6885,20 @@ export default function App() {
                                     {
                                         label: `Befriend ${encounter.name}`,
                                         tone: "primary",
-                                        onSelect: async () => {
+                                        onSelect: () => {
+                                            if (!requireServerSettlement("hollowGatePetBefriend")) return;
                                             if (character.pets.length >= 5) {
                                                 alert("Your Pet Yard is full (5/5). Release a pet before befriending another.");
                                                 return;
                                             }
-                                            if (!serverDoor.petToken) return alert('This pet encounter has expired.');
-                                            const response = await fetch('/api/pet/befriend', {
-                                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ playerName: character.name, token: serverDoor.petToken }),
-                                            }).catch(() => null);
-                                            const data = response ? await response.json().catch(() => null) as {
-                                                character?: Character; _saveVersion?: number; trait?: string | null; error?: string;
-                                            } | null : null;
-                                            if (!response?.ok || !data?.character) {
-                                                return alert(data?.error === 'pet-yard-full'
-                                                    ? 'Your Pet Yard is full (5/5). Release a pet before befriending another.'
-                                                    : 'The pet could not be befriended. Please try again.');
-                                            }
-                                            if (typeof data._saveVersion === 'number') latestSaveVersionRef.current = data._saveVersion;
-                                            setCharacter(data.character);
-                                            pushHollowGateLog(`${encounter.name} joined you!${data.trait ? ` Trait: ${data.trait}.` : ''}`);
+                                            const trait = rollPetTrait(encounter.rarity);
+                                            const petWithTrait = applyPetTraitBonuses({ ...encounter, trait }, trait);
+                                            const updated = { ...character, pets: [...character.pets, petWithTrait] };
+                                            setCharacter(updated);
+                                            // Flush now (mirrors starter-pet path) so a refresh/close inside the 3s
+                                            // autosave debounce can't lose a freshly befriended rare/mythic pet.
+                                            void pushSaveToServer(updated, currentAccountName || character.name).catch(() => {});
+                                            pushHollowGateLog(`${encounter.name} joined you! Trait: ${trait}.`);
                                             setHollowGateEvent(null);
                                         },
                                     },
@@ -6923,21 +6924,50 @@ export default function App() {
             }
         }
     }
+    // Drain the queued move side-effects. Runs on a macrotask AFTER React has
+    // flushed the state updater(s) that enqueued them, so the tile fire can
+    // never be dropped by the eager-updater timing race (see hollowGateMoveFxRef).
+    function drainHollowGateMoveFx() {
+        const queue = hollowGateMoveFxRef.current;
+        if (queue.length === 0) return;
+        hollowGateMoveFxRef.current = [];
+        for (const fx of queue) {
+            if (fx.wallBump) {
+                pushHollowGateLog(fx.blockMessage ?? "Solid shrine stone. You cannot pass.");
+                continue;
+            }
+            if (fx.committedTheme) {
+                pushHollowGateLog(`You commit to the ${fx.committedTheme === "treasure" ? "Treasure" : "Beast"} wing — the other detour seals behind you. The Trial path remains open.`);
+            }
+            if (fx.torchSputtered) {
+                pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
+            }
+            if (fx.justResolved) {
+                const { tile, nx, ny, nextThreat } = fx.justResolved;
+                const modalFiringKinds: HollowGateTileKind[] = [
+                    "battle", "elite", "boss",
+                    "trap", "chest", "shrine", "pet_event", "pet_battle", "tile_game", "story",
+                    "locked", "exit", "npc", "descend",
+                ];
+                const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
+                resolveHollowGateTile(tile, nx, ny);
+                if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
+                    triggerHollowGateAmbush();   // ambush at max threat (see triggerHollowGateAmbush)
+                }
+            } else if (fx.ambushImmediate) {
+                triggerHollowGateAmbush();
+            }
+        }
+    }
     function moveHollowGatePlayer(dx: number, dy: number) {
         if (hollowGateEvent || hollowGateHiddenChamber) return;
         if (hollowGateIntroPage !== null) return;
 
         // Functional state update so rapid WASD presses queue against the latest
         // run state (the closure form lost presses within a single render tick).
-        let outcome: {
-            wallBump: boolean;
-            blockMessage?: string;       // sealed-wing block reason (overrides the wall-bump log)
-            committedTheme?: string;     // wing theme just committed to (for the seal log)
-            torchSputtered: boolean;
-            justResolved: { tile: HollowGateTile; nx: number; ny: number; nextThreat: number } | null;
-            ambushImmediate: boolean;
-        } = { wallBump: false, torchSputtered: false, justResolved: null, ambushImmediate: false };
-
+        // Step side-effects are pushed to hollowGateMoveFxRef from INSIDE the
+        // updater (never a local `let` read right after — that races the eager
+        // updater and drops the tile fire during click-to-walk).
         setHollowGateRun(prev => {
             if (!prev) return prev;
             const nx = prev.playerX + dx;
@@ -6948,21 +6978,22 @@ export default function App() {
             // Walls are impassable. No state change, no threat/torch cost.
             const isWall = tile.kind === "wall" || tile.terrain === "wall";
             if (isWall) {
-                outcome = { ...outcome, wallBump: true };
+                hollowGateMoveFxRef.current.push({ wallBump: true, torchSputtered: false, justResolved: null, ambushImmediate: false });
                 return prev;
             }
             // Branching wings: block entry to a sealed wing; entering a detour
             // commits to it (sealing the other). Trial/hub are always open.
             const wingEff = wingEntryEffect(prev, tile.wing);
             if (wingEff.blocked) {
-                outcome = { ...outcome, wallBump: true, blockMessage: wingEff.message };
+                hollowGateMoveFxRef.current.push({ wallBump: true, blockMessage: wingEff.message, torchSputtered: false, justResolved: null, ambushImmediate: false });
                 return prev;
             }
-            if (wingEff.committedTheme) outcome = { ...outcome, committedTheme: wingEff.committedTheme };
             const tiles = prev.tiles.slice();
             tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
-            // Torch of Reiki: drains 1 every ~3 moves. At 0 torch, threat fills 2x faster.
-            const torchDrain = Math.random() < 0.33 ? 1 : 0;
+            // Torch of Reiki: drains 1 every ~5 moves (was ~3 on the old 15×11
+            // board — scaled with the 25×17 floor so one torch still covers
+            // roughly one thorough floor). At 0 torch, threat fills 2x faster.
+            const torchDrain = Math.random() < 0.2 ? 1 : 0;
             const nextTorch = Math.max(0, prev.torch - torchDrain);
             const threatMultiplier = nextTorch === 0 ? 2 : 1;
             // Hollow Ward holds Threat still while its steps last (then it ticks down).
@@ -6972,13 +7003,16 @@ export default function App() {
             // `resolved` only, never on revealed — so Leave/descend/locked/boss
             // re-fire when re-entered; markResolved() still prevents double-grants).
             const justResolved = !tile.resolved;
-            outcome = {
-                ...outcome,
+            hollowGateMoveFxRef.current.push({
+                wallBump: false,
+                committedTheme: wingEff.committedTheme,
                 torchSputtered: nextTorch === 0 && prev.torch > 0,
                 justResolved: justResolved ? { tile: { ...tile, revealed: true }, nx, ny, nextThreat } : null,
                 ambushImmediate: !justResolved && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH,
-            };
-            return {
+            });
+            // markHollowGateSeen stamps the new visibility flood as map memory
+            // (dim "explored" tiles after you leave a room; click-to-walk surface).
+            return markHollowGateSeen({
                 ...prev,
                 ...(wingEff.patch ?? {}),
                 playerX: nx,
@@ -6987,85 +7021,50 @@ export default function App() {
                 threat: nextThreat,
                 torch: nextTorch,
                 wardSteps: Math.max(0, (prev.wardSteps ?? 0) - 1),
-            };
+            });
         });
 
-        // ── Side effects ──────────────────────────────────────────────────
-        if (outcome.wallBump) {
-            pushHollowGateLog(outcome.blockMessage ?? "Solid shrine stone. You cannot pass.");
-            return;
-        }
-        if (outcome.committedTheme) {
-            pushHollowGateLog(`You commit to the ${outcome.committedTheme === "treasure" ? "Treasure" : "Beast"} wing — the other detour seals behind you. The Trial path remains open.`);
-        }
-        if (outcome.torchSputtered) {
-            pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
-        }
-        if (outcome.justResolved) {
-            const { tile, nx, ny, nextThreat } = outcome.justResolved;
-            const modalFiringKinds: HollowGateTileKind[] = [
-                "battle", "elite", "boss",
-                "trap", "chest", "shrine", "pet_event", "pet_battle", "tile_game", "story",
-                "locked", "exit", "npc", "descend",
-            ];
-            const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
-            // Deferred via 0ms so state commits first (resolveHollowGateTile uses
-            // markResolved's functional form, preserving the player's position).
-            setTimeout(() => {
-                resolveHollowGateTile(tile, nx, ny);
-                if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
-                    triggerHollowGateAmbush();   // ambush at max threat (see triggerHollowGateAmbush)
-                }
-            }, 0);
-        } else if (outcome.ambushImmediate) {
-            setTimeout(() => triggerHollowGateAmbush(), 0);
-        }
+        // Drain after the flush. A single scheduled drain empties the whole
+        // queue, so back-to-back steps that batch into one flush are all
+        // processed in order (extra drains just find an empty queue).
+        setTimeout(drainHollowGateMoveFx, 0);
     }
-    function leaveHollowGateShrine(opts?: { death?: boolean; characterOverride?: Character; earnedFragments?: number; earnedVeils?: number }) {
+    function leaveHollowGateShrine(opts?: { death?: boolean }) {
         // Death claws back the run's haul; a voluntary exit keeps it all.
         // finalizeHollowGateRunEnd applies that locally (functional setState — a stale
         // closure can't revert hp:0) + reconciles to the server settle credit if tokened.
-        const endingRun = hollowGateRun ? {
-            ...hollowGateRun,
-            earnedFragments: (hollowGateRun.earnedFragments ?? 0) + (opts?.earnedFragments ?? 0),
-            earnedVeils: (hollowGateRun.earnedVeils ?? 0) + (opts?.earnedVeils ?? 0),
-        } : null;
+        const endingRun = hollowGateRun;
         setHollowGateRun(null);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
         setHollowGateLog([]);
-        const settlingCharacter = opts?.characterOverride ?? character;
-        if (settlingCharacter) finalizeHollowGateRunEnd({ run: endingRun, outcome: opts?.death ? "death" : "extract", character: settlingCharacter, lootRetention: attunementLootRetention(settlingCharacter), setCharacter });
+        if (character) finalizeHollowGateRunEnd({ run: endingRun, outcome: opts?.death ? "death" : "extract", character, lootRetention: attunementLootRetention(character), setCharacter });
         setScreen("worldMap");
     }
-    function onHollowGateBattleWin(earnedXp = 0, earnedFragments = 0) {
+    function onHollowGateBattleWin() {
         if (!hollowGateRun) return;
         const isBoss = pendingArenaStoryBattle?.kind === "hollowGateShrine" && pendingArenaStoryBattle.isBoss;
         const isAmbush = pendingArenaStoryBattle?.kind === "hollowGateShrine" && pendingArenaStoryBattle.isAmbush;
         if (isBoss) {
-            // Boss only appears on Floor 5 now — defeating it clears the shrine.
-            // (Boss-defeat on earlier floors would only fire if a legacy run still
-            // had a boss tile on Floor 1-4; defensively we still handle it.)
+            // The boss holds the run's FINAL floor (standard 5, or the variant's
+            // own count) — defeating it clears the shrine. (Boss-defeat on
+            // earlier floors would only fire if a legacy run still had a boss
+            // tile mid-run; defensively we still handle it.)
             const tiles = hollowGateRun.tiles.map(t => t.kind === "boss" ? { ...t, resolved: true } : t);
-            const isFinalFloor = hollowGateRun.floor >= HOLLOW_GATE_MAX_FLOOR;
+            const isFinalFloor = hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun);
             // Surviving a fight resets threat (a fresh window) but NOT the Torch
             // — the Torch is the run clock, refilled only by chests/shrines/Keeper.
-            const nextRun: HollowGateShrineRun = {
-                ...hollowGateRun,
-                tiles,
-                completed: isFinalFloor,
-                threat: 0,
-                earnedXp: (hollowGateRun.earnedXp ?? 0) + earnedXp,
-                earnedFragments: (hollowGateRun.earnedFragments ?? 0) + earnedFragments,
-            };
+            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0 };
             setHollowGateRun(nextRun);
-            pushHollowGateLog(`The Hollow Gate Warden falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
+            pushHollowGateLog(`${hollowGateBossDisplayName(hollowGateRun)} falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
             if (isFinalFloor) {
+                // (A wandering-quest RIFT run completes from the boss-win handler above,
+                // after flushing the bumped kill counter — see completePendingArenaStoryBattle.)
                 // Shrine-cleared bonus — extra fragment + honor seals + fate shard.
                 // No "Leave" choice — auto-returns to world map after rewards are claimed.
                 setHollowGateEvent({
-                    title: "Hollow Gate Shrine Cleared",
-                    body: `Floor ${hollowGateRun.floor} of ${HOLLOW_GATE_MAX_FLOOR} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
+                    title: hollowGateRun.variant?.label ? `${hollowGateRun.variant.label} Cleared` : "Hollow Gate Shrine Cleared",
+                    body: `Floor ${hollowGateRun.floor} of ${hollowGateRunMaxFloor(hollowGateRun)} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
                     kind: "boss",
                     choices: [
                         {
@@ -7077,48 +7076,37 @@ export default function App() {
                                 const bonusCharms = nonVanguardCharmSubstitute(character, 75);
                                 const bonusShardSub = nonVanguardShardSubstitute(character, 75);
                                 const bonusFate = 1 + bonusShardSub;
-                                const next = addInventoryItems({
-                                    ...character,
-                                    honorSeals: (character.honorSeals ?? 0) + bonusHonor,
-                                    boneCharms: (character.boneCharms ?? 0) + bonusCharms,
-                                    fateShards: (character.fateShards ?? 0) + bonusFate,
-                                }, [DUNGEON_LEGENDARY_FRAGMENT_ID, VEIL_OF_THE_HOLLOW_ID]);
-                                setCharacter(next);
+                                // Functional (base = `prev`) so it composes with the async rift
+                                // reward that clears through this same modal; amounts unchanged.
+                                setCharacter(prev => prev ? addInventoryItems({
+                                    ...prev,
+                                    honorSeals: (prev.honorSeals ?? 0) + bonusHonor,
+                                    boneCharms: (prev.boneCharms ?? 0) + bonusCharms,
+                                    fateShards: (prev.fateShards ?? 0) + bonusFate,
+                                }, [DUNGEON_LEGENDARY_FRAGMENT_ID, VEIL_OF_THE_HOLLOW_ID]) : prev);
                                 pushHollowGateLog(`Shrine cleared bonus: ${bonusHonor > 0 ? `+${bonusHonor} Honor Seals, ` : bonusCharms > 0 ? `+${bonusCharms} Bone Charms, ` : ""}+${bonusFate} Fate Shard${bonusFate === 1 ? "" : "s"}, +1 Dungeon Legendary Fragment, +1 Veil of the Hollow.`);
                                 setHollowGateEvent(null);
-                                leaveHollowGateShrine({ characterOverride: next, earnedFragments: 1, earnedVeils: 1 });
+                                leaveHollowGateShrine();
                             },
                         },
                     ],
                 });
             } else {
                 // Legacy / defensive: boss on a non-final floor auto-advances.
-                const nextGen = generateHollowGateShrineRun(hollowGateRun.floor + 1);
+                const nextGen = generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant);
                 const next = character ? applyAttunementToRun(nextGen, character, false) : nextGen;
-                setHollowGateRun({
-                    ...next,
-                    keys: hollowGateRun.keys,
-                    torch: Math.min(10, hollowGateRun.torch + 4),
-                    entryCurrencies: hollowGateRun.entryCurrencies,
-                    runToken: hollowGateRun.runToken,
-                    serverSeed: hollowGateRun.serverSeed,
-                    augmentOffers: hollowGateRun.augmentOffers,
-                    chosenAugment: hollowGateRun.chosenAugment,
-                    earnedXp: hollowGateRun.earnedXp,
-                    earnedFragments: hollowGateRun.earnedFragments,
-                    earnedVeils: hollowGateRun.earnedVeils,
-                });
+                setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4), entryCurrencies: hollowGateRun.entryCurrencies });
                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
             }
         } else if (isAmbush) {
             // Ambush survived → full reset of both meters.
-                setHollowGateRun({ ...hollowGateRun, threat: 0, earnedXp: (hollowGateRun.earnedXp ?? 0) + earnedXp, earnedFragments: (hollowGateRun.earnedFragments ?? 0) + earnedFragments });
+            setHollowGateRun({ ...hollowGateRun, threat: 0 });
             pushHollowGateLog("The ambush ends. Threat dissipates — but the Torch of Reiki keeps burning down. Find a chest or shrine to rekindle it.");
         } else {
             // Regular battle / elite / pet_battle (themed-shinobi fallback)
             // — also full reset. The previous "threat -= 25" partial reset
             // made fights feel less rewarding than they should.
-            setHollowGateRun({ ...hollowGateRun, threat: 0, earnedXp: (hollowGateRun.earnedXp ?? 0) + earnedXp, earnedFragments: (hollowGateRun.earnedFragments ?? 0) + earnedFragments });
+            setHollowGateRun({ ...hollowGateRun, threat: 0 });
             pushHollowGateLog("Corrupted shinobi defeated. Threat dissipates — the Torch of Reiki, though, keeps burning down.");
         }
     }
@@ -7136,11 +7124,7 @@ export default function App() {
     }
 
     const playableAis = [
-        ...builtinAis.map((builtin) => {
-            const o = creatorAis.find((ai) => ai.id === builtin.id);
-            const ai = o ? { ...builtin, image: o.image ?? builtin.image } : builtin;
-            return ai.id === "builtin-ai-academy-sparring" && !ai.image ? { ...ai, image: academySparringPartnerImg } : ai;
-        }), // built-in/story AIs source-authoritative; same-id override = image only (see AdminPanel allAdminAis)
+        ...builtinAis.map((builtin) => { const o = creatorAis.find((ai) => ai.id === builtin.id); return withAcademySparringPortrait(o ? { ...builtin, image: o.image ?? builtin.image } : builtin); }), // built-in/story AIs source-authoritative; same-id override = image only (see AdminPanel allAdminAis)
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
         ...(temporaryStoryAi ? [temporaryStoryAi] : []),
     ];
@@ -7150,7 +7134,6 @@ export default function App() {
         const dust = 10 + Math.floor(Math.random() * 15);
         const leveled = gainXp(character, xp);
         setCharacter({ ...leveled, auraDust: (leveled.auraDust ?? 0) + dust });
-        setHollowGateRun(prev => prev ? { ...prev, earnedXp: (prev.earnedXp ?? 0) + xp } : prev);
         pushHollowGateLog(`You decipher the Ancient Tablet. +${effectiveCharacterXpGain(character, xp)} XP, +${dust} Aura Dust.`);
         setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, searched: true });
     }
@@ -7172,17 +7155,22 @@ export default function App() {
             fateShards: (character.fateShards ?? 0) + fate,
         }, [VEIL_OF_THE_HOLLOW_ID]);
         setCharacter(next);
-        setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1, earnedVeils: (hollowGateRun.earnedVeils ?? 0) + 1 });
+        setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
         pushHollowGateLog(`You claim the Veil of the Hollow.${honor > 0 ? ` +${honor} Honor Seals` : charms > 0 ? ` +${charms} Bone Charms` : ""}${fate ? `, +${fate} Fate Shard${fate === 1 ? "" : "s"}` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
         setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, relicTaken: true });
     }
 
     const hideBattleChrome = shouldHideBattleChrome({ screen, arenaBattleActive, petBattleActive });
+    const introCinematicActive = Boolean(
+        character
+        && (character.onboardingStep === "academyIntro" || character.onboardingStep === "starter" || character.onboardingStep === "companionIntro")
+        && character.name !== "Admin 1"
+        && character.name !== "Admin 2",
+    );
 
     return (
         <div
             className={`app-shell shell-biome-${currentBiome} screen-${screen}`}
-            data-village={character?.village ?? ""}
             style={{
                 // Darkening overlay only — the full-bleed scene is painted once by
                 // the fixed `.app-background` layer below (cover/no-repeat). Tiling the
@@ -7276,13 +7264,13 @@ export default function App() {
             {/* Portal target for battle HUD — rendered outside center-game to escape stacking context */}
             <div id="battle-hud-portal" />
 
-            {screen !== "start" && character && !hideBattleChrome && (screen === "arena" || screen === "storyBoss") && (
+            {screen !== "start" && character && (screen === "arena" || screen === "storyBoss") && (
                 <Suspense fallback={null}>
                     <SectorBanner />
                 </Suspense>
             )}
 
-            {screen !== "start" && character && !hideBattleChrome && (
+            {screen !== "start" && character && (
                 <Suspense fallback={null}>
                     <RightMenu
                         navigate={stableNavigate}
@@ -7305,45 +7293,20 @@ export default function App() {
                 <div className="incoming-attack-banner">{incomingAttackBanner}</div>
             )}
 
-            {/* Global incoming challenge notification — visible from any screen */}
-            {character && (() => {
-                const pending = duelChallenges.filter(c =>
-                    !c.accepted &&
-                    !c.declined &&
-                    !c.sectorAttack &&
-                    c.toName.toLowerCase() === character.name.toLowerCase()
-                );
-                if (!pending.length) return null;
-                const c = pending[0];
-                const isPet = c.mode === "clanWarPet" || c.mode === "rankedPet";
-                const isRanked = c.mode === "ranked";
-                const label = c.mode === "rankedPet" ? "ranked pet battle" : isPet ? "pet battle" : isRanked ? "ranked duel" : "spar";
-                const busy = processingChallengeIds.includes(c.id);
-                return (
-                    <div className="incoming-attack-banner" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-                        <span>⚔️ <strong>{c.fromName}</strong> challenged you to a {label}!</span>
-                        <div style={{ display: "flex", gap: 6 }}>
-                            <button
-                                style={{ padding: "4px 14px", background: "#22c55e", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
-                                disabled={busy}
-                                onClick={() => {
-                                    if (isPet) {
-                                        void acceptPetChallengeGlobal(c);
-                                    } else {
-                                        void acceptChallengeGlobal(c);
-                                    }
-                                }}
-                            >{busy ? "Opening..." : "✅ Accept"}</button>
-                            <button
-                                style={{ padding: "4px 14px", background: "#ef4444", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
-                                disabled={busy}
-                                onClick={() => declineChallengeGlobal(c)}
-                            >❌ Decline</button>
-                        </div>
-                        {pending.length > 1 && <span style={{ opacity: 0.7, fontSize: "0.85em" }}>+{pending.length - 1} more</span>}
-                    </div>
-                );
-            })()}
+            {/* Global incoming challenge popup — centered, clickable, visible from
+                any screen. Portals to <body> so the fixed side rails don't cover it. */}
+            {character && (
+                <IncomingChallengeModal
+                    challenges={duelChallenges}
+                    selfName={character.name}
+                    processingIds={processingChallengeIds}
+                    onAccept={(c) => {
+                        if (c.mode === "clanWarPet" || c.mode === "rankedPet") void acceptPetChallengeGlobal(c);
+                        else void acceptChallengeGlobal(c);
+                    }}
+                    onDecline={(c) => declineChallengeGlobal(c)}
+                />
+            )}
 
             <main
                 className={`center-game screen-${screen}${hideBattleChrome ? " battle-focus" : ""}`}
@@ -7459,15 +7422,9 @@ export default function App() {
                         onLogin={loginPlayerAccount}
                         initialName={restoreFailed ? bootAccountName : ""}
                         notice={restoreFailed ? "Your session timed out — log back in to restore your save. No progress is lost." : ""}
-                        onAdmin={(prefilledPassword) => {
-                            // If the user typed "Admin 1" / "Admin 2" in the
-                            // player login form, the StartScreen forwards the
-                            // password they typed so they don't have to retype
-                            // it on the admin screen. Stash it in
-                            // sessionStorage where AdminLogin reads it.
-                            if (prefilledPassword) {
-                                sessionStorage.setItem("admin:prefill-pw", prefilledPassword);
-                            }
+                        onAdmin={() => {
+                            // The dedicated admin screen requires direct entry;
+                            // never shuttle this credential through storage.
                             navigate(adminLoggedIn ? "adminPanel" : "adminLogin");
                         }}
                     />
@@ -7554,11 +7511,11 @@ export default function App() {
                         setCreatorRaids={setCreatorRaids}
                         creatorCards={creatorCards}
                         setCreatorCards={setCreatorCards}
-                        editablePets={editablePets}
                         petEncounterVn={petEncounterVn}
                         setPetEncounterVn={setPetEncounterVn}
                         ancientChestVn={ancientChestVn}
                         setAncientChestVn={setAncientChestVn}
+                        editablePets={editablePets}
                         setEditablePets={setEditablePets}
                         selectedPetId={selectedPetId}
                         setSelectedPetId={setSelectedPetId}
@@ -7586,6 +7543,8 @@ export default function App() {
                             await pushSaveToServer(character, adminSaveName, undefined, { echoVersion: false });
                         }}
                         onTestHollowGate={adminTestEnterHollowGateShrine}
+                        hollowGateEventConfig={hollowGateEventConfig}
+                        setHollowGateEventConfig={setHollowGateEventConfig}
                         onHollowGateForceUnlock={adminHollowGateForceUnlock}
                         onHollowGateResetIntro={adminHollowGateResetIntro}
                         onHollowGateClearRun={adminHollowGateClearRun}
@@ -7614,10 +7573,10 @@ export default function App() {
                         lineIndex={triggerLine}
                         setPageIndex={setTriggerPage}
                         setLineIndex={setTriggerLine}
-                        onCancel={() => setActiveTriggeredEvent(null)}
+                        onCancel={() => { if (activeTriggeredEvent.id.startsWith("story-interlude-")) dismissedStoryScenesRef.current.add(activeTriggeredEvent.id); setActiveTriggeredEvent(null); }}
                         onComplete={() => completeTriggeredEvent(activeTriggeredEvent)}
                         onBattle={startTriggeredEventArenaBattle}
-                        onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? addStoryTrait(prev, t) : prev); }}
+                        onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? applyStoryChoice(prev, t) : prev); if (t && c.battle && activeTriggeredEvent.kageFinale) storyEpilogueRef.current.lane = t; }}
                         sharedImages={sharedImages}
                     />
                 )}
@@ -7653,6 +7612,8 @@ export default function App() {
                         hollowGateEvent={hollowGateEvent}
                         hollowGateHiddenChamber={hollowGateHiddenChamber}
                         moveHollowGatePlayer={moveHollowGatePlayer}
+                        onTileClick={hollowGateWalkTo}
+                        walkTarget={hollowGateWalkTarget}
                         setHollowGateRun={setHollowGateRun}
                         setCharacter={setCharacter}
                         pushHollowGateLog={pushHollowGateLog}
@@ -7661,39 +7622,40 @@ export default function App() {
                         onTakeHiddenChamberRelic={takeHollowGateHiddenChamberRelic}
                         onCloseHiddenChamber={() => setHollowGateHiddenChamber(null)}
                     />
-                )}                {!activeTriggeredEvent && screen === "villageLore" && character && (
-                    <VillageLoreScreen
-                        character={character}
-                        onBack={() => {
-                            setCharacter(null);
-                            setScreen("start");
-                        }}
-                        onContinue={() => setScreen("village")}
-                    />
                 )}
 
-                {/* Choose-your-companion overlay — the first onboarding beat after the
-                    Village Lore screen. Gated on onboardingStep === "starter" (set by
-                    createCharacter), so it shows exactly once for new players and never
-                    for veterans. Forced overlay (not a screen) so it survives a refresh
-                    mid-selection. Hidden during villageLore so the lore screen reads
-                    first; admins skip it (no real game role). */}
-                {character
-                    && character.onboardingStep === "starter"
-                    && screen !== "villageLore"
-                    && character.name !== "Admin 1"
-                    && character.name !== "Admin 2"
-                    && (
-                    <StarterPetSelect
+                {/* Intro cinematic (replaced VillageLoreScreen + StarterPetSelect):
+                    fox summons + pet gift, then the companion's village intro. Gated
+                    on the PERSISTED onboardingStep → refresh-proof; admins skip. */}
+                {introCinematicActive && character && (
+                    <Suspense fallback={null}>
+                    <IntroCinematic
+                        key={character.onboardingStep === "companionIntro" ? "companion" : "summon"}
                         character={character}
                         sharedImages={sharedImages}
-                        onChoose={async (pet) => {
-                            const result = await chooseStarterPetServer(character.name, pet);
-                            if (!result.character) return alert(result.error || 'Starter choice was not committed.');
-                            if (typeof result._saveVersion === 'number') latestSaveVersionRef.current = result._saveVersion;
-                            setCharacter(result.character);
+                        onComplete={(pet) => {
+                            // Trait-bonus grant, then summon → companionIntro → training
+                            // (the guard makes pass 2 grant-free). FUNCTIONAL update: this
+                            // fires from a ~2.5s-old timer closure — a render-scope spread
+                            // would clobber updates that landed mid-white-out.
+                            setCharacter((prev) => {
+                                if (!prev || prev.onboardingStep === "training") return prev;
+                                const trait = pet.trait ?? "Loyal";
+                                const granted = applyPetTraitBonuses({ ...pet, trait }, trait);
+                                const already = prev.pets.some((p) => p.id === granted.id);
+                                const updated: Character = {
+                                    ...prev,
+                                    pets: already ? prev.pets : [...prev.pets, granted],
+                                    activePetId: prev.activePetId ?? granted.id,
+                                    onboardingStep: prev.onboardingStep === "companionIntro" ? "training" : "companionIntro",
+                                };
+                                pushSaveToServer(updated, updated.name).catch(() => {});
+                                return updated;
+                            });
                         }}
                     />
+                    <ScreenReadyProbe screen={screen} />
+                    </Suspense>
                 )}
 
                 {character
@@ -7724,7 +7686,6 @@ export default function App() {
 
                 {character
                     && normalizeOnboardingStep(character.onboardingStep) !== "done"
-                    && screen !== "villageLore"
                     // Coach is hidden during the spar (the in-battle SparCoach handles it).
                     && screen !== "arena"
                     && character.name !== "Admin 1"
@@ -7736,6 +7697,8 @@ export default function App() {
                         screen={screen}
                         activeTraining={activeTraining}
                         currentSector={currentSector}
+                        guidePet={character.pets.find((p) => p.id === character.activePetId) ?? character.pets[0] ?? null}
+                        sharedImages={sharedImages}
                         setScreen={navigate}
                         updateCharacter={setCharacter}
                         onStartSpar={startAcademySparringMatch}
@@ -7774,6 +7737,7 @@ export default function App() {
                         creatorRaids={creatorRaids}
                         petEncounterVn={petEncounterVn}
                         ancientChestVn={ancientChestVn}
+                        editablePets={editablePets}
                         setPendingAiProfileId={setPendingAiProfileId}
                             setPendingPvpOpponent={(c) => setPendingPvpOpponent(c ? normalizeCharacter(c) : null)}
                         setRaidBattleKind={setRaidBattleKind}
@@ -7798,10 +7762,15 @@ export default function App() {
                         sharedImages={sharedImages}
                         onStartEventEncounter={(event, battle) => {
                             setActiveTriggerReturnScreen("worldMap");
-                            startTriggeredEventArenaBattle(event, battle);
+                            // Pass the target explicitly too — the setter above lands
+                            // next render, so the call below would read the stale value.
+                            startTriggeredEventArenaBattle(event, battle, "worldMap");
                         }}
                         onDungeonFound={() => triggerDungeonEncounter("worldMap")}
-                        onEnterHollowGate={enterHollowGateShrine}
+                        onEnterHollowGate={() => { void enterHollowGateShrine(); }}
+                        hollowGateEventConfig={hollowGateEventConfig}
+                        onEnterHollowGateEvent={(cfg) => { void enterHollowGateShrine(cfg); }}
+                        onDescendRift={(rift: HollowRift) => { void enterHollowGateShrine(riftEventConfig(rift)); }}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}
@@ -7809,9 +7778,8 @@ export default function App() {
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
-                        onServerVersion={(version) => { latestSaveVersionRef.current = version; }}
                         onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster }); }}
-                        sectorAttackPlayer={async (opponent) => {
+                        sectorAttackPlayer={async (opponent) => { if (!requireServerSettlement("pvpSession")) return;
                             if (isTraveling) {
                                 alert("You cannot attack while traveling.");
                                 return;
@@ -7967,19 +7935,11 @@ export default function App() {
                         setCreatorItems={setCreatorItems}
                         playableAis={playableAis}
                         sharedImages={sharedImages}
-                        onServerVersion={(version) => { latestSaveVersionRef.current = version; }}
-                        onOpenBloodlineMaker={async (rank) => {
-                            const purchase = await purchaseBloodlineForge(character.name, rank);
-                            if (!purchase.ok || !purchase.character) {
-                                return { ok: false, error: purchase.error || "Could not purchase the bloodline forge." };
-                            }
-                            if (typeof purchase._saveVersion === "number") latestSaveVersionRef.current = purchase._saveVersion;
-                            setCharacter(purchase.character);
+                        onOpenBloodlineMaker={(rank) => {
                             setBloodlineMakerInitialRank(rank);
-                            setBloodlineMakerInitialElement(getCharacterElements(purchase.character)[0] ?? "");
+                            setBloodlineMakerInitialElement(getCharacterElements(character)[0] ?? "");
                             setBloodlineMakerRankLocked(true);
                             setScreen("bloodlineMaker");
-                            return { ok: true };
                         }}
                     />
                 )}
@@ -8004,7 +7964,7 @@ export default function App() {
                         }}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "storyBoss" && character && <div className="card"><h2>Legacy Story Battle Retired</h2><p>Story rewards now require a server-sealed Arena battle.</p><button onClick={() => setScreen("storyHall")}>Return to Story Hall</button></div>}
+                {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => setPendingArenaResponse(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} />}
@@ -8021,8 +7981,8 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={setScreen} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} setScreen={setScreen} sharedImages={sharedImages} onRecordBattle={recordBattle} towerHostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} onServerVersion={(version) => { latestSaveVersionRef.current = version; }} />}
-                {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} onServerVersion={(version) => { latestSaveVersionRef.current = version; }} />}
+                {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} />}
+                {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={goBack} autoStart={cardAutoStart} onAutoStartConsumed={() => setCardAutoStart(false)} onStartFreePlay={(matchId) => { try { sessionStorage.setItem("cardClashFreePlay.v1", JSON.stringify({ matchId })); } catch { /* ignore */ } setScreen("cardClashFreePlay"); }} />}
                 {!activeTriggeredEvent && screen === "guides" && <GuidesLibrary onExit={goBack} />}
                 {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <CardClashDuel character={character} creatorCards={creatorCards} tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
@@ -8106,7 +8066,7 @@ export default function App() {
                         onLaunchFight={launchWeeklyBossFight}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} updateCharacter={setCharacter} playerRoster={playerRoster} onBack={goBack} onServerVersion={(version) => { latestSaveVersionRef.current = version; }} />}
+                {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} updateCharacter={setCharacter} playerRoster={playerRoster} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "villageWarMap" && character && <VillageWarMap character={character} onBack={goBack} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorCard" && character && <SectorWarCardBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorPet" && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
@@ -8152,7 +8112,6 @@ export default function App() {
                         updateCharacter={setCharacter}
                         creatorItems={creatorItems}
                         creatorCards={creatorCards}
-                        onServerVersion={(version) => { latestSaveVersionRef.current = version; }}
                     />
                 )}
 
@@ -8217,6 +8176,16 @@ export default function App() {
                         if (!character) return;
                         const context = pvpBattleContext;
                         const rewardSector = context?.sector ?? currentSector;
+                        // Hoisted here so every reward/world-state write below can skip a casual spar.
+                        const isFriendlyDuel = !context?.mode
+                            || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
+                        const deathsGate = rewardSector === 99;
+                        const activeTrait = getActivePetTrait(character);
+                        const xpGain = (activeTrait === "Swift" ? 125 : 100) * (deathsGate ? 2 : 1);
+                        const ryoGain = (activeTrait === "Lucky" ? 90 : 75) * (deathsGate ? 2 : 1);
+                        const ratingGain = context?.mode === "ranked" && opponent
+                            ? rankedDelta(character.rankedRating ?? 1000, opponent.rankedRating ?? 1000)
+                            : 0;
                         // Old point-based clan war system removed — see autoReportClanWarBattleResult below.
                         if (context?.raidKind === "raidPlayer") {
                             damageSectorTerritory(rewardSector, sectorRaidDamageAmount(rewardSector));
@@ -8230,21 +8199,17 @@ export default function App() {
                                 body: JSON.stringify({ action: "resolve", village: context.kageVillage, playerName: character.name, battleId: pvpBattleId }),
                             }).catch(() => {});
                         }
-                        if (pvpBattleId) void claimBountyOnWin(character.name, pvpBattleId).then(b => { if (b) { setCharacter(c => c ? { ...c, ryo: b.balances.ryo } : c); alert(`💰 Bounty: +${b.amount.toLocaleString()} ryo for defeating ${b.target}!`); } });
-                        if (context?.raidKind === "raidPlayer") recordVillageWarRaid(character, rewardSector, playerRoster);
-                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
+                        if (!isFriendlyDuel && pvpBattleId) void claimBountyOnWin(character.name, pvpBattleId).then(b => { if (b) { setCharacter(c => c ? { ...c, ryo: b.balances.ryo } : c); alert(`💰 Bounty: +${b.amount.toLocaleString()} ryo for defeating ${b.target}!`); } });
+                        const villageWarRaid = context?.raidKind === "raidPlayer"
+                            ? recordVillageWarRaid(character, rewardSector, playerRoster)
+                            : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
+                        const villageWarPvpPatch = (!isFriendlyDuel && opponent) ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
                         // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
                         if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
-                        const isFriendlyDuel = !context?.mode
-                            || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
-                        if (!isFriendlyDuel && !serverBase) {
-                            alert('The PvP win was verified, but its server settlement is still pending. No local fallback reward was minted.');
-                            return;
-                        }
                         // Spars grant NOTHING (no XP/stats/ryo/currency/scrolls/kills); ranked = no stats.
-                        let leveled = isFriendlyDuel ? character : applyServerBaseReward(character, serverBase!);
+                        let leveled = isFriendlyDuel ? character : serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, xpGain);
                         if (!isFriendlyDuel && serverBase?.statGrowth?.allocated) leveled = applyStatGrowth(leveled, serverBase.statGrowth.allocated, 0);
-                        const rewarded = leveled;
+                        const rewarded = grantTerritoryScrolls(leveled, isFriendlyDuel ? 0 : 5);
                         // Vanguard rewards (Honor Seals + profession XP + all the
                         // daily-tracking fields) are granted server-side in
                         // api/pvp/move.ts via grantVanguardRewardsForSession. The
@@ -8254,6 +8219,24 @@ export default function App() {
                         // the explicit refetch below pulls the server's values.
                         setCharacter({
                             ...rewarded,
+                            ...villageWarRaid.characterPatch,
+                            // ryo / fateShards include the war-ground bounty
+                            // when it fires; bountyRyo+bountyFateShards are 0
+                            // for non-raid wins or when already claimed today.
+                            ryo: (isFriendlyDuel ? rewarded.ryo : serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
+                            fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
+                            auraDust: (rewarded.auraDust ?? 0) + (isFriendlyDuel ? 0 : 6),
+                            inventory: villageWarRaid.warCrate && !warCrateServerAuthEnabled()
+                                ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID]
+                                : rewarded.inventory,
+                            // Stamp the canonical crate ID so claimPendingWarCrates'
+                            // next sweep skips this war (already credited inline).
+                            claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId && !warCrateServerAuthEnabled()
+                                ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
+                                : (rewarded.claimedWarCrateIds ?? []),
+                            totalPvpKills: (rewarded.totalPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),
+                            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),
+                            pvpKillMonth: currentMonthKey(),
                             // Read-back (audit #7 / Stage 3): when the session is
                             // ranked the server credits the rating via claim-rewards
                             // and returns it; use that authoritative value. Fall back
@@ -8261,7 +8244,8 @@ export default function App() {
                             // one (claim 503 / offline) so the rating still updates.
                             // The win counter still increments locally (it converges —
                             // server +1 from the same base).
-                            rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : rewarded.rankedRating,
+                            rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : (rewarded.rankedRating ?? 1000) + ratingGain,
+                            rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
                         });
                         // Refetch the player's own save to pick up server-side
                         // Vanguard reward updates (honorSeals, professionXp,
@@ -8287,7 +8271,7 @@ export default function App() {
                         }
                         // PvP raid completion — pass pvpBattleId so the server
                         // can cross-validate the win against the real PvpSession.
-                        if (rewardSector > 0) recordMissionRaid(rewardSector, pvpBattleId ?? undefined);
+                        if (!isFriendlyDuel && rewardSector > 0) recordMissionRaid(rewardSector, pvpBattleId ?? undefined);
                         if (villageWarPvpPatch) console.info(villageWarPvpPatch.trim());
                         // Clan-war auto-report on win: if this PvP session
                         // was launched from a clan-war challenge (set by
@@ -8361,15 +8345,16 @@ export default function App() {
                                 }
                                 // Sector War: report the loss so the defender's win counts toward the siege (server maps winner by village).
                                 if (pvpBattleContext?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
-                                if (pvpBattleContext?.mode !== "ranked" || !serverRating || serverRating.field !== "rankedRating") return;
-                                setCharacter({ ...character, rankedRating: serverRating.value });
-                                fetch(`/api/save/${encodeURIComponent(character.name)}`)
-                                    .then((r) => r.ok ? r.json() : null)
-                                    .then((data) => {
-                                        const serverChar = data?.character as Character | undefined;
-                                        if (serverChar) setCharacter(serverChar);
-                                    })
-                                    .catch(() => { /* the committed server save remains authoritative */ });
+                                if (pvpBattleContext?.mode !== "ranked" || !opponent) return;
+                                const loss = rankedDelta(opponent.rankedRating ?? 1000, character.rankedRating ?? 1000);
+                                setCharacter({
+                                    ...character,
+                                    // Read-back: prefer the server-credited rating
+                                    // (claim-rewards), fall back to the local delta if
+                                    // it wasn't returned. Loss counter stays local.
+                                    rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : Math.max(0, (character.rankedRating ?? 1000) - loss),
+                                    rankedLosses: (character.rankedLosses ?? 0) + 1,
+                                });
                             }}
                         />
                     );
@@ -8392,6 +8377,7 @@ export default function App() {
                         onClose={() => { setBloodlineMakerRankLocked(false); setBloodlineMakerEditingBloodline(null); setScreen(isAdminAccountName(character.name) ? "adminPanel" : "centralHub"); }}
                     />
                 )}
+                {!introCinematicActive && <ScreenReadyProbe screen={screen} />}
                 </ScreenErrorBoundary>
                 </Suspense>
             </main>

@@ -58,7 +58,7 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
         <div className="mastery-panel" style={{ marginTop: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
                 <h3 style={{ margin: 0 }}>⭐ Mastery — Level {level}/{MASTERY_MAX_LEVEL}</h3>
-                <span style={{ color: available > 0 ? "#facc15" : "#94a3b8", fontWeight: 700 }}>
+                <span style={{ color: available > 0 ? "var(--gold)" : "var(--text-dim)", fontWeight: 700 }}>
                     {available} point{available === 1 ? "" : "s"} to spend
                 </span>
             </div>
@@ -66,7 +66,7 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
                 Earn profession XP past rank 10 to gain mastery points. Specialize down one path — you can't max them all. PvE &amp; utility only.
             </p>
             {level === 0 && spent === 0 && (
-                <p className="hint" style={{ color: "#94a3b8" }}>Reach rank 10 and keep earning profession XP to unlock your first mastery point.</p>
+                <p className="hint" style={{ color: "var(--text-dim)" }}>Reach rank 10 and keep earning profession XP to unlock your first mastery point.</p>
             )}
 
             {(() => {
@@ -74,7 +74,7 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
                 if (active.length === 0) return null;
                 return (
                     <div className="summary-box" style={{ padding: 10, marginBottom: 4, borderColor: "rgba(250,204,21,0.4)" }}>
-                        <strong style={{ color: "#facc15" }}>Active bonuses</strong>
+                        <strong style={{ color: "var(--gold)" }}>Active bonuses</strong>
                         <ul style={{ margin: "6px 0 0", paddingLeft: 18, lineHeight: 1.5 }}>
                             {active.map((a) => <li key={a}>{a}</li>)}
                         </ul>
@@ -104,7 +104,7 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ fontWeight: 600 }}>
                                                     {n.capstone ? "★ " : ""}{n.name}
-                                                    <span style={{ marginLeft: 6, color: "#94a3b8", fontWeight: 400, fontSize: "0.85em" }}>
+                                                    <span style={{ marginLeft: 6, color: "var(--text-dim)", fontWeight: 400, fontSize: "0.85em" }}>
                                                         {n.capstone ? (masteryHasCapstone(character, n.id) ? "Unlocked" : `Needs ${CAPSTONE_PATH_GATE} pts in path`) : `${ranks}/${n.maxRank}`}
                                                     </span>
                                                 </div>

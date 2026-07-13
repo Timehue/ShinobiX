@@ -72,11 +72,25 @@ let sim = read("lib/pet-duel-sim.ts")
     .replace(/from "\.\.\/data\/pet-config"/g, 'from "./pet-config.js"');
 write("pet-duel-sim.ts", "lib/pet-duel-sim.ts", sim);
 
+// 6. pet-duel-cinematic.ts → pet-duel-cinematic.ts (the promoted-authoritative
+//    coliseum engine). Same 5 sibling rewrites as the duel sim, plus its own
+//    import of the generated pet-duel-sim sibling gets the .js extension. Its
+//    import set is IDENTICAL to pet-duel-sim's (pet-types / pet-arena-walkmask /
+//    pet-coliseum-flag / pet-config) plus pet-duel-sim, so no new siblings needed.
+let cine = read("lib/pet-duel-cinematic.ts")
+    .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
+    .replace(/from "\.\/pet-arena-walkmask"/g, 'from "./pet-arena-walkmask.js"')
+    .replace(/import \{ petAccuracyEnabled \} from "\.\/pet-coliseum-flag";/,
+        'const petAccuracyEnabled = (): boolean => false; // server: accuracy is passed in explicitly')
+    .replace(/from "\.\.\/data\/pet-config"/g, 'from "./pet-config.js"')
+    .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"');
+write("pet-duel-cinematic.ts", "lib/pet-duel-cinematic.ts", cine);
+
 // Sanity: no client-only import paths may survive into the server copy.
-const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"'];
-for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts"]) {
+const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"'];
+for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
 }
 
-console.log("gen-pet-sim: wrote api/_pet-sim/{pet-types,_game-consts,pet-config,pet-arena-walkmask,pet-duel-sim}.ts");
+console.log("gen-pet-sim: wrote api/_pet-sim/{pet-types,_game-consts,pet-config,pet-arena-walkmask,pet-duel-sim,pet-duel-cinematic}.ts");

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { LoadingState } from "../components/ui/LoadingState";
+import { readDailyMissionCache, writeDailyMissionCache } from "../lib/daily-mission-cache";
 import type { Character, Profession } from "../App";
 
 type DailyMission = {
@@ -38,8 +39,8 @@ const PROFESSION_ACCENT: Record<Profession, string> = {
 };
 
 export function DailyProfessionMissions({ character }: { character: Character }) {
-    const [data, setData] = useState<Response | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState<Response | null>(() => readDailyMissionCache(character.name, character.profession ?? null) as Response | null);
+    const [loading, setLoading] = useState(() => !readDailyMissionCache(character.name, character.profession ?? null));
     const [error, setError] = useState<string | null>(null);
     // Track which mission IDs we've already seen as completed so we don't
     // double-toast on subsequent polls.
@@ -62,6 +63,28 @@ export function DailyProfessionMissions({ character }: { character: Character })
         seenCompletedRef.current = new Set();
         seededRef.current = false;
         let cancelled = false;
+        // Show the same player's last server-confirmed daily state immediately
+        // (per tab and UTC date), then still refresh from the server below.
+        // This removes the blank 3-5s panel on repeat navigation without ever
+        // using cached data to grant rewards or authorize an action.
+        const cached = readDailyMissionCache(character.name, character.profession ?? null);
+        // Hydrate after the effect's synchronous setup so the cache state does
+        // not trigger a cascading render from inside the effect body.
+        queueMicrotask(() => {
+            if (cancelled) return;
+            if (cached) {
+                setData(cached as Response);
+                setLoading(false);
+                seededRef.current = true;
+                for (const mission of cached.missions as DailyMission[]) {
+                    if (mission.completedAt) seenCompletedRef.current.add(mission.id);
+                }
+            } else {
+                setData(null);
+                setLoading(true);
+            }
+            setError(null);
+        });
         async function fetchMissions() {
             try {
                 const res = await fetch(`/api/missions/daily?playerName=${encodeURIComponent(character.name)}`);
@@ -88,6 +111,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                 }
                 seededRef.current = true;
                 setData(json);
+                writeDailyMissionCache(character.name, character.profession ?? null, json);
                 setLoading(false);
             } catch {
                 if (!cancelled) {
@@ -105,7 +129,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
 
     const prof = character.profession;
     const isNewbie = !prof;
-    const accent = prof ? PROFESSION_ACCENT[prof] : "#facc15";
+    const accent = prof ? PROFESSION_ACCENT[prof] : "var(--gold)";
     const label = prof ? PROFESSION_LABEL[prof] : "New Shinobi";
     // Guard against a 200 response that omits `missions` — render off a safe
     // local so a partial payload can't throw `.length`/`.map` during render.
@@ -117,13 +141,13 @@ export function DailyProfessionMissions({ character }: { character: Character })
                 {isNewbie ? "📜 Daily Missions" : `📜 Daily ${label} Missions`}
             </h3>
             {loading && <LoadingState />}
-            {error && <p style={{ color: "#f87171" }}>{error}</p>}
-            {!loading && !error && data && missions.length === 0 && (
+            {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}
+            {!loading && data && missions.length === 0 && (
                 <p className="hint" style={{ margin: 0 }}>
                     No daily missions available right now.
                 </p>
             )}
-            {!loading && !error && data && missions.length > 0 && (
+            {!loading && data && missions.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {missions.map(m => {
                         const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
@@ -139,7 +163,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                                 }}
                             >
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-                                    <strong style={{ color: done ? accent : "#e2e8f0" }}>
+                                    <strong style={{ color: done ? accent : "var(--slate-200)" }}>
                                         {done && "✓ "}{m.name}
                                     </strong>
                                     <span className="hint" style={{ fontSize: "0.75rem" }}>

@@ -58,6 +58,10 @@ export const HP_MULT_CAP = 3.0;
 export const DMG_STEP = 0.06;         // dmgMult = 1 + tier*0.06 (applied to enemy damage)
 export const DMG_MULT_CAP = 2.20;
 export const SPIRE_ENRAGE_CAP = 2;    // enrage bounded to 2 stacks (1.70×) — the load-bearing anti-one-shot cap
+// Every weekly blessing carries enough clock headroom for the authored HP curve. Without this
+// common buffer, damage-reduction weeks still produced deterministic timeout walls because they
+// softened incoming damage but did not give the squad time to finish the boss.
+export const SPIRE_WEEKLY_ROUND_BUFFER = 3;
 
 // ── Wave 2 affix keystones (floors 9-14+) ──────────────────────────────────────
 // Keystones layer a TACTICAL demand on top of the number chassis so mid-Spire floors
@@ -108,10 +112,10 @@ const HAZARD_ESCALATING_TIER = 19;// Rising Inferno — a central blaze whose bi
 export type SpireWeeklyBlessing = { id: string; name: string; blurb: string; icon: string; modifier: TowerModifier };
 export const SPIRE_WEEKLY_BLESSINGS: readonly SpireWeeklyBlessing[] = [
     { id: 'vigor',    name: 'Ancestral Vigor',      icon: '⏳', blurb: '+3 rounds on every floor — more time to out-think the boss.',        modifier: { kind: 'roundCap', value: 3,     label: '✨ Blessing — Ancestral Vigor (+3 rounds)' } },
-    { id: 'falter',   name: 'Faltering Foes',       icon: '🛡️', blurb: 'Enemies deal 12% less damage this week.',                            modifier: { kind: 'dmg',      value: -0.12, label: '✨ Blessing — Faltering Foes (foes −12% damage)' } },
-    { id: 'trial',    name: 'Extended Trial',       icon: '🕰️', blurb: '+4 rounds on every floor — a patient week to push deep.',           modifier: { kind: 'roundCap', value: 4,     label: '✨ Blessing — Extended Trial (+4 rounds)' } },
-    { id: 'waning',   name: 'Waning Malice',        icon: '🌙', blurb: 'Enemies deal 8% less damage this week.',                             modifier: { kind: 'dmg',      value: -0.08, label: '✨ Blessing — Waning Malice (foes −8% damage)' } },
-    { id: 'tailwind', name: "Climber's Tailwind",   icon: '🍃', blurb: 'Enemies deal 15% less damage — a gentle week for new climbers.',    modifier: { kind: 'dmg',      value: -0.15, label: "✨ Blessing — Climber's Tailwind (foes −15% damage)" } },
+    { id: 'falter',   name: 'Faltering Foes',       icon: '🛡️', blurb: '+3 rounds; enemies deal 12% less damage this week.',                 modifier: { kind: 'dmg',      value: -0.12, label: '✨ Blessing — Faltering Foes (+3 rounds, foes −12% damage)' } },
+    { id: 'trial',    name: 'Extended Trial',       icon: '🕰️', blurb: '+3 rounds on every floor — a patient week to push deep.',           modifier: { kind: 'roundCap', value: 3,     label: '✨ Blessing — Extended Trial (+3 rounds)' } },
+    { id: 'waning',   name: 'Waning Malice',        icon: '🌙', blurb: '+3 rounds; enemies deal 8% less damage this week.',                  modifier: { kind: 'dmg',      value: -0.08, label: '✨ Blessing — Waning Malice (+3 rounds, foes −8% damage)' } },
+    { id: 'tailwind', name: "Climber's Tailwind",   icon: '🍃', blurb: '+3 rounds; enemies deal 15% less damage — a gentle climbing week.', modifier: { kind: 'dmg',      value: -0.15, label: "✨ Blessing — Climber's Tailwind (+3 rounds, foes −15% damage)" } },
 ];
 /** PURE. The Weekly Blessing for a reset-week index (deterministic; clock-free). */
 export function weeklySpireBlessing(weekIndex: number): SpireWeeklyBlessing {
@@ -187,7 +191,10 @@ export function resolveAscensionModifiers(
     if (weekAffix) {
         stack.push(weekAffix);
         if (weekAffix.kind === 'hp') hpMult = Math.min(HP_MULT_CAP, round2(hpMult + weekAffix.value));
-        else if (weekAffix.kind === 'dmg') dmgMult = Math.min(DMG_MULT_CAP, round2(dmgMult + weekAffix.value));
+        else if (weekAffix.kind === 'dmg') {
+            dmgMult = Math.min(DMG_MULT_CAP, round2(dmgMult + weekAffix.value));
+            roundCap = Math.max(1, roundCap + SPIRE_WEEKLY_ROUND_BUFFER);
+        }
         else if (weekAffix.kind === 'roundCap') roundCap = Math.max(1, roundCap + Math.floor(weekAffix.value));
     }
 

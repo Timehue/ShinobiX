@@ -581,7 +581,7 @@ export function resolveEquippedLoadout(
             // identical to today. The always-on save entitlement plus the paid,
             // one-use /bloodlines/forge path prevents forged ranks from claiming
             // higher caps than the player legitimately earned.
-            const stampRank = process.env.BLOODLINE_RANK_CAPS === '1';
+            const stampRank = true;
             for (const b of bloodlines) {
                 if (!b || typeof b !== 'object') continue;
                 const bl = b as Record<string, unknown>;
@@ -970,6 +970,10 @@ function townDefensePctFromSave(saveCharacter: Record<string, unknown> | null | 
     return Math.max(0, Math.min(GUARD_DEFENSE_MAX_PCT, level * TOWN_DEFENSE_PER_LEVEL));
 }
 
+export function pvpSessionCreationAllowedDuringSettlement(isAdmin: boolean): boolean {
+    return isAdmin;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -994,6 +998,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // with arbitrary stats (e.g. 999999 HP god mode).
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!pvpSessionCreationAllowedDuringSettlement(identity.admin)) {
+            return res.status(503).json({ error: 'PvP sessions are temporarily unavailable while authoritative settlement is finalized. Nothing was changed.' });
+        }
         // Cap session creation. A legit player starts a duel maybe every
         // 30s in heavy play; 6/min is comfortable headroom and stops
         // KV-fill attacks that spam-create sessions. Admins skip the cap

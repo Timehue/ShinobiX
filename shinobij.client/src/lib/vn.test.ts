@@ -9,7 +9,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isChoiceAvailable, analyzeVnFlow, parseDialogueString, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
+import { applyVnTextVars, vnTextVarsFor, isChoiceAvailable, analyzeVnFlow, parseDialogueString, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
 import { addStoryTrait } from "./character-progress";
 import type { Character } from "../types/character";
 
@@ -46,6 +46,35 @@ test("addStoryTrait: appends, dedupes, and never mutates the input character", (
 test("addStoryTrait: a blank trait is a no-op", () => {
     const base = { storyTraits: ["x"] } as unknown as Character;
     assert.equal(addStoryTrait(base, "   "), base);
+});
+
+test("applyVnTextVars: %name becomes the player name; plain text passes through", () => {
+    assert.equal(applyVnTextVars("Welcome to Ashen Leaf, %name.", "Rill"), "Welcome to Ashen Leaf, Rill.");
+    assert.equal(applyVnTextVars("%name and %name again", "Rill"), "Rill and Rill again");
+    assert.equal(applyVnTextVars("No token here.", "Rill"), "No token here.");
+    // A blank player name leaves the token visible rather than emitting a hole.
+    assert.equal(applyVnTextVars("Hello, %name.", "   "), "Hello, %name.");
+});
+
+test("applyVnTextVars: %pet becomes the pet name, with a companion fallback when absent", () => {
+    assert.equal(applyVnTextVars("I watched %pet step wide of it.", { name: "Rill", petName: "Shiranui" }), "I watched Shiranui step wide of it.");
+    // No active pet (or a blank name) → the neutral fallback, never a visible token.
+    assert.equal(applyVnTextVars("I watched %pet step wide of it.", { name: "Rill" }), "I watched your companion step wide of it.");
+    assert.equal(applyVnTextVars("I watched %pet step wide of it.", { name: "Rill", petName: "  " }), "I watched your companion step wide of it.");
+    // The fallback capitalizes at the start of the text or of a sentence.
+    assert.equal(applyVnTextVars("%pet stops at the moss line.", { name: "Rill" }), "Your companion stops at the moss line.");
+    assert.equal(applyVnTextVars("Look there. %pet saw it first.", { name: "Rill" }), "Look there. Your companion saw it first.");
+    // %name and %pet substitute together; the legacy string form leaves %pet on fallback.
+    assert.equal(applyVnTextVars("%name, keep %pet close.", { name: "Rill", petName: "Kit" }), "Rill, keep Kit close.");
+    assert.equal(applyVnTextVars("Keep %pet close, %name.", "Rill"), "Keep your companion close, Rill.");
+});
+
+test("vnTextVarsFor: resolves the active pet's name; no active pet leaves petName undefined", () => {
+    const pets = [{ id: "a", name: "Kit" }, { id: "b", name: "Shiranui" }];
+    assert.deepEqual(vnTextVarsFor({ name: "Rill", pets, activePetId: "b" }), { name: "Rill", petName: "Shiranui" });
+    assert.deepEqual(vnTextVarsFor({ name: "Rill", pets }), { name: "Rill", petName: undefined });
+    assert.deepEqual(vnTextVarsFor({ name: "Rill", pets, activePetId: "missing" }), { name: "Rill", petName: undefined });
+    assert.deepEqual(vnTextVarsFor({ name: "Rill" }), { name: "Rill", petName: undefined });
 });
 
 const flowPage = (over: Partial<VnFlowPage> = {}): VnFlowPage => ({ scene: "s", dialogue: "d", choices: [], ...over });

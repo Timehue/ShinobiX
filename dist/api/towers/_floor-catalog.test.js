@@ -76,6 +76,16 @@ const _floor_validate_js_1 = require("./_floor-validate.js");
         const bad = { ..._floor_catalog_js_1.FLOOR_CATALOG[0], balanceFor: 7 };
         node_assert_1.strict.ok((0, _floor_validate_js_1.validateFloor)(bad).some(e => e.includes('balanceFor')));
     });
+    (0, node_test_1.it)('accepts a valid geyser hazard and rejects malformed cadence/percent/count', () => {
+        const ok = { ..._floor_catalog_js_1.FLOOR_CATALOG[0], dynamicHazards: [{ kind: 'geyser', count: 3, pct: 5, everyRounds: 3, firstRound: 2 }] };
+        node_assert_1.strict.deepEqual((0, _floor_validate_js_1.validateFloor)(ok), []);
+        const badPct = { ..._floor_catalog_js_1.FLOOR_CATALOG[0], dynamicHazards: [{ kind: 'geyser', count: 3, pct: 40, everyRounds: 3 }] };
+        node_assert_1.strict.ok((0, _floor_validate_js_1.validateFloor)(badPct).some(e => e.includes('pct')), 'a >25% geyser is rejected');
+        const badCadence = { ..._floor_catalog_js_1.FLOOR_CATALOG[0], dynamicHazards: [{ kind: 'geyser', count: 3, pct: 5, everyRounds: 1 }] };
+        node_assert_1.strict.ok((0, _floor_validate_js_1.validateFloor)(badCadence).some(e => e.includes('everyRounds')), 'an every-round geyser is rejected');
+        const badCount = { ..._floor_catalog_js_1.FLOOR_CATALOG[0], dynamicHazards: [{ kind: 'geyser', count: 99, pct: 5, everyRounds: 3 }] };
+        node_assert_1.strict.ok((0, _floor_validate_js_1.validateFloor)(badCount).some(e => e.includes('count')), 'a 99-vent floor is rejected');
+    });
 });
 (0, node_test_1.describe)('Battle Towers party scaling (2–4 squad)', () => {
     (0, node_test_1.it)('a full party (>= balanceFor) gets no scaling', () => {

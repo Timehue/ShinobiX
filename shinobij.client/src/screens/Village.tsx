@@ -6,6 +6,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { JourneyGuide } from "../components/JourneyGuide";
+import { preloadScreen } from "../lib/screen-preload";
 
 // Bespoke pixel-art building icons (generated via scripts/gen-asset.mjs, then
 // committed as bundle assets). One biome-neutral set reused across all four
@@ -104,6 +105,9 @@ export function Village({ character, setScreen }: { character: Character; setScr
                             left: location.x,
                             top: location.y,
                         }}
+                        onPointerEnter={() => preloadScreen(location.screen)}
+                        onFocus={() => preloadScreen(location.screen)}
+                        onPointerDown={() => preloadScreen(location.screen)}
                         onClick={() => setScreen(location.screen)}
                     >
                         <img className="stormveil-map-icon" src={location.img} alt="" draggable={false} />

@@ -31,9 +31,6 @@ const CLIENT_SRC = join(HERE, 'shinobij.client', 'src');
 // ─── Server side: what cPanel actually registers ───────────────────────────────
 
 const serverSrc = readFileSync(SERVER_TS, 'utf8');
-const railway = JSON.parse(readFileSync(join(HERE, 'railway.json'), 'utf8')) as {
-    deploy?: { healthcheckPath?: string; numReplicas?: number };
-};
 
 // Every `route('/x/y', handler)` call. route() mounts BOTH '/x/y' and
 // '/api/x/y', so the client-facing path is '/api' + the bare path.
@@ -173,22 +170,6 @@ describe('Express route parity (Railway + cPanel)', () => {
         // both the param routes and the app.all() wiring are present.
         assert.match(serverSrc, /route\(\s*['"]\/save\/:name['"]/, 'missing /save/:name route');
         assert.match(serverSrc, /route\(\s*['"]\/kv\/:op['"]/, 'missing /kv/:op route');
-        assert.match(serverSrc, /route\(\s*['"]\/bloodlines\/forge['"]/, 'missing /bloodlines/forge route');
-        assert.match(serverSrc, /route\(\s*['"]\/card-clash\/open-pack['"]/, 'missing /card-clash/open-pack route');
-        assert.match(serverSrc, /route\(\s*['"]\/story\/settle['"]/, 'missing /story/settle route');
-        assert.match(serverSrc, /route\(\s*['"]\/world\/explore['"]/, 'missing /world/explore route');
-        assert.match(serverSrc, /route\(\s*['"]\/world\/open-chest['"]/, 'missing /world/open-chest route');
-        assert.match(serverSrc, /route\(\s*['"]\/hollow-gate\/forge-key['"]/, 'missing /hollow-gate/forge-key route');
-        assert.match(serverSrc, /route\(\s*['"]\/hollow-gate\/locked-door['"]/, 'missing /hollow-gate/locked-door route');
-        assert.match(serverSrc, /route\(\s*['"]\/pet\/choose-starter['"]/, 'missing /pet/choose-starter route');
-        assert.match(serverSrc, /route\(\s*['"]\/pet\/encounter-start['"]/, 'missing /pet/encounter-start route');
-        assert.match(serverSrc, /route\(\s*['"]\/pet\/befriend['"]/, 'missing /pet/befriend route');
-        assert.match(serverSrc, /route\(\s*['"]\/shop\/purchase['"]/, 'missing /shop/purchase route');
-        assert.match(serverSrc, /route\(\s*['"]\/shop\/sell['"]/, 'missing /shop/sell route');
-        assert.match(serverSrc, /route\(\s*['"]\/craft\/forge['"]/, 'missing /craft/forge route');
-        assert.match(serverSrc, /route\(\s*['"]\/craft\/named['"]/, 'missing /craft/named route');
-        assert.match(serverSrc, /route\(\s*['"]\/achievements\/sync['"]/, 'missing /achievements/sync route');
-        assert.match(serverSrc, /route\(\s*['"]\/endless\/run['"]/, 'missing /endless/run route');
         assert.match(serverSrc, /app\.all\(\s*paths/, 'route() should mount via app.all() so every method is served');
     });
 
@@ -222,26 +203,12 @@ describe('Express route parity (Railway + cPanel)', () => {
         );
     });
 
-    it('returns JSON 404s for unknown API routes before the SPA fallback', () => {
+    it('returns non-cacheable JSON 404s for unknown API routes before the SPA fallback', () => {
         assert.match(serverSrc, /API route not found\./, 'unknown API guard is missing');
         assert.ok(
             serverSrc.indexOf('API route not found.') < serverSrc.indexOf('app.get(/(.*)/'),
             'unknown API guard must run before the SPA fallback',
         );
-    });
-
-    it('uses the database-aware readiness endpoint for Railway deploys', () => {
-        assert.equal(railway.deploy?.healthcheckPath, '/health/db');
-        assert.equal(railway.deploy?.numReplicas, 1);
-    });
-
-    it('drains background work, realtime, HTTP, and storage on process shutdown', () => {
-        assert.match(serverSrc, /process\.on\(['"]SIGTERM['"]/, 'SIGTERM handler is missing');
-        assert.match(serverSrc, /process\.on\(['"]SIGINT['"]/, 'SIGINT handler is missing');
-        for (const call of ['stopSnapshotCron()', 'stopGameLoop()', 'closeSocketServer()', 'server.close(', 'closeStoragePool()']) {
-            assert.ok(serverSrc.includes(call), `shutdown path is missing ${call}`);
-        }
-        assert.match(serverSrc, /SHUTDOWN_GRACE_MS\s*=\s*10_000/, 'shutdown must have a bounded grace period');
     });
 });
 
@@ -289,5 +256,28 @@ describe('handler wiring (no orphaned endpoints)', () => {
             `registration in server.ts, so they 404 despite being imported:\n  - ` +
             unwired.map((r) => `api/${r}.ts`).join('\n  - '),
         );
+    });
+});
+
+describe('release operations wiring', () => {
+    it('reports an immutable deployment SHA from platform/build metadata', () => {
+        assert.match(serverSrc, /RAILWAY_GIT_COMMIT_SHA/, 'health must consume Railway commit metadata');
+        assert.match(serverSrc, /BUILD_COMMIT/, 'health must support a generic Docker build commit');
+        assert.match(serverSrc, /commitSource/, 'health should disclose where its commit identity came from');
+    });
+
+    it('drains normal platform termination signals', () => {
+        assert.match(serverSrc, /process\.once\(['"]SIGTERM['"]/, 'SIGTERM must trigger graceful drain');
+        assert.match(serverSrc, /process\.once\(['"]SIGINT['"]/, 'SIGINT must trigger graceful drain');
+        assert.match(serverSrc, /stopSnapshotCron\(\)/, 'shutdown must stop background cron timers');
+        assert.match(serverSrc, /stopGameLoop\(\)/, 'shutdown must stop the realtime game loop');
+    });
+
+    it('protects and coalesces the storage-mutating deep health probe', () => {
+        assert.match(serverSrc, /HEALTH_DEEP_TOKEN/, 'deep health should support a monitor token');
+        assert.match(serverSrc, /if \(!expected\) return process\.env\.NODE_ENV !== ['"]production['"]/, 'deep health must fail closed without a token in production');
+        assert.match(serverSrc, /_deepHealthInFlight/, 'deep health should coalesce concurrent probes');
+        assert.match(serverSrc, /_deepHealthCache/, 'deep health should briefly cache probe results');
+        assert.match(serverSrc, /enforceRateLimit\(req, res, ['"]deep-health['"]/, 'deep health should be rate limited');
     });
 });

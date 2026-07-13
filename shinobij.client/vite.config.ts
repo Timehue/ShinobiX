@@ -9,6 +9,7 @@ import child_process from 'child_process';
 import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { env } from 'process';
 import type { IncomingMessage, ServerResponse } from 'http';
+import { playerPasswordPolicyError } from './src/lib/player-auth-policy';
 
 // ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
 const isBuildMode = process.argv.includes('build');
@@ -82,6 +83,8 @@ type OpenAiImageResponse = {
 const PRESENCE_TTL_MS = 60_000;
 const MAX_PROMPT_LENGTH = 1_500;
 const MAX_LABEL_LENGTH = 120;
+const MAX_DEV_IMAGE_CHARS = 3_000_000;
+const MAX_DEV_AVATAR_BYTES = 2 * 1024 * 1024;
 
 function recordId(value: unknown) {
     return value && typeof value === 'object' && 'id' in value
@@ -110,6 +113,7 @@ type DevAuthRecord = {
 };
 
 type DevAuthStore = Record<string, DevAuthRecord>;
+const devSessionTokens = new Map<string, string>();
 
 function isReservedDevAuthName(playerId: string) {
     return RESERVED_DEV_AUTH_NAMES.has(playerId)
@@ -125,9 +129,90 @@ function createDevAuthRecord(password: string): DevAuthRecord {
     return { salt, hash: hashDevPassword(password, salt) };
 }
 
+// The production API returns a signed, revocable session token after register
+// and verify. Local Vite middleware has no production SESSION_SECRET or shared
+// epoch store, but the client still correctly refuses password-only sessions.
+// Mint an opaque dev-only token so authenticated browser journeys exercise the
+// same token-first client path. This value is accepted nowhere outside Vite.
+function issueDevSessionToken(playerId: string) {
+    const token = `dev.${Buffer.from(playerId).toString('base64url')}.${randomBytes(32).toString('base64url')}`;
+    devSessionTokens.set(token, playerId);
+    return token;
+}
+
+function devTokenPlayer(req: IncomingMessage): string | null {
+    const token = req.headers['x-player-token'];
+    const claimedName = req.headers['x-player-name'];
+    if (typeof token !== 'string' || typeof claimedName !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 3 || parts[0] !== 'dev' || !parts[2]) return null;
+    const issuedTo = devSessionTokens.get(token);
+    if (!issuedTo) return null;
+    try {
+        const tokenName = safeName(Buffer.from(parts[1], 'base64url').toString('utf8'));
+        return tokenName && tokenName === issuedTo && tokenName === safeName(claimedName) ? tokenName : null;
+    } catch {
+        return null;
+    }
+}
+
+function validDevImage(image: string) {
+    if (image.length > MAX_DEV_IMAGE_CHARS) return false;
+    if (/^https?:\/\//i.test(image)) {
+        try {
+            const host = new URL(image).hostname.toLowerCase();
+            return host.includes('.') && host !== 'localhost' && !/^127\./.test(host);
+        } catch {
+            return false;
+        }
+    }
+    return /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(image);
+}
+
+function decodedDevImageBytes(image: string) {
+    const b64 = image.slice(image.indexOf(',') + 1);
+    const padding = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+    return Math.floor((b64.length * 3) / 4) - padding;
+}
+
+type DevImageStore = Record<string, string>;
+let devImageWriteChain = Promise.resolve();
+
+function loadDevImages(imagePath: string): DevImageStore {
+    if (!fs.existsSync(imagePath)) return {};
+    try {
+        const parsed = JSON.parse(fs.readFileSync(imagePath, 'utf8')) as unknown;
+        return parsed && typeof parsed === 'object' ? parsed as DevImageStore : {};
+    } catch {
+        return {};
+    }
+}
+
+function saveDevImages(imagePath: string, images: DevImageStore) {
+    const tmpPath = `${imagePath}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(images), 'utf8');
+    fs.renameSync(tmpPath, imagePath);
+}
+
+async function updateDevImages(imagePath: string, update: (images: DevImageStore) => void) {
+    const write = devImageWriteChain.then(() => {
+        const images = loadDevImages(imagePath);
+        update(images);
+        saveDevImages(imagePath, images);
+    });
+    devImageWriteChain = write.catch(() => undefined);
+    await write;
+}
+
 function devPasswordMatches(record: DevAuthRecord, password: string) {
     const expected = Buffer.from(record.hash, 'hex');
     const actual = Buffer.from(hashDevPassword(password, record.salt), 'hex');
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+function devStringMatches(expectedValue: string, actualValue: string) {
+    const expected = Buffer.from(expectedValue);
+    const actual = Buffer.from(actualValue);
     return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
@@ -392,6 +477,66 @@ export default defineConfig({
                 const savesDir = path.resolve(process.cwd(), 'saves');
                 if (!fs.existsSync(savesDir)) fs.mkdirSync(savesDir, { recursive: true });
                 const authPath = path.join(savesDir, '_auth.json');
+                const imagePath = path.join(savesDir, '_images.json');
+
+                server.middlewares.use('/api/images', async (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method === 'GET') {
+                        const url = new URL(req.url ?? '/', 'http://vite.local');
+                        const category = (url.searchParams.get('cat') ?? '').trim();
+                        const images = loadDevImages(imagePath);
+                        const filtered = category
+                            ? Object.fromEntries(Object.entries(images).filter(([id]) => {
+                                const prefix = id.split(':')[0];
+                                const cat = prefix === 'vn'
+                                    ? 'event'
+                                    : ['petbody', 'petsheet', 'petlayers'].includes(prefix) ? 'pet' : prefix;
+                                return cat === category;
+                            }))
+                            : images;
+                        sendJson(res, 200, url.searchParams.has('ids') ? Object.keys(filtered) : filtered);
+                        return;
+                    }
+
+                    if (req.method === 'POST') {
+                        const playerName = devTokenPlayer(req);
+                        const adminPassword = req.headers['x-admin-password'];
+                        const isDevAdmin = typeof adminPassword === 'string'
+                            && ((env.ADMIN_PASSWORD && devStringMatches(env.ADMIN_PASSWORD, adminPassword))
+                                || (env.ADMIN_CONTENT_PASSWORD && devStringMatches(env.ADMIN_CONTENT_PASSWORD, adminPassword)));
+                        if (!playerName && !isDevAdmin) {
+                            sendJson(res, 401, { error: 'Authentication required.' });
+                            return;
+                        }
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        const { id, image } = parsed.body as { id?: string; image?: string };
+                        if (!id || typeof image !== 'string' || id.length > 256 || !validDevImage(image)) {
+                            sendJson(res, 400, { error: 'Invalid image id or image.' });
+                            return;
+                        }
+                        const [prefix, ...rest] = id.split(':');
+                        const imageOwner = safeName(rest.join(':'));
+                        if (!isDevAdmin && prefix === 'avatar' && imageOwner !== playerName) {
+                            sendJson(res, 403, { error: 'You can only set your own avatar.' });
+                            return;
+                        }
+                        if (prefix === 'avatar' && (!image.startsWith('data:image/') || decodedDevImageBytes(image) > MAX_DEV_AVATAR_BYTES)) {
+                            sendJson(res, 400, { error: 'Avatar image must be an uploaded image under 2 MB.' });
+                            return;
+                        }
+                        const adminOnly = new Set(['jutsu', 'item', 'card', 'event', 'vn', 'ai', 'shrine', 'landmark', 'bloodline', 'leader']);
+                        if (!isDevAdmin && adminOnly.has(prefix)) {
+                            sendJson(res, 403, { error: `${prefix} images are admin-only.` });
+                            return;
+                        }
+                        await updateDevImages(imagePath, images => { images[id] = image; });
+                        res.writeHead(200);
+                        res.end();
+                        return;
+                    }
+
+                    next();
+                });
 
                 server.middlewares.use('/api/clans/list', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'GET') { next(); return; }
@@ -435,9 +580,12 @@ export default defineConfig({
                         }
 
                         const store = loadDevAuthStore(authPath);
+                        const hasPlayerSave = () => fs.existsSync(path.join(savesDir, `${playerId}.json`));
 
                         if (action === 'register') {
                             if (!password) { sendJson(res, 400, { ok: false, error: 'Missing password.' }); return; }
+                            const policyError = playerPasswordPolicyError(password);
+                            if (policyError) { sendJson(res, 400, { ok: false, error: policyError }); return; }
                             if (isReservedDevAuthName(playerId)) {
                                 sendJson(res, 403, { ok: false, error: 'That username is reserved. Pick a different name.' });
                                 return;
@@ -446,18 +594,39 @@ export default defineConfig({
                                 sendJson(res, 409, { ok: false, error: 'Account already has a password.' });
                                 return;
                             }
+                            if (hasPlayerSave()) {
+                                sendJson(res, 409, {
+                                    ok: false,
+                                    error: 'This account is a legacy account without a server password. Ask an admin to set it for you.',
+                                    legacyNeedsAdmin: true,
+                                });
+                                return;
+                            }
 
                             store[playerId] = createDevAuthRecord(password);
                             saveDevAuthStore(authPath, store);
-                            sendJson(res, 200, { ok: true });
+                            sendJson(res, 200, { ok: true, token: issueDevSessionToken(playerId) });
                             return;
                         }
 
                         if (action === 'verify') {
                             if (!password) { sendJson(res, 400, { ok: false, error: 'Missing password.' }); return; }
                             const record = store[playerId];
-                            if (!record) { sendJson(res, 200, { ok: true, legacy: true }); return; }
-                            sendJson(res, 200, { ok: devPasswordMatches(record, password) });
+                            if (!record) {
+                                if (hasPlayerSave()) {
+                                    sendJson(res, 409, {
+                                        ok: false,
+                                        error: 'This legacy account requires authenticated admin recovery.',
+                                        legacy: true,
+                                        legacyNeedsAdmin: true,
+                                    });
+                                } else {
+                                    sendJson(res, 200, { ok: false, unused: true });
+                                }
+                                return;
+                            }
+                            const ok = devPasswordMatches(record, password);
+                            sendJson(res, 200, { ok, ...(ok ? { token: issueDevSessionToken(playerId) } : {}) });
                             return;
                         }
 
@@ -466,8 +635,26 @@ export default defineConfig({
                                 sendJson(res, 400, { ok: false, error: 'Missing oldPassword or newPassword.' });
                                 return;
                             }
+                            const policyError = playerPasswordPolicyError(newPassword);
+                            if (policyError) { sendJson(res, 400, { ok: false, error: policyError }); return; }
+                            if (oldPassword === newPassword) {
+                                sendJson(res, 400, { ok: false, error: 'New password must differ from the current password.' });
+                                return;
+                            }
                             const record = store[playerId];
-                            if (record && !devPasswordMatches(record, oldPassword)) {
+                            if (!record) {
+                                if (hasPlayerSave()) {
+                                    sendJson(res, 409, {
+                                        ok: false,
+                                        error: 'This legacy account requires authenticated admin recovery.',
+                                        legacyNeedsAdmin: true,
+                                    });
+                                } else {
+                                    sendJson(res, 404, { ok: false, error: 'Account does not exist.' });
+                                }
+                                return;
+                            }
+                            if (!devPasswordMatches(record, oldPassword)) {
                                 sendJson(res, 401, { ok: false, error: 'Incorrect current password.' });
                                 return;
                             }
@@ -484,12 +671,32 @@ export default defineConfig({
                                 return;
                             }
                             const record = store[playerId];
-                            if (record && !devPasswordMatches(record, password)) {
+                            if (!record) {
+                                sendJson(res, 404, { ok: false, error: 'Account does not exist.' });
+                                return;
+                            }
+                            if (!devPasswordMatches(record, password)) {
                                 sendJson(res, 401, { ok: false, error: 'Incorrect password.' });
                                 return;
                             }
 
                             delete store[playerId];
+                            saveDevAuthStore(authPath, store);
+                            sendJson(res, 200, { ok: true });
+                            return;
+                        }
+
+                        if (action === 'adminreset') {
+                            const adminPassword = env.ADMIN_PASSWORD;
+                            const suppliedAdminPassword = req.headers['x-admin-password'];
+                            if (!adminPassword || typeof suppliedAdminPassword !== 'string' || !devStringMatches(adminPassword, suppliedAdminPassword)) {
+                                sendJson(res, 401, { ok: false, error: 'Admin authentication required.' });
+                                return;
+                            }
+                            if (!newPassword) { sendJson(res, 400, { ok: false, error: 'Missing newPassword.' }); return; }
+                            const policyError = playerPasswordPolicyError(newPassword);
+                            if (policyError) { sendJson(res, 400, { ok: false, error: policyError }); return; }
+                            store[playerId] = createDevAuthRecord(newPassword);
                             saveDevAuthStore(authPath, store);
                             sendJson(res, 200, { ok: true });
                             return;

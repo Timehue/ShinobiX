@@ -48,12 +48,12 @@ async function handler(req, res) {
             const slug = a.ownerSlug;
             if (!slug)
                 continue;
-            consumables[slug] = await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug });
-            results[slug] = spire
+            (0, _utils_js_1.setSafeRecordValue)(consumables, slug, await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug }));
+            (0, _utils_js_1.setSafeRecordValue)(results, slug, spire
                 ? await (0, _tower_store_js_1.settleSpireForMember)({ session, slug })
                 : a.ai
                     ? await (0, _tower_store_js_1.settleAssistForAlly)({ session, slug })
-                    : await (0, _tower_store_js_1.settleFloorForMember)({ session, slug });
+                    : await (0, _tower_store_js_1.settleFloorForMember)({ session, slug }));
         }
         // Return only the caller's committed character. The results map may cover
         // multiple squad members, but their private save data must not be exposed.

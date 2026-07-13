@@ -30,6 +30,8 @@ function clanChatKey(slug) {
  * rejected. Returns null only when nothing is left after trimming.
  */
 function cleanChatText(input) {
+    if (!(0, _text_moderation_js_1.isCleanText)(input))
+        return null;
     return (0, _text_moderation_js_1.sanitizeUserText)(input, _text_moderation_js_1.TEXT_LIMITS.chatMessage) || null;
 }
 /** Append a message to the capped ring buffer, dropping the oldest past the cap. */

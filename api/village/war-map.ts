@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, setSafeRecordValue } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_war-state.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const heldCount: Record<string, number> = {};
         for (const t of territories) {
             const owner = String(t.ownerVillage ?? '').trim();
-            if (owner) heldCount[owner] = (heldCount[owner] ?? 0) + 1;
+            if (owner) setSafeRecordValue(heldCount, owner, (heldCount[owner] ?? 0) + 1);
         }
 
         const villages: VillageWarMapView[] = WAR_VILLAGES.map((v, i) => {

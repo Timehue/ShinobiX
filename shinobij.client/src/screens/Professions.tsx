@@ -127,8 +127,8 @@ export function Professions({
                                     <p style={{ margin: "2px 0 0", color: "#c4b5fd", fontStyle: "italic", fontSize: 13 }}>{info.tagline}</p>
                                 </div>
                             </div>
-                            <p style={{ margin: 0, color: "#cbd5e1", fontSize: "0.85rem", lineHeight: 1.5 }}>{info.summary}</p>
-                            <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.5, fontSize: "0.82rem", color: "#e2e8f0" }}>
+                            <p style={{ margin: 0, color: "var(--slate-300)", fontSize: "0.85rem", lineHeight: 1.5 }}>{info.summary}</p>
+                            <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.5, fontSize: "0.82rem", color: "var(--slate-200)" }}>
                                 {info.perks.map(b => <li key={b}>{b}</li>)}
                             </ul>
                             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 2 }}>

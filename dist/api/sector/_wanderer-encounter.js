@@ -19,6 +19,7 @@ exports.pruneWandererMovesForSave = pruneWandererMovesForSave;
 exports.wandererRelocationSector = wandererRelocationSector;
 exports.withWandererUseState = withWandererUseState;
 exports.claimWandererUseCooldown = claimWandererUseCooldown;
+const _utils_js_1 = require("../_utils.js");
 exports.WANDERER_ENCOUNTER_COOLDOWN_MS = 3 * 60 * 60 * 1000;
 exports.WANDERER_ENCOUNTER_COOLDOWN_SECONDS = Math.ceil(exports.WANDERER_ENCOUNTER_COOLDOWN_MS / 1000);
 exports.WANDERER_SECTOR_COUNT = 60;
@@ -50,7 +51,7 @@ function pruneWandererCooldownsForSave(cooldowns, nowMs) {
     for (const [id, rawUntil] of Object.entries(record(cooldowns))) {
         const until = num(rawUntil);
         if (until > nowMs)
-            out[id] = until;
+            (0, _utils_js_1.setSafeRecordValue)(out, id, until);
     }
     return out;
 }
@@ -62,7 +63,7 @@ function pruneWandererMovesForSave(moves, currentDayBucket) {
         if (!parsed || parsed.dayBucket !== currentDayBucket)
             continue;
         if (sector >= 1 && sector <= exports.WANDERER_SECTOR_COUNT)
-            out[id] = sector;
+            (0, _utils_js_1.setSafeRecordValue)(out, id, sector);
     }
     return out;
 }

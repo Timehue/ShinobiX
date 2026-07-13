@@ -68,6 +68,12 @@ export type HollowGateTile = {
     wing?: number;
     revealed: boolean;
     resolved: boolean;
+    // Map memory: true once the tile has EVER been in the visibility flood
+    // (seen from inside its room / down a corridor). Seen-but-unstepped tiles
+    // draw as a dim "explored" layer after you leave — Zelda-automap style —
+    // and are walkable by click-to-move. `revealed` (stepped on) stays the
+    // gate for surprise-tile disguise. Absent on old saves (falsy = unseen).
+    seen?: boolean;
     flavor?: string;
 };
 
@@ -84,6 +90,31 @@ export type HollowGateAugmentOffer = {
     combat?: { kind: string; value: number };
 };
 
+// Optional run-shape override — the standard shrine (5 floors, 25×17, the
+// Hollow Gate Warden) when absent. Event gates (e.g. a 1-3 floor festival
+// gauntlet with a bespoke final boss) stamp one of these on the run at entry;
+// every floor-count / boss / grid decision downstream reads it through
+// lib/hollow-gate-variant so a mid-run save resumes with the same shape.
+export type HollowGateVariant = {
+    id: string;                 // stable id, e.g. "event-festival"
+    label?: string;             // display name, e.g. "Festival Gate"
+    maxFloor?: number;          // total floors (final floor holds the boss); default HOLLOW_GATE_MAX_FLOOR
+    width?: number;             // generated floor dimensions; default HOLLOW_GATE_SHRINE_W/H
+    height?: number;
+    bossAiId?: string;          // creator/builtin AI id for the final boss; default the Hollow Gate Warden
+    bossName?: string;          // display name for logs/objectives; default "Hollow Gate Warden"
+};
+
+// The shared event-gate announcement (admin-authored, distributed to every
+// client through the admin-save content channel like creator content). When
+// `active`, the World Map Hollow Gate menu offers the event entry.
+export type HollowGateEventConfig = HollowGateVariant & {
+    active?: boolean;
+    keyCost?: number;           // 0 = free entry, 1 = consumes a Hollow Gate Key (default 1)
+    requiresUnlock?: boolean;   // false = event bypasses the village Kage unlock (default false)
+    updatedAt?: number;         // recency for the admin-content merge
+};
+
 export type HollowGateShrineRun = {
     width: number;
     height: number;
@@ -95,6 +126,9 @@ export type HollowGateShrineRun = {
     torch: number; // 0..10
     keys: number;
     completed: boolean;
+    // Event-gate shape override (see HollowGateVariant above). Absent on
+    // standard runs and all legacy saves.
+    variant?: HollowGateVariant;
     // Theme assignment per roomId — the renderer uses this to pick which
     // shrine:icon-theme-<theme>-<role> tile to draw for room_floor / door /
     // corridor / wall cells. Old saved runs without this field fall back to
@@ -134,18 +168,18 @@ export type HollowGateShrineRun = {
     runToken?: string;
     serverSeed?: string;
     augmentOffers?: HollowGateAugmentOffer[];
-      chosenAugment?: HollowGateAugmentOffer | null;
-      // Untrusted run tallies claimed at settlement. The server clamps each to
-      // the sealed run depth before committing XP or high-value items.
-      earnedXp?: number;
-      earnedFragments?: number;
-      earnedVeils?: number;
-  };
+    chosenAugment?: HollowGateAugmentOffer | null;
+    // Untrusted run tallies claimed at settlement. The server clamps each to
+    // the sealed run depth before committing XP or high-value items.
+    earnedXp?: number;
+    earnedFragments?: number;
+    earnedVeils?: number;
+};
 
 // ── Endless Tower run state ───────────────────────────────────────────────
 
-  export type EndlessTowerRun = {
-      runToken?: string;
+export type EndlessTowerRun = {
+    runToken?: string;
     wave: number;
     bankedRyo: number;
     bankedXp: number;
@@ -307,6 +341,13 @@ export type Character = {
     cardClashTutorialSeen?: boolean;
     element?: string;
     elements?: string[];
+    // Per-weapon elemental attunement (weaponId → element). SERVER-OWNED: written
+    // only by api/weapon/apply-elemental-core.ts (which spends one Elemental Core),
+    // and the save sanitizer re-injects the stored copy so a tampered save can't
+    // attune a weapon it didn't earn. Overlaid onto the weapon's `weaponElement`
+    // in combat (server: resolveEquippedPvpItems; client: getAllItems) so an
+    // attuned legendary/mythic weapon rides the wielder's bloodline damage boost.
+    weaponElements?: Record<string, string>;
     claimedAwakenings?: string[];
     redeemedAwakeningActions?: string[];
     activeDungeonRun?: { token: string; startedAt: number } | null;
@@ -374,6 +415,13 @@ export type Character = {
     // at a time. Additive/optional. `deadline` (ms epoch) is set on timed stages;
     // `choices` maps a branch stage key → the chosen option key.
     activeQuestbook?: { id: string; stage: number; baseline: number; target: number; deadline?: number | null; choices?: Record<string, string> } | null;
+    // Active Hollow Gate Rift quest (wandering-AI quest into a scaled event gate;
+    // api/sector/rift-quest.ts seals the real baseline + reward in KV). Display
+    // mirror only. `stage`: "travel" until the player reaches the rift structure,
+    // "descend" once they are there. Additive/optional. See lib/hollow-rifts.
+    activeRiftQuest?: { id: string; targetSector: number; stage: "travel" | "descend"; baseline: number; bossName: string } | null;
+    // Epoch ms until which the roaming rift-giver stays quiet after a clear.
+    riftCooldownUntil?: number;
     // Cosmetic titles earned from completing Quest Book epics. Additive/optional.
     questTitles?: string[];
     // Persistent world-standing flags from epic branch choices (e.g. "goro-spared").
@@ -407,6 +455,11 @@ export type Character = {
     warsWon?: number;             // wars where this player qualified for the winner crate
     warMvpCount?: number;         // wars where this player was MVP on either side
     lifetimeWarDamage?: number;   // sum of contribution damage across all wars touched
+    // Personal Village Merit — the server-owned, sanitizer-pinned metric that
+    // gates a Kage challenge (250 required). Written only by server-authoritative
+    // village-support endpoints; the client displays it read-only. See
+    // api/village/_village-merit.ts.
+    villageMerit?: number;
     totalTilesExplored?: number;
     totalTournamentsCompleted?: number;
     totalEndlessTowerWins?: number;
@@ -538,7 +591,9 @@ export type Character = {
     // onboardingStep drives the forced first-session "Academy Path" coach; the
     // others are one-time "seen/claimed" gates matching the hollowGateIntroSeen
     // convention. Canonical order:
-    //   "academyIntro" (framing modal) → "starter" (choose-your-companion) →
+    //   "academyIntro" (the intro cinematic: spirit-fox summons + companion
+    //   gift; completing it jumps straight to "training". "starter" is the
+    //   pre-cinematic companion beat, kept for saves that stored it) →
     //   "training" → "jutsu" → "jutsuLoadout" → "inventory" →
     //   "academySpar" (guaranteed first-win spar) → "cafeteria" →
     //   "firstMission" (claim the Academy Trial) → "logbook" (open the goals) →
@@ -550,6 +605,9 @@ export type Character = {
     onboardingStep?:
         | "academyIntro"
         | "starter"
+        // post-gift beat: the companion introduces the village over the live
+        // village screen, then hands off to "training"
+        | "companionIntro"
         | "academySpar"
         | "training"
         | "jutsu"
@@ -568,6 +626,12 @@ export type Character = {
     academyChecklistClaimed?: boolean;
     // One-time claim gate for the onboarding "Academy Trial" mission (Workstream F).
     academyTrialClaimed?: boolean;
+    // Persisted milestone for the final "sectorReturn" onboarding beat: set true the
+    // moment the player reaches any numbered sector, so the "return to the village"
+    // completion survives coach remounts (a sector-triggered battle unmounts the
+    // coach), refreshes, and snapshot reverts. Lives on the character — not an
+    // ephemeral ref — for the same reason every other beat keys off persisted state.
+    academySectorVisited?: boolean;
     // Dismissed one-time contextual screen hints (Shop/Hospital/World Map/etc.).
     seenHints?: string[];
     geninCeremonySeen?: boolean;

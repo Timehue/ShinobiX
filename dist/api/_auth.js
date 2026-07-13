@@ -3,13 +3,17 @@
  * Shared authentication helpers.
  *
  * Two trust levels:
- *   - player:  x-player-name + x-player-password headers must verify
+ *   - player:  x-player-token, or x-player-name + x-player-password, must verify
  *   - admin:   x-admin-password header must equal process.env.ADMIN_PASSWORD
  *
- * Most game-mutating endpoints accept either (admin can do anything a player can).
+ * Most game-mutating endpoints accept either. Personal-economy endpoints may
+ * intentionally require the player's own credential instead of an admin shortcut.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.safeEqual = safeEqual;
+exports.playerSessionEpochKey = playerSessionEpochKey;
+exports.readPlayerSessionEpoch = readPlayerSessionEpoch;
+exports.rotatePlayerSessionEpoch = rotatePlayerSessionEpoch;
 exports.issuePlayerToken = issuePlayerToken;
 exports.verifyPlayerToken = verifyPlayerToken;
 exports.isFullAdmin = isFullAdmin;
@@ -21,6 +25,7 @@ const crypto_1 = require("crypto");
 const player_auth_js_1 = require("./player-auth.js");
 const _utils_js_1 = require("./_utils.js");
 const moderation_js_1 = require("./admin/moderation.js");
+const _storage_js_1 = require("./_storage.js");
 function headerString(req, key) {
     const v = req.headers[key.toLowerCase()];
     if (Array.isArray(v))
@@ -41,27 +46,25 @@ function safeEqual(a, b) {
     }
     return (0, crypto_1.timingSafeEqual)(ba, bb);
 }
-// ─── Stateless player session tokens ──────────────────────────────────────────
+// ─── Revocable player session tokens ──────────────────────────────────────────
 //
 // The per-request scrypt password verify (~100ms of blocking CPU, see
-// player-auth.ts) is the dominant cost on the single-core cPanel host: every
-// authenticated heartbeat / move / save re-derives the scrypt hash. To remove
-// it from the hot path we mint a short-lived HMAC token at login and verify
-// THAT on subsequent requests (~microseconds, no KV read, no scrypt).
+// player-auth.ts) is too expensive for every heartbeat / move / save. A token
+// replaces that work with an HMAC check plus one lightweight shared-epoch read.
 //
-// Token format (all base64url, dot-separated):  v1.<name>.<expEpochMs>.<sig>
-//   sig = HMAC-SHA256(SESSION_SECRET, "<name>.<expEpochMs>")
-// Stateless by design — no server-side session store. Revocation relies on:
-//   • the short TTL below, and
-//   • the per-request getActiveBan() check in authedPlayer (unchanged), which
-//     freezes a banned/kicked account immediately regardless of token validity.
+// New token format: v2.<name>.<expEpochMs>.<sessionEpoch>.<sig>
+//   sig = HMAC-SHA256(SESSION_SECRET, "<name>.<expEpochMs>.<sessionEpoch>")
+// Legacy v1 tokens remain valid only while the account epoch is still zero.
+// The epoch is shared revocation state; passwords are never stored in it.
+// The existing per-request ban check remains an independent immediate gate.
 //
 // SESSION_SECRET is a master key: anyone holding it can forge a token for any
 // player. It MUST be a high-entropy env var set on BOTH cPanel (.env) and
 // Vercel, and never committed. If unset, token issuing/verifying is disabled
 // and the system transparently falls back to the password path (no outage,
 // just no speedup until the secret is configured).
-const TOKEN_VERSION = 'v1';
+const TOKEN_VERSION = 'v2';
+const LEGACY_TOKEN_VERSION = 'v1';
 // 24h. Survives any single PvP fight (≤15min sessions) with margin; the client
 // silently re-mints from the stored password on the rare expiry-mid-session.
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
@@ -75,10 +78,37 @@ function b64url(s) {
 function unb64url(s) {
     return Buffer.from(s, 'base64url').toString('utf8');
 }
-function signToken(canonicalName, expMs, secret) {
+function signToken(canonicalName, expMs, sessionEpoch, secret) {
+    return (0, crypto_1.createHmac)('sha256', secret)
+        .update(`${canonicalName}.${expMs}.${sessionEpoch}`)
+        .digest('base64url');
+}
+function signLegacyToken(canonicalName, expMs, secret) {
     return (0, crypto_1.createHmac)('sha256', secret)
         .update(`${canonicalName}.${expMs}`)
         .digest('base64url');
+}
+/** Shared storage key for an account's revocable session epoch. */
+function playerSessionEpochKey(name) {
+    return `auth-session:${(0, _utils_js_1.safeName)(name)}`;
+}
+function parseSessionEpoch(value) {
+    if (value === null || value === undefined)
+        return 0;
+    const epoch = Number(value);
+    if (!Number.isSafeInteger(epoch) || epoch < 0) {
+        throw new Error('Invalid player session epoch.');
+    }
+    return epoch;
+}
+/** Read the current per-account epoch. Missing keys are legacy epoch 0. */
+async function readPlayerSessionEpoch(name) {
+    return parseSessionEpoch(await _storage_js_1.kv.get(playerSessionEpochKey(name)));
+}
+/** Atomically revoke existing tokens and return the new epoch. */
+async function rotatePlayerSessionEpoch(name) {
+    const epoch = await _storage_js_1.kv.incr(playerSessionEpochKey(name));
+    return parseSessionEpoch(epoch);
 }
 /**
  * Mint a session token for an already-authenticated player. The caller is
@@ -89,35 +119,43 @@ function signToken(canonicalName, expMs, secret) {
  * `name` is canonicalized (lowercased/trimmed) so the token always encodes the
  * same identity string that authedPlayer would otherwise return.
  */
-function issuePlayerToken(name, ttlMs = TOKEN_TTL_MS) {
+function issuePlayerToken(name, ttlMs = TOKEN_TTL_MS, sessionEpoch = 0) {
     const secret = sessionSecret();
     if (!secret)
         return null;
     const canonical = (0, _utils_js_1.safeName)(name);
+    if (!canonical || !Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0)
+        return null;
     const expMs = Date.now() + ttlMs;
-    const sig = signToken(canonical, expMs, secret);
-    return `${TOKEN_VERSION}.${b64url(canonical)}.${expMs}.${sig}`;
+    const sig = signToken(canonical, expMs, sessionEpoch, secret);
+    return `${TOKEN_VERSION}.${b64url(canonical)}.${expMs}.${sessionEpoch}.${sig}`;
 }
 /**
  * Verify a session token. Returns the canonical player name on success, or
- * null if the token is missing/malformed/expired/forged or SESSION_SECRET is
- * unset. Pure CPU + constant-time compare; no KV, no scrypt.
+ * null if the token is missing/malformed/expired/forged/revoked, shared
+ * storage is unavailable, or SESSION_SECRET is unset. Uses no scrypt.
  *
  * Does NOT check bans — authedPlayer applies the existing getActiveBan() gate
  * after this returns, so a token alone can never bypass a ban.
  */
-function verifyPlayerToken(token) {
+async function verifyPlayerToken(token) {
     const secret = sessionSecret();
     if (!secret)
         return null;
     if (!token)
         return null;
     const parts = token.split('.');
-    if (parts.length !== 4)
+    const version = parts[0];
+    if (version !== TOKEN_VERSION && version !== LEGACY_TOKEN_VERSION)
         return null;
-    const [version, nameB64, expStr, sig] = parts;
-    if (version !== TOKEN_VERSION)
+    if (version === TOKEN_VERSION && parts.length !== 5)
         return null;
+    if (version === LEGACY_TOKEN_VERSION && parts.length !== 4)
+        return null;
+    const nameB64 = parts[1];
+    const expStr = parts[2];
+    const sessionEpoch = version === TOKEN_VERSION ? Number(parts[3]) : 0;
+    const sig = version === TOKEN_VERSION ? parts[4] : parts[3];
     let canonical;
     try {
         canonical = unb64url(nameB64);
@@ -125,17 +163,36 @@ function verifyPlayerToken(token) {
     catch {
         return null;
     }
-    if (!canonical)
+    if (!canonical || canonical !== (0, _utils_js_1.safeName)(canonical))
         return null;
     const expMs = Number(expStr);
     if (!Number.isFinite(expMs) || expMs <= Date.now())
         return null;
+    if (!Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0)
+        return null;
     // Recompute the signature and constant-time compare. safeEqual handles
     // length mismatch without leaking via timing.
-    const expected = signToken(canonical, expMs, secret);
+    const expected = version === TOKEN_VERSION
+        ? signToken(canonical, expMs, sessionEpoch, secret)
+        : signLegacyToken(canonical, expMs, secret);
     if (!safeEqual(sig, expected))
         return null;
-    return canonical;
+    // Fail closed on storage errors. Reading the epoch on every token-authenticated
+    // request is what makes credential mutations revoke sessions immediately.
+    try {
+        const currentEpoch = await readPlayerSessionEpoch(canonical);
+        if (currentEpoch !== sessionEpoch)
+            return null;
+        // Legacy v1 tokens predate epochs, so also require the auth record to
+        // exist. Credential mutations still rotate epoch 0 immediately; this
+        // extra check covers legacy rows removed by older administrative code.
+        if (version === LEGACY_TOKEN_VERSION && !await _storage_js_1.kv.get(`auth:${canonical}`))
+            return null;
+        return canonical;
+    }
+    catch {
+        return null;
+    }
 }
 /**
  * Verify the request carries the FULL admin password (Admin 1 only).
@@ -181,8 +238,8 @@ function isAdmin(req) {
  * Returns the canonical lowercased name on success, null on failure.
  *
  * Accepts (in priority order):
- *   - x-player-token (preferred)        — stateless HMAC session token, no
- *     scrypt, no KV read for the password. Minted at login (see
+ *   - x-player-token (preferred)        — revocable HMAC session token, no
+ *     scrypt and one shared epoch read. Minted at login (see
  *     issuePlayerToken). This is the fast path that keeps the single-core
  *     cPanel host from spending ~100ms of scrypt on every authed request.
  *   - x-player-name + x-player-password — the original password path. Still
@@ -196,10 +253,10 @@ function isAdmin(req) {
  */
 async function authedPlayer(req, nameFromRoute) {
     try {
-        // ── Fast path: stateless session token (no scrypt, no KV) ──────────
+        // ── Fast path: revocable token (no scrypt; one epoch read) ─────────
         const token = headerString(req, 'x-player-token');
         if (token) {
-            const rawTokenName = verifyPlayerToken(token);
+            const rawTokenName = await verifyPlayerToken(token);
             if (rawTokenName) {
                 // Normalize to the safeName slug so the returned identity always
                 // equals the storage-key form (covers any legacy token minted

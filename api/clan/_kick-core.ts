@@ -1,4 +1,4 @@
-import { safeName } from '../_utils.js';
+import { safeName, setSafeRecordValue } from '../_utils.js';
 
 /*
  * Pure decision logic for /api/clan/kick — extracted so it can be unit-tested
@@ -82,7 +82,7 @@ export function resolveClanKick(
     const nextRoleOverrides: Record<string, string> = {};
     for (const [k, v] of Object.entries(overrides)) {
         if (safeName(k) === targetNorm || k.toLowerCase() === targetNorm) continue;
-        nextRoleOverrides[k] = v;
+        setSafeRecordValue(nextRoleOverrides, k, v);
     }
     const joinRequests = Array.isArray(clanRec.joinRequests) ? clanRec.joinRequests : [];
     const nextJoinRequests = joinRequests.filter((r) => !isTarget((r as Record<string, unknown>)?.name));

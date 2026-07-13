@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.adminSaveTargetAllowed = adminSaveTargetAllowed;
 exports.sanitizeCharacterSave = sanitizeCharacterSave;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
@@ -25,6 +26,7 @@ const _elapsed_state_js_1 = require("../_elapsed-state.js");
 const _first_save_baseline_js_1 = require("./_first-save-baseline.js");
 const _stat_entitlement_js_1 = require("./_stat-entitlement.js");
 const _forge_js_1 = require("../bloodlines/_forge.js");
+const formulas_js_1 = require("../combat-core/formulas.js");
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
 const PRIVATE_CHAR_FIELDS = [
@@ -69,6 +71,12 @@ function stripPrivateFields(data) {
     delete stripped._saveVersion;
     delete stripped._saveAt;
     return stripped;
+}
+/** Content admin is limited to the two explicit admin content save records. */
+function adminSaveTargetAllowed(targetName, fullAdmin, anyAdmin) {
+    if (fullAdmin)
+        return true;
+    return anyAdmin && (targetName === 'admin1' || targetName === 'admin2');
 }
 // Character-level fields stripped under ?combatOnly=1 — none of these affect
 // combat resolution (only meta progression / cosmetic / lifetime counters).
@@ -245,15 +253,16 @@ function freshWindow() {
 // maxed stats because there's no `existing` baseline to diff against.
 const FIRST_SAVE_BASELINE_CHARACTER = {
     level: 1,
-    ryo: 0,
+    ryo: 100,
     xp: 0,
     stats: {
-        strength: 0, speed: 0, intelligence: 0, willpower: 0,
-        bukijutsuOffense: 0, bukijutsuDefense: 0,
-        taijutsuOffense: 0, taijutsuDefense: 0,
-        genjutsuOffense: 0, genjutsuDefense: 0,
-        ninjutsuOffense: 0, ninjutsuDefense: 0,
+        strength: 10, speed: 10, intelligence: 10, willpower: 10,
+        bukijutsuOffense: 10, bukijutsuDefense: 10,
+        taijutsuOffense: 10, taijutsuDefense: 10,
+        genjutsuOffense: 10, genjutsuDefense: 10,
+        ninjutsuOffense: 10, ninjutsuDefense: 10,
     },
+    unspentStats: 20,
     honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0,
     auraDust: 0, mythicSeals: 0,
     hospitalized: false, hospitalizedUntil: 0,
@@ -268,18 +277,264 @@ const FIRST_SAVE_BASELINE_CHARACTER = {
     totalPvpKills: 0, totalAiKills: 0, totalVillageRaids: 0,
     warsWon: 0, warMvpCount: 0, lifetimeWarDamage: 0,
     monthlyPvpKills: 0, dailyAiKills: 0,
-    // Inventory / equipment / pets / mastery / bloodlines must start empty —
-    // otherwise the first save can ship with a maxed loadout and the
-    // per-save inventory cap (500) won't catch it because there's no diff.
-    inventory: [], itemStacks: [], jutsuMastery: [], pets: [], savedBloodlines: [], tileCards: [],
+    villageMerit: 0,
+    inventory: ['rustfang-kunai', 'shinobi-vest'], itemStacks: [], jutsuMastery: [], pets: [], savedBloodlines: [], tileCards: [],
     equipment: {},
 };
+const MAX_LEVEL_GAIN = 5;
+const STRICT_SERVER_LEDGER_CHARACTER_FIELDS = [
+    'level', 'xp', 'experience', 'ryo', 'bankRyo',
+    'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'auraDust',
+    'mythicSeals', 'hollowShards',
+    'stats', 'unspentStats', 'totalStatsTrained', 'maxHp', 'maxChakra', 'maxStamina',
+    'rankTitle', 'professionXp', 'professionRank', 'auraSphereLevel',
+    'hollowGateAttunement', 'rankedRating', 'petRankedRating',
+];
+const ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS = [
+    'bankRyo', 'rankedRating', 'petRankedRating',
+    'professionXp', 'professionRank', 'serverSettlementReceipts',
+];
+const SERVER_PAYOUT_CHARACTER_FIELDS = [
+    'lastBankInterestAt', 'lastLoginRewardDate', 'loginStreak',
+    'academyChecklistClaimed', 'academyTrialClaimed',
+    'cardClashDailyWinDate', 'claimedWarCrateIds',
+    'claimedVillageAgendaDate', 'claimedMapControlDate',
+    'lastExpeditionClaimDate', 'expeditionsClaimedToday', 'petEscortBonusReady',
+    'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
+    'dailyDonatedSeals', 'dailyDonationDate', 'pendingCombatMissionClaims',
+    'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'lastTaxDate',
+];
+const SERVER_LEDGER_TOPLEVEL_FIELDS = [
+    '_trainingReceipts', 'activeTraining',
+    'creatorJutsus', 'creatorAis', 'creatorMissions', 'creatorEvents',
+    'creatorCards', 'creatorRaids',
+];
+const EQUIPMENT_SLOTS = new Set([
+    'aura', 'hand', 'gloves', 'body', 'waist', 'legs', 'feet', 'head',
+    'item', 'item1', 'item2', 'item3', 'thrown', 'potion',
+    'weapon', 'armor', 'accessory',
+]);
+const REFERENCE_EQUIPMENT_SLOTS = new Set(['item', 'item1', 'item2', 'item3', 'thrown', 'potion']);
+const ALLOCATABLE_STAT_FIELDS = new Set(formulas_js_1.STAT_CAP_FIELDS);
+const STARTER_BLOODLINE_JUTSU_IDS = {
+    'Ashen Eyes': ['ashen-eyes-blood-gaze', 'ashen-eyes-crimson-hall', 'ashen-eyes-hematoma-veil', 'ashen-eyes-vein-mirror'],
+    'Inferno Cataclysm': ['inferno-cataclysm-crater-lance', 'inferno-cataclysm-lava-burst', 'inferno-cataclysm-molten-rain', 'inferno-cataclysm-obsidian-afterglow'],
+    'Shadow Lotus': ['shadow-lotus-black-petal-guard', 'shadow-lotus-eclipse-wire', 'shadow-lotus-night-petal', 'shadow-lotus-umbra-senbon'],
+    'Iron Fang': ['iron-fang-anvil-breath', 'iron-fang-ferrous-crash', 'iron-fang-magnet-knuckle', 'iron-fang-steel-maw'],
+};
+function strictRawSaveLedgerEnabled() {
+    return process.env.STRICT_RAW_SAVE_LEDGER === '1';
+}
+function starterJutsuIdsForBloodline(raw) {
+    const name = raw === 'Blue Blade Eyes' ? 'Ashen Eyes' : String(raw ?? '');
+    return STARTER_BLOODLINE_JUTSU_IDS[name] ?? [];
+}
+function canonicalEquipmentSlot(slot) {
+    if (slot === 'weapon')
+        return 'hand';
+    if (slot === 'armor')
+        return 'body';
+    if (slot === 'accessory')
+        return 'aura';
+    if (slot === 'item')
+        return 'item1';
+    return slot;
+}
+function copyStoredField(target, stored, field) {
+    if (Object.prototype.hasOwnProperty.call(stored, field))
+        target[field] = stored[field];
+    else
+        delete target[field];
+}
+function addOwnedCount(counts, rawId, amount = 1) {
+    const id = typeof rawId === 'string' ? rawId.trim() : '';
+    if (!id || amount <= 0)
+        return;
+    counts.set(id, (counts.get(id) ?? 0) + Math.floor(amount));
+}
+function enforceRawSaveLedgerBoundary(char, stored, firstSave, requested) {
+    const requestedStats = requested.stats && typeof requested.stats === 'object'
+        ? requested.stats
+        : null;
+    const requestedUnspentStats = requested.unspentStats;
+    for (const field of ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS)
+        copyStoredField(char, stored, field);
+    for (const field of SERVER_PAYOUT_CHARACTER_FIELDS)
+        copyStoredField(char, stored, field);
+    if (firstSave) {
+        for (const field of STRICT_SERVER_LEDGER_CHARACTER_FIELDS)
+            copyStoredField(char, stored, field);
+        const starterMastery = [];
+        const seenStarterJutsu = new Set();
+        const allowedStarterJutsu = new Set(starterJutsuIdsForBloodline(char.bloodline));
+        if (Array.isArray(char.jutsuMastery)) {
+            for (const raw of char.jutsuMastery) {
+                const jutsuId = typeof raw?.jutsuId === 'string' ? raw.jutsuId.trim().toLowerCase() : '';
+                if ((allowedStarterJutsu.size > 0 && !allowedStarterJutsu.has(jutsuId)) || seenStarterJutsu.has(jutsuId))
+                    continue;
+                seenStarterJutsu.add(jutsuId);
+                starterMastery.push({ jutsuId, level: 1, xp: 0 });
+            }
+        }
+        char.jutsuMastery = starterMastery;
+        const requestedLoadout = Array.isArray(char.equippedJutsuIds) ? char.equippedJutsuIds : [];
+        char.equippedJutsuIds = [...new Set(requestedLoadout
+                .filter((id) => typeof id === 'string' && seenStarterJutsu.has(id)))].slice(0, 3);
+        char.inventory = structuredClone(FIRST_SAVE_BASELINE_CHARACTER.inventory);
+        char.itemStacks = [];
+        char.pets = [];
+        char.equipment = {};
+        delete char.activePetId;
+        delete char.activePetId2v2;
+        return;
+    }
+    if (!strictRawSaveLedgerEnabled())
+        return;
+    for (const field of STRICT_SERVER_LEDGER_CHARACTER_FIELDS)
+        copyStoredField(char, stored, field);
+    const storedMastery = Array.isArray(stored.jutsuMastery) ? stored.jutsuMastery : [];
+    char.jutsuMastery = storedMastery;
+    const learnedJutsuIds = new Set(storedMastery
+        .map((entry) => String(entry?.jutsuId ?? '')).filter(Boolean));
+    for (const id of Array.isArray(stored.equippedJutsuIds) ? stored.equippedJutsuIds : []) {
+        if (typeof id === 'string' && id)
+            learnedJutsuIds.add(id);
+    }
+    const requestedLoadout = Array.isArray(char.equippedJutsuIds)
+        ? char.equippedJutsuIds
+        : (Array.isArray(stored.equippedJutsuIds) ? stored.equippedJutsuIds : []);
+    char.equippedJutsuIds = [...new Set(requestedLoadout
+            .filter((id) => typeof id === 'string' && learnedJutsuIds.has(id)))].slice(0, 15);
+    const exStats = stored.stats && typeof stored.stats === 'object'
+        ? stored.stats
+        : {};
+    const exUnspent = Math.max(0, Math.floor(Number(stored.unspentStats) || 0));
+    const requestedPool = Number(requestedUnspentStats);
+    let allocationBudget = Number.isSafeInteger(requestedPool) && requestedPool >= 0
+        ? Math.min(exUnspent, Math.max(0, exUnspent - requestedPool))
+        : 0;
+    const nextStats = {};
+    const cap = (0, formulas_js_1.statCapForLevel)(Number(stored.level) || 1);
+    for (const [key, rawStored] of Object.entries(exStats)) {
+        const current = Math.max(0, Math.floor(Number(rawStored) || 0));
+        if (!ALLOCATABLE_STAT_FIELDS.has(key)) {
+            (0, _utils_js_1.setSafeRecordValue)(nextStats, key, current);
+            continue;
+        }
+        const desiredRaw = requestedStats?.[key];
+        const desired = Number.isFinite(Number(desiredRaw))
+            ? Math.max(current, Math.min(cap, Math.floor(Number(desiredRaw))))
+            : current;
+        const applied = Math.min(allocationBudget, Math.max(0, desired - current));
+        (0, _utils_js_1.setSafeRecordValue)(nextStats, key, current + applied);
+        allocationBudget -= applied;
+    }
+    const allocated = Object.entries(nextStats).reduce((sum, [key, value]) => {
+        const current = Math.max(0, Math.floor(Number(exStats[key]) || 0));
+        return sum + Math.max(0, value - current);
+    }, 0);
+    char.stats = nextStats;
+    char.unspentStats = exUnspent - allocated;
+    const available = new Map();
+    for (const id of Array.isArray(stored.inventory) ? stored.inventory : [])
+        addOwnedCount(available, id);
+    if (Array.isArray(stored.itemStacks)) {
+        for (const raw of stored.itemStacks) {
+            if (raw && typeof raw === 'object')
+                addOwnedCount(available, raw.itemId, Math.max(0, Math.floor(Number(raw.count) || 0)));
+        }
+    }
+    const storedEquipment = stored.equipment && typeof stored.equipment === 'object'
+        ? stored.equipment
+        : {};
+    const countedStoredSlots = new Set();
+    for (const [slot, id] of Object.entries(storedEquipment)) {
+        if (!EQUIPMENT_SLOTS.has(slot) || REFERENCE_EQUIPMENT_SLOTS.has(slot))
+            continue;
+        const canonicalSlot = canonicalEquipmentSlot(slot);
+        if (countedStoredSlots.has(canonicalSlot))
+            continue;
+        countedStoredSlots.add(canonicalSlot);
+        addOwnedCount(available, id);
+    }
+    const remaining = new Map(available);
+    const proposedInventory = Array.isArray(requested.inventory)
+        ? requested.inventory
+        : (Array.isArray(stored.inventory) ? stored.inventory : []);
+    const inventory = [];
+    for (const raw of proposedInventory) {
+        const id = typeof raw === 'string' ? raw.trim() : '';
+        const left = remaining.get(id) ?? 0;
+        if (!id || left <= 0)
+            continue;
+        inventory.push(id);
+        remaining.set(id, left - 1);
+    }
+    char.inventory = inventory;
+    const proposedStacks = Array.isArray(requested.itemStacks)
+        ? requested.itemStacks
+        : (Array.isArray(stored.itemStacks) ? stored.itemStacks : []);
+    const stacks = [];
+    const seenStackIds = new Set();
+    for (const raw of proposedStacks) {
+        if (!raw || typeof raw !== 'object')
+            continue;
+        const itemId = typeof raw.itemId === 'string' ? raw.itemId.trim() : '';
+        if (!itemId || seenStackIds.has(itemId))
+            continue;
+        const count = Math.min(Math.max(0, Math.floor(Number(raw.count) || 0)), remaining.get(itemId) ?? 0);
+        if (count <= 0)
+            continue;
+        seenStackIds.add(itemId);
+        stacks.push({ itemId, count });
+        remaining.set(itemId, (remaining.get(itemId) ?? 0) - count);
+    }
+    char.itemStacks = stacks;
+    const retainedBackpackIds = new Set([...inventory, ...stacks.map((stack) => stack.itemId)]);
+    const pets = Array.isArray(stored.pets) ? stored.pets : [];
+    char.pets = pets;
+    const petIds = new Set(pets.map((pet) => String(pet?.id ?? '')).filter(Boolean));
+    for (const field of ['activePetId', 'activePetId2v2']) {
+        const requested = typeof char[field] === 'string' ? char[field] : '';
+        if (requested && petIds.has(requested))
+            char[field] = requested;
+        else
+            copyStoredField(char, stored, field);
+    }
+    const requestedEquipment = requested.equipment && typeof requested.equipment === 'object'
+        ? requested.equipment
+        : storedEquipment;
+    const equipment = {};
+    const equippedIds = new Set();
+    const occupiedCanonicalSlots = new Set();
+    for (const [slot, rawId] of Object.entries(requestedEquipment)) {
+        const id = typeof rawId === 'string' ? rawId.trim() : '';
+        const canonicalSlot = canonicalEquipmentSlot(slot);
+        if (!EQUIPMENT_SLOTS.has(slot) || !id || equippedIds.has(id) || occupiedCanonicalSlots.has(canonicalSlot))
+            continue;
+        if (REFERENCE_EQUIPMENT_SLOTS.has(slot)) {
+            if (!retainedBackpackIds.has(id))
+                continue;
+        }
+        else {
+            const left = remaining.get(id) ?? 0;
+            if (left <= 0)
+                continue;
+            remaining.set(id, left - 1);
+        }
+        equipment[slot] = id;
+        equippedIds.add(id);
+        occupiedCanonicalSlots.add(canonicalSlot);
+    }
+    char.equipment = equipment;
+}
 function sanitizeCharacterSave(incoming, existing) {
     const isFirstSave = existing == null;
     const inChar = incoming.character;
     // First-save case (no existing): clamp against a fresh baseline so a brand-
     // new account can't submit absurd starting values.
-    const exChar = existing?.character ?? FIRST_SAVE_BASELINE_CHARACTER;
+    const exChar = existing?.character
+        ?? (0, _first_save_baseline_js_1.applyCanonicalFirstSave)(FIRST_SAVE_BASELINE_CHARACTER);
     if (!inChar || typeof inChar !== 'object')
         return incoming;
     if (!exChar || typeof exChar !== 'object')
@@ -418,21 +673,32 @@ function sanitizeCharacterSave(incoming, existing) {
         const NINDO_BG_IDS = new Set(['', 'ember', 'frost', 'verdant', 'shadow', 'royal', 'sakura']);
         char.nindoBg = (typeof char.nindoBg === 'string' && NINDO_BG_IDS.has(char.nindoBg)) ? char.nindoBg : '';
     }
-    // Core XP/level progression is server-issued. Ordinary saves preserve the
-    // committed values exactly; domain reward handlers use gainXp under the save
-    // lock and admin saves bypass this sanitizer.
+    const strictLedger = strictRawSaveLedgerEnabled();
+    // Keep legacy bounded progression writable during the server-settlement
+    // migration. Strict mode turns the generic save route into persistence-only.
     const exLevel = Math.max(1, Number(exChar.level ?? 1));
-    char.level = Math.min(LEVEL_CAP, exLevel);
-    char.xp = Math.max(0, Number(exChar.xp ?? 0));
-    if (exChar.experience !== undefined)
-        char.experience = Math.max(0, Number(exChar.experience) || 0);
+    const inLevel = Math.max(1, Number(char.level ?? 1));
+    const boundedLevel = Math.min(LEVEL_CAP, Math.max(exLevel, Math.min(inLevel, exLevel + MAX_LEVEL_GAIN)));
+    char.level = strictLedger || inLevel - exLevel > MAX_LEVEL_GAIN ? Math.min(LEVEL_CAP, exLevel) : boundedLevel;
+    const exXp = Math.max(0, Number(exChar.xp ?? 0));
+    const inXp = Math.max(0, Number(char.xp ?? 0));
+    if (strictLedger || inXp - exXp > 100)
+        char.xp = exXp;
+    if (exChar.experience !== undefined) {
+        const exExperience = Math.max(0, Number(exChar.experience) || 0);
+        const inExperience = Math.max(0, Number(char.experience) || 0);
+        if (strictLedger || inExperience - exExperience > 100)
+            char.experience = exExperience;
+    }
     else
         delete char.experience;
     // Wallet values may decrease through existing client-side sinks, but all
     // increases must already exist in the stored save from a domain command.
     const exRyo = Math.max(0, Number(exChar.ryo ?? 0));
     const inRyo = Math.max(0, Number(char.ryo ?? 0));
-    char.ryo = Math.min(inRyo, exRyo);
+    const ryoGain = Math.max(0, inRyo - exRyo);
+    const hasOpenHollowGateRun = Boolean(char.hollowGateRun?.runToken);
+    char.ryo = strictLedger || hasOpenHollowGateRun || ryoGain > 1_000 ? Math.min(inRyo, exRyo) : inRyo;
     // Bank principal and its interest clock are server-owned. Deposits,
     // withdrawals, and interest claims all mutate the versioned save under its
     // lock, so an ordinary autosave may only re-assert the stored values.
@@ -538,9 +804,18 @@ function sanitizeCharacterSave(incoming, existing) {
     // Stat points are an entitlement, not a client-authored gain. Ordinary
     // saves may spend the stored unspent pool or perform the paid full respec,
     // but training/combat must credit new points directly to the stored save.
-    const statEntitlement = (0, _stat_entitlement_js_1.preserveStatPointEntitlement)(char, exChar);
-    char.stats = statEntitlement.stats;
-    char.unspentStats = statEntitlement.unspentStats;
+    const existingStatKeys = exChar.stats && typeof exChar.stats === 'object'
+        ? Object.keys(exChar.stats)
+        : [];
+    if (!strictLedger && existingStatKeys.length < formulas_js_1.STAT_CAP_FIELDS.length) {
+        char.stats = inChar.stats;
+        char.unspentStats = Math.max(0, Math.min(Number(inChar.unspentStats) || 0, Number(exChar.unspentStats) || 0));
+    }
+    else {
+        const statEntitlement = (0, _stat_entitlement_js_1.preserveStatPointEntitlement)(char, exChar);
+        char.stats = statEntitlement.stats;
+        char.unspentStats = statEntitlement.unspentStats;
+    }
     char.totalStatsTrained = Math.max(0, Math.floor(Number(exChar.totalStatsTrained) || 0));
     if (Array.isArray(exChar.redeemedTrainingTokens))
         char.redeemedTrainingTokens = exChar.redeemedTrainingTokens;
@@ -652,10 +927,25 @@ function sanitizeCharacterSave(incoming, existing) {
             .slice(0, 100)
             .map((jutsuId) => ({ jutsuId, level: 1, xp: 0 }));
     }
-    else if (Array.isArray(exChar.jutsuMastery))
-        char.jutsuMastery = exChar.jutsuMastery;
-    else
-        char.jutsuMastery = [];
+    else {
+        const storedMastery = Array.isArray(exChar.jutsuMastery)
+            ? exChar.jutsuMastery
+            : [];
+        const requestedMastery = Array.isArray(char.jutsuMastery)
+            ? char.jutsuMastery
+            : [];
+        const requestedById = new Map(requestedMastery.map((row) => [String(row?.jutsuId ?? ''), row]));
+        char.jutsuMastery = storedMastery.map((storedRow) => {
+            if (strictLedger)
+                return storedRow;
+            const proposed = requestedById.get(String(storedRow?.jutsuId ?? ''));
+            const sameLevel = Number(proposed?.level) === Number(storedRow.level);
+            const xpGain = Number(proposed?.xp) - Number(storedRow.xp ?? 0);
+            return proposed && sameLevel && xpGain >= 0 && xpGain <= 100
+                ? { ...storedRow, xp: Number(proposed.xp) }
+                : storedRow;
+        });
+    }
     // HP / chakra / stamina must not exceed their own max fields.
     if (Number(char.hp ?? 0) > Number(char.maxHp ?? char.hp))
         char.hp = char.maxHp;
@@ -794,13 +1084,26 @@ function sanitizeCharacterSave(incoming, existing) {
         'level', 'xp', 'hp', 'attack', 'defense', 'speed', 'happiness',
         'training', 'expedition', 'nickname', 'loadout',
     ];
-    // Pet acquisition and combat identity are server-issued. Existing IDs are
-    // grandfathered; unknown additions are discarded. Progression is preserved
-    // from the stored pet and advances only through server mutations.
+    // Once strict settlement is enabled, pet identity and progression must
+    // come from dedicated endpoints. Compatibility mode retains bounded legacy
+    // pet rewards until every caller has migrated.
     char.pets = submittedPets
-        .filter((pet) => existingPetById.has(String(pet?.id ?? '')))
+        .filter((pet) => {
+        if (existingPetById.has(String(pet?.id ?? '')))
+            return true;
+        if (strictLedger || existingPets.length > 0)
+            return false;
+        const stats = ['hp', 'attack', 'defense', 'speed'].map((field) => Number(pet?.[field]));
+        return typeof pet?.id === 'string'
+            && stats.every((value) => Number.isFinite(value) && value >= 1 && value <= 100)
+            && !Array.isArray(pet.jutsus)
+            && pet.level === undefined
+            && pet.xp === undefined;
+    })
         .map((pet) => {
         const stored = existingPetById.get(String(pet.id));
+        if (!stored)
+            return pet;
         const next = { ...pet };
         for (const field of PET_IDENTITY_FIELDS) {
             if (stored[field] !== undefined)
@@ -881,12 +1184,38 @@ function sanitizeCharacterSave(incoming, existing) {
             .slice(0, ITEM_STACK_KEY_CAP)
             .map(([itemId, count]) => ({ itemId, count }));
     }
-    // All item ownership is server-issued. Conserve the combined inventory +
-    // counted-stack entitlement so load-time array→stack migration remains
-    // lossless while arbitrary additions in either representation are dropped.
+    const proposedInventory = Array.isArray(char.inventory) ? [...char.inventory] : [];
+    const proposedStacks = Array.isArray(char.itemStacks)
+        ? char.itemStacks
+        : [];
     const ownedItems = (0, _entitlement_guard_js_1.preserveOwnedItems)(char.inventory, char.itemStacks, exChar.inventory, exChar.itemStacks);
     char.inventory = ownedItems.inventory;
     char.itemStacks = ownedItems.itemStacks;
+    if (!strictLedger) {
+        const storedCounts = new Map();
+        for (const raw of Array.isArray(exChar.inventory) ? exChar.inventory : [])
+            addOwnedCount(storedCounts, raw);
+        for (const row of Array.isArray(exChar.itemStacks) ? exChar.itemStacks : []) {
+            addOwnedCount(storedCounts, row?.itemId, Math.max(0, Math.floor(Number(row?.count) || 0)));
+        }
+        const addedInventory = proposedInventory.filter((raw) => {
+            const id = typeof raw === 'string' ? raw : '';
+            const left = storedCounts.get(id) ?? 0;
+            if (left > 0)
+                storedCounts.set(id, left - 1);
+            return Boolean(id) && left <= 0;
+        });
+        const unownedStackClaim = proposedStacks.some((row) => {
+            const id = typeof row?.itemId === 'string' ? row.itemId : '';
+            return Math.max(0, Math.floor(Number(row?.count) || 0)) > (storedCounts.get(id) ?? 0);
+        });
+        if (addedInventory.length === 1 && !unownedStackClaim) {
+            char.inventory = [...char.inventory, addedInventory[0]];
+        }
+    }
+    // All item ownership is server-issued. Conserve the combined inventory +
+    // counted-stack entitlement so load-time array→stack migration remains
+    // lossless while arbitrary additions in either representation are dropped.
     // ─── examsPassed validation ───────────────────────────────────────────────
     // Rank exams: genin/chunin/jonin/specialJonin gate level progression
     // (EXAM_LEVEL_GATES in App.tsx). A forged save could POST
@@ -1514,10 +1843,9 @@ function sanitizeCharacterSave(incoming, existing) {
             return out;
         });
     }
-    const out = {
-        ...incoming,
-        character: isFirstSave ? (0, _first_save_baseline_js_1.applyCanonicalFirstSave)(char) : char,
-    };
+    const finalChar = isFirstSave ? (0, _first_save_baseline_js_1.applyCanonicalFirstSave)(char) : char;
+    enforceRawSaveLedgerBoundary(finalChar, exChar, isFirstSave, inChar);
+    const out = { ...incoming, character: finalChar };
     // Stat training is server-created and server-cleared. A generic autosave
     // cannot forge, replace, or replay the top-level session descriptor.
     if (!isFirstSave)
@@ -1528,8 +1856,18 @@ function sanitizeCharacterSave(incoming, existing) {
         out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines, true);
     // Server-owned, single-use purchase ledger. Incoming copies are ignored.
     out.pendingBloodlineForges = pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));
-    if (sanitizedCreatorItems !== undefined)
+    if (isFirstSave)
+        out.creatorItems = [];
+    else if (strictLedger)
+        out.creatorItems = Array.isArray(existing?.creatorItems) ? existing.creatorItems : [];
+    else if (sanitizedCreatorItems !== undefined)
         out.creatorItems = sanitizedCreatorItems;
+    for (const field of SERVER_LEDGER_TOPLEVEL_FIELDS) {
+        if (existing && Object.prototype.hasOwnProperty.call(existing, field))
+            out[field] = existing[field];
+        else
+            delete out[field];
+    }
     return out;
 }
 // ── Clan / village identity lockdown ──────────────────────────────────────
@@ -1688,7 +2026,9 @@ async function handler(req, res) {
         // correctly recognises the owner (the old `.toLowerCase().trim()` left a
         // spaced-name owner looking like a foreigner and served them a stripped
         // public projection of their own save).
-        const isOwner = identity.admin || isClanSave || identity.name === name;
+        const adminCanReadTarget = identity.admin
+            && adminSaveTargetAllowed(name, (0, _auth_js_1.isFullAdmin)(req), (0, _auth_js_1.isAdmin)(req));
+        const isOwner = adminCanReadTarget || isClanSave || (!identity.admin && identity.name === name);
         const combatOnly = req.query.combatOnly === '1';
         let payload = isOwner ? data : publicProjection(stripPrivateFields(data));
         if (combatOnly)
@@ -1714,6 +2054,9 @@ async function handler(req, res) {
                 const ackIdentity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
                 if (!ackIdentity)
                     return res.status(401).json({ error: 'Authentication required.' });
+                if (ackIdentity.admin && !adminSaveTargetAllowed(name, (0, _auth_js_1.isFullAdmin)(req), (0, _auth_js_1.isAdmin)(req))) {
+                    return res.status(403).json({ error: 'Full admin authentication required for that save.' });
+                }
                 if (!ackIdentity.admin && !isClanSave && ackIdentity.name !== name) {
                     return res.status(403).json({ error: 'Cannot ack another player.' });
                 }
@@ -1734,7 +2077,7 @@ async function handler(req, res) {
             // Admin-flagged writes require admin auth (constant-time compare in isAdmin).
             let identityName = null;
             if (isAdminSave) {
-                if (!(0, _auth_js_1.isAdmin)(req)) {
+                if (!adminSaveTargetAllowed(name, (0, _auth_js_1.isFullAdmin)(req), (0, _auth_js_1.isAdmin)(req))) {
                     return res.status(401).json({ error: 'Admin authentication required.' });
                 }
             }
@@ -1745,6 +2088,9 @@ async function handler(req, res) {
                 const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
                 if (!identity)
                     return res.status(401).json({ error: 'Authentication required.' });
+                if (identity.admin && !adminSaveTargetAllowed(name, (0, _auth_js_1.isFullAdmin)(req), (0, _auth_js_1.isAdmin)(req))) {
+                    return res.status(403).json({ error: 'Full admin authentication required for that save.' });
+                }
                 if (!identity.admin && !isClanSave && identity.name !== name) {
                     return res.status(403).json({ error: 'Cannot save another player.' });
                 }
@@ -2035,7 +2381,7 @@ async function handler(req, res) {
                                 currentVersion: storedVersion,
                             });
                         }
-                        const nextVersion = storedVersion + 1;
+                        const nextVersion = (0, _save_version_js_1.nextSaveVersion)(storedVersion);
                         const mergedPayload = existing ? (0, _utils_js_1.mergePreservingImages)(safeIncoming, existing) : safeIncoming;
                         // Strip `_baseSaveVersion` from the persisted payload so
                         // it doesn't accumulate in the stored save record.
@@ -2099,7 +2445,7 @@ async function handler(req, res) {
             const adminMerged = existing ? (0, _utils_js_1.mergePreservingImages)(incoming, existing) : incoming;
             const payload = {
                 ...adminMerged,
-                _saveVersion: adminStoredVersion + 1,
+                _saveVersion: (0, _save_version_js_1.nextSaveVersion)(adminStoredVersion),
                 _saveAt: Date.now(),
             };
             const char = incoming?.character;

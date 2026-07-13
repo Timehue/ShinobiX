@@ -9,7 +9,7 @@ import type { CardClashCard, CardClashPlayedCard, CardClashSide } from "../lib/c
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#ff7043", Water: "#4fc3f7", Earth: "#a1887f", Wind: "#a5d6a7",
-    Lightning: "#fff176", Shadow: "#ba68c8", Ice: "#b0e0ff", Neutral: "#94a3b8", None: "#8a93a8",
+    Lightning: "#fff176", Shadow: "#ba68c8", Ice: "#b0e0ff", Neutral: "var(--text-dim)", None: "#8a93a8",
 };
 
 const ELEMENT_EMOJI: Record<string, string> = {
@@ -18,7 +18,7 @@ const ELEMENT_EMOJI: Record<string, string> = {
 };
 
 const RARITY_BORDER: Record<string, string> = {
-    legendary: "#fbbf24", epic: "#ce93d8", rare: "#60a5fa", common: "#64748b",
+    legendary: "#fbbf24", epic: "#ce93d8", rare: "var(--blue-400)", common: "var(--text-muted)",
 };
 
 const RARITY_GLOW: Record<string, string> = {
@@ -81,7 +81,7 @@ export function CardClashCardView({
     const isToken = Boolean(played.isToken);
 
     const style = {
-        "--cc-card-border": RARITY_BORDER[card.rarity] ?? "#475569",
+        "--cc-card-border": RARITY_BORDER[card.rarity] ?? "var(--slate-600)",
         "--cc-card-glow": RARITY_GLOW[card.rarity] ?? "none",
         "--cc-art-h": `${ART_HEIGHT[size]}px`,
         "--cc-art-bg": `linear-gradient(160deg, ${elementColor}33, #0a1326 70%)`,
@@ -110,7 +110,7 @@ export function CardClashCardView({
         >
             <div className="cc-card-art">
                 {card.image ? (
-                    <img src={card.image} alt={card.name} draggable={false} />
+                    <img src={card.image} alt={card.name} draggable={false} loading="lazy" />
                 ) : (
                     <span className="cc-emoji">{ELEMENT_EMOJI[card.element] ?? "🗡️"}</span>
                 )}

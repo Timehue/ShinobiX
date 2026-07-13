@@ -15,14 +15,15 @@
 import './api/_force-ipv4.js';
 
 import { startGameLoop, stopGameLoop } from './api/_realtime/game-loop.js';
-import { attachSocketServer, closeSocketServer } from './api/_realtime/socket.js';
+import { attachSocketServer } from './api/_realtime/socket.js';
 import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
-import { closeStoragePool } from './api/_storage.js';
 import compression from 'compression';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import { enforceRateLimit } from './api/_ratelimit.js';
+import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/_request-metrics.js';
 
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
@@ -42,8 +43,6 @@ import rosterHandler     from './api/player/roster.js';
 import playerLeaderboardsHandler from './api/player/leaderboards.js';
 import playerTradeHandler from './api/player/trade.js';
 import dailyLoginHandler  from './api/player/daily-login.js';
-import profileTitleHandler from './api/player/profile-title.js';
-import statRespecHandler from './api/player/stat-respec.js';
 import blackMarketHandler from './api/festival/black-market.js';
 import sunscarFestivalHandler from './api/festival/sunscar.js';
 import pvpSessionHandler from './api/pvp/session.js';
@@ -87,34 +86,6 @@ import towersSpireLeaderboardHandler from './api/towers/spire-leaderboard.js';
 import expeditionStartHandler from './api/missions/expedition-start.js';
 import trainingStartHandler from './api/training/start.js';
 import trainingCompleteHandler from './api/training/complete.js';
-import bloodlineForgeHandler from './api/bloodlines/forge.js';
-import cardClashOpenPackHandler from './api/card-clash/open-pack.js';
-import storySettleHandler from './api/story/settle.js';
-import worldExploreHandler from './api/world/explore.js';
-import worldOpenChestHandler from './api/world/open-chest.js';
-import hollowGateForgeKeyHandler from './api/hollow-gate/forge-key.js';
-import hollowGateLockedDoorHandler from './api/hollow-gate/locked-door.js';
-import petChooseStarterHandler from './api/pet/choose-starter.js';
-import petEncounterStartHandler from './api/pet/encounter-start.js';
-import petBefriendHandler from './api/pet/befriend.js';
-import petProgressHandler from './api/pet/progress.js';
-import shopPurchaseHandler from './api/shop/purchase.js';
-import shopSellHandler from './api/shop/sell.js';
-import craftForgeHandler from './api/craft/forge.js';
-import craftNamedHandler from './api/craft/named.js';
-import achievementSyncHandler from './api/achievements/sync.js';
-import endlessRunHandler from './api/endless/run.js';
-import eventClaimHandler from './api/events/claim.js';
-import jutsuRyoTrainingHandler from './api/training/jutsu-ryo.js';
-import auraFeedHandler from './api/aura/feed.js';
-import hunterRankUpHandler from './api/hunter/rank-up.js';
-import awakeningRollHandler from './api/awakening/roll.js';
-import examPassHandler from './api/exams/pass.js';
-import professionMasteryHandler from './api/profession/mastery.js';
-import elderFocusHandler from './api/village/elder-focus.js';
-import dungeonRunHandler from './api/dungeon/run.js';
-import villageUpgradeHandler from './api/village/upgrade.js';
-import hollowGateUnlockHandler from './api/village/hollow-gate-unlock.js';
 import battleLockHandler  from './api/battle/lock.js';
 import villageTreasuryTransferHandler from './api/village/treasury/transfer.js';
 import villageTreasuryDonateHandler from './api/village/treasury/donate.js';
@@ -128,11 +99,46 @@ import villageSectorWarHandler from './api/village/sector-war.js';
 import villageWarMercHandler from './api/village/war-merc.js';
 import villageSectorCardHandler from './api/village/sector-card.js';
 import villageSectorPetHandler  from './api/village/sector-pet.js';
+import anbuInfiltrationHandler from './api/village/anbu-infiltration.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
-import villageOpenWarCrateHandler from './api/village/open-war-crate.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import bankTransferHandler from './api/bank/transfer.js';
+import inventoryOpenWarCrateHandler from './api/inventory/open-war-crate.js';
+import profileSettleHandler from './api/profile/settle.js';
+import shopSettleHandler from './api/shop/settle.js';
+import inventorySellHandler from './api/inventory/sell.js';
+import achievementsSyncHandler from './api/achievements/sync.js';
+import auraFeedHandler from './api/aura/feed.js';
+import awakeningRollHandler from './api/awakening/roll.js';
+import bloodlinesForgeHandler from './api/bloodlines/forge.js';
+import cardClashOpenPackHandler from './api/card-clash/open-pack.js';
+import craftForgeHandler from './api/craft/forge.js';
+import craftNamedHandler from './api/craft/named.js';
+import dungeonRunHandler from './api/dungeon/run.js';
+import endlessRunHandler from './api/endless/run.js';
+import eventsClaimHandler from './api/events/claim.js';
+import examsPassHandler from './api/exams/pass.js';
+import hollowGateForgeKeyHandler from './api/hollow-gate/forge-key.js';
+import hollowGateLockedDoorHandler from './api/hollow-gate/locked-door.js';
+import hunterRankUpHandler from './api/hunter/rank-up.js';
+import petBefriendHandler from './api/pet/befriend.js';
+import petChooseStarterHandler from './api/pet/choose-starter.js';
+import petEncounterStartHandler from './api/pet/encounter-start.js';
+import petProgressHandler from './api/pet/progress.js';
+import playerProfileTitleHandler from './api/player/profile-title.js';
+import playerStatRespecHandler from './api/player/stat-respec.js';
+import professionMasteryHandler from './api/profession/mastery.js';
+import shopPurchaseHandler from './api/shop/purchase.js';
+import shopSellHandler from './api/shop/sell.js';
+import storySettleHandler from './api/story/settle.js';
+import trainingJutsuRyoHandler from './api/training/jutsu-ryo.js';
+import villageElderFocusHandler from './api/village/elder-focus.js';
+import villageHollowGateUnlockHandler from './api/village/hollow-gate-unlock.js';
+import villageOpenWarCrateHandler from './api/village/open-war-crate.js';
+import villageUpgradeHandler from './api/village/upgrade.js';
+import worldExploreHandler from './api/world/explore.js';
+import worldOpenChestHandler from './api/world/open-chest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
 // startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
@@ -196,10 +202,14 @@ import missionsQueueCombatClaimHandler from './api/missions/queue-combat-claim.j
 import missionsRecordProgressHandler from './api/missions/record-progress.js';
 import sectorWandererGiftHandler      from './api/sector/wanderer-gift.js';
 import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
+import sectorRiftQuestHandler         from './api/sector/rift-quest.js';
 import sectorWandererAmbushHandler    from './api/sector/wanderer-ambush.js';
 import sectorWandererServiceHandler   from './api/sector/wanderer-service.js';
 import sectorQuestbookHandler         from './api/sector/questbook.js';
 import sectorMercRoamHandler          from './api/sector/merc-roam.js';
+// Story — server-authoritative interlude + road-event record (rebuild foundation)
+import storyInterludeHandler          from './api/story/interlude.js';
+import storyRoadEventHandler          from './api/story/road-event.js';
 // Legacy system (ENABLE_LEGACY) — earned identity paths + Wandering Sage
 import legacyDefinitionsHandler       from './api/legacy/definitions.js';
 import legacyStatsHandler             from './api/legacy/stats.js';
@@ -224,6 +234,7 @@ import petBattleStartHandler from './api/pet/battle-start.js';
 import petBattleResultHandler from './api/pet/battle-result.js';
 import petRankedStartHandler from './api/pet/ranked-start.js';
 import petEvolveHandler from './api/pet/evolve.js';
+import applyElementalCoreHandler from './api/weapon/apply-elemental-core.js';
 import petGauntletHandler from './api/pet/gauntlet.js';
 import arenaLobbyHandler from './api/arena/lobby.js';
 import petLadderHandler from './api/pet-ladder/ladder.js';
@@ -256,6 +267,7 @@ import { safeEqual } from './api/_auth.js';
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
 import { isAllowedOrigin, isMalformedJsonBodyError, MALFORMED_JSON_BODY_ERROR } from './api/_utils.js';
 import { publicErrorPayload, securityHeaders } from './api/_http-security.js';
+import { evaluateLaunchControl } from './api/_launch-controls.js';
 import {
     canonicalRedirectLocation,
     isLegacyDuplicateHost,
@@ -280,6 +292,12 @@ if (process.env.SENTRY_DSN) {
         Sentry.init({
             dsn: process.env.SENTRY_DSN,
             environment: process.env.NODE_ENV || 'production',
+            release: [
+                process.env.RAILWAY_GIT_COMMIT_SHA,
+                process.env.BUILD_COMMIT,
+                process.env.GIT_COMMIT_SHA,
+                process.env.SOURCE_VERSION,
+            ].map((value) => String(value ?? '').trim()).find((value) => /^[0-9a-f]{7,64}$/i.test(value)),
             tracesSampleRate: 0,
             sendDefaultPii: false,
         });
@@ -289,6 +307,75 @@ if (process.env.SENTRY_DSN) {
         Sentry = null;
     }
 }
+
+// ─── Process-level resilience ──────────────────────────────────────────────────
+
+// The HTTP server handle, assigned once it's created below. Referenced by
+// gracefulShutdown so a restart or an uncaught crash can drain in-flight
+// requests before exiting, instead of severing them mid-response.
+let _httpServer: import('node:http').Server | undefined;
+let _shutdownStarted = false;
+
+// Drain in-flight requests, then exit so the supervisor respawns a fresh worker
+// (Passenger on cPanel, the platform on Railway). A bare process.exit() cuts
+// whatever request is in flight — on cPanel that reaches the caller as a
+// Passenger 502 "Incomplete response received from application" (exactly the
+// GET /api/save/* error this guards against). server.close() stops accepting new
+// connections and fires its callback once active requests finish;
+// closeIdleConnections() drops parked keep-alive sockets so the callback isn't
+// held open by an idle client. A bounded backstop force-exits if draining stalls
+// (a slow/streaming response), so a restart can never hang forever.
+function gracefulShutdown(code: number, reason: string): void {
+    if (_shutdownStarted) return;
+    _shutdownStarted = true;
+    console.log(`[shutdown] draining in-flight requests (${reason})`);
+    stopGameLoop();
+    stopSnapshotCron();
+    let exited = false;
+    const exit = (how: string): void => {
+        if (exited) return;
+        exited = true;
+        console.log(`[shutdown] exiting worker (${reason}: ${how})`);
+        process.exit(code);
+    };
+    const backstop = setTimeout(() => exit('drain-timeout'), 4_000);
+    backstop.unref?.();
+    if (_httpServer) {
+        _httpServer.close(() => exit('drained'));
+        _httpServer.closeIdleConnections();
+    } else {
+        exit('no-server'); // crashed during startup — nothing to drain
+    }
+}
+
+// Last-resort crash guards — but ONLY when Sentry is not active. Sentry's Node
+// SDK registers its own uncaughtException/unhandledRejection integrations
+// (capture + flush + exit); registering ours alongside would fight it. So on
+// Railway (Sentry on) Sentry owns this path; on cPanel (Sentry usually absent —
+// it needs a manual "Run NPM Install") these are the only net. Without them a
+// single stray async throw kills the worker mid-response as a 502 AND leaves no
+// app-level stack trace (the blind spot this investigation hit). An
+// unhandledRejection is logged and SURVIVED — Node 22 would otherwise crash the
+// worker, and a rejection is rarely process-corrupting. An uncaughtException is
+// logged with its stack, then drained-and-exited: the process state is undefined
+// after one, so we don't resume — but we exit cleanly instead of hard-crashing.
+if (!Sentry) {
+    process.on('unhandledRejection', (reason) => {
+        console.error('[fatal-guard] unhandledRejection (surviving):',
+            reason instanceof Error ? (reason.stack ?? reason.message) : reason);
+    });
+    process.on('uncaughtException', (err) => {
+        console.error('[fatal-guard] uncaughtException:', err?.stack ?? err);
+        gracefulShutdown(1, 'uncaughtException');
+    });
+}
+
+// Railway and other container supervisors use SIGTERM for deploy replacement.
+// Drain exactly the same way as an operator restart or fatal exception so an
+// in-flight save/reward write is not cut in half. Railway should allow at least
+// 10 seconds of deployment draining; our own bounded backstop exits after 4s.
+process.once('SIGTERM', () => gracefulShutdown(0, 'SIGTERM'));
+process.once('SIGINT', () => gracefulShutdown(0, 'SIGINT'));
 
 // ─── App setup ───────────────────────────────────────────────────────────────
 
@@ -341,6 +428,45 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         : randomUUID().slice(0, 8);
     (req as Request & { id?: string }).id = id;
     res.setHeader('x-request-id', id);
+    next();
+});
+
+// Short rolling request telemetry for release health. It is intentionally
+// in-process, bounded, and path-grouped: no player names are retained and a
+// request flood cannot grow memory without limit. A protected deep-health call
+// exposes p50/p95/p99 and 5xx rates; sustained SLO breaches also emit a
+// throttled warning to logs and Sentry.
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const started = process.hrtime.bigint();
+    res.once('finish', () => {
+        const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000;
+        recordRequestMetric({
+            method: req.method,
+            path: req.path,
+            statusCode: res.statusCode,
+            durationMs,
+        });
+        const alert = requestSloAlert();
+        if (alert) {
+            console.warn(alert);
+            try {
+                // The SLO snapshot is global. This callback still runs inside
+                // the request that triggered evaluation, so explicitly replace
+                // that request's transaction label before reporting to Sentry.
+                // Otherwise a global p95 breach can look like it belongs to an
+                // innocent route such as /api/player/roster.
+                Sentry?.withScope((scope) => {
+                    scope.setTransactionName('request-slo/global');
+                    scope.setTag('request_slo_scope', 'global');
+                    scope.setContext(
+                        'request_slo',
+                        readRequestMetrics() as unknown as Record<string, unknown>,
+                    );
+                    Sentry?.captureMessage(alert, 'warning');
+                });
+            } catch { /* reporting must never affect a response */ }
+        }
+    });
     next();
 });
 
@@ -412,6 +538,21 @@ function route(path: string, handler: AnyHandler) {
     const paths = [path, `/api${path}`];
     app.all(paths, async (req: Request, res: Response, next: NextFunction) => {
         try {
+            const control = evaluateLaunchControl({
+                path,
+                method: req.method,
+                body: req.body,
+            });
+            if (!control.allowed) {
+                res.setHeader('Cache-Control', 'no-store');
+                res.setHeader('Retry-After', String(control.retryAfterSeconds));
+                res.status(control.status).json({
+                    ok: false,
+                    error: control.error,
+                    code: control.code,
+                });
+                return;
+            }
             // Merge route params into query so Vercel-style handlers work.
             const augmented = {
                 ...req,
@@ -432,6 +573,17 @@ function route(path: string, handler: AnyHandler) {
 
 // Cached at module-load time so each request is a free read.
 const _BUILD_INFO = (() => {
+    const startedAt = new Date().toISOString();
+    const configured = [
+        process.env.RAILWAY_GIT_COMMIT_SHA,
+        process.env.BUILD_COMMIT,
+        process.env.GIT_COMMIT_SHA,
+        process.env.SOURCE_VERSION,
+    ].map((value) => String(value ?? '').trim()).find((value) => /^[0-9a-f]{7,64}$/i.test(value));
+    if (configured) {
+        const commit = configured.toLowerCase();
+        return { commit, commitShort: commit.slice(0, 8), commitSource: 'environment', startedAt };
+    }
     try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const fs = require('node:fs') as typeof import('node:fs');
@@ -443,20 +595,73 @@ const _BUILD_INFO = (() => {
         const sha = ref
             ? fs.readFileSync(path.join(__dirname, '..', '.git', ref), 'utf8').trim()
             : head;
-        return { commit: sha.slice(0, 8), startedAt: new Date().toISOString() };
+        if (!/^[0-9a-f]{7,64}$/i.test(sha)) throw new Error('invalid git commit');
+        const commit = sha.toLowerCase();
+        return { commit, commitShort: commit.slice(0, 8), commitSource: 'git', startedAt };
     } catch {
-        return { commit: 'unknown', startedAt: new Date().toISOString() };
+        return { commit: 'unknown', commitShort: 'unknown', commitSource: 'unknown', startedAt };
     }
 })();
+
+type DbHealthResult = Awaited<ReturnType<typeof runDbHealthProbe>>;
+type DeepHealthSource = 'hit' | 'shared' | 'miss';
+const _DEEP_HEALTH_CACHE_MS = Math.min(60_000, Math.max(1_000, Number(process.env.DEEP_HEALTH_CACHE_MS) || 15_000));
+let _deepHealthCache: { expiresAt: number; result: DbHealthResult } | null = null;
+let _deepHealthInFlight: Promise<DbHealthResult> | null = null;
+
+function deepHealthAuthorized(req: Request): boolean {
+    const expected = String(process.env.HEALTH_DEEP_TOKEN ?? '').trim();
+    // Local development can run the probe without secret plumbing. Production
+    // fails closed: the deep route mutates storage and exposes topology/metrics.
+    if (!expected) return process.env.NODE_ENV !== 'production';
+    const authorization = headerValue(req.headers.authorization);
+    const bearer = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+    const explicit = headerValue(req.headers['x-health-token']);
+    const provided = explicit || bearer;
+    return !!provided && safeEqual(provided, expected);
+}
+
+async function getDbHealthProbe(): Promise<{ result: DbHealthResult; source: DeepHealthSource }> {
+    const now = Date.now();
+    if (_deepHealthCache && _deepHealthCache.expiresAt > now) {
+        return { result: _deepHealthCache.result, source: 'hit' };
+    }
+    if (_deepHealthInFlight) {
+        return { result: await _deepHealthInFlight, source: 'shared' };
+    }
+    const pending = runDbHealthProbe();
+    _deepHealthInFlight = pending;
+    try {
+        const result = await pending;
+        _deepHealthCache = { result, expiresAt: Date.now() + _DEEP_HEALTH_CACHE_MS };
+        return { result, source: 'miss' };
+    } finally {
+        if (_deepHealthInFlight === pending) _deepHealthInFlight = null;
+    }
+}
+
+async function sendDeepHealth(req: Request, res: Response): Promise<void> {
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (!deepHealthAuthorized(req)) {
+        res.status(401).json({ ok: false, error: 'Deep health token required.', ..._BUILD_INFO });
+        return;
+    }
+    if (!enforceRateLimit(req, res, 'deep-health', 30, 60_000)) return;
+    const { result, source } = await getDbHealthProbe();
+    res.setHeader('X-Health-Probe', source);
+    res.status(result.ok ? 200 : 503).json({
+        ...result,
+        requestMetrics: readRequestMetrics(),
+        ..._BUILD_INFO,
+    });
+}
 
 app.get(['/health', '/api/health'], async (req, res) => {
     // Default: cheap process-liveness (what Railway's configured health check
     // hits — must stay fast so a slow DB can't flap the deploy). ?deep=1 runs
     // the full DB/KV readiness probe (same as /health/db).
     if (req.query.deep === '1') {
-        res.setHeader('Cache-Control', 'no-store');
-        const result = await runDbHealthProbe();
-        res.status(result.ok ? 200 : 503).json({ ...result, ..._BUILD_INFO });
+        await sendDeepHealth(req, res);
         return;
     }
     res.json({ ok: true, ..._BUILD_INFO });
@@ -469,8 +674,17 @@ app.get(['/health', '/api/health'], async (req, res) => {
 // those endpoints depend on against throwaway probe keys (base store: get/set/
 // set-nx/hset/hdel/del, plus the disk-routed `save:` overlay), so an operator
 // can tell a DB outage apart from a code bug. Reachable at /health/db or
-// /health?deep=1. Never cached. Returns 503 (not 200) when any check fails.
-async function runDbHealthProbe(): Promise<{ ok: boolean; checks: Record<string, boolean>; latencyMs: number; saveStore?: string; error?: string }> {
+// /health?deep=1. The expensive probe is single-flight and briefly cached so a
+// public request burst cannot amplify into repeated KV/overlay writes. Returns
+// 503 (not 200) when any check fails.
+async function runDbHealthProbe(): Promise<{
+    ok: boolean;
+    checks: Record<string, boolean>;
+    latencyMs: number;
+    saveStore?: string;
+    backup?: { completedAt?: number; ageMs?: number; fresh: boolean };
+    error?: string;
+}> {
     const checks: Record<string, boolean> = {};
     const t0 = Date.now();
     // Which backend `save:*` resolves to. 'base-store' on a host that serves
@@ -513,17 +727,25 @@ async function runDbHealthProbe(): Promise<{ ok: boolean; checks: Record<string,
         checks.diskRead = !!disk && disk.probe === token;
         await kv.del(diskKey).catch(() => undefined);
 
+        const { isSnapshotMarkerFresh, readSnapshotSuccessMarker } = await import('./api/cron/snapshot-saves.js');
+        const marker = await readSnapshotSuccessMarker();
+        const fresh = isSnapshotMarkerFresh(marker);
+        const backup = {
+            completedAt: marker?.completedAt,
+            ageMs: marker?.completedAt ? Math.max(0, Date.now() - marker.completedAt) : undefined,
+            fresh,
+        };
+        if (process.env.REQUIRE_FRESH_BACKUP === '1') checks.backupFresh = fresh;
+
         const ok = Object.values(checks).every(Boolean);
-        return { ok, checks, latencyMs: Date.now() - t0, saveStore };
+        return { ok, checks, latencyMs: Date.now() - t0, saveStore, backup };
     } catch (err) {
         return { ok: false, checks, latencyMs: Date.now() - t0, saveStore, error: (err as Error).message };
     }
 }
 
-app.get(['/health/db', '/api/health/db'], async (_req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
-    const result = await runDbHealthProbe();
-    res.status(result.ok ? 200 : 503).json({ ...result, ..._BUILD_INFO });
+app.get(['/health/db', '/api/health/db'], async (req, res) => {
+    await sendDeepHealth(req, res);
 });
 
 // Normalize a possibly-array header to a single string (Express can hand
@@ -585,11 +807,10 @@ app.post(['/restart', '/api/restart'], (req, res) => {
 
     console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`);
     res.json({ ok: true, restarting: true, prevCommit: _BUILD_INFO.commit });
-    // Give the response a chance to flush before exiting.
-    setTimeout(() => {
-        console.log('[restart] exiting worker on operator request');
-        process.exit(0);
-    }, 250);
+    // Let THIS response flush, then drain any OTHER in-flight requests before
+    // exiting. The old hard process.exit(0) severed concurrent requests — on
+    // cPanel a save-read proxied here mid-restart came back as a Passenger 502.
+    setTimeout(() => gracefulShutdown(0, 'operator restart'), 250);
 });
 
 // ─── API routes ───────────────────────────────────────────────────────────────
@@ -708,34 +929,6 @@ route('/missions/expedition-start', expeditionStartHandler);
 // stat's gain; complete time-gates + consumes it and returns the sealed amount.
 route('/training/start', trainingStartHandler);
 route('/training/complete', trainingCompleteHandler);
-// Custom bloodline purchase — atomically debits the rank material and issues a
-// one-use entitlement consumed by the ordinary save sanitizer.
-route('/bloodlines/forge', bloodlineForgeHandler);
-route('/card-clash/open-pack', cardClashOpenPackHandler);
-route('/story/settle', storySettleHandler);
-route('/world/explore', worldExploreHandler);
-route('/world/open-chest', worldOpenChestHandler);
-route('/hollow-gate/forge-key', hollowGateForgeKeyHandler);
-route('/hollow-gate/locked-door', hollowGateLockedDoorHandler);
-route('/pet/choose-starter', petChooseStarterHandler);
-route('/pet/encounter-start', petEncounterStartHandler);
-route('/pet/befriend', petBefriendHandler);
-route('/shop/purchase', shopPurchaseHandler);
-route('/shop/sell', shopSellHandler);
-route('/craft/forge', craftForgeHandler);
-route('/craft/named', craftNamedHandler);
-route('/achievements/sync', achievementSyncHandler);
-route('/endless/run', endlessRunHandler);
-route('/events/claim', eventClaimHandler);
-route('/training/jutsu-ryo', jutsuRyoTrainingHandler);
-route('/aura/feed', auraFeedHandler);
-route('/hunter/rank-up', hunterRankUpHandler);
-route('/awakening/roll', awakeningRollHandler);
-route('/exams/pass', examPassHandler);
-route('/village/elder-focus', elderFocusHandler);
-route('/dungeon/run', dungeonRunHandler);
-route('/village/upgrade', villageUpgradeHandler);
-route('/village/hollow-gate-unlock', hollowGateUnlockHandler);
 
 // Village treasury — atomic Kage-gift endpoint that replaces the broken
 // 2-write client flow (deduct treasury + patch recipient).
@@ -773,6 +966,11 @@ route('/village/sector-card', villageSectorCardHandler);
 // pet duel resolved server-side by the generated pet engine (api/pet-sim), settling
 // the same contest Control HP. The client replays the same (pets, seed). Gated.
 route('/village/sector-pet',  villageSectorPetHandler);
+// Anbu Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
+// turn-in action switch): fight a daily-sealed Anbu snapshot (Battle Towers
+// engine) to skim 1% of the enemy war economy into turn-in caches. NEVER flips
+// sector ownership. Gated (404 unless ENABLE_VILLAGE_WAR=1 + ENABLE_ANBU_INFILTRATION=1).
+route('/village/anbu-infiltration', anbuInfiltrationHandler);
 // Village War Map — read-only aggregator for the client War-Map panel (Phase 6):
 // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
 // GET only, gated (404 unless ENABLE_VILLAGE_WAR=1).
@@ -781,9 +979,6 @@ route('/village/war-map', villageWarMapHandler);
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.
 route('/village/claim-war-crate', villageClaimWarCrateHandler);
-// Opening consumes one stored server-issued crate and commits all protected
-// item/currency rewards in the same locked player-save mutation.
-route('/village/open-war-crate', villageOpenWarCrateHandler);
 // Village War Map — mercenaries (Phase 5): the Kage spends village WR to field a
 // 2-day AI merc squad (comeback + Barracks discounted) that fights in Combat
 // sector wars. POST hire/list/attack, gated (404 unless ENABLE_VILLAGE_WAR=1).
@@ -791,7 +986,15 @@ route('/village/war-merc', villageWarMercHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', bankClaimInterestHandler);
+// Wallet <-> bank moves are authenticated save-lock transactions. Raw
+// autosaves cannot reproduce either side of the transfer.
 route('/bank/transfer', bankTransferHandler);
+// Paid profile changes and war-crate loot settle from the locked stored save;
+// clients only adopt the exact authoritative character returned by these APIs.
+route('/profile/settle', profileSettleHandler);
+route('/inventory/open-war-crate', inventoryOpenWarCrateHandler);
+route('/shop/settle', shopSettleHandler);
+route('/inventory/sell', inventorySellHandler);
 
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
@@ -889,10 +1092,15 @@ route('/missions/record-progress',  missionsRecordProgressHandler);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
 route('/sector/wanderer-quest',     sectorWandererQuestHandler);
+route('/sector/rift-quest',         sectorRiftQuestHandler);
 route('/sector/wanderer-ambush',    sectorWandererAmbushHandler);
 route('/sector/wanderer-service',   sectorWandererServiceHandler);
 route('/sector/questbook',          sectorQuestbookHandler);
 route('/sector/merc-roam',          sectorMercRoamHandler);
+
+// ─── Story (server-authoritative interlude + road-event record) ────────────────
+route('/story/interlude',           storyInterludeHandler);
+route('/story/road-event',          storyRoadEventHandler);
 
 // ─── Legacy system (ENABLE_LEGACY) ─────────────────────────────────────────────
 // Earned identity paths: definitions codex, per-player stats/eligibility, the
@@ -925,7 +1133,7 @@ route('/pet/battle-start',  petBattleStartHandler);
 route('/pet/battle-result', petBattleResultHandler);
 route('/pet/ranked-start',  petRankedStartHandler);
 route('/pet/evolve',        petEvolveHandler);
-route('/pet/progress',      petProgressHandler);
+route('/weapon/apply-elemental-core', applyElementalCoreHandler);
 route('/pet/gauntlet',      petGauntletHandler);
 
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
@@ -940,9 +1148,6 @@ route('/jutsu/train-with-seals', jutsuTrainWithSealsHandler);
 
 // ─── Profession ────────────────────────────────────────────────────────────────
 route('/profession/choose', professionChooseHandler);
-route('/profession/mastery', professionMasteryHandler);
-route('/player/profile-title', profileTitleHandler);
-route('/player/stat-respec', statRespecHandler);
 
 // ─── Player: injured villagers (Hospital screen) ───────────────────────────────
 route('/player/injured-villagers', injuredVillagersHandler);
@@ -963,6 +1168,40 @@ route('/admin/audit-log', adminAuditLogHandler);
 route('/admin/economy', adminEconomyHandler);
 route('/admin/economy-reconcile', adminEconomyReconcileHandler);
 route('/admin/beta-metrics', adminBetaMetricsHandler);
+
+// Release-handoff endpoints. Express has no folder-convention routing, so every
+// handler added during the feature and settlement work must be mounted here.
+route('/achievements/sync', achievementsSyncHandler);
+route('/aura/feed', auraFeedHandler);
+route('/awakening/roll', awakeningRollHandler);
+route('/bloodlines/forge', bloodlinesForgeHandler);
+route('/card-clash/open-pack', cardClashOpenPackHandler);
+route('/craft/forge', craftForgeHandler);
+route('/craft/named', craftNamedHandler);
+route('/dungeon/run', dungeonRunHandler);
+route('/endless/run', endlessRunHandler);
+route('/events/claim', eventsClaimHandler);
+route('/exams/pass', examsPassHandler);
+route('/hollow-gate/forge-key', hollowGateForgeKeyHandler);
+route('/hollow-gate/locked-door', hollowGateLockedDoorHandler);
+route('/hunter/rank-up', hunterRankUpHandler);
+route('/pet/befriend', petBefriendHandler);
+route('/pet/choose-starter', petChooseStarterHandler);
+route('/pet/encounter-start', petEncounterStartHandler);
+route('/pet/progress', petProgressHandler);
+route('/player/profile-title', playerProfileTitleHandler);
+route('/player/stat-respec', playerStatRespecHandler);
+route('/profession/mastery', professionMasteryHandler);
+route('/shop/purchase', shopPurchaseHandler);
+route('/shop/sell', shopSellHandler);
+route('/story/settle', storySettleHandler);
+route('/training/jutsu-ryo', trainingJutsuRyoHandler);
+route('/village/elder-focus', villageElderFocusHandler);
+route('/village/hollow-gate-unlock', villageHollowGateUnlockHandler);
+route('/village/open-war-crate', villageOpenWarCrateHandler);
+route('/village/upgrade', villageUpgradeHandler);
+route('/world/explore', worldExploreHandler);
+route('/world/open-chest', worldOpenChestHandler);
 
 // NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
 // `npm test` if the client calls an /api path that isn't registered here, or if
@@ -1065,8 +1304,8 @@ app.get(_STATIC_ASSET_URL_RE, (_req, res) => {
 // SPA fallback — any non-API path serves index.html so React Router handles it.
 // no-cache so a deploy never serves a stale chunk map (matches express.static above).
 app.all(/^\/api(?:\/|$)/, (_req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  res.status(404).json({ error: 'API route not found.' });
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(404).json({ error: 'API route not found.' });
 });
 
 app.get(/(.*)/, (_req, res) => {
@@ -1085,7 +1324,9 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
         return;
     }
 
-    console.error(`[server error] [req ${reqId}] ${req.method} ${req.path} —`, err);
+    // Keep request-controlled values out of the format-string position. Some
+    // loggers interpret percent directives in their first argument.
+    console.error('[server error]', '[req]', reqId, req.method, req.path, err);
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting
     // failure mask the 500. No-op when Sentry is disabled (SENTRY_DSN unset).
@@ -1106,6 +1347,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 // Phusion Passenger sets the PORT env var automatically.
 // When running locally, defaults to 3000.
 const server = createServer(app);
+_httpServer = server; // expose to gracefulShutdown (drain-before-exit on restart/crash)
 // Phase 2/Step 3: attach the Socket.IO realtime layer to the SAME HTTP server
 // (registers the sweep→presence:gone listener). No-op when DISABLE_REALTIME=1;
 // the client then falls back to the HTTP heartbeat. Done before startGameLoop
@@ -1119,42 +1361,5 @@ server.listen(PORT, () => {
     // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
     startSnapshotCron();
 });
-
-let shuttingDown = false;
-const SHUTDOWN_GRACE_MS = 10_000;
-
-async function shutdown(signal: NodeJS.Signals): Promise<void> {
-    if (shuttingDown) {
-        console.error(`[shutdown] second ${signal}; forcing exit`);
-        process.exit(1);
-    }
-    shuttingDown = true;
-    console.log(`[shutdown] ${signal} received; draining`);
-    stopSnapshotCron();
-    stopGameLoop();
-
-    const httpClosed = new Promise<void>((resolve) => server.close(() => resolve()));
-    const timeout = setTimeout(() => {
-        console.error(`[shutdown] grace period exceeded (${SHUTDOWN_GRACE_MS}ms); closing remaining connections`);
-        server.closeAllConnections?.();
-    }, SHUTDOWN_GRACE_MS);
-    timeout.unref?.();
-
-    try {
-        await closeSocketServer();
-        await httpClosed;
-        await closeStoragePool();
-        console.log('[shutdown] complete');
-        process.exitCode = 0;
-    } catch (err) {
-        console.error('[shutdown] failed:', err);
-        process.exitCode = 1;
-    } finally {
-        clearTimeout(timeout);
-    }
-}
-
-process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
-process.on('SIGINT', () => { void shutdown('SIGINT'); });
 
 export default app;

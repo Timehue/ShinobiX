@@ -60,7 +60,7 @@ async function handler(req, res) {
                     villageStateKeys.forEach((k, i) => {
                         if (stateValues[i] != null) {
                             const name = k.slice(VILLAGE_STATE_PREFIX.length);
-                            villageStates[name] = stateValues[i];
+                            (0, _utils_js_1.setSafeRecordValue)(villageStates, name, stateValues[i]);
                         }
                     });
                 }
@@ -71,7 +71,7 @@ async function handler(req, res) {
                     clanPetBattleKeys.forEach((k, i) => {
                         if (battleValues[i] != null) {
                             const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
-                            clanPetBattles[name] = battleValues[i];
+                            (0, _utils_js_1.setSafeRecordValue)(clanPetBattles, name, battleValues[i]);
                         }
                     });
                 }
@@ -82,7 +82,7 @@ async function handler(req, res) {
                     clanPetBattles,
                     weeklyBossAiId: weeklyBossAiId ?? null,
                 };
-                const builtEtag = `W/"${(0, node_crypto_1.createHash)('sha1').update(JSON.stringify(built)).digest('base64')}"`;
+                const builtEtag = `W/"${(0, node_crypto_1.createHash)('sha256').update(JSON.stringify(built)).digest('base64')}"`;
                 return { payload: built, etag: builtEtag };
             });
             // s-maxage lowered 8->5 to offset the 3s process cache above, so the
