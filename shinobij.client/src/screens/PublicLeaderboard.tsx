@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
+import { readScreenCache, writeScreenCache } from "../lib/screen-cache";
 
 const SS_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
+const LEADERBOARD_CACHE_KEY = "public-leaderboards";
+const LEADERBOARD_CACHE_TTL_MS = 60_000;
 
 type PublicTournament = {
     id?: string;
@@ -48,11 +51,15 @@ type PublicLeaderboardBoard = {
     rows: PublicLeaderboardRow[];
 };
 
+function isLeaderboardBoards(value: unknown): value is Partial<Record<PublicLeaderboardBoardId, PublicLeaderboardBoard>> {
+    return !!value && typeof value === "object";
+}
+
 export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
     const [tab, setTab] = useState<PublicLeaderboardTab>("ranked");
-    const [boards, setBoards] = useState<Partial<Record<PublicLeaderboardBoardId, PublicLeaderboardBoard>>>({});
+    const [boards, setBoards] = useState<Partial<Record<PublicLeaderboardBoardId, PublicLeaderboardBoard>>>(() => readScreenCache(LEADERBOARD_CACHE_KEY, isLeaderboardBoards) ?? {});
     const [tournament, setTournament] = useState<PublicTournament>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(() => !readScreenCache(LEADERBOARD_CACHE_KEY, isLeaderboardBoards));
     const [error, setError] = useState("");
 
     useEffect(() => {
@@ -69,7 +76,13 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
         })();
 
         void (async () => {
-            setLoading(true);
+            const cached = readScreenCache(LEADERBOARD_CACHE_KEY, isLeaderboardBoards);
+            if (cached) {
+                setBoards(cached);
+                setLoading(false);
+            } else {
+                setLoading(true);
+            }
             setError("");
             try {
                 const leaderboardRes = await fetch("/api/player/leaderboards?limit=25");
@@ -81,6 +94,7 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
                         nextBoards[board.id] = board;
                     }
                     setBoards(nextBoards);
+                    writeScreenCache(LEADERBOARD_CACHE_KEY, nextBoards, LEADERBOARD_CACHE_TTL_MS);
                 }
             } catch (err) {
                 if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load leaderboard");
@@ -160,7 +174,7 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
                     <p className="start-leaderboard-empty">Could not load leaderboard ({error}).</p>
                 )}
 
-                {!loading && !error && tab !== "tournament" && (
+                {!loading && (!error || Object.keys(boards).length > 0) && tab !== "tournament" && (
                     activeRows.length === 0
                         ? <p className="start-leaderboard-empty">No shinobi have recorded glory yet.</p>
                         : activeRows.map((row, i) => {
@@ -182,7 +196,7 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
                         })
                 )}
 
-                {!loading && !error && tab === "tournament" && (
+                {!loading && (!error || tournament !== null) && tab === "tournament" && (
                     !tournament
                         ? <p className="start-leaderboard-empty">No tournament has been held yet.</p>
                         : (
