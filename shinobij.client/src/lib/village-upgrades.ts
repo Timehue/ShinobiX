@@ -94,13 +94,15 @@ export function villageUpgradeCost(key: VillageUpgradeKey, currentLevel: number)
 // on the character (Clan Hall load). Additive on top of village-upgrade +
 // elder-focus bonuses, so existing players (no clan) are unaffected.
 function clanBonus(character: Character, key: "trainingGrounds" | "petDen" | "medicalWing" | "blacksmith"): number {
+    if (!character.clan) return 0;
     return clanUpgradeEffectPercent(key, character.clanUpgradeLevels?.[key] ?? 0);
 }
-export function getTrainingXpBonus(character: Character) { return villageUpgradeBonus(character, "training") + (character.elderFocus === "training" ? 10 : 0) + clanBonus(character, "trainingGrounds") + doctrineXpBonus(character.clanDoctrine ?? "none"); }
+function activeClanDoctrine(character: Character) { return character.clan ? (character.clanDoctrine ?? "none") : "none"; }
+export function getTrainingXpBonus(character: Character) { return villageUpgradeBonus(character, "training") + (character.elderFocus === "training" ? 10 : 0) + clanBonus(character, "trainingGrounds") + doctrineXpBonus(activeClanDoctrine(character)); }
 export function getJutsuTrainingSpeedBonus(character: Character) { return villageUpgradeBonus(character, "jutsuTraining") + (character.elderFocus === "training" ? 10 : 0); }
-export function getShopDiscountPercent(character: Character) { return villageUpgradeBonus(character, "shop") + (character.elderFocus === "trade" ? 5 : 0) + clanBonus(character, "blacksmith") + doctrineShopDiscount(character.clanDoctrine ?? "none"); }
+export function getShopDiscountPercent(character: Character) { return villageUpgradeBonus(character, "shop") + (character.elderFocus === "trade" ? 5 : 0) + clanBonus(character, "blacksmith") + doctrineShopDiscount(activeClanDoctrine(character)); }
 export function getTownDefenseGuardBonus(character: Character) { return villageUpgradeBonus(character, "townDefense"); }
 export function getPetXpBonus(character: Character) { return villageUpgradeBonus(character, "petYard") + clanBonus(character, "petDen"); }
 export function getBankInterestPercent(character: Character) { return villageUpgradeBonus(character, "bank"); }
-export function getMissionRewardBonus(character: Character) { return villageUpgradeBonus(character, "missionHall") + doctrineXpBonus(character.clanDoctrine ?? "none"); }
-export function getHospitalDiscountPercent(character: Character) { return villageUpgradeBonus(character, "hospital") + clanBonus(character, "medicalWing") + doctrineHospitalDiscount(character.clanDoctrine ?? "none"); }
+export function getMissionRewardBonus(character: Character) { return villageUpgradeBonus(character, "missionHall") + doctrineXpBonus(activeClanDoctrine(character)); }
+export function getHospitalDiscountPercent(character: Character) { return villageUpgradeBonus(character, "hospital") + clanBonus(character, "medicalWing") + doctrineHospitalDiscount(activeClanDoctrine(character)); }
