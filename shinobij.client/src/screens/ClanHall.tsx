@@ -44,7 +44,7 @@ import { weatherEffects } from "../data/world";
 import { ClanWarsPanel } from "../components/ClanWarsPanel";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { ClanExchange } from "../components/ClanExchange";
-import { applyWarCrateGrants, claimPendingWarCrates, claimServerWarCrates, clanOwnedTerritories, clanTerritoryStartingScore, clanTerritoryWarMultiplier, isVillageAnbu, loadAllSectorTerritories, loadSectorTerritory, saveSectorTerritory, sectorRaidDamageAmount, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
+import { applyWarCrateGrants, claimServerWarCrates, clanOwnedTerritories, clanTerritoryStartingScore, clanTerritoryWarMultiplier, isVillageAnbu, loadAllSectorTerritories, loadSectorTerritory, saveSectorTerritory, sectorRaidDamageAmount, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
 
 export function ClanHall({ character, updateCharacter, creatorItems, setScreen, towerHostLoadout, sharedImages, onRecordBattle }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; creatorItems: GameItem[]; setScreen: (s: Screen) => void; towerHostLoadout?: TowerHostLoadout; sharedImages?: Record<string, string>; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
@@ -221,16 +221,11 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen, 
     // add it to their inventory automatically.
     useEffect(() => {
         if (!clanData) return;
-        const { character: updated, count } = claimPendingWarCrates(character, clanData);
-        if (count > 0) {
-            updateCharacter(updated);
-            alert(`You received ${count} Legendary War Crate${count > 1 ? "s" : ""} from a clan war victory! Check your inventory.`);
-        }
         // P0.2c: server-authoritative clan-war winner crates (warCrateServerAuth.v1),
         // including older wins from warHistory that aged out of the shared cache. The
         // functional updateCharacter composes on the latest state; endpoint is idempotent.
         if (warCrateServerAuthEnabled()) {
-            void claimServerWarCrates(updated, clanData).then((ids) => {
+            void claimServerWarCrates(character, clanData).then((ids) => {
                 if (!ids.length) return;
                 updateCharacter((prev) => prev ? applyWarCrateGrants(prev, ids).character : prev);
                 alert(`You received ${ids.length} Legendary War Crate${ids.length > 1 ? "s" : ""} from a clan war victory! Check your inventory.`);

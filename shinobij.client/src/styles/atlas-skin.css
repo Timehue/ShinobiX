@@ -31,17 +31,24 @@
 
 /* Hide the abbreviation strong and the duplicate village-name pill —
    the painted biome banner already labels each village. */
-.atlas-landmark.atlas-village strong,
-.atlas-landmark.atlas-central strong,
 .atlas-landmark.atlas-village span,
 .atlas-landmark.atlas-central span {
     display: none !important;
 }
 
+.atlas-landmark.atlas-village strong,
+.atlas-landmark.atlas-central strong {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+}
+
 /* Sigil glyph via ::before, centered inside the badge. */
 .atlas-landmark.atlas-village::before,
 .atlas-landmark.atlas-central::before {
-    content: var(--sigil, '✦');
+    content: none;
     font-size: 18px;
     line-height: 1;
     text-shadow: 0 1px 2px rgba(0,0,0,0.8);
