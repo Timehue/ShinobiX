@@ -149,6 +149,14 @@ html body.ui-scroll-locked {
 
 .app-shell:not(.screen-start) .right-menu-panel {
   border-left: 1px solid color-mix(in srgb, var(--village-accent) 42%, var(--sj-border-soft));
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.app-shell:not(.screen-start) .right-menu-buttons {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .app-shell:not(.screen-start) .left-profile-avatar {
@@ -288,6 +296,17 @@ html body.ui-scroll-locked {
 .screen-context-shell .journey-context {
   width: 100%;
   min-height: 76px;
+}
+
+/* The context header supersedes the legacy journey banner. Keeping both in the
+   document left an empty banner-sized strip between the header and every
+   screen's real content, most visibly above the Village panorama. */
+.screen-context-shell + .journey-banner {
+  display: none !important;
+}
+
+.app-shell.screen-village .stormveil-village-screen {
+  margin-top: 0 !important;
 }
 
 .journey-context-icon {
@@ -1230,13 +1249,23 @@ html body.ui-scroll-locked {
   }
 
   .app-shell:not(.screen-start) .right-menu-buttons button {
-    width: 100% !important;
+    width: auto !important;
     min-width: 0 !important;
+    max-width: 100%;
     min-height: 32px;
     justify-content: flex-start;
     gap: 4px;
     padding: 5px 6px;
     font-size: 0.75rem;
+    overflow: hidden;
+  }
+
+  /* The panorama now begins immediately after the compact context header, so
+     size it against that header instead of the removed 96px legacy offset. */
+  .app-shell.screen-village .stormveil-map {
+    height: calc(100dvh - 120px) !important;
+    min-height: calc(100dvh - 120px) !important;
+    max-height: calc(100dvh - 120px) !important;
   }
 
   .app-shell:not(.screen-start) .right-menu-buttons button > svg {
