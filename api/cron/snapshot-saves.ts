@@ -123,7 +123,7 @@ async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: bool
     while (cursor < items.length) {
         if (Date.now() > deadline) break;
         const slice = items.slice(cursor, cursor + MAX_PARALLEL);
-        cursor += MAX_PARALLEL;
+        cursor += slice.length;
         const results = await Promise.all(slice.map(async (it) => {
             try {
                 return await worker(it);
