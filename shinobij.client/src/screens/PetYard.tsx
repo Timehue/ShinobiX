@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/purity */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "../styles/pet-skin.css";
 import type { Character } from "../types/character";
 import type { Pet, PetExpeditionType, PetTrainingType } from "../types/pet";
@@ -36,6 +36,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     const [nicknameInput, setNicknameInput] = useState("");
     const [nicknameMsg, setNicknameMsg] = useState("");
     const [evolveBusy, setEvolveBusy] = useState(false);
+    const evolveBusyRef = useRef(false);
     const [evolveMsg, setEvolveMsg] = useState("");
     const [evolveCutscene, setEvolveCutscene] = useState<{ pet: Pet; oldName: string; oldImage?: string } | null>(null);
     // Pet escort offer state (Pet Tamer in clan only).
@@ -403,13 +404,19 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     // gate + consumes one stone + computes the evolved stats; we only mirror the
     // result (replace the pet, drop one consumed stone) into the local save.
     async function evolveSelectedPet() {
-        if (!selectedPet || evolveBusy) return;
+        if (!selectedPet || evolveBusyRef.current) return;
         const next = nextEvolution(selectedPet);
         if (!next) return;
         const stoneName = EVOLUTION_STONE_NAMES[next.requiredItem] ?? "evolution stone";
         if (selectedPet.level < next.requiredLevel) { setEvolveMsg(`❌ Reach level ${next.requiredLevel} first.`); return; }
         if (!character.inventory.includes(next.requiredItem)) { setEvolveMsg(`❌ Need ${stoneName} (Grand Marketplace).`); return; }
-        if (!(await gameConfirm(`Evolve ${petDisplayName(selectedPet)} into ${next.name}? This consumes 1 ${stoneName}.`))) return;
+        evolveBusyRef.current = true;
+        setEvolveBusy(true);
+        if (!(await gameConfirm(`Evolve ${petDisplayName(selectedPet)} into ${next.name}? This consumes 1 ${stoneName}.`))) {
+            evolveBusyRef.current = false;
+            setEvolveBusy(false);
+            return;
+        }
         const oldName = petDisplayName(selectedPet);
         // POSE-first (transparent cutout) — NOT selectedPet.image, which can be a
         // published portrait with an opaque background that the cutscene would
@@ -417,7 +424,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // idle pose for the pet's current stage (-r/-l) and only falls back to a
         // portrait when no pose exists. See lib/pet-battle-anim.petPoseImage.
         const oldImage = petPoseImage(selectedPet);
-        setEvolveBusy(true); setEvolveMsg("");
+        setEvolveMsg("");
         try {
             const res = await fetch("/api/pet/evolve", {
                 method: "POST",
@@ -425,7 +432,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                 body: JSON.stringify({ playerName: character.name, petId: selectedPet.id }),
             });
             const data = await res.json().catch(() => ({})) as { pet?: Pet; error?: string };
-            if (!res.ok || !data.pet) { setEvolveMsg(`❌ ${data.error ?? "Evolution failed."}`); setEvolveBusy(false); return; }
+            if (!res.ok || !data.pet) { setEvolveMsg(`❌ ${data.error ?? "Evolution failed."}`); return; }
             // Point the evolved pet at its generated stage art (served from
             // public/pet-evos/<visualId>.webp). image/bodyImage are the universal
             // portrait/sprite source, so this lights up the cutscene reveal, the
@@ -456,9 +463,11 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                 setEvolveMsg(`✅ Evolved into ${evolved.name}!`);
             }
         } catch {
-            setEvolveMsg("❌ Network error — try again.");
+            setEvolveMsg("❌ Evolution unconfirmed — refresh before retrying.");
+        } finally {
+            evolveBusyRef.current = false;
+            setEvolveBusy(false);
         }
-        setEvolveBusy(false);
     }
 
     const expTypeLabel: Record<PetExpeditionType, string> = { scout: "Scout Routes", forage: "Forage Wilds", ruins: "Explore Old Ruins" };

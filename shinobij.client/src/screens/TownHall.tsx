@@ -105,6 +105,9 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
     const [donation, setDonation] = useState(1000);
     const [guardList, setGuardList] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
     const [guardBusy, setGuardBusy] = useState(false);
+    const guardBusyRef = useRef(false);
+    const donateBusyRef = useRef(false);
+    const treasuryTransferBusyRef = useRef(false);
     const [villageDonateItemId, setVillageDonateItemId] = useState("");
     const [villageSendItemId, setVillageSendItemId] = useState("");
     const [villageSendPlayer, setVillageSendPlayer] = useState("");
@@ -322,34 +325,54 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         }
     }
     async function donateVillageRyo() {
+        if (donateBusyRef.current) return;
         const amount = Math.max(1, Math.floor(donation));
         if (character.ryo < amount) return alert("Not enough ryo.");
-        const result = await postVillageTreasuryDonation(character.name, character.village, { currency: "ryo", amount });
-        if (!result) return;
-        updateCharacter(result.character);
-        updateVillageState(addNotice(`${character.name} donated ${amount.toLocaleString()} ryo to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + Math.max(1, Math.floor(amount / 1000)) }));
+        donateBusyRef.current = true;
+        try {
+            const result = await postVillageTreasuryDonation(character.name, character.village, { currency: "ryo", amount });
+            if (!result) return;
+            updateCharacter(result.character);
+            updateVillageState(addNotice(`${character.name} donated ${amount.toLocaleString()} ryo to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + Math.max(1, Math.floor(amount / 1000)) }));
+        } finally {
+            donateBusyRef.current = false;
+        }
     }
     async function donateVillageSpecial(currency: Exclude<VillageTreasuryCurrencyKey, "ryo">) {
+        if (donateBusyRef.current) return;
         const current = character[currency] ?? 0;
         if (current < 1) return alert(`Not enough ${currency}.`);
-        const result = await postVillageTreasuryDonation(character.name, character.village, { currency, amount: 1 });
-        if (!result) return;
-        updateCharacter(result.character);
-        updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
+        donateBusyRef.current = true;
+        try {
+            const result = await postVillageTreasuryDonation(character.name, character.village, { currency, amount: 1 });
+            if (!result) return;
+            updateCharacter(result.character);
+            updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
+        } finally {
+            donateBusyRef.current = false;
+        }
     }
     async function donateVillageItem() {
+        if (donateBusyRef.current) return;
         if (!villageDonateItemId) return alert("Choose an item to donate.");
         if (!ownsItem(character, villageDonateItemId)) return alert("You do not have that item.");
-        const result = await postVillageTreasuryDonation(character.name, character.village, { itemId: villageDonateItemId });
-        if (!result) return;
-        updateCharacter(result.character);
-        updateVillageState(addNotice(`${character.name} donated ${itemDisplayName(villageDonateItemId, allVillageItems)} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
+        donateBusyRef.current = true;
+        try {
+            const result = await postVillageTreasuryDonation(character.name, character.village, { itemId: villageDonateItemId });
+            if (!result) return;
+            updateCharacter(result.character);
+            updateVillageState(addNotice(`${character.name} donated ${itemDisplayName(villageDonateItemId, allVillageItems)} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
+        } finally {
+            donateBusyRef.current = false;
+        }
     }
     async function sendVillageCurrency() {
+        if (treasuryTransferBusyRef.current) return;
         if (!isSeatedKage) return alert("Only the seated Kage can send village treasury resources.");
         const amount = Math.max(1, Math.floor(villageSendAmount));
         if (!villageSendPlayer) return alert("Choose a village player.");
         if ((state.treasury[villageSendCurrency] ?? 0) < amount) return alert("Not enough village treasury resources.");
+        treasuryTransferBusyRef.current = true;
         // Route through the dedicated server-side endpoint instead of the old
         // 2-write client flow (deduct-treasury + patch-recipient). The new
         // endpoint impersonates both ends under per-row locks and emits an
@@ -370,23 +393,23 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
                 const data = await r.json().catch(() => ({}));
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
+            if (villageSendPlayer === character.name) {
+                updateCharacter(prev => prev ? ({ ...prev, [villageSendCurrency]: (prev[villageSendCurrency] ?? 0) + amount } as Character) : prev);
+            }
+            updateVillageState(addNotice(`${character.name} gifted ${amount.toLocaleString()} ${villageSendCurrency} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, [villageSendCurrency]: state.treasury[villageSendCurrency] - amount } }));
         } catch (err) {
             return alert(`Transfer failed: ${(err as Error).message}`);
+        } finally {
+            treasuryTransferBusyRef.current = false;
         }
-        // Reflect the deduction in the local cache + drop a notice. The
-        // server has already persisted both sides; this is purely UX.
-        // If the recipient is the actor (Kage gifting themselves), credit
-        // their in-memory character too so the UI updates immediately.
-        if (villageSendPlayer === character.name) {
-            updateCharacter(prev => prev ? ({ ...prev, [villageSendCurrency]: (prev[villageSendCurrency] ?? 0) + amount } as Character) : prev);
-        }
-        updateVillageState(addNotice(`${character.name} gifted ${amount.toLocaleString()} ${villageSendCurrency} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, [villageSendCurrency]: state.treasury[villageSendCurrency] - amount } }));
     }
     async function sendVillageItem() {
+        if (treasuryTransferBusyRef.current) return;
         if (!isSeatedKage) return alert("Only the seated Kage can send village treasury items.");
         if (!villageSendPlayer) return alert("Choose a village player.");
         if (!villageSendItemId) return alert("Choose an item.");
         if (!state.treasury.items.some(stack => stack.itemId === villageSendItemId && stack.count > 0)) return alert("That item is not in the village treasury.");
+        treasuryTransferBusyRef.current = true;
         try {
             const r = await fetch("/api/village/treasury/transfer", {
                 method: "POST",
@@ -401,15 +424,36 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
                 const data = await r.json().catch(() => ({}));
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
+            if (villageSendPlayer === character.name) {
+                updateCharacter(prev => prev ? addItem(prev, villageSendItemId, 1) : prev);
+            }
+            updateVillageState(addNotice(`${character.name} gifted ${itemDisplayName(villageSendItemId, allVillageItems)} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, items: removeTreasuryItem(state.treasury.items, villageSendItemId) } }));
         } catch (err) {
             return alert(`Transfer failed: ${(err as Error).message}`);
+        } finally {
+            treasuryTransferBusyRef.current = false;
         }
-        if (villageSendPlayer === character.name) {
-            updateCharacter(prev => prev ? addItem(prev, villageSendItemId, 1) : prev);
-        }
-        updateVillageState(addNotice(`${character.name} gifted ${itemDisplayName(villageSendItemId, allVillageItems)} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, items: removeTreasuryItem(state.treasury.items, villageSendItemId) } }));
     }
-    async function toggleTownGuard() { const queued = character.guardQueued ?? false; setGuardBusy(true); if (queued) { await postGuardQueue("dequeue", { name: character.name, village: character.village }); updateCharacter(prev => prev ? ({ ...prev, guardQueued: false }) : prev); updateVillageState(addNotice(`${character.name} left the Village Guard queue.`)); } else { await postGuardQueue("queue", { name: character.name, village: character.village, level: character.level, defenseBonusPercent: getTownDefenseGuardBonus(character) }); updateCharacter(prev => prev ? ({ ...prev, guardQueued: true }) : prev); updateVillageState(addNotice(`${character.name} joined the Village Guard queue with +${getTownDefenseGuardBonus(character).toFixed(1)}% defense.`)); } setGuardBusy(false); }
+    async function toggleTownGuard() {
+        if (guardBusyRef.current) return;
+        const queued = character.guardQueued ?? false;
+        guardBusyRef.current = true;
+        setGuardBusy(true);
+        try {
+            await postGuardQueue(queued ? "dequeue" : "queue", queued
+                ? { name: character.name, village: character.village }
+                : { name: character.name, village: character.village, level: character.level, defenseBonusPercent: getTownDefenseGuardBonus(character) });
+            updateCharacter(prev => prev ? ({ ...prev, guardQueued: !queued }) : prev);
+            updateVillageState(addNotice(queued
+                ? `${character.name} left the Village Guard queue.`
+                : `${character.name} joined the Village Guard queue with +${getTownDefenseGuardBonus(character).toFixed(1)}% defense.`));
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Guard queue update failed. Your local status was not changed.");
+        } finally {
+            guardBusyRef.current = false;
+            setGuardBusy(false);
+        }
+    }
     const isSeatedKage = (state.seatedKage ?? "").toLowerCase() === character.name.toLowerCase();
     const hollowGateOpen = isHollowGateUnlocked(state);
     const hollowGateUntil = state.hollowGateUnlockedUntil ?? 0;

@@ -11,8 +11,7 @@
  * player at Profile → Legacy — the system's most prestigious moment must not
  * land as a native alert() (polish-audit finding).
  */
-import { useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useRef, useState } from "react";
 import { gameConfirm } from "./GameAlert";
 import {
     sageAccept, sageDecline,
@@ -20,6 +19,7 @@ import {
 } from "../lib/legacy";
 import { LegacyMoment, type LegacyMomentData } from "./LegacyMoment";
 import wanderingSagePortrait from "../assets/wanderers/legacy/wandering-sage.webp";
+import { Modal } from "./ui/Modal";
 
 export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDeclined, onDismissed }: {
     offer: SageOfferView;
@@ -35,6 +35,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
     onDismissed?: () => void;
 }) {
     const [busy, setBusy] = useState(false);
+    const busyRef = useRef(false);
     const [selected, setSelected] = useState<string | null>(null);
     const [note, setNote] = useState<string | null>(null);
     // The acceptance ceremony; while set, the modal waits behind it and closes
@@ -42,52 +43,67 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
     const [moment, setMoment] = useState<(LegacyMomentData & { legacy: CharacterLegacy }) | null>(null);
 
     async function handleDecline() {
-        if (busy) return;
+        if (busyRef.current) return;
+        busyRef.current = true;
         setBusy(true);
-        await sageDecline(playerName);
-        setBusy(false);
-        onDeclined();
-        onClose();
-    }
-
-    async function handleAccept(legacyId: string) {
-        if (busy) return;
-        const picked = offer.offers.find((o) => o.legacyId === legacyId);
-        if (!picked) return;
-        const sure = await gameConfirm(
-            `You may only ever have ONE Legacy. This cannot be changed later — no respec, no exchange, ever. Accept the ${picked.name} and it is yours for life.`,
-            { title: "The Point of No Return", confirmLabel: "I Accept This Path Forever", cancelLabel: "Go Back", danger: true },
-        );
-        if (!sure) return;
-        setBusy(true);
-        const result = await sageAccept(playerName, legacyId);
-        setBusy(false);
-        if (result?.ok && result.legacy) {
-            setMoment({
-                mode: "trial-start",
-                kindName: "Trial of Awakening",
-                legacyName: picked.name,
-                rarity: picked.rarity,
-                text: (result as { intro?: string }).intro
-                    ?? "Then walk forward. Your first trial has already begun — the path is watching.",
-                hint: "Your trial is already underway — track it anytime in Profile → 🌠 Legacy.",
-                legacy: result.legacy,
-            });
-        } else if (result?.reason === "no-offer") {
-            // The offer expired or was consumed elsewhere — retrying can never
-            // succeed, so close cleanly and despawn the Sage (polish finding).
-            setNote("“Ah… the moment has passed, shinobi. Do not mourn it — I found you once, and I will find you again.”");
-            setTimeout(() => { (onDismissed ?? onDeclined)(); onClose(); }, 3500);
-        } else if (result?.reason === "sealed") {
-            setNote("Your path was already sealed to another Legacy. The Sage bows and departs.");
-            setTimeout(() => { (onDismissed ?? onDeclined)(); onClose(); }, 3500);
-        } else {
-            setNote("The Sage pauses — the threads are tangled. Give it a moment, then choose again.");
+        try {
+            const result = await sageDecline(playerName);
+            if (!result?.ok) {
+                setNote("The Sage could not confirm your answer. Check your connection and try again.");
+                return;
+            }
+            onDeclined();
+            onClose();
+        } finally {
+            busyRef.current = false;
+            setBusy(false);
         }
     }
 
-    return createPortal(
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.65)", padding: 12 }}>
+    async function handleAccept(legacyId: string) {
+        if (busyRef.current) return;
+        const picked = offer.offers.find((o) => o.legacyId === legacyId);
+        if (!picked) return;
+        busyRef.current = true;
+        setBusy(true);
+        try {
+            const sure = await gameConfirm(
+                `You may only ever have ONE Legacy. This cannot be changed later — no respec, no exchange, ever. Accept the ${picked.name} and it is yours for life.`,
+                { title: "The Point of No Return", confirmLabel: "I Accept This Path Forever", cancelLabel: "Go Back", danger: true },
+            );
+            if (!sure) return;
+            const result = await sageAccept(playerName, legacyId);
+            if (result?.ok && result.legacy) {
+                setMoment({
+                    mode: "trial-start",
+                    kindName: "Trial of Awakening",
+                    legacyName: picked.name,
+                    rarity: picked.rarity,
+                    text: (result as { intro?: string }).intro
+                        ?? "Then walk forward. Your first trial has already begun — the path is watching.",
+                    hint: "Your trial is already underway — track it anytime in Profile → 🌠 Legacy.",
+                    legacy: result.legacy,
+                });
+            } else if (result?.reason === "no-offer") {
+                setNote("“Ah… the moment has passed, shinobi. Do not mourn it — I found you once, and I will find you again.”");
+                setTimeout(() => { (onDismissed ?? onDeclined)(); onClose(); }, 3500);
+            } else if (result?.reason === "sealed") {
+                setNote("Your path was already sealed to another Legacy. The Sage bows and departs.");
+                setTimeout(() => { (onDismissed ?? onDeclined)(); onClose(); }, 3500);
+            } else {
+                setNote("The Sage could not confirm your permanent choice. Refresh your character before choosing again.");
+            }
+        } finally {
+            busyRef.current = false;
+            setBusy(false);
+        }
+    }
+
+    const close = useCallback(() => { if (!busyRef.current) onClose(); }, [onClose]);
+
+    return (
+        <>
+        <Modal open onClose={close} ariaLabel="The Wandering Sage legacy offer" size="md" bare disableBackdropClose={busy}>
             <div className="card" style={{ maxWidth: 460, width: "94%", maxHeight: "88dvh", overflowY: "auto", padding: 16 }} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10 }}>
                     <img src={wanderingSagePortrait} alt="Wandering Sage" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: "50%", border: "2px solid var(--purple-400)" }} />
@@ -193,6 +209,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                     Turn him down and he departs for a few days · step away and he keeps waiting here.
                 </p>
             </div>
+        </Modal>
 
             {/* Acceptance ceremony — closing it finishes the accept flow. */}
             {moment && (
@@ -206,7 +223,6 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                     }}
                 />
             )}
-        </div>,
-        document.body,
+        </>
     );
 }

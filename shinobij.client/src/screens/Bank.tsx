@@ -4,6 +4,7 @@ import { sendCurrency, previewCredit, TRADE_CURRENCIES, TRADE_CURRENCY_LABELS, T
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { gameConfirm } from "../components/GameAlert";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 
 // MIRROR of api/_bank-interest.ts BANK_INTEREST_PRINCIPAL_CAP (gameplay-loop
 // audit M-2): interest is paid on at most this much banked ryo, so the projected
@@ -19,9 +20,11 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
     const [sendCurr, setSendCurr] = useState<TradeCurrency>("ryo");
     const [sendAmount, setSendAmount] = useState(0);
     const [sending, setSending] = useState(false);
+    const sendingRef = useRef(false);
     const sendBalance = Math.max(0, Math.floor(Number((character as unknown as Record<string, unknown>)[sendCurr] ?? 0)));
 
     async function submitTransfer() {
+        if (sendingRef.current) return;
         const to = sendTo.trim();
         const value = Math.max(0, Math.floor(Number.isFinite(sendAmount) ? sendAmount : 0));
         if (!to) return alert("Enter the name of the player to send to.");
@@ -29,22 +32,25 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
         if (value < TRADE_MINS[sendCurr]) return alert(`Minimum transfer is ${TRADE_MINS[sendCurr].toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`);
         if (value > TRADE_CAPS[sendCurr]) return alert(`Maximum per transfer is ${TRADE_CAPS[sendCurr].toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`);
         if (value > sendBalance) return alert(`You don't have ${value.toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]}.`);
-        if (!(await gameConfirm(`Send ${value.toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]} to ${to}? They receive ${previewCredit(value).toLocaleString()} after a ${Math.round(TRADE_TAX_PCT * 100)}% transfer tax.`))) return;
+        sendingRef.current = true;
         setSending(true);
-        const res = await sendCurrency(character.name, to, sendCurr, value);
-        setSending(false);
-        if (!res.ok) return alert(res.error || "Could not send.");
-        if (res.duplicate) return alert("That transfer was already sent.");
-        // Server is authoritative — reflect the debit locally so autosave converges.
-        // Functional updater: deduct off the LATEST character, not the stale render
-        // capture, so a concurrent currency change isn't clobbered.
-        updateCharacter((prev) => prev ? ({
-            ...prev,
-            [sendCurr]: res.senderBalance ?? Math.max(0, Math.floor(Number((prev as unknown as Record<string, unknown>)[sendCurr]) || 0)),
-        }) : prev);
-        setSendAmount(0);
-        setSendTo("");
-        alert(`Sent ${(res.debit ?? value).toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]} to ${res.toPlayer ?? to}. They received ${(res.credit ?? 0).toLocaleString()} (${(res.burned ?? 0).toLocaleString()} burned as tax).`);
+        try {
+            if (!(await gameConfirm(`Send ${value.toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]} to ${to}? They receive ${previewCredit(value).toLocaleString()} after a ${Math.round(TRADE_TAX_PCT * 100)}% transfer tax.`))) return;
+            const res = await sendCurrency(character.name, to, sendCurr, value);
+            if (!res.ok) return alert(res.error || "Could not send.");
+            if (res.duplicate) return alert("That transfer was already sent.");
+            // Server is authoritative — reflect the debit locally so autosave converges.
+            updateCharacter((prev) => prev ? ({
+                ...prev,
+                [sendCurr]: res.senderBalance ?? Math.max(0, Math.floor(Number((prev as unknown as Record<string, unknown>)[sendCurr]) || 0)),
+            }) : prev);
+            setSendAmount(0);
+            setSendTo("");
+            alert(`Sent ${(res.debit ?? value).toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]} to ${res.toPlayer ?? to}. They received ${(res.credit ?? 0).toLocaleString()} (${(res.burned ?? 0).toLocaleString()} burned as tax).`);
+        } finally {
+            sendingRef.current = false;
+            setSending(false);
+        }
     }
     const interestPercent = getBankInterestPercent(character);
     const lastClaim = character.lastBankInterestAt ?? 0;
@@ -84,6 +90,7 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
     }
 
     async function claimInterest() {
+        if (bankBusyRef.current) return;
         if (interestPercent <= 0) return alert("Upgrade the Bank in Town Hall to earn interest.");
         if (character.bankRyo <= 0) return alert("Deposit ryo first.");
         if (Date.now() < nextClaimAt) return alert(`Interest can be claimed again at ${new Date(nextClaimAt).toLocaleString()}.`);
@@ -94,6 +101,8 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
         // can no longer inflate the amount or replay via a rolled-back clock. We add
         // the returned `claimed` delta to our OWN bankRyo (preserving concurrent
         // deposits/withdrawals) and re-assert via autosave — the two converge.
+        bankBusyRef.current = true;
+        setBankBusy(true);
         let data: { ok?: boolean; eligible?: boolean; claimed?: number; bankRyo?: number; error?: string; lastBankInterestAt?: number; reason?: string };
         try {
             const res = await fetch("/api/bank/claim-interest", {
@@ -102,9 +111,12 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
                 body: JSON.stringify({ playerName: character.name }),
             });
             data = await res.json().catch(() => ({}));
-            if (!res.ok || !data.ok) return alert(data.error || "Could not claim bank interest. Please try again.");
+            if (!res.ok || !data.ok) return alert(data.error || AMBIGUOUS_ACTION_MESSAGE);
         } catch {
-            return alert("Could not claim bank interest. Please try again.");
+            return alert(AMBIGUOUS_ACTION_MESSAGE);
+        } finally {
+            bankBusyRef.current = false;
+            setBankBusy(false);
         }
         if (!data.eligible || !data.claimed || data.claimed <= 0) {
             return alert("Bank interest isn't available yet — try again later.");
@@ -129,7 +141,7 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
             <div className="menu">
                 <button onClick={() => void moveRyo("deposit")} disabled={bankBusy}>Deposit</button>
                 <button onClick={() => void moveRyo("withdraw")} disabled={bankBusy}>Withdraw</button>
-                <button onClick={claimInterest} disabled={!canClaimInterest}>Collect Interest</button>
+                <button onClick={claimInterest} disabled={bankBusy || !canClaimInterest}>Collect Interest</button>
             </div>
             <p className="hint">Town Hall Bank upgrade gives +0.01% interest per level (max 0.5%/day at level 50). Interest can be collected once every 24 hours.</p>
 

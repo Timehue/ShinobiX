@@ -7,7 +7,7 @@
  */
 /* eslint-disable react-hooks/purity */
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "../styles/training-skin.css";
 import "../styles/hub-screens-skin.css";
 import { gameConfirm } from "../components/GameAlert";
@@ -34,6 +34,7 @@ import { useWarLossDebuff } from "../lib/war-debuff";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { mutateJutsuRyoTraining } from "../lib/jutsu-ryo-api";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { CHARACTER_XP_GAIN_MULTIPLIER, JUTSU_TRAINING_CAP } from "../constants/game";
 import { getAllJutsus, playerLensDiscipline } from "../App";
 import { TRAINING_TIERS, trainingStatGain } from "../lib/training-config";
@@ -273,6 +274,7 @@ function JutsuSealPanel({
     setActiveJutsuTraining: (training: ActiveJutsuTraining | null) => void;
 }) {
     const [busy, setBusy] = useState(false);
+    const busyRef = useRef(false);
     const [msg, setMsg] = useState<string | null>(null);
 
     const hasDiscount = character.profession === "vanguard" && (character.professionRank ?? 0) >= 8;
@@ -282,7 +284,8 @@ function JutsuSealPanel({
     const balance = character.honorSeals ?? 0;
 
     async function trainWithSeals() {
-        if (!selectedJutsu || !eligibleForSealLevel || busy) return;
+        if (!selectedJutsu || !eligibleForSealLevel || busyRef.current) return;
+        busyRef.current = true;
         setBusy(true);
         setMsg(null);
         try {
@@ -294,7 +297,6 @@ function JutsuSealPanel({
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
                 setMsg(`❌ ${data.error ?? 'Failed'}`);
-                setBusy(false);
                 return;
             }
             // Mirror server-side mutations locally. Functional updater: the
@@ -315,13 +317,16 @@ function JutsuSealPanel({
             });
             setMsg(`✅ ${selectedJutsu.name} → Lv ${data.newLevel} (spent ${data.sealsSpent} Seals)`);
         } catch {
-            setMsg('❌ Network error');
+            setMsg(`❌ ${AMBIGUOUS_ACTION_MESSAGE}`);
+        } finally {
+            busyRef.current = false;
+            setBusy(false);
         }
-        setBusy(false);
     }
 
     async function speedUp(sealsRequested: number) {
-        if (!activeJutsuTraining || busy) return;
+        if (!activeJutsuTraining || busyRef.current) return;
+        busyRef.current = true;
         setBusy(true);
         setMsg(null);
         try {
@@ -333,7 +338,6 @@ function JutsuSealPanel({
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
                 setMsg(`❌ ${data.error ?? 'Failed'}`);
-                setBusy(false);
                 return;
             }
             const minutesReduced: number = Number(data.minutesReduced ?? 0);
@@ -345,9 +349,11 @@ function JutsuSealPanel({
             updateCharacter(prev => prev ? ({ ...prev, honorSeals: Number(data.honorSealsRemaining) }) : prev);
             setMsg(`✅ -${minutesReduced} min (spent ${data.sealsSpent} Seals)`);
         } catch {
-            setMsg('❌ Network error');
+            setMsg(`❌ ${AMBIGUOUS_ACTION_MESSAGE}`);
+        } finally {
+            busyRef.current = false;
+            setBusy(false);
         }
-        setBusy(false);
     }
 
     return (
