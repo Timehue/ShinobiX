@@ -46,3 +46,5 @@ The harness refuses remote targets unless `ALLOW_REMOTE_LOAD=1`. It separately r
 ## Remaining suites
 
 After presence passes, use the same disposable accounts and target for parallel save/purchase/training/mission settlement, two-client PvP, simultaneous Clan Boss/Village War/ANBU actions, cron interruption, deployment rollback/schema compatibility, and authenticated viewport journeys. Never run destructive settlement or rollback suites against production.
+
+For mutation races, run `npm run drill:concurrency -- --manifest=disposable-concurrency.json --base-url=http://127.0.0.1:3000`. The manifest must use disposable accounts, include the explicit mutation confirmation exported by `scripts/unrestricted-concurrency-lib.mjs`, and define each route's allowed statuses plus a response field that proves no more than one mutation occurred. Evidence contains scenario names, routes, status counts, mutation counts, timing, and verdicts; credentials and response bodies are not written.
