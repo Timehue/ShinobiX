@@ -36,7 +36,7 @@ import { aiHpForLevel, aiStatsForLevel } from "../lib/ai-stats";
 import { addToAllStats, baseStats, capStat, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel, reconcileCharacterStatBudget } from "../lib/stats";
 import { armorQualityTiers, equipmentSlotLabel, itemSectionOptions } from "../lib/equipment";
 import { addItem, removeItem, countItem } from "../lib/inventory";
-import { compactImage, compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
+import { compactImage, compressDataUrl, publishSharedImage, readImageFile, safeImageSource } from "../lib/shared-images";
 import { deletedItemMarker, getAllItems } from "../lib/items";
 import { describeJutsuEffects } from "../lib/jutsu-effects";
 import { analyzeVnFlow } from "../lib/vn";
@@ -1448,7 +1448,10 @@ export function AdminPanel({
     }
 
     function applyBloodlineImage(rawImage: string) {
-        void compactImage(rawImage).then((image) => {
+        setBloodlineEditImage(rawImage);
+        const safeRawImage = safeImageSource(rawImage);
+        if (!safeRawImage) return;
+        void compactImage(safeRawImage).then((image) => {
             setBloodlineEditImage(image);
             if (!editingBloodlineId) return;
             void publishSharedImage('bloodline:' + editingBloodlineId, image);
@@ -3630,7 +3633,7 @@ export function AdminPanel({
                         <label>Lore</label><textarea rows={3} value={bloodlineEditLore} onChange={(e) => setBloodlineEditLore(e.target.value)} placeholder="Describe what this bloodline is, where it comes from, or what makes it special." />
                         <label>Bloodline Image URL</label><input value={bloodlineEditImage} onChange={(e) => applyBloodlineImage(e.target.value)} />
                         <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, applyBloodlineImage, 25); }} />
-                        {bloodlineEditImage && <div className="admin-event-list-preview"><img src={bloodlineEditImage} alt="Bloodline preview" /></div>}
+                        {safeImageSource(bloodlineEditImage) && <div className="admin-event-list-preview"><img src={safeImageSource(bloodlineEditImage)} alt="Bloodline preview" /></div>}
                         <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineEditName || "Bloodline"} ${bloodlineEditElement || "chakra"} clan art`} onImage={applyBloodlineImage} />
                         <button onClick={saveAdminBloodlineEdit}>Save Loaded Bloodline</button>
                         {editingBloodlineId && <p className="hint">Editing bloodline: {editingBloodlineId}</p>}
