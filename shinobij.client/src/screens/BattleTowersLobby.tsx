@@ -107,13 +107,18 @@ export function BattleTowersLobby({
     useEffect(() => {
         let alive = true;
         const cached = readScreenCache(FLOOR_CACHE_KEY, isTowerFloorList);
-        if (cached) {
-            setFloors(cached);
-            setSelected(cached[0]?.id ?? null);
-            setLoading(false);
-        } else {
-            setLoading(true);
-        }
+        // Promote the tab-local cache in a microtask instead of issuing
+        // synchronous state updates from this effect body.
+        queueMicrotask(() => {
+            if (!alive) return;
+            if (cached) {
+                setFloors(cached);
+                setSelected(cached[0]?.id ?? null);
+                setLoading(false);
+            } else {
+                setLoading(true);
+            }
+        });
         fetchTowerFloors()
             .then(f => { if (alive) { setFloors(f); setSelected(f[0]?.id ?? null); writeScreenCache(FLOOR_CACHE_KEY, f, FLOOR_CACHE_TTL_MS); } })
             .catch(e => { if (alive) setError(String(e?.message ?? e)); })

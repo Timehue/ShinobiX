@@ -31,8 +31,14 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
     useEffect(() => {
         let alive = true;
         const cached = readScreenCache(weeklyBoardCacheKey(character.name), isWeeklyBoard);
-        setBoard(cached);
-        setLoading(!cached);
+        // Cache hydration is deliberately deferred one microtask: it keeps
+        // render state updates out of the synchronous effect body while still
+        // painting cached data before the network request can resolve.
+        queueMicrotask(() => {
+            if (!alive) return;
+            setBoard(cached);
+            setLoading(!cached);
+        });
         fetchWeeklyBoard(character.name).then((b) => {
             if (!alive) return;
             setBoard(b);
