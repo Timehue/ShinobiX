@@ -8,6 +8,8 @@
  * enter this cooldown/relocation path.
  */
 
+import { setSafeRecordValue } from '../_utils.js';
+
 export const WANDERER_ENCOUNTER_COOLDOWN_MS = 3 * 60 * 60 * 1000;
 export const WANDERER_ENCOUNTER_COOLDOWN_SECONDS = Math.ceil(WANDERER_ENCOUNTER_COOLDOWN_MS / 1000);
 export const WANDERER_SECTOR_COUNT = 60;
@@ -53,7 +55,7 @@ export function pruneWandererCooldownsForSave(
     const out: Record<string, number> = {};
     for (const [id, rawUntil] of Object.entries(record(cooldowns))) {
         const until = num(rawUntil);
-        if (until > nowMs) out[id] = until;
+        if (until > nowMs) setSafeRecordValue(out, id, until);
     }
     return out;
 }
@@ -67,7 +69,7 @@ export function pruneWandererMovesForSave(
         const parsed = parseNaturalWandererId(id);
         const sector = Math.floor(num(rawSector));
         if (!parsed || parsed.dayBucket !== currentDayBucket) continue;
-        if (sector >= 1 && sector <= WANDERER_SECTOR_COUNT) out[id] = sector;
+        if (sector >= 1 && sector <= WANDERER_SECTOR_COUNT) setSafeRecordValue(out, id, sector);
     }
     return out;
 }

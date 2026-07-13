@@ -1,6 +1,6 @@
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
-import { safeName } from '../_utils.js';
+import { safeName, setSafeRecordValue } from '../_utils.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { listActiveEscorters } from '../clan/pet-escort/_storage.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
@@ -189,7 +189,8 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
         const nextHonor = Number(winnerChar.honorSeals ?? 0) + seals;
         const nextProfessionXp = Number(winnerChar.professionXp ?? 0) + xpGain;
         const nextRank = rankFromXp(nextProfessionXp);
-        const nextByTarget = { ...byTarget, [loserKey]: targetSoFar + seals };
+        const nextByTarget = { ...byTarget };
+        setSafeRecordValue(nextByTarget, loserKey, targetSoFar + seals);
 
         // Durable idempotency receipt (audit #7). Claimed atomically (NX) right
         // before any reward write. The session-only `vanguardRewardsGranted`

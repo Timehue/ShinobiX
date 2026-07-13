@@ -9,6 +9,7 @@
  * Deliberately no engine changes: this reads what the fight already recorded.
  */
 import type { LegacyStatDeltas } from './_legacy-track.js';
+import { setSafeRecordValue } from './_utils.js';
 
 type FighterLike = {
     name: string;
@@ -89,15 +90,15 @@ export function extractPvpLegacyDeltas(session: SessionLike, winnerName: string,
 
     for (const line of session.log ?? []) {
         let m = RE_HEAL.exec(line);
-        if (m) { healing[m[1]] = (healing[m[1]] ?? 0) + Number(m[2]); continue; }
+        if (m) { setSafeRecordValue(healing, m[1], (healing[m[1]] ?? 0) + Number(m[2])); continue; }
         m = RE_SHIELD.exec(line);
-        if (m) { shieldCasts[m[1]] = (shieldCasts[m[1]] ?? 0) + 1; continue; }
+        if (m) { setSafeRecordValue(shieldCasts, m[1], (shieldCasts[m[1]] ?? 0) + 1); continue; }
         m = RE_BLOCKED.exec(line);
-        if (m) { blocked[m[2]] = (blocked[m[2]] ?? 0) + Number(m[1]); continue; }
+        if (m) { setSafeRecordValue(blocked, m[2], (blocked[m[2]] ?? 0) + Number(m[1])); continue; }
         m = RE_DAMAGE.exec(line);
-        if (m) { const dealer = other(m[2]); damageDealt[dealer] = (damageDealt[dealer] ?? 0) + Number(m[1]); continue; }
+        if (m) { const dealer = other(m[2]); setSafeRecordValue(damageDealt, dealer, (damageDealt[dealer] ?? 0) + Number(m[1])); continue; }
         m = RE_WOUND_TICK.exec(line);
-        if (m) { const dealer = other(m[1]); damageDealt[dealer] = (damageDealt[dealer] ?? 0) + Number(m[2]); continue; }
+        if (m) { const dealer = other(m[1]); setSafeRecordValue(damageDealt, dealer, (damageDealt[dealer] ?? 0) + Number(m[2])); continue; }
     }
 
     const winnerLevel = Number(winner.character?.level ?? 0) || 0;

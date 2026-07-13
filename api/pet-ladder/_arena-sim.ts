@@ -20,6 +20,7 @@
 // KEEP IN SYNC with the client file verbatim — only the three import lines below differ
 // (local server modules + Node16 `.js` extensions).
 import type { Pet } from "./_pet-types.js";
+import { setSafeRecordValue } from '../_utils.js';
 import { FULL_MASK, FULL_COLS, FULL_ROWS } from "./_fullmask.js";
 import {
     applyPetPvpGear, petConsumableCharges, petGearStartShield, petGearExecuteMult,
@@ -598,7 +599,7 @@ function assignPeels(fs: AF[]): Record<string, string> {
                 const v = th.danger - dist(def, th.e) * 3;
                 if (v > pv || (v === pv && pick !== null && th.e.id < pick.id)) { pv = v; pick = th.e; }
             }
-            if (pick) { out[def.id] = pick.id; taken.add(pick.id); }
+            if (pick) { setSafeRecordValue(out, def.id, pick.id); taken.add(pick.id); }
         }
         // Cross-role carry coverage: a carrier no defender claimed (a defenderless team, or
         // every defender already on another threat) goes to the nearest available non-
@@ -613,7 +614,7 @@ function assignPeels(fs: AF[]): Record<string, string> {
                 const da = dist(a, carrier), dp = dist(pick, carrier);
                 if (pref[a.role] < pref[pick.role] || (pref[a.role] === pref[pick.role] && (da < dp || (da === dp && a.id < pick.id)))) pick = a;
             }
-            if (pick) out[pick.id] = carrier.id;
+            if (pick) setSafeRecordValue(out, pick.id, carrier.id);
         }
     }
     return out;

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
-import { cors } from '../../_utils.js';
+import { cors, setSafeRecordValue } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
@@ -177,21 +177,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             const now = Date.now();
+            const villages: Record<string, string> = {};
+            const hp: Record<string, number> = {};
+            const hpMax: Record<string, number> = {};
+            setSafeRecordValue(villages, fromClan, ctx.village);
+            setSafeRecordValue(villages, toClan, toVillage);
+            setSafeRecordValue(hp, fromClan, fromStartHp);
+            setSafeRecordValue(hp, toClan, toStartHp);
+            setSafeRecordValue(hpMax, fromClan, fromStartHp);
+            setSafeRecordValue(hpMax, toClan, toStartHp);
             const war: ClanWar = {
                 id,
                 clans: sortedClans,
-                villages: {
-                    [fromClan]: ctx.village,
-                    [toClan]: toVillage,
-                },
-                hp: {
-                    [fromClan]: fromStartHp,
-                    [toClan]: toStartHp,
-                },
-                hpMax: {
-                    [fromClan]: fromStartHp,
-                    [toClan]: toStartHp,
-                },
+                villages,
+                hp,
+                hpMax,
                 startedAt: now,
                 updatedAt: now,
                 declaredBy: identity.admin ? 'admin' : (ctx.name || identity.name),
