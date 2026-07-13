@@ -3,8 +3,14 @@ import { strict as assert } from 'node:assert';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { _makeDiskKv, _makeRoutedKv, _makeRemoteKv, _migrateDiskRoutedKeys, type KvLike } from './_storage.js';
+import { _makeDiskKv, _makeRoutedKv, _makeRemoteKv, _migrateDiskRoutedKeys, _toSqlPattern, type KvLike } from './_storage.js';
 import { consumeSingleUseToken } from './_single-use-token.js';
+
+describe('SQL key-pattern escaping', () => {
+    it('escapes LIKE metacharacters and escape characters before expanding glob syntax', () => {
+        assert.equal(_toSqlPattern(String.raw`save:\alice_%*?`), String.raw`save:\\alice\_\%%_`);
+    });
+});
 
 // The routed KV splits keys across two backends — a disk overlay for the
 // disk-routed prefixes ('save:', 'shared:images', 'shared:imgfields') and the

@@ -1259,7 +1259,9 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
         return;
     }
 
-    console.error(`[server error] [req ${reqId}] ${req.method} ${req.path} —`, err);
+    // Keep request-controlled values out of the format-string position. Some
+    // loggers interpret percent directives in their first argument.
+    console.error('[server error]', '[req]', reqId, req.method, req.path, err);
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting
     // failure mask the 500. No-op when Sentry is disabled (SENTRY_DSN unset).

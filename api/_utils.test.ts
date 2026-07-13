@@ -217,4 +217,16 @@ describe('mergePreservingImages', () => {
         const merged = mergePreservingImages(incoming, existing) as Record<string, Record<string, unknown>>;
         assert.deepEqual(merged.character.equipment, { hand: 'sword' }, 'omitted equipment stays preserved');
     });
+
+    it('drops prototype-pollution keys at every object depth', () => {
+        const incoming = JSON.parse('{"safe":1,"__proto__":{"polluted":true},"nested":{"constructor":{"prototype":{"polluted":true}},"ok":2}}');
+        const merged = mergePreservingImages(incoming, {}) as Record<string, unknown>;
+        const nested = merged.nested as Record<string, unknown>;
+
+        assert.equal(merged.safe, 1);
+        assert.equal(nested.ok, 2);
+        assert.equal(Object.prototype.hasOwnProperty.call(merged, '__proto__'), false);
+        assert.equal(Object.prototype.hasOwnProperty.call(nested, 'constructor'), false);
+        assert.equal(({} as Record<string, unknown>).polluted, undefined);
+    });
 });

@@ -118,8 +118,12 @@ function getPool(): pg.Pool {
     return _pool;
 }
 
-function toSqlPattern(pattern: string): string {
+export function _toSqlPattern(pattern: string): string {
     return pattern
+        // PostgreSQL LIKE treats backslash as its default escape character.
+        // Escape it first so a caller cannot use `\%` / `\_` to undo the
+        // literal escaping below.
+        .replace(/\\/g, '\\\\')
         .replace(/%/g, '\\%')
         .replace(/_/g, '\\_')
         .replace(/\*/g, '%')
@@ -196,7 +200,7 @@ const pgKv = {
     async keys(pattern: string): Promise<string[]> {
         const { rows } = await getPool().query<{ key: string }>(
             `SELECT key FROM public.kv_store WHERE key LIKE $1 AND (expires_at IS NULL OR expires_at > now())`,
-            [toSqlPattern(pattern)]
+            [_toSqlPattern(pattern)]
         );
         return rows.map((r) => r.key);
     },
@@ -392,7 +396,7 @@ const supabaseKv = {
         // confuse the PostgREST filter parser and cause consistent 500 errors.
         const { data, error } = await db
             .from('kv_store').select('key, expires_at')
-            .like('key', toSqlPattern(pattern));
+            .like('key', _toSqlPattern(pattern));
         if (error) throw new Error(`kv.keys(${pattern}): ${error.message}`);
         const now = Date.now();
         return (data ?? [])
