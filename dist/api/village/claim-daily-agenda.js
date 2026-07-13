@@ -136,7 +136,12 @@ async function handler(req, res) {
                 const seals = char.profession === 'vanguard' ? AGENDA_PERSONAL.honorSeals : 0;
                 const placed = await _storage_js_1.kv.set(personalMarker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
                 if (placed !== 'OK') {
-                    return { alreadyClaimed: true, granted: { ryo: 0, boneCharms: 0, honorSeals: 0 }, saveVersion: Number(rec._saveVersion ?? 0) };
+                    return {
+                        alreadyClaimed: true,
+                        granted: { ryo: 0, boneCharms: 0, honorSeals: 0 },
+                        balances: { ryo: num(char.ryo), boneCharms: num(char.boneCharms), honorSeals: num(char.honorSeals) },
+                        saveVersion: Number(rec._saveVersion ?? 0),
+                    };
                 }
                 const granted = { ryo: AGENDA_PERSONAL.ryo, boneCharms: AGENDA_PERSONAL.boneCharms, honorSeals: seals };
                 const nextChar = {
@@ -147,7 +152,12 @@ async function handler(req, res) {
                 };
                 const next = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(next, rec));
-                return { alreadyClaimed: false, granted, saveVersion: Number(next._saveVersion ?? 0) };
+                return {
+                    alreadyClaimed: false,
+                    granted,
+                    balances: { ryo: num(nextChar.ryo), boneCharms: num(nextChar.boneCharms), honorSeals: num(nextChar.honorSeals) },
+                    saveVersion: Number(next._saveVersion ?? 0),
+                };
             }, { failClosed: true });
             if ('error' in out)
                 return res.status(404).json({ error: 'Your save was not found.' });

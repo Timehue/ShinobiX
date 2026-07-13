@@ -96,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'claim') {
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
                 const now = Date.now();
-                const sealed = await kv.get<{ id: string; baseline: number }>(questKey);
+                const sealed = await kv.get<{ id: string; baseline: number; at?: number }>(questKey);
                 if (!sealed || !isWandererQuestId(sealed.id)) {
                     await kv.del(questKey).catch(() => undefined);
                     return { status: 200, body: { ok: false, reason: 'none' } };
@@ -106,6 +106,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+                const receiptId = `${sealed.id}:${sealed.baseline}:${Number(sealed.at ?? 0)}`;
+                const receipts = Array.isArray(char.redeemedWandererQuests) ? char.redeemedWandererQuests as Array<Record<string, unknown>> : [];
+                const prior = receipts.find((entry) => entry.id === receiptId);
+                if (prior) {
+                    await kv.del(questKey).catch(() => undefined);
+                    return { status: 200, body: { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo) } };
+                }
                 if (naturalWanderer) {
                     const cooldownUntil = currentWandererCooldownUntil(char, wandererId, now);
                     if (cooldownUntil) return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil } };
@@ -116,12 +123,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - num(sealed.baseline)), target: def.target } };
                 }
 
-                const consumed = await kv.del(questKey);
-                if (consumed <= 0) return { status: 200, body: { ok: false, reason: 'none' } };
-
                 const reward = wandererQuestRyo(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + reward;
-                let updated: Record<string, unknown> = { ...char, ryo: totalRyo, activeWandererQuest: null };
+                let updated: Record<string, unknown> = { ...char, ryo: totalRyo, activeWandererQuest: null, redeemedWandererQuests: [...receipts.slice(-49), { id: receiptId, ryo: reward }] };
                 const body: Record<string, unknown> = { ok: true, ryo: reward, totalRyo };
                 if (naturalWanderer) {
                     const used = withWandererUseState(updated, wandererId, now, sector);
@@ -130,6 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     body.moveToSector = used.moveToSector;
                 }
                 await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                await kv.del(questKey).catch(() => undefined);
                 return { status: 200, body };
             }, { failClosed: true });
 
@@ -137,7 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // releases — bumpLegacyStats takes its own lock, and nesting it
             // inside a currency critical section adds up to ~900ms of backoff
             // to the lock hold (verification finding).
-            if (out.status === 200 && (out.body as { ok?: boolean })?.ok === true) {
+            if (out.status === 200 && (out.body as { ok?: boolean; replayed?: boolean })?.ok === true && !(out.body as { replayed?: boolean }).replayed) {
                 await bumpLegacyStats(playerName, { wandererQuests: 1 });
                 await bumpEraContribution('discoveries');
             }

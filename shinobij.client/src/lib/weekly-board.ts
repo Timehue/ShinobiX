@@ -24,6 +24,7 @@ export type WeeklyClaimResult = {
     requiredLevel?: number;
     requiredSystem?: string;
     reward?: WeeklyBoardReward;
+    balances?: { ryo: number; fateShards: number; boneCharms: number };
     alreadyClaimed?: boolean;
 };
 
@@ -47,7 +48,7 @@ export async function claimWeeklyMission(playerName: string, missionId: string):
         });
         const data = await res.json().catch(() => ({})) as WeeklyClaimResult;
         if (!res.ok || !data.ok) return { ok: false, error: data.error || 'Could not claim.', reason: data.reason, requiredLevel: data.requiredLevel, requiredSystem: data.requiredSystem };
-        return { ok: true, reward: data.reward, alreadyClaimed: data.alreadyClaimed };
+        return { ok: true, reward: data.reward, balances: data.balances, alreadyClaimed: data.alreadyClaimed };
     } catch {
         return { ok: false, error: 'Could not claim. Try again.' };
     }

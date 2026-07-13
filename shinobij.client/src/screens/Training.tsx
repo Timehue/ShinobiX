@@ -22,18 +22,19 @@ import {
     GiRibbonMedal, GiFastForwardButton,
 } from "react-icons/gi";
 import { getJutsuMastery, jutsuXpNeeded, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
-import { applyJutsuTrainingLevel, jutsuRyoTrainCap } from "../lib/jutsu-training-queue";
+import { jutsuRyoTrainCap } from "../lib/jutsu-training-queue";
 import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { boostAmount, getJutsuTrainingSpeedBonus, getTrainingXpBonus } from "../lib/village-upgrades";
-import { capStat, formatStatName } from "../lib/stats";
+import { formatStatName } from "../lib/stats";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getCharacterElements } from "../lib/elements";
 import { useWarLossDebuff } from "../lib/war-debuff";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
-import { CHARACTER_XP_GAIN_MULTIPLIER, JUTSU_TRAINING_CAP, statCapForLevel } from "../constants/game";
-import { gainXp, getAllJutsus, playerLensDiscipline } from "../App";
+import { mutateJutsuRyoTraining } from "../lib/jutsu-ryo-api";
+import { CHARACTER_XP_GAIN_MULTIPLIER, JUTSU_TRAINING_CAP } from "../constants/game";
+import { getAllJutsus, playerLensDiscipline } from "../App";
 import { TRAINING_TIERS, trainingStatGain } from "../lib/training-config";
 import type { Character } from "../types/character";
 import type { Jutsu, JutsuMastery, Stats, SavedBloodline, ActiveTraining, ActiveJutsuTraining } from "../types/combat";
@@ -84,80 +85,60 @@ export function Training({ character, updateCharacter, activeTraining, setActive
     const trainingXpBonus = getTrainingXpBonus(character);
     const showAcademyTrainingHint = normalizeOnboardingStep(character.onboardingStep) === "training" && !activeTraining;
     const selectedStatLabel = STAT_LABELS[selectedStat]?.label ?? formatStatName(selectedStat);
-    // Apply a training reward: the XP trickle (may level up) then the direct stat
-    // gain, clamped to the per-rank cap. Returns the points actually applied + the
-    // cap (for the "already at rank cap" message).
-    function applyTrainingReward(stat: keyof Stats, gain: number, xp: number): { applied: number; cap: number } {
-        const leveled = gainXp(character, xp);
-        const cap = statCapForLevel(leveled.level);
-        const current = leveled.stats[stat];
-        const applied = Math.max(0, Math.min(gain, cap - current));
-        updateCharacter({ ...leveled, totalStatsTrained: (leveled.totalStatsTrained ?? 0) + applied, stats: { ...leveled.stats, [stat]: capStat(current + applied) } });
-        return { applied, cap };
-    }
-    // Two-axis training: /api/training/start seals the full-session STAT gain
-    // (village bonus + war debuff baked in, clamped server-side) into a single-use
-    // token; the chosen stat grows directly on collect. Falls back to a locally
-    // computed gain (sanitizer-bounded) if the server is unreachable, so a hiccup
-    // never blocks training. The modest XP trickle still feeds leveling.
+    // Two-axis training: the server seals the reward, debits stamina, persists
+    // the active session, and later credits the stored character on redemption.
     async function startTraining(timer: typeof timers[number]) {
         if (activeTraining) return alert("You are already training.");
         if (character.stamina < timer.staminaCost) return alert("Not enough stamina.");
-        const boostedXp = Math.max(0, Math.round(boostAmount(timer.xp, trainingXpBonus) * warDebuff.xpMult));
-        const localGain = Math.max(0, Math.round(trainingStatGain(timer, timer.ms, trainingXpBonus) * warDebuff.xpMult));
-        let token: string | undefined;
-        let xp = boostedXp, statGain = localGain, endsAt = Date.now() + timer.ms;
         try {
             const res = await fetch('/api/training/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, stat: selectedStat, tierId: timer.id, trainingBonusPct: trainingXpBonus, warMult: warDebuff.xpMult }) });
             const data = await res.json().catch(() => ({}));
-            if (res.ok && data?.token) {
-                token = String(data.token);
-                statGain = Math.max(0, Math.floor(Number(data.sealedGain ?? localGain)));
-                xp = Math.max(0, Math.floor(Number(data.sealedXp ?? boostedXp)));
-                endsAt = Number(data.endsAt) || endsAt;
-            }
-        } catch { /* offline / server down — use the local seal */ }
-        updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost });
-        setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp, statGain, staminaCost: timer.staminaCost, endsAt, durationMs: timer.ms, token });
+            if (!res.ok || !data?.token || !data?.activeTraining) throw new Error(String(data?.error ?? 'Training could not be started.'));
+            updateCharacter({ ...character, ...(data.character ?? {}) });
+            setActiveTraining(data.activeTraining as ActiveTraining);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Training could not be started. Please retry.');
+        }
     }
     // Cancel an in-progress stat training and bank the prorated reward (server
-    // consumes the token; local proration if it can't). Stamina is not refunded.
+    // consumes the token and credits the prorated grant. Stamina is not refunded.
     async function cancelTraining() {
         if (!activeTraining) return;
         const totalMs = activeTraining.durationMs ?? timers.find((t) => activeTraining.label.startsWith(t.label))?.ms ?? 0;
         const remaining = Math.max(0, activeTraining.endsAt - Date.now());
         const progress = totalMs > 0 ? Math.min(1, Math.max(0, 1 - remaining / totalMs)) : 1;
-        let proratedGain = Math.floor(activeTraining.statGain * progress);
-        let proratedXp = Math.floor(activeTraining.xp * progress);
+        const proratedGain = Math.floor(activeTraining.statGain * progress);
+        const proratedXp = Math.floor(activeTraining.xp * progress);
         if (!(await gameConfirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (+${proratedGain} ${formatStatName(activeTraining.stat)}${proratedXp > 0 ? `, ${proratedXp} XP` : ""}). Stamina already spent is not refunded.`))) return;
-        if (activeTraining.token) {
-            try {
-                const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, cancel: true }) });
-                const data = await res.json().catch(() => ({}));
-                if (res.ok && data?.granted) { proratedGain = Math.max(0, Math.floor(Number(data.gain ?? proratedGain))); proratedXp = Math.max(0, Math.floor(Number(data.xp ?? proratedXp))); }
-            } catch { /* fall through to local prorate */ }
+        try {
+            const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token, cancel: true }) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data?.granted || !data?.character) throw new Error(String(data?.error ?? 'Training could not be cancelled.'));
+            updateCharacter({ ...character, ...data.character });
+            const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
+            alert(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}`);
+            setActiveTraining(null);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Training could not be cancelled. Please retry.');
         }
-        const { applied } = applyTrainingReward(activeTraining.stat, proratedGain, proratedXp);
-        alert(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}`);
-        setActiveTraining(null);
     }
-    // Collect a finished training. Redeems the server-sealed gain (single-use
-    // token); falls back to the locally sealed gain if the server can't confirm.
+    // Collect a finished training. Token sessions are credited server-side;
+    // tokenless sessions are retained only for pre-migration save compatibility.
     async function completeTraining() {
         if (!activeTraining) return;
         if (Date.now() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - Date.now()) / 1000)} seconds left.`);
-        let gain = activeTraining.statGain, xp = activeTraining.xp;
-        if (activeTraining.token) {
-            try {
-                const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token }) });
-                const data = await res.json().catch(() => ({}));
-                if (res.ok && data?.granted) { gain = Math.max(0, Math.floor(Number(data.gain ?? gain))); xp = Math.max(0, Math.floor(Number(data.xp ?? xp))); }
-                else if (data?.reason === 'not-yet-complete') return alert("Training isn't finished yet — give it a moment.");
-            } catch { /* fall through to local seal */ }
+        try {
+            const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token }) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data?.granted || !data?.character) throw new Error(String(data?.error ?? 'Training could not be collected.'));
+            updateCharacter({ ...character, ...data.character });
+            const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
+            const cap = Math.max(0, Math.floor(Number(data.cap) || 0));
+            alert(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}). Rank up to train it higher.`}`);
+            setActiveTraining(null);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Training could not be collected. Please retry.');
         }
-        const { applied, cap } = applyTrainingReward(activeTraining.stat, gain, xp);
-        alert(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}). Rank up to train it higher.`}`);
-        setActiveTraining(null);
     }
     const remainingMs = activeTraining ? Math.max(0, activeTraining.endsAt - now) : 0;
     const trainingReady = !!activeTraining && remainingMs <= 0;
@@ -473,13 +454,7 @@ export function JutsuTrainingHall({
         return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
     }
 
-    function setJutsuMasteryLevel(jutsuId: string, level: number): Character {
-        // Rank-capped + never-downgrading (lib/jutsu-training-queue): ryo training
-        // now respects the player's rank jutsu cap, not only the Hall's level-30 cap.
-        return applyJutsuTrainingLevel(character, jutsuId, level);
-    }
-
-    function startPaidJutsuTraining() {
+    async function startPaidJutsuTraining() {
         if (activeJutsuTraining) return alert("You are already training a jutsu.");
         if (!selectedJutsuId) return alert("Pick a jutsu first.");
 
@@ -495,60 +470,44 @@ export function JutsuTrainingHall({
                 : "That jutsu is at your rank's training cap. Rank up to train it further.");
         }
 
-        // First level is always free and instant
-        if (mastery.level === 0) {
-            updateCharacter(setJutsuMasteryLevel(selectedJutsu.id, 1));
-            alert(`${selectedJutsu.name} unlocked at level 1 for free!`);
-            return;
-        }
-
         const cost = jutsuTrainingCost(mastery.level);
-        if (character.ryo < cost) return alert(`Not enough ryo. You need ${cost}.`);
-
-        const baseDuration = jutsuTrainingDuration(mastery.level);
-        // +20% jutsu training time while the village is "demoralized" from a war loss.
-        const duration = Math.max(60_000, Math.floor(baseDuration * Math.max(0.1, 1 - jutsuTrainingBonus / 100) * warDebuff.jutsuTimeMult));
-        updateCharacter({ ...character, ryo: character.ryo - cost });
-        setActiveJutsuTraining({
-            jutsuId: selectedJutsu.id,
-            label: selectedJutsu.name,
-            fromLevel: mastery.level,
-            toLevel: Math.min(ryoTrainCap, mastery.level + 1),
-            ryoCost: cost,
-            startedAt: Date.now(),
-            endsAt: Date.now() + duration,
-        });
+        if (mastery.level > 0 && character.ryo < cost) return alert(`Not enough ryo. You need ${cost}.`);
+        const result = await mutateJutsuRyoTraining(character.name, 'start', { jutsuId: selectedJutsu.id, label: selectedJutsu.name, trainingBonusPct: Math.max(0, jutsuTrainingBonus + (1 - warDebuff.jutsuTimeMult) * 100) });
+        if (!result.character) return alert(result.error || 'Jutsu training could not be started.');
+        updateCharacter(result.character);
+        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+        if (mastery.level === 0) alert(`${selectedJutsu.name} unlocked at level 1 for free!`);
     }
 
-    function completePaidJutsuTraining() {
+    async function completePaidJutsuTraining() {
         if (!activeJutsuTraining) return;
         if (Date.now() < activeJutsuTraining.endsAt) {
             alert(`Training still has ${formatTrainingTime(activeJutsuTraining.endsAt - Date.now())} left.`);
             return;
         }
 
-        updateCharacter(setJutsuMasteryLevel(activeJutsuTraining.jutsuId, activeJutsuTraining.toLevel));
+        if (!activeJutsuTraining.serverToken) return alert('This legacy training cannot be claimed safely.');
+        const result = await mutateJutsuRyoTraining(character.name, 'complete', { serverToken: activeJutsuTraining.serverToken });
+        if (!result.character) return alert(result.error || 'Jutsu training could not be claimed.');
+        updateCharacter(result.character);
         alert(`${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.`);
-        setActiveJutsuTraining(null);
+        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
     }
 
-    // Cancel an in-progress jutsu training and refund 50% of the ryo paid. The
-    // training level is not granted and the progress is forfeited. Ryo training
-    // is client-authoritative (the debit on start has no server endpoint), so
-    // the symmetric refund stays client-side too.
+    // Cancellation/refund is derived from the server-sealed active session.
     async function cancelPaidJutsuTraining() {
         if (!activeJutsuTraining) return;
         const refund = Math.floor(activeJutsuTraining.ryoCost * 0.5);
         if (!(await gameConfirm(`Cancel ${activeJutsuTraining.label} training? You'll get ${refund} ryo back (50% of ${activeJutsuTraining.ryoCost}) and forfeit the training progress.`))) return;
-        updateCharacter({ ...character, ryo: character.ryo + refund });
-        setActiveJutsuTraining(null);
-        alert(`Training cancelled. Refunded ${refund} ryo.`);
+        if (!activeJutsuTraining.serverToken) return alert('This legacy training cannot be refunded safely.');
+        const result = await mutateJutsuRyoTraining(character.name, 'cancel', { serverToken: activeJutsuTraining.serverToken });
+        if (!result.character) return alert(result.error || 'Jutsu training could not be cancelled.');
+        updateCharacter(result.character);
+        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+        alert(`Training cancelled. Refunded ${result.refund ?? refund} ryo.`);
     }
 
-    // Pay ryo to finish the ACTIVE training instantly. Debits ryo client-side
-    // (mirrors the start-cost debit — no server endpoint) and zeroes the timer;
-    // the existing claim button / queue-runner then grants the level (and promotes
-    // any queued 2nd training) exactly as a natural completion would.
+    // The server derives remaining time, debits ryo, and grants the level atomically.
     async function finishWithRyo() {
         if (!activeJutsuTraining) return;
         const remainingMs = activeJutsuTraining.endsAt - Date.now();
@@ -556,47 +515,19 @@ export function JutsuTrainingHall({
         const cost = jutsuRyoFinishCost(remainingMs);
         if (character.ryo < cost) return alert(`Not enough ryo. You need ${cost.toLocaleString()} ryo to finish instantly.`);
         if (!(await gameConfirm(`Finish ${activeJutsuTraining.label} training now for ${cost.toLocaleString()} ryo?`))) return;
-        updateCharacter({ ...character, ryo: character.ryo - cost });
-        setActiveJutsuTraining({ ...activeJutsuTraining, endsAt: Date.now() });
+        if (!activeJutsuTraining.serverToken) return alert('This legacy training cannot be finished safely.');
+        const result = await mutateJutsuRyoTraining(character.name, 'finish', { serverToken: activeJutsuTraining.serverToken });
+        if (!result.character) return alert(result.error || 'Jutsu training could not be finished.');
+        updateCharacter(result.character);
+        setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+        alert(`${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.`);
     }
 
     // Queue a 2nd jutsu training behind the active one. Ryo is paid + the duration
     // locked NOW; the global runner (lib/jutsu-training-queue) promotes it the moment
     // the active training completes. Stored on activeJutsuTraining.next.
     function queueNextJutsuTraining() {
-        if (!activeJutsuTraining) return alert("Start a training first, then queue the next one.");
-        if (activeJutsuTraining.next) return alert("A 2nd jutsu is already queued.");
-        const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId);
-        if (!selectedJutsu || !canEquipElementJutsu(character, selectedJutsu, savedBloodlines)) {
-            return alert(`You need the ${selectedJutsu?.element ?? "required"} element to train this jutsu.`);
-        }
-        // If the SAME jutsu is currently training, the queued run starts from the
-        // level it's about to reach; otherwise from the jutsu's stored level.
-        const fromLevel = selectedJutsu.id === activeJutsuTraining.jutsuId
-            ? activeJutsuTraining.toLevel
-            : getJutsuMastery(character, selectedJutsu.id).level;
-        if (fromLevel >= ryoTrainCap) {
-            return alert(fromLevel >= JUTSU_TRAINING_CAP
-                ? "That jutsu would be at the Hall cap (Lv 30) — higher levels come from battles."
-                : "That jutsu would be at your rank's training cap. Rank up to train it further.");
-        }
-        if (fromLevel === 0) return alert("Level 0 → 1 is free & instant — just train it directly, no need to queue.");
-        const cost = jutsuTrainingCost(fromLevel);
-        if (character.ryo < cost) return alert(`Not enough ryo to queue. You need ${cost}.`);
-        const baseDuration = jutsuTrainingDuration(fromLevel);
-        const durationMs = Math.max(60_000, Math.floor(baseDuration * Math.max(0.1, 1 - jutsuTrainingBonus / 100) * warDebuff.jutsuTimeMult));
-        updateCharacter({ ...character, ryo: character.ryo - cost });
-        setActiveJutsuTraining({
-            ...activeJutsuTraining,
-            next: {
-                jutsuId: selectedJutsu.id,
-                label: selectedJutsu.name,
-                fromLevel,
-                toLevel: Math.min(ryoTrainCap, fromLevel + 1),
-                ryoCost: cost,
-                durationMs,
-            },
-        });
+        return alert('Queued jutsu training is temporarily unavailable while server settlement is enforced.');
     }
 
     // Remove the queued 2nd training before it starts — full ryo refund (it never ran).
@@ -604,9 +535,7 @@ export function JutsuTrainingHall({
         if (!activeJutsuTraining?.next) return;
         const queued = activeJutsuTraining.next;
         if (!(await gameConfirm(`Remove the queued ${queued.label} training? You'll get all ${queued.ryoCost} ryo back — it hasn't started.`))) return;
-        updateCharacter({ ...character, ryo: character.ryo + queued.ryoCost });
-        setActiveJutsuTraining({ ...activeJutsuTraining, next: null });
-        alert(`Queued training removed. Refunded ${queued.ryoCost} ryo.`);
+        alert('Legacy queued training refunds require support migration; no unverified ryo was credited.');
     }
 
     const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId);

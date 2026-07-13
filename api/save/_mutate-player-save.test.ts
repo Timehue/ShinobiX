@@ -23,4 +23,13 @@ describe('_mutate-player-save', () => {
         const out = versionedPlayerRecord({ character: { name: 'Old' } }, { name: 'Old' });
         assert.equal(out._saveVersion, 1);
     });
+
+    it('applies an atomic top-level record patch with the character mutation', () => {
+        const current = { _saveVersion: 3, activeTraining: { token: 'abc' }, character: { name: 'Old', stamina: 10 } };
+        const out = versionedPlayerRecord(current, { name: 'Old', stamina: 5 }, { activeTraining: null });
+        assert.equal(out._saveVersion, 4);
+        assert.equal(out.record.activeTraining, null);
+        assert.deepEqual(out.record.character, { name: 'Old', stamina: 5 });
+        assert.deepEqual(current.activeTraining, { token: 'abc' });
+    });
 });

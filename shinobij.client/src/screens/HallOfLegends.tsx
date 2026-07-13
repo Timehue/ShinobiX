@@ -143,7 +143,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         if ((character.ryo ?? 0) < bountyAmount) return alert("You don't have enough ryo.");
         const res = await placeBounty(character.name, target, bountyAmount);
         if (!res.ok) return alert(res.error || "Could not place the bounty.");
-        updateCharacter((prev) => prev ? ({ ...prev, ryo: (prev.ryo ?? 0) - bountyAmount }) : prev);
+        updateCharacter((prev) => prev ? ({ ...prev, ryo: res.balances?.ryo ?? prev.ryo }) : prev);
         if (res.bounties) setBounties(res.bounties);
         setBountyTarget("");
         alert(`Bounty placed: ${bountyAmount.toLocaleString()} ryo on ${target}'s head.`);

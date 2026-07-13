@@ -61,6 +61,11 @@ export type PvpWinBaseSummary = {
     maxChakra: number;
     maxStamina: number;
     unspentStats: number;
+    auraDust?: number;
+    inventory?: string[];
+    totalPvpKills?: number;
+    monthlyPvpKills?: number;
+    pvpKillMonth?: string;
     // Serious (non-ranked) PvP combat-use stat growth. The pool share is already in
     // `unspentStats`; `allocated` is the per-stat auto-growth the client adds on top
     // via applyStatGrowth (server wrote the same delta, so no double-count/clobber).
@@ -86,6 +91,11 @@ export function applyServerBaseReward(character: Character, base: PvpWinBaseSumm
         maxStamina: base.maxStamina,
         unspentStats: base.unspentStats,
         ryo: base.ryo,
+        ...(typeof base.auraDust === 'number' ? { auraDust: base.auraDust } : {}),
+        ...(Array.isArray(base.inventory) ? { inventory: base.inventory } : {}),
+        ...(typeof base.totalPvpKills === 'number' ? { totalPvpKills: base.totalPvpKills } : {}),
+        ...(typeof base.monthlyPvpKills === 'number' ? { monthlyPvpKills: base.monthlyPvpKills } : {}),
+        ...(typeof base.pvpKillMonth === 'string' ? { pvpKillMonth: base.pvpKillMonth } : {}),
         ...(base.rankTitle ? { rankTitle: base.rankTitle } : {}),
         ...(leveledUp ? { hp: base.maxHp, chakra: base.maxChakra, stamina: base.maxStamina } : {}),
     };

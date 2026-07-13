@@ -8,6 +8,7 @@ export interface DailyLoginResult {
     alreadyClaimed: boolean;
     streak: number;
     granted: { ryo: number; fateShards: number };
+    balances: { ryo: number; fateShards: number };
     shardInterval: number;
     daysUntilShardBonus: number;
 }

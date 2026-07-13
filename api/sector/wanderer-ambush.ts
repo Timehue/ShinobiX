@@ -56,18 +56,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // ── CLAIM: verify the gauntlet was cleared, then pay ──────────────────
         if (action === 'claim') {
-            const sealed = await kv.get<{ baseline: number }>(tokenKey);
+            const sealed = await kv.get<{ baseline: number; at?: number }>(tokenKey);
             if (!sealed) return res.status(200).json({ ok: false, reason: 'none' });
 
             const today = utcDateKey();
 
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
-                const fresh = await kv.get<{ baseline: number }>(tokenKey);
+                const fresh = await kv.get<{ baseline: number; at?: number }>(tokenKey);
                 if (!fresh) return { status: 200, body: { ok: false, reason: 'none' } };
 
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+                const receiptId = `${fresh.baseline}:${Number(fresh.at ?? 0)}`;
+                const receipts = Array.isArray(char.redeemedWandererAmbushes) ? char.redeemedWandererAmbushes as Array<Record<string, unknown>> : [];
+                const prior = receipts.find((entry) => entry.id === receiptId);
+                if (prior) {
+                    await kv.del(tokenKey).catch(() => undefined);
+                    return { status: 200, body: { ok: true, replayed: true, reward: prior.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) } } };
+                }
 
                 if (!ambushCleared(num(fresh.baseline), num(char.totalAiKills))) {
                     return { status: 200, body: { ok: false, reason: 'incomplete' } };
@@ -77,14 +84,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // inside the save lock and before payout. The delete rowcount is
                 // the consume gate; a storage failure must not fail open into a
                 // replayable reward token.
-                const countKey = `wanderer-ambush-count:${playerName}:${today}`;
-                const claimedSoFar = Number((await kv.get<number>(countKey)) ?? 0);
+                const claimedSoFar = char.wandererAmbushRewardDate === today ? Math.max(0, num(char.wandererAmbushRewardCount)) : 0;
                 if (claimedSoFar >= AMBUSH_REWARDS_PER_DAY) {
                     return { status: 200, body: { ok: false, reason: 'daily-cap' } };
                 }
-                const consumed = await kv.del(tokenKey);
-                if (consumed <= 0) return { status: 200, body: { ok: false, reason: 'none' } };
-                await kv.incr(countKey, { ex: 25 * 60 * 60 });
 
                 const reward = rollAmbushReward(num(char.level) || 1, Math.random);
                 const updated = {
@@ -92,9 +95,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ryo: num(char.ryo) + reward.ryo,
                     fateShards: num(char.fateShards) + reward.fateShards,
                     boneCharms: num(char.boneCharms) + reward.boneCharms,
+                    wandererAmbushRewardDate: today,
+                    wandererAmbushRewardCount: claimedSoFar + 1,
+                    redeemedWandererAmbushes: [...receipts.slice(-49), { id: receiptId, reward }],
                 };
                 const record = bumpSaveVersion({ ...rec, character: updated });
                 await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
+                await kv.del(tokenKey).catch(() => undefined);
                 return {
                     status: 200,
                     body: {
@@ -107,7 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Legacy tracking (ENABLE_LEGACY): a cleared ambush gauntlet is a
             // hidden find + an elite takedown (the warlord boss).
-            if (out.status === 200 && (out.body as { ok?: boolean })?.ok === true) {
+            if (out.status === 200 && (out.body as { ok?: boolean; replayed?: boolean })?.ok === true && !(out.body as { replayed?: boolean }).replayed) {
                 await bumpLegacyStats(playerName, { hiddenFinds: 1, eliteKills: 1 });
                 await bumpEraContribution('discoveries');
             }

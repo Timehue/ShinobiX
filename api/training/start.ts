@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { TRAINING_TIERS, trainingStatGain } from '../_training-config.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 
 /*
  * /api/training/start — POST only
@@ -13,15 +14,14 @@ import { TRAINING_TIERS, trainingStatGain } from '../_training-config.js';
  * Mints a single-use token for a stat-training session (two-axis training; see
  * docs/leveling-training-redesign-plan.md). The chosen stat, tier, start/end
  * timestamps and the AUTHORITATIVE stat gain + XP trickle are SEALED into the
- * token here so /api/training/complete pays out from the sealed values, not the
- * client body. The gain is computed from the tier rate and a CLAMPED
+ * token here so /api/training/complete pays the stored save from the sealed
+ * values, not the client body. The gain is computed from the tier rate and a CLAMPED
  * client-reported training bonus (village/clan bonus formula lives in a client
- * lib; clamping it here bounds the trust surface, and the save sanitizer's
- * per-save stat clamp is the hard backstop).
+ * lib; clamping it here bounds the trust surface).
  *
  * Gates: a daily mint cap + a per-session time-gate (complete can't redeem before
- * endsAt). Fail-open: if the client can't reach this endpoint it applies the local
- * gain (sanitizer-bounded) instead, so a hiccup never strands a player.
+ * endsAt). Start also debits stamina and persists activeTraining under the same
+ * save lock; the client never applies a local fallback grant.
  *
  * Body: { playerName, stat, tierId, trainingBonusPct?, warMult? }
  * Token: `training-token:<player>:<uuid>`, single-use (complete deletes on redeem).
@@ -94,11 +94,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sealedXp = Math.max(0, Math.round(tier.xp * (1 + bonusPct / 100) * warMult));
 
         const tokenId = randomUUID().replace(/-/g, '');
-        await kv.set(`training-token:${playerName}:${tokenId}`, {
-            playerName, stat, tierId: tier.id, startedAt, endsAt, sealedGain, sealedXp,
-        }, { ex: TOKEN_TTL_SECONDS });
+        const activeTraining = {
+            label: `${tier.label} ${stat} Training`, stat, xp: sealedXp, statGain: sealedGain,
+            staminaCost: tier.staminaCost, startedAt, endsAt, durationMs: tier.ms, token: tokenId,
+        };
+        const result = await mutatePlayerSave(playerName, async ({ record, character }) => {
+            if (record.activeTraining) return { ok: false as const, status: 409, error: 'A training session is already active.' };
+            const stamina = Math.max(0, Number(character.stamina) || 0);
+            if (stamina < tier.staminaCost) return { ok: false as const, status: 409, error: 'Not enough stamina.' };
+            await kv.set(`training-token:${playerName}:${tokenId}`, {
+                playerName, stat, tierId: tier.id, startedAt, endsAt, sealedGain, sealedXp,
+            }, { ex: TOKEN_TTL_SECONDS });
+            return {
+                ok: true as const,
+                character: { ...character, stamina: stamina - tier.staminaCost },
+                recordPatch: { activeTraining },
+                value: activeTraining,
+            };
+        });
+        if (!result.ok) return res.status(result.status).json({ error: result.error });
 
-        return res.status(200).json({ ok: true, token: tokenId, startedAt, endsAt, durationMs: tier.ms, sealedGain, sealedXp });
+        return res.status(200).json({
+            ok: true, token: tokenId, startedAt, endsAt, durationMs: tier.ms,
+            sealedGain, sealedXp, activeTraining: result.value,
+            character: result.character, _saveVersion: result._saveVersion,
+        });
     } catch (err) {
         console.error('[training/start]', err);
         return res.status(500).json({ error: 'Internal server error.' });

@@ -142,7 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(villageStateKey, { ...stateRec, treasury: debit.value.nextTreasury });
             await completeEconomyTx(txId!);
             txState = 'complete';
-            return { ok: true as const, treasury: debit.value.nextTreasury, _saveVersion: debit._saveVersion };
+            return { ok: true as const, treasury: debit.value.nextTreasury, character: debit.character, _saveVersion: debit._saveVersion };
         }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -163,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? Math.max(0, Math.floor(donation.amount))
                 : Math.max(0, Math.floor(donation.count)) * 500,
         });
-        return res.status(200).json({ ok: true, treasury: result.treasury, _saveVersion: result._saveVersion });
+        return res.status(200).json({ ok: true, treasury: result.treasury, character: result.character, _saveVersion: result._saveVersion });
     } catch (err) {
         if (txId && txState && txState !== 'complete') {
             await failEconomyTx(txId, err).catch(() => undefined);

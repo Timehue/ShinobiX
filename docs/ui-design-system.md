@@ -1,5 +1,10 @@
 # ShinobiX UI Design System
 
+> **Legacy reference.** The player-facing visual language is now defined by
+> [`VEILED_STEEL_UI_SYSTEM.md`](./VEILED_STEEL_UI_SYSTEM.md). This document is
+> retained for migration context around the original primitives; when the two
+> differ, Veiled Steel and the current `tokens.css` values are authoritative.
+
 A lightweight, token-based design system that unifies the look of the game. It
 was introduced to replace ad-hoc styling (603 distinct hardcoded colours, 102
 spacing values, 24 breakpoints, 59 button classes, 6 modal patterns, 7 tab-bar

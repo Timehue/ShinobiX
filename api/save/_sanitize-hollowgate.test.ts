@@ -59,7 +59,7 @@ test('hollowGateRun: server-layer fields (runToken/serverSeed/augmentOffers) sha
     assert.ok(run.augmentOffers.length <= 8, 'augmentOffers length capped');
 });
 
-test('hollowGateRun: HG currencies are NOT frozen while a run token is open (anti-regression — a freeze zeroes the settle payout)', () => {
+test('hollowGateRun: HG currency gains wait for authoritative settlement', () => {
     // Load-bearing invariant (docs/hollow-gate-augments.md): the shipped settle is
     // reconcile-DOWN — settleCurrency returns min(current, entry+credit), so it NEEDS
     // the live haul present in the save. If a future change "freezes" HG-currency
@@ -70,8 +70,8 @@ test('hollowGateRun: HG currencies are NOT frozen while a run token is open (ant
         { hollowShards: 170, ryo: 9000, hollowGateRun: { floor: 3, keys: 1, runToken: 'live-token', entryCurrencies: { hollowShards: 70, ryo: 5000 } } },
         { hollowShards: 70, ryo: 5000 },
     );
-    assert.equal(out.hollowShards, 170, 'shard accrual during an open token run must persist (not frozen to entry) — settle reconciles it down later');
-    assert.equal(out.ryo, 9000, 'ryo accrual during an open token run must persist (not frozen)');
+    assert.equal(out.hollowShards, 70, 'generic saves cannot pre-credit server-settled shards');
+    assert.equal(out.ryo, 5000, 'generic saves cannot pre-credit server-settled ryo');
 });
 
 test('hollowGateRun: a legit short token + 3 offers pass through unchanged', () => {
@@ -84,13 +84,13 @@ test('hollowGateRun: a legit short token + 3 offers pass through unchanged', () 
     assert.equal(run.augmentOffers.length, 3, 'three offers untouched');
 });
 
-test('hollow-gate-key: per-save GAIN capped above the existing stack', () => {
+test('hollow-gate-key: generic saves cannot mint keys', () => {
     const out = sanitize(
         { itemStacks: [{ itemId: 'hollow-gate-key', count: 9999 }] },
         { itemStacks: [{ itemId: 'hollow-gate-key', count: 2 }] },
     );
     const keys = (out.itemStacks as Array<{ itemId: string; count: number }>).find(s => s.itemId === 'hollow-gate-key');
-    assert.equal(keys?.count, 12, '2 existing + 10 per-save gain cap');
+    assert.equal(keys?.count, 2, 'stored key entitlement is preserved exactly');
 });
 
 test('legit HollowGate save passes through unchanged', () => {
@@ -106,7 +106,7 @@ test('legit HollowGate save passes through unchanged', () => {
     assert.equal(out.hollowGateAttunement['greedy-hands'], 2, 'legit rank (<= maxRank 3) untouched');
     assert.equal((out.hollowGateRun as any).entryCurrencies.ryo, 4000, 'legit entry snapshot untouched');
     const keys = (out.itemStacks as Array<{ itemId: string; count: number }>).find(s => s.itemId === 'hollow-gate-key');
-    assert.equal(keys?.count, 3, 'legit key gain 1->3 within cap, untouched');
+    assert.equal(keys?.count, 1, 'key gains require the authoritative forge endpoint');
 });
 
 const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's SERVER_UTC_DATE
@@ -142,18 +142,19 @@ test('level: cannot regress below the existing level (anti-rollback)', () => {
     assert.equal(sanitize({ level: 40 }, { level: 50 }).level, 50, 'a save reporting a lower level is floored to existing');
 });
 
-test('level: per-save gain capped at +5 and hard-capped at 100', () => {
-    assert.equal(sanitize({ level: 999 }, { level: 50 }).level, 55, 'gain capped to +MAX_LEVEL_GAIN (5)');
-    assert.equal(sanitize({ level: 999 }, { level: 98 }).level, 100, 'hard-capped at LEVEL_CAP (100)');
+test('level: generic saves cannot originate a gain', () => {
+    assert.equal(sanitize({ level: 999 }, { level: 50 }).level, 50);
+    assert.equal(sanitize({ level: 999 }, { level: 98 }).level, 98);
 });
 
-test('ryo: per-save gain capped at +1,000,000 over existing', () => {
-    assert.equal(sanitize({ ryo: 9_999_999 }, { ryo: 1000 }).ryo, 1_001_000, 'capped to exRyo + MAX_RYO_GAIN');
+test('ryo: generic saves may spend but cannot originate a gain', () => {
+    assert.equal(sanitize({ ryo: 9_999_999 }, { ryo: 1000 }).ryo, 1000);
+    assert.equal(sanitize({ ryo: 900 }, { ryo: 1000 }).ryo, 900);
 });
 
-test('soft currencies: per-save gain capped (fateShards +50, honorSeals +200)', () => {
-    assert.equal(sanitize({ fateShards: 9999 }, { fateShards: 10 }).fateShards, 60, 'fateShards capped to +50');
-    assert.equal(sanitize({ honorSeals: 9999 }, { honorSeals: 5 }).honorSeals, 205, 'honorSeals capped to +200');
+test('soft currencies: generic saves may spend but cannot originate gains', () => {
+    assert.equal(sanitize({ fateShards: 9999 }, { fateShards: 10 }).fateShards, 10);
+    assert.equal(sanitize({ honorSeals: 9999 }, { honorSeals: 5 }).honorSeals, 5);
 });
 
 // ── audit #1: mission/hunt daily-cap flooring + reset monotonicity + academy latch ──
@@ -200,6 +201,26 @@ test('academyTrialClaimed: latched true — a forged save cannot un-claim the on
     assert.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: false }).academyTrialClaimed, false, 'not-yet-claimed stays false');
 });
 
+test('Mythic Seals: generic saves may spend but cannot mint server-issued seals', () => {
+    assert.equal(sanitize({ mythicSeals: 9999 }, { mythicSeals: 7 }).mythicSeals, 7, 'client increase is rejected');
+    assert.equal(sanitize({ mythicSeals: 3 }, { mythicSeals: 7 }).mythicSeals, 3, 'legitimate client-side crafting spend remains allowed');
+});
+
+test('creator items: persisted weapon EP matches the authoritative combat ceiling', () => {
+    const out = sanitizeCharacterSave(
+        {
+            character: { name: 'Audit' },
+            creatorItems: [
+                { id: 'forged-weapon', slot: 'hand', weaponEp: 999_999 },
+                { id: 'legit-named-weapon', slot: 'hand', weaponEp: 35 },
+            ],
+        },
+        { character: { name: 'Audit' }, creatorItems: [] },
+    ) as Record<string, any>;
+    assert.equal(out.creatorItems[0].weaponEp, 60, 'forged EP clamps to the PvP ceiling');
+    assert.equal(out.creatorItems[1].weaponEp, 35, 'legitimate named-weapon EP is unchanged');
+});
+
 test('pendingCombatMissionClaims: client saves preserve server-owned claims but cannot mint or clear them', () => {
     const minted = sanitize(
         { level: 50, pendingCombatMissionClaims: ['combat-d-errand'] },
@@ -214,8 +235,8 @@ test('pendingCombatMissionClaims: client saves preserve server-owned claims but 
     assert.deepEqual(preserved.pendingCombatMissionClaims, ['combat-d-errand'], 'client cannot clear a server-queued flag');
 });
 
-test('hollowGateWardenKills: per-save gain clamped to +3 (audit #10 — weekly-board counter)', () => {
-    assert.equal(sanitize({ hollowGateWardenKills: 9999 }, { hollowGateWardenKills: 4 }).hollowGateWardenKills, 7, 'capped to existing + 3');
+test('hollowGateWardenKills: generic saves cannot advance the weekly-board counter', () => {
+    assert.equal(sanitize({ hollowGateWardenKills: 9999 }, { hollowGateWardenKills: 4 }).hollowGateWardenKills, 4, 'frozen to the stored server value');
 });
 
 // ── audit #3 / #14: bloodline jutsu effectPower clamped to the legit ceiling (50), AP floored at 40 ──
@@ -223,20 +244,25 @@ test('hollowGateWardenKills: per-save gain clamped to +3 (audit #10 — weekly-b
 // and AP is 40/60/80 — so the clamp neutralizes a forged ~4x nuke while leaving every
 // honest bloodline untouched.
 
+const sanitizeGrandfatheredBloodline = (bloodline: Record<string, unknown>) => sanitize(
+    { savedBloodlines: [bloodline] },
+    { savedBloodlines: [{ id: bloodline.id, rank: bloodline.rank, jutsus: [] }] },
+);
+
 test('savedBloodlines: a forged jutsu effectPower 200 / ap 1 is clamped to 50 / 40', () => {
-    const out = sanitize({ savedBloodlines: [{ rank: 'A Rank', jutsus: [{ id: 'bl-1', effectPower: 200, ap: 1 }] }] }, {});
+    const out = sanitizeGrandfatheredBloodline({ id: 'existing-forged', rank: 'A Rank', jutsus: [{ id: 'bl-1', effectPower: 200, ap: 1 }] });
     const j = (out.savedBloodlines as any)[0].jutsus[0];
     assert.equal(j.effectPower, 50, 'effectPower clamped to the legit nuke ceiling 50');
     assert.equal(j.ap, 40, 'ap floored to 40');
 });
 
 test('savedBloodlines: legit jutsu (nuke 50@60, standard 40@60, utility 0@40, 40@80) pass through unchanged', () => {
-    const out = sanitize({ savedBloodlines: [{ rank: 'S Rank', jutsus: [
+    const out = sanitizeGrandfatheredBloodline({ id: 'existing-legit', rank: 'S Rank', jutsus: [
         { id: 'n', effectPower: 50, ap: 60 },
         { id: 's', effectPower: 40, ap: 60 },
         { id: 'u', effectPower: 0, ap: 40 },
         { id: 'big', effectPower: 40, ap: 80 },
-    ] }] }, {});
+    ] });
     const js = (out.savedBloodlines as any)[0].jutsus;
     assert.deepEqual([js[0].effectPower, js[0].ap], [50, 60], 'nuke untouched');
     assert.deepEqual([js[1].effectPower, js[1].ap], [40, 60], 'standard untouched');
@@ -247,9 +273,9 @@ test('savedBloodlines: legit jutsu (nuke 50@60, standard 40@60, utility 0@40, 40
 // ── audit #16: bloodline name/lore + jutsu name/battleDescription go through text moderation ──
 
 test('savedBloodlines: name/lore + jutsu name/battleDescription run through the text sanitizer + length caps', () => {
-    const out = sanitize({ savedBloodlines: [{ rank: 'B Rank',
+    const out = sanitizeGrandfatheredBloodline({ id: 'existing-text', rank: 'B Rank',
         name: 'X'.repeat(200), lore: 'Y'.repeat(900),
-        jutsus: [{ id: 'j', name: 'Z'.repeat(200), battleDescription: 'W'.repeat(900) }] }] }, {});
+        jutsus: [{ id: 'j', name: 'Z'.repeat(200), battleDescription: 'W'.repeat(900) }] });
     const bl = (out.savedBloodlines as any)[0];
     assert.ok(bl.name.length <= 80, 'bloodline name capped to storyName limit (80)');
     assert.ok(bl.lore.length <= 600, 'bloodline lore capped to description limit (600)');
@@ -258,7 +284,7 @@ test('savedBloodlines: name/lore + jutsu name/battleDescription run through the 
 });
 
 test('savedBloodlines: a clean short bloodline name/lore is preserved verbatim', () => {
-    const out = sanitize({ savedBloodlines: [{ rank: 'A Rank', name: 'Crimson Veil', lore: 'An old desert clan technique.', jutsus: [] }] }, {});
+    const out = sanitizeGrandfatheredBloodline({ id: 'existing-clean', rank: 'A Rank', name: 'Crimson Veil', lore: 'An old desert clan technique.', jutsus: [] });
     const bl = (out.savedBloodlines as any)[0];
     assert.equal(bl.name, 'Crimson Veil', 'clean name untouched');
     assert.equal(bl.lore, 'An old desert clan technique.', 'clean lore untouched');
@@ -266,10 +292,13 @@ test('savedBloodlines: a clean short bloodline name/lore is preserved verbatim',
 
 // ── audit #17: bankRyo clamped to a depositable ceiling (can't conjure bank principal) ──
 
-test('bankRyo: forged inflation clamped to exBank + exRyo + MAX_RYO_GAIN; legit deposits untouched', () => {
-    assert.equal(sanitize({ bankRyo: 999_000_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 1_005_000, 'conjured bankRyo clamped to the depositable ceiling');
-    assert.equal(sanitize({ bankRyo: 5_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 5_000, 'legit full deposit of held ryo untouched');
-    assert.equal(sanitize({ bankRyo: 10_000_000, ryo: 0 }, { bankRyo: 10_000_000, ryo: 0 }).bankRyo, 10_000_000, 'standing bank balance untouched');
+test('bankRyo and interest timestamp are immutable through generic saves', () => {
+    const out = sanitize(
+        { bankRyo: 999_000_000, lastBankInterestAt: 9_999_999, ryo: 0 },
+        { bankRyo: 5_000, lastBankInterestAt: 123_456, ryo: 5_000 },
+    );
+    assert.equal(out.bankRyo, 5_000);
+    assert.equal(out.lastBankInterestAt, 123_456);
 });
 
 // ── Hospital discharge-race guard ───────────────────────────────────────────

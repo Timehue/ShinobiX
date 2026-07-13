@@ -1,0 +1,58 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
+const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
+const _explore_js_1 = require("./_explore.js");
+function cleanRequestId(value) {
+    const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
+    return /^[A-Za-z0-9_-]{8,96}$/.test(id) ? id : '';
+}
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res, req);
+    if (req.method === 'OPTIONS')
+        return res.status(200).end();
+    if (req.method !== 'POST')
+        return res.status(405).end();
+    try {
+        const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
+        const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
+        const requestId = cleanRequestId(body.requestId);
+        if (!playerName || !requestId)
+            return res.status(400).json({ error: 'Invalid player or request id.' });
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, playerName);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== playerName)
+            return res.status(403).json({ error: 'Not your exploration.' });
+        if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'world-explore', 180, 60_000, identity.name)))
+            return;
+        const today = new Date().toISOString().slice(0, 10);
+        const result = await (0, _mutate_player_save_js_1.mutatePlayerSave)(playerName, ({ character }) => {
+            const receipts = Array.isArray(character.redeemedSectorExplorations)
+                ? character.redeemedSectorExplorations.filter((entry) => entry && typeof entry.id === 'string')
+                : [];
+            const prior = receipts.find((entry) => entry.id === requestId);
+            if (prior)
+                return { ok: true, character, value: { reward: prior.reward, replayed: true } };
+            const applied = (0, _explore_js_1.applySectorExploreReward)(character, body.sector, today);
+            if (!applied.ok)
+                return { ok: false, status: 409, error: applied.reason };
+            const receipt = { id: requestId, sector: applied.reward.sector, reward: applied.reward, at: Date.now() };
+            return {
+                ok: true,
+                character: { ...applied.character, redeemedSectorExplorations: [...receipts.slice(-149), receipt] },
+                value: { reward: applied.reward, replayed: false },
+            };
+        });
+        if (!result.ok)
+            return res.status(result.status).json({ error: result.error });
+        return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
+    }
+    catch (error) {
+        console.error('[world/explore]', error);
+        return res.status(500).json({ error: 'Internal server error.' });
+    }
+}

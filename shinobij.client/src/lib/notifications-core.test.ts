@@ -87,6 +87,10 @@ test("battle-view screens suppress the redundant in-battle chip", () => {
 test("battle chrome hides on fight boards but stays on mixed-screen lobbies", () => {
     assert.equal(shouldHideBattleChrome({ screen: "pvpBattle", arenaBattleActive: false, petBattleActive: false }), true);
     assert.equal(shouldHideBattleChrome({ screen: "cardClashFreePlay", arenaBattleActive: false, petBattleActive: false }), true);
+    assert.equal(shouldHideBattleChrome({ screen: "arena", arenaBattleActive: false, petBattleActive: false }), false);
+    assert.equal(shouldHideBattleChrome({ screen: "arena", arenaBattleActive: true, petBattleActive: false }), true);
+    assert.equal(shouldHideBattleChrome({ screen: "battleArena", arenaBattleActive: false, petBattleActive: false }), false);
+    assert.equal(shouldHideBattleChrome({ screen: "battleArena", arenaBattleActive: true, petBattleActive: false }), true);
     assert.equal(shouldHideBattleChrome({ screen: "arenaDistrict", arenaBattleActive: false, petBattleActive: false }), false);
     assert.equal(shouldHideBattleChrome({ screen: "arenaDistrict", arenaBattleActive: true, petBattleActive: false }), true);
     assert.equal(shouldHideBattleChrome({ screen: "petArena", arenaBattleActive: false, petBattleActive: false }), false);

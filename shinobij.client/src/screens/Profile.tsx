@@ -20,8 +20,9 @@ import { LegacyPanel } from "./LegacyPanel";
 import { BattleLogHistoryPanel } from "../components/BattleLogHistoryPanel";
 import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, isLegacyServerLive, isLegacyEnabled } from "../lib/legacy";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
+import { feedAuraSphereServer } from "../lib/aura-feed-api";
 import { canEquipElementJutsu } from "../lib/bloodline";
-import { allocatedStatPoints, baseStats, capStat, xpNeeded } from "../lib/stats";
+import { allocatedStatPoints, capStat, xpNeeded } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
 import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getAllItems, getItemById } from "../lib/items";
@@ -57,6 +58,7 @@ export function Profile({
     creatorItems: GameItem[];
     onDeleteCharacter?: () => void;
 }) {
+    const [feedingAura, setFeedingAura] = useState(false);
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const allItems = getAllItems(creatorItems);
     // Every distinct equipped id across all slots (weapon, armor pieces, the
@@ -72,14 +74,18 @@ export function Profile({
     const auraBonuses = getActiveAuraSphereBonuses(character);
     const auraDustNeeded = auraSphereDustNeeded(character.auraSphereLevel);
     const ownedElements = getCharacterElements(character);
-    function feedAuraSphere() {
+    async function feedAuraSphere() {
         if (character.auraSphereLevel >= 300) return alert("Your Aura Sphere is already eternal.");
         if ((character.auraDust ?? 0) < auraDustNeeded) return alert(`You need ${auraDustNeeded} Aura Dust.`);
-        updateCharacter({
-            ...character,
-            auraDust: character.auraDust - auraDustNeeded,
-            auraSphereLevel: character.auraSphereLevel + 1,
-        });
+        if (feedingAura) return;
+        setFeedingAura(true);
+        try {
+            updateCharacter(await feedAuraSphereServer(character.name));
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Aura Sphere feed failed.");
+        } finally {
+            setFeedingAura(false);
+        }
     }
 
     function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
@@ -197,19 +203,31 @@ export function Profile({
         }
         if (!(await gameConfirm(`Reset all 12 stats to base and refund every earned point (${refund}) into your allocatable pool for ${RESPEC_COST} 🔮 Fate Shards? Nothing is lost — you re-allocate as you wish.`))) return;
         setStatWarning("");
-        updateCharacter({ ...character, stats: baseStats(), unspentStats: (character.unspentStats ?? 0) + refund, fateShards: (character.fateShards ?? 0) - RESPEC_COST });
+        const response = await fetch('/api/player/stat-respec', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name }) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data?.character) {
+            setStatWarning(String(data?.error ?? 'Respec failed.'));
+            return;
+        }
+        updateCharacter(data.character as Character);
     }
 
-    function purchaseTitle() {
+    async function mutateProfileTitle(action: 'title' | 'style' | 'icon', value: string): Promise<boolean> {
+        const response = await fetch('/api/player/profile-title', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, action, value }) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data?.character) { alert(String(data?.error ?? 'Profile update failed.')); return false; }
+        updateCharacter(data.character as Character); return true;
+    }
+
+    async function purchaseTitle() {
         const trimmed = titleInput.trim().slice(0, 15);
         if (!trimmed) return alert("Enter a title first.");
         if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} 🔮 Fate Shards.`);
-        updateCharacter({ ...character, customTitle: trimmed, fateShards: character.fateShards - TITLE_COST });
+        await mutateProfileTitle('title', trimmed);
     }
 
-    function clearTitle() {
-        updateCharacter({ ...character, customTitle: undefined });
-        setTitleInput("");
+    async function clearTitle() {
+        if (await mutateProfileTitle('title', '')) setTitleInput("");
     }
 
     // Title cosmetics (handoff pricing tiers): style color + icon are paid
@@ -222,7 +240,7 @@ export function Profile({
         }
         const cost = styleId === "" ? 0 : TITLE_STYLE_COST;
         if (cost > 0 && !(await gameConfirm(`Restyle your title for ${cost} 🔮 Fate Shards?`, { title: "Title Style", confirmLabel: "Restyle" }))) return;
-        updateCharacter({ ...character, customTitleStyle: styleId, fateShards: (character.fateShards ?? 0) - cost });
+        await mutateProfileTitle('style', styleId);
     }
     async function purchaseTitleIcon(icon: string) {
         if ((character.customTitleIcon ?? "") === icon) return;
@@ -231,15 +249,14 @@ export function Profile({
         }
         const cost = icon === "" ? 0 : TITLE_ICON_COST;
         if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} 🔮 Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return;
-        updateCharacter({ ...character, customTitleIcon: icon, fateShards: (character.fateShards ?? 0) - cost });
+        await mutateProfileTitle('icon', icon);
     }
 
     // Wear an earned title (free) — earned titles come from title-granting
     // achievements (see TITLE_ACHIEVEMENT_IDS), distinct from the paid free-text
     // custom title below.
-    function equipTitle(title: string) {
-        updateCharacter({ ...character, customTitle: title });
-        setTitleInput(title);
+    async function equipTitle(title: string) {
+        if (await mutateProfileTitle('title', title)) setTitleInput(title);
     }
 
     function toggleJutsu(id: string) {
@@ -410,16 +427,18 @@ export function Profile({
             {/* Mobile-only tab navigation — hidden on desktop via CSS */}
             <nav className="profile-mobile-tabs">
                 {([
-                    { id: 'overview', label: '👤 Profile' },
-                    { id: 'stats',    label: '💪 Stats'   },
-                    { id: 'jutsu',    label: '⚡ Jutsu'   },
-                    { id: 'achievements', label: '🏆 Achievements' },
-                    { id: 'battlelogs', label: '⚔️ Battles' },
-                    { id: 'legacy',   label: '🌠 Legacy'  },
+                    { id: 'overview', label: 'Profile' },
+                    { id: 'stats',    label: 'Stats'   },
+                    { id: 'jutsu',    label: 'Jutsu'   },
+                    { id: 'achievements', label: 'Achievements' },
+                    { id: 'battlelogs', label: 'Battles' },
+                    { id: 'legacy',   label: 'Legacy'  },
                 ] as const).filter((t) => t.id !== 'legacy' || isLegacyEnabled()).map(({ id, label }) => (
                     <button
+                        type="button"
                         key={id}
                         className={`pmtab${mobileTab === id ? ' pmtab-active' : ''}`}
+                        aria-current={mobileTab === id ? 'page' : undefined}
                         onClick={() => setMobileTab(id)}
                     >{label}</button>
                 ))}
@@ -494,7 +513,7 @@ export function Profile({
                                 <button
                                     className="aura-sphere-inline-button"
                                     onClick={feedAuraSphere}
-                                    disabled={character.auraSphereLevel >= 300 || character.auraDust < auraDustNeeded}
+                                    disabled={feedingAura || character.auraSphereLevel >= 300 || character.auraDust < auraDustNeeded}
                                 >
                                     {character.auraSphereLevel >= 300 ? "Eternal Aura Reached" : `Feed ${auraDustNeeded} Aura Dust`}
                                 </button>
@@ -526,7 +545,7 @@ export function Profile({
                         <button
                             className="aura-sphere-inline-button"
                             onClick={feedAuraSphere}
-                            disabled={character.auraSphereLevel >= 300 || character.auraDust < auraDustNeeded}
+                            disabled={feedingAura || character.auraSphereLevel >= 300 || character.auraDust < auraDustNeeded}
                         >
                             {character.auraSphereLevel >= 300 ? "Eternal Aura Reached" : `Feed ${auraDustNeeded} Aura Dust`}
                         </button>

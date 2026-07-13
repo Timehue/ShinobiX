@@ -18,6 +18,9 @@ const _ai_fight_reward_js_1 = require("./_ai-fight-reward.js");
         node_assert_1.strict.equal(r.ryo, Math.floor(80 * _ai_fight_reward_js_1.AI_FIGHT_REDUCED_MULT));
         node_assert_1.strict.equal(r.capped, true);
     });
+    (0, node_test_1.it)('pays zero beyond the daily hard cap', () => {
+        node_assert_1.strict.deepEqual((0, _ai_fight_reward_js_1.aiFightReward)(125, 90, _ai_fight_reward_js_1.AI_FIGHT_HARD_CAP_PER_DAY + 1), { xp: 0, ryo: 0, capped: true });
+    });
     (0, node_test_1.it)('clamps the per-fight base (anti-inflation)', () => {
         const r = (0, _ai_fight_reward_js_1.aiFightReward)(99999, 99999, 1);
         node_assert_1.strict.equal(r.xp, _ai_fight_reward_js_1.MAX_AI_FIGHT_XP);

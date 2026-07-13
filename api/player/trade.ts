@@ -111,11 +111,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const plan = planTrade(currency, amount, num(senderChar[currency]));
                 if (!plan.ok) return { status: 400, body: { error: plan.reason } };
 
-                const senderUpdated = bumpSaveVersion({ ...senderRec, character: { ...senderChar, [currency]: num(senderChar[currency]) - plan.debit } });
+                const senderBalance = num(senderChar[currency]) - plan.debit;
+                const senderUpdated = bumpSaveVersion({ ...senderRec, character: { ...senderChar, [currency]: senderBalance } });
                 await kv.set(senderKey, mergePreservingImages(senderUpdated, senderRec));
                 const recipientUpdated = bumpSaveVersion({ ...recipientRec, character: { ...recipientChar, [currency]: num(recipientChar[currency]) + plan.credit } });
                 await kv.set(recipientKey, mergePreservingImages(recipientUpdated, recipientRec));
-                return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay } };
+                return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay, senderBalance } };
             }, { failClosed: true }),
         { failClosed: true });
 

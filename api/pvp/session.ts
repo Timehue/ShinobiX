@@ -578,19 +578,19 @@ export function resolveEquippedLoadout(
             // four built-in A-rank bloodlines currently under-apply their tags.
             // Gated by BLOODLINE_RANK_CAPS so the (small) A/S cap lift rolls out
             // deliberately; flag-off leaves rank unstamped → basic caps, byte-
-            // identical to today. Pair with BLOODLINE_RANK_ENTITLEMENT so a forged
-            // rank can't claim higher caps than the player legitimately earned.
+            // identical to today. The always-on save entitlement plus the paid,
+            // one-use /bloodlines/forge path prevents forged ranks from claiming
+            // higher caps than the player legitimately earned.
             const stampRank = process.env.BLOODLINE_RANK_CAPS === '1';
-            const enforceBudget = process.env.BLOODLINE_BUDGET_SERVER === '1';
             for (const b of bloodlines) {
                 if (!b || typeof b !== 'object') continue;
                 const bl = b as Record<string, unknown>;
                 const blRank = typeof bl.rank === 'string' ? bl.rank : null;
                 let jutsus = bl.jutsus;
                 // Defense-in-depth: enforce the bloodline point budget here too, so a
-                // pre-existing over-budget save (written before BLOODLINE_BUDGET_SERVER
-                // was enabled) is still clamped down when it loads into a fight.
-                if (enforceBudget && Array.isArray(jutsus)) {
+                // pre-existing over-budget save is still clamped down when it
+                // loads into a fight.
+                if (Array.isArray(jutsus)) {
                     jutsus = enforceBloodlineBudget(jutsus as RawJutsu[], blRank) as unknown[];
                 }
                 if (stampRank && Array.isArray(jutsus) && blRank) {

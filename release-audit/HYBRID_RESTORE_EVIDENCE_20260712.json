@@ -1,0 +1,83 @@
+{
+  "format": "shinobix-restore-evidence-v2",
+  "ok": true,
+  "drillStartedAt": "2026-07-13T02:43:06.710Z",
+  "completedAt": "2026-07-13T02:46:38.792Z",
+  "totalDurationMs": 212082,
+  "exportDurationMs": 75343,
+  "restoreDurationMs": 136651,
+  "recoveryPointAgeMsAtCompletion": 143585,
+  "source": {
+    "base": {
+      "endpoint": {
+        "protocol": "postgresql:",
+        "host": "aws-1-us-east-1.pooler.supabase.com",
+        "port": "5432",
+        "database": "postgres",
+        "userHash": "6fc1ffdacf089152"
+      },
+      "database": "postgres",
+      "databaseUserHash": "a942b37ccfaf5a81",
+      "serverAddressHash": "439aa1ae57af6396"
+    },
+    "overlay": {
+      "kind": "remote-proxy",
+      "endpoint": "theravensark.com"
+    }
+  },
+  "target": {
+    "base": {
+      "endpoint": {
+        "protocol": "postgresql:",
+        "host": "aws-0-us-east-1.pooler.supabase.com",
+        "port": "5432",
+        "database": "postgres",
+        "userHash": "1a362419e0fde3b4"
+      },
+      "database": "postgres",
+      "databaseUserHash": "a942b37ccfaf5a81",
+      "serverAddressHash": "890f9f7d85686c25"
+    },
+    "overlay": {
+      "kind": "disk",
+      "pathHash": "fee83e5326c1f7ec"
+    }
+  },
+  "sourceAndTargetDiffer": true,
+  "baseRowCount": 3401,
+  "overlayKeyCount": 115,
+  "saveCount": 95,
+  "baseSha256": "9f02c9f13aae289a7f1141af9e329e732cc7693565ce97890bad01ec039eefeb",
+  "overlaySha256": "9328bf5a06520e2056b0118c28e4fc3b1c915ad2f4e0f023dc721a4abc83b051",
+  "fullDatasetVerified": true,
+  "representatives": [
+    {
+      "label": "344b115d347b3663",
+      "category": "player-save",
+      "store": "overlay",
+      "valueSha256": "0ec735e9d17f053c4a206d045cf4d09b382d723600e0099a361c59c4f7e3dedb",
+      "verified": true
+    },
+    {
+      "label": "0b4888dd3d5ef0eb",
+      "category": "clan",
+      "store": "overlay",
+      "valueSha256": "2e07506b0d3f5cc4d3e5e2b101e362d9eeacdfdcdc6516f4e6a390c2ae2e3cd2",
+      "verified": true
+    },
+    {
+      "label": "9df2bc3fc168700d",
+      "category": "image",
+      "store": "overlay",
+      "valueSha256": "158585ae823e47e49881ae3e42bf44de02a7bc3bc21bba525d4f6dbd5cf3836f",
+      "verified": true
+    },
+    {
+      "label": "a0c4f245e60a41d0",
+      "category": "receipt",
+      "store": "base",
+      "valueSha256": "60201bf8ccf9882aae2d774cb74fd505572d522489b2c2fc38725d9e04abafd4",
+      "verified": true
+    }
+  ]
+}

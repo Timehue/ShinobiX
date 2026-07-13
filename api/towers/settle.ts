@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { kv } from '../_storage.js';
 import {
     readSession,
     settleFloorForMember,
@@ -58,7 +59,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? await settleAssistForAlly({ session, slug })
                     : await settleFloorForMember({ session, slug });
         }
-        return res.status(200).json({ runId, winner: session.winner, results, consumables });
+        // Return only the caller's committed character. The results map may cover
+        // multiple squad members, but their private save data must not be exposed.
+        const responseSlug = callerSlug ?? safeName(playerName);
+        const committed = await kv.get<Record<string, unknown>>(`save:${responseSlug}`);
+        return res.status(200).json({
+            runId,
+            winner: session.winner,
+            results,
+            consumables,
+            character: committed?.character ?? null,
+            _saveVersion: Number(committed?._saveVersion ?? 0),
+        });
     } catch (err) {
         console.error('[towers/settle]', err);
         return res.status(500).json({ error: 'Internal server error.' });

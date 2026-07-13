@@ -22,4 +22,12 @@ const _mutate_player_save_js_1 = require("./_mutate-player-save.js");
         const out = (0, _mutate_player_save_js_1.versionedPlayerRecord)({ character: { name: 'Old' } }, { name: 'Old' });
         node_assert_1.strict.equal(out._saveVersion, 1);
     });
+    (0, node_test_1.it)('applies an atomic top-level record patch with the character mutation', () => {
+        const current = { _saveVersion: 3, activeTraining: { token: 'abc' }, character: { name: 'Old', stamina: 10 } };
+        const out = (0, _mutate_player_save_js_1.versionedPlayerRecord)(current, { name: 'Old', stamina: 5 }, { activeTraining: null });
+        node_assert_1.strict.equal(out._saveVersion, 4);
+        node_assert_1.strict.equal(out.record.activeTraining, null);
+        node_assert_1.strict.deepEqual(out.record.character, { name: 'Old', stamina: 5 });
+        node_assert_1.strict.deepEqual(current.activeTraining, { token: 'abc' });
+    });
 });

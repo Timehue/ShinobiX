@@ -100,7 +100,12 @@ async function handler(req, res) {
             if (!record)
                 record = { baseline: (0, _weekly_board_js_1.snapshotCounters)(char), claimed: [] };
             if (record.claimed.includes(mission.id)) {
-                return { status: 200, body: { ok: true, alreadyClaimed: true, _saveVersion: Number(save._saveVersion ?? 0) } };
+                return { status: 200, body: {
+                        ok: true,
+                        alreadyClaimed: true,
+                        balances: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) },
+                        _saveVersion: Number(save._saveVersion ?? 0),
+                    } };
             }
             const progress = (0, _weekly_board_js_1.computeProgress)(mission, record.baseline, char);
             if (progress < mission.target) {
@@ -117,7 +122,13 @@ async function handler(req, res) {
             await _storage_js_1.kv.set(key, nextRecord, { ex: RECORD_TTL_SECONDS });
             const updatedSave = (0, _save_version_js_1.bumpSaveVersion)({ ...save, character: nextChar });
             await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(updatedSave, save));
-            return { status: 200, body: { ok: true, reward: r, missionId: mission.id, _saveVersion: Number(updatedSave._saveVersion ?? 0) } };
+            return { status: 200, body: {
+                    ok: true,
+                    reward: r,
+                    missionId: mission.id,
+                    balances: { ryo: num(nextChar.ryo), fateShards: num(nextChar.fateShards), boneCharms: num(nextChar.boneCharms) },
+                    _saveVersion: Number(updatedSave._saveVersion ?? 0),
+                } };
         }, { failClosed: true });
         if (out.status === 200 && out.body.ok && !out.body.alreadyClaimed) {
             await _storage_js_1.kv.set(`audit:weekly-board:${now}`, { ts: now, player: playerName, wk, missionId: out.body.missionId, reward: out.body.reward }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Character, Profession } from "../App";
+import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 
 type Stage = "intro" | "choose" | "confirm";
 
@@ -12,7 +13,6 @@ type ProfessionInfo = {
     tagline: string;
     bullets: string[];
     accent: string;
-    icon: string;
 };
 
 const PROFESSIONS: ProfessionInfo[] = [
@@ -26,7 +26,6 @@ const PROFESSIONS: ProfessionInfo[] = [
             "Better expedition rewards",
         ],
         accent: "#84cc16",
-        icon: "🐾",
     },
     {
         id: "healer",
@@ -38,7 +37,6 @@ const PROFESSIONS: ProfessionInfo[] = [
             "Rank 10: see & heal injured villagers anywhere in the world",
         ],
         accent: "#22d3ee",
-        icon: "✚",
     },
     {
         id: "vanguard",
@@ -50,9 +48,14 @@ const PROFESSIONS: ProfessionInfo[] = [
             "Discount jutsu training at Rank 8",
         ],
         accent: "#f97316",
-        icon: "⚔",
     },
 ];
+
+const PROFESSION_ICON: Record<Profession, GameIconName> = {
+    healer: "hp",
+    vanguard: "sword",
+    petTamer: "paw",
+};
 
 const INTRO_LINES = [
     "The village elder eyes you carefully.",
@@ -176,6 +179,7 @@ export function ProfessionPicker({
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-end" }}>
                         <button
+                            type="button"
                             onClick={() => setStage("choose")}
                             style={{
                                 background: "linear-gradient(135deg,#7c3aed,#a855f7)",
@@ -222,6 +226,7 @@ export function ProfessionPicker({
                             const portrait = portraitFor(p.id);
                             return (
                                 <button
+                                    type="button"
                                     key={p.id}
                                     onClick={() => { setPending(p.id); setStage("confirm"); }}
                                     style={{
@@ -261,10 +266,9 @@ export function ProfessionPicker({
                                         gap: 12,
                                     }}>
                                         <span style={{
-                                            fontSize: 36,
                                             color: p.accent,
                                             lineHeight: 1,
-                                        }}>{p.icon}</span>
+                                        }}><GameIcon name={PROFESSION_ICON[p.id]} size={36} /></span>
                                         <div>
                                             <h3 style={{ margin: 0, color: p.accent, fontSize: 22 }}>{p.name}</h3>
                                             <p style={{ margin: "2px 0 0", color: "#c4b5fd", fontStyle: "italic", fontSize: 13 }}>
@@ -305,7 +309,7 @@ export function ProfessionPicker({
                 boxShadow: `0 0 60px ${info.accent}66`,
                 textAlign: "center",
             }}>
-                <div style={{ fontSize: 56, color: info.accent, marginBottom: 8 }}>{info.icon}</div>
+                <div style={{ color: info.accent, marginBottom: 8 }}><GameIcon name={PROFESSION_ICON[info.id]} size={56} /></div>
                 <p className="act-label" style={{ color: info.accent, letterSpacing: 2, margin: 0 }}>
                     CONFIRM YOUR PATH
                 </p>
@@ -323,6 +327,7 @@ export function ProfessionPicker({
                 )}
                 <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
                     <button
+                        type="button"
                         onClick={() => { setPending(null); setStage("choose"); setError(null); }}
                         disabled={submitting}
                         style={{ padding: "10px 20px" }}
@@ -330,6 +335,7 @@ export function ProfessionPicker({
                         Cancel
                     </button>
                     <button
+                        type="button"
                         onClick={() => void commit()}
                         disabled={submitting}
                         style={{

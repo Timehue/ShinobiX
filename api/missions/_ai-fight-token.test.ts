@@ -16,6 +16,7 @@ describe('_ai-fight-token', () => {
             opponentLevel: 42.9,
             baseXp: 125,
             baseRyo: 90,
+            battleKind: 'defense',
         });
         assert.equal(token.playerName, 'Player');
         assert.equal(token.tokenId, 'abc123');
@@ -27,6 +28,11 @@ describe('_ai-fight-token', () => {
         assert.equal(token.rewardSource, 'server-save');
         assert.equal(token.opponentId, 'forest-ai:1');
         assert.equal(token.opponentLevel, 42);
+        assert.equal(token.battleKind, 'defense');
+    });
+
+    it('normalizes unknown battle kinds to non-paying practice', () => {
+        assert.equal(createAiFightTokenRecord('Player', 'abc123', 123, { battleKind: 'forged' }).battleKind, 'practice');
     });
 
     it('cleans token ids for key use', () => {

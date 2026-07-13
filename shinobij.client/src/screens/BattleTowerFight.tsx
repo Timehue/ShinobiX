@@ -271,15 +271,13 @@ export function BattleTowerFight({
             if (settleFn) {
                 void settleFn(runId, me).catch(() => {});
             } else {
-                settleTowerRun(runId, me).then(setSettle).catch(() => {});
-                // Endless Spire: optimistically mirror the tier unlock onto the client save so the
-                // lobby shows the next floor unlocked the instant you return — no reload/refetch wait.
-                // Server-authoritative via settle; battleTowerAscension is a monotone max, so a local
-                // bump can never be wrong (weekly-best is left to the server refetch, it's display-only).
-                const tier = Number(session.ascensionTier ?? 0);
-                if (tier > 0 && updateCharacter && tier > (character.battleTowerAscension ?? 0)) {
-                    updateCharacter({ ...character, battleTowerAscension: tier });
-                }
+                settleTowerRun(runId, me).then((response) => {
+                    setSettle(response);
+                    if (!updateCharacter) return;
+                    if (response.character) {
+                        updateCharacter(response.character);
+                    }
+                }).catch(() => {});
             }
         }
     }, [session.status, session.winner, runId, me, settleFn, settleOnAnyDone, session.ascensionTier, character, updateCharacter]);

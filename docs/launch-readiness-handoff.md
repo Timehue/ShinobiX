@@ -22,19 +22,18 @@ Self-contained handoff so a fresh session can continue without re-reading the pr
 **Already ACTIVE (Wave A — not flagged; byte-identical for honest players, tamper-defense/QoL):** fail-closed currency/war locks, PvP EP clamp + amp-tag dedup, heartbeat slim, Central Hub nav, dead-code removal, pet jutsu-power ceiling, per-minute currency window (disable with `DISABLE_CURRENCY_WINDOW=1`).
 
 **Flag-gated, default OFF (flip to activate — these are the balance changes):**
-- `BLOODLINE_RANK_ENTITLEMENT` (env) — sub-3
 - `BLOODLINE_RANK_CAPS` (env) — sub-2
-- `BLOODLINE_BUDGET_SERVER` (env) — sub-1
-- `ITEM_BONUS_BUDGET` (env) — sub-5
+- Bloodline acquisition/rank entitlement is now always enforced; purchases use the server-authoritative `/api/bloodlines/forge` endpoint and a single-use stored entitlement.
+- Bloodline point budgets are now always enforced (sub-1; no environment flag).
+- Custom-item bonus budgets are now always enforced (sub-5; no environment flag).
 - `aiFightServerAuth.v1` (client localStorage) — P0.2b (needs the client rewire below first)
 
 **Enable sequence (when ready):**
-1. **One-off save audit first:** scan `save:*` for `savedBloodlines` with `rank` `A Rank`/`S Rank` and count them — so flipping entitlement doesn't clamp a legit holder to B (a wiped/migrated save lacking the bloodline would re-baseline to B).
-2. `BLOODLINE_RANK_ENTITLEMENT=1` first (clamps forged ranks down).
-3. then `BLOODLINE_RANK_CAPS=1` + `BLOODLINE_BUDGET_SERVER=1`.
-4. optionally `ITEM_BONUS_BUDGET=1`.
-5. Set env flags on **both Railway AND cPanel** (must match, like `SESSION_SECRET`). Restart needed.
-6. Budget/rank values are the exact client ports (parity-tested) — no tuning needed. For P0.2b tune `AI_FIGHT_SOFT_CAP_PER_DAY` (50) / `AI_FIGHT_REDUCED_MULT` (0.25) in `api/missions/_ai-fight-reward.ts` before flipping.
+1. Existing bloodlines are grandfathered by stable id and stored rank; new bloodlines and upward rank changes require the exact purchased forge entitlement.
+2. Enable `BLOODLINE_RANK_CAPS=1`; the acquisition/rank entitlement and point budget are already always on.
+3. Custom-item bonus budgets require no rollout flag; they are already always on.
+4. Set env flags on **both Railway AND cPanel** (must match, like `SESSION_SECRET`). Restart needed.
+5. Budget/rank values are the exact client ports (parity-tested) — no tuning needed. For P0.2b tune `AI_FIGHT_SOFT_CAP_PER_DAY` (50) / `AI_FIGHT_REDUCED_MULT` (0.25) in `api/missions/_ai-fight-reward.ts` before flipping.
 
 ## 4. IMMEDIATE NEXT TASK — P0.2b client rewire
 The server side is done (`api/missions/report-ai-fight.ts`, **return-only**, race-free). Contract:
@@ -176,9 +175,9 @@ byte-identical until flipped.** This section supersedes §4/§5's "next task" fr
 - **P0.4** (`c2bcba59`) — failClosed the card-duel ACTION-handler RMWs (tilecards.ts + sector-card.ts);
   poll auto-resolve locks + guarded/already-failClosed settlements left open.
 
-**ENABLE SEQUENCE (unchanged core + new client flags):** env — run the one-off `save:*` A/S bloodline
-audit, then `BLOODLINE_RANK_ENTITLEMENT=1` → `BLOODLINE_RANK_CAPS=1` + `BLOODLINE_BUDGET_SERVER=1`
-(+ optional `ITEM_BONUS_BUDGET=1`) on BOTH Railway + cPanel. Client localStorage flags (per-device, flip to
+**ENABLE SEQUENCE (unchanged core + new client flags):** env — `BLOODLINE_RANK_CAPS=1` (bloodline
+purchase/rank entitlement and point budget are already always on)
+(custom-item bonus budgets are already always on) on BOTH Railway + cPanel. Client localStorage flags (per-device, flip to
 test then roll out): `aiFightServerAuth.v1='1'` (tune `AI_FIGHT_SOFT_CAP_PER_DAY`/`REDUCED_MULT` first),
 `warCrateServerAuth.v1='1'`. HG item clamp + P0.4 are already-on (byte-identical, no flag).
 

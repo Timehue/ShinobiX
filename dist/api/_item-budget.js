@@ -1,6 +1,6 @@
 "use strict";
 /*
- * P0.1 sub-5 — server budget for CUSTOM item bonuses (flag ITEM_BONUS_BUDGET).
+ * P0.1 sub-5 — always-on server budget for CUSTOM item bonuses.
  *
  * Built-in items (api/pvp/_item-catalog.ts ITEM_CATALOG) are authoritative and
  * EXEMPT — callers only ever pass player/admin-authored creatorItems here. Those
@@ -10,26 +10,27 @@
  * Live impact today is small/defense-in-depth: only the passive %s + shield flow
  * into authoritative PvP (api/pvp/_multipliers.ts sumEquippedBonus). Specialty-stat
  * bonuses are NOT folded into server combat, so their budget is storage hygiene +
- * future-proofing. Flag-off keeps the legacy per-field [0,1000] clamp (byte-identical).
+ * future-proofing. The ceiling includes both built-in legendary gear and the
+ * legitimate Named Armor forge ranges.
  *
  * Baselines (see _item-catalog.ts legendary tiers):
- *   passive %s (damage/absorb/reflect/lifesteal) ≤ 1   (built-ins grant at most 1%)
- *   shield ≤ 100                                        (legendary shield piece)
+ *   passive %s (damage/absorb/reflect/lifesteal) ≤ 2   (Named Armor rolls up to 2%)
+ *   shield ≤ 150                                        (Named Armor rolls up to 150)
  *   vitals (maxHp/maxChakra/maxStamina) ≤ 150           (chakra-ring maxChakra)
- *   specialty-stat TOTAL per slot: armor 240 (8×30), hand 420 (gloves 4×75+4×30)
+ *   specialty-stat TOTAL per slot: armor 280 (8×35 Named Armor), hand 420 (gloves 4×75+4×30)
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.budgetItemBonuses = budgetItemBonuses;
 const PASSIVE_PCT_FIELDS = new Set(['damagePercent', 'absorbPercent', 'reflectPercent', 'lifeStealPercent']);
 const VITAL_FIELDS = new Set(['maxHp', 'maxChakra', 'maxStamina']);
-const MAX_PASSIVE_PCT = 1;
-const MAX_SHIELD = 100;
+const MAX_PASSIVE_PCT = 2;
+const MAX_SHIELD = 150;
 const MAX_VITAL = 150;
 const ARMOR_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'armor']);
 // Specialty-stat (offense/defense) total budget per slot. Unknown slot → loosest
 // (hand) so a legit item of an unanticipated slot is never clipped.
 function specialtyBudgetForSlot(slot) {
-    return ARMOR_SLOTS.has(String(slot)) ? 240 : 420;
+    return ARMOR_SLOTS.has(String(slot)) ? 280 : 420;
 }
 /**
  * Return a copy of `item` whose `bonuses` are clamped to the built-in baseline.

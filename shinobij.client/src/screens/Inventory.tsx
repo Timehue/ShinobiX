@@ -1,20 +1,18 @@
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState } from "react";
+import { FiGrid, FiPackage } from "react-icons/fi";
 import "../styles/profile-skin.css";
+import { CloseButton } from "../components/ui/CloseButton";
+import { Modal } from "../components/ui/Modal";
 import {
     type Character,
     type EquipmentSlot,
     type GameItem,
-    DUNGEON_KEY_ID,
     LEGENDARY_WAR_CRATE_ID,
-    WARFORGED_RELIC_ID,
     armorReductionForQuality,
     consolidateItemBonuses,
     getAllItems,
     getItemById,
-    nonVanguardCharmSubstitute,
     petFeedXpForItem,
-    vanguardOnlyHonorSeals,
 } from "../App";
 import {
     COMBAT_ITEM_SLOTS,
@@ -30,13 +28,16 @@ import {
 import { hasCharacterElement } from "../lib/elements";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { deriveCardClashCard } from "../lib/card-clash";
-import { addItem, addItems, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
+import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
+import { formatItemBonus, presentItem } from "../lib/item-presentation";
+import { makeId } from "../lib/utils";
 
 export function Inventory({
     character,
     updateCharacter,
     creatorItems,
     creatorCards,
+    onServerVersion,
 }: {
     character: Character;
     // Accepts a plain replacement OR a functional updater (computing the next
@@ -47,6 +48,7 @@ export function Inventory({
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     creatorItems: GameItem[];
     creatorCards: TileCard[];
+    onServerVersion?: (version: number) => void;
 }) {
     const [selectedInventoryItem, setSelectedInventoryItem] = useState<null | {
         entry: string;
@@ -58,6 +60,8 @@ export function Inventory({
     const [inventoryTab, setInventoryTab] = useState<"items" | "tileCards">("items");
     const [selectedTileCard, setSelectedTileCard] = useState<{ card: TileCard; count: number } | null>(null);
     const [slotFilter, setSlotFilter] = useState<EquipmentSlot | null>(null);
+    const [openingWarCrate, setOpeningWarCrate] = useState(false);
+    const openingWarCrateRef = useRef(false);
     const allItems = getAllItems(creatorItems);
     const allTileCards = getAllTileCards(creatorCards);
 
@@ -254,26 +258,37 @@ export function Inventory({
         setSelectedInventoryItem(null);
     }
 
-    function consumeItem(entry: string) {
+    async function consumeItem(entry: string) {
         if (entry === LEGENDARY_WAR_CRATE_ID) {
-            const rewards = [WARFORGED_RELIC_ID];
-            if (Math.random() < 0.35) rewards.push(DUNGEON_KEY_ID);
-            // Honor Seals are Vanguard-only. Non-Vanguards get the standard
-            // 8:1 Bone Charm substitute instead (matches every other grant
-            // site since 510f4cb).
-            const honorSealGain = vanguardOnlyHonorSeals(character, 10);
-            const charmGain = nonVanguardCharmSubstitute(character, 10);
-            updateCharacter({
-                ...addItems(removeItem(character, LEGENDARY_WAR_CRATE_ID, 1), rewards),
-                honorSeals: (character.honorSeals ?? 0) + honorSealGain,
-                boneCharms: (character.boneCharms ?? 0) + charmGain,
-                ryo: character.ryo + 500,
-            });
-            setSelectedInventoryItem(null);
-            const honorMsg = honorSealGain > 0
-                ? `, +${honorSealGain} Honor Seals`
-                : charmGain > 0 ? `, +${charmGain} Bone Charms` : "";
-            alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${rewards.includes(DUNGEON_KEY_ID) ? ", +1 Dungeon Key" : ""}.`);
+            if (openingWarCrateRef.current) return;
+            openingWarCrateRef.current = true;
+            setOpeningWarCrate(true);
+            try {
+                const response = await fetch("/api/village/open-war-crate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ playerName: character.name }),
+                });
+                const data = await response.json().catch(() => null) as {
+                    error?: string;
+                    character?: Character;
+                    reward?: { honorSeals?: number; boneCharms?: number; gotDungeonKey?: boolean };
+                } | null;
+                if (!response.ok || !data?.character || !data.reward) {
+                    throw new Error(data?.error || "War crate could not be opened.");
+                }
+                updateCharacter(data.character);
+                setSelectedInventoryItem(null);
+                const honorGain = Math.max(0, Number(data.reward.honorSeals) || 0);
+                const charmGain = Math.max(0, Number(data.reward.boneCharms) || 0);
+                const honorMsg = honorGain > 0 ? `, +${honorGain} Honor Seals` : `, +${charmGain} Bone Charm`;
+                alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${data.reward.gotDungeonKey ? ", +1 Dungeon Key" : ""}.`);
+            } catch (error) {
+                alert(error instanceof Error ? error.message : "War crate could not be opened.");
+            } finally {
+                openingWarCrateRef.current = false;
+                setOpeningWarCrate(false);
+            }
             return;
         }
 
@@ -307,36 +322,22 @@ export function Inventory({
         return Math.floor(Math.max(0, item.cost) / 2);
     }
 
-    function sellSelectedItem(count = 1) {
+    async function sellSelectedItem(count = 1) {
         const selected = selectedInventoryItem;
         if (!selected?.item) return;
         const item = selected.item;
         if (!isSellableGear(item)) return alert("This item cannot be sold.");
 
         const qty = selected.source === "equipped" ? 1 : Math.max(1, Math.min(selected.count, Math.floor(count)));
-        const saleValue = sellValueForItem(item) * qty;
-
-        if (selected.source === "equipped" && selected.equipmentSlot) {
-            const normalized = normalizeEquipmentSlot(selected.equipmentSlot);
-            updateCharacter({
-                ...character,
-                ryo: character.ryo + saleValue,
-                equipment: {
-                    ...character.equipment,
-                    [normalized]: undefined,
-                    ...(normalized === "hand" ? { weapon: undefined } : {}),
-                    ...(normalized === "body" ? { armor: undefined } : {}),
-                    ...(normalized === "aura" ? { accessory: undefined } : {}),
-                },
-            });
-            setSelectedInventoryItem(null);
-            return;
-        }
-
-        updateCharacter({
-            ...removeItem(character, item.id, qty),
-            ryo: character.ryo + saleValue,
-        });
+        const equipmentSlot = selected.source === "equipped" && selected.equipmentSlot ? normalizeEquipmentSlot(selected.equipmentSlot) : undefined;
+        const response = await fetch('/api/shop/sell', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerName: character.name, itemId: item.id, qty, equipmentSlot, requestId: makeId() }),
+        }).catch(() => null);
+        const data = response ? await response.json().catch(() => null) as { character?: Character; _saveVersion?: number; error?: string } | null : null;
+        if (!response?.ok || !data?.character) return alert(data?.error || 'The item sale could not be verified.');
+        if (typeof data._saveVersion === 'number') onServerVersion?.(data._saveVersion);
+        updateCharacter(data.character);
         setSelectedInventoryItem(null);
     }
 
@@ -368,12 +369,18 @@ export function Inventory({
     const selected = selectedInventoryItem;
     const selectedGameItem = selected?.item;
     const selectedPetFoodXp = petFeedXpForItem(selectedGameItem?.id);
+    const selectedPresentation = selectedGameItem ? presentItem(selectedGameItem, selectedPetFoodXp) : null;
     const selectedSellValue = selectedGameItem && isSellableGear(selectedGameItem) ? sellValueForItem(selectedGameItem) : 0;
+    const selectedActionCost = selectedGameItem
+        ? (selectedGameItem.apCost ?? (selectedGameItem.weaponEp ? 40 : 0))
+        : 0;
     // Equippable to the player? Combat items authored on "item" equip into
     // item1/2/3; other slot-"item" entries (pet food / materials / collars / pet
     // gear) are not player-equippable. Every other slot equips as before.
     const selectedEquippable = !!selectedGameItem && !selectedPetFoodXp
         && (normalizeEquipmentSlot(selectedGameItem.slot) === "item" ? isCombatConsumable(selectedGameItem) : true);
+    const selectedPassiveBonuses = selectedGameItem ? itemBonusLines(selectedGameItem) : [];
+    const selectedHasPassiveEffects = !!selectedGameItem?.armorQuality || selectedPassiveBonuses.length > 0;
     // Selling an EQUIPPED consumable would mint ryo without spending the stack
     // (the selection never pulled a copy from the backpack). Sell those from the
     // backpack instead, so hide sell on the equipped instance.
@@ -433,6 +440,7 @@ export function Inventory({
                                             setSlotFilter((current) => (current === acceptSlot ? null : acceptSlot));
                                         }
                                     }}
+                                    aria-label={`${slot.label} equipment slot${equipped ? `, equipped with ${equipped.name}` : ", empty"}`}
                                     title={equipped ? `${equipped.name}: click to inspect` : `Show ${slot.label} items in backpack`}
                                 >
                                     {equipped?.image ? (
@@ -451,12 +459,15 @@ export function Inventory({
                                                 padding: 4,
                                             }}
                                         />
-                                    ) : (
-                                        <span>{equipped ? itemInitials(equipped.name) : slot.label}</span>
-                                    )}
+                                    ) : equipped ? (
+                                        <span className="equip-slot-initials">{itemInitials(equipped.name)}</span>
+                                    ) : null}
+
+                                    <span className="equip-slot-label">{slot.label}</span>
 
                                     {equipped && (
                                         <small
+                                            className="equip-slot-item-name"
                                             style={{
                                                 position: "relative",
                                                 zIndex: 1,
@@ -504,17 +515,19 @@ export function Inventory({
                             <button
                                 type="button"
                                 className={inventoryTab === "items" ? "active" : ""}
+                                aria-pressed={inventoryTab === "items"}
                                 onClick={() => setInventoryTab("items")}
                             >
-                                🎒 Items
+                                <FiPackage aria-hidden="true" /> Items
                             </button>
 
                             <button
                                 type="button"
                                 className={inventoryTab === "tileCards" ? "active" : ""}
+                                aria-pressed={inventoryTab === "tileCards"}
                                 onClick={() => setInventoryTab("tileCards")}
                             >
-                                🃏 Card Clash
+                                <FiGrid aria-hidden="true" /> Card Clash
                             </button>
                         </div>
                     </div>
@@ -682,15 +695,12 @@ export function Inventory({
 
                             {selectedTileCard && (
                                 <div className="summary-box tile-card-selected-detail">
-                                    <button
-                                        type="button"
+                                    <CloseButton
                                         className="item-popup-close"
                                         onClick={() => setSelectedTileCard(null)}
                                         title="Close card details"
-                                        aria-label="Close"
-                                    >
-                                        ×
-                                    </button>
+                                        label="Close card details"
+                                    />
                                     <strong>{selectedTileCard.card.name}</strong>
                                     {(() => {
                                         const clash = deriveCardClashCard(selectedTileCard.card);
@@ -708,17 +718,21 @@ export function Inventory({
                 </section>
             </div>
 
-            {selected && createPortal(
-                <div className="item-popup-backdrop" onClick={() => setSelectedInventoryItem(null)}>
-                    <div className="item-popup-card" onClick={(e) => e.stopPropagation()}>
-                        <button
-                            type="button"
+            {selected && (
+                <Modal
+                    open
+                    onClose={() => setSelectedInventoryItem(null)}
+                    size="lg"
+                    bare
+                    ariaLabel={`${selectedGameItem?.name ?? selected.entry} item details`}
+                    className="item-popup-modal"
+                >
+                    <div className="item-popup-card">
+                        <CloseButton
                             className="item-popup-close"
                             onClick={() => setSelectedInventoryItem(null)}
-                            aria-label="Close"
-                        >
-                            ×
-                        </button>
+                            label="Close item details"
+                        />
 
                         <div className="item-popup-top">
                             <div className="item-popup-art-box">
@@ -757,87 +771,71 @@ export function Inventory({
                                 {selectedGameItem ? (
                                     <>
                                         <div className="item-popup-detail-grid">
-                                            <p><strong>Battle Type:</strong> PvE / PvP</p>
-                                            <p><strong>Rarity:</strong> {selectedGameItem.rarity}</p>
-                                            <p><strong>Item Type:</strong> {equipmentSlotLabel(selectedGameItem.slot)}</p>
-                                            <p><strong>Hidden:</strong> no</p>
-                                            <p><strong>Range:</strong> {selectedGameItem.weaponRange ?? 0}</p>
-                                            <p><strong>Destroy on use:</strong> {selectedPetFoodXp ? "yes" : "no"}</p>
-                                            <p><strong>Action Usage:</strong> {selectedGameItem.apCost ? `${selectedGameItem.apCost} AP` : selectedGameItem.weaponEp ? "40 AP" : "0%"}</p>
-                                            <p><strong>Target:</strong> {selectedPetFoodXp ? "selected pet" : "self"}</p>
-                                            <p><strong>Method:</strong> single</p>
-                                            <p><strong>Weapon:</strong> {normalizeEquipmentSlot(selectedGameItem.slot) === "hand" && !isGloveItem(selectedGameItem) ? "yes" : "none"}</p>
-                                            <p><strong>Equip:</strong> {selectedPetFoodXp ? "no" : "yes"}</p>
-                                            <p><strong>Required Level:</strong> {selectedGameItem.levelReq ?? 1}</p>
-                                            <p><strong>Shop Price:</strong> {selectedGameItem.cost} ryo</p>
+                                            <p><strong>Type:</strong> {selectedPresentation?.category}</p>
+                                            <p><strong>Use:</strong> {selectedPresentation?.use}</p>
+                                            {selectedPresentation?.showPlayerSlot && <p><strong>Slot:</strong> {equipmentSlotLabel(equipSlotForItem(selectedGameItem))}</p>}
+                                            {selectedPresentation?.showPlayerSlot && <p><strong>Level:</strong> {selectedGameItem.levelReq ?? 1}+</p>}
+                                            {selectedActionCost > 0 && <p><strong>Action Cost:</strong> {selectedActionCost} AP</p>}
+                                            {(selectedGameItem.weaponRange ?? 0) > 0 && <p><strong>Range:</strong> {selectedGameItem.weaponRange}</p>}
+                                            {selectedGameItem.weaponEp != null && <p><strong>Damage:</strong> {selectedGameItem.weaponEp} EP</p>}
+                                            {selectedGameItem.weaponCooldown != null && selectedGameItem.weaponCooldown > 0 && <p><strong>Cooldown:</strong> {selectedGameItem.weaponCooldown} rounds</p>}
+                                            {selectedGameItem.restoreChakra != null && <p><strong>Restores:</strong> {selectedGameItem.restoreChakra} chakra</p>}
+                                            {selectedGameItem.restoreStamina != null && <p><strong>Restores:</strong> {selectedGameItem.restoreStamina} stamina</p>}
+                                            {selectedGameItem.cost > 0 && <p><strong>Value:</strong> {selectedGameItem.cost} ryo</p>}
                                             {selectedSellValue > 0 && <p><strong>Sell Value:</strong> {selectedSellValue} ryo</p>}
-                                            {selectedGameItem.weaponEp != null && <p><strong>Damage EP:</strong> {selectedGameItem.weaponEp}</p>}
-                                            {selectedGameItem.weaponEffect && <p><strong>Weapon Effect:</strong> {selectedGameItem.weaponEffect} {selectedGameItem.weaponEffectValue ?? ""}%</p>}
-                                            {selectedGameItem.weaponCooldown != null && selectedGameItem.weaponCooldown > 0 && <p><strong>Cooldown:</strong> {selectedGameItem.weaponCooldown} round(s)</p>}
+                                            {selectedGameItem.weaponEffect && (
+                                                <p>
+                                                    <strong>{selectedPresentation?.effectLabel}:</strong> {selectedGameItem.weaponEffect}
+                                                    {selectedGameItem.weaponEffectValue != null ? ` ${selectedGameItem.weaponEffectValue}%` : ""}
+                                                </p>
+                                            )}
+                                            {selectedGameItem.weaponEffectTarget === "both" && <p><strong>Target:</strong> both combatants</p>}
                                         </div>
                                         {selectedGameItem.weaponTags && selectedGameItem.weaponTags.length > 0 && (
                                             <div className="item-popup-effect-box">
-                                                <h4>Named Weapon Tags</h4>
+                                                <h4>Weapon Traits</h4>
                                                 <div className="item-popup-effect-grid">
                                                     {selectedGameItem.weaponTags.map((t, i) => (
-                                                        <p key={i}><strong>Tag {i + 1}:</strong> {t.name} — {t.percent}%</p>
+                                                        <p key={i}><strong>{t.name}</strong> +{t.percent}%</p>
                                                     ))}
                                                 </div>
                                             </div>
                                         )}
                                         {selectedGameItem.flavorText && (
-                                            <p className="item-popup-description" style={{ fontStyle: "italic", color: "#94a3b8", marginTop: 6 }}>
+                                            <p className="item-popup-description item-popup-flavor">
                                                 "{selectedGameItem.flavorText}"
                                             </p>
                                         )}
 
                                         {selectedPetFoodXp && (
                                             <div className="item-popup-effect-box">
-                                                <h4>Effect 1: Pet XP Food</h4>
+                                                <h4>Pet Training</h4>
                                                 <div className="item-popup-effect-grid">
-                                                    <p><strong>Rounds:</strong> Instant</p>
-                                                    <p><strong>Calculation:</strong> flat</p>
-                                                    <p><strong>Effect Power:</strong> +{selectedPetFoodXp} pet XP</p>
-                                                    <p><strong>Target:</strong> selected pet</p>
-                                                    <p><strong>Effect Power / Lvl:</strong> 0</p>
-                                                    <p><strong>Stats:</strong> Pet experience</p>
+                                                    <p><strong>Reward:</strong> +{selectedPetFoodXp} pet XP</p>
+                                                    <p><strong>Consumed:</strong> after feeding</p>
                                                 </div>
                                             </div>
                                         )}
 
-                                        {selectedGameItem.armorQuality && (
+                                        {selectedHasPassiveEffects && (
                                             <div className="item-popup-effect-box">
-                                                <h4>Effect 1: Damage Reduction</h4>
+                                                <h4>While Equipped</h4>
                                                 <div className="item-popup-effect-grid">
-                                                    <p><strong>Rounds:</strong> Passive</p>
-                                                    <p><strong>Calculation:</strong> percentage</p>
-                                                    <p><strong>Effect Power:</strong> {Math.round(armorReductionForQuality(selectedGameItem.armorQuality) * 100)}%</p>
-                                                    <p><strong>Target:</strong> self</p>
-                                                    <p><strong>Effect Power / Lvl:</strong> 0</p>
-                                                    <p><strong>Stats:</strong> All incoming damage</p>
+                                                    {selectedGameItem.armorQuality && (
+                                                        <p><strong>Damage Reduction:</strong> {Math.round(armorReductionForQuality(selectedGameItem.armorQuality) * 100)}%</p>
+                                                    )}
+                                                    {selectedPassiveBonuses.map((bonus) => (
+                                                        <p key={bonus.stat}><strong>{bonus.stat}:</strong> {formatItemBonus(bonus.stat, bonus.value)}</p>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}
-
-                                        {itemBonusLines(selectedGameItem).map((bonus, index) => (
-                                            <div className="item-popup-effect-box" key={`${bonus.stat}-${index}`}>
-                                                <h4>Effect {selectedGameItem.armorQuality ? index + 2 : index + 1}: Increase {bonus.stat}</h4>
-                                                <div className="item-popup-effect-grid">
-                                                    <p><strong>Rounds:</strong> Passive</p>
-                                                    <p><strong>Calculation:</strong> flat</p>
-                                                    <p><strong>Effect Power:</strong> +{bonus.value}</p>
-                                                    <p><strong>Target:</strong> self</p>
-                                                    <p><strong>Effect Power / Lvl:</strong> 0</p>
-                                                    <p><strong>Stats:</strong> {bonus.stat}</p>
-                                                </div>
-                                            </div>
-                                        ))}
                                     </>
                                 ) : (
                                     <div className="item-popup-detail-grid">
-                                        <p><strong>Item Type:</strong> Consumable</p>
-                                        <p><strong>Target:</strong> self</p>
-                                        <p><strong>Method:</strong> single</p>
+                                        <p><strong>Type:</strong> Field Consumable</p>
+                                        <p><strong>Use:</strong> From backpack</p>
+                                        <p><strong>Restores:</strong> {selected.entry === "Chakra Pill" ? "25 chakra" : selected.entry === "Soldier Pill" ? "25 stamina" : "Varies by item"}</p>
                                     </div>
                                 )}
 
@@ -845,15 +843,18 @@ export function Inventory({
                                     {selectedGameItem?.id === LEGENDARY_WAR_CRATE_ID && selected.source === "backpack" && (
                                         <button
                                             type="button"
-                                            onClick={() => consumeItem(selected.entry)}
+                                            className="item-action-primary"
+                                            disabled={openingWarCrate}
+                                            onClick={() => void consumeItem(selected.entry)}
                                         >
-                                            Open Crate
+                                            {openingWarCrate ? "Opening…" : "Open Crate"}
                                         </button>
                                     )}
 
                                     {selectedGameItem && selectedEquippable && selected.source === "backpack" && selectedGameItem.id !== LEGENDARY_WAR_CRATE_ID && (
                                         <button
                                             type="button"
+                                            className="item-action-primary"
                                             onClick={() => equipItem(selectedGameItem)}
                                         >
                                             Equip to {equipmentSlotLabel(equipSlotForItem(selectedGameItem))}
@@ -863,6 +864,7 @@ export function Inventory({
                                     {selectedGameItem && selected.source === "equipped" && selected.equipmentSlot && (
                                         <button
                                             type="button"
+                                            className="item-action-secondary"
                                             onClick={() => unequipItem(selected.equipmentSlot!)}
                                         >
                                             Unequip
@@ -872,7 +874,8 @@ export function Inventory({
                                     {!selectedGameItem && selected.source === "backpack" && (
                                         <button
                                             type="button"
-                                            onClick={() => consumeItem(selected.entry)}
+                                            className="item-action-primary"
+                                            onClick={() => void consumeItem(selected.entry)}
                                         >
                                             {selected.entry === "Soldier Pill" || selected.entry === "Chakra Pill" ? "Use" : "Inspect"}
                                         </button>
@@ -881,6 +884,7 @@ export function Inventory({
                                     {selectedGameItem && selectedSellValue > 0 && !equippedConsumableSelected && (
                                         <button
                                             type="button"
+                                            className="item-action-secondary"
                                             onClick={() => sellSelectedItem(1)}
                                         >
                                             Sell for {selectedSellValue} ryo
@@ -890,6 +894,7 @@ export function Inventory({
                                     {selectedGameItem && selected.source === "backpack" && selected.count > 1 && selectedSellValue > 0 && (
                                         <button
                                             type="button"
+                                            className="item-action-secondary"
                                             onClick={() => sellSelectedItem(selected.count)}
                                         >
                                             Sell All x{selected.count} for {selectedSellValue * selected.count} ryo
@@ -898,7 +903,7 @@ export function Inventory({
 
                                     <button
                                         type="button"
-                                        className="danger-button"
+                                        className="item-action-ghost"
                                         onClick={() => setSelectedInventoryItem(null)}
                                     >
                                         Close
@@ -907,8 +912,7 @@ export function Inventory({
                             </div>
                         </div>
                     </div>
-                </div>,
-                document.body,
+                </Modal>
             )}
         </>
     );

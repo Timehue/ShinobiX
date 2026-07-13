@@ -326,7 +326,9 @@
 }
 
 .landing-hero-copy {
-    transform: translate(-72px, calc(clamp(-96px, -7vh, -58px) - 48px));
+    /* Keep the copy inside the hero's responsive inline padding. The former
+       fixed -72px shift clipped the CTA and first characters at 1280px. */
+    transform: translateY(calc(clamp(-96px, -7vh, -58px) - 48px));
 }
 
 .landing-eyebrow {

@@ -9,6 +9,7 @@ const _lock_js_1 = require("../../_lock.js");
 const _treasury_donate_js_1 = require("../../_treasury-donate.js");
 const _mutate_player_save_js_1 = require("../../save/_mutate-player-save.js");
 const _economy_tx_js_1 = require("../../_economy-tx.js");
+const _mission_catalog_js_1 = require("../_mission-catalog.js");
 /*
  * /api/clan/treasury/donate  — POST only
  *
@@ -48,6 +49,7 @@ const CURRENCY_CAPS = {
     mythicSeals: 100_000,
 };
 const ITEM_COUNT_CAP = 1_000;
+const TERRITORY_CONTROL_SCROLL_ID = 'territory-control-scroll';
 const AUDIT_LOG_PREFIX = 'audit:clan-treasury-donate:';
 function clanSlugBare(name) {
     return name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -121,6 +123,12 @@ async function handler(req, res) {
                 const outcome = (0, _treasury_donate_js_1.applyTreasuryDonation)(clanRec.treasury, donorChar, donation, { allowedCurrencies: CLAN_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP });
                 if (!outcome.ok)
                     return outcome;
+                const contribution = donation.kind === 'currency'
+                    ? donation.currency === 'ryo' ? Math.max(1, Math.floor(donation.amount / 1000)) : Math.floor(donation.amount)
+                    : Math.floor(donation.count);
+                const month = new Date().toISOString().slice(0, 7);
+                const priorContribution = donorChar.clanContribMonth === month ? Math.max(0, Number(donorChar.clanEventContrib) || 0) : 0;
+                const nextDonorChar = { ...outcome.nextDonorChar, clanEventContrib: priorContribution + contribution, clanContribMonth: month };
                 const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
                 await (0, _economy_tx_js_1.reserveEconomyTx)({
                     id: txId,
@@ -132,17 +140,21 @@ async function handler(req, res) {
                     meta: { clan, playerName },
                 });
                 txState = 'reserved';
-                return { ok: true, character: outcome.nextDonorChar, value: { nextTreasury: outcome.nextTreasury } };
+                return { ok: true, character: nextDonorChar, value: { nextTreasury: outcome.nextTreasury } };
             });
             if (!debit.ok)
                 return debit;
             await (0, _economy_tx_js_1.markEconomyTx)(txId, 'debit-applied');
             txState = 'debit-applied';
             // Credit the clan treasury (donor debit is already committed).
-            await _storage_js_1.kv.set(clanSaveKey, { ...clanRec, treasury: debit.value.nextTreasury });
+            const clanXp = donation.kind === 'currency'
+                ? donation.currency === 'ryo' ? Math.floor(donation.amount / 35) : Math.floor(donation.amount) * 200
+                : donation.itemId === TERRITORY_CONTROL_SCROLL_ID ? Math.floor(donation.count) * 20 : 50;
+            const leveled = (0, _mission_catalog_js_1.addClanXpServer)(Number(clanRec.xp) || 0, Number(clanRec.level) || 1, clanXp);
+            await _storage_js_1.kv.set(clanSaveKey, { ...clanRec, treasury: debit.value.nextTreasury, ...leveled });
             await (0, _economy_tx_js_1.completeEconomyTx)(txId);
             txState = 'complete';
-            return { ok: true, treasury: debit.value.nextTreasury, _saveVersion: debit._saveVersion };
+            return { ok: true, treasury: debit.value.nextTreasury, character: debit.character, xp: leveled.xp, level: leveled.level, _saveVersion: debit._saveVersion };
         }, { failClosed: true });
         if (!result.ok)
             return res.status(result.status).json({ error: result.error });
@@ -155,7 +167,7 @@ async function handler(req, res) {
                 ? { currency: donation.currency, amount: Math.floor(donation.amount) }
                 : { itemId: donation.itemId, count: Math.floor(donation.count) }),
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-        return res.status(200).json({ ok: true, treasury: result.treasury, _saveVersion: result._saveVersion });
+        return res.status(200).json({ ok: true, treasury: result.treasury, character: result.character, xp: result.xp, level: result.level, _saveVersion: result._saveVersion });
     }
     catch (err) {
         if (txId && txState && txState !== 'complete') {
