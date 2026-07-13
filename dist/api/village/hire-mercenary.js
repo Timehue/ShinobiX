@@ -112,10 +112,12 @@ async function handler(req, res) {
             return null;
         const prevHp = Number(w.hp?.[en] ?? VILLAGE_WAR_HP_MAX);
         const { nextHp, dealt } = (0, _mercenaries_js_1.applyMercenaryDamage)(prevHp, tier.warDamage);
-        w.hp = { ...w.hp, [en]: nextHp };
+        const nextWarHp = { ...w.hp };
+        (0, _utils_js_1.setSafeRecordValue)(nextWarHp, en, nextHp);
+        w.hp = nextWarHp;
         const contribs = { ...(w.contributions ?? {}) };
         const prev = contribs[identity.name] ?? { damage: 0, raids: 0, pvpKills: 0, side: village, name: String(char?.name ?? identity.name) };
-        contribs[identity.name] = { ...prev, damage: prev.damage + dealt, side: village, name: prev.name };
+        (0, _utils_js_1.setSafeRecordValue)(contribs, identity.name, { ...prev, damage: prev.damage + dealt, side: village, name: prev.name });
         w.contributions = contribs;
         w.updatedAt = Date.now();
         await _storage_js_1.kv.set(warKey, w);

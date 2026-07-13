@@ -15,6 +15,7 @@ import { builtinHuntMissions } from "../data/missions";
 import { gainXp } from "../App";
 import { rankUpHunterServer } from "../lib/hunter-rank-api";
 import { countItem } from "../lib/inventory";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 export function HunterBoard({
     character,
@@ -44,6 +45,7 @@ export function HunterBoard({
     }
 
     async function rankUp() {
+        if (!requireServerSettlement("fieldHuntMissions")) return;
         if (hunterRank >= HUNTER_RANKUP.length) return alert("You have reached the highest Hunter Rank.");
         const req = HUNTER_RANKUP[hunterRank];
         if (invCount(req.itemId) < req.qty) {
@@ -58,6 +60,7 @@ export function HunterBoard({
     }
 
     function acceptHunt(mission: CreatorMission) {
+        if (!requireServerSettlement("fieldHuntMissions")) return;
         if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
         if ((HUNT_MIN_RANK[mission.rank] ?? 0) > hunterRank) return alert(`Requires Hunter Rank: ${HUNTER_RANK_LABELS[HUNT_MIN_RANK[mission.rank] ?? 0]}.`);
         if (acceptedMissionIds.includes(mission.id)) return;
@@ -73,6 +76,7 @@ export function HunterBoard({
     }
 
     async function claimHunt(mission: CreatorMission) {
+        if (!requireServerSettlement("fieldHuntMissions")) return;
         const progress = missionProgress[mission.id] ?? 0;
         if (progress < mission.exploreCount) return alert(`Hunt the beast ${mission.exploreCount - progress} more time(s) in Sector ${mission.targetSector}.`);
         if (!hasDailyHuntSlot(character)) return alert(`Daily hunt limit reached (${DAILY_HUNT_LIMIT}/${DAILY_HUNT_LIMIT}). Resets at midnight UTC.`);

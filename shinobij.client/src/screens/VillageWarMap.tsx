@@ -82,8 +82,10 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
 
     const refresh = useCallback(async () => {
         try {
-            const wm = await fetchWarMap();
-            const ws = await fetch("/api/world-state", { method: "GET" }).then((r) => r.json()).catch(() => ({}));
+            const [wm, ws] = await Promise.all([
+                fetchWarMap(),
+                fetch("/api/world-state", { method: "GET" }).then((r) => r.json()).catch(() => ({})),
+            ]);
             setData(wm);
             const map: Record<number, string> = {};
             const terrs = (ws as { territories?: TerritoryLite[] }).territories;

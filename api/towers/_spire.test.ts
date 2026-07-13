@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import {
     resolveAscensionModifiers, ascensionHpMult, ascensionDmgMult,
     weeklySpireBlessing, SPIRE_WEEKLY_BLESSINGS,
-    SPIRE_MAX_TIER, HP_MULT_CAP, DMG_MULT_CAP, SPIRE_ENRAGE_CAP, type TowerModifier,
+    SPIRE_MAX_TIER, HP_MULT_CAP, DMG_MULT_CAP, SPIRE_ENRAGE_CAP, SPIRE_WEEKLY_ROUND_BUFFER, type TowerModifier,
 } from './_modifiers.js';
 import {
     getSpireFloor, isValidSpireTier, spireBossForFloor, SPIRE_MILESTONE_FLOORS,
@@ -82,6 +82,7 @@ describe('Endless Spire — weekly blessing', () => {
         const base = resolveAscensionModifiers(20, 'sovereign', floorRounds);
         const withDmg = resolveAscensionModifiers(20, 'sovereign', floorRounds, dmgBoon.modifier);
         assert.ok(withDmg.dmgMult < base.dmgMult, `dmg boon lowers dmgMult (${withDmg.dmgMult} < ${base.dmgMult})`);
+        assert.equal(withDmg.roundCap, floorRounds + SPIRE_WEEKLY_ROUND_BUFFER, 'damage weeks retain the release-tested time buffer');
         assert.ok(withDmg.modifierStack.some(m => m.label.includes('Blessing')), 'blessing shown as a chip');
     });
 });

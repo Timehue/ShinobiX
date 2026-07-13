@@ -7,15 +7,44 @@
 import { useEffect, useState } from "react";
 import type { Character } from "../types/character";
 import { fetchWeeklyBoard, claimWeeklyMission, rewardText, weeklyClaimErrorText, type WeeklyBoard as Board } from "../lib/weekly-board";
+import { readScreenCache, writeScreenCache } from "../lib/screen-cache";
+
+const CACHE_TTL_MS = 60_000;
+
+function weeklyBoardCacheKey(playerName: string): string {
+    return `weekly-board:${encodeURIComponent(playerName)}`;
+}
+
+function isWeeklyBoard(value: unknown): value is Board {
+    if (!value || typeof value !== "object") return false;
+    const candidate = value as Partial<Board>;
+    return typeof candidate.weekKey === "string"
+        && Number.isFinite(candidate.endsAt)
+        && Array.isArray(candidate.missions);
+}
 
 export function WeeklyBoard({ character, updateCharacter }: { character: Character; updateCharacter: (c: Character | ((prev: Character | null) => Character | null)) => void }) {
-    const [board, setBoard] = useState<Board | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [board, setBoard] = useState<Board | null>(() => readScreenCache(weeklyBoardCacheKey(character.name), isWeeklyBoard));
+    const [loading, setLoading] = useState(() => !readScreenCache(weeklyBoardCacheKey(character.name), isWeeklyBoard));
     const [busy, setBusy] = useState<string | null>(null);
 
     useEffect(() => {
         let alive = true;
-        fetchWeeklyBoard(character.name).then((b) => { if (alive) { setBoard(b); setLoading(false); } });
+        const cached = readScreenCache(weeklyBoardCacheKey(character.name), isWeeklyBoard);
+        // Cache hydration is deliberately deferred one microtask: it keeps
+        // render state updates out of the synchronous effect body while still
+        // painting cached data before the network request can resolve.
+        queueMicrotask(() => {
+            if (!alive) return;
+            setBoard(cached);
+            setLoading(!cached);
+        });
+        fetchWeeklyBoard(character.name).then((b) => {
+            if (!alive) return;
+            setBoard(b);
+            if (b) writeScreenCache(weeklyBoardCacheKey(character.name), b, CACHE_TTL_MS);
+            setLoading(false);
+        });
         return () => { alive = false; };
     }, [character.name]);
 
@@ -36,7 +65,12 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
         if (res.reward) {
             alert(`Reward claimed: ${rewardText(res.reward)}.`);
         }
-        setBoard((b) => b ? { ...b, missions: b.missions.map((m) => m.id === missionId ? { ...m, claimed: true } : m) } : b);
+        setBoard((previous) => {
+            if (!previous) return previous;
+            const next = { ...previous, missions: previous.missions.map((m) => m.id === missionId ? { ...m, claimed: true } : m) };
+            writeScreenCache(weeklyBoardCacheKey(character.name), next, CACHE_TTL_MS);
+            return next;
+        });
     }
 
     // eslint-disable-next-line react-hooks/purity -- countdown is time-sensitive by design

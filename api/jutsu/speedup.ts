@@ -116,8 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     endsAt: Math.max(Date.now(), Number(activeJutsuTraining.endsAt) - minutesReduced * 60_000),
                 },
             };
-            bumpSaveVersion(updated);
-            await kv.set(key, mergePreservingImages(updated, record));
+            await kv.set(key, mergePreservingImages(bumpSaveVersion(updated), record));
 
             return {
                 status: 200 as const,

@@ -9,6 +9,7 @@ exports.resolveEquippedLoadout = resolveEquippedLoadout;
 exports.hydrateCharacterFromSave = hydrateCharacterFromSave;
 exports.ownedItemCount = ownedItemCount;
 exports.sealItemCharges = sealItemCharges;
+exports.pvpSessionCreationAllowedDuringSettlement = pvpSessionCreationAllowedDuringSettlement;
 exports.default = handler;
 const crypto_1 = require("crypto");
 const _storage_js_1 = require("../_storage.js");
@@ -431,7 +432,7 @@ function resolveEquippedLoadout(saveCharacter, save, clientCharacter) {
             // identical to today. The always-on save entitlement plus the paid,
             // one-use /bloodlines/forge path prevents forged ranks from claiming
             // higher caps than the player legitimately earned.
-            const stampRank = process.env.BLOODLINE_RANK_CAPS === '1';
+            const stampRank = true;
             for (const b of bloodlines) {
                 if (!b || typeof b !== 'object')
                     continue;
@@ -820,6 +821,9 @@ function townDefensePctFromSave(saveCharacter) {
     const level = Math.floor(clampNumber(upgrades?.townDefense, 0, TOWN_DEFENSE_MAX_LEVEL, 0));
     return Math.max(0, Math.min(GUARD_DEFENSE_MAX_PCT, level * TOWN_DEFENSE_PER_LEVEL));
 }
+function pvpSessionCreationAllowedDuringSettlement(isAdmin) {
+    return isAdmin;
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -847,6 +851,9 @@ async function handler(req, res) {
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
+        if (!pvpSessionCreationAllowedDuringSettlement(identity.admin)) {
+            return res.status(503).json({ error: 'PvP sessions are temporarily unavailable while authoritative settlement is finalized. Nothing was changed.' });
+        }
         // Cap session creation. A legit player starts a duel maybe every
         // 30s in heavy play; 6/min is comfortable headroom and stops
         // KV-fill attacks that spam-create sessions. Admins skip the cap

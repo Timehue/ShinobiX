@@ -7,6 +7,7 @@ import { withKvLock } from '../../_lock.js';
 import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-donate.js';
 import { bumpLegacyStats } from '../../_legacy-track.js';
 import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
+import { meritForDonation, meritNum } from '../_village-merit.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
 
 /*
@@ -132,7 +133,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     meta: { village, playerName },
                 });
                 txState = 'reserved';
-                return { ok: true as const, character: outcome.nextDonorChar, value: { nextTreasury: outcome.nextTreasury } };
+                // Personal Village Merit toward a Kage challenge, scaled by the
+                // ryo-value donated (items = 500 each, mirroring the villageDonations
+                // legacy bump below). Costs real currency, so no free farming.
+                const ryoValue = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count) * 500;
+                const creditedDonorChar = { ...outcome.nextDonorChar, villageMerit: meritNum((outcome.nextDonorChar as Record<string, unknown>).villageMerit) + meritForDonation(ryoValue) };
+                return { ok: true as const, character: creditedDonorChar, value: { nextTreasury: outcome.nextTreasury } };
             });
             if (!debit.ok) return debit;
 

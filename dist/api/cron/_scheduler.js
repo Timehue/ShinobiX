@@ -25,6 +25,7 @@ const _clan_boss_weekly_js_1 = require("./_clan-boss-weekly.js");
 const _war_daily_js_1 = require("../_war-daily.js");
 const _merc_auto_js_1 = require("../_merc-auto.js");
 const _era_js_1 = require("../_era.js");
+const _launch_controls_js_1 = require("../_launch-controls.js");
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MERC_TICK_MS = 10 * 60_000; // village-war mercenary auto-snipe cadence
 const TARGET_UTC_HOUR = 3; // 03:00 UTC — matches the retired Vercel schedule "0 3 * * *".
@@ -41,6 +42,26 @@ function msUntilNextTargetHour(now) {
     if (next.getTime() <= now)
         next.setUTCDate(next.getUTCDate() + 1);
     return next.getTime() - now;
+}
+async function runBootSnapshotCatchUp() {
+    try {
+        const marker = await (0, snapshot_saves_js_1.readSnapshotSuccessMarker)();
+        if ((0, snapshot_saves_js_1.isSnapshotMarkerFresh)(marker)) {
+            console.log(`[cron-scheduler] backup freshness ok; last complete run ${new Date(marker.completedAt).toISOString()}.`);
+            return;
+        }
+        console.warn('[cron-scheduler] no complete snapshot run in the last 26h; starting boot catch-up.');
+    }
+    catch (err) {
+        console.error('[cron-scheduler] backup marker read failed; attempting boot catch-up:', err.message);
+    }
+    try {
+        const result = await (0, snapshot_saves_js_1.runSnapshotSaves)(NIGHTLY_BUDGET_MS);
+        console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped, ${result.failed.length} failed; ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
+    }
+    catch (err) {
+        console.error('[cron-scheduler] boot catch-up threw:', err.message);
+    }
 }
 async function fire() {
     try {
@@ -112,6 +133,10 @@ async function fire() {
  * open on their own.
  */
 function startSnapshotCron() {
+    if ((0, _launch_controls_js_1.scheduledJobsDisabled)()) {
+        console.log('[cron-scheduler] all scheduled jobs disabled via DISABLE_SCHEDULED_JOBS=1');
+        return;
+    }
     if (process.env.DISABLE_SNAPSHOT_CRON === '1') {
         console.log('[cron-scheduler] save-snapshot cron disabled via DISABLE_SNAPSHOT_CRON=1');
         return;
@@ -128,6 +153,10 @@ function startSnapshotCron() {
         _interval.unref?.();
     }, delay);
     _timeout.unref?.();
+    // If the process was down across 03:00 UTC, do not wait until tomorrow.
+    // The durable marker proves freshness and the per-player 20h dedup keeps
+    // restarts or a second scheduler from creating duplicate daily copies.
+    void runBootSnapshotCatchUp();
     // Village War mercenary auto-snipe — a frequent tick so active merc bands hunt
     // low-HP enemy defenders on their own. No-op unless ENABLE_VILLAGE_WAR=1.
     _mercInterval = setInterval(() => {

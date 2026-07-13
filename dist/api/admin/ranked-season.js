@@ -23,8 +23,8 @@ async function handler(req, res) {
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {
-        if (!(0, _auth_js_1.isAdmin)(req))
-            return res.status(401).json({ error: 'Unauthorized.' });
+        if (!(0, _auth_js_1.isFullAdmin)(req))
+            return res.status(401).json({ error: 'Full admin access required.' });
         const current = await _storage_js_1.kv.get(_ranked_season_js_1.SEASON_CURRENT_KEY);
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ active: !!current, current: current ?? null });
@@ -33,8 +33,8 @@ async function handler(req, res) {
         return res.status(405).end();
     if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'admin-ranked-season', 30, 5 * 60_000))
         return;
-    if (!(0, _auth_js_1.isAdmin)(req))
-        return res.status(401).json({ error: 'Unauthorized.' });
+    if (!(0, _auth_js_1.isFullAdmin)(req))
+        return res.status(401).json({ error: 'Full admin access required.' });
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {}));
         const action = typeof body.action === 'string' ? body.action : '';

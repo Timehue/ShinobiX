@@ -361,8 +361,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 dailyPetWins: dailyPetWins + 1,
                 lastDailyReset: today,
             };
-            const updated = { ...record, character: updatedChar };
-            bumpSaveVersion(updated);
+            const updated = bumpSaveVersion({ ...record, character: updatedChar });
             await kv.set(saveKey, mergePreservingImages(updated, record));
             if (casualBattleTokenKey) await kv.del(casualBattleTokenKey).catch(() => undefined);
             return {

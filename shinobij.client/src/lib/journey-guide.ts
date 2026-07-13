@@ -1,7 +1,50 @@
 import type { Screen } from "../types/core";
 import type { Character } from "../types/character";
 import { baseStats, rankFromLevel } from "./stats";
-import { normalizeOnboardingStep, onboardingStepAtLeast } from "./onboarding-step";
+import {
+    normalizeOnboardingStep,
+    onboardingStepAtLeast,
+    ONBOARDING_STEP_ORDER,
+    type CanonicalOnboardingStep,
+} from "./onboarding-step";
+
+// ── Companion guided steps ───────────────────────────────────────────────────
+// While the Academy tutorial is running, the village panel shows the starter
+// companion's step checklist (one source of truth with the OnboardingCoach
+// bubble — same 9 beats, status-only, no duplicate action buttons) instead of
+// the old Journey Guide objectives, which repeated the coach's instructions.
+
+export type CompanionStepState = "done" | "now" | "next";
+export type CompanionStep = {
+    id: CanonicalOnboardingStep;
+    title: string;
+    state: CompanionStepState;
+};
+
+const COMPANION_STEP_TITLES: [CanonicalOnboardingStep, string][] = [
+    ["training", "Start your first stat training"],
+    ["jutsu", "Train a new jutsu"],
+    ["jutsuLoadout", "Equip your jutsu loadout"],
+    ["inventory", "Equip your starter gear"],
+    ["academySpar", "Win your first spar"],
+    ["cafeteria", "Heal up in the Cafeteria"],
+    ["firstMission", "Claim the Academy Trial"],
+    ["logbook", "Open your Logbook"],
+    ["sectorReturn", "Visit a sector and return"],
+];
+
+/** The tutorial checklist, or null when the tutorial isn't in a coach beat
+ *  (cinematic steps and "done" both return null → panel hidden). */
+export function buildCompanionSteps(character: Character): CompanionStep[] | null {
+    const step = normalizeOnboardingStep(character.onboardingStep ?? "");
+    if (step === "done" || step === "academyIntro" || step === "starter" || step === "companionIntro") return null;
+    const current = ONBOARDING_STEP_ORDER[step];
+    return COMPANION_STEP_TITLES.map(([id, title]) => ({
+        id,
+        title,
+        state: ONBOARDING_STEP_ORDER[id] < current ? "done" : ONBOARDING_STEP_ORDER[id] === current ? "now" : "next",
+    }));
+}
 
 export type JourneyGuideObjective = {
     id: "training" | "jutsu" | "combat" | "mission" | "logbook";

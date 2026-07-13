@@ -63,6 +63,7 @@ import { relevelBuiltinAi } from "../lib/combat-ai";
 import { getAllItems, getItemById } from "../lib/items";
 import { countItem, removeItem } from "../lib/inventory";
 import { makeId } from "../lib/utils";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { useBoardScale } from "../lib/use-board-scale";
 import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
 import { ROLE_RANGE, petRoleOf } from "../lib/pet-roles";
@@ -587,6 +588,7 @@ export function Arena({
     }, [rankedQueueActive]);  
 
     function joinRankedQueue() {
+        if (!requireServerSettlement("rankedPvp")) return;
         setRankedQueueActive(true);
         fetch("/api/pvp/ranked-queue", {
             method: "POST",
@@ -1402,6 +1404,7 @@ export function Arena({
     }
 
     async function acceptChallenge(challenge: DuelChallenge) {
+        if (!requireServerSettlement("pvpSession")) return;
         const challenger = normalizeCharacter(challenge.challenger);
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
         try {

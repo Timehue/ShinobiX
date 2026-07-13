@@ -16,6 +16,7 @@ import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petExpeditionStories, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions } from "../data/pet-config";
 import { petTamerClaimFirstExpeditionToday, petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
 import { countItem, ownsItem } from "../lib/inventory";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave: _onImmediateSave }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
@@ -98,6 +99,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     }
 
     async function startTraining() {
+        if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
@@ -283,6 +285,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     }
 
     async function collectTraining() {
+        if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet?.training) return;
         if (Date.now() < selectedPet.training.endsAt) {
             return alert(`${selectedPet.name} needs ${formatPetTimer(selectedPet.training.endsAt - Date.now())} more.`);
@@ -293,6 +296,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         let data: Awaited<ReturnType<typeof runPetProgress>>;
         try {
             data = await runPetProgress('complete-training');
+            updateCharacter(data.character);
             alert(`${selectedPet.name} completed ${focus} training!${data.pet && data.pet.level > selectedPet.level ? ` Now Level ${data.pet.level}.` : ""}`);
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Training could not be collected.');

@@ -33,6 +33,7 @@ test('codeFromBytes is in-alphabet and the right length', () => {
     assert.equal(code.length, CODE_LEN);
     for (const ch of code) assert.ok(CODE_ALPHABET.includes(ch), `${ch} not in alphabet`);
     assert.equal(codeFromBytes([0, 0, 0, 0]), 'AAAA');
+    assert.equal(codeFromBytes([255, 255, 255, 255]), '9999');
 });
 
 test('openSeat fills team-up order then opponents, honors preference, and detects full', () => {

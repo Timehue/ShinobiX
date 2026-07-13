@@ -45,10 +45,11 @@ import {
 import briefingBg from "../assets/daily-briefing.webp";
 
 const SEEN_KEY = "dailyBriefing.seen.v1";
-// Cover new players from level 1: the briefing's recommendation engine already
-// special-cases the onboarding step, and gating at 5 meant levels 1–4 got NO
-// daily login reward and no "what next" surface — exactly who needs both most.
-const MIN_LEVEL = 1;
+// Hold the briefing until level 5. Levels 1–4 are the guided tutorial/onboarding
+// flow, and popping the full "notice board" over it on the first login buries the
+// tutorial and overwhelms brand-new players. By level 5 onboarding has settled and
+// the recommendation engine / daily login reward land as intended.
+const MIN_LEVEL = 5;
 
 export function DailyBriefingModal({
     character,
@@ -68,7 +69,12 @@ export function DailyBriefingModal({
     const [dismissed, setDismissed] = useState(() => {
         try { return localStorage.getItem(SEEN_KEY) === today; } catch { return false; }
     });
-    const shouldShow = character.level >= MIN_LEVEL && !dismissed;
+    // Held back during the Academy tutorial: a brand-new player finishing the
+    // intro cinematic shouldn't be greeted with "Welcome back" over the
+    // companion's first instruction. It shows right after the tutorial ends
+    // (same day), so no login reward is lost.
+    const tutorialDone = normalizeOnboardingStep(character.onboardingStep) === "done";
+    const shouldShow = character.level >= MIN_LEVEL && !dismissed && tutorialDone;
 
     // The login reward is collected by an explicit Claim button (not auto-granted).
     // `claim` holds the server result once collected this session; the save's

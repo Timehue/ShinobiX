@@ -30,14 +30,14 @@ import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { deriveCardClashCard } from "../lib/card-clash";
 import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
 import { formatItemBonus, presentItem } from "../lib/item-presentation";
-import { makeId } from "../lib/utils";
+import { settleInventorySale } from "../lib/shop-settlement";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 export function Inventory({
     character,
     updateCharacter,
     creatorItems,
     creatorCards,
-    onServerVersion,
 }: {
     character: Character;
     // Accepts a plain replacement OR a functional updater (computing the next
@@ -48,7 +48,6 @@ export function Inventory({
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     creatorItems: GameItem[];
     creatorCards: TileCard[];
-    onServerVersion?: (version: number) => void;
 }) {
     const [selectedInventoryItem, setSelectedInventoryItem] = useState<null | {
         entry: string;
@@ -260,15 +259,17 @@ export function Inventory({
 
     async function consumeItem(entry: string) {
         if (entry === LEGENDARY_WAR_CRATE_ID) {
+            if (!requireServerSettlement("warCrateOpen")) return;
             if (openingWarCrateRef.current) return;
             openingWarCrateRef.current = true;
             setOpeningWarCrate(true);
             try {
-                const response = await fetch("/api/village/open-war-crate", {
+                const openWarCrate = () => fetch("/api/village/open-war-crate", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ playerName: character.name }),
                 });
+                const response = await openWarCrate();
                 const data = await response.json().catch(() => null) as {
                     error?: string;
                     character?: Character;
@@ -323,6 +324,7 @@ export function Inventory({
     }
 
     async function sellSelectedItem(count = 1) {
+        if (!requireServerSettlement("inventorySale")) return;
         const selected = selectedInventoryItem;
         if (!selected?.item) return;
         const item = selected.item;
@@ -330,14 +332,9 @@ export function Inventory({
 
         const qty = selected.source === "equipped" ? 1 : Math.max(1, Math.min(selected.count, Math.floor(count)));
         const equipmentSlot = selected.source === "equipped" && selected.equipmentSlot ? normalizeEquipmentSlot(selected.equipmentSlot) : undefined;
-        const response = await fetch('/api/shop/sell', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName: character.name, itemId: item.id, qty, equipmentSlot, requestId: makeId() }),
-        }).catch(() => null);
-        const data = response ? await response.json().catch(() => null) as { character?: Character; _saveVersion?: number; error?: string } | null : null;
-        if (!response?.ok || !data?.character) return alert(data?.error || 'The item sale could not be verified.');
-        if (typeof data._saveVersion === 'number') onServerVersion?.(data._saveVersion);
-        updateCharacter(data.character);
+        const result = await settleInventorySale(character.name, item.id, selected.source, qty, equipmentSlot);
+        if (!result.ok) return alert(result.error);
+        updateCharacter(result.character);
         setSelectedInventoryItem(null);
     }
 

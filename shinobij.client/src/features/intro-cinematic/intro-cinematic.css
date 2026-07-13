@@ -1,0 +1,942 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Intro cinematic — the post-account-creation "summoned by the spirit fox"
+   sequence (IntroCinematic.tsx). Full-screen forced overlay portaled to
+   document.body at z-index 1000000 (the app's portal-overlay ladder: above the
+   nav rails at 999999, below GameAlert at 1000001).
+
+   Design language: the character creator's gold-on-dark-navy (cc-*) palette +
+   the story VN's dark gold-bordered dialogue box. All classes prefixed icx-.
+   Heavy motion is disabled under .lite-fx (device-tier) and
+   prefers-reduced-motion.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+.icx-root {
+    position: fixed;
+    inset: 0;
+    z-index: 1000000;
+    background: #04070e;
+    color: #edf6ff;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Companion-intro mode (onboardingStep "companionIntro"): the granted pet
+   speaks over the LIVE village screen, so the overlay is a light scrim, not
+   the opaque shrine scene. */
+.icx-root.is-companion {
+    background: rgba(2, 5, 14, 0.45);
+    /* A short breath first: the player gets one clean look at the village the
+       whole cinematic promised before the scrim settles over it. */
+    animation: icx-companion-root-in 700ms ease 500ms both;
+}
+@keyframes icx-companion-root-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+/* Stands above the dialogue, clear of the left profile rail (≥981px) so it is
+   never cut off or painted over the player's stats card. */
+.icx-companion-pet {
+    position: absolute;
+    left: clamp(285px, 24vw, 32%);
+    bottom: 26%;
+    width: clamp(150px, 20vmin, 230px);
+    pointer-events: none;
+    animation: icx-companion-in 700ms cubic-bezier(0.34, 1.56, 0.64, 1) 800ms both;
+}
+/* The freshly-chosen companion joins the stage for the farewell. */
+/* The freshly-gifted companion stands right beside the player's portrait —
+   "your companion, at your side," not a sprite floating in open space. */
+.icx-gift-pet {
+    position: absolute;
+    right: calc(clamp(3%, 9vw, 15%) + clamp(108px, 15vmin, 172px) + 10px);
+    /* Centered on the avatar card's height so the companion stands EVEN with
+       the player, not down at its feet. */
+    bottom: 30%;
+    width: clamp(90px, 13vmin, 140px);
+    pointer-events: none;
+    animation: icx-companion-in 700ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.icx-gift-pet img {
+    width: 100%;
+    display: block;
+    filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.55));
+    transform-origin: 50% 100%;
+}
+.icx-gift-pet.is-talking img {
+    animation: icx-companion-talk 460ms ease-in-out infinite;
+}
+.icx-companion-pet img {
+    width: 100%;
+    display: block;
+    filter: drop-shadow(0 12px 16px rgba(0, 0, 0, 0.55));
+    transform-origin: 50% 100%;
+}
+.icx-companion-pet.is-talking img {
+    animation: icx-companion-talk 460ms ease-in-out infinite;
+}
+@keyframes icx-companion-in {
+    from { opacity: 0; transform: translateY(22px) scale(0.8); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes icx-companion-talk {
+    0%, 100% { transform: rotate(0deg) translateY(0); }
+    30%      { transform: rotate(-1.8deg) translateY(-3px) scale(1.02, 0.98); }
+    70%      { transform: rotate(1.4deg) translateY(-1px); }
+}
+
+/* Once the white-out starts revealing the village beneath, the overlay becomes
+   a pure pass-through: scene layers unmount visually and clicks fall through. */
+.icx-root.is-revealing {
+    background: transparent;
+    pointer-events: none;
+}
+.icx-root.is-revealing .icx-scene,
+.icx-root.is-revealing .icx-motes,
+.icx-root.is-revealing .icx-stagefill,
+.icx-root.is-revealing .icx-dialogue,
+.icx-root.is-revealing .icx-skip {
+    display: none;
+}
+
+/* ── Scene ──────────────────────────────────────────────────────────────── */
+
+.icx-scene {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+/* The painted art rides its own layer with a slow Ken Burns camera move
+   (transform-based so it stays on the GPU; the 3% bleed hides the pan). */
+.icx-scene-art {
+    position: absolute;
+    inset: -3%;
+    background: var(--icx-bg-landscape) center / cover no-repeat;
+    animation: icx-kenburns 38s ease-in-out infinite alternate;
+    will-change: transform;
+}
+/* Portrait-ish viewports read better with the portrait shrine art. */
+@media (max-width: 800px), (max-aspect-ratio: 5/6) {
+    .icx-scene-art {
+        background-image: var(--icx-bg-portrait);
+    }
+}
+/* Twilight scrims + vignette so the painted art sits back behind the actors. */
+.icx-scene::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at 50% 38%, rgba(125, 211, 252, 0.10), transparent 55%),
+        linear-gradient(180deg, rgba(4, 7, 14, 0.62) 0%, rgba(4, 7, 14, 0.18) 34%, rgba(4, 7, 14, 0.30) 62%, rgba(2, 4, 10, 0.88) 100%);
+}
+@keyframes icx-kenburns {
+    from { transform: scale(1.02) translate(0.6%, -0.8%); }
+    to   { transform: scale(1.12) translate(-1.2%, 1.2%); }
+}
+
+/* God rays falling from above the falls — two soft shafts + an ambient glow. */
+.icx-rays {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% -12%, rgba(224, 242, 254, 0.22), transparent 58%);
+    animation: icx-rays-breathe 9s ease-in-out infinite alternate;
+}
+.icx-rays::before,
+.icx-rays::after {
+    content: "";
+    position: absolute;
+    top: -12%;
+    height: 85%;
+    width: 14%;
+    background: linear-gradient(180deg, rgba(224, 242, 254, 0.20), rgba(224, 242, 254, 0.05) 55%, transparent 90%);
+    filter: blur(9px);
+    transform-origin: top center;
+}
+.icx-rays::before {
+    left: 38%;
+    transform: skewX(-9deg);
+    animation: icx-ray-sway 13s ease-in-out infinite alternate;
+}
+.icx-rays::after {
+    left: 55%;
+    width: 9%;
+    transform: skewX(7deg);
+    animation: icx-ray-sway 17s ease-in-out infinite alternate-reverse;
+}
+@keyframes icx-rays-breathe {
+    from { opacity: 0.65; }
+    to   { opacity: 1; }
+}
+@keyframes icx-ray-sway {
+    from { transform: skewX(-11deg); opacity: 0.55; }
+    to   { transform: skewX(-5deg); opacity: 0.95; }
+}
+
+/* Low mist banks drifting across the pool. */
+.icx-mist {
+    position: absolute;
+    left: -30%;
+    width: 160%;
+    height: 26%;
+    bottom: 4%;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 65%, rgba(203, 226, 244, 0.16), transparent 70%);
+    filter: blur(14px);
+    animation: icx-mist-drift 52s linear infinite alternate;
+}
+.icx-mist.m2 {
+    bottom: 12%;
+    height: 18%;
+    opacity: 0.7;
+    animation-duration: 37s;
+    animation-direction: alternate-reverse;
+}
+@keyframes icx-mist-drift {
+    from { transform: translateX(-6%); }
+    to   { transform: translateX(6%); }
+}
+
+/* Falling cherry-blossom petals (paired with the rising spirit motes). */
+.icx-petal {
+    position: absolute;
+    top: -4%;
+    width: 10px;
+    height: 8px;
+    border-radius: 70% 30% 60% 40%;
+    background: linear-gradient(135deg, rgba(251, 207, 232, 0.9), rgba(244, 163, 202, 0.75));
+    opacity: 0;
+    animation: icx-petal-fall 13s linear infinite;
+}
+.icx-petal:nth-child(1) { left: 12%; animation-delay: 0s; }
+.icx-petal:nth-child(2) { left: 26%; animation-delay: 4.5s; animation-duration: 15s; width: 8px; height: 7px; }
+.icx-petal:nth-child(3) { left: 44%; animation-delay: 8s; animation-duration: 12s; }
+.icx-petal:nth-child(4) { left: 58%; animation-delay: 2s; animation-duration: 16s; width: 7px; height: 6px; }
+.icx-petal:nth-child(5) { left: 72%; animation-delay: 6s; animation-duration: 14s; }
+.icx-petal:nth-child(6) { left: 86%; animation-delay: 10.5s; animation-duration: 13s; width: 9px; height: 7px; }
+@keyframes icx-petal-fall {
+    0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    8%   { opacity: 0.85; }
+    50%  { transform: translate(-3vw, 50vh) rotate(200deg); }
+    92%  { opacity: 0.6; }
+    100% { transform: translate(2vw, 104vh) rotate(420deg); opacity: 0; }
+}
+
+/* Floating spirit motes (skipped entirely on low-end mobile). */
+.icx-motes { position: absolute; inset: 0; pointer-events: none; }
+.icx-mote {
+    position: absolute;
+    bottom: -12px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(224, 242, 254, 0.95), rgba(125, 211, 252, 0.15) 70%);
+    box-shadow: 0 0 12px rgba(125, 211, 252, 0.7);
+    opacity: 0;
+    animation: icx-mote-rise 11s linear infinite;
+}
+.icx-mote:nth-child(2) { left: 18%; animation-delay: 2s;  animation-duration: 13s; width: 5px; height: 5px; }
+.icx-mote:nth-child(3) { left: 33%; animation-delay: 5s;  animation-duration: 10s; }
+.icx-mote:nth-child(4) { left: 49%; animation-delay: 1s;  animation-duration: 15s; width: 4px; height: 4px; }
+.icx-mote:nth-child(5) { left: 64%; animation-delay: 7s;  animation-duration: 12s; }
+.icx-mote:nth-child(6) { left: 79%; animation-delay: 4s;  animation-duration: 14s; width: 5px; height: 5px; }
+.icx-mote:nth-child(7) { left: 91%; animation-delay: 8.5s; animation-duration: 11s; }
+.icx-mote:first-child  { left: 8%; }
+@keyframes icx-mote-rise {
+    0%   { transform: translateY(0) translateX(0); opacity: 0; }
+    12%  { opacity: 0.9; }
+    82%  { opacity: 0.5; }
+    100% { transform: translateY(-88vh) translateX(4vw); opacity: 0; }
+}
+
+/* ── Actors ─────────────────────────────────────────────────────────────── */
+
+/* The ancient spirit fox: a bespoke seated white kitsune deity cutout
+   (features/intro-cinematic/assets/shiranui.webp — robes, red ritual
+   markings, nine fanned tails). Deity presence: towering scale, a pulsing
+   sacred halo ring behind its head, spirit-light pool beneath, and a slow
+   materialization entrance — a shrine god, not a pet. */
+.icx-fox {
+    position: absolute;
+    left: clamp(2%, 8vw, 13%);
+    bottom: 24%;
+    width: clamp(240px, 40vmin, 480px);
+    pointer-events: none;
+    animation: icx-fox-float 11s ease-in-out infinite;
+}
+/* Sacred halo — a bright ring + ambient disc behind the deity's head. */
+.icx-fox::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 22%;
+    width: 86%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, transparent 42%, rgba(253, 230, 138, 0.28) 50%, rgba(254, 243, 199, 0.5) 53%, rgba(253, 230, 138, 0.2) 57%, transparent 65%),
+        radial-gradient(circle, rgba(254, 240, 200, 0.16), transparent 60%);
+    z-index: -1;
+    animation: icx-halo-pulse 5.5s ease-in-out infinite;
+}
+/* Spirit-light pool under the deity so it reads grounded, not floating. */
+.icx-fox::after {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 4%;
+    bottom: -3%;
+    height: 12%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(165, 220, 252, 0.45), transparent 68%);
+    filter: blur(6px);
+    z-index: -1;
+}
+.icx-fox img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: filter 1.6s ease;
+}
+/* Base frame defines the box, plays the materialization, AND carries the whole
+   aura (brightness + drop-shadow glow). It is always fully opaque, so the glow
+   is rock-steady. The alt frame (mouth-flap / farewell) stacks on top toggled
+   by opacity only, and must NOT cast its own drop-shadow — otherwise the glow
+   DOUBLES on every flap and the deity visibly flashes brighter as it speaks. */
+.icx-fox-base {
+    position: relative;
+    z-index: 0;
+    filter:
+        brightness(1)
+        drop-shadow(0 0 18px rgba(240, 249, 255, 0.45))
+        drop-shadow(0 0 60px rgba(186, 220, 252, 0.3));
+    animation: icx-fox-arrive 1.9s ease-out both;
+}
+.icx-fox-alt {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    opacity: 0;
+    /* match the base body brightness so the swapped muzzle never seams — but no
+       drop-shadow: the aura belongs to the base layer alone. */
+    filter: brightness(1);
+    transition: opacity 70ms linear, filter 1.6s ease;
+}
+/* Speaking: mouth-flap only (driven by the alt overlay's opacity). The aura is
+   deliberately held CONSTANT while talking — an earlier brightness bump here
+   read as the deity flashing brighter every time it spoke. */
+/* Farewell: fade the whole deity (container) and hold the eyes-closed alt.
+   The alt is steady here (not flapping), so brightening both layers does not
+   pulse — the aura still rides on the base. */
+.icx-fox.is-fading {
+    opacity: 0.55;
+}
+.icx-fox.is-fading .icx-fox-base {
+    filter:
+        brightness(1.35)
+        drop-shadow(0 0 30px rgba(240, 249, 255, 0.9))
+        drop-shadow(0 0 92px rgba(186, 230, 253, 0.65));
+}
+.icx-fox.is-fading .icx-fox-alt {
+    filter: brightness(1.35);
+}
+.icx-fox.is-fading::before {
+    animation-duration: 2.4s;
+}
+/* Watching over the companion choice: present but receded behind the cards. */
+.icx-fox.is-watching {
+    opacity: 0.55;
+}
+.icx-fox.is-watching::before {
+    opacity: 0.5;
+    animation-duration: 9s;
+}
+@keyframes icx-fox-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-7px); }
+}
+@keyframes icx-halo-pulse {
+    0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 1; transform: translate(-50%, -50%) scale(1.045); }
+}
+/* Filter lists with different shapes snap instead of interpolating, so the
+   materialization animates opacity + scale only (the glow filter stays put). */
+@keyframes icx-fox-arrive {
+    from { opacity: 0; transform: scale(0.93) translateY(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* The player's chosen avatar, framed like a VN portrait card. */
+.icx-avatar {
+    position: absolute;
+    right: clamp(3%, 9vw, 15%);
+    bottom: 27%;
+    width: clamp(108px, 15vmin, 172px);
+    text-align: center;
+    pointer-events: none;
+}
+.icx-avatar img,
+.icx-avatar .icx-avatar-initial {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    display: block;
+    border-radius: 10px;
+    border: 2px solid rgba(250, 204, 21, 0.65);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), 0 0 34px rgba(250, 204, 21, 0.16);
+    background: linear-gradient(180deg, rgba(7, 12, 23, 0.92), rgba(3, 7, 15, 0.96));
+    animation: icx-avatar-breathe 6s ease-in-out infinite;
+}
+@keyframes icx-avatar-breathe {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.014); }
+}
+.icx-avatar .icx-avatar-initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: clamp(34px, 6vmin, 56px);
+    color: var(--gold-300);
+}
+.icx-avatar-name {
+    display: inline-block;
+    margin-top: 7px;
+    padding: 2px 12px;
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.85);
+    border: 1px solid rgba(250, 204, 21, 0.45);
+    color: #fff7d6;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Hollow Gate vision panel — framed apparition while the warning lines play. */
+.icx-vision {
+    position: absolute;
+    /* Anchor the panel's LEFT edge just past the deity's right edge (which sits
+       at ~8vw + 40vmin). This clears the fox's tails on tight/portrait viewports
+       — where they overlapped the framed vision and read as clipping — while
+       keeping it near the deity on wide screens. transform:none so `left` IS the
+       edge; the entrance pop uses the standalone `scale` property (icx-vision-in)
+       so it doesn't fight this. */
+    left: calc(8vw + 40vmin + 2vw);
+    top: 7%;
+    transform: none;
+    width: min(30vh, 58vw);
+    border-radius: 12px;
+    overflow: hidden;
+    /* Opaque backstop + explicit z-index: the apparition is a solid framed panel
+       that sits cleanly ON TOP of the deity, so nothing shows through or pokes
+       past it (the deity recedes behind it). */
+    background: #05060a;
+    z-index: 5;
+    border: 2px solid rgba(167, 139, 250, 0.65);
+    box-shadow: 0 0 44px rgba(139, 92, 246, 0.55), 0 18px 60px rgba(0, 0, 0, 0.65);
+    animation: icx-vision-in 900ms ease both, icx-vision-pulse 3.2s ease-in-out 900ms infinite;
+    pointer-events: none;
+}
+.icx-vision img { width: 100%; display: block; }
+.icx-vision::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(76, 29, 149, 0.10), rgba(2, 4, 10, 0.35));
+}
+@keyframes icx-vision-in {
+    /* Uses the standalone `scale` property (not transform) so it composes with
+       the base `transform` — desktop is transform:none (left-edge anchored),
+       mobile is translateX(-50%) (centred). Both pop in from a 0.9 scale. */
+    from { opacity: 0; scale: 0.9; }
+    to   { opacity: 1; scale: 1; }
+}
+@keyframes icx-vision-pulse {
+    0%, 100% { box-shadow: 0 0 44px rgba(139, 92, 246, 0.55), 0 18px 60px rgba(0, 0, 0, 0.65); }
+    50%      { box-shadow: 0 0 70px rgba(139, 92, 246, 0.85), 0 18px 60px rgba(0, 0, 0, 0.65); }
+}
+
+/* ── Cinematography layers ──────────────────────────────────────────────── */
+
+/* Beat-driven color grade overlay (violet omen for the Hollow Gate vision,
+   pale elegy light for the fox's farewell). */
+.icx-grade {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+    opacity: 0;
+    transition: opacity 900ms ease;
+}
+.icx-grade.is-omen {
+    opacity: 1;
+    background:
+        radial-gradient(ellipse at 50% 28%, rgba(109, 40, 217, 0.20), transparent 62%),
+        linear-gradient(180deg, rgba(49, 10, 101, 0.28), rgba(2, 4, 10, 0.30));
+}
+.icx-grade.is-elegy {
+    opacity: 1;
+    background: radial-gradient(ellipse at 42% 45%, rgba(224, 242, 254, 0.16), transparent 65%);
+}
+
+/* Cinema letterbox bars (dialogue beats only; hidden on small screens). */
+/* Letterbox bars removed — they read as heavy black bars over the village on
+   the companion beat. Kept as a no-op so the JSX + toggle logic stay valid. */
+.icx-letterbox {
+    display: none;
+}
+.icx-letterbox.top { top: 0; transform: translateY(-100%); }
+.icx-letterbox.bottom { bottom: 0; transform: translateY(100%); }
+.icx-letterbox.is-on { transform: translateY(0); }
+
+/* One-shot opening title card. */
+.icx-title {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 7;
+    pointer-events: none;
+    animation: icx-title 4.4s ease both;
+}
+.icx-title-kicker {
+    color: #7dd3fc;
+    font-size: clamp(11px, 1.4vw, 14px);
+    font-weight: 800;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    text-shadow: 0 0 18px rgba(125, 211, 252, 0.6);
+}
+.icx-title-main {
+    font-family: var(--font-display);
+    color: var(--gold-300);
+    font-size: clamp(30px, 5.4vw, 62px);
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 34px rgba(250, 204, 21, 0.3), 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+@keyframes icx-title {
+    0%   { opacity: 0; transform: scale(0.985); }
+    14%  { opacity: 1; transform: scale(1); }
+    68%  { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.01); }
+}
+
+/* Stage rumble while the Gate stirs. */
+.icx-root.is-rumbling .icx-scene,
+.icx-root.is-rumbling .icx-stagefill {
+    animation: icx-rumble 380ms ease-in-out 3;
+}
+@keyframes icx-rumble {
+    0%, 100% { transform: translate(0, 0); }
+    20%      { transform: translate(-3px, 2px); }
+    45%      { transform: translate(3px, -2px); }
+    70%      { transform: translate(-2px, -2px); }
+    85%      { transform: translate(2px, 2px); }
+}
+
+/* Camera push-in on the actors while the fox speaks. */
+.icx-stagefill {
+    position: absolute;
+    inset: 0;
+    transition: transform 3s ease;
+}
+.icx-stagefill.is-focus {
+    transform: scale(1.035);
+}
+
+/* ── Dialogue box ───────────────────────────────────────────────────────── */
+
+.icx-dialogue {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    width: min(920px, calc(100% - 26px));
+    min-height: 128px;
+    border-radius: 12px;
+    border: 2px solid rgba(250, 204, 21, 0.55);
+    background: linear-gradient(180deg, rgba(7, 12, 23, 0.93), rgba(3, 7, 15, 0.97));
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(250, 204, 21, 0.08);
+    padding: 14px 20px 26px;
+    cursor: pointer;
+    animation: icx-choose-in 320ms ease-out both;
+}
+/* Every layer of the stage invites the advance tap. */
+.icx-root { cursor: pointer; }
+/* One-time first-line affordance for brand-new players. */
+.icx-tap-hint {
+    position: absolute;
+    right: 34px;
+    bottom: 9px;
+    font-size: 12px;
+    color: #fbbf24;
+    opacity: 0;
+    animation: icx-hint-in 600ms ease 400ms forwards;
+}
+@keyframes icx-hint-in {
+    to { opacity: 0.9; }
+}
+/* Screen-reader-only copy of the full line (the animated slice is aria-hidden). */
+.icx-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+.icx-speaker {
+    display: inline-block;
+    padding: 3px 14px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(224, 242, 254, 0.95), rgba(147, 197, 253, 0.85));
+    color: #0c2f4a;
+    font-weight: 800;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    box-shadow: 0 0 18px rgba(125, 211, 252, 0.45);
+}
+.icx-line {
+    margin: 9px 0 0;
+    font-size: clamp(16px, 2.1vw, 21px);
+    line-height: 1.55;
+    color: #edf6ff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    animation: icx-line-in 240ms ease-out both;
+}
+@keyframes icx-line-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.icx-line.is-narrator {
+    font-style: italic;
+    text-align: center;
+    color: #bfdbfe;
+    padding-top: 12px;
+}
+.icx-advance {
+    position: absolute;
+    right: 14px;
+    bottom: 8px;
+    font-size: 13px;
+    color: #fbbf24;
+    animation: icx-advance-pulse 1.2s ease-in-out infinite;
+}
+@keyframes icx-advance-pulse {
+    0%, 100% { opacity: 0.35; transform: translateY(0); }
+    50%      { opacity: 1; transform: translateY(3px); }
+}
+
+/* ── Skip ───────────────────────────────────────────────────────────────── */
+
+.icx-skip {
+    position: absolute;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: 14px;
+    background: rgba(2, 6, 23, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 999px;
+    color: var(--slate-300);
+    font-size: 12.5px;
+    padding: 6px 14px;
+    cursor: pointer;
+    /* Above the letterbox bars (z 6) and title (z 7) — a hidden Skip on a
+       forced cinematic is the worst affordance failure it can have. */
+    z-index: 8;
+}
+.icx-skip:hover {
+    color: #fff7d6;
+    border-color: rgba(250, 204, 21, 0.6);
+}
+/* Sound opt-in toggle beside Skip (the global unmute lives under the overlay). */
+.icx-skip.icx-sound {
+    right: 92px;
+    min-width: 44px;
+    padding: 6px 11px;
+}
+
+/* ── Companion choice (the fox's gift) ──────────────────────────────────── */
+
+.icx-choose {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: clamp(14px, 3.5vh, 36px) 14px calc(22px + env(safe-area-inset-bottom, 0px));
+    /* Light enough that the watching deity reads through on the left.
+       NO backdrop-filter: on many mobile GPUs a blurred backdrop samples a
+       STALE snapshot that bakes in the just-removed dialogue box, ghosting the
+       previous line's dark prompt behind the cards until the next repaint. The
+       translucent scrim alone (no blur) still lets the deity read through. */
+    background: rgba(2, 5, 14, 0.6);
+    animation: icx-choose-in 320ms ease-out both;
+}
+@keyframes icx-choose-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.icx-choose-kicker {
+    margin: 0;
+    color: #7dd3fc;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    text-shadow: 0 0 14px rgba(125, 211, 252, 0.5);
+}
+.icx-choose-title {
+    margin: 4px 0 0;
+    font-family: var(--font-display);
+    color: var(--gold-300);
+    font-size: clamp(22px, 3.4vw, 34px);
+    text-shadow: 0 0 24px rgba(250, 204, 21, 0.18);
+    text-align: center;
+}
+.icx-choose-sub {
+    margin: 4px 0 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+}
+.icx-pet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(216px, 1fr));
+    gap: 12px;
+    /* Wide enough for all five spirits to stand in one row (5×216 + 4×12). */
+    width: min(1150px, 100%);
+}
+.icx-pet-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+    padding: 14px;
+    border-radius: 12px;
+    border: 2px solid var(--icx-accent, var(--cyan));
+    background: linear-gradient(180deg, rgba(11, 16, 30, 0.94), rgba(5, 8, 18, 0.97));
+    color: #e5e7eb;
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+    box-shadow: 0 0 18px color-mix(in srgb, var(--icx-accent, var(--cyan)) 22%, transparent);
+    font: inherit;
+}
+.icx-pet-card:hover,
+.icx-pet-card:focus-visible {
+    transform: translateY(-4px);
+    box-shadow: 0 0 34px color-mix(in srgb, var(--icx-accent, var(--cyan)) 42%, transparent);
+}
+/* The five spirits present themselves one after another. */
+.icx-pet-card { animation: icx-card-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.icx-pet-card:nth-child(1) { animation-delay: 60ms; }
+.icx-pet-card:nth-child(2) { animation-delay: 140ms; }
+.icx-pet-card:nth-child(3) { animation-delay: 220ms; }
+.icx-pet-card:nth-child(4) { animation-delay: 300ms; }
+.icx-pet-card:nth-child(5) { animation-delay: 380ms; }
+@keyframes icx-card-in {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.icx-pet-art {
+    height: 92px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.icx-pet-art img {
+    max-height: 100%;
+    max-width: 100%;
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.55));
+}
+.icx-pet-art .icx-pet-emoji { font-size: 52px; line-height: 1; }
+.icx-pet-name {
+    margin: 0;
+    color: var(--icx-accent, var(--cyan));
+    font-size: 18px;
+    font-weight: 800;
+}
+.icx-pet-role {
+    margin: 1px 0 0;
+    color: var(--slate-300);
+    font-size: 12px;
+}
+.icx-pet-chips { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; }
+.icx-chip-good { background: rgba(34, 197, 94, 0.15); color: var(--green-300); border-radius: 6px; padding: 2px 7px; }
+.icx-chip-bad  { background: rgba(239, 68, 68, 0.15); color: var(--red-300); border-radius: 6px; padding: 2px 7px; }
+.icx-pet-blurb { margin: 0; font-size: 12.5px; color: var(--slate-300); line-height: 1.45; }
+.icx-pet-trait { margin: 0; font-size: 11.5px; color: var(--gold-400); line-height: 1.4; }
+
+.icx-statbar { display: flex; align-items: center; gap: 8px; font-size: 11.5px; }
+.icx-statbar > span:first-child { width: 30px; color: #9ca3af; }
+.icx-statbar > span:last-child { width: 30px; text-align: right; color: #e5e7eb; }
+.icx-statbar-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.icx-statbar-fill { height: 100%; border-radius: 4px; background: var(--icx-accent, var(--cyan)); }
+
+/* Confirm stage */
+.icx-confirm {
+    width: min(440px, 100%);
+    margin: auto;
+    text-align: center;
+    padding: 26px 22px;
+    border-radius: 14px;
+    border: 2px solid var(--icx-accent, var(--cyan));
+    background: linear-gradient(180deg, rgba(11, 16, 30, 0.96), rgba(5, 8, 18, 0.99));
+    box-shadow: 0 0 54px color-mix(in srgb, var(--icx-accent, var(--cyan)) 36%, transparent);
+}
+.icx-confirm .icx-pet-art { height: 128px; margin-bottom: 6px; }
+.icx-confirm h2 {
+    margin: 8px 0 6px;
+    color: #f8fafc;
+    font-family: var(--font-display);
+}
+.icx-confirm p { margin: 0 0 18px; color: var(--slate-300); line-height: 1.5; font-size: 14px; }
+.icx-confirm-actions { display: flex; gap: 12px; justify-content: center; }
+.icx-btn-ghost {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    background: rgba(2, 6, 23, 0.6);
+    color: var(--slate-300);
+    cursor: pointer;
+    font: inherit;
+}
+.icx-btn-take {
+    padding: 10px 22px;
+    border-radius: 8px;
+    border: 1px solid var(--icx-accent, var(--cyan));
+    background: linear-gradient(135deg, var(--icx-accent, var(--cyan)), color-mix(in srgb, var(--icx-accent, var(--cyan)) 75%, #000));
+    color: #0a0a1a;
+    font-weight: 800;
+    cursor: pointer;
+    font: inherit;
+}
+
+/* ── White-out ──────────────────────────────────────────────────────────── */
+
+.icx-whiteout {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 30;
+    transition: opacity 1400ms ease-in;
+}
+.icx-whiteout.is-on { opacity: 1; }
+.icx-whiteout.is-on.is-revealing {
+    opacity: 0;
+    transition: opacity 900ms ease-out;
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────────── */
+
+@media (max-width: 800px) {
+    .icx-fox { left: 1%; bottom: 33%; width: clamp(160px, 46vw, 250px); }
+    .icx-avatar { right: 3%; bottom: 34%; width: clamp(86px, 26vw, 118px); }
+    .icx-avatar-name { font-size: 10.5px; padding: 2px 9px; }
+    /* Mobile keeps the vision centred (the fox sits lower here, so it clears)
+       and nudged up so it clears the deity's ears. transform is re-added because
+       the desktop base is now transform:none (left-edge anchored). */
+    .icx-vision { left: 50%; transform: translateX(-50%); top: 4%; width: min(23vh, 60vw); }
+    .icx-letterbox { display: none; }
+    .icx-companion-pet { left: 3%; bottom: 205px; width: clamp(100px, 28vw, 150px); }
+    /* Grounded in the gap between the deity and the player, not on the card. */
+    /* Beside the player's portrait (just left of it, aligned to its lower half),
+       clearly visible above the dialogue — not floating in the middle. */
+    .icx-gift-pet { right: calc(3% + clamp(86px, 26vw, 118px) + 4px); left: auto; bottom: 38%; width: clamp(58px, 16vw, 80px); }
+    .icx-dialogue { min-height: 138px; padding: 12px 14px 24px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+    /* The companion beat has no letterbox on mobile — a top+bottom dark
+       gradient gives it the same cinematic framing and settles the busy
+       village HUD behind the dialogue + pet. */
+    .icx-root.is-companion {
+        background:
+            linear-gradient(180deg,
+                rgba(2, 5, 14, 0.90) 0%,
+                rgba(2, 5, 14, 0.52) 20%,
+                rgba(2, 5, 14, 0.46) 58%,
+                rgba(2, 5, 14, 0.93) 100%);
+    }
+    /* Scroll affordance: 5 tall cards overflow small screens — fade the fold. */
+    .icx-choose::after {
+        content: "";
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 56px;
+        background: linear-gradient(transparent, rgba(2, 5, 14, 0.92));
+        pointer-events: none;
+    }
+    .icx-line { font-size: 15px; }
+    .icx-pet-grid { grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 9px; }
+    .icx-pet-card { padding: 11px; }
+    .icx-pet-art { height: 72px; }
+}
+
+/* ── Motion safety ──────────────────────────────────────────────────────── */
+
+.lite-fx .icx-scene-art,
+.lite-fx .icx-fox,
+.lite-fx .icx-fox::before,
+.lite-fx .icx-fox img,
+.lite-fx .icx-avatar img,
+.lite-fx .icx-vision,
+.lite-fx .icx-advance {
+    animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    .icx-scene-art,
+    .icx-fox,
+    .icx-fox::before,
+    .icx-fox img,
+    .icx-avatar img,
+    .icx-mote,
+    .icx-petal,
+    .icx-mist,
+    .icx-rays,
+    .icx-rays::before,
+    .icx-rays::after,
+    .icx-line,
+    .icx-vision,
+    .icx-advance,
+    .icx-title,
+    .icx-companion-pet,
+    .icx-companion-pet img,
+    .icx-gift-pet,
+    .icx-gift-pet img,
+    .icx-root.is-companion,
+    .icx-dialogue,
+    .icx-tap-hint,
+    .icx-choose,
+    .icx-pet-card {
+        animation: none;
+    }
+    .icx-fox img { transition: none; }
+    .icx-stagefill { transition: none; }
+    .icx-letterbox { transition: none; }
+    /* Match the shortened JS whiteout choreography (250ms in / 250ms out). */
+    .icx-whiteout,
+    .icx-whiteout.is-on.is-revealing {
+        transition-duration: 200ms;
+    }
+    .icx-tap-hint { opacity: 0.9; }
+    .icx-root.is-companion { opacity: 1; }
+}

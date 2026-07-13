@@ -21,8 +21,10 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
-    // Brute-force protection: 20 attempts / 15 min per IP.
-    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'admin-auth', 20, 15 * 60_000))
+    // Brute-force protection: 20 attempts / 15 min per verified client IP.
+    // Durable + strict so process replacement cannot reset the bucket, while a
+    // KV outage still falls back to the same per-instance ceiling.
+    if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'admin-auth', 20, 15 * 60_000, null, { strict: true })))
         return;
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { password } = body;

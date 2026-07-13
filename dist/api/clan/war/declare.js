@@ -160,29 +160,28 @@ async function handler(req, res) {
                     };
                     // Bump _saveVersion so a stale declarer tab can't refund the
                     // debit (a free war) via its next autosave (audit #2 class).
-                    (0, _save_version_js_1.bumpSaveVersion)(updated);
-                    await _storage_js_1.kv.set(saveKey, updated);
+                    await _storage_js_1.kv.set(saveKey, (0, _save_version_js_1.bumpSaveVersion)(updated));
                     return null;
                 }, { failClosed: true });
                 if (debitError)
                     return debitError;
             }
             const now = Date.now();
+            const villages = {};
+            const hp = {};
+            const hpMax = {};
+            (0, _utils_js_1.setSafeRecordValue)(villages, fromClan, ctx.village);
+            (0, _utils_js_1.setSafeRecordValue)(villages, toClan, toVillage);
+            (0, _utils_js_1.setSafeRecordValue)(hp, fromClan, fromStartHp);
+            (0, _utils_js_1.setSafeRecordValue)(hp, toClan, toStartHp);
+            (0, _utils_js_1.setSafeRecordValue)(hpMax, fromClan, fromStartHp);
+            (0, _utils_js_1.setSafeRecordValue)(hpMax, toClan, toStartHp);
             const war = {
                 id,
                 clans: sortedClans,
-                villages: {
-                    [fromClan]: ctx.village,
-                    [toClan]: toVillage,
-                },
-                hp: {
-                    [fromClan]: fromStartHp,
-                    [toClan]: toStartHp,
-                },
-                hpMax: {
-                    [fromClan]: fromStartHp,
-                    [toClan]: toStartHp,
-                },
+                villages,
+                hp,
+                hpMax,
                 startedAt: now,
                 updatedAt: now,
                 declaredBy: identity.admin ? 'admin' : (ctx.name || identity.name),

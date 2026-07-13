@@ -178,7 +178,7 @@ function usedItemsForMember(session, slug) {
         for (const [id, rawN] of Object.entries(a.itemsUsed)) {
             const n = Math.max(0, Math.floor(Number(rawN) || 0));
             if (id && n > 0)
-                used[id] = (used[id] ?? 0) + n;
+                (0, _utils_js_1.setSafeRecordValue)(used, id, (used[id] ?? 0) + n);
         }
     }
     return used;

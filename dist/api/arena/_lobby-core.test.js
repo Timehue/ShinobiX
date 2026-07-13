@@ -31,6 +31,7 @@ const pet = (over = {}) => ({
     for (const ch of code)
         strict_1.default.ok(_lobby_core_js_1.CODE_ALPHABET.includes(ch), `${ch} not in alphabet`);
     strict_1.default.equal((0, _lobby_core_js_1.codeFromBytes)([0, 0, 0, 0]), 'AAAA');
+    strict_1.default.equal((0, _lobby_core_js_1.codeFromBytes)([255, 255, 255, 255]), '9999');
 });
 (0, node_test_1.test)('openSeat fills team-up order then opponents, honors preference, and detects full', () => {
     const lobby = (0, _lobby_core_js_1.newLobby)('ABCD', 'host', 1000);

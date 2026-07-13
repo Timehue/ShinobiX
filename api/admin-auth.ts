@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { cors } from './_utils.js';
 import { safeEqual } from './_auth.js';
-import { enforceRateLimit } from './_ratelimit.js';
+import { enforceRateLimitKv } from './_ratelimit.js';
 
 // Login endpoint for the admin panel.
 //
@@ -19,8 +19,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    // Brute-force protection: 20 attempts / 15 min per IP.
-    if (!enforceRateLimit(req, res, 'admin-auth', 20, 15 * 60_000)) return;
+    // Brute-force protection: 20 attempts / 15 min per verified client IP.
+    // Durable + strict so process replacement cannot reset the bucket, while a
+    // KV outage still falls back to the same per-instance ceiling.
+    if (!(await enforceRateLimitKv(req, res, 'admin-auth', 20, 15 * 60_000, null, { strict: true }))) return;
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { password } = body as { password?: string };

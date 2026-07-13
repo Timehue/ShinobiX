@@ -83,7 +83,7 @@ async function handler(req, res) {
             const slug = a.ownerSlug;
             if (!slug)
                 continue;
-            consumables[slug] = await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug });
+            (0, _utils_js_1.setSafeRecordValue)(consumables, slug, await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session, slug }));
         }
         let awardedCharacter;
         const outcomeBody = outcome.body;

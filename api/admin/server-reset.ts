@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { isFullAdmin } from '../_auth.js';
+import { isFullAdmin, rotatePlayerSessionEpoch } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
 
@@ -11,13 +11,25 @@ import { RESERVED_USERNAMES } from '../player-auth.js';
 const PROTECTED_NAMES = Array.from(RESERVED_USERNAMES); // already lowercase
 const PROTECTED_SAVE_KEYS = new Set(PROTECTED_NAMES.map((n) => `save:${n}`));
 const PROTECTED_AUTH_KEYS = new Set(PROTECTED_NAMES.map((n) => `auth:${n}`));
+// A protected account keeps its save (with the storyTraits mirror), so its
+// server story record must survive too — wiping one but not the other would
+// desync the pair (empty lane tally under a character with recorded choices).
+const PROTECTED_STORY_KEYS = new Set(PROTECTED_NAMES.map((n) => `story:${n}`));
 
-function isProtectedKey(key: string): boolean {
+export function isProtectedKey(key: string): boolean {
     const lower = key.toLowerCase();
-    return PROTECTED_SAVE_KEYS.has(lower) || PROTECTED_AUTH_KEYS.has(lower);
+    return PROTECTED_SAVE_KEYS.has(lower) || PROTECTED_AUTH_KEYS.has(lower) || PROTECTED_STORY_KEYS.has(lower);
+}
+
+export function authNamesRequiringRevocation(authKeys: readonly string[]): string[] {
+    return authKeys
+        .filter((key) => key.toLowerCase().startsWith('auth:') && !isProtectedKey(key))
+        .map((key) => key.slice('auth:'.length))
+        .filter(Boolean);
 }
 
 // Patterns wiped on full reset. Anything matching these is deleted.
+// (Exported for the reset-coverage test only.)
 // EXCLUDED from wipe (preserved across resets):
 //   • shared:images*  / shared:imgfields*  — ALL uploaded images:
 //       avatars, pets, weapons, jutsus, items, cards, bloodlines, AIs,
@@ -29,7 +41,7 @@ function isProtectedKey(key: string): boolean {
 //   • game:village-leadership-images — Village Leaders tab config (names + portraits).
 //   • game:weekly-boss-override — admin's chosen boss AI choice survives so
 //       the next week's boss spawns the same way.
-const WIPE_PATTERNS = [
+export const WIPE_PATTERNS = [
     'presence:*',
     'presence:all',                 // bulk presence hash (cleared alongside individual keys)
     'challenges:*',
@@ -72,6 +84,20 @@ const WIPE_PATTERNS = [
     'raid-report-count:*',          // per-player daily raid-report counters
     'raid-start-count:*',           // per-player daily raid-start counters
     'chat:battle:*',                // transient PvP battle chat logs
+
+    // ── Story rebuild keys (2026-07). The story record is permanent character
+    // history, so it must die WITH the character: leaving it would hand a
+    // pre-reset player's lane tally and interlude history to whoever
+    // re-registers that name after the wipe. Protected accounts keep theirs
+    // (they keep their saves). The hall:nx dedup keys gate every first-only
+    // world celebration (kage liberation, legacy firsts); the announcement
+    // feed they guard is world history, so a full wipe clears both together —
+    // otherwise the new world's first liberator seats silently, or the Hall
+    // shows two "firsts" from different eras.
+    'story:*',                      // server story records (interlude/road choices + lane tally)
+    'game:announcements',           // world announcement feed + Hall entries
+    'game:announcements-seq',
+    'hall:nx:*',                    // first-only celebration dedup (re-arms for the new era)
 ];
 
 // Villages with NPC Kage + 3 Elders configured on the Village Leaders admin tab.
@@ -104,6 +130,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const deleted: string[] = [];
+
+        // Revoke every affected account token before the first destructive
+        // write. The rotated epoch deliberately survives the reset: deleting
+        // auth-session:* would make a missing epoch read as zero and could
+        // resurrect an old epoch-0 v2 token even though its password row is gone.
+        const authKeys = await kv.keys('auth:*');
+        await Promise.all(authNamesRequiringRevocation(authKeys).map((name) => rotatePlayerSessionEpoch(name)));
 
         // 1. Wipe all player saves — admin saves are preserved so admin-created
         //    content (jutsus, AIs, missions, events, pets, cards, VNs) survives.

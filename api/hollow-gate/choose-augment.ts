@@ -3,7 +3,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { AUGMENT_CATALOG, type HollowGateRunToken } from './_run-token.js';
+import { AUGMENT_CATALOG, hollowGateRunsEnabled, type HollowGateRunToken } from './_run-token.js';
 
 /*
  * /api/hollow-gate/choose-augment  — POST only
@@ -34,6 +34,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
+        if (!hollowGateRunsEnabled()) {
+            return res.status(503).json({ error: 'Hollow Gate runs are temporarily unavailable until server settlement is complete.' });
+        }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-choose', 30, 60_000, identity.name))) return;
 
         const key = `hg-run:${playerName}:${token}`;

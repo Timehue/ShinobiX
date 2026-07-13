@@ -260,7 +260,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const nextPets = pets.map((pet) => String(pet?.id ?? '') === expeditionPetId
                     ? settleServerPetExpedition(pet, expType ?? 'scout', durationMinutes, petXpMult).pet
                     : pet);
-                const updated = {
+                const updated = bumpSaveVersion({
                     ...record,
                     character: {
                         ...char,
@@ -273,8 +273,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         fateShards: Number(char.fateShards ?? 0) + foundFate,
                         ...(escortReady ? { petEscortBonusReady: false } : {}),
                     },
-                };
-                bumpSaveVersion(updated);
+                });
                 await kv.set(saveKey, mergePreservingImages(updated, record));
                 if (expeditionTokenKey) await kv.del(expeditionTokenKey).catch(() => undefined);
             }, { failClosed: true });

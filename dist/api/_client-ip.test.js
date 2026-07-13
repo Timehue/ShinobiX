@@ -40,6 +40,12 @@ function req(headers, socketIp) {
     (0, node_test_1.it)('is false for a direct (non-Cloudflare) request', () => {
         node_assert_1.strict.equal((0, _client_ip_js_1.requestTransitedCloudflare)(req({ 'x-forwarded-for': '86.123.45.67' }, '10.0.0.3')), false);
     });
+    (0, node_test_1.it)('rejects an injected Cloudflare hop when the proxy-facing hop is not Cloudflare', () => {
+        node_assert_1.strict.equal((0, _client_ip_js_1.requestTransitedCloudflare)(req({
+            'x-forwarded-for': '1.2.3.4, 162.158.14.68, 86.123.45.67',
+            'cf-connecting-ip': '1.2.3.4',
+        }, '10.0.0.3')), false);
+    });
 });
 (0, node_test_1.describe)('clientIp', () => {
     (0, node_test_1.it)('returns the real visitor from CF-Connecting-IP when behind Cloudflare', () => {
@@ -66,12 +72,19 @@ function req(headers, socketIp) {
         }, '10.0.0.3');
         node_assert_1.strict.equal((0, _client_ip_js_1.clientIp)(r), '86.123.45.67');
     });
-    (0, node_test_1.it)('falls back to the first XFF hop when no CF header is present', () => {
-        const r = req({ 'x-forwarded-for': '86.123.45.67, 10.0.0.1' });
+    (0, node_test_1.it)('uses the proxy-facing XFF hop when Cloudflare cannot be verified', () => {
+        const r = req({ 'x-forwarded-for': '1.2.3.4, 86.123.45.67' });
         node_assert_1.strict.equal((0, _client_ip_js_1.clientIp)(r), '86.123.45.67');
     });
-    (0, node_test_1.it)('falls back to x-real-ip when XFF is absent', () => {
-        node_assert_1.strict.equal((0, _client_ip_js_1.clientIp)(req({ 'x-real-ip': '86.123.45.67' })), '86.123.45.67');
+    (0, node_test_1.it)('does not trust a standalone spoofable x-real-ip header', () => {
+        node_assert_1.strict.equal((0, _client_ip_js_1.clientIp)(req({ 'x-real-ip': '1.2.3.4' }, '86.123.45.67')), '86.123.45.67');
+    });
+    (0, node_test_1.it)('does not honor forged CF identity from a non-proxy-facing Cloudflare hop', () => {
+        const r = req({
+            'cf-connecting-ip': '1.2.3.4',
+            'x-forwarded-for': '9.9.9.9, 162.158.14.68, 86.123.45.67',
+        }, '10.0.0.3');
+        node_assert_1.strict.equal((0, _client_ip_js_1.clientIp)(r), '86.123.45.67');
     });
     (0, node_test_1.it)('falls back to the socket peer when no proxy headers are present', () => {
         node_assert_1.strict.equal((0, _client_ip_js_1.clientIp)(req({}, '86.123.45.67')), '86.123.45.67');

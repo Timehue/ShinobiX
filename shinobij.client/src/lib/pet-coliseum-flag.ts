@@ -76,25 +76,21 @@ export function setPetAccuracyEnabled(on: boolean): void {
 }
 
 /*
- * Account-level RANKED PET challenge flag. The dormant System-B path
- * (api/pet/ranked-start + the ranked branch of api/pet/battle-result, which
- * settles both players' `petRankedRating`) is fully built on the accept/resolve
- * side, but the SEND button (challengePlayer(opponent, "rankedPet")) was never
- * wired. When ON, a "Ranked Pet Duel" send button appears in the Arena player
- * list. DEFAULT OFF: this direct-challenge mode has had no two-client testing and
- * overlaps the already-live Pet Ladder, so it ships dark until a controlled test.
- * (The Pet Ladder — Arena → Pet Battles tab — is the primary, live pet-ranked
- * experience and is unaffected by this flag.) Per-device persisted; flip with
- * localStorage.setItem("petRankedChallenge.v1","1").
+ * Direct ranked-pet challenges are locked off until their outcome is resolved
+ * by the deterministic server engine. A client-controlled feature flag would
+ * let a modified browser revive the old local-Elo path even though the API now
+ * refuses it. The server-authoritative Pet Ladder remains available.
  */
 const PET_RANKED_CHALLENGE_KEY = "petRankedChallenge.v1";
 
 export function petRankedChallengeEnabled(): boolean {
-    try { return localStorage.getItem(PET_RANKED_CHALLENGE_KEY) === "1"; } catch { return false; }
+    return false;
 }
 
-export function setPetRankedChallengeEnabled(on: boolean): void {
-    try { localStorage.setItem(PET_RANKED_CHALLENGE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+export function setPetRankedChallengeEnabled(_on: boolean): void {
+    // Remove stale opt-ins from pre-authority builds. Intentionally cannot be
+    // enabled by client state.
+    try { localStorage.removeItem(PET_RANKED_CHALLENGE_KEY); } catch { /* storage disabled — ignore */ }
 }
 
 /*
@@ -126,6 +122,37 @@ export function petDuelEngineEnabled(): boolean {
 
 export function setPetDuelEngineEnabled(on: boolean): void {
     try { localStorage.setItem(DUEL_ENGINE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}
+
+/*
+ * CINEMATIC coliseum engine flag — the redesigned combat AI (lib/pet-duel-cinematic.ts).
+ * When ON, CASUAL coliseum duels (Pet Arena 1v1 + 2v2 PvE / clan-war, dungeon pet fights)
+ * resolve with the new context-steering + utility-AI engine: pets KITE, reposition,
+ * circle, dodge telegraphs (speed-gated), and their ROLE / ELEMENT-matchup / STATS /
+ * equipped ITEMS drive a distinct fighting style — instead of the old orbit-then-lunge.
+ * Emits the same DuelResult contract so the whole PetColiseumDuel renderer + spectacle
+ * layer is reused. When OFF, casual duels fall back to the previous planted engine
+ * (pet-duel-sim.ts, plantedMotion=true).
+ *
+ * RANKED / ladder / sector-war are NOT affected — they stay on pet-duel-sim.ts
+ * (plantedMotion=false, server-mirrored + parity-tested) until this engine is
+ * balance-signed-off and promoted (its own future step). This flag only swaps the
+ * client-authoritative CASUAL path, whose reward is server-capped + keyed only off the
+ * win/loss string, so the swap is reward-safe. Instant rollback: set to "0". DEFAULT ON
+ * (the game is in testing). Per-device: localStorage.setItem("petColiseumCinematic.v1","1"|"0").
+ */
+const CINEMATIC_KEY = "petColiseumCinematic.v1";
+
+export function petColiseumCinematicEnabled(): boolean {
+    try {
+        const v = localStorage.getItem(CINEMATIC_KEY);
+        if (v === "0") return false;   // explicit kill-switch → old planted engine
+        return true;                   // DEFAULT ON — the redesigned engine is the casual coliseum
+    } catch { return true; }
+}
+
+export function setPetColiseumCinematicEnabled(on: boolean): void {
+    try { localStorage.setItem(CINEMATIC_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
 }
 
 /*

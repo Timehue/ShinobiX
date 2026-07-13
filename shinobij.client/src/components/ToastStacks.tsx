@@ -42,7 +42,7 @@ export function ToastStacks({ achievementToasts, missionToasts, onDismissAchieve
             {missionToasts.length > 0 && (
                 <div className="achievement-toast-stack" style={{ bottom: 80 }}>
                     {missionToasts.slice(0, 3).map((t) => {
-                        const accent = t.profession === "healer" ? "#22d3ee" : t.profession === "vanguard" ? "#f97316" : "#facc15";
+                        const accent = t.profession === "healer" ? "#22d3ee" : t.profession === "vanguard" ? "#f97316" : "var(--gold)";
                         const xpLine = t.xp > 0 ? `+${t.xp} ${t.profession ? `${t.profession.charAt(0).toUpperCase() + t.profession.slice(1)} ` : ""}XP` : "";
                         const detail = t.summary ?? xpLine;
                         return (

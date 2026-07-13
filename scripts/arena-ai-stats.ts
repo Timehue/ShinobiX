@@ -52,10 +52,11 @@ function analyze(agg: Agg, r: ReturnType<typeof runPetArenaMatch>) {
         }
         if (below >= 0) { agg.focusSum += k.t - below; agg.focusN++; }
     }
-    // carrier hold time: pickup → next capture/drop for that actor
+    // carrier hold time: pickup → the SAME actor's next capture/drop (a global "first
+    // capture/drop after t" could belong to a different carrier and misattribute the hold)
     const picks = r.events.filter((e) => e.type === "pickup") as Array<{ t: number; actorId?: string }>;
     for (const p of picks) {
-        const end = r.events.find((e) => e.t >= p.t && (e.type === "capture" || e.type === "drop"));
+        const end = r.events.find((e) => e.t >= p.t && (e.type === "capture" || e.type === "drop") && (e as { actorId?: string }).actorId === p.actorId);
         if (end) { agg.carrySum += end.t - p.t; agg.carryN++; }
     }
 }

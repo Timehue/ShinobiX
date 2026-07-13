@@ -8,6 +8,7 @@ const _lock_js_1 = require("../_lock.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
 const presence_gating_js_1 = require("../_realtime/presence-gating.js");
 const notify_js_1 = require("../_realtime/notify.js");
+const _ranked_settlement_js_1 = require("../pet/_ranked-settlement.js");
 const CHALLENGE_TTL = 180; // seconds (3 min) — challenge auto-cancels if unanswered
 // Public projection for the challenger character stored alongside a
 // challenges:<name> entry. The challenges:* prefix is anon-readable via
@@ -195,12 +196,29 @@ async function handler(req, res) {
             return res.status(400).json({ error: 'Missing targetName or challenge.' });
         const record = challenge;
         const fromName = challengeFromName(challenge);
+        // Direct ranked-pet challenges previously allowed the browser to choose
+        // the outcome. Refuse new, accepted, and routed challenges until the
+        // deterministic server engine enables the matching token flow.
+        if (record.mode === 'rankedPet' && !(0, _ranked_settlement_js_1.petRankedStartsEnabled)()) {
+            return res.status(503).json({ error: _ranked_settlement_js_1.PET_RANKED_DISABLED_REASON });
+        }
         // The challenge's fromName (sender) must match the authed identity unless admin.
         if (!identity.admin && fromName && (0, _utils_js_1.safeName)(fromName) !== identity.name) {
             return res.status(403).json({ error: 'Cannot send a challenge as another player.' });
         }
         // For new challenges (not accept/decline/battle routing), gate on travel + battle state.
         if (!record.accepted && !record.declined && !record.battleId) {
+            // The target must be a real, existing player. A challenge typed to a
+            // mistyped/nonexistent name would otherwise store at challenges:<typo>
+            // — a key no heartbeat ever reads — and return 200 as if delivered,
+            // so the sender is never told it went nowhere (they'd wait for an
+            // accept that can't come). Player saves live at save:<safeName>, so a
+            // missing save = no such player. Only new outgoing challenges are
+            // gated; accept/decline/battle-routing replies legitimately target
+            // the counterparty and are handled above.
+            const targetExists = await _storage_js_1.kv.get(`save:${(0, _utils_js_1.safeName)(targetName)}`);
+            if (!targetExists)
+                return res.status(404).json({ error: `No player named "${targetName}" was found.` });
             // Presence is in process memory; challengeBlock carries the
             // traveling / in-battle / engaged gates AND the Academy-Student
             // protection (sub-Genin can't be challenged). Spar and pet-battle

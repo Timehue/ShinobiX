@@ -5,6 +5,9 @@ exports.MALFORMED_JSON_BODY_ERROR = exports.ALLOWED_ORIGINS = void 0;
 exports.safeName = safeName;
 exports.clanBareSlug = clanBareSlug;
 exports.clanRecordKey = clanRecordKey;
+exports.isSafeRecordKey = isSafeRecordKey;
+exports.setSafeRecordValue = setSafeRecordValue;
+exports.deleteSafeRecordValue = deleteSafeRecordValue;
 exports.mergePreservingImages = mergePreservingImages;
 exports.isAllowedOrigin = isAllowedOrigin;
 exports.parseJsonBody = parseJsonBody;
@@ -56,6 +59,28 @@ function isImageField(key, value) {
 // partial-payload protection is preserved). Scalars cleared to undefined (e.g.
 // activePetId) are handled client-side by sending `null` instead of omitting.
 const REPLACE_SUBTREE_KEYS = new Set(['equipment', 'loadout']);
+const PROTOTYPE_POLLUTION_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+function isSafeRecordKey(key) {
+    return !PROTOTYPE_POLLUTION_KEYS.has(key);
+}
+function setSafeRecordValue(target, key, value) {
+    if (!isSafeRecordKey(key))
+        return false;
+    // defineProperty never invokes Object.prototype.__proto__'s setter and keeps
+    // dynamic JSON keys as plain enumerable data properties.
+    Object.defineProperty(target, key, {
+        value,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+    });
+    return true;
+}
+function deleteSafeRecordValue(target, key) {
+    if (!isSafeRecordKey(key))
+        return false;
+    return Reflect.deleteProperty(target, key);
+}
 function mergePreservingImages(incoming, existing) {
     // Arrays: take the incoming sequence verbatim (preserving order +
     // intentional deletions), but per-item recurse so embedded images and
@@ -91,15 +116,21 @@ function mergePreservingImages(incoming, existing) {
     // remaining ~30 fields of the recipient's save — inventory, pets,
     // jutsuMastery, equipment, stats, etc.). Players send their full state on
     // normal auto-save, so this change is a no-op there.
-    const merged = { ...ex };
+    const merged = {};
+    for (const [key, value] of Object.entries(ex)) {
+        setSafeRecordValue(merged, key, value);
+    }
     for (const [key, value] of Object.entries(inc)) {
-        if (isImageField(key, value) && value === '' && typeof ex[key] === 'string' && String(ex[key]).startsWith('data:image')) {
-            merged[key] = ex[key];
+        if (!isSafeRecordKey(key))
+            continue;
+        const existingValue = Object.prototype.hasOwnProperty.call(ex, key) ? ex[key] : undefined;
+        if (isImageField(key, value) && value === '' && typeof existingValue === 'string' && String(existingValue).startsWith('data:image')) {
+            setSafeRecordValue(merged, key, existingValue);
             continue;
         }
-        merged[key] = value && typeof value === 'object'
-            ? mergePreservingImages(value, REPLACE_SUBTREE_KEYS.has(key) ? undefined : ex[key])
-            : value;
+        setSafeRecordValue(merged, key, value && typeof value === 'object'
+            ? mergePreservingImages(value, REPLACE_SUBTREE_KEYS.has(key) ? undefined : existingValue)
+            : value);
     }
     return merged;
 }

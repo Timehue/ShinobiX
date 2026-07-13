@@ -3,6 +3,7 @@ import { type Character, getBankInterestPercent } from "../App";
 import { sendCurrency, previewCredit, TRADE_CURRENCIES, TRADE_CURRENCY_LABELS, TRADE_MINS, TRADE_CAPS, TRADE_TAX_PCT, type TradeCurrency } from "../lib/player-trade";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { gameConfirm } from "../components/GameAlert";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 // MIRROR of api/_bank-interest.ts BANK_INTEREST_PRINCIPAL_CAP (gameplay-loop
 // audit M-2): interest is paid on at most this much banked ryo, so the projected
@@ -52,7 +53,8 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
     const canClaimInterest = character.bankRyo > 0 && interestPercent > 0 && Date.now() >= nextClaimAt;
     const projectedInterest = Math.max(0, Math.floor(Math.min(character.bankRyo, BANK_INTEREST_PRINCIPAL_CAP) * (interestPercent / 100)));
 
-    async function transferBankRyo(direction: "deposit" | "withdraw") {
+    async function moveRyo(direction: "deposit" | "withdraw") {
+        if (direction === "deposit" && !requireServerSettlement("bankDeposit")) return;
         // Number.isFinite guard: a non-numeric input yields NaN, and `NaN > ryo`
         // is false — without this the transfer would proceed and write `ryo - NaN
         // = NaN`, corrupting the save.
@@ -125,8 +127,8 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
             <label>Amount</label>
             <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
             <div className="menu">
-                <button onClick={() => void transferBankRyo("deposit")} disabled={bankBusy}>Deposit</button>
-                <button onClick={() => void transferBankRyo("withdraw")} disabled={bankBusy}>Withdraw</button>
+                <button onClick={() => void moveRyo("deposit")} disabled={bankBusy}>Deposit</button>
+                <button onClick={() => void moveRyo("withdraw")} disabled={bankBusy}>Withdraw</button>
                 <button onClick={claimInterest} disabled={!canClaimInterest}>Collect Interest</button>
             </div>
             <p className="hint">Town Hall Bank upgrade gives +0.01% interest per level (max 0.5%/day at level 50). Interest can be collected once every 24 hours.</p>

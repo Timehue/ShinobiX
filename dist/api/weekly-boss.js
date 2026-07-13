@@ -340,8 +340,7 @@ async function distributeRewardsIfExpired(boss) {
                             },
                         },
                     };
-                    (0, _save_version_js_1.bumpSaveVersion)(updated);
-                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
+                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updated), fresh));
                     return true;
                 }
                 catch (creditErr) {

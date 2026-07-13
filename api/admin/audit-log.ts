@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors } from '../_utils.js';
-import { isAdmin } from '../_auth.js';
+import { isAdmin, isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { readAudit, type AuditDomain } from '../_audit.js';
 
@@ -26,6 +26,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : (req.body ?? {});
     const requested = String((req.query?.domain as string | undefined) ?? body?.domain ?? 'content');
     const domain: AuditDomain = (DOMAINS as string[]).includes(requested) ? (requested as AuditDomain) : 'content';
+    if (domain !== 'content' && !isFullAdmin(req)) {
+        return res.status(403).json({ error: 'Full admin access required for non-content audit logs.' });
+    }
     const limit = Math.max(1, Math.min(Number(req.query?.limit ?? body?.limit ?? 200) || 200, 5000));
 
     const entries = await readAudit(domain, limit);

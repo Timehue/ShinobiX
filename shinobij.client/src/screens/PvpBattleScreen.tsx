@@ -27,7 +27,7 @@ import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { hexLineTiles } from "../lib/hex-path";
 import { prefersLiteCombatFx } from "../lib/device-tier";
-import { safeCombatVfxSpec, type CombatVfxSpec } from "../lib/combat-vfx";
+import { safeCombatVfxSpec, combatVfxAnchorKey, dedupeCombatVfx, type CombatVfxSpec } from "../lib/combat-vfx";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import {
     normalizeCharacter,
@@ -37,6 +37,7 @@ import {
 } from "../App";
 import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
 import type { PvpWinBaseSummary } from "../lib/progression";
+import { postPvpRewardClaim } from "../lib/pvp-reward-claim";
 
 // AOE_SPIRAL ground-nova footprint radius for the aiming preview. MUST match
 // SPIRAL_RADIUS in api/pvp/move.ts so the highlighted hexes equal what the
@@ -200,6 +201,8 @@ export function PvpBattleScreen({
     const combatHotkeyRef = useRef<{ active: boolean; actions: Record<string, () => void> } | null>(null);
     const pvpSessionFirstLoadRef = useRef(false);
     const pvpRewardRef = useRef(false);
+    const [pvpRewardClaimState, setPvpRewardClaimState] = useState<"idle" | "claiming" | "failed" | "confirmed">("idle");
+    const [pvpRewardClaimError, setPvpRewardClaimError] = useState("");
     const previousPvpPositionsRef = useRef<{ p1: number; p2: number } | null>(null);
     // Live HP-delta floating numbers (RTX-1): make an opponent's offense legible
     // in real time instead of only as a silently-dropping HP bar.
@@ -530,7 +533,7 @@ export function PvpBattleScreen({
         if (seq === last) return;
         if (last === undefined && !watchedFromStart) return;
         const events = session.vfx ?? [];
-        return spawnCombatVfx(events.map((ev, i) => {
+        const mapped = events.map((ev, i) => {
             const spec = safeCombatVfxSpec({
                 key: ev.key,
                 target: ev.anchor,
@@ -541,7 +544,17 @@ export function PvpBattleScreen({
                 tiles: ev.tiles,
             });
             return { id: `${ev.target}-vfx-${seq}-${i}`, target: ev.target, spec };
-        }));
+        });
+        // Collapse plates that would land on the same spot. One action can stack
+        // two VFX on a single fighter — a hit plus its shield/reflect reaction, a
+        // weapon plus its tag effect, several DoTs ticking at once, or a movement
+        // flourish plus a spend-cloud on the tile the caster just moved onto —
+        // which reads as one oversized, blurry double. Key each plate by the tile
+        // it actually renders on (mirroring combatVfxCenters: a fighter-anchored
+        // plate resolves to that fighter's current tile), then keep only the first
+        // (primary) per tile. Effects on genuinely different tiles still both show.
+        return spawnCombatVfx(dedupeCombatVfx(mapped, (fx) =>
+            combatVfxAnchorKey(fx.spec, fx.target === "p1" ? session.p1.pos : session.p2.pos)));
     }, [session?.vfxSeq, session?.p1.pos, session?.p2.pos]);
 
     // Prefight countdown — fires once when the session first loads
@@ -570,72 +583,56 @@ export function PvpBattleScreen({
         return () => clearInterval(iv);
     }, [!!session]);
 
-    // Apply completion rewards/penalties once per client when the shared fight ends.
-    // Refresh-resilience: the in-memory pvpRewardRef resets on every mount,
-    // and a refresh while session.status === 'done' would re-fire this
-    // effect and double-apply ryo / XP / monthlyPvpKills / ranked rating /
-    // village-war PvP delta / sector raid damage. We gate with both
-    //   • localStorage `pvp:rewarded:<battleId>` (instant, no network), and
-    //   • a server-side NX flag via /api/pvp/claim-rewards (authoritative —
-    //     covers cross-device refreshes and intentional localStorage clears).
-    // Server-side Vanguard seals/profession XP are already idempotent via
-    // _vanguard-rewards.ts; this fix covers everything the client applies.
+    async function claimResolvedPvpReward(): Promise<void> {
+        const resolvedSession = session;
+        if (resolvedSession?.status !== "done" || pvpRewardRef.current) return;
+        const iWonNow = (resolvedSession.winner === "p1" && role === "p1")
+            || (resolvedSession.winner === "p2" && role === "p2");
+        const iLostNow = resolvedSession.winner && resolvedSession.winner !== "draw" && !iWonNow;
+        if (!iWonNow && !iLostNow) return;
+
+        // This ref is an in-flight/confirmed guard only. A failed request clears
+        // it so the visible Retry button can submit the exact same claim again.
+        pvpRewardRef.current = true;
+        setPvpRewardClaimState("claiming");
+        setPvpRewardClaimError("");
+
+        const outcome: "win" | "loss" = iWonNow ? "win" : "loss";
+        const result = await postPvpRewardClaim(fetch, {
+            playerName: character.name,
+            battleId,
+            outcome,
+        });
+        if (result.status === "retry") {
+            pvpRewardRef.current = false;
+            setPvpRewardClaimState("failed");
+            setPvpRewardClaimError(result.message);
+            return;
+        }
+
+        // The local replay latch is advisory only and is written after the
+        // authoritative endpoint confirms the claim. Refreshes still call the
+        // server so an old/stale browser latch can never replace that proof.
+        try { window.localStorage.setItem(`pvp:rewarded:${battleId}`, "1"); } catch { /* storage quota — non-fatal */ }
+        setPvpRewardClaimState("confirmed");
+        if (result.alreadyClaimed) return;
+
+        const oppFighter = role === "p1" ? resolvedSession.p2 : resolvedSession.p1;
+        const opponent = normalizeCharacter(oppFighter.character as Character);
+        if (iWonNow) onWin?.(oppFighter.name, opponent, result.rating, result.base);
+        else onLoss?.(opponent, result.rating);
+    }
+
+    // Apply completion rewards/penalties only after the authoritative claim
+    // endpoint explicitly confirms success. Network/non-2xx failures leave both
+    // the callback and local replay latch untouched and surface a retry control.
     useEffect(() => {
         if (session?.status !== "done") return;
         onResolved?.();
         const iWonNow = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
         const iLostNow = session.winner && session.winner !== "draw" && !iWonNow;
         if ((!iWonNow && !iLostNow) || pvpRewardRef.current) return;
-        const localKey = `pvp:rewarded:${battleId}`;
-        if (typeof window !== "undefined") {
-            try {
-                if (window.localStorage.getItem(localKey)) {
-                    pvpRewardRef.current = true;
-                    return;
-                }
-            } catch { /* private-mode localStorage can throw — fall through */ }
-        }
-        // Mark in-memory immediately so a fast re-render can't slip past
-        // while the server claim POST is in flight.
-        pvpRewardRef.current = true;
-        const oppFighter = role === "p1" ? session.p2 : session.p1;
-        const opponent = normalizeCharacter(oppFighter.character as Character);
-        const outcome: "win" | "loss" = iWonNow ? "win" : "loss";
-        (async () => {
-            let alreadyClaimed = false;
-            // Server-credited ranked rating (audit #7 / Stage 3). For a ranked
-            // session, claim-rewards computes + persists the rating change and
-            // returns it here; we forward it to onWin/onLoss so they display the
-            // authoritative value rather than recomputing the delta locally.
-            // Absent (casual fight, or 503/offline) → callbacks fall back to the
-            // local delta, so nothing regresses during the rollout window.
-            let serverRating: { field: string; value: number; delta: number } | undefined;
-            // Server-credited base ryo/XP (audit #3). When present, the win
-            // handler applies these authoritative (already repeat-decayed)
-            // values instead of recomputing locally — so the decay sticks.
-            let serverBase: PvpWinBaseSummary | undefined;
-            try {
-                const r = await fetch("/api/pvp/claim-rewards", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ playerName: character.name, battleId, outcome }),
-                });
-                if (r.ok) {
-                    const data = await r.json() as { alreadyClaimed?: boolean; rating?: { field: string; value: number; delta: number }; base?: PvpWinBaseSummary };
-                    alreadyClaimed = !!data.alreadyClaimed;
-                    serverRating = data.rating;
-                    serverBase = data.base;
-                }
-            } catch {
-                // Network failure → treat as first claim (fail open). One
-                // duplicate during an outage is better than denying a real
-                // winner. localStorage still prevents re-fire on this tab.
-            }
-            try { window.localStorage.setItem(localKey, "1"); } catch { /* storage quota — non-fatal */ }
-            if (alreadyClaimed) return;
-            if (iWonNow) onWin?.(oppFighter.name, opponent, serverRating, serverBase);
-            else onLoss?.(opponent, serverRating);
-        })();
+        void claimResolvedPvpReward();
     }, [session?.status, session?.winner]);
 
     // Reflection log (display-only): record this fight once it's done so the
@@ -644,7 +641,8 @@ export function PvpBattleScreen({
     // entry id) so a refresh on the result screen re-records harmlessly.
     const battleRecordedRef = useRef(false);
     useEffect(() => {
-        if (session?.status !== "done" || battleRecordedRef.current || !onRecordBattle) return;
+        // Spars must not touch battle history — they count for nothing.
+        if (session?.status !== "done" || battleRecordedRef.current || !onRecordBattle || isSpar) return;
         battleRecordedRef.current = true;
         const meFighter = role === "p1" ? session.p1 : session.p2;
         const oppFighter = role === "p1" ? session.p2 : session.p1;
@@ -864,7 +862,7 @@ export function PvpBattleScreen({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                 <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
                     <h2>PvP Battle</h2>
-                    <p style={{ color: "#94a3b8" }}>Connecting to battle session...</p>
+                    <p style={{ color: "var(--text-dim)" }}>Connecting to battle session...</p>
                 </div>
             </div>
         </div>
@@ -1364,7 +1362,7 @@ export function PvpBattleScreen({
                         <span className="twp-strip-label">Terrain</span>
                         <span className="twp-strip-value">{terrainEffects[arenaBiome].description}</span>
                         {terrainEffects[arenaBiome].playerBuff && (
-                            <span className="twp-buff twp-positive">{terrainEffects[arenaBiome].playerBuff}</span>
+                            <span className="twp-buff twp-positive">🔺 {terrainEffects[arenaBiome].playerBuff}</span>
                         )}
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Weather</span>
@@ -1628,7 +1626,7 @@ export function PvpBattleScreen({
                         const fallbackSecs = Math.max(0, Math.ceil((FALLBACK_MS - idleMs) / 1000));
                         return (
                             <div className="basic-action-bar shinobi-command-bar" style={{ justifyContent: "center", flexDirection: "column", gap: 8 }}>
-                                <p style={{ color: "#94a3b8", padding: "0.5rem 1rem", margin: 0 }}>
+                                <p style={{ color: "var(--text-dim)", padding: "0.5rem 1rem", margin: 0 }}>
                                     {opp.name} is taking their turn...
                                 </p>
                                 {canClaim ? (
@@ -1640,11 +1638,11 @@ export function PvpBattleScreen({
                                         ⏱ Claim Win (Opponent AFK)
                                     </button>
                                 ) : oppSkips >= 1 ? (
-                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "#fcd34d" }}>
+                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "var(--gold-400)" }}>
                                         Opponent skipped {oppSkips}/2 rounds — one more for AFK forfeit
                                     </p>
                                 ) : idleMs > 30_000 ? (
-                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "#fcd34d" }}>
+                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "var(--gold-400)" }}>
                                         AFK forfeit fallback available in {fallbackSecs}s
                                     </p>
                                 ) : null}
@@ -1659,14 +1657,29 @@ export function PvpBattleScreen({
                                     <h2 className={isDraw ? "" : amSpectator ? "" : iWon ? "battle-result-win" : session.fleedBy === role ? "battle-result-fled" : "battle-result-loss"}>
                                         {isDraw ? "Draw" : amSpectator ? "Battle Over" : iWon ? "Victory" : session.fleedBy === role ? "Escaped" : "💥 Defeated"}
                                     </h2>
-                                    <p style={{ color: "#94a3b8", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
+                                    <p style={{ color: "var(--text-dim)", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
                                         {isDraw ? "The duel ended with equal honor."
                                             : amSpectator ? `${session.winner === "p1" ? session.p1.name : session.winner === "p2" ? session.p2.name : "Nobody"} wins the duel!`
                                             : iWon ? `${me.name} wins the duel!`
                                             : session.fleedBy === role ? `${me.name} fled the battle.`
                                             : `${opp.name} wins the duel.`}
                                     </p>
-                                    {!amSpectator && iWon && (() => {
+                                    {!amSpectator && !isDraw && pvpRewardClaimState === "claiming" && (
+                                        <p role="status" style={{ color: "#fcd34d", fontSize: "0.82rem", margin: "0 0 0.8rem" }}>
+                                            Verifying battle rewards with the server…
+                                        </p>
+                                    )}
+                                    {!amSpectator && !isDraw && pvpRewardClaimState === "failed" && (
+                                        <div role="alert" style={{ margin: "0 0 0.8rem", padding: "0.65rem", border: "1px solid #f97316", borderRadius: 8, background: "rgba(124,45,18,0.25)" }}>
+                                            <p style={{ color: "#fed7aa", fontSize: "0.82rem", margin: "0 0 0.55rem" }}>
+                                                Rewards were not applied. {pvpRewardClaimError}
+                                            </p>
+                                            <button type="button" onClick={() => { void claimResolvedPvpReward(); }}>
+                                                Retry Reward Claim
+                                            </button>
+                                        </div>
+                                    )}
+                                    {!amSpectator && iWon && pvpRewardClaimState === "confirmed" && (() => {
                                         const deathsGate = currentSector === 99;
                                         const xp = 100 * (deathsGate ? 2 : 1);
                                         const ryo = 75 * (deathsGate ? 2 : 1);
@@ -1677,8 +1690,8 @@ export function PvpBattleScreen({
                                         );
                                     })()}
                                     <div className="menu">
-                                        <button onClick={() => exitBattle("village")}>Return to Village</button>
-                                        <button onClick={() => exitBattle("worldMap")}>World Map</button>
+                                        <button onClick={() => exitBattle("village")} disabled={pvpRewardClaimState === "claiming"}>Return to Village</button>
+                                        <button onClick={() => exitBattle("worldMap")} disabled={pvpRewardClaimState === "claiming"}>World Map</button>
                                     </div>
                                 </div>
                             </div>
@@ -1863,7 +1876,7 @@ export function PvpBattleScreen({
                                                 <span><strong>Chakra Cost:</strong> {jutsuResourceDisplay(inspectedJutsu, "chakra", character.level, character.specialty, mastery.level)}</span>
                                                 <span><strong>Stamina Cost:</strong> {jutsuResourceDisplay(inspectedJutsu, "stamina", character.level, character.specialty, mastery.level)}</span>
                                             </div>
-                                            {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "#c084fc" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
+                                            {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
                                             {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}
                                             <div className="combat-jutsu-effects-list">
                                                 <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />

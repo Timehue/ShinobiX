@@ -35,6 +35,7 @@ import type { Server as HttpServer } from 'node:http';
 import type { Server as IOServer, Socket } from 'socket.io';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { onlineStore } from './online-store.js';
+import { stampPresenceBeat } from './_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
 import { setOnSweep } from './game-loop.js';
 import { setRealtimeEmitter } from './notify.js';
@@ -224,6 +225,8 @@ function wireRealtime(io: IOServer): void {
                 inBattle: p.inBattle === true ? true : undefined,
                 tile: normalizeTile(p.tile, onlineStore.get(name)?.tile),
             });
+            // Throttled cross-worker presence beat (see _realtime/_presence-beat.ts).
+            stampPresenceBeat(displayName);
 
             if (newSector !== prevSector) {
                 if (prevSector >= 0) socket.leave(sectorRoom(prevSector));

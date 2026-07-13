@@ -84,8 +84,7 @@ async function handler(req, res) {
             nextPets[idx] = evolved;
             const updatedChar = { ...char, pets: nextPets, inventory: nextInventory };
             const updated = { ...record, character: updatedChar };
-            (0, _save_version_js_1.bumpSaveVersion)(updated);
-            await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
+            await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updated), record));
             return { ok: true, pet: evolved, stage: check.nextStage };
         }, { failClosed: true });
         if ('error' in result) {

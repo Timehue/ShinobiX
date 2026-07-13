@@ -7,6 +7,7 @@ const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
 const _clan_points_js_1 = require("../../_clan-points.js");
+const _war_xp_js_1 = require("./_war-xp.js");
 const _storage_js_2 = require("./_storage.js");
 // For PvP-mode challenges (mode includes a battleId), cross-check the
 // reported result against the authoritative PvpSession. Returns null when
@@ -160,7 +161,8 @@ async function awardFinalizedWarPoints(body, actorName) {
     return actorEvents ? await applyWarPointEvents(actorName, actorEvents) : undefined;
 }
 // applyFinalResult moved to _storage.ts so the tilecards endpoint
-// can share the same HP/MVP/cooldown logic.
+// can share the same HP/MVP/cooldown logic. Clan-XP-on-settle lives in
+// ./_war-xp.ts (awardWarEndClanXp), shared with the tilecards finalize path.
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -289,6 +291,8 @@ async function handler(req, res) {
         if (lockResult.status === 200) {
             const actorName = identity.admin ? '' : identity.name;
             const awardedCharacter = await awardFinalizedWarPoints(lockResult.body, actorName);
+            await (0, _war_xp_js_1.awardWarEndClanXp)(lockResult.body.war)
+                .catch((e) => console.error('[clan/war/report] clan-xp award failed', e));
             return res.status(lockResult.status).json({ ...lockResult.body, character: awardedCharacter });
         }
         return res.status(lockResult.status).json(lockResult.body);

@@ -1,56 +1,91 @@
 /**
- * Hollow Gate — coherent floor generator (rooms + MST corridors + distance-map
- * content). ONE consistent style varied by per-floor parameters, replacing the old
- * three-styles-at-random roll (which is what made layouts "not make sense").
+ * Hollow Gate — coherent floor generator (rooms + MST corridors + ROOM-ROLE
+ * content). ONE consistent style varied by per-floor parameters.
  *
  * Pipeline (per docs/hollow-gate-loop.md research — Nystrom connectivity + TinyKeep
  * connection graph + RogueBasin Dijkstra-map content):
- *   1. Rooms        — BSP leaves → tidy, non-overlapping rooms (3-7, more deeper).
+ *   1. Rooms        — BSP leaves → chunky, non-overlapping chambers (rooms fill
+ *                     most of their leaf so the floor reads as REAL rooms, not
+ *                     scattered closets — Zelda-DS dungeon scale on the 25×17 grid).
  *   2. Corridors    — Prim's MINIMUM SPANNING TREE over room centres + L-corridors,
  *                     so every room joins its NEAREST neighbours (no x-sorted
  *                     crossing corridors), then 0-1 extra edge for a single loop.
  *   3. Connectivity — BFS from spawn; carve a repair corridor to any unreached room.
  *                     GUARANTEED connected (vs the old "bail and ship disconnected").
  *   4. Doors        — one door per corridor↔room seam (fog-of-war "what's behind it").
- *   5. Content      — placed off ONE BFS distance map: spawn/descend far apart
- *                     (deepest = descend), mandatory fights on the critical path,
- *                     rewards in deep / off-path / dead-end rooms, depth-scaled,
- *                     spacing-checked so nothing clumps. Only reachable cells used.
+ *   5. Content      — ROOM ROLES, not scatter. Every room gets a job and its
+ *                     content matches the job:
+ *                       · entrance  — the spawn chamber, always safe
+ *                       · stair     — descend/boss, its doorway guarded by an elite
+ *                       · treasury  — the most private room: locked vault door,
+ *                                     clustered chests + a shard vein inside, a
+ *                                     trap taxing the approach corridor
+ *                       · sanctum   — shrine + story tablet share a chamber
+ *                       · keeper    — the Shrine Keeper's quiet alcove
+ *                       · guard     — everything else; battles hold doorways and
+ *                                     corridor junctions (chokepoints), not random
+ *                                     open floor
+ *                     Tile COUNTS are unchanged from the legacy generators — this
+ *                     improves WHERE things are, not how much there is.
  *   6. Invariants   — assert exit + descend reachable; else regenerate (cheap).
  *
  * Pure. Same output shape + tile kinds/terrains + content counts as the legacy
  * generators (balance unchanged — this improves STRUCTURE, not rates). Throws only
  * if every attempt fails (caller falls back to the maze generator).
  */
-import { bspSplit, bspRoomInNode, bspRoomCenter, bspCarveCorridor, hollowGateReachableSet, type BSPRect } from "./hollow-gate-bsp";
+import { bspSplit, bspRoomCenter, bspCarveCorridor, hollowGateReachableSet, type BSPRect } from "./hollow-gate-bsp";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H } from "../constants/game";
 import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain } from "../types/character";
 
 const CARD: ReadonlyArray<readonly [number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
+/** Optional grid dimensions — event-gate variants pass a smaller board; the
+ *  standard shrine constants apply when omitted. */
+export type HollowGateFloorDims = { width: number; height: number };
+
 /** Public entry: a fully-connected, intentionally-laid-out floor. Retries a few
- *  times if an invariant fails (regenerate-on-invalid is microseconds at 165 cells). */
-export function generateHollowGateFloor(floor: number, isFinalFloor: boolean): HollowGateShrineRun {
+ *  times if an invariant fails (regenerate-on-invalid is microseconds at 425 cells). */
+export function generateHollowGateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims): HollowGateShrineRun {
     for (let attempt = 0; attempt < 20; attempt += 1) {
-        const run = tryGenerateFloor(floor, isFinalFloor);
+        const run = tryGenerateFloor(floor, isFinalFloor, dims);
         if (run) return run;
     }
     throw new Error("hollow-gate floor generation failed after retries");
 }
 
-function tryGenerateFloor(floor: number, isFinalFloor: boolean): HollowGateShrineRun | null {
-    const w = HOLLOW_GATE_SHRINE_W;
-    const h = HOLLOW_GATE_SHRINE_H;
+/** Carve a chunky chamber inside a BSP leaf: rooms fill ~70-100% of the padded
+ *  leaf so chambers feel like ROOMS (the shared bspRoomInNode carves down to 3×3,
+ *  which read as closets on the big grid). */
+function chamberInLeaf(node: BSPRect): BSPRect {
+    const pad = 1;
+    const availW = Math.max(3, node.w - pad * 2);
+    const availH = Math.max(3, node.h - pad * 2);
+    const minW = Math.max(3, Math.ceil(availW * 0.7));
+    const minH = Math.max(3, Math.ceil(availH * 0.7));
+    const roomW = minW + Math.floor(Math.random() * Math.max(1, availW - minW + 1));
+    const roomH = minH + Math.floor(Math.random() * Math.max(1, availH - minH + 1));
+    const roomX = node.x + pad + Math.floor(Math.random() * Math.max(1, node.w - pad * 2 - roomW + 1));
+    const roomY = node.y + pad + Math.floor(Math.random() * Math.max(1, node.h - pad * 2 - roomH + 1));
+    return { x: roomX, y: roomY, w: roomW, h: roomH };
+}
+
+function tryGenerateFloor(floor: number, isFinalFloor: boolean, dims?: HollowGateFloorDims): HollowGateShrineRun | null {
+    const w = dims?.width ?? HOLLOW_GATE_SHRINE_W;
+    const h = dims?.height ?? HOLLOW_GATE_SHRINE_H;
     const total = w * h;
     const at = (x: number, y: number) => y * w + x;
 
     // ── 1. Rooms via BSP leaves ──────────────────────────────────────────────
-    // Deeper floors split a touch more (tighter, busier); +1 random for variety.
-    const splitDepth = 2 + (floor >= 3 ? 1 : 0) + (Math.random() < 0.4 ? 1 : 0);
-    const leaves = bspSplit({ x: 0, y: 0, w, h }, splitDepth, 4).filter((l) => l.w >= 4 && l.h >= 4);
-    const rooms: BSPRect[] = leaves.map(bspRoomInNode);
-    if (rooms.length < 3) return null; // too few rooms → retry
+    // Depth 3 on 25×17 yields ~6-8 chunky leaves; deeper floors sometimes split
+    // once more for a busier, tighter warren. minLeaf 6 keeps every leaf big
+    // enough for a real chamber. Compact (event-variant) boards ease both knobs
+    // so a 15×11 floor still carves 3-5 real rooms instead of failing retries.
+    const compact = w < 20 || h < 13;
+    const splitDepth = 3 + (floor >= 3 && !compact && Math.random() < 0.4 ? 1 : 0);
+    const leaves = bspSplit({ x: 0, y: 0, w, h }, splitDepth, compact ? 5 : 6).filter((l) => l.w >= 5 && l.h >= 5);
+    const rooms: BSPRect[] = leaves.map(chamberInLeaf);
+    if (rooms.length < (compact ? 3 : 4)) return null; // too few rooms → retry
 
     const terrain: HollowGateTerrain[] = new Array(total).fill("wall");
     const roomIds: number[] = new Array(total).fill(-1);
@@ -124,7 +159,7 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean): HollowGateShrin
     const targetRoom = roomIds[targetIdx];
     const exitIdx = roomCellsByDepth.find((i) => roomIds[i] !== targetRoom && roomIds[i] !== roomIds[spawnIdx]) ?? roomCellsByDepth[1];
 
-    // ── 6. Content layer ─────────────────────────────────────────────────────
+    // ── 6. Content layer — room roles, not scatter ────────────────────────────
     const kinds: HollowGateTileKind[] = new Array(total).fill("empty");
     for (let i = 0; i < total; i += 1) if (terrain[i] === "wall") kinds[i] = "wall";
     const reserved = new Set<number>([spawnIdx, exitIdx, targetIdx]);
@@ -147,6 +182,54 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean): HollowGateShrin
         for (const [dx, dy] of CARD) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < w && ny < h && terrain[ny * w + nx] !== "wall") n += 1; }
         return n;
     };
+
+    // ── Room roles ────────────────────────────────────────────────────────────
+    // door cells belong to their room (markDoors converts the seam ROOM cell).
+    const doorsOfRoom = (ri: number): number[] => {
+        const out: number[] = [];
+        for (let i = 0; i < total; i += 1) if (terrain[i] === "door" && roomIds[i] === ri) out.push(i);
+        return out;
+    };
+    const cellsOfRoom = (ri: number): number[] => {
+        const out: number[] = [];
+        for (let i = 0; i < total; i += 1) if (roomIds[i] === ri && terrain[i] === "room_floor" && reachable(i)) out.push(i);
+        return out;
+    };
+    const stairRoomId = targetRoom;
+    const exitRoomId = roomIds[exitIdx];
+    const roomTouchesPath = (ri: number) => cellsOfRoom(ri).some((i) => onPath.has(i)) || doorsOfRoom(ri).some((i) => onPath.has(i));
+
+    // Special rooms come from the rooms with no other job. "Privacy" ranks them:
+    // fewest doors first (dead-end chambers), then deepest — the vault hides at
+    // the back of the floor, not beside the entrance.
+    const spareRooms: number[] = [];
+    for (let ri = 0; ri < rooms.length; ri += 1) {
+        if (ri === spawnRoom || ri === stairRoomId) continue;
+        if (cellsOfRoom(ri).length < 4) continue;
+        spareRooms.push(ri);
+    }
+    spareRooms.sort((a, b) => {
+        const doorDiff = doorsOfRoom(a).length - doorsOfRoom(b).length;
+        if (doorDiff !== 0) return doorDiff;
+        const depth = (ri: number) => Math.max(0, ...cellsOfRoom(ri).map((i) => dist[i]));
+        return depth(b) - depth(a);
+    });
+    // Rooms that still have a job after the special picks host the guard fights.
+    // The exit room may be picked as a special room (the Leave seal sharing a
+    // vault/sanctum is fine — both are "reward" chambers); the treasury pick
+    // prefers a room that ISN'T the exit room when one exists.
+    const treasuryRoomId = spareRooms.find((ri) => ri !== exitRoomId && !roomTouchesPath(ri))
+        ?? spareRooms.find((ri) => ri !== exitRoomId)
+        ?? spareRooms[0] ?? -1;
+    const afterTreasury = spareRooms.filter((ri) => ri !== treasuryRoomId);
+    const sanctumRoomId = afterTreasury.find((ri) => !roomTouchesPath(ri)) ?? afterTreasury[0] ?? -1;
+    const afterSanctum = afterTreasury.filter((ri) => ri !== sanctumRoomId);
+    // Keeper prefers a calm room in the SHALLOW half — met early, like a hub NPC.
+    const keeperRoomId = [...afterSanctum].sort((a, b) => {
+        const depth = (ri: number) => Math.min(...cellsOfRoom(ri).map((i) => dist[i]));
+        return depth(a) - depth(b);
+    })[0] ?? -1;
+    const guardRoomIds = afterSanctum.filter((ri) => ri !== keeperRoomId);
 
     // Greedy placement with BFS-grid spacing (anti-clump). Candidates are pre-
     // filtered + ordered by the caller; we place up to `count`, then top up from a
@@ -172,41 +255,115 @@ function tryGenerateFloor(floor: number, isFinalFloor: boolean): HollowGateShrin
     };
     const roomCells = allReachable((i) => terrain[i] === "room_floor");
     const corridorCells = allReachable((i) => terrain[i] === "corridor_floor");
+    const doorCells = allReachable((i) => terrain[i] === "door");
     const deadEnds = allReachable((i) => (terrain[i] === "corridor_floor" || terrain[i] === "room_floor") && walkableNeighbors(i) <= 1);
     const deepFirst = (cells: number[]) => [...cells].sort((a, b) => dist[b] - dist[a]);
     const offPath = (cells: number[]) => cells.filter((i) => !onPath.has(i));
+    const notSpawnRoom = (cells: number[]) => cells.filter((i) => roomIds[i] !== spawnRoom);
+    // The entrance chamber is a SAFE room: no hostiles ever spawn in it.
+    const hostileSafe = (cells: number[]) => notSpawnRoom(cells);
 
-    // Counts mirror the legacy generators exactly (no balance change).
-    const battleCount = 4 + Math.min(3, floor);
+    // Content grows with depth. Battles ramp to floor 5 then plateau at 9 (the
+    // deep floors are dense but still crossable); elites + traps keep climbing
+    // (floor 9 → 5 elites, 7 traps) so a full nine-floor descent stays tense.
+    const battleCount = 4 + Math.min(5, floor);
     const eliteCount = 1 + Math.floor(floor / 2);
     const trapCount = 3 + Math.floor(floor / 2);
     const chestCount = 3;
     const veinCount = 1 + Math.floor(floor / 2);
 
-    // Mandatory fights gate the descent: bias onto / beside the critical path.
-    const nearPath = (cells: number[]) => cells.filter((i) => onPath.has(i) || CARD.some(([dx, dy]) => onPath.has(((Math.floor(i / w) + dy) * w + (i % w + dx)))));
-    place("elite", eliteCount, deepFirst(roomCells), 4);                         // elites deep, well-spaced
-    const battlePool = shuffle(nearPath([...roomCells, ...corridorCells]));
-    const battles = place("battle", battleCount, battlePool, 2);
-    place("battle", battleCount - battles, shuffle([...roomCells, ...corridorCells]), 2); // top-up anywhere
+    // ── Stair guardian: an elite HOLDS the stair room's main doorway ─────────
+    const stairDoors = doorsOfRoom(stairRoomId);
+    const stairMainDoor = stairDoors.find((i) => onPath.has(i)) ?? stairDoors[0];
+    let elitesPlaced = 0;
+    if (stairMainDoor != null) elitesPlaced += place("elite", 1, [stairMainDoor], 0);
+    // Remaining elites patrol the deep guard rooms, well-spaced.
+    const guardRoomCells = guardRoomIds.flatMap(cellsOfRoom);
+    elitesPlaced += place("elite", eliteCount - elitesPlaced, deepFirst(hostileSafe([...guardRoomCells, ...cellsOfRoom(stairRoomId)])), 4);
+    place("elite", eliteCount - elitesPlaced, deepFirst(hostileSafe(roomCells)), 4); // top-up
 
-    // Rewards reward exploration: deep, off the mainline, in dead-ends.
-    place("locked", 1, deepFirst(offPath(roomCells)), 1);                        // gates a side pocket
-    const chests = place("chest", chestCount, shuffle([...offPath(deadEnds), ...deepFirst(offPath(roomCells))]), 2);
-    place("chest", chestCount - chests, shuffle(roomCells), 2);
-    place("shard_vein", veinCount, shuffle(offPath(roomCells)), 2);
-    place("shrine", 1, deepFirst(roomCells), 0);
-    place("npc", 1, shuffle(roomCells), 3);                                      // Shrine Keeper
-    place("story", 1, shuffle(roomCells), 0);
+    // ── Battles hold chokepoints: doorways of rooms on the path + corridor
+    //    junctions — fights that GUARD passage instead of loitering in corners.
+    const junctions = corridorCells.filter((i) => walkableNeighbors(i) >= 3);
+    const pathDoors = doorCells.filter((i) => onPath.has(i) || CARD.some(([dx, dy]) => onPath.has(((Math.floor(i / w) + dy) * w + (i % w + dx)))));
+    const chokepoints = shuffle(hostileSafe([...pathDoors, ...junctions]));
+    let battlesPlaced = place("battle", Math.ceil(battleCount * 0.6), chokepoints, 3);
+    battlesPlaced += place("battle", battleCount - battlesPlaced, shuffle(hostileSafe(guardRoomCells)), 2);
+    place("battle", battleCount - battlesPlaced, shuffle(hostileSafe([...roomCells, ...corridorCells])), 2); // top-up
 
-    // Traps punish wrong turns: dead-ends first, then corridors.
-    const traps = place("trap", Math.ceil(trapCount * 0.6), shuffle(deadEnds), 1);
-    place("trap", trapCount - traps, shuffle([...corridorCells, ...roomCells]), 1);
+    // ── Treasury: a locked vault door, chest hoard + shard vein inside ───────
+    const treasuryCells = treasuryRoomId >= 0 ? cellsOfRoom(treasuryRoomId) : [];
+    const treasuryDoors = treasuryRoomId >= 0 ? doorsOfRoom(treasuryRoomId) : [];
+    let chestsPlaced = 0;
+    let veinsPlaced = 0;
+    if (treasuryRoomId >= 0 && treasuryCells.length >= 3) {
+        // The vault door: the treasury's main entrance carries the `locked` seal
+        // (needs a Shrine Key — the classic locked-treasure-room beat). Reward
+        // tiles cluster in the corner FARTHEST from that door (the hoard).
+        const vaultDoor = treasuryDoors.find((i) => !onPath.has(i)) ?? treasuryDoors[0];
+        if (vaultDoor != null && treasuryDoors.length <= 1) {
+            // Only seal single-entrance vaults — never lock a room the critical
+            // path or the connectivity loop may route through.
+            place("locked", 1, [vaultDoor], 0);
+        } else {
+            place("locked", 1, deepFirst(offPath(treasuryCells)), 0);
+        }
+        const hoardAnchor = deepFirst(treasuryCells)[0];
+        const nearHoard = [...treasuryCells].sort((a, b) => manhattan(a, hoardAnchor, w) - manhattan(b, hoardAnchor, w));
+        chestsPlaced += place("chest", 2, nearHoard, 1);
+        veinsPlaced += place("shard_vein", 1, nearHoard, 1);
+    } else {
+        place("locked", 1, deepFirst(offPath(roomCells)), 1);
+    }
+    // Remaining chest rewards exploration: dead-end alcoves and deep off-path rooms.
+    chestsPlaced += place("chest", chestCount - chestsPlaced, shuffle([...offPath(deadEnds), ...deepFirst(offPath(roomCells))]), 2);
+    place("chest", chestCount - chestsPlaced, shuffle(roomCells), 2); // top-up
+    veinsPlaced += place("shard_vein", veinCount - veinsPlaced, shuffle(offPath(notSpawnRoom(roomCells))), 3);
+    place("shard_vein", veinCount - veinsPlaced, shuffle(roomCells), 2); // top-up
+
+    // ── Sanctum: the shrine + story tablet share one chamber of lore ─────────
+    const sanctumCells = sanctumRoomId >= 0 ? cellsOfRoom(sanctumRoomId) : [];
+    let shrinesPlaced = 0;
+    let storiesPlaced = 0;
+    if (sanctumCells.length >= 2) {
+        const sanctumHeart = deepFirst(sanctumCells)[0];
+        const nearHeart = [...sanctumCells].sort((a, b) => manhattan(a, sanctumHeart, w) - manhattan(b, sanctumHeart, w));
+        shrinesPlaced = place("shrine", 1, nearHeart, 0);
+        storiesPlaced = place("story", 1, nearHeart, 1);
+    }
+    place("shrine", 1 - shrinesPlaced, deepFirst(roomCells), 0);   // top-up
+    place("story", 1 - storiesPlaced, shuffle(roomCells), 0);      // top-up
+
+    // ── Keeper: a quiet alcove met on the shallow half of the floor ──────────
+    const keeperCells = keeperRoomId >= 0 ? cellsOfRoom(keeperRoomId) : [];
+    const keeperPlaced = place("npc", 1, shuffle(offPath(keeperCells)), 0);
+    place("npc", 1 - keeperPlaced, shuffle(roomCells), 3);         // top-up
+
+    // ── Traps punish greed and wrong turns: the vault approach, dead-end
+    //    alcoves, then off-path corridor stretches. Never on the main line's
+    //    doorways (battles own those).
+    const vaultApproach: number[] = [];
+    for (const d of treasuryDoors) {
+        const x = d % w, y = Math.floor(d / w);
+        for (const [dx, dy] of CARD) {
+            const nx = x + dx, ny = y + dy;
+            if (nx >= 0 && ny >= 0 && nx < w && ny < h && terrain[at(nx, ny)] === "corridor_floor") vaultApproach.push(at(nx, ny));
+        }
+    }
+    let trapsPlaced = place("trap", 1, shuffle(hostileSafe(vaultApproach)), 0);
+    trapsPlaced += place("trap", Math.ceil(trapCount * 0.6) - trapsPlaced, shuffle(hostileSafe(deadEnds)), 2);
+    place("trap", trapCount - trapsPlaced, shuffle(hostileSafe(offPath(corridorCells))), 2);
 
     // ── 7. Invariants — exit + descend wall-reachable from spawn ──────────────
     const walls = wallSet(terrain);
     const reach = hollowGateReachableSet(w, h, spawnIdx, walls);
     if (!reach.has(exitIdx) || !reach.has(targetIdx)) return null; // regenerate
+    // The locked vault door must never gate the exit or the stairs: re-check
+    // reachability with locked tiles ALSO blocking (keys are optional loot).
+    const lockedSet = new Set<number>(walls);
+    for (let i = 0; i < total; i += 1) if (kinds[i] === "locked") lockedSet.add(i);
+    const reachSansLocked = hollowGateReachableSet(w, h, spawnIdx, lockedSet);
+    if (!reachSansLocked.has(exitIdx) || !reachSansLocked.has(targetIdx)) return null; // regenerate
 
     // ── 8. Decorations + assemble ────────────────────────────────────────────
     const seed = Math.floor(Math.random() * 0x7fffffff);

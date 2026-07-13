@@ -20,7 +20,8 @@
  */
 
 import { petStatCeil, petJutsuPowerCeil } from "../_pet-stat-ceil.js";
-import { runPetDuel } from "./_duel-sim.js";
+import { runPetDuelCinematic } from "../_pet-sim/pet-duel-cinematic.js";
+import type { Pet as CinePet } from "../_pet-sim/pet-types.js";
 import { runPetArenaMatch, type ArenaRole, type ArenaSlot } from "./_arena-sim.js";
 import type { Pet, PetJutsu, PetLoadout, JutsuElement, PetRole, PetTrait } from "./_pet-types.js";
 
@@ -330,7 +331,12 @@ export const projectLadder = (order: LadderEntry[]) => order.map((e, i) => ({ ra
 // ── Server-authoritative resolution (ported deterministic engines) ─────────────
 /** Coliseum 1v1: true ⇒ the ATTACKER (challenger) won. Items applied for both. */
 export function resolveColiseum(attacker: LadderPet, defender: LadderPet, seed: number): boolean {
-    return runPetDuel(toPet(attacker), toPet(defender), seed, 1, 1, false, true).result === "win";
+    // The generated cinematic mirror (api/_pet-sim, parity-tested vs the client engine) types
+    // its Pet as the full client shape; toPet yields the combat-relevant subset the engine
+    // reads (the same fields the old _duel-sim port consumed), so the cast is runtime-safe.
+    const p = toPet(attacker) as unknown as CinePet;
+    const d = toPet(defender) as unknown as CinePet;
+    return runPetDuelCinematic(p, d, seed, 1, 1, false, true).result === "win";
 }
 /** Tactical 4v4: true ⇒ the ATTACKER (blue) won. Items applied for both teams. */
 export function resolveTactical(attacker: DefenseDoc, defender: DefenseDoc, seed: number): boolean {

@@ -34,6 +34,9 @@ async function handler(req, res) {
         : (req.body ?? {});
     const requested = String(req.query?.domain ?? body?.domain ?? 'content');
     const domain = DOMAINS.includes(requested) ? requested : 'content';
+    if (domain !== 'content' && !(0, _auth_js_1.isFullAdmin)(req)) {
+        return res.status(403).json({ error: 'Full admin access required for non-content audit logs.' });
+    }
     const limit = Math.max(1, Math.min(Number(req.query?.limit ?? body?.limit ?? 200) || 200, 5000));
     const entries = await (0, _audit_js_1.readAudit)(domain, limit);
     res.setHeader('Cache-Control', 'no-store');

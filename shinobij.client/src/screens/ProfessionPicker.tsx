@@ -160,7 +160,7 @@ export function ProfessionPicker({
                     color: "#e9d5ff",
                     boxShadow: "0 0 70px rgba(168,85,247,0.35)",
                 }}>
-                    <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2, marginTop: 0 }}>
+                    <p className="act-label" style={{ color: "var(--purple-500)", letterSpacing: 2, marginTop: 0 }}>
                         A CROSSROAD
                     </p>
                     <h2 style={{ margin: "0 0 16px", color: "#faf5ff" }}>The Elder Summons You</h2>
@@ -182,7 +182,7 @@ export function ProfessionPicker({
                             type="button"
                             onClick={() => setStage("choose")}
                             style={{
-                                background: "linear-gradient(135deg,#7c3aed,#a855f7)",
+                                background: "linear-gradient(135deg,#7c3aed,var(--purple-500))",
                                 borderColor: "#c4b5fd",
                                 color: "#faf5ff",
                                 padding: "10px 20px",
@@ -207,7 +207,7 @@ export function ProfessionPicker({
                     color: "#e9d5ff",
                 }}>
                     <div style={{ textAlign: "center", marginBottom: 24 }}>
-                        <p className="act-label" style={{ color: "#a855f7", letterSpacing: 3, margin: 0 }}>
+                        <p className="act-label" style={{ color: "var(--purple-500)", letterSpacing: 3, margin: 0 }}>
                             CHOOSE YOUR PATH
                         </p>
                         <h2 style={{ margin: "8px 0 0", color: "#faf5ff", fontSize: 28 }}>

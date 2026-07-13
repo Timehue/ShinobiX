@@ -243,19 +243,19 @@
     font-size: 0.76rem;
     font-weight: 800;
     line-height: 1.25;
-    color: #cbd5e1;
+    color: var(--slate-300);
     background: rgba(148,163,184,0.1);
     border: 1px solid rgba(148,163,184,0.22);
 }
 .profile-page-card .sic-chip small,
 .profile-page-card .sic-badge small {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-weight: 600;
 }
-.profile-page-card .sic-tone-gold { color: #facc15; border-color: rgba(250,204,21,0.42); background: rgba(250,204,21,0.11); }
-.profile-page-card .sic-tone-danger { color: #fca5a5; border-color: rgba(248,113,113,0.42); background: rgba(127,29,29,0.18); }
+.profile-page-card .sic-tone-gold { color: var(--gold); border-color: rgba(250,204,21,0.42); background: rgba(250,204,21,0.11); }
+.profile-page-card .sic-tone-danger { color: var(--red-300); border-color: rgba(248,113,113,0.42); background: rgba(127,29,29,0.18); }
 .profile-page-card .sic-tone-legacy { color: #d8b4fe; border-color: rgba(192,132,252,0.42); background: rgba(88,28,135,0.18); }
-.profile-page-card .sic-tone-village { color: #93c5fd; border-color: rgba(96,165,250,0.42); background: rgba(30,64,175,0.15); }
+.profile-page-card .sic-tone-village { color: var(--blue-300); border-color: rgba(96,165,250,0.42); background: rgba(30,64,175,0.15); }
 .profile-page-card .sic-stat-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -274,7 +274,7 @@
 .profile-page-card .sic-ledger small,
 .profile-page-card .sic-empty {
     display: block;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.72rem;
     line-height: 1.35;
 }
@@ -307,7 +307,7 @@
     margin-bottom: 3px;
 }
 .profile-page-card .sic-rival-active {
-    color: #fca5a5 !important;
+    color: var(--red-300) !important;
 }
 
 /* -------- Stat allocation cards -------- */
@@ -845,7 +845,7 @@
     display: inline-block !important;
     background: rgba(224,68,68,0.15) !important;
     border: 1px solid rgba(224,68,68,0.5) !important;
-    color: #fca5a5 !important;
+    color: var(--red-300) !important;
     padding: 4px 12px !important;
     border-radius: 999px !important;
     font: 700 11px var(--font-display) !important;
@@ -1017,10 +1017,10 @@
     font-size: 0.72rem;
     line-height: 1.25;
 }
-.profile-page-card .profile-dossier-row.tone-gold strong { color: #fde68a; }
-.profile-page-card .profile-dossier-row.tone-village strong { color: #93c5fd; }
+.profile-page-card .profile-dossier-row.tone-gold strong { color: var(--gold-300); }
+.profile-page-card .profile-dossier-row.tone-village strong { color: var(--blue-300); }
 .profile-page-card .profile-dossier-row.tone-legacy strong { color: #d8b4fe; }
-.profile-page-card .profile-dossier-row.tone-danger strong { color: #fca5a5; }
+.profile-page-card .profile-dossier-row.tone-danger strong { color: var(--red-300); }
 .profile-page-card .profile-dossier-row strong svg {
     vertical-align: -2px;
 }
@@ -1085,7 +1085,7 @@
     display: grid;
     place-items: center;
     border-radius: 50%;
-    color: #93c5fd;
+    color: var(--blue-300);
     border: 1px solid rgba(78,168,255,0.35);
     background: rgba(78,168,255,0.08);
     font: 800 15px/1 Inter, sans-serif;
@@ -1108,19 +1108,19 @@
     text-transform: uppercase;
 }
 .profile-page-card .profile-title-manager-summary small {
-    color: #94a3b8;
+    color: var(--text-dim);
     font-size: 0.78rem;
 }
 .profile-page-card .profile-title-manager-summary em {
     margin-left: auto;
-    color: #94a3b8;
+    color: var(--text-dim);
     font-style: normal;
     font-size: 0.82rem;
     white-space: nowrap;
 }
 .profile-page-card .profile-title-manager-summary em span {
     display: inline;
-    color: #fde68a;
+    color: var(--gold-300);
     font-weight: 800;
 }
 .profile-page-card .profile-title-manager-body {
@@ -1204,7 +1204,7 @@
     overflow: hidden;
 }
 .bh-card.bh-outcome-win  { border-left-color: #4ea8ff; }
-.bh-card.bh-outcome-loss { border-left-color: #ef4444; }
+.bh-card.bh-outcome-loss { border-left-color: var(--danger); }
 .bh-card.bh-outcome-draw { border-left-color: #c4a25a; }
 .bh-card.bh-outcome-flee { border-left-color: #8b93a3; }
 
@@ -1341,6 +1341,95 @@
 }
 .inventory-page .slot-filter-bar button:hover {
     border-color: #e8d496 !important;
+}
+
+/* ---- Backpack category tab strip (Gear / Consumables / Pet / … / Event) ---- */
+.inventory-page .inventory-category-bar {
+    display: flex;
+    flex-wrap: wrap;               /* wrap on desktop; stays scannable on mobile */
+    gap: 6px;
+    margin: 0 0 10px 0;
+    padding: 6px;
+    background: rgba(0,0,0,0.25) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px;
+}
+.inventory-page .inventory-category-bar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,0,0,0.3) !important;
+    border: 1px solid transparent !important;
+    color: rgba(196,162,90,0.7) !important;
+    padding: 6px 12px !important;
+    border-radius: 999px !important;   /* pill chips read as filters, not primary tabs */
+    font: 600 11px var(--font-display) !important;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 120ms, background 120ms, border-color 120ms;
+}
+.inventory-page .inventory-category-bar button:hover {
+    color: var(--bsv2-gold-bright) !important;
+    border-color: var(--bsv2-gold-soft) !important;
+}
+.inventory-page .inventory-category-bar button.active {
+    color: var(--bsv2-player) !important;
+    background: linear-gradient(180deg, rgba(78,168,255,0.14), rgba(78,168,255,0.05)) !important;
+    border-color: rgba(78,168,255,0.5) !important;
+    box-shadow: 0 0 10px rgba(78,168,255,0.18);
+}
+.inventory-page .inventory-category-bar button.is-empty:not(.active) {
+    opacity: 0.5;                  /* a category with nothing in it still shows, dimmed */
+}
+.inventory-page .inventory-category-bar .cat-icon {
+    font-size: 13px;
+    line-height: 1;
+    filter: saturate(1.1);
+}
+.inventory-page .inventory-category-bar .cat-count {
+    min-width: 18px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(196,162,90,0.28);
+    color: #e8d496;
+    font: 700 10px var(--font-display);
+    text-align: center;
+}
+.inventory-page .inventory-category-bar button.active .cat-count {
+    background: rgba(78,168,255,0.18);
+    border-color: rgba(78,168,255,0.45);
+    color: #cfe6ff;
+}
+
+/* ---- Backpack name search ---- */
+.inventory-page .inventory-search-row {
+    position: relative;
+    margin: 0 0 10px 0;
+}
+.inventory-page .inventory-search-row input[type="search"] {
+    width: 100%;
+    padding: 8px 32px 8px 12px !important;
+}
+.inventory-page .inventory-search-row input[type="search"]::-webkit-search-cancel-button {
+    display: none;                 /* single custom clear button instead of the native one */
+}
+.inventory-page .inventory-search-clear {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    background: transparent !important;
+    border: none !important;
+    color: rgba(196,162,90,0.7) !important;
+    font-size: 14px !important;
+    line-height: 1;
+    padding: 4px 6px !important;
+    cursor: pointer;
+}
+.inventory-page .inventory-search-clear:hover {
+    color: var(--bsv2-gold-bright) !important;
 }
 
 /* ---- Backpack item cards: tighten image fit, reduce icon size ---- */
@@ -1788,7 +1877,7 @@
 }
 .user-hub-screen .user-hub-section-count {
     font: 500 10px Inter, sans-serif;
-    color: #94a3b8;
+    color: var(--text-dim);
     background: rgba(0,0,0,0.4);
     border: 1px solid rgba(148,163,184,0.3);
     border-radius: 999px;
@@ -1797,10 +1886,10 @@
     text-align: center;
 }
 .user-hub-screen .user-hub-section-online .user-hub-section-label {
-    color: #4ade80;
+    color: var(--green-400);
 }
 .user-hub-screen .user-hub-section-online .user-hub-section-count {
-    color: #4ade80;
+    color: var(--green-400);
     border-color: rgba(74,222,128,0.4);
     background: rgba(74,222,128,0.08);
 }
@@ -1842,7 +1931,7 @@
     border: 1px solid rgba(196,162,90,0.45);
     display: grid;
     place-items: center;
-    color: #facc15;
+    color: var(--gold);
     font: 700 14px var(--font-display);
 }
 .user-hub-screen .user-hub-avatar img {
@@ -1873,7 +1962,7 @@
 }
 .user-hub-screen .user-hub-title {
     font: 500 10px Inter, sans-serif;
-    color: #facc15;
+    color: var(--gold);
     background: rgba(250,204,21,0.1);
     border: 1px solid rgba(250,204,21,0.3);
     border-radius: 4px;
@@ -1892,7 +1981,7 @@
     align-items: center;
     gap: 6px;
     flex: 0 0 auto;
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 .user-hub-screen .user-hub-status small {
     font: 500 10px Inter, sans-serif;
@@ -1905,11 +1994,11 @@
     border-radius: 50%;
 }
 .user-hub-screen .user-hub-dot.online {
-    background: #4ade80;
+    background: var(--green-400);
     box-shadow: 0 0 8px rgba(74,222,128,0.7);
 }
 .user-hub-screen .user-hub-dot.offline {
-    background: #475569;
+    background: var(--slate-600);
 }
 .user-hub-screen .back-btn {
     padding: 6px 14px;

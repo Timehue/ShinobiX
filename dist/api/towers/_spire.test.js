@@ -75,6 +75,7 @@ const _floor_catalog_js_1 = require("./_floor-catalog.js");
         const base = (0, _modifiers_js_1.resolveAscensionModifiers)(20, 'sovereign', floorRounds);
         const withDmg = (0, _modifiers_js_1.resolveAscensionModifiers)(20, 'sovereign', floorRounds, dmgBoon.modifier);
         node_assert_1.strict.ok(withDmg.dmgMult < base.dmgMult, `dmg boon lowers dmgMult (${withDmg.dmgMult} < ${base.dmgMult})`);
+        node_assert_1.strict.equal(withDmg.roundCap, floorRounds + _modifiers_js_1.SPIRE_WEEKLY_ROUND_BUFFER, 'damage weeks retain the release-tested time buffer');
         node_assert_1.strict.ok(withDmg.modifierStack.some(m => m.label.includes('Blessing')), 'blessing shown as a chip');
     });
 });

@@ -25,20 +25,20 @@ import { titleStyleColor, fetchLegacyDefinitions, eraAgeName, type LegacyDefView
 import { LegacyBadge } from "../components/LegacyBadge";
 
 const ELEMENT_COLORS: Record<string, string> = {
-    fire: "#f87171", water: "#60a5fa", earth: "#d4a574", lightning: "#fbbf24",
-    wind: "#5eead4", ice: "#a5f3fc", wood: "#86efac", lava: "#fb923c",
+    fire: "var(--red-400)", water: "var(--blue-400)", earth: "#d4a574", lightning: "#fbbf24",
+    wind: "#5eead4", ice: "#a5f3fc", wood: "var(--green-300)", lava: "#fb923c",
     storm: "#818cf8", sand: "#e7c08b", crystal: "#c4b5fd", shadow: "#a78bfa",
-    light: "#fde68a", dark: "#a78bfa",
+    light: "var(--gold-300)", dark: "#a78bfa",
 };
 const RARITY_COLORS: Record<string, string> = {
-    common: "#94a3b8", uncommon: "#86efac", rare: "#60a5fa",
-    epic: "#c084fc", legendary: "#fbbf24", mythic: "#f472b6",
+    common: "var(--text-dim)", uncommon: "var(--green-300)", rare: "var(--blue-400)",
+    epic: "var(--purple-400)", legendary: "#fbbf24", mythic: "#f472b6",
 };
 const PROFESSION_LABEL: Record<string, string> = {
     healer: "✚ Healer", vanguard: "⚔ Vanguard", petTamer: "🐾 Pet Tamer",
 };
-const elementColor = (el: string) => ELEMENT_COLORS[el.toLowerCase()] ?? "#cbd5e1";
-const rarityColor = (r: string) => RARITY_COLORS[(r ?? "").toLowerCase()] ?? "#94a3b8";
+const elementColor = (el: string) => ELEMENT_COLORS[el.toLowerCase()] ?? "var(--slate-300)";
+const rarityColor = (r: string) => RARITY_COLORS[(r ?? "").toLowerCase()] ?? "var(--text-dim)";
 function chipStyle(accent: string): CSSProperties {
     return {
         display: "inline-flex", alignItems: "center", gap: 4,
@@ -191,17 +191,17 @@ export function UserView({
                 <section className="profile-build-panel" style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
                     <div
                         className={(viewedCharacter.legacy?.stage ?? 0) >= 2 ? `legacy-aura-s${Math.min(5, viewedCharacter.legacy!.stage)}` : undefined}
-                        style={{ width: 110, height: 110, borderRadius: "50%", border: "3px solid #facc15", boxShadow: "0 0 0 3px rgba(250,204,21,0.15)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}
+                        style={{ width: 110, height: 110, borderRadius: "50%", border: "3px solid var(--gold)", boxShadow: "0 0 0 3px rgba(250,204,21,0.15)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}
                     >
                         {avatar
                             ? <img src={avatar} alt={viewedCharacter.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                            : <span style={{ fontSize: "2rem", fontWeight: 700, color: "#facc15" }}>{viewedCharacter.name.slice(0, 2).toUpperCase()}</span>}
+                            : <span style={{ fontSize: "2rem", fontWeight: 700, color: "var(--gold)" }}>{viewedCharacter.name.slice(0, 2).toUpperCase()}</span>}
                     </div>
                     <div style={{ flex: 1, minWidth: 240 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                             <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "#f8fafc" }}>{viewedCharacter.name}</span>
                             {viewedCharacter.customTitle && (
-                                <span style={{ color: viewedCharacter.customTitleStyle ? titleStyleColor(viewedCharacter.customTitleStyle) : "#facc15", fontWeight: 700, fontSize: "0.95rem" }}>
+                                <span style={{ color: viewedCharacter.customTitleStyle ? titleStyleColor(viewedCharacter.customTitleStyle) : "var(--gold)", fontWeight: 700, fontSize: "0.95rem" }}>
                                     «{viewedCharacter.customTitleIcon ? `${viewedCharacter.customTitleIcon} ` : ""}{viewedCharacter.customTitle}»
                                 </span>
                             )}
@@ -209,14 +209,14 @@ export function UserView({
                                 <RankBadge rating={viewedCharacter.rankedRating ?? 1000} showRating />
                             )}
                         </div>
-                        <div style={{ color: "#94a3b8", marginTop: 4, fontSize: "0.95rem" }}>
+                        <div style={{ color: "var(--text-dim)", marginTop: 4, fontSize: "0.95rem" }}>
                             {viewedCharacter.village} · {viewedCharacter.rankTitle} · Lv {viewedCharacter.level}/100
                         </div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
                             <span style={chipStyle("#a78bfa")}>🩸 {bloodlineName}</span>
                             {ownedElements.map((el) => <span key={el} style={chipStyle(elementColor(el))}>{el}</span>)}
-                            {viewedCharacter.clan && <span style={chipStyle("#facc15")}>🏳 {viewedCharacter.clan}{viewedCharacter.clanFounder ? " · Leader" : ""}</span>}
-                            {professionLabel && <span style={chipStyle("#38bdf8")}>{professionLabel}{viewedCharacter.professionRank ? ` · R${viewedCharacter.professionRank}` : ""}</span>}
+                            {viewedCharacter.clan && <span style={chipStyle("var(--gold)")}>🏳 {viewedCharacter.clan}{viewedCharacter.clanFounder ? " · Leader" : ""}</span>}
+                            {professionLabel && <span style={chipStyle("var(--cyan)")}>{professionLabel}{viewedCharacter.professionRank ? ` · R${viewedCharacter.professionRank}` : ""}</span>}
                         </div>
                     </div>
                 </section>
@@ -236,13 +236,13 @@ export function UserView({
                             <div style={{ padding: "12px 14px", background: "linear-gradient(135deg, rgba(192,132,252,.16), transparent 72%)", display: "flex", gap: 12, alignItems: "center" }}>
                                 <LegacyBadge badge={viewedLegacyDef.badge} name={viewedLegacyDef.name} size={54} stage={L.stage} />
                                 <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontSize: ".6rem", letterSpacing: ".1em", textTransform: "uppercase", color: "#c084fc" }}>🌠 Legacy</div>
+                                    <div style={{ fontSize: ".6rem", letterSpacing: ".1em", textTransform: "uppercase", color: "var(--purple-400)" }}>🌠 Legacy</div>
                                     <b style={{ fontSize: "1.05rem", color: "#e9d5ff" }}>{viewedLegacyDef.name}</b>
-                                    <div style={{ fontSize: ".76rem", color: "#cbd5e1" }}>Stage {roman} · «{earnedTitle}»</div>
+                                    <div style={{ fontSize: ".76rem", color: "var(--slate-300)" }}>Stage {roman} · «{earnedTitle}»</div>
                                 </div>
                             </div>
                             <div style={{ padding: "10px 14px" }}>
-                                <p style={{ margin: 0, fontSize: ".78rem", color: "#cbd5e1", fontStyle: "italic" }}>{viewedLegacyDef.flavor}</p>
+                                <p style={{ margin: 0, fontSize: ".78rem", color: "var(--slate-300)", fontStyle: "italic" }}>{viewedLegacyDef.flavor}</p>
                                 {era && <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>📜 Taken up in {era}.</p>}
                             </div>
                         </section>
@@ -252,7 +252,7 @@ export function UserView({
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginTop: 12 }}>
                     {metrics.map((m) => (
                         <div key={m.label} style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(250,204,21,0.18)", borderRadius: 10, padding: "12px 14px" }}>
-                            <div style={{ color: "#94a3b8", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{m.label}</div>
+                            <div style={{ color: "var(--text-dim)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{m.label}</div>
                             <div style={{ color: "#f8fafc", fontSize: "1.3rem", fontWeight: 700, marginTop: 2 }}>{m.value}</div>
                         </div>
                     ))}

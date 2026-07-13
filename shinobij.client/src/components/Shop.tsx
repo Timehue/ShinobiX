@@ -21,6 +21,7 @@ import type { GameItem, EquipmentSlot } from "../types/combat";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { openCardPack, type CardPackType } from "../lib/card-pack";
 import { makeId } from "../lib/utils";
+import { requireServerSettlement } from "../lib/server-settlement-gate";
 
 function ShopBase({
     character, updateCharacter, creatorItems, title, subtitle, filterRarities, currency = "ryo", onBack, backLabel, onServerVersion,
@@ -113,6 +114,7 @@ function ShopBase({
     const getShopCost = (cost: number) => discountCost(cost, shopDiscountPercent);
 
     async function buy(item: GameItem, qty = 1) {
+        if (!requireServerSettlement("shopPurchase")) return;
         const finalCost = getShopCost(item.cost);
         if (item.levelReq && character.level < item.levelReq) return alert(`Requires Level ${item.levelReq}. You are Level ${character.level}.`);
 
@@ -429,6 +431,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards, o
     const [packBusy, setPackBusy] = useState(false);
 
     async function openPack(packType: CardPackType, cost: number) {
+        if (!requireServerSettlement("shopCardPack")) return;
         const wallet = currency === "fateShards" ? character.fateShards : character.ryo;
         const label = currency === "fateShards" ? "Fate Shards" : "ryo";
         const finalCost = packCost(cost);

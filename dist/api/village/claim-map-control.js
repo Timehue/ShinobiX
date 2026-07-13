@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _map_control_reward_js_1 = require("../_map-control-reward.js");
 const _save_version_js_1 = require("../save/_save-version.js");
+const _village_merit_js_1 = require("./_village-merit.js");
 /*
  * /api/village/claim-map-control  — POST only
  *
@@ -130,6 +131,9 @@ async function handler(req, res) {
                     honorSeals: num(char.honorSeals) + granted.honorSeals,
                     boneCharms: num(char.boneCharms) + granted.boneCharms,
                     fateShards: num(char.fateShards) + granted.fateShards,
+                    // Personal Village Merit toward a Kage challenge (server-owned;
+                    // once/day via the NX marker above). See _village-merit.ts.
+                    villageMerit: (0, _village_merit_js_1.meritNum)(char.villageMerit) + _village_merit_js_1.MERIT_MAP_CONTROL,
                 };
                 const next = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(next, rec));

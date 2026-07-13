@@ -261,7 +261,7 @@ async function handler(req, res) {
                 const nextPets = pets.map((pet) => String(pet?.id ?? '') === expeditionPetId
                     ? (0, _progress_js_2.settleServerPetExpedition)(pet, expType ?? 'scout', durationMinutes, petXpMult).pet
                     : pet);
-                const updated = {
+                const updated = (0, _save_version_js_1.bumpSaveVersion)({
                     ...record,
                     character: {
                         ...char,
@@ -274,8 +274,7 @@ async function handler(req, res) {
                         fateShards: Number(char.fateShards ?? 0) + foundFate,
                         ...(escortReady ? { petEscortBonusReady: false } : {}),
                     },
-                };
-                (0, _save_version_js_1.bumpSaveVersion)(updated);
+                });
                 await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
                 if (expeditionTokenKey)
                     await _storage_js_1.kv.del(expeditionTokenKey).catch(() => undefined);

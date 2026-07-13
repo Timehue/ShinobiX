@@ -5,8 +5,9 @@ import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { TRAINING_TIERS, trainingStatGain } from '../_training-config.js';
-import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { TRAINING_TIERS } from '../_training-config.js';
+import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { activeTrainingBlocksStart, normalizeActiveTrainingSession, trustedTrainingRewards, TRAINING_TOKEN_TTL_SECONDS } from './_session.js';
 
 /*
  * /api/training/start — POST only
@@ -23,7 +24,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
  * endsAt). Start also debits stamina and persists activeTraining under the same
  * save lock; the client never applies a local fallback grant.
  *
- * Body: { playerName, stat, tierId, trainingBonusPct?, warMult? }
+ * Body: { playerName, stat, tierId }
  * Token: `training-token:<player>:<uuid>`, single-use (complete deletes on redeem).
  */
 
@@ -37,10 +38,9 @@ const STAT_KEYS = [
 const MAX_TRAINING_STARTS_PER_DAY = 96;
 // Clamp the client-reported village/clan training bonus. The real max is well
 // under this; the clamp bounds how much a tampered body can inflate the seal.
-const MAX_TRAINING_BONUS_PCT = 60;
 // Covers the 8h max tier + a long collect window (a player may close the game for
 // days). The single-use deletion + time-gate + daily cap are the real bounds.
-const TOKEN_TTL_SECONDS = 25 * 60 * 60;
+const TOKEN_TTL_SECONDS = TRAINING_TOKEN_TTL_SECONDS;
 
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
@@ -60,8 +60,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const stat = STAT_KEYS.includes(body.stat) ? String(body.stat) : null;
         const tier = TRAINING_TIERS.find((t) => t.id === body.tierId) ?? null;
-        const bonusPct = Math.max(0, Math.min(MAX_TRAINING_BONUS_PCT, Number(body.trainingBonusPct ?? 0) || 0));
-        const warMult = Math.max(0.5, Math.min(1, Number(body.warMult ?? 1) || 1));
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!stat) return res.status(400).json({ error: 'Invalid stat.' });
@@ -90,33 +88,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const startedAt = Date.now();
         const endsAt = startedAt + tier.ms;
-        const sealedGain = Math.max(0, Math.round(trainingStatGain(tier, tier.ms, bonusPct) * warMult));
-        const sealedXp = Math.max(0, Math.round(tier.xp * (1 + bonusPct / 100) * warMult));
+        const { sealedGain, sealedXp } = trustedTrainingRewards(tier);
+        const saveKey = `save:${playerName}`;
+        const result = await withKvLock(saveKey, async () => {
+            const record = await kv.get<Record<string, unknown>>(saveKey);
+            const character = record?.character as Record<string, unknown> | undefined;
+            if (!record || !character) return { ok: false as const, status: 404, error: 'Player save not found.' };
 
-        const tokenId = randomUUID().replace(/-/g, '');
-        const activeTraining = {
-            label: `${tier.label} ${stat} Training`, stat, xp: sealedXp, statGain: sealedGain,
-            staminaCost: tier.staminaCost, startedAt, endsAt, durationMs: tier.ms, token: tokenId,
-        };
-        const result = await mutatePlayerSave(playerName, async ({ record, character }) => {
-            if (record.activeTraining) return { ok: false as const, status: 409, error: 'A training session is already active.' };
+            const prior = normalizeActiveTrainingSession(record.activeTraining);
+            const priorTokenExists = prior ? !!(await kv.get(`training-token:${playerName}:${prior.token}`)) : false;
+            if (activeTrainingBlocksStart(prior, priorTokenExists, startedAt)) {
+                return { ok: false as const, status: 409, error: 'A training session is already active.' };
+            }
             const stamina = Math.max(0, Number(character.stamina) || 0);
             if (stamina < tier.staminaCost) return { ok: false as const, status: 409, error: 'Not enough stamina.' };
+
+            const tokenId = randomUUID().replace(/-/g, '');
+            const expiresAt = startedAt + TOKEN_TTL_SECONDS * 1000;
+            const activeTraining = {
+                label: `${tier.label} ${stat} Training`, stat, xp: sealedXp, statGain: sealedGain,
+                staminaCost: tier.staminaCost, startedAt, endsAt, expiresAt, durationMs: tier.ms, token: tokenId,
+            };
             await kv.set(`training-token:${playerName}:${tokenId}`, {
                 playerName, stat, tierId: tier.id, startedAt, endsAt, sealedGain, sealedXp,
             }, { ex: TOKEN_TTL_SECONDS });
-            return {
-                ok: true as const,
-                character: { ...character, stamina: stamina - tier.staminaCost },
-                recordPatch: { activeTraining },
-                value: activeTraining,
-            };
-        });
+            await kv.set(`training-active:${playerName}`, activeTraining, { ex: TOKEN_TTL_SECONDS });
+            const nextCharacter = { ...character, stamina: stamina - tier.staminaCost };
+            const written = await writeVersionedPlayerSave(saveKey, { ...record, activeTraining }, nextCharacter);
+            return { ok: true as const, tokenId, activeTraining, character: nextCharacter, _saveVersion: written._saveVersion };
+        }, { failClosed: true });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
 
         return res.status(200).json({
-            ok: true, token: tokenId, startedAt, endsAt, durationMs: tier.ms,
-            sealedGain, sealedXp, activeTraining: result.value,
+            ok: true, token: result.tokenId, startedAt, endsAt, durationMs: tier.ms,
+            sealedGain, sealedXp, activeTraining: result.activeTraining,
             character: result.character, _saveVersion: result._saveVersion,
         });
     } catch (err) {

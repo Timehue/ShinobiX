@@ -15,7 +15,7 @@ import { BATTLE_LOCK_ID_KEY } from "./battle-save";
 // Anything NOT here is a transient / mid-encounter screen whose state lives only
 // in React; on reload it force-re-enters (battles) or routes to a safe parent.
 export const DEEP_LINKABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
-    "village", "villageLore", "profile", "inventory", "logbook", "training",
+    "village", "profile", "inventory", "logbook", "training",
     "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall",
     "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall",
     "centralHub", "pets", "petLadder", "hunting", "tavern", "hallOfLegends", "shinobiCouncil",

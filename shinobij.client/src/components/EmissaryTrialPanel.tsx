@@ -121,11 +121,11 @@ export function EmissaryTrialPanel({ playerName, emissary, onStageUp }: {
             <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "#c4b5fd", margin: "0 0 8px" }}>{emissary.trialLine}</p>
             {trial ? (
                 <>
-                    <p style={{ fontSize: ".78rem", fontWeight: 700, margin: "0 0 6px", color: "#e2e8f0" }}>
+                    <p style={{ fontSize: ".78rem", fontWeight: 700, margin: "0 0 6px", color: "var(--slate-200)" }}>
                         {KIND_NAMES[trial.kind] ?? "Legacy Trial"} — attempt {trial.attempt}
                     </p>
                     {trial.objectives.map(o => (
-                        <div key={o.stat} style={{ display: "flex", justifyContent: "space-between", fontSize: ".73rem", color: o.done ? "#86efac" : "#cbd5e1", marginBottom: 3 }}>
+                        <div key={o.stat} style={{ display: "flex", justifyContent: "space-between", fontSize: ".73rem", color: o.done ? "var(--green-300)" : "var(--slate-300)", marginBottom: 3 }}>
                             <span>{o.done ? "✓ " : ""}{TRIAL_STAT_LABELS[o.stat] ?? o.stat}</span>
                             <span>{(o.progress ?? 0).toLocaleString()} / {o.delta.toLocaleString()}</span>
                         </div>
@@ -139,11 +139,11 @@ export function EmissaryTrialPanel({ playerName, emissary, onStageUp }: {
                     Ask for your next trial
                 </button>
             ) : (
-                <p style={{ fontSize: ".75rem", color: "#c084fc", margin: 0, fontStyle: "italic" }}>
+                <p style={{ fontSize: ".75rem", color: "var(--purple-400)", margin: 0, fontStyle: "italic" }}>
                     “Stage V. There is nothing left I can test in you — only things left to witness.”
                 </p>
             )}
-            {note && <p style={{ fontSize: ".74rem", color: "#facc15", margin: "8px 0 0", fontStyle: "italic" }}>{note}</p>}
+            {note && <p style={{ fontSize: ".74rem", color: "var(--gold)", margin: "8px 0 0", fontStyle: "italic" }}>{note}</p>}
             {moment && <LegacyMoment moment={moment} onClose={() => setMoment(null)} />}
         </div>
     );
