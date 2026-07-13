@@ -3,50 +3,85 @@
  * spending banked Hollow Shards on permanent shrine upgrades. Buy logic is the
  * pure lib/hollow-gate-attunement; this is the UI. Hosted by WorldMap.
  */
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import { ATTUNEMENT_NODES, attunementRank, attunementNextCost, buyAttunement, keyForgeUnlocked, KEY_FORGE_COST } from "../lib/hollow-gate-attunement";
-import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
+import { forgeHollowGateKeyServer as forgeHollowGateKey } from "../lib/hollow-gate-forge-api";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
+import { gameConfirm } from "./GameAlert";
+import { Modal } from "./ui/Modal";
 
 type Props = { character: Character; updateCharacter: (c: Character) => void; onClose: () => void; onServerVersion?: (version: number) => void };
 
 export function HollowGateAttunement({ character, updateCharacter, onClose, onServerVersion }: Props) {
-    const [msg, setMsg] = useState("");
+    const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
+    const [forgeBusy, setForgeBusy] = useState(false);
+    const forgeBusyRef = useRef(false);
     const shards = character.hollowShards ?? 0;
 
     function buy(id: string) {
         if (!requireServerSettlement("hollowGateAttunement")) return;
         const r = buyAttunement(character, id);
-        if (r.ok === false) { setMsg(r.reason); return; }
+        if (r.ok === false) { setStatus({ text: r.reason, ok: false }); return; }
         updateCharacter(r.character);
-        setMsg("");
+        setStatus(null);
     }
 
     async function forge() {
         if (!requireServerSettlement("hollowGateAttunement")) return;
-        const forgeHollowGateKey = forgeHollowGateKeyServer;
-        const r = await forgeHollowGateKey(character.name, 'hollowShards');
-        if (!r.character) { setMsg(r.error || 'The key forge failed.'); return; }
-        if (typeof r._saveVersion === 'number') onServerVersion?.(r._saveVersion);
-        updateCharacter(r.character);
-        setMsg("Forged a Hollow Gate Key.");
+        if (forgeBusyRef.current) return;
+        if (shards < KEY_FORGE_COST) {
+            setStatus({ text: `You need ${KEY_FORGE_COST} Hollow Shards to forge a key.`, ok: false });
+            return;
+        }
+        forgeBusyRef.current = true;
+        setForgeBusy(true);
+        const confirmed = await gameConfirm(
+            `Forge 1 Hollow Gate Key for ${KEY_FORGE_COST} Hollow Shards? The shards are spent immediately and cannot be refunded.`,
+            { title: "Forge Hollow Gate Key", confirmLabel: "Forge Key" },
+        );
+        if (!confirmed) {
+            forgeBusyRef.current = false;
+            setForgeBusy(false);
+            return;
+        }
+        setStatus(null);
+        try {
+            const r = await forgeHollowGateKey(character.name, "hollowShards");
+            if (!r.character) {
+                setStatus({ text: r.error || "The key forge did not return an updated save. Refresh before retrying.", ok: false });
+                return;
+            }
+            if (typeof r._saveVersion === "number") onServerVersion?.(r._saveVersion);
+            updateCharacter(r.character);
+            setStatus({ text: "Forged 1 Hollow Gate Key.", ok: true });
+        } catch {
+            setStatus({ text: "The key forge response was lost. Refresh your save before retrying so you can confirm whether the key was forged.", ok: false });
+        } finally {
+            forgeBusyRef.current = false;
+            setForgeBusy(false);
+        }
     }
 
+    const close = useCallback(() => { if (!forgeBusyRef.current) onClose(); }, [onClose]);
+
     return (
-        <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(2,6,23,0.82)", display: "grid", placeItems: "center", padding: 16 }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ background: "#160f2b", border: "1px solid #7c3aed", borderRadius: 12, padding: 18, maxWidth: 520, width: "100%", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 10px 40px rgba(0,0,0,0.6)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <h3 style={{ margin: 0, color: "#e9d5ff" }}>⛩ Shrine Attunement</h3>
-                    <button onClick={onClose} style={{ background: "transparent", border: "1px solid #475569", color: "#cbd5e1", borderRadius: 6, padding: "2px 10px", cursor: "pointer" }}>✕</button>
-                </div>
+        <Modal open onClose={close} title="⛩ Shrine Attunement" size="md" disableBackdropClose={forgeBusy}>
+            <div style={{ color: "#e9d5ff" }}>
                 <p style={{ margin: "0 0 6px", color: "#c4b5fd", fontSize: 14 }}>💎 Hollow Shards: <strong style={{ color: "#e9d5ff" }}>{shards}</strong> · spend on permanent shrine boons</p>
-                {msg && <p style={{ color: "#fca5a5", fontSize: 13, margin: "0 0 6px" }}>{msg}</p>}
+                {status && <p role="status" aria-live="polite" style={{ color: status.ok ? "#86efac" : "#fca5a5", fontSize: 13, margin: "0 0 6px" }}>{status.text}</p>}
                 {ATTUNEMENT_NODES.map((n) => {
                     const rank = attunementRank(character, n.id);
                     const cost = attunementNextCost(character, n.id);
                     const maxed = rank >= n.maxRank;
                     const canBuy = !n.comingSoon && cost != null && shards >= cost;
+                    const actionLabel = n.comingSoon
+                        ? "Coming soon"
+                        : maxed
+                            ? "Maxed"
+                            : cost != null && shards < cost
+                                ? `Need ${cost}💎`
+                                : `Attune · ${cost}💎`;
                     return (
                         <div key={n.id} style={{ border: "1px solid #332b4e", borderRadius: 8, padding: "8px 10px", marginBottom: 8, opacity: n.comingSoon ? 0.55 : 1, background: "rgba(46,16,84,0.25)" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -54,6 +89,7 @@ export function HollowGateAttunement({ character, updateCharacter, onClose, onSe
                                     {n.label} <span style={{ fontSize: 12, color: "#a78bfa" }}>{rank}/{n.maxRank}</span>
                                 </strong>
                                 <button
+                                    type="button"
                                     disabled={!canBuy}
                                     onClick={() => buy(n.id)}
                                     style={{
@@ -63,7 +99,7 @@ export function HollowGateAttunement({ character, updateCharacter, onClose, onSe
                                         color: canBuy ? "#e9d5ff" : "#6b6486",
                                     }}
                                 >
-                                    {n.comingSoon ? "Coming soon" : maxed ? "Maxed" : `Attune · ${cost}💎`}
+                                    {actionLabel}
                                 </button>
                             </div>
                             <div style={{ fontSize: 12, color: "#c4b5fd", marginTop: 3 }}>{n.desc}</div>
@@ -72,8 +108,9 @@ export function HollowGateAttunement({ character, updateCharacter, onClose, onSe
                 })}
                 {keyForgeUnlocked(character) && (
                     <button
+                        type="button"
                         onClick={() => { void forge(); }}
-                        disabled={shards < KEY_FORGE_COST}
+                        disabled={forgeBusy || shards < KEY_FORGE_COST}
                         style={{
                             marginTop: 4, width: "100%", padding: 9, borderRadius: 8, fontWeight: 600,
                             cursor: shards >= KEY_FORGE_COST ? "pointer" : "default",
@@ -82,10 +119,10 @@ export function HollowGateAttunement({ character, updateCharacter, onClose, onSe
                             color: shards >= KEY_FORGE_COST ? "#fde68a" : "#6b6486",
                         }}
                     >
-                        🗝 Forge a Hollow Gate Key · {KEY_FORGE_COST}💎
+                        {forgeBusy ? "Forging key…" : `🗝 Forge 1 Hollow Gate Key · ${KEY_FORGE_COST}💎`}
                     </button>
                 )}
             </div>
-        </div>
+        </Modal>
     );
 }
