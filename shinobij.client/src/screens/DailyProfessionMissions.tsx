@@ -67,7 +67,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
         // (per tab and UTC date), then still refresh from the server below.
         // This removes the blank 3-5s panel on repeat navigation without ever
         // using cached data to grant rewards or authorize an action.
-        const cached = readDailyMissionCache(character.name, character.profession);
+        const cached = readDailyMissionCache(character.name, character.profession ?? null);
         if (cached) {
             setData(cached as Response);
             setLoading(false);
@@ -106,7 +106,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                 }
                 seededRef.current = true;
                 setData(json);
-                writeDailyMissionCache(character.name, character.profession, json);
+                writeDailyMissionCache(character.name, character.profession ?? null, json);
                 setLoading(false);
             } catch {
                 if (!cancelled) {
