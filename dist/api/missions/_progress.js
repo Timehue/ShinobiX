@@ -179,14 +179,11 @@ function getMissionPoolSafeCount(profession) {
 // Load (or issue) today's missions for a player. Returns null if profession
 // doesn't have missions. Vanguard Rank 6+ gets 4 missions instead of 3
 // (the Rank 6 even-rank perk).
-async function loadOrIssueDailyMissions(playerName, profession, now = new Date(),
-// The daily endpoint and progress reporters already load the character to
-// decide the profession/eligibility.  Accept that trusted, server-loaded
-// value so a mission-panel refresh does not make a second identical
-// save:<player> database round trip.  `undefined` preserves the public
-// helper's standalone behaviour; `null` means the caller already checked
-// and there is no character record.
-loadedCharacter = undefined) {
+// The daily endpoint and progress reporters can pass the trusted character they
+// already loaded, avoiding a duplicate save:<player> database round trip.
+// `undefined` preserves standalone behavior; `null` means the caller already
+// checked and there is no character record.
+async function loadOrIssueDailyMissions(playerName, profession, now = new Date(), loadedCharacter = undefined) {
     const today = utcDateKey(now);
     // Look up current rank to determine daily mission slot count.
     const char = loadedCharacter === undefined
