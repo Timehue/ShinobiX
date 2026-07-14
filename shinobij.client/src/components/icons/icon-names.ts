@@ -29,11 +29,17 @@ export type GameIconName =
     | "bag"      // inventory / items (nav)
     | "menu"     // hamburger menu (nav)
     | "flask"    // tavern / sake (nav)
-    | "bolt";    // speed / lightning (stat)
+    | "bolt"     // speed / lightning (stat)
+    | "leaf"     // Ashen Leaf village marker
+    | "snow"     // Frostfang village marker
+    | "moon"     // Moonshadow village marker
+    | "gate"     // Stormveil village marker
+    | "tower";   // Central citadel marker
 
 export const gameIconNames: readonly GameIconName[] = [
     "ryo", "shard", "crystal", "sparkle", "medal", "sigil", "bone",
     "chakra", "hp", "sword", "shield", "scroll",
     "map", "target", "dice", "clock", "dumbbell", "paw", "gift",
     "person", "bag", "menu", "flask", "bolt",
+    "leaf", "snow", "moon", "gate", "tower",
 ];
