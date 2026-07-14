@@ -83,6 +83,7 @@ export function itemCategory(entry: string, item?: GameItem): ItemCategory {
     // Event tokens win over the generic "item" slot they share with pet gear
     // and materials, so a Weekly Boss Core lands under Event, not Materials.
     if (EVENT_ITEM_IDS.has(entry)) return "event";
+    if (entry.startsWith("event-")) return "event";
 
     if (petFeedXpForItem(entry) != null) return "pet";
     if (PET_ID_PREFIXES.some((prefix) => entry.startsWith(prefix))) return "pet";

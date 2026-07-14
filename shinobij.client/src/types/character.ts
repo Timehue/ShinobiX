@@ -420,6 +420,9 @@ export type Character = {
     // mirror only. `stage`: "travel" until the player reaches the rift structure,
     // "descend" once they are there. Additive/optional. See lib/hollow-rifts.
     activeRiftQuest?: { id: string; targetSector: number; stage: "travel" | "descend"; baseline: number; bossName: string } | null;
+    // Active one-shot story reckoning from a named village character. Display
+    // mirror only; api/sector/story-reckoning.ts seals the true baseline/reward.
+    activeStoryReckoning?: { id: string; stage: "task" | "return"; metric: "totalAiKills" | "totalTilesExplored"; baseline: number; target: number; dropItemId: string } | null;
     // Epoch ms until which the roaming rift-giver stays quiet after a clear.
     riftCooldownUntil?: number;
     // Cosmetic titles earned from completing Quest Book epics. Additive/optional.
