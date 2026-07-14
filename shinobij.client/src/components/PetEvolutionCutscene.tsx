@@ -6,15 +6,10 @@
  * silhouette) inside the tube → the EVOLVED form cross-fades in (still spinning)
  * → the spin SLOWS DOWN → BOOM (white burst) → the new pet is revealed in colour.
  *
- * Driven by the pure timeline in lib/pet-evolution-cutscene.ts. The spin is ONE
- * continuous rotation that lands front-facing for the burst, so the flat sprite
- * is only edge-on while it is a glowing white silhouette (reads as energy). Both
- * forms render as two stacked layers — a full-COLOUR layer and a white-GLOW
- * silhouette layer — cross-faded by `whiteness`, sharing one spin transform.
- *
- * Implemented in CSS/3D-transforms (no react-three-fiber, no new deps). The
- * sprites MUST be clean transparent cutouts (PetYard feeds petPoseImage / the
- * /pet-evos art) — the silhouette filter would box an opaque-background image.
+ * Driven by the pure timeline in lib/pet-evolution-cutscene.ts. The timing,
+ * tube, tunnel, captions, burst, and reveal keep the current digivolution style.
+ * The pet layer is upgraded to PetEvolutionStage3D, which renders the old/new
+ * forms as grounded HD-2D standees instead of flat DOM images.
  *
  * Honors prefers-reduced-motion (jumps straight to the settled colour form).
  */
@@ -23,43 +18,27 @@ import type { Pet } from "../types/pet";
 import {
     EVOLUTION_TOTAL_MS,
     evolutionPhaseAt,
-    isOldFormVisible,
-    isNewFormVisible,
     showOldName,
     showNewName,
-    evolutionSpin,
-    morphProgress,
-    whiteness,
     tubeIntensity,
     tubeRise,
     tunnelIntensity,
     burstIntensity,
-    morphScale,
 } from "../lib/pet-evolution-cutscene";
-
-const RAD2DEG = 180 / Math.PI;
-
-function initials(name: string): string {
-    return name.slice(0, 2).toUpperCase();
-}
-
-// White/cyan glowing SILHOUETTE of a transparent cutout (the energy form). Safe
-// only because the cutscene is fed clean cutouts — an opaque-background image
-// would box here. COLOUR layer is the normal sprite with a warm hero glow.
-const SILHOUETTE_FILTER =
-    "brightness(0) invert(1) drop-shadow(0 0 16px #a5f3fc) drop-shadow(0 0 40px #818cf8)";
-const COLOR_GLOW_FILTER =
-    "drop-shadow(0 0 26px rgba(250,204,21,0.7)) drop-shadow(0 0 64px rgba(167,139,250,0.55))";
+import { petVisualId } from "../data/pet-evolutions";
+import { PetEvolutionStage3D } from "./PetEvolutionStage3D";
 
 export function PetEvolutionCutscene({
     pet,
     oldName,
+    oldVisualId,
     oldImage,
     newImage,
     onClose,
 }: {
     pet: Pet;
     oldName: string;
+    oldVisualId: string;
     oldImage?: string;
     newImage?: string;
     onClose: () => void;
@@ -89,45 +68,16 @@ export function PetEvolutionCutscene({
     }, []);
 
     const phase = evolutionPhaseAt(elapsed);
-    const oldShown = isOldFormVisible(phase.beat);
-    const newShown = isNewFormVisible(phase.beat);
-    const mp = morphProgress(phase);
-    const white = whiteness(phase);
     const flash = burstIntensity(phase);
     const tunnel = tunnelIntensity(phase);
     const tube = tubeIntensity(phase);
-
-    // One continuous spin + a slight grow, shared by both forms.
-    const spinDeg = evolutionSpin(phase) * RAD2DEG;
-    const scale = morphScale(phase);
-    const spriteTransform = `rotateY(${spinDeg}deg) scale(${scale})`;
-
-    // Cross-fade presence: old fades out across the morph, new fades in.
-    const oldPresence = phase.beat === "morph" ? 1 - mp : 1;
-    const newPresence = phase.beat === "morph" ? mp : 1;
+    const reduced = typeof window !== "undefined" && !!window.matchMedia
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // The tube of light "comes up": slides into place as it brightens.
     const tubeTransform = `translateX(-50%) translateY(${(1 - tubeRise(phase)) * 42}%)`;
 
-    const newSrc = newImage ?? oldImage;
     const handleSkip = () => { endedRef.current = true; setElapsed(EVOLUTION_TOTAL_MS); };
-
-    const spriteInner = (src: string | undefined, name: string) =>
-        src
-            ? <img src={src} alt={name} className="pet-evo-sprite-img" draggable={false} />
-            : <span className="pet-evo-sprite-initials">{initials(name)}</span>;
-
-    // A form = two stacked layers (colour + white glow) sharing the spin transform.
-    const formLayers = (src: string | undefined, name: string, presence: number) => presence <= 0 ? null : (
-        <>
-            <div className="pet-evo-sprite-wrap" style={{ transform: spriteTransform, filter: COLOR_GLOW_FILTER, opacity: presence * (1 - white) }}>
-                {spriteInner(src, name)}
-            </div>
-            <div className="pet-evo-sprite-wrap" style={{ transform: spriteTransform, filter: SILHOUETTE_FILTER, opacity: presence * white }}>
-                {spriteInner(src, name)}
-            </div>
-        </>
-    );
 
     return (
         <div className="pet-evo-cutscene" role="dialog" aria-label={`${oldName} is evolving`} onClick={phase.done ? onClose : undefined}>
@@ -140,8 +90,15 @@ export function PetEvolutionCutscene({
 
             {/* Stage */}
             <div className="pet-evo-stage">
-                {oldShown && formLayers(oldImage, oldName, oldPresence)}
-                {newShown && formLayers(newSrc, pet.name, newPresence)}
+                <PetEvolutionStage3D
+                    phase={phase}
+                    oldVisualId={oldVisualId}
+                    newVisualId={petVisualId(pet)}
+                    element={pet.element}
+                    oldImage={oldImage}
+                    newImage={newImage ?? oldImage}
+                    reduced={reduced}
+                />
             </div>
 
             {/* White burst flash — the BOOM */}
@@ -206,18 +163,8 @@ const CUTSCENE_CSS = `
 @keyframes pet-evo-tube-rush { from { background-position: 0 0, 0 0; } to { background-position: 0 -19px, 0 0; } }
 
 .pet-evo-stage {
-    position: relative; width: min(62vw, 380px); height: min(62vw, 380px);
+    position: relative; width: min(64vw, 400px); height: min(64vw, 400px);
     display: grid; place-items: center; transform-style: preserve-3d;
-}
-.pet-evo-sprite-wrap {
-    position: absolute; width: 100%; height: 100%;
-    display: grid; place-items: center; transform-style: preserve-3d;
-    will-change: transform, opacity, filter;
-}
-.pet-evo-sprite-img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.pet-evo-sprite-initials {
-    font-size: clamp(48px, 14vw, 120px); font-weight: 800; color: #ede9fe;
-    text-shadow: 0 0 24px #a78bfa;
 }
 
 .pet-evo-flash { position: absolute; inset: 0; background: #ffffff; pointer-events: none; mix-blend-mode: screen; }

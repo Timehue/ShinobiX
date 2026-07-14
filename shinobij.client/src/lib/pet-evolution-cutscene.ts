@@ -3,7 +3,7 @@
  *
  * Digivolution cadence (owner-specified):
  *   1. the current pet starts to SPIN and washes into a white glow
- *   2. a big TUBE OF LIGHT rises up around it
+ *   2. after the glow begins, a big TUBE OF LIGHT rises up around it
  *   3. it keeps spinning (white silhouette) inside the tube
  *   4. the EVOLVED form appears (cross-fades in, still spinning)
  *   5. the spin SLOWS DOWN (still a white glow)
@@ -92,9 +92,9 @@ function easeOut(e: number): number {
     return 1 - Math.pow(1 - x, 2);
 }
 
-// The old form is on stage from charge through the morph (fading OUT across it).
+// The old form spins/glows into white, then the evolved form takes over as a
+// white spinning silhouette inside the tube before color returns.
 const OLD_FORM_BEATS = new Set<EvolutionBeat>(["charge", "spinup", "morph"]);
-// The new (evolved) form is on stage from the morph onward (fading IN there).
 const NEW_FORM_BEATS = new Set<EvolutionBeat>(["morph", "slowdown", "burst", "reveal", "settle"]);
 
 export function isOldFormVisible(beat: EvolutionBeat): boolean {
@@ -123,10 +123,7 @@ export function evolutionSpin(phase: EvolutionPhase): number {
     return easeInOut(t) * SPIN_TURNS * TAU;
 }
 
-/**
- * 0..1 progress of the old→new cross-fade. 0 before the morph, eased across it,
- * 1 after (the evolved form is fully present from the slowdown on).
- */
+/** 0..1 old -> evolved handoff once the old form is fully white. */
 export function morphProgress(phase: EvolutionPhase): number {
     if (phase.beat === "morph") return easeInOut(phase.progress);
     return isNewFormVisible(phase.beat) ? 1 : 0;
@@ -151,26 +148,28 @@ export function whiteness(phase: EvolutionPhase): number {
 }
 
 /**
- * 0..1 brightness of the big TUBE OF LIGHT. Kindles faint in the charge, RISES
- * to full as the pet spins up (the tube "comes up"), holds through the morph +
- * slowdown (the pet spins enveloped in it), then collapses with the burst. Gone
- * by the reveal so the new form steps out onto a clean stage.
+ * 0..1 brightness of the big TUBE OF LIGHT. The opening charge is deliberately
+ * tube-free: the pet starts the transformation on its own, then the column rises
+ * once the spin/white glow is underway. It holds through the evolved-white spin
+ * and drops during the reveal so the new form steps out onto a clean stage.
  */
 export function tubeIntensity(phase: EvolutionPhase): number {
     switch (phase.beat) {
-        case "charge": return 0;                                     // NO tube yet — the pet starts its slow spin first
-        case "spinup": return easeOut(phase.progress);               // tube RISES up once the spin is under way (0 → 1)
+        case "charge": return 0;                                     // no opening tube
+        case "spinup": return easeOut(phase.progress);               // rises after the glow starts
         case "morph":
         case "slowdown": return 1;                                   // fully up
         case "burst": return Math.max(0, 1 - phase.progress * 1.4);  // collapses with the boom
-        default: return 0;                                           // reveal / settle: gone
+        case "reveal": return Math.max(0, 0.45 - phase.progress * 0.45); // tube goes down as evolved form steps out
+        default: return 0;                                           // settle: gone
     }
 }
 
 /** 0..1 of the tube's "rise" — how far up the column has travelled into place. */
 export function tubeRise(phase: EvolutionPhase): number {
-    if (phase.beat === "charge") return 0;                  // hidden — the pet spins up first
+    if (phase.beat === "charge") return 0;
     if (phase.beat === "spinup") return easeOut(phase.progress);
+    if (phase.beat === "reveal") return 1 - easeOut(phase.progress);
     return tubeIntensity(phase) > 0 ? 1 : 0;
 }
 
@@ -212,4 +211,76 @@ export function morphScale(phase: EvolutionPhase): number {
         case "reveal": return 1.18 - 0.18 * easeOut(phase.progress);     // boom pop 1.18 → 1.0
         default: return 1;                                               // settle
     }
+}
+
+// -- 2.5D stage motion -------------------------------------------------------
+// PetEvolutionStage3D renders flat pet art as grounded, lit HD-2D billboards.
+// During the white/tube phases we intentionally allow the billboard to go
+// through a faster multi-turn "energy spin"; the renderer presents that as an
+// anime squash/flip illusion so the 2D art never sits invisible edge-on. Once
+// color returns, it lands back on a front-facing 2.5D hero pose.
+
+export interface EvolutionStageMotion {
+    /** 0..1 sprite opacity (0 means the form is off-stage this beat). */
+    opacity: number;
+    /** Small world-space lift used while the light tube is active. */
+    riseY: number;
+    /** Visible Y rotation in degrees. Full turns happen only while blown out. */
+    spinDeg: number;
+    /** Uniform scale for charge growth and reveal pop. */
+    scale: number;
+    /** 0..1 element-aura glow intensity behind the form. */
+    glow: number;
+    /** 0..1 additive self-flash for the white silhouette/boom read. */
+    flash: number;
+    /** Which generated pose frame to prefer when available. */
+    pose: "idle" | "cast";
+}
+
+const HIDDEN_STAGE: EvolutionStageMotion = {
+    opacity: 0,
+    riseY: 0,
+    spinDeg: 0,
+    scale: 1,
+    glow: 0,
+    flash: 0,
+    pose: "idle",
+};
+
+function stageSpinDeg(phase: EvolutionPhase): number {
+    if (phase.beat === "burst" || phase.beat === "reveal" || phase.beat === "settle") return 0;
+    return evolutionSpin(phase) * 1.5 * 180 / Math.PI;
+}
+
+export function evolutionStageMotion(phase: EvolutionPhase, isNew: boolean): EvolutionStageMotion {
+    const white = whiteness(phase);
+    const tube = tubeIntensity(phase);
+    const tunnel = tunnelIntensity(phase);
+    const base = {
+        riseY: tubeRise(phase) * 0.12,
+        spinDeg: stageSpinDeg(phase),
+        scale: morphScale(phase),
+        glow: Math.min(1, 0.25 + tunnel * 0.35 + tube * 0.45 + white * 0.25),
+        flash: white,
+        pose: phase.beat === "charge" ? "cast" as const : "idle" as const,
+    };
+
+    if (isNew) {
+        if (!isNewFormVisible(phase.beat)) return HIDDEN_STAGE;
+        const opacity = phase.beat === "morph" ? morphProgress(phase) : 1;
+        return {
+            ...base,
+            opacity,
+            // Keep spinning as a white silhouette in the tube, then come out
+            // front-facing as color returns.
+            riseY: phase.beat === "reveal" || phase.beat === "settle" ? 0 : base.riseY,
+            spinDeg: phase.beat === "reveal" || phase.beat === "settle" ? 0 : base.spinDeg,
+        };
+    }
+
+    if (!isOldFormVisible(phase.beat)) return HIDDEN_STAGE;
+    return {
+        ...base,
+        opacity: phase.beat === "morph" ? 1 - morphProgress(phase) : 1,
+    };
 }
