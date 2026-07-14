@@ -1,30 +1,19 @@
 import type { JutsuMethod } from "../types/core";
 
-type JutsuImpactPreviewOptions = {
-    method: JutsuMethod;
-    center: number;
-    allTiles: readonly number[];
-    distance: (a: number, b: number) => number;
-    neighbors: (center: number) => number[];
-    /** Ground/movement AOE_CIRCLE is a ring; direct-target variants include the target. */
-    circleIncludesCenter?: boolean;
-    spiralRadius?: number;
-};
-
 /** Build the aiming footprint for every area-method jutsu. */
-export function jutsuImpactPreviewTiles({
-    method,
-    center,
-    allTiles,
-    distance,
-    neighbors,
+export function jutsuImpactPreviewTiles(
+    method: JutsuMethod,
+    center: number,
+    allTiles: readonly number[],
+    distance: (a: number, b: number) => number,
+    neighbors: (center: number) => number[],
+    /** Ground/movement AOE_CIRCLE is a ring; direct-target variants include the target. */
     circleIncludesCenter = false,
-    spiralRadius = 2,
-}: JutsuImpactPreviewOptions): Set<number> {
+): Set<number> {
     if (center < 0) return new Set<number>();
 
     if (method === "AOE_SPIRAL") {
-        return new Set(allTiles.filter((tile) => distance(center, tile) <= spiralRadius));
+        return new Set(allTiles.filter((tile) => distance(center, tile) <= 2));
     }
 
     if (method === "AOE_CIRCLE") {
