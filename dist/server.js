@@ -206,6 +206,7 @@ const rift_quest_js_1 = __importDefault(require("./api/sector/rift-quest.js"));
 const wanderer_ambush_js_1 = __importDefault(require("./api/sector/wanderer-ambush.js"));
 const wanderer_service_js_1 = __importDefault(require("./api/sector/wanderer-service.js"));
 const questbook_js_1 = __importDefault(require("./api/sector/questbook.js"));
+const story_reckoning_js_1 = __importDefault(require("./api/sector/story-reckoning.js"));
 const merc_roam_js_1 = __importDefault(require("./api/sector/merc-roam.js"));
 // Story — server-authoritative interlude + road-event record (rebuild foundation)
 const interlude_js_1 = __importDefault(require("./api/story/interlude.js"));
@@ -1015,6 +1016,7 @@ route('/sector/rift-quest', rift_quest_js_1.default);
 route('/sector/wanderer-ambush', wanderer_ambush_js_1.default);
 route('/sector/wanderer-service', wanderer_service_js_1.default);
 route('/sector/questbook', questbook_js_1.default);
+route('/sector/story-reckoning', story_reckoning_js_1.default);
 route('/sector/merc-roam', merc_roam_js_1.default);
 // ─── Story (server-authoritative interlude + road-event record) ────────────────
 route('/story/interlude', interlude_js_1.default);

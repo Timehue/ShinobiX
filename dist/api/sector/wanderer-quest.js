@@ -63,20 +63,22 @@ async function handler(req, res) {
             const def = _wanderer_quest_js_1.WANDERER_QUESTS[questId];
             const out = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
                 const now = Date.now();
-                const existing = await _storage_js_1.kv.get(questKey);
-                if (existing)
-                    return { status: 200, body: { ok: false, reason: 'busy' } };
                 const rec = await _storage_js_1.kv.get(`save:${playerName}`);
                 const char = (rec?.character ?? null);
                 if (!rec || !char)
                     return { status: 404, body: { error: 'Your save was not found.' } };
+                const existing = (0, _wanderer_quest_js_1.parseWandererQuestSeal)(rec.activeWandererQuestSeal)
+                    ?? (0, _wanderer_quest_js_1.parseWandererQuestSeal)(await _storage_js_1.kv.get(questKey));
+                if (existing)
+                    return { status: 200, body: { ok: false, reason: 'busy' } };
                 if (naturalWanderer) {
                     const cooldownUntil = (0, _wanderer_encounter_js_1.currentWandererCooldownUntil)(char, wandererId, now);
                     if (cooldownUntil)
                         return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil } };
                 }
                 const baseline = num(char[def.metric]);
-                await _storage_js_1.kv.set(questKey, { id: questId, baseline, at: Date.now() }, { ex: QUEST_TTL_SECONDS });
+                const sealed = { id: questId, baseline, at: now };
+                await _storage_js_1.kv.set(questKey, sealed, { ex: QUEST_TTL_SECONDS });
                 // Display mirror on the save (server never trusts this back).
                 let updated = { ...char, activeWandererQuest: { id: questId, target: def.target, baseline } };
                 const body = { ok: true, id: questId, target: def.target, baseline };
@@ -86,7 +88,7 @@ async function handler(req, res) {
                     body.cooldownUntil = used.cooldownUntil;
                     body.moveToSector = used.moveToSector;
                 }
-                await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
+                await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, activeWandererQuestSeal: sealed, character: updated }), rec));
                 return { status: 200, body };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
@@ -95,22 +97,27 @@ async function handler(req, res) {
         if (action === 'claim') {
             const out = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
                 const now = Date.now();
-                const sealed = await _storage_js_1.kv.get(questKey);
-                if (!sealed || !(0, _wanderer_quest_js_1.isWandererQuestId)(sealed.id)) {
-                    await _storage_js_1.kv.del(questKey).catch(() => undefined);
-                    return { status: 200, body: { ok: false, reason: 'none' } };
-                }
-                const def = _wanderer_quest_js_1.WANDERER_QUESTS[sealed.id];
                 const rec = await _storage_js_1.kv.get(`save:${playerName}`);
                 const char = (rec?.character ?? null);
                 if (!rec || !char)
                     return { status: 404, body: { error: 'Your save was not found.' } };
+                const durable = (0, _wanderer_quest_js_1.parseWandererQuestSeal)(rec.activeWandererQuestSeal);
+                const sealed = durable ?? (0, _wanderer_quest_js_1.parseWandererQuestSeal)(await _storage_js_1.kv.get(questKey));
+                if (!sealed) {
+                    await _storage_js_1.kv.del(questKey).catch(() => undefined);
+                    const updated = { ...char, activeWandererQuest: null };
+                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, activeWandererQuestSeal: null, character: updated }), rec));
+                    return { status: 200, body: { ok: false, reason: 'none', activeWandererQuest: null, character: updated } };
+                }
+                const def = _wanderer_quest_js_1.WANDERER_QUESTS[sealed.id];
                 const receiptId = `${sealed.id}:${sealed.baseline}:${Number(sealed.at ?? 0)}`;
                 const receipts = Array.isArray(char.redeemedWandererQuests) ? char.redeemedWandererQuests : [];
                 const prior = receipts.find((entry) => entry.id === receiptId);
                 if (prior) {
                     await _storage_js_1.kv.del(questKey).catch(() => undefined);
-                    return { status: 200, body: { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo) } };
+                    const updated = { ...char, activeWandererQuest: null };
+                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, activeWandererQuestSeal: null, character: updated }), rec));
+                    return { status: 200, body: { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo), activeWandererQuest: null, character: updated } };
                 }
                 if (naturalWanderer) {
                     const cooldownUntil = (0, _wanderer_encounter_js_1.currentWandererCooldownUntil)(char, wandererId, now);
@@ -119,20 +126,24 @@ async function handler(req, res) {
                 }
                 const current = num(char[def.metric]);
                 if (!(0, _wanderer_quest_js_1.wandererQuestComplete)(num(sealed.baseline), current, def.target)) {
+                    if (!durable) {
+                        await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, activeWandererQuestSeal: sealed }), rec));
+                    }
                     return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - num(sealed.baseline)), target: def.target } };
                 }
                 const reward = (0, _wanderer_quest_js_1.wandererQuestRyo)(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + reward;
                 let updated = { ...char, ryo: totalRyo, activeWandererQuest: null, redeemedWandererQuests: [...receipts.slice(-49), { id: receiptId, ryo: reward }] };
-                const body = { ok: true, ryo: reward, totalRyo };
+                const body = { ok: true, ryo: reward, totalRyo, activeWandererQuest: null };
                 if (naturalWanderer) {
                     const used = (0, _wanderer_encounter_js_1.withWandererUseState)(updated, wandererId, now, sector);
                     updated = used.character;
                     body.cooldownUntil = used.cooldownUntil;
                     body.moveToSector = used.moveToSector;
                 }
-                await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
+                await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, activeWandererQuestSeal: null, character: updated }), rec));
                 await _storage_js_1.kv.del(questKey).catch(() => undefined);
+                body.character = updated;
                 return { status: 200, body };
             }, { failClosed: true });
             // Legacy tracking (ENABLE_LEGACY): AFTER the fail-closed save lock
@@ -143,6 +154,19 @@ async function handler(req, res) {
                 await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { wandererQuests: 1 });
                 await (0, _era_js_1.bumpEraContribution)('discoveries');
             }
+            return res.status(out.status).json(out.body);
+        }
+        if (action === 'abandon') {
+            const out = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
+                await _storage_js_1.kv.del(questKey).catch(() => undefined);
+                const rec = await _storage_js_1.kv.get(`save:${playerName}`);
+                const char = (rec?.character ?? null);
+                if (!rec || !char)
+                    return { status: 404, body: { error: 'Your save was not found.' } };
+                const updated = { ...char, activeWandererQuest: null };
+                await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, activeWandererQuestSeal: null, character: updated }), rec));
+                return { status: 200, body: { ok: true, activeWandererQuest: null, character: updated } };
+            }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }
         return res.status(400).json({ error: 'Unknown action.' });

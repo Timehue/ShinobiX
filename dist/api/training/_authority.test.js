@@ -21,14 +21,20 @@ const client = (0, node_fs_1.readFileSync)((0, node_path_1.join)(root, 'shinobij
 });
 (0, node_test_1.test)('training rewards ignore forged client modifiers and only one live lease can start', () => {
     strict_1.default.doesNotMatch(start, /trainingBonusPct|warMult/);
-    strict_1.default.doesNotMatch(client, /trainingBonusPct|warMult/);
+    const requestStart = client.indexOf("fetch('/api/training/start'");
+    const requestEnd = client.indexOf('const data = await res.json()', requestStart);
+    const startCall = client.slice(requestStart, requestEnd);
+    strict_1.default.doesNotMatch(startCall, /trainingBonusPct|warMult/, 'the start request must not send client reward modifiers');
     const tier = _training_config_js_1.TRAINING_TIERS[0];
     strict_1.default.deepEqual((0, _session_js_1.trustedTrainingRewards)(tier), { sealedGain: 6, sealedXp: 20 });
     const active = { token: 'abc123', startedAt: 1_000, endsAt: 2_000, expiresAt: 10_000 };
     strict_1.default.deepEqual((0, _session_js_1.normalizeActiveTrainingSession)(active), active);
-    strict_1.default.equal((0, _session_js_1.activeTrainingBlocksStart)(active, true, 5_000), true);
-    strict_1.default.equal((0, _session_js_1.activeTrainingBlocksStart)(active, false, 5_000), false, 'a lost token must not strand the player');
-    strict_1.default.equal((0, _session_js_1.activeTrainingBlocksStart)(active, true, 10_000), false, 'an expired lease must not block a new session');
+    strict_1.default.equal((0, _session_js_1.activeTrainingBlocksStart)(active), true);
+    strict_1.default.equal((0, _session_js_1.activeTrainingBlocksStart)({ ...active, expiresAt: 2_001 }), true, 'cache expiry cannot overwrite an unclaimed saved reward');
+    strict_1.default.deepEqual((0, _session_js_1.storedTrainingGrant)({ ...active, stat: 'strength', statGain: 22, xp: 70 }, active.token), {
+        stat: 'strength', startedAt: 1_000, endsAt: 2_000, sealedGain: 22, sealedXp: 70,
+    });
+    strict_1.default.equal((0, _session_js_1.storedTrainingGrant)({ ...active, stat: 'strength', statGain: 22, xp: 70 }, 'newer-token'), null, 'a stale request cannot use another lease');
     strict_1.default.match(start, /training-active:\$\{playerName\}/);
 });
 (0, node_test_1.test)('training completion credits the save once with a durable receipt', () => {
@@ -39,6 +45,11 @@ const client = (0, node_fs_1.readFileSync)((0, node_path_1.join)(root, 'shinobij
     strict_1.default.match(complete, /gainXp\(/);
     strict_1.default.ok(_session_js_1.MAX_TRAINING_RECEIPTS >= 256);
     strict_1.default.match(complete, /activeTraining: null/);
+    strict_1.default.match(complete, /activeTrainingMatches\(record\.activeTraining, token\)/, 'a stale completion cannot clear a newly-started session');
+    strict_1.default.match(complete, /storedTrainingGrant\(record\.activeTraining, token\)/, 'cache expiry falls back to the protected saved grant');
+    strict_1.default.match(complete, /activeTraining: record\.activeTraining \?\? null/, 'an old idempotent retry preserves any newer lease');
+    strict_1.default.match(complete, /activeTraining: result\.activeTraining/, 'the client receives the authoritative lease explicitly');
+    strict_1.default.match(complete, /if \(!result\.activeTraining\)/, 'old retries cannot delete the compatibility marker for a newer lease');
     strict_1.default.match(complete, /active-session cleanup failed after durable receipt/);
 });
 (0, node_test_1.test)('client requires the server character and has no local reward fallback', () => {
@@ -46,4 +57,5 @@ const client = (0, node_fs_1.readFileSync)((0, node_path_1.join)(root, 'shinobij
     strict_1.default.doesNotMatch(client, /fall through to local/);
     strict_1.default.match(client, /!data\?\.token \|\| !data\?\.character/);
     strict_1.default.match(client, /updateCharacter\(data\.character as Character\)/);
+    strict_1.default.match(client, /setActiveTraining\(data\.activeTraining \?\? null\)/, 'collect applies the server-cleared lease before another start');
 });

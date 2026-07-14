@@ -11,6 +11,7 @@ const _progress_js_1 = require("./_progress.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
 const _progress_js_2 = require("../pet/_progress.js");
+const _pet_expedition_lease_js_1 = require("./_pet-expedition-lease.js");
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
 // Expedition, x1.2 if petEscortBonusReady is consumed).
@@ -56,7 +57,7 @@ const EVENT_TO_KIND = {
     'long-expedition': 'pet-tamer-long-expeditions',
     'pet-train': 'pet-tamer-pet-train',
 };
-const VALID_EXPEDITION_TYPES = ['scout', 'forage', 'ruins'];
+const VALID_EXPEDITION_TYPES = _pet_expedition_lease_js_1.PET_EXPEDITION_TYPES;
 // Per-type Ryo/drop tables (mirrors client formula in PetYard.collectExpedition).
 const RYO_MULT = { scout: 1.35, forage: 1.0, ruins: 1.1 };
 const BONE_RATE = { scout: 0.25, forage: 0.30, ruins: 0.40 };
@@ -147,12 +148,21 @@ async function handler(req, res) {
             const tokRaw = typeof body.expeditionToken === 'string' && body.expeditionToken.trim() ? body.expeditionToken.trim() : undefined;
             const tok = tokRaw && /^[A-Za-z0-9]+$/.test(tokRaw) ? tokRaw : undefined;
             if (!tok) {
-                return res.status(200).json({ ok: true, petTamer: true, reason: 'missing-expedition-token', ...NO_REWARD });
+                const current = await _storage_js_1.kv.get(saveKey);
+                return res.status(200).json({ ok: true, petTamer: true, reason: 'missing-expedition-token', ...NO_REWARD, character: current?.character ?? null, _saveVersion: Number(current?._saveVersion ?? 0) });
             }
             const tokenKey = `pet-exp-token:${playerName}:${tok}`;
-            const tokenData = await _storage_js_1.kv.get(tokenKey);
-            if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
-                return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
+            let tokenData = await _storage_js_1.kv.get(tokenKey);
+            if (!tokenData) {
+                // KV is an expiring acceleration cache. The exact server-owned
+                // pet lease remains durable claim authority after that cache ages
+                // out, including a conservative migration path for older leases.
+                const current = await _storage_js_1.kv.get(saveKey);
+                tokenData = (0, _pet_expedition_lease_js_1.petExpeditionSealForToken)(current?.character, tok, playerName);
+            }
+            if (!tokenData || tokenData.playerName.toLowerCase() !== playerName.toLowerCase()) {
+                const current = await _storage_js_1.kv.get(saveKey);
+                return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD, character: current?.character ?? null, _saveVersion: Number(current?._saveVersion ?? 0) });
             }
             // Must have actually elapsed (60s grace for clock/latency skew).
             if (Date.now() < Number(tokenData.endsAt ?? 0) - 60_000) {
@@ -212,6 +222,19 @@ async function handler(req, res) {
                         ? char.redeemedPetExpeditionTokens.filter((entry) => typeof entry === 'string').slice(-63)
                         : [];
                     if (receipts.includes(expeditionReceipt)) {
+                        await _storage_js_1.kv.del(expeditionTokenKey).catch(() => undefined);
+                        tokenAlreadySpent = true;
+                        return;
+                    }
+                    // The claim must still own this exact saved lease. A delayed
+                    // response from an older expedition can never settle or clear
+                    // a newer expedition for the same pet.
+                    const pets = Array.isArray(char.pets) ? char.pets : [];
+                    const leasePet = pets.find((pet) => String(pet?.id ?? '') === expeditionPetId);
+                    const lease = leasePet?.expedition && typeof leasePet.expedition === 'object'
+                        ? leasePet.expedition
+                        : null;
+                    if (!lease || lease.token !== expeditionReceipt) {
                         await _storage_js_1.kv.del(expeditionTokenKey).catch(() => undefined);
                         tokenAlreadySpent = true;
                         return;
@@ -280,7 +303,8 @@ async function handler(req, res) {
                     await _storage_js_1.kv.del(expeditionTokenKey).catch(() => undefined);
             }, { failClosed: true });
             if (tokenAlreadySpent) {
-                return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
+                const current = await _storage_js_1.kv.get(saveKey);
+                return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD, character: current?.character ?? null, _saveVersion: Number(current?._saveVersion ?? 0) });
             }
             // failClosed: this credits real currency (ryo/bone/aura/fate), so under
             // sustained save-lock contention we abort before consuming the token.
