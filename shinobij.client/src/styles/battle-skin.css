@@ -1045,3 +1045,333 @@ body:has(.arena-fullscreen) .left-profile-card,
 .story-journey-page p { margin: 4px 0; font-size: 0.92em; line-height: 1.4; }
 .story-journey-choice { background: rgba(251, 191, 36, 0.08); border-radius: 8px; padding: 6px 8px; }
 .story-journey-choice p { margin: 3px 0; font-size: 0.92em; }
+
+/* =========================================================================
+   PvP combat reference restore
+   Keeps the combat makeover skin, but restores the tactical desktop silhouette:
+   fighter dossiers flanking a framed board, AP/terrain at the top, and a dense
+   command deck under the arena. Mobile gets smaller VFX so effects don't cover
+   multiple tap targets.
+   ========================================================================= */
+.arena-fullscreen.pvp-battle-layout {
+    --combat-frame: rgba(196, 162, 90, 0.64);
+    --combat-frame-faint: rgba(196, 162, 90, 0.28);
+    --combat-panel: rgba(4, 10, 18, 0.9);
+    --combat-panel-deep: rgba(3, 7, 14, 0.96);
+    --combat-board: rgba(8, 28, 29, 0.72);
+}
+
+@media (min-width: 1024px) {
+    .arena-fullscreen.pvp-battle-layout {
+        min-height: 100dvh;
+        padding: 22px 26px 20px !important;
+        overflow: hidden !important;
+    }
+
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .battle-hud-sidebar,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .battle-hud-sidebar {
+        display: none !important;
+    }
+
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:first-child,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:first-child,
+    .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:first-child {
+        display: flex !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-layout,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout {
+        display: grid !important;
+        grid-template-columns: minmax(235px, 0.22fr) minmax(620px, 1fr) minmax(235px, 0.22fr) !important;
+        grid-template-rows: minmax(0, 1fr);
+        gap: 16px !important;
+        align-items: stretch;
+        width: 100% !important;
+        max-width: 1880px !important;
+        height: calc(100dvh - 42px) !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud {
+        position: relative !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        max-height: none !important;
+        align-self: stretch;
+        display: flex !important;
+        flex-direction: column;
+        background:
+            linear-gradient(180deg, rgba(8, 14, 24, 0.96), rgba(3, 7, 14, 0.98)) !important;
+        border: 1px solid var(--combat-frame) !important;
+        border-radius: 8px !important;
+        padding: 22px 22px 18px !important;
+        overflow: hidden auto !important;
+        box-shadow:
+            inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+            inset 0 0 46px rgba(0, 0, 0, 0.46),
+            0 14px 34px rgba(0, 0, 0, 0.48) !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud::before,
+    .arena-fullscreen.pvp-battle-layout .combat-main-area::before,
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar::before {
+        content: "";
+        position: absolute;
+        inset: 8px;
+        border: 1px solid var(--combat-frame-faint);
+        pointer-events: none;
+        clip-path: polygon(0 0, 18px 0, 18px 1px, 1px 1px, 1px 18px, 0 18px, 0 0, 100% 0, 100% 18px, calc(100% - 1px) 18px, calc(100% - 1px) 1px, calc(100% - 18px) 1px, calc(100% - 18px) 0, 100% 0, 100% 100%, calc(100% - 18px) 100%, calc(100% - 18px) calc(100% - 1px), calc(100% - 1px) calc(100% - 1px), calc(100% - 1px) calc(100% - 18px), 100% calc(100% - 18px), 100% 100%, 0 100%, 0 calc(100% - 18px), 1px calc(100% - 18px), 1px calc(100% - 1px), 18px calc(100% - 1px), 18px 100%, 0 100%);
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-main-area {
+        position: relative;
+        display: grid !important;
+        grid-template-rows: auto auto minmax(300px, 1fr) auto minmax(120px, 0.22fr) minmax(96px, 0.18fr);
+        min-width: 0;
+        min-height: 0;
+        gap: 8px;
+        padding: 8px;
+        background: linear-gradient(180deg, rgba(6, 11, 20, 0.9), rgba(2, 6, 12, 0.94)) !important;
+        border: 1px solid var(--combat-frame) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5), inset 0 0 48px rgba(196, 162, 90, 0.04);
+        overflow: hidden;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .arena-top-panel {
+        display: none !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .dual-ap-panel {
+        order: 1;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: center;
+        gap: 18px;
+        min-height: 94px;
+        margin: 0 !important;
+        padding: 12px 28px !important;
+        background: rgba(4, 8, 14, 0.88) !important;
+        border: 1px solid var(--combat-frame-faint) !important;
+        border-radius: 7px !important;
+        box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.38);
+    }
+
+    .arena-fullscreen.pvp-battle-layout .dual-ap-panel strong {
+        display: block;
+        margin-bottom: 8px;
+        color: #b9dce5 !important;
+        font: 700 12px/1 var(--font-display) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .dual-ap-panel > div:last-child strong {
+        color: #efb0a9 !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .dual-ap-panel small {
+        display: block;
+        margin-top: 7px;
+        color: rgba(232, 237, 245, 0.82) !important;
+        font: 700 13px/1 Inter, sans-serif !important;
+        letter-spacing: 0;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .dual-ap-panel .hud-bar {
+        height: 20px !important;
+        border-radius: 999px !important;
+        border-color: rgba(96, 165, 250, 0.72) !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .dual-ap-panel .enemy-ap-display-bar {
+        border-color: rgba(239, 68, 68, 0.72) !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .round-timer-display {
+        min-width: 88px;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .round-timer-display .round-timer-ring {
+        width: 70px !important;
+        height: 70px !important;
+        border-width: 4px !important;
+        background: radial-gradient(circle, rgba(232, 212, 150, 0.18), rgba(0, 0, 0, 0.72) 68%) !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .round-timer-display .round-timer-num {
+        font-size: 30px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .twp-strip {
+        order: 2;
+        justify-content: center;
+        min-height: 26px;
+        margin: -20px auto 0 !important;
+        padding: 4px 24px !important;
+        width: min(72%, 820px);
+        background: rgba(4, 8, 14, 0.96);
+        border: 1px solid var(--combat-frame-faint) !important;
+        border-radius: 999px;
+        position: relative;
+        z-index: 3;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .hex-battlefield,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .hex-battlefield,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .hex-battlefield {
+        order: 3;
+        min-height: 0 !important;
+        height: 100% !important;
+        width: 100% !important;
+        padding: 14px !important;
+        margin: 0 !important;
+        border: 1px solid rgba(232, 212, 150, 0.72) !important;
+        border-radius: 8px !important;
+        background-color: var(--combat-board) !important;
+        box-shadow:
+            inset 0 0 90px rgba(0, 0, 0, 0.48),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+            0 10px 28px rgba(0, 0, 0, 0.45) !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .battle-tabbar {
+        display: none !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar {
+        position: relative;
+        order: 4;
+        display: grid !important;
+        grid-template-columns: repeat(7, minmax(92px, 1fr));
+        gap: 8px !important;
+        margin: 0 !important;
+        padding: 14px 16px !important;
+        background: rgba(4, 8, 14, 0.92) !important;
+        border: 1px solid var(--combat-frame-faint) !important;
+        border-radius: 8px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button {
+        min-height: 52px !important;
+        padding: 8px 12px !important;
+        text-align: left;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button span {
+        font-size: 12px !important;
+        letter-spacing: 0.08em !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button small {
+        margin-top: 5px;
+        font-size: 10px !important;
+        letter-spacing: 0.02em !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-jutsu-bar {
+        order: 5;
+        max-height: 132px;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 10px !important;
+        overflow: hidden auto;
+        background: rgba(4, 8, 14, 0.82) !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-equipped-jutsu-grid {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 8px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-jutsu-card-wrap {
+        min-height: 72px;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-jutsu-button {
+        min-height: 70px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-text-log {
+        order: 6;
+        display: block !important;
+        max-height: 120px !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        overflow: hidden auto !important;
+        background: rgba(4, 8, 14, 0.88) !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .battle-chat-col,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .battle-chat-col,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .battle-chat-col {
+        display: none !important;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1360px) {
+    .arena-fullscreen.pvp-battle-layout .combat-layout,
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout {
+        grid-template-columns: 210px minmax(520px, 1fr) 210px !important;
+        gap: 10px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud {
+        padding: 16px 14px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-avatar {
+        width: 88px !important;
+        height: 88px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar {
+        grid-template-columns: repeat(4, minmax(96px, 1fr));
+    }
+}
+
+@media (max-width: 800px) {
+    .arena-fullscreen.pvp-battle-layout .pvp-combat-vfx {
+        width: calc(38px * var(--vfx-scale, 1)) !important;
+        height: calc(38px * var(--vfx-scale, 1)) !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .pvp-combat-vfx-tile {
+        width: calc(28px * var(--vfx-scale, 1)) !important;
+        height: calc(28px * var(--vfx-scale, 1)) !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .pvp-vfx-asset {
+        width: 118% !important;
+        height: 118% !important;
+        opacity: 0;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .pvp-vfx-ring {
+        border-width: 2px;
+        box-shadow: 0 0 10px var(--vfx-a), inset 0 0 10px var(--vfx-c);
+    }
+
+    .arena-fullscreen.pvp-battle-layout .pvp-vfx-core {
+        inset: 22%;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .pvp-hit-fx {
+        font-size: 1rem;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .pvp-guard-aura {
+        inset: -4px;
+        border-width: 1px;
+        box-shadow: 0 0 10px rgba(125, 211, 252, 0.58), inset 0 0 10px rgba(255, 255, 255, 0.16);
+    }
+}
