@@ -49,7 +49,11 @@ const sanitizeCompatible = (incoming, existing) => withStrictLedger(false, () =>
             jutsuMastery: [{ jutsuId: 'known', level: 4, xp: 10 }],
             equippedJutsuIds: ['known'],
             inventory: ['sword'], itemStacks: [], pets: [], equipment: {},
-        }, { activeTraining: { token: 'server-training', endsAt: 12345 } });
+        }, {
+            activeTraining: { token: 'server-training', endsAt: 12345 },
+            activeWandererQuestSeal: { id: 'wq-cull', baseline: 4, at: 10 },
+            activeStoryReckoningSeal: { id: 'story-reckoning-mira-marker', stage: 'task', baseline: 8, at: 11 },
+        });
         const incoming = wrap({
             level: 21, xp: 65, ryo: 575, bankRyo: 9_999_999,
             rankedRating: 9999, petRankedRating: 9999,
@@ -77,6 +81,8 @@ const sanitizeCompatible = (incoming, existing) => withStrictLedger(false, () =>
         node_assert_1.strict.equal(out.professionXp, 123, 'server-issued profession XP stays locked');
         node_assert_1.strict.equal(out.professionRank, 2, 'derived profession rank stays locked');
         node_assert_1.strict.deepEqual(result.activeTraining, { token: 'server-training', endsAt: 12345 }, 'top-level active training stays locked');
+        node_assert_1.strict.deepEqual(result.activeWandererQuestSeal, { id: 'wq-cull', baseline: 4, at: 10 }, 'wanderer claim authority stays locked');
+        node_assert_1.strict.deepEqual(result.activeStoryReckoningSeal, { id: 'story-reckoning-mira-marker', stage: 'task', baseline: 8, at: 11 }, 'story claim authority stays locked');
     });
     (0, node_test_1.it)('uses the exact canonical starter economy/loadout on first save', () => {
         const out = sanitizeCompatible(wrap({

@@ -167,7 +167,15 @@ async function handler(req, res) {
             const currentPet = storedPets[currentIndex];
             if (currentPet.training || currentPet.expedition)
                 return { ok: false, status: 409, error: 'Pet is already busy.' };
-            const nextPets = storedPets.map((pet, i) => i === currentIndex ? { ...pet, expedition: { type: expType, startedAt: mintedAt, endsAt, durationMs: durationMinutes * 60_000, token: tokenId } } : pet);
+            const nextPets = storedPets.map((pet, i) => i === currentIndex ? {
+                ...pet,
+                expedition: {
+                    type: expType, startedAt: mintedAt, endsAt, durationMs: durationMinutes * 60_000, token: tokenId,
+                    // Durable, server-owned fallback authority. The generic save
+                    // sanitizer preserves expedition state from the stored pet.
+                    serverSeal: { petLevel: sealedPetLevel, expRewardMult, expMaterialMult, rewardScale, tamer: isTamer },
+                },
+            } : pet);
             return { ok: true, character: { ...character, pets: nextPets }, value: { petId } };
         });
         if (!mutation.ok) {

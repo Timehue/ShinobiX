@@ -101,8 +101,7 @@ async function handler(req, res) {
             if (!record || !character)
                 return { ok: false, status: 404, error: 'Player save not found.' };
             const prior = (0, _session_js_1.normalizeActiveTrainingSession)(record.activeTraining);
-            const priorTokenExists = prior ? !!(await _storage_js_1.kv.get(`training-token:${playerName}:${prior.token}`)) : false;
-            if ((0, _session_js_1.activeTrainingBlocksStart)(prior, priorTokenExists, startedAt)) {
+            if ((0, _session_js_1.activeTrainingBlocksStart)(prior)) {
                 return { ok: false, status: 409, error: 'A training session is already active.' };
             }
             const stamina = Math.max(0, Number(character.stamina) || 0);

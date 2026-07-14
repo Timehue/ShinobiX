@@ -58,12 +58,29 @@ async function handler(req, res) {
                 return { ok: false, status: 409, error: 'No eligible legacy training session was found.' };
             const redemptionToken = legacyData?.token ?? token;
             if (receipts.includes(token)) {
-                return { ok: true, character, _saveVersion: Number(record._saveVersion ?? 0), value: { granted: true, alreadyGranted: true, token: redemptionToken } };
+                return {
+                    ok: true,
+                    character,
+                    activeTraining: record.activeTraining ?? null,
+                    _saveVersion: Number(record._saveVersion ?? 0),
+                    value: { granted: true, alreadyGranted: true, token: redemptionToken },
+                };
             }
-            const data = legacyData ?? await _storage_js_1.kv.get(tokenKey);
+            // A delayed completion from an older tab must never clear a newer
+            // session that the player started after collecting. Receipts make a
+            // genuine retry idempotent above; every first-time redemption must
+            // still own the active lease stored on the save.
+            if (!legacyData && !(0, _session_js_1.activeTrainingMatches)(record.activeTraining, token)) {
+                return { ok: false, status: 409, error: 'This training session is no longer active. Refresh to load the current session.' };
+            }
+            // The cache token speeds up redemption, but the protected save lease
+            // is durable claim authority. This keeps legitimately earned training
+            // collectible after the cache TTL without weakening token matching.
+            const data = legacyData ?? await _storage_js_1.kv.get(tokenKey) ?? (0, _session_js_1.storedTrainingGrant)(record.activeTraining, token);
             if (!data)
                 return { ok: false, status: 409, error: 'Training token is invalid or already spent.' };
-            if ('playerName' in data && (data.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+            const sealedPlayerName = 'playerName' in data && typeof data.playerName === 'string' ? data.playerName : '';
+            if (sealedPlayerName && sealedPlayerName.toLowerCase() !== playerName.toLowerCase()) {
                 return { ok: false, status: 403, error: 'Training token does not belong to this player.' };
             }
             if (!cancel && now < data.endsAt) {
@@ -87,14 +104,16 @@ async function handler(req, res) {
                 _trainingReceipts: nextReceipts,
                 activeTraining: null,
             }, nextCharacter);
-            return { ok: true, character: nextCharacter, _saveVersion: written._saveVersion, value: { granted: true, alreadyGranted: false, ...redemption } };
+            return { ok: true, character: nextCharacter, activeTraining: null, _saveVersion: written._saveVersion, value: { granted: true, alreadyGranted: false, ...redemption } };
         }, { failClosed: true });
         if (!result.ok)
             return res.status(result.status).json({ error: result.error });
         if (tokenKey)
             await _storage_js_1.kv.del(tokenKey).catch(() => console.error('active-session cleanup failed after durable receipt'));
-        await _storage_js_1.kv.del(`training-active:${playerName}`).catch(() => console.error('active-session cleanup failed after durable receipt'));
-        return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
+        if (!result.activeTraining) {
+            await _storage_js_1.kv.del(`training-active:${playerName}`).catch(() => console.error('active-session cleanup failed after durable receipt'));
+        }
+        return res.status(200).json({ ok: true, ...result.value, character: result.character, activeTraining: result.activeTraining, _saveVersion: result._saveVersion });
     }
     catch (err) {
         console.error('[training/complete]', err);
