@@ -1825,7 +1825,7 @@ export function WorldMap({
         // Moonshadow -> sector 11 (81, 67)
         // Coords align each authored crest with the medallion at the left edge of
         // its painted banner, leaving the baked village name fully readable.
-        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 12, y: 84, art: stormveilLandmarkArt },
+        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 11, y: 82.5, art: stormveilLandmarkArt },
         { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 11, y: 37, art: ashenLeafLandmarkArt },
         { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 78, y: 37, art: frostfangLandmarkArt },
         { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 75, y: 83, art: moonshadowLandmarkArt },
