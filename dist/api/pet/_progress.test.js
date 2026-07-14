@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const strict_1 = __importDefault(require("node:assert/strict"));
+const node_fs_1 = require("node:fs");
+const node_path_1 = require("node:path");
 const _progress_js_1 = require("./_progress.js");
 (0, node_test_1.describe)('server pet progression', () => {
     (0, node_test_1.it)('levels from bounded XP and channels growth into the chosen stat', () => {
@@ -24,5 +26,11 @@ const _progress_js_1 = require("./_progress.js");
         strict_1.default.equal(out.pet.expedition, undefined);
         strict_1.default.equal(out.statGain, 1);
         strict_1.default.ok(Number(out.pet.attack) > 40);
+    });
+    (0, node_test_1.it)('requires collection before another pet training and removes the settled lease', () => {
+        const progress = (0, node_fs_1.readFileSync)((0, node_path_1.join)(process.cwd(), 'api', 'pet', 'progress.ts'), 'utf8');
+        strict_1.default.match(progress, /pet\.expedition \|\| pet\.training/);
+        strict_1.default.match(progress, /delete idlePet\.training/);
+        strict_1.default.doesNotMatch(progress, /training: undefined/);
     });
 });

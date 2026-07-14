@@ -42,8 +42,10 @@ async function handler(req, res) {
                 const focus = String(body.focus ?? '');
                 if (!_progress_js_1.PET_TRAINING_DURATIONS.has(durationMs) || !_progress_js_1.PET_TRAINING_FOCI.has(focus))
                     return { ok: false, status: 400, error: 'Invalid training plan.' };
-                if (pet.expedition || (pet.training && now < Number(pet.training.endsAt)))
-                    return { ok: false, status: 409, error: 'Pet is already busy.' };
+                // Finished training remains claimable until complete-training
+                // removes it. Do not let a second start overwrite that reward.
+                if (pet.expedition || pet.training)
+                    return { ok: false, status: 409, error: pet.training ? 'Collect the previous training before starting another.' : 'Pet is already busy.' };
                 if (Number(pet.level) >= Number(pet.maxLevel))
                     return { ok: false, status: 409, error: 'Pet is fully trained.' };
                 const rank = Math.max(0, Math.min(10, Number(character.professionRank) || 0));
@@ -58,7 +60,12 @@ async function handler(req, res) {
                 const training = pet.training;
                 if (!training || now < Number(training.endsAt))
                     return { ok: false, status: 409, error: 'Training is not complete.' };
-                nextPet = (0, _progress_js_1.gainServerPetXp)({ ...pet, training: undefined }, Math.min(5000, Math.max(0, Number(training.sealedXp) || 0)), String(training.type ?? ''));
+                // Remove the property rather than persisting `training:
+                // undefined`. That gives every storage adapter and the client an
+                // unambiguous idle pet, so the next session can start immediately.
+                const idlePet = { ...pet };
+                delete idlePet.training;
+                nextPet = (0, _progress_js_1.gainServerPetXp)(idlePet, Math.min(5000, Math.max(0, Number(training.sealedXp) || 0)), String(training.type ?? ''));
                 if (training.type === 'bond')
                     nextPet.happiness = Math.min(100, (0, _progress_js_1.petHappiness)(nextPet) + 5);
             }

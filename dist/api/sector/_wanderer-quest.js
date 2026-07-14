@@ -14,6 +14,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WANDERER_QUESTS = void 0;
 exports.isWandererQuestId = isWandererQuestId;
+exports.parseWandererQuestSeal = parseWandererQuestSeal;
 exports.wandererQuestRyo = wandererQuestRyo;
 exports.wandererQuestComplete = wandererQuestComplete;
 exports.WANDERER_QUESTS = {
@@ -47,6 +48,17 @@ exports.WANDERER_QUESTS = {
 };
 function isWandererQuestId(id) {
     return Object.prototype.hasOwnProperty.call(exports.WANDERER_QUESTS, id);
+}
+function parseWandererQuestSeal(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw))
+        return null;
+    const value = raw;
+    const id = typeof value.id === 'string' ? value.id : '';
+    const baseline = Number(value.baseline);
+    const at = Number(value.at ?? 0);
+    if (!isWandererQuestId(id) || !Number.isFinite(baseline) || !Number.isSafeInteger(at) || at < 0)
+        return null;
+    return { id, baseline, at };
 }
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(Number(n) || 0)));
 /** Conservative, level- and effort-scaled ryo. Tunable. */
