@@ -7,7 +7,11 @@ const distDir = process.env.BUILD_SIZE_DIR || join(process.cwd(), 'shinobij.clie
 const JS_CHUNK_FAIL_BYTES = 1_500_000;
 const CSS_FILE_FAIL_BYTES = 750_000;
 const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
-const TOTAL_JS_CSS_FAIL_BYTES = 5_930_000;
+// All emitted product JS/CSS includes lazy 3D/gameplay chunks and production
+// build-arg code that is not always present in local builds. Keep startup gates
+// below strict; allow a small ceiling bump for the intentional pet evolution
+// 2.5D stage and env-injected deploy variance.
+const TOTAL_JS_CSS_FAIL_BYTES = 6_100_000;
 const ENTRY_JS_FAIL_BYTES = 1_150_000;
 const INITIAL_GRAPH_FAIL_BYTES = 1_900_000;
 const INITIAL_GRAPH_GZIP_FAIL_BYTES = 550_000;
