@@ -1143,6 +1143,10 @@
 }
 
 .landing-footer-policy-links a {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    min-height: 24px;
     color: #8f9bb0;
     text-decoration: none;
     border-left: 1px solid #525d70;
