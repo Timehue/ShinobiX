@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete } from './_wanderer-quest.js';
+import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete, parseWandererQuestSeal, type WandererQuestSeal } from './_wanderer-quest.js';
 import { currentWandererCooldownUntil, parseNaturalWandererId, withWandererUseState } from './_wanderer-encounter.js';
 import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
@@ -63,19 +63,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
                 const now = Date.now();
-                const existing = await kv.get<{ id: string; baseline: number }>(questKey);
-                if (existing) return { status: 200, body: { ok: false, reason: 'busy' } };
-
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+                const existing = parseWandererQuestSeal(rec.activeWandererQuestSeal)
+                    ?? parseWandererQuestSeal(await kv.get(questKey));
+                if (existing) return { status: 200, body: { ok: false, reason: 'busy' } };
                 if (naturalWanderer) {
                     const cooldownUntil = currentWandererCooldownUntil(char, wandererId, now);
                     if (cooldownUntil) return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil } };
                 }
 
                 const baseline = num(char[def.metric]);
-                await kv.set(questKey, { id: questId, baseline, at: Date.now() }, { ex: QUEST_TTL_SECONDS });
+                const sealed: WandererQuestSeal = { id: questId, baseline, at: now };
+                await kv.set(questKey, sealed, { ex: QUEST_TTL_SECONDS });
                 // Display mirror on the save (server never trusts this back).
                 let updated: Record<string, unknown> = { ...char, activeWandererQuest: { id: questId, target: def.target, baseline } };
                 const body: Record<string, unknown> = { ok: true, id: questId, target: def.target, baseline };
@@ -85,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     body.cooldownUntil = used.cooldownUntil;
                     body.moveToSector = used.moveToSector;
                 }
-                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeWandererQuestSeal: sealed, character: updated }), rec));
                 return { status: 200, body };
             }, { failClosed: true });
 
@@ -96,22 +97,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'claim') {
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
                 const now = Date.now();
-                const sealed = await kv.get<{ id: string; baseline: number; at?: number }>(questKey);
-                if (!sealed || !isWandererQuestId(sealed.id)) {
-                    await kv.del(questKey).catch(() => undefined);
-                    return { status: 200, body: { ok: false, reason: 'none' } };
-                }
-                const def = WANDERER_QUESTS[sealed.id];
-
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+                const durable = parseWandererQuestSeal(rec.activeWandererQuestSeal);
+                const sealed = durable ?? parseWandererQuestSeal(await kv.get(questKey));
+                if (!sealed) {
+                    await kv.del(questKey).catch(() => undefined);
+                    const updated = { ...char, activeWandererQuest: null };
+                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeWandererQuestSeal: null, character: updated }), rec));
+                    return { status: 200, body: { ok: false, reason: 'none', activeWandererQuest: null, character: updated } };
+                }
+                const def = WANDERER_QUESTS[sealed.id];
                 const receiptId = `${sealed.id}:${sealed.baseline}:${Number(sealed.at ?? 0)}`;
                 const receipts = Array.isArray(char.redeemedWandererQuests) ? char.redeemedWandererQuests as Array<Record<string, unknown>> : [];
                 const prior = receipts.find((entry) => entry.id === receiptId);
                 if (prior) {
                     await kv.del(questKey).catch(() => undefined);
-                    return { status: 200, body: { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo) } };
+                    const updated = { ...char, activeWandererQuest: null };
+                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeWandererQuestSeal: null, character: updated }), rec));
+                    return { status: 200, body: { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo), activeWandererQuest: null, character: updated } };
                 }
                 if (naturalWanderer) {
                     const cooldownUntil = currentWandererCooldownUntil(char, wandererId, now);
@@ -120,21 +125,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 const current = num(char[def.metric]);
                 if (!wandererQuestComplete(num(sealed.baseline), current, def.target)) {
+                    if (!durable) {
+                        await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeWandererQuestSeal: sealed }), rec));
+                    }
                     return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - num(sealed.baseline)), target: def.target } };
                 }
 
                 const reward = wandererQuestRyo(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + reward;
                 let updated: Record<string, unknown> = { ...char, ryo: totalRyo, activeWandererQuest: null, redeemedWandererQuests: [...receipts.slice(-49), { id: receiptId, ryo: reward }] };
-                const body: Record<string, unknown> = { ok: true, ryo: reward, totalRyo };
+                const body: Record<string, unknown> = { ok: true, ryo: reward, totalRyo, activeWandererQuest: null };
                 if (naturalWanderer) {
                     const used = withWandererUseState(updated, wandererId, now, sector);
                     updated = used.character;
                     body.cooldownUntil = used.cooldownUntil;
                     body.moveToSector = used.moveToSector;
                 }
-                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeWandererQuestSeal: null, character: updated }), rec));
                 await kv.del(questKey).catch(() => undefined);
+                body.character = updated;
                 return { status: 200, body };
             }, { failClosed: true });
 
@@ -146,6 +155,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await bumpLegacyStats(playerName, { wandererQuests: 1 });
                 await bumpEraContribution('discoveries');
             }
+            return res.status(out.status).json(out.body);
+        }
+
+        if (action === 'abandon') {
+            const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
+                await kv.del(questKey).catch(() => undefined);
+                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                const char = (rec?.character ?? null) as Record<string, unknown> | null;
+                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+                const updated = { ...char, activeWandererQuest: null };
+                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, activeWandererQuestSeal: null, character: updated }), rec));
+                return { status: 200, body: { ok: true, activeWandererQuest: null, character: updated } };
+            }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }
 

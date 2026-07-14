@@ -37,6 +37,10 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     const [nicknameMsg, setNicknameMsg] = useState("");
     const [evolveBusy, setEvolveBusy] = useState(false);
     const evolveBusyRef = useRef(false);
+    const [petTrainingBusy, setPetTrainingBusy] = useState(false);
+    const petTrainingBusyRef = useRef(false);
+    const [expeditionBusy, setExpeditionBusy] = useState(false);
+    const expeditionBusyRef = useRef(false);
     const [evolveMsg, setEvolveMsg] = useState("");
     const [evolveCutscene, setEvolveCutscene] = useState<{ pet: Pet; oldName: string; oldVisualId: string; oldImage?: string } | null>(null);
     // Pet escort offer state (Pet Tamer in clan only).
@@ -100,6 +104,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     }
 
     async function startTraining() {
+        if (petTrainingBusyRef.current) return;
         if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
@@ -111,8 +116,11 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // Pet Tamer training-speed bonus shortens the wait but the durationMs
         // multiplier (which scales gains) stays at the picked tier so we
         // don't accidentally double-dip on payouts.
+        petTrainingBusyRef.current = true;
+        setPetTrainingBusy(true);
         try { await runPetProgress('start-training', { focus: trainingType, durationMs: trainingDuration }); }
         catch (error) { alert(error instanceof Error ? error.message : 'Training could not be started.'); }
+        finally { petTrainingBusyRef.current = false; setPetTrainingBusy(false); }
     }
 
     async function startExpedition() {
@@ -164,6 +172,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     }
 
     async function collectExpedition() {
+        if (expeditionBusyRef.current) return;
         if (!selectedPet?.expedition) return;
         if (Date.now() < selectedPet.expedition.endsAt)
             return alert(`${petDisplayName(selectedPet)} returns in ${formatPetTimer(selectedPet.expedition.endsAt - Date.now())}.`);
@@ -221,6 +230,8 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // overlay onto local state to avoid a stale UI lag. A non-Tamer's maxed
         // pet also has a token (half-rate currency), so report whenever one exists.
         if (character.profession === "petTamer" || selectedPet.expedition?.token) {
+            expeditionBusyRef.current = true;
+            setExpeditionBusy(true);
             const minutes = Math.floor(selectedPet.expedition.durationMs / 60_000);
             const longExpedition = minutes >= 240;
             fetch('/api/missions/report-pet-event', {
@@ -239,6 +250,11 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
             }).then(r => r.ok ? r.json() : null).then(data => {
                 if (!data) return;
                 if (data.character) updateCharacter(data.character as Character);
+                if (data.reason === 'invalid-or-spent-expedition-token' || data.reason === 'missing-expedition-token') {
+                    setExpeditionResult(null);
+                    alert('Expedition state was refreshed from the server. No newer expedition was changed.');
+                    return;
+                }
                 const completed: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data.missionsCompleted) ? data.missionsCompleted : [];
                 for (const m of completed) {
                     window.dispatchEvent(new CustomEvent('profession-mission-complete', {
@@ -281,11 +297,15 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                         detail: { name: '🐾 Pet Escort Bonus', xp: Math.floor((data.expeditionXp ?? 0) * (1 - 1 / 1.2)), profession: 'petTamer' },
                     }));
                 }
-            }).catch(() => { /* best-effort */ });
+            }).catch(() => { /* best-effort */ }).finally(() => {
+                expeditionBusyRef.current = false;
+                setExpeditionBusy(false);
+            });
         }
     }
 
     async function collectTraining() {
+        if (petTrainingBusyRef.current) return;
         if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet?.training) return;
         if (Date.now() < selectedPet.training.endsAt) {
@@ -294,14 +314,22 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // -10% pet training XP while the village is "demoralized" from a war loss,
         // and +Mentor mastery bonus (PvE/utility). Combined into one XP multiplier.
         const focus = selectedPet.training.type;
+        petTrainingBusyRef.current = true;
+        setPetTrainingBusy(true);
         let data: Awaited<ReturnType<typeof runPetProgress>>;
         try {
             data = await runPetProgress('complete-training');
+            // Keep the settlement adoption explicit in this action. The shared
+            // helper already mirrors the same object, so this is idempotent and
+            // preserves the source-level guard that prevents local fallback.
             updateCharacter(data.character);
             alert(`${selectedPet.name} completed ${focus} training!${data.pet && data.pet.level > selectedPet.level ? ` Now Level ${data.pet.level}.` : ""}`);
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Training could not be collected.');
             return;
+        } finally {
+            petTrainingBusyRef.current = false;
+            setPetTrainingBusy(false);
         }
         // Pet Tamer mission progress for "pet-train" — rate-limited server-side.
         for (const mission of data.missionsCompleted ?? []) {
@@ -960,7 +988,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                             ) : selectedPet.training ? (
                                 <div className="training-complete">
                                     <p>✅ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label} complete!</p>
-                                    <button className="admin-button" onClick={collectTraining}>Collect Results</button>
+                                    <button className="admin-button" onClick={collectTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Collecting…" : "Collect Results"}</button>
                                 </div>
                             ) : (
                                 <>
@@ -977,7 +1005,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                         ))}
                                     </select>
                                     <p className="hint">Expected gains: {petTrainingPreview(selectedPet, trainingType, trainingDuration)}</p>
-                                    <button className="admin-button" onClick={startTraining} disabled={selectedPet.level >= selectedPet.maxLevel}>Start Training</button>
+                                    <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || selectedPet.level >= selectedPet.maxLevel}>{petTrainingBusy ? "Starting…" : "Start Training"}</button>
                                 </>
                             )}
                         </div>
@@ -993,7 +1021,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                             ) : selectedPet.expedition ? (
                                 <div className="training-complete">
                                     <p>Expedition complete!</p>
-                                    <button className="admin-button" onClick={collectExpedition}>Collect Expedition</button>
+                                    <button className="admin-button" onClick={collectExpedition} disabled={expeditionBusy}>{expeditionBusy ? "Collecting…" : "Collect Expedition"}</button>
                                 </div>
                             ) : selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL ? (
                                 <div className="pet-expedition-locked">

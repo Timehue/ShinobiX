@@ -165,7 +165,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (currentIndex < 0) return { ok: false as const, status: 404, error: 'Pet not found.' };
             const currentPet = storedPets[currentIndex];
             if (currentPet.training || currentPet.expedition) return { ok: false as const, status: 409, error: 'Pet is already busy.' };
-            const nextPets = storedPets.map((pet, i) => i === currentIndex ? { ...pet, expedition: { type: expType, startedAt: mintedAt, endsAt, durationMs: durationMinutes * 60_000, token: tokenId } } : pet);
+            const nextPets = storedPets.map((pet, i) => i === currentIndex ? {
+                ...pet,
+                expedition: {
+                    type: expType, startedAt: mintedAt, endsAt, durationMs: durationMinutes * 60_000, token: tokenId,
+                    // Durable, server-owned fallback authority. The generic save
+                    // sanitizer preserves expedition state from the stored pet.
+                    serverSeal: { petLevel: sealedPetLevel, expRewardMult, expMaterialMult, rewardScale, tamer: isTamer },
+                },
+            } : pet);
             return { ok: true as const, character: { ...character, pets: nextPets }, value: { petId } };
         });
         if (!mutation.ok) { await kv.del(tokenKey).catch(() => undefined); return res.status(mutation.status).json({ error: mutation.error }); }

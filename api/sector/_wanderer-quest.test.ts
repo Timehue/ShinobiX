@@ -1,10 +1,13 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
     WANDERER_QUESTS,
     isWandererQuestId,
     wandererQuestRyo,
     wandererQuestComplete,
+    parseWandererQuestSeal,
 } from "./_wanderer-quest.js";
 
 const VALID_METRICS = new Set(["totalAiKills", "totalPetWins", "cardClashWins", "totalTilesExplored"]);
@@ -45,5 +48,18 @@ describe("wandererQuestComplete", () => {
         assert.equal(wandererQuestComplete(10, 12, 3), false);
         assert.equal(wandererQuestComplete(10, 13, 3), true);
         assert.equal(wandererQuestComplete(10, 9, 3), false);
+    });
+});
+
+describe("parseWandererQuestSeal", () => {
+    it("accepts durable server seals and rejects forged ids", () => {
+        assert.deepEqual(parseWandererQuestSeal({ id: "wq-cull", baseline: 12, at: 123 }), { id: "wq-cull", baseline: 12, at: 123 });
+        assert.equal(parseWandererQuestSeal({ id: "forged", baseline: 12, at: 123 }), null);
+    });
+    it("persists durable authority and exposes an authoritative abandon path", () => {
+        const endpoint = readFileSync(join(process.cwd(), "api", "sector", "wanderer-quest.ts"), "utf8");
+        assert.match(endpoint, /activeWandererQuestSeal: sealed/);
+        assert.match(endpoint, /action === 'abandon'/);
+        assert.match(endpoint, /activeWandererQuestSeal: null/);
     });
 });
