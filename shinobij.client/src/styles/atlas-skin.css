@@ -97,3 +97,34 @@
         0 2px 6px rgba(0,0,0,0.55),
         inset 0 1px 0 rgba(255,255,255,0.08) !important;
 }
+
+/* Village banners and crests are part of the painted map itself. Keep the
+   landmark buttons as accessible click targets without covering that art. */
+button.atlas-landmark.atlas-village {
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: transparent !important;
+    text-shadow: none !important;
+}
+
+button.atlas-landmark.atlas-village:hover {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+button.atlas-landmark.atlas-village:focus-visible {
+    outline: 2px solid rgba(254, 243, 199, 0.95);
+    outline-offset: 2px;
+}
+
+/* Generic theme passes must not put a card frame back around Hollow Gate.
+   Custom art is supplied through the variable; without it the transparent
+   hit target reveals the detailed gate already painted into the map. */
+button.atlas-landmark.atlas-hollowGate {
+    border: 0 !important;
+    background-image: var(--atlas-landmark-image, none) !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    background-repeat: no-repeat;
+}
