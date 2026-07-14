@@ -45,6 +45,10 @@ button.atlas-landmark[data-landmark-art="true"][title*="Stormveil"] {
     --landmark-glow: rgba(70, 155, 255, 0.68);
 }
 
+button.atlas-landmark[data-landmark-art="true"][title*="Stormveil"] .atlas-landmark-art {
+    transform: scale(1.16);
+}
+
 button.atlas-landmark[data-landmark-art="true"][title*="Ashen Leaf"] {
     --landmark-glow: rgba(255, 132, 45, 0.62);
 }
