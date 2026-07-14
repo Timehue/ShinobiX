@@ -1,12 +1,18 @@
 import type { Jutsu, JutsuTag, GameItem } from "../types/combat";
 import { normalizeTagName } from "./tags";
+import { isJutsuVisualEffect } from "./jutsu-visuals";
 
 export type CombatVfxKey =
     | "fire"
+    | "fire60"
     | "water"
+    | "water60"
     | "wind"
+    | "wind60"
     | "lightning"
+    | "lightning60"
     | "earth"
+    | "earth60"
     | "blood"
     | "shadow"
     | "poison"
@@ -61,6 +67,10 @@ export type CombatVfxAction =
 
 export type CombatVfxIntent = {
     action?: CombatVfxAction;
+    /** Raw jutsu AP tier. Core-element 60 AP attacks use their marquee elemental plate. */
+    ap?: number | null;
+    /** Optional Bloodline Builder override for an offensive 60 AP jutsu. */
+    visualEffect?: string | null;
     element?: string | null;
     discipline?: string | null;
     effectPower?: number | null;
@@ -89,10 +99,15 @@ type CombatVfxDefaults = {
 // these directly).
 export const COMBAT_VFX_REGISTRY: Record<CombatVfxKey, CombatVfxDefaults> = {
     fire: { durationMs: 850, maxParticles: 20 },
+    fire60: { durationMs: 1250, maxParticles: 24 },
     water: { durationMs: 900, maxParticles: 18 },
+    water60: { durationMs: 1250, maxParticles: 24 },
     wind: { durationMs: 780, maxParticles: 16 },
+    wind60: { durationMs: 1250, maxParticles: 24 },
     lightning: { durationMs: 700, maxParticles: 18 },
+    lightning60: { durationMs: 1150, maxParticles: 24 },
     earth: { durationMs: 900, maxParticles: 16 },
+    earth60: { durationMs: 1250, maxParticles: 24 },
     blood: { durationMs: 850, maxParticles: 18 },
     shadow: { durationMs: 930, maxParticles: 16 },
     poison: { durationMs: 950, maxParticles: 16 },
@@ -151,6 +166,7 @@ const DEBUFF_TAGS = new Set([
 const CONTROL_TAGS = new Set(["Stun", "Lag"]);
 const SEAL_TAGS = new Set(["Bloodline Seal", "Elemental Seal"]);
 const CASTER_WARD_KEYS = new Set<CombatVfxKey>(["heal", "shield", "reflect", "absorb", "buff", "cleanse"]);
+const ELEMENTAL_60_KEYS = new Set<CombatVfxKey>(["fire60", "water60", "wind60", "lightning60", "earth60"]);
 
 function tagsFor(intent: CombatVfxIntent): string[] {
     return (intent.tags ?? [])
@@ -238,6 +254,22 @@ function elementKey(element?: string | null): CombatVfxKey | null {
     }
 }
 
+/** The five deliberately literal 60 AP plates. These bypass tag/intent art so a
+ * Fire attack cannot look like a generic wound or seal, and likewise for the
+ * other core natures. Bloodline/derived elements keep their existing art. */
+function elemental60Key(intent: CombatVfxIntent): CombatVfxKey | null {
+    if (intent.action !== "jutsu" || Number(intent.ap) !== 60 || intent.target === "SELF") return null;
+    if (isJutsuVisualEffect(intent.visualEffect)) return intent.visualEffect;
+    switch (String(intent.element ?? "").trim().toLowerCase()) {
+        case "fire": return "fire60";
+        case "water": return "water60";
+        case "wind": return "wind60";
+        case "lightning": return "lightning60";
+        case "earth": return "earth60";
+        default: return null;
+    }
+}
+
 function disciplineKey(discipline?: string | null): CombatVfxKey | null {
     switch (String(discipline ?? "").trim().toLowerCase()) {
         case "taijutsu": return "impact";
@@ -254,6 +286,7 @@ function normalizedMethod(method?: string | null): string {
 
 function intensityFor(intent: CombatVfxIntent, key: CombatVfxKey): CombatVfxIntensity {
     if (intent.ko || key === "ko") return "finisher";
+    if (ELEMENTAL_60_KEYS.has(key)) return "heavy";
     if (intent.heavy || key === "heavy" || key === "namedWeapon") return "heavy";
     if (intent.action === "dot") return "minor";
     return "normal";
@@ -269,6 +302,9 @@ function targetFor(intent: CombatVfxIntent, key: CombatVfxKey, tags: string[]): 
     if (isArea) return "area";
     if (intent.ground || intent.target === "EMPTY_GROUND" || method === "INSTANT_EFFECT") return "tile";
     if (intent.action === "weapon" || intent.action === "throwable" || intent.action === "basicAttack") return "target";
+    // A Builder selection describes the visual skin, not its old gameplay role.
+    // An offensive jutsu choosing Heal or Shield art still paints its target.
+    if (Number(intent.ap) === 60 && intent.target !== "SELF" && isJutsuVisualEffect(intent.visualEffect)) return "target";
     if (intent.target === "SELF" || CASTER_WARD_KEYS.has(key)) {
         return "caster";
     }
@@ -306,6 +342,8 @@ function jutsuKey(intent: CombatVfxIntent, tags: string[]): CombatVfxKey {
 }
 
 function keyForIntent(intent: CombatVfxIntent, tags: string[]): CombatVfxKey {
+    const elemental60 = elemental60Key(intent);
+    if (elemental60) return elemental60;
     if (intent.ko) return "ko";
     switch (intent.action ?? "unknown") {
         case "basicHeal": return "heal";

@@ -52,6 +52,7 @@ import {
     tickCombatStatuses,
 } from '../combat-core/statuses.js';
 import type { CombatFxEvent, CombatTag } from '../combat-core/types.js';
+import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 
 // Internal floating-number event before it's mapped to a concrete fighter slot.
 // `self` = the caster / ticking fighter, `opp` = the opponent — resolved to
@@ -67,10 +68,15 @@ type RelativeVfxEvent = Omit<CombatVfxTarget, 'target'> & { who: 'self' | 'opp' 
 // `COMBAT_VFX_REGISTRY` in shinobij.client/src/lib/combat-vfx.ts.
 const VFX_DEFAULTS: Record<CombatVfxKey, { durationMs: number; maxParticles: number }> = {
     fire: { durationMs: 850, maxParticles: 20 },
+    fire60: { durationMs: 1250, maxParticles: 24 },
     water: { durationMs: 900, maxParticles: 18 },
+    water60: { durationMs: 1250, maxParticles: 24 },
     wind: { durationMs: 780, maxParticles: 16 },
+    wind60: { durationMs: 1250, maxParticles: 24 },
     lightning: { durationMs: 700, maxParticles: 18 },
+    lightning60: { durationMs: 1150, maxParticles: 24 },
     earth: { durationMs: 900, maxParticles: 16 },
+    earth60: { durationMs: 1250, maxParticles: 24 },
     blood: { durationMs: 850, maxParticles: 18 },
     shadow: { durationMs: 930, maxParticles: 16 },
     poison: { durationMs: 950, maxParticles: 16 },
@@ -185,6 +191,8 @@ type Jutsu = {
     // client (shinobij.client/src/lib/elements.ts weatherElementOf): a base
     // element gains/loses with weather; "None" or absent → no weather effect.
     weatherElement?: string;
+    /** Cosmetic 60 AP plate chosen in the Bloodline Builder. */
+    visualEffect?: string;
     target?: string;
     range?: number;
     ap?: number;
@@ -268,6 +276,7 @@ const VFX_DEBUFF_TAGS = new Set([
 const VFX_CONTROL_TAGS = new Set(['Stun', 'Lag']);
 const VFX_SEAL_TAGS = new Set(['Bloodline Seal', 'Elemental Seal']);
 const VFX_CASTER_WARD_KEYS = new Set<CombatVfxKey>(['heal', 'shield', 'reflect', 'absorb', 'buff', 'cleanse']);
+const VFX_ELEMENTAL_60_KEYS = new Set<CombatVfxKey>(['fire60', 'water60', 'wind60', 'lightning60', 'earth60']);
 
 function vfxTagNames(tags?: JutsuTag[]): string[] {
     return (tags ?? []).map(tag => normalizeTagName(String(tag.name ?? ''))).filter(Boolean);
@@ -347,6 +356,19 @@ function elementVfxKey(element?: string | null): CombatVfxKey | null {
             return null;
     }
 }
+function elemental60VfxKey(jutsu: Jutsu): CombatVfxKey | null {
+    if (Number(jutsu.ap) !== 60 || jutsu.target === 'SELF') return null;
+    const selected = sanitizeJutsuVisualEffect(jutsu.visualEffect, jutsu.ap, jutsu.target);
+    if (selected) return selected;
+    switch (String(jutsu.element ?? '').trim().toLowerCase()) {
+        case 'fire': return 'fire60';
+        case 'water': return 'water60';
+        case 'wind': return 'wind60';
+        case 'lightning': return 'lightning60';
+        case 'earth': return 'earth60';
+        default: return null;
+    }
+}
 function disciplineVfxKey(discipline?: string | null): CombatVfxKey | null {
     switch (String(discipline ?? '').trim().toLowerCase()) {
         case 'taijutsu': return 'impact';
@@ -379,6 +401,8 @@ function isDamagingVisualJutsu(jutsu: Jutsu): boolean {
     return Number(jutsu.effectPower ?? 0) > 0 && jutsu.target !== 'SELF' && jutsu.isUtility !== true;
 }
 function jutsuVisualKey(jutsu: Jutsu, opts: { ground?: boolean; heavy?: boolean; ko?: boolean } = {}): CombatVfxKey {
+    const elemental60 = elemental60VfxKey(jutsu);
+    if (elemental60) return elemental60;
     if (opts.ko) return 'ko';
     const tags = vfxTagNames(jutsu.tags);
     const tagKey = keyForJutsuTags(tags, !!opts.ground);
@@ -391,6 +415,9 @@ function jutsuVisualAnchor(jutsu: Jutsu, key: CombatVfxKey, opts: { ground?: boo
     const method = normalizeJutsuMethod(jutsu.method);
     if (opts.area || method === 'AOE_CIRCLE' || method === 'AOE_SPIRAL') return 'area';
     if (opts.ground || jutsu.target === 'EMPTY_GROUND' || method === 'INSTANT_EFFECT') return 'tile';
+    // A Builder selection is a skin. Keep it on the offensive jutsu target even
+    // when the selected art originally belonged to a caster-side support effect.
+    if (sanitizeJutsuVisualEffect(jutsu.visualEffect, jutsu.ap, jutsu.target)) return 'target';
     if (jutsu.target === 'SELF' || VFX_CASTER_WARD_KEYS.has(key)) return 'caster';
     if (key === 'buff' && !isDamagingVisualJutsu(jutsu) && vfxHasAny(tags, VFX_SUPPORT_TAGS) && !vfxHasAny(tags, VFX_DEBUFF_TAGS) && !vfxHasAny(tags, VFX_CONTROL_TAGS) && !vfxHasAny(tags, VFX_SEAL_TAGS)) {
         return 'caster';
@@ -423,8 +450,9 @@ function vfxForJutsu(
     fx: HitFxEvent[] | undefined,
     opts: { ground?: boolean; area?: boolean; tiles?: number[]; persistent?: boolean; ko?: boolean; who?: 'self' | 'opp' } = {},
 ): RelativeVfxEvent {
-    const intensity = intensityFromHit(fx, self, opponent, !!opts.ko);
-    const key = jutsuVisualKey(jutsu, { ground: opts.ground || opts.area, heavy: intensity === 'heavy', ko: opts.ko });
+    const measuredIntensity = intensityFromHit(fx, self, opponent, !!opts.ko);
+    const key = jutsuVisualKey(jutsu, { ground: opts.ground || opts.area, heavy: measuredIntensity === 'heavy', ko: opts.ko });
+    const intensity = measuredIntensity === 'finisher' ? measuredIntensity : VFX_ELEMENTAL_60_KEYS.has(key) ? 'heavy' : measuredIntensity;
     const anchor = jutsuVisualAnchor(jutsu, key, opts);
     const who = opts.who ?? (anchor === 'caster' ? 'self' : 'opp');
     return vfxEvent(who, key, anchor, intensity, {

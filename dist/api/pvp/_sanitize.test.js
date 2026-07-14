@@ -174,6 +174,18 @@ const pick = (out) => out[0];
         node_assert_1.strict.ok(aTags.some(t => t.name === 'Pierce'));
         node_assert_1.strict.ok(!bTags.some(t => t.name === 'Pierce'));
     });
+    (0, node_test_1.it)('keeps only valid offensive 60 AP visual choices', () => {
+        const out = (0, session_js_1.sanitizeJutsuList)([
+            { id: 'valid', ap: 60, target: 'OPPONENT', visualEffect: 'shadow' },
+            { id: 'invalid-key', ap: 60, target: 'OPPONENT', visualEffect: 'godmode' },
+            { id: 'utility', ap: 40, target: 'OPPONENT', visualEffect: 'fire60' },
+            { id: 'self', ap: 60, target: 'SELF', visualEffect: 'water60' },
+        ]);
+        node_assert_1.strict.equal(out[0].visualEffect, 'shadow');
+        node_assert_1.strict.equal(out[1].visualEffect, undefined);
+        node_assert_1.strict.equal(out[2].visualEffect, undefined);
+        node_assert_1.strict.equal(out[3].visualEffect, undefined);
+    });
 });
 const jutsuTags = (out, i = 0) => out[i].tags.map(t => String(t.name));
 (0, node_test_1.describe)('sanitizeJutsuList — canonicalizes alias tag names before sealing', () => {
