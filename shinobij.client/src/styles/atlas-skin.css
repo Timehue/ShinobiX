@@ -1,130 +1,92 @@
 /* =========================================================================
-   Atlas / World-map village marker Skin v2 — small dark-glass badges
-   Matches the Battle / Profile dark-glass + gold-rim language.
-   Positioned via the same translate(-50%, -50%) anchor the engine sets
-   on .atlas-landmark — do NOT replace transform on the base rule.
+   Authored world-map landmark emblems
+
+   These selectors intentionally outrank the legacy atlas and theme skins. The
+   button is only the accessible hit target; all visible chrome is contained in
+   the painted crest asset, so no generic card background can regress the map.
    ========================================================================= */
 
-.atlas-landmark.atlas-village,
-.atlas-landmark.atlas-central {
-    /* Keep position/transform from the parent .atlas-landmark rule —
-       the engine relies on translate(-50%, -50%) for placement. */
-    width: 36px !important;
-    height: 36px !important;
+button.atlas-landmark[data-landmark-art="true"] {
+    --landmark-size: clamp(44px, 4.4vw, 58px);
+    --landmark-glow: rgba(230, 196, 119, 0.58);
+    width: var(--landmark-size) !important;
+    height: var(--landmark-size) !important;
     min-width: 0 !important;
     padding: 0 !important;
-    border-radius: 50% !important;
-    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
-    border: 1px solid rgba(196,162,90,0.55) !important;
-    box-shadow:
-        0 0 0 1px rgba(0,0,0,0.5),
-        0 2px 6px rgba(0,0,0,0.55),
-        inset 0 1px 0 rgba(255,255,255,0.05) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    color: #e8d496 !important;
-    font: 700 14px/1 var(--font-display) !important;
-    overflow: visible;
-    transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
-}
-
-/* Hide the abbreviation strong and the duplicate village-name pill —
-   the painted biome banner already labels each village. */
-.atlas-landmark.atlas-village span,
-.atlas-landmark.atlas-central span {
-    display: none !important;
-}
-
-.atlas-landmark.atlas-village strong,
-.atlas-landmark.atlas-central strong {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    color: currentColor;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
-}
-
-/* Sigil glyph via ::before, centered inside the badge. */
-.atlas-landmark.atlas-village::before,
-.atlas-landmark.atlas-central::before {
-    content: none;
-    font-size: 18px;
-    line-height: 1;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-}
-
-/* Subtle outer biome glow halo via ::after. */
-.atlas-landmark.atlas-village::after,
-.atlas-landmark.atlas-central::after {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    z-index: -1;
-    pointer-events: none;
-    box-shadow: 0 0 12px 2px var(--glow, rgba(196,162,90,0.4));
-    opacity: 0.85;
-}
-
-/* ----- Biome palettes ----- */
-.atlas-landmark[title*="Frostfang"]    { --sigil: '\2744\FE0E'; --glow: rgba(78,168,255,0.55);   color: var(--blue-300) !important; }
-.atlas-landmark[title*="Stormveil"]    { --sigil: '\26A1\FE0E'; --glow: rgba(59,130,246,0.65);  color: #3b82f6 !important; }
-.atlas-landmark[title*="Ashen Leaf"]   { --sigil: '\2698\FE0E'; --glow: rgba(74,222,128,0.55);  color: var(--green-400) !important; }
-.atlas-landmark[title*="Moonshadow"]   { --sigil: '\263D\FE0E'; --glow: rgba(167,139,250,0.55); color: #a78bfa !important; }
-
-/* Force text-presentation so CSS color tints these sigils instead of the
-   browser rendering them as colored emoji. */
-.atlas-landmark.atlas-village::before,
-.atlas-landmark.atlas-central::before {
-    font-variant-emoji: text;
-    font-feature-settings: "ss01" off;
-}
-.atlas-landmark.atlas-central          { --sigil: '⛩'; --glow: rgba(252,211,77,0.55);  color: var(--gold-400) !important; }
-.atlas-landmark.atlas-central {
-    width: 42px !important;
-    height: 42px !important;
-}
-
-/* Hover — preserve the centering translate, just scale + brighter rim/glow. */
-.atlas-landmark.atlas-village:hover,
-.atlas-landmark.atlas-central:hover {
-    transform: translate(-50%, -50%) scale(1.18) !important;
-    border-color: #e8d496 !important;
-    box-shadow:
-        0 0 0 1px rgba(0,0,0,0.5),
-        0 0 14px var(--glow, rgba(196,162,90,0.55)),
-        0 2px 6px rgba(0,0,0,0.55),
-        inset 0 1px 0 rgba(255,255,255,0.08) !important;
-}
-
-/* Village banners and crests are part of the painted map itself. Keep the
-   landmark buttons as accessible click targets without covering that art. */
-button.atlas-landmark.atlas-village {
-    border-color: transparent !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    color: transparent !important;
-    text-shadow: none !important;
-}
-
-button.atlas-landmark.atlas-village:hover {
-    background: transparent !important;
-    box-shadow: none !important;
-}
-
-button.atlas-landmark.atlas-village:focus-visible {
-    outline: 2px solid rgba(254, 243, 199, 0.95);
-    outline-offset: 2px;
-}
-
-/* Generic theme passes must not put a card frame back around Hollow Gate.
-   Custom art is supplied through the variable; without it the transparent
-   hit target reveals the detailed gate already painted into the map. */
-button.atlas-landmark.atlas-hollowGate {
+    display: block !important;
     border: 0 !important;
-    background-image: var(--atlas-landmark-image, none) !important;
-    background-color: transparent !important;
+    border-radius: 50% !important;
+    background: transparent !important;
     box-shadow: none !important;
-    background-repeat: no-repeat;
+    overflow: visible !important;
+    transform: translate(-50%, -50%) !important;
+    filter:
+        drop-shadow(0 3px 3px rgba(0, 0, 0, 0.72))
+        drop-shadow(0 0 7px var(--landmark-glow));
+    transition: transform 150ms ease, filter 150ms ease;
+    isolation: isolate;
+}
+
+button.atlas-landmark[data-landmark-art="true"]::before,
+button.atlas-landmark[data-landmark-art="true"]::after {
+    content: none !important;
+}
+
+button.atlas-landmark[data-landmark-art="true"] .atlas-landmark-art {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+}
+
+button.atlas-landmark[data-landmark-art="true"][title*="Stormveil"] {
+    --landmark-glow: rgba(70, 155, 255, 0.68);
+}
+
+button.atlas-landmark[data-landmark-art="true"][title*="Ashen Leaf"] {
+    --landmark-glow: rgba(255, 132, 45, 0.62);
+}
+
+button.atlas-landmark[data-landmark-art="true"][title*="Frostfang"] {
+    --landmark-glow: rgba(117, 214, 255, 0.72);
+}
+
+button.atlas-landmark[data-landmark-art="true"][title*="Moonshadow"] {
+    --landmark-glow: rgba(173, 112, 255, 0.72);
+}
+
+button.atlas-landmark.atlas-central[data-landmark-art="true"] {
+    --landmark-size: clamp(50px, 5vw, 66px);
+    --landmark-glow: rgba(255, 211, 105, 0.76);
+}
+
+button.atlas-landmark.atlas-hollowGate[data-landmark-art="true"] {
+    --landmark-size: clamp(58px, 5.6vw, 74px);
+    --landmark-glow: rgba(183, 76, 255, 0.82);
+    border-radius: 20% !important;
+}
+
+button.atlas-landmark[data-landmark-art="true"]:hover {
+    transform: translate(-50%, -50%) scale(1.12) !important;
+    filter:
+        drop-shadow(0 4px 4px rgba(0, 0, 0, 0.78))
+        drop-shadow(0 0 13px var(--landmark-glow))
+        brightness(1.09);
+}
+
+button.atlas-landmark[data-landmark-art="true"]:focus-visible {
+    outline: 2px solid rgba(254, 243, 199, 0.98) !important;
+    outline-offset: 3px;
+}
+
+button.atlas-landmark[data-landmark-art="true"]:active {
+    transform: translate(-50%, -50%) scale(1.04) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    button.atlas-landmark[data-landmark-art="true"] {
+        transition: none;
+    }
 }
