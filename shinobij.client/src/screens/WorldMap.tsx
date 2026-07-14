@@ -14,7 +14,7 @@ import {
     GiShield,
 } from "react-icons/gi";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
-import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
+import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, HollowGateEventConfig, PlayerRecord } from "../types/character";
 import { gameConfirm } from "../components/GameAlert";
@@ -104,6 +104,12 @@ import forrestSectorImg from "../assets/sectors/forrest.webp";
 import meadow2SectorImg from "../assets/sectors/meadow2.webp";
 import meadowSectorImg from "../assets/sectors/meadow.webp";
 import stormveilVillageImg from "../assets/sectors/stormveil-village.webp";
+import stormveilLandmarkArt from "../assets/map-landmarks/stormveil.webp";
+import ashenLeafLandmarkArt from "../assets/map-landmarks/ashen-leaf.webp";
+import frostfangLandmarkArt from "../assets/map-landmarks/frostfang.webp";
+import moonshadowLandmarkArt from "../assets/map-landmarks/moonshadow.webp";
+import centralLandmarkArt from "../assets/map-landmarks/central.webp";
+import hollowGateLandmarkArt from "../assets/map-landmarks/hollow-gate.webp";
 import {
     gainXp,
     getPvpJutsuLoadout,
@@ -1817,16 +1823,15 @@ export function WorldMap({
         // Ashen Leaf -> sector 38 (24, 18)
         // Frostfang  -> sector 47 (62, 11)
         // Moonshadow -> sector 11 (81, 67)
-        // Coords aligned to the new World Map.png baked-in banners (measured on a
-        // 0–100 grid + crosshair triangulation): each village marker sits ON its
-        // painted banner icon medallion (the icon hexagon at the banner's far-left).
-        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 12, y: 84, icon: "SV" },
-        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 11, y: 37, icon: "AL" },
-        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 78, y: 37, icon: "FF" },
-        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 75, y: 83, icon: "MS" },
-        { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, icon: "C", iconName: "tower" as GameIconName, staminaReward: 20, xpReward: 20 },
+        // Coords align each authored crest with the medallion at the left edge of
+        // its painted banner, leaving the baked village name fully readable.
+        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 12, y: 84, art: stormveilLandmarkArt },
+        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 11, y: 37, art: ashenLeafLandmarkArt },
+        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 78, y: 37, art: frostfangLandmarkArt },
+        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 75, y: 83, art: moonshadowLandmarkArt },
+        { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, art: centralLandmarkArt, staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the dark gothic spire painted just below the central citadel.
-        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 50, y: 79, icon: "HG" },
+        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 50, y: 79, art: hollowGateLandmarkArt },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const [hollowGateMenu, setHollowGateMenu] = useState(false);   // Enter / Attune choice
@@ -3968,44 +3973,22 @@ export function WorldMap({
                     screen already surface active wars; a third overlay
                     on the atlas was cluttering the village markers.) */}
 
-                {locations.map((location) => {
-                    // The painted map already contains the village crests and a detailed
-                    // Hollow Gate spire, so those buttons are transparent hit targets.
-                    // Custom Hollow Gate art may override the painted spire when present.
-                    const landmarkImage = location.type === "hollowGate"
-                        ? sharedImages["landmark:hollow-gate"]
-                        : undefined;
-                    const usesPaintedMapArt = location.type === "village" || (location.type === "hollowGate" && !landmarkImage);
-                    const usesImageOnlyMarker = location.type === "hollowGate";
-                    return (
+                {locations.map((location) => (
                         <button
                             key={location.name}
                             className={"atlas-landmark atlas-" + location.type}
                             style={{
                                 left: location.x + "%",
                                 top: location.y + "%",
-                                ...(landmarkImage
-                                    ? ({
-                                        "--atlas-landmark-image": `url(${landmarkImage})`,
-                                        backgroundImage: `url(${landmarkImage})`,
-                                        backgroundSize: "cover",
-                                        backgroundPosition: "center",
-                                    } as CSSProperties)
-                                    : {}),
                             }}
                             onClick={() => enterLandmark(location)}
                             title={location.name}
                             aria-label={`Enter ${location.name}`}
+                            data-landmark-art="true"
                         >
-                            {!usesPaintedMapArt && !usesImageOnlyMarker && (
-                                <>
-                                    <strong>{location.iconName ? <GameIcon name={location.iconName} size={18} /> : location.icon}</strong>
-                                    <span>{location.name}</span>
-                                </>
-                            )}
+                            <img className="atlas-landmark-art" src={location.art} alt="" draggable={false} />
                         </button>
-                    );
-                })}
+                ))}
 
                 {/* (The Hollow Gate Rift structure is deliberately NOT drawn on the
                     world overview. It appears only inside its target sector's scene,
