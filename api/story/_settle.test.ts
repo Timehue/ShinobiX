@@ -46,6 +46,24 @@ test('finale stamps the village title and grants one Hollow Gate Key', () => {
     assert.equal((settled.character.inventory as string[]).filter((id) => id === 'hollow-gate-key').length, 1);
 });
 
+test('all four finales grant their canonical title and remain one-shot on replay', () => {
+    const villages = new Map([
+        ['Stormveil Village', 'Stormbreaker'],
+        ['Ashen Leaf Village', 'Root Liberator'],
+        ['Frostfang Village', 'Oathbreaker'],
+        ['Moonshadow Village', 'Moon Unmasked'],
+    ]);
+    for (const [village, title] of villages) {
+        const fightToken = token(storyOpponentId(village, 100));
+        const first = applyStoryBossSettlement(character({ village, level: 100, storyProgress: 8 }), fightToken, 20);
+        assert.equal(first.ok, true, `${village}: finale should settle`);
+        if (!first.ok) continue;
+        assert.equal(first.character.storyTitle, title);
+        assert.equal((first.character.inventory as string[]).filter((id) => id === 'hollow-gate-key').length, 1);
+        assert.equal(applyStoryBossSettlement(first.character, fightToken, 20).ok, false, `${village}: replay must not pay twice`);
+    }
+});
+
 test('generic saves cannot skip story progress or forge the redemption ledger', () => {
     const out = sanitizeCharacterSave(
         { character: { ...character(), storyProgress: 9, redeemedStoryBattles: [{ token: 'forged' }] } },

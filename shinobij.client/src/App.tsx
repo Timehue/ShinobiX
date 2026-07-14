@@ -16,6 +16,7 @@ import { warnLocalSaveUnavailable } from "./lib/recovery";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
+import { adoptSaveVersion } from "./lib/save-version";
 import { requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
 import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
@@ -5774,8 +5775,9 @@ export default function App() {
                     kind: pendingArenaStoryBattle.kind,
                 }),
             });
-            const data = await response.json().catch(() => ({})) as { character?: Character; error?: string; xp?: number; ryo?: number; auraDust?: number; finale?: boolean };
+            const data = await response.json().catch(() => ({})) as { character?: Character; error?: string; xp?: number; ryo?: number; auraDust?: number; finale?: boolean; _saveVersion?: number };
             if (!response.ok || !data.character) throw new Error(data.error || "The story reward could not be verified.");
+            latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, data._saveVersion);
             setCharacter(data.character);
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");

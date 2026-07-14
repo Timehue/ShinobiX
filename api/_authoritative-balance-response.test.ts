@@ -86,12 +86,15 @@ describe('authoritative balance response migration', () => {
         const arena = read('shinobij.client/src/screens/Arena.tsx');
         const app = read('shinobij.client/src/App.tsx');
         assert.match(api, /aiFightTokenKey\(playerName, token\)/);
+        assert.match(api, /redeemed\.find\(\(entry\) => entry\.token === token\)/);
+        assert.match(api, /replayed:\s*true/);
         assert.match(api, /applyStoryBossSettlement\(character, tokenData/);
         assert.match(core, /token\.opponentId !== storyOpponentId\(village, levelReq\)/);
         assert.match(saveApi, /char\.storyProgress = .*exChar\.storyProgress/);
         assert.match(arena, /onPendingStoryBattleWin\?\.\(playerHp, token\)/);
         assert.match(app, /fetch\('\/api\/story\/settle'/);
         assert.match(app, /setCharacter\(data\.character\)/);
+        assert.match(app, /latestSaveVersionRef\.current\s*=\s*adoptSaveVersion\(latestSaveVersionRef\.current, data\._saveVersion\)/);
     });
 
     it('war crates are consumed and rewarded by one server save mutation', () => {
