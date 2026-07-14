@@ -55,7 +55,11 @@ describe('raw save server-ledger boundary', () => {
             jutsuMastery: [{ jutsuId: 'known', level: 4, xp: 10 }],
             equippedJutsuIds: ['known'],
             inventory: ['sword'], itemStacks: [], pets: [], equipment: {},
-        }, { activeTraining: { token: 'server-training', endsAt: 12345 } });
+        }, {
+            activeTraining: { token: 'server-training', endsAt: 12345 },
+            activeWandererQuestSeal: { id: 'wq-cull', baseline: 4, at: 10 },
+            activeStoryReckoningSeal: { id: 'story-reckoning-mira-marker', stage: 'task', baseline: 8, at: 11 },
+        });
         const incoming = wrap({
             level: 21, xp: 65, ryo: 575, bankRyo: 9_999_999,
             rankedRating: 9999, petRankedRating: 9999,
@@ -84,6 +88,8 @@ describe('raw save server-ledger boundary', () => {
         assert.equal(out.professionXp, 123, 'server-issued profession XP stays locked');
         assert.equal(out.professionRank, 2, 'derived profession rank stays locked');
         assert.deepEqual(result.activeTraining, { token: 'server-training', endsAt: 12345 }, 'top-level active training stays locked');
+        assert.deepEqual(result.activeWandererQuestSeal, { id: 'wq-cull', baseline: 4, at: 10 }, 'wanderer claim authority stays locked');
+        assert.deepEqual(result.activeStoryReckoningSeal, { id: 'story-reckoning-mira-marker', stage: 'task', baseline: 8, at: 11 }, 'story claim authority stays locked');
     });
 
     it('uses the exact canonical starter economy/loadout on first save', () => {

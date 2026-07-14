@@ -318,6 +318,7 @@ const SERVER_PAYOUT_CHARACTER_FIELDS = [
 
 const SERVER_LEDGER_TOPLEVEL_FIELDS = [
     '_trainingReceipts', 'activeTraining',
+    'activeWandererQuestSeal', 'activeStoryReckoningSeal',
     'creatorJutsus', 'creatorAis', 'creatorMissions', 'creatorEvents',
     'creatorCards', 'creatorRaids',
 ] as const;

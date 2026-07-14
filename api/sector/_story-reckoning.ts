@@ -1,6 +1,7 @@
 export const STORY_RECKONING_DAILY_CAP = 3;
 
 export type StoryReckoningMetric = "totalAiKills" | "totalTilesExplored";
+export type StoryReckoningSeal = { id: string; stage: "task" | "return"; baseline: number; at: number };
 
 export interface StoryReckoningDef {
     id: string;
@@ -49,6 +50,17 @@ const clampLevel = (n: unknown) => Math.max(1, Math.min(100, Math.floor(Number(n
 
 export function isStoryReckoningId(id: string): boolean {
     return Object.prototype.hasOwnProperty.call(STORY_RECKONINGS, id);
+}
+
+export function parseStoryReckoningSeal(raw: unknown): StoryReckoningSeal | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const value = raw as Record<string, unknown>;
+    const id = typeof value.id === 'string' ? value.id : '';
+    const stage = value.stage === 'task' || value.stage === 'return' ? value.stage : null;
+    const baseline = Number(value.baseline);
+    const at = Number(value.at ?? 0);
+    if (!isStoryReckoningId(id) || !stage || !Number.isFinite(baseline) || !Number.isSafeInteger(at) || at < 0) return null;
+    return { id, stage, baseline, at };
 }
 
 export function storyReckoningRyo(level: unknown, weight: number): number {
