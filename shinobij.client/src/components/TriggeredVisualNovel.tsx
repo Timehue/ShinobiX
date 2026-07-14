@@ -6,7 +6,7 @@
  * is type-imported from ../App (erased at compile time — no runtime cycle).
  */
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { CreatorEvent } from "../App";
 import type { Character } from "../types/character";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
@@ -111,6 +111,12 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         if (battle) { onBattle(event, battle); return; }
         advanceAfterChoice(nextPage);
     }
+    const stageStyle = pageImage
+        ? ({
+            backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})`,
+            "--vn-page-image": `url(${pageImage})`,
+        } as CSSProperties)
+        : undefined;
     if (showFinale) return (
         <div className="card cinematic-card vn-finale-panel">
             <div className="vn-finale-header">
@@ -179,7 +185,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     </div>
                     <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
                 </div>
-                <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
+                <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={stageStyle}>
                     {/* Scene picture (backdrop + portraits + narration). On mobile
                         this becomes a fixed-height block and the dialogue stacks
                         BELOW it (vn-picture display:contents on desktop = no change). */}
