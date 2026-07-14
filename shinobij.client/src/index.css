@@ -12318,7 +12318,7 @@ textarea {
     color: #fef3c7 !important;
 }
 
-.jutsu-target-tile {
+body .arena-fullscreen .hex-tile.jutsu-target-tile {
     outline: 3px solid var(--gold) !important;
     box-shadow: 0 0 18px rgba(250, 204, 21, 0.8) !important;
 }

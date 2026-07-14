@@ -40,11 +40,6 @@ import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, typ
 import type { PvpWinBaseSummary } from "../lib/progression";
 import { postPvpRewardClaim } from "../lib/pvp-reward-claim";
 
-// AOE_SPIRAL ground-nova footprint radius for the aiming preview. MUST match
-// SPIRAL_RADIUS in api/pvp/move.ts so the highlighted hexes equal what the
-// server actually zones.
-const PVP_SPIRAL_RADIUS = 2;
-
 // Avatar travel animation. A fighter's marker steps through each hex on the line
 // between its old and new cell (PATH_STEP_MS apart) and CSS-glides each hop, so
 // Move / Dash / Flicker / Push / Pull read as crossing the board rather than
@@ -990,14 +985,13 @@ export function PvpBattleScreen({
     const groundJutsuTiles = new Set(pvpIsGroundTargetJutsu(pendingJutsu) ? allTiles.filter(t => t !== myPos && t !== oppPos && pvpDist(myPos, t) <= jutsuRange) : []);
     let groundJutsuAffectedTiles = new Set<number>();
     if (pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu) && hoveredPvpTile !== null && groundJutsuTiles.has(hoveredPvpTile)) {
-        groundJutsuAffectedTiles = jutsuImpactPreviewTiles({
-            method: pendingJutsu.method,
-            center: hoveredPvpTile,
+        groundJutsuAffectedTiles = jutsuImpactPreviewTiles(
+            pendingJutsu.method,
+            hoveredPvpTile,
             allTiles,
-            distance: pvpDist,
-            neighbors: pvpHexNeighbors,
-            spiralRadius: PVP_SPIRAL_RADIUS,
-        });
+            pvpDist,
+            pvpHexNeighbors,
+        );
         // A pure movement jutsu has no damage area; its hovered destination is
         // still the impact/landing marker and must stand out from reachable range.
         if (groundJutsuAffectedTiles.size === 0) groundJutsuAffectedTiles.add(hoveredPvpTile);
@@ -1005,15 +999,14 @@ export function PvpBattleScreen({
     // Opponent-targeted area methods (especially AOE_BURST) previously had no
     // footprint at all. Show their impact area whenever the enemy is in range.
     const opponentJutsuAffectedTiles = pendingJutsu && !pvpIsGroundTargetJutsu(pendingJutsu) && !pvpIsSelfTargetJutsu(pendingJutsu) && jutsuRangeTiles.has(oppPos)
-        ? jutsuImpactPreviewTiles({
-            method: pendingJutsu.method,
-            center: oppPos,
+        ? jutsuImpactPreviewTiles(
+            pendingJutsu.method,
+            oppPos,
             allTiles,
-            distance: pvpDist,
-            neighbors: pvpHexNeighbors,
-            circleIncludesCenter: true,
-            spiralRadius: PVP_SPIRAL_RADIUS,
-        })
+            pvpDist,
+            pvpHexNeighbors,
+            true,
+        )
         : new Set<number>();
     // Self/buff jutsu: the affected area is the caster's own tile. When such a
     // jutsu is armed we light up that tile as the click target so every jutsu
