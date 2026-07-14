@@ -52,6 +52,8 @@ function formatTrainingRemaining(ms: number): string {
 
 export function Training({ character, updateCharacter, activeTraining, setActiveTraining, onBack }: { character: Character; updateCharacter: (character: Character) => void; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void; onBack: () => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
+    const [trainingBusy, setTrainingBusy] = useState(false);
+    const trainingBusyRef = useRef(false);
     // Live 1s tick so the Active Training box shows a real countdown (not a static
     // end-time) and the Collect button unlocks the moment training is ready.
     const [now, setNow] = useState(Date.now());
@@ -90,8 +92,11 @@ export function Training({ character, updateCharacter, activeTraining, setActive
     // Two-axis training: the server seals the reward, debits stamina, persists
     // the active session, and later credits the stored character on redemption.
     async function startTraining(timer: typeof timers[number]) {
+        if (trainingBusyRef.current) return;
         if (activeTraining) return alert("You are already training.");
         if (character.stamina < timer.staminaCost) return alert("Not enough stamina.");
+        trainingBusyRef.current = true;
+        setTrainingBusy(true);
         try {
             const res = await fetch('/api/training/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, stat: selectedStat, tierId: timer.id }) });
             const data = await res.json().catch(() => ({}));
@@ -100,46 +105,61 @@ export function Training({ character, updateCharacter, activeTraining, setActive
             setActiveTraining(data.activeTraining as ActiveTraining);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be started. Please retry.');
+        } finally {
+            trainingBusyRef.current = false;
+            setTrainingBusy(false);
         }
     }
     // Cancel an in-progress stat training and bank the prorated reward (server
     // consumes the token and credits the prorated grant. Stamina is not refunded.
     async function cancelTraining() {
+        if (trainingBusyRef.current) return;
         if (!activeTraining) return;
+        trainingBusyRef.current = true;
+        setTrainingBusy(true);
         const totalMs = activeTraining.durationMs ?? timers.find((t) => activeTraining.label.startsWith(t.label))?.ms ?? 0;
         const remaining = Math.max(0, activeTraining.endsAt - Date.now());
         const progress = totalMs > 0 ? Math.min(1, Math.max(0, 1 - remaining / totalMs)) : 1;
         const proratedGain = Math.floor(activeTraining.statGain * progress);
         const proratedXp = Math.floor(activeTraining.xp * progress);
-        if (!(await gameConfirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (+${proratedGain} ${formatStatName(activeTraining.stat)}${proratedXp > 0 ? `, ${proratedXp} XP` : ""}). Stamina already spent is not refunded.`))) return;
         try {
+            if (!(await gameConfirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (+${proratedGain} ${formatStatName(activeTraining.stat)}${proratedXp > 0 ? `, ${proratedXp} XP` : ""}). Stamina already spent is not refunded.`))) return;
             const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token, cancel: true }) });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data?.granted || !data?.character) throw new Error(String(data?.error ?? 'Training could not be cancelled.'));
+            setActiveTraining(data.activeTraining ?? null);
             updateCharacter({ ...character, ...data.character });
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
             alert(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}`);
-            setActiveTraining(null);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be cancelled. Please retry.');
+        } finally {
+            trainingBusyRef.current = false;
+            setTrainingBusy(false);
         }
     }
     // Collect a finished training. Token sessions are credited server-side;
     // tokenless sessions are retained only for pre-migration save compatibility.
     async function completeTraining() {
+        if (trainingBusyRef.current) return;
         if (!activeTraining) return;
         if (Date.now() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - Date.now()) / 1000)} seconds left.`);
+        trainingBusyRef.current = true;
+        setTrainingBusy(true);
         try {
             const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token }) });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data?.granted || !data?.character) throw new Error(String(data?.error ?? 'Training could not be collected.'));
+            setActiveTraining(data.activeTraining ?? null);
             updateCharacter({ ...character, ...data.character });
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
             const cap = Math.max(0, Math.floor(Number(data.cap) || 0));
             alert(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}). Rank up to train it higher.`}`);
-            setActiveTraining(null);
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Training could not be collected. Please retry.');
+        } finally {
+            trainingBusyRef.current = false;
+            setTrainingBusy(false);
         }
     }
     const remainingMs = activeTraining ? Math.max(0, activeTraining.endsAt - now) : 0;
@@ -168,8 +188,8 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                         ? <strong style={{ color: "#4ade80" }}>Ready to collect!</strong>
                         : <>Time remaining: <strong>{formatTrainingRemaining(remainingMs)}</strong> · ends {new Date(activeTraining.endsAt).toLocaleTimeString()}</>}</p>
                     <p className="hint">Next: collect this training, then spend your new strength on an E-Rank Drill or rookie mission.</p>
-                    <button onClick={completeTraining} disabled={!trainingReady}>{trainingReady ? "Collect Training" : "Training…"}</button>
-                    <button onClick={cancelTraining} style={{ marginLeft: 8 }}>Cancel (keep prorated stats)</button>
+                    <button onClick={completeTraining} disabled={!trainingReady || trainingBusy}>{trainingBusy ? "Settling…" : trainingReady ? "Collect Training" : "Training…"}</button>
+                    <button onClick={cancelTraining} disabled={trainingBusy} style={{ marginLeft: 8 }}>Cancel (keep prorated stats)</button>
                 </div>
             )}
 
@@ -215,9 +235,11 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                     const boostedXp = Math.max(0, Math.round(boostAmount(timer.xp, trainingXpBonus) * warDebuff.xpMult));
                     const effectiveXp = effectiveCharacterXpGain(character, boostedXp);
                     const gain = Math.max(0, Math.round(trainingStatGain(timer, timer.ms, trainingXpBonus) * warDebuff.xpMult));
-                    const disabledReason = activeTraining
-                        ? "A training session is already active."
-                        : character.stamina < timer.staminaCost
+                    const disabledReason = trainingBusy
+                        ? "Training action is being saved."
+                        : activeTraining
+                            ? "A training session is already active."
+                            : character.stamina < timer.staminaCost
                             ? `Need ${timer.staminaCost} stamina.`
                             : "";
                     return (
@@ -229,7 +251,7 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                             title={disabledReason || `Start ${timer.label} ${selectedStatLabel} training.`}
                         >
                             <span className="tile-icon">{timer.icon}</span>
-                            <span>Start {timer.label}</span>
+                            <span>{trainingBusy ? "Saving…" : `Start ${timer.label}`}</span>
                             <small>+{gain} {formatStatName(selectedStat)} · +{effectiveXp} XP</small>
                         </button>
                     );

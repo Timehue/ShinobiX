@@ -8,7 +8,7 @@ import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { applyTrainingGrant } from './_grant.js';
 import { parseLegacyTraining } from './_legacy.js';
 import { gainXp } from '../_xp-engine.js';
-import { MAX_TRAINING_RECEIPTS } from './_session.js';
+import { MAX_TRAINING_RECEIPTS, activeTrainingMatches, storedTrainingGrant } from './_session.js';
 
 interface TrainingToken {
     playerName: string;
@@ -66,12 +66,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (legacy && !legacyData) return { ok: false as const, status: 409, error: 'No eligible legacy training session was found.' };
             const redemptionToken = legacyData?.token ?? token;
             if (receipts.includes(token)) {
-                return { ok: true as const, character, _saveVersion: Number(record._saveVersion ?? 0), value: { granted: true, alreadyGranted: true, token: redemptionToken } };
+                return {
+                    ok: true as const,
+                    character,
+                    activeTraining: record.activeTraining ?? null,
+                    _saveVersion: Number(record._saveVersion ?? 0),
+                    value: { granted: true, alreadyGranted: true, token: redemptionToken },
+                };
             }
 
-            const data = legacyData ?? await kv.get<TrainingToken>(tokenKey);
+            // A delayed completion from an older tab must never clear a newer
+            // session that the player started after collecting. Receipts make a
+            // genuine retry idempotent above; every first-time redemption must
+            // still own the active lease stored on the save.
+            if (!legacyData && !activeTrainingMatches(record.activeTraining, token)) {
+                return { ok: false as const, status: 409, error: 'This training session is no longer active. Refresh to load the current session.' };
+            }
+
+            // The cache token speeds up redemption, but the protected save lease
+            // is durable claim authority. This keeps legitimately earned training
+            // collectible after the cache TTL without weakening token matching.
+            const data = legacyData ?? await kv.get<TrainingToken>(tokenKey) ?? storedTrainingGrant(record.activeTraining, token);
             if (!data) return { ok: false as const, status: 409, error: 'Training token is invalid or already spent.' };
-            if ('playerName' in data && (data.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+            const sealedPlayerName = 'playerName' in data && typeof data.playerName === 'string' ? data.playerName : '';
+            if (sealedPlayerName && sealedPlayerName.toLowerCase() !== playerName.toLowerCase()) {
                 return { ok: false as const, status: 403, error: 'Training token does not belong to this player.' };
             }
             if (!cancel && now < data.endsAt) {
@@ -96,13 +114,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 _trainingReceipts: nextReceipts,
                 activeTraining: null,
             }, nextCharacter);
-            return { ok: true as const, character: nextCharacter, _saveVersion: written._saveVersion, value: { granted: true, alreadyGranted: false, ...redemption } };
+            return { ok: true as const, character: nextCharacter, activeTraining: null, _saveVersion: written._saveVersion, value: { granted: true, alreadyGranted: false, ...redemption } };
         }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         if (tokenKey) await kv.del(tokenKey).catch(() => console.error('active-session cleanup failed after durable receipt'));
-        await kv.del(`training-active:${playerName}`).catch(() => console.error('active-session cleanup failed after durable receipt'));
-        return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
+        if (!result.activeTraining) {
+            await kv.del(`training-active:${playerName}`).catch(() => console.error('active-session cleanup failed after durable receipt'));
+        }
+        return res.status(200).json({ ok: true, ...result.value, character: result.character, activeTraining: result.activeTraining, _saveVersion: result._saveVersion });
     } catch (err) {
         console.error('[training/complete]', err);
         return res.status(500).json({ error: 'Internal server error.' });

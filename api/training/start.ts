@@ -96,8 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!record || !character) return { ok: false as const, status: 404, error: 'Player save not found.' };
 
             const prior = normalizeActiveTrainingSession(record.activeTraining);
-            const priorTokenExists = prior ? !!(await kv.get(`training-token:${playerName}:${prior.token}`)) : false;
-            if (activeTrainingBlocksStart(prior, priorTokenExists, startedAt)) {
+            if (activeTrainingBlocksStart(prior)) {
                 return { ok: false as const, status: 409, error: 'A training session is already active.' };
             }
             const stamina = Math.max(0, Number(character.stamina) || 0);

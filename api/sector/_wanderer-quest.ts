@@ -61,6 +61,18 @@ export function isWandererQuestId(id: string): boolean {
     return Object.prototype.hasOwnProperty.call(WANDERER_QUESTS, id);
 }
 
+export type WandererQuestSeal = { id: string; baseline: number; at: number };
+
+export function parseWandererQuestSeal(raw: unknown): WandererQuestSeal | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const value = raw as Record<string, unknown>;
+    const id = typeof value.id === 'string' ? value.id : '';
+    const baseline = Number(value.baseline);
+    const at = Number(value.at ?? 0);
+    if (!isWandererQuestId(id) || !Number.isFinite(baseline) || !Number.isSafeInteger(at) || at < 0) return null;
+    return { id, baseline, at };
+}
+
 const clamp = (n: number, lo: number, hi: number) =>
     Math.max(lo, Math.min(hi, Math.floor(Number(n) || 0)));
 

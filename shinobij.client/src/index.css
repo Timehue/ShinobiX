@@ -2330,6 +2330,24 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     font-weight: 900;
 }
 
+.vn-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.vn-skip-button {
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 1px solid rgba(248, 113, 113, .58);
+    background: rgba(69, 10, 10, .82);
+    color: #fee2e2;
+    position: relative;
+    z-index: 10;
+}
+
 .vn-stage {
     position: relative;
     min-height: 620px;
@@ -2488,6 +2506,12 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     margin-top: 14px;
 }
 
+.vn-controls button,
+.vn-choice-row button,
+.vn-finale-panel .menu button {
+    min-height: 44px;
+}
+
 .vn-choice-row {
     padding: 10px;
     border: 1px solid rgba(148,163,184,.22);
@@ -2503,6 +2527,7 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
 }
 
 .vn-choice-btn {
+    min-height: 44px;
     text-align: left;
     padding: 10px 16px;
     border: 1px solid rgba(250,204,21,.55);
@@ -24205,7 +24230,7 @@ html[data-vp="xs"] .pmtab {
     .vn-choice-row button {
         padding: 8px 12px !important;
         font-size: 0.8rem !important;
-        min-height: 36px !important;
+        min-height: 44px !important;
         border-radius: 8px !important;
     }
 
@@ -24224,6 +24249,17 @@ html[data-vp="xs"] .pmtab {
     .vn-header {
         gap: 8px !important;
         flex-wrap: wrap !important;
+    }
+
+    .vn-header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .vn-skip-button {
+        min-height: 44px !important;
+        padding: 8px 12px !important;
+        flex: 0 0 auto;
     }
 
     .vn-header h2 {
