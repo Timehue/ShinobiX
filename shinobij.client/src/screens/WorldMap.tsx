@@ -38,10 +38,13 @@ import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOS
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent } from "../lib/story-road-events";
+import { STORY_RECKONING_ACCEPT_TRAIT, visibleStoryReckonings, isStoryReckoningId, isStoryReckoningReturnEventId, storyReckoningForEventId, storyReckoningIntroEvent, storyReckoningPayoffEvent, acceptStoryReckoning, reportStoryReckoning, turnInStoryReckoning } from "../lib/story-reckonings";
+import type { StoryReckoning } from "../data/story-reckonings";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
 import { createPortal } from "react-dom";
+import { addItem, ownsItem } from "../lib/inventory";
 
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
@@ -899,6 +902,12 @@ export function WorldMap({
         const event = nextRoadEvent(character);
         return event ? [synthRoadWanderer(event, selectedSector)] : [];
     }, [character.level, character.storyProgress, character.storyTraits, selectedSector]);
+    // Named story reckonings: current-canon characters stand at their own
+    // village outskirts and offer one-shot server-sealed follow-up tasks.
+    const storyReckoningWanderers = useMemo(() => {
+        if (!isWanderersEnabled() || selectedSector == null) return [];
+        return visibleStoryReckonings(character, selectedSector);
+    }, [character.level, character.storyProgress, character.storyTraits, character.storyVillage, selectedSector]);
     // Hollow Gate Rift givers (lib/hollow-rifts): a rattled NPC roams the player's
     // current sector to report a "strange energy" at a target sector. Only while a
     // rift is available (level-gated, none active, off cooldown).
@@ -1098,7 +1107,7 @@ export function WorldMap({
         const hostile = activeVillageWarsFor(character.village).length > 0;
         const lvl = Math.max(1, Math.min(100, character.level + (hostile ? 3 : 1)));
         const ai = makeBuiltinAi(`wanderer-patrol-${w.id}`, hostile ? `${w.name} Captain` : w.name, "PT", lvl, "Road Patrol", [], hostile ? 7 : 3, undefined, hostile ? "defender" : "balanced");
-        ai.image = wandererAvatar(w.avatarKey);
+        ai.image = w.avatarImage || wandererAvatar(w.avatarKey);
         setWandererDialog(null);
         launchWandererArenaFight(ai, "patrol", 0, selectedSector, { hostile });
     }
@@ -1149,7 +1158,7 @@ export function WorldMap({
         updateCharacter(prev => prev ? ({ ...prev, robberStreak: 0 }) : prev);
         setTimeout(() => alert("You overwhelmed the bandits and felled their warlord! The roads are yours again."), 40);
     }
-    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number }) {
+    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number; storyReckoningId?: string }) {
         // Prefer the authoritative outcome the Arena stamped on the record; fall back to
         // the totalAiKills delta only for legacy records written before the stamp existed.
         const won = p.result ? p.result === "win" : (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
@@ -1227,6 +1236,12 @@ export function WorldMap({
             if (won) { void advanceEpic(true); }
             else { setTimeout(() => alert("The foe stands. Your quest holds — rest, then face them again."), 40); }
         }
+        if (p.mode === "storyReckoning") {
+            const arc = p.storyReckoningId ? storyReckoningForEventId(p.storyReckoningId) : null;
+            if (!arc) return;
+            if (won) { void handleStoryReckoningReport(arc, false); }
+            else { setTimeout(() => alert(`${arc.task.targetName} still holds the road. Rest, then try the reckoning again.`), 40); }
+        }
     }
     // On returning to the world map after a bandit fight, resolve the result and
     // continue any ambush chain. (Early-returns if there's no pending fight.)
@@ -1234,7 +1249,7 @@ export function WorldMap({
         let raw: string | null;
         try { raw = localStorage.getItem(WANDERER_PENDING_KEY); if (raw) localStorage.removeItem(WANDERER_PENDING_KEY); } catch { return; }
         if (!raw) return;
-        let p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; at: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number };
+        let p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; at: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number; storyReckoningId?: string };
         try { p = JSON.parse(raw); } catch { return; }
         if (!p || Date.now() - (p.at || 0) > 30 * 60 * 1000) return;
         resolveWandererFight(p);
@@ -1271,6 +1286,37 @@ export function WorldMap({
         }
         // A rift giver reports a strange energy at a target sector — opens the
         // intro VN (accept seals the rift + reveals its structure on the map).
+        if (isStoryReckoningId(w.id)) {
+            const arc = storyReckoningForEventId(w.id);
+            if (!arc || selectedSector == null) return;
+            const active = character.activeStoryReckoning;
+            const biome = biomeForWorldSector(selectedSector);
+            setCreatorEventPage(0);
+            setCreatorEventLine(0);
+            if (active?.id === arc.id && active.stage === "return") {
+                setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biome));
+                return;
+            }
+            if (active?.id === arc.id && active.stage === "task") {
+                if (arc.task.kind === "collect") {
+                    const got = Math.max(0, ((character[arc.task.metric] as number | undefined) ?? 0) - active.baseline);
+                    if (got >= active.target) {
+                        void handleStoryReckoningReport(arc, true);
+                        return;
+                    }
+                    setWandererDialog({ w, msg: `${arc.npcName} waits while you search. Progress: ${Math.min(got, active.target)} / ${active.target}.` });
+                    return;
+                }
+                setWandererDialog({ w, msg: `${arc.npcName} waits for proof that ${arc.task.targetName} has been dealt with.` });
+                return;
+            }
+            if (active && active.id !== arc.id) {
+                setWandererDialog({ w, msg: "Finish the reckoning you already carry before taking another." });
+                return;
+            }
+            setSelectedCreatorEvent(storyReckoningIntroEvent(arc, biome));
+            return;
+        }
         if (w.id.startsWith(RIFT_GIVER_PREFIX)) {
             const rift = riftBySynthId(w.id);
             if (rift && selectedSector != null) {
@@ -1626,6 +1672,93 @@ export function WorldMap({
         coolNaturalWanderer(w);
         setWandererDialog(null);
         launchWandererArenaFight(ai, "questboss", 0, selectedSector, { questbook: true });
+    }
+    function launchStoryReckoningFight(arc: StoryReckoning) {
+        if (selectedSector == null || !arc.task.boss) return;
+        const boss = arc.task.boss;
+        const lvl = Math.max(1, Math.min(100, character.level + boss.levelOffset));
+        const ai = makeBuiltinAi(`story-reckoning-${boss.bossId}`, boss.name, boss.icon, lvl, "Story Reckoning", [], boss.statBonus, undefined, boss.loadoutId, true);
+        ai.image = boss.portrait || questBossPortrait(boss.bossId) || WANDERER_BOSS_PORTRAIT;
+        registerWandererAi(ai);
+        setCurrentSector(selectedSector);
+        setCurrentBiome(biomeForSector(selectedSector));
+        setCurrentWeather(weatherForSector(selectedSector, biomeForSector(selectedSector)));
+        setPendingPvpOpponent(null);
+        setPendingAiProfileId(ai.id);
+        setRaidBattleKind("raidAi");
+        try {
+            localStorage.setItem(WANDERER_PENDING_KEY, JSON.stringify({ mode: "storyReckoning", stage: 0, sector: selectedSector, baselineKills: character.totalAiKills ?? 0, storyReckoningId: arc.id, at: Date.now() }));
+        } catch { /* private mode: the server-sealed task remains retryable */ }
+        setScreen("arena");
+    }
+    async function handleStoryReckoningAccept(arc: StoryReckoning) {
+        setSelectedCreatorEvent(null);
+        const resp = await acceptStoryReckoning(character.name, arc.id);
+        if (!resp.ok) {
+            const msg = resp.reason === "busy" ? "Finish the story burden you already carry first."
+                : resp.reason === "ineligible" ? "You are not far enough into this story yet."
+                : "The reckoning could not be sealed. Try again in a moment.";
+            setTimeout(() => alert(msg), 40);
+            return;
+        }
+        updateCharacter(prev => prev ? ({ ...prev, activeStoryReckoning: resp.activeStoryReckoning ?? prev.activeStoryReckoning }) : prev);
+        if (arc.task.kind === "hunt") {
+            launchStoryReckoningFight(arc);
+        } else {
+            setTimeout(() => alert(`Reckoning accepted: search the outskirts until you find ${arc.task.targetName}.`), 40);
+        }
+    }
+    async function handleStoryReckoningReport(arc: StoryReckoning, openPayoff = false) {
+        const resp = await reportStoryReckoning(character.name, arc.id);
+        if (!resp.ok) {
+            if (resp.reason === "incomplete") {
+                setTimeout(() => alert(`Not yet: ${resp.progress ?? 0} / ${resp.target ?? arc.task.target} complete.`), 40);
+            } else {
+                setTimeout(() => alert("The account did not settle. Return to the outskirts and try again."), 40);
+            }
+            return;
+        }
+        updateCharacter(prev => {
+            if (!prev) return prev;
+            const withDrop = resp.dropItemId && !ownsItem(prev, resp.dropItemId) ? addItem(prev, resp.dropItemId, 1) : prev;
+            return { ...withDrop, activeStoryReckoning: resp.activeStoryReckoning ?? withDrop.activeStoryReckoning };
+        });
+        if (openPayoff && selectedSector != null) {
+            setCreatorEventPage(0);
+            setCreatorEventLine(0);
+            setSelectedCreatorEvent(storyReckoningPayoffEvent(arc, biomeForWorldSector(selectedSector)));
+        } else {
+            setTimeout(() => alert(`You recovered ${arc.task.targetName}. Return to ${arc.npcName} at the outskirts.`), 40);
+        }
+    }
+    async function handleStoryReckoningTurnIn(arc: StoryReckoning) {
+        const resp = await turnInStoryReckoning(character.name, arc.id);
+        if (!resp.ok) {
+            const msg = resp.reason === "no-item" ? "You do not have the keepsake yet."
+                : resp.reason === "daily-cap" ? "You have settled enough reckonings today. Return tomorrow."
+                : "The reckoning could not be turned in. Try again in a moment.";
+            setTimeout(() => alert(msg), 40);
+            return;
+        }
+        updateCharacter(prev => {
+            if (!prev) return prev;
+            const titles = prev.questTitles ?? [];
+            const nextTitles = resp.title && !titles.includes(resp.title) ? [...titles, resp.title] : titles;
+            const traits = prev.storyTraits ?? [];
+            const nextTraits = resp.completionTrait && !traits.includes(resp.completionTrait) ? [...traits, resp.completionTrait] : traits;
+            return {
+                ...prev,
+                ryo: resp.totalRyo ?? prev.ryo,
+                fateShards: resp.totalFateShards ?? prev.fateShards,
+                questTitles: nextTitles,
+                storyTraits: nextTraits,
+                activeStoryReckoning: null,
+            };
+        });
+        const bits = [`${resp.ryo ?? 0} ryo`];
+        if (resp.fateShards) bits.push(`${resp.fateShards} fate shard${resp.fateShards === 1 ? "" : "s"}`);
+        if (resp.title) bits.push(`the title "${resp.title}"`);
+        setTimeout(() => alert(`Reckoning complete: ${bits.join(", ")}.`), 40);
     }
     // Tick once a second while a TIMED epic's journal is open so the countdown is live.
     const [, setEpicTick] = useState(0);
@@ -2166,6 +2299,14 @@ export function WorldMap({
         // Story road events pay nothing here — the choice was the payoff and it
         // was reported at choice time. Just close the scene.
         if (event.id.startsWith(ROAD_WANDERER_PREFIX)) { setSelectedCreatorEvent(null); return; }
+        if (isStoryReckoningId(event.id)) {
+            setSelectedCreatorEvent(null);
+            if (isStoryReckoningReturnEventId(event.id)) {
+                const arc = storyReckoningForEventId(event.id);
+                if (arc) void handleStoryReckoningTurnIn(arc);
+            }
+            return;
+        }
         // Rift VNs (giver report / at-the-rift): accept + descend are handled in
         // onChoice; completing the scene just closes it.
         if (event.id.startsWith(RIFT_GIVER_PREFIX) || isRiftDescentEventId(event.id)) { setSelectedCreatorEvent(null); return; }
@@ -2302,7 +2443,58 @@ export function WorldMap({
         return <TriggeredVisualNovel event={sageVnEvent} character={character} pageIndex={sageVnPage} lineIndex={sageVnLine} setPageIndex={setSageVnPage} setLineIndex={setSageVnLine} onCancel={() => setSageVnEvent(null)} onComplete={() => { setSageVnEvent(null); setSageChoiceOpen(true); }} onBattle={() => { /* the Sage never fights */ }} sharedImages={sharedImages} />;
     }
     if (selectedCreatorEvent) {
-        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const ev = selectedCreatorEvent; if (!ev) return; if (c.trait === RIFT_ACCEPT_MARKER) { const rift = riftBySynthId(ev.id); setSelectedCreatorEvent(null); if (rift) void acceptRift(character.name, rift.id).then((resp) => { if (resp.ok && resp.activeRiftQuest) { updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: resp.activeRiftQuest }) : prev); } else { setTimeout(() => alert(resp.reason === "busy" ? "Finish the rift you already carry first." : resp.reason === "cooldown" ? "The energy has not gathered again yet. Come back later." : "The rift could not be marked. Try again in a moment."), 40); } }); return; } if (c.trait === RIFT_DESCEND_MARKER) { const rift = riftByDescentEventId(ev.id); setSelectedCreatorEvent(null); if (rift) onDescendRift?.(rift); return; } if (c.trait === RIFT_ABANDON_MARKER) { setSelectedCreatorEvent(null); void abandonRift(character.name); updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: null }) : prev); return; } const t = c.trait; if (t) { updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); if (ev.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, ev.id, t); } }} sharedImages={sharedImages} />;
+        return (
+            <TriggeredVisualNovel
+                event={selectedCreatorEvent}
+                character={character}
+                pageIndex={creatorEventPage}
+                lineIndex={creatorEventLine}
+                setPageIndex={setCreatorEventPage}
+                setLineIndex={setCreatorEventLine}
+                onCancel={() => setSelectedCreatorEvent(null)}
+                onComplete={() => completeCreatorEvent(selectedCreatorEvent)}
+                onBattle={onStartEventEncounter}
+                onChoice={(c) => {
+                    const ev = selectedCreatorEvent;
+                    if (!ev) return;
+                    if (c.trait === STORY_RECKONING_ACCEPT_TRAIT) {
+                        const arc = storyReckoningForEventId(ev.id);
+                        if (arc) void handleStoryReckoningAccept(arc);
+                        return;
+                    }
+                    if (c.trait === RIFT_ACCEPT_MARKER) {
+                        const rift = riftBySynthId(ev.id);
+                        setSelectedCreatorEvent(null);
+                        if (rift) void acceptRift(character.name, rift.id).then((resp) => {
+                            if (resp.ok && resp.activeRiftQuest) {
+                                updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: resp.activeRiftQuest }) : prev);
+                            } else {
+                                setTimeout(() => alert(resp.reason === "busy" ? "Finish the rift you already carry first." : resp.reason === "cooldown" ? "The energy has not gathered again yet. Come back later." : "The rift could not be marked. Try again in a moment."), 40);
+                            }
+                        });
+                        return;
+                    }
+                    if (c.trait === RIFT_DESCEND_MARKER) {
+                        const rift = riftByDescentEventId(ev.id);
+                        setSelectedCreatorEvent(null);
+                        if (rift) onDescendRift?.(rift);
+                        return;
+                    }
+                    if (c.trait === RIFT_ABANDON_MARKER) {
+                        setSelectedCreatorEvent(null);
+                        void abandonRift(character.name);
+                        updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: null }) : prev);
+                        return;
+                    }
+                    const t = c.trait;
+                    if (t) {
+                        updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev);
+                        if (ev.id.startsWith(ROAD_WANDERER_PREFIX)) void reportStoryRoadEvent(character.name, ev.id, t);
+                    }
+                }}
+                sharedImages={sharedImages}
+            />
+        );
         const event = selectedCreatorEvent!;
         const eventPages = event.vnPages ?? [];
         const pages = (eventPages.length > 0 ? eventPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }]) as NonNullable<CreatorEvent["vnPages"]>;
@@ -2639,7 +2831,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers, ...riftGiverWanderers].map(w => (
+                            {[...sectorWanderers, ...courierWanderers, ...bountyHunterWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers, ...roadWanderers, ...storyReckoningWanderers, ...riftGiverWanderers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}
@@ -2841,7 +3033,7 @@ export function WorldMap({
                                 >
                                     <div className="card" style={{ maxWidth: 360, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 16 }} onClick={(e) => e.stopPropagation()}>
                                         <img
-                                            src={wandererAvatar(wandererDialog.w.avatarKey)}
+                                            src={wandererDialog.w.avatarImage || wandererAvatar(wandererDialog.w.avatarKey)}
                                             alt={wandererDialog.w.name}
                                             style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
                                         />

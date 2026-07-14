@@ -13,6 +13,7 @@
  */
 
 import { ADMIN_DELETED_ITEM_MARKER } from "../constants/game";
+import { eventItems } from "../data/event-items";
 import { starterItems } from "../data/starter-items";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import type { Character } from "../types/character";
@@ -59,7 +60,8 @@ export function getAllItems(creatorItems: GameItem[], weaponElements?: Record<st
     // starterItems always win for built-in stats so code updates aren't overridden by stale save data.
     // Exception: admin-generated images on starter items ARE respected — only the image field is merged.
     // Deleted items are stripped out entirely even if present in an old save file.
-    const starterIds = new Set(starterItems.map((s) => s.id));
+    const builtIns = [...starterItems, ...eventItems];
+    const starterIds = new Set(builtIns.map((s) => s.id));
     const adminDeletedIds = new Set(creatorItems.filter(isAdminDeletedItemMarker).map((item) => item.id));
     const customOnly = creatorItems.filter((c) =>
         !starterIds.has(c.id) &&
@@ -73,7 +75,7 @@ export function getAllItems(creatorItems: GameItem[], weaponElements?: Record<st
             .filter(c => starterIds.has(c.id) && c.image && !adminDeletedIds.has(c.id) && !isAdminDeletedItemMarker(c))
             .map(c => [c.id, c.image as string])
     );
-    const starterWithImages = starterItems
+    const starterWithImages = builtIns
         .filter(s => !adminDeletedIds.has(s.id))
         .map(s => imageOverrides.has(s.id) ? { ...s, image: imageOverrides.get(s.id) } : s);
     const merged = [...customOnly, ...starterWithImages].map(sanitizeArmorAndGloveItem);
