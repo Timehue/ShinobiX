@@ -38,7 +38,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     const [evolveBusy, setEvolveBusy] = useState(false);
     const evolveBusyRef = useRef(false);
     const [evolveMsg, setEvolveMsg] = useState("");
-    const [evolveCutscene, setEvolveCutscene] = useState<{ pet: Pet; oldName: string; oldImage?: string } | null>(null);
+    const [evolveCutscene, setEvolveCutscene] = useState<{ pet: Pet; oldName: string; oldVisualId: string; oldImage?: string } | null>(null);
     // Pet escort offer state (Pet Tamer in clan only).
     const [escortOffered, setEscortOffered] = useState<boolean | null>(null);
     const [escortBusy, setEscortBusy] = useState(false);
@@ -423,6 +423,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // render/silhouette as a hard black box. petPoseImage resolves the clean
         // idle pose for the pet's current stage (-r/-l) and only falls back to a
         // portrait when no pose exists. See lib/pet-battle-anim.petPoseImage.
+        const oldVisualId = petVisualId(selectedPet);
         const oldImage = petPoseImage(selectedPet);
         setEvolveMsg("");
         try {
@@ -457,7 +458,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                 };
             });
             if (petEvolveCutsceneEnabled()) {
-                setEvolveCutscene({ pet: evolved, oldName, oldImage });
+                setEvolveCutscene({ pet: evolved, oldName, oldVisualId, oldImage });
                 setEvolveMsg("");
             } else {
                 setEvolveMsg(`✅ Evolved into ${evolved.name}!`);
@@ -480,6 +481,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                 <PetEvolutionCutscene
                     pet={evolveCutscene.pet}
                     oldName={evolveCutscene.oldName}
+                    oldVisualId={evolveCutscene.oldVisualId}
                     oldImage={evolveCutscene.oldImage}
                     newImage={evolveCutscene.pet.image}
                     onClose={() => setEvolveCutscene(null)}

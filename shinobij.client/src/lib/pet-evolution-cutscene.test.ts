@@ -16,6 +16,7 @@ import {
     tunnelIntensity,
     burstIntensity,
     morphScale,
+    evolutionStageMotion,
 } from "./pet-evolution-cutscene";
 
 const TAU = Math.PI * 2;
@@ -52,18 +53,23 @@ test("progress clamps outside the timeline; settle is the terminal state", () =>
     assert.equal(after.progress, 1);
 });
 
-test("old form shows charge→morph; new form from the morph onward (overlap in morph)", () => {
+test("old pet whites out, evolved pet spins white in the tube, then reveals", () => {
     for (const beat of ["charge", "spinup"] as const) {
         assert.equal(isOldFormVisible(beat), true);
         assert.equal(isNewFormVisible(beat), false);
-        assert.equal(showOldName(beat), true);
     }
     assert.equal(isOldFormVisible("morph"), true);
-    assert.equal(isNewFormVisible("morph"), true); // cross-fade overlap
-    for (const beat of ["slowdown", "burst", "reveal", "settle"] as const) {
+    assert.equal(isNewFormVisible("morph"), true);
+    for (const beat of ["slowdown", "burst"] as const) {
+        assert.equal(isOldFormVisible(beat), false);
+        assert.equal(isNewFormVisible(beat), true);
+    }
+    for (const beat of ["reveal", "settle"] as const) {
         assert.equal(isNewFormVisible(beat), true);
         assert.equal(isOldFormVisible(beat), false);
     }
+    assert.equal(showOldName("morph"), true);
+    assert.equal(showOldName("slowdown"), false);
     // new name held back until the boom reveal
     assert.equal(showNewName("slowdown"), false);
     assert.equal(showNewName("burst"), false);
@@ -87,12 +93,13 @@ test("evolutionSpin: starts at 0, accelerates, lands on whole turns at SPIN_END,
     assert.ok(Math.abs(((6 * TAU) % TAU)) < 1e-9, "6 turns ≡ 0° (front)");
 });
 
-test("morph cross-fade: 0 before, eased across morph, 1 after", () => {
+test("morph progress hands off old-white to evolved-white inside the tube", () => {
     assert.equal(morphProgress(evolutionPhaseAt(2000)), 0); // spinup
-    const mid = morphProgress(evolutionPhaseAt(3600)); // ~mid morph (2600..4600)
-    assert.ok(mid > 0.2 && mid < 0.8);
-    assert.equal(morphProgress(evolutionPhaseAt(5000)), 1); // slowdown
-    assert.equal(morphProgress(evolutionPhaseAt(7000)), 1); // reveal
+    const midMorph = morphProgress(evolutionPhaseAt(3600)); // ~mid morph
+    assert.ok(midMorph > 0.2 && midMorph < 0.8);
+    assert.equal(morphProgress(evolutionPhaseAt(5000)), 1); // slowdown: evolved silhouette owns tube
+    assert.equal(morphProgress(evolutionPhaseAt(6950)), 1); // reveal
+    assert.equal(morphProgress(evolutionPhaseAt(8000)), 1); // settle
 });
 
 test("whiteness: colour→white over the first half of charge, white through burst, colour by settle", () => {
@@ -106,20 +113,22 @@ test("whiteness: colour→white over the first half of charge, white through bur
     assert.equal(whiteness(evolutionPhaseAt(8000)), 0); // settle: full colour
 });
 
-test("tube of light rises through the spin-up, holds, then collapses by the reveal", () => {
+test("tube of light waits until after the opening glow, then holds and goes down on reveal", () => {
     for (const t of [0, 600, 1800, 3600, 5000, 6200, 6950, 8000]) {
         const v = tubeIntensity(evolutionPhaseAt(t));
         assert.ok(v >= 0 && v <= 1, `tube in range at ${t}`);
     }
-    assert.equal(tubeIntensity(evolutionPhaseAt(600)), 0, "NO tube during the charge (pet does its slow spin first)");
-    assert.ok(tubeIntensity(evolutionPhaseAt(1800)) > 0.3, "rises during spin-up");
+    assert.equal(tubeIntensity(evolutionPhaseAt(0)), 0, "no tube at the start");
+    assert.equal(tubeIntensity(evolutionPhaseAt(600)), 0, "no tube during the opening glow");
+    assert.ok(tubeIntensity(evolutionPhaseAt(1800)) > 0.6, "rises during spin-up");
     assert.equal(tubeIntensity(evolutionPhaseAt(3600)), 1); // morph: fully up
     assert.equal(tubeIntensity(evolutionPhaseAt(5000)), 1); // slowdown: still up
-    assert.equal(tubeIntensity(evolutionPhaseAt(6950)), 0); // reveal: gone
-    // rise stays hidden through the charge, then climbs to 1 across the spin-up
-    assert.equal(tubeRise(evolutionPhaseAt(600)), 0);
+    assert.ok(tubeIntensity(evolutionPhaseAt(6510)) > 0, "tube is dropping during reveal");
+    assert.equal(tubeIntensity(evolutionPhaseAt(7400)), 0); // settle: gone
+    assert.equal(tubeRise(evolutionPhaseAt(600)), 0, "tube has not risen during charge");
     assert.ok(tubeRise(evolutionPhaseAt(2599)) > 0.9);
     assert.equal(tubeRise(evolutionPhaseAt(3600)), 1);
+    assert.ok(tubeRise(evolutionPhaseAt(6950)) < 1, "tube goes down during reveal");
 });
 
 test("tunnel intensity stays in [0,1], peaks in the slowdown, clean by the settle", () => {
@@ -143,4 +152,39 @@ test("scale grows through the spin then pops on the reveal back to 1", () => {
     assert.ok(Math.abs(morphScale(evolutionPhaseAt(5000)) - 1.12) < 1e-9); // slowdown holds
     assert.ok(morphScale(evolutionPhaseAt(6510)) > 1.12);        // reveal: boom pop bigger
     assert.equal(morphScale(evolutionPhaseAt(8000)), 1);         // settle: 1
+});
+
+test("2.5D stage motion swaps from old-white to evolved-white before color reveal", () => {
+    const chargeOld = evolutionStageMotion(evolutionPhaseAt(600), false);
+    const chargeNew = evolutionStageMotion(evolutionPhaseAt(600), true);
+    assert.equal(chargeOld.opacity, 1);
+    assert.equal(chargeOld.pose, "cast");
+    assert.equal(chargeNew.opacity, 0);
+
+    const morphOld = evolutionStageMotion(evolutionPhaseAt(3600), false);
+    const morphNew = evolutionStageMotion(evolutionPhaseAt(3600), true);
+    assert.ok(morphOld.opacity > 0 && morphOld.opacity < 1);
+    assert.ok(morphNew.opacity > 0 && morphNew.opacity < 1);
+    assert.ok(Math.abs(morphOld.opacity + morphNew.opacity - 1) < 1e-9);
+
+    const slowdownOld = evolutionStageMotion(evolutionPhaseAt(5000), false);
+    const slowdownNew = evolutionStageMotion(evolutionPhaseAt(5000), true);
+    assert.equal(slowdownOld.opacity, 0);
+    assert.equal(slowdownNew.opacity, 1);
+    assert.equal(slowdownNew.flash, 1);
+    assert.ok(slowdownNew.spinDeg > 0);
+
+    assert.equal(evolutionStageMotion(evolutionPhaseAt(6200), true).opacity, 1);
+    assert.ok(evolutionStageMotion(evolutionPhaseAt(6950), true).opacity > 0);
+});
+
+test("2.5D stage uses a full energy spin, then lands front-facing for reveal", () => {
+    const spinup = evolutionStageMotion(evolutionPhaseAt(1800), false);
+    const morph = evolutionStageMotion(evolutionPhaseAt(3600), false);
+    const slowdown = evolutionStageMotion(evolutionPhaseAt(5900), true);
+    assert.ok(spinup.spinDeg > 180, "old form is already in a full-circle energy spin during spinup");
+    assert.ok(morph.spinDeg > spinup.spinDeg, "spin continues through the morph");
+    assert.ok(slowdown.spinDeg > 2700, "new form carries a faster multi-turn spin through slowdown");
+    assert.equal(evolutionStageMotion(evolutionPhaseAt(6200), true).spinDeg, 0);
+    assert.equal(evolutionStageMotion(evolutionPhaseAt(8000), true).spinDeg, 0);
 });
