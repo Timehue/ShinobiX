@@ -681,6 +681,107 @@ export interface KvLike {
     hdel(key: string, ...fields: string[]): Promise<number>;
 }
 
+type MemoryKvEntry = { value: unknown; expiresAt: number | null };
+
+/**
+ * Process-local KV used only by the explicit story/release certification
+ * harness. It mirrors the JSON isolation and TTL/NX/hash semantics that the
+ * production adapters expose, while guaranteeing that a local QA run cannot
+ * read or mutate staging/production storage.
+ */
+export function _makeMemoryKv(): KvLike {
+    const entries = new Map<string, MemoryKvEntry>();
+    const clone = <T>(value: T): T => structuredClone(value);
+    const liveEntry = (key: string): MemoryKvEntry | null => {
+        const entry = entries.get(key);
+        if (!entry) return null;
+        if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+            entries.delete(key);
+            return null;
+        }
+        return entry;
+    };
+    const write = (key: string, value: unknown, ex?: number): void => {
+        entries.set(key, {
+            value: clone(value),
+            expiresAt: ex ? Date.now() + ex * 1000 : null,
+        });
+    };
+
+    return {
+        async get<T = unknown>(key: string): Promise<T | null> {
+            const entry = liveEntry(key);
+            return entry ? clone(entry.value as T) : null;
+        },
+        async set(key, value, options) {
+            if (options?.nx && liveEntry(key)) return null;
+            write(key, value, options?.ex);
+            return 'OK';
+        },
+        async del(...keys) {
+            let deleted = 0;
+            for (const key of keys) if (entries.delete(key)) deleted += 1;
+            return deleted;
+        },
+        async incr(key, options) {
+            const current = Number(liveEntry(key)?.value ?? 0);
+            const next = current + 1;
+            write(key, next, options?.ex);
+            return next;
+        },
+        async keys(pattern) {
+            const re = _patternToRegex(pattern);
+            const keys: string[] = [];
+            for (const key of entries.keys()) {
+                if (liveEntry(key) && re.test(key)) keys.push(key);
+            }
+            return keys;
+        },
+        async mget<T extends unknown[] = unknown[]>(...keys: string[]): Promise<(T[number] | null)[]> {
+            return keys.map((key) => {
+                const entry = liveEntry(key);
+                return entry ? clone(entry.value as T[number]) : null;
+            });
+        },
+        async hgetall<T = Record<string, unknown>>(key: string): Promise<T | null> {
+            const entry = liveEntry(key);
+            return entry ? clone(entry.value as T) : null;
+        },
+        async hkeys(key) {
+            const entry = liveEntry(key);
+            if (!entry || !entry.value || typeof entry.value !== 'object' || Array.isArray(entry.value)) return [];
+            return Object.keys(entry.value as Record<string, unknown>);
+        },
+        async hset(key, fields) {
+            const entry = liveEntry(key);
+            const current = entry?.value && typeof entry.value === 'object' && !Array.isArray(entry.value)
+                ? clone(entry.value as Record<string, unknown>)
+                : {};
+            let added = 0;
+            for (const [field, value] of Object.entries(fields)) {
+                if (!(field in current)) added += 1;
+                current[field] = clone(value);
+            }
+            write(key, current);
+            return added;
+        },
+        async hdel(key, ...fields) {
+            const entry = liveEntry(key);
+            if (!entry || !entry.value || typeof entry.value !== 'object' || Array.isArray(entry.value)) return 0;
+            const current = clone(entry.value as Record<string, unknown>);
+            let deleted = 0;
+            for (const field of fields) {
+                if (field in current) {
+                    delete current[field];
+                    deleted += 1;
+                }
+            }
+            write(key, current);
+            return deleted;
+        },
+    };
+}
+
 export function _makeDiskKv(root: string): KvLike {
     return {
         async get<T = unknown>(key: string): Promise<T | null> {
@@ -1115,12 +1216,19 @@ export async function migrateDiskRoutedKeysToOverlay(opts?: { dryRun?: boolean }
 const _onVercel = !!process.env.VERCEL;
 const _forcePg = process.env.FORCE_PG_KV === '1';
 const _havePgUrl = !!(process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL);
-const _baseKv: KvLike = (_forcePg || (_havePgUrl && !_onVercel)) ? pgKv : supabaseKv;
+const _qaMemoryKv = process.env.SHINOBIX_QA_MEMORY_KV === '1';
+if (_qaMemoryKv && (process.env.NODE_ENV !== 'test' || _onVercel)) {
+    throw new Error('[kv] SHINOBIX_QA_MEMORY_KV requires NODE_ENV=test and cannot run on Vercel.');
+}
+const _baseKv: KvLike = _qaMemoryKv
+    ? _makeMemoryKv()
+    : ((_forcePg || (_havePgUrl && !_onVercel)) ? pgKv : supabaseKv);
+if (_qaMemoryKv) console.log('[kv] isolated in-memory QA backend active');
 
 // Disk overlay (only attached when env tells us where to read/write).
-const _diskRoot = process.env.DISK_KV_DIR ?? null;
-const _proxyUrl = process.env.KV_PROXY_URL ?? null;
-const _proxyToken = process.env.KV_PROXY_TOKEN ?? null;
+const _diskRoot = _qaMemoryKv ? null : (process.env.DISK_KV_DIR ?? null);
+const _proxyUrl = _qaMemoryKv ? null : (process.env.KV_PROXY_URL ?? null);
+const _proxyToken = _qaMemoryKv ? null : (process.env.KV_PROXY_TOKEN ?? null);
 
 let _diskOverlay: KvLike | null = null;
 if (_diskRoot) {
@@ -1154,8 +1262,8 @@ export const kv = _diskOverlay ? _makeRoutedKv(_baseKv, _diskOverlay) : _baseKv;
 // deploy that silently routes saves to the (empty) base store instead of the
 // disk overlay — the exact failure REQUIRE_DISK_OVERLAY guards against. A value
 // of 'base-store' on a host that serves /api/save/* means saves are misrouted.
-export const saveStoreKind: 'disk' | 'remote-proxy' | 'base-store' =
-    _diskRoot ? 'disk' : ((_proxyUrl && _proxyToken) ? 'remote-proxy' : 'base-store');
+export const saveStoreKind: 'memory-qa' | 'disk' | 'remote-proxy' | 'base-store' =
+    _qaMemoryKv ? 'memory-qa' : (_diskRoot ? 'disk' : ((_proxyUrl && _proxyToken) ? 'remote-proxy' : 'base-store'));
 
 // Expose the disk backend directly for the /api/kv proxy endpoint to use.
 export const _diskKvForProxy: KvLike | null = _diskRoot ? _makeDiskKv(_diskRoot) : null;
