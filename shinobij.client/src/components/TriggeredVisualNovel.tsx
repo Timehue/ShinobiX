@@ -6,12 +6,13 @@
  * is type-imported from ../App (erased at compile time — no runtime cycle).
  */
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { CreatorEvent } from "../App";
 import type { Character } from "../types/character";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
 import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
+import { claimVnAction } from "../lib/vn-action-gate";
 import { biomeLabel } from "../data/world";
 
 type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number];
@@ -70,6 +71,16 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const isAtChoicePoint = lineIndex >= pageDialogue.length - 1 && !!pageChoices?.length;
     const [showFinale, setShowFinale] = useState(false);
     const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number; battle?: VnChoice["battle"] } | null>(null);
+    // React state updates are intentionally asynchronous. Without a synchronous
+    // gate, two activations in the same frame can skip a line, record a choice
+    // twice, or launch the same battle twice before the component re-renders.
+    const actionLocked = useRef(false);
+    function beginAction() {
+        return claimVnAction(actionLocked);
+    }
+    useEffect(() => {
+        actionLocked.current = false;
+    }, [event.id, pageIndex, lineIndex, pendingChoice, showFinale]);
     const isAuraSphereEvent = event.id === AURA_SPHERE_VN_ID;
     const isStoryChapterEvent = event.id.startsWith("story-");
     // Story interludes ("story-interlude-*") and road events ("story-road-*"):
@@ -84,9 +95,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // reward — completing hands off to the offer sheet, so the finale must
     // never route into the generic "Enter Battle" dead-end.
     const isSageEvent = event.id === "legacy-sage-offer";
-    function previousLine() { if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
-    function nextLine() { if (isAtChoicePoint) return; if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
+    function previousLine() { if (!canBack || !beginAction()) return; if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
+    function nextLine() { if (isAtChoicePoint || !beginAction()) return; if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
     function chooseOption(choice: VnChoice) {
+        if (!beginAction()) return;
         // Record the trait this choice grants (additive, deduped) before doing
         // anything else, so it persists even when the choice leads to a battle.
         onChoice?.(choice);
@@ -105,11 +117,22 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
         setPageIndex(target); setLineIndex(0);
     }
     function confirmPendingChoice() {
-        if (!pendingChoice) return;
+        if (!pendingChoice || !beginAction()) return;
         const { nextPage, battle } = pendingChoice;
         setPendingChoice(null);
         if (battle) { onBattle(event, battle); return; }
         advanceAfterChoice(nextPage);
+    }
+    function cancelScene() { if (beginAction()) onCancel(); }
+    function completeScene() { if (beginAction()) onComplete(); }
+    function startBattle(battle?: VnChoice["battle"]) { if (beginAction()) onBattle(event, battle); }
+    function replayScene() {
+        if (pageIndex === 0 && lineIndex === 0 && !pendingChoice) return;
+        if (!beginAction()) return;
+        setPageIndex(0);
+        setLineIndex(0);
+        setPendingChoice(null);
+        setShowFinale(false);
     }
     const stageStyle = pageImage
         ? ({
@@ -141,18 +164,18 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
             <div className="menu">
                 {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent ? (
                     <>
-                        <button className="admin-button" onClick={() => onBattle(event)}>
+                        <button className="admin-button" onClick={() => startBattle()}>
                             Enter Battle — {biomeLabel(event.biome)}
                         </button>
                         {/* No free "skip & claim": a combat event's reward is paid only on
                             WINNING the fight (completePendingArenaStoryBattle). Leaving here
                             dismisses the event with no reward. */}
-                        <button onClick={onCancel}>
+                        <button onClick={cancelScene}>
                             Leave — No Reward
                         </button>
                     </>
                 ) : (
-                    <button onClick={onComplete}>
+                    <button onClick={completeScene}>
                         {isAuraSphereEvent ? "Claim Aura Sphere" : isSageEvent ? "Hear the Sage's Offer" : isStoryInterlude ? "Continue" : "Continue to Story Hall"}
                     </button>
                 )}
@@ -176,14 +199,16 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     );
     return (
         <div className="card cinematic-card">
-            <button onClick={onCancel}>Skip Scene</button>
             <div className="visual-novel admin-vn-play">
                 <div className="vn-header">
                     <div>
                         <p className="act-label">{event.id.startsWith("story-road-") ? "ROAD STORY" : isStoryEpilogue ? "EPILOGUE" : isStoryInterlude ? "STORY INTERLUDE" : "TRIGGERED STORY EVENT"}</p>
                         <h2>{page.title || event.vnTitle || event.name}</h2>
                     </div>
-                    <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
+                    <div className="vn-header-actions">
+                        <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
+                        <button type="button" className="vn-skip-button" onClick={cancelScene} aria-label="Skip visual novel scene">Skip Scene</button>
+                    </div>
                 </div>
                 <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={stageStyle}>
                     {/* Scene picture (backdrop + portraits + narration). On mobile
@@ -236,12 +261,12 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     </div>
                 </div>
                 <div className="vn-choice-row">
-                    <button onClick={() => { setPageIndex(0); setLineIndex(0); setPendingChoice(null); setShowFinale(false); }}>Replay Scene</button>
+                    <button onClick={replayScene}>Replay Scene</button>
                     {/* Story chapters must fight through a lane CHOICE (which seals the
                         real reward + the reckoning) — the free battle would pay the
                         zeroed event reward and skip both. */}
-                    {!isSageEvent && !isStoryInterlude && !isStoryChapterEvent && <button onClick={() => onBattle(event)}>Battle in {biomeLabel(event.biome)}</button>}
-                    <button onClick={onComplete}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude ? "Continue" : isStoryChapterEvent ? "Continue to Story Hall" : "Claim Reward + Continue"}</button>
+                    {!isSageEvent && !isStoryInterlude && !isStoryChapterEvent && <button onClick={() => startBattle()}>Battle in {biomeLabel(event.biome)}</button>}
+                    <button onClick={completeScene}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude ? "Continue" : isStoryChapterEvent ? "Continue to Story Hall" : "Claim Reward + Continue"}</button>
                 </div>
                 {!isSageEvent && !isStoryInterlude && !isStoryEpilogue && (
                     <div className="vn-reward-strip">

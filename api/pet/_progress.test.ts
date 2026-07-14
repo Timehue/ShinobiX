@@ -1,5 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { gainServerPetXp, removePetItem, settleServerPetExpedition } from './_progress.js';
 
 describe('server pet progression', () => {
@@ -16,5 +18,11 @@ describe('server pet progression', () => {
         const pet = { rarity: 'standard', level: 1, maxLevel: 100, xp: 0, hp: 320, attack: 40, defense: 28, speed: 30, jutsus: [], expedition: { type: 'scout' } };
         const out = settleServerPetExpedition(pet, 'scout', 45, 1);
         assert.equal(out.pet.expedition, undefined); assert.equal(out.statGain, 1); assert.ok(Number(out.pet.attack) > 40);
+    });
+    it('requires collection before another pet training and removes the settled lease', () => {
+        const progress = readFileSync(join(process.cwd(), 'api', 'pet', 'progress.ts'), 'utf8');
+        assert.match(progress, /pet\.expedition \|\| pet\.training/);
+        assert.match(progress, /delete idlePet\.training/);
+        assert.doesNotMatch(progress, /training: undefined/);
     });
 });

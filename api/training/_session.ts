@@ -10,6 +10,20 @@ export interface ActiveTrainingSession {
     expiresAt: number;
 }
 
+export interface StoredTrainingGrant {
+    stat: string;
+    startedAt: number;
+    endsAt: number;
+    sealedGain: number;
+    sealedXp: number;
+}
+
+const TRAINING_STATS = new Set([
+    'strength', 'speed', 'intelligence', 'willpower',
+    'ninjutsuOffense', 'ninjutsuDefense', 'taijutsuOffense', 'taijutsuDefense',
+    'genjutsuOffense', 'genjutsuDefense', 'bukijutsuOffense', 'bukijutsuDefense',
+]);
+
 export function normalizeActiveTrainingSession(raw: unknown): ActiveTrainingSession | null {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
     const record = raw as Record<string, unknown>;
@@ -26,14 +40,31 @@ export function normalizeActiveTrainingSession(raw: unknown): ActiveTrainingSess
     return { token, startedAt, endsAt, expiresAt };
 }
 
-/** Only a live token may keep the single-session lease occupied. */
-export function activeTrainingBlocksStart(raw: unknown, tokenExists: boolean, now = Date.now()): boolean {
-    const active = normalizeActiveTrainingSession(raw);
-    return !!active && tokenExists && active.expiresAt > now;
+/** A server-owned saved lease remains redeemable even after its cache token ages out. */
+export function activeTrainingBlocksStart(raw: unknown): boolean {
+    return normalizeActiveTrainingSession(raw) !== null;
 }
 
 export function activeTrainingMatches(raw: unknown, token: string): boolean {
     return normalizeActiveTrainingSession(raw)?.token === token;
+}
+
+/**
+ * Recover the sealed reward from the server-owned save lease when the short-lived
+ * KV acceleration token has expired. Generic saves cannot replace activeTraining,
+ * so this is the same authority boundary as the original token record.
+ */
+export function storedTrainingGrant(raw: unknown, token: string): StoredTrainingGrant | null {
+    const active = normalizeActiveTrainingSession(raw);
+    if (!active || active.token !== token || !raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const record = raw as Record<string, unknown>;
+    const stat = typeof record.stat === 'string' ? record.stat : '';
+    const sealedGain = Math.floor(Number(record.statGain));
+    const sealedXp = Math.floor(Number(record.xp));
+    if (!TRAINING_STATS.has(stat)) return null;
+    if (!Number.isFinite(sealedGain) || sealedGain < 0 || sealedGain > 300) return null;
+    if (!Number.isFinite(sealedXp) || sealedXp < 0 || sealedXp > 750) return null;
+    return { stat, startedAt: active.startedAt, endsAt: active.endsAt, sealedGain, sealedXp };
 }
 
 /**

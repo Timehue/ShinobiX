@@ -1747,19 +1747,26 @@ body:has(.arena-fullscreen) .left-profile-card,
         padding: 8px 12px !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout .pvp-combat-vfx {
-        width: calc(38px * var(--vfx-scale, 1)) !important;
-        height: calc(38px * var(--vfx-scale, 1)) !important;
+    .arena-fullscreen .pvp-combat-vfx {
+        /* The battlefield fighters use a 52px logical orb. Keep mobile VFX to
+           that same footprint and neutralize the inline heavy/finisher scale;
+           otherwise the plate's own scale multiplies with its oversized image
+           and can cover several fighters or tap targets. */
+        --vfx-scale: 1 !important;
+        --vfx-asset-scale: 1 !important;
+        --vfx-asset-lift: 0px !important;
+        width: 52px !important;
+        height: 52px !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout .pvp-combat-vfx-tile {
-        width: calc(28px * var(--vfx-scale, 1)) !important;
-        height: calc(28px * var(--vfx-scale, 1)) !important;
+    .arena-fullscreen .pvp-combat-vfx-tile {
+        width: 36px !important;
+        height: 36px !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout .pvp-vfx-asset {
-        width: 118% !important;
-        height: 118% !important;
+    .arena-fullscreen .pvp-vfx-asset {
+        width: 100% !important;
+        height: 100% !important;
         opacity: 0;
     }
 

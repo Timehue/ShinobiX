@@ -38,7 +38,7 @@ import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOS
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent } from "../lib/story-road-events";
-import { STORY_RECKONING_ACCEPT_TRAIT, visibleStoryReckonings, isStoryReckoningId, isStoryReckoningReturnEventId, storyReckoningForEventId, storyReckoningIntroEvent, storyReckoningPayoffEvent, acceptStoryReckoning, reportStoryReckoning, turnInStoryReckoning } from "../lib/story-reckonings";
+import { STORY_RECKONING_ACCEPT_TRAIT, visibleStoryReckonings, isStoryReckoningId, isStoryReckoningReturnEventId, storyReckoningForEventId, storyReckoningIntroEvent, storyReckoningPayoffEvent, acceptStoryReckoning, reportStoryReckoning, turnInStoryReckoning, abandonStoryReckoning } from "../lib/story-reckonings";
 import type { StoryReckoning } from "../data/story-reckonings";
 import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
@@ -1497,10 +1497,12 @@ export function WorldMap({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "claim", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id }),
             });
-            const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number };
+            const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number; character?: Character };
+            if (data.character && !(data.ok && typeof data.totalRyo === "number")) updateCharacter(data.character);
             if (data.ok && typeof data.totalRyo === "number") {
                 coolNaturalWanderer(w);
-                updateCharacter(prev => prev ? ({ ...prev, ryo: data.totalRyo!, activeWandererQuest: null }) : prev);
+                if (data.character) updateCharacter(data.character);
+                else updateCharacter(prev => prev ? ({ ...prev, ryo: data.totalRyo!, activeWandererQuest: null }) : prev);
                 setWandererDialog({ w, msg: `“Well done.” You receive ${data.ryo} ryo.` });
             } else if (data.reason === "incomplete") {
                 setWandererDialog({ w, msg: "“Not yet. The roads are still dangerous.”" });
@@ -1516,6 +1518,24 @@ export function WorldMap({
     }
     // ── Quest Book (multi-stage epics) ───────────────────────────────────────
     // Reuses the wanderer art for the bestiary foes (bespoke boss art is a follow-up).
+    async function abandonWandererQuest(w: Wanderer) {
+        if (!(await gameConfirm("Abandon this task? Your progress on it will be lost.", { danger: true, confirmLabel: "Abandon" }))) return;
+        setWandererDialog({ w, busy: true });
+        try {
+            const res = await fetch("/api/sector/wanderer-quest", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "abandon", playerName: character.name }),
+            });
+            const data = await res.json() as { ok?: boolean; character?: Character };
+            if (!data.ok) throw new Error();
+            if (data.character) updateCharacter(data.character);
+            else updateCharacter(prev => prev ? ({ ...prev, activeWandererQuest: null }) : prev);
+            setWandererDialog({ w, msg: "You set the task down." });
+        } catch {
+            setWandererDialog({ w, msg: "The task could not be abandoned. Try again." });
+        }
+    }
     function epicBossPortrait(key: "bandit2" | "bandit3" | "boss" | "nemesis" | "beast"): string {
         if (key === "bandit2") return wandererRobberPortrait(1);
         if (key === "bandit3") return wandererRobberPortrait(2);
@@ -1717,6 +1737,7 @@ export function WorldMap({
     async function handleStoryReckoningReport(arc: StoryReckoning, openPayoff = false) {
         const resp = await reportStoryReckoning(character.name, arc.id);
         if (!resp.ok) {
+            if (resp.character) updateCharacter(resp.character);
             if (resp.reason === "incomplete") {
                 setTimeout(() => alert(`Not yet: ${resp.progress ?? 0} / ${resp.target ?? arc.task.target} complete.`), 40);
             } else {
@@ -1740,6 +1761,7 @@ export function WorldMap({
     async function handleStoryReckoningTurnIn(arc: StoryReckoning) {
         const resp = await turnInStoryReckoning(character.name, arc.id);
         if (!resp.ok) {
+            if (resp.character) updateCharacter(resp.character);
             const msg = resp.reason === "no-item" ? "You do not have the keepsake yet."
                 : resp.reason === "daily-cap" ? "You have settled enough reckonings today. Return tomorrow."
                 : "The reckoning could not be turned in. Try again in a moment.";
@@ -1765,6 +1787,18 @@ export function WorldMap({
         if (resp.fateShards) bits.push(`${resp.fateShards} fate shard${resp.fateShards === 1 ? "" : "s"}`);
         if (resp.title) bits.push(`the title "${resp.title}"`);
         setTimeout(() => alert(`Reckoning complete: ${bits.join(", ")}.`), 40);
+    }
+    async function handleStoryReckoningAbandon(w: Wanderer) {
+        if (!(await gameConfirm("Abandon this reckoning? Your progress and recovered keepsake will remain, but the active task will be cleared.", { danger: true, confirmLabel: "Abandon" }))) return;
+        setWandererDialog({ w, busy: true });
+        const resp = await abandonStoryReckoning(character.name);
+        if (!resp.ok) {
+            setWandererDialog({ w, msg: "The reckoning could not be abandoned. Try again." });
+            return;
+        }
+        if (resp.character) updateCharacter(resp.character);
+        else updateCharacter(prev => prev ? ({ ...prev, activeStoryReckoning: null }) : prev);
+        setWandererDialog({ w, msg: "The reckoning is released." });
     }
     // Tick once a second while a TIMED epic's journal is open so the countdown is live.
     const [, setEpicTick] = useState(0);
@@ -3176,11 +3210,13 @@ export function WorldMap({
                                                 return done ? (
                                                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                                         <button disabled={wandererDialog.busy} onClick={() => claimWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Claim reward"}</button>
+                                                        <button disabled={wandererDialog.busy} onClick={() => abandonWandererQuest(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon</button>
                                                         <button onClick={() => setWandererDialog(null)}>Leave</button>
                                                     </div>
                                                 ) : (
                                                     <>
                                                         <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Progress: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[metric]}</p>
+                                                        <button disabled={wandererDialog.busy} onClick={() => abandonWandererQuest(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2", marginRight: 8 }}>Abandon</button>
                                                         <button onClick={() => setWandererDialog(null)}>Leave</button>
                                                     </>
                                                 );
@@ -3215,9 +3251,13 @@ export function WorldMap({
                                                         got >= active.target ? (
                                                             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                                                 <button disabled={wandererDialog.busy} onClick={() => claimWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Claim reward"}</button>
+                                                                <button disabled={wandererDialog.busy} onClick={() => abandonWandererQuest(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon</button>
                                                             </div>
                                                         ) : (
-                                                            <p style={{ fontSize: ".78rem", margin: "0 0 8px" }}>Your errand: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[activeDef?.metric ?? questMetricForId(active.id)]}</p>
+                                                            <>
+                                                                <p style={{ fontSize: ".78rem", margin: "0 0 8px" }}>Your errand: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[activeDef?.metric ?? questMetricForId(active.id)]}</p>
+                                                                <button disabled={wandererDialog.busy} onClick={() => abandonWandererQuest(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon errand</button>
+                                                            </>
                                                         )
                                                     ) : (
                                                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -3251,7 +3291,12 @@ export function WorldMap({
                                                     </div>
                                                 </>
                                             );
-                                        })() : (
+                                        })() : wandererDialog.msg && isStoryReckoningId(wandererDialog.w.id) && character.activeStoryReckoning?.id === wandererDialog.w.id ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                                                <button disabled={wandererDialog.busy} onClick={() => handleStoryReckoningAbandon(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>{wandererDialog.busy ? "…" : "Abandon reckoning"}</button>
+                                                <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                            </div>
+                                        ) : (
                                             <button onClick={() => setWandererDialog(null)}>{wandererDialog.msg ? "Close" : "Leave"}</button>
                                         )}
                                     </div>

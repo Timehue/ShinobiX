@@ -147,7 +147,9 @@ export type ActiveTraining = {
     xp: number;
     statGain: number;
     staminaCost: number;
+    startedAt?: number;
     endsAt: number;
+    expiresAt?: number;
     // Total run length in ms, recorded at start so a cancel can prorate the
     // reward by elapsed time. Optional: saves created before this field shipped
     // fall back to a label-based duration lookup.
