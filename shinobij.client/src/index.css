@@ -24107,15 +24107,43 @@ html[data-vp="xs"] .pmtab {
        variable-height text box (long lines / choice buttons) never overlaps the
        portraits the way the desktop absolute-overlay did. ─────────────────────── */
     .vn-stage {
+        display: grid !important;
+        grid-template-rows: auto auto !important;
         min-height: 0 !important;
         border-width: 2px !important;
+        background: linear-gradient(180deg, rgba(7, 12, 27, .96), rgba(3, 7, 18, .98)) !important;
+        box-shadow: inset 0 0 0 1px rgba(250,204,21,.22), 0 14px 32px rgba(0,0,0,.34) !important;
+    }
+
+    .vn-stage.vn-has-image {
+        background-image: none !important;
+        background-color: #040812 !important;
+    }
+
+    .vn-stage::after {
+        content: none !important;
     }
 
     .vn-picture {
         display: block !important;
         position: relative;
-        height: 210px;
+        height: clamp(240px, 58svh, 430px);
         overflow: hidden;
+        background:
+            linear-gradient(180deg, rgba(7,12,27,.05) 0%, rgba(7,12,27,.24) 64%, rgba(3,7,18,.7) 100%),
+            var(--vn-page-image, radial-gradient(circle at 78% 12%, rgba(255,247,205,.95) 0 38px, rgba(255,247,205,.15) 39px 78px, transparent 79px), radial-gradient(circle at 22% 35%, rgba(56,189,248,.22), transparent 22%), linear-gradient(180deg, #173e68 0 38%, #0f243b 39% 70%, #08111f 71%)) !important;
+        background-size: cover !important;
+        background-position: center !important;
+        border-bottom: 1px solid rgba(250,204,21,.28);
+        isolation: isolate;
+    }
+
+    .vn-picture .vn-backdrop {
+        inset: 0 !important;
+    }
+
+    .vn-has-image .vn-picture .vn-backdrop {
+        display: none !important;
     }
 
     .vn-character {
@@ -24143,10 +24171,14 @@ html[data-vp="xs"] .pmtab {
         left: auto !important;
         right: auto !important;
         bottom: auto !important;
-        margin-top: 8px !important;
+        margin: 0 !important;
         min-height: 0 !important;
-        padding: 12px 14px !important;
+        padding: 12px 14px calc(12px + env(safe-area-inset-bottom)) !important;
         border-width: 2px !important;
+        border-left: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+        border-radius: 0 !important;
         z-index: 7;
     }
 
