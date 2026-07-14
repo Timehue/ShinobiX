@@ -1592,3 +1592,396 @@ html body.ui-scroll-locked {
   color: currentColor;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
 }
+
+/* Focused layout cleanup: the shared top banners are no longer rendered, so the
+   play surface should use the freed vertical space instead of inheriting the old
+   banner-era sizing. These rules live in the final skin file so they win the
+   legacy map overrides in index.css. */
+.app-shell:not(.screen-start) {
+  --main-gutter: clamp(4px, 0.55vw, 10px);
+}
+
+.app-shell:not(.screen-start) .center-game {
+  padding-top: clamp(6px, 0.8vw, 12px) !important;
+}
+
+.app-shell:not(.screen-start) .center-game > :where(.profile-page-card, .inventory-page, .card) {
+  width: min(100%, 1680px) !important;
+  max-width: min(100%, 1680px) !important;
+}
+
+.app-shell.screen-worldMap .center-game > .card {
+  padding: clamp(8px, 1vw, 14px) !important;
+  background: rgba(8, 11, 15, 0.72);
+  border-color: rgba(209, 167, 88, 0.32);
+}
+
+.app-shell.screen-worldMap .world-map-scroll {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.app-shell.screen-worldMap .generated-world-map {
+  width: min(100%, calc((100dvh - 82px) * 1.5)) !important;
+  max-width: 100% !important;
+  max-height: calc(100dvh - 82px) !important;
+  border-color: rgba(230, 196, 119, 0.72) !important;
+  box-shadow:
+    inset 0 0 80px rgba(0, 0, 0, 0.38),
+    0 16px 38px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(209, 167, 88, 0.28) !important;
+}
+
+.atlas-landmark {
+  border-color: rgba(230, 196, 119, 0.92) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), transparent 54%),
+    rgba(16, 13, 8, 0.82) !important;
+  box-shadow: 0 3px 0 rgba(2, 6, 23, 0.82), 0 0 18px rgba(209, 167, 88, 0.28) !important;
+}
+
+.atlas-landmark strong {
+  display: inline-grid !important;
+  place-items: center;
+  justify-self: center;
+  width: 24px;
+  height: 24px;
+  color: var(--gold-300) !important;
+  line-height: 1;
+}
+
+.atlas-landmark strong svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+}
+
+.atlas-central {
+  border-color: rgba(230, 196, 119, 0.95) !important;
+  background:
+    linear-gradient(180deg, rgba(209, 167, 88, 0.28), rgba(30, 22, 10, 0.86)),
+    rgba(22, 101, 52, 0.84) !important;
+}
+
+.wm-topbar {
+  margin-bottom: 6px;
+}
+
+.wm-topbar .village-back-button {
+  margin-bottom: 0;
+}
+
+.wm-zoom-btn,
+.wm-village-chip {
+  border-color: rgba(209, 167, 88, 0.42);
+  background: rgba(11, 9, 6, 0.74);
+  color: var(--gold-200);
+}
+
+@media (min-width: 1500px) {
+  .app-shell.screen-worldMap .generated-world-map {
+    width: min(100%, calc((100dvh - 76px) * 1.5)) !important;
+    max-height: calc(100dvh - 76px) !important;
+  }
+}
+
+@media (max-width: 800px) {
+  html.wm-zoom .world-map-scroll {
+    height: clamp(330px, calc(100dvh - 214px), 620px) !important;
+    border-width: 2px !important;
+    border-color: rgba(230, 196, 119, 0.58) !important;
+  }
+
+  html.wm-zoom .wm-topbar {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  html.wm-zoom .wm-topbar .village-back-button {
+    min-height: 30px;
+    padding: 5px 9px;
+    font-size: 12px;
+  }
+
+  html.wm-zoom .wm-zoom-controls {
+    gap: 4px;
+  }
+
+  html.wm-zoom .wm-zoom-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    font-size: 16px;
+  }
+
+  html.wm-zoom .wm-village-bar {
+    gap: 5px;
+    margin-top: 7px;
+  }
+
+  html.wm-zoom .wm-village-chip {
+    padding: 5px 8px;
+    font-size: 10.5px;
+  }
+
+  html.wm-zoom .wm-village-chip .wm-chip-dot {
+    width: 6px;
+    height: 6px;
+    margin-right: 4px;
+  }
+
+  html.wm-zoom .world-map-scroll .atlas-landmark {
+    padding: 3px 5px !important;
+    font-size: 9.5px !important;
+    border-width: 1px !important;
+  }
+
+  html.wm-zoom .world-map-scroll .atlas-landmark strong {
+    width: 18px;
+    height: 18px;
+  }
+
+  html.wm-zoom .world-map-scroll .atlas-landmark strong svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+/* Final studio pass: keep the tutorial companion from reading like another
+   page banner, and keep the world map framed cleanly on desktop and mobile. */
+body.coach-banner-open .onboarding-coach-banner.coach-guide {
+  width: min(540px, calc(100vw - 32px)) !important;
+  max-width: calc(100vw - 32px) !important;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+  align-items: flex-end;
+}
+
+body.coach-banner-open .coach-guide-pet {
+  width: clamp(64px, 7vmin, 92px);
+  margin-right: -4px;
+}
+
+body.coach-banner-open .coach-guide-bubble {
+  border-width: 1px;
+  border-radius: 10px;
+  border-bottom-left-radius: 4px;
+  padding: 8px 10px 9px;
+  background:
+    linear-gradient(180deg, rgba(37, 30, 15, 0.96), rgba(8, 12, 22, 0.97)),
+    rgba(6, 10, 18, 0.96);
+  border-color: rgba(209, 167, 88, 0.62);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 241, 199, 0.06);
+}
+
+body.coach-banner-open .coach-guide-bubble::before {
+  border-left-width: 1px;
+  border-bottom-width: 1px;
+  border-color: rgba(209, 167, 88, 0.62);
+}
+
+body.coach-banner-open .coach-guide-head {
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+body.coach-banner-open .coach-guide-label {
+  color: var(--gold-200);
+  font-size: 9.5px;
+  letter-spacing: 0.7px;
+}
+
+body.coach-banner-open .coach-guide-line {
+  font-size: 12.5px;
+  line-height: 1.35;
+  min-height: 2.5em;
+}
+
+body.coach-banner-open .coach-skip-link {
+  font-size: 11px;
+  padding: 3px 5px;
+}
+
+body.coach-banner-open .coach-guide-actions {
+  gap: 7px;
+  margin-top: 7px;
+}
+
+body.coach-banner-open .coach-guide-actions button,
+body.coach-banner-open .coach-guide-actions .location-button {
+  min-height: 30px !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  border-color: rgba(209, 167, 88, 0.64) !important;
+  background:
+    linear-gradient(180deg, rgba(209, 167, 88, 0.26), rgba(95, 66, 24, 0.24)),
+    rgba(10, 13, 20, 0.92) !important;
+  color: var(--gold-100) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.05em !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 241, 199, 0.05), 0 8px 18px rgba(0, 0, 0, 0.25) !important;
+}
+
+@media (min-width: 801px) {
+  body.coach-banner-open .onboarding-coach-banner.coach-guide {
+    left: calc(50% - 84px) !important;
+  }
+
+  .app-shell.screen-worldMap .center-game {
+    padding-top: clamp(12px, 1.4vw, 24px) !important;
+  }
+
+  .app-shell.screen-worldMap .center-game > .card {
+    width: min(100%, calc((100dvh - 80px) * 1.68), 1680px) !important;
+  }
+}
+
+@media (min-width: 1500px) {
+  body.coach-banner-open .onboarding-coach-banner.coach-guide {
+    width: min(560px, calc(100vw - 360px)) !important;
+  }
+}
+
+@media (max-width: 800px) {
+  body.coach-banner-open .onboarding-coach-banner.coach-guide {
+    width: min(330px, calc(100vw - 18px)) !important;
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    left: 50% !important;
+  }
+
+  body.coach-banner-open .coach-guide-pet {
+    width: 54px;
+  }
+
+  body.coach-banner-open .coach-guide-bubble {
+    padding: 7px 8px 8px;
+  }
+
+  body.coach-banner-open .coach-guide-label {
+    font-size: 8.5px;
+    letter-spacing: 0.55px;
+  }
+
+  body.coach-banner-open .coach-guide-line {
+    font-size: 11.5px;
+    line-height: 1.3;
+    min-height: 2.4em;
+  }
+
+  body.coach-banner-open .coach-guide-actions button,
+  body.coach-banner-open .coach-guide-actions .location-button {
+    min-height: 28px !important;
+    padding: 5px 8px !important;
+    font-size: 10px !important;
+  }
+
+  body.coach-banner-open .center-game {
+    padding-bottom: calc(138px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  html.wm-zoom .world-map-card,
+  html.wm-zoom .app-shell.screen-worldMap .center-game > .card {
+    padding: 7px !important;
+  }
+
+  html.wm-zoom .world-map-scroll {
+    height: clamp(350px, calc(100dvh - 178px), 640px) !important;
+  }
+
+  html.wm-zoom .wm-village-bar {
+    max-height: 56px;
+    overflow-y: auto;
+    align-content: flex-start;
+    padding-right: 2px;
+  }
+
+  html.wm-zoom .wm-village-chip {
+    min-height: 24px;
+    border-radius: 7px;
+  }
+}
+
+@media (max-width: 800px) {
+  html.wm-zoom .app-shell.screen-worldMap .wm-topbar {
+    min-height: 34px !important;
+  }
+
+  html.wm-zoom .app-shell.screen-worldMap .wm-topbar > .village-back-button {
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 34px !important;
+    height: 34px !important;
+    padding: 0 12px !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+  }
+
+  html.wm-zoom .app-shell.screen-worldMap .wm-zoom-controls {
+    gap: 5px !important;
+  }
+
+  html.wm-zoom .app-shell.screen-worldMap .wm-zoom-btn {
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    font-size: 17px !important;
+    line-height: 1 !important;
+    box-sizing: border-box !important;
+  }
+
+  html.wm-zoom .app-shell.screen-worldMap .wm-zoom-btn[aria-label="Reset view"] {
+    font-size: 13px !important;
+  }
+
+  html.wm-zoom .app-shell.screen-worldMap .wm-village-chip {
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 24px !important;
+    padding: 4px 7px !important;
+    border-radius: 7px !important;
+    font-size: 10px !important;
+    line-height: 1.1 !important;
+  }
+
+  html.wm-zoom body.coach-banner-open .onboarding-coach-banner.coach-guide {
+    width: min(300px, calc(100vw - 20px)) !important;
+  }
+
+  body.coach-banner-open .coach-guide-actions {
+    justify-content: flex-end;
+  }
+
+  body.coach-banner-open .coach-guide-actions button,
+  body.coach-banner-open .coach-guide-actions .location-button {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding-inline: 10px !important;
+    white-space: normal !important;
+  }
+}
+
+@media (min-width: 801px) {
+  body.coach-banner-open .onboarding-coach-banner.coach-guide {
+    width: min(430px, calc(100vw - 360px)) !important;
+  }
+
+  body.coach-banner-open .coach-guide-actions {
+    justify-content: flex-end;
+  }
+
+  body.coach-banner-open .coach-guide-actions button,
+  body.coach-banner-open .coach-guide-actions .location-button {
+    width: auto !important;
+    min-width: 180px !important;
+    max-width: 100% !important;
+  }
+}

@@ -184,6 +184,33 @@ const PATHS: Record<GameIconName, ReactElement> = {
     bolt: (
         <path d="M13.4 2.3 5.6 13a.65.65 0 0 0 .53 1.03h3.3l-1.2 7a.55.55 0 0 0 1 .42l7.9-11a.65.65 0 0 0-.53-1.03h-3.5l1.5-6.6a.55.55 0 0 0-1-.42Z" />
     ),
+    leaf: (
+        <>
+            <path d="M20.6 3.4C13.4 3.2 6.1 7 4.4 13.8c-.8 3.2 1.3 5.8 4.2 5.8 6.4 0 11.1-7.5 12-16.2Z" />
+            <path fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" opacity=".45" d="M6 18.3C9.2 13.1 13.5 9.7 19 5.6M9.4 14.5h5.2M11.6 11.8h4.6" />
+        </>
+    ),
+    snow: (
+        <>
+            <path d="M11 2.8h2v18.4h-2zM4 7.1l1-1.7 16 9.2-1 1.7zM20 7.1l-1-1.7-16 9.2 1 1.7z" />
+            <circle cx="12" cy="12" r="2.1" />
+        </>
+    ),
+    moon: (
+        <path d="M18.9 16.4c-1.1.8-2.5 1.2-4 1.2-4 0-7.2-3.2-7.2-7.2 0-2.8 1.6-5.2 3.9-6.4-5 .3-9 4.5-9 9.6 0 5.3 4.3 9.6 9.6 9.6 3.7 0 6.9-2.1 8.5-5.2-.6.2-1.2.3-1.8.3Z" />
+    ),
+    gate: (
+        <>
+            <path d="M4 5.2h16v2.4H4zM6.3 8.8h2.6v11.4H6.3zM15.1 8.8h2.6v11.4h-2.6zM9.9 10.6h4.2v2.2H9.9z" />
+            <path opacity=".45" d="M3 3h18v2.2H3z" />
+        </>
+    ),
+    tower: (
+        <>
+            <path d="M7 9.2h10v12H7zM5.6 5.6h12.8v3.6H5.6zM8.2 2.6h7.6v3H8.2z" />
+            <path fillRule="evenodd" clipRule="evenodd" opacity=".45" d="M10.4 13.1h3.2v8.1h-3.2z" />
+        </>
+    ),
 };
 
 export function GameIcon({
