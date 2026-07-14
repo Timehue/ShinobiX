@@ -90,16 +90,16 @@ export const storylines: Record<string, StoryStep[]> = {
     "Stormveil Village": [
         milestone("Stormveil Village", 4, "First Thunder", "Stormveil Training Scout", "⚡", [
             { ...storyPage("The Challenge Board", "The arena rim at dusk, chalk odds on slate, banner cables humming", "Mira Volt", [
-                "New blood. Good. Stand on the dry side of the line unless you like your boots conducting.",
-                "I'm Mira. I fix cables and I don't bet, which makes me the two most unusual things in this village.",
-                "That wall of slates is the challenge board. Anybody can post a grudge on it, anybody can answer one, and the whole village comes to watch. No chains here. You settle it yourself, in the open, and then you shake hands and get soup.",
-                "Before you fight, the clerk takes your reason. Everyone hesitates there. Don't worry about it. It's just a line on a slate."
+                "You're new. Stand over here. The ground on that side is wet, and those cables are live.",
+                "I'm Mira. I take care of the rigging around the arena.",
+                "That's the challenge board. Someone posts a grievance, someone else answers it, and everybody comes to watch. Afterward, if nobody is badly hurt, there's soup.",
+                "The clerk will ask why you're fighting. Just tell him."
             ]), image: "/scenes/story/story-stormveil-village-4-0.webp" },
             { ...storyPage("The Reason Line", "The board clerk's stand, a wet brush waiting", "Ledger Clerk", [
-                "Name, first. Then the bout you're answering. That part is easy.",
-                "Then the reason. The board wants to know why you fight, and I write exactly what you say, so say it the way you mean it.",
-                "Take your time. The ones who rush it always come back and stare at the slate later, trying to remember what they meant.",
-                "So. Why do you fight?"
+                "Your name first. Then tell me which bout you're answering.",
+                "Now I need a reason. I write down whatever you say.",
+                "You can take a minute if you need one.",
+                "Why are you fighting?"
             ]), image: "/scenes/story/story-stormveil-village-4-0.webp", choices: [
                 { text: "\"So nobody else has to.\"", nextPage: 2, trait: "sv4-post-protector" },
                 { text: "\"To be the strongest name on this board.\"", nextPage: 3, trait: "sv4-post-strongest" },
@@ -108,37 +108,37 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "\"I don't have a reason I can say.\"", nextPage: 6, trait: "sv4-post-unknown" }
             ] },
             { ...storyPage("A Shield Reason", "The clerk's stand", "Ledger Clerk", [
-                "So nobody else has to. That's a shield reason. The crowd loves a shield reason; the odds-runners hate it, because you people never know when to stay down.",
-                "Posted and chalked, %name. Welcome to Stormveil.",
-                "One tip, free. Keep that reason where you can see it. Reasons go missing around here more than you'd think."
+                "So nobody else has to. All right.",
+                "You're posted, %name. Welcome to Stormveil.",
+                "Try to remember you said that when someone gives you an easier reason later."
             ]), image: "/scenes/story/story-stormveil-village-4-0.webp", choices: [
                 { text: "Step back from the board.", nextPage: 7 }
             ] },
             { ...storyPage("A Ladder Reason", "The clerk's stand", "Ledger Clerk", [
-                "The strongest name on the board. A ladder reason. Half this village posted that once. Most of them are soup vendors now, and good ones.",
-                "Posted and chalked, %name. Welcome to Stormveil.",
-                "The board remembers every rung, friend. Climb loud."
+                "The strongest name on the board. You're not the first to say it.",
+                "You're posted, %name. Welcome to Stormveil.",
+                "Good luck. You'll need some."
             ]), image: "/scenes/story/story-stormveil-village-4-0.webp", choices: [
                 { text: "Step back from the board.", nextPage: 7 }
             ] },
             { ...storyPage("A Debt Reason", "The clerk's stand", "Ledger Clerk", [
-                "Someone owes you. A debt reason. I'll be honest, those draw the best odds and the worst company.",
-                "Posted and chalked, %name. Welcome to Stormveil.",
-                "When you collect, come tell me what it was. Debt reasons are the ones I most often have to read back to people, later, off the slate."
+                "Someone owes you. Fine. I don't need the rest.",
+                "You're posted, %name. Welcome to Stormveil.",
+                "If you change your mind, tell me before the bout, not during it."
             ]), image: "/scenes/story/story-stormveil-village-4-0.webp", choices: [
                 { text: "Step back from the board.", nextPage: 7 }
             ] },
             { ...storyPage("A Searching Reason", "The clerk's stand", "Ledger Clerk", [
-                "Looking for someone. Fighting does turn heads; it's cheaper than posting a notice and louder too.",
-                "Posted and chalked, %name. Welcome to Stormveil.",
-                "I hope they see you. And I hope you still remember what you'll say when they do. Write it down somewhere that isn't slate."
+                "Looking for someone. I hope this gets their attention.",
+                "You're posted, %name. Welcome to Stormveil.",
+                "What you say to them is your business."
             ]), image: "/scenes/story/story-stormveil-village-4-0.webp", choices: [
                 { text: "Step back from the board.", nextPage: 7 }
             ] },
             { ...storyPage("A Blank Reason", "The clerk's stand", "Ledger Clerk", [
-                "No reason you can say. Hm. I've chalked a lot of strange lines on this board. Blanks are rare, and the rare ones I remember.",
-                "I'll post it blank, %name. The board takes blanks. Welcome to Stormveil, and come back when the word turns up.",
-                "Blanks make the odds-runners nervous, by the way. That's reason enough to like you already."
+                "You can't say. All right. I'll leave it blank.",
+                "The board allows that, even if the odds-runners don't like it.",
+                "You're posted, %name. Welcome to Stormveil."
             ]), image: "/scenes/story/story-stormveil-village-4-0.webp", choices: [
                 { text: "Step back from the board.", nextPage: 7 }
             ] },
@@ -149,10 +149,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "And now it's not up at all. Clerk! Your board ate the new blood."
             ]), image: "/scenes/story/story-stormveil-village-4-0.webp" },
             { ...storyPage("Elder Vanta", "The board, an old man reading slates like weather", "Elder Vanta", [
-                "Don't shout at the clerk, girl, the clerk is a saint with a brush. The board did that on its own.",
-                "I'm Vanta. I've stood at this rail longer than both of you have been alive, and I have seen the board misfile a name exactly twice before tonight.",
-                "It is probably nothing. The board is old. Old things hiccup.",
-                "But the last two times, I remembered them. That is all I will say about it. Now go take your first bout before the light goes; the training scout doesn't wait, and the crowd came to see the new reason fight."
+                "Leave the clerk alone. He didn't do it.",
+                "I'm Vanta. I've watched this board a long time. I've seen it lose a name twice before.",
+                "Both times, something bad followed. I don't know if that means anything yet.",
+                "Go take your bout. I'll look into this."
             ]), image: "/scenes/story/story-stormveil-village-4-0.webp", choices: [
                 { text: "Walk to the arena floor.", nextPage: 9 }
             ] },
@@ -170,9 +170,9 @@ export const storylines: Record<string, StoryStep[]> = {
         milestone("Stormveil Village", 15, "The Riot Bell", "Tempest Guard Captain", "⚡", [
             { ...storyPage("The Market Breaks", "The market square mid-riot, stalls going over, the riot bell hammering", "Mira Volt", [
                 "Stay on the wall side. Don't swing unless something swings at you.",
-                "This is wrong. Look at it. Market riots start at a stall and spread. This one started everywhere at once, like somebody rang it in.",
-                "That's Old Besh throwing crates. Besh sells buttons. Twenty years selling buttons and never a posted grudge, and now he's throwing crates with a face like he's owed blood.",
-                "Ask him why. Go on, get his eyes. Ask him why he's swinging."
+                "This didn't spread from one fight. Everybody started at once.",
+                "That's Besh with the crate. He sells buttons. I've never seen him hit anybody.",
+                "Get him to look at you. Ask him what's wrong."
             ]), image: "/scenes/story/story-stormveil-village-15-1.webp" },
             { ...storyPage("The Empty Why", "A cornered stall, a button-seller with bleeding knuckles", "Narrator", [
                 "You catch the button-seller's arm mid-throw and turn him. His eyes take a moment to find you, like a man surfacing from deep water.",
@@ -181,16 +181,16 @@ export const storylines: Record<string, StoryStep[]> = {
                 "'I had it,' he says. 'A minute ago I had it.'"
             ]), image: "/scenes/story/story-stormveil-village-15-1.webp" },
             { ...storyPage("The Kage in the Square", "The square, a big man walking into the riot unarmed", "Kage Raiko Veyr", [
-                "ENOUGH. Bells down. Hands down. All of you, look at me.",
-                "Besh. Old friend. Put down the crate; buttons don't fly well. Mara, your daughter is watching you from the well, go be embarrassed. The rest of you, if you can't remember why you're swinging, that's the weather talking, and the weather answers to me.",
-                "There. Done. Nobody dead. Somebody get soup going; anger is hungry work.",
-                "You. New blood. You went in barehanded and asked a rioting man his reason instead of breaking his arm. That's rarer than it should be. Come find me when you're older and angrier, I'll have work for you."
+                "Enough. Put it down. All of you.",
+                "Besh, drop the crate. Mara, your daughter is by the well. Go check on her. If you can't remember why you're fighting, stop until you can.",
+                "Is anyone badly hurt? No? Good. Get some water over here.",
+                "You. The newcomer. You went in without a weapon and talked to him. I noticed."
             ]), image: "/scenes/story/story-stormveil-village-15-1.webp" },
             { ...storyPage("After the Kage", "The square's edge, Raiko moving crowd to crowd, beloved", "Mira Volt", [
-                "And that's Raiko Veyr. He'll stop a riot with his voice, remember your mother's name, and carry a drunk home on his shoulder, all before supper. Nobody has died of a grudge in this village since he raised the bells. People love him. Mostly I do too.",
-                "So explain this to me, because I rig cables, and cables make sense.",
-                "The riot order the Guard is collecting off the ground. It has today's date, the Kage's wax, and a route drawn around the market like a fence around a garden.",
-                "Somebody scheduled this. And everyone who swung a fist walked away lighter, like a purse after market day."
+                "That's Raiko Veyr. He knows everybody, and everybody trusts him. I do too. Most of the time.",
+                "Now look at this before the Guard takes it.",
+                "It's a riot order with today's date and the Kage's seal. The route around the market was drawn in advance.",
+                "Somebody planned this. I want to know why."
             ]), image: "/scenes/story/story-stormveil-village-15-1.webp", choices: [
                 { text: "The Guard closes the square.", nextPage: 4 }
             ] },
@@ -212,33 +212,33 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Stormveil Village", 25, "Orders Written in Lightning", "Lightning-Sealed Informant", "⚡", [
             { ...storyPage("The Lifted Scroll", "Mira's rooftop, rain coming, a stolen scroll between you", "Mira Volt", [
-                "Yes, I lifted it off a Guard clerk. No, I don't feel bad. He'll assume he lost it in the riot; that's what the riot was for. Losing things.",
-                "Look at it properly. Real tower wax. Route orders drawn a week early, fencing the market like a garden bed. And this column of tick marks down the side. Eleven marks, and a line under, like a bill added up.",
-                "I rig cables. I don't do politics. But I know what a fence is FOR, and somebody built one around that market a week before anybody was angry inside it.",
-                "There's a word my mother used for money that gets washed until nobody can say where it came from. Laundered. I keep looking at this scroll and hearing her say it."
+                "I took it from a Guard clerk. He thinks he lost it during the riot.",
+                "The tower wax is real. The route was drawn a week early, and there are eleven marks down the side.",
+                "I don't know what the marks mean. I do know somebody had the market surrounded before the first punch.",
+                "My mother would have called that laundering. Make a mess, then hide what you took inside it."
             ]), image: "/scenes/story/story-stormveil-village-25-2.webp" },
             { ...storyPage("The Name on the Board", "The rooftop, wind pulling at an old slate Mira keeps wrapped in oilcloth", "Mira Volt", [
-                "Since we're up here. There's a thing I show people once, to see what they do with it.",
+                "There's something else. I don't show this to many people.",
                 "Kesa Volt. My mother. Cable rigger, best on the coast. Dead six years. And her grudge is still posted on the board, still drawing odds, still scheduled twice a season against a man who is also dead.",
-                "Two dead people, fighting on a schedule. The clerks call it an estate bout. The odds-runners call it tradition. I call it my mother, working the arena from under a stone.",
-                "I asked the tower to strike it once. One time. They said accounts close when they're settled, and hers is still drawing. Still DRAWING. Their word."
+                "The clerks call it an estate bout. I don't care what they call it. She's dead. He is too.",
+                "I asked the tower to remove it. They said the account was still active. I haven't asked again."
             ]), image: "/scenes/story/story-stormveil-village-25-2.webp", choices: [
                 { text: "Show her the Red Tally token from the border. Same tick marks.", nextPage: 2, requireTrait: "rd22-showed-the-token" },
                 { text: "\"Take the scroll to Vanta. He reads boards better than anyone.\"", nextPage: 3 }
             ] },
             { ...storyPage("The Same Hand", "The rooftop, the lead token flat on the scroll", "Mira Volt", [
-                "Where did you get that. No. Tell me walking, we're going to Vanta.",
+                "Where did you get that? Tell me on the way. We're going to Vanta.",
                 "Same tick marks. Same line under the count. Your border fire and my market riot, added up by the same hand.",
-                "Whatever is counting, it isn't counting villages. It's counting everywhere.",
-                "Grab the scroll. And step where I step; half these roofs are rotten and I know which half."
+                "This isn't only happening here.",
+                "Bring the scroll. Step where I step. Some of these roofs are rotten."
             ]), image: "/scenes/story/story-stormveil-village-25-2.webp", choices: [
                 { text: "Cross the roofs to Vanta.", nextPage: 3 }
             ] },
             { ...storyPage("Vanta Reads the Wax", "Vanta's rail-side shack, purse ledgers stacked to the ceiling", "Elder Vanta", [
-                "Close the door. Rain's coming and so is trouble; no reason to let in both.",
-                "Yes, it's real wax. Yes, it's a scheduled riot. A harvest, girl. Somebody planted anger, grew it, and cut it, and the people it grew in walked home without their reasons. Don't look at me like that. I've suspected for years. Suspecting is comfortable. You've brought me the uncomfortable kind of paper.",
-                "Eleven marks. That's an intake count. Eleven reasons taken. I know it's reasons, because I have watched ten thousand bouts from that rail, and I can tell you every purse ever paid and not one, not ONE of the reasons the fighters gave me the morning after.",
-                "There's a shaft under the arena. Old as the founding. They tell the young clerks it's a well. Kesa used to say the whole village is plumbed like a still. I laughed at her. I would like to un-laugh, and she isn't here to receive it."
+                "Close the door. The rain's getting in.",
+                "The wax is real. So is the order. Somebody arranged the riot, then took something from the people in it. I've suspected that for years. I never had proof.",
+                "The eleven marks are an intake count. I think they took eleven reasons. I can remember every purse I've paid, but ask any fighter why they were angry the next morning and most of them can't tell you.",
+                "There's a shaft under the arena. Kesa knew about it. She tried to tell me, and I laughed at her."
             ]), image: "/scenes/story/story-stormveil-village-25-2.webp", choices: [
                 { text: "Someone is on the roof.", nextPage: 4 }
             ] },
@@ -261,10 +261,10 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Stormveil Village", 35, "The Storm Engine", "Storm Engine Warden", "⚡", [
             { ...storyPage("Down the Well That Isn't", "The maintenance shaft under the arena, rungs slick, a hum below", "Mira Volt", [
-                "Rung's loose at the third landing, pass it word going down. Vanta, you good? Say something bookmaker-ish so I know you're breathing.",
-                "The hum you're feeling in your teeth is the reservoir. I've rigged cable over every roof in this village and the same hum is in all of them, faint, and I always told myself it was wind.",
-                "It isn't wind.",
-                "Lamps low. And whatever we find at the bottom, nobody touches anything shiny. I know exactly which one of us I'm saying that to."
+                "Loose rung at the third landing. Vanta, are you still with us? Say something.",
+                "That vibration is coming from below. I've felt it in the roof cables for years. I thought it was the wind.",
+                "I was wrong.",
+                "Keep the lamps low. Don't touch anything until we know what it is."
             ]), image: "/scenes/story/story-stormveil-village-35-3.webp" },
             { ...storyPage("Eleven Pipes", "The engine floor: eleven great pipes running from the arena floor overhead into a banked crystal reserve", "Narrator", [
                 "The arena is directly overhead. You can hear tonight's crowd through the stone, a heartbeat of stamping feet.",
@@ -273,21 +273,20 @@ export const storylines: Record<string, StoryStep[]> = {
                 "In the middle of it all sits the reserve, banked like a hearth, and it is the size of a house, and it is nearly full."
             ]), image: "/scenes/story/story-stormveil-village-35-3.webp" },
             { ...storyPage("The First Storm", "An alcove off the engine floor, founders' slates behind wax", "Elder Vanta", [
-                "Here. If we're going to be down here, you'll see both halves. That's the deal I'm making with myself, so don't argue.",
-                "The founders' alcove. Every slate here is a war, given up whole. Read them. 'My feud with Harn's line, thirty years and both our fathers. Given to the sky, gladly, so my sons fight nothing but weather.' Signed. Witnessed.",
-                "The first Stormveil named their worst wars, said aloud why they carried them, and chose to set them down. Signed. Witnessed. Settled. Each war given up that way raised the storm shield a little higher. That's what the engine was FOR: you gave your war away on PURPOSE, and it kept the lightning off everyone's roof. Beautiful. I mean that.",
-                "Now look at the pipes. Nobody signs the pipes. The modern board kept the founders' signature and threw out the choosing. It holds a grudge open and lets the floor take the reason underneath it, and it does not care whether the fight is real or fixed. A true feud feeds it. A scheduled one just feeds it on time. We didn't inherit their shield. We inherited their still, and we ran it on the whole village."
+                "Before you decide what this place is, read one of these.",
+                "This says, 'My feud with Harn's line, thirty years and both our fathers. Given to the sky, gladly, so my sons fight nothing but weather.' He signed it. Someone witnessed it.",
+                "That was the original bargain. People chose to give up a feud, and the engine used it to protect the village.",
+                "The pipes don't ask. The board keeps a grudge open until there is nothing left to take. At some point, we stopped asking permission."
             ]), image: "/scenes/story/story-stormveil-village-35-3.webp", choices: [
                 { text: "Ask Mira what her mother knew about this place.", nextPage: 3, requireTrait: "mira-trust" },
                 { text: "Read the chalked figures at the pipe junctions.", nextPage: 4 }
             ] },
             { ...storyPage("Kesa's Whisper", "The alcove, Mira's lamp low", "Mira Volt", [
-                "You remember I told you where I'd run, if I ran. I've never told anyone the second half of that.",
-                "My mother came down here. I'm sure of it now. The winter after my father drowned, she kept saying the village was plumbed like a still, and she started drawing cable maps that made no sense, anchors on the high ridge where there's nothing to power.",
-                "Everyone said grief had her, because my father had just died, and she posted the grudge about it. Biggest mistake of her life, posting that. They scheduled her every season after. She got quieter every bout, and I watched it and called it healing.",
-                "They drained my mother's grief down one of these pipes, one fight at a time.",
-                "Then they kept her name on the board after her heart quit because the account was still open.",
-                "Still drawing."
+                "I never told you everything about my mother.",
+                "She came down here. I'm sure of it. After my father drowned, she started drawing anchors on the high ridge. Nobody understood what she was trying to build.",
+                "She posted her grievance, and after that they scheduled her every season. She got quieter each time. I thought she was getting better.",
+                "They were taking it from her.",
+                "Then she died, and they left her name on the board."
             ]), image: "/scenes/story/story-stormveil-village-35-3.webp", choices: [
                 { text: "Something moves by the reserve.", nextPage: 4 }
             ] },
@@ -298,10 +297,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "It looks at each of you in turn. Vanta states forty years of guilt, plainly, and it lets him stand. Mira states her mother's name, and it bows its head an inch. Then it looks at you, and waits, and whatever it reads where your reason should be, it does not find, and its stance changes to the one on the older, sterner slates."
             ]), image: "/scenes/story/story-stormveil-village-35-3.webp" },
             { ...storyPage("State Your Reason", "The engine floor, the Warden between you and the reserve", "Elder Vanta", [
-                "Don't take it personally. It's the only honest clerk in this village; it just works for a dead ledger.",
-                "It can't read you. That means it can't file you, and it has four hundred years of instructions about what walks in here unfiled.",
-                "Raiko knows we're down here by now. The pipes will have told him, or the crowd upstairs did. So whatever you're going to do, the tower is already counting it.",
-                "Bell's up, as the young people say."
+                "It isn't angry. It's following old instructions.",
+                "It can't read you, and it doesn't know what to do with that.",
+                "Raiko probably knows we're here. Whatever you decide, decide now.",
+                "Here it comes."
             ]), image: "/scenes/story/story-stormveil-village-35-3.webp" },
         ], [
             { text: "Say it stops. To the Warden's face, on the record.", conclusion: "You state a reason after all: this stops. The Warden's slate crackles as four centuries of filings rearrange around a sentence it has no column for. For a moment its stance is almost gratitude. Then it attacks, because a construct with a broken ledger has only one instruction left, and upstairs the crowd stamps, feeding the pipes.", trait: "honorable" },
@@ -325,18 +324,18 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Answer the dare at the board.", nextPage: 3 }
             ] },
             { ...storyPage("The Missing Chalk Line", "The rite chalk, the crowd noise far away for a moment", "Kage Raiko Veyr", [
-                "You copied the junction chalk. Of course you did. I told the Warden you were the counting kind; it owes me a drink.",
-                "All right. Plainly, and then the rite goes on. The surplus goes up the hill and out of my hands. There's a debt above this village, older than my seat, and it was old when my grandmother's grandmother took the chair. Every Kage inherits its payment schedule with the seat.",
-                "I keep the intake gentle as I can. Scheduled little lettings, nobody dead, everybody's roof standing. You've seen what I bought with it: no grudge in thirty years has put a body in the ground. Show me the Kage who did better odds with the weather we're under.",
-                "And do you know what the seat charged ME? Listen to the crowd a moment. That roar. I hear every voice in it separately, every grudge in this village, all day, all night. The seat made me the drain. So post your rival, Jonin, and pick your fights the way I couldn't: one at a time."
+                "You copied the numbers. You weren't supposed to see those.",
+                "I'm not going to lie to you. The surplus goes up the hill. There's an old debt tied to this seat, and every Kage inherits the payment schedule.",
+                "I keep the withdrawals small. Nobody has died in a grudge fight in thirty years, and the storm shield still works. I know what that has cost people. I made the choice anyway.",
+                "You want to know what I get from the seat? I hear every voice in that crowd, all the time. Now finish the rite."
             ]), image: "/scenes/story/story-stormveil-village-50-4.webp", choices: [
                 { text: "Walk back to the board.", nextPage: 3 }
             ] },
             { ...storyPage("Supply Lines", "The board's shadow, Mira pretending to check a cable anchor", "Mira Volt", [
-                "Don't post his name. Look at me. Don't.",
-                "I know it feels like the honest move, dragging the real fight into the open. But I rig cables for a living, and I know a supply line when I see one anchored. That board doesn't schedule endings. It schedules you, forever.",
-                "My mother posted her real grief once, in the open, being honest. They tapped her for six years. The board never forgets a name, and it never lets a good one rest.",
-                "Whatever you write up there, make sure it's something you can afford to have milked. Or write nothing, and let them call you a coward with an empty slate. Coward is survivable. I plan my exits around survivable."
+                "Don't write his name. Please.",
+                "I know why you want to. You want the real fight where everyone can see it. But the board will keep scheduling it for the rest of your life.",
+                "My mother told the truth once. They used it for six years.",
+                "Leave the slate empty if you have to. People will call you a coward. You'll live."
             ]), image: "/scenes/story/story-stormveil-village-50-4.webp", choices: [
                 { text: "Take the brush.", nextPage: 4 }
             ] },
@@ -353,43 +352,43 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Stormveil Village", 65, "The Mission That Should Not Exist", "Tempest Execution Squad", "⚡", [
             { ...storyPage("The Ravine Order", "The tower gatehouse, an order with fresh wax and no clerk's initials", "Tempest Guard Captain", [
-                "You. Jonin. Orders from the tower, and I'll say up front I don't like the smell of them.",
-                "A camp in the north ravine. Forty-some souls. Charge sheet says sedition. The particulars say, and I am quoting, 'refusal to post.' They don't put grudges on the board. That's the whole crime. They stay angry in private, like anyone's grandmother.",
-                "An execution squad drew the duty an hour ago. You're ordered up as ranking witness. Witness, it says. The tower likes a clean margin.",
-                "I skipped my report this morning for the first time in nine years, writing and unwriting a protest. In the end I sent nothing. You want to know what this village does to a man, there it is: I sent nothing. Go north, Jonin."
+                "Jonin. I have an order from the tower, and I don't like it.",
+                "There's a camp in the north ravine. About forty people. They're charged with sedition because they refuse to post their grievances on the board.",
+                "An execution squad left an hour ago. You're listed as the ranking witness.",
+                "I tried to write a protest this morning. I didn't send it. I'm sorry. If you ride now, you can reach the camp first."
             ]), image: "/scenes/story/story-stormveil-village-65-5.webp", choices: [
                 { text: "Ask what the order's pay line says. You know the shares now.", nextPage: 1, requireTrait: "sv58-refused-the-ninth" },
                 { text: "Go north ahead of the squad.", nextPage: 2 }
             ] },
             { ...storyPage("The Ninth Share", "The gatehouse, the order flat between you", "Tempest Guard Captain", [
-                "The pay line. You would look there. Fine, look with me.",
-                "Nine shares on completion. Eight named to the squad. The ninth made out the way the arena ledger writes the elders' cut, and pressed beside it, small as a flyspeck, a circle cut in quarters. You know the column; I hear you were offered a seat at it and turned the old man down.",
-                "Somebody set aside your share before you'd even said yes. That's not a pay slate, Jonin. That's a bet.",
-                "Ride hard and you'll beat the squad by half a bell. What you do with the half bell is between you and whatever you post for a conscience."
+                "The pay line? All right. Look.",
+                "There are nine shares. Eight go to the squad. The ninth is marked like the elders' cut, with a quartered circle beside it.",
+                "That share was set aside for you before you accepted the order.",
+                "You can beat them there by half a bell. Use it."
             ]), image: "/scenes/story/story-stormveil-village-65-5.webp", choices: [
                 { text: "Ride north.", nextPage: 2 }
             ] },
             { ...storyPage("The Camp That Keeps Its Anger", "The ravine camp: cook fires, mended tents, slates nailed to posts with reasons written LARGE", "Rebel Medic", [
-                "That's close enough with the village crest on you. State your business or state your reason; we take either here.",
-                "Yes, we refuse to post. Look around; that's the whole conspiracy. Cook fires and kept grudges. My sister was taken in a riot sweep four years back and came home sweet as milk and missing the why of her own divorce, so no, we don't feed the board.",
-                "We keep our reasons where they were born. In us. Ugly and heavy and OURS. You know what that buys us? Headaches. Bad sleep. Arguments that last. Being people, in other words.",
-                "And once a season, a cart comes up from the valley and we pull rescued slates off it. Confiscated reasons, headed for the shaft. We can't give them back to their owners; the owners mostly can't remember owning them. But somebody should keep them. Somebody should KEEP them."
+                "Stop there. I can see the village crest. Why are you here?",
+                "Yes, we refuse to post. My sister was arrested in a riot four years ago. She came home and couldn't remember why she'd left her husband.",
+                "So we argue in private. We lose sleep. Sometimes we stay angry for years. At least the anger is ours.",
+                "Once a season we intercept a cart of confiscated slates headed for the shaft. We keep them here because most of the owners no longer remember what was taken."
             ]), image: "/scenes/story/story-stormveil-village-65-5.webp" },
             { ...storyPage("The Rescued Slates", "A dry cave wall racked with hundreds of confiscated reason-slates", "Mira Volt", [
-                "You ride hard, you know that? I nearly killed my horse matching you. The Captain talks too much, thank the sky.",
-                "Look at this place. It's a library of everything the village made people put down. Wedding grudges. Land lines. A child's slate, look, somebody posted a REASON at nine years old and they took it. Who tallies a nine-year-old.",
-                "Hold on. Hold ON.",
-                "This is my mother's hand. Kesa Volt, her grievance, the real one, the one they milked her on, in her own writing. And under it, folded, cable maps. The ridge anchors. The design everyone said was her grief talking. It's here. It's HERE."
+                "You ride too fast. I almost lost my horse trying to catch you.",
+                "Look at these. Weddings, land disputes, family fights. This one belonged to a child. Nine years old.",
+                "Wait.",
+                "This is my mother's handwriting. It's her grievance. And these are the ridge plans. I thought they were gone."
             ]), image: "/scenes/story/story-stormveil-village-65-5.webp", choices: [
                 { text: "Wrap Kesa's grievance and maps. They leave this ravine with you.", nextPage: 4, trait: "sv65-saved-the-reason" },
                 { text: "Put the pages in Mira's hands. Her mother, her carrying.", nextPage: 4, trait: "sv65-gave-mira-the-page" },
                 { text: "Reseal the rack. The camp keeps its dead honestly; leave them whole.", nextPage: 4, trait: "sv65-resealed-the-cart" }
             ] },
             { ...storyPage("Eight Riders", "The ravine mouth, dust rising on the valley road", "Rebel Medic", [
-                "Dust on the road. Eight riders in tower gray, and they ride like men who've already been paid.",
-                "We have children here, and elders, and exactly four people who can hold a line, and I am one of them and I am holding a splint.",
-                "You came ahead of them. That means you had a half bell and you spent it HERE. Whatever that makes you, it isn't a witness.",
-                "So, Jonin. What are we, up here? Say it fast."
+                "Eight riders on the road. Tower gray.",
+                "There are children and old people here. Four of us can fight, and one of those four has a broken wrist.",
+                "You reached us first. That has to mean something.",
+                "Are you helping us or not?"
             ]), image: "/scenes/story/story-stormveil-village-65-5.webp" },
             { ...storyPage("The Ranking Witness", "The ravine mouth, the squad dismounting with ceremony", "Narrator", [
                 "The squad forms up with the unhurried confidence of people who have done this before and been thanked for it. Their leader carries the order like a shield.",
@@ -404,27 +403,27 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Stormveil Village", 75, "Kesa's Bout", "Mira Volt, False Betrayer", "⚡", [
             { ...storyPage("The Estate Closure", "The board at dawn, a new slate in the estate column, Mira staring at it", "Mira Volt", [
-                "They posted it this morning. Look at it. LOOK at it.",
-                "Closure bout, estate account: Kesa Volt. The board wants my mother's account settled at last, isn't that generous, and accounts settle by bout, and the estate fights through blood. Meaning me. Six years they milked her, and now the tower wants the account CLOSED before anyone reads it too closely.",
-                "And look who they matched as the closing opponent. You. My name against yours, main card, three days. They put my dead mother between us like a purse.",
-                "I have two exit routes and a boat, and for the first time in my life I'm not taking them. I'm going to close her account MY way. I need you to hear the plan, and I need you not to talk me out of it, and there's nobody else on this coast I'd say those two sentences to."
+                "They posted this this morning.",
+                "It's a closure bout for my mother's account. Because I'm her daughter, I have to fight it.",
+                "They matched me with you. Three days from now, main card.",
+                "I was going to leave. I'm not leaving. I have a plan, and I need you to listen before you tell me it's a bad one."
             ]), image: "/scenes/story/story-stormveil-village-75-6.webp", choices: [
                 { text: "\"You read the routing mark on my fixed bout. Read this one.\"", nextPage: 1, requireTrait: "sv70-read-the-mark" },
                 { text: "Hear the plan on the roof.", nextPage: 2 }
             ] },
             { ...storyPage("The Routing Mark", "The board, Mira's finger under the slate's corner", "Mira Volt", [
-                "Same corner. Same little routing mark, pressed into the slate like a wax tooth. You showed me yours, so yes, I went and learned to read them.",
-                "This bout is pre-written. Result already filed: I lose in the fourth exchange, grief overwhelms the estate, account closes at maximum draw. They mean to milk her one last time THROUGH me, in front of the whole village, and call it mourning.",
-                "They wrote my grief a script. My actual grief. There's a schedule for when I break.",
-                "So we're going to give the board a bout it didn't write. Roof. Now. Please."
+                "Look in the corner. It's the same routing mark that was on your bout. I learned how to read it.",
+                "They already filed the result. I'm supposed to lose in the fourth exchange, and the account closes at maximum draw.",
+                "They picked the moment I'm supposed to break down.",
+                "Meet me on the roof. Please."
             ]), image: "/scenes/story/story-stormveil-village-75-6.webp", choices: [
                 { text: "Up the cable run.", nextPage: 2 }
             ] },
             { ...storyPage("Storm Rules", "Mira's rooftop, the plan chalked on slate, her hands steady", "Mira Volt", [
-                "Storm rules. What's said on this roof stays on this roof.",
-                "The bout happens; we can't stop the posting. But a closure bout ends when the account holder's reason is SPOKEN AND SETTLED, that's founders' law, it's still on the oldest slate at the rail. Nobody invokes it because nobody remembers their reason by the time closure comes. Convenient, isn't it.",
-                "My mother's reason survived that ravine because you rode fast one day. I've been up the mountain twice since. I've read it until I hear it in her voice, and I could write it out blind, both hands, in the rain.",
-                "So we fight, full speed, no theater. The floor will pull; let it. Honest grief has always been its best draw, and it does not care that ours is real. But when the crowd is loudest, I stop, and I say her reason OUT LOUD, and I settle it with my own mouth under founders' closure law, and the account, THEIR word, closes with her reason still in my hands. They wrote me a script for when I break. I'm bringing them a reason they can't take. Are you in?"
+                "Don't repeat this to anyone.",
+                "We can't stop the bout. But founders' law says a closure ends if the account holder's reason is spoken and settled. The rule is still on the oldest slate.",
+                "I've read my mother's reason enough times to know it by heart.",
+                "We fight for real. In the fourth exchange, I stop and read it. You keep the officials away from me until I'm done. If the rule still means anything, her account closes and her reason stays with me. Are you in?"
             ]), image: "/scenes/story/story-stormveil-village-75-6.webp", choices: [
                 { text: "Three days pass. The bell.", nextPage: 3 }
             ] },
@@ -441,33 +440,33 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Stormveil Village", 85, "The Kage's True Storm", "Hollow Tempest General", "⚡", [
             { ...storyPage("Fees Waived", "The square under a bruise-green sky, clerks posting free bouts as fast as chalk allows", "Tempest Guard Captain", [
-                "Tower order, dawn bell: all posting fees waived. Every grudge in Stormveil rides the board free until further notice. There are QUEUES, Jonin. Grandmothers are posting their neighbors. The clerks have run out of good slate.",
-                "And look at the sky doing that. I've stood gate duty thirty years and the sky has never done that.",
-                "Every bout we post feeds the floor faster. He knows that better than anyone. He signed it anyway, which means the tower needs the intake, which means something upstairs is DUE.",
-                "I sent my morning report. It says, in full: 'This is wrong.' Nine years late, but sent."
+                "The tower waived every posting fee at dawn. The line reaches around the square, and the clerks are running out of slate.",
+                "I've watched this sky for thirty years. I've never seen it turn like that.",
+                "Raiko knows the bouts feed the engine. If he wants this many at once, the tower is trying to pay something tonight.",
+                "I sent a report saying the order was wrong. I should have done that years ago."
             ]), image: "/scenes/story/story-stormveil-village-85-7.webp" },
             { ...storyPage("The Balloon Payment", "The rail, Harrow with a valise and no intention of staying", "Kite Harrow", [
-                "There you are. I'd say let's walk, but I'm leaving tonight, so this is the whole meeting.",
-                "Your engine is one intake of four. Fire, frost, moon, storm, four spouts, one cistern, and the cistern's account came due. I've seen the paper. Tonight the reserve pays out its balloon, and your Kage is filling the tank the only way the plumbing allows: everyone's quarrels, free of charge.",
-                "I priced the payout, because pricing things is how I stay calm. You can't afford it. Nobody can. That's the point of a balloon payment; it exists to be defaulted on, and then the lender owns the borrower.",
-                "You pulled me back from a bad sale once, so here's your receipt: the surge valve sits in the square, wearing armor, answering to the tower. Cut the square off the grid and the payment comes up short. That's not advice. Advice I charge for."
+                "I was looking for you. I'm leaving tonight, so listen.",
+                "Your engine is one of four feeding the same reserve. Fire, frost, moon, and storm. I saw the payment order. The entire reserve comes due tonight.",
+                "Raiko is filling it with every grievance he can get. It still won't be enough. The debt was designed that way.",
+                "The surge valve is in the square, under that armored thing. Cut the square off from the engine and you can interrupt the payment."
             ]), image: "/scenes/story/story-stormveil-village-85-7.webp", choices: [
                 { text: "\"Stay. Hold the coast gate open tonight. I'll owe you.\"", nextPage: 2, requireTrait: "sv80-pulled-her-back" },
                 { text: "Head for the square.", nextPage: 3 }
             ] },
             { ...storyPage("The Anomaly, Again", "The rail, Harrow looking at her own valise like it betrayed her", "Kite Harrow", [
-                "Stay. Through THAT sky. For an IOU. Do you know what my hourly is during a catastrophe? Neither do I; nobody's ever been able to afford one.",
-                "You pulled me off a ledge once and didn't invoice me for it, and I've been carrying the imbalance ever since like a stone in my boot. Fine. FINE. The coast gate stays open, and anyone who runs gets out, and we're even.",
-                "I want it noted that this is the second free thing I've done in six years and both of them were you.",
-                "Go break something expensive. I'll keep the door."
+                "Stay? In that weather? For a favor?",
+                "You helped me once and asked for nothing. Fine. The coast gate stays open, and anyone who wants out gets out.",
+                "After this, we're even.",
+                "Go. I'll keep the door open."
             ]), image: "/scenes/story/story-stormveil-village-85-7.webp", choices: [
                 { text: "Head for the square.", nextPage: 3 }
             ] },
             { ...storyPage("The Rigger's Answer", "A rooftop over the square, cables everywhere, Mira already working", "Mira Volt", [
                 "Don't talk, hold this. Turnbuckle. Other hand. Good.",
-                "I'm not running. Look at me not running. My mother drew ridge anchors for exactly this sky and everyone called it grief, and if her daughter runs tonight then they were right, so I'm rigging.",
-                "The General is standing on the surge valve like a lid on a kettle. You do what you do to lids. I'll do what my family does to weather.",
-                "Hey. Whatever this costs. My mother's account is closed and her plans are alive, and both of those are you. I don't say things twice, so file that properly."
+                "I'm not leaving. My mother drew those ridge anchors for a storm like this. I'm going to finish the work.",
+                "The General is standing over the surge valve. Get it away from there. I'll handle the cables.",
+                "And, hey. Thank you. For my mother. Now go."
             ]), image: "/scenes/story/story-stormveil-village-85-7.webp", choices: [
                 { text: "The tower door stands open.", nextPage: 4 }
             ] },
@@ -498,33 +497,33 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The board at the base of the tower is blank, and it is humming, and on the top step sits a bowl of soup going cold, with a note under it in a big cheerful hand: 'You'll fight better fed. R.'"
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp" },
             { ...storyPage("At the Gate", "The tower gate, Mira with her mother's gloves tucked in her belt", "Mira Volt", [
-                "I know. Past the gate it's you and him; that's the law of a challenge and I've stopped arguing with laws older than the seat. I'll hold the gate. It's what riggers are for; ask any door.",
-                "Inventory, because you love when I do inventory. Two exit routes, rigged and ready, in case tonight goes wrong. And one boat I am not taking, in case it goes right.",
-                "If the sky comes apart, the ridge line is anchored and I know every knot in it by heart. Her knots. Go do the loud part.",
-                "Hey. Afterward there's soup at my place. Plan on it. Having an afterward is half of winning; a very tired man taught me that."
+                "I know. Past the gate, it's only you and him. I'll stay here.",
+                "I checked the exits. Both are clear if this goes badly. The boat is still there too, but I'm not taking it.",
+                "If the sky comes apart, I can hold the ridge line. Go deal with Raiko.",
+                "Come over for soup afterward. I'm serious."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "Climb to the storm floor.", nextPage: 2 }
             ] },
             { ...storyPage("The Drain Speaks", "The storm floor, open to the rotating sky, Raiko at the rail", "Kage Raiko Veyr", [
-                "Punctual. I like that in weather and people.",
-                "Before the bell, you get the truth, because you climbed for it. The ledger above us has a name; the exiles who cut the coast stair knew it before the tower had windows. The Hollow Gate. Four seats sit at it, one for each quarter of the circle. It is the same mark the tower presses into its pay slates, and each Kage is paid in kind for the intake he keeps open. Each of us really only knows his own price. They say frost buys certainty and moon buys silence; what fire is paid, I never learned.",
-                "You want to know my price? Quiet. The seat made me the drain for every grudge in this village, every voice, all at once, always. And the ledger pays me one hour a day of QUIET. One hour. I have started wars in my head for that hour. I have scheduled riots for it. I am not proud, and I am not sorry, and both of those are true at once, which is the most honest sentence I own.",
-                "And you should hear the ugliest part from me, not from her daughter. I spent Kesa Volt twice. For six years I let her grief be milked on that board to keep three hundred roofs standing, and every drop the shield did not burn I sent up the hill to feed the Gate. One woman's mourning, warming a village and paying a debt at once, for years. Do not blame the Gate for my handwriting. It set the line. I kept taking the bet. And every time this village won, somebody else covered the purse. This round, it was her.",
-                "So. The storm is called, the account is due, and the seat takes challenges tonight only. Ask your questions, or ask your questions with your hands."
+                "You're on time.",
+                "Before we fight, I'll answer one question. The debt above this village is called the Hollow Gate. There are four seats tied to it, one for each village. I don't know what the others were promised. I know what I was promised.",
+                "Quiet. One hour a day when I don't hear every grievance in Stormveil. It sounds small. It isn't. I have done terrible things to keep that hour.",
+                "Kesa Volt's grief fed the shield for six years. I knew. I let it happen, and I sent what the shield didn't use up the hill.",
+                "That's the answer. If you have another question, ask it now."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp" },
             { ...storyPage("The Man Becoming Weather", "The storm floor, lightning walking Raiko's shoulders like gulls", "Kage Raiko Veyr", [
-                "You're staring at my shoulders. Nobody stares at a Kage's shoulders; they stare at the office. Go ahead and say what the lightning's doing.",
-                "Thirty years of drawing rivalry, and the machine is turning me INTO it. I pick fights with doors now. With the sea. Last week I challenged my own reflection and the mirror is still cracked and I do not remember doing it. The drain runs both ways, in the end. It always ran both ways.",
-                "The founders gave their wars away gladly and their engine kept the sky off us. Somewhere between them and me, the village stopped giving and the engine started TAKING, and the man in this seat became the part of the pipe that tastes everything first.",
-                "Enough. The sky's turning and the account is due, and one of us decides tonight what this village runs on. The board is blank, %name. It's waiting for the last posting. Come write it."
+                "You're looking at the lightning. I can feel it too.",
+                "It started a few years ago. I lose my temper at doors, at the sea, at people who aren't there. Last week I broke a mirror and couldn't remember doing it.",
+                "The engine is changing me. I knew it would. I thought I had more time.",
+                "That's enough talking. The payment is due, and the board is blank. Step forward."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "Step onto the storm floor.", nextPage: 19 }
             ] },
             { ...storyPage("The Quiet Storm", "The storm floor, Kesa's cable maps unrolled on the rail", "Kage Raiko Veyr", [
-                "What is that. Bring it here. Slowly, the wind's a thief.",
-                "Kesa Volt's ridge line. I know this drawing; it crossed my desk twelve years ago with a note from the arena council calling it a widow's grief. I signed the note. I SIGNED it. And now you've built it, and the Low Terraces slept through the cyclone's first arm with the engine cold. My engine, cold, and three hundred roofs still standing.",
-                "I asked for a quieter storm the way a man asks the sea for mercy. Rhetorically. Nobody brings one.",
-                "Call the line, %name. Loud, into the wind, like an odds-runner at last bell. I want the whole sky to hear the number that beats mine."
+                "Let me see that. Hold it down.",
+                "This is Kesa Volt's ridge line. It crossed my desk twelve years ago. The council called it grief, and I signed the refusal.",
+                "You built it? The Low Terraces made it through the first arm with the engine off?",
+                "All right. Show me exactly what happened."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "\"Three hundred roofs. One district. Engine cold. And the district SAW it hold.\"", nextPage: 5, requireTrait: "sv88-woke-the-district" },
                 { text: "Open Vanta's storm log to the signed pages and read him every line.", nextPage: 6, requireTrait: "sv88-logged-the-storm" },
@@ -532,78 +531,77 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Set the anchor splice on the rail and let the wind sing through it.", nextPage: 8 }
             ] },
             { ...storyPage("What the District Saw", "The storm floor, the Low Terraces' lamps visible far below", "Kage Raiko Veyr", [
-                "The district watched it hold. Then the book's closed, isn't it. I can argue with a rigger. I can't argue with three hundred families who slept through a cyclone and woke up owing nobody their anger.",
-                "Thirty years, I asked every furious person who climbed this tower to bring me a quieter storm. You went and RIGGED one.",
-                "Three hundred families saw it hold. I cannot call that a lucky night, and I cannot argue with people who slept through the proof."
+                "Three hundred families saw it hold. I sent people down there to check because I didn't believe the first report.",
+                "The engine was off. No intake at all.",
+                "I can't dismiss that as luck."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "He looks to the turning sky.", nextPage: 15 }
             ] },
             { ...storyPage("The Signed Log", "The storm floor, Vanta's log flat under Raiko's wide hand", "Kage Raiko Veyr", [
-                "Hand it over. I've torn up prettier odds sheets than this. Let's see if it tears.",
-                "Wind loads at the ridge anchors. Draw at every junction: zero. Roof counts, hour by hour, in that old bookmaker's hand, SIGNED. Vanta hasn't signed anything but purse sheets in forty years; he told me ledgers outlive testimony and testimony gets old men killed. He signed every page of this one.",
-                "The figures hold. Worst arm of the cyclone, and the figures hold without one grudge burned.",
-                "The figures survive my reading. Vanta taught my clerks too well, and it seems he saved his best lessons for you."
+                "Give me the log.",
+                "Wind load at the anchors. Nothing drawn at the junctions. Roof counts every hour. Vanta signed every page?",
+                "Damn him.",
+                "No. I'm not arguing with the figures. They hold."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "He sets the log down.", nextPage: 15 }
             ] },
             { ...storyPage("The Board's Own Odds", "The storm floor, a torn odds slate spinning in the wind between you", "Kage Raiko Veyr", [
-                "I saw the line move. Dawn bell, the runners re-chalked storm damage odds against the Low Terraces, and I stood at this rail and told myself it was a clerk's error. Three times I told myself that.",
-                "You let the odds-runners find the anchor line and let greed do the arguing. My own board, betting against my own engine. That's a cruel way to prove a thing.",
-                "It's also the only proof a bookmaker's village was ever going to believe, and you knew it, and I trained the whole village to know it, so the cruelty is mine coming home.",
-                "My own board believes the ridge before it believes me. A bookmaker knows when a line has moved for good."
+                "I saw the odds change at dawn. I told myself a clerk had made a mistake.",
+                "Then they changed again.",
+                "The board expects the Low Terraces to survive without the engine. So do the people betting their own money.",
+                "I understand what that means."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "He lets the torn slate spin away.", nextPage: 15 }
             ] },
             { ...storyPage("The Splice", "The storm floor, the anchor splice knotted to the rail, holding", "Kage Raiko Veyr", [
-                "One splice. Her splice; I'd know that knot off a drawing at a hundred paces. It held the ridge line through the first arm, didn't it. Of course it did.",
-                "Twelve years ago I signed a note calling this grief. The widow was the best rigger on the coast and I signed the note without standing up from my desk.",
-                "And now her knot is holding my sky off my village without my engine, and the man who signed the note gets to stand here in the wind it's beating.",
-                "Her knot holds no grudge about it. It just holds."
+                "That's her splice. I remember it from the plans.",
+                "It held through the first arm?",
+                "I signed those plans away without leaving my desk.",
+                "Put it here. I want to see the knot."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "He rests two fingers on the splice.", nextPage: 15 }
             ] },
             { ...storyPage("Her Daughter Says the Why", "The gate stair door banging open, Mira crossing the storm floor", "Mira Volt", [
-                "You held the gate for me once tonight already, %name. Stand off the chalk now. This one's mine to post.",
-                "Kesa Volt, Kage. My mother. Your board milked her grief for six years and kept her name drawing after her heart quit, and your council filed her ridge line under a widow's grief, and TONIGHT her line is the only thing between your village and your sky.",
-                "Here is her reason, in her own hand, and I am going to do the one thing this village is built to prevent. I am going to say it out loud, ONCE, and keep it."
+                "%name, step back. I need to do this myself.",
+                "Her name was Kesa Volt. She was my mother. Your board used her grief for six years and kept using her name after she died.",
+                "She wrote down her reason. I'm going to read it."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "Let her say the why.", nextPage: 10 }
             ] },
             { ...storyPage("The Reason, Kept", "The storm floor, Mira reading from a slate that never reached the shaft", "Mira Volt", [
                 "'I am angry because I warned the council the low moorings would fail, and they laughed, and my husband drowned at the low moorings. I am angry because my grief was posted as entertainment. I am angry because anger is all of him I have left, and this village keeps trying to collect it.'",
-                "That's it. That's the whole account. Six years of your engine's best vintage, and it fits on a slate.",
-                "It's settled now, Kage. Not drained. SETTLED. Said out loud by her blood, kept where it was born, and none of it, not one drop, goes down your pipes.",
-                "My mother sends her regards. Every roof they're holding up tonight is signed with them."
+                "That's what she wrote.",
+                "Her account is closed. You're not taking anything else from her."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "The Kage looks at the slate a long time.", nextPage: 11 }
             ] },
             { ...storyPage("The Bookmaker's Silence", "The storm floor, the wind oddly gentle for a breath", "Kage Raiko Veyr", [
-                "You let her carry it. You rigged her mother's sky and then stood aside and let the daughter say the why. I have watched this village settle scores for thirty years, and I have never once seen anyone GIVE one back.",
-                "I asked angry people for a quieter storm. I never guessed it would arrive as somebody's mother, spoken aloud by somebody who kept her."
+                "I should have listened to her twelve years ago.",
+                "I don't have a defense for that."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "He looks at the slate a moment longer.", nextPage: 15 }
             ] },
             { ...storyPage("A Sky Without a Why", "The storm floor, the district's lamps below, the maps not in your hands", "Kage Raiko Veyr", [
-                "The Low Terraces held. I know. I've been standing at this rail watching a district that should be kindling sleep like a fed cat, and my engine never spent a drop on it.",
-                "But whose answer is it, Jonin? Who drew it? Who was laughed out of my council for it, and who paid for that laughing? Give me the name, and I'll chalk it over my own.",
-                "Because a quiet sky with nobody's name under it is just weather between rounds. I can't hand a village to a lucky night.",
-                "That's the gap in your argument. Fill it, or fight me."
+                "The Low Terraces held. I can see that.",
+                "But you haven't shown me the design or told me who made it. I don't know if it can protect the rest of the village.",
+                "One district surviving one night is not enough for me to shut down the engine.",
+                "Bring me the rest, or fight me."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "He turns back to the storm.", nextPage: 19 }
             ] },
             { ...storyPage("The Answer in Your Kit", "Kesa's maps unrolled in Raiko's scarred hands", "Kage Raiko Veyr", [
-                "Kesa Volt's ridge line. Built, tested, and holding three hundred eleven roofs while you and I stand here under a clear patch of her sky. So it is not the engineering that's unfinished, Jonin.",
-                "It's the ownership. You pulled her reason out of a ravine. You carried it through a squad. You laid it beside the line she designed, in the one place it could finish the argument.",
-                "And then you put it back in your own kit. Safely. For later. On somebody else's behalf. That is exactly how every holder in this tower began, myself first of all.",
-                "You saved her answer. You did not give it back. The sky respects a rigged line and I respect a saved one, but neither of us can pretend a reason held in your coat is a reason set free."
+                "These are Kesa Volt's plans. They're built, tested, and protecting three hundred eleven roofs.",
+                "And you still have her reason in your coat.",
+                "You found it in the ravine, carried it all this way, and never gave it to her daughter.",
+                "Maybe you meant to keep it safe. So did I."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "He rolls the maps with terrible care.", nextPage: 19 }
             ] },
             { ...storyPage("Vanta Opens the Books", "The storm floor, an old bookmaker setting ledgers on the rail one by one", "Elder Vanta", [
-                "Out of the way, child. This bet's mine, and it's been on the books forty years.",
-                "Every bout I ever chalked, Raiko. And here, the column with no header, nine shares wide, that I collected on for thirty of those years, and here, the season I started matching bouts the tower asked for and telling myself matchmaking was a bookmaker's art.",
-                "I knew what the floor drank. I counted around it, the way you count around a debt you mean to die owing.",
-                "So chalk it up properly, both of you. Vanta, third share, thirty years, paid in silence. If the village wants a villain with a face, mine was always closer than his. Tonight I'm settling at the window like everybody else."
+                "Move aside. I need to say this.",
+                "These are my records, Raiko. Every bout I arranged and every share I took. I started matching the fights the tower requested thirty years ago.",
+                "I knew the floor was taking something. I chose not to ask how much.",
+                "Put my name beside yours. I helped you do it."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "He sets the last ledger down.", nextPage: 19 }
             ] },
@@ -614,29 +612,30 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Enough. The storm decides now.", nextPage: 19 }
             ] },
             { ...storyPage("Answer for the ninth share. You've been drawing it for seasons.", "The reckoning", "Kage Raiko Veyr", [
-                "So the elders' cut found a new name after all. Good. Then you've sat where I sit: paid, on schedule, out of a floor that drinks your neighbors.",
-                "Tell me you never once matched a bout in your head, thinking, that one's angry enough to cover the month. Say it and I'll call you a liar into this wind.",
-                "That thought is the seat, Jonin. That thought, every day, for thirty years, with a bell on it. You carried it two seasons and climbed a tower to make it stop. Imagine carrying it so long you waive the fees."
+                "You took the elders' cut. Then you know how easy it is to accept the money and stop asking where it came from.",
+                "Did you ever look at two angry people and think their fight would cover the month? I did.",
+                "You carried that responsibility for two seasons. I've carried it for thirty years. That doesn't excuse me. It does mean I know how quickly a person gets used to it."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "Enough. The storm decides now.", nextPage: 19 }
             ] },
             { ...storyPage("Answer for the routing mark. My bout was written before I fought it.", "The reckoning", "Kage Raiko Veyr", [
-                "The Pike bout. Yes. Third-exchange loss, purse bagged in advance. I initial the routing slates in winter when the intake runs thin; scripted bouts draw steadier than honest ones, if never as rich. A fixed fight is a promise, and the floor loves a promise.",
-                "Here's what the routing office doesn't know. Your slate wouldn't take the script. The result filed itself blank, three times, and a clerk was disciplined for it, and I kept the blank slates in my desk like pressed flowers.",
-                "The board writes everyone in this village, Jonin. It cannot seem to write YOU. When you decide what tonight was, remember that of the two of us, only one ever had a choice."
+                "The Pike bout was fixed. You were supposed to lose in the third exchange. I approved it.",
+                "Your slate came back blank three times. A clerk was punished because I assumed the error was theirs.",
+                "The board can't predict you. I don't know why. But don't stand there and pretend I had no choice because the board could predict me."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "Enough. The storm decides now.", nextPage: 19 }
             ] },
             { ...storyPage("Answer for Kesa Volt. Her line holds your sky right now.", "The reckoning", "Kage Raiko Veyr", [
-                "Kesa Volt. The rigger. The note on her ridge line crossed my desk and I signed it 'a widow's grief, no action,' twelve years ago, between a lunch and a hanging. I remember, because I remember everything; that's my price.",
-                "Here is the part I have told no living soul. I tested her line. One ridge, one winter, quietly. It held. And the odds changed the moment it did: a village that stops needing the Engine stops feeding the account upstairs, and that account does not take cancellations. So I buried the winning line and kept the whole village staked on the losing one.",
-                "Her anchors are holding my sky as we stand here. Tell her daughter that, afterward. Tell her the Kage tested the line, and it held, and he buried it anyway. She deserves to hate me with the figures in hand."
+                "I knew the report as soon as you put it in front of me. Twelve years ago I called it grief and sent it back.",
+                "I tested one section later, alone. It held through winter. I buried the result because if Stormveil stopped needing the Engine, Hollow Gate stopped being fed.",
+                "Her anchors are holding this tower now. Tell Mira I knew they could. I don't have a cleaner version of that."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", choices: [
                 { text: "Enough. The storm decides now.", nextPage: 19 }
             ] },
             { ...storyPage("The Blank Board", "The storm floor, the last blank slate between you and the Tyrant rising", "Kage Raiko Veyr", [
-                "Talk's done. Bell's up. Thirty years I've been the roof over this village, and I'd stand under every storm of it again, and that's the exact problem: a man who'd do it all again should never be allowed to.",
-                "The board is blank, the debt is due, and the whole village climbed the hill to see what gets posted. Last slate in Stormveil, Jonin. It's yours.",
+                "Enough. Bell's up.",
+                "I've kept this village alive for thirty years. I'm not stepping aside because one plan worked for one night.",
+                "The board is blank, and the debt is due. Last slate in Stormveil, Jonin. It's yours.",
                 "Show me what fights when the reasons are free."
             ]), image: "/scenes/story/story-stormveil-village-100-8.webp", leftName: "Player", rightName: "Kage Raiko Veyr", rightImage: "/portraits/kage-raiko-veyr-hollow.webp", choices: [
                 { text: "Show him the quiet storm.", nextPage: 4, requireTrait: "sv88-better-storm-carried" },
@@ -649,8 +648,8 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Answer for Kesa Volt. Her line holds your sky right now.", nextPage: 18, requireTrait: "sv88-reason-proof-any" }
             ] },
         ], [
-            { text: "Refuse the challenge. Out loud. Before everyone. Then break the board.", conclusion: "You say NO into the wind, to the seat, to the bout, to the whole hungry rite, and the crowd's roar dies to a sound like held breath. Then you put your fist through the blank board, and every posted account in Stormveil comes due at once, reasons flooding home to people who forgot they owned them. The sky goes honest and wild. Raiko attacks you laughing, free for the first time in thirty years. Far under the square the cistern pulls once at the flood of reasons rushing home to their owners, finds every account already claimed, and goes still for the first time in four hundred years. Up the hill, the Hollow Gate's quarter draws on Stormveil and comes up dry.", trait: "honorable" },
-            { text: "Accept the bout. After it, the valve gets a meter, a law, and a watch.", conclusion: "You take the challenge on your terms, spoken into the record: after tonight, nothing feeds the floor without posted consent, witnesses, and a meter anyone can read. The crowd murmurs; consent is a colder religion than spectacle. Raiko nods slowly, like a man hearing his sentence and approving the judge, and the storm takes his shape. After tonight the cistern still opens on its old schedule, but it may drink nothing without a posted name and a witness, so it finds nothing lawful and shuts again. The Hollow Gate's quarter waits on a consent this village just learned how to refuse.", trait: "suspicious" },
+            { text: "Refuse the challenge. Out loud. Before everyone. Then break the board.", conclusion: "You say no where the whole square can hear it, then drive your fist through the blank board. Every posted account comes due at once. Reasons return to people who had forgotten they owned them. The crowd breaks into shouting, crying, and stunned silence. Under the arena the cistern pulls once, finds every account already claimed, and goes still. Up the hill, Hollow Gate's Stormveil quarter comes up dry. Raiko looks at the wild sky, laughs, and attacks.", trait: "honorable" },
+            { text: "Accept the bout. After it, the valve gets a meter, a law, and a watch.", conclusion: "You state the terms into the record: after tonight the floor takes nothing without consent, witnesses, and a meter anyone can read. The crowd is quieter than it was for the refusal. Raiko nods once. The cistern opens on its old schedule, finds no posted name and no witness, then shuts again. Hollow Gate waits on consent Stormveil has finally learned it can withhold. Raiko calls the storm and attacks.", trait: "suspicious" },
             { text: "The seat, the valve, the ledger. Mine.", conclusion: "You post the only slate that was ever going to satisfy you: your own name, for the seat itself. The board accepts before the chalk dries; it has been grooming this account since the night it posted you twice. Raiko's grin comes back one last time, wide and terrible and relieved. 'Then win it,' says the storm, with his voice. The cistern does not go still for you. It holds its breath, four villages' worth of banked tribute, and waits, patient as arithmetic, for its new seat to post the first thing it will drink.", trait: "ambitious" },
         ]),
     ],
@@ -659,9 +658,9 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("The Register Hall", "Register hall, morning light through cedar smoke", "Toma Reed", [
                 "First time signing? Stand here, next to me. If you stand in the middle of the hall, the clerks think you have something to hide.",
                 "I'm Toma. Toma Reed, grove squad. I've done this four times, so you're in good hands.",
-                "The signing has four questions. Your name, your family, your craft. Everyone answers those without thinking.",
-                "Then comes the fourth question: what do you intend to become. Everyone hesitates on that one, so don't feel bad when you do.",
-                "My brother told me once to answer it smaller than the truth. I never asked him why. I wish I had."
+                "Name, family, craft. Then what you intend to become.",
+                "My brother told me to answer the last one smaller than the truth.",
+                "I laughed at him. Don't do that."
             ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp" },
             { ...storyPage("The Fourth Question", "The Register wall, quill waiting", "Narrator", [
                 "The Register is a wall of living cedar wood, forty strides long. Every person in the village has their own line carved into it, holding their name and their answers.",
@@ -676,37 +675,37 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "\"I don't know yet.\"", nextPage: 6, trait: "al4-become-unknown" }
             ] },
             { ...storyPage("A Protector", "The Register wall", "Registry Duty Clerk", [
-                "A protector. That is a good answer here. Protectors get roofs built for them in this village.",
-                "The wall is taking it. See how deep the ink sits? It believes you.",
-                "Signed and witnessed. Welcome to Ashen Leaf, %name. I hope you get to keep that answer."
+                "A protector. All right.",
+                "The ink went deeper than usual. I haven't seen that in a while.",
+                "You're signed in, %name. Welcome to Ashen Leaf."
             ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
                 { text: "Step back from the wall.", nextPage: 7 }
             ] },
             { ...storyPage("The Strongest", "The Register wall", "Registry Duty Clerk", [
-                "The strongest shinobi alive. You said that in a records hall full of clerks, which took its own kind of nerve.",
-                "The wall is taking it. Big answers sink deep. I have watched this wall for nineteen years and I still don't know if deep is good.",
-                "Signed and witnessed. Welcome to Ashen Leaf, %name. Try not to break anything on your way up."
+                "The strongest shinobi alive. That's a large answer.",
+                "The ink went deep. I don't know whether that's good.",
+                "You're signed in, %name. Welcome to Ashen Leaf."
             ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
                 { text: "Step back from the wall.", nextPage: 7 }
             ] },
             { ...storyPage("A Builder", "The Register wall", "Registry Duty Clerk", [
-                "Something that outlasts you. A builder's answer.",
-                "We had a boy give almost that same answer some years ago. I still think about his line sometimes.",
-                "Signed and witnessed. Welcome to Ashen Leaf, %name. Build slowly and keep your drawings somewhere safe."
+                "Something that outlasts you. Good.",
+                "Someone gave me almost the same answer years ago. Keep your drawings somewhere safe.",
+                "You're signed in, %name. Welcome to Ashen Leaf."
             ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
                 { text: "Step back from the wall.", nextPage: 7 }
             ] },
             { ...storyPage("A Seeker", "The Register wall", "Registry Duty Clerk", [
-                "You want to uncover what people hide. You said that out loud, to a clerk, in the building where the village keeps its records.",
-                "I am going to write it exactly as you said it, because that is my job, and because part of me wants to see what happens.",
-                "Signed and witnessed. Welcome to Ashen Leaf, %name. Be careful which doors you open first."
+                "You want to uncover what people hide. You know you're saying that in the records hall, right?",
+                "No, don't change it. I'll write what you said.",
+                "You're signed in, %name. Welcome to Ashen Leaf."
             ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
                 { text: "Step back from the wall.", nextPage: 7 }
             ] },
             { ...storyPage("Not Yet", "The Register wall", "Registry Duty Clerk", [
-                "You don't know yet. That is the most honest answer anyone has given me all season.",
-                "Odd, though. When I hold the quill over your line, it drags. Like the wall is waiting for a word that should already be there.",
-                "I'll write 'undecided.' Signed and witnessed. Welcome to Ashen Leaf, %name. Come back when you know, and I'll add it myself."
+                "You don't know yet. That's fine.",
+                "The quill keeps catching on your line. Strange.",
+                "I'll put 'undecided.' If you change your mind, come back. Welcome to Ashen Leaf, %name."
             ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
                 { text: "Step back from the wall.", nextPage: 7 }
             ] },
@@ -717,10 +716,10 @@ export const storylines: Record<string, StoryStep[]> = {
             ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp" },
             { ...storyPage("Elder Mori", "The Register wall, a crowd gathering", "Elder Mori", [
                 "Move aside, please. Thank you.",
-                "That is a black flower. They grow out of the Register wall, very rarely, when the wall believes someone could become something extraordinary.",
-                "In forty years of keeping this wall, I have seen it happen twice. Both times, the whole village celebrated. So they will celebrate you too.",
-                "I am not going to spoil your day. But I keep the records here, and I have learned to be careful around things the village celebrates.",
-                "Come. You owe the roots a trial before sundown. It is tradition, and today of all days, tradition will be watching."
+                "It's a black flower. The Register grows one when it sees unusual potential.",
+                "I've seen two in forty years. People will congratulate you. There will be too much bread.",
+                "Enjoy that if you can. Just don't assume the flower is a gift.",
+                "Come with me. You have a grove trial before sundown."
             ]), image: "/scenes/story/story-ashen-leaf-village-4-0.webp", choices: [
                 { text: "Follow Mori to the grove.", nextPage: 9 }
             ] },
@@ -742,30 +741,30 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Toma is standing at the edge of the crowd, and he is not eating his honey bread."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp" },
             { ...storyPage("Eleven Flowers", "The fence line, crowd thinning", "Toma Reed", [
-                "That's Imera's fence. Her daughter Sena builds things. Water wheels out of barrel scrap. A little loom that walks across the table on wooden legs. She's nine years old.",
-                "When I was small, we had flowers on our fence too. Everyone brought bread. My mother still talks about how much bread there was.",
-                "That was the spring before my brother went quiet. I've never put those two things together out loud before.",
-                "Forget I said it. Look, the Kage is here. She comes in person when there's a blessing. People love that about her."
+                "That's Imera's house. Her daughter Sena is nine. She builds water wheels from barrel scraps and a loom that walks across the table.",
+                "We had flowers on our fence when I was little. Everyone brought us bread.",
+                "My brother changed that spring.",
+                "I haven't said that before. Look, the Kage is here."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp" },
             { ...storyPage("The Kage at the Fence", "Imera's gate, winter bundles stacked", "Kage Hoshina Enju", [
-                "Imera. Your fence has made the whole village jealous. I brought your winter share early, and a little extra, because guests will be eating your pantry bare for a week.",
-                "And you must be Sena. I heard there is a loom in this house that walks. Will you show me? I promise I have held stranger things.",
-                "Look at that. It walks with a limp, like my old quartermaster. Sena, that is wonderful work. Truly.",
-                "Rest well tonight, both of you. The survey will come tomorrow to record the blessing, and then the whole village will know what I already know: this house is precious."
+                "Imera. I brought your winter share early. There's extra because half the village will eat your food this week.",
+                "You must be Sena. I heard you built a walking loom. May I see it?",
+                "It limps. I like that. You made this by yourself?",
+                "The survey comes tomorrow. Get some rest tonight."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp" },
             { ...storyPage("What the Village Says", "The gate, Hoshina's guards moving on", "Imera", [
-                "You're new, so you don't know yet. That woman kept this village alive. No child has frozen in Ashen Leaf since she took the shears. Not one, in thirty years. My mother says it every winter.",
-                "She remembered my name. She remembered SENA'S name.",
-                "So why can't I stop looking at these flowers and counting them?",
-                "Eleven. Nobody gets eleven. I asked old Jorun what his family got, back when his fence bloomed, and he couldn't remember there ever being flowers at all."
+                "Hoshina kept this village alive. No child has frozen here since she became Kage. My mother reminds us every winter.",
+                "She remembered Sena's name.",
+                "So why am I afraid of those flowers?",
+                "There are eleven. Nobody gets eleven. I asked Jorun how many his family had, and he couldn't remember any."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp", choices: [
                 { text: "Go find Mori.", nextPage: 4 }
             ] },
             { ...storyPage("Mori Counts", "The register annex, bloom charts on the table", "Elder Mori", [
-                "You two. Good. I have a watch for you tonight, on ash-house row. The survey records the blessing at first light, and until then, somebody sensible should be standing near that fence.",
-                "Eleven blooms. A blessed house gets one, perhaps two. I have kept the bloom charts for forty years, and I have never charted eleven.",
-                "The assignment is simple. Nobody touches the flowers. Not thieves, not drunks, not the family. Nobody.",
-                "And if anything about tonight strikes you as wrong, you bring it to me. Not to the survey. To me. I will explain why one day, if you turn out to be the kind of person worth explaining things to."
+                "Good. I need both of you on ash-house row tonight. The survey arrives at first light.",
+                "Most houses get one flower, sometimes two. I've never recorded eleven.",
+                "Don't let anyone touch them. That includes the family.",
+                "If something happens, come to me before you speak to the survey."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp", choices: [
                 { text: "Take the night watch.", nextPage: 5 }
             ] },
@@ -778,11 +777,11 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Stay hidden and watch what she does.", nextPage: 7 }
             ] },
             { ...storyPage("Imera's Shears", "The fence line", "Imera", [
-                "Please. You're new here. You can still stay out of this.",
-                "Everyone calls the flowers luck. My mother called them luck too, when they bloomed for her sister. Her sister sang, back then. Beautiful voice, three languages.",
-                "Then one spring the singing stopped mattering to her. She still sang, but smaller, and only when asked, and then not at all. Nobody else in my family thinks that story is strange.",
-                "Eleven flowers, and my Sena dreams in machines. I'm not letting them record eleven. One cut, maybe two. The survey counts a smaller blessing, and my girl gets to stay a nine-year-old with too many ideas.",
-                "You can stop me, or you can watch the crickets for one minute. I'm asking you, mother to stranger. One minute."
+                "Please. You can still pretend you didn't see me.",
+                "My aunt had flowers too. She could sing in three languages. Then one spring she stopped singing unless somebody asked. After a while she stopped completely.",
+                "Nobody in my family thinks that's strange. I do.",
+                "I'm going to cut one or two before the survey arrives. Maybe they'll record a smaller blessing and leave Sena alone.",
+                "Give me one minute. That's all I'm asking."
             ]), image: "/scenes/story/story-ashen-leaf-village-15-1.webp", choices: [
                 { text: "Dawn is coming. Decide.", nextPage: 8 }
             ] },
@@ -811,10 +810,10 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Ashen Leaf Village", 25, "The Cut Branches", "Archive Spirit of the Root", "🌿", [
             { ...storyPage("After Hours", "The archive, one lamp between the stacks", "Toma Reed", [
-                "This is the archive. Everything on the Register wall gets copied here, onto cedar slats, along with letters, records, drawings. A person's whole paper life, all in one rack.",
-                "I have a key because I mend the shelves. I took the shelf job because I wanted the key. You can judge me later.",
-                "I need you to read some things tonight and tell me I'm not imagining what I think I see in them. That's all I'm asking for. A second pair of eyes.",
-                "Start with this one. Jorun, the carpenter. Read his slat and tell me what he was building."
+                "Everything from the Register is copied here. Letters and drawings too.",
+                "I have a key because I repair the shelves. I took the job because I wanted the key.",
+                "I need someone else to look at this and tell me whether I'm imagining it.",
+                "Start with Jorun's record. Tell me what he was building."
             ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp" },
             { ...storyPage("Jorun's Plans", "The carpenter's slat, held to the lamp", "Narrator", [
                 "The record is complete. An apprenticeship, a marriage, a workshop by the mill. Then drawings: a bridge across the flood channel, drawn with a sure and hungry hand. Three lines of it.",
@@ -827,25 +826,25 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("The Bridge", "Between the racks", "Toma Reed", [
                 "Jorun is still alive. He drinks at the mill house most nights. If you ask him about the flood channel, he laughs and says bridges were never his thing.",
-                "You just read the slat. He drew that bridge like his hands were on fire. And now it was 'never his thing.'",
-                "Nobody burned his record. Nobody had to. Whatever he was becoming got cut out of him, and what was left got twenty years of chairs.",
-                "There's a word carved inside some of these racks, small, where only a shelf mender would ever see it. The word is 'pruned.' I used to think it was about the orchards. I don't think that anymore."
+                "But you saw the drawings. He cared about that bridge.",
+                "Then the drawings stop and he spends twenty years making chairs. He doesn't remember wanting anything else.",
+                "Inside some of these racks, somebody carved the word 'pruned.' I don't think they meant the orchards."
             ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp", choices: [
                 { text: "Ask about Aren.", nextPage: 4 }
             ] },
             { ...storyPage("A Quiet Debt", "Mori's desk, lamp turned low", "Elder Mori", [
-                "You kept the border business quiet for me once. I have not forgotten it. Ask your question.",
+                "You kept the border business quiet. I remember. What do you want to know?",
                 "Jorun. Yes. I remember the bridge. I surveyed his household myself, the same spring he stopped drawing it.",
-                "You want to know what happened between a man and his bridge. The orchard keepers have a word for cutting a branch so the rest of the tree stays comfortable. They say pruned. I have started to believe the word was never only about trees.",
-                "Now I will say something an Elder should not say. Read the Reed boy's slat tonight. Aren Reed. And when your friend asks what I told you, tell him I said nothing at all."
+                "The official record says he changed his mind. I don't believe that anymore.",
+                "Read Aren Reed's record tonight. Don't tell Toma I sent you."
             ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp", choices: [
                 { text: "Pull Aren's slat.", nextPage: 4 }
             ] },
             { ...storyPage("Aren Reed", "The Reed family rack", "Toma Reed", [
                 "Here. Aren Reed. My brother. Read it. Nothing is missing from it. That's what I need you to understand first.",
-                "Born in ash-house row. Apprenticed at the joiner's bench. Quiet. Dutiful. The record even describes his smile right.",
-                "My mother remembers him exactly like this slat says. Quiet, dutiful, happiest at his bench. That is the worst part.",
-                "Because I grew up with him, and he was the loudest argument in any room he ever stood in. There is a whole person missing between these lines. I have proof of him at home, and one day soon I'll trust you enough to show you."
+                "It says he was quiet and dutiful. It even describes his smile correctly.",
+                "My mother remembers him that way too.",
+                "But he wasn't quiet. He argued with everybody. I have proof at home. I'm not ready to show you yet."
             ]), image: "/scenes/story/story-ashen-leaf-village-25-2.webp" },
             { ...storyPage("The Archive Wakes", "The stacks, lamp guttering", "Narrator", [
                 "The racks creak. Not the creak of wood settling. The creak of something heavy turning over in its sleep.",
@@ -866,9 +865,9 @@ export const storylines: Record<string, StoryStep[]> = {
         milestone("Ashen Leaf Village", 35, "The Rootfire Chamber", "First Flame Sentinel", "🌿", [
             { ...storyPage("The Kiln Stair", "Beneath the ancestral kiln, heat rising", "Elder Mori", [
                 "Stay on the stairs. The floor down here is older than the village, and I do not trust it.",
-                "You have earned a look at this place. That is my judgment, and if anyone asks, I will answer for it.",
-                "Below the kiln burns the Rootfire. The founders lit it four hundred years ago, and it has never gone out. Every warm winter this village has ever had came from this room.",
-                "Gloves on. Ask your questions after you've seen both sides of it. You'll understand the order once we're down."
+                "I decided you needed to see this. If anyone objects, they can come to me.",
+                "The Rootfire is below us. The founders lit it four hundred years ago. It has kept the village warm ever since.",
+                "Put your gloves on. I need to show you two different rooms."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp" },
             { ...storyPage("The Founders' Alcove", "A carved alcove, offerings behind wax", "Narrator", [
                 "The alcove is small and heartbreakingly neat. Wooden tokens rest in carved niches, each one shaped by hand: a little ship, a house, a wedding ring, a book.",
@@ -888,19 +887,18 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Walk to the racks.", nextPage: 5 }
             ] },
             { ...storyPage("The Gift", "The alcove", "Elder Mori", [
-                "Each token is a future. A real one. The founders gave up the lives they were going to live, and the Rootfire burned those futures into warmth, harvests, medicine, walls that do not crack.",
-                "Understand this part, because everything else depends on it: they VOLUNTEERED. Every token in this alcove was given freely, by an adult who knew the price, to buy the village a generation of safety.",
-                "The ash in our mortar is not a poem. It is those people, holding the walls up. I was proud of this room for thirty years.",
-                "Twenty steps to your left. Then see if you can stay proud."
+                "Each token represents a future someone gave up. The Rootfire turned it into heat, medicine, and material for the walls.",
+                "The founders volunteered. They were adults, and they were told what it would cost them.",
+                "I was proud of this room for thirty years.",
+                "Now look at the racks on the left."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
                 { text: "Walk to the racks.", nextPage: 5 }
             ] },
             { ...storyPage("Aren's Map", "The alcove, out of Mori's hearing", "Toma Reed", [
-                "Yes. This is the room. His letter says 'the fire under the kiln is fed twice.' I always thought that was a figure of speech.",
-                "Fed twice. This alcove is the first feeding, the willing one. Look at Mori's face and tell me there isn't a second.",
-                "Aren drew a little map on the back of the letter. Stairs, then the alcove, then racks, and under the racks one word. I couldn't read it for years because his hand was shaking when he wrote it.",
-                "I can read it now. The word is 'stamped.' And there's a shape drawn under it that isn't a word. A circle, cut into four pieces. I always thought it was a wheel, maybe part of the water-screw.",
-                "It isn't part of the water-screw, is it. He was looking at something bigger than a fire, and his hand gave out before he could name it."
+                "This is the room from Aren's letter. He wrote that the fire was fed twice. I thought he meant the kiln had two doors.",
+                "He drew a map on the back. Stairs, alcove, then racks. Under the racks he wrote 'stamped.'",
+                "There's a quartered circle beside it. I thought it was part of his water-screw.",
+                "It isn't."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
                 { text: "Walk to the racks.", nextPage: 5 }
             ] },
@@ -912,10 +910,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The stamped slats burn differently. Their smoke rises, yes, enough to keep the room alive, enough to keep the lie useful. But the ash does not rise. It falls, through a grate beneath the racks, down into a black seam under the kiln. Fire is not supposed to drain. Mori watches it fall, and for once the record keeper has no quick answer ready."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp" },
             { ...storyPage("The First Flame Sentinel", "The threshold, an armored shape kindling", "Elder Mori", [
-                "Stand still. Do not draw a weapon. That is the Sentinel, and it is the only honest thing left in this room.",
-                "The founders built it to guard their gift from thieves. It has held that post for four hundred years, and it still checks every visitor against one question: did you give, or did you take?",
-                "The survey crews pass it with permits. It is old, and paperwork smells enough like consent to confuse it. I have watched them walk past it with stolen futures on a cart, and I have said nothing, and that silence is the worst thing I own.",
-                "It will not be confused about us. I brought no permit tonight. On purpose."
+                "Don't move. Don't draw your weapon.",
+                "The founders built that Sentinel to keep thieves away from their gifts. It asks whether you gave or took.",
+                "Survey crews carry permits, and the Sentinel accepts them. I've watched them bring stolen futures past it and said nothing.",
+                "I didn't bring a permit tonight."
             ]), image: "/scenes/story/story-ashen-leaf-village-35-3.webp", choices: [
                 { text: "Face the Sentinel.", nextPage: 7 }
             ] },
@@ -937,44 +935,44 @@ export const storylines: Record<string, StoryStep[]> = {
                 "There, done. Measured like a cutting, as the old joke goes. Nobody remembers it's a joke about grafting. The rite is at the bell. Don't be late. The Kage is attending in person."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp" },
             { ...storyPage("Before the Bell", "The hall steps, Toma pacing", "Toma Reed", [
-                "My friend, the Jonin. I'd be prouder if my stomach weren't turning.",
-                "Do you know what the old records call this rite? The grafting. They stopped using that name out loud around the same time they stopped asking people's permission for things.",
-                "There's a line in the oath. Everybody mumbles through it like a hymn they hate. Listen for it: 'I will grow where the tree permits.'",
-                "Say whatever keeps you safe in there. Just know what you're saying while you say it. Aren took this oath too, once."
+                "You're really doing this. I'd be happier if I weren't about to be sick.",
+                "The old records call this rite 'the grafting.' Nobody says that anymore.",
+                "Listen for the third line of the oath: 'I will grow where the tree permits.'",
+                "Say whatever keeps you safe. Just know Aren took the same oath."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
                 { text: "Answer the bell.", nextPage: 2 }
             ] },
             { ...storyPage("The Grafting", "The rite circle, Hoshina presiding", "Kage Hoshina Enju", [
-                "Come forward. So you're the one who made my Register bloom.",
-                "I want you to understand that we are glad of you. Every Kage hopes for strong shinobi, and you are the strongest this hall has seen in a generation.",
-                "The oath is old and short. You swear service to the village, silence where the village requires it, and then the third line, the one the young mumble and the old actually mean.",
-                "Say it with me, or say whatever you have brought instead. I learn more from the substitutions than from the oath, honestly."
+                "Come forward.",
+                "The village is proud of you. You are the strongest shinobi this hall has seen in a generation.",
+                "The oath is short. Service to the village, silence when required, and the final line.",
+                "Repeat it after me."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
                 { text: "Swear it plainly, every word.", nextPage: 3 },
                 { text: "Ask what happens to branches that grow past permission.", nextPage: 4 },
                 { text: "Change the third line: swear to the village, not the tree.", nextPage: 5 }
             ] },
             { ...storyPage("Word for Word", "The rite circle", "Kage Hoshina Enju", [
-                "'I will grow where the tree permits.' Clean, unhesitating. Most people flinch on the word permits. You didn't.",
-                "Either you meant it, or you've decided that meaning it is a useful costume. I can work with either, and I mean that as a compliment.",
+                "'I will grow where the tree permits.' You didn't hesitate.",
+                "I don't know whether you meant it. I expect I'll find out.",
                 "Rise, Jonin of Ashen Leaf.",
-                "And understand something, because I say it to every strong branch: the village is always watching where you grow. That is not a threat. It is just what living in an orchard means."
+                "The village will be watching you closely from now on."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
                 { text: "Rise as Jonin.", nextPage: 6 }
             ] },
             { ...storyPage("The Question", "The rite circle, the hall holding its breath", "Kage Hoshina Enju", [
-                "Nobody has asked me that question during the rite itself in forty years. The last person who did has a very short line on my Register wall now. I'm telling you that plainly because you deserve plain answers.",
-                "You asked what happens to branches that grow past permission. In a real orchard, the keeper decides: fruit, or firewood. In this village, the keeper is me.",
-                "I decide with more grief than you would believe, and I have been right often enough that I can still sleep. Most nights.",
-                "Take the oath, grow splendidly, and give me no reason to make that decision about you. I like you. That is not a small thing for me to say."
+                "No one has asked me that during the rite in forty years.",
+                "If someone becomes dangerous to the village, I decide what happens to them.",
+                "Sometimes I remove them. You already knew that, or you wouldn't have asked.",
+                "Take the oath. Don't make me decide that about you."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
                 { text: "Take the oath and rise.", nextPage: 6 }
             ] },
             { ...storyPage("The Substitution", "The rite circle", "Kage Hoshina Enju", [
                 "'I will grow where the village needs me.' The village. Not the tree.",
-                "Half the people in this hall think those are the same word. You and I both know they are not, or you wouldn't have swapped them.",
-                "I will accept it. Clerk, record the oath exactly as spoken.",
-                "Rise, Jonin. And keep growing where I can see you. I extend that courtesy to very few people, and I withdraw it from fewer still."
+                "That is not the oath.",
+                "No. Leave it. Clerk, record exactly what was said.",
+                "Rise, Jonin. I want you where I can see you."
             ]), image: "/scenes/story/story-ashen-leaf-village-50-4.webp", choices: [
                 { text: "Rise as Jonin.", nextPage: 6 }
             ] },
@@ -1016,9 +1014,9 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Sign and move out.", nextPage: 3 }
             ] },
             { ...storyPage("The Kiln Road", "The forest road, wagon wheels loud", "Toma Reed", [
-                "Sealed and blessed. Blessed and sealed. You know exactly what my brother would have done by the second mile marker.",
-                "Listen. The third crate rattles when we hit a rut. Offerings are supposed to be ash and slats. Ash doesn't rattle. Slats don't roll around.",
-                "I'm about to say a sentence, and before I say it, I need to know if you're standing here as my commanding Jonin or as my friend.",
+                "Aren would have opened these before the second mile marker.",
+                "The third crate rattles when we hit a rut. Ash and cedar slats don't make that sound.",
+                "Before I ask this, are you my commanding officer or my friend?",
                 "There's a pry bar under the seat."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
                 { text: "Pull the wagon off the road. Open the crate.", nextPage: 5 },
@@ -1026,9 +1024,9 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("Sealed", "The wagon, still rolling", "Toma Reed", [
                 "Right. Sealed. You're right. Forget I said anything.",
-                "It rattled again. That was a wheel. A little wooden wheel, rolling loose. I built toys with my brother for ten years. I know the sound of a toy wheel on floorboards.",
-                "Stop the wagon. Order me punished for it afterward if you have to, I'll take every weed rotation from here to spring.",
-                "But if you make me deliver a child's toy to that fire in a sealed box, I won't come back from it. Please."
+                "There. That was a little wooden wheel. I built toys with Aren for ten years. I know the sound.",
+                "Stop the wagon. You can report me afterward.",
+                "I can't deliver a child's toy to that fire. Please."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
                 { text: "Pull off the road.", nextPage: 5 }
             ] },
@@ -1043,18 +1041,18 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Repack everything exactly as you found it.", nextPage: 6, trait: "al65-resealed-the-crate" }
             ] },
             { ...storyPage("The Manifest Under the Ash", "Off the road, a folded paper under the second crate's false bottom", "Toma Reed", [
-                "This was folded under the false bottom of the second crate. A shipping hand wrote it, not a survey hand. That's the first wrong thing. Listen to the rest.",
-                "Graft-slats, late season. Freshness, high. Household marks, sealed. Destination: Fifth Anchor escrow. Buyer mark, a circle cut in four. And then two lines that don't belong on a village offering at all. Local draw, approved. Lower draw, pending.",
-                "Local draw. Lower draw. The ink's bled at the bottom where somebody shut it too fast, but one line's still clear, and I wish to the roots it weren't. 'Deliver surplus below Rootfire intake.'",
-                "Surplus, friend. They have a word for what's left of us after they've spent us. And there's a second mouth somewhere under that fire that this whole village has never once been told about."
+                "This was under the false bottom. It's a shipping manifest.",
+                "It says: graft-slats, late season, destination Fifth Anchor escrow. The buyer's mark is a circle cut in four.",
+                "At the bottom: 'Deliver surplus below Rootfire intake.'",
+                "There's something under the fire. Whatever the village doesn't use is being sent there."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp", choices: [
                 { text: "Pocket the manifest.", nextPage: 7, trait: "al65-found-gate-manifest" }
             ] },
             { ...storyPage("The Retrieval Squad", "The road behind, lanterns through the trees", "Toma Reed", [
                 "Lanterns, kiln side. That's a Rootbound Retrieval Squad. They sweep the route whenever a shipment stalls too long.",
-                "So here we are. Six crates of stolen futures, one wagon, one fire that wants them, one squad coming to collect, and the two of us.",
-                "One more thing, before you choose. The manifest under the seat is the only paper anywhere that connects these stamps to the Kage's office. Whatever we do, remember which things burn and which things prove.",
-                "Choose fast. They walk quick."
+                "We have six crates and one wagon. They're coming from behind us.",
+                "The manifest is the only thing we have that connects the shipment to the Kage's office.",
+                "Decide now."
             ]), image: "/scenes/story/story-ashen-leaf-village-65-5.webp" },
             { ...storyPage("Lantern Light", "The kiln road, squad closing", "Narrator", [
                 "The lanterns spread out through the trees the way trained squads spread: unhurried, certain, closing from three sides.",
@@ -1068,10 +1066,10 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Ashen Leaf Village", 75, "The Ancestors Speak", "Ancestor-Bound Flame Beast", "🌿", [
             { ...storyPage("Ash on the Wind", "The kiln yard at dusk, ash falling upward", "Elder Mori", [
-                "It started at noon. The Rootfire began breathing wrong. An hour later, every founder's token in the alcove turned itself face-down.",
-                "The survey wants to send an exorcist. The Kage wants it kept quiet. I want the one person in this village that the roots keep treating like family. That's you.",
-                "Something is climbing up through the fire, and it is wearing the founders' voices.",
-                "Toma is already down there. He refused to wait. He said the dead knew his brother."
+                "The Rootfire changed at noon. An hour later, every founder's token turned face-down.",
+                "The survey wants an exorcist. Hoshina wants the yard closed. I want you.",
+                "Something is coming up through the fire. It sounds like the founders.",
+                "Toma went down without us. He thinks they know Aren."
             ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp", choices: [
                 { text: "Go down to the fire.", nextPage: 1 }
             ] },
@@ -1102,10 +1100,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Follow the chain.", nextPage: 4 }
             ] },
             { ...storyPage("The Bellows", "The chamber's far vault, a chain thick as a tree", "Toma Reed", [
-                "There you are. I found the chain. Technically the chain found me. Don't step where the floor looks melted.",
-                "The Avatar told me what this is. It's the ancestors' grief, all of it, given a body and chained so it wouldn't flatten the village. And the Kage runs it like a bellows. Squeeze the grief, stoke the fire. Efficient.",
-                "It looked at me, friend. Through all of that flame, it looked at me exactly the way my mother looks at Aren's workbench.",
-                "The Avatar says free it or end it. It's pulling the chain tight. I think it heard them say that."
+                "There you are. Don't step on the melted part.",
+                "The Avatar says this thing is the founders' grief. They chained it down here to protect the village. Hoshina has been using it to feed the fire.",
+                "It looked at me the way my mother looks at Aren's workbench.",
+                "We're supposed to free it or kill it. I think it heard that."
             ]), image: "/scenes/story/story-ashen-leaf-village-75-6.webp" },
             { ...storyPage("Grief, Off the Chain", "The vault, the Flame Beast rising", "Narrator", [
                 "It rises the size of the fear it was chained for, and it burns in the shape of everyone the fire could not save.",
@@ -1119,10 +1117,10 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Ashen Leaf Village", 85, "The Kage Burns the Future", "Rootbound Elder Champion", "🌿", [
             { ...storyPage("The Detainment Lists", "The village square, notices in fresh ink", "Toma Reed", [
-                "They posted it at dawn. 'Seasonal custodianship of promising branches.' Custodianship. Somebody sat down and chose that word.",
+                "They posted this at dawn. 'Seasonal custodianship of promising branches.' It means detention.",
                 "Fourteen names. The weaver who petitioned for a school. Jorun's apprentice. Two names from the mill whose only crime is planning a wedding their families forbid.",
-                "And Sena. Imera's Sena. They came for her at breakfast. The guard on the detention row used to trade her scrap iron for her little machines.",
-                "Mori finally said the quiet part yesterday: futures burn hotter the bigger they were going to be. They're not detaining troublemakers. They're stocking the kiln before winter."
+                "Sena is on it. They took her at breakfast. One of the guards used to bring her scrap iron for her machines.",
+                "Mori told me why. The more promising the future, the hotter it burns. They're filling the kiln before winter."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
                 { text: "Go to Imera first.", nextPage: 2, trait: "al85-swore-to-imera" },
                 { text: "Go straight to the Kage's orchard office.", nextPage: 3 },
@@ -1130,52 +1128,51 @@ export const storylines: Record<string, StoryStep[]> = {
             ] },
             { ...storyPage("Jonin", "The square's edge", "Toma Reed", [
                 "You noticed. I wondered if you would.",
-                "You told me to burn Aren's letter. You said it would prune me too. You were probably right, and I did not burn it, and I stopped being able to say the word friend at the same time. Those two facts are related.",
-                "I'll follow you today, Jonin. You're good at this, and fourteen people need somebody good at this.",
-                "But when it's over, you and I are going to sit at my mother's table, and you're going to tell me whether you actually believe proof is worth less than safety. Depending on your answer, the word comes back."
+                "You told me to burn Aren's letter. Maybe you thought you were protecting me. I didn't burn it.",
+                "I'll follow your orders today because fourteen people need help.",
+                "Afterward, you're coming to my mother's table and telling me why you did it. Then I'll decide whether we're still friends."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
                 { text: "Go to Imera's house.", nextPage: 2 }
             ] },
             { ...storyPage("Imera's Kitchen", "The house behind the eleven-flower fence", "Imera", [
-                "Don't say you're sorry. Everyone who says sorry stirs their tea afterward, and I am done watching people stir tea.",
+                "Don't tell me you're sorry. I can't do anything with sorry right now.",
                 "You hid a flower for us once. I haven't forgotten. So I'll tell you what I can't tell the survey office.",
-                "They let me visit her yesterday. She's HAPPY. Warm, well fed, doing puzzles for clerks who write down how she solves them. They are measuring my daughter for that fire, and she thinks the village finally noticed her.",
-                "Her first loom is still under her bed. If they take who she was going to be, and leave me some quiet girl who likes sitting still, I want you to bury that loom with me. Promise me that. Then go do whatever a person with a black flower can do."
+                "They let me visit her yesterday. She's warm and well fed. They give her puzzles and write down how she solves them. She thinks she's been chosen for something good.",
+                "Her first loom is under the bed. Bring her home before they make her forget why she built it."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
                 { text: "Go to the orchard office.", nextPage: 3 }
             ] },
             { ...storyPage("The Orchard Office", "The Kage's office, rain on new grafts", "Kage Hoshina Enju", [
-                "You've seen the lists. You've come to tell me they're monstrous. Sit down first. You'll argue better without your fists clenched.",
-                "Before you start, I want to give you two numbers. The winter of the split oak killed forty one people. The granary winter killed twenty six, and most of those were children. I was a girl for the first one and Kage for the second.",
-                "Since the second one, I have kept this village warm for thirty years, and no child here has frozen. Not one. Those fourteen names on the wall are the price of the next thirty.",
-                "Now argue with me. I mean it. Nobody has argued with me properly in years, and I find I miss it."
+                "You've seen the list. Sit down.",
+                "The split-oak winter killed forty one people. The granary winter killed twenty six. Most were children.",
+                "No child has frozen here in thirty years. I chose fourteen people to keep it that way.",
+                "I know why you're angry. Anger is not a winter plan."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
                 { text: "\"Fourteen people are not firewood.\"", nextPage: 4 },
                 { text: "Show her your own scarred line. Make it personal.", nextPage: 5, requireTrait: "al70-claimed-the-name" },
                 { text: "Ask her exactly what the fire does with the unwilling.", nextPage: 6 }
             ] },
             { ...storyPage("Not Firewood", "The orchard office", "Kage Hoshina Enju", [
-                "No. They're not firewood. They are four hundred people's warm winters, wearing fourteen faces. That is the actual arithmetic, and I notice you haven't offered me different numbers.",
-                "You think I don't know their names? Sena, nine years old, builds machines that walk. The survey brings me her little wonders twice a year, and I keep every one of them. There is a whole room.",
-                "You are not the first person to stand in front of this desk and call me a monster. You might be the first one who could actually stop me. So do it properly.",
-                "The burning is at frost-fall. You have until then to bring me a better winter. I am not being cruel. It is the genuine condition: show me how this village survives the cold without the fire, and the fourteen walk free."
+                "Don't use that word in my office. I know their names.",
+                "Sena is nine. She builds little machines that walk. I have three of them upstairs.",
+                "You can call me a monster after you've found another way to keep four hundred people alive.",
+                "The burning is at frost-fall. Bring me a real alternative before then and all fourteen go home. Otherwise, stay out of my way."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
                 { text: "Leave her office.", nextPage: 7 }
             ] },
             { ...storyPage("The Scarred Line", "The orchard office", "Kage Hoshina Enju", [
-                "Your page. Yes. I have read it more times than any record on my wall.",
-                "Somebody pruned you before you ever reached this village. No stamp, no season mark, no record of grief. Do you understand why that horrifies me, of all people? I keep records of every cut. I mourn what I take. Whoever cut you kept NOTHING.",
-                "When you stood at my wall and demanded your own future back, that was the day I started losing sleep over you. Nobody demands it back. The pruned don't know to ask. That is the entire mercy of the system.",
-                "I am telling you this so you know exactly what you are arguing with. Frost-fall is three days away. Bring me a better winter by then, or I will keep this village warm the only way I have ever known."
+                "I've read your page many times.",
+                "Someone cut you before you came here. No stamp, no date, no record of what they took.",
+                "That is not proof that every cut is wrong. It is proof that an unchecked person with the shears is dangerous.",
+                "Frost-fall is three days away. Bring me another way to heat the village."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
                 { text: "Leave her office.", nextPage: 7 }
             ] },
             { ...storyPage("The Unwilling", "The orchard office", "Kage Hoshina Enju", [
-                "You want the mechanics. All right. You've earned the honest version.",
-                "The founders' fire ran on futures given freely, and it ran thin. Gladness is a poor fuel. Two safe winters a generation, and after that, the cold got a vote again.",
-                "An unwilling future burns four times hotter. Five, if the person is young. There. Now you know the price of every warm floor you have ever stood on in this village, including the one under your feet right now.",
-                "And since you have made me honest tonight, here is the floor beneath that floor. Not all of it burns here. The village keeps enough ash to stay warm. The surplus goes down, through a lower draw, to a buyer that four villages share and none of us name. They mark it with a quartered circle. Its name is Hollow Gate. I have signed its approvals for thirty years, and I told myself every single time that a tax is not a sin as long as you spend your share of it on children.",
-                "And do not let me hide behind the word inherited. I did not build the lower draw, no. But I re-signed its approval every winter with my own hand, thirty times, and every single time I told myself the roof had chosen it for me. The roof did not. Frost-fall, Jonin. Bring me a better winter."
+                "You already know the answer. An unwilling future burns longer. A child's burns longer still.",
+                "The founders' gifts could only carry us through two winters in a generation. That was not enough.",
+                "The village doesn't keep all the heat. Part of it goes through a lower draw marked with a quartered circle. The name on the old agreement is Hollow Gate.",
+                "I inherited that agreement, and I renew it every winter. You can decide what that makes me after frost-fall. Until then, bring me a better winter."
             ]), image: "/scenes/story/story-ashen-leaf-village-85-7.webp", choices: [
                 { text: "Leave her office.", nextPage: 7, trait: "al85-hoshina-named-gate" }
             ] },
@@ -1196,41 +1193,40 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The stair door stands unlocked. On the top step sits a plate of honey bread, still warm, and a note in a keeper's steady hand: 'You were always going to come tonight. Eat something first.'"
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp" },
             { ...storyPage("At the Stair", "The kiln stair door", "Toma Reed", [
-                "I know. You have to go down alone. I hate it, and I checked the hinges on that stair door twice anyway, because hating a thing has never once stopped it.",
-                "Take Aren's letter with you. He wrote 'remember me arguing,' and tonight is the biggest argument this village has ever had.",
-                "Whatever happens down there, my mother's kitchen has tea in it afterward. I need you to plan on that. Having an afterward is half of winning.",
-                "Go on down. A door is only a shelf that swings. I can mind one of those."
+                "I know you have to go down alone. I don't like it.",
+                "Take Aren's letter. If she lies about him, read it to her.",
+                "Come to my mother's house afterward. There will be tea.",
+                "Go. I'll keep the door open."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "Go down alone.", nextPage: 2 }
             ] },
             { ...storyPage("The Keeper at the Fire", "The Rootfire chamber, racks emptied, shears on an anvil", "Kage Hoshina Enju", [
-                "You're punctual. I appreciate that tonight of all nights.",
-                "There they are. The shears. Four hundred years of keepers have held them, and I have held them longest of all. I took them out this morning to clean them, and then I noticed I had been holding them for six hours.",
-                "I cut my first future at thirty one. A boy whose bridge would have redirected the flood and drowned the low fields. I have been right, over and over, for thirty years.",
-                "And tonight I am going to show you what being right that long does to a person."
+                "You're here.",
+                "Those are the shears. I took them out to clean them this morning. Six hours later, I was still holding them.",
+                "I made my first cut at thirty one. A boy planned to redirect the flood, and his bridge would have drowned the low fields.",
+                "Don't ask whether I regret it. That isn't a useful question tonight."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp" },
             { ...storyPage("The Vessel", "The fire climbing her arms like ivy", "Kage Hoshina Enju", [
-                "It started in the spring. The fire coming when I call it. Then coming when I don't.",
-                "Every future I ever fed it is inside me now. The bridge boy hums in my wrists when it rains. The weaver's school runs lessons in my sleep. I am becoming the room where the village keeps its stolen wonders.",
-                "And the honest thing, the thing I need one person to hear me say out loud: part of me thinks I've earned it. That is how the fire wins, in the end. It agrees with you.",
-                "So. You, the one line my wall could never read. Ask your questions. Then we settle it, you and I and the fire."
+                "The fire started answering me in the spring. Now it comes whether I call it or not.",
+                "I hear the people I cut. The bridge boy when it rains. The weaver teaching a school that never existed.",
+                "Maybe those are their memories. Maybe they're mine. I don't know anymore.",
+                "Ask what you came to ask."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "The fire is not one fire.", nextPage: 4 }
             ] },
             { ...storyPage("The Lower Draw", "The Rootfire behind her: an upper flame, cedar-gold, and beneath the grate a darker pull", "Kage Hoshina Enju", [
-                "You have heard the name by now; the appraiser sells it cheaper than I ever could. Now look at what it means. Look at the fire. There is the flame you can see, cedar-gold and warm, the village's flame. And under the grate, that darker pull. That is not flame. It is not a direction at all. It is a hunger.",
-                "The Rootfire keeps only enough to warm Ashen Leaf. It always has. The rest goes down. There is a lower draw beneath this floor, and it has carried the surplus of every future I ever cut to a buyer four villages share and none of us name.",
-                "I will name it, since you came all this way. The records mark it with a quartered circle. Its true name is Hollow Gate. For thirty years I told myself it was only a tax, that every village paid one, and that we were the kinder village because at least our children got back the warmth that came home.",
-                "So hear exactly what I signed, and exactly what it cost. I did not spend Aren Reed once, for warmth. I spent him twice. Once to keep this village warm, and once to pay the Gate. The Gate did not choose the branches. I did. Now show me what you brought, and let us find out whether it answers both."
+                "Look under the grate. The dark pull beneath the flame is the lower draw.",
+                "The Rootfire keeps enough to warm Ashen Leaf. The rest goes to Hollow Gate.",
+                "I told myself it was a tax. That every Kage paid one and at least our share kept children alive.",
+                "Aren Reed fed both fires. I approved it. Now show me what you brought."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "Face her across the anvil.", nextPage: 20, trait: "al100-lower-draw-confessed" }
             ] },
             { ...storyPage("The Better Winter", "The anvil, water dripping from your sleeve", "Kage Hoshina Enju", [
-                "Show me what you're carrying. Slowly.",
-                "Aren Reed's water-screw. Rebuilt, full size, and running in my east channel since the trial night. And Jorun planed the housing, didn't he. The survey cut the bridge out of that man's head thirty years ago, and his hands kept it anyway. His HANDS kept it.",
-                "I asked for a better winter because no one ever brought me one. I thought that made the question safe. Thirty years I thought that.",
-                "And understand what you have actually done, if this holds. A future that feeds the village here cannot be sent down the lower draw. You have not only answered the cold. You have answered the Gate. I built my whole life on the certainty that neither one could be answered, and you carried both up my east channel in a dead boy's machine.",
-                "Say the numbers out loud, %name. All of them. I want to hear this from the person who built it."
+                "Show me. Slowly.",
+                "Aren Reed's water-screw. Jorun built the housing, didn't he?",
+                "How long has the full-size one been running? How many people does it feed?",
+                "One channel is not a winter plan. Give me the numbers."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "\"Ninety mouths from the terraces alone. And the terrace families watched the water climb.\"", nextPage: 6, requireTrait: "al88-proved-the-winter" },
                 { text: "Open Mori's book to the measured pages and read her every line.", nextPage: 7, requireTrait: "al88-held-the-proof" },
@@ -1238,78 +1234,78 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Set Aren's model on her anvil and let the water speak for itself.", nextPage: 9 }
             ] },
             { ...storyPage("What the Village Saw", "The anvil, her hands very still", "Kage Hoshina Enju", [
-                "The terrace families watched. Then it is already finished, isn't it. Arithmetic can be argued with. A village that has seen water climb cannot.",
-                "Thirty years, I asked every angry person who stood in front of me to bring me a better winter. You are the first one who walked in carrying it.",
-                "Then I cannot bury it again. Not this one. A village that has watched water climb does not unwatch it."
+                "Ninety people from the terraces alone?",
+                "And the families saw the channel running. They know where the water came from.",
+                "Then I can't call it a failed test and make it disappear. Not anymore."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "She looks at the shears.", nextPage: 16 }
             ] },
             { ...storyPage("The Measured Pages", "Mori's book open on the anvil", "Kage Hoshina Enju", [
-                "Give me the book. Sit down while I try to break it.",
-                "Your flow rate is optimistic. No. No, it isn't. The figures hold. Worst stretch, driest week, and still ninety. Mori taught you to make a number survive an enemy reading, and I am the enemy, and it survives.",
-                "He signed every page. The one record that old man ever kept that argues back, and he put his name under it for me to see.",
-                "The figures survive me. I have spent my whole life being the thing figures could not survive."
+                "Give me the book.",
+                "This flow rate is too high. No. Wait. I read the column wrong.",
+                "Worst week, ninety people. Mori signed every page.",
+                "How long has this been running?"
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "She closes the book.", nextPage: 16 }
             ] },
             { ...storyPage("Her Own Eyes", "A survey report unfolded between you", "Kage Hoshina Enju", [
-                "I read that report three times and refused to understand it. East fields wet in a dry week. Cause unrecorded. My own survey, my own ink, laid on my own desk.",
-                "You used my own eyes against me. That is cruel proof. Effective proof often is; I have leaned on that fact for thirty years, so I can hardly complain now.",
-                "You are the first angry person who was cruel enough to answer the question the way I would have.",
-                "I read this three times and chose not to understand it. I do not get to choose that anymore."
+                "I read this report three times. I thought the east fields were wet because a test line had broken.",
+                "You let my survey find it before you told me.",
+                "Do you have any idea what could have happened if that channel failed?",
+                "No. Don't answer. It didn't fail. That's the point."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "She folds the report closed.", nextPage: 16 }
             ] },
             { ...storyPage("The Water Answers", "The model turning in a channel of firelight", "Kage Hoshina Enju", [
-                "One cracked vane. He never got to fix it. I know this little machine better than you do; I tested the full design myself once, alone, at night, in this room. It worked then too.",
-                "And now it works upstairs, in my village, in the cold, without one future burned.",
-                "Thirty years of angry visitors, and the answer finally walks in as a machine too small to argue with.",
-                "The machine I burned is turning in my own channel. He never got to fix the vane, and it turns anyway."
+                "The vane is still cracked.",
+                "I tested the full design once, at night, in this room. It worked then too.",
+                "Now the full screw is running upstairs without burning anyone's future.",
+                "I knew it could work."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "She watches the water climb.", nextPage: 16 }
             ] },
             { ...storyPage("This Part Is Ours", "The kiln stair door opening behind you; Toma and Sera come down into the firelight", "Toma Reed", [
-                "You kept the way open for us, %name. We'll carry him from here. Step back.",
-                "That's Aren's model. Cracked vane and all. You cut him quiet, Kage, and you signed the cut yourself. Look at it. His machine still climbs.",
-                "I practiced this upstairs. It sounded better there. Mother, you say it. You always had the better hands for the hard parts."
+                "Thank you for keeping the door open, %name. We need to do this part.",
+                "That's Aren's model. You signed the order that took this work from him.",
+                "I had a speech. I can't remember it. Mom?"
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "Let Sera speak.", nextPage: 11 }
             ] },
             { ...storyPage("Handwriting", "The chamber, Sera laying the letter flat on the anvil", "Sera Reed", [
                 "My son wrote this. I know that now. I know the threes he never closed. I know how he pressed too hard on the page when he was angry, and he was angry so much of the time.",
-                "I spent twenty years grateful he was quiet. I washed his shirts and thanked the roots for a peaceful boy. You did that to me. You made a mother grateful for the hole where her son used to argue.",
-                "Ninety mouths. That is what his channel feeds. I came all this way to say the number to your face, in his own hand.",
+                "For twenty years, I thought he had always been quiet. That wasn't my son. You left me with someone easier to remember.",
+                "His channel feeds ninety people.",
                 "And my son was not a bench."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "The Kage looks at the letter.", nextPage: 12 }
             ] },
             { ...storyPage("A Mother's Proof", "The Rootfire dimming, Hoshina very still", "Kage Hoshina Enju", [
-                "You let them carry it. You stood back and let a mother and a shelf-mender put me in the ground with their own hands, and you only held the door.",
-                "Thirty years I asked angry people for a better winter. I did not expect a mother to bring me handwriting. I never built a defense against handwriting."
+                "I remember Aren. He argued with me for an hour.",
+                "I should have told you that. I should have told you the machine worked."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "She cannot look away from the letter.", nextPage: 16 }
             ] },
             { ...storyPage("Water Without a Name", "The channel numbers chalked on a slate", "Kage Hoshina Enju", [
-                "Ninety mouths. Yes. The number is real. I can see the east field is wet from my own tower window; I have been staring at it all week.",
-                "But whose future is this, child? Who paid for it? Who gets to stand in front of me and say: that was mine, and you took it?",
-                "Numbers without names are only another kind of filing, and filing is the one thing I have never been afraid of.",
-                "You have brought me water. You have not brought me the person I stole it from."
+                "The number is real. I can see the east field from my tower.",
+                "But you haven't shown me whose design this is or who paid for it.",
+                "I won't rebuild the village around a machine with no history and no one responsible for it.",
+                "You brought me water. You didn't bring me the rest."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "She sets the slate down.", nextPage: 20 }
             ] },
             { ...storyPage("The Unfinished Answer", "Aren's model in her scarred hands", "Kage Hoshina Enju", [
-                "Aren Reed's model. Yes. I know the shape. I countersigned the cut that made it an orphan.",
-                "It climbed in a basin once, in front of me. It climbed in my private tests too. That was never the question, child.",
-                "And the full screw turns upstairs in my east channel; I have watched it from my own window. But whose winter is it, child? It runs with no name behind it, and a future fed back namelessly is a rumor. I cannot answer the Gate with a rumor, and I cannot hand a village to one either.",
-                "You kept Aren's own page in your kit. The proof of who paid, in his own hand, and you never gave it back to the family it names. That is not nothing. It is only not enough to stop my hand."
+                "Aren Reed's model. I signed the cut.",
+                "I tested it. It worked.",
+                "The full screw is running upstairs, but you kept Aren's page in your own kit. His family still doesn't have it.",
+                "You want to accuse me of deciding what belongs to other people? Give the page back first."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "She sets the model down gently.", nextPage: 20 }
             ] },
             { ...storyPage("Mori Reads the Pattern", "Mori opening the bloom charts on the anvil beside the shears; Hoshina says his name once, quietly", "Elder Mori", [
-                "No, child. Step back. This page is mine.",
-                "Forty years of flowers. Forty years of surveys. Forty years of telling myself a pattern isn't a sentence as long as nobody reads it out loud.",
-                "My hand. My count. My cowardice, if we are being accurate, and I am a record keeper, so we will be accurate.",
-                "The flowers were never a blessing. We carried bread to houses the fire had already marked, and I filed the paper that called it luck. I am done filing endings."
+                "No. Let me do this.",
+                "These are forty years of bloom charts and surveys. I knew the pattern. I kept telling myself I needed more proof.",
+                "I was afraid, Hoshina. That's the reason.",
+                "The flowers marked the people you planned to take. I helped you call it a blessing."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "He sets the charts beside the shears.", nextPage: 20 }
             ] },
@@ -1320,30 +1316,31 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Enough. The tree chooses now.", nextPage: 20 }
             ] },
             { ...storyPage("Answer for Mori's charts. You've known the pattern for years.", "The reckoning", "Kage Hoshina Enju", [
-                "So Mori finally taught someone to read the blooms. Good. Then you've stood where I stand. You've looked at a flower on a fence and known exactly what it was going to cost that family.",
-                "Tell me you never once looked at a bloom and thought: better if it wilts early, before the survey sees it. Say it, and I'll call you a liar to your face.",
-                "That thought is my entire life. One flower, one house, one winter, every day, for thirty years. You carried the knowledge for one season and look what it did to you."
+                "Mori showed you how to read the blooms. Then you knew which families were in danger and still had to walk past their houses.",
+                "Did you ever hope a flower would die before the survey found it? I did. More than once.",
+                "You carried that knowledge for one season. I carried it for thirty years and kept approving the cuts. Don't confuse understanding me with forgiving me."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "Enough. The tree chooses now.", nextPage: 20 }
             ] },
             { ...storyPage("Answer for my page. You kept my cut in your wonder room.", "The reckoning", "Kage Hoshina Enju", [
-                "Yes. Your stub is in my room of taken things. The oldest cut I have ever handled, and the only one that isn't mine, and I couldn't burn it and I couldn't repair it, so I kept it. That is what keepers do. We keep.",
-                "You stood at my wall and demanded yourself back. Nobody does that. The pruned never know to ask. You knew, and you asked, and I have not slept properly since.",
-                "When you hold the shears, and I believe now that you will, go find whoever cut you. And when they explain themselves with arithmetic, the way I have tonight, remember me a little kindly."
+                "Yes. Your stub is in that room. It's older than every cut I made, and I don't know who put it there.",
+                "I couldn't burn it. I also didn't return it. Then you found it and demanded an answer I didn't have.",
+                "If you survive this, find the person who cut you. Don't let them hide behind numbers the way I did."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "Enough. The tree chooses now.", nextPage: 20 }
             ] },
             { ...storyPage("Answer for Aren Reed. His future gets finished.", "The reckoning", "Kage Hoshina Enju", [
-                "Aren Reed. The water-screw. The complaint written in a shaking hand. You promised his brother it gets finished. I know, because I countersigned Aren's cut myself. Mine was the approving stamp.",
-                "Here is the part I have never told a living person. I tested his screw. Alone, at night, in this room. It worked. It would have watered the east terraces and fed ninety more mouths.",
-                "And his complaint would have emptied my kiln within five years, so I chose the kiln. That is the cut I mourn at every frost-fall. Tell his brother that, afterward. Tell him his Kage tested the screw, and it worked, and she burned him anyway. He deserves to hate me accurately."
+                "I signed Aren Reed's cut. Don't look at Mori. The approval was mine, and I had read the complaint.",
+                "I built his screw in this room afterward. It worked. Ninety more mouths from the east terraces. I counted them myself.",
+                "Then I worked out what it would cost the Rootfire. I chose the fire and destroyed his work. Tell Toma I knew exactly what I was burning."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", choices: [
                 { text: "Enough. The tree chooses now.", nextPage: 20 }
             ] },
             { ...storyPage("The Shears on the Anvil", "The Rootfire at full roar, Hoshina alight", "Kage Hoshina Enju", [
-                "Enough talk, then. Look at me. Thirty years of being the answer to winter, and this is what's left, and I would do every year of it again. That is exactly why it has to be taken from me.",
-                "The shears, the fire, and a wall of futures upstairs. Somebody decides tonight what this village runs on. The fire has already cast its vote.",
-                "Show me, black flower. Show me what grows where nothing was permitted to."
+                "Enough. I've heard you.",
+                "I've held these shears for thirty years. I don't know how to put them down, and I still don't trust anyone else to get this village through winter.",
+                "If you want them, take them from me.",
+                "Show me what replaces this."
             ]), image: "/scenes/story/story-ashen-leaf-village-100-8.webp", leftName: "Player", rightName: "Kage Hoshina Enju", rightImage: "/portraits/kage-hoshina-enju-hollow.webp", choices: [
                 { text: "Show her the better winter.", nextPage: 5, requireTrait: "al88-better-winter-carried" },
                 { text: "Let the Reeds show her the better winter.", nextPage: 10, requireTrait: "al88-better-winter-deferred" },
@@ -1355,8 +1352,8 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Answer for Aren Reed. His future gets finished.", nextPage: 19, requireTrait: "al88-reed-proof-any" }
             ] },
         ], [
-            { text: "Break the shears on the anvil. Give every future back.", conclusion: "The shears part with a sound like a held breath ending. Upstairs, forty strides of cedar cry out at once as every stolen self comes home mid-life. The walls groan, because the ash in them was load-bearing. Deep beneath the kiln, the lower pipe empties with a sound like a throat losing a word, and the seam under the fire goes cold. For the first time in living memory the Rootfire draws nothing downward. The winter will be honest now, and hard, and no one else's future will pay for it. Hoshina attacks you weeping with relief.", trait: "honorable" },
-            { text: "Bind the Rootfire to willing gifts alone. Sheathe the shears forever.", conclusion: "The fire shrinks to the founders' flame, old and thin and clean. Every stamp on every unsigned slat splits down the middle; from tonight the Rootfire accepts only signatures, adult hands, a named price. Below, the lower seam opens once, hungry, finds nothing legal left to take, and closes. Ashen Leaf must ask for its warmth honestly now, and every hard winter will be a vote on your mercy. Hoshina bows to the arrangement, and then the fire wearing her does not, and it comes at you all the same.", trait: "merciful" },
+            { text: "Break the shears on the anvil. Give every future back.", conclusion: "The shears break on the anvil. Upstairs, cedar walls groan as stolen futures return to the people they were cut from. Beneath the kiln, the lower pipe empties and the seam under the fire goes cold. The Rootfire draws nothing downward. Winter will be hard, but it will belong to the people living through it. Hoshina touches the broken blade once, then the fire takes her and she attacks.", trait: "honorable" },
+            { text: "Bind the Rootfire to willing gifts alone. Sheathe the shears forever.", conclusion: "The fire shrinks to the founders' flame. Every unsigned stamp splits, and from tonight the Rootfire accepts only willing adult signatures. The lower seam opens, finds nothing it is allowed to take, and closes. Ashen Leaf will have to ask for its warmth now, winter by winter. Hoshina bows to the new rule. The fire in her does not.", trait: "merciful" },
             { text: "Take the shears. The village needs a keeper who was never fooled.", conclusion: "The grips are warm, and they fit your hand exactly, and you understand all at once why: the Register has been growing you toward this room since the day it bloomed. Below the fire, the dark seam does not close. It waits, warmer by a single degree, for your first approval. Hoshina smiles like winter finally breaking. 'Then prove it,' says the fire, with her mouth.", trait: "ambitious" },
         ]),
     ],
@@ -1365,15 +1362,14 @@ export const storylines: Record<string, StoryStep[]> = {
             { ...storyPage("First Bell", "The training yard at first bell, breath-fog in rows, lantern lines overhead", "Captain Yura", [
                 "New intake. Stand on the worn spots; they're worn for a reason.",
                 "I'm Captain Yura. You'll freeze in that coat. After drill, requisition a real one and tell them I sent you; the clerk owes me.",
-                "The rules here are short, because the cold doesn't wait through long ones. Out here, a person alone dies. So Frostfang made one rule above the rest: nobody is ever alone. We keep that rule with the Roll. Every bell, you answer your name, you hear your neighbor answer theirs, and everyone goes back inside knowing no one is missing.",
-                "The book calls the same thing by a colder name: the Count. It is the Roll written down as law, a marked wrist and a logged route and a rescue the wall owes you. Hold the difference somewhere you won't lose it. The Roll is people calling for people. The Count is what the wall writes down about it afterward.",
-                "Elder Sova takes the intake words. Answer her plainly. She's heard everything twice."
+                "At every bell, you answer your name. Listen for the person beside you. If they don't answer, you tell me. You don't assume somebody else noticed.",
+                "Sova keeps the book. She'll explain the Count.",
+                "Move. Your feet are getting cold."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp" },
             { ...storyPage("The Intake", "The roll stone, Elder Sova with the Count book open", "Elder Sova", [
-                "Stand easy. This is not a test. It is the intake: a few words, one question, and then soup.",
-                "There are four words the wall lives by, and I only teach them once. Say them back so they stick: the checked are counted, the counted are kept, the kept are warm.",
-                "Now the plain meaning, because new ears have earned one. Checked means your wrist answered the plate. Counted means your name is written in the rescue book. Kept means that if you vanish, the wall owes you a search. Warm is the promise the first three make good on.",
-                "Good. Now the one question, the one this book keeps beside every name. Tell me yours, plainly. Why do you stand in the Count?"
+                "Wrist here. If you feel faint, sit down. The brazier is behind you.",
+                "The words are: checked, counted, kept, warm. Checked means the plate knows you. Counted means you're in this book. Kept means we search if you go missing. Warm means we bring you home.",
+                "That's all. Now tell me why you want your name in the Count."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "\"So the cold takes nobody on my watch.\"", nextPage: 2, trait: "ff4-count-protector" },
                 { text: "\"To be the strongest back in the pack.\"", nextPage: 3, trait: "ff4-count-strongest" },
@@ -1382,37 +1378,37 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "\"I don't know yet.\"", nextPage: 6, trait: "ff4-count-unknown" }
             ] },
             { ...storyPage("A Guard's Reason", "The roll stone", "Elder Sova", [
-                "So the cold takes nobody on your watch. That's a guard's reason, and a good one to stand beside your name.",
-                "Entered and counted, %name. The wall sleeps easier with a watch-stander in the book.",
-                "Hold that reason where your hands can find it in the dark. Up here, winters burn through people's reasons faster than through lamp oil."
+                "So the cold takes nobody on your watch. Good.",
+                "You're in the book, %name.",
+                "Remember you said that when the watch gets difficult."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Step to the mark plate.", nextPage: 7 }
             ] },
             { ...storyPage("A Strong Back", "The roll stone", "Elder Sova", [
-                "The strongest back in the pack. Well, the pack needs strong backs. Only remember that the strongest back is the first to break if it carries alone. Write that down somewhere inside you.",
-                "Entered and counted, %name. The pack could use a strong back that remembers it's a pack.",
-                "Strength here isn't measured in what you can lift. It's measured in who you carried home. You'll learn the Roll."
+                "The strongest back in the pack. We can use one.",
+                "You're in the book, %name.",
+                "Don't try to carry a whole patrol by yourself. I've seen people ruin their knees that way."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Step to the mark plate.", nextPage: 7 }
             ] },
             { ...storyPage("A Debt to Pay", "The roll stone", "Elder Sova", [
-                "Repaying a rescue. Half the finest soldiers I ever entered in this book stood right where you stand, owing somebody their heartbeat.",
-                "Entered and counted, %name. The book is glad to hold a debt-payer.",
-                "Mind how you pay it. Some debts are better honored than settled. The settled ones stop keeping you warm."
+                "Someone came for you, so you'll come for someone else. I understand.",
+                "You're in the book, %name.",
+                "Just remember that you don't owe the Count your whole life."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Step to the mark plate.", nextPage: 7 }
             ] },
             { ...storyPage("A Door That Closed", "The roll stone", "Elder Sova", [
-                "Looking for someone who walked away. People rarely give me that answer, and when they do, they say it quietly, the way you just did. Up here, nobody likes the reminder that walking away is even possible.",
-                "Entered and counted, %name. Welcome in from the cold.",
-                "I hope you find them. And when you do, ask them why softly. The reason is never the one the Count wrote down for them."
+                "You're looking for someone who left. People don't often admit that here.",
+                "You're in the book, %name.",
+                "I hope you find them. Ask why before you ask them to come back."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Step to the mark plate.", nextPage: 7 }
             ] },
             { ...storyPage("A Blank Line", "The roll stone", "Elder Sova", [
-                "You don't know yet. That's honest, and this book keeps honest answers better than it keeps boasts.",
-                "Entered and counted, %name. That's you in the book, blank reason and all.",
-                "Come back when the word arrives. I'll enter it myself, in a good hand. The reason line stays open till then."
+                "You don't know yet. That's allowed.",
+                "You're in the book, %name. I left the reason blank.",
+                "Come back if you want to add one later."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Step to the mark plate.", nextPage: 7 }
             ] },
@@ -1423,10 +1419,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Sova. SOVA. The plate just read the new intake as someone long gone. Bring the book."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp" },
             { ...storyPage("Someone Long Gone", "The gate, Sova's thumb on the fogged plate", "Elder Sova", [
-                "Well. There is a thing I have not seen in a long career.",
-                "Likely just frost in the works. The plates are old, and old things remember wrong.",
-                "But I'll tell you what I tell the book, which is only ever true things. The plate doesn't read your skin. It reads what your wrist answers to. And yours answered with a name that left this world before you reached it.",
-                "It's nothing. Or it's yours. Either way, the yard is waiting: the Warden pup slipped its pen again, and drill is drill. The pack watches its newest tonight."
+                "I haven't seen that before.",
+                "It may be frost in the plate. These things are old.",
+                "But the plate doesn't read skin. It reads the name a wrist answers to, and yours answered with the name of someone who died years ago.",
+                "I'll check the old books. For now, Yura is waiting in the yard."
             ]), image: "/scenes/story/story-frostfang-village-4-0.webp", choices: [
                 { text: "Form up in the yard.", nextPage: 9 }
             ] },
@@ -1443,24 +1439,24 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Frostfang Village", 15, "The Missing Patrol", "Oathbound Soldier", "❄", [
             { ...storyPage("Five Names Unanswered", "The roll stone at third bell, snow starting, five names hanging", "Captain Yura", [
-                "Roll call came up short this morning. Ruven's patrol never answered. Five names, and not one voice. They were posted on the northern ridge, and the ridge is empty: the fires are banked, the packs still full, and the men gone.",
-                "The Kage ruled it at third bell. Desertion. Five deserters, struck from the Count, the case closed before their soup went cold.",
-                "But Ruven has a wife, a dog, and the neatest kit on the north wall. Men like that don't run. Men like that get LOST, and lost means somebody goes and gets them.",
-                "Kael closed the book, so we don't go as the Count. We go as weather. You coming?"
+                "Ruven's patrol missed roll call. Five people. Their ridge camp is empty, but the fires were banked and their packs are still there.",
+                "Kael called it desertion and struck their names from the Count.",
+                "Ruven wouldn't leave his dog, and he wouldn't abandon a clean kit. Something happened to them.",
+                "I'm going north. Are you coming?"
             ]), image: "/scenes/story/story-frostfang-village-15-1.webp" },
             { ...storyPage("The Kage in the Snow", "The north gate, Kael Whitefang walking IN out of the storm carrying a shepherd", "Kage Kael Whitefang", [
                 "Gate. Open. Now.",
                 "This shepherd strayed past his line in the east folds. He's frostbit, not dead. Get him soup and a warm wall. Move.",
-                "You two are bound north. Don't be.",
-                "Hear the law of me, since you'll serve under it. A man stays in the Count while three things hold: his mark answers, his route is logged, and he keeps inside his rescue line. The shepherd broke one and kept two, so the Count still held him, so I went for him.",
-                "Ruven's patrol broke all three. No mark answered, no route held, the line was crossed. The Count struck them, and a struck name is not mine to chase.",
-                "You see banked fires and full packs and call it a riddle. I see a law that has kept children breathing for ninety winters. No one freezes inside my Count. No one. What the Count strikes, the snow may keep."
+                "You're going north. No.",
+                "A person stays in the Count if the mark answers, the route is logged, and the rescue line holds. This shepherd still met two of those conditions, so I went for him.",
+                "Ruven's patrol met none of them. Their names were struck.",
+                "You think they're lost. I think they deserted. Either way, I'm not sending more people into that storm."
             ]), image: "/scenes/story/story-frostfang-village-15-1.webp" },
             { ...storyPage("What Yura Knows", "The north road, snow thickening", "Captain Yura", [
-                "Here's what frightens me, and it isn't that he leaves people. He rescues better than anyone alive; I've watched him carry grown men home on his back through weather that kills.",
-                "It's that the Count can tell him a man stopped counting, and he'll believe the Count faster than he believes his own eyes. Same man, both things at once. I stopped trying to make them fit years ago.",
-                "Ruven banked his fire. You bank a fire when you mean to come back to it. Deserters don't bank fires. Lost men do.",
-                "So tonight we follow the fire, not the book. There. Tracks, coming toward us. One set of boots, and whoever's in them is walking wrong."
+                "Kael has carried people home through weather that should have killed him.",
+                "But once the Count strikes a name, he stops seeing the person. I've never understood how both can be true.",
+                "Ruven banked his fire. He meant to return.",
+                "Tracks ahead. One person, coming toward us. Something is wrong with the way he's walking."
             ]), image: "/scenes/story/story-frostfang-village-15-1.webp" },
             { ...storyPage("Dain Comes Back", "The road, a soldier walking out of the white with his hood down", "Frost Seal Echo", [
                 "The soldier Dain is returned to the Count.",
@@ -1469,10 +1465,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Cold is only warmth that stopped asking questions. Return to the wall."
             ]), image: "/scenes/story/story-frostfang-village-15-1.webp" },
             { ...storyPage("The Corrected Man", "The road, Dain's hood down, frost in a script down his wrist", "Captain Yura", [
-                "That's Dain's face, and that is not Dain. Dain stammers. Dain hums when he's frightened. Whatever this is, it speaks in the flat, certain voice of the reader plate at the gate: every word sure of itself, and nobody home behind them.",
-                "Look at his wrist. That is not our mark. That is deep script, wrist to elbow, like someone wrote a whole oath into his arm.",
-                "Four are still out there, and whatever corrected Dain is standing between us and them.",
-                "It's wearing him, and it's coming this way, so hear me plainly before it reaches us. Whatever we do in the next minute, we do it to Dain himself: his real arm, his real face, with something else steering. So we do it clean, we do it kind, and we bring home what's left of him."
+                "That's Dain, but he doesn't sound like himself. He stammers when he's afraid. He hums. He's doing neither.",
+                "The script on his arm isn't ours. It goes all the way to his elbow.",
+                "The other four are still out there.",
+                "Don't forget this is Dain's body. Put him down without killing him if you can."
             ]), image: "/scenes/story/story-frostfang-village-15-1.webp" },
         ], [
             { text: "Take the corrected man down fast, before it learns you're a threat.", conclusion: "You hit first and hard, and the thing wearing Dain fights with drill-perfect, joyless precision until it can't. He goes down breathing. Under the deep script his own mark is still there, faint, like handwriting under a stamp. Yura splints his arm with hands that don't shake until after.", trait: "reckless" },
@@ -1502,18 +1498,18 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Put the three behind you and face the Guardian.", nextPage: 4 }
             ] },
             { ...storyPage("Terms of Service", "The ravine mouth, the Echo's cadence stuttering", "Captain Yura", [
-                "That's it. Harrow's trick. It runs on TERMS, so I'll give it terms. Listen, you walking gate!",
-                "Kessa was CHECKED at intake. The checked are counted. The counted are KEPT. Your own litany, your own order. You cannot call her pending. She's already owed a search.",
-                "Look at it. It's rereading itself. It's actually rereading itself.",
-                "Whatever that bought us, use it, because the ice is standing up."
+                "Harrow was right. It follows the wording.",
+                "Kessa was checked at intake. The checked are counted, and the counted are kept. Your own rule says she's owed a search.",
+                "It's hesitating.",
+                "Move. The ice is coming up."
             ]), image: "/scenes/story/story-frostfang-village-25-2.webp", choices: [
                 { text: "The ice stands up.", nextPage: 4 }
             ] },
             { ...storyPage("The Frost Seal Guardian", "The ravine, a guardian of old ice rising between you and the road home", "Captain Yura", [
-                "That's a Guardian. Old work. It was here keeping something before this village had a wall, and the seal wears it now the way it wears Dain.",
-                "Three behind us, one missing, and a wall of winter in front. A standard Frostfang tally.",
-                "Whatever you do, the three come home. That's the mission. Kessa is MY next mission, and I will dig her out of this seal's throat if it comes to that.",
-                "On your call, intake. It's your road now."
+                "That's an old Guardian. The seal is controlling it the way it controlled Dain.",
+                "We have three people behind us and Kessa is still missing.",
+                "The three come home. That's the mission. I'll keep looking for Kessa after that.",
+                "Your call."
             ]), image: "/scenes/story/story-frostfang-village-25-2.webp" },
         ], [
             { text: "Hold the road until all three are clear, then break contact clean.", conclusion: "You fight a wall of winter to a standstill exactly as long as the rescue needs, and not one breath longer, and then you fold back through the ravine like a drill answer. Three men come home. The Guardian watches you leave with something like professional respect, if ice can respect a schedule.", trait: "honorable" },
@@ -1529,11 +1525,11 @@ export const storylines: Record<string, StoryStep[]> = {
                 "So no, we are not proof that walking free is easy. We are proof of one thing only: the Count lied when it told you there was no other way. Ask the wall how their Count is doing."
             ]), image: "/scenes/story/story-frostfang-village-35-3.webp" },
             { ...storyPage("Yura's Roster-Mate", "The cavern fires, a big woman standing up slow", "Captain Yura", [
-                "Kessa's HERE? Kessa's alive, and teaching KNOTS, and nobody... no. Later. One miracle to a bell.",
+                "Kessa is here? She's alive?",
                 "Marrin.",
-                "Marrin, I filed the report. I want that said before anything else. The ridge post, the strike order, your name, all in my handwriting. I've carried it twelve years, and I'm not asking you to make it lighter.",
-                "The Count struck you. And you went and built a Roll anyway, a real one, out of nothing, in a glacier.",
-                "I don't know what to do with that, so I'm going to stand here while you decide whether to hit me."
+                "I filed the report that struck your name. The handwriting is mine. I'm not asking you to forgive me.",
+                "You built another Roll out here without the Count.",
+                "I don't know what to say."
             ]), image: "/scenes/story/story-frostfang-village-35-3.webp" },
             { ...storyPage("Returned to the Count", "The cavern mouth, torchlight, a sealed recovery detail forming up outside", "Narrator", [
                 "The recovery detail arrives at dusk: twelve sealed soldiers and a captain whose wrist script is old and deep, a man who was himself recovered once, and speaks of it the way saved men speak of medicine.",
@@ -1545,10 +1541,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Answer the captain at the mouth.", nextPage: 4 }
             ] },
             { ...storyPage("The Captain's Arithmetic", "The cavern mouth's shadow, Yura checking her gear by touch", "Captain Yura", [
-                "What am I about to do. Twelve years I've wanted somebody to ask me that before I did it.",
-                "My mark says I stand with the detail. My roster-mate is behind me with a Roll she built out of exile. My captain sealed the men I cut out of ice, and my Kage signed it.",
-                "You told me where you'd run once. Fair trade. Here's mine: if this goes wrong, I'm not running. I'm standing in the mouth. It's the only door I've got left that means anything.",
-                "Whatever you call, call it loud. I want to hear one order tonight I actually believe in."
+                "My mark says I stand with the recovery detail.",
+                "Marrin is behind us. Kael signed the order that sent those soldiers here.",
+                "If this goes wrong, I'm staying in the entrance. I'm not letting them take the cavern.",
+                "Whatever you decide, say it loudly enough for both sides to hear."
             ]), image: "/scenes/story/story-frostfang-village-35-3.webp", choices: [
                 { text: "Answer the captain.", nextPage: 4 }
             ] },
@@ -1571,27 +1567,27 @@ export const storylines: Record<string, StoryStep[]> = {
                 "One signature covers both pages. Both or neither. That rule is mine, and I have never been prouder or more ashamed of a rule."
             ]), image: "/scenes/story/story-frostfang-village-50-4.webp" },
             { ...storyPage("The Oath Is a Comfort", "The oath hall, Kael by the brazier, hands out to the heat", "Kage Kael Whitefang", [
-                "You hesitate. Good. Fools don't.",
-                "I'll say my piece once. The oath is a comfort. You'll wake at fourth bell, in weather that eats patrols, and the mark will tell you: you are counted, you are kept, someone comes. ALWAYS. Do you know what that's worth on a ridge at night? I do.",
-                "Choice is a luxury warm people invented. I kept children alive with this mark. Count that before you judge me.",
-                "Sign, or don't. But if you don't, understand me: I will never once send anyone for you. The Count can't owe what it doesn't hold."
+                "You should hesitate. This mark does not come off.",
+                "On a ridge at night, it means someone knows where you are and someone comes for you. I know what that is worth.",
+                "People talk about choice when they're warm. I use this mark to keep them alive.",
+                "Sign or don't. If you refuse it, the Count will not send a rescue for you."
             ]), image: "/scenes/story/story-frostfang-village-50-4.webp", choices: [
                 { text: "\"Essen's doubt walked out of him at the gate. I held it. Ask me what it weighed.\"", nextPage: 2, requireTrait: "ff42-held-the-doubt" },
                 { text: "Take up the pen.", nextPage: 3 }
             ] },
             { ...storyPage("What Doubt Weighs", "The oath hall, the brazier crackling", "Kage Kael Whitefang", [
                 "You held a man's doubt. And?",
-                "I've held a frozen child. Weigh THAT. One dead child outweighs every doubt this village ever produced. That's my whole reckoning. I sleep on it. Mostly.",
-                "But I'll grant the point you're circling. The gate took Essen's grievance without asking. Things that take without asking are on my list too. The list is long. The winter is longer. I close doors in the order they kill people.",
-                "Sign or don't, Jonin. The weather doesn't wait on philosophy. Neither do I."
+                "I've held a frozen child. That weighs more to me.",
+                "The gate took Essen's grievance without permission. I know. I have not dealt with it because the winter keeps coming first.",
+                "Maybe you think that's an excuse. Fine. Sign or don't."
             ]), image: "/scenes/story/story-frostfang-village-50-4.webp", choices: [
                 { text: "Take up the pen.", nextPage: 3 }
             ] },
             { ...storyPage("The Pen Gets Lighter", "The hall's side door, Yura turning her own wrist in the brazier light", "Captain Yura", [
-                "Before you decide. One soldier's honesty, no charge.",
-                "I signed at nineteen. Re-signed every promotion. And every time, the pen got LIGHTER. First time, my hand shook. Last time, I signed while talking about boots. That's what the mark does. Not the binding. The EASING. It makes belonging so simple you stop checking what it costs.",
-                "Nineteen days on a ridge taught me what the Count is worth. The mark taught me to stop asking the question. Those are different lessons and I got them in the wrong order.",
-                "Whatever you do at that table, do it with your hand shaking. That's the whole advice."
+                "Before you decide, look at my wrist.",
+                "I signed at nineteen and signed again with every promotion. My hand shook the first time. The last time, I was talking about boots and barely looked down.",
+                "The mark makes it easy to stop asking what you're agreeing to.",
+                "Read both pages. Take your time."
             ]), image: "/scenes/story/story-frostfang-village-50-4.webp", choices: [
                 { text: "The Glacier Twins wait.", nextPage: 4 }
             ] },
@@ -1608,33 +1604,33 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Frostfang Village", 65, "Orders in White Blood", "Oathbound Purge Unit", "❄", [
             { ...storyPage("The Removal Order", "The muster yard before dawn, an order pinned under a lamp", "Captain Yura", [
-                "Read it. Read it twice; it improves nothing.",
-                "Removal order. 'Nineteen Pale Pack fighters, entrenched, old quarry.' Sweep at dawn, sealed unit, my command, you as ranking witness. Kael's own hand.",
-                "Now here's the scout report the order quotes. I pulled the original. The quarry holds nine children, six elders, four unsealed adults. Zero fighters. ZERO. Somebody upstream turned a refugee camp into 'nineteen fighters' with one stroke of a pen.",
-                "Nineteen. Of all the numbers. Someone's telling me a joke, and I've stopped finding it funny."
+                "Read this.",
+                "The order says there are nineteen Pale Pack fighters in the old quarry. I'm assigned the sweep, and you're the ranking witness.",
+                "I pulled the original scout report. It lists nine children, six elders, and four unsealed adults. No fighters.",
+                "Someone changed 'people' to 'fighters' before Kael signed it."
             ]), image: "/scenes/story/story-frostfang-village-65-5.webp", choices: [
                 { text: "\"You stayed in the Count to fix it from inside. Is this the day that pays off?\"", nextPage: 1, requireTrait: "ff58-stayed-in-the-count" },
                 { text: "Ride for the quarry ahead of the unit.", nextPage: 2 }
             ] },
             { ...storyPage("From Inside", "The muster yard, Yura buckling her kit slow", "Captain Yura", [
-                "You remembered that. Sova's records room. I stayed in the Count on purpose, I said. Fix the machine from inside the machine.",
-                "So here's inside: I can slow a sealed unit two hours with 'confirmation protocol.' Two hours, all legal, all my signature. That's what twelve years of staying bought. Two hours.",
-                "Don't ever let anyone tell you the inside game is the strong move. It's the SLOW move. Sometimes slow is what's needed. Today it might be.",
-                "Two hours, Jonin. Spend them like they're the last thing I own, because officially, they are."
+                "I said I stayed so I could change things from inside.",
+                "Here's what that bought me: I can delay the unit for two hours under confirmation protocol. It's legal, and it has my signature.",
+                "Twelve years for two hours. I thought it would be more.",
+                "Use them."
             ]), image: "/scenes/story/story-frostfang-village-65-5.webp", choices: [
                 { text: "Ride. Now.", nextPage: 2 }
             ] },
             { ...storyPage("The Old Quarry", "The quarry floor, tents against the cut walls, children's snow-forts by the pool", "Pale Pack Runner", [
-                "You. Wall-walker. You're ahead of something; people only ride like that ahead of something.",
-                "Yes, we're what's left. The cavern scattered after the recovery push. The strong went deep with Marrin. The slow came here. My job is the slow. Lucky me. Lucky them.",
-                "Say your something. How long, and how many?",
-                "Dawn, you say. A sealed unit, and you named as ranking witness. Right. Then you've got a choice to make about what witnessing means, and I've got nine children to wake up gently."
+                "You rode hard. What's behind you?",
+                "The cavern scattered after the last recovery push. Marrin took the fighters deeper. I brought the children and elders here.",
+                "How long do we have? How many are coming?",
+                "Dawn. All right. I have nine children to wake up. You need to decide whose side you're on."
             ]), image: "/scenes/story/story-frostfang-village-65-5.webp" },
             { ...storyPage("The Confiscated Kits", "A dry cut in the quarry wall, crates of struck names' belongings stacked as a windbreak", "Captain Yura", [
-                "These crates. These are recovery confiscations. Struck names' kits. They cart them to the vault house for 'processing.' Some processing: it's all just SITTING here, walling wind off a soup pot.",
-                "Wait. This one's tagged with a ridge-post number. MY ridge post.",
-                "Dren Coldewe. Oh, snow and stone. Dren COLDEWE. He walked off our post on day six. Deserted, the report says. My report. And on day nineteen somebody unmarked walked INTO a whiteout and dragged me off that ridge, and I never saw a face, and command logged it as 'self-recovery.'",
-                "His kit. His unsent letter. And schematics: lanterns. Relay lanterns, spaced by chant-count, built to find people in a whiteout without a plate-read. He spent his exile building a way to COME BACK for people, and we processed it into a windbreak."
+                "These are confiscated kits from people the Count struck. They were supposed to be processed. They're being used as a windbreak.",
+                "Wait. This tag is from my old ridge post.",
+                "Dren Coldewe. I reported him for desertion on day six. On day nineteen, someone without a mark pulled me out of a whiteout. I never saw his face.",
+                "This is his letter. These plans are for relay lanterns that can find someone without a plate-read. He came back for me."
             ]), image: "/scenes/story/story-frostfang-village-65-5.webp", choices: [
                 { text: "Wrap the letter and the lantern plans. They leave with you.", nextPage: 4, trait: "ff65-saved-the-letter" },
                 { text: "Put the letter in Yura's hands. It was always addressed to her.", nextPage: 4, trait: "ff65-gave-yura-the-letter" },
@@ -1647,37 +1643,37 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The sealed unit waits on its witness. The word is yours, and the paper is wrong, and the paper is signed by the man who carries shepherds home."
             ]), image: "/scenes/story/story-frostfang-village-65-5.webp" },
             { ...storyPage("Ranking Witness", "The quarry rim, the purge unit forming its sweep line", "Captain Yura", [
-                "Orders say sweep. Ground says children. I've been a good soldier through eleven versions of that sentence, and I'm running out of versions.",
-                "Whatever you call, I confirm it. That's what my two hours were really for. One officer's word is a protest. Two is a RECORD.",
-                "They're waiting, Jonin.",
-                "Call it."
+                "The order says sweep. There are children below us.",
+                "Whatever you decide, I'll confirm it. Two officers on the record are harder to ignore than one.",
+                "They're waiting.",
+                "Decide."
             ]), image: "/scenes/story/story-frostfang-village-65-5.webp" },
         ], [
-            { text: "Refuse the order as written. False count, no sweep, on your testimony.", conclusion: "You declare the order void for a false count, ranking witness, on the record, and Yura confirms before your echo dies. The sealed unit stands down; sealed men are nothing if not lawful. By dusk the camp is ghosts and cold fires, gone deeper, and by midnight your testimony is on Kael's desk, and the word NINETEEN is circled in his hand. Nobody knows yet what he circled it FOR.", trait: "merciful" },
+            { text: "Refuse the order as written. False count, no sweep, on your testimony.", conclusion: "You declare the sweep void for a false count and sign the refusal. Yura confirms it before the sealed unit can object. By dusk the camp has moved deeper into the mountains. At midnight your testimony reaches Kael's desk. The word NINETEEN is circled in his hand.", trait: "merciful" },
             { text: "Escort the camp down the mountain yourself, under pack law.", conclusion: "You invoke the oldest line in the drill book: the pack walks its slow home. Nine children, six elders, four unsealed, one Jonin, one captain, one runner, walking INTO the village, in the open, daring the Count to refuse its own litany. The gate watch checks the litany, finds no line for this, and opens the gate. Sova enters fifteen names into the book with a steady hand and dares the room to speak.", trait: "loyal" },
-            { text: "Burn the order in front of the sealed unit and see who salutes.", conclusion: "Paper burns fast at altitude. The sealed unit watches its purpose curl to ash with those calm corrected faces, and then, one by one, they salute the RANK, because you outrank the ash, and the script never planned for that. It buys one dawn exactly. It also teaches the vault, watching through twelve pairs of eyes, that its instruments can be commanded off its own leash. Something files that. Something plans.", trait: "reckless" },
+            { text: "Burn the order in front of the sealed unit and see who salutes.", conclusion: "Paper burns fast at altitude. The sealed unit watches the order curl to ash. Then one soldier salutes your rank, and the rest follow because the script never told them what to do when the paper was gone. It buys the camp one dawn. It also shows the vault that its own soldiers can be ordered off the hunt.", trait: "reckless" },
         ]),
         milestone("Frostfang Village", 75, "Yura Breaks the Oath", "Frostfang Oathbreaker Hunter", "❄", [
             { ...storyPage("Drill Fashion", "The north tower before first light, Yura's kit laid out in perfect rows", "Captain Yura", [
-                "You came. Good. I put it in writing so I couldn't take it back; that's a trick I learned from watching brave people.",
-                "Kit check, by the book. The blade is clean, the kettle is hot, the bandage roll is new, the knife is sterile. And the witness is you.",
-                "Twelve years I've worn the mark. This morning I take it out. Not because the Count is worthless. Because I finally know what it took, and it took the ASKING. It took whether rescue means anything when nobody chooses it. The mark answers so nobody has to.",
-                "Talk to me while I work. That's your whole post this morning. If I go quiet, ask me something, and don't let me answer in drill cadence."
+                "You came. Good. I wrote this down last night so I couldn't change my mind.",
+                "The blade is clean. The bandages are ready. The kettle is hot. I need you to witness this.",
+                "I've worn the mark for twelve years. This morning I'm taking it out.",
+                "Keep talking while I work. If I stop answering, ask me something simple."
             ]), image: "/scenes/story/story-frostfang-village-75-6.webp" },
             { ...storyPage("Line by Line", "The tower room, lamplight, the work begun", "Captain Yura", [
-                "The first line is the intake mark. I was nineteen when I took it, hand shaking, so proud of myself. There it goes.",
+                "The first line is the intake mark. I was nineteen when I took it. There it goes.",
                 "Talk. Ask.",
-                "Why now? Because of a windbreak made of a dead man's lanterns. Dren walked away from the Count, and then he walked BACK, for me, unmarked, with no plate telling him to, and I have spent twelve years letting a wrist-line answer the question his whole life asked me.",
-                "Second line. Promotion mark. Lighter pen, heavier debt. There it goes. Keep talking, Jonin, you're doing fine. So am I. Say it back to me so one of us believes it."
+                "Why now? Because Dren left the Count and still came back for me. No mark made him do it.",
+                "Second line. Promotion mark. Keep talking. I'm fine. No, don't look at it. Just talk."
             ]), image: "/scenes/story/story-frostfang-village-75-6.webp", choices: [
                 { text: "\"You turned the holder plate down flat. This is the same hand, finishing the job.\"", nextPage: 2, requireTrait: "ff70-turned-the-plate" },
                 { text: "Keep her talking. Bell by bell.", nextPage: 3 }
             ] },
             { ...storyPage("The Same Hand", "The tower room, steam off the kettle", "Captain Yura", [
-                "The holder plate. Yes. They offered me people, you know that? Bound-back-to-me people. Guaranteed rescue, MY name on other wrists. The tenth holder mark in the village. An honor.",
-                "I looked at it and all I could think was: this is the ridge, again, from the other side. Someone chained to come for me whether they'd choose it or not. They tried to hand me my own worst night as a PRIZE.",
-                "You watched me turn it down and you didn't say a word, and I needed exactly that, and you somehow knew it.",
-                "Last line now. The deep one. The one that hums. Hold the lamp closer, and if my hand stalls, don't help. It has to be my hand. That's the entire point of everything."
+                "They offered me a holder plate. It would have bound other people to come for me.",
+                "I thought about Dren walking into that storm because he chose to. I couldn't take the plate after that.",
+                "You didn't try to persuade me. Thank you.",
+                "Last line. Hold the lamp closer. If my hand stops, don't help me."
             ]), image: "/scenes/story/story-frostfang-village-75-6.webp", choices: [
                 { text: "The lamp steadies. The line comes out.", nextPage: 3 }
             ] },
@@ -1688,10 +1684,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Warmth is owed. Warmth will be delivered. Stand away from the asset."
             ]), image: "/scenes/story/story-frostfang-village-75-6.webp" },
             { ...storyPage("Her Own Name", "The tower room, Yura on her feet, wrist bound, eyes clear", "Captain Yura", [
-                "Look at that. It calls the mark the property and me the confusion. Twelve years, and I finally hear it plainly: the Count was never FOR us. We were for the Count.",
-                "Here's the litany, the honest version, and I'll say it myself, out loud, once: the checked are counted. The counted are kept. The kept are FUEL.",
-                "It's on the stair. It moves the way Dain walked. Everything the seal wears moves like that, the way the plate reads: flat, certain, no one home.",
-                "If anyone comes for me after this, they will have CHOSEN it. Starting with you, starting now. Best morning of my life, and it's not even breakfast. Stand with me."
+                "It calls the mark its property. It calls me confused.",
+                "The checked are counted. The counted are kept. The kept are fuel. That's what the litany leaves out.",
+                "It's on the stairs. It moves like Dain did.",
+                "If you stay, stay because you choose to. I won't ask twice."
             ]), image: "/scenes/story/story-frostfang-village-75-6.webp" },
         ], [
             { text: "Stand between the Hunter and her bound wrist. She finishes her morning.", conclusion: "The Hunter wants the wrist; it has orders about the wrist. It gets you instead, for every stair, every landing, every drill-perfect lunge, while behind you a captain binds her own arm and drinks her tea sitting down. When it finally stops moving, Yura pins her old rank bar to its coat. 'Deliver THAT,' she tells the empty eyes, gently.", trait: "merciful" },
@@ -1706,27 +1702,28 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Each of the forty-three, you learn by asking, filed a grievance, missed a check, or asked the wrong question at roll call. The rows are alphabetical."
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp" },
             { ...storyPage("What Harrow Sells", "The icehouse, Harrow with her collar up and her ledger out", "Kite Harrow", [
-                "You want the real story, and I want to be paid in being listened to, so we're both in luck.",
-                "This isn't punishment. He's stripping the doubt out of them. The vault drinks one thing: the moment a marked soul would have said no and didn't. Ordinary wrists pay it in sips, a doubt set down here, a route obeyed there. The deep-script soldiers have no refusal left, so the vault can't feed on them; he keeps those as tools, and freezes everyone else while their last choice is still worth something.",
-                "So look what he does instead. A doubter frozen at the exact peak of his doubt, before it can fade or resolve, is a full cup that never spills. That is the White Silence. It isn't a punishment. It's a CELLAR: he's laying doubt down like wine against a hard payment coming due. I've appraised sieges with the same shopping list.",
-                "Those forty-three rows are the Count's larder now. That's the appraisal, no charge. Some numbers I don't care to keep on my own books."
+                "Those people aren't being punished. Kael is keeping them frozen because the vault feeds on the moment someone decides not to refuse.",
+                "The deep-script soldiers have almost no refusal left, so the vault can't draw much from them. The forty-three people in the square still have doubts it can use.",
+                "Frozen at that moment, they can be drawn on again and again.",
+                "He's storing enough to make a payment. I don't know when it is due."
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp", choices: [
                 { text: "\"You burned the forged plates. Now show me the real ones' weakness.\"", nextPage: 2, requireTrait: "ff80-burned-the-plates" },
                 { text: "Go to the vault hall. Face him.", nextPage: 3 }
             ] },
             { ...storyPage("The Rhythm's Flaw", "The icehouse, a forged mark plate between you on the ice table", "Kite Harrow", [
-                "I burned MY forgeries, yes. Sentiment. Don't spread it around; it's bad for my rates.",
-                "But here's what forging them taught me, and this one's free, because you were there when I chose the fire. The litany is a lock-rhythm. Checked, counted, kept, warm, in ORDER, four beats and a hold. The plate verifies the rhythm, not the person behind the wrist.",
-                "And the White Silence breaks the rhythm. Those forty-three are KEPT, plainly, look at them, but they can no longer answer a CHECK. The Count is holding wrists it can't hear anymore, and a lock that keeps time against dead beats will open for a counterfeit one just as gladly.",
-                "Hum the right litany at the right plate, and the Count will believe a thing that isn't so. And a system that believes wrong things can be led by the nose. There's your lever. Mind your fingers; it's heavier than it looks."
+                "I burned the forged plates. I still remember how they worked.",
+                "The litany is a four-beat lock: checked, counted, kept, warm. The plate verifies the rhythm, not the person.",
+                "The frozen people are being kept, but they can't answer a check. That breaks the order the plate expects.",
+                "Give the plate the right rhythm and it will accept a false answer. That's the weakness."
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp", choices: [
                 { text: "To the vault hall.", nextPage: 3 }
             ] },
             { ...storyPage("The Quartermaster of Doubt", "The vault hall, warm as a hearth, Kael at a table of tally boards", "Kage Kael Whitefang", [
                 "Sit down. Nobody argues well shivering.",
-                "Two numbers first. Ninety-one dead, the winter before I took the vault. Zero every winter since I took it. That's the whole speech.",
-                "The rows in the square. Say it: monstrous. Now count with me. Forty-three preserved doubters, or four hundred frozen children when the vault runs dry. That is the sum on my table. I've run it every way a man can, and the rows win. Every time.",
-                "So here is my door, and I only ever offer the one. Bring me a Roll that holds without the vault. A Roll where the lost still get FOUND, and no one's warmth pays for the finding. Bring me that, working and witnessed, and I will break the rows out with my own hands and stand trial in my own square. Until then, I keep the door. Someone has to be the door."
+                "Ninety-one people died the winter before I took the vault. Since then, none.",
+                "You see forty-three people in the square. I see four hundred people who freeze if the vault runs dry.",
+                "I've heard every plan for replacing it. None survived the first serious storm.",
+                "Bring me one that works, not another promise. Until then, the rows stay where they are."
             ]), image: "/scenes/story/story-frostfang-village-85-7.webp", choices: [
                 { text: "The Alpha Guard bars the hall.", nextPage: 4 }
             ] },
@@ -1757,43 +1754,42 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Through the faulty door.", nextPage: 2 }
             ] },
             { ...storyPage("The Pack Comes Down", "The vault forecourt, forty-one unmarked figures standing in falling snow", "Pale Pack Runner", [
-                "Look who the weather blew in. All of us. Marrin's up front, and Kessa carries the roll-slate; she earned it. The slow came too; the children are with Sova at the wall, and I'd walk a second winter just to watch the gate try to COUNT that.",
-                "We talked it out around the fire, all forty-one. If tonight goes right, we come down and answer one roll call. Freely. Struck names, answering by CHOICE, in the Count's own forecourt. Not because we forgive it. Because that is what a real Roll sounds like, and somebody has to stand up and demonstrate one.",
-                "If tonight goes wrong, well. We were ghosts before. We're good at it.",
-                "Yura's holding the stair. Go. And wall-walker... whatever you are, it was worth the walk."
+                "All forty-one of us came. Marrin is up front, and Kessa has the roll-slate. The children are safe with Sova.",
+                "We talked about it. If this works, we'll answer one roll call here in the forecourt because we choose to.",
+                "That doesn't mean we forgive anyone.",
+                "Yura is holding the stair. Go."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "To the stair.", nextPage: 3 }
             ] },
             { ...storyPage("The Stair Held by Choice", "The vault stair, Yura at the landing, bare wrist bandaged, standing easy", "Captain Yura", [
-                "Post report: one stair, held by one captain, unmarked, un-ordered, and here entirely on purpose. It feels different. Better. Colder, but better.",
-                "Below that door is the vault, and the vault is short, and a payment older than the wall comes due tonight. He'll be standing at the meter. He's been standing there for days.",
-                "I have exactly one order left in me, and I'm spending it now: come back UP this stair. Whatever happens down there. That's an order, Jonin. First one I've ever given that the Count didn't co-sign.",
-                "Walk on. This door stays open behind you for as long as I'm standing in it."
+                "I'm staying on this stair. No mark, no order. Just me.",
+                "Kael is below at the meter. The payment comes due tonight, and he hasn't left the vault in days.",
+                "Come back up when this is over. That's an order.",
+                "Go. I'll keep the door open."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Down, alone.", nextPage: 4 }
             ] },
             { ...storyPage("The Man Fused to the Door", "The vault floor: a wall of ancient ice, a meter running backward, Kael before it", "Kage Kael Whitefang", [
-                "Punctual. Good.",
-                "There it is. The vault. Every surrendered exit this village ever banked, keeping every hearth above us warm. And the meter, running down. The payment is tonight. I told you someone has to be the door.",
-                "Look at my arm. Go on, look. The script doesn't stop at the shoulder anymore. The door swings both ways, it turns out. Forty years holding it shut, and the vault has been quietly counting ME.",
-                "One confession, and there's no time for a second. The Count was true when I took it. Ninety winters of names and routes and rescue, and I inherited it clean. Every name mattered. Somewhere in my forty years at the door, between ninety-one dead and zero, the promise curdled into a QUOTA. I knew it, and I kept the door, because zero is zero is zero. But before you show me anything, there is a deeper thing owed, and it is worse."
+                "You're on time.",
+                "That's the vault. The meter reaches zero tonight.",
+                "The script has moved past my shoulder. I knew the vault was changing other people. I didn't realize it was changing me too.",
+                "The Count worked when I inherited it. Somewhere along the way, rescue became a quota. I knew, and I kept using it because no one froze. There's something else you need to see."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Look where he is looking.", nextPage: 5 }
             ] },
             { ...storyPage("The Gate Tax", "The vault's blue-white flame steady above, and beneath the grate a darker pull downward", "Kage Kael Whitefang", [
-                "Look past the warm flame. Under the grate, that darker pull. That is not the cold, and it is not the fire. It is a door under the vault's mouth, and I have fed it my whole life.",
-                "The Vault keeps two draws. The warmth you can feel, and a lower draw beneath it that bears a mark that was never ours: a circle cut in quarters. Its name is Hollow Gate. The Count is ninety winters old; I have held its door for forty; I signed that lower draw open for thirty, and every approval carries my hand. Do not make me younger than my guilt.",
-                "Every village pays it. Stormveil pays in reasons. Ashen Leaf pays in futures. Moonshadow pays in secrets. Frostfang pays in exits, and I paid mine with people who trusted me to come for them. Dren Coldewe most of all. I did not spend him once. I spent him twice: once to keep this village warm, and once to pay the Gate.",
-                "The Gate did not write the Count. It only taught the Count to drink. I decided the Count mattered more than the people standing outside it, and I kept refilling the cup with my own signature. Record that, Sova, wherever you've gone with your book. Now show me what you brought, or show me your hands. The meter won't wait."
+                "Look beneath the flame. The lower draw is marked with a quartered circle.",
+                "Its name is Hollow Gate. I signed that draw open thirty years ago and renewed it every year after.",
+                "The other villages pay it too. Frostfang pays with the choices people surrender to the Count.",
+                "Dren Coldewe fed the vault and the Gate. I signed both entries. Now show me what you brought. The meter won't wait."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Face him at the meter.", nextPage: 20, trait: "ff100-lower-draw-confessed" }
             ] },
             { ...storyPage("The Better Roll", "The vault floor, Dren's lantern plans unrolled against the ice", "Kage Kael Whitefang", [
-                "What is that. Bring it to the light.",
-                "Lanterns. Relay lanterns, chant-spaced. Coldewe's hand. I'd know it anywhere. I struck his name myself. And here it is: the thing I called impossible. A way to be FOUND that doesn't run through my vault.",
-                "And do you see what else it kills? A soul the lanterns bring home never surrenders the exit my vault drinks, so the pipe below runs dry. You did not only prove the vault unnecessary. You proved the Gate can be STARVED. I asked for a better Roll for forty years, and when Coldewe finally built one, I struck his name and fed him to the very thing he would have ended.",
-                "And you strung them. The ridge drill. Nineteen minutes. I didn't believe the report. I read it four times.",
-                "Say the number, %name. Out loud. Let the vault hear it."
+                "Bring that into the light.",
+                "Relay lanterns. This is Coldewe's handwriting.",
+                "You ran a drill on the ridge. One person went missing and the lantern team found him in nineteen minutes without a mark.",
+                "One drill does not replace the vault. Show me what else you have."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "\"Nineteen minutes to find a man in a whiteout. No mark. No vault. And the rows SAW it.\"", nextPage: 7, requireTrait: "ff88-woke-the-rows" },
                 { text: "Open the drill log to Sova's countersigned pages and read him every line.", nextPage: 8, requireTrait: "ff88-logged-the-drill" },
@@ -1801,74 +1797,74 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Hang Dren's lantern from the meter's frame and let it burn there.", nextPage: 10 }
             ] },
             { ...storyPage("What the Rows Saw", "The vault floor, the meter's light unsteady", "Kage Kael Whitefang", [
-                "The rows saw it. The whole wall watched a man walk into the white, and watched him found again, by choice, in nineteen minutes. And every watcher did the same sum in their heads: the vault is not the only door.",
-                "I can seal a doubt. I cannot seal a thing four hundred people watched WORK.",
-                "Forty years I asked for a Roll that holds without the vault. You went up a ridge and lit one.",
-                "Four hundred people did the same sum in their heads that night. I cannot strike four hundred names for being right."
+                "The whole wall watched the drill?",
+                "I had three people tell me the volunteer carried a hidden plate. They were lying.",
+                "Four hundred people saw him found without the Count.",
+                "I can't make all of them pretend it didn't happen."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "He looks at the meter a long time.", nextPage: 16 }
             ] },
             { ...storyPage("The Countersigned Log", "The vault floor, the drill log flat against the ice wall", "Kage Kael Whitefang", [
-                "Give it here. Breaking a count is the office; let's see this one try to stand.",
-                "Lantern spacings. Sweep times. One volunteer, found in nineteen minutes, zero plate-reads, zero draw. And it's countersigned. SOVA. The keeper of my own litany signed the Roll that replaces it.",
-                "Her pen never signs what her meter can't verify. I taught her that. I TAUGHT her that.",
-                "The figures hold. I have broken every count that ever crossed this desk, and this one does not break."
+                "Give me the log.",
+                "Lantern spacing, sweep times, no plate-read, no draw. Sova signed it.",
+                "She wouldn't sign an estimate. I taught her better than that.",
+                "The figures are sound."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "He closes the log with care.", nextPage: 16 }
             ] },
             { ...storyPage("His Own Wardens", "The vault floor, a warden's report unfolded between you", "Kage Kael Whitefang", [
-                "My own wardens. Yes. You ran the drill on a warded ridge, in reporting season, where the Count's own eyes had to log it and file it UP.",
-                "I read it four times. I sent for the duty officer and asked him plainly: is this real? He said, sir, we timed it twice. And I sat down in this cold room, and the door I have been my whole life swung loose on its hinge.",
-                "You used my own Count to deliver its obituary. Cruel. Efficient. I'd have done the same, and that is the part that lands.",
-                "My own wardens timed it twice. The door I have been my whole life is off its hinge, and my own people pulled the pins."
+                "My wardens filed this report.",
+                "I called the duty officer in and asked whether the drill was real. He said they timed it twice.",
+                "I accused him of helping you falsify it. He asked to be placed under oath.",
+                "The report is real. I knew that before you came down here."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "He folds the report in half.", nextPage: 16 }
             ] },
             { ...storyPage("The Lantern on the Meter", "The vault floor, one lantern burning against a wall of banked exits", "Kage Kael Whitefang", [
-                "One lantern. Chant-spaced wick, storm glass, Coldewe's pattern. It burns slower than it has any right to. He built them to outlast the search.",
-                "I struck him for walking OUT. Then he came back, unmarked, for one of mine, and I logged it 'self-recovery,' because the truth put a hole clean through the Count, so I filed a lie instead. And he spent his whole exile building doors for other people. He was a better man than the door he walked through. Say that at the wall afterward, plainly. They should hear it.",
-                "And now his little light sits on my meter, doing more keeping than the whole vault behind it.",
-                "He was a better man than the door he walked through. I struck his name. His lantern is still burning. Only one of those can be corrected."
+                "Coldewe's pattern. Storm glass and a slow wick.",
+                "I struck him for leaving. Then he came back for Yura without a mark, and I recorded it as self-recovery.",
+                "I knew it was a lie.",
+                "Leave the lantern there."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "He does not touch the lantern.", nextPage: 16 }
             ] },
             { ...storyPage("She Answers His Roll", "The vault stair door opening, Yura coming down with the letter", "Captain Yura", [
-                "You held the stair for me, %name. My turn now. This part is mine and his.",
-                "Kael. Roll call. Dren Coldewe, ridge post four, struck for desertion on day six. On day nineteen he walked into a whiteout for me, no mark and no order, and your Count logged it 'self-recovery,' and I signed the log, and we both know why: because the truth broke the litany's spine.",
-                "His letter. Never delivered; your confiscation crews are thorough. It is one line. 'Tell Yura: being counted isn't the same as being come for.'",
-                "Dren Coldewe. PRESENT. By choice, twelve years late, in his own handwriting. Answer his Roll, Kage. The Count is not whole. It never was."
+                "%name, step back. This is between Dren and me.",
+                "Kael. Dren Coldewe, ridge post four. Struck for desertion on day six. On day nineteen, he came back for me without a mark or an order.",
+                "His letter says: 'Tell Yura: being counted isn't the same as being come for.'",
+                "Dren Coldewe. Present. Twelve years late."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Kael stands very still.", nextPage: 12 }
             ] },
             { ...storyPage("The Door, Answered", "The vault floor, the meter's hum faltering", "Kage Kael Whitefang", [
-                "You let her carry it. You lit the lanterns, then you stood aside, and the woman he came back for answered his name at my door.",
-                "Forty years I asked for a better Roll. It arrives as a dead man's roll call, answered by the living, freely.",
-                "Being counted isn't the same as being come for. One line. Forty years of Count, and one line undoes it.",
-                "The Count never kept a column for people who come back. She just read it the missing entry, aloud."
+                "I remember that letter. I ordered it confiscated.",
+                "Being counted isn't the same as being come for.",
+                "No. It isn't.",
+                "Yura, I knew he came back for you. I changed the report."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "He stands very still.", nextPage: 16 }
             ] },
             { ...storyPage("A Roll Without a Name", "The vault floor, the drill figures chalked on slate, no letter behind them", "Kage Kael Whitefang", [
-                "Nineteen minutes. It's real; my wardens timed it twice. I don't doubt the method, and not doubting a thing is new for me.",
-                "But whose is it, Jonin? Who built the lanterns? Who walked out into the white, and who chose to go and find him? Give me names. A Roll without a name is just weather that happened to help.",
-                "You brought me the walk. You did not bring me the walker. A method is weather; a name is a wall.",
-                "Bring me the walker's name, or the door stands."
+                "Nineteen minutes. My wardens timed it twice.",
+                "But who built the lanterns? Who walked into the storm? Who chose to search?",
+                "A drill result isn't enough. I need to know whether real people will use this when they're frightened and freezing.",
+                "Bring me names, or the Count stays."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "He turns back to the meter.", nextPage: 20 }
             ] },
             { ...storyPage("The Undelivered Letter", "Dren's letter in Kael's scarred hands, unopened", "Kage Kael Whitefang", [
-                "Coldewe's kit. I know the tag; I signed the strike. So believe me when I say I know exactly what you're holding, and exactly what it weighs.",
-                "His lanterns worked. I tested the pattern myself once, one ridge, one storm, in secret, and it found my man in nineteen minutes then too. And I filed it away. A Roll that doesn't need the vault doesn't need a doorman, and I am the doorman, and a man will file ANYTHING to stay load-bearing.",
-                "But a letter in a coat is not a Roll, Jonin. I can honor it. I can grieve it. I cannot warm one child with it tonight.",
-                "You kept the man safe in your coat, and you never gave his name back to the Roll. That is not nothing. It is not enough, either. The meter doesn't read letters."
+                "That's Coldewe's kit tag. I signed the strike.",
+                "I tested his lantern pattern in secret. It found a man in nineteen minutes. I buried the result.",
+                "But this letter was addressed to Yura, and you kept it in your coat.",
+                "Give it to her. Then come back and tell me what it changes."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "He sets the letter down like a sleeping child.", nextPage: 20 }
             ] },
             { ...storyPage("The Litany, Backwards", "The vault floor, Sova on the stair with the Count book held open outward", "Elder Sova", [
-                "Hold, child. This entry is mine, and it has been forty years coming due.",
-                "Kael. My litany. I wrote it, I taught it, I checked ten thousand wrists beneath it. Hear it once in the honest direction.",
-                "The warm are kept. The kept are counted. The counted are CHECKED. Said backwards it stops being a comfort and becomes a reckoning, and the reckoning is this: we warmed ourselves on the very thing we swore we were saving people from. The cold takes those who are alone. We swore to end that, and we did: the deep script binds every wrist to every other, so that no one here can ever be left behind. And no one here can ever leave. We cured being alone by sealing the only door out.",
-                "My pen. My book. My litany. My share of the door. I am done keeping count of other people's exits. From tonight the book stays open, both directions."
+                "Wait. I need to say this.",
+                "Kael, I wrote the litany. I taught it to thousands of people.",
+                "The warm are kept. The kept are counted. The counted are checked. We bound everyone together so nobody could be left behind. We also made it impossible for them to leave.",
+                "I helped you do that. I'm done. The book stays open from now on."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "She sets the book on the meter.", nextPage: 20 }
             ] },
@@ -1879,30 +1875,31 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Enough. The Count ends here.", nextPage: 20 }
             ] },
             { ...storyPage("Answer for the exemption. You stood outside the Count like Sova.", "The reckoning", "Kage Kael Whitefang", [
-                "So she gave you the keeper's exemption. Bare wrists at the meter. Then you've stood where I stand: warm, counted by no one, watching the counted pay for it.",
-                "Tell me you never once read the intake book and thought: better them than me. Say it, and I'll call you a liar with my last honest breath.",
-                "That thought is the door, Jonin. That thought, every bell, for forty years. You held it one season. Imagine holding it until the script reaches your jaw."
+                "Sova gave you the keeper's exemption. Your wrists stayed bare while everyone else paid into the vault.",
+                "Did you ever look at the intake book and feel relieved it was them instead of you? I did.",
+                "I felt it for forty years. Then I kept the exemption and called the arrangement necessary."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Enough. The Count ends here.", nextPage: 20 }
             ] },
             { ...storyPage("Answer for my plate. It read someone long gone.", "The reckoning", "Kage Kael Whitefang", [
-                "The fogged plate. Yes. I read Vess's report the night it happened. I read everything. A wrist that answers with a struck name. The vault has a term for that. A debt still walking.",
-                "Someone surrendered an exit in your name, before you ever reached my gate. Bought your way out of something. Left my Count holding the weight. The plate wasn't misreading you. It was trying to finish a delivery.",
-                "When the door falls tonight, take your wrist's answer and go find where that name was struck from. Every Count keeps a book, Jonin. Even the one that ate your exit. ESPECIALLY that one."
+                "I read Vess's report about the fogged plate. The vault calls that response an unpaid debt.",
+                "Someone gave up the choice to leave in your name before you reached Frostfang. The plate recognized that person, not you.",
+                "I don't know who they were or what they got you out of. If you want the answer, you'll have to find the record outside this village."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Enough. The Count ends here.", nextPage: 20 }
             ] },
             { ...storyPage("Answer for Dren Coldewe. His lanterns are lit on your ridge.", "The reckoning", "Kage Kael Whitefang", [
-                "Coldewe. The walker. I struck his name with this hand, and I want you to hear the part I've never said at the wall: striking him was the only lie I ever entered in the book knowingly.",
-                "He didn't desert. He REFUSED, out loud, at post, the night I sealed the ridge rotation. Said a kept man can't keep anyone. I struck him as a deserter because a REFUSER on the record breaks the litany's spine, and then he walked into a whiteout for one of mine, unmarked, and proved himself right forever.",
-                "His lanterns hang on my ridge tonight. Tell Yura the truth of the strike, afterward. She signed a log she never believed; she deserves to know it was my hand that entered the lie first, and knew it was a lie, and kept the book anyway. She has hated her own signature for twelve years, and mine was the one that mattered."
+                "Dren Coldewe did not desert. Don't ask Sova. I entered the lie.",
+                "He refused the ridge rotation in front of his post. If I recorded a refusal, everyone else would know saying no was possible. So I called him a deserter.",
+                "Then he walked into the whiteout and saved Yura anyway. Tell her I knew. Tell her the false report stayed because I wanted it to."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", choices: [
                 { text: "Enough. The Count ends here.", nextPage: 20 }
             ] },
             { ...storyPage("The Meter at Zero", "The vault floor, the payment due, Kael's script reaching his jaw", "Kage Kael Whitefang", [
-                "Talk's done. Look at me. Forty years I have been the door, and I would hold it shut again, every time. That is exactly why you take it from me now. A door that can't imagine opening is just a wall.",
-                "The vault, the meter, and forty-one struck names in my forecourt answering a Roll I never called. Tonight decides what keeps this village warm.",
-                "The Count has one entry left, %name. Yours.",
+                "That's enough.",
+                "You found another way. I still don't know whether it will survive a real winter, and I can't make myself open the vault and hope.",
+                "Forty-one struck names are waiting outside. The meter is at zero.",
+                "If you want to change the Count, take it from me.",
                 "Show me what holds when nothing is holding it."
             ]), image: "/scenes/story/story-frostfang-village-100-8.webp", leftName: "Player", rightName: "Kage Kael Whitefang", rightImage: "/portraits/kage-kael-whitefang-hollow.webp", choices: [
                 { text: "Show him the better Roll: Dren's lanterns found a man with no mark and no vault.", nextPage: 6, requireTrait: "ff88-better-roll-carried" },
@@ -1915,22 +1912,22 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Answer for Dren Coldewe. His lanterns are lit on your ridge.", nextPage: 19, requireTrait: "ff88-exit-proof-any" }
             ] },
         ], [
-            { text: "Break every mark. No one is guaranteed again. They can only choose.", conclusion: "The vault cracks like a lake in spring, and every banked exit goes home to its wrist at once: forty years of surrendered doubts, refusals, and walkings-away, returned mid-life. The warmth dies to honest fires. Deep under the wall, the lower draw pulls hard for one breath, trying to drink what Frostfang has fed it for thirty winters, and finds every wrist gone quiet: not dead, just no longer answering to anything but a name. Something far below loses its taste for the village. In the forecourt, forty-one struck names finish the roll Yura began on the slope, freely, in the Count's own forecourt, and the falling snow suddenly matters again, and so does every hand in it. Kael attacks you weeping like a man finally allowed to.", trait: "honorable" },
-            { text: "Bind the vault. Metered, lawful, every struck name a case with your signature.", conclusion: "The vault survives, caged: draws by consent, posted publicly, every mark revocable by its own wrist, every historic strike reopened as a case. The old mark does not vanish; it changes, warming only after the wrist wearing it says yes. The lower draw opens once against the new law, finds nothing left that it is allowed to take, and shuts. The Count remains in the book; the hunger is cut out of it. Someone must sign for all of it, and the pen is in your hand, and Sova's open book suddenly has an heir. Kael bows to the arrangement, and then the script that runs to his jaw does not, and it comes at you wearing him.", trait: "merciful" },
+            { text: "Break every mark. No one is guaranteed again. They can only choose.", conclusion: "The vault cracks. Every banked exit returns to the wrist that surrendered it: old doubts, refusals, and choices coming home years late. The warmth falls back to ordinary fires. Beneath the wall the lower draw pulls once, finds nothing answering, and stops. In the forecourt, the forty-one struck names finish Yura's roll by choice. Kael listens to the last name, then attacks with tears frozen on his face.", trait: "honorable" },
+            { text: "Bind the vault. Metered, lawful, every struck name a case with your signature.", conclusion: "The vault stays open under new rules: public draws, consent, and a mark any wearer can revoke. Every historic strike becomes a case again. The lower draw opens once, finds nothing it is allowed to take, and shuts. Sova leaves the book open beside the meter and puts the pen in your hand. Kael bows to the arrangement. The script at his jaw tightens, and he attacks.", trait: "merciful" },
             { text: "Take the valve. A better keeper is still a keeper, and it's you.", conclusion: "Your hand fits the meter like it was cast for it, and you understand, all at once, why the plate fogged at your intake: the vault has been reading you as a keeper since the day you arrived. The script starts at your wrist, warm as a bath, patient as winter. Beneath the meter the lower draw does not close; it waits, patient as the ice, for your first order. Kael's shoulders come down for the first time in forty years. 'Then hold it,' says the vault, with his voice, already counting you.", trait: "ambitious" },
         ]),
     ],
     "Moonshadow Village": [
         milestone("Moonshadow Village", 4, "No One Saves You", "Hidden Blade Trainee", "🌙", [
             { ...storyPage("Two Names", "The registry booth at moonrise, violet lanterns on the canal", "Shade Master Iro", [
-                "Welcome to Moonshadow. Sit. Mind the curtain; it's older than both of us and holds more secrets than either.",
-                "Everyone here carries two names. The day name buys bread and answers the watch. The night name does the real work, and you will guard it like your spine, because here a name is not what you're called. It's what you're WORTH.",
-                "Your day name I'll take now, for the ledger. Your night name you'll choose yourself, later, when you know what you're protecting.",
-                "Day name, then. Speak it plainly. It's the last thing you'll ever give this village for free."
+                "Welcome to Moonshadow. Sit down. And don't lean on the curtain. It falls if you look at it too hard.",
+                "Most people here use two names. The day name is for ordinary life. The night name is for work you don't want following you home.",
+                "I'll take your day name now. You can choose the other one later.",
+                "Go ahead."
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp" },
             { ...storyPage("The First Trade", "The registry booth, Iro's pen waiting over the intake book", "Shade Master Iro", [
-                "Entered. Now, the intake question. Every soul in this book answered it once, and the book remembers every answer.",
-                "In a village where everything true is currency, the question is this. When the night comes calling, what do you trade FIRST?"
+                "All right. Now the intake question.",
+                "If you had to give something up to get through a bad night, what would go first?"
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp", choices: [
                 { text: "\"Nothing that keeps someone else safe. That's not for sale.\"", nextPage: 2, trait: "ms4-trade-protector" },
                 { text: "\"Whatever buys me the strongest hand in the room.\"", nextPage: 3, trait: "ms4-trade-strongest" },
@@ -1939,37 +1936,37 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "\"I don't know what I have left to trade.\"", nextPage: 6, trait: "ms4-trade-unknown" }
             ] },
             { ...storyPage("A Guardian's Answer", "The registry booth", "Shade Master Iro", [
-                "Not for sale. A guardian's answer. The booths eat guardians for breakfast, friend, but they pay a premium doing it.",
-                "Entered and held, %name. Welcome to Moonshadow.",
-                "One professional courtesy: know exactly WHO you're protecting before somebody sells you a list. That's the oldest con on the canal."
+                "Nothing that keeps someone else safe. Fair enough.",
+                "I've written it down, %name. Welcome to Moonshadow.",
+                "Just make sure you know who you're protecting. People will use that against you."
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp", choices: [
                 { text: "Step to the Mirror registry.", nextPage: 7 }
             ] },
             { ...storyPage("A Buyer's Answer", "The registry booth", "Shade Master Iro", [
-                "The strongest hand. A buyer's answer. Half this village came in saying that; the profitable half, I'll grant.",
-                "Entered and held, %name. Welcome to Moonshadow.",
-                "Mind the exchange rate. Around here the strongest hand is usually the one holding someone else's receipt."
+                "The strongest hand in the room. A lot of people say that when they arrive.",
+                "I've written it down, %name. Welcome to Moonshadow.",
+                "Be careful who offers to help you become important."
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp", choices: [
                 { text: "Step to the Mirror registry.", nextPage: 7 }
             ] },
             { ...storyPage("A Debtor's Answer", "The registry booth", "Shade Master Iro", [
-                "Anything, to buy something back. A debtor's answer, and I say that with respect; debt is the only honest religion this village has.",
-                "Entered and held, %name. Welcome to Moonshadow.",
-                "Whatever you lost, be careful in the booths. They can always find you a version of it. Finding you the REAL one costs extra, and the difference is the whole business model."
+                "Anything. That's a dangerous answer.",
+                "I've written it down, %name. Welcome to Moonshadow.",
+                "Whatever you lost, make sure it's really the same thing before you pay to get it back."
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp", choices: [
                 { text: "Step to the Mirror registry.", nextPage: 7 }
             ] },
             { ...storyPage("A Listener's Answer", "The registry booth", "Shade Master Iro", [
-                "You don't sell. You listen. Ah. We have a name for your kind here, and it's spoken carefully: an EAR. Everyone wants one. No one can afford one for long.",
-                "Entered and held, %name. Welcome to Moonshadow.",
-                "Listen wisely. In this village, what goes into an ear has a way of coming out as an invoice."
+                "You listen. Good. Most people here are waiting for their turn to talk.",
+                "I've written it down, %name. Welcome to Moonshadow.",
+                "Don't repeat everything you hear."
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp", choices: [
                 { text: "Step to the Mirror registry.", nextPage: 7 }
             ] },
             { ...storyPage("An Open Answer", "The registry booth", "Shade Master Iro", [
-                "You don't know what you have left. Hm. Strange phrasing, friend. Not what you HAVE. What you have LEFT. People say what they mean at intake; it's the last honest hour of their lives here.",
-                "Entered and held, %name, whatever it is you're missing. Welcome to Moonshadow.",
-                "If you ever find out what was already spent, come tell me. Professional curiosity. I'll pay, and I never say that twice."
+                "You don't know what you have left. That's an unusual way to put it.",
+                "I've written it down, %name. Welcome to Moonshadow.",
+                "If you work out what you meant, you can tell me. Or don't."
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp", choices: [
                 { text: "Step to the Mirror registry.", nextPage: 7 }
             ] },
@@ -1980,10 +1977,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The registry clerk looks at the delay, then at you, then writes something long in a book that intake clerks are not supposed to have."
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp" },
             { ...storyPage("Line Five", "The canal steps outside, a sharp-eyed woman flipping a coin that isn't a coin", "Nyx", [
-                "Psst. New blood. Over here. No, don't look around like that, you'll embarrass us both.",
-                "I sell information. Good rates, better accuracy. And you get the newcomer special, because I like faces the Mirror has to look up. Here it is: your intake packet, line five, says your first test is in two nights. Line five is a lie. It's TONIGHT. No bell, no warning, no rescue. That's the real curriculum here: no one saves you.",
-                "Free sample. First one always is; that's how the whole village works, so learn the shape of it fast.",
-                "The yard behind the silk house, one bell after moonrise. Bring everything you have, and don't die; corpses can't become repeat customers."
+                "Hey. Over here. Try not to make it obvious.",
+                "Your intake paper says the first test is in two nights. It isn't. It's tonight.",
+                "Nobody will ring a bell or come looking if you miss it. I found that out the hard way.",
+                "Yard behind the silk house, one bell after moonrise. Bring a weapon."
             ]), image: "/scenes/story/story-moonshadow-village-4-0.webp", choices: [
                 { text: "The silent yard, one bell after moonrise.", nextPage: 9 }
             ] },
@@ -2006,16 +2003,16 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Someone put this in a locked room to prove they could. Everything in Moonshadow is a message, and the envelope is usually the loudest part."
             ]), image: "/scenes/story/story-moonshadow-village-15-1.webp" },
             { ...storyPage("The Money That Sits", "Nyx's stall over the dye canal, the scroll flat between you", "Nyx", [
-                "Where did you GET this. No, don't tell me, I'll charge myself for knowing. Let me work.",
-                "Old network cipher, pre-Sable. Whoever wrote this learned their trade a generation ago... there. Patrol routes, gate rotations, sold quarterly. Real product, real buyer. And here's the strange line, the one that itches: the payments.",
-                "The money never MOVES, friend. I traced two of these payments for my own curiosity last season. It lands in accounts that nobody draws from. Ever. Piles and piles of it, just sitting, like bait nobody's supposed to spend.",
-                "Sellers who don't spend aren't sellers. They're EMPLOYEES. Someone is paying people in money that doesn't matter, for secrets that do, and honestly? As a professional, I'm offended by the margin."
+                "Where did you get this? No, wait. Let me read it first.",
+                "It's an old cipher. Patrol routes and gate rotations, sold every quarter. The buyer is real.",
+                "But nobody spends the payments. I traced two accounts last season. The money goes in and sits there.",
+                "That means the sellers aren't doing this for money. Someone is using the payments to make the exchange look ordinary."
             ]), image: "/scenes/story/story-moonshadow-village-15-1.webp" },
             { ...storyPage("The Kage's Mercy", "The canal walk at midnight, Sable Nocturne feeding a lantern flame, alone", "Kage Sable Nocturne", [
-                "Walk with me a moment. Yes, you. The scroll can wait; its author isn't going anywhere I haven't mapped.",
-                "You've been here a season. So you've heard what I am. The woman who holds everyone's secrets. The spider in the tower. Accurate enough, as far as it goes.",
-                "Tonight I burned a truth. A merchant's daughter did something unforgivable, years ago, and a creditor bought the proof and meant to spend it at her wedding. I bought it back this afternoon at four times the rate. Watch: there it goes, up the lantern. Nobody will ever know, including her. ESPECIALLY her.",
-                "That's the office, friend. What no one knows, no one can take. I have held the truths that would have burned this village a dozen times over. Remember tonight, whatever you come to think of me. I'd rather be judged by the whole ledger than the worst page."
+                "Walk with me. The scroll can wait.",
+                "You've heard what people call me. Most of it is deserved.",
+                "A creditor bought proof of something a merchant's daughter did years ago. He planned to reveal it at her wedding. I bought the proof back this afternoon. That's it burning now.",
+                "She will never know. You may think she had a right to. I decided she didn't. Decisions like that are my job."
             ]), image: "/scenes/story/story-moonshadow-village-15-1.webp" },
             { ...storyPage("The Doorway", "Your quarters again, and this time the doorway is occupied", "Veiled Hand Collector", [
                 "The scroll. You have it. It was placed; you found it; the placement is confirmed received.",
@@ -2036,25 +2033,25 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Moonshadow Village", 25, "Masks Beneath Masks", "Masked Auction Enforcer", "🌙", [
             { ...storyPage("The Cellar Auction", "Under the whisper market: a lantern-lit cellar, lots on velvet, buyers in masks", "Nyx", [
-                "Hood up. Walk like you're bored. The cellar auctions are invitation-only, and our invitation is that I bribed the stair guard's gambling debt, so we are precisely one bad question from swimming home.",
-                "Watch the lots, not the buyers. I used to move contraband through here myself: relics, weapons, embarrassing letters. Honest dirt.",
-                "That's not what's selling tonight.",
-                "Lot nine: patrol schedules, west quarter, ninety days. Lot ten: medical records, silk-house district, complete. Lot eleven... lot eleven is a NAME, friend. A living bloodline name, with an address. They're not selling contraband anymore. They're selling US."
+                "Keep your hood up and look bored. I bribed the stair guard, but that only gets us so far.",
+                "Watch the lots. I used to move contraband through here: weapons, relics, private letters.",
+                "Tonight they're selling patrol schedules and medical records.",
+                "Lot eleven is a person's name and address. That's new."
             ]), image: "/scenes/story/story-moonshadow-village-25-2.webp" },
             { ...storyPage("The Prepaid Buyer", "The cellar floor, an empty chair with a standing bid", "Nyx", [
-                "See the empty chair with the lantern? That's the buyer. Every lot tonight, same bid: one increment over the highest, no ceiling, prepaid. The auctioneer doesn't even look anywhere else anymore.",
-                "Nobody buys EVERYTHING. Buying everything means you're not shopping, you're HARVESTING. A proxy chair with bottomless prepaid credit means the real buyer is somewhere the money can't embarrass.",
-                "I've worked this market since I was nine, and I know every mask in this cellar by gait alone. I don't know who sits behind that chair. Do you understand what that means? In MY market?",
-                "Someone with more money than the village is buying the village, one file at a time, and the market I grew up in is wrapping us in velvet for them."
+                "See the empty chair with the lantern? It has a standing bid on every lot, one step above the highest offer. No limit.",
+                "Nobody buys everything unless the individual lots don't matter to them.",
+                "I know everyone who works this market. I don't know who is behind that chair.",
+                "Someone is collecting the village one file at a time."
             ]), image: "/scenes/story/story-moonshadow-village-25-2.webp", choices: [
                 { text: "\"Harrow measured me once and refunded the fee. Ask what SHE'D charge to trace that chair.\"", nextPage: 2, requireTrait: "ms20-respected-the-unsworn" },
                 { text: "Get closer to lot eleven before it sells.", nextPage: 3 }
             ] },
             { ...storyPage("The Appraiser's Trace", "The cellar's shadowed gallery, Harrow already there, because of course she is", "Kite Harrow", [
-                "Don't look surprised; it ruins your hood's whole argument. Yes, I'm working. Somebody has to appraise the lots the auctioneer under-describes. Tonight everything is under-described. Deliberately. You only under-describe when the buyer already knows what they're getting.",
-                "The chair? I traced it two contracts ago, as far as tracing goes. The credit routes through four brokers, two of whom are dead, which is very good bookkeeping. And the mark on the original escrow is a circle, quartered. I've seen it in three other villages, always near the money that sits.",
-                "You treated me like a person the night we met, so here's the appraisal you didn't order: this market thinks it's selling TO someone. It's wrong. It's being INVENTORIED.",
-                "And inventory, friend, is what you count before you take possession."
+                "Don't stare. I'm working.",
+                "I traced the chair through four brokers. Two are dead. The original account carries a quartered circle, the same mark I've seen in three other villages.",
+                "The buyer already knows what's in these lots. That's why the auctioneer barely describes them.",
+                "This isn't shopping. Someone is making an inventory."
             ]), image: "/scenes/story/story-moonshadow-village-25-2.webp", choices: [
                 { text: "Lot eleven goes up.", nextPage: 3 }
             ] },
@@ -2065,10 +2062,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The masks turn. The Enforcer detaches from the wall where it has stood so still you priced it as furniture. Nyx exhales a word that no ledger would print, and names her exit, and doesn't take it, and stays at your shoulder."
             ]), image: "/scenes/story/story-moonshadow-village-25-2.webp" },
             { ...storyPage("The House Rules", "The cellar, the Masked Auction Enforcer rolling its shoulders", "Nyx", [
-                "Okay. Rules of a cellar fight, fast version: the house wins ties, the exits are sold not found, and NOBODY spills blood on the lots; the cleaning fees are legendary.",
-                "That thing enforces for the house, the house answers to the chair, and the chair answers to a circle drawn somewhere we can't see yet.",
-                "Lot eleven is still on the table. A person's name, friend. It goes to that chair in ninety seconds unless somebody does something loud, stupid, and unpriced.",
-                "I'm flexible on loud and stupid. Unpriced is the hard part. Show me."
+                "The Enforcer won't damage the lots. Use that.",
+                "The house is protecting the buyer's chair, and the buyer is tied to the quartered circle.",
+                "Lot eleven sells in ninety seconds.",
+                "I'll get the name. Keep that thing busy."
             ]), image: "/scenes/story/story-moonshadow-village-25-2.webp" },
         ], [
             { text: "Fight the Enforcer as a screen. Nyx palms lot eleven in the chaos.", conclusion: "You give the cellar its show, loud and central, and while every mask watches the Enforcer earn its retainer, a canal broker with quick hands makes a bloodline name disappear off velvet. The house records the lot as 'withdrawn.' The chair's proxy bid lands on nothing, prepaid, unrefundable. Somewhere, an inventory develops its first discrepancy.", trait: "suspicious" },
@@ -2077,19 +2074,19 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Moonshadow Village", 35, "The Hollow Moon Contract", "Contract-Bound Shadow", "🌙", [
             { ...storyPage("The Bleeding Page", "A safe room over the canal, a contract that darkens in moonlight", "Nyx", [
-                "Lot eleven's paperwork. The name sold with a RIDER, and I lifted the rider, and I need you to look at it under the moon and then tell me I'm wrong about what it is. Please. I'll pay you to tell me I'm wrong; that's a first.",
-                "Look. In lamplight, a standard purchase memo. Under moonlight... there. The real text, coming up like a bruise.",
-                "Kage Sable Nocturne, contracting party. Services: the quiet disappearance of listed persons, priced per name. And the list, friend. Look at the list. Every name on it is TALENTED. Promising. The kind the village would follow.",
-                "She's not clearing threats. She's clearing SUCCESSORS. And look at the ruling: the page has lines for more names than it holds. This document expects to grow."
+                "I took the rider attached to lot eleven. Read it under the moon.",
+                "In lamplight it looks like a purchase memo. The real text only appears out here.",
+                "Sable Nocturne is the contracting party. It pays for the disappearance of everyone on this list.",
+                "They're all talented people with influence. She isn't removing criminals. She's removing possible successors."
             ]), image: "/scenes/story/story-moonshadow-village-35-3.webp", choices: [
                 { text: "\"I stood at a stone once that only opens for a kept no. This page smells the same.\"", nextPage: 1, requireTrait: "rd34-kept-my-no" },
                 { text: "Ask what's on the other end of the contract.", nextPage: 2 }
             ] },
             { ...storyPage("The Kept No", "The safe room, the contract pinned under a lamp it doesn't like", "Nyx", [
-                "A stone that opens for a witnessed refusal. Where do you even FIND these... no. Focus, Nyx. Say the rest.",
-                "So you've met old-world work before. Things built by the people who kept themselves. Then you already know what this rider is, underneath the legal silk: it's the OPPOSITE. A document built to collect what people never agreed to give.",
-                "That's why it bleeds in moonlight. It's not ink, friend. It's escrow. Every name on this list is half-collected already, held in trust against delivery.",
-                "Your stone kept a no. This page keeps a hundred yeses that nobody ever said. Same craft. Opposite prayer."
+                "A stone opened for a witnessed refusal? Where did you find that? No, later.",
+                "This rider does the opposite. It treats silence as permission.",
+                "The dark text isn't ordinary ink. Each name is already partially bound to the contract.",
+                "If the document is destroyed, those claims may break with it."
             ]), image: "/scenes/story/story-moonshadow-village-35-3.webp", choices: [
                 { text: "The lamplight bends.", nextPage: 2 }
             ] },
@@ -2100,11 +2097,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "You, though. You keep appearing in inventories with no purchase history. The chair noted it. The cellar noted it. Now the lamp notes it. Something acquired you before us, discrepancy, and the Hollow Moon does not bid on encumbered goods. Resolve your prior lien. Then we may talk terms."
             ]), image: "/scenes/story/story-moonshadow-village-35-3.webp" },
             { ...storyPage("The Contract's Guard", "The safe room, a shadow detaching from the contract itself", "Nyx", [
-                "First, the thing it said about you. A prior lien means something else already owns a piece of you. The Mirror found the claim and doesn't know who to bill. File that away and shake about it later.",
-                "The page is guarded. Of course the page is guarded; escrow that walks. I hate this document so much I could frame it.",
-                "That thing is contract-bound: it exists to keep the rider intact and the list growing. Break the binding and the escrow spills; every half-collected name on that list gets its lien released. Eleven people wake up tomorrow un-sold and never know it.",
-                "Or we keep the page whole and I spend a season tracing its clauses back to whoever drafted it. Knowledge or mercy, friend; the village never sells both at once.",
-                "It's unfolding. Lamp's dying. Whatever you choose, choose it in the next breath."
+                "It said you have a prior claim on you. Something may already own part of your record. We deal with that later.",
+                "The shadow is bound to the page. Its job is to keep the contract intact.",
+                "Break the binding and the eleven claims should release. Keep the page whole and I may be able to trace whoever wrote it.",
+                "The lamp is going out. Decide."
             ]), image: "/scenes/story/story-moonshadow-village-35-3.webp" },
         ], [
             { text: "Study the binding as you break it. Learn the drafter's hand.", conclusion: "You take the guard apart the way Nyx reads a cipher: slowly, greedily, noting every clause it bleeds. When the binding snaps, eleven liens release, and you hold the drafter's grammar in your head: the quartered circle writes its contracts in surrendered trust, and now you can recognize the handwriting. Nyx calls it the most profitable fight she's ever billed nothing for.", trait: "suspicious" },
@@ -2113,35 +2109,35 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
         milestone("Moonshadow Village", 50, "Jonin of the Hidden Knife", "Jonin Trial: Mirror Assassin", "🌙", [
             { ...storyPage("The Mirrored Chamber", "The tower's mirrored chamber, a hundred reflections, one Kage", "Kage Sable Nocturne", [
-                "Come in. Ignore the mirrors; they're for guests who need reminding how many angles I have. You've never needed the reminder.",
-                "Let me save us the dance. The cellar. The rider. The lamp that bent. I've read every report about you, including the two I wasn't supposed to receive. You have seen more of my ledger than any living person outside this tower.",
-                "The traditional response is a quiet canal and a heavier current. Instead: kneel. I'm promoting you.",
-                "Jonin of Moonshadow. The rank is real, the errand that comes with it is small, and if you're half what my files say, you're already asking yourself which part of this is the trap. Good. Keep asking. That instinct is the promotion."
+                "Come in. Ignore the mirrors.",
+                "I know about the cellar, the rider, and the thing you saw in the lamp. I've read every report on you.",
+                "I could have you killed. I'm promoting you instead. Kneel.",
+                "The rank is real. So is the assignment that comes with it. You should assume I'm keeping you close because I don't trust you."
             ]), image: "/scenes/story/story-moonshadow-village-50-4.webp", choices: [
                 { text: "\"You reported the booths once. She knows. Watch her watch you.\"", nextPage: 1, requireTrait: "ms42-reported-the-booths" },
                 { text: "Take the errand and read it later.", nextPage: 2 }
             ] },
             { ...storyPage("The Report She Kept", "The mirrored chamber, Sable drawing one page from her sleeve", "Kage Sable Nocturne", [
-                "Since we're being efficient: yes, I have your booth report. The one you filed about the confession drains. Filed to the watch, intercepted by the tower, read by me, eleven times.",
-                "Do you know what usually happens to that report? Nothing. It's filed by somebody every few years. Some frightened confessor, some sharp-eared clerk. I keep them all in one drawer. My drawer of almosts.",
-                "Yours is the first that mapped the DRAIN and not just the fear. You followed the pipe. Nobody follows the pipe.",
-                "So understand the promotion correctly, Jonin. I am not buying your silence. I'm buying your PROXIMITY. People who follow pipes should be where I can watch them follow mine. We're going to be very honest with each other, you and I, in the way of two people holding knives under a table."
+                "I have the report you filed about the confession booths. The tower intercepted it before it reached the watch.",
+                "Someone files a complaint every few years. Usually they describe the fear and stop there.",
+                "You mapped the drain.",
+                "That is why I'm promoting you. I want you close enough to watch."
             ]), image: "/scenes/story/story-moonshadow-village-50-4.webp", choices: [
                 { text: "The corridor, after.", nextPage: 2 }
             ] },
             { ...storyPage("Collateral That Reports", "The tower corridor, Nyx leaning where the guards pretend not to see her", "Nyx", [
-                "So. Jonin. Look at you. I'd bow, but the guards would charge me for it.",
-                "Listen fast, because this corridor bills by the minute. Rank in this village isn't pay, it's POSITION. Position is collateral. And collateral, friend, REPORTS. From tonight, everything you do prices differently, and everything you say near me lands in a file with your new title on the spine.",
-                "I took this same walk once. Different tower, same math. They made me a courier with a badge, and I learned in a month that the badge was a receipt someone else was holding.",
-                "So here's my one free warning, old rates, for old times: read the small errand TWICE. In Moonshadow, nobody gives you the big knife first. They give you the small cut and watch which way you wipe the blade."
+                "Jonin. That was quick.",
+                "Your new rank means the tower will record everything you do more closely. Be careful what you say around me too.",
+                "I had a badge once. It took me a month to understand it was mostly there to make me easier to track.",
+                "Read the assignment twice. Small errands are how they find out what you'll do on a larger one."
             ]), image: "/scenes/story/story-moonshadow-village-50-4.webp", choices: [
                 { text: "The trial waits below.", nextPage: 3 }
             ] },
             { ...storyPage("The Mirror Assassin", "The trial floor beneath the chamber, your own reflection stepping out of the glass", "Kage Sable Nocturne", [
-                "The rank trial. Every Jonin of Moonshadow fights it, and I will tell you what it is, because lying to you specifically seems inefficient.",
-                "The Mirror drinks a reading of everyone this village registers. At trial, it pours one back. You will fight what the registry holds of YOU: every priced choice, every filed angle, the whole asset.",
-                "Most candidates meet themselves and negotiate. The asset knows their tricks, so they bargain with it, and the trial prices them accordingly. It's the most honest interview ever designed.",
-                "Yours came out half a second late, of course. Even the Mirror has to look you up. Begin when you're ready, Jonin. I confess I've sold tickets to better seats than mine for less interesting bouts."
+                "Every Moonshadow Jonin takes this trial.",
+                "The Mirror keeps a reading of everyone registered here. It uses that reading to make the opponent in front of you.",
+                "It knows whatever the registry knows about you. It also shares the registry's gaps.",
+                "Yours appeared half a second late. Begin when you're ready."
             ]), image: "/scenes/story/story-moonshadow-village-50-4.webp" },
         ], [
             { text: "Fight it to a standstill, then claim ITS reading as your property.", conclusion: "You beat the reflection to one knee and then, before the whole trial floor, invoke the market's own first law: possession of a defeated asset. The Mirror's reading of you, every priced page of it, transfers to YOUR custody, and the registry suddenly holds nothing on the newest Jonin but a receipt. Sable applauds, twice, slowly. In her drawer of almosts, something graduates.", trait: "ambitious" },
@@ -2156,10 +2152,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The shrine on the eastern canal keeps its lamps low. Witnesses usually do."
             ]), image: "/scenes/story/story-moonshadow-village-65-5.webp" },
             { ...storyPage("The Copied Names", "The canal shrine, an old keeper laying pages flat with shaking hands", "Shrine Witness", [
-                "You're the knife, then. I wondered which one she'd send. Sit, knife. Read first. Kill after, if the reading leaves you able; it hasn't left ME able for much, and I only copied it.",
-                "Names. Three hundred and eleven of them, going back forty years. People 'sold downward,' the booth clerks call it. Not killed, no. Killed would waste the asset. SOLD. Alive, somewhere below or beyond, and OWED, and every year the shrine takes confessions from families who think their people left them.",
-                "I copy names because a name copied is a name that exists twice, and a thing that exists twice can't be quietly owned once. That's my whole crime, knife. Duplication.",
-                "Read the third page. Read it before you decide anything. The third page is why she sent someone she's WATCHING instead of someone she trusts."
+                "You're the one they sent. Sit down and read before you decide what to do with me.",
+                "There are three hundred eleven names here, going back forty years. The booth records say they were sold downward. They may still be alive.",
+                "Their families think they left. I made copies so the original records couldn't be erased without a trace.",
+                "Read the third page. I think that's why the tower sent you instead of someone it trusts."
             ]), image: "/scenes/story/story-moonshadow-village-65-5.webp", choices: [
                 { text: "Read the third page.", nextPage: 2 }
             ] },
@@ -2174,46 +2170,46 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Copy nothing, take nothing. The witness's set stays whole and hidden.", nextPage: 3, trait: "ms65-resealed-the-crate" }
             ] },
             { ...storyPage("The Second Knife", "The shrine door, a second figure arriving with excellent manners", "Veil Adaza", [
-                "Evening, colleague. Veil Adaza. We shared a bad bridge once; I still owe the Black Bridge ledger one clean disclosure, so here it is, free and complete.",
-                "I hold the same errand you do. Same whisper, same witness, same night. That's not redundancy, colleague. That's a TEST with two answer sheets. She wants to know which of her knives cuts where it's pointed.",
-                "And one more disclosure, since the bridge debt runs deep: my errand came with a second clause. If the first knife hesitates... well. You can price a sentence like that yourself.",
-                "The Executioner behind me came in case we BOTH hesitate. So. Colleague. How do we answer the test?"
+                "Evening. Veil Adaza. We met at the Black Bridge.",
+                "I received the same order you did. Same witness, same night. The tower is testing both of us.",
+                "My order says that if you hesitate, I finish the job.",
+                "The Executioner behind me is here in case we both refuse. What do you want to do?"
             ]), image: "/scenes/story/story-moonshadow-village-65-5.webp", choices: [
                 { text: "\"I've stood between bolts and the chained before. I'm doing it again.\"", nextPage: 4, requireTrait: "rd52-shielded-the-line" },
                 { text: "Answer with your stance, at the shrine door.", nextPage: 4 }
             ] },
             { ...storyPage("The Executioner's Patience", "The shrine yard, the Veiled Hand Executioner unfolding from the dark", "Veil Adaza", [
-                "For the record, colleague, I was rather hoping you'd pick the door.",
-                "The witness keeps copying inside, which under the circumstances is either courage or the deepest deafness on the canal. Three hundred and eleven names that exist twice. Someone upstairs wants them existing once, and wants to know what YOU want, and built tonight to learn both at a single fee.",
-                "The Executioner doesn't negotiate, before you try; its contract is prepaid. Ask me how I know. Don't, actually.",
-                "Whatever the pages are worth to you, the price posts now, knife. Show the tower your answer."
+                "I was hoping you'd protect the door.",
+                "The witness is still copying. The tower wants those names reduced to one set, and it wants to see whether you obey.",
+                "The Executioner won't negotiate. I already tried once.",
+                "It's coming."
             ]), image: "/scenes/story/story-moonshadow-village-65-5.webp" },
         ], [
             { text: "Stand between the Executioner and the shrine. The copying continues.", conclusion: "You plant yourself at the shrine door and make the tower's prepaid contract earn every clause, and behind you, through the whole fight, the sound never stops: an old keeper's brush, copying names, steady as canal water. Adaza watches from the wall, scrupulously neutral, and at the end files the only report she can: the first knife stands where it's pointed AT, not where it's pointed FROM.", trait: "merciful" },
-            { text: "Unmask the errand: shout the tower's order to the whole canal.", conclusion: "You do the unpriceable thing: you say an unwritten order OUT LOUD, at volume, across water that carries sound like a grudge. Windows open. Booths empty. An off-ledger kill order, published mid-execution, and now three hundred witnesses know the shrine keeper's crime was a list of the sold. The Executioner completes exactly none of its contract in front of an audience. Deniability dies loudly, which is the only way it dies.", trait: "reckless" },
-            { text: "Let Adaza engage first. Read the Executioner's contract as it fights.", conclusion: "You hold back three exchanges while a colleague with bridge debts buys you the view, and you read the Executioner the way you've learned to read this village: it moves in CLAUSES. Strike only on breach. Withdraw on payment. It isn't a fighter, it's a CONTRACT, and contracts have termination language: you find it in the fourth exchange and speak it, and the thing simply... stops. Adaza stares. 'I'm not billing tonight,' she says. 'Nobody would believe the invoice.'", trait: "suspicious" },
+            { text: "Unmask the errand: shout the tower's order to the whole canal.", conclusion: "You shout the order across the canal: the tower sent an Executioner for a shrine keeper whose crime was copying the names of the sold. Windows open. Booths empty. By the time the Executioner reaches the bridge, three hundred people know why it is there. It cannot finish a deniable order in front of that many witnesses.", trait: "reckless" },
+            { text: "Let Adaza engage first. Read the Executioner's contract as it fights.", conclusion: "You let Adaza take the first three exchanges while you watch the Executioner obey its orders. Strike on breach. Withdraw on payment. On the fourth exchange you catch the termination phrase and speak it. The thing stops. Adaza checks it for movement, then looks at you. 'I'm not putting this one on an invoice,' she says.", trait: "suspicious" },
         ]),
         milestone("Moonshadow Village", 75, "Nyx Chooses a Side", "Shadow Network Hunter", "🌙", [
             { ...storyPage("The Red Moon Ledger", "A rooftop over the whisper market, red moon, Nyx's ledger open to a page of shame", "Nyx", [
-                "Sit. Drink. It's the good bottle, which should scare you; I don't open the good bottle for profit.",
-                "Confession time, and you're the only confessor on this canal who doesn't drain into a pipe. Six months ago, the Hollow Gate's people approached me through four cutouts to buy information about YOU. And I sold it. Don't do the face. Listen to WHAT I sold.",
-                "Garbage. Invented routines. Fake habits, wrong debts, a sleep schedule I made up out of spite. Pure fiction, top rates. And they PAID, friend. Every time. Full price, no haggling, quarterly.",
-                "That's when I understood what the client actually was. Nobody pays full price for garbage unless the garbage isn't the product. They weren't buying facts about you. They were buying the TRANSACTION. Me, selling you. The act itself. That's the crop, and I've been the harvest, and I did it to myself at market rates."
+                "Sit down. Have a drink. I need to tell you something.",
+                "Six months ago, people working for Hollow Gate offered to buy information about you. I accepted.",
+                "I sold them lies. Fake routines, false debts, places you never went. They paid full price every time.",
+                "After a while, I understood they didn't care whether the information was true. They wanted me to keep choosing to sell you. I'm sorry."
             ]), image: "/scenes/story/story-moonshadow-village-75-6.webp" },
             { ...storyPage("The Free Envelope", "The rooftop, one envelope on the tiles between you, unpriced", "Nyx", [
-                "So here's what happens now, and I want it on the record that the record can go drown itself.",
-                "This envelope names the Gate's inner-circle agent in the tower. Name, hours, the room where the quartered circle's correspondence lands. It's worth more than my stall, my ledger, and both my names together.",
-                "It's free. Take it. FREE, friend. I've run the math on what free costs me, and I'm paying it. That's the whole announcement.",
-                "I stopped keeping a file on you. That is not in the ledger either. There's no receipt for tonight anywhere in this village, and you have no idea what that sentence COSTS a person like me, and I'd rather you never fully find out."
+                "This envelope names Hollow Gate's agent inside the tower. It includes the room and the hours when their correspondence arrives.",
+                "It is worth more than everything I own.",
+                "Take it. I don't want anything from you.",
+                "I stopped keeping a file on you too."
             ]), image: "/scenes/story/story-moonshadow-village-75-6.webp", choices: [
                 { text: "\"You named the lattice once. Now name its agent out loud with me.\"", nextPage: 2, requireTrait: "rd74-bound-the-lattice" },
                 { text: "Take the envelope.", nextPage: 3 }
             ] },
             { ...storyPage("Naming It", "The rooftop, the red moon deepening", "Nyx", [
-                "The lattice. Yes, that was the coast's old cipher-word for it; the tower's people call the same web the Hollow Gate now. Same rot, newer letterhead. You carried its keys once, you told me, back when you trusted me with exactly nothing else, which, fair.",
-                "Four anchors, one buyer's web under all of it, and every village's tower has a room where its letters land. You've known the shape from the outside. I know it from the receipts.",
-                "So let's do it properly, out loud, both of us, no cipher: the thing under the villages has an agent in OUR tower, and the agent has a name, and the name is in that envelope, and after tonight neither of us can pretend we're just merchants anymore.",
-                "There. Said. You know, everyone in this village thinks the dangerous act is opening a secret. It isn't. It's this: two people knowing the same thing ON PURPOSE, for free. That's the transaction the Mirror can't file."
+                "The lattice was the old name for the same network. The tower calls it Hollow Gate now.",
+                "Four village anchors feed one system, and each tower has someone handling its messages.",
+                "The agent in our tower is named in that envelope.",
+                "There. We both know it. Neither of us gets to pretend this is only business anymore."
             ]), image: "/scenes/story/story-moonshadow-village-75-6.webp", choices: [
                 { text: "The moon's light bends.", nextPage: 3 }
             ] },
@@ -2224,13 +2220,13 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The Hollow Moon extends one final offer at preferential terms: reprice tonight. Any figure. Name literally any figure, and the ledger heals, and the survey forgets the roof. Decline, and the discrepancy's contagion is confirmed, and containment becomes billable."
             ]), image: "/scenes/story/story-moonshadow-village-75-6.webp" },
             { ...storyPage("The Shadow Network Hunter", "The rooftop, shapes rising from every drain and gutter the market owns", "Nyx", [
-                "Well. There's my answer to 'what does free cost.' It costs THAT, apparently. Flattering, in a way. They priced my defection above my life; that's the best margin I've ever appeared in.",
-                "The Hunter takes repricing refusals. It doesn't kill, friend, understand that before it reaches us. It RECOVERS. It drags assets back to the ledger. There are people in this market walking around today who refused once, and they smile fine, and they haggle fine, and there is nobody home behind it.",
-                "So. Here's my figure, called out loud for the whole canal to hear: NO.",
-                "Worst negotiator on the roof. Somehow I've never felt richer. Back to back, friend. Let's show the ledger what a bad debt looks like when it fights."
+                "That's the Hunter. I was afraid they'd send it.",
+                "It doesn't kill people. It takes them back and removes whatever made them refuse. I've met people after that happened.",
+                "No. I'm not taking the envelope back.",
+                "Back to back. Don't let it get hold of either of us."
             ]), image: "/scenes/story/story-moonshadow-village-75-6.webp" },
         ], [
-            { text: "Watch the Hunter's recovery grammar. Learn what un-prices a person.", conclusion: "Even back to back with everything at stake, you read as you fight: the Hunter binds through the target's own receipts, climbing a lifetime of transactions like a ladder. And Nyx, tonight, has one rung missing: the free envelope, the unpriced act. Its grip slides off her THERE, every time. You file the discovery where you file the priceless things. A person's freedom is load-bearing exactly where they gave something away.", trait: "suspicious" },
+            { text: "Watch the Hunter's recovery grammar. Learn what un-prices a person.", conclusion: "Fighting back to back with Nyx, you see the Hunter build its hold from her old receipts. One record after another locks into place until it reaches the free envelope. There is no price on it, so the chain breaks. The Hunter loses its grip in the same place every time. Nyx notices too. 'Good,' she says, breathing hard. 'I was hoping that mattered.'", trait: "suspicious" },
             { text: "Hold the line at her shoulder until the moon sets. No reading, no angles.", conclusion: "For one whole night you are precisely what the ledger says cannot exist: unpriced help, standing its ground for nothing. The Hunter probes for the transaction underneath and finds only the thing itself. At dawn it withdraws, unpaid and unpaid-able, and Nyx sits down hard on the tiles and laughs until she cries, and then just cries, and neither of you invoices the other for witnessing it.", trait: "honorable" },
             { text: "Counter-offer the Hollow Moon, mid-fight: the agent's name for its retreat.", conclusion: "You negotiate DURING the recovery, shouting terms over the Hunter's shoulder at the moonlight itself: call it off, and the envelope's name stays private one more season. The Hollow Moon pauses. Considers. ACCEPTS, at terms, logged. Nyx stares at you as the shapes drain back into the gutters. 'You just opened an account with it,' she says quietly. 'Friend. Nobody closes those. I checked.'", trait: "ambitious" },
         ]),
@@ -2242,27 +2238,27 @@ export const storylines: Record<string, StoryStep[]> = {
                 "Every unsealed file went to its subject. Not to enemies. Not to buyers. To the PERSON. Whatever this is, it has a principle in it, buried somewhere in the cruelty."
             ]), image: "/scenes/story/story-moonshadow-village-85-7.webp" },
             { ...storyPage("The Controlled Burn", "Nyx's stall, shutters up, her own returned file unopened on the counter", "Nyx", [
-                "Mine came too. Every file's home with its person, all in one night. You know what that takes? The tower's whole courier web, run at panic speed, in secret, by HER order. She burned her own warehouse, friend. The spider torched her own web.",
-                "And I know why. Word crossed the canal at midnight: a transfer was coming. The Mirror itself, appraised for 'change of ownership.' Quartered circle seal. The buyer finally stopped shopping and called in the whole INVENTORY, tower and all.",
-                "So Sable ran a cornered keeper's numbers: what no one holds, no one can take. If everything goes home, there's nothing left on the shelf to transfer. She gave the village back its own skin to keep it off a buyer's rack.",
-                "It's the most monstrous kind thing or the kindest monstrous thing I've ever seen, and I deal in both. My file's right here. Returned. I haven't opened it. Forty years of wanting it, friend, and my hands won't."
+                "Mine came too. The tower used every courier it had to return the files in one night. Sable ordered it.",
+                "A transfer notice arrived at midnight. Someone with a quartered-circle seal is taking ownership of the Mirror.",
+                "Sable returned everything she could so the buyer couldn't take it.",
+                "My file is here. I've wanted it for forty years, and now I can't open it."
             ]), image: "/scenes/story/story-moonshadow-village-85-7.webp", choices: [
                 { text: "\"You pulled Harrow back from the Mirror job. Now ask her WHO the buyer is.\"", nextPage: 2, requireTrait: "ms80-pulled-her-back" },
                 { text: "Climb to the tower before the transfer lands.", nextPage: 3 }
             ] },
             { ...storyPage("The Buyer's Name", "The stall's back room, Harrow arriving with her collar up and her license folded away", "Kite Harrow", [
-                "You kept me off the worst contract of my career once, so this one's paid in kind, and then my books on this coast are closed, possibly forever, possibly by tonight.",
-                "The Mirror commission's client: no name, no face, obviously. But I appraise for a living, and every buyer leaves a fingerprint in what they VALUE. This one never once asked about the secrets. Not one question about content. Only about capacity. Volume. Retention. How much surrendered trust the glass can HOLD.",
-                "They're not buying the village's dirt, friend. They're buying the CONTAINER. The same way they bought a reserve under an arena and a vault under a wall and a fire under a kiln. Four vessels, one buyer, and a collection date that keeps moving closer every time a village's account runs hot.",
-                "Sable knows. That's what tonight was. You don't burn your web for a rival, colleague. You burn it for a LANDLORD. Go up the tower. And whatever she offers you at the top, remember somebody priced her once too, and she's been paying interest ever since."
+                "You kept me from taking the Mirror contract. I owe you this.",
+                "The client never asked what any secret said. They only asked how much the Mirror could hold and how long it retained a copy.",
+                "They want the container, not the information. It's the same pattern as the reserve, the vault, and the Rootfire.",
+                "Sable knows. Go to the tower before the transfer finishes."
             ]), image: "/scenes/story/story-moonshadow-village-85-7.webp", choices: [
                 { text: "Up the tower.", nextPage: 3 }
             ] },
             { ...storyPage("The Empty Archive", "The tower archive, stripped to bare shelves, Sable alone in the wreck of her life's work", "Kage Sable Nocturne", [
-                "Come in, Jonin. Mind the empty. There's a great deal of empty tonight; I made it myself.",
-                "Forty years of collection, gone home in one courier night. My whole arsenal, disbanded. Would you like to know the marvelous joke? It was never MY arsenal. I audited the deep vault at midnight, before the burn. Every file I ever held had a duplicate lien on it. A prior claim, older than my seat, marked with a quartered circle. I wasn't only the spider, friend. I was the WAREHOUSE CLERK, keeping stock for a buyer I never met, and my predecessors' predecessors inherited the first lease. But do not mistake inheritance for innocence, Jonin. The Gate offered a buyer; I supplied the warehouse, and I kept it profitable, quarter after quarter, for forty years.",
-                "The transfer lands tonight regardless. An empty warehouse breaches the lease; the buyer takes the fixture instead. The Mirror. And the Mirror, Jonin, holds a copy of every act of trust this village ever surrendered, including everything I burned, because the booths drained INTO it all along. My grand gesture emptied the shelves and left the tank.",
-                "So. Bring me a safer truth, if one exists. Show me this village protected without one soul of it being OWNED, by me or mine or theirs, and I will crack the Mirror myself and stand trial in the market at noon. Until then, I hold the tank, because the alternative holder is worse. That's my whole defense. It used to sound better."
+                "Come in. I returned the files. All of them.",
+                "Before I did, I found a prior claim on every record in the archive. The mark was the quartered circle. I thought I owned this collection. I was maintaining it for Hollow Gate.",
+                "The transfer still happens tonight. Because the shelves are empty, the buyer takes the Mirror instead. The Mirror kept a copy of everything the booths collected.",
+                "And no, I'm not going to break it because the market survived one bad night. It may not survive the next month. Until you show me something safer, I hold the tank."
             ]), image: "/scenes/story/story-moonshadow-village-85-7.webp", choices: [
                 { text: "Take the founding lease with you. The blank line no hand ever signed is evidence too.", nextPage: 4, trait: "ms85-copied-the-blank-line" },
                 { text: "Leave the paper. Bring her the living truth instead.", nextPage: 4 }
@@ -2286,27 +2282,27 @@ export const storylines: Record<string, StoryStep[]> = {
                 "The Mirror chamber stands open. It has been waiting half a second longer for you than for anyone."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp" },
             { ...storyPage("At the Chamber Door", "The summit door, Nyx with her returned file tucked unopened in her coat", "Nyx", [
-                "So this is the part where you go in alone. Village rules, tower rules, some contract older than both. I've read the fine print. I hate it. It's airtight.",
-                "Inventory, since you like when I do inventory. One envelope, spent. One good bottle, drunk. One file, mine, returned and unopened, and it's staying that way until the person who taught me things could be free is standing where I can bill them for the lesson. That's you. That's tonight. No pressure.",
-                "Whatever's wearing her up there, remember what Harrow said: somebody priced HER once too. Every keeper on this whole rotten coast, in every village the Gate feeds, was somebody's purchase first. It doesn't excuse one line of the ledger. But it's true, and true things are the only currency that survives tonight.",
-                "The door is mine tonight. First one I've ever held for free, and if you tell anyone, the rates go back up."
+                "You have to go in alone. I checked for another way. There isn't one.",
+                "My file is still closed. I'm keeping it that way until you come back down.",
+                "Harrow was right about one thing. Someone got to Sable before Sable got to the rest of us. That doesn't excuse her.",
+                "I'll hold the door. Come back."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Enter the Mirror chamber.", nextPage: 2 }
             ] },
             { ...storyPage("The Woman and the Tank", "The Mirror chamber, the black glass vast and still, Sable's shadow no longer matching her", "Kage Sable Nocturne", [
-                "You kept the appointment. Tonight of all nights, I find that I am glad.",
-                "Look at it. Every act of surrendered trust this village performed for four hundred years, held in one tank. The moon over Moonshadow was always the Mirror, seen from underneath, and the thing they call the Hollow Moon was never a second moon; it is the Gate wearing our reflection. Tonight the tank transfers to that buyer, the one four vessels feed and no one in this room has ever seen. It has a name older than my seat, and I will say it once: the Hollow Gate.",
-                "And look at ME, Jonin; everyone else is too polite. My shadow stopped taking my shape in the spring. The Gate is disbursing my account now, word by withheld word, and yes, I am being spent to settle it. But do not hand the Gate my share of the blame. The first lease was not mine. The renewals were.",
-                "You are the fourth person to climb this tower and serve me notice. I broke the first three; you've read those files. But you are the first who has read their OWN. The Mirror showed you half a second late from your first night, because you arrive pre-encumbered, discrepancy. Somebody holds a piece of you the way I held pieces of everyone, and you walked in anyway, and I find that either the bravest or the most collateralized act I've ever appraised.",
-                "So. Serve your notice. We will hold the paper anyway. It is what we are."
+                "You're here. Good.",
+                "The Mirror holds a copy of every secret surrendered to this village. It transfers to Hollow Gate tonight.",
+                "My shadow stopped matching me in the spring. The Gate is taking its payment from me too. I renewed the lease every quarter, so don't mistake that for innocence.",
+                "Three people challenged me before you. I destroyed them. You've read the files.",
+                "Go on. Show me why this should be different."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Face her before the glass.", nextPage: 25 }
             ] },
             { ...storyPage("The Better Truth", "The Mirror chamber, the Returning's receipts fanned on the black glass", "Kage Sable Nocturne", [
-                "What is that. Show me. Slowly; the glass is listening, and it has never once heard this.",
-                "Returned files. WITNESSED returns, by consent, in open market. The thing the booths swore was detonation. And the market didn't burn. I read the reports until the ink smeared; I made my clerks re-verify eleven times.",
-                "I asked for a safer truth the way the desperate ask, Jonin. Rhetorically. Certain the ask was safe because the thing did not exist.",
-                "Read me the figures, %name, the way my clerks never dared: like a bill, served on the holder."
+                "Let me see those.",
+                "Eleven files returned with the owners' consent. I read the reports.",
+                "One week without a killing does not make the market safe. How many people were threatened afterward? How many returns were staged?",
+                "Show me the rest."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "\"Eleven files returned before witnesses. Zero fires. The market SAW it hold.\"", nextPage: 4, requireTrait: "ms88-open-returns" },
                 { text: "Lay the sealed receipts on the glass and read her every countersigned line.", nextPage: 5, requireTrait: "ms88-sealed-receipts" },
@@ -2314,29 +2310,32 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Set the child's bill of sale on the glass and let its smallness argue.", nextPage: 7 }
             ] },
             { ...storyPage("What the Market Saw", "The chamber, the black glass showing the market's lanterns far below", "Kage Sable Nocturne", [
-                "Witnessed. In the open market. Then it's already finished, isn't it. I can suppress a fact; I've made a career of it. I cannot suppress a thing the whisper market watched WORK. They'll be returning files on the east canal by the new moon whether either of us survives tonight.",
-                "Forty years I held this village's skin and called it armor. You handed some of it back in daylight and nothing burned."
+                "All eleven happened in the open market?",
+                "My people found no killings tied to the returns. I had them check three times.",
+                "If the market saw it work, other people will try it whether I allow them to or not."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "The glass moves.", nextPage: 8 }
             ] },
             { ...storyPage("The Countersigned Receipts", "The chamber, receipts flat on the glass, her finger moving line to line", "Kage Sable Nocturne", [
-                "Hand them over and sit; auditing is the last love I have left, and I intend to take my time with this one.",
-                "Return of file, subject-verified, witness-sealed. Eleven times. And the countersigns... the shrine witness. The moneylender. IRO. Iro signed a RETURN, that profiteering antique, he's never signed anything that didn't accrue... and it's dated, and it's witnessed, and it holds.",
-                "The receipts hold, Jonin. I taught this village that every trust needs a holder. You've filed eleven pages of evidence that it only ever needed a WITNESS."
+                "Give them to me.",
+                "Owner verified, witness signed. Eleven times. The shrine witness, the moneylender, and Iro?",
+                "These signatures could have been bought. No. I know three of these hands. They weren't.",
+                "The receipts are valid."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "The glass moves.", nextPage: 8 }
             ] },
             { ...storyPage("The Market's Own Arithmetic", "The chamber, a booth's price-slate held up to the glass", "Kage Sable Nocturne", [
-                "The booths repriced. I saw the slates at dusk and had two clerks flogged for forgery, and they were not forgeries. Returning, priced survivable. Holding, priced at RISK. My own market, marking my life's work down to salvage.",
-                "You didn't argue with me at all, did you. You argued with the exchange rate and let the exchange rate climb my tower.",
-                "It's the only argument a keeper of ledgers was ever going to lose. I built this village to believe the numbers over the sermon, and now the numbers have opinions."
+                "I saw the new prices at dusk. I had two clerks punished because I thought they forged the slates.",
+                "They didn't. Every booth reached the same conclusion on its own: returning a file is survivable, and holding one is becoming dangerous.",
+                "The market has already moved without me."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "The glass moves.", nextPage: 8 }
             ] },
             { ...storyPage("The Unopened File", "The chamber, one file on the black glass, still closed", "Kage Sable Nocturne", [
-                "Whose... no. I know whose. The little dealer's. Sold at nine, one winter's food, storage paid quarterly by the circle. I've had that file memorized for a decade; I always understood it was the market's whole biography in one folder.",
-                "And her tower file went home in my burn, days ago. She has not opened it. It has been in her hands for days, and she has not opened it, because she is free either way now, and the not-needing-to is the whole proof, isn't it. You cannot warehouse a person who can hold her own file unopened.",
-                "Forty years of collection, Jonin, and the safest truth in this village is sitting on my Mirror in an envelope nobody needs to read."
+                "That's Nyx's file. She was nine when she sold the name for food.",
+                "She has had it for days and still hasn't opened it?",
+                "I don't know what you think that proves.",
+                "No. I do. She no longer needs the file to tell her who she is."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "The glass moves.", nextPage: 8 }
             ] },
@@ -2349,10 +2348,10 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "The glass stills.", nextPage: 12 }
             ] },
             { ...storyPage("Her Own Name", "The chamber door opening, Nyx crossing the black glass floor", "Nyx", [
-                "You held the door for me my whole life, %name, one way or another. My turn. This part is mine.",
-                "Kage. You know my day name; everyone does, it's good product. And you hold the ledger that says my true name was sold at nine, one winter's food, storage current, quarterly, forty years.",
-                "Here's tonight's transaction, priced at nothing, witnessed by everything: my name is NERISSA VALE. My mother chose it. I sold it to eat, and I am taking it back by SAYING it, in front of your tank, for free.",
-                "Do write that down, somebody. First entry in the new ledger. It's going to be a thick book."
+                "%name, step back. I need to say this myself.",
+                "Sable, you know the name I use. You also have the record of the name I sold when I was nine because I needed food.",
+                "My name is Nerissa Vale. My mother chose it. It belongs to me.",
+                "That's all."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "The glass goes very still.", nextPage: 10, trait: "ms100-nyx-named-herself" }
             ] },
@@ -2365,31 +2364,31 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Sable stares at the glass.", nextPage: 11 }
             ] },
             { ...storyPage("The Tank Hears a Name", "The chamber, the Mirror's stillness broken by one slow ripple", "Kage Sable Nocturne", [
-                "You kept her proof out of the market. You returned it to its owner. And then you stood aside while she bought her own name back with her own breath.",
-                "And I know that voice. It is written into the oldest Mirror plans, and for forty years I read it as a ceremonial phrase. The First Reflection. The glass's original instruction: hear a truth, verify its owner, let witnesses confirm it, and give it BACK. Release the claim. The Mirror was built to witness people, Jonin. The Hollow Gate taught it to keep a copy.",
-                "And before I turn that into another excuse, understand me. The Gate taught the Mirror to hold. I kept the warehouse full.",
-                "Look at the glass. Four hundred years of stillness, and one free sentence woke the oldest rule in it. Nothing surrendered. Nothing held. Spoken, witnessed, and hers."
+                "Nerissa Vale. I know that name.",
+                "That voice from the glass is in the oldest Mirror plans. I thought it was ceremonial.",
+                "The original instruction was to hear a truth, verify its owner, and release the claim. Hollow Gate added the part where the Mirror kept a copy.",
+                "I knew the plans. I kept the copies anyway."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "She steps back from the glass.", nextPage: 12 }
             ] },
             { ...storyPage("Unlisted", "The Mirror chamber, Sable's shadow finishing its departure", "Kage Sable Nocturne", [
-                "I am out of collateral, and what remains of me is unlisted.",
-                "Come and meet it."
+                "I have nothing left to bargain with.",
+                "Come find out what that leaves."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Enough. The Mirror answers now.", nextPage: 25 }
             ] },
             { ...storyPage("Returns Without Names", "The chamber, the return figures chalked plain, no receipts behind them", "Kage Sable Nocturne", [
-                "Eleven returns, zero fires. The figures are real; my clerks verified them twice and I had them verified a third time out of spite.",
-                "But whose returns, Jonin? Who handed back what, to whom, witnessed by which names willing to SIGN? An unsigned mercy is a rumor, and this market eats rumors for breakfast and stays hungry.",
-                "I can't crack a four-hundred-year tank on a rumor. Bring me signatures, or bring me your hands."
+                "Eleven returns and no violence tied to them. I had the figures checked three times.",
+                "But I don't have names, signatures, or proof that the owners agreed.",
+                "I'm not opening a four-hundred-year-old tank on an anonymous report."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "She turns back to the glass.", nextPage: 25 }
             ] },
             { ...storyPage("The File in Your Coat", "Nyx's file in Sable's hands, hers to weigh, unopened", "Kage Sable Nocturne", [
-                "The dealer's bill of sale. The shrine's copy. Her tower file went home in my burn; this is the page that PRICED her, the child's own signature, and it is still in YOUR coat, Jonin. Not hers.",
-                "You saved it from the crates and the couriers and the circle's quarterly fees, and then you kept it, the way I kept ten thousand of them: safely. For later. On someone's behalf.",
-                "A held file is a held file, friend, whatever the holder's intentions. I have forty years of good intentions downstairs in an empty archive.",
-                "You kept the proof of what this village does to children, and never handed it back to the child. It is not nothing, friend. But the glass prices outcomes, not intentions. So, heaven help me, do I."
+                "This is Nyx's bill of sale. Her signature is on it, and it was still in your coat.",
+                "You saved it and told yourself you were keeping it safe.",
+                "That's what I told myself about the whole archive.",
+                "Give it back to her. Then tell me how different you are."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "She sets the file down with terrible gentleness.", nextPage: 15 }
             ] },
@@ -2400,71 +2399,72 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "The glass waits.", nextPage: 25 }
             ] },
             { ...storyPage("Iro Reads the Manifest", "The chamber stair, Iro arriving with the buyer's manifest and an expression nobody has ever purchased", "Shade Master Iro", [
-                "Don't touch that, friend. It cost me everything I have ever charged anyone, and I will present it myself.",
-                "Sable. Old friend. Old adversary. Old COLLEAGUE, which on this canal is both. I obtained the buyer's manifest tonight, through channels I will die not disclosing. The inventory for transfer. Every asset in the tank, itemized. I went looking for my holdings, naturally. Force of habit.",
-                "I'm IN it. Line four hundred and six. 'Broker, senior, high-yield: Iro.' Not my holdings, Sable. ME. I'm not a client of this arrangement. I never was. I'm STOCK with a long settlement date.",
-                "Forty years I sold this village's trust retail and called myself the one merchant too clever to be merchandise. The manifest disagrees. So here I stand, at the top of the tower, doing the one thing nobody ever priced me for: telling the truth at a loss. Whatever the discrepancy is selling tonight, Kage... I'm buying. That alone should terrify you into listening."
+                "Don't touch that. I need to show it to her myself.",
+                "Sable, this is the buyer's transfer manifest. Everything in the Mirror is listed.",
+                "I'm on line four hundred and six. Not my accounts. Me.",
+                "I spent forty years thinking I was part of the market. I was part of the inventory. So I'm done helping you protect it."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "He sets the manifest beside the glass.", nextPage: 25 }
             ] },
             { ...storyPage("The Blank Line", "The Mirror chamber, the founding lease unrolled on the black glass, older than the tank", "Kage Sable Nocturne", [
-                "The founding lease. You read it the way the shrine witness copies names: twice. And you found it, didn't you. The line at the foot, where the first holder's signature should sit. Blank. Four hundred years of collection, and no hand ever signed the debt into being.",
-                "I found it my own first year on this seat. Do you know what a blank line is, on a contract this old? Not a freedom, Jonin. A dare. I could have called the whole lease void that night and let the Gate come collect in person, from me. Instead I renewed it. In good ink, beside the blank, every quarter, for forty years.",
-                "So, yes. Nobody signed the first page. But I signed all the rest, knowing they were air, because air was cheaper than the reckoning. That is not the lease's guilt you are holding up to my glass. It is mine, in my own hand."
+                "The founding lease. The first holder never signed it.",
+                "I found the blank line in my first year as Kage.",
+                "I could have challenged the lease then. I was afraid of what Hollow Gate would do, so I renewed it every quarter for forty years.",
+                "The original debt may be invalid. My signatures are not."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Enough. The Mirror answers now.", nextPage: 25 }
             ] },
             { ...storyPage("Answer for the shelf. You've been paying its fee for seasons.", "The reckoning", "Kage Sable Nocturne", [
-                "So Iro sold you a shelf after all. Custody of your own file, editing rights on everyone else's, compounding monthly. Then you've sat where I sit: reading people at leisure and calling the reading protection.",
-                "Tell me you never once opened a stranger's page just because the fee entitled you. Say it, and I'll call you a liar in front of the glass.",
-                "That entitlement is my whole biography, Jonin. One shelf, one drawer, one tower, one tank. You bought in for a secret a month. I bought in for a village. The interest rate is the same."
+                "So Iro sold you a shelf. That gave you access to other people's files. He always did know how to make a trap look private.",
+                "Did you ever open one just because you could? Take your time. I know what the honest answer costs.",
+                "I did the same thing for forty years and called it protection. The scale is different. The excuse isn't."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Enough. The Mirror answers now.", nextPage: 25 }
             ] },
             { ...storyPage("Answer for my file. I burned it in front of you.", "The reckoning", "Kage Sable Nocturne", [
-                "Yes. Your file. The one delivery my couriers ever made through an unbroken lock, and you put it in a brazier unread. My clerks called it waste. I called it the single most expensive purchase this village ever witnessed: you bought not-knowing, at the price of everything the knowing might have armed you with.",
-                "I have wanted to ask for two seasons, keeper to whatever you are: was it worth it? Owning nothing on yourself? Walking around unleveraged, unhedged, PLAIN?",
-                "Don't answer. Your face already has, and the glass saw it, and so did I. When you hold this tower, and I believe now you may, remember that the bravest ledger in Moonshadow was one page, burning. I never managed it. Not once, in forty years, with ten thousand chances."
+                "My clerks called it waste when you burned your file. I agreed with them for about an hour.",
+                "I kept wondering whether it was worth giving up everything it could tell you.",
+                "Don't answer. I can see that it was. I had thousands of chances to do the same and never did."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Enough. The Mirror answers now.", nextPage: 25 }
             ] },
             { ...storyPage("Answer for Nerissa Vale. Her name comes home tonight.", "The reckoning", "Kage Sable Nocturne", [
-                "The dealer. Sold at nine, one winter's food. You want the part I have never told a living soul? I found her file in my first year on this seat. A child's name, sold for a winter, storage accruing. I could have returned it. It would have cost me nothing.",
-                "I kept it. Not for leverage; I never once drew on it. I kept it because it was the PERFECT file: the whole village's arithmetic in one folder, and some keeper's instinct in me said, the day this file goes home, the tank cracks. I filed a nine-year-old under load-bearing and told myself it was stewardship.",
-                "Tell her that, afterward. Tell her the Kage read her price every winter and kept the receipt where it kept the whole system standing. She deserves to hate me with the file in hand. And Jonin... she deserves to hear it TONIGHT, whichever of us is left to say it."
+                "I found Nerissa Vale's file in my first year. She was nine. She had sold her name for food.",
+                "I could have returned it. I told myself the file proved how the whole system worked. The truth is I was afraid one return would start the rest.",
+                "Tell her I read it every winter and still kept it. She should hear that tonight."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Enough. The Mirror answers now.", nextPage: 25 }
             ] },
             { ...storyPage("Answer for the night name you would not write.", "The reckoning", "Kage Sable Nocturne", [
-                "You refused the field. That is a different thing from leaving it blank, Jonin, and the Mirror hates the difference.",
-                "A blank line it can price later. A refusal, witnessed, it never learns how to file at all."
+                "You refused to write one. That matters more than leaving the space blank.",
+                "A blank can be filled later. A refusal can't."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Enough. The Mirror answers now.", nextPage: 25 }
             ] },
             { ...storyPage("Answer for the night name that is yours alone.", "The reckoning", "Kage Sable Nocturne", [
-                "A name chosen by its owner is the one invoice this village never learned to write. You wrote yours at intake and never once let me buy it back.",
-                "I held ten thousand names and understood that far too late. You understood it your first night."
+                "You chose your own name at intake and kept it.",
+                "I held thousands of names before I understood how simple that was."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Enough. The Mirror answers now.", nextPage: 25 }
             ] },
             { ...storyPage("Answer for the leaf you tore out of your own file.", "The reckoning", "Kage Sable Nocturne", [
-                "You stole the handle before my clerks could price the door it opened. Walked it out in your own coat, quarterly deposit landing on the gap where it should have sat.",
-                "I respect the theft. Professionally, Jonin, and privately, which I do not say twice."
+                "You tore the page from your own file before my clerks could use it.",
+                "I was angry. I also understood."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Enough. The Mirror answers now.", nextPage: 25 }
             ] },
             { ...storyPage("Answer for the night name you wrote to shield someone else.", "The reckoning", "Kage Sable Nocturne", [
-                "You chose a name around another person. Moonshadow would call that collateral. You did not.",
-                "The Mirror has no column for a name whose worth points away from its holder, and tonight I find that I am glad of it."
+                "You chose a name to protect someone else.",
+                "The Mirror doesn't understand that. I think you did."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", choices: [
                 { text: "Enough. The Mirror answers now.", nextPage: 25 }
             ] },
             { ...storyPage("The Glass and the Notice", "The Mirror chamber, the black moon at zenith, Sable's shadow finishing its departure", "Kage Sable Nocturne", [
-                "Enough. I close my books on time; it is the one virtue nobody ever had to buy from me. Forty years of being what no one could take, and here stands the last thing left to take, still answering to my name. I would hold every file again, friend, which is precisely the finding against me.",
-                "The tank, the lease, and a village lit window by window below us, reading its own returned skin. Somebody decides tonight what safety costs here, and the buyer's escrow is already glowing.",
+                "Enough.",
+                "I still believe opening this tank will destroy people. Look at the market below us. One night has already broken families, and there will be more.",
+                "The buyer arrives tonight. I won't give it the Mirror, and I won't let you crack the glass because you hope the village can survive it.",
                 "The Mirror holds everyone, %name. Everyone but you.",
-                "And do not mistake what rises out of me for a god, when it rises. It is a collection process with a face, and the face is mine, because I held the account long enough for the account to learn me.",
-                "Show me what a person is worth when nobody holds the receipt."
+                "If you want it opened, go through me."
             ]), image: "/scenes/story/story-moonshadow-village-100-8.webp", leftName: "Player", rightName: "Kage Sable Nocturne", rightImage: "/portraits/kage-sable-nocturne-hollow.webp", choices: [
                 { text: "Show her the better truth.", nextPage: 3, requireTrait: "ms88-better-truth-ready", forbidTrait: "ms88-nyx-proof-deferred" },
                 { text: "Let Nyx say her own name.", nextPage: 9, requireTrait: "ms88-better-truth-deferred" },
@@ -2481,8 +2481,8 @@ export const storylines: Record<string, StoryStep[]> = {
                 { text: "Answer for the night name you wrote to shield someone else.", nextPage: 24, requireTrait: "ms70-night-name-guardian" }
             ] },
         ], [
-            { text: "Open the tank. Every held thing goes home, and the fires are ours to survive.", conclusion: "The glass parts like water deciding to be honest, and four hundred years of surrendered trust flows back down the tower into the village that grew around its absence: every confession, every name, every traded piece of everyone, home by dawn. Some of it burns; you knew it would; you chose a village that owns its own fires. The buyer's escrow lands on an empty tank. Sable attacks you weeping with relief, free of her lease at last.", trait: "honorable" },
-            { text: "Seal the lethal tenth under a keeper the village may audit: you.", conclusion: "Nine parts in ten go home. The last tenth, the truths that kill on contact, you seal under a new covenant: held, but audited, by a keeper the whole market is entitled to question at noon in the open square, and the keeper is you, and the first audit is scheduled before the ink dries. It is the least monstrous version of her office ever designed, and it is still her office, and the weight of it settles on you like a coat you watched someone else wear for forty years. The glass accepts the arrangement. So, with a bow that costs her everything, does what is left of Sable, and then the Gate calls in what remains of her, and it does not bow.", trait: "merciful" },
+            { text: "Open the tank. Every held thing goes home, and the fires are ours to survive.", conclusion: "The glass opens, and four hundred years of held secrets return to the village by dawn. Confessions, names, and files move back into the hands they came from. Some returns start fights. Some end them. The buyer's payment arrives to find an empty tank. Sable watches the last file leave, lets out one breath, and then attacks as the Gate claims what remains of her.", trait: "honorable" },
+            { text: "Seal the lethal tenth under a keeper the village may audit: you.", conclusion: "Nine parts in ten go home. You seal the last tenth, the truths likely to get someone killed, under a covenant the whole market can audit. The keeper is you, and the first public audit is set before the ink dries. Sable reads the terms twice, then signs. The Gate calls in what remains of her before she can put the pen down.", trait: "merciful" },
             { text: "Take the Mirror's keeping. The circle needs a holder it can't price.", conclusion: "You put your hand on the glass and the tank recognizes, for the first time in four centuries, a keeper it cannot appraise: no price, no lien, no prior holder. The lease's enforcement grammar slides off you the way the Hunter slid off a free envelope. The buyer's escrow hangs, unexecutable, over an asset held by an unpriceable thing. Sable laughs once, low and real. 'The circle finally meets a blank line,' she says. 'Hold it, then. And learn what I learned: the tank keeps its keeper too.' The fire in her gives out, and what wears her rises.", trait: "loyal" },
         ]),
     ],
