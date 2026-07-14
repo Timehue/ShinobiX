@@ -409,6 +409,57 @@ function storedSession(battleId) {
     strict_1.default.equal(after.vfx?.[0]?.target, 'p2');
     strict_1.default.equal(after.vfx?.[0]?.anchor, 'target');
 });
+(0, node_test_1.test)('60 AP core-element jutsu emit their literal elemental VFX even with status tags', async () => {
+    const fireUltimate = {
+        ...blast,
+        id: 'fire-ultimate',
+        name: 'Fire Ultimate',
+        element: 'Fire',
+        tags: [{ name: 'Wound', percent: 30 }],
+    };
+    seed(session('fire-ultimate-vfx', {
+        p1: withExtraJutsu(fighter('alice', 0), fireUltimate),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'fire-ultimate-vfx',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'fire-ultimate',
+        moveToken: 'fire-ultimate-vfx-token',
+    });
+    strict_1.default.equal(out.statusCode, 200);
+    const after = storedSession('fire-ultimate-vfx');
+    strict_1.default.equal(after.vfx?.[0]?.key, 'fire60');
+    strict_1.default.equal(after.vfx?.[0]?.target, 'p2');
+    strict_1.default.equal(after.vfx?.[0]?.anchor, 'target');
+    strict_1.default.equal(after.vfx?.[0]?.intensity, 'heavy');
+});
+(0, node_test_1.test)('a saved Bloodline visual choice overrides the automatic 60 AP element VFX', async () => {
+    const chosenVisual = {
+        ...blast,
+        id: 'chosen-visual',
+        name: 'Chosen Visual',
+        element: 'Fire',
+        visualEffect: 'shield',
+        tags: [{ name: 'Wound', percent: 30 }],
+    };
+    seed(session('chosen-visual-vfx', {
+        p1: withExtraJutsu(fighter('alice', 0), chosenVisual),
+    }));
+    const out = await postMove('alice', {
+        battleId: 'chosen-visual-vfx',
+        role: 'p1',
+        action: 'jutsu',
+        jutsuId: 'chosen-visual',
+        moveToken: 'chosen-visual-vfx-token',
+    });
+    strict_1.default.equal(out.statusCode, 200);
+    const after = storedSession('chosen-visual-vfx');
+    strict_1.default.equal(after.vfx?.[0]?.key, 'shield');
+    strict_1.default.equal(after.vfx?.[0]?.target, 'p2');
+    strict_1.default.equal(after.vfx?.[0]?.anchor, 'target');
+    strict_1.default.equal(after.vfx?.[0]?.intensity, 'heavy');
+});
 (0, node_test_1.test)('custom bloodline element names resolve to the nearest shipped VFX family', async () => {
     seed(session('custom-element-vfx', {
         p1: withExtraJutsu(fighter('alice', 0), crystalAttack),

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
 import { enforceBloodlineBudget, bloodlinePoints, type RawJutsu } from '../_jutsu-points.js';
+import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 import { budgetItemBonuses } from '../_item-budget.js';
 import { safeName, mergePreservingImages, cors, parseJsonBody, setSafeRecordValue } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
@@ -1380,6 +1381,9 @@ export function sanitizeCharacterSave(
                 // the same way as the bloodline name/lore above (audit #16).
                 if (typeof jOut.name === 'string') jOut.name = sanitizeUserText(jOut.name, TEXT_LIMITS.storyName);
                 if (typeof jOut.battleDescription === 'string') jOut.battleDescription = sanitizeUserText(jOut.battleDescription, TEXT_LIMITS.description);
+                const visualEffect = sanitizeJutsuVisualEffect(jOut.visualEffect, jOut.ap, jOut.target);
+                if (visualEffect) jOut.visualEffect = visualEffect;
+                else delete jOut.visualEffect;
                 return jOut;
             });
             // sub-1: enforce the bloodline point budget across the now numeric-clamped

@@ -10,6 +10,7 @@ import {
     type CombatVfxKey,
 } from "./combat-vfx.ts";
 import { COMBAT_VFX_ASSETS } from "./combat-vfx-assets.ts";
+import { JUTSU_VISUAL_EFFECT_OPTIONS } from "./jutsu-visuals.ts";
 import type { JutsuTag } from "../types/combat.ts";
 
 const tag = (name: string): JutsuTag => ({ name, percent: 30 });
@@ -22,6 +23,50 @@ test("core elemental jutsu map to distinct combat VFX", () => {
     const keys = ["Fire", "Water", "Wind", "Lightning", "Earth"].map(keyForElement);
     assert.deepEqual(keys, ["fire", "water", "wind", "lightning", "earth"]);
     assert.equal(new Set(keys).size, 5);
+});
+
+test("60 AP core-element attacks use literal elemental target plates", () => {
+    const keys = ["Fire", "Water", "Wind", "Lightning", "Earth"].map(element =>
+        resolveCombatVfxSpec({ action: "jutsu", ap: 60, element, target: "OPPONENT", tags: [tag("Wound")], ko: true }),
+    );
+    assert.deepEqual(keys.map(spec => spec.key), ["fire60", "water60", "wind60", "lightning60", "earth60"]);
+    assert.ok(keys.every(spec => spec.target === "target"));
+    assert.ok(keys.every(spec => spec.intensity === "finisher"));
+
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", ap: 40, element: "Fire", target: "OPPONENT", tags: [tag("Wound")] }).key, "wound");
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", ap: 60, element: "Lava", target: "OPPONENT" }).key, "magma");
+    assert.equal(resolveCombatVfxSpec({ action: "jutsu", ap: 60, element: "Water", target: "SELF", tags: [tag("Shield")] }).key, "shield");
+});
+
+test("Bloodline Builder visual choice overrides automatic 60 AP element art", () => {
+    const chosen = resolveCombatVfxSpec({
+        action: "jutsu", ap: 60, visualEffect: "water60", element: "Lava",
+        target: "OPPONENT", tags: [tag("Wound")],
+    });
+    assert.equal(chosen.key, "water60");
+    assert.equal(chosen.target, "target");
+    assert.equal(chosen.intensity, "heavy");
+
+    assert.equal(resolveCombatVfxSpec({
+        action: "jutsu", ap: 40, visualEffect: "water60", element: "Fire",
+        target: "OPPONENT", tags: [tag("Wound")],
+    }).key, "wound");
+    assert.equal(resolveCombatVfxSpec({
+        action: "jutsu", ap: 60, visualEffect: "not-real", element: "Fire", target: "OPPONENT",
+    }).key, "fire60");
+
+    const classicSupportArt = resolveCombatVfxSpec({
+        action: "jutsu", ap: 60, visualEffect: "shield", element: "Fire", target: "OPPONENT",
+    });
+    assert.equal(classicSupportArt.key, "shield");
+    assert.equal(classicSupportArt.target, "target", "a selected visual skin follows the offensive jutsu target");
+});
+
+test("Bloodline Builder dropdown exposes every shipped combat VFX", () => {
+    const dropdownKeys = JUTSU_VISUAL_EFFECT_OPTIONS.map((option) => option.key).sort();
+    const shippedKeys = Object.keys(COMBAT_VFX_ASSETS).sort();
+    assert.deepEqual(dropdownKeys, shippedKeys);
+    assert.equal(new Set(dropdownKeys).size, dropdownKeys.length);
 });
 
 test("bloodline element jutsu map to distinct combat VFX", () => {
@@ -221,7 +266,7 @@ test("overlapping plates on one render tile collapse to a single VFX", () => {
 
 test("registry exposes only the supported generic combat VFX keys", () => {
     const supported = new Set<CombatVfxKey>([
-        "fire", "water", "wind", "lightning", "earth", "blood", "shadow", "poison",
+        "fire", "fire60", "water", "water60", "wind", "wind60", "lightning", "lightning60", "earth", "earth60", "blood", "shadow", "poison",
         "magma", "metal", "slash", "impact", "pierce", "heal", "shield", "reflect",
         "absorb", "spark", "seal", "wound", "burn", "poisonCloud", "drain", "cleanse",
         "buff", "debuff", "throwable", "weapon", "namedWeapon", "heavy", "ko",
@@ -243,7 +288,7 @@ test("asset manifest covers every combat VFX key with a shipped plate", () => {
 });
 
 test("asset manifest keeps element, offense discipline, and tag lanes distinct", () => {
-    for (const key of ["fire", "water", "wind", "lightning", "earth", "blood", "shadow", "poison", "magma", "metal"] as const) {
+    for (const key of ["fire", "fire60", "water", "water60", "wind", "wind60", "lightning", "lightning60", "earth", "earth60", "blood", "shadow", "poison", "magma", "metal"] as const) {
         assert.equal(COMBAT_VFX_ASSETS[key].role, "element", key);
         assert.equal(COMBAT_VFX_ASSETS[key].discipline, "elemental", key);
         assert.ok(COMBAT_VFX_ASSETS[key].tags.some(tag => tag.startsWith("Element:")), key);

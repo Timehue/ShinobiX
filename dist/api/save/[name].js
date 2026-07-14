@@ -6,6 +6,7 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _pet_stat_ceil_js_1 = require("../_pet-stat-ceil.js");
 const _jutsu_points_js_1 = require("../_jutsu-points.js");
+const _jutsu_visuals_js_1 = require("../_jutsu-visuals.js");
 const _item_budget_js_1 = require("../_item-budget.js");
 const _utils_js_1 = require("../_utils.js");
 const player_auth_js_1 = require("../player-auth.js");
@@ -1446,6 +1447,11 @@ function sanitizeCharacterSave(incoming, existing) {
                     jOut.name = (0, _text_moderation_js_1.sanitizeUserText)(jOut.name, _text_moderation_js_1.TEXT_LIMITS.storyName);
                 if (typeof jOut.battleDescription === 'string')
                     jOut.battleDescription = (0, _text_moderation_js_1.sanitizeUserText)(jOut.battleDescription, _text_moderation_js_1.TEXT_LIMITS.description);
+                const visualEffect = (0, _jutsu_visuals_js_1.sanitizeJutsuVisualEffect)(jOut.visualEffect, jOut.ap, jOut.target);
+                if (visualEffect)
+                    jOut.visualEffect = visualEffect;
+                else
+                    delete jOut.visualEffect;
                 return jOut;
             });
             // sub-1: enforce the bloodline point budget across the now numeric-clamped

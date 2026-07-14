@@ -193,6 +193,18 @@ describe('sanitizeJutsuList (smoke)', () => {
         assert.ok(aTags.some(t => t.name === 'Pierce'));
         assert.ok(!bTags.some(t => t.name === 'Pierce'));
     });
+    it('keeps only valid offensive 60 AP visual choices', () => {
+        const out = sanitizeJutsuList([
+            { id: 'valid', ap: 60, target: 'OPPONENT', visualEffect: 'shadow' },
+            { id: 'invalid-key', ap: 60, target: 'OPPONENT', visualEffect: 'godmode' },
+            { id: 'utility', ap: 40, target: 'OPPONENT', visualEffect: 'fire60' },
+            { id: 'self', ap: 60, target: 'SELF', visualEffect: 'water60' },
+        ]) as Array<Record<string, unknown>>;
+        assert.equal(out[0]!.visualEffect, 'shadow');
+        assert.equal(out[1]!.visualEffect, undefined);
+        assert.equal(out[2]!.visualEffect, undefined);
+        assert.equal(out[3]!.visualEffect, undefined);
+    });
 });
 
 const jutsuTags = (out: unknown[], i = 0) =>
