@@ -75,6 +75,7 @@ async function handler(req, res) {
                         totalRyo: num(char.ryo),
                         totalFateShards: num(char.fateShards),
                         saveVersion: Number(rec._saveVersion ?? 0),
+                        legacyCharacter: char,
                     };
                 const nextChar = {
                     ...char,
@@ -90,6 +91,7 @@ async function handler(req, res) {
                     totalRyo: num(nextChar.ryo),
                     totalFateShards: num(nextChar.fateShards),
                     saveVersion: Number(nextRecord._saveVersion ?? 0),
+                    legacyCharacter: nextChar,
                 };
             }, { failClosed: true });
         }
@@ -102,10 +104,19 @@ async function handler(req, res) {
         // Legacy tracking (ENABLE_LEGACY): one tenure day per claimed login day
         // (already once-per-UTC-day by the alreadyClaimed gate above), plus the
         // daily capped reconcile of client-tracked progression counters.
+        //
+        // This bookkeeping is intentionally best-effort and off the response
+        // path. The reward save above is the critical mutation; waiting on the
+        // extra Legacy lock/read/write sequence made the Daily Briefing claim
+        // button sit in "Claiming..." for several seconds on warm accounts.
         if (!out.alreadyClaimed) {
-            await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { villageTenureDays: 1 });
-            const rec = await _storage_js_1.kv.get(`save:${playerName}`);
-            await (0, _legacy_track_js_1.reconcileLegacyStatsFromSave)(playerName, (rec?.character ?? null));
+            const legacyCharacter = out.legacyCharacter ?? null;
+            void (async () => {
+                await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { villageTenureDays: 1 }, { characterForBootstrap: legacyCharacter });
+                await (0, _legacy_track_js_1.reconcileLegacyStatsFromSave)(playerName, legacyCharacter);
+            })().catch((err) => {
+                console.error('[player/daily-login] legacy tracking failed', err);
+            });
         }
         return res.status(200).json({
             ok: true,
