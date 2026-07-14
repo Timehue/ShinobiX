@@ -47,6 +47,8 @@ export interface Wanderer {
     tellTint: string;
     /** which face from the existing NPC art pool to wear (mapped in the component) */
     avatarKey: WandererArchetypeId;
+    /** Optional exact portrait override for authored/story NPCs. */
+    avatarImage?: string;
     /** Optional synthetic metadata for chained encounters. */
     targetName?: string;
     bountyAmount?: number;

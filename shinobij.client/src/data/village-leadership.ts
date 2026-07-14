@@ -28,13 +28,18 @@ export const villageLeadership: Record<string, VillageLeadershipProfile> = {
     },
 };
 
+function defaultPortraitFor(name?: string): string {
+    const slug = (name ?? "").trim().toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
+    return slug ? `/portraits/${slug}.webp` : "";
+}
+
 export function normalizeVillageLeadershipImages(images?: VillageLeadershipImages): VillageLeadershipImages {
     const normalized: VillageLeadershipImages = {};
-    Object.keys(villageLeadership).forEach((village) => {
+    Object.entries(villageLeadership).forEach(([village, leadership]) => {
         const source = images?.[village];
         normalized[village] = {
-            kage: source?.kage ?? "",
-            elders: Array.from({ length: 3 }, (_, index) => source?.elders?.[index] ?? ""),
+            kage: source?.kage || defaultPortraitFor(leadership.kage),
+            elders: Array.from({ length: 3 }, (_, index) => source?.elders?.[index] || defaultPortraitFor(leadership.elders[index])),
         };
     });
     return normalized;

@@ -206,7 +206,7 @@ export function SectorWanderer({
         onEngageRef.current(wanderer);   // opens the <WorldMap> interaction dialog
     }
 
-    const img = wandererAvatar(wanderer.avatarKey);
+    const img = wanderer.avatarImage || wandererAvatar(wanderer.avatarKey);
     const initials = wanderer.name.slice(0, 2).toUpperCase();
 
     return (
