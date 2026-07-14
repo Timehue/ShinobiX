@@ -55,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const today = utcDateOffset(0);
         const yesterday = utcDateOffset(-1);
 
-        let out: { error: 'no-save' } | { alreadyClaimed: boolean; streak: number; ryo: number; fateShards: number; totalRyo: number; totalFateShards: number; saveVersion: number };
+        let out: { error: 'no-save' } | { alreadyClaimed: boolean; streak: number; ryo: number; fateShards: number; totalRyo: number; totalFateShards: number; saveVersion: number; legacyCharacter?: Record<string, unknown> | null };
         try {
             out = await withKvLock(`save:${playerName}`, async () => {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -74,6 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     totalRyo: num(char.ryo),
                     totalFateShards: num(char.fateShards),
                     saveVersion: Number(rec._saveVersion ?? 0),
+                    legacyCharacter: char,
                 };
 
                 const nextChar = {
@@ -90,6 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     totalRyo: num(nextChar.ryo),
                     totalFateShards: num(nextChar.fateShards),
                     saveVersion: Number((nextRecord as Record<string, unknown>)._saveVersion ?? 0),
+                    legacyCharacter: nextChar,
                 };
             }, { failClosed: true });
         } catch (e) {
@@ -102,10 +104,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Legacy tracking (ENABLE_LEGACY): one tenure day per claimed login day
         // (already once-per-UTC-day by the alreadyClaimed gate above), plus the
         // daily capped reconcile of client-tracked progression counters.
+        //
+        // This bookkeeping is intentionally best-effort and off the response
+        // path. The reward save above is the critical mutation; waiting on the
+        // extra Legacy lock/read/write sequence made the Daily Briefing claim
+        // button sit in "Claiming..." for several seconds on warm accounts.
         if (!out.alreadyClaimed) {
-            await bumpLegacyStats(playerName, { villageTenureDays: 1 });
-            const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-            await reconcileLegacyStatsFromSave(playerName, (rec?.character ?? null) as Record<string, unknown> | null);
+            const legacyCharacter = out.legacyCharacter ?? null;
+            void (async () => {
+                await bumpLegacyStats(playerName, { villageTenureDays: 1 }, { characterForBootstrap: legacyCharacter });
+                await reconcileLegacyStatsFromSave(playerName, legacyCharacter);
+            })().catch((err) => {
+                console.error('[player/daily-login] legacy tracking failed', err);
+            });
         }
 
         return res.status(200).json({
