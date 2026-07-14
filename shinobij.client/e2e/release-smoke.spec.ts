@@ -89,6 +89,33 @@ test('landing and creator have no serious WCAG A/AA axe violations', async ({ pa
     expect(creator.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([]);
 });
 
+test('footer policy links open public, responsive, accessible pages', async ({ page }) => {
+    const runtimeFailures = captureRuntimeFailures(page);
+    await page.goto('/', { waitUntil: 'networkidle' });
+
+    const policyNav = page.getByRole('navigation', { name: 'Legal and player policies' });
+    await expect(policyNav.getByRole('link', { name: 'Terms', exact: true })).toBeVisible();
+    await expect(policyNav.getByRole('link', { name: 'Privacy', exact: true })).toBeVisible();
+    await expect(policyNav.getByRole('link', { name: 'Rules', exact: true })).toBeVisible();
+    await expect(policyNav.getByRole('link', { name: 'Privacy Request', exact: true })).toBeVisible();
+
+    await policyNav.getByRole('link', { name: 'Terms', exact: true }).click();
+    await expect(page).toHaveURL(/\/terms$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Terms of Service' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to Shinobi Journey home' })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
+    const termsAccessibility = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+        .analyze();
+    expect(termsAccessibility.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([]);
+
+    await page.goto('/privacy', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    expect(runtimeFailures).toEqual([]);
+});
+
 test('themed alerts trap focus and restore the invoking control', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
     const opener = startCreateButton(page);
