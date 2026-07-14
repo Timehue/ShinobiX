@@ -33,3 +33,17 @@ describe("normalizeJutsu — fixed-effect EP-100 sentinel is clamped to standard
         assert.equal(normalizeJutsu({ id: "n", name: "N", type: "Ninjutsu", ap: 60, effectPower: 36, tags: [] }).effectPower, 36);
     });
 });
+
+describe("normalizeJutsu — Bloodline combat visual choice", () => {
+    it("keeps a valid choice only on offensive 60 AP jutsu", () => {
+        const valid = normalizeJutsu({ id: "valid", name: "Valid", type: "Ninjutsu", ap: 60, target: "OPPONENT", visualEffect: "shadow", tags: [] });
+        const utility = normalizeJutsu({ id: "utility", name: "Utility", type: "Ninjutsu", ap: 40, target: "OPPONENT", visualEffect: "fire60", tags: [] });
+        const selfCast = normalizeJutsu({ id: "self", name: "Self", type: "Ninjutsu", ap: 60, target: "SELF", visualEffect: "water60", tags: [] });
+        const invalid = normalizeJutsu({ id: "invalid", name: "Invalid", type: "Ninjutsu", ap: 60, target: "OPPONENT", visualEffect: "godmode" as never, tags: [] });
+
+        assert.equal(valid.visualEffect, "shadow");
+        assert.equal(utility.visualEffect, undefined);
+        assert.equal(selfCast.visualEffect, undefined);
+        assert.equal(invalid.visualEffect, undefined);
+    });
+});

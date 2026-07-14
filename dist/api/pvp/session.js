@@ -25,6 +25,7 @@ const _legacy_track_js_1 = require("../_legacy-track.js");
 const _multipliers_js_1 = require("./_multipliers.js");
 const _tags_js_1 = require("./_tags.js");
 const _jutsu_points_js_1 = require("../_jutsu-points.js");
+const _jutsu_visuals_js_1 = require("../_jutsu-visuals.js");
 const _elapsed_state_js_1 = require("../_elapsed-state.js");
 const _combat_resources_js_1 = require("../_combat-resources.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
@@ -183,6 +184,11 @@ function sanitizeJutsuList(rawList) {
         if (out.weatherElement != null && !VALID_WEATHER_ELEMENTS.has(String(out.weatherElement))) {
             delete out.weatherElement;
         }
+        const visualEffect = (0, _jutsu_visuals_js_1.sanitizeJutsuVisualEffect)(out.visualEffect, out.ap, out.target);
+        if (visualEffect)
+            out.visualEffect = visualEffect;
+        else
+            delete out.visualEffect;
         return out;
     });
 }
@@ -822,7 +828,8 @@ function townDefensePctFromSave(saveCharacter) {
     return Math.max(0, Math.min(GUARD_DEFENSE_MAX_PCT, level * TOWN_DEFENSE_PER_LEVEL));
 }
 function pvpSessionCreationAllowedDuringSettlement(isAdmin) {
-    return isAdmin;
+    void isAdmin;
+    return true;
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -851,9 +858,6 @@ async function handler(req, res) {
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
-        if (!pvpSessionCreationAllowedDuringSettlement(identity.admin)) {
-            return res.status(503).json({ error: 'PvP sessions are temporarily unavailable while authoritative settlement is finalized. Nothing was changed.' });
-        }
         // Cap session creation. A legit player starts a duel maybe every
         // 30s in heavy play; 6/min is comfortable headroom and stops
         // KV-fill attacks that spam-create sessions. Admins skip the cap

@@ -18,10 +18,13 @@ import { bloodlineWizardStepCount, bloodlineWizardStepKind, bloodlineWizardJutsu
 import { specialties, jutsuElements, bloodlineJutsuMethods, fortyApBlockedBloodlineTags, instantEffectGroundTags, jutsuTargets } from "../data/jutsu";
 import { AiImagePrompt } from "../components/AiImagePrompt";
 import { TagPicker } from "../components/TagPicker";
+import { JUTSU_VISUAL_EFFECT_OPTIONS, isJutsuVisualEffect, jutsuVisualEffectLabel } from "../lib/jutsu-visuals";
+import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 
 // The five base elements that interact with the weather system. A bloodline's
 // special element can behave as one of these (weather buff/debuff) or as "None".
 const BASE_WEATHER_ELEMENTS = ["Earth", "Wind", "Lightning", "Fire", "Water"];
+const JUTSU_VISUAL_EFFECT_GROUPS = [...new Set(JUTSU_VISUAL_EFFECT_OPTIONS.map((option) => option.group))];
 
 // Default weather affinity for a bloodline: the saved choice if present, else
 // the special element when it's a real base element (preserves legacy behavior,
@@ -160,6 +163,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             if (next.ap === 40) {
                 next.tags = next.tags.filter((t) => !fortyApBlockedBloodlineTags.includes(t.name));
             }
+            if (next.ap !== 60 || next.target === "SELF") {
+                next.visualEffect = undefined;
+            }
             return next;
         }));
     }
@@ -174,6 +180,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             staminaCostReducePerLvl: 0,
             tags: (currentJutsu?.tags ?? []).filter((tag) => ap === 60 || !fortyApBlockedBloodlineTags.includes(tag.name)).slice(0, ap === 60 ? 2 : 3),
             effectPower: fixedEffectPower ? (ap === 60 ? 40 : 0) : ap === 60 ? ([40, 50].includes(currentJutsu?.effectPower ?? 0) ? currentJutsu!.effectPower : 40) : 0,
+            visualEffect: ap === 60 ? currentJutsu?.visualEffect : undefined,
         });
     }
     function updateTag(jutsuIndex: number, tagIndex: number, updated: Partial<JutsuTag>) {
@@ -321,6 +328,8 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     // The per-jutsu editor card (one shown per wizard step). Behavior-preserving
     // verbatim move of the former jutsus.map() body — same handlers, same rules.
     function renderJutsuCard(jutsu: Jutsu, jutsuIndex: number) {
+        const selectedVisualOption = JUTSU_VISUAL_EFFECT_OPTIONS.find((option) => option.key === jutsu.visualEffect);
+        const selectedVisualAsset = selectedVisualOption ? combatVfxAssetFor(selectedVisualOption.key) : null;
         return (
                 <div className="jutsu-card maker-card" key={jutsu.id}>
                     <h3>{jutsu.name}</h3>
@@ -348,6 +357,42 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         <button className={jutsu.ap === 60 ? "active" : ""} onClick={() => updateJutsuAp(jutsuIndex, 60)}>60 AP Damage</button>
                     </div>
                     {jutsu.method === "AOE_SPIRAL" && <small className="tag-effect-help">AOE Movement is locked to 60 AP — it cannot be a 40 AP utility jutsu.</small>}
+                    {jutsu.ap === 60 && jutsu.target !== "SELF" && (
+                        <div className="bloodline-vfx-section">
+                            <label id={`jutsu-vfx-label-${jutsu.id}`}>Combat Visual Effect</label>
+                            <div className="bloodline-vfx-control">
+                                <select
+                                    id={`jutsu-vfx-select-${jutsu.id}`}
+                                    aria-labelledby={`jutsu-vfx-label-${jutsu.id}`}
+                                    value={jutsu.visualEffect ?? ""}
+                                    onChange={(event) => updateJutsu(jutsuIndex, {
+                                        visualEffect: isJutsuVisualEffect(event.target.value) ? event.target.value : undefined,
+                                    })}
+                                >
+                                    <option value="">Automatic — element and tags decide</option>
+                                    {JUTSU_VISUAL_EFFECT_GROUPS.map((group) => (
+                                        <optgroup label={group} key={group}>
+                                            {JUTSU_VISUAL_EFFECT_OPTIONS.filter((option) => option.group === group).map((option) => (
+                                                <option value={option.key} key={option.key}>{option.label}</option>
+                                            ))}
+                                        </optgroup>
+                                    ))}
+                                </select>
+                                <div className="bloodline-vfx-preview" aria-live="polite">
+                                    <span className={`bloodline-vfx-thumb${selectedVisualAsset ? " has-image" : ""}`}>
+                                        {selectedVisualAsset
+                                            ? <img src={selectedVisualAsset.url} alt="" />
+                                            : <span className="bloodline-vfx-auto-mark">AUTO</span>}
+                                    </span>
+                                    <span>
+                                        <strong>{selectedVisualOption?.label ?? "Automatic"}</strong>
+                                        <small>{selectedVisualOption?.description ?? "The jutsu element and tags choose the effect."}</small>
+                                    </span>
+                                </div>
+                            </div>
+                            <small className="tag-effect-help">Cosmetic only. This changes what the opponent is hit by in PvE and PvP; damage, tags, AP, and balance stay unchanged.</small>
+                        </div>
+                    )}
                     {jutsu.ap === 60 && !hasFixedEffectPower(jutsu) && (() => {
                         const strongUsedElsewhere = jutsus.some((j, i) => i !== jutsuIndex && j.ap === 60 && j.effectPower === 50 && !hasFixedEffectPower(j));
                         const pierceUsedElsewhere = jutsus.some((j, i) => i !== jutsuIndex && j.tags.some((t) => t.name === "Pierce"));
@@ -518,7 +563,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         ))}
                     </div>
                     {jutsus.map((j, i) => (
-                        <div className="summary-box bloodline-element-lock" key={j.id}>Jutsu {i + 1}: <strong>{j.name}</strong> — {j.ap} AP · {jutsuPoints(j)} pts<br /><small>{describeJutsuEffects(j)}</small></div>
+                        <div className="summary-box bloodline-element-lock" key={j.id}>Jutsu {i + 1}: <strong>{j.name}</strong> — {j.ap} AP · {jutsuPoints(j)} pts<br /><small>{describeJutsuEffects(j)}</small><br /><small>Combat VFX: {jutsuVisualEffectLabel(j.visualEffect)}</small></div>
                     ))}
                     {renderPointTotal()}
                     <button onClick={saveBloodline} disabled={overLimit} style={overLimit ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>Save Bloodline</button>

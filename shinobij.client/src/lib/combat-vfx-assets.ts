@@ -58,10 +58,15 @@ function asset(
 
 export const COMBAT_VFX_ASSETS: Record<CombatVfxKey, CombatVfxAssetSpec> = {
     fire: asset("fire.webp", "elemental", "element", "burst", ["Element: Fire", "Material: Elemental"]),
+    fire60: asset("fire60.webp", "elemental", "element", "ward", ["Element: Fire", "AP Tier: 60", "Read: Target engulfed"], 1.72, -10, 0.98),
     water: asset("water.webp", "elemental", "element", "ground", ["Element: Water", "Material: Elemental"], 1.52, -2),
+    water60: asset("water60.webp", "elemental", "element", "ward", ["Element: Water", "AP Tier: 60", "Read: Target bubble"], 1.78, -6, 0.96),
     wind: asset("wind.webp", "elemental", "element", "burst", ["Element: Wind", "Material: Elemental"], 1.5, -1),
+    wind60: asset("wind60.webp", "elemental", "element", "ward", ["Element: Wind", "AP Tier: 60", "Read: Target tornado"], 1.78, -10, 0.96),
     lightning: asset("lightning.webp", "elemental", "element", "ground", ["Element: Lightning", "Material: Elemental"], 1.48, -1),
+    lightning60: asset("lightning60.webp", "elemental", "element", "ward", ["Element: Lightning", "AP Tier: 60", "Read: Target thunder strike"], 1.82, -12, 0.98),
     earth: asset("earth.webp", "elemental", "element", "ground", ["Element: Earth", "Material: Elemental"], 1.42, 0),
+    earth60: asset("earth60.webp", "elemental", "element", "burst", ["Element: Earth", "AP Tier: 60", "Read: Target boulder impact"], 1.72, -7, 0.98),
     blood: asset("blood.webp", "elemental", "element", "burst", ["Element: Blood", "Material: Bloodline"], 1.5, -2),
     shadow: asset("shadow.webp", "elemental", "element", "burst", ["Element: Shadow", "Control: Shadow"], 1.5, -3),
     poison: asset("poison.webp", "elemental", "element", "ground", ["Element: Poison", "Tag: Poison"], 1.45, 0, 0.84),

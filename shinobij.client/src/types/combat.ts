@@ -29,6 +29,16 @@ export type JutsuMastery = { jutsuId: string; level: number; xp: number };
 
 export type JutsuTag = { name: string; percent: number };
 
+/** Optional player-selected combat plate for an offensive 60 AP bloodline jutsu.
+ * Omitted means the resolver chooses from the jutsu's element/tags as before. */
+export type JutsuVisualEffect =
+    | "fire60" | "wind60" | "water60" | "lightning60" | "earth60"
+    | "fire" | "water" | "wind" | "lightning" | "earth"
+    | "blood" | "shadow" | "poison" | "magma" | "metal"
+    | "slash" | "impact" | "pierce" | "throwable" | "weapon" | "namedWeapon" | "heavy"
+    | "heal" | "shield" | "reflect" | "absorb" | "spark" | "seal" | "cleanse" | "buff" | "debuff" | "drain"
+    | "wound" | "burn" | "poisonCloud" | "ko";
+
 export type Jutsu = {
     id: string;
     name: string;
@@ -68,6 +78,7 @@ export type Jutsu = {
     // "None" → no weather buff or debuff. Set on bloodline jutsu by the Bloodline
     // Maker; absent on starters/items, which fall back to `element`.
     weatherElement?: JutsuElement;
+    visualEffect?: JutsuVisualEffect;
 };
 
 export type EquipmentSlot =
