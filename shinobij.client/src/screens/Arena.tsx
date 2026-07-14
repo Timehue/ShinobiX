@@ -1563,26 +1563,26 @@ export function Arena({
     function jutsuAoeTiles(jutsu: Jutsu | null | undefined) {
         if (!jutsu || isGroundEffectJutsu(jutsu) || isMoveJutsu(jutsu)) return new Set<number>();
         if (!jutsuRangeTiles(jutsu).has(enemyPos)) return new Set<number>();
-        return jutsuImpactPreviewTiles({
-            method: jutsu.method,
-            center: enemyPos,
-            allTiles: Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile),
+        return jutsuImpactPreviewTiles(
+            jutsu.method,
+            enemyPos,
+            Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile),
             distance,
-            neighbors: hexNeighbors,
-            circleIncludesCenter: true,
-        });
+            hexNeighbors,
+            true,
+        );
     }
 
     function groundAffectedTiles(jutsu: Jutsu | null | undefined, groundTile: number | null) {
         if (!jutsu || !isGroundEffectJutsu(jutsu)) return new Set<number>();
         if (groundTile === null) return new Set<number>();
-        const impact = jutsuImpactPreviewTiles({
-            method: jutsu.method,
-            center: groundTile,
-            allTiles: Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile),
+        const impact = jutsuImpactPreviewTiles(
+            jutsu.method,
+            groundTile,
+            Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile),
             distance,
-            neighbors: hexNeighbors,
-        });
+            hexNeighbors,
+        );
         return impact.size > 0 ? impact : new Set([groundTile]);
     }
 
@@ -4985,13 +4985,13 @@ export function Arena({
             landingTile !== enemyPos &&
             !barrierTiles.some((barrier) => barrier.tile === landingTile);
         if (!validLandingTile) return new Set<number>();
-        const impact = jutsuImpactPreviewTiles({
-            method: pendingTargetJutsu.method,
-            center: landingTile,
-            allTiles: Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile),
+        const impact = jutsuImpactPreviewTiles(
+            pendingTargetJutsu.method,
+            landingTile,
+            Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile),
             distance,
-            neighbors: hexNeighbors,
-        });
+            hexNeighbors,
+        );
         // Pure movement has no damage footprint, but the hovered destination
         // still needs a marker distinct from the green reachable-range tiles.
         return impact.size > 0 ? impact : new Set([landingTile]);
