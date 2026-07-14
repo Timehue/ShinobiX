@@ -13,6 +13,7 @@ import { legacyEnabled } from '../_legacy-track.js';
 import { deriveCombatMultipliers, buildItemLookup } from './_multipliers.js';
 import { KNOWN_TAG_NAMES, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
 import { enforceBloodlineBudget, type RawJutsu } from '../_jutsu-points.js';
+import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
 import { CHAKRA_CAP_V2, STAMINA_CAP_V2 } from '../_xp-engine.js';
@@ -167,10 +168,15 @@ export type PvpSession = {
 export type HitFxTarget = { target: 'p1' | 'p2'; amount: number; kind: 'damage' | 'heal' };
 export type CombatVfxKey =
     | 'fire'
+    | 'fire60'
     | 'water'
+    | 'water60'
     | 'wind'
+    | 'wind60'
     | 'lightning'
+    | 'lightning60'
     | 'earth'
+    | 'earth60'
     | 'blood'
     | 'shadow'
     | 'poison'
@@ -341,6 +347,9 @@ export function sanitizeJutsuList(rawList: unknown): unknown[] {
             if (out.weatherElement != null && !VALID_WEATHER_ELEMENTS.has(String(out.weatherElement))) {
                 delete out.weatherElement;
             }
+            const visualEffect = sanitizeJutsuVisualEffect(out.visualEffect, out.ap, out.target);
+            if (visualEffect) out.visualEffect = visualEffect;
+            else delete out.visualEffect;
             return out;
         });
 }

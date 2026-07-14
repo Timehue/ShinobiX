@@ -11,6 +11,7 @@ import { normalizeJutsuTags, tagMatchesName, normalizeJutsuMethod, hasFixedEffec
 import { makeId } from "./utils";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType, JutsuElement, JutsuTarget, Rank } from "../types/core";
+import { isJutsuVisualEffect } from "./jutsu-visuals";
 
 export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "type">): Jutsu {
     const tags = normalizeJutsuTags(jutsu.tags);
@@ -64,6 +65,12 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
         // Carry the weather affinity through too — set on bloodline jutsu so the
         // weather system can read it independently of the cosmetic `element`.
         ...(jutsu.weatherElement != null ? { weatherElement: jutsu.weatherElement } : {}),
+        // A custom plate is valid only for an offensive 60 AP cast. Invalid or
+        // legacy values fall back to automatic resolution instead of leaking an
+        // arbitrary asset key into combat.
+        ...(ap === 60 && jutsu.target !== "SELF" && isJutsuVisualEffect(jutsu.visualEffect)
+            ? { visualEffect: jutsu.visualEffect }
+            : {}),
     };
 }
 

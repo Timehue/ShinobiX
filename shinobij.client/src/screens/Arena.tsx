@@ -447,6 +447,8 @@ export function Arena({
         if (opts.focusPos < 0) return;
         const spec = resolveCombatVfxSpec({
             action: "jutsu",
+            ap: jutsu.ap,
+            visualEffect: jutsu.visualEffect,
             element: jutsu.element,
             discipline: jutsu.type,
             effectPower: jutsu.effectPower,
