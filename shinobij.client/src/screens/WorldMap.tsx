@@ -14,7 +14,7 @@ import {
     GiShield,
 } from "react-icons/gi";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
-import { GameIcon } from "../components/icons/GameIcon";
+import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, HollowGateEventConfig, PlayerRecord } from "../types/character";
 import { gameConfirm } from "../components/GameAlert";
@@ -1687,11 +1687,11 @@ export function WorldMap({
         // Coords aligned to the new World Map.png baked-in banners (measured on a
         // 0–100 grid + crosshair triangulation): each village marker sits ON its
         // painted banner icon medallion (the icon hexagon at the banner's far-left).
-        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 12, y: 84, icon: "SV" },
-        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 11, y: 37, icon: "AL" },
-        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 78, y: 37, icon: "FF" },
-        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 75, y: 83, icon: "MS" },
-        { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, icon: "C", staminaReward: 20, xpReward: 20 },
+        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 12, y: 84, icon: "SV", iconName: "gate" as GameIconName },
+        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 11, y: 37, icon: "AL", iconName: "leaf" as GameIconName },
+        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 78, y: 37, icon: "FF", iconName: "snow" as GameIconName },
+        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 75, y: 83, icon: "MS", iconName: "moon" as GameIconName },
+        { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, icon: "C", iconName: "tower" as GameIconName, staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the dark gothic spire painted just below the central citadel.
         { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 50, y: 79, icon: "HG" },
     ];
@@ -3801,7 +3801,7 @@ export function WorldMap({
                             onClick={() => enterLandmark(location)}
                             title={location.name}
                         >
-                            <strong>{location.icon}</strong>
+                            <strong>{location.iconName ? <GameIcon name={location.iconName} size={18} /> : location.icon}</strong>
                             <span>{location.name}</span>
                         </button>
                     );

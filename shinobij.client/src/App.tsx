@@ -13,7 +13,6 @@ import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { payEndlessEntry, endlessEntryCost } from "./lib/entry-fee";
 import { warnLocalSaveUnavailable } from "./lib/recovery";
-import { shouldShowScreenContextHeader } from "./lib/screen-context";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry } from "./lib/lazyWithRetry";
 import { runSingleFlight } from "./lib/single-flight";
@@ -111,10 +110,8 @@ import {
 // every fetch('/api/...') call automatically picks up x-player-name and
 // x-player-password from the active session (managed via setActivePlayer).
 installAuthFetch();
-import shinobiBanner from './assets/shinobi-banner.webp'
 import backgroundImage from "./assets/background-image.webp";
 import { academyTrainingDummyImg, withAcademySparringPortrait } from "./lib/academy-ai-art";
-const ScreenContextHeader = lazyWithRetry(() => import("./components/ScreenContextHeader").then(m => ({ default: m.ScreenContextHeader })));
 const Inventory = lazyWithRetry(() => import("./screens/Inventory").then(m => ({ default: m.Inventory })));
 const Hospital = lazyWithRetry(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
 const VillageTavern = lazyWithRetry(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
@@ -341,7 +338,6 @@ import {
 const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
 const Messages = lazyWithRetry(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
 const UserView = lazyWithRetry(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
-const BannerMobileTimers = lazyWithRetry(() => import("./components/BannerMobileTimers").then(m => ({ default: m.BannerMobileTimers })));
 const MobileStatusHUD = lazyWithRetry(() => import("./components/MobileStatusHUD").then(m => ({ default: m.MobileStatusHUD })));
 const HollowGateShrineView = lazyWithRetry(() => import("./features/hollowGate/HollowGateShrineView").then(m => ({ default: m.HollowGateShrineView })));
 const LeftProfileCard = lazyWithRetry(() => import("./components/LeftProfileCard").then(m => ({ default: m.LeftProfileCard })));
@@ -7373,55 +7369,6 @@ export default function App() {
                     />
                     </Suspense>
                 )}
-                {character && screen !== "start" && !hideBattleChrome && shouldShowScreenContextHeader(screen) && (
-                    <div className="screen-context-shell">
-                        <ScreenContextHeader screen={screen} village={character.village} />
-                    </div>
-                )}
-                {character && screen !== "start" && (
-                    <div
-                        className="journey-banner"
-                        style={{ backgroundImage: `url(${shinobiBanner})` }}
-                    >
-                        <Suspense fallback={null}>
-                        <BannerMobileTimers
-                            activeTraining={activeTraining}
-                            activeJutsuTraining={activeJutsuTraining}
-                            pets={character.pets ?? []}
-                        />
-                        </Suspense>
-                        <div className="journey-live-stats">
-                            <div className="stat-box">
-                                <span>RANK</span>
-                                <strong>{character.rankTitle}</strong>
-                            </div>
-
-                            <div className="stat-box">
-                                <span>LVL</span>
-                                <strong>{character.level}/100</strong>
-                            </div>
-
-                            <div className="stat-box">
-                                <span>XP</span>
-                                <strong>
-                                    {character.level >= MAX_LEVEL
-                                        ? "MAX"
-                                        : `${character.xp}/${xpNeeded(character.level)}`}
-                                </strong>
-                            </div>
-
-                            <div className="stat-box">
-                                <span>RYO</span>
-                                <strong>{character.ryo}</strong>
-                            </div>
-                            <div className="stat-box" style={{ color: "#ce93d8" }}>
-                                <span>💎 SHARDS</span>
-                                <strong>{character.fateShards}</strong>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {screen === "start" && restoringSession && (
                     <div className="start-screen">
                         <div className="start-title-block">
