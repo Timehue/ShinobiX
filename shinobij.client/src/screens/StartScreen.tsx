@@ -3,6 +3,8 @@ import { type Character } from "../App";
 import { villages } from "../data/sectors";
 import { GameIcon } from "../components/icons/GameIcon";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
+import { LEGAL_PAGE_LINKS, legalPageForPath, type LegalPageSlug } from "../data/legal";
+import { LegalPage } from "./LegalPage";
 
 const CharacterCreator = lazyWithRetry(() => import("./CharacterCreator").then(m => ({ default: m.CharacterCreator })));
 const PublicLeaderboard = lazyWithRetry(() => import("./PublicLeaderboard").then(m => ({ default: m.PublicLeaderboard })));
@@ -60,7 +62,7 @@ function IconEyeOff() {
     );
 }
 
-type StartView = "main" | "create" | "login" | "leaderboard" | "guides";
+type StartView = "main" | "create" | "login" | "leaderboard" | "guides" | `legal:${LegalPageSlug}`;
 
 type RosterEntry = {
     name: string;
@@ -174,7 +176,15 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
     initialName?: string;
     notice?: string;
 }) {
-    const [view, setView] = useState<StartView>(initialName || notice ? "login" : "main");
+    const [view, setView] = useState<StartView>(() => {
+        const legalPage = typeof window === "undefined" ? null : legalPageForPath(window.location.pathname);
+        if (legalPage) return `legal:${legalPage}`;
+        return initialName || notice ? "login" : "main";
+    });
+
+    if (view.startsWith("legal:")) {
+        return <LegalPage slug={view.slice("legal:".length) as LegalPageSlug} />;
+    }
 
     if (view === "leaderboard") {
         return (
@@ -609,7 +619,12 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                         <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Discord</a>
                     </nav>
                 </div>
-                <p className="landing-footer-legal">© {year} Shinobi Journey. Forge your legend.</p>
+                <div className="landing-footer-legal">
+                    <p>© {year} Shinobi Journey. Forge your legend.</p>
+                    <nav className="landing-footer-policy-links" aria-label="Legal and player policies">
+                        {LEGAL_PAGE_LINKS.map((link) => <a key={link.slug} href={`/${link.slug}`}>{link.label}</a>)}
+                    </nav>
+                </div>
             </footer>
 
             <div className="landing-mobile-cta">
