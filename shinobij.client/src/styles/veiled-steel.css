@@ -244,6 +244,19 @@ html body.ui-scroll-locked {
   margin-left: 0 !important;
 }
 
+/* PvE uses a portaled player HUD at the lg/xl desktop breakpoints. Keep that
+   battle-owned rail reserved while still releasing the application menu gutter;
+   otherwise the full-width command deck renders underneath the fixed HUD and
+   clips Attack/the leftmost jutsu card. PvP and xxl keep the true full-width
+   battle-focus layout because they use in-grid fighter HUDs. */
+html[data-vp="lg"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar) .center-game.battle-focus,
+html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar) .center-game.battle-focus {
+  width: calc(100% - var(--side-rail-w) - var(--main-gutter)) !important;
+  max-width: calc(100% - var(--side-rail-w) - var(--main-gutter)) !important;
+  margin-left: calc(var(--side-rail-w) + var(--main-gutter)) !important;
+  margin-right: 0 !important;
+}
+
 /* The journey banner becomes a persistent, contextual command header. */
 .app-shell:not(.screen-start) .journey-banner {
   position: relative;
