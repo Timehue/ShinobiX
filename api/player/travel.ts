@@ -6,7 +6,6 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { getIo } from '../_realtime/socket.js';
 import { toPlayerRecord } from '../_realtime/presence-input.js';
 import { sectorExitById, type SectorExit } from '../../shared/sector-links.js';
-import type { OnlinePlayer } from '../_realtime/types.js';
 
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
 // The server mints the timer so clients cannot claim an arbitrary destination
@@ -21,18 +20,21 @@ export function isPlayableWorldSector(value: unknown): value is number {
 
 export type EdgeTravelInput = {
     originSector: number;
+    originTile: number;
     destinationSector: number;
     exitId: string;
 };
 
 export function edgeTravelExit(
-    player: Pick<OnlinePlayer, 'sector' | 'tile'>,
     input: EdgeTravelInput,
 ): SectorExit | null {
-    if (player.sector !== input.originSector) return null;
-    const exit = sectorExitById(player.sector, input.exitId);
+    const exit = sectorExitById(input.originSector, input.exitId);
     if (!exit || exit.destinationSector !== input.destinationSector) return null;
-    if (player.tile !== exit.tile) return null;
+    // Presence sector/tile snapshots can lag after reconnects and deployments,
+    // and their socket/heartbeat updates travel separately from this request.
+    // Validate the atomic crossing action itself against the shared road graph;
+    // the authenticated player's presence is reconciled when travel starts.
+    if (input.originTile !== exit.tile) return null;
     return exit;
 }
 
@@ -57,9 +59,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!player) return res.status(409).json({ error: 'World presence is not ready. Please try again.' });
     const mode = body.mode === 'edge' ? 'edge' : 'map';
     let arrivalTile: number | undefined;
+    let edgeOriginSector: number | undefined;
     if (mode === 'edge') {
-        const exit = edgeTravelExit(player, {
+        const exit = edgeTravelExit({
             originSector: Number(body.originSector),
+            originTile: Number(body.originTile),
             destinationSector,
             exitId: String(body.exitId ?? ''),
         });
@@ -67,13 +71,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: 'Move onto that road exit before crossing sectors.' });
         }
         arrivalTile = exit.destinationTile;
+        edgeOriginSector = exit.sector;
     }
     if (player.sector === destinationSector) {
         return res.status(200).json({ ok: true, destinationSector, arrivalAt: Date.now(), arrivalTile });
     }
 
     const arrivalAt = Date.now() + WORLD_TRAVEL_MS;
-    const started = onlineStore.startTravel(identity.name, destinationSector, arrivalAt);
+    const started = onlineStore.startTravel(identity.name, destinationSector, arrivalAt, edgeOriginSector);
     if (!started) return res.status(409).json({ error: 'You cannot travel while moving or fighting.' });
     getIo()?.to(`sector:${started.sector}`).emit('presence:update', {
         sector: started.sector,
