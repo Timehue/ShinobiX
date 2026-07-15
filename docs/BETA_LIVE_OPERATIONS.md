@@ -12,7 +12,7 @@
 
 ## Daily operator rhythm
 
-Run `npm run beta:report -- https://host 1` with `ADMIN_PASSWORD` in the environment. Review funnel/reward events, save-derived level/rank/profession distribution, ryo percentiles, exam holds, hospital risk, malformed saves, duplicate attempts, failed claims, unresolved sessions, and Clan Boss settlements. The report is aggregate-only.
+Run `npm run beta:report -- https://shinobijourney.com 1` with `ADMIN_PASSWORD` in the environment. The CLI refuses non-ShinobiX remote origins so the admin header cannot be redirected to an operator-supplied host. Review funnel/reward events, save-derived level/rank/profession distribution, ryo percentiles, exam holds, hospital risk, malformed saves, duplicate attempts, failed claims, unresolved sessions, and Clan Boss settlements. The report is aggregate-only.
 
 Search save failures by request ID. Search battle and reward receipts by their domain IDs. Review Sentry, Better Stack, storage latency, backup freshness, scheduled-job health, and replica count. Record action taken; do not tune balance from a single day.
 

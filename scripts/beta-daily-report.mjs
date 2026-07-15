@@ -2,11 +2,18 @@
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
+const APPROVED_REPORT_ORIGINS = new Map([
+  ['https://shinobijourney.com', 'https://shinobijourney.com'],
+  ['https://www.shinobijourney.com', 'https://www.shinobijourney.com'],
+  ['http://127.0.0.1:3000', 'http://127.0.0.1:3000'],
+  ['http://localhost:3000', 'http://localhost:3000'],
+]);
+
 export function betaReportUrl(base, { days = 1, includePopulation = true, format = 'text' } = {}) {
-  const url = new URL(base);
-  if (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)) {
-    throw new Error('Beta reports require HTTPS except on localhost.');
-  }
+  const requested = new URL(base);
+  const approvedBase = APPROVED_REPORT_ORIGINS.get(requested.origin);
+  if (!approvedBase) throw new Error('Beta reports require an approved ShinobiX origin (or fixed localhost development origin).');
+  const url = new URL(approvedBase);
   url.pathname = '/api/admin/beta-metrics';
   url.search = '';
   url.searchParams.set('days', String(Math.max(1, Math.min(60, Math.floor(Number(days) || 1)))));
@@ -29,7 +36,7 @@ export async function fetchBetaReport({ baseUrl, adminPassword, days, includePop
 
 async function main() {
   const baseUrl = process.argv[2];
-  if (!baseUrl) throw new Error('Usage: npm run beta:report -- https://staging-host [days] [--json] [--no-population]');
+  if (!baseUrl) throw new Error('Usage: npm run beta:report -- https://shinobijourney.com [days] [--json] [--no-population]');
   const format = process.argv.includes('--json') ? 'json' : 'text';
   const includePopulation = !process.argv.includes('--no-population');
   const daysArg = process.argv.slice(3).find((arg) => /^\d+$/.test(arg));

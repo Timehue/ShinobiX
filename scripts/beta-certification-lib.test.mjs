@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
 import test from 'node:test';
-import { REQUIRED_JOURNEY_STEPS, REQUIRED_SAFETY_CHECKS, validateBetaCertification } from './beta-certification-lib.mjs';
+import { betaCertificationEvidencePath, REQUIRED_JOURNEY_STEPS, REQUIRED_SAFETY_CHECKS, validateBetaCertification } from './beta-certification-lib.mjs';
 
 const valid = () => ({
   schemaVersion: 'shinobix.beta-certification.v1',
@@ -25,4 +26,14 @@ test('certification fails closed for a missing journey step, unsafe account, and
   assert.ok(errors.some((error) => error.includes('dedicatedTestRecord')));
   assert.ok(errors.some((error) => error.includes('login-again')));
   assert.ok(errors.some((error) => error.includes('first-reward requires a requestId')));
+});
+
+test('certification evidence is confined to the local evidence directory', () => {
+  assert.equal(
+    betaCertificationEvidencePath('beta-cert-20260715.json', '/workspace'),
+    resolve('/workspace', 'release-audit', 'evidence', 'beta-cert-20260715.json'),
+  );
+  for (const unsafe of ['', '../secret.json', 'nested/evidence.json', 'evidence.txt', 'C:\\secret.json']) {
+    assert.throws(() => betaCertificationEvidencePath(unsafe, '/workspace'), /JSON filename/i);
+  }
 });
