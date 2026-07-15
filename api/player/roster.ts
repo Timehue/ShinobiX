@@ -6,6 +6,10 @@ import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.j
 import { REGISTRY_KEY, isPublicPlayerIndexKey, publicIndexKey, publicIndexToLeaderboardRosterEntry } from './_public-index.js';
 import { readPublicPlayerIndex } from './_public-index-store.js';
 import { listSleeperCamps, setSleeperCamp, type SleeperCamp } from '../_realtime/sleeper-camps.js';
+import { cachedFor } from '../_proc-cache.js';
+
+const FULL_ROSTER_CACHE_KEY = 'player:roster:full';
+const FULL_ROSTER_CACHE_TTL_MS = 60_000;
 
 // Fields stripped from EVERY character before the roster goes out the door.
 // Previously this endpoint returned `save.character` verbatim, leaking ryo,
@@ -171,6 +175,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ players });
         }
 
+        // Railway serves this API from one long-lived process, so keep the
+        // expensive all-save projection in the shared process cache. This
+        // makes simultaneous public-roster polls join one in-flight mget and
+        // reuses the finished snapshot for a minute instead of rescanning
+        // every player save once per caller.
+        const cachedPlayers = await cachedFor<RosterPlayer[]>(
+            FULL_ROSTER_CACHE_KEY,
+            FULL_ROSTER_CACHE_TTL_MS,
+            async () => {
+
         // Primary: persistent registry (every player who ever connected)
         const [rawRegistry, sleeperCamps] = await Promise.all([
             kv.hgetall<Record<string, string>>(REGISTRY_KEY).then((value) => value ?? {}),
@@ -284,10 +298,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return a.name.localeCompare(b.name);
         });
 
-        // 60s CDN cache — the client only polls every 5 min anyway, and online status
-        // is supplemented by the heartbeat, so 60s staleness here is invisible.
-        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=10');
-        return res.status(200).json({ players });
+                return players;
+            },
+        );
+
+        // The process cache owns the 60s freshness window. Keep the shared
+        // edge TTL at one second so the total contract remains about the same
+        // as the previous 60s edge-only policy instead of stacking two minutes.
+        res.setHeader('Cache-Control', 's-maxage=1, stale-while-revalidate=10');
+        return res.status(200).json({ players: cachedPlayers });
     } catch (err) {
         console.error('[roster]', err);
         return res.status(500).json({ error: 'Internal server error.' });
