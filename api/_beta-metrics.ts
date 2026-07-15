@@ -3,10 +3,27 @@ import { withTelemetryLock } from './_telemetry-lock.js';
 
 export type BetaMetricEvent =
     | 'account.registered'
+    | 'character.created'
+    | 'academy.started'
+    | 'academy.step.reached'
+    | 'academy.completed'
     | 'academy.trial.claimed'
     | 'academy.checklist.claimed'
+    | 'training.first_started'
+    | 'loadout.first_jutsu_equipped'
+    | 'loadout.first_item_equipped'
+    | 'combat.first_completed'
     | 'mission.claimed'
     | 'hunt.claimed'
+    | 'sector.first_entered'
+    | 'session.ended'
+    | 'reward.duplicate_rejected'
+    | 'reward.claim_failed'
+    | 'combat.session_created'
+    | 'combat.session_completed'
+    | 'combat.session_settled'
+    | 'combat.session_unresolved'
+    | 'clan_boss.assault_settled'
     | 'pvp.settled'
     | 'bank.interest.claimed';
 
