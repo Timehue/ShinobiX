@@ -30,6 +30,10 @@ export type OnlinePlayer = {
     travelingUntil?: number;
     /** Server-issued destination for the active three-second travel lease. */
     travelDestinationSector?: number;
+    /** Destination tile to adopt when a road-crossing lease matures. */
+    travelDestinationTile?: number;
+    /** Sector whose room saw this player before a stale, matured travel sweep. */
+    departureSector?: number;
     /** true while a PvP session is active (blocks double-battle). */
     inBattle?: boolean;
     /** Within-sector tile (0..143) for live peer rendering. Display-only — no
@@ -71,7 +75,13 @@ export interface OnlineStateStore {
     /** Set/clear the inBattle flag (PvP session start/end). */
     setInBattle(name: string, inBattle: boolean): void;
     /** Start a server-owned travel lease. Returns null if the player cannot travel. */
-    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number): OnlinePlayer | null;
+    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number): OnlinePlayer | null;
+    /** Restore a server-persisted lease after a process restart. */
+    restoreTravel(name: string, destinationSector: number, arrivalAt: number, originSector: number, arrivalTile?: number): OnlinePlayer | null;
+    /** Roll back a lease that could not be persisted. */
+    cancelTravel(name: string, arrivalAt: number): void;
+    /** Consume the one-shot signal that its persisted lease may be deleted. */
+    consumeSettledTravel(name: string): boolean;
     /** Apply a within-sector movement intent and return the refreshed record. */
     moveToTile(name: string, tile: number): OnlinePlayer | null;
     /** Drop entries past the offline window. Returns the removed records. */

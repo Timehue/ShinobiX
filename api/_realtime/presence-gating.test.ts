@@ -52,6 +52,13 @@ test('worldInteractionBlock requires authoritative same-sector presence', () => 
     assert.equal(worldInteractionBlock(null, player({ sector: 12 }), NOW)?.status, 409);
 });
 
+test('worldInteractionBlock rejects non-consensual attacks in sector-zero safe zones', () => {
+    const actor = player({ name: 'actor', displayName: 'Actor', sector: 0 });
+    const block = worldInteractionBlock(actor, player({ sector: 0 }), NOW);
+    assert.equal(block?.status, 409);
+    assert.match(block!.error, /safe zone/i);
+});
+
 test('challengeBlock: offline target is NOT blocked (queued)', () => {
     assert.equal(challengeBlock(null, undefined, NOW), null);
 });

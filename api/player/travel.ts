@@ -6,6 +6,7 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { getIo } from '../_realtime/socket.js';
 import { toPlayerRecord } from '../_realtime/presence-input.js';
 import { sectorExitById, type SectorExit } from '../../shared/sector-links.js';
+import { clearTravelLease, setTravelLease } from '../_realtime/travel-lease.js';
 
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
 // The server mints the timer so clients cannot claim an arbitrary destination
@@ -78,8 +79,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const arrivalAt = Date.now() + WORLD_TRAVEL_MS;
-    const started = onlineStore.startTravel(identity.name, destinationSector, arrivalAt, edgeOriginSector);
+    const started = onlineStore.startTravel(identity.name, destinationSector, arrivalAt, edgeOriginSector, arrivalTile);
     if (!started) return res.status(409).json({ error: 'You cannot travel while moving or fighting.' });
+    try {
+        await setTravelLease(identity.name, {
+            originSector: started.sector,
+            destinationSector,
+            arrivalAt,
+            ...(arrivalTile === undefined ? {} : { arrivalTile }),
+        });
+    } catch (err) {
+        onlineStore.cancelTravel(identity.name, arrivalAt);
+        await clearTravelLease(identity.name).catch(() => undefined);
+        console.error('[player-travel] could not persist travel lease:', (err as Error).message);
+        return res.status(503).json({ error: 'Travel could not be secured. Please try again.' });
+    }
     getIo()?.to(`sector:${started.sector}`).emit('presence:update', {
         sector: started.sector,
         player: toPlayerRecord(started),
