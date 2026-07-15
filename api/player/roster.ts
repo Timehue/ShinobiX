@@ -5,7 +5,8 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { REGISTRY_KEY, isPublicPlayerIndexKey, publicIndexKey, publicIndexToLeaderboardRosterEntry } from './_public-index.js';
 import { readPublicPlayerIndex } from './_public-index-store.js';
-import { listSleeperCamps, setSleeperCamp, type SleeperCamp } from '../_realtime/sleeper-camps.js';
+import { clearSleeperCamp, listSleeperCamps, setSleeperCamp, type SleeperCamp } from '../_realtime/sleeper-camps.js';
+import { parseTravelLease, settleTravelLeases, sleeperSectorForTravelLease, travelLeaseKey } from '../_realtime/travel-lease.js';
 import { cachedFor } from '../_proc-cache.js';
 
 const FULL_ROSTER_CACHE_KEY = 'player:roster:full';
@@ -194,15 +195,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Batch-fetch all saves in one command instead of N sequential kv.get() calls.
         const saveKeys = registryKeys.map(k => `save:${k}`);
-        const [saves, battleLocks] = saveKeys.length > 0
+        const travelLeaseKeys = registryKeys.map(travelLeaseKey);
+        const [saves, battleLocks, rawTravelLeases] = saveKeys.length > 0
             ? await Promise.all([
                 kv.mget<Record<string, unknown>[]>(...saveKeys),
                 battleLockFlagsForPlayers(registryKeys),
+                kv.mget<unknown[]>(...travelLeaseKeys),
             ])
-            : [[], new Map<string, boolean>()];
+            : [[], new Map<string, boolean>(), []];
 
         const players: RosterPlayer[] = [];
         const legacyCamps: SleeperCamp[] = [];
+        const settledTravelLeaseNames: string[] = [];
+        const campsToClear: string[] = [];
+        const now = Date.now();
 
         for (let i = 0; i < registryKeys.length; i++) {
             const key = registryKeys[i]!;
@@ -216,6 +222,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const livePresence = livePresenceByName.get((entry.name ?? '').toLowerCase());
                 const slug = safeName(String(entry.name ?? key));
                 let sleeperCamp = livePresence ? undefined : sleeperCamps.get(slug);
+                const persistedTravel = parseTravelLease(rawTravelLeases[i]);
+                const travelSleeperSector = persistedTravel
+                    ? sleeperSectorForTravelLease(persistedTravel, now)
+                    : null;
                 const rawCharacter = livePresence?.character ?? save?.character;
                 const character = rosterProjection(rawCharacter);
                 // The Nindo creed + its banner preset live only in the full save,
@@ -231,9 +241,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const savedSector = normalizeSector(save?.currentSector, 0);
                 const fullCharacter = save?.character as Record<string, unknown> | undefined;
+                if (!livePresence && persistedTravel && travelSleeperSector === null) {
+                    // A process restart must not let the legacy bridge remint an
+                    // origin-sector camp while the authoritative lease is active.
+                    if (sleeperCamp) campsToClear.push(slug);
+                    sleeperCamp = undefined;
+                }
+                if (
+                    !livePresence
+                    && persistedTravel
+                    && travelSleeperSector !== null
+                    && fullCharacter
+                    && fullCharacter.hospitalized !== true
+                    && battleLocks.get(key) !== true
+                ) {
+                    if (sleeperCamp?.sector !== travelSleeperSector) {
+                        sleeperCamp = {
+                            name: slug,
+                            displayName: String(entry.name ?? slug),
+                            sector: travelSleeperSector,
+                            createdAt: now,
+                        };
+                        legacyCamps.push(sleeperCamp);
+                    }
+                    settledTravelLeaseNames.push(slug);
+                }
                 // One-time compatibility bridge for players who were already
                 // sleeping before explicit camp records shipped.
-                if (!livePresence && !sleeperCamp && savedSector >= 1 && fullCharacter && fullCharacter.hospitalized !== true && battleLocks.get(key) !== true) {
+                if (!livePresence && !sleeperCamp && !persistedTravel && savedSector >= 1 && fullCharacter && fullCharacter.hospitalized !== true && battleLocks.get(key) !== true) {
                     sleeperCamp = {
                         name: slug,
                         displayName: String(entry.name ?? slug),
@@ -258,6 +293,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (legacyCamps.length) {
             await Promise.all(legacyCamps.map(setSleeperCamp));
+            // A reconnect that lands while the compatibility/recovery writes are
+            // in flight wins. Do not leave an attackable camp beside a live player.
+            await Promise.all(legacyCamps.map(async (camp) => {
+                if (onlineStore.get(camp.name)) await clearSleeperCamp(camp.name);
+            }));
+        }
+        if (settledTravelLeaseNames.length) {
+            await settleTravelLeases(...settledTravelLeaseNames);
+        }
+        if (campsToClear.length) {
+            await Promise.all(campsToClear.map(clearSleeperCamp));
         }
 
         // Supplement: online players missing from the registry. Each save:<name>
