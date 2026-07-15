@@ -5,9 +5,11 @@ import { presenceCharacter } from "./presence-character";
 import type { PresenceFrame } from "./presence-socket";
 import {
     getLocalSectorTile,
+    moveLiveSectorPlayer,
     pushLiveSectorPlayers,
     removeLiveSectorPlayers,
     resetLiveSectorPlayers,
+    upsertLiveSectorPlayer,
 } from "./presence-store";
 
 type PresenceSocketApi = typeof import("./presence-socket");
@@ -27,6 +29,10 @@ function loadPresenceSocket(): Promise<PresenceSocketApi> {
 
 export function updateRealtimePresence(frame: PresenceFrame): void {
     presenceSocketApi?.updatePresence(frame);
+}
+
+export function updateRealtimeTile(tile: number): void {
+    presenceSocketApi?.updatePresenceTile(tile);
 }
 
 type UsePresenceSocketOptions = {
@@ -75,6 +81,15 @@ export function usePresenceSocket({
             const offSector = api.onSector((sector, players) => {
                 if (sector === currentSectorRef.current) pushLiveSectorPlayers(players, sector);
             });
+            const offJoin = api.onJoin((sector, player) => {
+                if (sector === currentSectorRef.current) upsertLiveSectorPlayer(player, sector);
+            });
+            const offUpdate = api.onUpdate((sector, player) => {
+                if (sector === currentSectorRef.current) upsertLiveSectorPlayer(player, sector);
+            });
+            const offMove = api.onMove((sector, name, tile) => {
+                if (sector === currentSectorRef.current) moveLiveSectorPlayer(name, tile, sector);
+            });
             const offGone = api.onGone((names) => {
                 removeLiveSectorPlayers(names);
             });
@@ -84,6 +99,9 @@ export function usePresenceSocket({
             cleanup = () => {
                 offStatus();
                 offSector();
+                offJoin();
+                offUpdate();
+                offMove();
                 offGone();
                 offKick();
                 api.disconnectRealtime();

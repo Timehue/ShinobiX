@@ -10,9 +10,11 @@
  * It is NOT a per-player DB write loop — it touches process memory only.
  */
 import { onlineStore } from './online-store.js';
+import type { OnlinePlayer } from './types.js';
+import { materializeSleeperCamps } from './sleeper-camps.js';
 
 let _timer: ReturnType<typeof setInterval> | null = null;
-let _onSweep: ((removedNames: string[]) => void) | null = null;
+let _onSweep: ((removedPlayers: OnlinePlayer[]) => void) | null = null;
 
 /**
  * Register a callback invoked with the canonical names dropped by each sweep
@@ -20,7 +22,7 @@ let _onSweep: ((removedNames: string[]) => void) | null = null;
  * departures. Pass null to clear. Set BEFORE startGameLoop so the first ticks
  * are covered, though it may be set at any time.
  */
-export function setOnSweep(cb: ((removedNames: string[]) => void) | null): void {
+export function setOnSweep(cb: ((removedPlayers: OnlinePlayer[]) => void) | null): void {
     _onSweep = cb;
 }
 
@@ -31,6 +33,9 @@ export function startGameLoop(): void {
         try {
             // Drop players who haven't pinged within the offline window.
             const removed = onlineStore.sweepStale();
+            if (removed.length) void materializeSleeperCamps(removed).catch((err) => {
+                console.error('[game-loop] sleeper camp materialization error:', (err as Error).message);
+            });
             if (removed.length && _onSweep) {
                 try {
                     _onSweep(removed);

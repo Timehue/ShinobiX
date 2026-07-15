@@ -81,6 +81,16 @@ export function attackBlock(target: OnlinePlayer | null, now: number = Date.now(
     return null;
 }
 
+/** Server-authoritative co-location gate for non-consensual world actions. */
+export function worldInteractionBlock(actor: OnlinePlayer | null, target: OnlinePlayer | null, now: number = Date.now()): Block | null {
+    if (!actor) return { status: 409, error: 'Your world presence is not ready.' };
+    if (!target) return { status: 404, error: 'Target not online.' };
+    if (actor.travelingUntil && actor.travelingUntil > now) return { status: 409, error: 'You cannot attack while traveling.' };
+    if (actor.inBattle) return { status: 409, error: 'You are already in a battle.' };
+    if (actor.sector !== target.sector) return { status: 409, error: 'Target is no longer in your sector.' };
+    return null;
+}
+
 /**
  * Why a NEW challenge to `target` must be rejected, or null if it may proceed.
  * An OFFLINE target is NOT blocked (the challenge is queued for later). Order

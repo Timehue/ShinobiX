@@ -2874,6 +2874,7 @@ export default function App() {
                                 character: normalized,
                                 currentSector: incoming.currentSector ?? 40,
                                 lastSeenAt: incoming.lastSeenAt ?? Date.now(),
+                                sleeping: incoming.sleeping === true,
                             };
                             const idx = merged.findIndex(p => p.name.toLowerCase() === record.name.toLowerCase());
                             if (idx >= 0) merged[idx] = { ...merged[idx], ...record };
@@ -7827,6 +7828,7 @@ export default function App() {
                                     body: stringifyPvpSessionPayload({
                                         // Sector attack — fighters bring current vitals.
                                         useCurrentVitals: true,
+                                        requireWorldCoLocation: true,
                                         // Phase 3: server credits base ryo + XP on the win.
                                         baseRewards: true,
                                         rewardSector: currentSector,

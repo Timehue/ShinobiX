@@ -62,6 +62,7 @@ export const WIPE_PATTERNS = [
     'game:clan-pet-battle:*',       // pending clan pet battle challenges
     'game:weekly-boss-state',       // server-wide boss HP / damage / claim list
     'world:territory:*',            // sector territory ownership
+    'world:sleeper-camps',          // explicit offline camp entities
     'world:war:*',                  // active village wars
     'kageChallenge:*',              // pending Kage-seat challenges
     // Authoritative Kage record per village. Lives separately from the
