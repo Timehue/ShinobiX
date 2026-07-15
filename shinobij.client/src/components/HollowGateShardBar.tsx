@@ -7,6 +7,7 @@
  */
 import type { Character, HollowGateShrineRun } from "../types/character";
 import { HOLLOW_SHARD_CONSUMABLES, applyShardConsumable, shardConsumableAvailable } from "../lib/hollow-gate-shards";
+import { requestHollowGateServerConsumable } from "../lib/hollow-gate-server";
 
 type Props = {
     run: HollowGateShrineRun;
@@ -19,7 +20,24 @@ type Props = {
 export function HollowGateShardBar({ run, character, setRun, setCharacter, pushLog }: Props) {
     const shards = character.hollowShards ?? 0;
 
-    function use(id: string) {
+    async function use(id: string) {
+        if (run.runToken && (id === "sanctify" || id === "second-wind")) {
+            const action = id === "sanctify" ? "sanctify" : "arm-second-wind";
+            const result = await requestHollowGateServerConsumable(character.name, run.runToken, action);
+            if (!result?.ok || !result.character) {
+                pushLog(result?.error ?? "The shrine could not seal that relic. Retry in a moment.");
+                return;
+            }
+            const nextRun = id === "sanctify"
+                ? { ...run, entryCurrencies: result.entryCurrencies ?? run.entryCurrencies }
+                : { ...run, secondWindArmed: result.secondWindArmed === true };
+            setCharacter({ ...result.character, hollowGateRun: nextRun });
+            setRun(nextRun);
+            pushLog(id === "sanctify"
+                ? "You sanctify your haul â€” what you've earned is safe from the dark."
+                : "You bind a Second Wind â€” the next death will not be the end.");
+            return;
+        }
         const res = applyShardConsumable(id, run, character);
         if (res.ok === false) { pushLog(res.reason); return; }
         setRun(res.run);
@@ -40,7 +58,7 @@ export function HollowGateShardBar({ run, character, setRun, setCharacter, pushL
                     return (
                         <button
                             key={c.id}
-                            onClick={() => use(c.id)}
+                            onClick={() => { void use(c.id); }}
                             disabled={!avail}
                             title={c.desc}
                             style={{

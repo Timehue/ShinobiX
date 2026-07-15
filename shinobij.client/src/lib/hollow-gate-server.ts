@@ -56,13 +56,13 @@ export type HollowGateSettleResult = {
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
 // ── Fetch wrappers (auth headers are auto-attached by installAuthFetch) ─────────
-export async function startHollowGateServerRun(playerName: string, floorDepth: number): Promise<HollowGateStartResult | null> {
+export async function startHollowGateServerRun(playerName: string, floorDepth: number, variantId?: string): Promise<HollowGateStartResult | null> {
     if (!playerName) return null;
     try {
         const r = await fetch("/api/hollow-gate/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, floorDepth }),
+            body: JSON.stringify({ playerName, floorDepth, variantId }),
         });
         if (!r.ok) return null;
         return (await r.json()) as HollowGateStartResult;
@@ -99,6 +99,30 @@ export async function settleHollowGateRun(
         if (!r.ok) return null;
         return (await r.json()) as HollowGateSettleResult;
     } catch { return null; }
+}
+
+export async function requestHollowGateServerConsumable(
+    playerName: string,
+    token: string,
+    action: "sanctify" | "arm-second-wind" | "consume-second-wind",
+): Promise<{ ok: boolean; character?: Character; entryCurrencies?: Partial<Record<string, number>>; secondWindArmed?: boolean; error?: string; alreadyReported?: boolean } | null> {
+    if (!playerName || !token) return null;
+    try {
+        const response = await fetch("/api/hollow-gate/use-consumable", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerName, token, action }),
+        });
+        const data = await response.json().catch(() => ({})) as { ok?: boolean; character?: Character; entryCurrencies?: Partial<Record<string, number>>; secondWindArmed?: boolean; error?: string; alreadyReported?: boolean };
+        return response.ok && data.ok ? { ...data, ok: true } : { ...data, ok: false };
+    } catch {
+        return null;
+    }
+}
+
+export function consumeHollowGateServerSecondWind(playerName: string, token?: string): void {
+    if (!token) return;
+    void requestHollowGateServerConsumable(playerName, token, "consume-second-wind");
 }
 
 // ── Pure reward helpers ─────────────────────────────────────────────────────────
@@ -297,9 +321,9 @@ export function attachStartedRun(res: HollowGateStartResult | null, opts: Hollow
  *  the admin test entry (which bypasses the daily cap). The live player entry instead
  *  AWAITS startHollowGateServerRun directly so a 'daily-cap' reply blocks the dive
  *  before the Key is spent. No-op / token-less fallback if the flag is off. */
-export async function beginHollowGateServerRun(opts: HollowGateAttachOpts & { floorDepth: number }): Promise<void> {
+export async function beginHollowGateServerRun(opts: HollowGateAttachOpts & { floorDepth: number; variantId?: string }): Promise<void> {
     if (!hollowGateServerEnabled()) return;
-    const res = await startHollowGateServerRun(opts.playerName, opts.floorDepth);
+    const res = await startHollowGateServerRun(opts.playerName, opts.floorDepth, opts.variantId);
     attachStartedRun(res, opts);
 }
 
@@ -350,8 +374,8 @@ function presentAugmentPicker(opts: {
     if (opts.offers.length === 0) return;
     opts.setEvent(
         buildAugmentPickerEvent(opts.offers, (offer) => {
-            opts.setEvent(null);
             void chooseHollowGateAugment(opts.playerName, opts.token, offer.id).then((ok) => {
+                opts.setEvent(null);
                 if (!ok) { opts.pushLog("The shrine spurns your offering — you descend unaugmented."); return; }
                 opts.setRun((prev) => (prev ? { ...prev, chosenAugment: offer } : prev));
                 opts.setCharacter((prev) =>

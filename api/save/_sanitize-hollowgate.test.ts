@@ -84,6 +84,30 @@ test('hollowGateRun: a legit short token + 3 offers pass through unchanged', () 
     assert.equal(run.augmentOffers.length, 3, 'three offers untouched');
 });
 
+test('hollowGateRun: active server combat resume pointer is shape-bounded', () => {
+    const out = sanitize({
+        hollowGateRun: {
+            floor: 2,
+            keys: 0,
+            entryCurrencies: {},
+            runToken: 'abc123',
+            activeCombat: {
+                runId: 'r'.repeat(500),
+                nodeId: 'n'.repeat(500),
+                floor: 999,
+                kind: 'forged-kind',
+                session: { huge: 'client must not persist a session here' },
+            },
+        },
+    }, {});
+    const active = (out.hollowGateRun as any).activeCombat;
+    assert.equal(active.runId.length, 96);
+    assert.equal(active.nodeId.length, 96);
+    assert.equal(active.floor, 50);
+    assert.equal(active.kind, 'battle');
+    assert.equal(active.session, undefined);
+});
+
 test('hollow-gate-key: generic saves cannot mint keys', () => {
     const out = sanitize(
         { itemStacks: [{ itemId: 'hollow-gate-key', count: 9999 }] },

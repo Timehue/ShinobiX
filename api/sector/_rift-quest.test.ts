@@ -64,6 +64,8 @@ test('client rifts and the server catalog agree exactly', async () => {
         const def = RIFT_QUESTS[rift.id];
         assert.ok(def, `server def missing for ${rift.id}`);
         assert.equal(def.levelReq, rift.levelReq, rift.id);
+        assert.equal(def.floors, rift.floors, rift.id);
+        assert.equal(def.bossAiId, rift.bossAiId, rift.id);
         assert.equal(def.bossName, rift.bossName, rift.id);
         assert.equal(def.weight, rift.reward.weight, rift.id);
         assert.equal(def.fateShards, rift.reward.fateShards ?? 0, rift.id);
