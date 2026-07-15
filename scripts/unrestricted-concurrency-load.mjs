@@ -29,7 +29,7 @@ for (const scenario of scenarios) {
             // codeql[js/request-forgery]
             // The disposable manifest intentionally supplies the authenticated drill request.
             // codeql[js/file-access-to-http]
-            const response = await fetch(targetUrl, {
+            const response = await fetch(targetUrl, { // lgtm[js/request-forgery, js/file-access-to-http]
                 method: scenario.method,
                 headers: { 'content-type': 'application/json', 'x-player-name': scenario.playerName, 'x-player-token': scenario.token },
                 body: JSON.stringify(scenario.body),
