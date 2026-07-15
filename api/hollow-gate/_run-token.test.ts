@@ -17,7 +17,8 @@ import {
     augmentDisplay,
     canonicalHollowGateDepth,
 } from './_run-token.js';
-import { addCountedItem, settleCurrency } from './settle.js';
+import { addCountedItem, settleCurrency, settleCurrencyWithServerCredit } from './settle.js';
+import { normalizePublishedEventGate } from './start.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -26,11 +27,26 @@ import { join } from 'node:path';
 // the client run lib as TEXT rather than importing it across the boundary.
 const CLIENT_RUN_SRC = readFileSync(join('shinobij.client', 'src', 'lib', 'hollow-gate-run.ts'), 'utf8');
 
-test('the server seals the shipped five-floor depth regardless of client input', () => {
+test('the server seals the shipped five-floor depth unless a server-owned event gate overrides it', () => {
     assert.equal(canonicalHollowGateDepth(), 5);
+    assert.equal(canonicalHollowGateDepth(3), 3);
+    assert.equal(canonicalHollowGateDepth(999), 5);
+    assert.equal(canonicalHollowGateDepth(0), 1);
     const startSource = readFileSync(join('api', 'hollow-gate', 'start.ts'), 'utf8');
-    assert.ok(startSource.includes('const floorDepth = canonicalHollowGateDepth()'));
-    assert.equal(startSource.includes('Number(body.floorDepth'), false);
+    assert.ok(startSource.includes('const floorDepth = riftDef?.floors ?? eventDef?.floors ?? canonicalHollowGateDepth()'));
+    assert.equal(startSource.includes('canonicalHollowGateDepth(body.floorDepth)'), false);
+});
+
+test('only the matching active admin-published event can seal a custom gate', () => {
+    assert.equal(normalizePublishedEventGate({ id: 'event-one', active: false }, 'event-one'), null);
+    assert.equal(normalizePublishedEventGate({ id: 'event-other', active: true }, 'event-one'), null);
+    assert.deepEqual(normalizePublishedEventGate({
+        id: 'event-one', active: true, maxFloor: 3, keyCost: 0,
+        bossAiId: 'festival-oni', bossName: 'Festival Oni', updatedAt: 123,
+    }, 'event-one'), {
+        id: 'event-one', floors: 3, keyCost: 0, bossAiId: 'festival-oni', bossName: 'Festival Oni', updatedAt: 123,
+    });
+    assert.equal(normalizePublishedEventGate({ id: 'event-one', active: true, maxFloor: 999 }, 'event-one')?.floors, 5);
 });
 
 test('hollowShardDrop matches the documented curve, and the client source still defines it (drift guard)', () => {
@@ -107,6 +123,16 @@ test('settleCurrency preserves an in-run spend while crediting the earned haul',
 test('settleCurrency floors at 0 and ignores negative/junk input', () => {
     assert.equal(settleCurrency(-5, 0, -10, 50, 1), 0);
     assert.equal(settleCurrency(0, 0, 9999, 0, 1), 0); // zero ceiling → no credit
+});
+
+test('server-banked combat currency survives a stale extraction snapshot without being paid twice', () => {
+    assert.equal(settleCurrencyWithServerCredit(120, 100, 0, 20, 1000, 1), 120);
+    assert.equal(settleCurrencyWithServerCredit(125, 100, 25, 20, 1000, 1), 125);
+});
+
+test('server-banked combat currency still preserves in-run spends and death retention', () => {
+    assert.equal(settleCurrencyWithServerCredit(110, 100, 10, 20, 1000, 1), 110);
+    assert.equal(settleCurrencyWithServerCredit(120, 100, 20, 20, 1000, 0.5), 110);
 });
 
 // ─── P0.2c high-value ITEM ceiling (Dungeon Legendary Fragment) ──────────────────

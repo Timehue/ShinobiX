@@ -22,6 +22,8 @@ export const RIFT_COOLDOWN_MS = 6 * 60 * 60 * 1000;    // roaming giver stays qu
 export interface RiftQuestDef {
     id: string;
     levelReq: number;
+    floors: number;
+    bossAiId: string;
     bossName: string;      // display mirror (matches the client rift.bossName)
     weight: number;        // ryo = weight*(20 + level*3)
     fateShards: number;
@@ -33,17 +35,17 @@ export const RIFT_QUESTS: Record<string, RiftQuestDef> = {
     // Modest reward (intro tier), smaller than the L30 stalker.
     "rift-legacy-echo": {
         id: "rift-legacy-echo", levelReq: 12, bossName: "The Unremembered",
-        weight: 5, fateShards: 1, boneCharms: 8,
+        floors: 1, bossAiId: "rift-boss-legacy-echo", weight: 5, fateShards: 1, boneCharms: 8,
     },
     "rift-hollow-stalker": {
         id: "rift-hollow-stalker", levelReq: 30, bossName: "Hollow Stalker",
-        weight: 8, fateShards: 1, boneCharms: 15,
+        floors: 2, bossAiId: "rift-boss-hollow-stalker", weight: 8, fateShards: 1, boneCharms: 15,
     },
-    "rift-beast-warren": { id: "rift-beast-warren", levelReq: 40, bossName: "Warren Alpha", weight: 9, fateShards: 1, boneCharms: 20 },
-    "rift-engine-echo": { id: "rift-engine-echo", levelReq: 52, bossName: "Engine-Echo", weight: 11, fateShards: 2, boneCharms: 25 },
-    "rift-hollow-name": { id: "rift-hollow-name", levelReq: 62, bossName: "The Hollowed Name", weight: 12, fateShards: 2, boneCharms: 30 },
-    "rift-mirror-shard": { id: "rift-mirror-shard", levelReq: 70, bossName: "Mirror-Shard Warden", weight: 13, fateShards: 3, boneCharms: 35 },
-    "rift-gate-heir": { id: "rift-gate-heir", levelReq: 80, bossName: "Hollow Gate Heir", weight: 15, fateShards: 3, boneCharms: 45 },
+    "rift-beast-warren": { id: "rift-beast-warren", levelReq: 40, floors: 2, bossAiId: "rift-boss-warren-alpha", bossName: "Warren Alpha", weight: 9, fateShards: 1, boneCharms: 20 },
+    "rift-engine-echo": { id: "rift-engine-echo", levelReq: 52, floors: 3, bossAiId: "rift-boss-engine-echo", bossName: "Engine-Echo", weight: 11, fateShards: 2, boneCharms: 25 },
+    "rift-hollow-name": { id: "rift-hollow-name", levelReq: 62, floors: 2, bossAiId: "rift-boss-hollow-legacy", bossName: "The Hollowed Name", weight: 12, fateShards: 2, boneCharms: 30 },
+    "rift-mirror-shard": { id: "rift-mirror-shard", levelReq: 70, floors: 3, bossAiId: "rift-boss-mirror-shard", bossName: "Mirror-Shard Warden", weight: 13, fateShards: 3, boneCharms: 35 },
+    "rift-gate-heir": { id: "rift-gate-heir", levelReq: 80, floors: 3, bossAiId: "rift-boss-gate-heir", bossName: "Hollow Gate Heir", weight: 15, fateShards: 3, boneCharms: 45 },
 };
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.floor(Number(n) || 0)));

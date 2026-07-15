@@ -267,11 +267,10 @@ import {
     DUNGEON_VN_ID,
     DUNGEON_KEY_ID,
     DUNGEON_LEGENDARY_RELIC_ID,
-    DUNGEON_LEGENDARY_FRAGMENT_ID,
     VEIL_OF_THE_HOLLOW_ID,
     HOLLOW_GATE_KEY_ID,
     WARFORGED_RELIC_ID,
-    LEGENDARY_WAR_CRATE_ID, ELEMENTAL_SHARD_ID,
+    LEGENDARY_WAR_CRATE_ID,
     PROTECTED_ADMIN_USERNAME,
     isProtectedAdminName,
 } from "./constants/game";
@@ -514,12 +513,6 @@ export type PendingArenaStoryBattle =
         returnScreen: Screen;
     }
     | {
-        kind: "hollowGateShrine";
-        returnScreen: Screen;
-        isBoss?: boolean;
-        isAmbush?: boolean;
-    }
-    | {
         // Weekly Boss arena fight. Boss has an effectively unlimited HP
         // pool (set at fight start) so the player can never win — they
         // fight until KO/flee, then the damage dealt this round is
@@ -581,12 +574,12 @@ import {
     generateHollowGateShrineRun,
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
-import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop, elementalShardBossDrop } from "./lib/hollow-gate-run";
-import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun } from "./lib/hollow-gate-server";
+import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
+import { beginHollowGateServerRun, consumeHollowGateServerSecondWind, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun } from "./lib/hollow-gate-server";
+import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult } from "./lib/hollow-gate-combat-api";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
 import { markHollowGateSeen } from "./lib/hollow-gate-path";
 import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
-import { pickShrineEncounter, scaleAffixStats } from "./features/hollowGate/encounter";
 import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig, normalizeHollowGateEventConfig } from "./lib/hollow-gate-variant";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
 import { riftEventConfig, completeRiftRun } from "./lib/rift-run";
@@ -2000,6 +1993,14 @@ export default function App() {
     // ── Hollow Gate Shrine crawler state ──────────────────────────────────────
     const [hollowGateRun, setHollowGateRun] = useState<HollowGateShrineRun | null>(null);
     const [hollowGateLog, setHollowGateLog] = useState<string[]>([]);
+    const [hollowGateAuthoritativeFight, setHollowGateAuthoritativeFight] = useState<{
+        runId: string;
+        nodeId: string;
+        floor: number;
+        kind: HollowGateCombatKind;
+        session: import("./lib/towers-api").TowerSession;
+        settlement?: HollowGateCombatSettleResult;
+    } | null>(null);
     type HollowGateEventModal = {
         title: string;
         body: string;
@@ -2041,7 +2042,7 @@ export default function App() {
     const { walkTo: hollowGateWalkTo, walkTarget: hollowGateWalkTarget } = useHollowGateWalk({
         active: screen === "hollowGateShrine",
         run: hollowGateRun,
-        blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null,
+        blocked: !!hollowGateEvent || !!hollowGateHiddenChamber || hollowGateIntroPage !== null || !!hollowGateAuthoritativeFight,
         moveStep: moveHollowGatePlayer,
     });
 
@@ -2054,6 +2055,28 @@ export default function App() {
         setCharacter({ ...character, hollowGateRun });
      
     }, [hollowGateRun]);
+
+    // Refresh/reconnect: the save carries only a pointer to the server board.
+    // Re-submit the same sealed binding so the API can validate and return the
+    // current session; a forged pointer cannot open or settle another fight.
+    useEffect(() => {
+        const active = hollowGateRun?.activeCombat;
+        const token = hollowGateRun?.runToken;
+        if (screen !== "hollowGateShrine" || !character || !active || !token || hollowGateAuthoritativeFight) return;
+        let cancelled = false;
+        void startHollowGateCombat({
+            playerName: character.name,
+            token,
+            floor: active.floor,
+            nodeId: active.nodeId,
+            kind: active.kind,
+        }).then((started) => {
+            if (!cancelled) setHollowGateAuthoritativeFight({ ...active, session: started.session });
+        }).catch(() => {
+            if (!cancelled) pushHollowGateLog("The active encounter could not be resumed. Retry from the shrine.");
+        });
+        return () => { cancelled = true; };
+    }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.activeCombat?.runId, hollowGateAuthoritativeFight]);
 
     function savedJutsuPool(source: Partial<ReturnType<typeof buildPlayerSavePayload>>) {
         return [
@@ -5783,49 +5806,6 @@ export default function App() {
             return "Dungeon Warden defeated. The second seal opens: win the shinobi tile game to continue.";
         }
 
-        if (pendingArenaStoryBattle.kind === "hollowGateShrine") {
-            const isBoss = pendingArenaStoryBattle.isBoss;
-            const isAmbush = pendingArenaStoryBattle.isAmbush;
-            // Reward scales with role AND with floor depth for bosses.
-            //   Boss multiplier (tunable HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT):
-            //   floor 1 = 1.0, floor 5 with default 0.2 = 1.8 (per-floor +0.2)
-            const runFloor = hollowGateRun?.floor ?? 1;
-            const bossFloorMult = isBoss ? 1 + Math.max(0, runFloor - 1) * HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT : 1;
-            const xpReward = Math.floor((isBoss ? 600 : isAmbush ? 220 : 140) * bossFloorMult);
-            const ryoReward = Math.floor((isBoss ? 2400 : isAmbush ? 900 : 380) * bossFloorMult);
-            const auraDustReward = Math.floor((isBoss ? 30 : isAmbush ? 10 : 5) * bossFloorMult);
-            const honorReward = Math.floor((isBoss ? 25 : 0) * bossFloorMult);
-            const bossShards = isBoss ? hollowShardDrop(runFloor, "boss") : 0;
-            const elementalShardDrop = isBoss ? elementalShardBossDrop(runFloor) : 0; // 0 or 1 (rolled once)
-            const leveled = gainXp({ ...character, hp: survivingHp }, xpReward);
-            // Boss drops a Dungeon Legendary Fragment + Hollow Shards; both boss
-            // and non-boss wins restore some HP (boss is a roadblock, not a death).
-            let nextCharacter: Character = {
-                ...leveled,
-                ryo: leveled.ryo + ryoReward,
-                auraDust: (leveled.auraDust ?? 0) + auraDustReward,
-                honorSeals: (leveled.honorSeals ?? 0) + vanguardOnlyHonorSeals(leveled, honorReward),
-                boneCharms: (leveled.boneCharms ?? 0) + nonVanguardCharmSubstitute(leveled, honorReward),
-                fateShards: (leveled.fateShards ?? 0) + nonVanguardShardSubstitute(leveled, honorReward),
-                hollowShards: (leveled.hollowShards ?? 0) + bossShards,
-                hp: Math.min(leveled.maxHp, survivingHp + (isBoss ? 60 : 20)),
-            };
-            if (isBoss) {
-                nextCharacter = addInventoryItems(nextCharacter, [DUNGEON_LEGENDARY_FRAGMENT_ID, ...Array(elementalShardDrop).fill(ELEMENTAL_SHARD_ID)]);
-                nextCharacter = { ...nextCharacter, hollowGateWardenKills: (nextCharacter.hollowGateWardenKills ?? 0) + 1 };
-                // RIFT final-floor clear: flush the bumped kill counter, then complete server-side.
-                const riftId = hollowGateRun?.variant?.id;
-                if (riftId?.startsWith("rift-") && hollowGateRun && hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) void pushSaveToServer(nextCharacter, currentAccountName || character.name).then(() => completeRiftRun(character.name, riftId, setCharacter, pushHollowGateLog)).catch(() => {});
-            }
-            setCharacter(nextCharacter);
-            setTemporaryStoryAi(null);
-            setPendingAiProfileId("");
-            onHollowGateBattleWin();
-            return isBoss
-                ? `${hollowGateBossDisplayName(hollowGateRun)} defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust, +${honorReward} Honor Seals, +${bossShards} Hollow Shards, +1 Dungeon Legendary Fragment${elementalShardDrop ? ", +1 Elemental Shard" : ""}.`
-                : `Corrupted shinobi defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust.`;
-        }
-
         if (pendingArenaStoryBattle.kind === "weeklyBoss") {
             // Weekly Boss fights are designed to be unwinnable — the boss
             // is spawned with a sentinel HP (~100M) so the player can only
@@ -5904,24 +5884,6 @@ export default function App() {
         setPendingArenaStoryBattle(null);
         setTemporaryStoryAi(null);
         setPendingAiProfileId("");
-        // Battle KO: a Second Wind (if armed) revives at half HP and the run continues; else claw back the haul, clear the run, forfeit the Key.
-        if (pending?.kind === "hollowGateShrine" && character && (character.hospitalized || character.hp <= 0)) {
-            const deadRun = hollowGateRun;
-            const wind = deadRun ? tryHollowGateSecondWind(deadRun, character) : null;
-            if (wind) {
-                setHollowGateRun(wind.run);
-                setCharacter({ ...wind.character, hollowGateRun: wind.run });
-                pushHollowGateLog(wind.log);
-            } else {
-                setHollowGateRun(null);
-                setHollowGateEvent(null);
-                setHollowGateHiddenChamber(null);
-                setHollowGateLog([]);
-                if (character) finalizeHollowGateRunEnd({ run: deadRun, outcome: "death", character, lootRetention: attunementLootRetention(character), setCharacter });
-                setScreen("hospital"); // run cleared → the shrine would render blank, so send the downed delver to the hospital, not the empty Gate
-                return;
-            }
-        }
         // A finale win queued an ending epilogue: show it now that the arena is done. Completing it lands on returnScreen (activeTriggerReturnScreen); it pays nothing and never re-fires.
         if (storyEpilogueRef.current.queued) { setActiveTriggeredEvent(storyEpilogueRef.current.queued); setActiveTriggerReturnScreen(returnScreen); setTriggerPage(0); setTriggerLine(0); storyEpilogueRef.current = { lane: null, queued: null }; }
         setScreen(returnScreen);
@@ -6000,15 +5962,19 @@ export default function App() {
         if (hollowGateServerEnabled()) {
             // The settle ceiling scales with floorDepth — a short event gate
             // declares its OWN depth so its ceiling matches the shorter run.
-            serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }));
+            serverStart = await startHollowGateServerRun(character.name, hollowGateRunMaxFloor({ variant }), variant?.id);
             if (serverStart?.reason === "daily-cap") {
                 alert("The Hollow Gate has already taken its measure of you today. Return at dawn.");
+                return;
+            }
+            if (!serverStart?.token) {
+                alert("The Hollow Gate could not establish a secure server run. No key was spent locally; retry when the connection is stable.");
                 return;
             }
         }
 
         // Consume exactly one Hollow Gate Key (free-entry events skip this).
-        const afterKey = keyCost > 0 ? removeItem(character, HOLLOW_GATE_KEY_ID, 1) : character;
+        const afterKey = serverStart?.character ?? (keyCost > 0 ? removeItem(character, HOLLOW_GATE_KEY_ID, 1) : character);
 
         const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1, variant), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
         setHollowGateRun(run);
@@ -6098,7 +6064,7 @@ export default function App() {
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
         // Same server run layer as the live entry (flag-gated; no-op when off).
-        void beginHollowGateServerRun({ playerName: character.name, floorDepth: hollowGateRunMaxFloor({ variant }), setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+        void beginHollowGateServerRun({ playerName: character.name, floorDepth: hollowGateRunMaxFloor({ variant }), variantId: variant?.id, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
     }
     // Weighted-random ambush — triggered when the threat meter hits the
     // ambush threshold (default 100). Picks one of three encounter types:
@@ -6115,7 +6081,7 @@ export default function App() {
         // the boss fight + the shrine-cleared modal on win.
         if ((hollowGateRun?.floor ?? 1) >= hollowGateRunMaxFloor(hollowGateRun)) {
             pushHollowGateLog(`The corridor itself tears open — ${hollowGateBossDisplayName(hollowGateRun)} steps through the seal!`);
-            startHollowGateBattle({ isBoss: true });
+            void startHollowGateBattle({ isBoss: true, nodeId: `floor:${hollowGateRun?.floor ?? 1}:ambush:boss-threat` });
             return;
         }
         pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
@@ -6177,94 +6143,123 @@ export default function App() {
             pushHollowGateLog("Your deck is too thin to seal the shadow — corrupted shinobi close in instead.");
         }
         // ── Default: Shinobi AI battle (50% slot, rolls 0-49 + all fallbacks) ──
-        startHollowGateBattle({ isAmbush: true });
+        void startHollowGateBattle({ isAmbush: true });
     }
-    function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean }) {
+    async function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean; nodeId?: string }) {
         if (!character) return;
-        // Opponent pick + scaling live in features/hollowGate/encounter (pure,
-        // variant-aware): the boss ramp runs over the gate's OWN floor count and
-        // an event variant may point the final fight at any authored AI.
-        const pick = pickShrineEncounter({
-            playableAis,
-            playerLevel: character.level,
-            floor: hollowGateRun?.floor ?? 1,
-            maxFloor: hollowGateRunMaxFloor(hollowGateRun),
-            bossDisplayName: hollowGateBossDisplayName(hollowGateRun),
-            variantBossAiId: hollowGateRun?.variant?.bossAiId,
-            opts, gentleNonBoss: (hollowGateRun?.variant?.id ?? "").startsWith("rift-"),
-        });
-        if (!pick) {
-            alert("The shrine refuses to reveal an opponent right now.");
+        if (hollowGateAuthoritativeFight) return;
+        const token = hollowGateRun?.runToken;
+        if (!token) {
+            alert("This legacy Hollow Gate run has no secure combat seal. Leave the shrine and begin a new server-backed run before fighting.");
             return;
         }
-        const { baseAi, encounterName, rebasedLevel, bossHpMultiplier, floorHpMult, floorStatMult, eliteAffix } = pick;
-
-        // PET CO-COMBAT — multi-pronged simulation since Arena doesn't support
-        // a co-combatant slot. When the player has a battle-ready pet, we:
-        //   1) Restore player HP / chakra / stamina to full at battle start
-        //      (the pet "preps" the shinobi before the encounter).
-        //   2) Pre-damage the AI by 15-25% (normal fights, scaled by pet level)
-        //      or 10-15% (boss, scaled by pet level). Pet level / 10, capped at
-        //      1.5x, plus an extra 0.5x flat bond bump for being level-50+
-        //      eligible.
-        //   3) Log a clear "Pet assists in battle" line so the contribution is
-        //      visible. The shrine flavor reflects the pet's name.
-        const pet = character.pets?.find(p => p.id === character.activePetId);
-        const petAssists = pet && pet.unlockedForPve && !isPetOnExpedition(pet);
-        const baseHpShavePct = opts.isBoss ? 0.10 : 0.15;
-        const bondFactor = petAssists && pet ? Math.min(1.5, Math.max(0.5, pet.level / 10)) : 0;
-        const hpShavePct = petAssists ? baseHpShavePct * bondFactor : 0;
-        // Pre-battle player buff: full restore when pet assists.
-        if (petAssists && pet) {
-            setCharacter({
-                ...character,
-                hp: character.maxHp,
-                chakra: character.maxChakra,
-                stamina: character.maxStamina,
+        const floor = hollowGateRun?.floor ?? 1;
+        const kind: HollowGateCombatKind = opts.isBoss ? "boss" : opts.isAmbush ? "ambush" : opts.isBeast ? "beast" : opts.isElite ? "elite" : "battle";
+        const nodeId = opts.nodeId ?? `floor:${floor}:ambush:threat-${hollowGateRun?.playerX ?? 0}-${hollowGateRun?.playerY ?? 0}-${hollowGateRun?.tiles.filter((tile) => tile.resolved).length ?? 0}`;
+        try {
+            const items = getAllItems(creatorItems);
+            const started = await startHollowGateCombat({
+                playerName: character.name,
+                token,
+                floor,
+                nodeId,
+                kind,
+                hostLoadout: {
+                    pvpItems: getPvpItemLoadout(character, items),
+                    bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
+                    armorFactor: getCharacterArmorFactor(character, items),
+                    armorRawDR: getCharacterArmorRawDR(character, items),
+                    itemDamagePct: getEquippedItemBonus(character, items, "damagePercent"),
+                    itemAbsorbPct: getEquippedItemBonus(character, items, "absorbPercent"),
+                    itemReflectPct: getEquippedItemBonus(character, items, "reflectPercent"),
+                    itemLifeStealPct: getEquippedItemBonus(character, items, "lifeStealPercent"),
+                    itemShield: getEquippedItemBonus(character, items, "shield"),
+                },
             });
+            const activeCombat = { runId: started.runId, nodeId, floor, kind };
+            setHollowGateRun((prev) => prev ? { ...prev, activeCombat } : prev);
+            setCharacter((prev) => prev?.hollowGateRun ? { ...prev, hollowGateRun: { ...prev.hollowGateRun, activeCombat } } : prev);
+            setHollowGateAuthoritativeFight({ ...activeCombat, session: started.session });
+            pushHollowGateLog(`Server combat sealed: ${kind} on Floor ${floor}.`);
+            if (started.petAssisted) pushHollowGateLog("Your active pet steadies you at full strength and draws first blood.");
+            return;
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "The Hollow Gate encounter could not start.");
+            return;
         }
-        // Augment combat-feel (HG-only; no-op without a chosen augment) — applied
-        // ONLY to this per-dive enemy clone, never the shared engine. Composes with
-        // the elite affix + pet pre-damage already factored above.
-        const aug = hollowGateAugmentEffects(hollowGateRun);
-        // floorHpMult / floorStatMult = the depth ramp (1.0 for the boss, which
-        // has its own stronger scaling in bossHpMultiplier). No double-scaling.
-        const augStatMult = (eliteAffix?.statMult ?? 1) * aug.enemyStatMult * floorStatMult;
-        const totalHpShave = Math.min(0.9, hpShavePct + aug.enemyHpShavePct);
-        const scaledHp = Math.max(1, Math.floor(baseAi.hp * bossHpMultiplier * floorHpMult * (eliteAffix?.hpMult ?? 1) * aug.enemyHpMult));
-        const shrineAi: CreatorAi = {
-            ...baseAi,
-            id: `hollow-gate-${baseAi.id}-${Date.now()}`,
-            name: encounterName,
-            level: rebasedLevel,
-            isBossAi: Boolean(opts.isBoss),
-            stats: augStatMult !== 1 ? scaleAffixStats(baseAi.stats, augStatMult) : baseAi.stats,
-            hp: totalHpShave > 0 ? Math.max(1, Math.floor(scaledHp * (1 - totalHpShave))) : scaledHp,
-        } as CreatorAi;
-        if (petAssists && pet) {
-            pushHollowGateLog(`${pet.name} steadies you — HP, chakra, and stamina restored to full.`);
-            pushHollowGateLog(`${pet.name} draws first blood — the enemy enters with ${(hpShavePct * 100).toFixed(0)}% less HP.`);
-        }
+    }
 
-        setTemporaryStoryAi(shrineAi);
-        setPendingAiProfileId(shrineAi.id);
-        setPendingPvpOpponent(null);
-        setRaidBattleKind("none");
-        setPendingArenaStoryBattle({
-            kind: "hollowGateShrine",
-            returnScreen: "hollowGateShrine",
-            isBoss: opts.isBoss,
-            isAmbush: opts.isAmbush,
-        });
-        setCurrentBiome("shadow");
-        setCurrentWeather(weatherForBiome("shadow"));
-        setArenaKey((key) => key + 1);
-        const petLine = isActivePetEligibleForHollowGate()
-            ? ` ${character.pets.find(p => p.id === character.activePetId)?.name ?? "Your pet"} bristles beside you, ready to assist.`
-            : "";
-        pushHollowGateLog(`Encounter: ${encounterName}.${petLine}`);
-        if (eliteAffix) pushHollowGateLog(`Elite affix: ${eliteAffix.name} — this foe is tougher than a normal corrupted shinobi.`);
-        setScreen("arena");
+    async function settleActiveHollowGateCombat(runId: string, playerName: string): Promise<HollowGateCombatSettleResult> {
+        const token = hollowGateRun?.runToken;
+        if (!token) throw new Error("The Hollow Gate run token is missing.");
+        const result = await settleHollowGateCombat({ playerName, token, runId });
+        latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+        setHollowGateAuthoritativeFight((prev) => prev?.runId === runId ? { ...prev, settlement: result } : prev);
+        if (result.character) {
+            setCharacter((prev) => ({
+                ...(prev ?? result.character!),
+                ...result.character!,
+                hollowGateRun: result.won
+                    ? (prev?.hollowGateRun ?? result.character!.hollowGateRun)
+                    : result.revived ? result.character!.hollowGateRun : null,
+            }));
+        }
+        return result;
+    }
+
+    async function exitHollowGateAuthoritativeFight() {
+        const fight = hollowGateAuthoritativeFight;
+        if (!fight || !character) return;
+        let settlement = fight.settlement;
+        try {
+            settlement ??= await settleActiveHollowGateCombat(fight.runId, character.name);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "The encounter is still settling. Retry in a moment.");
+            return;
+        }
+        setHollowGateAuthoritativeFight(null);
+        if (settlement.revived) {
+            const revivedRun = settlement.character?.hollowGateRun
+                ? { ...settlement.character.hollowGateRun, activeCombat: undefined }
+                : hollowGateRun ? { ...hollowGateRun, secondWindArmed: false, threat: 0, activeCombat: undefined } : null;
+            setHollowGateRun(revivedRun);
+            setHollowGateEvent({
+                title: "Second Wind",
+                body: "Your Second Wind ignites â€” you are torn back from death at half strength.",
+                kind: "trap",
+                choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }],
+            });
+            pushHollowGateLog("Your Second Wind ignites â€” the failed encounter remains ahead.");
+            return;
+        }
+        if (!settlement.won) {
+            setHollowGateRun(null);
+            setHollowGateEvent(null);
+            setHollowGateHiddenChamber(null);
+            setHollowGateLog([]);
+            setScreen("hospital");
+            return;
+        }
+        const reward = settlement.reward ?? {};
+        const rewardLine = [
+            reward.xp ? `+${reward.xp} XP` : "",
+            reward.ryo ? `+${reward.ryo} ryo` : "",
+            reward.auraDust ? `+${reward.auraDust} Aura Dust` : "",
+            reward.honorSeals ? `+${reward.honorSeals} Honor Seals` : "",
+            reward.boneCharms ? `+${reward.boneCharms} Bone Charms` : "",
+            reward.fateShards ? `+${reward.fateShards} Fate Shards` : "",
+            reward.hollowShards ? `+${reward.hollowShards} Hollow Shards` : "",
+            reward.fragments ? `+${reward.fragments} Legendary Fragment` : "",
+            reward.veils ? `+${reward.veils} Veil of the Hollow` : "",
+            settlement.elementalShards ? `+${settlement.elementalShards} Elemental Shard` : "",
+        ].filter(Boolean).join(", ");
+        if (rewardLine) pushHollowGateLog(`Server reward banked: ${rewardLine}.`);
+        const riftId = hollowGateRun?.variant?.id;
+        if (fight.kind === "boss" && riftId?.startsWith("rift-")
+            && hollowGateRun && hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun)) {
+            void completeRiftRun(character.name, riftId, setCharacter, pushHollowGateLog);
+        }
+        onHollowGateBattleWin({ isBoss: fight.kind === "boss", isAmbush: fight.kind === "ambush" });
     }
     // Shared run-summary builder — counts resolved tiles by kind and
     // packs them into the multi-line summary block used by the Leave
@@ -6337,13 +6332,13 @@ export default function App() {
             }
             case "battle": {
                 pushHollowGateLog(flavor);
-                startHollowGateBattle({});
+                void startHollowGateBattle({ nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
                 markResolved();
                 return;
             }
             case "elite": {
                 pushHollowGateLog(`[Elite] ${flavor}`);
-                startHollowGateBattle({ isElite: true });
+                void startHollowGateBattle({ isElite: true, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
                 markResolved();
                 return;
             }
@@ -6391,7 +6386,7 @@ export default function App() {
                     // No pet → fall back to the themed shinobi version of the
                     // encounter so the tile still fires something on step.
                     pushHollowGateLog(`[Hollow Beast] ${flavor} You have no pet ready — the beast comes for you instead.`);
-                    startHollowGateBattle({ isBeast: true });
+                    void startHollowGateBattle({ isBeast: true, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
                     markResolved();
                     return;
                 }
@@ -6412,7 +6407,7 @@ export default function App() {
                 if (!wildBase) {
                     // Shouldn't happen with the canonical pool, but defensive.
                     pushHollowGateLog(`[Hollow Beast] ${flavor} The beast melts back into the mist.`);
-                    startHollowGateBattle({ isBeast: true });
+                    void startHollowGateBattle({ isBeast: true, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
                     markResolved();
                     return;
                 }
@@ -6485,6 +6480,7 @@ export default function App() {
                 const willDie = nextHp <= 0;
                 const trapWind = willDie && hollowGateRun?.secondWindArmed ? tryHollowGateSecondWind(hollowGateRun, character) : null;
                 if (trapWind) {
+                    consumeHollowGateServerSecondWind(character.name, hollowGateRun?.runToken);
                     setCharacter(trapWind.character);
                     setHollowGateRun(prev => prev ? trapWind.run : prev);
                     markResolved();
@@ -6601,7 +6597,7 @@ export default function App() {
             }
             case "boss": {
                 pushHollowGateLog(flavor);
-                startHollowGateBattle({ isBoss: true });
+                void startHollowGateBattle({ isBoss: true, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}` });
                 // Do NOT mark resolved here — boss tile is resolved on victory by the battle complete handler.
                 return;
             }
@@ -6759,6 +6755,7 @@ export default function App() {
                             const willDie = nextHp <= 0;
                             const secondWind = willDie && hollowGateRun.secondWindArmed ? tryHollowGateSecondWind(hollowGateRun, character) : null;
                             if (secondWind) {
+                                consumeHollowGateServerSecondWind(character.name, hollowGateRun.runToken);
                                 setCharacter(secondWind.character); setHollowGateRun(secondWind.run);
                                 pushHollowGateLog(`The cursed seal drains your last breath - then ${secondWind.log}`);
                                 setHollowGateEvent({ title: "Second Wind", body: secondWind.log, kind: "trap", choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
@@ -6841,6 +6838,7 @@ export default function App() {
                         const willDie = nextHp <= 0;
                         const doorWind = willDie && hollowGateRun?.secondWindArmed ? tryHollowGateSecondWind(hollowGateRun, character) : null;
                         if (doorWind) {
+                            consumeHollowGateServerSecondWind(character.name, hollowGateRun?.runToken);
                             setCharacter(doorWind.character);
                             setHollowGateRun(prev => prev ? doorWind.run : prev);
                             pushHollowGateLog(`The cursed seal drains your last breath — then ${doorWind.log}`);
@@ -7067,10 +7065,10 @@ export default function App() {
         if (character) finalizeHollowGateRunEnd({ run: endingRun, outcome: opts?.death ? "death" : "extract", character, lootRetention: attunementLootRetention(character), setCharacter });
         setScreen("worldMap");
     }
-    function onHollowGateBattleWin() {
+    function onHollowGateBattleWin(resolved?: { isBoss?: boolean; isAmbush?: boolean }) {
         if (!hollowGateRun) return;
-        const isBoss = pendingArenaStoryBattle?.kind === "hollowGateShrine" && pendingArenaStoryBattle.isBoss;
-        const isAmbush = pendingArenaStoryBattle?.kind === "hollowGateShrine" && pendingArenaStoryBattle.isAmbush;
+        const isBoss = Boolean(resolved?.isBoss);
+        const isAmbush = Boolean(resolved?.isAmbush);
         if (isBoss) {
             // The boss holds the run's FINAL floor (standard 5, or the variant's
             // own count) — defeating it clears the shrine. (Boss-defeat on
@@ -7080,7 +7078,7 @@ export default function App() {
             const isFinalFloor = hollowGateRun.floor >= hollowGateRunMaxFloor(hollowGateRun);
             // Surviving a fight resets threat (a fresh window) but NOT the Torch
             // — the Torch is the run clock, refilled only by chests/shrines/Keeper.
-            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0 };
+            const nextRun: HollowGateShrineRun = { ...hollowGateRun, activeCombat: undefined, tiles, completed: isFinalFloor, threat: 0 };
             setHollowGateRun(nextRun);
             pushHollowGateLog(`${hollowGateBossDisplayName(hollowGateRun)} falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
             if (isFinalFloor) {
@@ -7098,19 +7096,9 @@ export default function App() {
                             tone: "primary",
                             onSelect: () => {
                                 if (!character) return;
-                                const bonusHonor = vanguardOnlyHonorSeals(character, 75);
-                                const bonusCharms = nonVanguardCharmSubstitute(character, 75);
-                                const bonusShardSub = nonVanguardShardSubstitute(character, 75);
-                                const bonusFate = 1 + bonusShardSub;
-                                // Functional (base = `prev`) so it composes with the async rift
-                                // reward that clears through this same modal; amounts unchanged.
-                                setCharacter(prev => prev ? addInventoryItems({
-                                    ...prev,
-                                    honorSeals: (prev.honorSeals ?? 0) + bonusHonor,
-                                    boneCharms: (prev.boneCharms ?? 0) + bonusCharms,
-                                    fateShards: (prev.fateShards ?? 0) + bonusFate,
-                                }, [DUNGEON_LEGENDARY_FRAGMENT_ID, VEIL_OF_THE_HOLLOW_ID]) : prev);
-                                pushHollowGateLog(`Shrine cleared bonus: ${bonusHonor > 0 ? `+${bonusHonor} Honor Seals, ` : bonusCharms > 0 ? `+${bonusCharms} Bone Charms, ` : ""}+${bonusFate} Fate Shard${bonusFate === 1 ? "" : "s"}, +1 Dungeon Legendary Fragment, +1 Veil of the Hollow.`);
+                                // The combat settlement already committed the boss
+                                // drop and final-clear bonus. This click only closes
+                                // the sealed run; it cannot mint rewards locally.
                                 setHollowGateEvent(null);
                                 leaveHollowGateShrine();
                             },
@@ -7126,13 +7114,13 @@ export default function App() {
             }
         } else if (isAmbush) {
             // Ambush survived → full reset of both meters.
-            setHollowGateRun({ ...hollowGateRun, threat: 0 });
+            setHollowGateRun({ ...hollowGateRun, activeCombat: undefined, threat: 0 });
             pushHollowGateLog("The ambush ends. Threat dissipates — but the Torch of Reiki keeps burning down. Find a chest or shrine to rekindle it.");
         } else {
             // Regular battle / elite / pet_battle (themed-shinobi fallback)
             // — also full reset. The previous "threat -= 25" partial reset
             // made fights feel less rewarding than they should.
-            setHollowGateRun({ ...hollowGateRun, threat: 0 });
+            setHollowGateRun({ ...hollowGateRun, activeCombat: undefined, threat: 0 });
             pushHollowGateLog("Corrupted shinobi defeated. Threat dissipates — the Torch of Reiki, though, keeps burning down.");
         }
     }
@@ -7578,7 +7566,19 @@ export default function App() {
                     />
                 )}
 
-                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && (
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateAuthoritativeFight && (
+                    <BattleTowerFight
+                        character={character}
+                        sharedImages={sharedImages}
+                        runId={hollowGateAuthoritativeFight.runId}
+                        initialSession={hollowGateAuthoritativeFight.session}
+                        settleFn={settleActiveHollowGateCombat}
+                        settleOnAnyDone
+                        onExit={() => { void exitHollowGateAuthoritativeFight(); }}
+                    />
+                )}
+
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && !hollowGateAuthoritativeFight && (
                     <HollowGateShrineView
                         character={character}
                         hollowGateRun={hollowGateRun}

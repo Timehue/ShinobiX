@@ -1450,6 +1450,16 @@ export function sanitizeCharacterSave(
         if (run.earnedXp != null) run.earnedXp = Math.max(0, Math.min(200_000, Math.floor(Number(run.earnedXp) || 0)));
         if (run.earnedFragments != null) run.earnedFragments = Math.max(0, Math.min(40, Math.floor(Number(run.earnedFragments) || 0)));
         if (run.earnedVeils != null) run.earnedVeils = Math.max(0, Math.min(25, Math.floor(Number(run.earnedVeils) || 0)));
+        if (run.activeCombat && typeof run.activeCombat === 'object') {
+            const active = run.activeCombat as Record<string, unknown>;
+            const kind = String(active.kind ?? '');
+            run.activeCombat = {
+                runId: String(active.runId ?? '').slice(0, 96),
+                nodeId: String(active.nodeId ?? '').slice(0, 96),
+                floor: Math.max(1, Math.min(50, Math.floor(Number(active.floor) || 1))),
+                kind: ['battle', 'elite', 'ambush', 'beast', 'boss'].includes(kind) ? kind : 'battle',
+            };
+        }
         if (Array.isArray(run.augmentOffers) && (run.augmentOffers as unknown[]).length > 8) {
             run.augmentOffers = (run.augmentOffers as unknown[]).slice(0, 8);
         }
