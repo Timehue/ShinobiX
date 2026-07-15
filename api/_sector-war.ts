@@ -35,7 +35,21 @@ export interface SectorWarSession {
     updatedAt: number;
     /** true once the sector has been captured (Control HP hit 0) */
     flipped: boolean;
+    /** Durable once receipts for combat/card/pet outcomes applied to Control HP. */
+    appliedBattles?: SectorWarBattleReceipt[];
 }
+
+export interface SectorWarBattleReceipt {
+    battleId: string;
+    attackerWon: boolean;
+    captured: boolean;
+    hpDealt: number;
+    hpRegen: number;
+    controlHp: number;
+    at: number;
+}
+
+export const SECTOR_WAR_BATTLE_RECEIPT_CAP = 200;
 
 function clampInt(n: unknown, lo: number, hi: number): number {
     const v = Math.floor(Number(n) || 0);
@@ -84,6 +98,10 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession>): Secto
     if (!raw || typeof raw !== 'object') return null;
     if (!raw.attackerVillage || !raw.defenderVillage || raw.attackerVillage === raw.defenderVillage) return null;
     const max = clampInt(raw.controlHpMax ?? SECTOR_CONTROL_HP_MAX, 1, SECTOR_CONTROL_HP_MAX * 4);
+    const appliedBattles = Array.isArray(raw.appliedBattles)
+        ? raw.appliedBattles.filter((entry): entry is SectorWarBattleReceipt => !!entry && typeof entry.battleId === 'string')
+            .slice(0, SECTOR_WAR_BATTLE_RECEIPT_CAP)
+        : [];
     return {
         id: String(raw.id ?? sectorWarId(Number(raw.sector) || 0, raw.attackerVillage, raw.defenderVillage)),
         sector: clampInt(raw.sector, 1, 60),
@@ -95,6 +113,7 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession>): Secto
         startedAt: Math.floor(Number(raw.startedAt) || 0),
         updatedAt: Math.floor(Number(raw.updatedAt) || 0),
         flipped: raw.flipped === true,
+        ...(appliedBattles.length ? { appliedBattles } : {}),
     };
 }
 
@@ -103,6 +122,34 @@ export interface SectorBattleOutcome {
     captured: boolean;    // the sector flipped THIS battle
     hpDealt: number;      // Control HP removed (attacker win) — 0 on a defended battle
     hpRegen: number;      // Control HP restored (defender win)
+}
+
+export function findSectorWarBattleReceipt(session: SectorWarSession, battleId: string): SectorWarBattleReceipt | null {
+    return session.appliedBattles?.find((entry) => entry.battleId === battleId) ?? null;
+}
+
+export function recordSectorWarBattleOutcome(
+    outcome: SectorBattleOutcome,
+    args: { battleId: string; attackerWon: boolean; at: number },
+): { session: SectorWarSession; receipt: SectorWarBattleReceipt } {
+    const prior = findSectorWarBattleReceipt(outcome.session, args.battleId);
+    if (prior) return { session: outcome.session, receipt: prior };
+    const receipt: SectorWarBattleReceipt = {
+        battleId: args.battleId,
+        attackerWon: args.attackerWon,
+        captured: outcome.captured,
+        hpDealt: outcome.hpDealt,
+        hpRegen: outcome.hpRegen,
+        controlHp: outcome.session.controlHp,
+        at: args.at,
+    };
+    return {
+        session: {
+            ...outcome.session,
+            appliedBattles: [receipt, ...(outcome.session.appliedBattles ?? [])].slice(0, SECTOR_WAR_BATTLE_RECEIPT_CAP),
+        },
+        receipt,
+    };
 }
 
 // A defender WIN heals the sector's hold by this fraction of the fight's role
@@ -178,6 +225,10 @@ export interface SectorWarBattleToken {
     defenderVillage: string;
     registeredBy: string;    // safeName of whoever registered the battle (audit / future contribution)
     winCondition: WinCondition;
+    p1Name?: string;
+    p2Name?: string;
+    p1Village?: string;
+    p2Village?: string;
     createdAt: number;
     expiresAt: number;
 }
@@ -194,6 +245,10 @@ export function newSectorWarBattleToken(args: {
     defenderVillage: string;
     registeredBy: string;
     winCondition: WinCondition;
+    p1Name?: string;
+    p2Name?: string;
+    p1Village?: string;
+    p2Village?: string;
     now: number;
 }): SectorWarBattleToken {
     return {
@@ -204,6 +259,10 @@ export function newSectorWarBattleToken(args: {
         defenderVillage: args.defenderVillage,
         registeredBy: args.registeredBy,
         winCondition: asWinCondition(args.winCondition),
+        ...(args.p1Name ? { p1Name: args.p1Name } : {}),
+        ...(args.p2Name ? { p2Name: args.p2Name } : {}),
+        ...(args.p1Village ? { p1Village: args.p1Village } : {}),
+        ...(args.p2Village ? { p2Village: args.p2Village } : {}),
         createdAt: args.now,
         expiresAt: args.now + SECTOR_WAR_TOKEN_TTL_MS,
     };
@@ -221,6 +280,10 @@ export function normalizeSectorWarBattleToken(raw: Partial<SectorWarBattleToken>
         defenderVillage: String(raw.defenderVillage),
         registeredBy: String(raw.registeredBy ?? ''),
         winCondition: asWinCondition(raw.winCondition),
+        ...(raw.p1Name ? { p1Name: String(raw.p1Name) } : {}),
+        ...(raw.p2Name ? { p2Name: String(raw.p2Name) } : {}),
+        ...(raw.p1Village ? { p1Village: String(raw.p1Village) } : {}),
+        ...(raw.p2Village ? { p2Village: String(raw.p2Village) } : {}),
         createdAt: Math.floor(Number(raw.createdAt) || 0),
         expiresAt: Math.floor(Number(raw.expiresAt) || 0),
     };

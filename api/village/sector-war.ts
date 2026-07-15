@@ -17,6 +17,8 @@ import {
     sectorWarKey,
     newSectorWarSession,
     applySectorBattleResult,
+    findSectorWarBattleReceipt,
+    recordSectorWarBattleOutcome,
     canDeclareSectorWar,
     newSectorWarBattleToken,
     type SectorWarDeclineReason,
@@ -24,12 +26,10 @@ import {
 import {
     loadSectorWar,
     saveSectorWar,
-    deleteSectorWar,
     activeContestOnSector,
     listActiveSectorWars,
     mintSectorWarToken,
     loadSectorWarToken,
-    consumeSectorWarToken,
     getSectorOwnerVillage,
 } from '../_sector-war-store.js';
 import { villageHasActiveWar, captureSectorForVillage, seedHomeSectorOwnership } from '../world-state.js';
@@ -65,7 +65,18 @@ import { bumpEraContribution } from '../_era.js';
 const WIRED_WIN_CONDITIONS: readonly WinCondition[] = ['combat', 'card', 'pet'];
 
 type Identity = NonNullable<Awaited<ReturnType<typeof authedPlayerOrAdmin>>>;
-type ReadBattle = { status?: string; winner?: string | null; p1?: { name?: string }; p2?: { name?: string } };
+type ReadBattle = {
+    status?: string;
+    winner?: string | null;
+    createdAt?: number;
+    round?: number;
+    actionsThisTurn?: number;
+    log?: unknown[];
+    recentMoveTokens?: unknown[];
+    biome?: string;
+    p1?: { name?: string };
+    p2?: { name?: string };
+};
 
 function kageKey(village: string): string {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
@@ -232,9 +243,15 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
     // only the authoritative session winner.
     const battle = await kv.get<ReadBattle>(`pvp:${battleId}`);
     if (!battle) return res.status(404).json({ error: 'Battle session not found or expired.' });
+    if (!Number.isFinite(Number(battle.createdAt)) || Number(battle.createdAt) < contest.startedAt) {
+        return res.status(409).json({ error: 'That battle predates this sector war.' });
+    }
     const p1 = safeName(battle.p1?.name ?? '');
     const p2 = safeName(battle.p2?.name ?? '');
     if (!p1 || !p2) return res.status(409).json({ error: 'That battle is not a two-fighter PvP session.' });
+    if (!identity.admin && identity.name !== p1 && identity.name !== p2) {
+        return res.status(403).json({ error: 'Only a fighter in that battle may register it for the sector war.' });
+    }
     const [v1, v2] = await Promise.all([villageOf(p1), villageOf(p2)]);
     if (v1 === v2 || !(v1 === attackerVillage || v2 === attackerVillage) || !(v1 === defenderVillage || v2 === defenderVillage)) {
         return res.status(403).json({ error: 'That battle is not between the two villages at war over this sector.' });
@@ -247,28 +264,59 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
     // is neutral). This is server-authoritative and runs at battle registration —
     // BEFORE any move resolves and reads session.biome — so an attacker can't dodge
     // the defender's home terrain by opening the duel on a biome that suits their own
-    // school. Best-effort: a hiccup here must never block the sanctioned attack.
+    // school. Registration is fail-closed: the fight stays unsanctioned unless
+    // the authoritative terrain and durable contest token are both sealed first.
+    const battleKey = `pvp:${battleId}`;
+    const lockKey = `${battleKey}:lock`;
+    const lockToken = `sector-war:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    let lockResult: unknown = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+        lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 3 } as never);
+        if (lockResult) break;
+        if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 30 * (attempt + 1)));
+    }
+    if (!lockResult) return res.status(503).json({ error: 'That battle is busy; retry registration before making a move.' });
+
     try {
+        const fresh = await kv.get<ReadBattle>(battleKey);
+        const freshP1 = safeName(fresh?.p1?.name ?? '');
+        const freshP2 = safeName(fresh?.p2?.name ?? '');
+        if (!fresh || freshP1 !== p1 || freshP2 !== p2) {
+            return res.status(409).json({ error: 'Battle participants changed before registration completed.' });
+        }
+        const pristine = fresh.status === 'active'
+            && Number(fresh.round) === 1
+            && Number(fresh.actionsThisTurn) === 0
+            && (!Array.isArray(fresh.recentMoveTokens) || fresh.recentMoveTokens.length === 0)
+            && Array.isArray(fresh.log)
+            && fresh.log.length === 1;
+        if (!pristine) {
+            return res.status(409).json({ error: 'Register the sector-war battle before either fighter makes a move.' });
+        }
+
         const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
         const terrain = defRec.sectors[String(sector)]?.terrain;
-        const session = await kv.get<Record<string, unknown>>(`pvp:${battleId}`);
-        if (terrain && session && session.biome !== terrain) {
-            await kv.set(`pvp:${battleId}`, { ...session, biome: terrain });
+        if (terrain && fresh.biome !== terrain) {
+            await kv.set(battleKey, { ...fresh, biome: terrain });
         }
-    } catch (err) {
-        console.error('[sector-war] terrain-seal (non-fatal)', err);
-    }
 
-    await mintSectorWarToken(newSectorWarBattleToken({
-        battleId,
-        sectorWarId: contest.id,
-        sector,
-        attackerVillage,
-        defenderVillage,
-        registeredBy: playerName,
-        winCondition: 'combat',
-        now: Date.now(),
-    }));
+        await mintSectorWarToken(newSectorWarBattleToken({
+            battleId,
+            sectorWarId: contest.id,
+            sector,
+            attackerVillage,
+            defenderVillage,
+            registeredBy: playerName,
+            winCondition: 'combat',
+            p1Name: p1,
+            p2Name: p2,
+            p1Village: v1,
+            p2Village: v2,
+            now: Date.now(),
+        }));
+    } finally {
+        if ((await kv.get<string>(lockKey)) === lockToken) await kv.del(lockKey);
+    }
     return res.status(200).json({ ok: true, battleId, sectorWarId: contest.id });
 }
 
@@ -285,9 +333,15 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
     if (!battle || battle.status !== 'done' || !battle.winner || battle.winner === 'draw') {
         return res.status(409).json({ error: 'Battle is not finished, or it ended in a draw.' });
     }
-    const winnerName = safeName(battle.winner === 'p1' ? (battle.p1?.name ?? '') : (battle.p2?.name ?? ''));
+    const battleP1 = safeName(battle.p1?.name ?? '');
+    const battleP2 = safeName(battle.p2?.name ?? '');
+    if ((token.p1Name && battleP1 !== token.p1Name) || (token.p2Name && battleP2 !== token.p2Name)) {
+        return res.status(409).json({ error: 'Battle participants no longer match the sealed sector-war token.' });
+    }
+    const winnerName = battle.winner === 'p1' ? battleP1 : battleP2;
     const loserName = safeName(battle.winner === 'p1' ? (battle.p2?.name ?? '') : (battle.p1?.name ?? ''));
-    const winnerVillage = winnerName ? await villageOf(winnerName) : '';
+    const sealedWinnerVillage = battle.winner === 'p1' ? token.p1Village : token.p2Village;
+    const winnerVillage = sealedWinnerVillage || (winnerName ? await villageOf(winnerName) : '');
     const attackerWon = !!winnerVillage && winnerVillage === token.attackerVillage;
     // Role-scaled Control-HP swing (§17.6): the winner's contribution + the loser's
     // rank penalty (Kage/Elder/ANBU/villager), read from authoritative server state.
@@ -298,26 +352,39 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
         // Re-check the token inside the lock so a battle is applied exactly once.
         if (!(await loadSectorWarToken(battleId))) return { ok: false as const, error: 'already-resolved' as const };
         const contest = await loadSectorWar(id);
-        if (!contest || contest.flipped) {
-            await consumeSectorWarToken(battleId);
+        if (!contest || token.createdAt < contest.startedAt) {
             return { ok: false as const, error: 'contest-closed' as const };
         }
+        const prior = findSectorWarBattleReceipt(contest, battleId);
+        if (prior) {
+            return {
+                ok: true as const,
+                replayed: true,
+                outcome: {
+                    session: contest,
+                    captured: prior.captured,
+                    hpDealt: prior.hpDealt,
+                    hpRegen: prior.hpRegen,
+                },
+            };
+        }
+        if (contest.flipped) return { ok: false as const, error: 'contest-closed' as const };
         const atkRecord = normalizeVillageWarRecord(token.attackerVillage, (await kv.get<Record<string, unknown>>(villageWarKey(token.attackerVillage))) ?? undefined);
         const swing = sectorControlSwing(winnerRole, loserRole, sectorWarDamageMultiplier(atkRecord));
         const outcome = applySectorBattleResult(contest, attackerWon, { now: Date.now(), swing });
+        const recorded = recordSectorWarBattleOutcome(outcome, { battleId, attackerWon, at: Date.now() });
         if (outcome.captured) {
             // Flip the sector's persistent owner (territory lock, nested) BEFORE
             // closing the contest, so the capture + flip commit under one lock
             // scope. Re-running is idempotent (ownerVillage already set).
             await captureSectorForVillage(token.sector, token.attackerVillage, Date.now());
-            await deleteSectorWar(id);
             // Telemetry (best-effort): a sector flipped to the attacker.
             void recordWarEcoEvent({ eventId: `capture:${id}`, village: token.attackerVillage, kind: 'sector.capture', amount: 1, meta: `sector:${token.sector}` });
-        } else {
-            await saveSectorWar(outcome.session);
         }
-        await consumeSectorWarToken(battleId);
-        return { ok: true as const, outcome };
+        // Persist the Control-HP mutation and its run receipt together. Flipped
+        // contests remain as inert audit records instead of deleting the receipt.
+        await saveSectorWar(recorded.session);
+        return { ok: true as const, replayed: false, outcome: { ...outcome, session: recorded.session } };
     }, { failClosed: true });
 
     if (!result.ok) {
@@ -328,7 +395,7 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
     // Legacy tracking (ENABLE_LEGACY): war credit from the authoritative
     // resolve — winner banked a war kill + contribution; a defender hold is a
     // defense, an attacker capture is a capture. Best-effort, after the lock.
-    if (legacyEnabled() && winnerName) {
+    if (!result.replayed && legacyEnabled() && winnerName) {
         await bumpLegacyStats(winnerName, {
             warPvpKills: 1,
             // Flat war-contribution points per validated war battle (control-HP
