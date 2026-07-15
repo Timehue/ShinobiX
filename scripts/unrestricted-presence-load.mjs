@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import { io } from 'socket.io-client';
 import {
     assertLoadSafety,
+    MAX_LOAD_DURATION_SECONDS,
     parseArgs,
     readAccountManifest,
     summarizeLatencies,
@@ -90,7 +91,11 @@ try {
     for (const result of reconnectResults) {
         if (result.status === 'rejected') errors.push(`reconnect:${result.reason?.message ?? String(result.reason)}`);
     }
-    await sleep(Math.max(0, options.durationSeconds * 1_000 - firstWindowMs));
+    const remainingMs = Math.min(
+        MAX_LOAD_DURATION_SECONDS * 1_000,
+        Math.max(0, options.durationSeconds * 1_000 - firstWindowMs),
+    );
+    await sleep(remainingMs);
 
     const completedAt = new Date();
     const evidence = {

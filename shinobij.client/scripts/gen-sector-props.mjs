@@ -88,6 +88,8 @@ async function genOne(biome, id, prompt, apiKey, sharp) {
     const full = prompt + SUFFIX;
     if (dryRun) { console.log(`\n[${biome}/${id}]\n${full}\n`); return; }
     process.stdout.write(`prop: ${biome}/${id} … `);
+    // This offline generator intentionally sends its curated prompt and configured API credential to OpenAI.
+    // codeql[js/file-access-to-http]
     const res = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

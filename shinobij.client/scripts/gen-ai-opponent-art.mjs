@@ -71,6 +71,8 @@ async function main() {
     for (const p of OPPONENTS) {
         if (!flags.has('--force') && existing.has(`pet:${p.id}`)) { console.log(`${p.id}: portrait already published — skip`); continue; }
         if (flags.has('--dry-run')) { console.log(`${p.id}: would generate (${p.name})`); continue; }
+        // This offline generator intentionally sends its curated prompt and configured API credential to OpenAI.
+        // codeql[js/file-access-to-http]
         const res = await fetch('https://api.openai.com/v1/images/generations', {
             method: 'POST',
             headers: { Authorization: `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
@@ -81,6 +83,8 @@ async function main() {
         const png = Buffer.from(data.data[0].b64_json, 'base64');
         const webp = await sharp(png).resize({ width: 512, height: 512, fit: 'inside' }).webp({ quality: 80, effort: 6 }).toBuffer();
         fs.writeFileSync(path.join(OUT_DIR, `${p.id}.webp`), webp);
+        // The generated asset is intentionally published to the fixed production game origin.
+        // codeql[js/file-access-to-http]
         const pub = await fetch(`${SERVER}/api/images`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PW },

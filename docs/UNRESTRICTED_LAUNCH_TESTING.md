@@ -19,6 +19,7 @@ Run the first 25-client gate:
 
 ```powershell
 $env:ALLOW_REMOTE_LOAD = '1'
+$env:LOAD_TARGET_ALLOWLIST = 'https://disposable-staging.example.com'
 npm run drill:presence-load -- `
   --base-url https://disposable-staging.example.com `
   --accounts load-accounts.staging.json `
@@ -28,11 +29,12 @@ npm run drill:presence-load -- `
   --reconnect-fraction 0.25 `
   --evidence-out presence-load-evidence.25.json
 Remove-Item Env:ALLOW_REMOTE_LOAD
+Remove-Item Env:LOAD_TARGET_ALLOWLIST
 ```
 
 Repeat at 50, 100, and 300 clients only after the preceding tier passes. Record connection and reconnect p95, snapshot volume, maximum roster size, application p95, database connections, 5xx rate, memory, CPU, and restart count.
 
-The harness refuses remote targets unless `ALLOW_REMOTE_LOAD=1`. It separately refuses `shinobijourney.com` and `theravensark.com` unless `ALLOW_PRODUCTION_LOAD=1`, and production is hard-capped to 25 clients for 60 seconds. Production runs do not satisfy the unrestricted-launch gate.
+The harness refuses remote targets unless `ALLOW_REMOTE_LOAD=1` and the exact origin is present in `LOAD_TARGET_ALLOWLIST`. Every run is capped at 600 seconds. It separately refuses `shinobijourney.com` and `theravensark.com` unless `ALLOW_PRODUCTION_LOAD=1`, and production is hard-capped to 25 clients for 60 seconds. Production runs do not satisfy the unrestricted-launch gate.
 
 ## Pass criteria
 
