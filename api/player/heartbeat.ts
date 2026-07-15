@@ -8,6 +8,7 @@ import { recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } f
 import { onlineStore } from '../_realtime/online-store.js';
 import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
+import { clearSleeperCamp } from '../_realtime/sleeper-camps.js';
 
 // Presence now lives in the in-memory online store (api/_realtime/online-store.ts)
 // instead of `presence:<name>` DB keys — no per-second DB read/write. The live
@@ -75,17 +76,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
         const existing = onlineStore.get(name);
-        const [pendingChallenges, resetSignal, healSignal] = await Promise.all([
+        const [pendingChallenges, resetSignal, healSignal, savedLocation] = await Promise.all([
             kv.get<unknown[]>(challengeKey),
             kv.get(resetSignalKey),
             kv.get<{ by?: string; at?: number }>(healSignalKey),
+            existing ? Promise.resolve(null) : kv.get<{ currentSector?: number }>(`save:${safeName(name)}`),
         ]);
 
         if (resetSignal) {
             return res.status(200).json({ forceReload: true });
         }
 
-        const entrySector = normalizeSector(sector, normalizeSector(existing?.sector, 40));
+        // A fresh process/session starts from the persisted server location. Once
+        // online, MemoryOnlineStateStore only accepts sector changes backed by a
+        // server-minted travel lease (or a safe-zone exit to sector 0).
+        const entrySector = existing
+            ? normalizeSector(sector, existing.sector)
+            : normalizeSector(savedLocation?.currentSector, normalizeSector(sector, 40));
         const now = Date.now();
 
         // Cap client-supplied travelingUntil so an exploit can't make a player
@@ -117,6 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Throttled cross-worker presence beat (fallback for consumers like the
         // Kage accept-obligation clock). See _realtime/_presence-beat.ts.
         stampPresenceBeat(name);
+        void clearSleeperCamp(name).catch(() => undefined);
 
         await Promise.all([
             pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),
@@ -127,11 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The in-memory store IS the live roster — no DB scan, no cache layer.
         // toPlayerRecord (shared with the WS path) shapes each entry; avatar
         // image is omitted (client resolves it from its name-keyed cache).
-        const allEntries = onlineStore.list();
-
-        const sectorMates = allEntries
-            .filter(p => normalizeSector(p.sector) === entrySector)
-            .map(toPlayerRecord);
+        const sectorMates = onlineStore.listSector(stored.sector).map(toPlayerRecord);
 
         // Note: the full online roster is intentionally NOT broadcast on every
         // heartbeat (was an O(N²)/payload cost). Clients source the global list

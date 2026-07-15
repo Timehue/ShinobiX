@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { sleeperTargetBlock, computeSleeperSeals } from './sleeper-kill.js';
+import { sleeperTargetBlock, sleeperAttackerBlock, computeSleeperSeals } from './sleeper-kill.js';
 import { DAILY_SEAL_CAP, PER_TARGET_DAILY_CAP } from '../pvp/_vanguard-rewards.js';
 
 function todayKey(): string {
@@ -36,6 +36,29 @@ describe('sleeperTargetBlock (sleeper KO gating)', () => {
         assert.equal(sleeperTargetBlock({ level: 11 }, 44), null);
         assert.equal(sleeperTargetBlock({ level: 14 }, 18), null);
         assert.equal(sleeperTargetBlock({ level: 40 }, 18), null);
+    });
+});
+
+describe('sleeperAttackerBlock (authoritative camp co-location)', () => {
+    const base = {
+        name: 'attacker',
+        displayName: 'Attacker',
+        sector: 18,
+        character: null,
+        lastSeenAt: 1_000,
+        connectedAt: 1_000,
+        pendingAttacker: null,
+    };
+
+    it('allows an idle attacker in the camp sector', () => {
+        assert.equal(sleeperAttackerBlock(base, 18, 1_000), null);
+    });
+
+    it('blocks missing, traveling, fighting, and remote attackers', () => {
+        assert.match(sleeperAttackerBlock(null, 18, 1_000)!.error, /presence/);
+        assert.match(sleeperAttackerBlock({ ...base, travelingUntil: 2_000 }, 18, 1_000)!.error, /traveling/);
+        assert.match(sleeperAttackerBlock({ ...base, inBattle: true }, 18, 1_000)!.error, /battle/);
+        assert.match(sleeperAttackerBlock({ ...base, sector: 19 }, 18, 1_000)!.error, /sector/);
     });
 });
 

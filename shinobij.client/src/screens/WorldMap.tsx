@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity, react-hooks/immutability, react-hooks/refs */
-import { useState, useEffect, useMemo, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/atlas-skin.css";
 // Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import {
@@ -11,6 +11,7 @@ import {
     GiHealthPotion,
     GiOpenTreasureChest,
     GiPawPrint,
+    GiTrail,
     GiShield,
 } from "react-icons/gi";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
@@ -63,6 +64,7 @@ import { WorldToast } from "../components/WorldToast";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_MAP } from "../data/sector-map-manifest";
 import { SECTOR_POINTS } from "../data/sector-points";
+import { sectorExits as roadExitsForSector, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter, scaleWandererPetOpponent } from "../lib/pet-balance";
 import { petCardImage } from "../lib/pet-battle-anim";
@@ -73,6 +75,7 @@ import { currentDateKey, makeId, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
+import { updateRealtimeTile } from "../lib/use-presence-socket";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import { SectorPeersLive, type SectorPeer } from "../components/SectorPeers";
 import { SectorWeeklyBossActor } from "../components/SectorWeeklyBossActor";
@@ -370,6 +373,7 @@ export function WorldMap({
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
     const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
     const [huntToast, setHuntToast] = useState<HuntToast | null>(null);
+    const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
     const activeHuntTrails = useMemo<ActiveHuntTrail[]>(() => (
         builtinHuntMissions
             .filter((mission) => acceptedMissionIds.includes(mission.id) && Boolean(mission.aiProfileId))
@@ -1826,9 +1830,13 @@ export function WorldMap({
         return () => clearTimeout(t);
     }, [activePetEncounter, petVnDone]);
     const [sectorPlayerPos, setSectorPlayerPos] = useState(78);
+    const travelRequestInFlight = useRef(false);
     // Bridge the local player's tile to the presence store so the heartbeat (which
     // lives in App) can broadcast it; other clients render us walking to this tile.
-    useEffect(() => { setLocalSectorTile(sectorPlayerPos); }, [sectorPlayerPos]);
+    useEffect(() => {
+        setLocalSectorTile(sectorPlayerPos);
+        updateRealtimeTile(sectorPlayerPos);
+    }, [sectorPlayerPos]);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
@@ -1988,23 +1996,57 @@ export function WorldMap({
         preloadImg(sectorDepthImage(sector));
         if (isSectorMapEnabled()) preloadImg(sectorMapUrl(biomeForSector(sector), sector));
     }
-    function beginSectorTravel(sector: number, arrive: () => void) {
-        if (isTraveling) return;
+    function beginSectorTravel(
+        sector: number,
+        arrive: (arrivalTile?: number) => void,
+        request?: { mode: "edge"; originSector: number; originTile: number; exitId: string },
+    ) {
+        if (isTraveling || travelRequestInFlight.current) return;
         if (currentSector === sector) {
             arrive();
             return;
         }
         prefetchTravelDestination(sector); // warm the destination during the 3s window
-        const arrivalAt = Date.now() + 3000;
-        setPendingTravel({ destinationSector: sector, arrivalAt });
-        setTravelingUntil(arrivalAt);
-        setSelectedSector(null);
-        setSelectedVillageTerritory(null);
-        window.setTimeout(() => {
-            arrive();
-            setPendingTravel(null);
-            setTravelingUntil(0);
-        }, 3000);
+        travelRequestInFlight.current = true;
+        void (async () => {
+            try {
+                const response = await fetch('/api/player/travel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ destinationSector: sector, ...request }),
+                    signal: AbortSignal.timeout(12_000),
+                });
+                const data = await response.json().catch(() => null) as { arrivalAt?: number; arrivalTile?: number; error?: string } | null;
+                if (!response.ok || !data?.arrivalAt) {
+                    setTravelToast({
+                        id: Date.now(),
+                        kicker: 'Road blocked',
+                        text: data?.error || 'Could not start travel. Please try again.',
+                    });
+                    return;
+                }
+                // Preserve the intentional three-second loading mask, but use the
+                // server-issued deadline so presence and attackability agree.
+                const arrivalAt = data.arrivalAt;
+                setPendingTravel({ destinationSector: sector, arrivalAt });
+                setTravelingUntil(arrivalAt);
+                setSelectedSector(null);
+                setSelectedVillageTerritory(null);
+                window.setTimeout(() => {
+                    arrive(data.arrivalTile);
+                    setPendingTravel(null);
+                    setTravelingUntil(0);
+                }, Math.max(0, arrivalAt - Date.now()));
+            } catch {
+                setTravelToast({
+                    id: Date.now(),
+                    kicker: 'Travel unavailable',
+                    text: 'Could not reach the travel server. Please try again.',
+                });
+            } finally {
+                travelRequestInFlight.current = false;
+            }
+        })();
     }
     function triggerTravelPoint(sector: number) {
         beginSectorTravel(sector, () => {
@@ -2024,6 +2066,24 @@ export function WorldMap({
         });
     }
 
+    function crossSectorExit(exit: SectorExit) {
+        if (!sameSector(currentSector, exit.sector) || sectorPlayerPos !== exit.tile) return;
+        beginSectorTravel(exit.destinationSector, (arrivalTile) => {
+            const destinationTile = Number.isInteger(arrivalTile) ? Number(arrivalTile) : exit.destinationTile;
+            const destinationBiome = biomeForSector(exit.destinationSector);
+            setSectorPlayerPos(destinationTile);
+            setCurrentBiome(destinationBiome);
+            setCurrentWeather(weatherForSector(exit.destinationSector, destinationBiome));
+            setCurrentSector(exit.destinationSector);
+            setSelectedSector(exit.destinationSector);
+        }, {
+            mode: "edge",
+            originSector: exit.sector,
+            originTile: sectorPlayerPos,
+            exitId: exit.id,
+        });
+    }
+
     // ── WASD / E keyboard controls inside a sector tile view ─────────────────────
     // W/A/S/D moves one tile in that direction on the 12-wide sector grid.
     // E explores the open sector.
@@ -2032,6 +2092,7 @@ export function WorldMap({
     const SECTOR_GRID_SIZE = 144;
     useEffect(() => {
         if (!selectedSector) return;
+        const activeSector = selectedSector;
         function handleKey(e: KeyboardEvent) {
             const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
             if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
@@ -2039,11 +2100,19 @@ export function WorldMap({
             const key = e.key.toLowerCase();
             if (key === 'e') {
                 e.preventDefault();
-                exploreSector(selectedSector!);
+                exploreSector(activeSector);
                 return;
             }
             if (!['w', 'a', 's', 'd'].includes(key)) return;
             e.preventDefault();
+            const outwardDirection = key === 'w' ? 'north' : key === 'd' ? 'east' : key === 's' ? 'south' : 'west';
+            const roadExit = roadExitsForSector(activeSector).find((exit) =>
+                exit.tile === sectorPlayerPos && exit.direction === outwardDirection,
+            );
+            if (roadExit && sameSector(currentSector, activeSector)) {
+                crossSectorExit(roadExit);
+                return;
+            }
             setSectorPlayerPos(prev => {
                 const col = prev % SECTOR_GRID_W;
                 const row = Math.floor(prev / SECTOR_GRID_W);
@@ -2056,7 +2125,7 @@ export function WorldMap({
         }
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [selectedSector]);
+    }, [selectedSector, sectorPlayerPos, currentSector, isTraveling]);
 
     function rollAncientChest(sector: number, allCards: TileCard[]): ChestLoot {
         // Always: XP scaled to sector
@@ -2719,6 +2788,7 @@ export function WorldMap({
         const liveNamesHere = new Set(livePlayersHere.map((p) => p.name.toLowerCase()));
         const sleepingHere: PlayerRecord[] = playerRoster
             .filter((player) => player.name.toLowerCase() !== character.name.toLowerCase())
+            .filter((player) => player.sleeping === true)
             .filter((player) => sameSector(player.currentSector, selectedSector))
             .filter((player) => !liveNamesHere.has(player.name.toLowerCase()))
             .filter((player) => !isRecentlyStruckDown(player.name))
@@ -2763,6 +2833,7 @@ export function WorldMap({
         const sectorTileRow = Math.floor(sectorPlayerPos / 12) + 1;
         const sectorOwnerLabel = territory.ownerClan ? `${territory.ownerClan} (${territory.ownerVillage})` : "Unclaimed";
         const sectorIsCurrent = sameSector(currentSector, selectedSector);
+        const sectorRoadExits = roadExitsForSector(selectedSector);
 
         return (
             <div className="map-instance">
@@ -2820,6 +2891,7 @@ export function WorldMap({
                             <SceneCritters biome={ambienceBiomeForSector(selectedSector)} />
                             {Array.from({ length: 144 }).map((_, index) => {
                                 const isPlayer = index === sectorPlayerPos;
+                                const roadExit = sectorRoadExits.find((exit) => exit.tile === index);
                                 const tileCol = (index % 12) + 1;
                                 const tileRow = Math.floor(index / 12) + 1;
                                 // With the live-peer overlay on, peers are drawn by <SectorPeers>
@@ -2830,11 +2902,24 @@ export function WorldMap({
                                     <button
                                         type="button"
                                         key={index}
-                                        title={otherHere.length > 0 ? otherHere.map(p => `${p.name} (Lv ${p.level})`).join(", ") : undefined}
-                                        aria-label={isPlayer ? `Current tile row ${tileRow} column ${tileCol}` : `Move to tile row ${tileRow} column ${tileCol}`}
-                                        className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
-                                        onClick={() => setSectorPlayerPos(index)}
+                                        title={roadExit
+                                            ? `${isPlayer && sectorIsCurrent ? "Cross" : "Road"} to Sector ${roadExit.destinationSector}`
+                                            : otherHere.length > 0 ? otherHere.map(p => `${p.name} (Lv ${p.level})`).join(", ") : undefined}
+                                        aria-label={roadExit
+                                            ? `${isPlayer && sectorIsCurrent ? "Cross" : "Move to road for"} Sector ${roadExit.destinationSector}`
+                                            : isPlayer ? `Current tile row ${tileRow} column ${tileCol}` : `Move to tile row ${tileRow} column ${tileCol}`}
+                                        className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${roadExit ? "sector-road-exit" : ""} ${isPlayer && roadExit && sectorIsCurrent ? "sector-road-exit-ready" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
+                                        onClick={() => {
+                                            if (roadExit && isPlayer && sectorIsCurrent) crossSectorExit(roadExit);
+                                            else setSectorPlayerPos(index);
+                                        }}
                                     >
+                                        {roadExit && (
+                                            <span className={`sector-road-marker is-${roadExit.direction}`} aria-hidden="true">
+                                                <b>{roadExit.direction === "north" ? "↑" : roadExit.direction === "east" ? "→" : roadExit.direction === "south" ? "↓" : "←"}</b>
+                                                <small>S{roadExit.destinationSector}</small>
+                                            </span>
+                                        )}
                                         {otherHere.length > 0 ? (
                                             <div className="other-players-map-stack">
                                                 {otherHere.map(p => (
@@ -3056,6 +3141,15 @@ export function WorldMap({
                                     text={huntToast.text}
                                     icon={<GiPawPrint size={22} />}
                                     onClose={() => setHuntToast(null)}
+                                />
+                            )}
+                            {travelToast && (
+                                <WorldToast
+                                    key={travelToast.id}
+                                    kicker={travelToast.kicker}
+                                    text={travelToast.text}
+                                    icon={<GiTrail size={22} />}
+                                    onClose={() => setTravelToast(null)}
                                 />
                             )}
                             {whisper && (
@@ -4202,6 +4296,15 @@ export function WorldMap({
                     text={huntToast.text}
                     icon={<GiPawPrint size={22} />}
                     onClose={() => setHuntToast(null)}
+                />
+            )}
+            {travelToast && (
+                <WorldToast
+                    key={travelToast.id}
+                    kicker={travelToast.kicker}
+                    text={travelToast.text}
+                    icon={<GiTrail size={22} />}
+                    onClose={() => setTravelToast(null)}
                 />
             )}
             {whisper && (

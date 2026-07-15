@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import type { Character, PlayerRecord } from "../types/character";
 import {
     getLiveSectorPlayers,
+    moveLiveSectorPlayer,
     presenceSignature,
     pushLiveSectorPlayers,
     resetLiveSectorPlayers,
     setLiveSectorContext,
+    upsertLiveSectorPlayer,
 } from "./presence-store";
 
 function player(name: string, sector: number, patch: Partial<PlayerRecord> = {}): PlayerRecord {
@@ -59,4 +61,12 @@ test("presence signature changes when attack availability changes", () => {
     const fighting = presenceSignature([player("Taro", 3, { inBattle: true })]);
 
     assert.notEqual(idle, fighting);
+});
+
+test("socket deltas add and move a player without replacing the roster", () => {
+    setLiveSectorContext(9);
+    upsertLiveSectorPlayer(player("Aya", 9, { tile: 10 }), 9);
+    assert.equal(getLiveSectorPlayers()[0]?.tile, 10);
+    moveLiveSectorPlayer("Aya", 11, 9);
+    assert.equal(getLiveSectorPlayers()[0]?.tile, 11);
 });

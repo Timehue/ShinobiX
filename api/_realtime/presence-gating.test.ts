@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { attackBlock, challengeBlock, sessionOpponentBlock } from './presence-gating.js';
+import { attackBlock, challengeBlock, sessionOpponentBlock, worldInteractionBlock } from './presence-gating.js';
 import type { OnlinePlayer } from './types.js';
 
 const NOW = 1_000_000;
@@ -43,6 +43,13 @@ test('attackBlock: Genin (level 15) is NOT Academy-protected', () => {
 test('attackBlock: unknown level (0 / missing) does NOT block', () => {
     assert.equal(attackBlock(player({ character: { level: 0 } }), NOW), null);
     assert.equal(attackBlock(player({ character: {} }), NOW), null);
+});
+
+test('worldInteractionBlock requires authoritative same-sector presence', () => {
+    const actor = player({ name: 'actor', displayName: 'Actor', sector: 12 });
+    assert.equal(worldInteractionBlock(actor, player({ sector: 12 }), NOW), null);
+    assert.equal(worldInteractionBlock(actor, player({ sector: 13 }), NOW)?.status, 409);
+    assert.equal(worldInteractionBlock(null, player({ sector: 12 }), NOW)?.status, 409);
 });
 
 test('challengeBlock: offline target is NOT blocked (queued)', () => {

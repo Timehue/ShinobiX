@@ -3,7 +3,7 @@ import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
-import { attackBlock } from '../_realtime/presence-gating.js';
+import { attackBlock, worldInteractionBlock } from '../_realtime/presence-gating.js';
 import { kickPlayer } from '../_realtime/notify.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -47,7 +47,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // the old `ex: 60` re-stamp guaranteed. attackBlock carries the offline
         // (404), Academy-protection (403 for sub-Genin), and traveling / engaged
         // / in-battle (409) gates.
-        const block = attackBlock(onlineStore.get(targetName));
+        const targetPresence = onlineStore.get(targetName);
+        if (!identity.admin) {
+            const locationBlock = worldInteractionBlock(onlineStore.get(identity.name), targetPresence);
+            if (locationBlock) return res.status(locationBlock.status).json({ error: locationBlock.error });
+        }
+        const block = attackBlock(targetPresence);
         if (block) return res.status(block.status).json({ error: block.error });
         onlineStore.setPendingAttacker(targetName, attacker ?? null);
         // Instant delivery: nudge the target to run an immediate heartbeat (which

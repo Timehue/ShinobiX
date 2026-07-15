@@ -28,11 +28,15 @@ export type OnlinePlayer = {
     pendingAttacker: unknown | null;
     /** ms epoch while traveling between sectors (untouchable window). */
     travelingUntil?: number;
+    /** Server-issued destination for the active three-second travel lease. */
+    travelDestinationSector?: number;
     /** true while a PvP session is active (blocks double-battle). */
     inBattle?: boolean;
     /** Within-sector tile (0..143) for live peer rendering. Display-only — no
      * gameplay path reads it (attack/heal/challenge use sector/inBattle/travel). */
     tile?: number;
+    /** Monotonic server sequence for within-sector movement deltas. */
+    movementSeq?: number;
 };
 
 /** Fields a heartbeat / ping supplies to refresh presence. */
@@ -56,6 +60,8 @@ export interface OnlineStateStore {
     get(name: string): OnlinePlayer | null;
     /** All currently-online (non-stale) players. */
     list(): OnlinePlayer[];
+    /** Currently-online players in one sector (sector-indexed, no global scan). */
+    listSector(sector: number): OnlinePlayer[];
     /** Forget a player entirely (logout, ban/kick, disconnect). */
     remove(name: string): void;
     /** Queue an incoming attacker on a target. Returns false if the target is offline. */
@@ -64,8 +70,12 @@ export interface OnlineStateStore {
     clearPendingAttacker(name: string): void;
     /** Set/clear the inBattle flag (PvP session start/end). */
     setInBattle(name: string, inBattle: boolean): void;
-    /** Drop entries past the offline window. Returns the removed canonical names. */
-    sweepStale(): string[];
+    /** Start a server-owned travel lease. Returns null if the player cannot travel. */
+    startTravel(name: string, destinationSector: number, arrivalAt: number): OnlinePlayer | null;
+    /** Apply a within-sector movement intent and return the refreshed record. */
+    moveToTile(name: string, tile: number): OnlinePlayer | null;
+    /** Drop entries past the offline window. Returns the removed records. */
+    sweepStale(): OnlinePlayer[];
     /** Number of tracked entries (including not-yet-swept stale ones). */
     size(): number;
 }

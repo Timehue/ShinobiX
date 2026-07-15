@@ -11748,6 +11748,59 @@ textarea {
     box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.62), 0 0 14px rgba(250, 204, 21, 0.34) !important;
 }
 
+.map-instance .sector-image-map .sector-road-exit {
+    position: relative;
+    z-index: 5;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.3), rgba(217, 119, 6, 0.22)) !important;
+    box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.52) !important;
+}
+
+.map-instance .sector-image-map .sector-road-exit-ready {
+    animation: sector-road-ready 1.35s ease-in-out infinite;
+    box-shadow: inset 0 0 0 2px rgba(253, 224, 71, 0.82), 0 0 16px rgba(245, 158, 11, 0.62) !important;
+}
+
+.sector-road-marker {
+    position: absolute;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 3px;
+    border: 1px solid rgba(253, 224, 71, 0.72);
+    border-radius: 4px;
+    background: rgba(8, 13, 26, 0.82);
+    color: #fef3c7;
+    line-height: 1;
+    text-shadow: 0 1px 2px #020617;
+    pointer-events: none;
+}
+
+.sector-road-marker small {
+    color: #fde68a;
+    font-size: clamp(7px, 0.75vw, 10px);
+    font-weight: 800;
+}
+
+.sector-road-marker b {
+    font-size: clamp(10px, 1vw, 14px);
+}
+
+.sector-road-marker.is-north { top: 1px; }
+.sector-road-marker.is-south { bottom: 1px; }
+.sector-road-marker.is-west { left: 1px; }
+.sector-road-marker.is-east { right: 1px; }
+
+@keyframes sector-road-ready {
+    50% { filter: brightness(1.28); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .map-instance .sector-image-map .sector-road-exit-ready {
+        animation: none;
+    }
+}
+
 .map-instance .sector-instance-frame > aside.sector-command-panel {
     grid-area: actions !important;
     grid-column: 2 !important;

@@ -1,10 +1,11 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { REGISTRY_KEY, isPublicPlayerIndexKey, publicIndexKey, publicIndexToLeaderboardRosterEntry } from './_public-index.js';
 import { readPublicPlayerIndex } from './_public-index-store.js';
+import { listSleeperCamps, setSleeperCamp, type SleeperCamp } from '../_realtime/sleeper-camps.js';
 
 // Fields stripped from EVERY character before the roster goes out the door.
 // Previously this endpoint returned `save.character` verbatim, leaking ryo,
@@ -127,6 +128,7 @@ type RosterPlayer = {
     character?: unknown;
     currentSector?: number;
     lastSeenAt?: number;
+    sleeping?: boolean;
 };
 
 function normalizeSector(value: unknown, fallback = 40) {
@@ -170,7 +172,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Primary: persistent registry (every player who ever connected)
-        const rawRegistry = await kv.hgetall<Record<string, string>>(REGISTRY_KEY) ?? {};
+        const [rawRegistry, sleeperCamps] = await Promise.all([
+            kv.hgetall<Record<string, string>>(REGISTRY_KEY).then((value) => value ?? {}),
+            listSleeperCamps(),
+        ]);
         const registryKeys = Object.keys(rawRegistry);
 
         // Batch-fetch all saves in one command instead of N sequential kv.get() calls.
@@ -183,6 +188,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             : [[], new Map<string, boolean>()];
 
         const players: RosterPlayer[] = [];
+        const legacyCamps: SleeperCamp[] = [];
 
         for (let i = 0; i < registryKeys.length; i++) {
             const key = registryKeys[i]!;
@@ -194,6 +200,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? settleSaveRecord(rawSave, { battleLocked: battleLocks.get(key) === true }).record
                     : null;
                 const livePresence = livePresenceByName.get((entry.name ?? '').toLowerCase());
+                const slug = safeName(String(entry.name ?? key));
+                let sleeperCamp = livePresence ? undefined : sleeperCamps.get(slug);
                 const rawCharacter = livePresence?.character ?? save?.character;
                 const character = rosterProjection(rawCharacter);
                 // The Nindo creed + its banner preset live only in the full save,
@@ -207,6 +215,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (typeof v === 'string' && v) (character as Record<string, unknown>)[k] = v;
                     }
                 }
+                const savedSector = normalizeSector(save?.currentSector, 0);
+                const fullCharacter = save?.character as Record<string, unknown> | undefined;
+                // One-time compatibility bridge for players who were already
+                // sleeping before explicit camp records shipped.
+                if (!livePresence && !sleeperCamp && savedSector >= 1 && fullCharacter && fullCharacter.hospitalized !== true && battleLocks.get(key) !== true) {
+                    sleeperCamp = {
+                        name: slug,
+                        displayName: String(entry.name ?? slug),
+                        sector: savedSector,
+                        createdAt: Number(entry.lastSeen ?? Date.now()),
+                    };
+                    legacyCamps.push(sleeperCamp);
+                }
                 players.push({
                     name: entry.name ?? '',
                     level: entry.level ?? 1,
@@ -214,10 +235,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     specialty: entry.specialty ?? '',
                     online: onlineNames.has((entry.name ?? '').toLowerCase()),
                     character,
-                    currentSector: normalizeSector(livePresence?.sector, normalizeSector(save?.currentSector, 40)),
+                    currentSector: livePresence ? normalizeSector(livePresence.sector, 0) : (sleeperCamp?.sector ?? 0),
                     lastSeenAt: livePresence?.lastSeenAt ?? entry.lastSeen ?? 0,
+                    sleeping: !livePresence && !!sleeperCamp,
                 });
             } catch { /* skip malformed */ }
+        }
+
+        if (legacyCamps.length) {
+            await Promise.all(legacyCamps.map(setSleeperCamp));
         }
 
         // Supplement: online players missing from the registry. Each save:<name>

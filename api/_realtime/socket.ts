@@ -34,11 +34,13 @@ import type { Server as HttpServer } from 'node:http';
 // rest of the server (e.g. the cPanel kv-proxy) boots normally.
 import type { Server as IOServer, Socket } from 'socket.io';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { kv } from '../_storage.js';
 import { onlineStore } from './online-store.js';
 import { stampPresenceBeat } from './_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
 import { setOnSweep } from './game-loop.js';
 import { setRealtimeEmitter } from './notify.js';
+import { clearSleeperCamp } from './sleeper-camps.js';
 // CORS origin predicate — single source of truth in api/_utils.ts, shared with
 // cors() and the Express middleware. Even when production serves the SPA and the
 // socket from the SAME origin (Railway), the browser still sends an Origin
@@ -68,13 +70,7 @@ function sectorRoom(sector: number): string {
 }
 
 function sectorSnapshot(sector: number) {
-    return onlineStore.list()
-        .filter(p => normalizeSector(p.sector) === sector)
-        .map(toPlayerRecord);
-}
-
-function broadcastSector(io: IOServer, sector: number): void {
-    io.to(sectorRoom(sector)).emit('presence:sector', { sector, players: sectorSnapshot(sector) });
+    return onlineStore.listSector(sector).map(toPlayerRecord);
 }
 
 type HandshakeAuth = Record<string, unknown>;
@@ -144,8 +140,16 @@ export function attachSocketServer(httpServer: HttpServer): void {
 function wireRealtime(io: IOServer): void {
     // Push departures the instant the game loop sweeps timed-out players. Names
     // are canonical (lowercase); the client compares case-insensitively.
-    setOnSweep((removedNames) => {
-        io.emit('presence:gone', { names: removedNames });
+    setOnSweep((removedPlayers) => {
+        const bySector = new Map<number, string[]>();
+        for (const player of removedPlayers) {
+            const names = bySector.get(player.sector) ?? [];
+            names.push(player.name);
+            bySector.set(player.sector, names);
+        }
+        for (const [sector, names] of bySector) {
+            io.to(sectorRoom(sector)).emit('presence:leave', { sector, names });
+        }
     });
 
     // Let request handlers (attack.ts / challenge.ts) kick a specific player to
@@ -176,6 +180,8 @@ function wireRealtime(io: IOServer): void {
 
             socket.data.name = canonicalName;
             socket.data.sector = -1; // not yet placed in a sector room
+            const saved = await kv.get<{ currentSector?: number }>(`save:${canonicalName}`);
+            socket.data.initialSector = normalizeSector(saved?.currentSector, 40);
             next();
         } catch {
             next(new Error('auth error'));
@@ -208,8 +214,11 @@ function wireRealtime(io: IOServer): void {
             };
             const now = Date.now();
             const prevSector: number = socket.data.sector;
-            const newSector = normalizeSector(p.sector, onlineStore.get(name)?.sector ?? 40);
-            const slim = slimPresenceCharacter(p.character) ?? onlineStore.get(name)?.character ?? null;
+            const previous = onlineStore.get(name);
+            const requestedSector = previous
+                ? normalizeSector(p.sector, previous.sector)
+                : normalizeSector(socket.data.initialSector, normalizeSector(p.sector, 40));
+            const slim = slimPresenceCharacter(p.character) ?? previous?.character ?? null;
             const displayName = displayNameFor(
                 p.displayName ?? (slim && typeof (slim as Record<string, unknown>).name === 'string'
                     ? (slim as Record<string, unknown>).name
@@ -217,29 +226,40 @@ function wireRealtime(io: IOServer): void {
             );
 
             // NAME is the authed socket identity — never the client body. No spoofing.
-            onlineStore.upsert({
+            const stored = onlineStore.upsert({
                 name: displayName,
-                sector: newSector,
+                sector: requestedSector,
                 character: slim as Record<string, unknown> | null,
                 travelingUntil: capTravelingUntil(p.travelingUntil, now),
                 inBattle: p.inBattle === true ? true : undefined,
-                tile: normalizeTile(p.tile, onlineStore.get(name)?.tile),
+                tile: normalizeTile(p.tile, previous?.tile),
             });
             // Throttled cross-worker presence beat (see _realtime/_presence-beat.ts).
             stampPresenceBeat(displayName);
+            void clearSleeperCamp(displayName).catch(() => undefined);
+            const newSector = stored.sector;
 
             if (newSector !== prevSector) {
-                if (prevSector >= 0) socket.leave(sectorRoom(prevSector));
+                if (prevSector >= 0) {
+                    socket.to(sectorRoom(prevSector)).emit('presence:leave', { sector: prevSector, names: [name] });
+                    socket.leave(sectorRoom(prevSector));
+                }
                 socket.join(sectorRoom(newSector));
                 socket.data.sector = newSector;
                 // The joining socket gets the fresh snapshot immediately…
                 socket.emit('presence:sector', { sector: newSector, players: sectorSnapshot(newSector) });
                 // …and both affected rooms see the membership change.
-                broadcastSector(io, newSector);
-                if (prevSector >= 0) broadcastSector(io, prevSector);
+                socket.to(sectorRoom(newSector)).emit('presence:join', { sector: newSector, player: toPlayerRecord(stored) });
             } else {
                 // Same sector — peers may need the state change (inBattle, etc.).
-                broadcastSector(io, newSector);
+                const changed = !previous
+                    || previous.displayName !== stored.displayName
+                    || previous.inBattle !== stored.inBattle
+                    || previous.travelingUntil !== stored.travelingUntil
+                    || JSON.stringify(previous.character) !== JSON.stringify(stored.character);
+                if (changed) {
+                    socket.to(sectorRoom(newSector)).emit('presence:update', { sector: newSector, player: toPlayerRecord(stored) });
+                }
             }
         };
 
@@ -287,12 +307,53 @@ function wireRealtime(io: IOServer): void {
 
         socket.on('presence', onPresence);
 
+        // Tile movement has a dedicated tiny delta path. This avoids rebuilding
+        // and broadcasting the whole sector roster for every click/WASD step.
+        let lastMoveAt = 0;
+        let pendingMove: unknown;
+        let moveTimer: ReturnType<typeof setTimeout> | null = null;
+        const applyMove = (payload: unknown): void => {
+            const current = onlineStore.get(name);
+            if (!current || current.sector !== socket.data.sector) return;
+            const tile = normalizeTile((payload as { tile?: unknown })?.tile);
+            if (tile === undefined || tile === current.tile) return;
+            const moved = onlineStore.moveToTile(name, tile);
+            if (!moved) return;
+            socket.to(sectorRoom(moved.sector)).emit('presence:move', {
+                sector: moved.sector,
+                name: moved.displayName,
+                tile: moved.tile,
+                sequence: moved.movementSeq ?? 0,
+            });
+        };
+        const onMove = (payload: unknown): void => {
+            const now = Date.now();
+            const elapsed = now - lastMoveAt;
+            const minInterval = 80;
+            if (elapsed >= minInterval) {
+                lastMoveAt = now;
+                applyMove(payload);
+                return;
+            }
+            pendingMove = payload;
+            if (!moveTimer) {
+                moveTimer = setTimeout(() => {
+                    moveTimer = null;
+                    lastMoveAt = Date.now();
+                    applyMove(pendingMove);
+                    pendingMove = undefined;
+                }, minInterval - elapsed);
+            }
+        };
+        socket.on('presence:move', onMove);
+
         // On-demand snapshot (e.g. right after a reconnect).
         socket.on('presence:request', (payload: unknown) => {
-            const sector = normalizeSector(
+            const requested = normalizeSector(
                 (payload as { sector?: unknown })?.sector,
                 socket.data.sector >= 0 ? socket.data.sector : 40,
             );
+            const sector = socket.data.sector >= 0 ? socket.data.sector : requested;
             socket.emit('presence:sector', { sector, players: sectorSnapshot(sector) });
         });
 
@@ -303,6 +364,7 @@ function wireRealtime(io: IOServer): void {
                 clearTimeout(socket.data.presenceTimer);
                 socket.data.presenceTimer = null;
             }
+            if (moveTimer) clearTimeout(moveTimer);
             // Do NOT remove from the store here. Per the presence spec the player
             // stays "online" until the 45-60s sweep (they may reconnect, and the
             // HTTP heartbeat may still own the row). Just leave the room; the

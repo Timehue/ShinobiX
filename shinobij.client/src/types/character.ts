@@ -669,6 +669,7 @@ export type PlayerRecord = {
     inBattle?: boolean;
     clan?: string; // surfaced from presence for the Scout Network war overlay
     tile?: number; // within-sector tile (0..143) for live peer rendering; display-only
+    sleeping?: boolean; // explicit server-managed offline camp entity
 };
 
 export type ServerPlayerSummary = {
@@ -681,4 +682,5 @@ export type ServerPlayerSummary = {
     currentSector?: number;
     lastSeenAt?: number;
     travelingUntil?: number;
+    sleeping?: boolean;
 };
