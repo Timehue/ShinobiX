@@ -8,6 +8,8 @@ import { isWeeklyBossRoamEnabled, weeklyBossRoamState } from "../lib/weekly-boss
 import type { Character, PlayerRecord } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
+import { BattleTowerFight } from "./BattleTowerFight";
+import type { TowerSession } from "../lib/towers-api";
 
 // ─── Weekly Boss Arena ────────────────────────────────────────────────────────
 // Shared-HP boss fought by the whole server. Damage is tracked server-side;
@@ -17,11 +19,11 @@ import type { Screen } from "../types/core";
 // from the full Arena.
 export function WeeklyBossArena({
     character,
+    updateCharacter,
     creatorAis,
     setScreen,
     playerRoster,
     sharedImages = {},
-    onLaunchFight,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
@@ -39,6 +41,8 @@ export function WeeklyBossArena({
     const [fightDisabledReason, setFightDisabledReason] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [startingFight, setStartingFight] = useState(false);
+    const [fight, setFight] = useState<{ runId: string; session: TowerSession } | null>(null);
 
     const refresh = useCallback(async () => {
         try {
@@ -59,6 +63,55 @@ export function WeeklyBossArena({
         void refresh();
         return visiblePoll(refresh, 15000);
     }, [refresh]);
+
+    async function launchAuthoritativeFight() {
+        if (startingFight) return;
+        setStartingFight(true);
+        try {
+            const response = await fetch("/api/weekly-boss", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ kind: "startFight" }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data?.runId || !data?.session) {
+                setError(data?.error ?? "The Weekly Boss fight could not be started.");
+                return;
+            }
+            if (data?.character) updateCharacter(data.character);
+            setFight({ runId: data.runId, session: data.session });
+        } catch (cause) {
+            setError(String((cause as Error).message || cause));
+        } finally {
+            setStartingFight(false);
+        }
+    }
+
+    async function settleAuthoritativeFight(runId: string): Promise<unknown> {
+        const response = await fetch("/api/weekly-boss", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind: "logFight", runId }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error ?? "Weekly Boss settlement failed.");
+        if (data?.boss) setBossState(data.boss);
+        return data;
+    }
+
+    if (fight) {
+        return (
+            <BattleTowerFight
+                character={character}
+                sharedImages={sharedImages}
+                runId={fight.runId}
+                initialSession={fight.session}
+                settleFn={settleAuthoritativeFight}
+                settleOnAnyDone
+                onExit={() => { setFight(null); void refresh(); }}
+            />
+        );
+    }
 
     // Resolve the picked boss AI so the arena page can show its art.
     // Admins pick the active boss in the Admin → AIs / Weekly Boss panel;
@@ -206,7 +259,7 @@ export function WeeklyBossArena({
                     </button>
                 ) : (
                     <button
-                        disabled={expired || lockedOut || contributionDisabled || (character.stamina ?? 0) < 20}
+                        disabled={startingFight || expired || lockedOut || contributionDisabled || (character.stamina ?? 0) < 20}
                         style={{
                             padding: "0.8rem",
                             background: expired || lockedOut || contributionDisabled ? "#333" : "linear-gradient(#7f1d1d,#450a0a)",
@@ -214,10 +267,7 @@ export function WeeklyBossArena({
                             fontWeight: 700,
                             opacity: expired || lockedOut || contributionDisabled ? 0.6 : 1,
                         }}
-                        onClick={() => {
-                            if (!bossState) return;
-                            onLaunchFight?.(bossState.aiId, bossState.bossName ?? bossAi?.name);
-                        }}
+                        onClick={() => { void launchAuthoritativeFight(); }}
                     >
                         {expired
                             ? <><GiTombstone style={WB_ICON} />Despawned</>
