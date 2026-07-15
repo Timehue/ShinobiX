@@ -4,7 +4,7 @@
 
 | Release stage | Verdict | Basis |
 | --- | --- | --- |
-| Internal testing | Ready | Builds, 3,150-test suite, focused authority tests, topology, rollback-readiness, asset, size, lint, and dependency gates pass. |
+| Internal testing | Ready | Builds, 3,151-test suite, focused authority tests, topology, rollback-readiness, asset, size, lint, dependency, browser-smoke, and CodeQL gates pass. |
 | Closed alpha | Ready with monitoring | Core loop has prior production evidence and high-risk reward flags can remain closed. Limit accounts and retain emergency controls. |
 | Controlled public beta | **Not certified on the current deployment yet** | Live deep health/backup and the two-role admin matrix now pass. First-server-reward evidence, live Clan Boss/War evidence, a repeated restore drill, and post-deploy proof that the local latency mitigation restores the SLO remain. |
 | Wider public beta | Not ready | Real-storage concurrency, complete authority migrations, authenticated load, staffed war evidence, and broader live operations are incomplete. |
@@ -98,7 +98,7 @@ The production deployment is Railway service `ShinobiX` in `production`, one US 
 | --- | --- |
 | `npm ci` | Pass; 172 packages, 0 vulnerabilities. |
 | `cd shinobij.client && npm ci` | Pass after stopping a repository Vite process that held the Windows native Rolldown binary; 316 packages, 0 vulnerabilities. |
-| `npm test` | **3,150 pass, 0 fail, 489 suites** on the clean candidate. |
+| `npm test` | **3,151 pass, 0 fail, 489 suites** in PR CI on the clean candidate. |
 | `npm run build:server` | Pass. |
 | `npm run build` | Pass after the same Vite file-lock process was stopped; server/client build, dist verification, sizecheck all pass. |
 | `npm run test:mission-eligibility` | Pass. |
@@ -173,7 +173,7 @@ Item 1 was intentionally handled last. Current status for all seven items:
 
 | Item | Current result | Still required |
 | --- | --- | --- |
-| 1. Clean integration/deploy | **Clean candidate complete locally:** the 62-file handoff diff was separated from 236 tracked and 188 untracked changes in the original worktree, split into seven logical commits, and replayed onto current `origin/main` as `codex/beta-readiness-candidate`. Clean-candidate validation passes: 3,150/3,150 tests, production build, client lint, root/client high-severity audits, backup, rollback-readiness, deployment topology, mission eligibility, release assets, and diff hygiene. | Push the canonical branch, open the draft PR, review/merge it, deploy that exact commit, then run the post-deploy health/latency and retained-account certification evidence. |
+| 1. Clean integration/deploy | **Clean candidate published and green:** the 63-file handoff diff was separated from 236 tracked and 188 untracked changes in the original worktree, split by logical concern, replayed onto current `origin/main` as `codex/beta-readiness-candidate`, and published as draft PR [#22](https://github.com/Timehue/ShinobiX/pull/22). The PR is mergeable and clean. CI passes 3,151/3,151 tests, production build, client lint/build/audit, browser smoke, deployment topology, mission eligibility, release assets, and all CodeQL checks. | Review/merge PR #22, deploy that exact commit, then run the post-deploy health/latency and retained-account certification evidence. |
 | 2. Deep health/backup | **Configuration complete; latency code complete locally:** authenticated production deep health passes on `70ba56b4`, `saveStore` is `remote-proxy`, the backup is fresh, and `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=10` is applied with a successful healthy rollout. The full roster and bloodline list now single-flight/cache the remote all-save projection for 60 seconds; focused cache tests pass 5/5 and the server build passes. | Deploy the code candidate and prove the 15-minute p95 is below 1,500 ms. Add exact subroute timing only if the post-deploy SLO remains unhealthy. |
 | 3. Fresh account | **Live journey and hostile/retry evidence substantially complete on old production:** `beta-cert-0714-c` completed the full player-visible onboarding path, the Academy Trial paid once, three duplicate/concurrent retry attempts paid nothing, wrong-account claim was denied, a revoked session was denied, and second login restored progression, equipment, mission, position, and currency state. Production reproduced the known starter defect (`activePetId` present but `pets` empty); the local dedicated starter-entitlement path passes 4/4. The journey account is retained and clearly labeled; the second hostile-check account was deleted. | Ship item 1, rerun the companion restore, capture the original successful reward request ID, then produce the passing 19-step validator record. |
 | 4. Admin matrix | **Complete:** live matrix passes for Admin 1, Admin 2, and ordinary denial on `70ba56b4`; no credential value was exposed. | Re-run only after a credential-policy or deployment change. |
