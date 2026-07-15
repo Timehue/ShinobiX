@@ -27,6 +27,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { trustedPublishOrigin } from './_trusted-tool-io.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.resolve(HERE, '..'); // shinobij.client/
@@ -160,6 +161,8 @@ async function main() {
     console.log('\ngenerating…');
     // fal's synchronous REST endpoint: POST https://fal.run/<model> returns the
     // result inline (image URLs) for fast models like FLUX.
+    // This offline generator intentionally sends its curated prompt and configured API credential to fal.ai.
+    // codeql[js/file-access-to-http]
     const falRes = await fetch(`https://fal.run/${model}`, {
         method: 'POST',
         headers: { Authorization: `Key ${falKey}`, 'Content-Type': 'application/json' },
@@ -197,13 +200,15 @@ async function main() {
     console.log(`done:    ${(webp.length / 1024).toFixed(0)} KB  →  ${path.relative(CLIENT_ROOT, outFile)}`);
 
     if (flags.publish) {
-        const server = (flags.server || 'http://localhost:5173').replace(/\/$/, '');
+        const server = trustedPublishOrigin(flags.server || 'http://localhost:5173');
         const adminPw = resolveEnvKey('ADMIN_PASSWORD');
         if (!adminPw) {
             console.error('error: --publish needs ADMIN_PASSWORD. Asset saved to disk only.');
             process.exit(1);
         }
         const dataUrl = `data:image/webp;base64,${webp.toString('base64')}`;
+        // Local asset bytes are intentionally uploaded after the target-origin allowlist check.
+        // codeql[js/file-access-to-http]
         const res = await fetch(`${server}/api/images`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },

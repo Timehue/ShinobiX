@@ -56,6 +56,8 @@ async function regenFrame(key, id, cat, refCat) {
     if (!fs.existsSync(ref)) throw new Error(`no reference ${id}-${refCat}`);
     const dataUri = `data:image/webp;base64,${fs.readFileSync(ref).toString('base64')}`;
     const prompt = `Using the attached image as the EXACT reference creature, redraw the SAME creature in ${POSE_DESC[cat] || POSE_DESC.idle}.${CHROMA ? RULES_CHROMA : RULES}`;
+    // This offline generator intentionally sends the selected local sprite and configured credential to fal.ai.
+    // codeql[js/file-access-to-http]
     const res = await fetch('https://fal.run/fal-ai/nano-banana/edit', {
         method: 'POST',
         headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },

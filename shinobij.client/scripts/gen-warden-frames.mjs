@@ -52,6 +52,8 @@ function keyMagenta(data) {
 
 async function genPose(pose, desc, key, refUri) {
     const prompt = `Using the attached image as the EXACT reference creature (a colossal stone-and-moss temple golem boss with glowing teal rune-light and two horns), redraw the SAME golem as a SINGLE full-body figure in this pose: ${desc}. Front three-quarter view, facing slightly to the right, centered, full body head-to-feet, on a SOLID FLAT PURE MAGENTA background (hex #FF00FF, chroma-key green-screen style, completely uniform, no gradient), identical art style, colors, rune-light, proportions and size to the reference. The golem itself must contain NO magenta or pink. No text, no labels, no extra characters, no ground line, no shadow. Keep it perfectly on-model with the reference.`;
+    // This offline generator intentionally sends the selected local sprite and configured credential to fal.ai.
+    // codeql[js/file-access-to-http]
     const res = await fetch('https://fal.run/fal-ai/nano-banana/edit', {
         method: 'POST',
         headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },

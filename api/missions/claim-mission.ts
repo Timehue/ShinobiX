@@ -18,6 +18,7 @@ import {
 } from './_mission-progress-receipt.js';
 import {
     clientTrustedCombatMissionRewardAllowed,
+    combatMissionClaimAuthorityAllowed,
     COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON,
 } from '../_release-flags.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
@@ -200,9 +201,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (missionType === 'combat') {
                 const def = combatMissionByKey(missionId);
                 if (!def) return { applied: false, reason: 'unknown-mission' };
-                if (!clientTrustedCombatMissionRewardAllowed(def)) {
-                    return { applied: false, reason: COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
-                }
                 const eligibility = canPlayerClaimMission(char, def);
                 if (!eligibility.ok) return eligibilityFailure(eligibility);
                 // Server-authoritative claim gate: the single-use token minted by
@@ -214,9 +212,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // accept that too so no in-flight claim is ever stranded. We're
                 // inside the save lock, so this get→del is race-free per player.
                 const tokenKey = `missions:combat-claim:${playerName}:${def.key}`;
-                const hasToken = !!(await kv.get(tokenKey).catch(() => null));
+                const tokenRecord = await kv.get<unknown>(tokenKey).catch(() => null);
+                const hasToken = !!tokenRecord;
+                const legacyClientAllowed = clientTrustedCombatMissionRewardAllowed(def);
+                if (!combatMissionClaimAuthorityAllowed(def, tokenRecord)) {
+                    return { applied: false, reason: COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
+                }
                 const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims as string[] : [];
-                const hasLegacyFlag = pending.includes(def.key);
+                const hasLegacyFlag = legacyClientAllowed && pending.includes(def.key);
                 if (!hasToken && !hasLegacyFlag) return { applied: false, reason: 'not-queued' };
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
                 // Consume the token once eligibility passes (before payout), so a
@@ -425,6 +428,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const { saveVersion, ...body } = outcome;
             return res.status(200).json({ ok: true, ...body, character: finalCharacter, _saveVersion: finalSaveVersion });
         }
+        // Aggregate-only beta signal for hostile/replayed and failed reward
+        // attempts. No player identifier or request body is recorded.
+        await recordBetaMetric({
+            event: ['already-claimed', 'not-queued', 'duplicate'].some((part) => String(outcome.reason ?? '').includes(part))
+                ? 'reward.duplicate_rejected'
+                : 'reward.claim_failed',
+            source: `mission:${missionType}:${String(outcome.reason ?? 'unknown').slice(0, 40)}`,
+        });
         return res.status(200).json({ ok: true, ...outcome });
     } catch (err) {
         console.error('[missions/claim-mission]', err);
