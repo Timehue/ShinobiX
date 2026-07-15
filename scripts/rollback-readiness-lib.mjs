@@ -27,5 +27,8 @@ export function validateRollbackReadiness({ schemaSql, railway, packageJson }) {
     for (const script of ['drill:restore', 'test:backup']) {
         if (!packageJson?.scripts?.[script]) failures.push(`missing package script ${script}`);
     }
+    if (packageJson?.scripts?.['drill:restore'] && !/\bkv-backup\.mjs\s+drill\b/.test(packageJson.scripts['drill:restore'])) {
+        failures.push('drill:restore must run the evidence-producing kv-backup drill mode');
+    }
     return { ok: failures.length === 0, failures, destructiveStatements: destructive };
 }
