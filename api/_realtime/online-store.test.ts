@@ -21,7 +21,7 @@ test('upsert is case-insensitive; get/list reflect it', () => {
     assert.equal(store.size(), 1);
 });
 
-test('upsert preserves pendingAttacker and connectedAt across beats', () => {
+test('upsert preserves pendingAttacker and connectedAt and rejects an unleased teleport', () => {
     const { store, advance } = makeStore();
     const first = store.upsert({ name: 'rill', sector: 1, character: null });
     assert.equal(store.setPendingAttacker('rill', { name: 'zayah' }), true);
@@ -29,7 +29,28 @@ test('upsert preserves pendingAttacker and connectedAt across beats', () => {
     const second = store.upsert({ name: 'rill', sector: 2, character: null });
     assert.equal(second.connectedAt, first.connectedAt, 'connectedAt is stable');
     assert.deepEqual(second.pendingAttacker, { name: 'zayah' }, 'pendingAttacker survives a refresh');
-    assert.equal(second.sector, 2, 'sector updates');
+    assert.equal(second.sector, 1, 'presence cannot teleport an established session');
+});
+
+test('server-issued travel changes sector only after its arrival deadline', () => {
+    const { store, advance, at } = makeStore();
+    store.upsert({ name: 'rill', sector: 1, character: null });
+    assert.ok(store.startTravel('rill', 2, at() + 3_000));
+    assert.equal(store.upsert({ name: 'rill', sector: 2, character: null }).sector, 1);
+    advance(3_000);
+    assert.equal(store.upsert({ name: 'rill', sector: 2, character: null }).sector, 2);
+    assert.equal(store.listSector(1).length, 0);
+    assert.deepEqual(store.listSector(2).map((p) => p.name), ['rill']);
+});
+
+test('moveToTile refreshes a player and increments movement sequence', () => {
+    const { store } = makeStore();
+    store.upsert({ name: 'rill', sector: 1, character: null, tile: 10 });
+    const firstSequence = store.moveToTile('rill', 11)?.movementSeq;
+    const second = store.moveToTile('rill', 12);
+    assert.equal(firstSequence, 1);
+    assert.equal(second?.movementSeq, 2);
+    assert.equal(second?.tile, 12);
 });
 
 test('character falls back to the previously-stored slim character', () => {
@@ -48,7 +69,7 @@ test('stale entries disappear from get/list and are removed by sweepStale', () =
     assert.equal(store.list().length, 0, 'stale entry excluded from list');
     assert.equal(store.size(), 1, 'still in the map until swept');
     const removed = store.sweepStale();
-    assert.deepEqual(removed, ['rill']);
+    assert.deepEqual(removed.map((p) => p.name), ['rill']);
     assert.equal(store.size(), 0, 'swept out of the map');
 });
 

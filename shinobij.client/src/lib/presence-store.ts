@@ -184,6 +184,46 @@ export function pushLiveSectorPlayers(next: PlayerRecord[], sector?: number): vo
     notify();
 }
 
+/** Apply a socket join/state delta without replacing the complete sector roster. */
+export function upsertLiveSectorPlayer(player: PlayerRecord, sector: number): void {
+    const snapshotSector = normalizedSector(sector);
+    if (snapshotSector == null || (liveSector != null && liveSector !== snapshotSector)) return;
+    const normalized = normalizePlayerRecord(player);
+    if (playerSector(normalized) !== snapshotSector) return;
+    liveSector = snapshotSector;
+    const lname = normalized.name.toLowerCase();
+    lingerUntil.delete(lname);
+    const index = liveArr.findIndex((p) => p.name.toLowerCase() === lname);
+    const next = index >= 0
+        ? liveArr.map((p, i) => i === index ? normalized : p)
+        : [...liveArr, normalized];
+    const memberSig = presenceSignature(next);
+    const sig = liveSignature(next, memberSig);
+    if (sig === liveSig) return;
+    liveArr = next;
+    liveSig = sig;
+    if (memberSig !== rosterSig) {
+        rosterArr = next;
+        rosterSig = memberSig;
+    }
+    if (prefetch) prefetch([normalized.name]);
+    notify();
+}
+
+/** Apply a high-frequency tile delta while keeping the roster snapshot stable. */
+export function moveLiveSectorPlayer(name: string, tile: number, sector: number): void {
+    const snapshotSector = normalizedSector(sector);
+    if (snapshotSector == null || (liveSector != null && liveSector !== snapshotSector)) return;
+    const lname = name.toLowerCase();
+    const index = liveArr.findIndex((p) => p.name.toLowerCase() === lname);
+    if (index < 0 || liveArr[index].tile === tile) return;
+    liveArr = liveArr.map((p, i) => i === index ? { ...p, tile } : p);
+    liveSig = liveSignature(liveArr, rosterSig);
+    // rosterArr intentionally remains unchanged: tile movement should only
+    // re-render the peer overlay, not WorldMap's membership/status panels.
+    notify();
+}
+
 /**
  * Remove players authoritatively (socket `presence:gone` sweep). Bypasses the
  * linger grace so a real departure clears within one frame.

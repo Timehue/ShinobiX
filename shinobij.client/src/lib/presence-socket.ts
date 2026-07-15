@@ -42,6 +42,8 @@ export type PresenceFrame = {
 };
 
 type SectorHandler = (sector: number, players: PlayerRecord[]) => void;
+type PlayerHandler = (sector: number, player: PlayerRecord) => void;
+type MoveHandler = (sector: number, name: string, tile: number, sequence: number) => void;
 type GoneHandler = (names: string[]) => void;
 type KickHandler = (reason: string) => void;
 type StatusHandler = (connected: boolean) => void;
@@ -51,6 +53,9 @@ let pingTimer: ReturnType<typeof setInterval> | null = null;
 let latestFrame: PresenceFrame | null = null;
 
 const sectorHandlers = new Set<SectorHandler>();
+const joinHandlers = new Set<PlayerHandler>();
+const updateHandlers = new Set<PlayerHandler>();
+const moveHandlers = new Set<MoveHandler>();
 const goneHandlers = new Set<GoneHandler>();
 const kickHandlers = new Set<KickHandler>();
 const statusHandlers = new Set<StatusHandler>();
@@ -121,6 +126,22 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         const players = Array.isArray(data.players) ? data.players : [];
         sectorHandlers.forEach((h) => h(data.sector, players));
     });
+    socket.on('presence:join', (data: { sector?: number; player?: PlayerRecord } | null) => {
+        if (!data?.player || typeof data.sector !== 'number') return;
+        joinHandlers.forEach((h) => h(data.sector!, data.player!));
+    });
+    socket.on('presence:update', (data: { sector?: number; player?: PlayerRecord } | null) => {
+        if (!data?.player || typeof data.sector !== 'number') return;
+        updateHandlers.forEach((h) => h(data.sector!, data.player!));
+    });
+    socket.on('presence:move', (data: { sector?: number; name?: string; tile?: number; sequence?: number } | null) => {
+        if (!data || typeof data.sector !== 'number' || typeof data.name !== 'string' || typeof data.tile !== 'number') return;
+        moveHandlers.forEach((h) => h(data.sector!, data.name!, data.tile!, Number(data.sequence ?? 0)));
+    });
+    socket.on('presence:leave', (data: { names?: string[] } | null) => {
+        if (!data?.names?.length) return;
+        goneHandlers.forEach((h) => h(data.names!));
+    });
     socket.on('presence:gone', (data: { names?: string[] } | null) => {
         if (!data?.names?.length) return;
         goneHandlers.forEach((h) => h(data.names!));
@@ -139,6 +160,13 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
 export function updatePresence(frame: PresenceFrame): void {
     latestFrame = frame;
     if (socket?.connected) socket.emit('presence', frame);
+}
+
+/** Push an immediate tile intent without waiting for the 20s reconcile frame. */
+export function updatePresenceTile(tile: number): void {
+    if (!latestFrame) return;
+    latestFrame = { ...latestFrame, tile };
+    if (socket?.connected) socket.emit('presence:move', { tile });
 }
 
 /** Ask the server for a sector's current roster (e.g. right after reconnect). */
@@ -164,6 +192,18 @@ export function disconnectRealtime(): void {
 export function onSector(fn: SectorHandler): () => void {
     sectorHandlers.add(fn);
     return () => { sectorHandlers.delete(fn); };
+}
+export function onJoin(fn: PlayerHandler): () => void {
+    joinHandlers.add(fn);
+    return () => { joinHandlers.delete(fn); };
+}
+export function onUpdate(fn: PlayerHandler): () => void {
+    updateHandlers.add(fn);
+    return () => { updateHandlers.delete(fn); };
+}
+export function onMove(fn: MoveHandler): () => void {
+    moveHandlers.add(fn);
+    return () => { moveHandlers.delete(fn); };
 }
 export function onGone(fn: GoneHandler): () => void {
     goneHandlers.add(fn);

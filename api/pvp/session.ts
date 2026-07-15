@@ -5,7 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
-import { sessionOpponentBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
+import { sessionOpponentBlock, worldInteractionBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { consumeRankedMatchToken } from '../_ranked-match-token.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
@@ -1016,7 +1016,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pvp-session-create', 6, 60_000, rlName))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, ranked, rankedKind, baseRewards, rewardSector } = body as {
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, requireWorldCoLocation, ranked, rankedKind, baseRewards, rewardSector } = body as {
                 p1Character?: Record<string, unknown>;
                 p2Character?: Record<string, unknown>;
                 biome?: string;
@@ -1028,6 +1028,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // currently has. Spar / ranked / arena default to a fresh-start
                 // reset (full vitals). Pass true only from sector/guard flows.
                 useCurrentVitals?: boolean;
+                requireWorldCoLocation?: boolean;
                 // Ranked-match markers (audit #7 / Stage 3). The client asserts
                 // `ranked` + which ladder; the server snapshots BOTH fighters'
                 // pre-match Elo from their saves below (never trusting a
@@ -1073,7 +1074,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // real ONLINE player; offline targets stay optimistic/queued.
                 const opponentNorm = me === p1Norm ? p2Norm : p1Norm;
                 if (opponentNorm) {
-                    const block = sessionOpponentBlock(onlineStore.get(opponentNorm), me);
+                    const opponentPresence = onlineStore.get(opponentNorm);
+                    if (requireWorldCoLocation === true) {
+                        const locationBlock = worldInteractionBlock(onlineStore.get(me), opponentPresence);
+                        if (locationBlock) return res.status(locationBlock.status).json({ error: locationBlock.error });
+                    }
+                    const block = sessionOpponentBlock(opponentPresence, me);
                     if (block) return res.status(block.status).json({ error: block.error });
                 }
             }

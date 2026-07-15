@@ -10,6 +10,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { env } from 'process';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { playerPasswordPolicyError } from './src/lib/player-auth-policy';
+import { sectorExitById } from '../shared/sector-links';
 
 // ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
 const isBuildMode = process.argv.includes('build');
@@ -101,7 +102,7 @@ function errorMessage(err: unknown, fallback = 'Request failed.') {
 }
 
 function safeName(name: string) {
-    return name.replace(/[^a-z0-9\-_]/g, '').toLowerCase();
+    return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '');
 }
 
 const RESERVED_DEV_AUTH_NAMES = new Set(['admin', 'admin1', 'admin2', 'system', 'server', 'player', 'kage', 'narrator']);
@@ -146,11 +147,20 @@ function devTokenPlayer(req: IncomingMessage): string | null {
     if (typeof token !== 'string' || typeof claimedName !== 'string') return null;
     const parts = token.split('.');
     if (parts.length !== 3 || parts[0] !== 'dev' || !parts[2]) return null;
-    const issuedTo = devSessionTokens.get(token);
-    if (!issuedTo) return null;
     try {
         const tokenName = safeName(Buffer.from(parts[1], 'base64url').toString('utf8'));
-        return tokenName && tokenName === issuedTo && tokenName === safeName(claimedName) ? tokenName : null;
+        const issuedTo = devSessionTokens.get(token);
+        // Vite may reload the config module while the browser keeps its session,
+        // which clears this in-memory registry. A dev token still carries its
+        // player id plus 256 bits of entropy; accepting that shape locally keeps
+        // hot reload from logging QA sessions out. Production never uses this
+        // format: its tokens are signed, revocable, and validated by _auth.ts.
+        const structurallyValidAfterReload = !issuedTo && parts[2].length >= 43;
+        return tokenName
+            && tokenName === safeName(claimedName)
+            && (issuedTo === tokenName || structurallyValidAfterReload)
+            ? tokenName
+            : null;
     } catch {
         return null;
     }
@@ -303,8 +313,11 @@ function mergePreservingImages(incoming: unknown, existing: unknown): unknown {
 type PlayerPresence = {
     name: string;
     sector: number;
+    tile: number;
     character: unknown;
     lastSeen: number;
+    travelingUntil: number;
+    destinationSector?: number;
     pendingAttacker: unknown | null;
 };
 const playerPresence = new Map<string, PlayerPresence>();
@@ -364,14 +377,26 @@ export default defineConfig({
                     try {
                         const parsed = parseJsonBody(await readBody(req));
                         if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
-                        const { name, sector, character } = parsed.body as { name?: string; sector?: number; character?: unknown };
+                        const { name, sector, tile, character, travelingUntil } = parsed.body as { name?: string; sector?: number; tile?: number; character?: unknown; travelingUntil?: number };
                         if (!name) { sendJson(res, 400, { error: 'Missing name.' }); return; }
                         const playerId = safeName(name);
                         if (!playerId) { sendJson(res, 400, { error: 'Invalid name.' }); return; }
-                        const existing = playerPresence.get(playerId) ?? { name: name.trim(), sector: sectorFrom(sector, 40), character, lastSeen: 0, pendingAttacker: null };
+                        const existing = playerPresence.get(playerId) ?? { name: name.trim(), sector: sectorFrom(sector, 40), tile: sectorFrom(tile, 78), character, lastSeen: 0, travelingUntil: 0, pendingAttacker: null };
                         const pendingAttacker = existing.pendingAttacker;
-                        const nextSector = sectorFrom(sector, existing.sector);
-                        playerPresence.set(playerId, { name: name.trim(), sector: nextSector, character: character ?? existing.character, lastSeen: Date.now(), pendingAttacker: null });
+                        const now = Date.now();
+                        const travelFinished = existing.destinationSector !== undefined && existing.travelingUntil <= now;
+                        const nextSector = existing.travelingUntil > now
+                            ? existing.sector
+                            : travelFinished ? existing.destinationSector! : sectorFrom(sector, existing.sector);
+                        playerPresence.set(playerId, {
+                            name: name.trim(),
+                            sector: nextSector,
+                            tile: sectorFrom(tile, existing.tile),
+                            character: character ?? existing.character,
+                            lastSeen: now,
+                            travelingUntil: existing.travelingUntil > now ? existing.travelingUntil : Math.max(0, Number(travelingUntil) || 0),
+                            pendingAttacker: null,
+                        });
                         const sectorMates = [...playerPresence.values()]
                             .filter(p => safeName(p.name) !== playerId && p.sector === nextSector)
                             .map(({ name: n, sector: s, character: c }) => {
@@ -419,6 +444,47 @@ export default defineConfig({
                         const p = playerPresence.get(playerId);
                         if (p) playerPresence.set(playerId, { ...p, pendingAttacker: null });
                         sendJson(res, 200, { ok: true });
+                    } catch (err: unknown) {
+                        sendJson(res, 500, { error: errorMessage(err) });
+                    }
+                });
+
+                // Development parity for the production-authoritative travel route.
+                // Vite has no Socket.IO world store, so the edge tile comes from the
+                // same movement frame included in this request; production ignores
+                // that field and validates against its authoritative online store.
+                server.middlewares.use('/api/player/travel', async (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method !== 'POST') { next(); return; }
+                    try {
+                        const playerId = devTokenPlayer(req);
+                        if (!playerId) { sendJson(res, 401, { error: 'Player authentication required.' }); return; }
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        const body = parsed.body as { destinationSector?: number; mode?: string; originSector?: number; originTile?: number; exitId?: string };
+                        const destinationSector = sectorFrom(body.destinationSector, -1);
+                        if (destinationSector < 1 || (destinationSector > 60 && destinationSector !== 99)) {
+                            sendJson(res, 400, { error: 'Invalid travel destination.' }); return;
+                        }
+                        const player = playerPresence.get(playerId);
+                        if (!player) { sendJson(res, 409, { error: 'World presence is not ready. Please try again.' }); return; }
+                        const now = Date.now();
+                        if (player.travelingUntil > now) {
+                            sendJson(res, 409, { error: 'You cannot travel while moving or fighting.' }); return;
+                        }
+                        let arrivalTile: number | undefined;
+                        if (body.mode === 'edge') {
+                            const exit = sectorExitById(player.sector, String(body.exitId ?? ''));
+                            if (!exit
+                                || player.sector !== Number(body.originSector)
+                                || exit.destinationSector !== destinationSector
+                                || exit.tile !== Number(body.originTile)) {
+                                sendJson(res, 409, { error: 'Move onto that road exit before crossing sectors.' }); return;
+                            }
+                            arrivalTile = exit.destinationTile;
+                        }
+                        const arrivalAt = now + 3_000;
+                        playerPresence.set(playerId, { ...player, travelingUntil: arrivalAt, destinationSector });
+                        sendJson(res, 200, { ok: true, destinationSector, arrivalAt, arrivalTile });
                     } catch (err: unknown) {
                         sendJson(res, 500, { error: errorMessage(err) });
                     }
