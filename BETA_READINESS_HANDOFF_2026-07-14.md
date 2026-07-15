@@ -4,7 +4,7 @@
 
 | Release stage | Verdict | Basis |
 | --- | --- | --- |
-| Internal testing | Ready | Builds, 3,138-test suite, focused authority tests, topology, rollback-readiness, asset, size, lint, and dependency gates pass. |
+| Internal testing | Ready | Builds, 3,150-test suite, focused authority tests, topology, rollback-readiness, asset, size, lint, and dependency gates pass. |
 | Closed alpha | Ready with monitoring | Core loop has prior production evidence and high-risk reward flags can remain closed. Limit accounts and retain emergency controls. |
 | Controlled public beta | **Not certified on the current deployment yet** | Live deep health/backup and the two-role admin matrix now pass. First-server-reward evidence, live Clan Boss/War evidence, a repeated restore drill, and post-deploy proof that the local latency mitigation restores the SLO remain. |
 | Wider public beta | Not ready | Real-storage concurrency, complete authority migrations, authenticated load, staffed war evidence, and broader live operations are incomplete. |
@@ -90,7 +90,7 @@ The shortest path to controlled beta is: deploy and remeasure the roster/bloodli
 | Village/Sector War | Broad focused sector-war, state, economy, daily, structures, roles, mercenary, telemetry, crate, spoils, and authoritative once-settlement suite passes 155/155 after closing replay-after-partial-write, mutable village mapping, pre-contest battle reuse, third-party registration, and first-move/terrain races. The simultaneous staffed event, dispute exercise, and rollback evidence remain pending. |
 | Deployment health | Production index is `no-cache`; deployed hashed asset is `public, max-age=31536000, immutable`; one-replica repository topology passes. `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=10` is now applied in production, the configuration rollout completed successfully, and `/health` returned `ok: true` from the replacement process. |
 
-The production deployment is Railway service `ShinobiX` in `production`, one US East replica, built from `main` commit `70ba56b48a44b660469bb998e8d4b54a9b6e6e80`. The local checkout remains `codex/auditbeta` at `e598ad5` with extensive pre-existing uncommitted work. This handoff and its starter-companion fix are not deployed.
+The production deployment is Railway service `ShinobiX` in `production`, one US East replica, built from `main` commit `70ba56b48a44b660469bb998e8d4b54a9b6e6e80`. The canonical release candidate is `codex/beta-readiness-candidate`, based on that current `origin/main` and containing only the scoped handoff commits. The original `codex/auditbeta` worktree still contains extensive unrelated pre-existing work and was not cleaned or used as the publish target. This handoff and its starter-companion fix are not deployed.
 
 ## 6. Test results
 
@@ -98,7 +98,7 @@ The production deployment is Railway service `ShinobiX` in `production`, one US 
 | --- | --- |
 | `npm ci` | Pass; 172 packages, 0 vulnerabilities. |
 | `cd shinobij.client && npm ci` | Pass after stopping a repository Vite process that held the Windows native Rolldown binary; 316 packages, 0 vulnerabilities. |
-| `npm test` | **3,138 pass, 0 fail, 486 suites.** |
+| `npm test` | **3,150 pass, 0 fail, 489 suites** on the clean candidate. |
 | `npm run build:server` | Pass. |
 | `npm run build` | Pass after the same Vite file-lock process was stopped; server/client build, dist verification, sizecheck all pass. |
 | `npm run test:mission-eligibility` | Pass. |
@@ -141,7 +141,7 @@ The production deployment is Railway service `ShinobiX` in `production`, one US 
 - `api/village/sector-war.ts`, `sector-card.ts`, and `sector-pet.ts`: once-only Control-HP/capture commits across partial-write retries; combat registration is post-contest, fighter-only, pristine-session-only, and serialized with the PvP first-move/terrain seal.
 - `package.json`, `scripts/kv-backup.mjs`, `rollback-readiness-lib.mjs`, and test: wire the evidence-producing restore drill, verify before commit, and fail readiness if the drill command regresses to plain restore.
 - `docs/BACKUP_RESTORE_RUNBOOK.md` and `docs/DEPLOYMENT_ROLLBACK_RUNBOOK.md`: exact hybrid-drill variables/targets/cleanup plus launch-week roles, incident timeline, evidence custody, and player notice templates.
-- Generated counterparts under `dist/api/` for the changed/new TypeScript modules.
+- Build-generated server/client artifacts were regenerated and verified in the isolated candidate worktree but are not part of the source PR; the deployment build produces them from the committed source.
 - This report.
 
 The worktree already contained many unrelated source, UI, VFX, story, realtime, save, and generated-asset changes before this handoff. They were preserved and are not claimed here.
@@ -169,10 +169,11 @@ The worktree already contained many unrelated source, UI, VFX, story, realtime, 
 
 ## 10. Exact next actions
 
-Item 1 is intentionally deferred until last. Current status for items 2-7:
+Item 1 was intentionally handled last. Current status for all seven items:
 
 | Item | Current result | Still required |
 | --- | --- | --- |
+| 1. Clean integration/deploy | **Clean candidate complete locally:** the 62-file handoff diff was separated from 236 tracked and 188 untracked changes in the original worktree, split into seven logical commits, and replayed onto current `origin/main` as `codex/beta-readiness-candidate`. Clean-candidate validation passes: 3,150/3,150 tests, production build, client lint, root/client high-severity audits, backup, rollback-readiness, deployment topology, mission eligibility, release assets, and diff hygiene. | Push the canonical branch, open the draft PR, review/merge it, deploy that exact commit, then run the post-deploy health/latency and retained-account certification evidence. |
 | 2. Deep health/backup | **Configuration complete; latency code complete locally:** authenticated production deep health passes on `70ba56b4`, `saveStore` is `remote-proxy`, the backup is fresh, and `RAILWAY_DEPLOYMENT_DRAINING_SECONDS=10` is applied with a successful healthy rollout. The full roster and bloodline list now single-flight/cache the remote all-save projection for 60 seconds; focused cache tests pass 5/5 and the server build passes. | Deploy the code candidate and prove the 15-minute p95 is below 1,500 ms. Add exact subroute timing only if the post-deploy SLO remains unhealthy. |
 | 3. Fresh account | **Live journey and hostile/retry evidence substantially complete on old production:** `beta-cert-0714-c` completed the full player-visible onboarding path, the Academy Trial paid once, three duplicate/concurrent retry attempts paid nothing, wrong-account claim was denied, a revoked session was denied, and second login restored progression, equipment, mission, position, and currency state. Production reproduced the known starter defect (`activePetId` present but `pets` empty); the local dedicated starter-entitlement path passes 4/4. The journey account is retained and clearly labeled; the second hostile-check account was deleted. | Ship item 1, rerun the companion restore, capture the original successful reward request ID, then produce the passing 19-step validator record. |
 | 4. Admin matrix | **Complete:** live matrix passes for Admin 1, Admin 2, and ordinary denial on `70ba56b4`; no credential value was exposed. | Re-run only after a credential-policy or deployment change. |
