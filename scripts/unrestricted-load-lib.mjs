@@ -7,6 +7,7 @@ const PRODUCTION_HOSTS = new Set([
     'www.theravensark.com',
 ]);
 export const MAX_LOAD_DURATION_SECONDS = 600;
+export const MAX_EMIT_INTERVAL_MS = 60_000;
 
 function configuredRemoteOrigins(env) {
     return new Set(String(env.LOAD_TARGET_ALLOWLIST ?? '')
@@ -122,9 +123,12 @@ export function parseArgs(argv) {
 export function validateRunOptions(options) {
     if (!options.baseUrl) throw new Error('Pass --base-url <url>.');
     if (options.emitMs < 1_000) throw new Error('--emit-ms must be at least 1000 to respect server throttling.');
+    if (options.emitMs > MAX_EMIT_INTERVAL_MS) {
+        throw new Error(`--emit-ms must not exceed ${MAX_EMIT_INTERVAL_MS}.`);
+    }
     if (options.sector < 0 || options.sector > 10_000) throw new Error('--sector is outside the supported test range.');
     if (options.reconnectFraction < 0 || options.reconnectFraction > 1) {
         throw new Error('--reconnect-fraction must be between 0 and 1.');
     }
-    return options;
+    return { ...options, emitMs: Math.min(options.emitMs, MAX_EMIT_INTERVAL_MS) };
 }
