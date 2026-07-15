@@ -2,6 +2,10 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { cachedFor } from '../_proc-cache.js';
+
+const BLOODLINE_LIST_CACHE_KEY = 'bloodlines:list:public';
+const BLOODLINE_LIST_CACHE_TTL_MS = 60_000;
 
 // NOTE: LEGACY_IMAGE_KEY ('shared:images') intentionally omitted here — it is a
 // multi-MB all-categories blob that causes connection-pool exhaustion when
@@ -42,6 +46,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
+        // The public gallery changes slowly, but deriving it scans every
+        // registered player save through the remote save proxy. Single-flight
+        // concurrent callers and reuse the immutable snapshot for one minute.
+        const bloodlines = await cachedFor<PublicBloodlineEntry[]>(
+            BLOODLINE_LIST_CACHE_KEY,
+            BLOODLINE_LIST_CACHE_TTL_MS,
+            async () => {
         // Skip the legacy per-cat blob (bloodlineImageBlobKey). All current
         // bloodline images live in the new hash key. The blob is reserved
         // for one final read+delete in a future migration step. Reading it
@@ -94,10 +105,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
         bloodlines.sort((a, b) => a.name.localeCompare(b.name) || a.ownerName.localeCompare(b.ownerName));
-        // 60s edge cache + 120s SWR. Public bloodline gallery is
-        // read-heavy + expensive (scans every save row) but rarely
-        // changes — minute-scale latency is fine.
-        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+                return bloodlines;
+            },
+        );
+        // The process cache owns the 60s freshness window. A one-second shared
+        // edge TTL preserves the previous overall freshness budget.
+        res.setHeader('Cache-Control', 's-maxage=1, stale-while-revalidate=120');
         return res.status(200).json({ bloodlines });
     } catch (err) {
         // Return empty list rather than 500 so the bloodline gallery degrades
