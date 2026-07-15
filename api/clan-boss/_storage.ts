@@ -42,6 +42,7 @@ export const CB_ASSAULT_HP_CAP = 24000;
 export const CB_ASSAULTS_PER_MEMBER = 5;
 export const CB_MAX_PARTY = 3;             // host + up to 2 clanmates
 export const CB_ASSAULT_LOG_CAP = 200;
+export const CB_START_REQUEST_CAP = 200;
 
 // Clan-boss tower floors live in a reserved id range so they never collide with the
 // public 1..N tower floors (api/towers/_floor-catalog.ts CLAN_BOSS_FLOORS).
@@ -132,6 +133,17 @@ export type ClanBossAssault = {
     at: number;
 };
 
+export type ClanBossStartReceipt = {
+    requestId: string;
+    host: string;
+    runId: string;
+    party: string[];
+    fingerprint: string;
+    seed: number;
+    bossHp: number;
+    at: number;
+};
+
 // Per-clan progress for a given week.
 export type ClanBossProgress = {
     clanName: string;
@@ -145,6 +157,7 @@ export type ClanBossProgress = {
     participants: string[];                // DISTINCT member slugs who assaulted
     memberAttempts: Record<string, number>; // slug → assaults used this week
     assaults: ClanBossAssault[];           // capped log (newest first)
+    startRequests?: ClanBossStartReceipt[]; // retry-safe attempt reservations
     updatedAt: number;
 };
 
@@ -296,6 +309,29 @@ export function reserveAttempt(p: ClanBossProgress, host: string, party: string[
     return { ...p, participants: [...participants], memberAttempts, updatedAt: at };
 }
 
+export function reserveAttemptForRequest(
+    p: ClanBossProgress,
+    receipt: ClanBossStartReceipt,
+):
+    | { ok: true; replayed: boolean; progress: ClanBossProgress; receipt: ClanBossStartReceipt }
+    | { ok: false; conflict: true } {
+    const existing = (p.startRequests ?? []).find((entry) => entry.host === receipt.host && entry.requestId === receipt.requestId);
+    if (existing) {
+        if (existing.fingerprint !== receipt.fingerprint) return { ok: false, conflict: true };
+        return { ok: true, replayed: true, progress: p, receipt: existing };
+    }
+    const reserved = reserveAttempt(p, receipt.host, receipt.party, receipt.at);
+    return {
+        ok: true,
+        replayed: false,
+        progress: {
+            ...reserved,
+            startRequests: [receipt, ...(p.startRequests ?? [])].slice(0, CB_START_REQUEST_CAP),
+        },
+        receipt,
+    };
+}
+
 /**
  * Bank a finished assault's server-trusted result into the clan's progress (called
  * at assault-SETTLE). `damage` is the boss HP the party removed in the tower fight —
@@ -307,6 +343,10 @@ export function bankAssault(
     p: ClanBossProgress,
     assault: { runId: string; by: string; party: string[]; damage: number; rounds: number; wiped: boolean; clean: boolean; at: number },
 ): ClanBossProgress {
+    // The side-record and progress record are separate KV writes. If progress
+    // commits but marking the side-record settled fails, a retry must not bank
+    // the same server session a second time.
+    if (p.assaults.some((entry) => entry.runId === assault.runId)) return p;
     const dealt = Math.max(0, Math.min(assault.damage, p.pool));
     const nextPool = Math.max(0, p.pool - dealt);
     const participants = new Set(p.participants);

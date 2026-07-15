@@ -11,6 +11,33 @@ import { kv } from '../_storage.js';
 import type { TowerSession } from '../towers/_tower-session.js';
 import { getActor, actorsOnSide, livingOnSide } from '../towers/_tower-session.js';
 
+/**
+ * Build an assault party from the authoritative clan roster.
+ *
+ * Returning null means the host is not present in that roster. In particular,
+ * an absent/corrupt clan record must never turn into an allow-all ally list.
+ * Inputs are canonical player slugs (safeName output).
+ */
+export function selectClanBossParty(
+    host: string,
+    requestedAllies: string[],
+    rosterMembers: string[],
+    maxParty: number,
+): string[] | null {
+    const roster = new Set(rosterMembers.filter(Boolean));
+    if (!host || !roster.has(host)) return null;
+
+    const party = [host];
+    const seen = new Set(party);
+    for (const ally of requestedAllies) {
+        if (!ally || seen.has(ally) || !roster.has(ally)) continue;
+        party.push(ally);
+        seen.add(ally);
+        if (party.length >= Math.max(1, maxParty)) break;
+    }
+    return party;
+}
+
 export type ClanBossAssaultRecord = {
     runId: string;
     weekId: string;
@@ -20,6 +47,7 @@ export type ClanBossAssaultRecord = {
     bossId: string;
     createdAt: number;
     settled?: boolean;
+    justKilled?: boolean;
 };
 
 // A run must be settled within this window; matches the tower session TTL ballpark.
