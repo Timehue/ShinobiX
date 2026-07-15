@@ -7,7 +7,7 @@
  * reused) whose server-computed damage banks into the pool. All authority is
  * server-side (api/clan-boss/*). Gated behind clanBoss.v1.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import { fetchMyRun, type TowerHostLoadout, type TowerSession } from "../lib/towers-api";
 import { visiblePoll } from "../lib/poll";
@@ -26,6 +26,13 @@ const BOSS_PORTRAITS: Record<string, string> = {
     "stone-golem": golemPortrait,
 };
 
+function newAssaultRequestId(): string {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID().replace(/-/g, "");
+    }
+    return `cb${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
+}
+
 export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRecordBattle }: {
     character: Character;
     clanmates: string[];
@@ -39,6 +46,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
     const [party, setParty] = useState<string[]>([]);
     const [busy, setBusy] = useState(false);
     const [flash, setFlash] = useState("");
+    const startRequestRef = useRef<{ key: string; id: string } | null>(null);
 
     const load = useCallback(async () => { setView(await fetchClanBoss(character.name)); }, [character.name]);
     useEffect(() => { void load(); }, [load]);
@@ -61,8 +69,20 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
         if (busy) return;
         setBusy(true);
         try {
-            const res = await startClanBossAssault(character.name, party.slice(0, 2), hostLoadout);
-            if ("error" in res) { setFlash(res.error); return; }
+            const selectedParty = party.slice(0, 2);
+            const requestKey = selectedParty.join("\u0000");
+            if (!startRequestRef.current || startRequestRef.current.key !== requestKey) {
+                startRequestRef.current = { key: requestKey, id: newAssaultRequestId() };
+            }
+            const res = await startClanBossAssault(character.name, selectedParty, startRequestRef.current.id, hostLoadout);
+            if ("error" in res) {
+                // Keep the receipt only for transport/server failures that may have
+                // happened after reservation. Definitive client errors can start fresh.
+                if (res.status && res.status < 500) startRequestRef.current = null;
+                setFlash(res.error);
+                return;
+            }
+            startRequestRef.current = null;
             setFight({ runId: res.runId, session: res.session });
         } finally { setBusy(false); }
     }

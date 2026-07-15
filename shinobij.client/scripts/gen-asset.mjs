@@ -38,6 +38,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { trustedPublishOrigin } from './_trusted-tool-io.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.resolve(HERE, '..'); // shinobij.client/
@@ -186,6 +187,8 @@ async function main() {
     }
 
     console.log('\ngenerating…');
+    // This offline generator intentionally sends its curated prompt and configured API credential to OpenAI.
+    // codeql[js/file-access-to-http]
     const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -223,13 +226,15 @@ async function main() {
 
     // ── Optional publish ─────────────────────────────────────────────────
     if (flags.publish) {
-        const server = (flags.server || 'http://localhost:5173').replace(/\/$/, '');
+        const server = trustedPublishOrigin(flags.server || 'http://localhost:5173');
         const adminPw = resolveAdminPassword();
         if (!adminPw) {
             console.error('error: --publish needs ADMIN_PASSWORD (admin-owned categories are gated). Asset saved to disk only.');
             process.exit(1);
         }
         const dataUrl = `data:image/webp;base64,${webp.toString('base64')}`;
+        // Local asset bytes are intentionally uploaded after the target-origin allowlist check.
+        // codeql[js/file-access-to-http]
         const res = await fetch(`${server}/api/images`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },

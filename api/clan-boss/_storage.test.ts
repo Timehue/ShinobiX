@@ -9,7 +9,7 @@ import {
     CB_BASE_POOL, CB_POOL_PER_MEMBER, CB_MEMBER_CAP, CB_KILL_BONUS, CB_ASSAULTS_PER_MEMBER,
     CB_DMG_WEIGHT, CB_BREADTH_WEIGHT, CB_CLEAN_WEIGHT, CLAN_BOSSES,
     clanBossPoolMax, clanBossScore, rankClanBoss, clanBossWeekId, clanBossPickId,
-    clanBossDamageDealt, clanBossAttemptsLeft, newClanBossProgress, reserveAttempt, bankAssault,
+    clanBossDamageDealt, clanBossAttemptsLeft, newClanBossProgress, reserveAttempt, reserveAttemptForRequest, bankAssault,
     resolveClanBossDef, type ClanBossProgress, type ClanBossWeek,
 } from './_storage.js';
 
@@ -166,5 +166,37 @@ describe('applyAssault + newClanBossProgress', () => {
         p = reserveAttempt(p, 'a', ['a'], 2000);
         assert.equal(clanBossAttemptsLeft(p, 'a'), CB_ASSAULTS_PER_MEMBER - 1);
         assert.equal(clanBossAttemptsLeft(null, 'a'), CB_ASSAULTS_PER_MEMBER);
+    });
+    it('banks a run id once even when the side-record settled write is retried', () => {
+        const initial = newClanBossProgress('X', week, 2);
+        const assault = { runId: 'same-run', by: 'a', party: ['a'], damage: 5000, rounds: 8, wiped: false, clean: false, at: 2000 };
+        const first = bankAssault(initial, assault);
+        const replay = bankAssault(first, { ...assault, damage: 999999, rounds: 99, at: 9000 });
+        assert.equal(replay, first);
+        assert.equal(replay.pool, initial.pool - 5000);
+        assert.equal(replay.totalRounds, 8);
+        assert.equal(replay.assaults.length, 1);
+    });
+    it('reserves one attempt for repeated start requests and rejects request-id reuse with another party', () => {
+        const initial = newClanBossProgress('X', week, 3);
+        const receipt = {
+            requestId: 'request-12345678', host: 'a', runId: 'cboss-run-1', party: ['a', 'b'],
+            fingerprint: 'party-a-b', seed: 123, bossHp: 24000, at: 2000,
+        };
+        const first = reserveAttemptForRequest(initial, receipt);
+        assert.equal(first.ok, true);
+        if (!first.ok) return;
+        assert.equal(first.replayed, false);
+        assert.equal(first.progress.memberAttempts.a, 1);
+
+        const replay = reserveAttemptForRequest(first.progress, { ...receipt, runId: 'cboss-run-2', seed: 999 });
+        assert.equal(replay.ok, true);
+        if (!replay.ok) return;
+        assert.equal(replay.replayed, true);
+        assert.equal(replay.receipt.runId, 'cboss-run-1');
+        assert.equal(replay.progress.memberAttempts.a, 1);
+
+        const conflict = reserveAttemptForRequest(first.progress, { ...receipt, fingerprint: 'party-a-c' });
+        assert.deepEqual(conflict, { ok: false, conflict: true });
     });
 });

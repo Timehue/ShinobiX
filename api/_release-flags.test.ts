@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { COMBAT_MISSIONS } from './missions/_mission-catalog.js';
-import { clientTrustedCombatMissionRewardAllowed, playerAiImageGenerationEnabled, weeklyBossClientDamageEnabled } from './_release-flags.js';
+import { clientTrustedCombatMissionRewardAllowed, combatMissionClaimAuthorityAllowed, playerAiImageGenerationEnabled, weeklyBossClientDamageEnabled } from './_release-flags.js';
 
 describe('_release-flags', () => {
     it('keeps weekly boss client-reported contribution disabled unless explicitly enabled', () => {
@@ -21,6 +21,13 @@ describe('_release-flags', () => {
     it('can temporarily allow legacy combat mission rewards with an explicit release flag', () => {
         const sRank = COMBAT_MISSIONS.find((m) => m.key === 'combat-s-crisis')!;
         assert.equal(clientTrustedCombatMissionRewardAllowed(sRank, { ENABLE_CLIENT_TRUSTED_COMBAT_MISSION_REWARDS: '1' }), true);
+    });
+
+    it('requires a server-combat token for higher-rank mission claims', () => {
+        const high = { key: 'combat-s-crisis', min: 70, xp: 700, ryo: 600, territoryScrolls: 1, aiProfileId: 'boss' };
+        assert.equal(combatMissionClaimAuthorityAllowed(high, null, {}), false);
+        assert.equal(combatMissionClaimAuthorityAllowed(high, { authority: 'legacy-client' }, {}), false);
+        assert.equal(combatMissionClaimAuthorityAllowed(high, { authority: 'server-combat', runId: 'mission-1' }, {}), true);
     });
 
     it('keeps player AI image generation admin-only unless explicitly enabled', () => {

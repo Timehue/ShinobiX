@@ -413,12 +413,15 @@ async function restoreBackup(inPath, requestedKeys = []) {
         for (const row of payload.base.rows) {
             await target.query(`insert into public.kv_store(key,value,expires_at,updated_at) values($1,$2::jsonb,$3,$4)`, [row.key, JSON.stringify(row.value), row.expires_at, row.updated_at]);
         }
-        await target.query('commit');
+        // Verify through the same transaction before making the restored base
+        // durable. A checksum or representative mismatch can then roll the
+        // entire target back instead of leaving a populated failed drill.
         const { rows } = await target.query(`select key, value, expires_at, updated_at from public.kv_store order by key`);
         const restoredOverlay = await readOverlayDirectory(overlayRoot);
         if (rows.length !== payload.base.rowCount || digestRows(rows) !== payload.base.sha256) throw new Error('Post-restore base-store verification mismatch.');
         if (restoredOverlay.length !== payload.overlay.keyCount || digestOverlay(restoredOverlay) !== payload.overlay.sha256) throw new Error('Post-restore overlay verification mismatch.');
         const representatives = await verifyRepresentatives(target, overlayRoot, payload, requestedKeys);
+        await target.query('commit');
         return {
             file, target: targetId, targetOverlay: { kind: 'disk', pathHash: safeKeyLabel(resolve(overlayRoot)) }, targetOverlayDir: overlayRoot,
             baseRowCount: rows.length, overlayKeyCount: restoredOverlay.length,

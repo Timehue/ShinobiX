@@ -9,7 +9,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { TowerActor, TowerSession } from '../towers/_tower-session.js';
 import type { PvpFighter } from '../pvp/session.js';
-import { extractAssaultResult } from './_assault.js';
+import { extractAssaultResult, selectClanBossParty } from './_assault.js';
 import { CLAN_BOSSES } from './_storage.js';
 import { CLAN_BOSS_FLOORS } from '../towers/_floor-catalog.js';
 import { hasEnemyTemplate } from '../towers/_enemy-templates.js';
@@ -52,6 +52,29 @@ describe('extractAssaultResult', () => {
         const r = extractAssaultResult(mkSession({ bossHp: 0, bossMaxHp: 5000, squadHps: [500, 0, 400], winner: 'squad', round: 18 }));
         assert.equal(r.won, true);
         assert.equal(r.clean, false);
+    });
+});
+
+describe('selectClanBossParty', () => {
+    it('fails closed when the clan roster is absent or does not contain the host', () => {
+        assert.equal(selectClanBossParty('host', ['outsider'], [], 3), null);
+        assert.equal(selectClanBossParty('host', ['member'], ['member'], 3), null);
+    });
+
+    it('keeps only roster members, de-duplicates allies, and caps the party', () => {
+        assert.deepEqual(
+            selectClanBossParty(
+                'host',
+                ['host', 'outsider', 'ally-a', 'ally-a', 'ally-b', 'ally-c'],
+                ['host', 'ally-a', 'ally-b', 'ally-c'],
+                3,
+            ),
+            ['host', 'ally-a', 'ally-b'],
+        );
+    });
+
+    it('still allows a solo assault for a rostered host', () => {
+        assert.deepEqual(selectClanBossParty('host', ['outsider'], ['host'], 3), ['host']);
     });
 });
 

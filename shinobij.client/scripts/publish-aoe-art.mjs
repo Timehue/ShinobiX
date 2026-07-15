@@ -15,6 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { trustedPublishOrigin } from './_trusted-tool-io.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.resolve(HERE, '..');
@@ -25,7 +26,7 @@ function arg(name, fallback) {
     return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 const dryRun = process.argv.includes('--dry-run');
-const server = arg('server', 'http://localhost:5173').replace(/\/$/, '');
+const server = trustedPublishOrigin(arg('server', 'http://localhost:5173'));
 
 function resolveAdminPassword() {
     if (process.env.ADMIN_PASSWORD) return process.env.ADMIN_PASSWORD.trim();
@@ -70,6 +71,8 @@ for (const f of files) {
     const b64 = fs.readFileSync(path.join(ART_DIR, f)).toString('base64');
     const dataUrl = `data:image/webp;base64,${b64}`;
     try {
+        // Local asset bytes are intentionally uploaded after the target-origin allowlist check.
+        // codeql[js/file-access-to-http]
         const res = await fetch(`${server}/api/images`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },

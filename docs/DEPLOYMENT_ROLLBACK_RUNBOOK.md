@@ -29,3 +29,23 @@ Do not reverse a database change by dropping a table or column during an inciden
 ## Evidence
 
 Record the before/new/rollback commit IDs, timestamps, health results, representative account used, save checksums or redacted field-presence proof, Sentry/Better Stack state, cron marker age, freeze duration, and operator. A dashboard button existing is not evidence; the rollback must be exercised on a disposable target before unrestricted launch.
+
+## Launch-week incident assignment
+
+Before invites open, write these values into the private launch record (never place personal phone numbers or credentials in the repository):
+
+- Primary rollback operator and backup operator.
+- Incident commander, private incident channel, and out-of-band contact method.
+- Person authorized to set/remove freezes and approve a production data restore.
+- Player-communications owner and public status location.
+- Evidence custodian and encrypted evidence location/retention date.
+
+Opening player notice:
+
+> We are investigating an issue affecting [system]. [Purchases/rewards/gameplay] are temporarily paused to protect progress. Player data is being verified. Next update: [UTC time].
+
+Recovery notice:
+
+> The affected system is restored and verification is complete. Service resumed at [UTC time]. We will contact any affected players after reconciliation; please do not repeat failed transactions unless the game confirms they are pending.
+
+The incident commander records every flag change, deploy/rollback action, health result, reconciliation decision, player update, and evidence location on the UTC timeline. The rollback operator cannot self-approve a production data restore; that requires the named restore approver.

@@ -89,6 +89,8 @@ const prompt = (b) => BASE_PRE + BIOME[b] + BASE_POST;
 const fileId = (b, v) => `${v === 0 ? b : `${b}-${v}`}${TAG ? '-' + TAG : ''}`;
 
 async function gen(p, apiKey, sharp) {
+    // This offline generator intentionally sends its curated prompt and configured API credential to OpenAI.
+    // codeql[js/file-access-to-http]
     const res = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { getFloor } from './_floor-catalog.js';
+import { floorForSession } from './_session-floor.js';
 import { activeActor } from './_tower-session.js';
 import { applyAction, endTurn, runAiUntilHuman, type TowerAction } from './_engine.js';
 import { makeRng } from './_sim.js';
@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 409, body: { error: 'Not your turn.', session } };
             }
 
-            const floor = getFloor(session.floor);
+            const floor = floorForSession(session);
             if (!floor) return { status: 500, body: { error: 'Floor missing.' } };
 
             const rng = makeRng(session.seed);

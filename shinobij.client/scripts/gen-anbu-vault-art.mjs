@@ -32,6 +32,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { trustedPublishOrigin } from "./_trusted-tool-io.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.resolve(HERE, "..");
@@ -163,6 +164,8 @@ if (!apiKey) { console.error("error: OPENAI_API_KEY not found (env / .env / main
 async function generateOne(asset) {
     const outFile = outFileFor(asset);
     if (!flags.force && fs.existsSync(outFile)) { copyIfNeeded(asset, outFile); return { asset, status: "cached" }; }
+    // This offline generator intentionally sends its curated prompt and configured API credential to OpenAI.
+    // codeql[js/file-access-to-http]
     const res = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -199,6 +202,8 @@ async function publishOne(asset, server, adminPw) {
     const outFile = outFileFor(asset);
     if (!fs.existsSync(outFile)) return { asset, status: "missing (not generated)" };
     const webp = fs.readFileSync(outFile);
+    // Local asset bytes are intentionally uploaded after the target-origin allowlist check.
+    // codeql[js/file-access-to-http]
     const res = await fetch(`${server}/api/images`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
@@ -234,7 +239,7 @@ const failed = genResults.filter(r => r.status === "failed");
 if (failed.length) console.error(`\n${failed.length} generation(s) failed — re-run to retry (cached files skip).`);
 
 if (flags.publish) {
-    const server = (flags.server || "https://shinobijourney.com").replace(/\/$/, "");
+    const server = trustedPublishOrigin(flags.server || "https://shinobijourney.com");
     const adminPw = envValue("ADMIN_PASSWORD");
     if (!adminPw) { console.error("error: --publish needs ADMIN_PASSWORD (env / .env / main-checkout .env)."); process.exit(1); }
     console.log(`\npublishing to ${server} …`);

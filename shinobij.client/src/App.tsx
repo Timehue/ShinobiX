@@ -132,6 +132,7 @@ const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardB
 const SectorWarPetBattle = lazyWithRetry(() => import("./screens/SectorWarPetBattle").then(m => ({ default: m.SectorWarPetBattle })));
 const CardClashFreePlay = lazyWithRetry(() => import("./screens/CardClashFreePlay").then(m => ({ default: m.CardClashFreePlay })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
+const BattleTowerFight = lazyWithRetry(() => import("./screens/BattleTowerFight").then(m => ({ default: m.BattleTowerFight })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
 const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ default: m.Profile })));
 const Logbook = lazyWithRetry(() => import("./screens/Logbook").then(m => ({ default: m.Logbook })));
@@ -668,6 +669,7 @@ import {
     gainPetXp,
     scaleEventPetOpponent,
 } from "./lib/pet-balance";
+import { chooseStarterPetServer } from "./lib/pet-acquisition-api";
 export { gainPetXp, collectPetTraining };
 // Pet element/special jutsu tables + balance/training/XP helpers all
 // moved to ./lib/pet-balance — imported above. See that file for the
@@ -1979,6 +1981,7 @@ export default function App() {
     // in winBattle and the flag is cleared on any battle end — so losing/fleeing a
     // mission no longer burns the daily slot or inflates clan contribution.
     const [missionBattleActive, setMissionBattleActive] = useState(false);
+    const [authoritativeWeeklyBossFight, setAuthoritativeWeeklyBossFight] = useState<{ runId: string; session: import("./lib/towers-api").TowerSession } | null>(null);
     // Sector of a deferred explore-mission credit while the player fights a tile
     // ambush. recordMissionExplore is called only if the ambush is WON (winBattle)
     // and cleared on any battle end — so losing the ambush no longer counts the tile.
@@ -4383,6 +4386,7 @@ export default function App() {
     // newer snapshot. Defaults to 0 = "no version known" which the server
     // treats as an allow (preserves backwards compat for stale tabs).
     const latestSaveVersionRef = useRef<number>(0);
+    const starterPetCommitRef = useRef<{ accountName: string; promise: Promise<boolean> } | null>(null);
     useEffect(() => {
         const onSaveVersion = (event: Event) => {
             const version = Number((event as CustomEvent<{ version?: unknown }>).detail?.version);
@@ -5597,8 +5601,7 @@ export default function App() {
     // sentinel HP value (effectively unkillable). The player fights until
     // KO/flee — at that point logWeeklyBossFightDamage() POSTs the damage
     // dealt to /api/weekly-boss so it lands on the shared leaderboard.
-    const WEEKLY_BOSS_SENTINEL_HP = 99_999_999;
-    async function launchWeeklyBossFight(bossAiId: string, bossDisplayName?: string, returnScreen: Screen = "weeklyBoss") {
+    async function launchWeeklyBossFight(bossAiId: string, _bossDisplayName?: string, _returnScreen: Screen = "weeklyBoss") {
         if (!character) return;
         const bossAi = playableAis.find(ai => ai.id === bossAiId);
         if (!bossAi) {
@@ -5609,7 +5612,6 @@ export default function App() {
             alert("You need at least 20 stamina to challenge the weekly boss.");
             return;
         }
-        let weeklyBossToken: string;
         try {
             const r = await fetch("/api/weekly-boss", {
                 method: "POST",
@@ -5617,42 +5619,24 @@ export default function App() {
                 body: JSON.stringify({ kind: "startFight" }),
             });
             const data = await r.json().catch(() => ({}));
-            if (!r.ok || typeof data?.token !== "string") {
+            if (!r.ok || typeof data?.runId !== "string" || !data?.session) {
                 alert(data?.error ?? "The weekly boss fight could not be reserved. Try again.");
                 return;
             }
-            weeklyBossToken = data.token;
+            if (data?.character) setCharacter(data.character);
+            setAuthoritativeWeeklyBossFight({ runId: data.runId, session: data.session });
+            setScreen("weeklyBoss");
+            return;
         } catch (err) {
             console.warn("[weekly-boss] startFight error:", err);
             alert("The weekly boss fight could not be reserved. Try again.");
             return;
         }
-        const tempId = `temp-weekly-boss-${Date.now()}`;
         // Copy the picked AI but force HP to the sentinel value so the
         // arena can never reduce it to 0. The boss is meant to outlast
         // the player every time — damage dealt is what matters.
-        setTemporaryStoryAi({
-            ...bossAi,
-            id: tempId,
-            name: bossDisplayName || bossAi.name,
-            hp: WEEKLY_BOSS_SENTINEL_HP,
-            isBossAi: true,
-        });
-        setPendingPvpOpponent(null);
-        setRaidBattleKind("none");
-        setPendingArenaStoryBattle({
-            kind: "weeklyBoss",
-            returnScreen,
-            bossInitialHp: WEEKLY_BOSS_SENTINEL_HP,
-            weeklyBossToken,
-        });
-        setPendingAiProfileId(tempId);
         // Weekly boss fight uses central neutral terrain — matches the
         // ranked-fight convention of no biome bias for shared content.
-        setCurrentBiome("central");
-        setCurrentWeather(weatherForBiome("central"));
-        setArenaKey((key) => key + 1);
-        setScreen("arena");
     }
 
     async function logWeeklyBossFightDamage(damageDealt: number, damageEvents?: Array<{ turn: number; amount: number; source?: string }>) {
@@ -7633,6 +7617,7 @@ export default function App() {
                             // would clobber updates that landed mid-white-out.
                             setCharacter((prev) => {
                                 if (!prev || prev.onboardingStep === "training") return prev;
+                                const priorStep = prev.onboardingStep;
                                 const trait = pet.trait ?? "Loyal";
                                 const granted = applyPetTraitBonuses({ ...pet, trait }, trait);
                                 const already = prev.pets.some((p) => p.id === granted.id);
@@ -7642,7 +7627,55 @@ export default function App() {
                                     activePetId: prev.activePetId ?? granted.id,
                                     onboardingStep: prev.onboardingStep === "companionIntro" ? "training" : "companionIntro",
                                 };
-                                pushSaveToServer(updated, updated.name).catch(() => {});
+                                if (priorStep === "academyIntro" && !already) {
+                                    // Pet ownership is a server entitlement. The generic save
+                                    // route intentionally cannot add a new pet under the strict
+                                    // ledger, so commit the canonical starter through its
+                                    // dedicated endpoint before the cinematic's second pass.
+                                    if (starterPetCommitRef.current?.accountName !== updated.name) {
+                                        const commit = chooseStarterPetServer(updated.name, pet)
+                                            .then((result) => {
+                                                if (!result.character) {
+                                                    setCharacter((current) => {
+                                                        if (!current || current.name !== updated.name) return current;
+                                                        return {
+                                                            ...current,
+                                                            pets: current.pets.filter((entry) => entry.id !== granted.id),
+                                                            activePetId: current.activePetId === granted.id ? undefined : current.activePetId,
+                                                            onboardingStep: "academyIntro",
+                                                        };
+                                                    });
+                                                    alert(result.error ?? "Your companion choice was not saved. Please choose again.");
+                                                    return false;
+                                                }
+                                                if (typeof result._saveVersion === "number") {
+                                                    latestSaveVersionRef.current = Math.max(latestSaveVersionRef.current, result._saveVersion);
+                                                }
+                                                return true;
+                                            })
+                                            .catch(() => {
+                                                setCharacter((current) => {
+                                                    if (!current || current.name !== updated.name) return current;
+                                                    return {
+                                                        ...current,
+                                                        pets: current.pets.filter((entry) => entry.id !== granted.id),
+                                                        activePetId: current.activePetId === granted.id ? undefined : current.activePetId,
+                                                        onboardingStep: "academyIntro",
+                                                    };
+                                                });
+                                                alert("Your companion choice could not reach the server. Please choose again.");
+                                                return false;
+                                            });
+                                        starterPetCommitRef.current = { accountName: updated.name, promise: commit };
+                                    }
+                                } else {
+                                    const starterCommit = starterPetCommitRef.current?.accountName === updated.name
+                                        ? starterPetCommitRef.current.promise
+                                        : null;
+                                    void (starterCommit ?? Promise.resolve(true)).then((committed) => {
+                                        if (committed) return pushSaveToServer(updated, updated.name);
+                                    }).catch(() => {});
+                                }
                                 return updated;
                             });
                         }}
@@ -8049,7 +8082,27 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "battleTowers" && character && (
                     <BattleTowers character={character} updateCharacter={setCharacter} sharedImages={sharedImages} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} onExit={goBack} onRecordBattle={recordBattle} />
                 )}
-                {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
+                {!activeTriggeredEvent && screen === "weeklyBoss" && character && authoritativeWeeklyBossFight && (
+                    <BattleTowerFight
+                        character={character}
+                        sharedImages={sharedImages}
+                        runId={authoritativeWeeklyBossFight.runId}
+                        initialSession={authoritativeWeeklyBossFight.session}
+                        settleOnAnyDone
+                        settleFn={async (runId) => {
+                            const response = await fetch("/api/weekly-boss", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ kind: "logFight", runId }),
+                            });
+                            const data = await response.json().catch(() => ({}));
+                            if (!response.ok) throw new Error(data?.error ?? "Weekly Boss settlement failed.");
+                            return data;
+                        }}
+                        onExit={() => setAuthoritativeWeeklyBossFight(null)}
+                    />
+                )}
+                {!activeTriggeredEvent && screen === "weeklyBoss" && character && !authoritativeWeeklyBossFight && (
                     <WeeklyBossArena
                         character={character}
                         updateCharacter={setCharacter}

@@ -17,6 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { trustedPublishOrigin } from './_trusted-tool-io.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.resolve(HERE, '..');
@@ -50,13 +51,15 @@ function envFromDotenv(name) {
 }
 
 const flags = parseArgs(process.argv.slice(2));
-const SERVER = (flags.server || 'https://shinobijourney.com').replace(/\/$/, '');
+const SERVER = trustedPublishOrigin(flags.server || 'https://shinobijourney.com');
 const MODEL = flags.model || 'gpt-4o-mini';
 const OPENAI_KEY = envFromDotenv('OPENAI_API_KEY');
 const ADMIN_PW = envFromDotenv('ADMIN_PASSWORD');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function classifyFacing(webpBytes) {
+    // This offline audit intentionally sends the configured API credential to OpenAI.
+    // codeql[js/file-access-to-http]
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { Authorization: `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
@@ -85,6 +88,8 @@ async function classifyFacing(webpBytes) {
 }
 
 async function publish(id, dataUrl) {
+    // Local asset bytes are intentionally uploaded after the target-origin allowlist check.
+    // codeql[js/file-access-to-http]
     const res = await fetch(`${SERVER}/api/images`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PW },
