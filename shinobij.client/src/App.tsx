@@ -7296,7 +7296,7 @@ export default function App() {
                 </Suspense>
             )}
 
-            {screen !== "start" && character && (
+            {screen !== "start" && character && !hideBattleChrome && (
                 <Suspense fallback={null}>
                     <RightMenu
                         navigate={stableNavigate}
