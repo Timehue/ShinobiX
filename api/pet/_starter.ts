@@ -30,8 +30,22 @@ export function validateStarterPet(raw: unknown): Record<string, unknown> | null
 export function chooseStarterPet(character: Record<string, unknown>, rawPet: unknown) {
     const pets = Array.isArray(character.pets) ? character.pets : [];
     if (pets.length > 0 || character.starterPetClaimed === true) return { ok: false as const, reason: 'starter-already-chosen' as const };
-    if (character.onboardingStep !== 'starter') return { ok: false as const, reason: 'starter-not-available' as const };
+    const onboardingStep = character.onboardingStep;
+    if (onboardingStep !== 'starter' && onboardingStep !== 'academyIntro') {
+        return { ok: false as const, reason: 'starter-not-available' as const };
+    }
     const pet = validateStarterPet(rawPet);
     if (!pet) return { ok: false as const, reason: 'invalid-starter' as const };
-    return { ok: true as const, character: { ...character, pets: [pet], activePetId: pet.id, onboardingStep: 'training', starterPetClaimed: true } };
+    return {
+        ok: true as const,
+        character: {
+            ...character,
+            pets: [pet],
+            activePetId: pet.id,
+            // The current cinematic has a companion-introduction pass after
+            // the summon. The legacy picker still advances straight to training.
+            onboardingStep: onboardingStep === 'academyIntro' ? 'companionIntro' : 'training',
+            starterPetClaimed: true,
+        },
+    };
 }
