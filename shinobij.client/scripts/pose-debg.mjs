@@ -33,6 +33,8 @@ function resolveFalKey() {
 async function matte(key, srcFile, model) {
     const bytes = fs.readFileSync(srcFile);
     const dataUri = `data:image/webp;base64,${bytes.toString('base64')}`;
+    // This offline generator intentionally sends the selected local sprite and configured credential to fal.ai.
+    // codeql[js/file-access-to-http]
     const res = await fetch(`https://fal.run/${model}`, {
         method: 'POST',
         headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
