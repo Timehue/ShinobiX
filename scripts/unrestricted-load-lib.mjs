@@ -6,6 +6,15 @@ const PRODUCTION_HOSTS = new Set([
     'theravensark.com',
     'www.theravensark.com',
 ]);
+export const MAX_LOAD_DURATION_SECONDS = 600;
+
+function configuredRemoteOrigins(env) {
+    return new Set(String(env.LOAD_TARGET_ALLOWLIST ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .map((value) => new URL(value).origin));
+}
 
 export function percentile(values, ratio) {
     if (!Array.isArray(values) || values.length === 0) return null;
@@ -28,8 +37,12 @@ export function summarizeLatencies(values) {
 export function assertLoadSafety({ baseUrl, clients, durationSeconds, env = process.env }) {
     const url = new URL(baseUrl);
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Load target must use HTTP or HTTPS.');
+    if (url.username || url.password) throw new Error('Load target must not contain URL credentials.');
     if (!Number.isInteger(clients) || clients < 1) throw new Error('Client count must be a positive integer.');
     if (!Number.isFinite(durationSeconds) || durationSeconds < 5) throw new Error('Duration must be at least 5 seconds.');
+    if (durationSeconds > MAX_LOAD_DURATION_SECONDS) {
+        throw new Error(`Duration must not exceed ${MAX_LOAD_DURATION_SECONDS} seconds.`);
+    }
 
     const local = ['localhost', '127.0.0.1', '::1'].includes(url.hostname);
     const production = PRODUCTION_HOSTS.has(url.hostname.toLowerCase());
@@ -40,8 +53,13 @@ export function assertLoadSafety({ baseUrl, clients, durationSeconds, env = proc
         if (clients > 25 || durationSeconds > 60) {
             throw new Error('Production safety cap is 25 clients for 60 seconds. Use a disposable target for larger tests.');
         }
-    } else if (!local && env.ALLOW_REMOTE_LOAD !== '1') {
-        throw new Error('Refusing a remote load target without ALLOW_REMOTE_LOAD=1.');
+    } else if (!local) {
+        if (env.ALLOW_REMOTE_LOAD !== '1') {
+            throw new Error('Refusing a remote load target without ALLOW_REMOTE_LOAD=1.');
+        }
+        if (!configuredRemoteOrigins(env).has(url.origin)) {
+            throw new Error('Remote load target origin must be listed exactly in LOAD_TARGET_ALLOWLIST.');
+        }
     }
     return { url, local, production };
 }
