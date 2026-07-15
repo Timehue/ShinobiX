@@ -43,6 +43,23 @@ test('server-issued travel changes sector only after its arrival deadline', () =
     assert.deepEqual(store.listSector(2).map((p) => p.name), ['rill']);
 });
 
+test('validated edge travel reconciles a stale presence origin sector', () => {
+    let now = 1_000;
+    const store = new MemoryOnlineStateStore({ now: () => now });
+    store.upsert({ name: 'rill', sector: 40, character: null, tile: 78 });
+
+    const started = store.startTravel('rill', 10, now + 3_000, 55);
+    assert.equal(started?.sector, 55);
+    assert.equal(store.listSector(40).length, 0);
+    assert.equal(store.listSector(55)[0]?.name, 'rill');
+
+    now += 3_000;
+    const arrived = store.upsert({ name: 'rill', sector: 10, character: null, tile: 67 });
+    assert.equal(arrived.sector, 10);
+    assert.equal(store.listSector(55).length, 0);
+    assert.equal(store.listSector(10)[0]?.name, 'rill');
+});
+
 test('moveToTile refreshes a player and increments movement sequence', () => {
     const { store } = makeStore();
     store.upsert({ name: 'rill', sector: 1, character: null, tile: 10 });
