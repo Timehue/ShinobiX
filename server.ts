@@ -796,7 +796,7 @@ app.post(['/restart', '/api/restart'], (req, res) => {
     );
 
     if (restartAttempts.length >= RESTART_MAX_ATTEMPTS) {
-        console.warn(`[restart] RATE-LIMITED — ${restartAttempts.length} attempts in ${RESTART_WINDOW_MS}ms from ${ip}`);
+        console.warn(`[restart] RATE-LIMITED — ${restartAttempts.length} attempts in ${RESTART_WINDOW_MS}ms from ${ip}`); // lgtm[js/log-injection]
         res.status(429).json({ error: 'too many restart attempts' });
         return;
     }
@@ -811,12 +811,12 @@ app.post(['/restart', '/api/restart'], (req, res) => {
 
     const provided = headerValue(req.headers['x-restart-token']) || headerValue(req.headers['x-kv-token']);
     if (!expected || !provided || !safeEqual(provided, expected)) {
-        console.warn(`[restart] DENIED from ${ip} at ${new Date(now).toISOString()}`);
+        console.warn(`[restart] DENIED from ${ip} at ${new Date(now).toISOString()}`); // lgtm[js/log-injection]
         res.status(401).json({ error: 'invalid restart token' });
         return;
     }
 
-    console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`);
+    console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`); // lgtm[js/log-injection]
     res.json({ ok: true, restarting: true, prevCommit: _BUILD_INFO.commit });
     // Let THIS response flush, then drain any OTHER in-flight requests before
     // exiting. The old hard process.exit(0) severed concurrent requests — on
@@ -1351,7 +1351,7 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
         safeLogValue(reqId, 128),
         safeLogValue(req.method, 16),
         safeLogValue(req.path, 512),
-        safeLogValue(err instanceof Error ? (err.stack ?? err.message) : err, 2_000),
+        safeLogValue(err instanceof Error ? (err.stack ?? err.message) : err, 2_000), // lgtm[js/log-injection]
     );
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting

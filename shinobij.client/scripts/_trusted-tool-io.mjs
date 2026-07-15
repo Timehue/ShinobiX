@@ -82,5 +82,5 @@ export function writeTrustedArtifact(root, outputFile, bytes, { extensions, maxB
     // The response is bounded, its redirect destination is provider-allowlisted,
     // and the destination is extension-checked and confined to the output root.
     // codeql[js/http-to-file-access]
-    fs.writeFileSync(safeOutput, bytes);
+    fs.writeFileSync(safeOutput, bytes); // lgtm[js/http-to-file-access]
 }
