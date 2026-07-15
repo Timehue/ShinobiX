@@ -39,17 +39,17 @@ export async function fetchClanBoss(player: string): Promise<ClanBossView | null
 }
 
 export type ClanBossStartResult =
-    | { runId: string; session: TowerSession; boss?: { id: string; name: string; icon: string } }
-    | { error: string };
+    | { runId: string; session: TowerSession; replayed?: boolean; boss?: { id: string; name: string; icon: string } }
+    | { error: string; status?: number };
 
-export async function startClanBossAssault(hostName: string, allies: string[], hostLoadout?: TowerHostLoadout): Promise<ClanBossStartResult> {
+export async function startClanBossAssault(hostName: string, allies: string[], requestId: string, hostLoadout?: TowerHostLoadout): Promise<ClanBossStartResult> {
     try {
         const r = await fetch("/api/clan-boss/assault-start", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ hostName, allies, hostLoadout }),
+            body: JSON.stringify({ hostName, allies, requestId, hostLoadout }),
         });
         const data = await r.json().catch(() => ({})) as Record<string, unknown>;
-        if (!r.ok) return { error: (data.error as string) ?? `HTTP ${r.status}` };
+        if (!r.ok) return { error: (data.error as string) ?? `HTTP ${r.status}`, status: r.status };
         return data as ClanBossStartResult;
     } catch (e) { return { error: String((e as Error).message) }; }
 }
