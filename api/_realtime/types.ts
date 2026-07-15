@@ -71,7 +71,7 @@ export interface OnlineStateStore {
     /** Set/clear the inBattle flag (PvP session start/end). */
     setInBattle(name: string, inBattle: boolean): void;
     /** Start a server-owned travel lease. Returns null if the player cannot travel. */
-    startTravel(name: string, destinationSector: number, arrivalAt: number): OnlinePlayer | null;
+    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number): OnlinePlayer | null;
     /** Apply a within-sector movement intent and return the refreshed record. */
     moveToTile(name: string, tile: number): OnlinePlayer | null;
     /** Drop entries past the offline window. Returns the removed records. */

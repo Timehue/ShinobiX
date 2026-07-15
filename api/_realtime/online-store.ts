@@ -168,9 +168,19 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         if (p) p.inBattle = inBattle ? true : undefined;
     }
 
-    startTravel(name: string, destinationSector: number, arrivalAt: number): OnlinePlayer | null {
+    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number): OnlinePlayer | null {
         const p = this.get(name);
         if (!p || p.inBattle || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
+        // A validated edge-crossing request is also the authoritative reconcile
+        // point for presence. Socket rooms/heartbeats can retain the previous
+        // sector across a reconnect or deploy even though the client is already
+        // walking in the persisted origin sector.
+        if (originSector !== undefined && originSector !== p.sector) {
+            const key = canon(name);
+            this.removeFromSector(key, p.sector);
+            p.sector = originSector;
+            this.addToSector(key, p.sector);
+        }
         p.travelDestinationSector = destinationSector;
         p.travelingUntil = arrivalAt;
         p.lastSeenAt = this.now();
