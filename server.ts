@@ -202,6 +202,7 @@ import missionsAiFightStartHandler   from './api/missions/ai-fight-start.js';
 import missionsReportAiFightHandler  from './api/missions/report-ai-fight.js';
 import missionsClaimMissionHandler   from './api/missions/claim-mission.js';
 import missionsQueueCombatClaimHandler from './api/missions/queue-combat-claim.js';
+import missionsCombatStartHandler from './api/missions/combat-start.js';
 import missionsRecordProgressHandler from './api/missions/record-progress.js';
 import sectorWandererGiftHandler      from './api/sector/wanderer-gift.js';
 import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
@@ -1098,6 +1099,7 @@ route('/missions/ai-fight-start',   missionsAiFightStartHandler);
 route('/missions/report-ai-fight',  missionsReportAiFightHandler);
 route('/missions/claim-mission',    missionsClaimMissionHandler);
 route('/missions/queue-combat-claim', missionsQueueCombatClaimHandler);
+route('/missions/combat-start', missionsCombatStartHandler);
 route('/missions/record-progress',  missionsRecordProgressHandler);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
