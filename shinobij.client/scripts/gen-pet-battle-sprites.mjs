@@ -28,6 +28,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { trustedPublishOrigin } from './_trusted-tool-io.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.resolve(HERE, '..');
@@ -59,7 +60,7 @@ function envFromDotenv(name) {
 }
 
 const flags = parseArgs(process.argv.slice(2));
-const SERVER = (flags.server || 'https://shinobijourney.com').replace(/\/$/, '');
+const SERVER = trustedPublishOrigin(flags.server || 'https://shinobijourney.com');
 const GEN_QUALITY = flags['gen-quality'] || 'medium';
 const WEBP_Q = Number(flags.quality) || 80;
 const MAX_PX = Number(flags['max-px']) || 640;
@@ -118,6 +119,8 @@ async function openaiEdit(imageBytes, prompt) {
     fd.append('background', 'transparent');
     fd.append('output_format', 'png');
     fd.append('n', '1');
+    // This offline generator intentionally sends the selected registry sprite and configured credential to OpenAI.
+    // codeql[js/file-access-to-http]
     const res = await fetch('https://api.openai.com/v1/images/edits', {
         method: 'POST',
         headers: { Authorization: `Bearer ${OPENAI_KEY}` },
@@ -137,6 +140,8 @@ async function openaiEdit(imageBytes, prompt) {
 }
 
 async function publish(id, dataUrl) {
+    // Local asset bytes are intentionally uploaded after the target-origin allowlist check.
+    // codeql[js/file-access-to-http]
     const res = await fetch(`${SERVER}/api/images`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PW },
@@ -154,6 +159,8 @@ async function probe() {
     const r = await fetch(`${SERVER}/api/images?cat=pet&ids=1&cb=${Date.now()}`);
     const ids = r.ok ? await r.json() : [];
     const present = Array.isArray(ids) && ids.includes('petbody:deploy-probe');
+    // The configured admin credential is intentionally sent after the target-origin allowlist check.
+    // codeql[js/file-access-to-http]
     await fetch(`${SERVER}/api/images?id=${encodeURIComponent('petbody:deploy-probe')}`, {
         method: 'DELETE', headers: { 'x-admin-password': ADMIN_PW },
     }).catch(() => undefined);

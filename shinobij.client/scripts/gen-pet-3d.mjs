@@ -17,6 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { downloadArtifactBytes, writeTrustedArtifact } from './_trusted-tool-io.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.resolve(HERE, '..');
@@ -58,6 +59,8 @@ async function main() {
     console.log(`model:  fal-ai/hunyuan3d/v2  → ${textured ? 'textured' : 'white'} .glb`);
     console.log('generating… (image-to-3D takes ~30-60s)');
 
+    // This offline generator intentionally sends the selected local sprite and configured credential to fal.ai.
+    // codeql[js/file-access-to-http]
     const res = await fetch('https://fal.run/fal-ai/hunyuan3d/v2', {
         method: 'POST',
         headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
@@ -75,15 +78,10 @@ async function main() {
     const url = json?.model_mesh?.url || json?.model_glb?.url || json?.mesh?.url;
     if (!url) { console.error('no model in response:', JSON.stringify(json).slice(0, 600)); process.exit(1); }
 
-    let outBytes;
-    if (url.startsWith('data:')) {
-        outBytes = Buffer.from(url.slice(url.indexOf(',') + 1), 'base64');
-    } else {
-        const dl = await fetch(url);
-        outBytes = Buffer.from(await dl.arrayBuffer());
-    }
+    const maxModelBytes = 100 * 1024 * 1024;
+    const outBytes = await downloadArtifactBytes(url, { maxBytes: maxModelBytes });
     const outFile = path.join(outDir, `${id}.glb`);
-    fs.writeFileSync(outFile, outBytes);
+    writeTrustedArtifact(outDir, outFile, outBytes, { extensions: ['.glb'], maxBytes: maxModelBytes });
     console.log(`done:   ${(outBytes.length / 1024).toFixed(0)} KB  → ${path.relative(CLIENT_ROOT, outFile)}`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });

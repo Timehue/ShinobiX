@@ -19,3 +19,15 @@ export function clientTrustedCombatMissionRewardAllowed(
     if (env.ENABLE_CLIENT_TRUSTED_COMBAT_MISSION_REWARDS === '1') return true;
     return def.min <= 5 && def.xp <= 25 && def.ryo <= 20 && def.territoryScrolls <= 1;
 }
+
+/** High-rank combat claims require the token minted from a completed server session. */
+export function combatMissionClaimAuthorityAllowed(
+    def: CombatMissionDef,
+    tokenRecord: unknown,
+    env: NodeJS.ProcessEnv = process.env,
+): boolean {
+    if (clientTrustedCombatMissionRewardAllowed(def, env)) return true;
+    return !!tokenRecord
+        && typeof tokenRecord === 'object'
+        && (tokenRecord as Record<string, unknown>).authority === 'server-combat';
+}

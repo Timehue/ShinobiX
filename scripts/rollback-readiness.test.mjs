@@ -5,7 +5,7 @@ import { destructiveSchemaStatements, stripSqlComments, validateRollbackReadines
 const good = () => ({
     schemaSql: 'create table if not exists public.kv_store (key text primary key);',
     railway: { deploy: { numReplicas: 1, healthcheckPath: '/health', restartPolicyType: 'ON_FAILURE' } },
-    packageJson: { scripts: { 'drill:restore': 'restore', 'test:backup': 'test' } },
+    packageJson: { scripts: { 'drill:restore': 'node scripts/kv-backup.mjs drill', 'test:backup': 'node --test scripts/kv-backup.test.mjs' } },
 });
 
 test('comment stripping prevents documentation examples from tripping the gate', () => {
@@ -28,4 +28,6 @@ test('single-replica, health, restart, restore, and backup controls are required
     assert.match(validateRollbackReadiness(scaled).failures.join(' '), /one replica/i);
     const noRestore = good(); delete noRestore.packageJson.scripts['drill:restore'];
     assert.match(validateRollbackReadiness(noRestore).failures.join(' '), /drill:restore/);
+    const wrongRestoreMode = good(); wrongRestoreMode.packageJson.scripts['drill:restore'] = 'node scripts/kv-backup.mjs restore';
+    assert.match(validateRollbackReadiness(wrongRestoreMode).failures.join(' '), /evidence-producing/i);
 });

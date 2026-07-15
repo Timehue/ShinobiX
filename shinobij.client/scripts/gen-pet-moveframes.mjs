@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { downloadArtifactBytes, writeTrustedArtifact } from './_trusted-tool-io.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.resolve(HERE, '..');
@@ -43,6 +44,8 @@ async function main() {
     const bytes = fs.readFileSync(src);
     const dataUri = `data:image/${src.endsWith('.png') ? 'png' : 'webp'};base64,${bytes.toString('base64')}`;
     console.log(`pet ${id}  ref ${(bytes.length / 1024).toFixed(0)}KB → fal nano-banana/edit (4-frame attack sequence)…`);
+    // This offline generator intentionally sends the selected local sprite and configured credential to fal.ai.
+    // codeql[js/file-access-to-http]
     const res = await fetch('https://fal.run/fal-ai/nano-banana/edit', {
         method: 'POST',
         headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
@@ -52,9 +55,10 @@ async function main() {
     const json = await res.json();
     const url = json?.images?.[0]?.url;
     if (!url) { console.error('no image:', JSON.stringify(json).slice(0, 400)); process.exit(1); }
-    const outBytes = url.startsWith('data:') ? Buffer.from(url.slice(url.indexOf(',') + 1), 'base64') : Buffer.from(await (await fetch(url)).arrayBuffer());
+    const maxImageBytes = 25 * 1024 * 1024;
+    const outBytes = await downloadArtifactBytes(url, { maxBytes: maxImageBytes });
     const outFile = path.join(outDir, `${outName}-moves.png`);
-    fs.writeFileSync(outFile, outBytes);
+    writeTrustedArtifact(outDir, outFile, outBytes, { extensions: ['.png'], maxBytes: maxImageBytes });
     console.log(`done ${(outBytes.length / 1024).toFixed(0)}KB → ${path.relative(CLIENT_ROOT, outFile)}`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });

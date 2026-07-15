@@ -57,6 +57,8 @@ async function fluxBytes() {
     if (!key) { console.error('no FAL_KEY'); process.exit(1); }
     const model = arg('model', 'fal-ai/flux/dev');
     console.log(`[flux] ${model} · ${size} · generating "${id}"…`);
+    // This offline generator intentionally sends its configured API credential to fal.ai.
+    // codeql[js/file-access-to-http]
     const res = await fetch(`https://fal.run/${model}`, {
         method: 'POST',
         headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
@@ -73,6 +75,8 @@ async function openaiBytes() {
     const key = envKey('OPENAI_API_KEY');
     if (!key) { console.error('no OPENAI_API_KEY'); process.exit(1); }
     console.log(`[openai] gpt-image-1 · generating "${id}"…`);
+    // This offline generator intentionally sends its configured API credential to OpenAI.
+    // codeql[js/file-access-to-http]
     const res = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },

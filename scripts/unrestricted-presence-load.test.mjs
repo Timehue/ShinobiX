@@ -39,8 +39,21 @@ test('remote disposable targets require explicit acknowledgement', () => {
     }), /ALLOW_REMOTE_LOAD/);
     assert.doesNotThrow(() => assertLoadSafety({
         baseUrl: 'https://staging.example.com', clients: 300, durationSeconds: 600,
-        env: { ALLOW_REMOTE_LOAD: '1' },
+        env: { ALLOW_REMOTE_LOAD: '1', LOAD_TARGET_ALLOWLIST: 'https://staging.example.com' },
     }));
+    assert.throws(() => assertLoadSafety({
+        baseUrl: 'https://other.example.com', clients: 25, durationSeconds: 30,
+        env: { ALLOW_REMOTE_LOAD: '1', LOAD_TARGET_ALLOWLIST: 'https://staging.example.com' },
+    }), /LOAD_TARGET_ALLOWLIST/);
+});
+
+test('all load targets have a hard duration cap and reject URL credentials', () => {
+    assert.throws(() => assertLoadSafety({
+        baseUrl: 'http://127.0.0.1:3000', clients: 1, durationSeconds: 601, env: {},
+    }), /must not exceed 600/);
+    assert.throws(() => assertLoadSafety({
+        baseUrl: 'http://user:password@127.0.0.1:3000', clients: 1, durationSeconds: 5, env: {},
+    }), /must not contain URL credentials/);
 });
 
 test('argument parsing retains safe defaults and validates event cadence', () => {

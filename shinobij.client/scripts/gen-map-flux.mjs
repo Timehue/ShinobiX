@@ -30,6 +30,8 @@ const outDir = path.join(CLIENT, 'asset-gen-out', 'event');
 fs.mkdirSync(outDir, { recursive: true });
 
 console.log(`model ${model} · size ${size} · generating…`);
+// This offline generator intentionally sends its configured API credential to fal.ai.
+// codeql[js/file-access-to-http]
 const res = await fetch(`https://fal.run/${model}`, {
     method: 'POST',
     headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },

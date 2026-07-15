@@ -59,6 +59,8 @@ async function depthBytes(key, srcAbs) {
     if (!falKey) { console.error('no FAL_KEY (set it in env or shinobij.client/.env)'); process.exit(1); }
     const bytes = fs.readFileSync(srcAbs);
     const dataUri = `data:image/webp;base64,${bytes.toString('base64')}`;
+    // This offline generator intentionally sends the selected local sector image and configured credential to fal.ai.
+    // codeql[js/file-access-to-http]
     const res = await fetch('https://fal.run/fal-ai/image-preprocessors/depth-anything/v2', {
         method: 'POST',
         headers: { Authorization: `Key ${falKey}`, 'Content-Type': 'application/json' },

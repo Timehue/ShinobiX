@@ -27,6 +27,7 @@ import { gainXp, type XpCharacter } from '../_xp-engine.js';
 import { deductUsedItems } from '../pvp/claim-rewards.js';
 import { computeFloorReward, computeAssistReward, computeFloorClearScore, clearMetrics } from './_tower-rewards.js';
 import { getFloor } from './_floor-catalog.js';
+import { floorForSession } from './_session-floor.js';
 import { isValidSpireTier } from './_spire-catalog.js';
 import { weekKey } from '../missions/_weekly-board.js';
 import type { TowerReward } from './_floor-catalog.js';
@@ -254,7 +255,7 @@ export async function settleFloorForMember(
 
     if (!isClearedSquadWin(session)) return { paid: false, reason: 'not-cleared' };
     if (!isSquadMember(session, slug)) return { paid: false, reason: 'not-a-member' };
-    const floor = getFloor(session.floor);
+    const floor = floorForSession(session);
     if (!floor) return { paid: false, reason: 'no-floor' };
 
     const reward = computeFloorReward(floor);                            // sealed catalog reward
@@ -311,7 +312,7 @@ export async function settleAssistForAlly(
 
     if (!isClearedSquadWin(session)) return { paid: false, reason: 'not-cleared' };
     if (!isSquadMember(session, slug)) return { paid: false, reason: 'not-a-member' };
-    const floor = getFloor(session.floor);
+    const floor = floorForSession(session);
     if (!floor) return { paid: false, reason: 'no-floor' };
     const reward = computeAssistReward(floor);
 

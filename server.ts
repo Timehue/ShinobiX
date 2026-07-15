@@ -24,6 +24,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { enforceRateLimit } from './api/_ratelimit.js';
 import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/_request-metrics.js';
+import { safeLogValue } from './api/_safe-log.js';
 
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
@@ -202,6 +203,7 @@ import missionsAiFightStartHandler   from './api/missions/ai-fight-start.js';
 import missionsReportAiFightHandler  from './api/missions/report-ai-fight.js';
 import missionsClaimMissionHandler   from './api/missions/claim-mission.js';
 import missionsQueueCombatClaimHandler from './api/missions/queue-combat-claim.js';
+import missionsCombatStartHandler from './api/missions/combat-start.js';
 import missionsRecordProgressHandler from './api/missions/record-progress.js';
 import sectorWandererGiftHandler      from './api/sector/wanderer-gift.js';
 import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
@@ -786,11 +788,15 @@ let warnedRestartFallback = false;
 app.post(['/restart', '/api/restart'], (req, res) => {
     const now = Date.now();
     restartAttempts = restartAttempts.filter((t) => now - t < RESTART_WINDOW_MS);
-    const ip = headerValue(req.headers['x-forwarded-for']).split(',')[0].trim()
-        || req.socket.remoteAddress || 'unknown';
+    const ip = safeLogValue(
+        headerValue(req.headers['x-forwarded-for']).split(',')[0].trim()
+            || req.socket.remoteAddress
+            || 'unknown',
+        96,
+    );
 
     if (restartAttempts.length >= RESTART_MAX_ATTEMPTS) {
-        console.warn(`[restart] RATE-LIMITED — ${restartAttempts.length} attempts in ${RESTART_WINDOW_MS}ms from ${ip}`);
+        console.warn(`[restart] RATE-LIMITED — ${restartAttempts.length} attempts in ${RESTART_WINDOW_MS}ms from ${ip}`); // lgtm[js/log-injection]
         res.status(429).json({ error: 'too many restart attempts' });
         return;
     }
@@ -805,12 +811,12 @@ app.post(['/restart', '/api/restart'], (req, res) => {
 
     const provided = headerValue(req.headers['x-restart-token']) || headerValue(req.headers['x-kv-token']);
     if (!expected || !provided || !safeEqual(provided, expected)) {
-        console.warn(`[restart] DENIED from ${ip} at ${new Date(now).toISOString()}`);
+        console.warn(`[restart] DENIED from ${ip} at ${new Date(now).toISOString()}`); // lgtm[js/log-injection]
         res.status(401).json({ error: 'invalid restart token' });
         return;
     }
 
-    console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`);
+    console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`); // lgtm[js/log-injection]
     res.json({ ok: true, restarting: true, prevCommit: _BUILD_INFO.commit });
     // Let THIS response flush, then drain any OTHER in-flight requests before
     // exiting. The old hard process.exit(0) severed concurrent requests — on
@@ -1098,6 +1104,7 @@ route('/missions/ai-fight-start',   missionsAiFightStartHandler);
 route('/missions/report-ai-fight',  missionsReportAiFightHandler);
 route('/missions/claim-mission',    missionsClaimMissionHandler);
 route('/missions/queue-combat-claim', missionsQueueCombatClaimHandler);
+route('/missions/combat-start', missionsCombatStartHandler);
 route('/missions/record-progress',  missionsRecordProgressHandler);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
@@ -1338,7 +1345,14 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
 
     // Keep request-controlled values out of the format-string position. Some
     // loggers interpret percent directives in their first argument.
-    console.error('[server error]', '[req]', reqId, req.method, req.path, err);
+    console.error(
+        '[server error]',
+        '[req]',
+        safeLogValue(reqId, 128),
+        safeLogValue(req.method, 16),
+        safeLogValue(req.path, 512),
+        safeLogValue(err instanceof Error ? (err.stack ?? err.message) : err, 2_000), // lgtm[js/log-injection]
+    );
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting
     // failure mask the 500. No-op when Sentry is disabled (SENTRY_DSN unset).

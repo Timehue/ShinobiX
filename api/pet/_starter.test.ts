@@ -29,6 +29,15 @@ describe('starter pet entitlement', () => {
             assert.equal(result.character.onboardingStep, 'training');
         }
     });
+    it('persists the cinematic starter before the companion-introduction pass', () => {
+        const result = chooseStarterPet({ onboardingStep: 'academyIntro', pets: [] }, FIRE);
+        assert.equal(result.ok, true);
+        if (result.ok) {
+            assert.equal(result.character.activePetId, 'starter-fire');
+            assert.equal(result.character.onboardingStep, 'companionIntro');
+            assert.equal(result.character.starterPetClaimed, true);
+        }
+    });
     it('rejects replay and out-of-sequence claims', () => {
         assert.equal(chooseStarterPet({ onboardingStep: 'training', pets: [] }, FIRE).ok, false);
         assert.equal(chooseStarterPet({ onboardingStep: 'starter', pets: [{}] }, FIRE).ok, false);

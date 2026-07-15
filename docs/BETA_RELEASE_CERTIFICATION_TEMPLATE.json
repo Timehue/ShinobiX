@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "shinobix.beta-certification.v1",
+  "environment": { "kind": "staging", "baseUrl": "https://staging-host" },
+  "deployment": { "commit": "replace-with-commit-sha", "saveStore": "remote-proxy" },
+  "account": {
+    "dedicatedTestRecord": true,
+    "marker": "beta-cert-YYYYMMDD-a",
+    "cleanupStatus": "unknown"
+  },
+  "steps": [
+    { "id": "register", "status": "pending" },
+    { "id": "login", "status": "pending" },
+    { "id": "character-create", "status": "pending" },
+    { "id": "first-save", "status": "pending", "requestId": "" },
+    { "id": "reload", "status": "pending" },
+    { "id": "intro-academy", "status": "pending" },
+    { "id": "starter-companion", "status": "pending" },
+    { "id": "stat-training", "status": "pending" },
+    { "id": "jutsu-equip", "status": "pending" },
+    { "id": "item-equip", "status": "pending" },
+    { "id": "academy-spar", "status": "pending" },
+    { "id": "hospital-heal", "status": "pending" },
+    { "id": "first-reward", "status": "pending", "requestId": "" },
+    { "id": "logbook", "status": "pending" },
+    { "id": "sector-enter", "status": "pending" },
+    { "id": "village-return", "status": "pending" },
+    { "id": "logout", "status": "pending" },
+    { "id": "login-again", "status": "pending" },
+    { "id": "final-restore-check", "status": "pending" }
+  ],
+  "safetyChecks": [
+    { "id": "duplicate-reward", "status": "pending" },
+    { "id": "wrong-account", "status": "pending" },
+    { "id": "expired-token", "status": "pending" },
+    { "id": "retry-idempotency", "status": "pending" }
+  ],
+  "finalState": {
+    "saveVersion": 0,
+    "progression": {},
+    "inventory": {},
+    "training": {},
+    "companion": {},
+    "missionState": {},
+    "position": {},
+    "currencies": {}
+  }
+}
