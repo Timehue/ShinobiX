@@ -32,6 +32,7 @@ import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/
 
 import saveHandler       from './api/save/[name].js';
 import heartbeatHandler  from './api/player/heartbeat.js';
+import travelHandler     from './api/player/travel.js';
 import challengeHandler  from './api/player/challenge.js';
 import friendsHandler    from './api/player/friends.js';
 import attackHandler     from './api/player/attack.js';
@@ -824,6 +825,7 @@ route('/save/:name', saveHandler);
 
 // Player
 route('/player/heartbeat',    heartbeatHandler);
+route('/player/travel',       travelHandler);
 route('/player/challenge',    challengeHandler);
 route('/player/friends',      friendsHandler);
 route('/player/attack',       attackHandler);
