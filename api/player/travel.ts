@@ -21,6 +21,7 @@ export function isPlayableWorldSector(value: unknown): value is number {
 
 export type EdgeTravelInput = {
     originSector: number;
+    originTile: number;
     destinationSector: number;
     exitId: string;
 };
@@ -32,7 +33,14 @@ export function edgeTravelExit(
     if (player.sector !== input.originSector) return null;
     const exit = sectorExitById(player.sector, input.exitId);
     if (!exit || exit.destinationSector !== input.destinationSector) return null;
-    if (player.tile !== exit.tile) return null;
+    // The tile delta and this HTTP request travel over separate connections, so
+    // the request can legitimately arrive before Socket.IO/heartbeat records the
+    // final step onto the exit. Treat the tile carried by this atomic crossing
+    // action as the current position and validate it against the shared road.
+    // Presence tiles are already client movement intents (not collision-proof
+    // server simulation), so relying on the stale display snapshot only creates
+    // a race without adding authority.
+    if (input.originTile !== exit.tile) return null;
     return exit;
 }
 
@@ -60,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (mode === 'edge') {
         const exit = edgeTravelExit(player, {
             originSector: Number(body.originSector),
+            originTile: Number(body.originTile),
             destinationSector,
             exitId: String(body.exitId ?? ''),
         });
