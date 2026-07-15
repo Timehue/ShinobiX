@@ -23,8 +23,8 @@ import { canonicalClashStats, buildCreatorBaseMap } from '../clan/war/_card-cata
 import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
 import { sectorWarDamageMultiplier } from '../_war-structures.js';
 import { sectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
-import { applyContestBattleByWinner, sectorWarKey } from '../_sector-war.js';
-import { loadSectorWar, saveSectorWar, deleteSectorWar } from '../_sector-war-store.js';
+import { applyContestBattleByWinner, findSectorWarBattleReceipt, recordSectorWarBattleOutcome, sectorWarKey } from '../_sector-war.js';
+import { loadSectorWar, saveSectorWar } from '../_sector-war-store.js';
 import { captureSectorForVillage } from '../world-state.js';
 
 /*
@@ -159,17 +159,18 @@ async function applyCardOutcomeToContest(session: SectorCardSession): Promise<vo
     const [winnerRole, loserRole] = await Promise.all([sectorWarRoleOf(winnerName), sectorWarRoleOf(loserName)]);
     await withKvLock(sectorWarKey(session.sectorWarId), async () => {
         const contest = await loadSectorWar(session.sectorWarId);
-        if (!contest || contest.flipped) return;
+        if (!contest) return;
+        const battleId = `card:${session.sectorWarId}:${session.createdAt}`;
+        if (findSectorWarBattleReceipt(contest, battleId) || contest.flipped) return;
         const atkRecord = normalizeVillageWarRecord(session.attackerVillage, (await kv.get<Record<string, unknown>>(villageWarKey(session.attackerVillage))) ?? undefined);
         const swing = sectorControlSwing(winnerRole, loserRole, sectorWarDamageMultiplier(atkRecord));
         const outcome = applyContestBattleByWinner(contest, session.winner ?? 'draw', { now: Date.now(), swing });
         if (!outcome) return; // draw — Control HP untouched
+        const recorded = recordSectorWarBattleOutcome(outcome, { battleId, attackerWon: session.winner === 'p1', at: Date.now() });
         if (outcome.captured) {
             await captureSectorForVillage(session.sector, session.attackerVillage, Date.now());
-            await deleteSectorWar(session.sectorWarId);
-        } else {
-            await saveSectorWar(outcome.session);
         }
+        await saveSectorWar(recorded.session);
     }, { failClosed: true });
 }
 
