@@ -77,6 +77,8 @@ function collectJobs(only) {
 }
 
 async function generate(job, key, quality) {
+    // This offline generator intentionally sends its curated prompt and configured API credential to OpenAI.
+    // codeql[js/file-access-to-http]
     const res = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },

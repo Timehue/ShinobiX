@@ -20,8 +20,14 @@
         "test:release-assets": "node scripts/check-release-assets.mjs",
         "sizecheck": "node scripts/check-build-size.mjs",
         "release:health": "node scripts/release-health-check.mjs",
+        "beta:report": "node scripts/beta-daily-report.mjs",
+        "beta:certify": "node scripts/beta-certification.mjs",
+        "check:deployment": "node scripts/check-deployment-config.mjs",
+        "check:rollback-readiness": "node scripts/rollback-readiness.mjs",
         "backup:kv": "node scripts/kv-backup.mjs export",
-        "restore:kv": "node scripts/kv-backup.mjs restore"
+        "restore:kv": "node scripts/kv-backup.mjs restore",
+        "drill:restore": "node scripts/kv-backup.mjs drill",
+        "test:backup": "node --test scripts/kv-backup.test.mjs"
     },
     "dependencies": {
         "@sentry/node": "^10.58.0",
