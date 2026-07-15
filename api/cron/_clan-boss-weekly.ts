@@ -23,7 +23,36 @@ import {
 
 const ARCHIVE_TTL_SEC = 400 * 24 * 60 * 60;
 
-type Reward = { ryo: number; fateShards: number; boneCharms: number; clanXp: number };
+export type ClanBossReward = { ryo: number; fateShards: number; boneCharms: number; clanXp: number };
+
+/** Commit one week's reward and its receipt in the same clan-record mutation. */
+export function applyClanBossRewardToRecord(
+    rec: Record<string, unknown>,
+    reward: ClanBossReward,
+    weekId: string,
+): { applied: boolean; record: Record<string, unknown> } {
+    const receipts = Array.isArray(rec.clanBossRewardReceipts)
+        ? (rec.clanBossRewardReceipts as unknown[]).filter((entry): entry is string => typeof entry === 'string')
+        : [];
+    if (receipts.includes(weekId)) return { applied: false, record: rec };
+
+    const memberCount = Array.isArray(rec.members) ? (rec.members as unknown[]).length : 0;
+    const leveled = addClanXpServer(Number(rec.xp ?? 0), Number(rec.level ?? 1), scaledClanXp(reward.clanXp, memberCount));
+    const treasury = { ...(rec.treasury as Record<string, unknown> | undefined ?? {}) };
+    treasury.ryo = Number(treasury.ryo ?? 0) + reward.ryo;
+    treasury.fateShards = Number(treasury.fateShards ?? 0) + reward.fateShards;
+    treasury.boneCharms = Number(treasury.boneCharms ?? 0) + reward.boneCharms;
+    return {
+        applied: true,
+        record: {
+            ...rec,
+            xp: leveled.xp,
+            level: leveled.level,
+            treasury,
+            clanBossRewardReceipts: [...receipts.slice(-127), weekId],
+        },
+    };
+}
 
 export async function runClanBossWeekly(now: number = Date.now()): Promise<{ enabled: boolean; spawned: string | null; settled: string[] }> {
     if (process.env.ENABLE_CLAN_BOSS !== '1') return { enabled: false, spawned: null, settled: [] };
@@ -72,7 +101,7 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
         const damageByClan = new Map(progressList.map((p) => [p.clanName, clanBossDamageDealt(p)]));
 
         for (const entry of ranked) {
-            let reward: Reward | null;
+            let reward: ClanBossReward | null;
             if (entry.rank <= 3) {
                 reward = CB_REWARDS[entry.rank as 1 | 2 | 3];
             } else if (entry.killed) {
@@ -81,7 +110,11 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
                 const engagedXp = clanBossEngagedXp(damageByClan.get(entry.clanName) ?? 0);
                 reward = engagedXp > 0 ? { ryo: 0, fateShards: 0, boneCharms: 0, clanXp: engagedXp } : null;
             }
-            if (reward) await creditClanTreasury(entry.clanName, reward, week.weekId);
+            if (reward && !(await creditClanTreasury(entry.clanName, reward, week.weekId))) {
+                // Keep the week open for a retry. Previously credited clan records
+                // replay safely because the receipt lives in the same blob.
+                return false;
+            }
         }
 
         await kv.set(clanBossArchiveKey(week.weekId), {
@@ -103,24 +136,22 @@ async function settleWeek(week: ClanBossWeek, now: number): Promise<boolean> {
     }, { failClosed: true });
 }
 
-async function creditClanTreasury(clanName: string, reward: Reward, weekId: string): Promise<void> {
+async function creditClanTreasury(clanName: string, reward: ClanBossReward, weekId: string): Promise<boolean> {
     const clanKey = `save:clan-${clanSlug(clanName)}`;
     const receiptKey = `clan-boss-reward:${weekId}:${clanSlug(clanName)}`;
-    await withKvLock(clanKey, async () => {
-        // Claim the once-only receipt INSIDE the lock, so a contended/failed credit
-        // is retried on the next cron tick rather than silently lost.
-        const claimed = await kv.set(receiptKey, '1', { nx: true, ex: ARCHIVE_TTL_SEC });
-        if (claimed !== 'OK') return;
+    return withKvLock(clanKey, async () => {
+        // Honor receipts written by older deployments before using the embedded,
+        // same-record receipt used by the current path.
+        if (await kv.get(receiptKey)) return true;
         const rec = await kv.get<Record<string, unknown>>(clanKey);
-        if (!rec) return;
+        if (!rec) return false;
         // Member-scaled clan XP (10–15 members = 1.0×; small clans dampened,
         // capped) so a tiny clan can't rush hall tiers off the weekly boss.
-        const memberCount = Array.isArray(rec.members) ? (rec.members as unknown[]).length : 0;
-        const leveled = addClanXpServer(Number(rec.xp ?? 0), Number(rec.level ?? 1), scaledClanXp(reward.clanXp, memberCount));
-        const treasury = { ...(rec.treasury as Record<string, unknown> | undefined ?? {}) };
-        treasury.ryo = Number(treasury.ryo ?? 0) + reward.ryo;
-        treasury.fateShards = Number(treasury.fateShards ?? 0) + reward.fateShards;
-        treasury.boneCharms = Number(treasury.boneCharms ?? 0) + reward.boneCharms;
-        await kv.set(clanKey, { ...rec, xp: leveled.xp, level: leveled.level, treasury });
+        const applied = applyClanBossRewardToRecord(rec, reward, weekId);
+        if (applied.applied) await kv.set(clanKey, applied.record);
+        // Preserve the legacy marker for operational visibility. Correctness no
+        // longer depends on this best-effort secondary write.
+        await kv.set(receiptKey, '1', { ex: ARCHIVE_TTL_SEC }).catch(() => undefined);
+        return true;
     }, { failClosed: true });
 }
