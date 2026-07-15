@@ -1,3 +1,5 @@
+import { basename, resolve } from 'node:path';
+
 export const REQUIRED_JOURNEY_STEPS = Object.freeze([
   'register', 'login', 'character-create', 'first-save', 'reload', 'intro-academy',
   'starter-companion', 'stat-training', 'jutsu-equip', 'item-equip', 'academy-spar',
@@ -12,6 +14,16 @@ export const REQUIRED_SAFETY_CHECKS = Object.freeze([
 const REQUIRED_FINAL_STATE = Object.freeze([
   'progression', 'inventory', 'training', 'companion', 'missionState', 'position', 'currencies',
 ]);
+
+const SAFE_EVIDENCE_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.json$/;
+
+export function betaCertificationEvidencePath(fileName, root = process.cwd()) {
+  const safeFile = String(fileName ?? '');
+  if (!SAFE_EVIDENCE_FILE.test(safeFile) || basename(safeFile) !== safeFile) {
+    throw new Error('Pass a JSON filename stored under release-audit/evidence (no path separators).');
+  }
+  return resolve(root, 'release-audit', 'evidence', safeFile);
+}
 
 export function validateBetaCertification(input) {
   const errors = [];
