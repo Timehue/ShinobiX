@@ -24,6 +24,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { enforceRateLimit } from './api/_ratelimit.js';
 import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/_request-metrics.js';
+import { safeLogValue } from './api/_safe-log.js';
 
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
@@ -787,8 +788,12 @@ let warnedRestartFallback = false;
 app.post(['/restart', '/api/restart'], (req, res) => {
     const now = Date.now();
     restartAttempts = restartAttempts.filter((t) => now - t < RESTART_WINDOW_MS);
-    const ip = headerValue(req.headers['x-forwarded-for']).split(',')[0].trim()
-        || req.socket.remoteAddress || 'unknown';
+    const ip = safeLogValue(
+        headerValue(req.headers['x-forwarded-for']).split(',')[0].trim()
+            || req.socket.remoteAddress
+            || 'unknown',
+        96,
+    );
 
     if (restartAttempts.length >= RESTART_MAX_ATTEMPTS) {
         console.warn(`[restart] RATE-LIMITED — ${restartAttempts.length} attempts in ${RESTART_WINDOW_MS}ms from ${ip}`);
@@ -1340,7 +1345,14 @@ app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
 
     // Keep request-controlled values out of the format-string position. Some
     // loggers interpret percent directives in their first argument.
-    console.error('[server error]', '[req]', reqId, req.method, req.path, err);
+    console.error(
+        '[server error]',
+        '[req]',
+        safeLogValue(reqId, 128),
+        safeLogValue(req.method, 16),
+        safeLogValue(req.path, 512),
+        safeLogValue(err instanceof Error ? (err.stack ?? err.message) : err, 2_000),
+    );
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting
     // failure mask the 500. No-op when Sentry is disabled (SENTRY_DSN unset).

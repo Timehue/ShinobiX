@@ -14,6 +14,7 @@ const outputPath = resolve(option('output', 'concurrency-load-evidence.json'));
 if (!manifestPath) throw new Error('Pass --manifest=path/to/disposable-concurrency.json.');
 const safety = assertLoadSafety({ baseUrl, clients: 25, durationSeconds: 5 });
 if (safety.production) throw new Error('Concurrency mutation drills are forbidden against production. Use a disposable target.');
+const targetOrigin = safety.url.origin;
 const scenarios = validateConcurrencyManifest(JSON.parse(await readFile(resolve(manifestPath), 'utf8')));
 const evidence = { schemaVersion: 1, startedAt: new Date().toISOString(), target: new URL(baseUrl).origin, scenarios: [] };
 
@@ -22,7 +23,13 @@ for (const scenario of scenarios) {
     const responses = await Promise.all(Array.from({ length: scenario.parallel }, async () => {
         const requestStarted = performance.now();
         try {
-            const response = await fetch(`${baseUrl}${scenario.path}`, {
+            const targetUrl = new URL(scenario.path, targetOrigin);
+            // The custom safety gate above restricts requests to loopback or an
+            // exact operator allowlist; CodeQL cannot infer that cross-module guard.
+            // codeql[js/request-forgery]
+            // The disposable manifest intentionally supplies the authenticated drill request.
+            // codeql[js/file-access-to-http]
+            const response = await fetch(targetUrl, {
                 method: scenario.method,
                 headers: { 'content-type': 'application/json', 'x-player-name': scenario.playerName, 'x-player-token': scenario.token },
                 body: JSON.stringify(scenario.body),
