@@ -42,6 +42,7 @@ function canon(name: string): string {
 export class MemoryOnlineStateStore implements OnlineStateStore {
     private players = new Map<string, OnlinePlayer>();
     private sectors = new Map<number, Set<string>>();
+    private settledTravelKeys = new Set<string>();
     private readonly offlineAfterMs: number;
     // Injectable clock so tests can advance time deterministically without sleeps.
     private readonly now: () => number;
@@ -68,22 +69,63 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         if (!names.size) this.sectors.delete(sector);
     }
 
+    private settleMaturedTravel(key: string, player: OnlinePlayer, now: number): void {
+        if (player.travelDestinationSector === undefined || player.travelingUntil === undefined || now < player.travelingUntil) return;
+        const previousSector = player.sector;
+        player.sector = player.travelDestinationSector;
+        if (player.travelDestinationTile !== undefined) player.tile = player.travelDestinationTile;
+        player.travelingUntil = undefined;
+        player.travelDestinationSector = undefined;
+        player.travelDestinationTile = undefined;
+        this.settledTravelKeys.add(key);
+        if (previousSector !== player.sector) {
+            this.removeFromSector(key, previousSector);
+            this.addToSector(key, player.sector);
+        }
+    }
+
+    private applyTravel(
+        key: string,
+        player: OnlinePlayer,
+        destinationSector: number,
+        arrivalAt: number,
+        originSector?: number,
+        arrivalTile?: number,
+    ): OnlinePlayer {
+        if (originSector !== undefined && originSector !== player.sector) {
+            this.removeFromSector(key, player.sector);
+            player.sector = originSector;
+            this.addToSector(key, player.sector);
+        }
+        player.travelDestinationSector = destinationSector;
+        player.travelDestinationTile = arrivalTile;
+        player.travelingUntil = arrivalAt;
+        player.lastSeenAt = this.now();
+        this.settledTravelKeys.delete(key);
+        this.settleMaturedTravel(key, player, this.now());
+        return player;
+    }
+
     upsert(entry: PresenceUpsert): OnlinePlayer {
         const key = canon(entry.name);
         const now = this.now();
         const prev = this.players.get(key);
+        if (prev) this.settleMaturedTravel(key, prev, now);
         let sector = entry.sector;
         let travelingUntil = prev?.travelingUntil;
         let travelDestinationSector = prev?.travelDestinationSector;
+        let travelDestinationTile = prev?.travelDestinationTile;
         if (prev) {
             // Presence is no longer allowed to teleport a live session. A sector
             // change must either be a safe-zone exit (sector 0) or the matured
             // destination of a lease minted by /player/travel.
             sector = prev.sector;
             if (entry.sector === 0) {
+                if (travelingUntil !== undefined || travelDestinationSector !== undefined) this.settledTravelKeys.add(key);
                 sector = 0;
                 travelingUntil = undefined;
                 travelDestinationSector = undefined;
+                travelDestinationTile = undefined;
             } else if (entry.sector === prev.sector) {
                 // ordinary presence refresh
             } else if (
@@ -92,8 +134,11 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
                 && now >= travelingUntil
             ) {
                 sector = entry.sector;
+                if (travelDestinationTile !== undefined) entry.tile = travelDestinationTile;
                 travelingUntil = undefined;
                 travelDestinationSector = undefined;
+                travelDestinationTile = undefined;
+                this.settledTravelKeys.add(key);
             }
         }
         const next: OnlinePlayer = {
@@ -108,6 +153,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             pendingAttacker: prev?.pendingAttacker ?? null,
             travelingUntil,
             travelDestinationSector,
+            travelDestinationTile,
             inBattle: entry.inBattle === true ? true : undefined,
             // Within-sector tile for live peer rendering; keep the last known tile
             // if this beat didn't carry one (older client / non-sector screen).
@@ -121,14 +167,22 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
     }
 
     get(name: string): OnlinePlayer | null {
-        const p = this.players.get(canon(name));
-        return this.isFresh(p, this.now()) ? p : null;
+        const key = canon(name);
+        const p = this.players.get(key);
+        const now = this.now();
+        if (!this.isFresh(p, now)) return null;
+        this.settleMaturedTravel(key, p, now);
+        return p;
     }
 
     list(): OnlinePlayer[] {
         const now = this.now();
         const out: OnlinePlayer[] = [];
-        for (const p of this.players.values()) if (this.isFresh(p, now)) out.push(p);
+        for (const [key, p] of this.players) {
+            if (!this.isFresh(p, now)) continue;
+            this.settleMaturedTravel(key, p, now);
+            out.push(p);
+        }
         return out;
     }
 
@@ -149,6 +203,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         const player = this.players.get(key);
         if (player) this.removeFromSector(key, player.sector);
         this.players.delete(key);
+        this.settledTravelKeys.delete(key);
     }
 
     setPendingAttacker(name: string, attacker: unknown): boolean {
@@ -168,23 +223,35 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         if (p) p.inBattle = inBattle ? true : undefined;
     }
 
-    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number): OnlinePlayer | null {
+    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number): OnlinePlayer | null {
+        const key = canon(name);
         const p = this.get(name);
         if (!p || p.inBattle || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
-        // A validated edge-crossing request is also the authoritative reconcile
-        // point for presence. Socket rooms/heartbeats can retain the previous
-        // sector across a reconnect or deploy even though the client is already
-        // walking in the persisted origin sector.
-        if (originSector !== undefined && originSector !== p.sector) {
-            const key = canon(name);
-            this.removeFromSector(key, p.sector);
-            p.sector = originSector;
-            this.addToSector(key, p.sector);
-        }
-        p.travelDestinationSector = destinationSector;
-        p.travelingUntil = arrivalAt;
-        p.lastSeenAt = this.now();
-        return p;
+        return this.applyTravel(key, p, destinationSector, arrivalAt, originSector, arrivalTile);
+    }
+
+    restoreTravel(name: string, destinationSector: number, arrivalAt: number, originSector: number, arrivalTile?: number): OnlinePlayer | null {
+        const key = canon(name);
+        const p = this.players.get(key);
+        if (!p) return null;
+        return this.applyTravel(key, p, destinationSector, arrivalAt, originSector, arrivalTile);
+    }
+
+    cancelTravel(name: string, arrivalAt: number): void {
+        const key = canon(name);
+        const p = this.players.get(key);
+        if (!p || p.travelingUntil !== arrivalAt) return;
+        p.travelingUntil = undefined;
+        p.travelDestinationSector = undefined;
+        p.travelDestinationTile = undefined;
+        this.settledTravelKeys.delete(key);
+    }
+
+    consumeSettledTravel(name: string): boolean {
+        const key = canon(name);
+        if (!this.settledTravelKeys.has(key)) return false;
+        this.settledTravelKeys.delete(key);
+        return true;
     }
 
     moveToTile(name: string, tile: number): OnlinePlayer | null {
@@ -201,9 +268,12 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         const removed: OnlinePlayer[] = [];
         for (const [k, p] of this.players) {
             if (now - p.lastSeenAt > this.offlineAfterMs) {
+                const departureSector = p.sector;
+                this.settleMaturedTravel(k, p, now);
                 this.players.delete(k);
                 this.removeFromSector(k, p.sector);
-                removed.push(p);
+                this.settledTravelKeys.delete(k);
+                removed.push(departureSector === p.sector ? p : { ...p, departureSector });
             }
         }
         return removed;

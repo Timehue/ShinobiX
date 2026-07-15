@@ -87,6 +87,9 @@ export function worldInteractionBlock(actor: OnlinePlayer | null, target: Online
     if (!target) return { status: 404, error: 'Target not online.' };
     if (actor.travelingUntil && actor.travelingUntil > now) return { status: 409, error: 'You cannot attack while traveling.' };
     if (actor.inBattle) return { status: 409, error: 'You are already in a battle.' };
+    if (actor.sector < 1 || target.sector < 1) {
+        return { status: 409, error: 'World attacks are disabled in safe zones.' };
+    }
     if (actor.sector !== target.sector) return { status: 409, error: 'Target is no longer in your sector.' };
     return null;
 }

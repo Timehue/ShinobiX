@@ -41,6 +41,7 @@ import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUnti
 import { setOnSweep } from './game-loop.js';
 import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCamp } from './sleeper-camps.js';
+import { getTravelLease, settleTravelLease, travelLeaseSectorAt, type TravelLease } from './travel-lease.js';
 // CORS origin predicate — single source of truth in api/_utils.ts, shared with
 // cors() and the Express middleware. Even when production serves the SPA and the
 // socket from the SAME origin (Railway), the browser still sends an Origin
@@ -143,9 +144,10 @@ function wireRealtime(io: IOServer): void {
     setOnSweep((removedPlayers) => {
         const bySector = new Map<number, string[]>();
         for (const player of removedPlayers) {
-            const names = bySector.get(player.sector) ?? [];
+            const departureSector = player.departureSector ?? player.sector;
+            const names = bySector.get(departureSector) ?? [];
             names.push(player.name);
-            bySector.set(player.sector, names);
+            bySector.set(departureSector, names);
         }
         for (const [sector, names] of bySector) {
             io.to(sectorRoom(sector)).emit('presence:leave', { sector, names });
@@ -180,8 +182,20 @@ function wireRealtime(io: IOServer): void {
 
             socket.data.name = canonicalName;
             socket.data.sector = -1; // not yet placed in a sector room
-            const saved = await kv.get<{ currentSector?: number }>(`save:${canonicalName}`);
-            socket.data.initialSector = normalizeSector(saved?.currentSector, 40);
+            const [saved, persistedTravel] = await Promise.all([
+                kv.get<{ currentSector?: number }>(`save:${canonicalName}`),
+                getTravelLease(canonicalName),
+            ]);
+            const now = Date.now();
+            socket.data.initialTravelLease = persistedTravel && now < persistedTravel.arrivalAt
+                ? persistedTravel
+                : undefined;
+            socket.data.initialSector = persistedTravel
+                ? travelLeaseSectorAt(persistedTravel, now)
+                : normalizeSector(saved?.currentSector, 40);
+            if (persistedTravel && now >= persistedTravel.arrivalAt) {
+                void settleTravelLease(canonicalName, persistedTravel, now).catch(() => undefined);
+            }
             next();
         } catch {
             next(new Error('auth error'));
@@ -226,7 +240,7 @@ function wireRealtime(io: IOServer): void {
             );
 
             // NAME is the authed socket identity — never the client body. No spoofing.
-            const stored = onlineStore.upsert({
+            let stored = onlineStore.upsert({
                 name: displayName,
                 sector: requestedSector,
                 character: slim as Record<string, unknown> | null,
@@ -234,6 +248,20 @@ function wireRealtime(io: IOServer): void {
                 inBattle: p.inBattle === true ? true : undefined,
                 tile: normalizeTile(p.tile, previous?.tile),
             });
+            const persistedTravel = socket.data.initialTravelLease as TravelLease | undefined;
+            socket.data.initialTravelLease = undefined;
+            if (!previous && persistedTravel) {
+                stored = onlineStore.restoreTravel(
+                    name,
+                    persistedTravel.destinationSector,
+                    persistedTravel.arrivalAt,
+                    persistedTravel.originSector,
+                    persistedTravel.arrivalTile,
+                ) ?? stored;
+            }
+            if (onlineStore.consumeSettledTravel(name)) {
+                void settleTravelLease(name).catch(() => undefined);
+            }
             // Throttled cross-worker presence beat (see _realtime/_presence-beat.ts).
             stampPresenceBeat(displayName);
             void clearSleeperCamp(displayName).catch(() => undefined);

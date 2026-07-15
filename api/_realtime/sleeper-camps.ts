@@ -2,6 +2,7 @@ import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import type { OnlinePlayer } from './types.js';
 import { onlineStore } from './online-store.js';
+import { settleTravelLeases } from './travel-lease.js';
 
 export const SLEEPER_CAMPS_KEY = 'world:sleeper-camps';
 
@@ -82,6 +83,10 @@ export async function materializeSleeperCamps(players: OnlinePlayer[]): Promise<
     }
     if (!Object.keys(patch).length) return;
     await kv.hset(SLEEPER_CAMPS_KEY, patch);
+    // A stale traveler is settled to the destination by onlineStore before it
+    // reaches this function. Commit that sector to the versioned save before
+    // deleting the restart-recovery lease.
+    await settleTravelLeases(...Object.keys(patch));
     // Close the reconnect race: a heartbeat that landed while the hash write was
     // in flight wins, and its camp is removed again immediately.
     await Promise.all(Object.keys(patch).map(async (name) => {

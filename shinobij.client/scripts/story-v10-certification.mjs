@@ -28,6 +28,25 @@ const villages = [
     { name: 'Moonshadow Village', account: 'v10mooncert', title: 'Moon Unmasked' },
 ];
 
+async function buildFreshClient() {
+    const clientRoot = path.join(repoRoot, 'shinobij.client');
+    const command = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : 'npm';
+    const args = process.platform === 'win32'
+        ? ['/d', '/s', '/c', 'npm run build']
+        : ['run', 'build'];
+    const child = spawn(command, args, {
+        cwd: clientRoot,
+        stdio: 'inherit',
+    });
+    await new Promise((resolve, reject) => {
+        child.once('error', reject);
+        child.once('exit', (code, signal) => {
+            if (code === 0) resolve();
+            else reject(new Error(`Client build failed before story certification (${signal ?? `exit ${code}`}).`));
+        });
+    });
+}
+
 function isolatedServerEnv() {
     const env = {
         ...process.env,
@@ -333,6 +352,10 @@ async function certifyWeakNetwork(browser) {
     await context.close();
     return { profile: '500 Kbps down / 250 Kbps up / 180 ms RTT', elapsedMs, failedRequests: 0 };
 }
+
+// The browser portion must certify the source being reviewed, never whichever
+// tracked bundle happened to be left in dist by an earlier build.
+await buildFreshClient();
 
 const serverLogs = [];
 const server = spawn(process.execPath, ['--import', 'tsx', 'server.ts'], {
