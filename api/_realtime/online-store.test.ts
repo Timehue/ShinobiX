@@ -60,6 +60,30 @@ test('validated edge travel reconciles a stale presence origin sector', () => {
     assert.equal(store.listSector(10)[0]?.name, 'rill');
 });
 
+test('server-issued travel settles without a client-authored destination update', () => {
+    const { store, advance, at } = makeStore();
+    store.upsert({ name: 'rill', sector: 1, character: null, tile: 10 });
+    assert.ok(store.startTravel('rill', 2, at() + 3_000, undefined, 55));
+    advance(3_000);
+    const settled = store.get('rill');
+    assert.equal(settled?.sector, 2);
+    assert.equal(settled?.tile, 55);
+    assert.equal(settled?.travelingUntil, undefined);
+    assert.equal(store.consumeSettledTravel('rill'), true);
+    assert.equal(store.consumeSettledTravel('rill'), false, 'settlement signal is one-shot');
+});
+
+test('stale mid-travel disconnect is swept at its matured destination', () => {
+    const { store, advance, at } = makeStore(60_000);
+    store.upsert({ name: 'rill', sector: 1, character: null });
+    assert.ok(store.startTravel('rill', 2, at() + 3_000));
+    advance(60_001);
+    const [removed] = store.sweepStale();
+    assert.equal(removed?.sector, 2, 'sleeper materialization receives the destination');
+    assert.equal(removed?.departureSector, 1, 'socket departure still targets the room that saw the player');
+    assert.equal(removed?.travelingUntil, undefined);
+});
+
 test('moveToTile refreshes a player and increments movement sequence', () => {
     const { store } = makeStore();
     store.upsert({ name: 'rill', sector: 1, character: null, tile: 10 });

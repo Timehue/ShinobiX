@@ -9,6 +9,7 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
 import { clearSleeperCamp } from '../_realtime/sleeper-camps.js';
+import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
 
 // Presence now lives in the in-memory online store (api/_realtime/online-store.ts)
 // instead of `presence:<name>` DB keys — no per-second DB read/write. The live
@@ -76,11 +77,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
         const existing = onlineStore.get(name);
-        const [pendingChallenges, resetSignal, healSignal, savedLocation] = await Promise.all([
+        const [pendingChallenges, resetSignal, healSignal, savedLocation, persistedTravel] = await Promise.all([
             kv.get<unknown[]>(challengeKey),
             kv.get(resetSignalKey),
             kv.get<{ by?: string; at?: number }>(healSignalKey),
             existing ? Promise.resolve(null) : kv.get<{ currentSector?: number }>(`save:${safeName(name)}`),
+            existing ? Promise.resolve(null) : getTravelLease(name),
         ]);
 
         if (resetSignal) {
@@ -90,10 +92,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // A fresh process/session starts from the persisted server location. Once
         // online, MemoryOnlineStateStore only accepts sector changes backed by a
         // server-minted travel lease (or a safe-zone exit to sector 0).
+        const now = Date.now();
         const entrySector = existing
             ? normalizeSector(sector, existing.sector)
-            : normalizeSector(savedLocation?.currentSector, normalizeSector(sector, 40));
-        const now = Date.now();
+            : persistedTravel
+                ? travelLeaseSectorAt(persistedTravel, now)
+                : normalizeSector(savedLocation?.currentSector, normalizeSector(sector, 40));
 
         // Cap client-supplied travelingUntil so an exploit can't make a player
         // permanently untouchable (capTravelingUntil returns undefined unless
@@ -111,7 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // heartbeat read pendingAttacker then rewrote the row with null. Also
         // stamp the request IP for anti-alt overlap checks (player-ip:{name}:{ip},
         // 7-day TTL, idempotent).
-        const stored = onlineStore.upsert({
+        let stored = onlineStore.upsert({
             name,
             sector: entrySector,
             character: slimChar as Record<string, unknown> | null,
@@ -119,6 +123,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             inBattle: inBattle === true ? true : undefined,
             tile: normalizeTile(tile, existing?.tile),
         });
+        if (!existing && persistedTravel && now < persistedTravel.arrivalAt) {
+            stored = onlineStore.restoreTravel(
+                name,
+                persistedTravel.destinationSector,
+                persistedTravel.arrivalAt,
+                persistedTravel.originSector,
+                persistedTravel.arrivalTile,
+            ) ?? stored;
+        }
+        if ((persistedTravel && now >= persistedTravel.arrivalAt) || onlineStore.consumeSettledTravel(name)) {
+            void settleTravelLease(name, persistedTravel ?? undefined, now).catch(() => undefined);
+        }
         const pendingAttacker = stored.pendingAttacker ?? null;
         onlineStore.clearPendingAttacker(name);
         // Throttled cross-worker presence beat (fallback for consumers like the

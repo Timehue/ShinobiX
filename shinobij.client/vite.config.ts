@@ -11,6 +11,7 @@ import { env } from 'process';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { playerPasswordPolicyError } from './src/lib/player-auth-policy';
 import { sectorExitById } from '../shared/sector-links';
+import { issueSignedDevSessionToken, verifySignedDevSessionToken } from './dev-session-auth';
 
 // ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
 const isBuildMode = process.argv.includes('build');
@@ -114,7 +115,6 @@ type DevAuthRecord = {
 };
 
 type DevAuthStore = Record<string, DevAuthRecord>;
-const devSessionTokens = new Map<string, string>();
 
 function isReservedDevAuthName(playerId: string) {
     return RESERVED_DEV_AUTH_NAMES.has(playerId)
@@ -136,34 +136,14 @@ function createDevAuthRecord(password: string): DevAuthRecord {
 // Mint an opaque dev-only token so authenticated browser journeys exercise the
 // same token-first client path. This value is accepted nowhere outside Vite.
 function issueDevSessionToken(playerId: string) {
-    const token = `dev.${Buffer.from(playerId).toString('base64url')}.${randomBytes(32).toString('base64url')}`;
-    devSessionTokens.set(token, playerId);
-    return token;
+    return issueSignedDevSessionToken(playerId);
 }
 
 function devTokenPlayer(req: IncomingMessage): string | null {
     const token = req.headers['x-player-token'];
     const claimedName = req.headers['x-player-name'];
     if (typeof token !== 'string' || typeof claimedName !== 'string') return null;
-    const parts = token.split('.');
-    if (parts.length !== 3 || parts[0] !== 'dev' || !parts[2]) return null;
-    try {
-        const tokenName = safeName(Buffer.from(parts[1], 'base64url').toString('utf8'));
-        const issuedTo = devSessionTokens.get(token);
-        // Vite may reload the config module while the browser keeps its session,
-        // which clears this in-memory registry. A dev token still carries its
-        // player id plus 256 bits of entropy; accepting that shape locally keeps
-        // hot reload from logging QA sessions out. Production never uses this
-        // format: its tokens are signed, revocable, and validated by _auth.ts.
-        const structurallyValidAfterReload = !issuedTo && parts[2].length >= 43;
-        return tokenName
-            && tokenName === safeName(claimedName)
-            && (issuedTo === tokenName || structurallyValidAfterReload)
-            ? tokenName
-            : null;
-    } catch {
-        return null;
-    }
+    return verifySignedDevSessionToken(token, claimedName);
 }
 
 function validDevImage(image: string) {

@@ -31,7 +31,7 @@ interface CacheEntry { value: unknown; expiresAt: number; }
 const _readCache = new Map<string, CacheEntry>();
 
 // These prefixes change too rapidly to benefit from caching.
-const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:'];
+const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:'];
 
 function _shouldCache(key: string): boolean {
     return !_noCachePrefixes.some(p => key.startsWith(p));
