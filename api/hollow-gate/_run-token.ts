@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import type { HollowGateActiveEncounter } from './_combat-session.js';
 
 // The run token seals entry, depth, augment choice, payout ceilings, and
-// single-use settlement. Browser combat remains presentation-only; every
+// single-use settlement. Combat is resolved through a run-bound server session;
 // durable gain is reconciled through the locked settlement endpoint.
 export const HOLLOW_GATE_RUNS_ENABLED = true;
 
@@ -39,8 +40,12 @@ export type HgCurrencyKey = (typeof HG_CLAWBACK_KEYS)[number];
 // payout envelope by requesting a deeper synthetic run at token mint time.
 export const HOLLOW_GATE_SERVER_DEPTH = 5;
 
-export function canonicalHollowGateDepth(): number {
-    return HOLLOW_GATE_SERVER_DEPTH;
+export function canonicalHollowGateDepth(requested?: unknown): number {
+    const n = Math.floor(Number(requested));
+    if (!Number.isFinite(n)) return HOLLOW_GATE_SERVER_DEPTH;
+    // Short official/event gates may seal a smaller final floor. A client can
+    // never widen the payout envelope beyond the shipped five-floor maximum.
+    return Math.max(1, Math.min(HOLLOW_GATE_SERVER_DEPTH, n));
 }
 
 // VERBATIM mirror of the client hollowShardDrop (lib/hollow-gate-run.ts). The
@@ -200,6 +205,17 @@ export interface HollowGateRunToken {
     offeredAugmentIds: string[];
     chosenAugmentId: string | null;
     dailyRunOrdinal: number;
+    variantId?: string;
+    bossProfileId?: string;
+    bossName?: string;
+    /** One server combat may be active at a time. Settlement moves its encounter
+     * key into resolvedEncounterIds before another fight can start. */
+    activeEncounter?: HollowGateActiveEncounter | null;
+    resolvedEncounterIds?: string[];
+    /** Currency already committed by authoritative combat. Final extraction
+     * treats this as a stored baseline, so a stale browser cannot erase it. */
+    serverCreditedCurrencies?: Partial<Record<HgCurrencyKey, number>>;
+    secondWindArmed?: boolean;
 }
 
 export function rewardMultiplierForToken(t: Pick<HollowGateRunToken, 'chosenAugmentId'>): number {

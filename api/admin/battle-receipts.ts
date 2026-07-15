@@ -3,6 +3,8 @@ import { cors } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { readBattleReceipt } from '../_receipts.js';
+import { kv } from '../_storage.js';
+import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from '../hollow-gate/_combat-session.js';
 
 // Admin-only durable battle-receipt lookup (Priority 3 / 4 visibility).
 //
@@ -34,10 +36,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const receipt = await readBattleReceipt(battleId);
     res.setHeader('Cache-Control', 'no-store');
-    if (!receipt) {
-        return res.status(404).json({
-            error: 'No receipt for that battleId — it may predate receipts, or the 90-day window has expired.',
-        });
+    if (receipt) return res.status(200).json({ receipt });
+
+    // Hollow Gate uses the shared server combat engine but banks through its
+    // own run-bound receipt. Let support search the same runId here instead of
+    // needing direct KV access during a reward/replay investigation.
+    if (/^hgcombat-[a-f0-9]{32}$/.test(battleId)) {
+        const [binding, settlement] = await Promise.all([
+            kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(battleId)),
+            kv.get<Record<string, unknown>>(`hg-combat-paid:${battleId}`),
+        ]);
+        if (binding || settlement) {
+            return res.status(200).json({ receipt: { type: 'hollow-gate-combat', battleId, binding, settlement } });
+        }
     }
-    return res.status(200).json({ receipt });
+
+    return res.status(404).json({
+        error: 'No receipt for that battleId — it may predate receipts, or the retention window has expired.',
+    });
 }

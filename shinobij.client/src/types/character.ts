@@ -169,6 +169,14 @@ export type HollowGateShrineRun = {
     serverSeed?: string;
     augmentOffers?: HollowGateAugmentOffer[];
     chosenAugment?: HollowGateAugmentOffer | null;
+    // Resume pointer for the server-owned combat board. It contains no combat
+    // result or reward data; the API revalidates it against the run token.
+    activeCombat?: {
+        runId: string;
+        nodeId: string;
+        floor: number;
+        kind: "battle" | "elite" | "ambush" | "beast" | "boss";
+    };
     // Untrusted run tallies claimed at settlement. The server clamps each to
     // the sealed run depth before committing XP or high-value items.
     earnedXp?: number;
