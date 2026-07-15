@@ -14,6 +14,7 @@
  */
 import type { PvpStatus, PvpGroundEffect } from '../pvp/session.js';
 import type { TowerFeature, TowerBoardObject } from './_floor-catalog.js';
+import type { TowerFloor } from './_floor-catalog.js';
 import type { TowerModifier } from './_modifiers.js';
 
 export type TowerActorId = string;
@@ -129,6 +130,13 @@ export type TowerSession = {
     /** wall-clock when the CURRENT human's turn began (handler-set). Drives the co-op
      *  AFK auto-pass so a live run never deadlocks on an absent player. */
     turnStartedAt?: number;
+
+    /**
+     * Server-sealed floor definition for non-catalog encounters (combat missions,
+     * Weekly Boss, and future authoritative PvE). It is minted with the session
+     * and never accepted from a client. Catalog tower runs leave it absent.
+     */
+    encounterFloor?: TowerFloor;
 
     // ── Endless Spire — sealed ascension state (Wave 1) ──────────────────────────
     // All optional; every engine read defaults (?? ...) so story/legacy sessions are

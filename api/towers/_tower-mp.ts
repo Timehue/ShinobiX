@@ -8,7 +8,7 @@
  */
 import { activeActor, type TowerSession } from './_tower-session.js';
 import { endTurn, runAiUntilHuman } from './_engine.js';
-import { getFloor } from './_floor-catalog.js';
+import { floorForSession } from './_session-floor.js';
 import { makeRng } from './_sim.js';
 
 // A live player gets this long to act before their turn auto-passes (offline/AFK
@@ -29,7 +29,7 @@ export function stampTurnClock(session: TowerSession, now: number): void {
  */
 export function autoPassAfkHumans(session: TowerSession, now: number): boolean {
     if (session.status !== 'active') return false;
-    const floor = getFloor(session.floor);
+    const floor = floorForSession(session);
     if (!floor) return false;
     const rng = makeRng(session.seed);
     let advanced = false;

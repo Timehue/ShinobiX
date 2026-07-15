@@ -32,6 +32,8 @@ import { WANDERER_QUEST_CATALOG, questMetricForId } from "../lib/wanderers";
 import { emissaryQuestById, emissaryByQuestId } from "../lib/legacy-emissaries";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { sectorPhrase } from "../lib/hollow-rifts";
+import { BattleTowerFight } from "./BattleTowerFight";
+import type { TowerSession } from "../lib/towers-api";
 
 // Inline glyph that prefixes a tab/heading/button label — seated on the text baseline.
 const MH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -64,7 +66,77 @@ export function Missions({
     onMissionBattleStart?: () => void;
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
-    function startMissionBattle(mission: CombatMission) { if (character.level < mission.min) return alert(`Requires level ${mission.min}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
+    const [authoritativeFight, setAuthoritativeFight] = useState<{ mission: CombatMission; runId: string; session: TowerSession } | null>(null);
+    const [startingCombat, setStartingCombat] = useState(false);
+    // Keep every hook above the authoritative-fight early return so hook order is
+    // stable while entering and leaving the inline server-resolved battle.
+    const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field" | "weekly" | "wandering">(
+        character.profession ? "profession" : "combat"
+    );
+
+    async function startMissionBattle(mission: CombatMission) {
+        if (character.level < mission.min) return alert(`Requires level ${mission.min}.`);
+        if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
+        const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId);
+        if (!ai) return alert("Mission AI is not available.");
+
+        // C/B/A/S rewards require a server-resolved win. E/D keep the original
+        // Arena tutorial path; their deliberately tiny rewards remain rollout-safe.
+        if (mission.min > 5) {
+            if (startingCombat) return;
+            setStartingCombat(true);
+            try {
+                const response = await fetch("/api/missions/combat-start", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ playerName: character.name, missionId: mission.key }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data?.runId || !data?.session) {
+                    alert(data?.error ?? "The mission fight could not be started.");
+                    return;
+                }
+                setAuthoritativeFight({ mission, runId: data.runId, session: data.session });
+            } finally {
+                setStartingCombat(false);
+            }
+            return;
+        }
+
+        onMissionBattleStart?.();
+        setPendingAiProfileId(ai.id);
+        setScreen("arena");
+    }
+
+    async function settleAuthoritativeMission(runId: string, playerName: string): Promise<unknown> {
+        if (!authoritativeFight) return null;
+        const response = await fetch("/api/missions/queue-combat-claim", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerName, missionId: authoritativeFight.mission.key, runId }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data?.queued !== true) throw new Error(data?.reason ?? data?.error ?? "Mission settlement failed.");
+        updateCharacter((current) => current ? {
+            ...current,
+            pendingCombatMissionClaims: (current.pendingCombatMissionClaims ?? []).includes(authoritativeFight.mission.key)
+                ? current.pendingCombatMissionClaims
+                : [...(current.pendingCombatMissionClaims ?? []), authoritativeFight.mission.key],
+        } : current);
+        return data;
+    }
+
+    if (authoritativeFight) {
+        return (
+            <BattleTowerFight
+                character={character}
+                runId={authoritativeFight.runId}
+                initialSession={authoritativeFight.session}
+                settleFn={settleAuthoritativeMission}
+                onExit={() => setAuthoritativeFight(null)}
+            />
+        );
+    }
     // Combat missions are won in the Arena (which only queues the claim on the
     // character) and paid out HERE. Mirrors the field-mission / hunt claim
     // pattern: per-rank XP + ryo (matching the card), +1 Territory Scroll, and
@@ -123,9 +195,6 @@ export function Missions({
     // Tab state: default to Profession for players who have one, Combat otherwise.
     const hasProfession = !!character.profession;
     const showRookieOrders = character.level < 20 && !(character.examsPassed ?? []).includes("genin");
-    const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field" | "weekly" | "wandering">(
-        hasProfession ? "profession" : "combat"
-    );
     // Wandering quests (taken from sector wanderers): the single bounty + the active
     // multi-stage epic. Display-only here — you continue/claim out at a Wandering Sage.
     const wanderEpic = character.activeQuestbook ?? null;

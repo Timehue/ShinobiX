@@ -269,6 +269,12 @@ export type BuildEncounterParams = {
     ascension?: import('./_modifiers.js').AscensionSeal;
     /** Endless Spire — which of the 4 bosses this run features */
     spireBossId?: string;
+    /** Optional server-built boss template for a sealed non-catalog encounter. */
+    bossTemplate?: EnemyTemplate;
+    /** Persist the server-built floor on the session so action/AFK resolution can use it. */
+    embedFloor?: boolean;
+    /** Mode label used by clients/operations; defaults to the Celestial Tower id. */
+    towerId?: string;
     /** wall-clock from the handler (kept out of the deterministic engine) */
     now: number;
 };
@@ -384,7 +390,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     if (floor.boss) {
         bossId = 'boss';
         bossPhases = floor.boss.phases;
-        const bossActor = templateActor('boss', 'enemy', getEnemyTemplate(floor.boss.aiId), spawnEnemy());
+        const bossActor = templateActor('boss', 'enemy', p.bossTemplate ?? getEnemyTemplate(floor.boss.aiId), spawnEnemy());
         // Endless Spire: per-floor authored boss HP (overrides the template hp so the same boss
         // is tuned floor-by-floor, sidestepping the HP-scaled-mechanic × big-HP blow-up).
         if (typeof floor.boss.hp === 'number' && floor.boss.hp > 0) {
@@ -418,7 +424,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     }
 
     const session = createTowerSession({
-        towerId: p.ascension ? 'endless-spire' : 'celestial',
+        towerId: p.towerId ?? (p.ascension ? 'endless-spire' : 'celestial'),
         runId: p.runId,
         floor: floor.id,
         seed: p.seed,
@@ -438,5 +444,6 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     // Endless Spire is ALWAYS full-strength (the tier is the escalation, never a party discount),
     // so skip party scaling entirely when this is an ascension run.
     if (!p.ascension) applyPartyScaling(session, floor);
+    if (p.embedFloor) session.encounterFloor = structuredClone(floor);
     return session;
 }
