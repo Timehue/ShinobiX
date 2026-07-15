@@ -65,4 +65,6 @@ test('argument parsing retains safe defaults and validates event cadence', () =>
     assert.equal(parsed.durationSeconds, 30);
     assert.equal(parsed.emitMs, 2_000);
     assert.throws(() => validateRunOptions({ ...parsed, emitMs: 999 }), /at least 1000/);
+    assert.equal(validateRunOptions({ ...parsed, emitMs: 60_000 }).emitMs, 60_000);
+    assert.throws(() => validateRunOptions({ ...parsed, emitMs: 60_001 }), /must not exceed 60000/);
 });
