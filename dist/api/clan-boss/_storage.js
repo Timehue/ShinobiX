@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CLAN_BOSS_BY_ID = exports.CLAN_BOSSES = exports.CB_WEEK_MS = exports.CB_ENGAGED_XP_PER_DMG = exports.CB_ENGAGED_XP_CAP = exports.CB_ENGAGED_XP_FLOOR = exports.CB_PARTICIPATION_REWARD = exports.CB_REWARDS = exports.CB_CLEAN_WEIGHT = exports.CB_TIME_WEIGHT = exports.CB_TIME_PAR_HOURS = exports.CB_ROUND_WEIGHT = exports.CB_ROUND_PAR = exports.CB_BREADTH_WEIGHT = exports.CB_DMG_WEIGHT = exports.CB_KILL_BONUS = exports.CB_FLOOR_BASE = exports.CB_ASSAULT_LOG_CAP = exports.CB_MAX_PARTY = exports.CB_ASSAULTS_PER_MEMBER = exports.CB_ASSAULT_HP_CAP = exports.CB_MEMBER_CAP = exports.CB_POOL_PER_MEMBER = exports.CB_BASE_POOL = void 0;
+exports.CLAN_BOSS_BY_ID = exports.CLAN_BOSSES = exports.CB_WEEK_MS = exports.CB_ENGAGED_XP_PER_DMG = exports.CB_ENGAGED_XP_CAP = exports.CB_ENGAGED_XP_FLOOR = exports.CB_PARTICIPATION_REWARD = exports.CB_REWARDS = exports.CB_CLEAN_WEIGHT = exports.CB_TIME_WEIGHT = exports.CB_TIME_PAR_HOURS = exports.CB_ROUND_WEIGHT = exports.CB_ROUND_PAR = exports.CB_BREADTH_WEIGHT = exports.CB_DMG_WEIGHT = exports.CB_KILL_BONUS = exports.CB_FLOOR_BASE = exports.CB_START_REQUEST_CAP = exports.CB_ASSAULT_LOG_CAP = exports.CB_MAX_PARTY = exports.CB_ASSAULTS_PER_MEMBER = exports.CB_ASSAULT_HP_CAP = exports.CB_MEMBER_CAP = exports.CB_POOL_PER_MEMBER = exports.CB_BASE_POOL = void 0;
 exports.clanBossEngagedXp = clanBossEngagedXp;
 exports.clanBossPoolMax = clanBossPoolMax;
 exports.clanBossDamageDealt = clanBossDamageDealt;
@@ -20,6 +20,7 @@ exports.loadClanBossProgress = loadClanBossProgress;
 exports.saveClanBossProgress = saveClanBossProgress;
 exports.newClanBossProgress = newClanBossProgress;
 exports.reserveAttempt = reserveAttempt;
+exports.reserveAttemptForRequest = reserveAttemptForRequest;
 exports.bankAssault = bankAssault;
 /*
  * Weekly Clan Boss Gauntlet — storage + composite scoring (pure math).
@@ -62,6 +63,7 @@ exports.CB_ASSAULT_HP_CAP = 24000;
 exports.CB_ASSAULTS_PER_MEMBER = 5;
 exports.CB_MAX_PARTY = 3; // host + up to 2 clanmates
 exports.CB_ASSAULT_LOG_CAP = 200;
+exports.CB_START_REQUEST_CAP = 200;
 // Clan-boss tower floors live in a reserved id range so they never collide with the
 // public 1..N tower floors (api/towers/_floor-catalog.ts CLAN_BOSS_FLOORS).
 exports.CB_FLOOR_BASE = 9001;
@@ -245,6 +247,24 @@ function reserveAttempt(p, host, party, at) {
     memberAttempts[host] = (memberAttempts[host] ?? 0) + 1;
     return { ...p, participants: [...participants], memberAttempts, updatedAt: at };
 }
+function reserveAttemptForRequest(p, receipt) {
+    const existing = (p.startRequests ?? []).find((entry) => entry.host === receipt.host && entry.requestId === receipt.requestId);
+    if (existing) {
+        if (existing.fingerprint !== receipt.fingerprint)
+            return { ok: false, conflict: true };
+        return { ok: true, replayed: true, progress: p, receipt: existing };
+    }
+    const reserved = reserveAttempt(p, receipt.host, receipt.party, receipt.at);
+    return {
+        ok: true,
+        replayed: false,
+        progress: {
+            ...reserved,
+            startRequests: [receipt, ...(p.startRequests ?? [])].slice(0, exports.CB_START_REQUEST_CAP),
+        },
+        receipt,
+    };
+}
 /**
  * Bank a finished assault's server-trusted result into the clan's progress (called
  * at assault-SETTLE). `damage` is the boss HP the party removed in the tower fight —
@@ -253,6 +273,11 @@ function reserveAttempt(p, host, party, at) {
  * persists under a lock.
  */
 function bankAssault(p, assault) {
+    // The side-record and progress record are separate KV writes. If progress
+    // commits but marking the side-record settled fails, a retry must not bank
+    // the same server session a second time.
+    if (p.assaults.some((entry) => entry.runId === assault.runId))
+        return p;
     const dealt = Math.max(0, Math.min(assault.damage, p.pool));
     const nextPool = Math.max(0, p.pool - dealt);
     const participants = new Set(p.participants);

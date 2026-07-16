@@ -1,0 +1,264 @@
+// Per-sector overworld art generator — fal.ai (FLUX) batch pipeline.
+//
+//   sector-art-data.mjs ──▶ flux (scene + top-down floor) ──▶ sharp/WebP ──▶ public/
+//                        └─▶ depth-anything v2 (scene depth) ──▶ public/sector-depth/
+//                        └─▶ flux + BiRefNet matte (shrine standees) ──▶ public/landmarks/
+//
+// Every wild sector (1-60) gets its OWN painted vista (public/sector-scenes/s<N>.webp),
+// its OWN top-down adventure-map floor (public/sector-map/s<N>.webp), and a baked
+// depth map for the 2.5D parallax backdrop (public/sector-depth/s<N>.webp). The
+// handful of shrine sectors additionally get a transparent shrine standee cutout
+// (public/landmarks/shrine-<id>.webp). Region/prompt data lives in sector-art-data.mjs.
+//
+//   node scripts/gen-sector-art.mjs --all                # everything missing
+//   node scripts/gen-sector-art.mjs --floors --only 42,53
+//   node scripts/gen-sector-art.mjs --scenes --depth
+//   node scripts/gen-sector-art.mjs --shrines
+//   node scripts/gen-sector-art.mjs --all --force        # regenerate even if present
+//   node scripts/gen-sector-art.mjs --dry-run            # print prompts, spend nothing
+//
+// Resumable: existing files are skipped (unless --force), and the manifest is
+// rewritten from whatever is on disk at the end of every run. FAL_KEY is read from
+// env or shinobij.client/.env. After generating: npm run build + commit public/
+// additions, the manifest, and dist (cPanel serves committed dist verbatim).
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { SECTOR_ART, SHRINES, floorPromptFor } from './sector-art-data.mjs';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const CLIENT = path.resolve(HERE, '..');
+const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i >= 0 && process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : d; };
+const flag = (n) => process.argv.includes('--' + n);
+
+function envKey(name) {
+    if (process.env[name]) return process.env[name].trim();
+    const p = path.join(CLIENT, '.env');
+    if (fs.existsSync(p)) for (const l of fs.readFileSync(p, 'utf8').split('\n')) {
+        const m = l.match(new RegExp('^' + name + '\\s*=\\s*(.+)$'));
+        if (m) return m[1].trim().replace(/^["']|["']$/g, '');
+    }
+    return '';
+}
+
+// House establishing-shot style — keep in sync with STYLE in gen-bg.mjs (that script
+// runs main code at import time, so the constant is mirrored here instead of imported).
+const SCENE_STYLE = [
+    'highly detailed painterly anime fantasy concept art',
+    'vibrant saturated colours, luminous god-ray lighting, volumetric atmosphere',
+    'epic RPG environment, lush and alive, intricate ornate detail, depth and scale',
+    'wide cinematic establishing shot, no text, no words, no people, no UI, no frame, no border',
+].join(', ');
+
+// Top-down floor style — the `worldmap` style of gen-sector-map.mjs (kept in sync):
+// a sector floor should read as "zooming into one region of the painted World Map".
+const FLOOR_PRE = 'A complete top-down high-angle adventure map of one small location for a fantasy ninja RPG, drawn in the EXACT art style of a vivid high-fantasy game WORLD MAP — bright luminous highly-saturated colour, crisp clean polished detailed rendering, lush and glowing, a colourful jewel-like fantasy-map illustration, as if zooming into one region of a beautiful world map — viewed from a high bird’s-eye angle with a slight oblique tilt so trees, structures and terrain have visible height. ';
+const FLOOR_POST = ' COMPOSITION: the whole map is densely filled and reads as ONE connected inhabited place — winding paths link every area so the eye flows naturally across the map, terrain features and groves break up the space, and the small points of interest sit naturally along the routes. NO large empty areas and NO empty middle — every part of the map has something interesting — BUT keep the paths and clearings as clear, open, walkable lanes for a character to travel through. Features blend and connect into one another: NO isolated single objects floating in empty space, NO evenly-spaced grid of props. ONE consistent vivid high-fantasy WORLD-MAP illustration style across the entire image — bright, luminous, highly-saturated jewel-like colour, crisp clean polished detail, lush and glowing, colourful and inviting (the biome’s own hue, but always vibrant and luminous, never murky). It must feel like a real little place, not a background. Absolutely NO characters, NO people, NO humans, NO text, NO words, NO UI, NO HUD, NO minimap, NO grid lines, NO hex tiles, NO tile outlines, NO markers, NO icons, NO arrows, NO labels, NO frame, NO border, NO vignette, NO watermark. Match a vivid colourful high-fantasy world-map illustration — bright, saturated and luminous; NOT dark, NOT muted, NOT desaturated, NOT moody, NOT gritty, NOT photoreal, NOT pixel art, NOT a flat cartoon, NOT a tile-set, NOT cel-shaded. The artwork fills the entire frame edge to edge.';
+
+// Shrine standee prompt suffix — painted on a plain white backdrop, then matted out
+// by BiRefNet (flux cannot emit alpha), mirroring the pose de-bg pipeline.
+const SHRINE_SUFFIX = ' A single isolated shrine structure, three-quarter slightly-top-down game-asset view, centered and standing upright, the whole structure fully in frame. Highly detailed painterly anime fantasy RPG style, rich ornate detail, soft dramatic lighting, professional 2.5D game asset quality. Plain solid pure-white background with nothing else — no ground plane, no cast shadow, no scenery, no characters, no text, no watermark, no UI, no frame.';
+
+const SCENES_DIR = path.join(CLIENT, 'public', 'sector-scenes');
+const FLOORS_DIR = path.join(CLIENT, 'public', 'sector-map');
+const DEPTH_DIR = path.join(CLIENT, 'public', 'sector-depth');
+const LANDMARKS_DIR = path.join(CLIENT, 'public', 'landmarks');
+const MANIFEST = path.join(CLIENT, 'src', 'data', 'sector-art-manifest.ts');
+
+const MODEL = arg('model', 'fal-ai/flux/dev');
+const CONCURRENCY = Math.max(1, parseInt(arg('concurrency', '3'), 10) || 3);
+const only = (arg('only') || '').split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n));
+const force = flag('force');
+const dryRun = flag('dry-run');
+const doScenes = flag('scenes') || flag('all');
+const doFloors = flag('floors') || flag('all');
+const doDepth = flag('depth') || flag('all');
+const doShrines = flag('shrines') || flag('all');
+const doProps = flag('props') || flag('all');
+if (!doScenes && !doFloors && !doDepth && !doShrines && !doProps) {
+    console.error('nothing to do — pass --all or any of --scenes --floors --depth --shrines --props');
+    process.exit(1);
+}
+
+// Small standalone cutout props (same flux→BiRefNet path as shrines) that land in
+// public/landmarks/<id>.webp for UI markers.
+const PROPS = {
+    'trail-sign': 'a small rustic wooden trail signpost, a single weathered wooden plank sign nailed to a short wooden post, a coil of thin rope around the post, a tiny paper talisman tag hanging from one corner',
+};
+
+const FAL_KEY = dryRun ? '' : envKey('FAL_KEY');
+if (!dryRun && !FAL_KEY) { console.error('no FAL_KEY (set it in env or shinobij.client/.env)'); process.exit(1); }
+
+async function falJson(model, body) {
+    // This offline generator intentionally sends its curated prompt/image and configured API credential to fal.ai.
+    // codeql[js/file-access-to-http]
+    const res = await fetch(`https://fal.run/${model}`, {
+        method: 'POST',
+        headers: { Authorization: `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`fal ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    return res.json();
+}
+
+async function imageBytes(json) {
+    const url = json?.image?.url || json?.images?.[0]?.url;
+    if (!url) throw new Error('no image in response: ' + JSON.stringify(json).slice(0, 200));
+    if (url.startsWith('data:')) return Buffer.from(url.slice(url.indexOf(',') + 1), 'base64');
+    return Buffer.from(await (await fetch(url)).arrayBuffer());
+}
+
+async function flux(prompt, imageSize) {
+    const json = await falJson(MODEL, { prompt, image_size: imageSize, num_images: 1, num_inference_steps: 32, guidance_scale: 3.5, enable_safety_checker: false });
+    return imageBytes(json);
+}
+
+/** Trim a matted PNG to its content and pad to a clean square (10% margin). */
+async function trimPadSquare(sharp, pngBuf, maxPx) {
+    const { data, info } = await sharp(pngBuf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const W = info.width, H = info.height;
+    let minX = W, minY = H, maxX = -1, maxY = -1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (data[(y * W + x) * 4 + 3] > 24) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+    if (maxX < 0) return null;
+    const cw = maxX - minX + 1, ch = maxY - minY + 1;
+    const side = Math.round(Math.max(cw, ch) * 1.2);
+    return sharp(data, { raw: { width: W, height: H, channels: 4 } })
+        .extract({ left: minX, top: minY, width: cw, height: ch })
+        .extend({ top: Math.floor((side - ch) / 2), bottom: Math.ceil((side - ch) / 2), left: Math.floor((side - cw) / 2), right: Math.ceil((side - cw) / 2), background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .resize({ width: maxPx, height: maxPx, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 82, effort: 6, alphaQuality: 90 })
+        .toBuffer();
+}
+
+const sectors = Object.keys(SECTOR_ART).map(Number).filter((n) => only.length === 0 || only.includes(n)).sort((a, b) => a - b);
+
+async function runPool(jobs) {
+    let next = 0, failed = 0;
+    const workers = Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, async () => {
+        while (next < jobs.length) {
+            const job = jobs[next++];
+            try { await job(); } catch (e) { failed++; console.error(`  FAIL ${e.message ?? e}`); }
+        }
+    });
+    await Promise.all(workers);
+    return failed;
+}
+
+async function main() {
+    const sharp = dryRun ? null : (await import('sharp')).default;
+    for (const d of [SCENES_DIR, FLOORS_DIR, DEPTH_DIR, LANDMARKS_DIR]) fs.mkdirSync(d, { recursive: true });
+    const jobs = [];
+
+    if (doScenes) for (const n of sectors) {
+        const out = path.join(SCENES_DIR, `s${n}.webp`);
+        if (!force && fs.existsSync(out)) continue;
+        const prompt = `${SECTOR_ART[n].scene}. ${SCENE_STYLE}`;
+        if (dryRun) { console.log(`\n[scene s${n} — ${SECTOR_ART[n].name}]\n${prompt}`); continue; }
+        jobs.push(async () => {
+            const buf = await flux(prompt, 'landscape_4_3');
+            const webp = await sharp(buf).resize(1280, null, { withoutEnlargement: true }).webp({ quality: 84 }).toBuffer();
+            fs.writeFileSync(out, webp);
+            console.log(`scene  s${n} ${SECTOR_ART[n].name} — ${(webp.length / 1024).toFixed(0)}KB`);
+        });
+    }
+
+    if (doFloors) for (const n of sectors) {
+        const out = path.join(FLOORS_DIR, `s${n}.webp`);
+        if (!force && fs.existsSync(out)) continue;
+        const prompt = FLOOR_PRE + floorPromptFor(n) + FLOOR_POST;
+        if (dryRun) { console.log(`\n[floor s${n} — ${SECTOR_ART[n].name}]\n${prompt}`); continue; }
+        jobs.push(async () => {
+            const buf = await flux(prompt, 'square_hd');
+            const webp = await sharp(buf).resize(1024, 1024, { fit: 'cover' }).webp({ quality: 84 }).toBuffer();
+            fs.writeFileSync(out, webp);
+            console.log(`floor  s${n} ${SECTOR_ART[n].name} — ${(webp.length / 1024).toFixed(0)}KB`);
+        });
+    }
+
+    if (doProps) for (const [id, desc] of Object.entries(PROPS)) {
+        const out = path.join(LANDMARKS_DIR, `${id}.webp`);
+        if (!force && fs.existsSync(out)) continue;
+        const prompt = `${desc}.${SHRINE_SUFFIX}`;
+        if (dryRun) { console.log(`\n[prop ${id}]\n${prompt}`); continue; }
+        jobs.push(async () => {
+            const raw = await flux(prompt, 'square_hd');
+            const png = await sharp(raw).png().toBuffer();
+            const matte = await imageBytes(await falJson('fal-ai/birefnet', {
+                image_url: `data:image/png;base64,${png.toString('base64')}`,
+                output_format: 'png',
+            }));
+            const webp = await trimPadSquare(sharp, matte, 256);
+            if (!webp) throw new Error(`prop ${id}: matte came back empty`);
+            fs.writeFileSync(out, webp);
+            console.log(`prop   ${id} — ${(webp.length / 1024).toFixed(0)}KB`);
+        });
+    }
+
+    if (doShrines) for (const [id, shrine] of Object.entries(SHRINES)) {
+        const out = path.join(LANDMARKS_DIR, `shrine-${id}.webp`);
+        if (!force && fs.existsSync(out)) continue;
+        const prompt = `${shrine.standee}.${SHRINE_SUFFIX}`;
+        if (dryRun) { console.log(`\n[shrine ${id} — ${shrine.name}]\n${prompt}`); continue; }
+        jobs.push(async () => {
+            const raw = await flux(prompt, 'portrait_4_3');
+            const png = await sharp(raw).png().toBuffer();
+            const matte = await imageBytes(await falJson('fal-ai/birefnet', {
+                image_url: `data:image/png;base64,${png.toString('base64')}`,
+                output_format: 'png',
+            }));
+            const webp = await trimPadSquare(sharp, matte, 384);
+            if (!webp) throw new Error(`shrine ${id}: matte came back empty`);
+            fs.writeFileSync(out, webp);
+            console.log(`shrine ${id} (${shrine.name}) — ${(webp.length / 1024).toFixed(0)}KB`);
+        });
+    }
+
+    const genFailed = await runPool(jobs);
+
+    // Depth pass runs after scenes so a fresh scene gets its depth in the same run.
+    if (doDepth && !dryRun) {
+        const depthJobs = [];
+        for (const n of sectors) {
+            const src = path.join(SCENES_DIR, `s${n}.webp`);
+            const out = path.join(DEPTH_DIR, `s${n}.webp`);
+            if (!fs.existsSync(src) || (!force && fs.existsSync(out))) continue;
+            depthJobs.push(async () => {
+                const bytes = fs.readFileSync(src);
+                const json = await falJson('fal-ai/image-preprocessors/depth-anything/v2', {
+                    image_url: `data:image/webp;base64,${bytes.toString('base64')}`,
+                });
+                const raw = await imageBytes(json);
+                const webp = await sharp(raw).grayscale().resize(384, null, { withoutEnlargement: true }).blur(1.4).webp({ quality: 82 }).toBuffer();
+                fs.writeFileSync(out, webp);
+                console.log(`depth  s${n} — ${(webp.length / 1024).toFixed(1)}KB`);
+            });
+        }
+        await runPool(depthJobs);
+    }
+
+    if (dryRun) return;
+
+    // Manifest: rewritten from disk so partial/repeat runs stay truthful.
+    const present = (dir) => Object.keys(SECTOR_ART).map(Number).filter((n) => fs.existsSync(path.join(dir, `s${n}.webp`))).sort((a, b) => a - b);
+    const scenesOn = present(SCENES_DIR), floorsOn = present(FLOORS_DIR), depthOn = present(DEPTH_DIR);
+    const shrinesOn = Object.keys(SHRINES).filter((id) => fs.existsSync(path.join(LANDMARKS_DIR, `shrine-${id}.webp`)));
+    const setLit = (nums) => `new Set<number>([${nums.join(', ')}])`;
+    const body =
+        '// AUTO-GENERATED by scripts/gen-sector-art.mjs — do not edit by hand.\n' +
+        '//\n' +
+        '// Wild sectors with bespoke per-sector art on disk:\n' +
+        '//   scene  → public/sector-scenes/s<N>.webp (painted vista, 2.5D backdrop)\n' +
+        '//   floor  → public/sector-map/s<N>.webp    (top-down adventure-map board)\n' +
+        '//   depth  → public/sector-depth/s<N>.webp  (depth map for the vista)\n' +
+        '// Consumers fall back to the shared per-theme art for any sector not listed.\n' +
+        `export const SECTOR_SCENE_SECTORS: ReadonlySet<number> = ${setLit(scenesOn)};\n` +
+        `export const SECTOR_FLOOR_SECTORS: ReadonlySet<number> = ${setLit(floorsOn)};\n` +
+        `export const SECTOR_SCENE_DEPTH_SECTORS: ReadonlySet<number> = ${setLit(depthOn)};\n` +
+        '// Shrine standee cutouts present at public/landmarks/shrine-<id>.webp.\n' +
+        `export const SHRINE_STANDEES: ReadonlySet<string> = new Set<string>([${shrinesOn.map((s) => JSON.stringify(s)).join(', ')}]);\n`;
+    fs.writeFileSync(MANIFEST, body);
+    console.log(`\nmanifest: scenes×${scenesOn.length} floors×${floorsOn.length} depth×${depthOn.length} shrines×${shrinesOn.length} → ${path.relative(CLIENT, MANIFEST)}`);
+    if (genFailed) console.log(`${genFailed} job(s) failed — re-run to fill the gaps (resumable).`);
+    console.log('next: npm run build, then commit public/sector-scenes + sector-map + sector-depth + landmarks + the manifest (+ dist for cPanel).');
+}
+main().catch((e) => { console.error(e); process.exit(1); });

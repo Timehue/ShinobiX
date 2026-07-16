@@ -73,20 +73,21 @@ async function applyPetOutcomeToContest(session) {
     const [winnerRole, loserRole] = await Promise.all([(0, _war_role_js_1.sectorWarRoleOf)(winnerName), (0, _war_role_js_1.sectorWarRoleOf)(loserName)]);
     await (0, _lock_js_1.withKvLock)((0, _sector_war_js_1.sectorWarKey)(session.sectorWarId), async () => {
         const contest = await (0, _sector_war_store_js_1.loadSectorWar)(session.sectorWarId);
-        if (!contest || contest.flipped)
+        if (!contest)
+            return;
+        const battleId = `pet:${session.sectorWarId}:${session.createdAt}`;
+        if ((0, _sector_war_js_1.findSectorWarBattleReceipt)(contest, battleId) || contest.flipped)
             return;
         const atkRecord = (0, _war_state_js_1.normalizeVillageWarRecord)(session.attackerVillage, (await _storage_js_1.kv.get((0, _war_state_js_1.villageWarKey)(session.attackerVillage))) ?? undefined);
         const swing = (0, _war_role_js_1.sectorControlSwing)(winnerRole, loserRole, (0, _war_structures_js_1.sectorWarDamageMultiplier)(atkRecord));
         const outcome = (0, _sector_war_js_1.applyContestBattleByWinner)(contest, session.winner ?? 'draw', { now: Date.now(), swing });
         if (!outcome)
             return; // draw — Control HP untouched
+        const recorded = (0, _sector_war_js_1.recordSectorWarBattleOutcome)(outcome, { battleId, attackerWon: session.winner === 'p1', at: Date.now() });
         if (outcome.captured) {
             await (0, world_state_js_1.captureSectorForVillage)(session.sector, session.attackerVillage, Date.now());
-            await (0, _sector_war_store_js_1.deleteSectorWar)(session.sectorWarId);
         }
-        else {
-            await (0, _sector_war_store_js_1.saveSectorWar)(outcome.session);
-        }
+        await (0, _sector_war_store_js_1.saveSectorWar)(recorded.session);
     }, { failClosed: true });
 }
 async function handler(req, res) {

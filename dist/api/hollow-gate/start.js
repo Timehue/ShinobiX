@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.normalizePublishedEventGate = normalizePublishedEventGate;
 exports.consumeHollowGateKey = consumeHollowGateKey;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
@@ -9,6 +10,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const node_crypto_1 = require("node:crypto");
 const _mutate_player_save_js_1 = require("../save/_mutate-player-save.js");
 const _run_token_js_1 = require("./_run-token.js");
+const _rift_quest_js_1 = require("../sector/_rift-quest.js");
 /*
  * /api/hollow-gate/start  — POST only  (docs/hollow-gate-augments.md)
  *
@@ -29,6 +31,36 @@ const DEFAULT_DAILY_RUN_CAP = 2; // base 2/day; attunement raises it in the clie
 // non-browser compatibility path; shipped browser gameplay requires this seal.
 const RUN_TTL_SEC = 24 * 60 * 60;
 function utcDateKey() { return new Date().toISOString().slice(0, 10); }
+function normalizePublishedEventGate(raw, requestedId) {
+    if (!raw || typeof raw !== 'object')
+        return null;
+    const config = raw;
+    if (config.active !== true || String(config.id ?? '') !== requestedId)
+        return null;
+    const bossAiId = String(config.bossAiId ?? '').trim().slice(0, 128);
+    const bossName = String(config.bossName ?? '').trim().slice(0, 64);
+    return {
+        id: requestedId,
+        floors: (0, _run_token_js_1.canonicalHollowGateDepth)(config.maxFloor),
+        ...(bossAiId ? { bossAiId } : {}),
+        ...(bossName ? { bossName } : {}),
+        keyCost: Number(config.keyCost) === 0 ? 0 : 1,
+        updatedAt: Math.max(0, Number(config.updatedAt) || 0),
+    };
+}
+async function readPublishedEventGate(requestedId) {
+    if (!requestedId || requestedId.startsWith('rift-'))
+        return null;
+    const saves = await Promise.all([
+        _storage_js_1.kv.get('save:admin1'),
+        _storage_js_1.kv.get('save:admin2'),
+    ]);
+    const latest = saves
+        .map((save) => save?.hollowGateEventConfig)
+        .filter((raw) => Boolean(raw && typeof raw === 'object'))
+        .sort((a, b) => (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0))[0];
+    return normalizePublishedEventGate(latest, requestedId);
+}
 function consumeHollowGateKey(character) {
     const itemId = 'hollow-gate-key';
     const stacks = Array.isArray(character.itemStacks) ? character.itemStacks : [];
@@ -56,7 +88,7 @@ async function handler(req, res) {
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {}));
         const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
-        const floorDepth = (0, _run_token_js_1.canonicalHollowGateDepth)();
+        const requestedVariantId = String(body.variantId ?? '').slice(0, 64);
         if (!playerName)
             return res.status(400).json({ error: 'Missing playerName.' });
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, playerName);
@@ -67,15 +99,26 @@ async function handler(req, res) {
         }
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'hollow-gate-start', 20, 60_000, identity.name)))
             return;
+        const sealedRift = requestedVariantId.startsWith('rift-')
+            ? await _storage_js_1.kv.get(`rift-quest:${playerName}`)
+            : null;
+        const riftDef = sealedRift?.id === requestedVariantId ? _rift_quest_js_1.RIFT_QUESTS[requestedVariantId] : undefined;
+        const eventDef = await readPublishedEventGate(requestedVariantId);
+        // Only server-owned Rift quests and the current admin-published event
+        // may shorten a dive. Arbitrary client floorDepth input is ignored.
+        const floorDepth = riftDef?.floors ?? eventDef?.floors ?? (0, _run_token_js_1.canonicalHollowGateDepth)();
         let issued = null;
         const mutation = await (0, _mutate_player_save_js_1.mutatePlayerSave)(playerName, async ({ character }) => {
-            const cap = DEFAULT_DAILY_RUN_CAP + Math.max(0, Math.floor(Number(character.hollowGateRunBonus ?? 0)));
-            const ord = await _storage_js_1.kv.incr(`hg-runs:${playerName}:${utcDateKey()}`, { ex: 25 * 60 * 60 });
-            if (!identity.admin && ord > cap)
-                return { ok: false, status: 429, error: 'daily-cap' };
-            const afterKey = identity.admin ? character : consumeHollowGateKey(character);
+            const freeEntry = Boolean(riftDef) || eventDef?.keyCost === 0;
+            const afterKey = identity.admin || freeEntry ? character : consumeHollowGateKey(character);
             if (!afterKey)
                 return { ok: false, status: 409, error: 'hollow-gate-key-required' };
+            const cap = DEFAULT_DAILY_RUN_CAP + Math.max(0, Math.floor(Number(character.hollowGateRunBonus ?? 0)));
+            const countKey = `hg-runs:${playerName}:${utcDateKey()}`;
+            const priorRuns = Math.max(0, Math.floor(Number(await _storage_js_1.kv.get(countKey)) || 0));
+            if (!identity.admin && priorRuns >= cap)
+                return { ok: false, status: 429, error: 'daily-cap' };
+            const ord = await _storage_js_1.kv.incr(countKey, { ex: 25 * 60 * 60 });
             const entry = {};
             for (const k of _run_token_js_1.HG_CLAWBACK_KEYS)
                 entry[k] = Math.max(0, Math.floor(Number(character[k]) || 0));
@@ -87,6 +130,15 @@ async function handler(req, res) {
                 entryFragments: (0, _run_token_js_1.itemStackCount)(character.itemStacks, _run_token_js_1.HG_HIGH_VALUE_ITEM_ID),
                 offeredAugmentIds: offers.map((o) => o.id), chosenAugmentId: null,
                 dailyRunOrdinal: ord,
+                ...(riftDef ? {
+                    variantId: riftDef.id,
+                    bossProfileId: riftDef.bossAiId,
+                    bossName: riftDef.bossName,
+                } : eventDef ? {
+                    variantId: eventDef.id,
+                    ...(eventDef.bossAiId ? { bossProfileId: eventDef.bossAiId } : {}),
+                    ...(eventDef.bossName ? { bossName: eventDef.bossName } : {}),
+                } : {}),
             };
             issued = { token, runToken, offers };
             return {

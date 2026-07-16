@@ -87,6 +87,31 @@ function fresh(winCondition = 'combat') {
         node_assert_1.strict.equal(out.session, flipped); // unchanged reference
     });
 });
+(0, node_test_1.describe)('sector-war: durable applied-battle receipts', () => {
+    (0, node_test_1.it)('records the Control-HP mutation and battle receipt in one session', () => {
+        const outcome = (0, _sector_war_js_1.applySectorBattleResult)(fresh(), true, { now: NOW, swing: 55 });
+        const recorded = (0, _sector_war_js_1.recordSectorWarBattleOutcome)(outcome, { battleId: 'pvp-123', attackerWon: true, at: NOW });
+        node_assert_1.strict.equal(recorded.session.controlHp, _war_state_js_1.SECTOR_CONTROL_HP_MAX - 55);
+        node_assert_1.strict.equal(recorded.receipt.hpDealt, 55);
+        node_assert_1.strict.equal((0, _sector_war_js_1.findSectorWarBattleReceipt)(recorded.session, 'pvp-123'), recorded.receipt);
+    });
+    (0, node_test_1.it)('returns the original receipt without appending a duplicate', () => {
+        const firstOutcome = (0, _sector_war_js_1.applySectorBattleResult)(fresh(), true, { now: NOW, swing: 55 });
+        const first = (0, _sector_war_js_1.recordSectorWarBattleOutcome)(firstOutcome, { battleId: 'pvp-123', attackerWon: true, at: NOW });
+        const replayOutcome = (0, _sector_war_js_1.applySectorBattleResult)(first.session, true, { now: NOW + 1, swing: 999 });
+        const replay = (0, _sector_war_js_1.recordSectorWarBattleOutcome)(replayOutcome, { battleId: 'pvp-123', attackerWon: true, at: NOW + 1 });
+        node_assert_1.strict.equal(replay.session, replayOutcome.session);
+        node_assert_1.strict.equal(replay.receipt, first.receipt);
+        node_assert_1.strict.equal(replay.session.appliedBattles?.length, 1);
+    });
+    (0, node_test_1.it)('normalizes and retains battle receipts for retry recovery', () => {
+        const outcome = (0, _sector_war_js_1.applySectorBattleResult)(fresh(), false, { now: NOW, swing: 80 });
+        const recorded = (0, _sector_war_js_1.recordSectorWarBattleOutcome)(outcome, { battleId: 'card-123', attackerWon: false, at: NOW });
+        const normalized = (0, _sector_war_js_1.normalizeSectorWarSession)(JSON.parse(JSON.stringify(recorded.session)));
+        node_assert_1.strict.equal(normalized?.appliedBattles?.[0]?.battleId, 'card-123');
+        node_assert_1.strict.equal(normalized?.appliedBattles?.[0]?.hpRegen, 0);
+    });
+});
 (0, node_test_1.describe)('sector-war: storage keys + single-use battle token', () => {
     (0, node_test_1.it)('keys the contest + token records under shared:', () => {
         node_assert_1.strict.equal((0, _sector_war_js_1.sectorWarKey)('8:a-vs-b'), 'shared:sector-war:8:a-vs-b');
@@ -96,9 +121,13 @@ function fresh(winCondition = 'combat') {
         const t = (0, _sector_war_js_1.newSectorWarBattleToken)({
             battleId: 'b1', sectorWarId: '8:moonshadowvillage-vs-frostfangvillage',
             sector: 8, attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
-            registeredBy: 'alice', winCondition: 'combat', now: NOW,
+            registeredBy: 'alice', winCondition: 'combat',
+            p1Name: 'alice', p2Name: 'bob', p1Village: 'Moonshadow Village', p2Village: 'Frostfang Village',
+            now: NOW,
         });
         node_assert_1.strict.equal(t.expiresAt, NOW + 60 * 60 * 1000);
+        node_assert_1.strict.equal(t.p1Village, 'Moonshadow Village');
+        node_assert_1.strict.equal(t.p2Village, 'Frostfang Village');
         node_assert_1.strict.deepEqual((0, _sector_war_js_1.normalizeSectorWarBattleToken)(JSON.parse(JSON.stringify(t))), t);
     });
     (0, node_test_1.it)('rejects a malformed / self-targeting token', () => {

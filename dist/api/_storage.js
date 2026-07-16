@@ -27,6 +27,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports._diskKvForProxy = exports.saveStoreKind = exports.kv = void 0;
 exports.closeStoragePool = closeStoragePool;
 exports._toSqlPattern = _toSqlPattern;
+exports._makeMemoryKv = _makeMemoryKv;
 exports._makeDiskKv = _makeDiskKv;
 exports._validatedRemoteKvBaseUrl = _validatedRemoteKvBaseUrl;
 exports._makeRemoteKv = _makeRemoteKv;
@@ -35,7 +36,7 @@ exports._migrateDiskRoutedKeys = _migrateDiskRoutedKeys;
 exports.migrateDiskRoutedKeysToOverlay = migrateDiskRoutedKeysToOverlay;
 const _readCache = new Map();
 // These prefixes change too rapidly to benefit from caching.
-const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:'];
+const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:'];
 function _shouldCache(key) {
     return !_noCachePrefixes.some(p => key.startsWith(p));
 }
@@ -617,6 +618,111 @@ async function _walkJson(dir, out) {
 function _patternToRegex(pattern) {
     return new RegExp('^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
 }
+/**
+ * Process-local KV used only by the explicit story/release certification
+ * harness. It mirrors the JSON isolation and TTL/NX/hash semantics that the
+ * production adapters expose, while guaranteeing that a local QA run cannot
+ * read or mutate staging/production storage.
+ */
+function _makeMemoryKv() {
+    const entries = new Map();
+    const clone = (value) => structuredClone(value);
+    const liveEntry = (key) => {
+        const entry = entries.get(key);
+        if (!entry)
+            return null;
+        if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+            entries.delete(key);
+            return null;
+        }
+        return entry;
+    };
+    const write = (key, value, ex) => {
+        entries.set(key, {
+            value: clone(value),
+            expiresAt: ex ? Date.now() + ex * 1000 : null,
+        });
+    };
+    return {
+        async get(key) {
+            const entry = liveEntry(key);
+            return entry ? clone(entry.value) : null;
+        },
+        async set(key, value, options) {
+            if (options?.nx && liveEntry(key))
+                return null;
+            write(key, value, options?.ex);
+            return 'OK';
+        },
+        async del(...keys) {
+            let deleted = 0;
+            for (const key of keys)
+                if (entries.delete(key))
+                    deleted += 1;
+            return deleted;
+        },
+        async incr(key, options) {
+            const current = Number(liveEntry(key)?.value ?? 0);
+            const next = current + 1;
+            write(key, next, options?.ex);
+            return next;
+        },
+        async keys(pattern) {
+            const re = _patternToRegex(pattern);
+            const keys = [];
+            for (const key of entries.keys()) {
+                if (liveEntry(key) && re.test(key))
+                    keys.push(key);
+            }
+            return keys;
+        },
+        async mget(...keys) {
+            return keys.map((key) => {
+                const entry = liveEntry(key);
+                return entry ? clone(entry.value) : null;
+            });
+        },
+        async hgetall(key) {
+            const entry = liveEntry(key);
+            return entry ? clone(entry.value) : null;
+        },
+        async hkeys(key) {
+            const entry = liveEntry(key);
+            if (!entry || !entry.value || typeof entry.value !== 'object' || Array.isArray(entry.value))
+                return [];
+            return Object.keys(entry.value);
+        },
+        async hset(key, fields) {
+            const entry = liveEntry(key);
+            const current = entry?.value && typeof entry.value === 'object' && !Array.isArray(entry.value)
+                ? clone(entry.value)
+                : {};
+            let added = 0;
+            for (const [field, value] of Object.entries(fields)) {
+                if (!(field in current))
+                    added += 1;
+                current[field] = clone(value);
+            }
+            write(key, current);
+            return added;
+        },
+        async hdel(key, ...fields) {
+            const entry = liveEntry(key);
+            if (!entry || !entry.value || typeof entry.value !== 'object' || Array.isArray(entry.value))
+                return 0;
+            const current = clone(entry.value);
+            let deleted = 0;
+            for (const field of fields) {
+                if (field in current) {
+                    delete current[field];
+                    deleted += 1;
+                }
+            }
+            write(key, current);
+            return deleted;
+        },
+    };
+}
 function _makeDiskKv(root) {
     return {
         async get(key) {
@@ -1049,11 +1155,19 @@ async function migrateDiskRoutedKeysToOverlay(opts) {
 const _onVercel = !!process.env.VERCEL;
 const _forcePg = process.env.FORCE_PG_KV === '1';
 const _havePgUrl = !!(process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL);
-const _baseKv = (_forcePg || (_havePgUrl && !_onVercel)) ? pgKv : supabaseKv;
+const _qaMemoryKv = process.env.SHINOBIX_QA_MEMORY_KV === '1';
+if (_qaMemoryKv && (process.env.NODE_ENV !== 'test' || _onVercel)) {
+    throw new Error('[kv] SHINOBIX_QA_MEMORY_KV requires NODE_ENV=test and cannot run on Vercel.');
+}
+const _baseKv = _qaMemoryKv
+    ? _makeMemoryKv()
+    : ((_forcePg || (_havePgUrl && !_onVercel)) ? pgKv : supabaseKv);
+if (_qaMemoryKv)
+    console.log('[kv] isolated in-memory QA backend active');
 // Disk overlay (only attached when env tells us where to read/write).
-const _diskRoot = process.env.DISK_KV_DIR ?? null;
-const _proxyUrl = process.env.KV_PROXY_URL ?? null;
-const _proxyToken = process.env.KV_PROXY_TOKEN ?? null;
+const _diskRoot = _qaMemoryKv ? null : (process.env.DISK_KV_DIR ?? null);
+const _proxyUrl = _qaMemoryKv ? null : (process.env.KV_PROXY_URL ?? null);
+const _proxyToken = _qaMemoryKv ? null : (process.env.KV_PROXY_TOKEN ?? null);
 let _diskOverlay = null;
 if (_diskRoot) {
     _diskOverlay = _makeDiskKv(_diskRoot);
@@ -1082,6 +1196,6 @@ exports.kv = _diskOverlay ? _makeRoutedKv(_baseKv, _diskOverlay) : _baseKv;
 // deploy that silently routes saves to the (empty) base store instead of the
 // disk overlay — the exact failure REQUIRE_DISK_OVERLAY guards against. A value
 // of 'base-store' on a host that serves /api/save/* means saves are misrouted.
-exports.saveStoreKind = _diskRoot ? 'disk' : ((_proxyUrl && _proxyToken) ? 'remote-proxy' : 'base-store');
+exports.saveStoreKind = _qaMemoryKv ? 'memory-qa' : (_diskRoot ? 'disk' : ((_proxyUrl && _proxyToken) ? 'remote-proxy' : 'base-store'));
 // Expose the disk backend directly for the /api/kv proxy endpoint to use.
 exports._diskKvForProxy = _diskRoot ? _makeDiskKv(_diskRoot) : null;

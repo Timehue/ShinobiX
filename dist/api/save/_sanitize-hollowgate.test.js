@@ -61,6 +61,29 @@ const sanitize = (incoming, existing) => (0, _name__js_1.sanitizeCharacterSave)(
     strict_1.default.equal(run.runToken, 'abc123', 'short token untouched');
     strict_1.default.equal(run.augmentOffers.length, 3, 'three offers untouched');
 });
+(0, node_test_1.test)('hollowGateRun: active server combat resume pointer is shape-bounded', () => {
+    const out = sanitize({
+        hollowGateRun: {
+            floor: 2,
+            keys: 0,
+            entryCurrencies: {},
+            runToken: 'abc123',
+            activeCombat: {
+                runId: 'r'.repeat(500),
+                nodeId: 'n'.repeat(500),
+                floor: 999,
+                kind: 'forged-kind',
+                session: { huge: 'client must not persist a session here' },
+            },
+        },
+    }, {});
+    const active = out.hollowGateRun.activeCombat;
+    strict_1.default.equal(active.runId.length, 96);
+    strict_1.default.equal(active.nodeId.length, 96);
+    strict_1.default.equal(active.floor, 50);
+    strict_1.default.equal(active.kind, 'battle');
+    strict_1.default.equal(active.session, undefined);
+});
 (0, node_test_1.test)('hollow-gate-key: generic saves cannot mint keys', () => {
     const out = sanitize({ itemStacks: [{ itemId: 'hollow-gate-key', count: 9999 }] }, { itemStacks: [{ itemId: 'hollow-gate-key', count: 2 }] });
     const keys = out.itemStacks.find(s => s.itemId === 'hollow-gate-key');

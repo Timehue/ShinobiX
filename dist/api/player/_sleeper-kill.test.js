@@ -33,6 +33,26 @@ function todayKey() {
         node_assert_1.strict.equal((0, sleeper_kill_js_1.sleeperTargetBlock)({ level: 40 }, 18), null);
     });
 });
+(0, node_test_1.describe)('sleeperAttackerBlock (authoritative camp co-location)', () => {
+    const base = {
+        name: 'attacker',
+        displayName: 'Attacker',
+        sector: 18,
+        character: null,
+        lastSeenAt: 1_000,
+        connectedAt: 1_000,
+        pendingAttacker: null,
+    };
+    (0, node_test_1.it)('allows an idle attacker in the camp sector', () => {
+        node_assert_1.strict.equal((0, sleeper_kill_js_1.sleeperAttackerBlock)(base, 18, 1_000), null);
+    });
+    (0, node_test_1.it)('blocks missing, traveling, fighting, and remote attackers', () => {
+        node_assert_1.strict.match((0, sleeper_kill_js_1.sleeperAttackerBlock)(null, 18, 1_000).error, /presence/);
+        node_assert_1.strict.match((0, sleeper_kill_js_1.sleeperAttackerBlock)({ ...base, travelingUntil: 2_000 }, 18, 1_000).error, /traveling/);
+        node_assert_1.strict.match((0, sleeper_kill_js_1.sleeperAttackerBlock)({ ...base, inBattle: true }, 18, 1_000).error, /battle/);
+        node_assert_1.strict.match((0, sleeper_kill_js_1.sleeperAttackerBlock)({ ...base, sector: 19 }, 18, 1_000).error, /sector/);
+    });
+});
 (0, node_test_1.describe)('computeSleeperSeals (capped Vanguard payout, no escort / no fight gate)', () => {
     // Rank-5 Vanguard, even-level KO, no mastery, fresh day → base seal table value.
     const winner = { professionRank: 5, level: 40 };

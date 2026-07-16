@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.applyClanBossRewardToRecord = applyClanBossRewardToRecord;
 exports.runClanBossWeekly = runClanBossWeekly;
 /*
  * Weekly Clan Boss Gauntlet — cron pass (runs on the daily 03:00 UTC scheduler).
@@ -19,6 +20,30 @@ const _announce_js_1 = require("../_announce.js");
 const _mission_catalog_js_1 = require("../clan/_mission-catalog.js");
 const _storage_js_2 = require("../clan-boss/_storage.js");
 const ARCHIVE_TTL_SEC = 400 * 24 * 60 * 60;
+/** Commit one week's reward and its receipt in the same clan-record mutation. */
+function applyClanBossRewardToRecord(rec, reward, weekId) {
+    const receipts = Array.isArray(rec.clanBossRewardReceipts)
+        ? rec.clanBossRewardReceipts.filter((entry) => typeof entry === 'string')
+        : [];
+    if (receipts.includes(weekId))
+        return { applied: false, record: rec };
+    const memberCount = Array.isArray(rec.members) ? rec.members.length : 0;
+    const leveled = (0, _mission_catalog_js_1.addClanXpServer)(Number(rec.xp ?? 0), Number(rec.level ?? 1), (0, _mission_catalog_js_1.scaledClanXp)(reward.clanXp, memberCount));
+    const treasury = { ...(rec.treasury ?? {}) };
+    treasury.ryo = Number(treasury.ryo ?? 0) + reward.ryo;
+    treasury.fateShards = Number(treasury.fateShards ?? 0) + reward.fateShards;
+    treasury.boneCharms = Number(treasury.boneCharms ?? 0) + reward.boneCharms;
+    return {
+        applied: true,
+        record: {
+            ...rec,
+            xp: leveled.xp,
+            level: leveled.level,
+            treasury,
+            clanBossRewardReceipts: [...receipts.slice(-127), weekId],
+        },
+    };
+}
 async function runClanBossWeekly(now = Date.now()) {
     if (process.env.ENABLE_CLAN_BOSS !== '1')
         return { enabled: false, spawned: null, settled: [] };
@@ -78,8 +103,11 @@ async function settleWeek(week, now) {
                 const engagedXp = (0, _storage_js_2.clanBossEngagedXp)(damageByClan.get(entry.clanName) ?? 0);
                 reward = engagedXp > 0 ? { ryo: 0, fateShards: 0, boneCharms: 0, clanXp: engagedXp } : null;
             }
-            if (reward)
-                await creditClanTreasury(entry.clanName, reward, week.weekId);
+            if (reward && !(await creditClanTreasury(entry.clanName, reward, week.weekId))) {
+                // Keep the week open for a retry. Previously credited clan records
+                // replay safely because the receipt lives in the same blob.
+                return false;
+            }
         }
         await _storage_js_1.kv.set((0, _storage_js_2.clanBossArchiveKey)(week.weekId), {
             // Keep every clan's placement (small server) so each can see its own result.
@@ -100,23 +128,22 @@ async function settleWeek(week, now) {
 async function creditClanTreasury(clanName, reward, weekId) {
     const clanKey = `save:clan-${(0, _storage_js_2.clanSlug)(clanName)}`;
     const receiptKey = `clan-boss-reward:${weekId}:${(0, _storage_js_2.clanSlug)(clanName)}`;
-    await (0, _lock_js_1.withKvLock)(clanKey, async () => {
-        // Claim the once-only receipt INSIDE the lock, so a contended/failed credit
-        // is retried on the next cron tick rather than silently lost.
-        const claimed = await _storage_js_1.kv.set(receiptKey, '1', { nx: true, ex: ARCHIVE_TTL_SEC });
-        if (claimed !== 'OK')
-            return;
+    return (0, _lock_js_1.withKvLock)(clanKey, async () => {
+        // Honor receipts written by older deployments before using the embedded,
+        // same-record receipt used by the current path.
+        if (await _storage_js_1.kv.get(receiptKey))
+            return true;
         const rec = await _storage_js_1.kv.get(clanKey);
         if (!rec)
-            return;
+            return false;
         // Member-scaled clan XP (10–15 members = 1.0×; small clans dampened,
         // capped) so a tiny clan can't rush hall tiers off the weekly boss.
-        const memberCount = Array.isArray(rec.members) ? rec.members.length : 0;
-        const leveled = (0, _mission_catalog_js_1.addClanXpServer)(Number(rec.xp ?? 0), Number(rec.level ?? 1), (0, _mission_catalog_js_1.scaledClanXp)(reward.clanXp, memberCount));
-        const treasury = { ...(rec.treasury ?? {}) };
-        treasury.ryo = Number(treasury.ryo ?? 0) + reward.ryo;
-        treasury.fateShards = Number(treasury.fateShards ?? 0) + reward.fateShards;
-        treasury.boneCharms = Number(treasury.boneCharms ?? 0) + reward.boneCharms;
-        await _storage_js_1.kv.set(clanKey, { ...rec, xp: leveled.xp, level: leveled.level, treasury });
+        const applied = applyClanBossRewardToRecord(rec, reward, weekId);
+        if (applied.applied)
+            await _storage_js_1.kv.set(clanKey, applied.record);
+        // Preserve the legacy marker for operational visibility. Correctness no
+        // longer depends on this best-effort secondary write.
+        await _storage_js_1.kv.set(receiptKey, '1', { ex: ARCHIVE_TTL_SEC }).catch(() => undefined);
+        return true;
     }, { failClosed: true });
 }

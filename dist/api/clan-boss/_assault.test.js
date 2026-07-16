@@ -49,6 +49,18 @@ function mkSession(opts) {
         node_assert_1.strict.equal(r.clean, false);
     });
 });
+(0, node_test_1.describe)('selectClanBossParty', () => {
+    (0, node_test_1.it)('fails closed when the clan roster is absent or does not contain the host', () => {
+        node_assert_1.strict.equal((0, _assault_js_1.selectClanBossParty)('host', ['outsider'], [], 3), null);
+        node_assert_1.strict.equal((0, _assault_js_1.selectClanBossParty)('host', ['member'], ['member'], 3), null);
+    });
+    (0, node_test_1.it)('keeps only roster members, de-duplicates allies, and caps the party', () => {
+        node_assert_1.strict.deepEqual((0, _assault_js_1.selectClanBossParty)('host', ['host', 'outsider', 'ally-a', 'ally-a', 'ally-b', 'ally-c'], ['host', 'ally-a', 'ally-b', 'ally-c'], 3), ['host', 'ally-a', 'ally-b']);
+    });
+    (0, node_test_1.it)('still allows a solo assault for a rostered host', () => {
+        node_assert_1.strict.deepEqual((0, _assault_js_1.selectClanBossParty)('host', ['outsider'], ['host'], 3), ['host']);
+    });
+});
 (0, node_test_1.describe)('clan-boss content consistency', () => {
     (0, node_test_1.it)('CLAN_BOSSES and CLAN_BOSS_FLOORS are index-aligned by floorId + mechanic', () => {
         node_assert_1.strict.equal(_storage_js_1.CLAN_BOSSES.length, _floor_catalog_js_1.CLAN_BOSS_FLOORS.length);

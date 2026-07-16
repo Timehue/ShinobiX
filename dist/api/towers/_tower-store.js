@@ -44,7 +44,7 @@ const _save_version_js_1 = require("../save/_save-version.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
 const claim_rewards_js_1 = require("../pvp/claim-rewards.js");
 const _tower_rewards_js_1 = require("./_tower-rewards.js");
-const _floor_catalog_js_1 = require("./_floor-catalog.js");
+const _session_floor_js_1 = require("./_session-floor.js");
 const _spire_catalog_js_1 = require("./_spire-catalog.js");
 const _weekly_board_js_1 = require("../missions/_weekly-board.js");
 // ─── key scheme (all server-only; on the base Postgres store, NOT the disk overlay) ─
@@ -241,7 +241,7 @@ async function settleFloorForMember(params, deps = {}) {
         return { paid: false, reason: 'not-cleared' };
     if (!isSquadMember(session, slug))
         return { paid: false, reason: 'not-a-member' };
-    const floor = (0, _floor_catalog_js_1.getFloor)(session.floor);
+    const floor = (0, _session_floor_js_1.floorForSession)(session);
     if (!floor)
         return { paid: false, reason: 'no-floor' };
     const reward = (0, _tower_rewards_js_1.computeFloorReward)(floor); // sealed catalog reward
@@ -300,7 +300,7 @@ async function settleAssistForAlly(params, deps = {}) {
         return { paid: false, reason: 'not-cleared' };
     if (!isSquadMember(session, slug))
         return { paid: false, reason: 'not-a-member' };
-    const floor = (0, _floor_catalog_js_1.getFloor)(session.floor);
+    const floor = (0, _session_floor_js_1.floorForSession)(session);
     if (!floor)
         return { paid: false, reason: 'no-floor' };
     const reward = (0, _tower_rewards_js_1.computeAssistReward)(floor);

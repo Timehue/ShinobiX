@@ -4,6 +4,7 @@ exports.ATTACKABLE_MIN_LEVEL = exports.ACADEMY_MIN_LEVEL = void 0;
 exports.isBelowAttackableFloor = isBelowAttackableFloor;
 exports.isAcademyProtectedLevel = isAcademyProtectedLevel;
 exports.attackBlock = attackBlock;
+exports.worldInteractionBlock = worldInteractionBlock;
 exports.challengeBlock = challengeBlock;
 exports.sessionOpponentBlock = sessionOpponentBlock;
 const _utils_js_1 = require("../_utils.js");
@@ -68,6 +69,23 @@ function attackBlock(target, now = Date.now()) {
         return { status: 409, error: 'Target is already engaged in combat.' };
     if (target.inBattle)
         return { status: 409, error: 'Target is already in a battle.' };
+    return null;
+}
+/** Server-authoritative co-location gate for non-consensual world actions. */
+function worldInteractionBlock(actor, target, now = Date.now()) {
+    if (!actor)
+        return { status: 409, error: 'Your world presence is not ready.' };
+    if (!target)
+        return { status: 404, error: 'Target not online.' };
+    if (actor.travelingUntil && actor.travelingUntil > now)
+        return { status: 409, error: 'You cannot attack while traveling.' };
+    if (actor.inBattle)
+        return { status: 409, error: 'You are already in a battle.' };
+    if (actor.sector < 1 || target.sector < 1) {
+        return { status: 409, error: 'World attacks are disabled in safe zones.' };
+    }
+    if (actor.sector !== target.sector)
+        return { status: 409, error: 'Target is no longer in your sector.' };
     return null;
 }
 /**

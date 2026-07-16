@@ -141,6 +141,11 @@ import { SageWhisper } from "../components/SageWhisper";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { SageOfferModal } from "../components/SageOfferModal";
 import { huntReadyForFight, huntRequiredTracks, huntTrailSector } from "../lib/hunt-trail";
+import { SECTOR_SCENE_SECTORS, SECTOR_FLOOR_SECTORS, SECTOR_SCENE_DEPTH_SECTORS } from "../data/sector-art-manifest";
+import { SECTOR_ART_AMBIENCE } from "../data/sector-ambience";
+import { shrineForSector } from "../../../shared/shrines";
+import { SectorTraceMarkers, SectorShrineStandee, SectorTracesCard, SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
+import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
 
 
 // Which scene-image theme each sector shows. Single source of truth shared by
@@ -167,6 +172,10 @@ function sectorImageTheme(sector: number): string {
 function sectorBackgroundImage(sector: number) {
     if (sector === 99) return "/deathgate-sector.webp";
 
+    // Bespoke per-sector vista (scripts/gen-sector-art.mjs) — every wild sector
+    // paints its own place on the world map; theme art below is the fallback.
+    if (SECTOR_SCENE_SECTORS.has(sector)) return `/sector-scenes/s${sector}.webp`;
+
     const village = villageForOutskirtsSector(sector);
     if (village) return villagePageImage(village);
 
@@ -189,6 +198,8 @@ function sectorBackgroundImage(sector: number) {
 // procedural depth in SectorScene3DScene.
 function sectorDepthImage(sector: number): string | undefined {
     if (sector === 99) return undefined;
+    // Per-sector depth pairs with the per-sector vista, so they always line up.
+    if (SECTOR_SCENE_SECTORS.has(sector) && SECTOR_SCENE_DEPTH_SECTORS.has(sector)) return `/sector-depth/s${sector}.webp`;
     if (villageForOutskirtsSector(sector)) return undefined;
     const theme = sectorImageTheme(sector);
     return SECTOR_DEPTH_THEMES.has(theme) ? `/sector-depth/${theme}.webp` : undefined;
@@ -197,6 +208,9 @@ function sectorDepthImage(sector: number): string | undefined {
 // The painted top-down ADVENTURE MAP for a sector (the new sector look). One of N
 // variants chosen deterministically per sector so same-biome sectors aren't identical.
 function sectorMapUrl(biome: Biome, seed: number): string | undefined {
+    // Bespoke per-sector floor (the seed IS the sector number at every call site);
+    // the shared per-biome variants below remain as fallback.
+    if (SECTOR_FLOOR_SECTORS.has(seed)) return `/sector-map/s${seed}.webp`;
     const n = SECTOR_MAP[biome] ?? 0;
     if (!n) return undefined;
     const v = ((seed % n) + n) % n;
@@ -208,6 +222,8 @@ function sectorMapUrl(biome: Biome, seed: number): string | undefined {
 // volcano-territory sector that paints as forest). Outskirts mirror their village.
 function ambienceBiomeForSector(sector: number): Biome {
     if (sector === 99) return "volcano";
+    // With bespoke per-sector art, ambience follows its painted region.
+    if (SECTOR_SCENE_SECTORS.has(sector) && SECTOR_ART_AMBIENCE[sector]) return SECTOR_ART_AMBIENCE[sector];
     const village = villageForOutskirtsSector(sector);
     if (village === "Frostfang Village") return "snow";
     if (village === "Moonshadow Village") return "shadow";
@@ -1396,6 +1412,21 @@ export function WorldMap({
         if (requiresWandererChoice(wandererDialog)) return;
         dismissWandererDialog();
     }
+
+    // Sector traces — footfall + trail signs + shrine (server-authoritative snapshot,
+    // refetched on sector change; action responses patch it in place).
+    const [sectorTraces, setSectorTraces] = useState<SectorTracesView | null>(null);
+    const [tracesModal, setTracesModal] = useState<TracesModalState | null>(null);
+    useEffect(() => {
+        setSectorTraces(null);
+        setTracesModal(null);
+        if (!isSectorTracesEnabled() || selectedSector == null || selectedSector < 1 || selectedSector > 60) return;
+        let cancelled = false;
+        void fetchSectorTraces(selectedSector, character.name).then((view) => {
+            if (!cancelled && view && view.sector === selectedSector) setSectorTraces(view);
+        });
+        return () => { cancelled = true; };
+    }, [selectedSector, character.name]);
     async function claimWandererGift(w: Wanderer) {
         setWandererDialog({ w, busy: true });
         try {
@@ -3029,6 +3060,40 @@ export function WorldMap({
                                 );
                             })()}
 
+                            {/* Sector traces — trail-sign markers players left on the tiles,
+                                plus the sector's communal shrine standee (shrine sectors
+                                only, shared/shrines.ts). Tapping opens the traces reader. */}
+                            {sectorTraces && sectorTraces.signs.length > 0 && (
+                                <SectorTraceMarkers
+                                    signs={sectorTraces.signs}
+                                    onOpen={(signId) => setTracesModal({ view: "signs", focusSignId: signId })}
+                                />
+                            )}
+                            {isSectorTracesEnabled() && (() => {
+                                const shrineDef = shrineForSector(selectedSector);
+                                if (!shrineDef) return null;
+                                return (
+                                    <SectorShrineStandee
+                                        shrine={shrineDef}
+                                        tier={sectorTraces?.shrine?.tier ?? 0}
+                                        onOpen={() => setTracesModal({ view: "shrine" })}
+                                    />
+                                );
+                            })()}
+                            {tracesModal && sectorTraces && (
+                                <SectorTracesModal
+                                    state={tracesModal}
+                                    traces={sectorTraces}
+                                    playerName={character.name}
+                                    playerRyo={character.ryo ?? 0}
+                                    sectorIsCurrent={sectorIsCurrent}
+                                    playerTile={sectorPlayerPos}
+                                    onClose={() => setTracesModal(null)}
+                                    onTraces={setSectorTraces}
+                                    onRyo={(ryo) => updateCharacter(prev => prev ? { ...prev, ryo } : prev)}
+                                />
+                            )}
+
                             {/* Anbu Vault — Infiltrate / Retreat prompt (portaled above nav). */}
                             {vaultPrompt && createPortal(
                                 <div style={{ position: "fixed", inset: 0, zIndex: 1000000, display: "grid", placeItems: "center", background: "rgba(4,6,12,0.72)" }} onClick={() => setVaultPrompt(null)}>
@@ -3590,6 +3655,13 @@ export function WorldMap({
                                 </button>
                             )}
                         </section>
+                        {sectorTraces && (
+                            <SectorTracesCard
+                                traces={sectorTraces}
+                                onOpenSigns={() => setTracesModal({ view: "signs" })}
+                                onOpenShrine={() => setTracesModal({ view: "shrine" })}
+                            />
+                        )}
                         <section className="sector-presence sector-panel-card">
                             <div className="sector-panel-card-head">
                                 <h4>Players Here</h4>
