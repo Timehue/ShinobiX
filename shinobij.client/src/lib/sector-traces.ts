@@ -21,7 +21,10 @@ export type ShrineOfferingView = { name: string; amount: number };
 export type ShrineView = {
     id: string;
     name: string;
+    theme: "village" | "hollow-gate" | "ancients";
+    village?: string;
     region: string;
+    lore: string;
     blessing: string;
     tier: number;
     total: number;

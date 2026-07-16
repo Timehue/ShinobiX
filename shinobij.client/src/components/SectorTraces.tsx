@@ -92,7 +92,7 @@ export function SectorShrineStandee({ shrine, tier, onOpen }: {
     return (
         <button
             type="button"
-            className={`atlas-landmark sector-shrine-standee shrine-tier-${tier}`}
+            className={`atlas-landmark sector-shrine-standee shrine-tier-${tier} shrine-theme-${shrine.theme}`}
             style={{ left: `${shrine.left}%`, top: `${shrine.top}%` }}
             onClick={onOpen}
             title={`${shrine.name} — ${tierName(tier)}. Make an offering?`}
@@ -221,10 +221,13 @@ export function SectorTracesModal({ state, traces, playerName, playerRyo, sector
                             <img className="sector-traces-shrine-art" src={`/landmarks/shrine-${shrine.id}.webp`} alt="" />
                             <div>
                                 <h3>{shrine.name}</h3>
-                                <p className="sector-traces-sub">{shrine.region} · <b className={`shrine-tier-label shrine-tier-${shrine.tier}`}>{tierName(shrine.tier)}</b></p>
+                                <p className="sector-traces-sub">
+                                    {shrine.village ? `${shrine.village} · ` : ""}{shrine.region} · <b className={`shrine-tier-label shrine-tier-${shrine.tier}`}>{tierName(shrine.tier)}</b>
+                                </p>
                                 <p className="sector-traces-blessing">“{shrine.blessing}”</p>
                             </div>
                         </header>
+                        <p className={`sector-traces-lore is-${shrine.theme}`}>{shrine.lore}</p>
                         <div className="sector-meter-block">
                             <div className="sector-meter-row">
                                 <span>{nextTier ? `Toward ${nextTier.name}` : "Fully awakened"}</span>
