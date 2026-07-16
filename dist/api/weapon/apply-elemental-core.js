@@ -166,6 +166,7 @@ async function handler(req, res) {
             ok: true,
             weaponId: result.value.weaponId,
             element: result.value.element,
+            character: result.character,
             _saveVersion: result._saveVersion,
         });
     }

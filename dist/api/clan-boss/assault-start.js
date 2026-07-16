@@ -36,8 +36,11 @@ async function handler(req, res) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const hostName = (0, _utils_js_1.safeName)(String(body.hostName ?? ''));
-        if (!hostName)
-            return res.status(400).json({ error: 'Invalid host name.' });
+        const requestId = typeof body.requestId === 'string' && /^[A-Za-z0-9_-]{8,96}$/.test(body.requestId)
+            ? body.requestId
+            : '';
+        if (!hostName || !requestId)
+            return res.status(400).json({ error: 'Invalid host name or request ID.' });
         if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'clan-boss-assault-start', 10, 60_000, hostName))
             return;
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, hostName);
@@ -65,17 +68,19 @@ async function handler(req, res) {
         const clanRec = await _storage_js_1.kv.get(`save:clan-${(0, _storage_js_2.clanSlug)(clanName)}`);
         const members = Array.isArray(clanRec?.members) ? clanRec.members : [];
         const memberCount = members.length || 1;
-        const memberSet = new Set(members.map(m => (0, _utils_js_1.safeName)(String(m?.name ?? ''))).filter(Boolean));
+        const memberSlugs = members.map(m => (0, _utils_js_1.safeName)(String(m?.name ?? ''))).filter(Boolean);
         // Party = host + clanmate allies (de-duped, capped). Non-clanmates are dropped.
         const allyNames = Array.isArray(body.allies) ? body.allies.map((a) => (0, _utils_js_1.safeName)(String(a))).filter(Boolean) : [];
-        const clanmateAllies = allyNames.filter(a => a !== hostName && (memberSet.size === 0 || memberSet.has(a)));
-        const memberSlugs = [...new Set([hostName, ...clanmateAllies])].slice(0, _storage_js_2.CB_MAX_PARTY);
+        const partySlugs = (0, _assault_js_1.selectClanBossParty)(hostName, allyNames, memberSlugs, _storage_js_2.CB_MAX_PARTY);
+        if (!partySlugs) {
+            return res.status(403).json({ error: 'You are no longer a member of that clan.' });
+        }
         // Seal every party member from their authoritative save (host also supplies the
         // client-computed pvpItems/passives). All are LIVE humans; absent ones AFK-pass.
         const hostLoadout = (body.hostLoadout && typeof body.hostLoadout === 'object') ? body.hostLoadout : {};
         const squad = [];
-        for (let i = 0; i < memberSlugs.length; i++) {
-            const slug = memberSlugs[i];
+        for (let i = 0; i < partySlugs.length; i++) {
+            const slug = partySlugs[i];
             const rec = slug === hostName ? hostRec : await _storage_js_1.kv.get(`save:${slug}`);
             const char = rec?.character;
             if (!char) {
@@ -92,50 +97,72 @@ async function handler(req, res) {
         }
         if (squad.length === 0)
             return res.status(400).json({ error: 'No valid party members.' });
-        const partySlugs = squad.map(s => s.ownerSlug);
-        // Reserve the host's attempt (+ credit breadth) atomically under the progress
-        // lock. Re-check attempts + not-already-killed inside the lock.
+        const sealedPartySlugs = squad.map(s => s.ownerSlug);
+        // Bind one client request to one attempt/run under the progress lock.
+        // Re-check attempts + not-already-killed only for a new request.
         const progressKey = (0, _storage_js_2.clanBossProgressKey)(weekId, clanName);
+        const proposedRunId = `cboss-${(0, node_crypto_1.randomUUID)().replace(/-/g, '')}`;
+        const proposedSeed = (0, node_crypto_1.randomInt)(1, 0x7fffffff);
+        const fingerprint = (0, node_crypto_1.createHash)('sha256').update(JSON.stringify({ hostName, party: sealedPartySlugs, hostLoadout })).digest('hex');
         const reserved = await (0, _lock_js_1.withKvLock)(progressKey, async () => {
             const progress = (await (0, _storage_js_2.loadClanBossProgress)(weekId, clanName)) ?? (0, _storage_js_2.newClanBossProgress)(clanName, week, memberCount);
+            const prior = (progress.startRequests ?? []).find((entry) => entry.host === hostName && entry.requestId === requestId);
+            if (prior) {
+                const replay = (0, _storage_js_2.reserveAttemptForRequest)(progress, {
+                    requestId, host: hostName, runId: proposedRunId, party: sealedPartySlugs,
+                    fingerprint, seed: proposedSeed, bossHp: 0, at: now,
+                });
+                if (!replay.ok)
+                    return { ok: false, conflict: true, error: 'That request ID was already used for another Clan Boss party.' };
+                return { ok: true, replayed: true, receipt: replay.receipt };
+            }
             if (progress.killedAt || progress.pool <= 0)
                 return { ok: false, error: 'Your clan already defeated this week\'s boss.' };
             if ((0, _storage_js_2.clanBossAttemptsLeft)(progress, hostName) <= 0)
                 return { ok: false, error: 'You\'ve used all your assaults this week.' };
-            const next = (0, _storage_js_2.reserveAttempt)(progress, hostName, partySlugs, now);
-            await (0, _storage_js_2.saveClanBossProgress)(next);
-            return { ok: true, pool: next.pool };
+            const receipt = {
+                requestId, host: hostName, runId: proposedRunId, party: sealedPartySlugs,
+                fingerprint, seed: proposedSeed,
+                bossHp: Math.max(1, Math.min(progress.pool, _storage_js_2.CB_ASSAULT_HP_CAP)),
+                at: now,
+            };
+            const next = (0, _storage_js_2.reserveAttemptForRequest)(progress, receipt);
+            if (!next.ok)
+                return { ok: false, conflict: true, error: 'That request ID was already used for another Clan Boss party.' };
+            await (0, _storage_js_2.saveClanBossProgress)(next.progress);
+            return { ok: true, replayed: false, receipt: next.receipt };
         }, { failClosed: true });
         if (!reserved.ok)
-            return res.status(400).json({ error: reserved.error });
+            return res.status('conflict' in reserved ? 409 : 400).json({ error: reserved.error });
         // Mint the tower session on the clan-boss floor.
-        const runId = `cboss-${(0, node_crypto_1.randomUUID)().replace(/-/g, '')}`;
-        const seed = (0, node_crypto_1.randomInt)(1, 0x7fffffff);
-        const session = (0, _encounter_js_1.buildTowerEncounter)({ floor, squad, runId, seed, partySize: squad.length, now });
-        // Override the boss's HP to the SHARED pool (capped per assault) so it's the
-        // persistent clan boss being chipped — not a fresh chunk. buildTowerEncounter
-        // already party-scaled the boss's damage; we only replace its HP. The final
-        // assault (small remainder) becomes the killable finisher.
-        const bossHp = Math.max(1, Math.min(reserved.pool, _storage_js_2.CB_ASSAULT_HP_CAP));
-        const bossActor = session.actors.find(a => a.id === session.phaseState.bossId);
-        if (bossActor) {
-            bossActor.hp = bossHp;
-            bossActor.maxHp = bossHp;
+        const { runId, seed, bossHp } = reserved.receipt;
+        let session = await (0, _tower_store_js_1.readSession)(runId);
+        if (!session) {
+            session = (0, _encounter_js_1.buildTowerEncounter)({ floor, squad, runId, seed, partySize: squad.length, now: reserved.receipt.at });
+            // Override the boss's HP to the SHARED pool (capped per assault) so it's
+            // the persistent clan boss being chipped, not a fresh chunk.
+            const bossActor = session.actors.find(a => a.id === session.phaseState.bossId);
+            if (bossActor) {
+                bossActor.hp = bossHp;
+                bossActor.maxHp = bossHp;
+            }
+            (0, _engine_js_1.startRound)(session);
+            (0, _engine_js_1.runAiUntilHuman)(session, floor, (0, _sim_js_1.makeRng)(seed));
+            (0, _tower_mp_js_1.stampTurnClock)(session, reserved.receipt.at);
+            await (0, _tower_store_js_1.writeSession)(session);
         }
-        (0, _engine_js_1.startRound)(session);
-        (0, _engine_js_1.runAiUntilHuman)(session, floor, (0, _sim_js_1.makeRng)(seed));
-        (0, _tower_mp_js_1.stampTurnClock)(session, now);
-        await (0, _tower_store_js_1.writeSession)(session);
         // Invite EVERY party member — incl. the host — so anyone (incl. the host after
         // an accidental exit) can rediscover + rejoin an unfinished assault via
         // fetchMyRun, rather than losing the reserved attempt. Clan-boss runs use the
         // `cboss-` runId prefix, which the Battle Towers lobby filters out so they only
         // surface in the Clan Boss tab.
-        for (const slug of memberSlugs)
+        for (const slug of sealedPartySlugs)
             await (0, _tower_store_js_1.setTowerInvite)(slug, runId).catch(() => undefined);
         // Tag the run as a clan-boss assault so settle knows where to bank it.
-        await (0, _assault_js_1.saveAssault)({ runId, weekId, clanName, host: hostName, party: partySlugs, bossId: boss.id, createdAt: now });
-        return res.status(200).json({ runId, session, boss: { id: boss.id, name: boss.name, icon: boss.icon } });
+        if (!(await (0, _assault_js_1.loadAssault)(runId))) {
+            await (0, _assault_js_1.saveAssault)({ runId, weekId, clanName, host: hostName, party: reserved.receipt.party, bossId: boss.id, createdAt: reserved.receipt.at });
+        }
+        return res.status(200).json({ runId, session, replayed: reserved.replayed, boss: { id: boss.id, name: boss.name, icon: boss.icon } });
     }
     catch (err) {
         console.error('[clan-boss/assault-start]', err);

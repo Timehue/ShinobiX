@@ -13,7 +13,7 @@ exports.autoPassAfkHumans = autoPassAfkHumans;
  */
 const _tower_session_js_1 = require("./_tower-session.js");
 const _engine_js_1 = require("./_engine.js");
-const _floor_catalog_js_1 = require("./_floor-catalog.js");
+const _session_floor_js_1 = require("./_session-floor.js");
 const _sim_js_1 = require("./_sim.js");
 // A live player gets this long to act before their turn auto-passes (offline/AFK
 // protection so a co-op run never stalls on someone who walked away).
@@ -33,7 +33,7 @@ function stampTurnClock(session, now) {
 function autoPassAfkHumans(session, now) {
     if (session.status !== 'active')
         return false;
-    const floor = (0, _floor_catalog_js_1.getFloor)(session.floor);
+    const floor = (0, _session_floor_js_1.floorForSession)(session);
     if (!floor)
         return false;
     const rng = (0, _sim_js_1.makeRng)(session.seed);

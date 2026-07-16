@@ -46,6 +46,18 @@ function player(over = {}) {
     strict_1.default.equal((0, presence_gating_js_1.attackBlock)(player({ character: { level: 0 } }), NOW), null);
     strict_1.default.equal((0, presence_gating_js_1.attackBlock)(player({ character: {} }), NOW), null);
 });
+(0, node_test_1.test)('worldInteractionBlock requires authoritative same-sector presence', () => {
+    const actor = player({ name: 'actor', displayName: 'Actor', sector: 12 });
+    strict_1.default.equal((0, presence_gating_js_1.worldInteractionBlock)(actor, player({ sector: 12 }), NOW), null);
+    strict_1.default.equal((0, presence_gating_js_1.worldInteractionBlock)(actor, player({ sector: 13 }), NOW)?.status, 409);
+    strict_1.default.equal((0, presence_gating_js_1.worldInteractionBlock)(null, player({ sector: 12 }), NOW)?.status, 409);
+});
+(0, node_test_1.test)('worldInteractionBlock rejects non-consensual attacks in sector-zero safe zones', () => {
+    const actor = player({ name: 'actor', displayName: 'Actor', sector: 0 });
+    const block = (0, presence_gating_js_1.worldInteractionBlock)(actor, player({ sector: 0 }), NOW);
+    strict_1.default.equal(block?.status, 409);
+    strict_1.default.match(block.error, /safe zone/i);
+});
 (0, node_test_1.test)('challengeBlock: offline target is NOT blocked (queued)', () => {
     strict_1.default.equal((0, presence_gating_js_1.challengeBlock)(null, undefined, NOW), null);
 });

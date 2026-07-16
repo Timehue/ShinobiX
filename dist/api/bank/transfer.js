@@ -37,9 +37,6 @@ async function handler(req, res) {
             return res.status(403).json({ error: 'You can only use your own bank account.' });
         if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'bank-transfer', 20, 60_000, identityName, { strict: true })))
             return;
-        if (action === 'deposit') {
-            return res.status(503).json({ error: 'Bank deposits are temporarily unavailable while the wallet ledger is finalized. Nothing was changed.' });
-        }
         try {
             const out = await (0, _mutate_player_save_js_1.mutatePlayerSave)(playerName, ({ character }) => {
                 const transfer = (0, _transfer_js_1.applyBankTransfer)(character, action, amount);

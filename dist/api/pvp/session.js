@@ -867,7 +867,7 @@ async function handler(req, res) {
             return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, ranked, rankedKind, baseRewards, rewardSector } = body;
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, requireWorldCoLocation, ranked, rankedKind, baseRewards, rewardSector } = body;
             if (!p1Character || !p2Character)
                 return res.status(400).json({ error: 'Missing characters' });
             const p1Name = p1Character.name ?? 'Player 1';
@@ -897,7 +897,13 @@ async function handler(req, res) {
                 // real ONLINE player; offline targets stay optimistic/queued.
                 const opponentNorm = me === p1Norm ? p2Norm : p1Norm;
                 if (opponentNorm) {
-                    const block = (0, presence_gating_js_1.sessionOpponentBlock)(online_store_js_1.onlineStore.get(opponentNorm), me);
+                    const opponentPresence = online_store_js_1.onlineStore.get(opponentNorm);
+                    if (requireWorldCoLocation === true) {
+                        const locationBlock = (0, presence_gating_js_1.worldInteractionBlock)(online_store_js_1.onlineStore.get(me), opponentPresence);
+                        if (locationBlock)
+                            return res.status(locationBlock.status).json({ error: locationBlock.error });
+                    }
+                    const block = (0, presence_gating_js_1.sessionOpponentBlock)(opponentPresence, me);
                     if (block)
                         return res.status(block.status).json({ error: block.error });
                 }

@@ -14,10 +14,12 @@
  * Control-HP transform a resolved battle applies. IO-free.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SECTOR_WAR_TOKEN_TTL_MS = exports.MERC_DEFENDER_REGEN_FRACTION = exports.DEFENDER_HEAL_FRACTION = void 0;
+exports.SECTOR_WAR_TOKEN_TTL_MS = exports.MERC_DEFENDER_REGEN_FRACTION = exports.DEFENDER_HEAL_FRACTION = exports.SECTOR_WAR_BATTLE_RECEIPT_CAP = void 0;
 exports.sectorWarId = sectorWarId;
 exports.newSectorWarSession = newSectorWarSession;
 exports.normalizeSectorWarSession = normalizeSectorWarSession;
+exports.findSectorWarBattleReceipt = findSectorWarBattleReceipt;
+exports.recordSectorWarBattleOutcome = recordSectorWarBattleOutcome;
 exports.applySectorBattleResult = applySectorBattleResult;
 exports.sectorWarKey = sectorWarKey;
 exports.applyContestBattleByWinner = applyContestBattleByWinner;
@@ -28,6 +30,7 @@ exports.canDeclareSectorWar = canDeclareSectorWar;
 const _war_state_js_1 = require("./_war-state.js");
 const _war_economy_js_1 = require("./_war-economy.js");
 const _war_map_sectors_js_1 = require("./_war-map-sectors.js");
+exports.SECTOR_WAR_BATTLE_RECEIPT_CAP = 200;
 function clampInt(n, lo, hi) {
     const v = Math.floor(Number(n) || 0);
     return Math.max(lo, Math.min(hi, v));
@@ -67,6 +70,10 @@ function normalizeSectorWarSession(raw) {
     if (!raw.attackerVillage || !raw.defenderVillage || raw.attackerVillage === raw.defenderVillage)
         return null;
     const max = clampInt(raw.controlHpMax ?? _war_state_js_1.SECTOR_CONTROL_HP_MAX, 1, _war_state_js_1.SECTOR_CONTROL_HP_MAX * 4);
+    const appliedBattles = Array.isArray(raw.appliedBattles)
+        ? raw.appliedBattles.filter((entry) => !!entry && typeof entry.battleId === 'string')
+            .slice(0, exports.SECTOR_WAR_BATTLE_RECEIPT_CAP)
+        : [];
     return {
         id: String(raw.id ?? sectorWarId(Number(raw.sector) || 0, raw.attackerVillage, raw.defenderVillage)),
         sector: clampInt(raw.sector, 1, 60),
@@ -78,6 +85,31 @@ function normalizeSectorWarSession(raw) {
         startedAt: Math.floor(Number(raw.startedAt) || 0),
         updatedAt: Math.floor(Number(raw.updatedAt) || 0),
         flipped: raw.flipped === true,
+        ...(appliedBattles.length ? { appliedBattles } : {}),
+    };
+}
+function findSectorWarBattleReceipt(session, battleId) {
+    return session.appliedBattles?.find((entry) => entry.battleId === battleId) ?? null;
+}
+function recordSectorWarBattleOutcome(outcome, args) {
+    const prior = findSectorWarBattleReceipt(outcome.session, args.battleId);
+    if (prior)
+        return { session: outcome.session, receipt: prior };
+    const receipt = {
+        battleId: args.battleId,
+        attackerWon: args.attackerWon,
+        captured: outcome.captured,
+        hpDealt: outcome.hpDealt,
+        hpRegen: outcome.hpRegen,
+        controlHp: outcome.session.controlHp,
+        at: args.at,
+    };
+    return {
+        session: {
+            ...outcome.session,
+            appliedBattles: [receipt, ...(outcome.session.appliedBattles ?? [])].slice(0, exports.SECTOR_WAR_BATTLE_RECEIPT_CAP),
+        },
+        receipt,
     };
 }
 // A defender WIN heals the sector's hold by this fraction of the fight's role
@@ -145,6 +177,10 @@ function newSectorWarBattleToken(args) {
         defenderVillage: args.defenderVillage,
         registeredBy: args.registeredBy,
         winCondition: asWinCondition(args.winCondition),
+        ...(args.p1Name ? { p1Name: args.p1Name } : {}),
+        ...(args.p2Name ? { p2Name: args.p2Name } : {}),
+        ...(args.p1Village ? { p1Village: args.p1Village } : {}),
+        ...(args.p2Village ? { p2Village: args.p2Village } : {}),
         createdAt: args.now,
         expiresAt: args.now + exports.SECTOR_WAR_TOKEN_TTL_MS,
     };
@@ -164,6 +200,10 @@ function normalizeSectorWarBattleToken(raw) {
         defenderVillage: String(raw.defenderVillage),
         registeredBy: String(raw.registeredBy ?? ''),
         winCondition: asWinCondition(raw.winCondition),
+        ...(raw.p1Name ? { p1Name: String(raw.p1Name) } : {}),
+        ...(raw.p2Name ? { p2Name: String(raw.p2Name) } : {}),
+        ...(raw.p1Village ? { p1Village: String(raw.p1Village) } : {}),
+        ...(raw.p2Village ? { p2Village: String(raw.p2Village) } : {}),
         createdAt: Math.floor(Number(raw.createdAt) || 0),
         expiresAt: Math.floor(Number(raw.expiresAt) || 0),
     };

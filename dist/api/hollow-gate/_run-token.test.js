@@ -4,17 +4,32 @@ const node_test_1 = require("node:test");
 const node_assert_1 = require("node:assert");
 const _run_token_js_1 = require("./_run-token.js");
 const settle_js_1 = require("./settle.js");
+const start_js_1 = require("./start.js");
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 // The api/ (cPanel tsc) and shinobij.client/ (Vite) build roots are separate
 // module systems, so — like _cross-build-parity.test.ts — the drift guard reads
 // the client run lib as TEXT rather than importing it across the boundary.
 const CLIENT_RUN_SRC = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinobij.client', 'src', 'lib', 'hollow-gate-run.ts'), 'utf8');
-(0, node_test_1.test)('the server seals the shipped five-floor depth regardless of client input', () => {
+(0, node_test_1.test)('the server seals the shipped five-floor depth unless a server-owned event gate overrides it', () => {
     node_assert_1.strict.equal((0, _run_token_js_1.canonicalHollowGateDepth)(), 5);
+    node_assert_1.strict.equal((0, _run_token_js_1.canonicalHollowGateDepth)(3), 3);
+    node_assert_1.strict.equal((0, _run_token_js_1.canonicalHollowGateDepth)(999), 5);
+    node_assert_1.strict.equal((0, _run_token_js_1.canonicalHollowGateDepth)(0), 1);
     const startSource = (0, node_fs_1.readFileSync)((0, node_path_1.join)('api', 'hollow-gate', 'start.ts'), 'utf8');
-    node_assert_1.strict.ok(startSource.includes('const floorDepth = canonicalHollowGateDepth()'));
-    node_assert_1.strict.equal(startSource.includes('Number(body.floorDepth'), false);
+    node_assert_1.strict.ok(startSource.includes('const floorDepth = riftDef?.floors ?? eventDef?.floors ?? canonicalHollowGateDepth()'));
+    node_assert_1.strict.equal(startSource.includes('canonicalHollowGateDepth(body.floorDepth)'), false);
+});
+(0, node_test_1.test)('only the matching active admin-published event can seal a custom gate', () => {
+    node_assert_1.strict.equal((0, start_js_1.normalizePublishedEventGate)({ id: 'event-one', active: false }, 'event-one'), null);
+    node_assert_1.strict.equal((0, start_js_1.normalizePublishedEventGate)({ id: 'event-other', active: true }, 'event-one'), null);
+    node_assert_1.strict.deepEqual((0, start_js_1.normalizePublishedEventGate)({
+        id: 'event-one', active: true, maxFloor: 3, keyCost: 0,
+        bossAiId: 'festival-oni', bossName: 'Festival Oni', updatedAt: 123,
+    }, 'event-one'), {
+        id: 'event-one', floors: 3, keyCost: 0, bossAiId: 'festival-oni', bossName: 'Festival Oni', updatedAt: 123,
+    });
+    node_assert_1.strict.equal((0, start_js_1.normalizePublishedEventGate)({ id: 'event-one', active: true, maxFloor: 999 }, 'event-one')?.floors, 5);
 });
 (0, node_test_1.test)('hollowShardDrop matches the documented curve, and the client source still defines it (drift guard)', () => {
     for (let f = 1; f <= 8; f++) {
@@ -82,6 +97,14 @@ const CLIENT_RUN_SRC = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinob
 (0, node_test_1.test)('settleCurrency floors at 0 and ignores negative/junk input', () => {
     node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(-5, 0, -10, 50, 1), 0);
     node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(0, 0, 9999, 0, 1), 0); // zero ceiling → no credit
+});
+(0, node_test_1.test)('server-banked combat currency survives a stale extraction snapshot without being paid twice', () => {
+    node_assert_1.strict.equal((0, settle_js_1.settleCurrencyWithServerCredit)(120, 100, 0, 20, 1000, 1), 120);
+    node_assert_1.strict.equal((0, settle_js_1.settleCurrencyWithServerCredit)(125, 100, 25, 20, 1000, 1), 125);
+});
+(0, node_test_1.test)('server-banked combat currency still preserves in-run spends and death retention', () => {
+    node_assert_1.strict.equal((0, settle_js_1.settleCurrencyWithServerCredit)(110, 100, 10, 20, 1000, 1), 110);
+    node_assert_1.strict.equal((0, settle_js_1.settleCurrencyWithServerCredit)(120, 100, 20, 20, 1000, 0.5), 110);
 });
 // ─── P0.2c high-value ITEM ceiling (Dungeon Legendary Fragment) ──────────────────
 (0, node_test_1.test)('HG_HIGH_VALUE_ITEM_ID mirrors the client DUNGEON_LEGENDARY_FRAGMENT_ID (drift guard)', () => {

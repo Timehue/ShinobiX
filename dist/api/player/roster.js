@@ -7,6 +7,11 @@ const online_store_js_1 = require("../_realtime/online-store.js");
 const _elapsed_state_js_1 = require("../_elapsed-state.js");
 const _public_index_js_1 = require("./_public-index.js");
 const _public_index_store_js_1 = require("./_public-index-store.js");
+const sleeper_camps_js_1 = require("../_realtime/sleeper-camps.js");
+const travel_lease_js_1 = require("../_realtime/travel-lease.js");
+const _proc_cache_js_1 = require("../_proc-cache.js");
+const FULL_ROSTER_CACHE_KEY = 'player:roster:full';
+const FULL_ROSTER_CACHE_TTL_MS = 60_000;
 // Fields stripped from EVERY character before the roster goes out the door.
 // Previously this endpoint returned `save.character` verbatim, leaking ryo,
 // inventory, equipment, jutsu loadouts, currencies, daily-claim ledgers,
@@ -156,98 +161,175 @@ async function handler(req, res) {
             res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=10');
             return res.status(200).json({ players });
         }
-        // Primary: persistent registry (every player who ever connected)
-        const rawRegistry = await _storage_js_1.kv.hgetall(_public_index_js_1.REGISTRY_KEY) ?? {};
-        const registryKeys = Object.keys(rawRegistry);
-        // Batch-fetch all saves in one command instead of N sequential kv.get() calls.
-        const saveKeys = registryKeys.map(k => `save:${k}`);
-        const [saves, battleLocks] = saveKeys.length > 0
-            ? await Promise.all([
-                _storage_js_1.kv.mget(...saveKeys),
-                (0, _elapsed_state_js_1.battleLockFlagsForPlayers)(registryKeys),
-            ])
-            : [[], new Map()];
-        const players = [];
-        for (let i = 0; i < registryKeys.length; i++) {
-            const key = registryKeys[i];
-            const value = rawRegistry[key];
-            try {
-                const entry = typeof value === 'string' ? JSON.parse(value) : value;
-                const rawSave = saves[i] ?? null;
-                const save = rawSave
-                    ? (0, _elapsed_state_js_1.settleSaveRecord)(rawSave, { battleLocked: battleLocks.get(key) === true }).record
-                    : null;
-                const livePresence = livePresenceByName.get((entry.name ?? '').toLowerCase());
-                const rawCharacter = livePresence?.character ?? save?.character;
-                const character = rosterProjection(rawCharacter);
-                // The Nindo creed + its banner preset live only in the full save,
-                // not the slim presence character preferred above for online
-                // players — graft them back so they show regardless of online
-                // status. Display-only; safe to surface publicly.
-                const fullChar = save?.character;
-                if (character && typeof character === 'object' && fullChar) {
-                    for (const k of ['nindo', 'nindoBg']) {
-                        const v = fullChar[k];
-                        if (typeof v === 'string' && v)
-                            character[k] = v;
+        // Railway serves this API from one long-lived process, so keep the
+        // expensive all-save projection in the shared process cache. This
+        // makes simultaneous public-roster polls join one in-flight mget and
+        // reuses the finished snapshot for a minute instead of rescanning
+        // every player save once per caller.
+        const cachedPlayers = await (0, _proc_cache_js_1.cachedFor)(FULL_ROSTER_CACHE_KEY, FULL_ROSTER_CACHE_TTL_MS, async () => {
+            // Primary: persistent registry (every player who ever connected)
+            const [rawRegistry, sleeperCamps] = await Promise.all([
+                _storage_js_1.kv.hgetall(_public_index_js_1.REGISTRY_KEY).then((value) => value ?? {}),
+                (0, sleeper_camps_js_1.listSleeperCamps)(),
+            ]);
+            const registryKeys = Object.keys(rawRegistry);
+            // Batch-fetch all saves in one command instead of N sequential kv.get() calls.
+            const saveKeys = registryKeys.map(k => `save:${k}`);
+            const travelLeaseKeys = registryKeys.map(travel_lease_js_1.travelLeaseKey);
+            const [saves, battleLocks, rawTravelLeases] = saveKeys.length > 0
+                ? await Promise.all([
+                    _storage_js_1.kv.mget(...saveKeys),
+                    (0, _elapsed_state_js_1.battleLockFlagsForPlayers)(registryKeys),
+                    _storage_js_1.kv.mget(...travelLeaseKeys),
+                ])
+                : [[], new Map(), []];
+            const players = [];
+            const legacyCamps = [];
+            const settledTravelLeaseNames = [];
+            const campsToClear = [];
+            const now = Date.now();
+            for (let i = 0; i < registryKeys.length; i++) {
+                const key = registryKeys[i];
+                const value = rawRegistry[key];
+                try {
+                    const entry = typeof value === 'string' ? JSON.parse(value) : value;
+                    const rawSave = saves[i] ?? null;
+                    const save = rawSave
+                        ? (0, _elapsed_state_js_1.settleSaveRecord)(rawSave, { battleLocked: battleLocks.get(key) === true }).record
+                        : null;
+                    const livePresence = livePresenceByName.get((entry.name ?? '').toLowerCase());
+                    const slug = (0, _utils_js_1.safeName)(String(entry.name ?? key));
+                    let sleeperCamp = livePresence ? undefined : sleeperCamps.get(slug);
+                    const persistedTravel = (0, travel_lease_js_1.parseTravelLease)(rawTravelLeases[i]);
+                    const travelSleeperSector = persistedTravel
+                        ? (0, travel_lease_js_1.sleeperSectorForTravelLease)(persistedTravel, now)
+                        : null;
+                    const rawCharacter = livePresence?.character ?? save?.character;
+                    const character = rosterProjection(rawCharacter);
+                    // The Nindo creed + its banner preset live only in the full save,
+                    // not the slim presence character preferred above for online
+                    // players — graft them back so they show regardless of online
+                    // status. Display-only; safe to surface publicly.
+                    const fullChar = save?.character;
+                    if (character && typeof character === 'object' && fullChar) {
+                        for (const k of ['nindo', 'nindoBg']) {
+                            const v = fullChar[k];
+                            if (typeof v === 'string' && v)
+                                character[k] = v;
+                        }
                     }
+                    const savedSector = normalizeSector(save?.currentSector, 0);
+                    const fullCharacter = save?.character;
+                    if (!livePresence && persistedTravel && travelSleeperSector === null) {
+                        // A process restart must not let the legacy bridge remint an
+                        // origin-sector camp while the authoritative lease is active.
+                        if (sleeperCamp)
+                            campsToClear.push(slug);
+                        sleeperCamp = undefined;
+                    }
+                    if (!livePresence
+                        && persistedTravel
+                        && travelSleeperSector !== null
+                        && fullCharacter
+                        && fullCharacter.hospitalized !== true
+                        && battleLocks.get(key) !== true) {
+                        if (sleeperCamp?.sector !== travelSleeperSector) {
+                            sleeperCamp = {
+                                name: slug,
+                                displayName: String(entry.name ?? slug),
+                                sector: travelSleeperSector,
+                                createdAt: now,
+                            };
+                            legacyCamps.push(sleeperCamp);
+                        }
+                        settledTravelLeaseNames.push(slug);
+                    }
+                    // One-time compatibility bridge for players who were already
+                    // sleeping before explicit camp records shipped.
+                    if (!livePresence && !sleeperCamp && !persistedTravel && savedSector >= 1 && fullCharacter && fullCharacter.hospitalized !== true && battleLocks.get(key) !== true) {
+                        sleeperCamp = {
+                            name: slug,
+                            displayName: String(entry.name ?? slug),
+                            sector: savedSector,
+                            createdAt: Number(entry.lastSeen ?? Date.now()),
+                        };
+                        legacyCamps.push(sleeperCamp);
+                    }
+                    players.push({
+                        name: entry.name ?? '',
+                        level: entry.level ?? 1,
+                        village: entry.village ?? '',
+                        specialty: entry.specialty ?? '',
+                        online: onlineNames.has((entry.name ?? '').toLowerCase()),
+                        character,
+                        currentSector: livePresence ? normalizeSector(livePresence.sector, 0) : (sleeperCamp?.sector ?? 0),
+                        lastSeenAt: livePresence?.lastSeenAt ?? entry.lastSeen ?? 0,
+                        sleeping: !livePresence && !!sleeperCamp,
+                    });
                 }
+                catch { /* skip malformed */ }
+            }
+            if (legacyCamps.length) {
+                await Promise.all(legacyCamps.map(sleeper_camps_js_1.setSleeperCamp));
+                // A reconnect that lands while the compatibility/recovery writes are
+                // in flight wins. Do not leave an attackable camp beside a live player.
+                await Promise.all(legacyCamps.map(async (camp) => {
+                    if (online_store_js_1.onlineStore.get(camp.name))
+                        await (0, sleeper_camps_js_1.clearSleeperCamp)(camp.name);
+                }));
+            }
+            if (settledTravelLeaseNames.length) {
+                await (0, travel_lease_js_1.settleTravelLeases)(...settledTravelLeaseNames);
+            }
+            if (campsToClear.length) {
+                await Promise.all(campsToClear.map(sleeper_camps_js_1.clearSleeperCamp));
+            }
+            // Supplement: online players missing from the registry. Each save:<name>
+            // is written atomically with its registry entry (save/[name].ts uses one
+            // Promise.all for kv.set + kv.hset, and deletes both together), so the
+            // registry already covers every saved player — the previous full
+            // `keys('save:*')` directory walk added nothing in normal operation and
+            // cost a recursive scan of the entire save tree on every (cache-miss)
+            // call. The only players Block A above can miss are those online yet
+            // absent from the registry: a brand-new character that hasn't saved yet,
+            // or the rare window where a save's registry upsert lagged. We already
+            // hold every live presence (no extra reads), so source the supplement
+            // from there instead of scanning the save tree.
+            const seen = new Set(players.map(p => p.name.toLowerCase()));
+            for (const entry of presenceEntries) {
+                const lname = entry.name.toLowerCase();
+                if (seen.has(lname))
+                    continue;
+                // Need character data to render the row (presence carries a trimmed
+                // copy — same source Block A uses for online players).
+                if (!entry.character)
+                    continue;
+                seen.add(lname);
+                const rawCharacter = entry.character;
+                const character = rosterProjection(rawCharacter);
                 players.push({
-                    name: entry.name ?? '',
-                    level: entry.level ?? 1,
-                    village: entry.village ?? '',
-                    specialty: entry.specialty ?? '',
-                    online: onlineNames.has((entry.name ?? '').toLowerCase()),
+                    name: rawCharacter.name ?? entry.name,
+                    level: rawCharacter.level ?? 1,
+                    village: rawCharacter.village ?? '',
+                    specialty: rawCharacter.specialty ?? '',
+                    online: true,
                     character,
-                    currentSector: normalizeSector(livePresence?.sector, normalizeSector(save?.currentSector, 40)),
-                    lastSeenAt: livePresence?.lastSeenAt ?? entry.lastSeen ?? 0,
+                    currentSector: normalizeSector(entry.sector, 40),
+                    lastSeenAt: entry.lastSeenAt ?? 0,
                 });
             }
-            catch { /* skip malformed */ }
-        }
-        // Supplement: online players missing from the registry. Each save:<name>
-        // is written atomically with its registry entry (save/[name].ts uses one
-        // Promise.all for kv.set + kv.hset, and deletes both together), so the
-        // registry already covers every saved player — the previous full
-        // `keys('save:*')` directory walk added nothing in normal operation and
-        // cost a recursive scan of the entire save tree on every (cache-miss)
-        // call. The only players Block A above can miss are those online yet
-        // absent from the registry: a brand-new character that hasn't saved yet,
-        // or the rare window where a save's registry upsert lagged. We already
-        // hold every live presence (no extra reads), so source the supplement
-        // from there instead of scanning the save tree.
-        const seen = new Set(players.map(p => p.name.toLowerCase()));
-        for (const entry of presenceEntries) {
-            const lname = entry.name.toLowerCase();
-            if (seen.has(lname))
-                continue;
-            // Need character data to render the row (presence carries a trimmed
-            // copy — same source Block A uses for online players).
-            if (!entry.character)
-                continue;
-            seen.add(lname);
-            const rawCharacter = entry.character;
-            const character = rosterProjection(rawCharacter);
-            players.push({
-                name: rawCharacter.name ?? entry.name,
-                level: rawCharacter.level ?? 1,
-                village: rawCharacter.village ?? '',
-                specialty: rawCharacter.specialty ?? '',
-                online: true,
-                character,
-                currentSector: normalizeSector(entry.sector, 40),
-                lastSeenAt: entry.lastSeenAt ?? 0,
+            players.sort((a, b) => {
+                if (a.online !== b.online)
+                    return a.online ? -1 : 1;
+                return a.name.localeCompare(b.name);
             });
-        }
-        players.sort((a, b) => {
-            if (a.online !== b.online)
-                return a.online ? -1 : 1;
-            return a.name.localeCompare(b.name);
+            return players;
         });
-        // 60s CDN cache — the client only polls every 5 min anyway, and online status
-        // is supplemented by the heartbeat, so 60s staleness here is invisible.
-        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=10');
-        return res.status(200).json({ players });
+        // The process cache owns the 60s freshness window. Keep the shared
+        // edge TTL at one second so the total contract remains about the same
+        // as the previous 60s edge-only policy instead of stacking two minutes.
+        res.setHeader('Cache-Control', 's-maxage=1, stale-while-revalidate=10');
+        return res.status(200).json({ players: cachedPlayers });
     }
     catch (err) {
         console.error('[roster]', err);

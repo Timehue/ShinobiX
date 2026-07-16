@@ -15,6 +15,7 @@ exports.stopGameLoop = stopGameLoop;
  * It is NOT a per-player DB write loop — it touches process memory only.
  */
 const online_store_js_1 = require("./online-store.js");
+const sleeper_camps_js_1 = require("./sleeper-camps.js");
 let _timer = null;
 let _onSweep = null;
 /**
@@ -34,6 +35,10 @@ function startGameLoop() {
         try {
             // Drop players who haven't pinged within the offline window.
             const removed = online_store_js_1.onlineStore.sweepStale();
+            if (removed.length)
+                void (0, sleeper_camps_js_1.materializeSleeperCamps)(removed).catch((err) => {
+                    console.error('[game-loop] sleeper camp materialization error:', err.message);
+                });
             if (removed.length && _onSweep) {
                 try {
                     _onSweep(removed);

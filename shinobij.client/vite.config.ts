@@ -472,6 +472,110 @@ export default defineConfig({
             },
         },
         {
+            // Dev parity for the production sector-traces endpoints (api/sector/
+            // traces | trail-sign | shrine-offer): in-memory stores, same response
+            // shapes, so the traces UI is exercisable without the Express server.
+            name: 'api-sector-traces',
+            configureServer(server) {
+                type DevSign = { id: string; name: string; tile: number; text: string; at: number; sparks: number; sparkedBy: string[] };
+                const devSigns = new Map<number, DevSign[]>();
+                const devShrines = new Map<string, { total: number; weekTotal: number; topWeek: { name: string; amount: number }[] }>();
+                const DEV_SHRINE_SECTORS: Record<number, { id: string; name: string; region: string; blessing: string }> = {
+                    42: { id: 'heartwood', name: 'Heartwood Shrine', region: 'the Ashen Leaf Deepwood', blessing: 'May your roots hold and your leaves reach.' },
+                    34: { id: 'tide', name: 'Tide Shrine', region: 'the Stormveil Heights', blessing: 'May the tide carry your burdens out.' },
+                    53: { id: 'frostveil', name: 'Frostveil Shrine', region: 'the Frostreach Shelf', blessing: 'May the cold keep what you cherish.' },
+                    16: { id: 'moonwell', name: 'Moonwell Shrine', region: 'the Moonshadow Wilds', blessing: 'May the moon light the path you hide.' },
+                    58: { id: 'gilded', name: 'Gilded Garden Shrine', region: 'the Castle Gardens', blessing: 'May your works outlast their gold.' },
+                    51: { id: 'cinderfrost', name: 'Cinderfrost Shrine', region: 'the Cinderfrost Divide', blessing: 'May you endure both fire and frost.' },
+                };
+                const devShrineTier = (total: number) => total >= 2_000_000 ? 4 : total >= 500_000 ? 3 : total >= 100_000 ? 2 : total >= 25_000 ? 1 : 0;
+                const shrineView = (sector: number) => {
+                    const def = DEV_SHRINE_SECTORS[sector];
+                    if (!def) return undefined;
+                    const state = devShrines.get(def.id) ?? { total: 0, weekTotal: 0, topWeek: [] };
+                    return { ...def, tier: devShrineTier(state.total), total: state.total, weekTotal: state.weekTotal, topWeek: state.topWeek.slice(0, 5), lastWeek: null };
+                };
+
+                server.middlewares.use('/api/sector/traces', async (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method !== 'GET') { next(); return; }
+                    const url = new URL(req.url ?? '/', 'http://vite.local');
+                    const sector = sectorFrom(url.searchParams.get('sector'), 0);
+                    if (sector < 1 || sector > 60) { sendJson(res, 400, { error: 'Invalid sector.' }); return; }
+                    const player = safeName(url.searchParams.get('player') ?? '');
+                    const signs = devSigns.get(sector) ?? [];
+                    const shrine = shrineView(sector);
+                    sendJson(res, 200, {
+                        ok: true, sector, footfallToday: 0,
+                        signs: signs.map(({ sparkedBy: _s, ...sign }) => sign),
+                        mySparked: player ? signs.filter(s => s.sparkedBy.includes(player)).map(s => s.id) : [],
+                        ...(shrine ? { shrine } : {}),
+                    });
+                });
+
+                server.middlewares.use('/api/sector/trail-sign', async (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method !== 'POST') { next(); return; }
+                    const playerId = devTokenPlayer(req);
+                    if (!playerId) { sendJson(res, 401, { error: 'Authentication required.' }); return; }
+                    const parsed = parseJsonBody(await readBody(req));
+                    if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                    const body = parsed.body as { sector?: number; tile?: number; text?: string; action?: string; signId?: string };
+                    const sector = sectorFrom(body.sector, 0);
+                    if (sector < 1 || sector > 60) { sendJson(res, 400, { error: 'Invalid sector.' }); return; }
+                    const signs = devSigns.get(sector) ?? [];
+                    if (body.action === 'spark') {
+                        const sign = signs.find(s => s.id === body.signId);
+                        if (!sign) { sendJson(res, 200, { ok: false, reason: 'not-found' }); return; }
+                        if (sign.name === playerId || sign.sparkedBy.includes(playerId)) { sendJson(res, 200, { ok: false, reason: 'already-sparked' }); return; }
+                        sign.sparks += 1;
+                        sign.sparkedBy.push(playerId);
+                        sendJson(res, 200, { ok: true, sparks: sign.sparks });
+                        return;
+                    }
+                    const text = String(body.text ?? '').trim().slice(0, 120);
+                    if (!text) { sendJson(res, 400, { error: 'Write something on the sign first.' }); return; }
+                    const tile = sectorFrom(body.tile, 77);
+                    const sign: DevSign = { id: `ts-dev-${Date.now().toString(36)}`, name: playerId, tile: Math.min(143, tile), text, at: Date.now(), sparks: 0, sparkedBy: [] };
+                    const next_ = [...signs.filter(s => s.name !== playerId), sign].slice(-8);
+                    devSigns.set(sector, next_);
+                    sendJson(res, 200, { ok: true, sign: { ...sign, sparkedBy: undefined }, signs: next_.map(({ sparkedBy: _s, ...rest }) => rest) });
+                });
+
+                server.middlewares.use('/api/sector/shrine-offer', async (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method !== 'POST') { next(); return; }
+                    const playerId = devTokenPlayer(req);
+                    if (!playerId) { sendJson(res, 401, { error: 'Authentication required.' }); return; }
+                    const parsed = parseJsonBody(await readBody(req));
+                    if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                    const body = parsed.body as { shrineId?: string; amount?: number };
+                    const entry = Object.entries(DEV_SHRINE_SECTORS).find(([, def]) => def.id === body.shrineId);
+                    if (!entry) { sendJson(res, 400, { error: 'Unknown shrine.' }); return; }
+                    const amount = Math.floor(Number(body.amount) || 0);
+                    if (amount < 10 || amount > 250_000) { sendJson(res, 400, { error: 'Offerings are 10–250,000 ryo.' }); return; }
+                    const savePath = path.join(path.resolve(process.cwd(), 'saves'), `${playerId}.json`);
+                    let ryo = 0;
+                    try {
+                        const save = JSON.parse(fs.readFileSync(savePath, 'utf8'));
+                        ryo = Math.floor(Number(save?.character?.ryo) || 0);
+                        if (ryo < amount) { sendJson(res, 400, { error: `Not enough ryo — you have ${ryo.toLocaleString()}.` }); return; }
+                        save.character.ryo = ryo - amount;
+                        fs.writeFileSync(savePath, JSON.stringify(save));
+                        ryo = save.character.ryo;
+                    } catch {
+                        sendJson(res, 404, { error: 'Your save was not found.' });
+                        return;
+                    }
+                    const state = devShrines.get(entry[1].id) ?? { total: 0, weekTotal: 0, topWeek: [] };
+                    state.total += amount;
+                    state.weekTotal += amount;
+                    const mine = state.topWeek.find(o => o.name === playerId);
+                    if (mine) mine.amount += amount; else state.topWeek.push({ name: playerId, amount });
+                    state.topWeek.sort((a, b) => b.amount - a.amount);
+                    devShrines.set(entry[1].id, state);
+                    sendJson(res, 200, { ok: true, ryo, shrine: shrineView(Number(entry[0])) });
+                });
+            },
+        },
+        {
             name: 'api-village-guard',
             configureServer(server) {
                 server.middlewares.use('/api/village-guard/queue', async (req: IncomingMessage, res: ServerResponse, next) => {

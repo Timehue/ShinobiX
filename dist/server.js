@@ -27,12 +27,14 @@ const node_crypto_1 = require("node:crypto");
 const node_path_1 = require("node:path");
 const _ratelimit_js_1 = require("./api/_ratelimit.js");
 const _request_metrics_js_1 = require("./api/_request-metrics.js");
+const _safe_log_js_1 = require("./api/_safe-log.js");
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
 // only — those types are erased at compile time, so there is zero runtime
 // dependency on @vercel/node in the cPanel build.
 const _name__js_1 = __importDefault(require("./api/save/[name].js"));
 const heartbeat_js_1 = __importDefault(require("./api/player/heartbeat.js"));
+const travel_js_1 = __importDefault(require("./api/player/travel.js"));
 const challenge_js_1 = __importDefault(require("./api/player/challenge.js"));
 const friends_js_1 = __importDefault(require("./api/player/friends.js"));
 const attack_js_1 = __importDefault(require("./api/player/attack.js"));
@@ -103,6 +105,7 @@ const sector_pet_js_1 = __importDefault(require("./api/village/sector-pet.js"));
 const anbu_infiltration_js_1 = __importDefault(require("./api/village/anbu-infiltration.js"));
 const war_map_js_1 = __importDefault(require("./api/village/war-map.js"));
 const claim_war_crate_js_1 = __importDefault(require("./api/village/claim-war-crate.js"));
+const claim_reward_js_1 = __importDefault(require("./api/war/claim-reward.js"));
 const claim_interest_js_1 = __importDefault(require("./api/bank/claim-interest.js"));
 const transfer_js_2 = __importDefault(require("./api/bank/transfer.js"));
 const open_war_crate_js_1 = __importDefault(require("./api/inventory/open-war-crate.js"));
@@ -121,6 +124,7 @@ const run_js_2 = __importDefault(require("./api/endless/run.js"));
 const claim_js_1 = __importDefault(require("./api/events/claim.js"));
 const pass_js_1 = __importDefault(require("./api/exams/pass.js"));
 const forge_key_js_1 = __importDefault(require("./api/hollow-gate/forge-key.js"));
+const attune_js_1 = __importDefault(require("./api/hollow-gate/attune.js"));
 const locked_door_js_1 = __importDefault(require("./api/hollow-gate/locked-door.js"));
 const rank_up_js_1 = __importDefault(require("./api/hunter/rank-up.js"));
 const befriend_js_1 = __importDefault(require("./api/pet/befriend.js"));
@@ -182,6 +186,9 @@ const assault_settle_js_1 = __importDefault(require("./api/clan-boss/assault-set
 const start_js_3 = __importDefault(require("./api/hollow-gate/start.js"));
 const choose_augment_js_1 = __importDefault(require("./api/hollow-gate/choose-augment.js"));
 const settle_js_5 = __importDefault(require("./api/hollow-gate/settle.js"));
+const combat_start_js_1 = __importDefault(require("./api/hollow-gate/combat-start.js"));
+const combat_settle_js_1 = __importDefault(require("./api/hollow-gate/combat-settle.js"));
+const use_consumable_js_1 = __importDefault(require("./api/hollow-gate/use-consumable.js"));
 // Clan — membership: kick (server-authoritative cross-save removal)
 const kick_js_1 = __importDefault(require("./api/clan/kick.js"));
 const mentor_js_1 = __importDefault(require("./api/clan/mentor.js"));
@@ -199,6 +206,7 @@ const ai_fight_start_js_1 = __importDefault(require("./api/missions/ai-fight-sta
 const report_ai_fight_js_1 = __importDefault(require("./api/missions/report-ai-fight.js"));
 const claim_mission_js_1 = __importDefault(require("./api/missions/claim-mission.js"));
 const queue_combat_claim_js_1 = __importDefault(require("./api/missions/queue-combat-claim.js"));
+const combat_start_js_2 = __importDefault(require("./api/missions/combat-start.js"));
 const record_progress_js_1 = __importDefault(require("./api/missions/record-progress.js"));
 const wanderer_gift_js_1 = __importDefault(require("./api/sector/wanderer-gift.js"));
 const wanderer_quest_js_1 = __importDefault(require("./api/sector/wanderer-quest.js"));
@@ -208,6 +216,9 @@ const wanderer_service_js_1 = __importDefault(require("./api/sector/wanderer-ser
 const questbook_js_1 = __importDefault(require("./api/sector/questbook.js"));
 const story_reckoning_js_1 = __importDefault(require("./api/sector/story-reckoning.js"));
 const merc_roam_js_1 = __importDefault(require("./api/sector/merc-roam.js"));
+const traces_js_1 = __importDefault(require("./api/sector/traces.js"));
+const trail_sign_js_1 = __importDefault(require("./api/sector/trail-sign.js"));
+const shrine_offer_js_1 = __importDefault(require("./api/sector/shrine-offer.js"));
 // Story — server-authoritative interlude + road-event record (rebuild foundation)
 const interlude_js_1 = __importDefault(require("./api/story/interlude.js"));
 const road_event_js_1 = __importDefault(require("./api/story/road-event.js"));
@@ -236,6 +247,7 @@ const battle_result_js_1 = __importDefault(require("./api/pet/battle-result.js")
 const ranked_start_js_1 = __importDefault(require("./api/pet/ranked-start.js"));
 const evolve_js_1 = __importDefault(require("./api/pet/evolve.js"));
 const apply_elemental_core_js_1 = __importDefault(require("./api/weapon/apply-elemental-core.js"));
+const forge_elemental_core_js_1 = __importDefault(require("./api/weapon/forge-elemental-core.js"));
 const gauntlet_js_1 = __importDefault(require("./api/pet/gauntlet.js"));
 const lobby_js_1 = __importDefault(require("./api/arena/lobby.js"));
 const ladder_js_1 = __importDefault(require("./api/pet-ladder/ladder.js"));
@@ -740,10 +752,11 @@ let warnedRestartFallback = false;
 app.post(['/restart', '/api/restart'], (req, res) => {
     const now = Date.now();
     restartAttempts = restartAttempts.filter((t) => now - t < RESTART_WINDOW_MS);
-    const ip = headerValue(req.headers['x-forwarded-for']).split(',')[0].trim()
-        || req.socket.remoteAddress || 'unknown';
+    const ip = (0, _safe_log_js_1.safeLogValue)(headerValue(req.headers['x-forwarded-for']).split(',')[0].trim()
+        || req.socket.remoteAddress
+        || 'unknown', 96);
     if (restartAttempts.length >= RESTART_MAX_ATTEMPTS) {
-        console.warn(`[restart] RATE-LIMITED — ${restartAttempts.length} attempts in ${RESTART_WINDOW_MS}ms from ${ip}`);
+        console.warn(`[restart] RATE-LIMITED — ${restartAttempts.length} attempts in ${RESTART_WINDOW_MS}ms from ${ip}`); // lgtm[js/log-injection]
         res.status(429).json({ error: 'too many restart attempts' });
         return;
     }
@@ -756,11 +769,11 @@ app.post(['/restart', '/api/restart'], (req, res) => {
     }
     const provided = headerValue(req.headers['x-restart-token']) || headerValue(req.headers['x-kv-token']);
     if (!expected || !provided || !(0, _auth_js_1.safeEqual)(provided, expected)) {
-        console.warn(`[restart] DENIED from ${ip} at ${new Date(now).toISOString()}`);
+        console.warn(`[restart] DENIED from ${ip} at ${new Date(now).toISOString()}`); // lgtm[js/log-injection]
         res.status(401).json({ error: 'invalid restart token' });
         return;
     }
-    console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`);
+    console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`); // lgtm[js/log-injection]
     res.json({ ok: true, restarting: true, prevCommit: _BUILD_INFO.commit });
     // Let THIS response flush, then drain any OTHER in-flight requests before
     // exiting. The old hard process.exit(0) severed concurrent requests — on
@@ -772,6 +785,7 @@ app.post(['/restart', '/api/restart'], (req, res) => {
 route('/save/:name', _name__js_1.default);
 // Player
 route('/player/heartbeat', heartbeat_js_1.default);
+route('/player/travel', travel_js_1.default);
 route('/player/challenge', challenge_js_1.default);
 route('/player/friends', friends_js_1.default);
 route('/player/attack', attack_js_1.default);
@@ -914,6 +928,9 @@ route('/village/war-map', war_map_js_1.default);
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.
 route('/village/claim-war-crate', claim_war_crate_js_1.default);
+// Complete post-war settlement: winner crate, per-side MVP, contributor
+// consolation, and lifetime war statistics are derived from locked server records.
+route('/war/claim-reward', claim_reward_js_1.default);
 // Village War Map — mercenaries (Phase 5): the Kage spends village WR to field a
 // 2-day AI merc squad (comeback + Barracks discounted) that fights in Combat
 // sector wars. POST hire/list/attack, gated (404 unless ENABLE_VILLAGE_WAR=1).
@@ -988,6 +1005,10 @@ route('/clan-boss/assault-settle', assault_settle_js_1.default);
 route('/hollow-gate/start', start_js_3.default);
 route('/hollow-gate/choose-augment', choose_augment_js_1.default);
 route('/hollow-gate/settle', settle_js_5.default);
+route('/hollow-gate/combat-start', combat_start_js_1.default);
+route('/hollow-gate/combat-settle', combat_settle_js_1.default);
+route('/hollow-gate/use-consumable', use_consumable_js_1.default);
+route('/hollow-gate/attune', attune_js_1.default);
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
 // Leadership-only. Removes the member from the clan row AND clears their
 // character.clan on their own save (the cross-save write a client can't do).
@@ -1008,6 +1029,7 @@ route('/missions/ai-fight-start', ai_fight_start_js_1.default);
 route('/missions/report-ai-fight', report_ai_fight_js_1.default);
 route('/missions/claim-mission', claim_mission_js_1.default);
 route('/missions/queue-combat-claim', queue_combat_claim_js_1.default);
+route('/missions/combat-start', combat_start_js_2.default);
 route('/missions/record-progress', record_progress_js_1.default);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift', wanderer_gift_js_1.default);
@@ -1018,6 +1040,10 @@ route('/sector/wanderer-service', wanderer_service_js_1.default);
 route('/sector/questbook', questbook_js_1.default);
 route('/sector/story-reckoning', story_reckoning_js_1.default);
 route('/sector/merc-roam', merc_roam_js_1.default);
+// Sector traces — footfall + trail signs + shrine offerings (world remembers you)
+route('/sector/traces', traces_js_1.default);
+route('/sector/trail-sign', trail_sign_js_1.default);
+route('/sector/shrine-offer', shrine_offer_js_1.default);
 // ─── Story (server-authoritative interlude + road-event record) ────────────────
 route('/story/interlude', interlude_js_1.default);
 route('/story/road-event', road_event_js_1.default);
@@ -1051,6 +1077,7 @@ route('/pet/battle-result', battle_result_js_1.default);
 route('/pet/ranked-start', ranked_start_js_1.default);
 route('/pet/evolve', evolve_js_1.default);
 route('/weapon/apply-elemental-core', apply_elemental_core_js_1.default);
+route('/weapon/forge-elemental-core', forge_elemental_core_js_1.default);
 route('/pet/gauntlet', gauntlet_js_1.default);
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
 route('/arena/lobby', lobby_js_1.default);
@@ -1222,7 +1249,7 @@ app.use((err, req, res, _next) => {
     }
     // Keep request-controlled values out of the format-string position. Some
     // loggers interpret percent directives in their first argument.
-    console.error('[server error]', '[req]', reqId, req.method, req.path, err);
+    console.error('[server error]', '[req]', (0, _safe_log_js_1.safeLogValue)(reqId, 128), (0, _safe_log_js_1.safeLogValue)(req.method, 16), (0, _safe_log_js_1.safeLogValue)(req.path, 512), (0, _safe_log_js_1.safeLogValue)(err instanceof Error ? (err.stack ?? err.message) : err, 2_000));
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting
     // failure mask the 500. No-op when Sentry is disabled (SENTRY_DSN unset).

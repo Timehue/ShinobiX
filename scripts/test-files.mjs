@@ -152,6 +152,7 @@ export const TEST_FILES = [
     "api/sector/_questbook.test.ts",
     "api/sector/_story-reckoning.test.ts",
     "api/sector/_wanderer-service.test.ts",
+    "api/sector/_traces.test.ts",
     "api/village/_mercenaries.test.ts",
     "api/_realtime/online-store.test.ts",
     "api/_realtime/presence-gating.test.ts",

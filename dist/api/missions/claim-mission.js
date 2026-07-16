@@ -143,9 +143,6 @@ async function handler(req, res) {
                 const def = (0, _mission_catalog_js_1.combatMissionByKey)(missionId);
                 if (!def)
                     return { applied: false, reason: 'unknown-mission' };
-                if (!(0, _release_flags_js_1.clientTrustedCombatMissionRewardAllowed)(def)) {
-                    return { applied: false, reason: _release_flags_js_1.COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
-                }
                 const eligibility = (0, _eligibility_js_1.canPlayerClaimMission)(char, def);
                 if (!eligibility.ok)
                     return eligibilityFailure(eligibility);
@@ -158,9 +155,14 @@ async function handler(req, res) {
                 // accept that too so no in-flight claim is ever stranded. We're
                 // inside the save lock, so this get→del is race-free per player.
                 const tokenKey = `missions:combat-claim:${playerName}:${def.key}`;
-                const hasToken = !!(await _storage_js_1.kv.get(tokenKey).catch(() => null));
+                const tokenRecord = await _storage_js_1.kv.get(tokenKey).catch(() => null);
+                const hasToken = !!tokenRecord;
+                const legacyClientAllowed = (0, _release_flags_js_1.clientTrustedCombatMissionRewardAllowed)(def);
+                if (!(0, _release_flags_js_1.combatMissionClaimAuthorityAllowed)(def, tokenRecord)) {
+                    return { applied: false, reason: _release_flags_js_1.COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
+                }
                 const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims : [];
-                const hasLegacyFlag = pending.includes(def.key);
+                const hasLegacyFlag = legacyClientAllowed && pending.includes(def.key);
                 if (!hasToken && !hasLegacyFlag)
                     return { applied: false, reason: 'not-queued' };
                 if (!(0, _mission_catalog_js_1.hasDailyMissionSlot)(char, todayKey))
@@ -393,6 +395,14 @@ async function handler(req, res) {
             const { saveVersion, ...body } = outcome;
             return res.status(200).json({ ok: true, ...body, character: finalCharacter, _saveVersion: finalSaveVersion });
         }
+        // Aggregate-only beta signal for hostile/replayed and failed reward
+        // attempts. No player identifier or request body is recorded.
+        await (0, _beta_metrics_js_1.recordBetaMetric)({
+            event: ['already-claimed', 'not-queued', 'duplicate'].some((part) => String(outcome.reason ?? '').includes(part))
+                ? 'reward.duplicate_rejected'
+                : 'reward.claim_failed',
+            source: `mission:${missionType}:${String(outcome.reason ?? 'unknown').slice(0, 40)}`,
+        });
         return res.status(200).json({ ok: true, ...outcome });
     }
     catch (err) {

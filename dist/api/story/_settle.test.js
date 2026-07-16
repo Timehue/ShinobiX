@@ -46,6 +46,24 @@ const character = (overrides = {}) => ({
     strict_1.default.equal(settled.character.storyTitle, 'Stormbreaker');
     strict_1.default.equal(settled.character.inventory.filter((id) => id === 'hollow-gate-key').length, 1);
 });
+(0, node_test_1.test)('all four finales grant their canonical title and remain one-shot on replay', () => {
+    const villages = new Map([
+        ['Stormveil Village', 'Stormbreaker'],
+        ['Ashen Leaf Village', 'Root Liberator'],
+        ['Frostfang Village', 'Oathbreaker'],
+        ['Moonshadow Village', 'Moon Unmasked'],
+    ]);
+    for (const [village, title] of villages) {
+        const fightToken = token((0, _settle_js_1.storyOpponentId)(village, 100));
+        const first = (0, _settle_js_1.applyStoryBossSettlement)(character({ village, level: 100, storyProgress: 8 }), fightToken, 20);
+        strict_1.default.equal(first.ok, true, `${village}: finale should settle`);
+        if (!first.ok)
+            continue;
+        strict_1.default.equal(first.character.storyTitle, title);
+        strict_1.default.equal(first.character.inventory.filter((id) => id === 'hollow-gate-key').length, 1);
+        strict_1.default.equal((0, _settle_js_1.applyStoryBossSettlement)(first.character, fightToken, 20).ok, false, `${village}: replay must not pay twice`);
+    }
+});
 (0, node_test_1.test)('generic saves cannot skip story progress or forge the redemption ledger', () => {
     const out = (0, _name__js_1.sanitizeCharacterSave)({ character: { ...character(), storyProgress: 9, redeemedStoryBattles: [{ token: 'forged' }] } }, { character: { ...character(), storyProgress: 2, redeemedStoryBattles: [{ token: 'server', progress: 2 }] } }).character;
     strict_1.default.equal(out.storyProgress, 2);
