@@ -31,7 +31,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
-import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, wandererDayBucket, wandererPresenceGate, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import { WANDERER_PENDING_KEY, type WandererFightResult } from "../lib/wanderer-fight";
@@ -917,17 +917,27 @@ export function WorldMap({
     }, [character.name, character.legacy]);
     const emissaryWanderers = useMemo(() => {
         if (!legacyServerLive || !isWanderersEnabled() || selectedSector == null) return [];
-        const spawn = rollEmissarySpawn(character.name, character.level, legacyCategory, wandererDayBucket(new Date()));
+        // A legacy holder's emissary is category-bound; until the category fetch
+        // resolves, don't fall into the pre-acceptance roaming branch by mistake.
+        if (character.legacy && !legacyCategory) return [];
+        const spawn = rollEmissarySpawn(character.name, character.level, legacyCategory, wandererDayBucket(new Date()), selectedSector);
         return spawn && spawn.sector === selectedSector ? [spawn.wanderer] : [];
-    }, [legacyServerLive, character.name, character.level, legacyCategory, selectedSector]);
+    }, [legacyServerLive, character.name, character.level, character.legacy, legacyCategory, selectedSector]);
     // Story road events (docs/fable-5-story-rebuild.md §10): the next eligible
     // event's NPC walks WHATEVER sector the player is in — the road finds them.
     // Completion is trait-presence, so the memo re-evaluates when traits change.
     const roadWanderers = useMemo(() => {
         if (!isWanderersEnabled() || selectedSector == null) return [];
         const event = nextRoadEvent(character);
-        return event ? [synthRoadWanderer(event, selectedSector)] : [];
-    }, [character.level, character.storyProgress, character.storyTraits, selectedSector]);
+        if (!event) return [];
+        // Balance: the road finds them — but not in EVERY sector. The NPC walks
+        // ~35% of sectors per 6h window (deterministic, reshuffles each window),
+        // so an ignored story beat stops reading as wallpaper yet stays a couple
+        // of hops away when the player goes looking.
+        const bucket = wandererDayBucket(new Date());
+        if (!wandererPresenceGate(`road#${character.name}#${event.id}#${selectedSector}#${bucket}`, 0.35)) return [];
+        return [synthRoadWanderer(event, selectedSector)];
+    }, [character.level, character.storyProgress, character.storyTraits, character.name, selectedSector]);
     // Named story reckonings: current-canon characters stand at their own
     // village outskirts and offer one-shot server-sealed follow-up tasks.
     const storyReckoningWanderers = useMemo(() => {
@@ -940,8 +950,15 @@ export function WorldMap({
     const riftGiverWanderers = useMemo(() => {
         if (!isWanderersEnabled() || selectedSector == null) return [];
         const rift = nextRift(character);
-        return rift ? [synthRiftGiver(rift, selectedSector)] : [];
-    }, [character.level, character.activeRiftQuest, character.riftCooldownUntil, selectedSector]);
+        if (!rift) return [];
+        // Balance: same presence gate as the road-event NPC — a rift being
+        // available shouldn't put the rattled messenger in every sector you
+        // enter. ~35% of sectors per window keeps rifts easy to pick up without
+        // the giver becoming a fixture.
+        const bucket = wandererDayBucket(new Date());
+        if (!wandererPresenceGate(`rift#${character.name}#${rift.id}#${selectedSector}#${bucket}`, 0.35)) return [];
+        return [synthRiftGiver(rift, selectedSector)];
+    }, [character.level, character.activeRiftQuest, character.riftCooldownUntil, character.name, selectedSector]);
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
