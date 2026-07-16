@@ -5,7 +5,7 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "./wanderers";
+import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, wandererPresenceGate, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "./wanderers";
 
 const GRID = 12;
 const onGrid = (t: number) => Number.isInteger(t) && t >= 0 && t < GRID * GRID;
@@ -55,6 +55,56 @@ describe("rollWanderers", () => {
         let list: Wanderer[] = [];
         for (let s = 1; s <= 200 && list.length < 2; s++) list = rollWanderers(s, 5000);
         assert.equal(new Set(list.map(w => w.id)).size, list.length);
+    });
+});
+
+describe("archetype spawn balance (2026-07 pass)", () => {
+    it("no archetype dominates and the whole cast actually shows up", () => {
+        // Deterministic census: every wild sector across ~10 days of windows.
+        const seen = new Map<string, number>();
+        let spawns = 0;
+        for (let bucket = 5000; bucket < 5040; bucket++) {
+            for (let sector = 1; sector <= 60; sector++) {
+                for (const w of rollWanderers(sector, bucket)) {
+                    seen.set(w.archetype, (seen.get(w.archetype) ?? 0) + 1);
+                    spawns++;
+                }
+            }
+        }
+        const weighted = ["bandit", "gambler", "pilgrim", "beast", "sage", "merchant", "medic", "patrol", "tracker"];
+        for (const id of weighted) {
+            assert.ok((seen.get(id) ?? 0) > 0, `${id} never spawned in the census`);
+        }
+        const shares = weighted.map((id) => (seen.get(id) ?? 0) / spawns);
+        assert.ok(Math.max(...shares) < 0.26, `most-common archetype capped (${Math.max(...shares).toFixed(3)})`);
+        assert.ok(Math.min(...shares) > 0.05, `rarest archetype still present (${Math.min(...shares).toFixed(3)})`);
+        // The spread between the most and least common face stays moderate — the
+        // old 0.45-weight bandit was ~4.5× the support cast; keep it under 3.5×.
+        assert.ok(Math.max(...shares) / Math.min(...shares) < 3.5, "spawn spread stays flat-ish");
+    });
+});
+
+describe("wandererPresenceGate", () => {
+    it("is deterministic for the same key", () => {
+        assert.equal(wandererPresenceGate("road#aki#ev1#7#5000", 0.35), wandererPresenceGate("road#aki#ev1#7#5000", 0.35));
+    });
+    it("passes roughly the requested fraction of sectors and reshuffles per window", () => {
+        let pass = 0, flipped = 0;
+        for (let sector = 1; sector <= 60; sector++) {
+            for (let bucket = 5000; bucket < 5020; bucket++) {
+                if (wandererPresenceGate(`road#aki#ev1#${sector}#${bucket}`, 0.35)) pass++;
+            }
+            if (wandererPresenceGate(`road#aki#ev1#${sector}#5000`, 0.35) !== wandererPresenceGate(`road#aki#ev1#${sector}#5001`, 0.35)) flipped++;
+        }
+        const rate = pass / (60 * 20);
+        assert.ok(rate > 0.25 && rate < 0.45, `gate rate near 0.35 (${rate.toFixed(3)})`);
+        assert.ok(flipped > 5, "blocked sectors reshuffle when the window rolls over");
+    });
+    it("chance bounds behave", () => {
+        for (let i = 0; i < 50; i++) {
+            assert.equal(wandererPresenceGate(`k${i}`, 0), false);
+            assert.equal(wandererPresenceGate(`k${i}`, 1), true);
+        }
     });
 });
 
