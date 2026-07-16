@@ -12,7 +12,10 @@
  * small pilgrimage.
  *
  * Ids are stable KV key components (`world:shrine:<id>`) — never rename one.
- * `left`/`top` are the standee's percent position on the sector board.
+ * `left`/`top` are the standee's percent position on the sector board — each was
+ * placed against its sector's actual floor art (composited QA renders, see
+ * scripts/gen-sector-art.mjs) onto open, walkable-reading ground, clear of the
+ * rift structure anchor (50%, 32%) and the war-vault anchor (72%, 38%).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SHRINE_MAX_OFFERING = exports.SHRINE_MIN_OFFERING = exports.SHRINE_TIERS = exports.SHRINE_DEFS = void 0;
@@ -33,21 +36,21 @@ exports.SHRINE_DEFS = [
         region: 'the Stormveil Heights',
         lore: 'Stormveil’s fishers ring its bronze bell before every voyage. The tide is said to answer those who give before they ask.',
         blessing: 'May the tide carry your burdens out.',
-        left: 68, top: 24,
+        left: 33, top: 44,
     },
     {
         id: 'frostveil', sector: 53, name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village',
         region: 'the Frostreach Shelf',
         lore: 'Carved by Frostfang’s founders from the first ice of their first winter. An offering made here is frozen bright inside it forever.',
         blessing: 'May the cold keep what you cherish.',
-        left: 32, top: 28,
+        left: 26, top: 45,
     },
     {
         id: 'moonwell', sector: 16, name: 'Moonwell Shrine', theme: 'village', village: 'Moonshadow Village',
         region: 'the Moonshadow Wilds',
         lore: 'Moonshadow’s seers filled its basin with caught moonlight. It keeps every secret the village dares not say aloud.',
         blessing: 'May the moon light the path you hide.',
-        left: 66, top: 26,
+        left: 54, top: 58,
     },
     // ——— The Hollow Gate ward ———
     {
@@ -55,7 +58,7 @@ exports.SHRINE_DEFS = [
         region: 'the Pilgrim’s Approach',
         lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.',
         blessing: 'May the Gate stay shut behind you.',
-        left: 64, top: 24,
+        left: 28, top: 46,
     },
     // ——— The Ancients (the hundred legacies) ———
     {
@@ -63,7 +66,7 @@ exports.SHRINE_DEFS = [
         region: 'the Watchruin Ridge',
         lore: 'Older than the villages. A hundred worn glyphs circle its base — one for every path the Ancients walked, the legacies shinobi still chase.',
         blessing: 'May the Ancients find their path in you.',
-        left: 34, top: 26,
+        left: 48, top: 45,
     },
 ];
 /** Cosmetic shrine tiers — lifetime-total ryo thresholds. Pure display, no payouts. */
