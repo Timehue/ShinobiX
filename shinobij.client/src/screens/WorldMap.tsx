@@ -4136,11 +4136,12 @@ export function WorldMap({
                 <div className="atlas-region-label label-ice">Land of Glaciers</div>
                 {sectorPoints.map((sector) => {
                     const huntTrail = huntTrailForSector(sector.id);
+                    const sectorShrine = isSectorTracesEnabled() ? shrineForSector(sector.id) : undefined;
                     const sectorTitle = sector.id === 99
                         ? "Death's Gate - PvP zone: 2x XP, Ryo & Jutsu XP, 5% Bone Charm on win"
                         : huntTrail
                             ? `${huntTrail.mission.name} trail | Sector ${sector.id}`
-                            : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`;
+                            : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}${sectorShrine ? ` | ⛩ ${sectorShrine.name}` : ""}`;
                     return (
                     <button
                         key={sector.id}
@@ -4150,6 +4151,7 @@ export function WorldMap({
                                 : "atlas-sector atlas-sector-" + biomeForSector(sector.id))
                             + (sector.id === weeklyBossSector ? " atlas-sector-weekly-boss" : "")
                             + (huntTrail ? " atlas-sector-hunt-trail" : "")
+                            + (sectorShrine ? " atlas-sector-shrine" : "")
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         onClick={() => triggerTravelPoint(sector.id)}

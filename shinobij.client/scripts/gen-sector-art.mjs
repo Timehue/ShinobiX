@@ -113,6 +113,17 @@ async function flux(prompt, imageSize) {
     return imageBytes(json);
 }
 
+// Flux occasionally hallucinates tiny corner watermarks; a 3.5% zoom-crop per
+// edge removes them without hurting the composition. Applied to every floor and
+// scene so regenerated art stays consistent with the shipped (cropped) set.
+const EDGE_CROP = 0.035;
+async function edgeCrop(sharp, buf) {
+    const meta = await sharp(buf).metadata();
+    const left = Math.round(meta.width * EDGE_CROP);
+    const top = Math.round(meta.height * EDGE_CROP);
+    return sharp(buf).extract({ left, top, width: meta.width - left * 2, height: meta.height - top * 2 }).toBuffer();
+}
+
 /** Trim a matted PNG to its content and pad to a clean square (10% margin). */
 async function trimPadSquare(sharp, pngBuf, maxPx) {
     const { data, info } = await sharp(pngBuf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -155,7 +166,7 @@ async function main() {
         const prompt = `${SECTOR_ART[n].scene}. ${SCENE_STYLE}`;
         if (dryRun) { console.log(`\n[scene s${n} — ${SECTOR_ART[n].name}]\n${prompt}`); continue; }
         jobs.push(async () => {
-            const buf = await flux(prompt, 'landscape_4_3');
+            const buf = await edgeCrop(sharp, await flux(prompt, 'landscape_4_3'));
             const webp = await sharp(buf).resize(1280, null, { withoutEnlargement: true }).webp({ quality: 84 }).toBuffer();
             fs.writeFileSync(out, webp);
             console.log(`scene  s${n} ${SECTOR_ART[n].name} — ${(webp.length / 1024).toFixed(0)}KB`);
@@ -168,7 +179,7 @@ async function main() {
         const prompt = FLOOR_PRE + floorPromptFor(n) + FLOOR_POST;
         if (dryRun) { console.log(`\n[floor s${n} — ${SECTOR_ART[n].name}]\n${prompt}`); continue; }
         jobs.push(async () => {
-            const buf = await flux(prompt, 'square_hd');
+            const buf = await edgeCrop(sharp, await flux(prompt, 'square_hd'));
             const webp = await sharp(buf).resize(1024, 1024, { fit: 'cover' }).webp({ quality: 84 }).toBuffer();
             fs.writeFileSync(out, webp);
             console.log(`floor  s${n} ${SECTOR_ART[n].name} — ${(webp.length / 1024).toFixed(0)}KB`);
