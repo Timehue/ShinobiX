@@ -4,6 +4,9 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const _proc_cache_js_1 = require("../_proc-cache.js");
+const BLOODLINE_LIST_CACHE_KEY = 'bloodlines:list:public';
+const BLOODLINE_LIST_CACHE_TTL_MS = 60_000;
 // NOTE: LEGACY_IMAGE_KEY ('shared:images') intentionally omitted here — it is a
 // multi-MB all-categories blob that causes connection-pool exhaustion when
 // fetched alongside N save reads.  Bloodline images migrated to the per-category
@@ -29,62 +32,67 @@ async function handler(req, res) {
     if (!identity)
         return res.status(401).json({ error: 'Authentication required.' });
     try {
-        // Skip the legacy per-cat blob (bloodlineImageBlobKey). All current
-        // bloodline images live in the new hash key. The blob is reserved
-        // for one final read+delete in a future migration step. Reading it
-        // on every list call cost a multi-KB transfer per request that
-        // never contributed entries the hash didn't already have.
-        const [registry, bloodlineHashImages] = await Promise.all([
-            _storage_js_1.kv.hgetall(REGISTRY_KEY),
-            _storage_js_1.kv.hgetall(bloodlineImageHashKey),
-        ]);
-        const sharedBloodlineImages = bloodlineHashImages ?? {};
-        void bloodlineImageBlobKey; // legacy key reference retained for documentation
-        // Derive the save keys from the player registry instead of scanning the
-        // whole save:* keyspace (every saved player is in the registry — see the
-        // REGISTRY_KEY note). Then batch-fetch in a single mget instead of N
-        // individual get() calls, keeping pool usage to one query regardless of
-        // player count. Clan saves (save:clan-*) carry no savedBloodlines, so
-        // excluding them is output-identical and saves wasted reads.
-        const nonAdminKeys = Object.keys(registry ?? {})
-            .filter(slug => !slug.toLowerCase().startsWith('admin') && !slug.toLowerCase().startsWith('clan-'))
-            .map(slug => `save:${slug}`);
-        const snapshots = nonAdminKeys.length
-            ? await _storage_js_1.kv.mget(...nonAdminKeys)
-            : [];
-        const bloodlines = [];
-        for (let i = 0; i < nonAdminKeys.length; i++) {
-            const key = nonAdminKeys[i];
-            const snap = snapshots[i] ?? null;
-            const ownerKey = key.replace('save:', '');
-            const char = snap?.character;
-            const ownerName = char?.name ?? ownerKey;
-            const rawBloodlines = snap?.savedBloodlines;
-            if (!Array.isArray(rawBloodlines))
-                continue;
-            for (const bloodline of rawBloodlines) {
-                if (!bloodline?.id || !bloodline?.name)
+        // The public gallery changes slowly, but deriving it scans every
+        // registered player save through the remote save proxy. Single-flight
+        // concurrent callers and reuse the immutable snapshot for one minute.
+        const bloodlines = await (0, _proc_cache_js_1.cachedFor)(BLOODLINE_LIST_CACHE_KEY, BLOODLINE_LIST_CACHE_TTL_MS, async () => {
+            // Skip the legacy per-cat blob (bloodlineImageBlobKey). All current
+            // bloodline images live in the new hash key. The blob is reserved
+            // for one final read+delete in a future migration step. Reading it
+            // on every list call cost a multi-KB transfer per request that
+            // never contributed entries the hash didn't already have.
+            const [registry, bloodlineHashImages] = await Promise.all([
+                _storage_js_1.kv.hgetall(REGISTRY_KEY),
+                _storage_js_1.kv.hgetall(bloodlineImageHashKey),
+            ]);
+            const sharedBloodlineImages = bloodlineHashImages ?? {};
+            void bloodlineImageBlobKey; // legacy key reference retained for documentation
+            // Derive the save keys from the player registry instead of scanning the
+            // whole save:* keyspace (every saved player is in the registry — see the
+            // REGISTRY_KEY note). Then batch-fetch in a single mget instead of N
+            // individual get() calls, keeping pool usage to one query regardless of
+            // player count. Clan saves (save:clan-*) carry no savedBloodlines, so
+            // excluding them is output-identical and saves wasted reads.
+            const nonAdminKeys = Object.keys(registry ?? {})
+                .filter(slug => !slug.toLowerCase().startsWith('admin') && !slug.toLowerCase().startsWith('clan-'))
+                .map(slug => `save:${slug}`);
+            const snapshots = nonAdminKeys.length
+                ? await _storage_js_1.kv.mget(...nonAdminKeys)
+                : [];
+            const bloodlines = [];
+            for (let i = 0; i < nonAdminKeys.length; i++) {
+                const key = nonAdminKeys[i];
+                const snap = snapshots[i] ?? null;
+                const ownerKey = key.replace('save:', '');
+                const char = snap?.character;
+                const ownerName = char?.name ?? ownerKey;
+                const rawBloodlines = snap?.savedBloodlines;
+                if (!Array.isArray(rawBloodlines))
                     continue;
-                const id = String(bloodline.id);
-                bloodlines.push({
-                    id,
-                    name: String(bloodline.name),
-                    rank: String(bloodline.rank ?? 'B Rank'),
-                    image: sharedBloodlineImages[`bloodline:${id}`] ?? (bloodline.image ? String(bloodline.image) : undefined),
-                    specialElement: bloodline.specialElement ? String(bloodline.specialElement) : undefined,
-                    lore: bloodline.lore ? String(bloodline.lore) : undefined,
-                    jutsus: Array.isArray(bloodline.jutsus) ? bloodline.jutsus : [],
-                    totalPoints: Number(bloodline.totalPoints ?? 0),
-                    ownerName,
-                    ownerKey,
-                });
+                for (const bloodline of rawBloodlines) {
+                    if (!bloodline?.id || !bloodline?.name)
+                        continue;
+                    const id = String(bloodline.id);
+                    bloodlines.push({
+                        id,
+                        name: String(bloodline.name),
+                        rank: String(bloodline.rank ?? 'B Rank'),
+                        image: sharedBloodlineImages[`bloodline:${id}`] ?? (bloodline.image ? String(bloodline.image) : undefined),
+                        specialElement: bloodline.specialElement ? String(bloodline.specialElement) : undefined,
+                        lore: bloodline.lore ? String(bloodline.lore) : undefined,
+                        jutsus: Array.isArray(bloodline.jutsus) ? bloodline.jutsus : [],
+                        totalPoints: Number(bloodline.totalPoints ?? 0),
+                        ownerName,
+                        ownerKey,
+                    });
+                }
             }
-        }
-        bloodlines.sort((a, b) => a.name.localeCompare(b.name) || a.ownerName.localeCompare(b.ownerName));
-        // 60s edge cache + 120s SWR. Public bloodline gallery is
-        // read-heavy + expensive (scans every save row) but rarely
-        // changes — minute-scale latency is fine.
-        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+            bloodlines.sort((a, b) => a.name.localeCompare(b.name) || a.ownerName.localeCompare(b.ownerName));
+            return bloodlines;
+        });
+        // The process cache owns the 60s freshness window. A one-second shared
+        // edge TTL preserves the previous overall freshness budget.
+        res.setHeader('Cache-Control', 's-maxage=1, stale-while-revalidate=120');
         return res.status(200).json({ bloodlines });
     }
     catch (err) {

@@ -5,6 +5,8 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _receipts_js_1 = require("../_receipts.js");
+const _storage_js_1 = require("../_storage.js");
+const _combat_session_js_1 = require("../hollow-gate/_combat-session.js");
 // Admin-only durable battle-receipt lookup (Priority 3 / 4 visibility).
 //
 // Receipts are written once when a PvP battle resolves (api/_receipts.ts) and
@@ -41,10 +43,21 @@ async function handler(req, res) {
         return res.status(400).json({ error: 'Missing battleId.' });
     const receipt = await (0, _receipts_js_1.readBattleReceipt)(battleId);
     res.setHeader('Cache-Control', 'no-store');
-    if (!receipt) {
-        return res.status(404).json({
-            error: 'No receipt for that battleId — it may predate receipts, or the 90-day window has expired.',
-        });
+    if (receipt)
+        return res.status(200).json({ receipt });
+    // Hollow Gate uses the shared server combat engine but banks through its
+    // own run-bound receipt. Let support search the same runId here instead of
+    // needing direct KV access during a reward/replay investigation.
+    if (/^hgcombat-[a-f0-9]{32}$/.test(battleId)) {
+        const [binding, settlement] = await Promise.all([
+            _storage_js_1.kv.get((0, _combat_session_js_1.hollowGateCombatBindingKey)(battleId)),
+            _storage_js_1.kv.get(`hg-combat-paid:${battleId}`),
+        ]);
+        if (binding || settlement) {
+            return res.status(200).json({ receipt: { type: 'hollow-gate-combat', battleId, binding, settlement } });
+        }
     }
-    return res.status(200).json({ receipt });
+    return res.status(404).json({
+        error: 'No receipt for that battleId — it may predate receipts, or the retention window has expired.',
+    });
 }

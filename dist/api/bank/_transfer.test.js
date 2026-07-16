@@ -74,7 +74,7 @@ const _transfer_js_1 = require("./_transfer.js");
         node_assert_1.strict.match(handlerSource, /await mutatePlayerSave\(playerName/);
         node_assert_1.strict.match(handlerSource, /character:\s*out\.character/);
         node_assert_1.strict.match(handlerSource, /_saveVersion:\s*out\._saveVersion/);
-        node_assert_1.strict.match(handlerSource, /if \(action === 'deposit'\)[\s\S]+temporarily unavailable/);
+        node_assert_1.strict.doesNotMatch(handlerSource, /action === 'deposit'[\s\S]+temporarily unavailable/);
     });
     (0, node_test_1.it)('replaces client state from the response without a local bank-move fallback', () => {
         const start = bankScreenSource.indexOf('async function moveRyo');

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sleeperTargetBlock = sleeperTargetBlock;
+exports.sleeperAttackerBlock = sleeperAttackerBlock;
 exports.computeSleeperSeals = computeSleeperSeals;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
@@ -16,10 +17,12 @@ const _vanguard_rewards_js_1 = require("../pvp/_vanguard-rewards.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _elapsed_state_js_1 = require("../_elapsed-state.js");
+const sleeper_camps_js_1 = require("../_realtime/sleeper-camps.js");
 // "Sleeping target" KO. When a player logs out / closes the tab while standing
 // in a WILD sector (currentSector >= 1) they don't vanish — they remain a
-// visible, attackable target there (see api/player/roster.ts, which reports
-// every registered player with online:false + their last-saved currentSector).
+// visible, attackable camp there (see api/_realtime/sleeper-camps.ts and
+// api/player/roster.ts). The camp is an explicit server record, not an inference
+// from every offline player's last-saved sector.
 // A logout in the village or Central hub leaves currentSector at 0 (App.tsx's
 // !inField effect), so those players are NOT sleepers and stay safe.
 //
@@ -59,6 +62,17 @@ function sleeperTargetBlock(targetChar, sector) {
     if (targetChar.hospitalized) {
         return { status: 409, error: 'Target has already been defeated.' };
     }
+    return null;
+}
+function sleeperAttackerBlock(attacker, campSector, now = Date.now()) {
+    if (!attacker)
+        return { status: 409, error: 'Your world presence is not ready.' };
+    if ((attacker.travelingUntil ?? 0) > now)
+        return { status: 409, error: 'You cannot attack while traveling.' };
+    if (attacker.inBattle)
+        return { status: 409, error: 'You are already in a battle.' };
+    if (attacker.sector !== campSector)
+        return { status: 409, error: 'That camp is no longer in your sector.' };
     return null;
 }
 // Mirrors the seal math in api/pvp/_vanguard-rewards.ts
@@ -143,6 +157,14 @@ async function handler(req, res) {
         if (online_store_js_1.onlineStore.get(targetName)) {
             return res.status(409).json({ error: 'Target is online — use a normal attack.' });
         }
+        const camp = await (0, sleeper_camps_js_1.getSleeperCamp)(targetSlug);
+        if (!camp)
+            return res.status(409).json({ error: 'Target no longer has a camp in the world.' });
+        if (!identity.admin) {
+            const attackerBlock = sleeperAttackerBlock(online_store_js_1.onlineStore.get(attackerSlug), camp.sector);
+            if (attackerBlock)
+                return res.status(attackerBlock.status).json({ error: attackerBlock.error });
+        }
         const [targetRecordRaw, initialBattleLocks] = await Promise.all([
             _storage_js_1.kv.get(`save:${targetSlug}`),
             (0, _elapsed_state_js_1.battleLockFlagsForPlayers)([targetSlug]),
@@ -151,7 +173,7 @@ async function handler(req, res) {
             ? (0, _elapsed_state_js_1.settleSaveRecord)(targetRecordRaw, { battleLocked: initialBattleLocks.get(targetSlug) === true }).record
             : targetRecordRaw;
         const targetChar = targetRecord?.character;
-        const targetSector = Number(targetRecord?.currentSector ?? 0);
+        const targetSector = camp.sector;
         const preBlock = sleeperTargetBlock(targetChar, targetSector);
         if (preBlock)
             return res.status(preBlock.status).json({ error: preBlock.error });
@@ -180,9 +202,17 @@ async function handler(req, res) {
                 ? (0, _elapsed_state_js_1.settleSaveRecord)(tRecRaw, { battleLocked: lockedBattleFlags.get(targetSlug) === true }).record
                 : tRecRaw;
             const tChar = tRec?.character;
+            const lockedCamp = await (0, sleeper_camps_js_1.getSleeperCamp)(targetSlug);
+            if (!lockedCamp)
+                return { status: 409, error: 'Target no longer has a camp in the world.' };
+            if (!identity.admin) {
+                const attackerBlock = sleeperAttackerBlock(online_store_js_1.onlineStore.get(attackerSlug), lockedCamp.sector);
+                if (attackerBlock)
+                    return attackerBlock;
+            }
             // Re-validate the sleeper conditions — another attacker may have won
             // the race (relocated + hospitalized them) between our checks and the lock.
-            const reBlock = sleeperTargetBlock(tChar, Number(tRec?.currentSector ?? 0));
+            const reBlock = sleeperTargetBlock(tChar, lockedCamp.sector);
             if (reBlock)
                 return reBlock;
             if (online_store_js_1.onlineStore.get(targetName))
@@ -252,6 +282,7 @@ async function handler(req, res) {
             };
             const targetKoRecord = (0, _save_version_js_1.bumpSaveVersion)({ ...tRec, currentSector: 0, character: koChar });
             await _storage_js_1.kv.set(`save:${targetSlug}`, (0, _utils_js_1.mergePreservingImages)(targetKoRecord, tRec));
+            await (0, sleeper_camps_js_1.clearSleeperCamp)(targetSlug);
             return {
                 status: 200,
                 character: updatedAttacker,

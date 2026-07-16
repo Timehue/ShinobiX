@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.selectClanBossParty = selectClanBossParty;
 exports.assaultKey = assaultKey;
 exports.loadAssault = loadAssault;
 exports.saveAssault = saveAssault;
@@ -15,6 +16,29 @@ exports.extractAssaultResult = extractAssaultResult;
  */
 const _storage_js_1 = require("../_storage.js");
 const _tower_session_js_1 = require("../towers/_tower-session.js");
+/**
+ * Build an assault party from the authoritative clan roster.
+ *
+ * Returning null means the host is not present in that roster. In particular,
+ * an absent/corrupt clan record must never turn into an allow-all ally list.
+ * Inputs are canonical player slugs (safeName output).
+ */
+function selectClanBossParty(host, requestedAllies, rosterMembers, maxParty) {
+    const roster = new Set(rosterMembers.filter(Boolean));
+    if (!host || !roster.has(host))
+        return null;
+    const party = [host];
+    const seen = new Set(party);
+    for (const ally of requestedAllies) {
+        if (!ally || seen.has(ally) || !roster.has(ally))
+            continue;
+        party.push(ally);
+        seen.add(ally);
+        if (party.length >= Math.max(1, maxParty))
+            break;
+    }
+    return party;
+}
 // A run must be settled within this window; matches the tower session TTL ballpark.
 const ASSAULT_TTL_SEC = 6 * 60 * 60;
 function assaultKey(runId) { return `clan-boss:assault:${runId}`; }

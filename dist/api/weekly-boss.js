@@ -14,6 +14,9 @@ const node_crypto_1 = require("node:crypto");
 const _single_use_token_js_1 = require("./_single-use-token.js");
 const _weekly_boss_fight_token_js_1 = require("./_weekly-boss-fight-token.js");
 const _release_flags_js_1 = require("./_release-flags.js");
+const _authoritative_pve_js_1 = require("./_authoritative-pve.js");
+const _tower_store_js_1 = require("./towers/_tower-store.js");
+const _weekly_boss_authoritative_run_js_1 = require("./_weekly-boss-authoritative-run.js");
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
 // spawn the boss despawns and rewards are auto-distributed:
@@ -51,6 +54,7 @@ const WEEKLY_BOSS_LOG_FIGHT_PER_HIT_FACTOR = 4;
 // than a tight one, so a legit fight isn't clipped by a fluke.
 const WEEKLY_BOSS_LOG_FIGHT_FALLBACK_CAP = 5_000_000;
 const WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS = 2 * 60 * 60;
+const WEEKLY_BOSS_RUN_TTL_SECONDS = 2 * 60 * 60;
 // Fight window after an admin spawns the boss. Widened 24h → 72h (gameplay-loop
 // audit M-3): the boss is spawned manually (the owner controls cadence — see
 // loadOrInitBoss), so a single 24h window was easy for most of the roster to
@@ -408,7 +412,7 @@ async function handler(req, res) {
         if (boss)
             boss = await distributeRewardsIfExpired(boss);
         res.setHeader('Cache-Control', 's-maxage=10, stale-while-revalidate=5');
-        const fightEnabled = (0, _release_flags_js_1.weeklyBossClientDamageEnabled)();
+        const fightEnabled = true;
         return res.status(200).json({
             boss,
             fightEnabled,
@@ -458,12 +462,11 @@ async function handler(req, res) {
                 return res.status(409).json({ error: 'Boss despawned. Rewards have been distributed.', boss });
             }
             const actorName = identity.admin ? 'admin' : identity.name;
-            const clientDamageKind = kind === 'startFight' || kind === 'damage' || kind === 'logFight';
-            if (clientDamageKind && !identity.admin && !(0, _release_flags_js_1.weeklyBossClientDamageEnabled)()) {
+            if (kind === 'damage' && !identity.admin) {
                 return res.status(503).json({
-                    error: 'Weekly Boss contribution is disabled for public beta until server-authoritative settlement is live.',
+                    error: 'Legacy client-reported Weekly Boss damage is disabled. Start a server-authoritative fight instead.',
                     code: _release_flags_js_1.WEEKLY_BOSS_CLIENT_DAMAGE_DISABLED_REASON,
-                    fightEnabled: false,
+                    fightEnabled: true,
                 });
             }
             if (kind === 'startFight') {
@@ -473,20 +476,107 @@ async function handler(req, res) {
                         return res.status(429).json({ error: `Locked out â€” you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` });
                     }
                 }
-                const token = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
-                const caps = await weeklyBossLogFightCaps(actorName, identity.admin);
-                const record = {
+                const actorSave = await _storage_js_1.kv.get(`save:${actorName}`);
+                const actorChar = actorSave?.character;
+                if (!actorSave || !actorChar)
+                    return res.status(404).json({ error: 'Player save not found.' });
+                if (!identity.admin && Number(actorChar.stamina ?? 0) < 20) {
+                    return res.status(400).json({ error: 'You need at least 20 stamina to challenge the weekly boss.' });
+                }
+                const profiles = await _storage_js_1.kv.get('shared:ai-profiles').catch(() => null);
+                const profile = profiles?.find((entry) => entry.id === boss.aiId) ?? null;
+                const runId = `weekly-${(0, node_crypto_1.randomUUID)().replace(/-/g, '')}`;
+                const now = Date.now();
+                const seed = identity.admin ? 12345 : (0, node_crypto_1.randomInt)(1, 0x7fffffff);
+                const floor = (0, _authoritative_pve_js_1.dynamicBossFloor)({
+                    id: 9_200,
+                    name: boss.bossName ?? 'Weekly Boss',
+                    bossAiId: boss.aiId,
+                    objective: 'survive',
+                    roundBudget: 20,
+                });
+                const session = (0, _authoritative_pve_js_1.buildAuthoritativeSoloEncounter)({
+                    playerName: actorName,
+                    save: actorSave,
+                    floor,
+                    bossTemplate: (0, _authoritative_pve_js_1.weeklyBossEnemyTemplate)(profile, { id: boss.aiId, name: boss.bossName }),
+                    runId,
+                    seed,
+                    now,
+                    towerId: 'weekly-boss',
+                    hostLoadout: body.hostLoadout && typeof body.hostLoadout === 'object' ? body.hostLoadout : undefined,
+                });
+                const bossActor = session.actors.find((entry) => entry.id === session.phaseState.bossId);
+                if (!bossActor)
+                    return res.status(500).json({ error: 'Weekly Boss encounter could not be built.' });
+                const run = {
+                    runId,
                     playerName: actorName,
                     weekKey: boss.weekKey,
                     aiId: boss.aiId,
                     bossStartedAt: boss.startedAt,
-                    maxDamage: caps.maxDamage,
-                    perHitCap: caps.perHitCap,
-                    maxHits: caps.maxHits,
-                    mintedAt: Date.now(),
+                    initialBossHp: bossActor.hp,
+                    createdAt: now,
                 };
-                await _storage_js_1.kv.set((0, _weekly_boss_fight_token_js_1.weeklyBossFightTokenKey)(actorName, boss.weekKey, token), record, { ex: WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS });
-                return res.status(200).json({ ok: true, token, maxDamage: caps.maxDamage, expiresInSeconds: WEEKLY_BOSS_FIGHT_TOKEN_TTL_SECONDS });
+                await (0, _tower_store_js_1.writeSession)(session);
+                await _storage_js_1.kv.set((0, _weekly_boss_authoritative_run_js_1.weeklyBossRunKey)(runId), run, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
+                const reserved = await (0, _lock_js_1.withKvLock)(WEEKLY_BOSS_STATE_KEY, async () => {
+                    const fresh = await _storage_js_1.kv.get(WEEKLY_BOSS_STATE_KEY);
+                    if (!fresh || fresh.weekKey !== boss.weekKey || fresh.startedAt !== boss.startedAt)
+                        return false;
+                    const used = fresh.attemptsByPlayer?.[actorName] ?? 0;
+                    if (!identity.admin && used >= WEEKLY_BOSS_MAX_ATTEMPTS)
+                        return false;
+                    await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, {
+                        ...fresh,
+                        attemptsByPlayer: { ...(fresh.attemptsByPlayer ?? {}), [actorName]: used + 1 },
+                    });
+                    return true;
+                }, { failClosed: true });
+                if (!reserved) {
+                    await _storage_js_1.kv.del((0, _tower_store_js_1.sessionKey)(runId), (0, _weekly_boss_authoritative_run_js_1.weeklyBossRunKey)(runId)).catch(() => 0);
+                    return res.status(409).json({ error: 'The boss reset or your attempts were already used.' });
+                }
+                let updatedCharacter = actorChar;
+                if (!identity.admin) {
+                    const staminaCharge = await (0, _lock_js_1.withKvLock)(`save:${actorName}`, async () => {
+                        const freshSave = await _storage_js_1.kv.get(`save:${actorName}`);
+                        const freshChar = freshSave?.character;
+                        if (!freshSave || !freshChar || Number(freshChar.stamina ?? 0) < 20)
+                            return null;
+                        const nextChar = { ...freshChar, stamina: Number(freshChar.stamina ?? 0) - 20 };
+                        const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...freshSave, character: nextChar });
+                        await _storage_js_1.kv.set(`save:${actorName}`, (0, _utils_js_1.mergePreservingImages)(updated, freshSave));
+                        return nextChar;
+                    }, { failClosed: true });
+                    if (!staminaCharge) {
+                        await _storage_js_1.kv.del((0, _tower_store_js_1.sessionKey)(runId), (0, _weekly_boss_authoritative_run_js_1.weeklyBossRunKey)(runId)).catch(() => 0);
+                        await (0, _lock_js_1.withKvLock)(WEEKLY_BOSS_STATE_KEY, async () => {
+                            const fresh = await _storage_js_1.kv.get(WEEKLY_BOSS_STATE_KEY);
+                            if (!fresh)
+                                return;
+                            const used = fresh.attemptsByPlayer?.[actorName] ?? 0;
+                            await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, {
+                                ...fresh,
+                                attemptsByPlayer: { ...(fresh.attemptsByPlayer ?? {}), [actorName]: Math.max(0, used - 1) },
+                            });
+                        }, { failClosed: true }).catch(() => undefined);
+                        return res.status(409).json({ error: 'Stamina changed before the fight could start. Try again.' });
+                    }
+                    updatedCharacter = staminaCharge;
+                    const squadActor = session.actors.find((entry) => entry.side === 'squad' && entry.ownerSlug === actorName);
+                    if (squadActor)
+                        squadActor.stamina = Math.max(0, squadActor.stamina - 20);
+                    await (0, _tower_store_js_1.writeSession)(session);
+                }
+                return res.status(200).json({
+                    ok: true,
+                    runId,
+                    token: runId,
+                    session,
+                    character: updatedCharacter,
+                    expiresInSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
+                });
             }
             if (kind === 'damage') {
                 // Per-player cooldown — prevents loop spamming damage POSTs.
@@ -557,6 +647,63 @@ async function handler(req, res) {
                 return res.status(200).json(result);
             }
             if (kind === 'logFight') {
+                const runId = String(body.runId ?? body.weeklyBossToken ?? body.token ?? '').slice(0, 96);
+                if (!runId)
+                    return res.status(400).json({ error: 'Missing Weekly Boss run.' });
+                const result = await (0, _lock_js_1.withKvLock)((0, _weekly_boss_authoritative_run_js_1.weeklyBossRunKey)(runId), async () => {
+                    const run = await _storage_js_1.kv.get((0, _weekly_boss_authoritative_run_js_1.weeklyBossRunKey)(runId));
+                    if (!run)
+                        return { status: 404, body: { error: 'Weekly Boss run not found or expired.' } };
+                    if (!identity.admin && run.playerName !== actorName)
+                        return { status: 403, body: { error: 'That Weekly Boss run belongs to another player.' } };
+                    if (run.settledAt) {
+                        const current = await _storage_js_1.kv.get(WEEKLY_BOSS_STATE_KEY) ?? boss;
+                        return { status: 200, body: { ok: true, alreadySettled: true, boss: current, dealt: 0, attemptsUsed: current.attemptsByPlayer?.[run.playerName] ?? 0 } };
+                    }
+                    const session = await (0, _tower_store_js_1.readSession)(runId);
+                    const validation = (0, _weekly_boss_authoritative_run_js_1.validateAuthoritativeWeeklyBossRun)({
+                        run,
+                        session,
+                        playerName: actorName,
+                        admin: identity.admin,
+                        boss: { weekKey: boss.weekKey, aiId: boss.aiId, startedAt: boss.startedAt },
+                    });
+                    if (!validation.ok) {
+                        const status = validation.reason === 'wrong-player' || validation.reason === 'not-a-member' ? 403
+                            : validation.reason === 'stale-boss' ? 409
+                                : validation.reason === 'not-finished' ? 400
+                                    : validation.reason === 'missing-boss' ? 500
+                                        : 404;
+                        return { status, body: { error: `Weekly Boss settlement rejected: ${validation.reason}.` } };
+                    }
+                    const logged = validation.damage;
+                    const banked = await (0, _lock_js_1.withKvLock)(WEEKLY_BOSS_STATE_KEY, async () => {
+                        const fresh = await _storage_js_1.kv.get(WEEKLY_BOSS_STATE_KEY) ?? boss;
+                        if (fresh.weekKey !== run.weekKey || fresh.startedAt !== run.bossStartedAt)
+                            return null;
+                        if (fresh.rewardsDistributed || Date.now() >= fresh.expiresAt)
+                            return null;
+                        const updated = {
+                            ...fresh,
+                            damageByPlayer: {
+                                ...fresh.damageByPlayer,
+                                [run.playerName]: (fresh.damageByPlayer[run.playerName] ?? 0) + logged,
+                            },
+                        };
+                        await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, updated);
+                        return updated;
+                    }, { failClosed: true });
+                    if (!banked)
+                        return { status: 409, body: { error: 'Boss despawned or reset before settlement.' } };
+                    await _storage_js_1.kv.set((0, _weekly_boss_authoritative_run_js_1.weeklyBossRunKey)(runId), { ...run, settledAt: Date.now() }, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
+                    await (0, _tower_store_js_1.settleConsumedItemsForMember)({ session: session, slug: run.playerName }).catch(() => undefined);
+                    return { status: 200, body: { ok: true, boss: banked, dealt: logged, attemptsUsed: banked.attemptsByPlayer?.[run.playerName] ?? 0 } };
+                }, { failClosed: true });
+                return res.status(result.status).json(result.body);
+            }
+            // Admin-only compatibility path for old manual test clients. Public
+            // contribution can only enter through the authoritative branch above.
+            if (kind === 'logFightLegacy' && identity.admin) {
                 // End-of-arena-fight damage report. Client launches the
                 // standard arena vs the boss AI (HP set to a sentinel so
                 // the boss is effectively unkillable), tracks how much

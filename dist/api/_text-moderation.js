@@ -44,6 +44,7 @@ exports.TEXT_LIMITS = {
     chatMessage: 500,
     description: 600,
     storyName: 80,
+    trailSign: 120,
 };
 // Common slurs + hate terms. Intentionally minimal; expand cautiously. All
 // entries MUST be lowercase. Substrings get word-boundary matched below.
