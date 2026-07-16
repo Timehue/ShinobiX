@@ -72,7 +72,7 @@ interface ArchetypeMeta {
 const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     bandit: {
         verb: "attack",
-        weight: 0.45,
+        weight: 0.3,
         tellTint: "#ff6b5a",
         names: ["Kazan the Ashbound", "Goro Two-Blades", "Saito the Cinder", "Renga of the Waste", "Hibiki the Restless"],
         greetings: [
@@ -84,7 +84,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     },
     gambler: {
         verb: "gamble",
-        weight: 0.2,
+        weight: 0.18,
         tellTint: "#ffd24a",
         names: ["Saji Two-Coins", "Miraa the Sly", "Old Tatsu", "Kael of Sixes"],
         greetings: [
@@ -95,7 +95,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     },
     pilgrim: {
         verb: "gift",
-        weight: 0.2,
+        weight: 0.18,
         tellTint: "#7be0a3",
         names: ["Brother Yuki", "Brother Mibu", "Wandering Aki", "Old Doteki"],
         greetings: [
@@ -106,7 +106,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     },
     beast: {
         verb: "petDuel",
-        weight: 0.15,
+        weight: 0.16,
         tellTint: "#9bf0a6",
         names: ["Wild Emberlynx", "Stray Oni-Hound", "Feral Stormcrow", "Rogue Guardhound", "Lone Sparrowhawk"],
         greetings: [
@@ -117,7 +117,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     },
     sage: {
         verb: "quest",
-        weight: 0.15,
+        weight: 0.16,
         tellTint: "#8fd0ff",
         names: ["Old Hermit Roku", "Hermit Kaede", "The Grey Pilgrim", "Master Tobei", "Sister Uzune"],
         greetings: [
@@ -128,7 +128,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     },
     merchant: {
         verb: "merchant",
-        weight: 0.12,
+        weight: 0.15,
         tellTint: "#fbbf24",
         names: ["Miko of the Pack", "Suri Lantern-Hands", "Jin the Mule", "Tama Roadstall"],
         greetings: [
@@ -139,7 +139,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     },
     medic: {
         verb: "medic",
-        weight: 0.1,
+        weight: 0.14,
         tellTint: "#67e8f9",
         names: ["Nurse Enka", "Field Medic Ren", "Old Stitch", "Sister Koma"],
         greetings: [
@@ -150,7 +150,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     },
     patrol: {
         verb: "patrol",
-        weight: 0.12,
+        weight: 0.14,
         tellTint: "#93c5fd",
         names: ["Storm Road Patrol", "Ashen Border Patrol", "Frostfang Scout", "Moonshadow Sentry"],
         greetings: [
@@ -161,7 +161,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     },
     tracker: {
         verb: "tracker",
-        weight: 0.1,
+        weight: 0.14,
         tellTint: "#a7f3d0",
         names: ["Ibo the Tracker", "Kana Reed-Eyes", "Old Pawprint", "Shin of the Bent Grass"],
         greetings: [
@@ -287,6 +287,20 @@ function mulberry32(seed: number): () => number {
     };
 }
 
+/**
+ * Deterministic presence gate for the "the road finds you" quest-giver NPCs
+ * (story road events, rift givers): instead of following the player into EVERY
+ * sector until dealt with — which reads as wallpaper — the NPC is present in
+ * roughly `chance` of sectors per 6h window. Same key → same answer, so nothing
+ * flickers; the blocked sectors reshuffle when the window rolls over. Callers
+ * key by (feature, player, npc/quest id, sector, dayBucket).
+ */
+export function wandererPresenceGate(key: string, chance: number): boolean {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return mulberry32(h >>> 0)() < chance;
+}
+
 function pickWeightedArchetype(r: number): WandererArchetypeId {
     const total = ARCHETYPE_IDS.reduce((s, id) => s + ARCHETYPES[id].weight, 0);
     let x = r * total;
@@ -320,11 +334,13 @@ export function wandererLevelFor(sector: number, rng: () => number): number {
     return Math.max(3, Math.min(95, Math.round(base + jitter)));
 }
 
-// Spawn rarity — a wanderer is an OCCASIONAL encounter, not a fixture. Most wild
-// sectors are empty in a given 6h window; some have one; a pair is rare. Tune
-// these two thresholds to taste (raise EMPTY_CHANCE for rarer, lower for busier).
-const WANDERER_EMPTY_CHANCE = 0.6;   // ~60% of sectors: nobody this window
-const WANDERER_SINGLE_CHANCE = 0.92; // 0.6–0.92 → one; 0.92–1.0 → two
+// Spawn rarity — a wanderer is an OCCASIONAL encounter, not a fixture. Roughly
+// half of wild sectors are empty in a given 6h window; most of the rest have one;
+// a pair is uncommon. Tune these two thresholds to taste (raise EMPTY_CHANCE for
+// rarer, lower for busier). 2026-07 balance pass: 0.6/0.92 → 0.52/0.88 so the
+// flattened archetype weights above actually get room to show their whole cast.
+const WANDERER_EMPTY_CHANCE = 0.52;  // ~52% of sectors: nobody this window
+const WANDERER_SINGLE_CHANCE = 0.88; // 0.52–0.88 → one; 0.88–1.0 → two
 export function wandererCount(roll: number): 0 | 1 | 2 {
     if (roll < WANDERER_EMPTY_CHANCE) return 0;
     if (roll < WANDERER_SINGLE_CHANCE) return 1;
