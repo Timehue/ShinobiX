@@ -23,7 +23,7 @@ function makeStore(offlineAfterMs = 60_000) {
     strict_1.default.equal(store.list().length, 1);
     strict_1.default.equal(store.size(), 1);
 });
-(0, node_test_1.test)('upsert preserves pendingAttacker and connectedAt across beats', () => {
+(0, node_test_1.test)('upsert preserves pendingAttacker and connectedAt and rejects an unleased teleport', () => {
     const { store, advance } = makeStore();
     const first = store.upsert({ name: 'rill', sector: 1, character: null });
     strict_1.default.equal(store.setPendingAttacker('rill', { name: 'zayah' }), true);
@@ -31,7 +31,62 @@ function makeStore(offlineAfterMs = 60_000) {
     const second = store.upsert({ name: 'rill', sector: 2, character: null });
     strict_1.default.equal(second.connectedAt, first.connectedAt, 'connectedAt is stable');
     strict_1.default.deepEqual(second.pendingAttacker, { name: 'zayah' }, 'pendingAttacker survives a refresh');
-    strict_1.default.equal(second.sector, 2, 'sector updates');
+    strict_1.default.equal(second.sector, 1, 'presence cannot teleport an established session');
+});
+(0, node_test_1.test)('server-issued travel changes sector only after its arrival deadline', () => {
+    const { store, advance, at } = makeStore();
+    store.upsert({ name: 'rill', sector: 1, character: null });
+    strict_1.default.ok(store.startTravel('rill', 2, at() + 3_000));
+    strict_1.default.equal(store.upsert({ name: 'rill', sector: 2, character: null }).sector, 1);
+    advance(3_000);
+    strict_1.default.equal(store.upsert({ name: 'rill', sector: 2, character: null }).sector, 2);
+    strict_1.default.equal(store.listSector(1).length, 0);
+    strict_1.default.deepEqual(store.listSector(2).map((p) => p.name), ['rill']);
+});
+(0, node_test_1.test)('validated edge travel reconciles a stale presence origin sector', () => {
+    let now = 1_000;
+    const store = new online_store_js_1.MemoryOnlineStateStore({ now: () => now });
+    store.upsert({ name: 'rill', sector: 40, character: null, tile: 78 });
+    const started = store.startTravel('rill', 10, now + 3_000, 55);
+    strict_1.default.equal(started?.sector, 55);
+    strict_1.default.equal(store.listSector(40).length, 0);
+    strict_1.default.equal(store.listSector(55)[0]?.name, 'rill');
+    now += 3_000;
+    const arrived = store.upsert({ name: 'rill', sector: 10, character: null, tile: 67 });
+    strict_1.default.equal(arrived.sector, 10);
+    strict_1.default.equal(store.listSector(55).length, 0);
+    strict_1.default.equal(store.listSector(10)[0]?.name, 'rill');
+});
+(0, node_test_1.test)('server-issued travel settles without a client-authored destination update', () => {
+    const { store, advance, at } = makeStore();
+    store.upsert({ name: 'rill', sector: 1, character: null, tile: 10 });
+    strict_1.default.ok(store.startTravel('rill', 2, at() + 3_000, undefined, 55));
+    advance(3_000);
+    const settled = store.get('rill');
+    strict_1.default.equal(settled?.sector, 2);
+    strict_1.default.equal(settled?.tile, 55);
+    strict_1.default.equal(settled?.travelingUntil, undefined);
+    strict_1.default.equal(store.consumeSettledTravel('rill'), true);
+    strict_1.default.equal(store.consumeSettledTravel('rill'), false, 'settlement signal is one-shot');
+});
+(0, node_test_1.test)('stale mid-travel disconnect is swept at its matured destination', () => {
+    const { store, advance, at } = makeStore(60_000);
+    store.upsert({ name: 'rill', sector: 1, character: null });
+    strict_1.default.ok(store.startTravel('rill', 2, at() + 3_000));
+    advance(60_001);
+    const [removed] = store.sweepStale();
+    strict_1.default.equal(removed?.sector, 2, 'sleeper materialization receives the destination');
+    strict_1.default.equal(removed?.departureSector, 1, 'socket departure still targets the room that saw the player');
+    strict_1.default.equal(removed?.travelingUntil, undefined);
+});
+(0, node_test_1.test)('moveToTile refreshes a player and increments movement sequence', () => {
+    const { store } = makeStore();
+    store.upsert({ name: 'rill', sector: 1, character: null, tile: 10 });
+    const firstSequence = store.moveToTile('rill', 11)?.movementSeq;
+    const second = store.moveToTile('rill', 12);
+    strict_1.default.equal(firstSequence, 1);
+    strict_1.default.equal(second?.movementSeq, 2);
+    strict_1.default.equal(second?.tile, 12);
 });
 (0, node_test_1.test)('character falls back to the previously-stored slim character', () => {
     const { store } = makeStore();
@@ -48,7 +103,7 @@ function makeStore(offlineAfterMs = 60_000) {
     strict_1.default.equal(store.list().length, 0, 'stale entry excluded from list');
     strict_1.default.equal(store.size(), 1, 'still in the map until swept');
     const removed = store.sweepStale();
-    strict_1.default.deepEqual(removed, ['rill']);
+    strict_1.default.deepEqual(removed.map((p) => p.name), ['rill']);
     strict_1.default.equal(store.size(), 0, 'swept out of the map');
 });
 (0, node_test_1.test)('setPendingAttacker returns false for an offline target', () => {

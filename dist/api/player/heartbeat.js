@@ -10,6 +10,8 @@ const moderation_js_1 = require("../admin/moderation.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
 const _presence_beat_js_1 = require("../_realtime/_presence-beat.js");
 const presence_input_js_1 = require("../_realtime/presence-input.js");
+const sleeper_camps_js_1 = require("../_realtime/sleeper-camps.js");
+const travel_lease_js_1 = require("../_realtime/travel-lease.js");
 // Presence now lives in the in-memory online store (api/_realtime/online-store.ts)
 // instead of `presence:<name>` DB keys — no per-second DB read/write. The live
 // roster comes from onlineStore.list(); writes from onlineStore.upsert(). The
@@ -69,16 +71,25 @@ async function handler(req, res) {
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
         const existing = online_store_js_1.onlineStore.get(name);
-        const [pendingChallenges, resetSignal, healSignal] = await Promise.all([
+        const [pendingChallenges, resetSignal, healSignal, savedLocation, persistedTravel] = await Promise.all([
             _storage_js_1.kv.get(challengeKey),
             _storage_js_1.kv.get(resetSignalKey),
             _storage_js_1.kv.get(healSignalKey),
+            existing ? Promise.resolve(null) : _storage_js_1.kv.get(`save:${(0, _utils_js_1.safeName)(name)}`),
+            existing ? Promise.resolve(null) : (0, travel_lease_js_1.getTravelLease)(name),
         ]);
         if (resetSignal) {
             return res.status(200).json({ forceReload: true });
         }
-        const entrySector = (0, presence_input_js_1.normalizeSector)(sector, (0, presence_input_js_1.normalizeSector)(existing?.sector, 40));
+        // A fresh process/session starts from the persisted server location. Once
+        // online, MemoryOnlineStateStore only accepts sector changes backed by a
+        // server-minted travel lease (or a safe-zone exit to sector 0).
         const now = Date.now();
+        const entrySector = existing
+            ? (0, presence_input_js_1.normalizeSector)(sector, existing.sector)
+            : persistedTravel
+                ? (0, travel_lease_js_1.travelLeaseSectorAt)(persistedTravel, now)
+                : (0, presence_input_js_1.normalizeSector)(savedLocation?.currentSector, (0, presence_input_js_1.normalizeSector)(sector, 40));
         // Cap client-supplied travelingUntil so an exploit can't make a player
         // permanently untouchable (capTravelingUntil returns undefined unless
         // it's still in the future).
@@ -93,7 +104,7 @@ async function handler(req, res) {
         // heartbeat read pendingAttacker then rewrote the row with null. Also
         // stamp the request IP for anti-alt overlap checks (player-ip:{name}:{ip},
         // 7-day TTL, idempotent).
-        const stored = online_store_js_1.onlineStore.upsert({
+        let stored = online_store_js_1.onlineStore.upsert({
             name,
             sector: entrySector,
             character: slimChar,
@@ -101,11 +112,18 @@ async function handler(req, res) {
             inBattle: inBattle === true ? true : undefined,
             tile: (0, presence_input_js_1.normalizeTile)(tile, existing?.tile),
         });
+        if (!existing && persistedTravel && now < persistedTravel.arrivalAt) {
+            stored = online_store_js_1.onlineStore.restoreTravel(name, persistedTravel.destinationSector, persistedTravel.arrivalAt, persistedTravel.originSector, persistedTravel.arrivalTile) ?? stored;
+        }
+        if ((persistedTravel && now >= persistedTravel.arrivalAt) || online_store_js_1.onlineStore.consumeSettledTravel(name)) {
+            void (0, travel_lease_js_1.settleTravelLease)(name, persistedTravel ?? undefined, now).catch(() => undefined);
+        }
         const pendingAttacker = stored.pendingAttacker ?? null;
         online_store_js_1.onlineStore.clearPendingAttacker(name);
         // Throttled cross-worker presence beat (fallback for consumers like the
         // Kage accept-obligation clock). See _realtime/_presence-beat.ts.
         (0, _presence_beat_js_1.stampPresenceBeat)(name);
+        void (0, sleeper_camps_js_1.clearSleeperCamp)(name).catch(() => undefined);
         await Promise.all([
             pendingChallenges?.length ? _storage_js_1.kv.del(challengeKey) : Promise.resolve(),
             healSignal ? _storage_js_1.kv.del(healSignalKey) : Promise.resolve(),
@@ -114,10 +132,7 @@ async function handler(req, res) {
         // The in-memory store IS the live roster — no DB scan, no cache layer.
         // toPlayerRecord (shared with the WS path) shapes each entry; avatar
         // image is omitted (client resolves it from its name-keyed cache).
-        const allEntries = online_store_js_1.onlineStore.list();
-        const sectorMates = allEntries
-            .filter(p => (0, presence_input_js_1.normalizeSector)(p.sector) === entrySector)
-            .map(presence_input_js_1.toPlayerRecord);
+        const sectorMates = online_store_js_1.onlineStore.listSector(stored.sector).map(presence_input_js_1.toPlayerRecord);
         // Note: the full online roster is intentionally NOT broadcast on every
         // heartbeat (was an O(N²)/payload cost). Clients source the global list
         // from the 60s /api/player/roster poll; this returns sector-scoped data

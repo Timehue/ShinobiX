@@ -361,7 +361,7 @@ function buildTowerEncounter(p) {
     if (floor.boss) {
         bossId = 'boss';
         bossPhases = floor.boss.phases;
-        const bossActor = templateActor('boss', 'enemy', (0, _enemy_templates_js_1.getEnemyTemplate)(floor.boss.aiId), spawnEnemy());
+        const bossActor = templateActor('boss', 'enemy', p.bossTemplate ?? (0, _enemy_templates_js_1.getEnemyTemplate)(floor.boss.aiId), spawnEnemy());
         // Endless Spire: per-floor authored boss HP (overrides the template hp so the same boss
         // is tuned floor-by-floor, sidestepping the HP-scaled-mechanic × big-HP blow-up).
         if (typeof floor.boss.hp === 'number' && floor.boss.hp > 0) {
@@ -397,7 +397,7 @@ function buildTowerEncounter(p) {
         actors.push(templateActor('npc-0', 'npc', (0, _enemy_templates_js_1.getEnemyTemplate)(floor.npc.aiId), pos));
     }
     const session = (0, _tower_session_js_1.createTowerSession)({
-        towerId: p.ascension ? 'endless-spire' : 'celestial',
+        towerId: p.towerId ?? (p.ascension ? 'endless-spire' : 'celestial'),
         runId: p.runId,
         floor: floor.id,
         seed: p.seed,
@@ -417,5 +417,7 @@ function buildTowerEncounter(p) {
     // so skip party scaling entirely when this is an ascension run.
     if (!p.ascension)
         (0, _engine_js_1.applyPartyScaling)(session, floor);
+    if (p.embedFloor)
+        session.encounterFloor = structuredClone(floor);
     return session;
 }

@@ -5,6 +5,9 @@ exports.currentJutsuLevel = currentJutsuLevel;
 exports.applyJutsuLevel = applyJutsuLevel;
 exports.startJutsuRyoTraining = startJutsuRyoTraining;
 exports.settleJutsuRyoTraining = settleJutsuRyoTraining;
+exports.queueJutsuRyoTraining = queueJutsuRyoTraining;
+exports.cancelQueuedJutsuRyoTraining = cancelQueuedJutsuRyoTraining;
+exports.advanceQueuedJutsuRyoTraining = advanceQueuedJutsuRyoTraining;
 const formulas_js_1 = require("../combat-core/formulas.js");
 const whole = (value) => Math.max(0, Math.floor(Number(value) || 0));
 const jutsuRyoTrainingCost = (levelRaw) => {
@@ -63,4 +66,75 @@ function settleJutsuRyoTraining(character, active, action, now) {
         return { ok: false, reason: 'not-enough-ryo' };
     const debited = { ...character, ryo: whole(character.ryo) - finishCost };
     return { ok: true, character: applyJutsuLevel(debited, active.jutsuId, active.toLevel), active: null, cost: finishCost, refund: 0 };
+}
+function queueJutsuRyoTraining(character, active, jutsuId, label, token, bonusPct) {
+    if (active.next)
+        return { ok: false, reason: 'jutsu-training-queue-full' };
+    const fromLevel = active.jutsuId === jutsuId ? active.toLevel : currentJutsuLevel(character, jutsuId);
+    const cap = (0, exports.jutsuRyoTrainingCap)(character.level);
+    if (fromLevel <= 0)
+        return { ok: false, reason: 'train-level-zero-directly' };
+    if (fromLevel >= cap)
+        return { ok: false, reason: 'jutsu-at-training-cap' };
+    const cost = (0, exports.jutsuRyoTrainingCost)(fromLevel);
+    if (whole(character.ryo) < cost)
+        return { ok: false, reason: 'not-enough-ryo' };
+    const queued = {
+        serverToken: token,
+        jutsuId,
+        label: label.slice(0, 80),
+        fromLevel,
+        toLevel: fromLevel + 1,
+        ryoCost: cost,
+        durationMs: (0, exports.jutsuRyoTrainingDuration)(fromLevel, bonusPct),
+    };
+    return {
+        ok: true,
+        character: { ...character, ryo: whole(character.ryo) - cost },
+        active: { ...active, next: queued },
+        cost,
+        refund: 0,
+    };
+}
+function cancelQueuedJutsuRyoTraining(character, active) {
+    if (!active.next)
+        return { ok: false, reason: 'jutsu-training-queue-empty' };
+    const refund = whole(active.next.ryoCost);
+    return {
+        ok: true,
+        character: { ...character, ryo: whole(character.ryo) + refund },
+        active: { ...active, next: null },
+        cost: 0,
+        refund,
+    };
+}
+function advanceQueuedJutsuRyoTraining(character, active, now) {
+    let nextCharacter = character;
+    let current = active;
+    for (let step = 0; current && step < 4 && now >= current.endsAt; step += 1) {
+        if (current.next) {
+            nextCharacter = applyJutsuLevel(nextCharacter, current.jutsuId, current.toLevel);
+            const queued = current.next;
+            const startedAt = current.endsAt;
+            current = {
+                serverToken: queued.serverToken,
+                jutsuId: queued.jutsuId,
+                label: queued.label,
+                fromLevel: queued.fromLevel,
+                toLevel: queued.toLevel,
+                ryoCost: queued.ryoCost,
+                startedAt,
+                endsAt: startedAt + queued.durationMs,
+                next: null,
+                autoClaim: true,
+            };
+            continue;
+        }
+        if (current.autoClaim) {
+            nextCharacter = applyJutsuLevel(nextCharacter, current.jutsuId, current.toLevel);
+            current = null;
+        }
+        break;
+    }
+    return { ok: true, character: nextCharacter, active: current, cost: 0, refund: 0 };
 }

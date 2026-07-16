@@ -56,23 +56,30 @@ async function handler(req, res) {
                 return { status: 404, body: { error: 'Not a clan-boss assault.' } };
             if (fresh.settled) {
                 const p = await (0, _storage_js_1.loadClanBossProgress)(assault.weekId, assault.clanName);
-                return { status: 200, body: { ok: true, alreadySettled: true, pool: p?.pool ?? 0, poolMax: p?.poolMax ?? 0, killed: !!p?.killedAt } };
+                const applied = p?.assaults.find((entry) => entry.runId === runId);
+                const justKilled = fresh.justKilled ?? (!!p?.killedAt && p.killedAt === applied?.at && p.pool <= 0);
+                return { status: 200, body: { ok: true, alreadySettled: true, pool: p?.pool ?? 0, poolMax: p?.poolMax ?? 0, killed: !!p?.killedAt, justKilled } };
             }
             const progress = (await (0, _storage_js_1.loadClanBossProgress)(assault.weekId, assault.clanName))
                 ?? (week ? (0, _storage_js_1.newClanBossProgress)(assault.clanName, week, 1) : null);
             if (!progress)
                 return { status: 400, body: { error: 'No active clan boss to bank into.' } };
+            const applied = progress.assaults.find((entry) => entry.runId === runId);
             const next = (0, _storage_js_1.bankAssault)(progress, {
                 runId, by: assault.host, party: assault.party,
                 damage: result.damage, rounds: result.rounds, wiped: result.wiped, clean: result.clean, at: now,
             });
-            await (0, _storage_js_1.saveClanBossProgress)(next);
-            await (0, _assault_js_1.saveAssault)({ ...fresh, settled: true });
+            const justKilled = applied
+                ? !!progress.killedAt && progress.killedAt === applied.at && progress.pool <= 0
+                : !!next.killedAt && !progress.killedAt;
+            if (next !== progress)
+                await (0, _storage_js_1.saveClanBossProgress)(next);
+            await (0, _assault_js_1.saveAssault)({ ...fresh, settled: true, justKilled });
             return {
                 status: 200,
                 body: {
-                    ok: true, result, pool: next.pool, poolMax: next.poolMax,
-                    killed: !!next.killedAt, justKilled: !!next.killedAt && !progress.killedAt,
+                    ok: true, alreadySettled: !!applied, result, pool: next.pool, poolMax: next.poolMax,
+                    killed: !!next.killedAt, justKilled,
                 },
             };
         }, { failClosed: true });
@@ -87,40 +94,41 @@ async function handler(req, res) {
         }
         let awardedCharacter;
         const outcomeBody = outcome.body;
-        if (!outcomeBody.alreadySettled) {
-            const party = [...new Set(assault.party.map((name) => (0, _utils_js_1.safeName)(name)).filter(Boolean))].slice(0, 4);
-            const others = party.filter((name) => name !== playerName);
-            await Promise.allSettled(others.map((member) => (0, _clan_points_js_1.awardClanPointsToPlayerSave)(member, 'clanBossParticipation', 60, {
-                eventId: `clanBoss:${assault.weekId}:${runId}:participation:${member}`,
+        const party = [...new Set(assault.party.map((name) => (0, _utils_js_1.safeName)(name)).filter(Boolean))].slice(0, 4);
+        const others = party.filter((name) => name !== playerName);
+        // These awards use stable event IDs, so retry them even after damage was
+        // already settled. That heals a transient player-save failure without
+        // double-crediting members whose first write succeeded.
+        await Promise.allSettled(others.map((member) => (0, _clan_points_js_1.awardClanPointsToPlayerSave)(member, 'clanBossParticipation', 60, {
+            eventId: `clanBoss:${assault.weekId}:${runId}:participation:${member}`,
+            runId,
+            clan: assault.clanName,
+            damage: result.damage,
+        })));
+        if (party.includes(playerName)) {
+            const participation = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(playerName, 'clanBossParticipation', 60, {
+                eventId: `clanBoss:${assault.weekId}:${runId}:participation:${playerName}`,
                 runId,
                 clan: assault.clanName,
                 damage: result.damage,
+            });
+            if (participation.found)
+                awardedCharacter = participation.character;
+        }
+        if (outcomeBody.justKilled) {
+            await Promise.allSettled(others.map((member) => (0, _clan_points_js_1.awardClanPointsToPlayerSave)(member, 'clanBossDefeat', 50, {
+                eventId: `clanBoss:${assault.weekId}:${runId}:defeat:${member}`,
+                runId,
+                clan: assault.clanName,
             })));
             if (party.includes(playerName)) {
-                const participation = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(playerName, 'clanBossParticipation', 60, {
-                    eventId: `clanBoss:${assault.weekId}:${runId}:participation:${playerName}`,
+                const defeat = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(playerName, 'clanBossDefeat', 50, {
+                    eventId: `clanBoss:${assault.weekId}:${runId}:defeat:${playerName}`,
                     runId,
                     clan: assault.clanName,
-                    damage: result.damage,
                 });
-                if (participation.found)
-                    awardedCharacter = participation.character;
-            }
-            if (outcomeBody.justKilled) {
-                await Promise.allSettled(others.map((member) => (0, _clan_points_js_1.awardClanPointsToPlayerSave)(member, 'clanBossDefeat', 50, {
-                    eventId: `clanBoss:${assault.weekId}:${runId}:defeat:${member}`,
-                    runId,
-                    clan: assault.clanName,
-                })));
-                if (party.includes(playerName)) {
-                    const defeat = await (0, _clan_points_js_1.awardClanPointsToPlayerSave)(playerName, 'clanBossDefeat', 50, {
-                        eventId: `clanBoss:${assault.weekId}:${runId}:defeat:${playerName}`,
-                        runId,
-                        clan: assault.clanName,
-                    });
-                    if (defeat.found)
-                        awardedCharacter = defeat.character;
-                }
+                if (defeat.found)
+                    awardedCharacter = defeat.character;
             }
         }
         return res.status(outcome.status).json({ ...outcome.body, consumables, character: awardedCharacter });

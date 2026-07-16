@@ -49,7 +49,13 @@ async function handler(req, res) {
         // the old `ex: 60` re-stamp guaranteed. attackBlock carries the offline
         // (404), Academy-protection (403 for sub-Genin), and traveling / engaged
         // / in-battle (409) gates.
-        const block = (0, presence_gating_js_1.attackBlock)(online_store_js_1.onlineStore.get(targetName));
+        const targetPresence = online_store_js_1.onlineStore.get(targetName);
+        if (!identity.admin) {
+            const locationBlock = (0, presence_gating_js_1.worldInteractionBlock)(online_store_js_1.onlineStore.get(identity.name), targetPresence);
+            if (locationBlock)
+                return res.status(locationBlock.status).json({ error: locationBlock.error });
+        }
+        const block = (0, presence_gating_js_1.attackBlock)(targetPresence);
         if (block)
             return res.status(block.status).json({ error: block.error });
         online_store_js_1.onlineStore.setPendingAttacker(targetName, attacker ?? null);

@@ -15,10 +15,10 @@ exports.augmentDisplay = augmentDisplay;
 exports.rollAugmentOffers = rollAugmentOffers;
 exports.rewardMultiplierForToken = rewardMultiplierForToken;
 const node_crypto_1 = require("node:crypto");
-// Release lock: current dungeon outcomes and discrete loot are still resolved
-// by the browser. Keep every server mutation endpoint closed until the server
-// owns the run events and settles the complete currency/item ledger.
-exports.HOLLOW_GATE_RUNS_ENABLED = false;
+// The run token seals entry, depth, augment choice, payout ceilings, and
+// single-use settlement. Combat is resolved through a run-bound server session;
+// durable gain is reconciled through the locked settlement endpoint.
+exports.HOLLOW_GATE_RUNS_ENABLED = true;
 function hollowGateRunsEnabled() {
     return exports.HOLLOW_GATE_RUNS_ENABLED;
 }
@@ -48,8 +48,13 @@ exports.HG_CLAWBACK_KEYS = [
 // The shipped shrine has exactly five floors. Never let a client widen its own
 // payout envelope by requesting a deeper synthetic run at token mint time.
 exports.HOLLOW_GATE_SERVER_DEPTH = 5;
-function canonicalHollowGateDepth() {
-    return exports.HOLLOW_GATE_SERVER_DEPTH;
+function canonicalHollowGateDepth(requested) {
+    const n = Math.floor(Number(requested));
+    if (!Number.isFinite(n))
+        return exports.HOLLOW_GATE_SERVER_DEPTH;
+    // Short official/event gates may seal a smaller final floor. A client can
+    // never widen the payout envelope beyond the shipped five-floor maximum.
+    return Math.max(1, Math.min(exports.HOLLOW_GATE_SERVER_DEPTH, n));
 }
 // VERBATIM mirror of the client hollowShardDrop (lib/hollow-gate-run.ts). The
 // drift test asserts this matches the client for every floor/source.

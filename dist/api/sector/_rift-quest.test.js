@@ -51,6 +51,8 @@ async function loadClientTargetSector() {
         const def = _rift_quest_js_1.RIFT_QUESTS[rift.id];
         strict_1.default.ok(def, `server def missing for ${rift.id}`);
         strict_1.default.equal(def.levelReq, rift.levelReq, rift.id);
+        strict_1.default.equal(def.floors, rift.floors, rift.id);
+        strict_1.default.equal(def.bossAiId, rift.bossAiId, rift.id);
         strict_1.default.equal(def.bossName, rift.bossName, rift.id);
         strict_1.default.equal(def.weight, rift.reward.weight, rift.id);
         strict_1.default.equal(def.fateShards, rift.reward.fateShards ?? 0, rift.id);

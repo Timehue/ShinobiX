@@ -216,6 +216,9 @@ import sectorWandererServiceHandler   from './api/sector/wanderer-service.js';
 import sectorQuestbookHandler         from './api/sector/questbook.js';
 import sectorStoryReckoningHandler    from './api/sector/story-reckoning.js';
 import sectorMercRoamHandler          from './api/sector/merc-roam.js';
+import sectorTracesHandler            from './api/sector/traces.js';
+import sectorTrailSignHandler         from './api/sector/trail-sign.js';
+import sectorShrineOfferHandler       from './api/sector/shrine-offer.js';
 // Story — server-authoritative interlude + road-event record (rebuild foundation)
 import storyInterludeHandler          from './api/story/interlude.js';
 import storyRoadEventHandler          from './api/story/road-event.js';
@@ -1121,6 +1124,10 @@ route('/sector/wanderer-service',   sectorWandererServiceHandler);
 route('/sector/questbook',          sectorQuestbookHandler);
 route('/sector/story-reckoning',    sectorStoryReckoningHandler);
 route('/sector/merc-roam',          sectorMercRoamHandler);
+// Sector traces — footfall + trail signs + shrine offerings (world remembers you)
+route('/sector/traces',             sectorTracesHandler);
+route('/sector/trail-sign',         sectorTrailSignHandler);
+route('/sector/shrine-offer',       sectorShrineOfferHandler);
 
 // ─── Story (server-authoritative interlude + road-event record) ────────────────
 route('/story/interlude',           storyInterludeHandler);

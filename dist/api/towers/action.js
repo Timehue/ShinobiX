@@ -4,7 +4,7 @@ exports.default = handler;
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
-const _floor_catalog_js_1 = require("./_floor-catalog.js");
+const _session_floor_js_1 = require("./_session-floor.js");
 const _tower_session_js_1 = require("./_tower-session.js");
 const _engine_js_1 = require("./_engine.js");
 const _sim_js_1 = require("./_sim.js");
@@ -58,7 +58,7 @@ async function handler(req, res) {
                     await (0, _tower_store_js_1.writeSession)(session); // persist the AFK pass even if it's not our turn
                 return { status: 409, body: { error: 'Not your turn.', session } };
             }
-            const floor = (0, _floor_catalog_js_1.getFloor)(session.floor);
+            const floor = (0, _session_floor_js_1.floorForSession)(session);
             if (!floor)
                 return { status: 500, body: { error: 'Floor missing.' } };
             const rng = (0, _sim_js_1.makeRng)(session.seed);

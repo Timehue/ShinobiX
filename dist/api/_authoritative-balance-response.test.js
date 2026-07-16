@@ -80,12 +80,15 @@ const read = (path) => (0, node_fs_1.readFileSync)((0, node_path_1.join)(root, p
         const arena = read('shinobij.client/src/screens/Arena.tsx');
         const app = read('shinobij.client/src/App.tsx');
         node_assert_1.strict.match(api, /aiFightTokenKey\(playerName, token\)/);
+        node_assert_1.strict.match(api, /redeemed\.find\(\(entry\) => entry\.token === token\)/);
+        node_assert_1.strict.match(api, /replayed:\s*true/);
         node_assert_1.strict.match(api, /applyStoryBossSettlement\(character, tokenData/);
         node_assert_1.strict.match(core, /token\.opponentId !== storyOpponentId\(village, levelReq\)/);
         node_assert_1.strict.match(saveApi, /char\.storyProgress = .*exChar\.storyProgress/);
         node_assert_1.strict.match(arena, /onPendingStoryBattleWin\?\.\(playerHp, token\)/);
         node_assert_1.strict.match(app, /fetch\('\/api\/story\/settle'/);
         node_assert_1.strict.match(app, /setCharacter\(data\.character\)/);
+        node_assert_1.strict.match(app, /latestSaveVersionRef\.current\s*=\s*adoptSaveVersion\(latestSaveVersionRef\.current, data\._saveVersion\)/);
     });
     (0, node_test_1.it)('war crates are consumed and rewarded by one server save mutation', () => {
         const api = read('api/village/open-war-crate.ts');

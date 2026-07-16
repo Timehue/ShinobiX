@@ -29,6 +29,15 @@ const FIRE = {
             node_assert_1.strict.equal(result.character.onboardingStep, 'training');
         }
     });
+    (0, node_test_1.it)('persists the cinematic starter before the companion-introduction pass', () => {
+        const result = (0, _starter_js_1.chooseStarterPet)({ onboardingStep: 'academyIntro', pets: [] }, FIRE);
+        node_assert_1.strict.equal(result.ok, true);
+        if (result.ok) {
+            node_assert_1.strict.equal(result.character.activePetId, 'starter-fire');
+            node_assert_1.strict.equal(result.character.onboardingStep, 'companionIntro');
+            node_assert_1.strict.equal(result.character.starterPetClaimed, true);
+        }
+    });
     (0, node_test_1.it)('rejects replay and out-of-sequence claims', () => {
         node_assert_1.strict.equal((0, _starter_js_1.chooseStarterPet)({ onboardingStep: 'training', pets: [] }, FIRE).ok, false);
         node_assert_1.strict.equal((0, _starter_js_1.chooseStarterPet)({ onboardingStep: 'starter', pets: [{}] }, FIRE).ok, false);

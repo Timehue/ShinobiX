@@ -2,6 +2,7 @@ import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { footfallKey, FOOTFALL_TTL_SEC } from '../sector/_traces.js';
 
 const TRAVEL_LEASE_PREFIX = 'world:travel-lease:';
 const TRAVEL_LEASE_TTL_SEC = 7 * 24 * 60 * 60;
@@ -88,6 +89,9 @@ export async function settleTravelLease(
         }));
         if (!result.ok) return false;
         await kv.del(key);
+        // Footfall trace ("N shinobi passed through today") — fire-and-forget so a
+        // counter hiccup can never fail an arrival. Exactly once per settled lease.
+        void kv.incr(footfallKey(lease.destinationSector, now), { ex: FOOTFALL_TTL_SEC }).catch(() => undefined);
         return true;
     }, { failClosed: true });
 }

@@ -37,6 +37,7 @@ export const TEXT_LIMITS = {
     chatMessage: 500,
     description: 600,
     storyName: 80,
+    trailSign: 120,
 } as const;
 
 // Common slurs + hate terms. Intentionally minimal; expand cautiously. All
