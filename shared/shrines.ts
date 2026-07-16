@@ -40,7 +40,7 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
         region: 'the Ashen Leaf Deepwood',
         lore: 'Raised by Ashen Leaf’s first woodwardens around a living tree; they say its roots reach all the way back to the village square.',
         blessing: 'May your roots hold and your leaves reach.',
-        left: 30, top: 26,
+        left: 54, top: 44,
     },
     {
         id: 'tide', sector: 34, name: 'Tidecaller Shrine', theme: 'village', village: 'Stormveil Village',
