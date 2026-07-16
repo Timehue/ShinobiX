@@ -216,7 +216,11 @@ function mulberry32(seed: number): () => number {
 const GRID = 12;
 const SECTOR_COUNT = 60;
 /** Fraction of 6h windows in which the player's emissary is out roaming. */
-const EMISSARY_SPAWN_CHANCE = 0.45;
+const EMISSARY_SPAWN_CHANCE = 0.55;
+/** Pre-acceptance: chance the roaming harbinger crosses a given sector the
+ *  player enters (per 6h window). Before the 2026-07 balance pass they hid in
+ *  ONE unhinted sector of 59 — effectively never met organically. */
+const EMISSARY_ROAM_SECTOR_CHANCE = 0.12;
 
 export interface EmissarySpawn {
     def: EmissaryDef;
@@ -227,15 +231,23 @@ export interface EmissarySpawn {
 /**
  * Where (and whether) an emissary roams for this player in this 6h window.
  * Deterministic from (player, dayBucket): no server round-trip, no flicker —
- * the same pattern as the natural wanderer roster. Post-acceptance the
- * player's own category emissary walks; pre-acceptance (level 40+) the eight
- * take turns, hinting at the paths that are watching.
+ * the same pattern as the natural wanderer roster.
+ *
+ * Post-acceptance the player's own category emissary walks a FIXED sector for
+ * the window (the Legacy panel's "last seen in…" hint points there, so it must
+ * stay deterministic per window). Pre-acceptance (level 40+) the eight take
+ * turns as a ROAMING harbinger instead: with no hint pointing at them, a fixed
+ * 1-of-59 sector meant players never met one — now the window's emissary
+ * occasionally crosses whatever sector the player enters (`currentSector` +
+ * a per-sector presence gate), which is what the rumor promises: "find the
+ * right one and it finds you back."
  */
 export function rollEmissarySpawn(
     playerName: string,
     level: number,
     legacyCategory: string | null,
     dayBucket: number,
+    currentSector?: number | null,
 ): EmissarySpawn | null {
     if (!playerName || level < EMISSARY_MIN_LEVEL) return null;
     const rng = mulberry32(hash32(`emissary#${playerName.toLowerCase()}#${dayBucket}`));
@@ -246,8 +258,17 @@ export function rollEmissarySpawn(
     // category) and the panel hint (server truth) would place the emissary in
     // different sectors whenever the fetch lagged (verification finding).
     const randomDef = EMISSARY_DEFS[Math.floor(rng() * EMISSARY_DEFS.length)];
-    const def = emissaryForCategory(legacyCategory) ?? randomDef;
-    const sector = 1 + Math.floor(rng() * (SECTOR_COUNT - 1)); // 1..59
+    const categoryDef = emissaryForCategory(legacyCategory);
+    const def = categoryDef ?? randomDef;
+    let sector = 1 + Math.floor(rng() * (SECTOR_COUNT - 1)); // 1..59 (always drawn: rng parity)
+    if (!categoryDef) {
+        // Pre-acceptance roaming branch — only meaningful on the world map,
+        // where the caller supplies the sector being viewed.
+        if (currentSector == null || currentSector < 1) return null;
+        const gate = mulberry32(hash32(`emissary-roam#${playerName.toLowerCase()}#${def.slug}#${currentSector}#${dayBucket}`))();
+        if (gate > EMISSARY_ROAM_SECTOR_CHANCE) return null;
+        sector = currentSector;
+    }
 
     const col = 2 + Math.floor(rng() * 8);
     const row = 2 + Math.floor(rng() * 8);

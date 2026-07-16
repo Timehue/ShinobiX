@@ -248,6 +248,7 @@ export const TEST_FILES = [
     "shinobij.client/src/lib/release-readiness.test.ts",
     "shinobij.client/src/lib/reputation-profile.test.ts",
     "shinobij.client/src/lib/wanderers.test.ts",
+    "shinobij.client/src/lib/legacy-emissaries.test.ts",
     "shinobij.client/src/lib/wanderer-standing.test.ts",
     "shinobij.client/src/lib/merc-roam-client.test.ts",
     "shinobij.client/src/lib/avatar.test.ts",
