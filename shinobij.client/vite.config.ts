@@ -480,13 +480,13 @@ export default defineConfig({
                 type DevSign = { id: string; name: string; tile: number; text: string; at: number; sparks: number; sparkedBy: string[] };
                 const devSigns = new Map<number, DevSign[]>();
                 const devShrines = new Map<string, { total: number; weekTotal: number; topWeek: { name: string; amount: number }[] }>();
-                const DEV_SHRINE_SECTORS: Record<number, { id: string; name: string; region: string; blessing: string }> = {
-                    42: { id: 'heartwood', name: 'Heartwood Shrine', region: 'the Ashen Leaf Deepwood', blessing: 'May your roots hold and your leaves reach.' },
-                    34: { id: 'tide', name: 'Tide Shrine', region: 'the Stormveil Heights', blessing: 'May the tide carry your burdens out.' },
-                    53: { id: 'frostveil', name: 'Frostveil Shrine', region: 'the Frostreach Shelf', blessing: 'May the cold keep what you cherish.' },
-                    16: { id: 'moonwell', name: 'Moonwell Shrine', region: 'the Moonshadow Wilds', blessing: 'May the moon light the path you hide.' },
-                    58: { id: 'gilded', name: 'Gilded Garden Shrine', region: 'the Castle Gardens', blessing: 'May your works outlast their gold.' },
-                    51: { id: 'cinderfrost', name: 'Cinderfrost Shrine', region: 'the Cinderfrost Divide', blessing: 'May you endure both fire and frost.' },
+                const DEV_SHRINE_SECTORS: Record<number, { id: string; name: string; theme: string; village?: string; region: string; lore: string; blessing: string }> = {
+                    42: { id: 'heartwood', name: 'Heartwood Shrine', theme: 'village', village: 'Ashen Leaf Village', region: 'the Ashen Leaf Deepwood', lore: 'Raised by Ashen Leaf’s first woodwardens around a living tree; they say its roots reach all the way back to the village square.', blessing: 'May your roots hold and your leaves reach.' },
+                    34: { id: 'tide', name: 'Tidecaller Shrine', theme: 'village', village: 'Stormveil Village', region: 'the Stormveil Heights', lore: 'Stormveil’s fishers ring its bronze bell before every voyage. The tide is said to answer those who give before they ask.', blessing: 'May the tide carry your burdens out.' },
+                    53: { id: 'frostveil', name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village', region: 'the Frostreach Shelf', lore: 'Carved by Frostfang’s founders from the first ice of their first winter. An offering made here is frozen bright inside it forever.', blessing: 'May the cold keep what you cherish.' },
+                    16: { id: 'moonwell', name: 'Moonwell Shrine', theme: 'village', village: 'Moonshadow Village', region: 'the Moonshadow Wilds', lore: 'Moonshadow’s seers filled its basin with caught moonlight. It keeps every secret the village dares not say aloud.', blessing: 'May the moon light the path you hide.' },
+                    13: { id: 'hollowgate', name: 'Hollow Warden Shrine', theme: 'hollow-gate', region: 'the Pilgrim’s Approach', lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.', blessing: 'May the Gate stay shut behind you.' },
+                    10: { id: 'ancients', name: 'Shrine of the Ancients', theme: 'ancients', region: 'the Watchruin Ridge', lore: 'Older than the villages. A hundred worn glyphs circle its base — one for every path the Ancients walked, the legacies shinobi still chase.', blessing: 'May the Ancients find their path in you.' },
                 };
                 const devShrineTier = (total: number) => total >= 2_000_000 ? 4 : total >= 500_000 ? 3 : total >= 100_000 ? 2 : total >= 25_000 ? 1 : 0;
                 const shrineView = (sector: number) => {
@@ -552,12 +552,12 @@ export default defineConfig({
                     const amount = Math.floor(Number(body.amount) || 0);
                     if (amount < 10 || amount > 250_000) { sendJson(res, 400, { error: 'Offerings are 10–250,000 ryo.' }); return; }
                     const savePath = path.join(path.resolve(process.cwd(), 'saves'), `${playerId}.json`);
-                    let ryo = 0;
+                    let ryo: number;
                     try {
                         const save = JSON.parse(fs.readFileSync(savePath, 'utf8'));
-                        ryo = Math.floor(Number(save?.character?.ryo) || 0);
-                        if (ryo < amount) { sendJson(res, 400, { error: `Not enough ryo — you have ${ryo.toLocaleString()}.` }); return; }
-                        save.character.ryo = ryo - amount;
+                        const onHand = Math.floor(Number(save?.character?.ryo) || 0);
+                        if (onHand < amount) { sendJson(res, 400, { error: `Not enough ryo — you have ${onHand.toLocaleString()}.` }); return; }
+                        save.character.ryo = onHand - amount;
                         fs.writeFileSync(savePath, JSON.stringify(save));
                         ryo = save.character.ryo;
                     } catch {

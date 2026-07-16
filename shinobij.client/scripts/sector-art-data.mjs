@@ -140,17 +140,19 @@ export const SECTOR_ART = {
     24: { region: 'stormveil', name: 'Reedmarsh Boardwalk', scene: 'wetland boardwalks approaching a sea city, reed beds and brackish pools, herons stalking, blue rooftops rising in the west', floor: 'Points of interest along the boardwalks: a winding reed-bed boardwalk, a heron pool, an eel-trap rack, and a stilted rest hut.' },
 };
 
-// The handful of sectors that host a communal shrine — one per painted region,
-// deliberately mid-route (never a village-gate sector) so visiting is a small
-// pilgrimage. `standee` is the transparent-cutout prop prompt (fal flux paints it
-// on plain white; BiRefNet mattes it out). Keep ids stable — they are KV keys.
+// The six themed communal shrines — one raised by each village, one warding the
+// Hollow Gate road, one for the Ancients (the hundred legacies). Mid-route
+// placement (never a village-gate sector) so visiting is a small pilgrimage.
+// `standee` is the transparent-cutout prop prompt (fal flux paints it on plain
+// white; BiRefNet mattes it out). Keep ids stable — they are KV keys and MUST
+// match shared/shrines.ts SHRINE_DEFS.
 export const SHRINES = {
-    'heartwood': { sector: 42, name: 'Heartwood Shrine', region: 'Ashen Leaf Deepwood', standee: 'an ancient mossy forest shrine, a weathered grey stone pagoda-roofed shrine housing with a small red torii gate in front, moss and pink cherry petals on the roof, two small stone lanterns with warm flames' },
-    'tide': { sector: 34, name: 'Tide Shrine', region: 'Stormveil Heights', standee: 'a sea tide shrine of weathered rope-bound driftwood pillars with a hanging bronze bell, coiled sacred rope with paper streamers, a barnacled stone base, seafoam-teal accents' },
-    'frostveil': { sector: 53, name: 'Frostveil Shrine', region: 'the Frostreach Shelf', standee: 'an ancient shrine carved from translucent blue glacier ice, glowing pale-blue inner light, frost lanterns at its base, fine snow dusting its roof' },
-    'moonwell': { sector: 16, name: 'Moonwell Shrine', region: 'the Moonshadow Wilds', standee: 'a crescent-moon shrine of pale moonstone, a carved crescent arch over a small altar, floating violet crystal shards orbiting it, soft purple glow and luminous petals' },
-    'gilded': { sector: 58, name: 'Gilded Garden Shrine', region: 'the Castle Gardens', standee: 'an ornate imperial garden shrine, lacquered indigo roof with gold trim and a golden emblem, carved pale stone base, warm lantern light inside' },
-    'cinderfrost': { sector: 51, name: 'Cinderfrost Shrine', region: 'the Cinderfrost Divide', standee: 'a dual-natured shrine, one half black obsidian with glowing orange ember cracks, the other half translucent blue glacier ice, thin steam rising where the halves meet' },
+    'heartwood': { sector: 42, name: 'Heartwood Shrine (Ashen Leaf)', region: 'Ashen Leaf Deepwood', standee: 'an ancient mossy forest village shrine, a weathered grey stone pagoda-roofed shrine housing with teal-green roof tiles and a small red torii gate in front, a carved leaf emblem above its door, moss and pink cherry petals on the roof, two small stone lanterns with warm flames' },
+    'tide': { sector: 34, name: 'Tidecaller Shrine (Stormveil)', region: 'Stormveil Heights', standee: 'a sea tide village shrine of weathered rope-bound driftwood pillars with a hanging bronze ship’s bell, a small azure-blue tiled roof, coiled sacred rope with paper streamers, a carved wave emblem, a barnacled stone base with seafoam-teal accents' },
+    'frostveil': { sector: 53, name: 'Frostveil Shrine (Frostfang)', region: 'the Frostreach Shelf', standee: 'an ice village shrine carved from translucent blue glacier ice, glowing pale-blue inner light, a carved fang emblem in the ice face, frost lanterns at its base, fine snow dusting its roof' },
+    'moonwell': { sector: 16, name: 'Moonwell Shrine (Moonshadow)', region: 'the Moonshadow Wilds', standee: 'a crescent-moon village shrine of pale moonstone, a carved crescent arch over a small dark reflecting basin, a carved moon emblem, floating violet crystal shards orbiting it, soft purple glow and luminous petals' },
+    'hollowgate': { sector: 13, name: 'Hollow Warden Shrine', region: 'the Pilgrim’s Approach', standee: 'a black obsidian warding shrine, a dark stone shrine housing with a faint ominous violet portal glow inside its doorway, paper warding seals and sacred rope wrapped tightly around it, two small lanterns burning with purple flame, a cracked scorched stone base' },
+    'ancients': { sector: 10, name: 'Shrine of the Ancients', region: 'the Watchruin Ridge', standee: 'an ancient weathered ruin shrine older than memory, moss-covered cracked pale stone, a ring of one hundred faint glowing golden carved glyphs around its base, a broken pillar leaning against it, old tree roots grown over one side, soft golden-white motes of light rising' },
 };
 
 export const REGIONS = REGION;
