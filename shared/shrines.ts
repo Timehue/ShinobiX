@@ -1,34 +1,81 @@
 /**
  * Sector shrines — shared config for client and server.
  *
- * A handful of wild sectors host a communal shrine: a pure ryo SINK players can
- * offer to for prestige (weekly top-offerer board + a cosmetic shrine tier that
- * everyone visiting the sector sees). No rewards are paid out — the server only
- * ever debits, so there is nothing to exploit. One shrine per painted world-map
- * region, deliberately mid-route (never a village-gate sector) so visiting is a
+ * Six themed communal shrines: one raised by each of the four villages (standing
+ * in that village's stretch of the world), one warding the road to the Hollow
+ * Gate, and one older than all of them that speaks of the Ancients — the hundred
+ * legacies. Each is a pure ryo SINK players can offer to for prestige (weekly
+ * top-offerer board + a cosmetic shrine tier everyone visiting the sector sees).
+ * No rewards are paid out — the server only ever debits, so there is nothing to
+ * exploit. All sit mid-route (never a village-gate sector) so visiting is a
  * small pilgrimage.
  *
  * Ids are stable KV key components (`world:shrine:<id>`) — never rename one.
  * `left`/`top` are the standee's percent position on the sector board.
  */
 
+export type ShrineTheme = 'village' | 'hollow-gate' | 'ancients';
+
 export type ShrineDef = {
     id: string;
     sector: number;
     name: string;
+    theme: ShrineTheme;
+    /** The village that raised it (village-theme shrines only). */
+    village?: string;
     region: string;
+    lore: string;
     blessing: string;
     left: number;
     top: number;
 };
 
 export const SHRINE_DEFS: readonly ShrineDef[] = [
-    { id: 'heartwood', sector: 42, name: 'Heartwood Shrine', region: 'the Ashen Leaf Deepwood', blessing: 'May your roots hold and your leaves reach.', left: 30, top: 26 },
-    { id: 'tide', sector: 34, name: 'Tide Shrine', region: 'the Stormveil Heights', blessing: 'May the tide carry your burdens out.', left: 68, top: 24 },
-    { id: 'frostveil', sector: 53, name: 'Frostveil Shrine', region: 'the Frostreach Shelf', blessing: 'May the cold keep what you cherish.', left: 32, top: 28 },
-    { id: 'moonwell', sector: 16, name: 'Moonwell Shrine', region: 'the Moonshadow Wilds', blessing: 'May the moon light the path you hide.', left: 66, top: 26 },
-    { id: 'gilded', sector: 58, name: 'Gilded Garden Shrine', region: 'the Castle Gardens', blessing: 'May your works outlast their gold.', left: 30, top: 24 },
-    { id: 'cinderfrost', sector: 51, name: 'Cinderfrost Shrine', region: 'the Cinderfrost Divide', blessing: 'May you endure both fire and frost.', left: 50, top: 22 },
+    // ——— The four village shrines ———
+    {
+        id: 'heartwood', sector: 42, name: 'Heartwood Shrine', theme: 'village', village: 'Ashen Leaf Village',
+        region: 'the Ashen Leaf Deepwood',
+        lore: 'Raised by Ashen Leaf’s first woodwardens around a living tree; they say its roots reach all the way back to the village square.',
+        blessing: 'May your roots hold and your leaves reach.',
+        left: 30, top: 26,
+    },
+    {
+        id: 'tide', sector: 34, name: 'Tidecaller Shrine', theme: 'village', village: 'Stormveil Village',
+        region: 'the Stormveil Heights',
+        lore: 'Stormveil’s fishers ring its bronze bell before every voyage. The tide is said to answer those who give before they ask.',
+        blessing: 'May the tide carry your burdens out.',
+        left: 68, top: 24,
+    },
+    {
+        id: 'frostveil', sector: 53, name: 'Frostveil Shrine', theme: 'village', village: 'Frostfang Village',
+        region: 'the Frostreach Shelf',
+        lore: 'Carved by Frostfang’s founders from the first ice of their first winter. An offering made here is frozen bright inside it forever.',
+        blessing: 'May the cold keep what you cherish.',
+        left: 32, top: 28,
+    },
+    {
+        id: 'moonwell', sector: 16, name: 'Moonwell Shrine', theme: 'village', village: 'Moonshadow Village',
+        region: 'the Moonshadow Wilds',
+        lore: 'Moonshadow’s seers filled its basin with caught moonlight. It keeps every secret the village dares not say aloud.',
+        blessing: 'May the moon light the path you hide.',
+        left: 66, top: 26,
+    },
+    // ——— The Hollow Gate ward ———
+    {
+        id: 'hollowgate', sector: 13, name: 'Hollow Warden Shrine', theme: 'hollow-gate',
+        region: 'the Pilgrim’s Approach',
+        lore: 'Pilgrims raised it where the lantern road fails, a ward on the path down to the Gate. Every offering feeds the seal a little longer.',
+        blessing: 'May the Gate stay shut behind you.',
+        left: 64, top: 24,
+    },
+    // ——— The Ancients (the hundred legacies) ———
+    {
+        id: 'ancients', sector: 10, name: 'Shrine of the Ancients', theme: 'ancients',
+        region: 'the Watchruin Ridge',
+        lore: 'Older than the villages. A hundred worn glyphs circle its base — one for every path the Ancients walked, the legacies shinobi still chase.',
+        blessing: 'May the Ancients find their path in you.',
+        left: 34, top: 26,
+    },
 ];
 
 /** Cosmetic shrine tiers — lifetime-total ryo thresholds. Pure display, no payouts. */

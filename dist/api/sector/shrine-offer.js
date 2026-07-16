@@ -86,7 +86,10 @@ async function handler(req, res) {
                     shrine: {
                         id: def.id,
                         name: def.name,
+                        theme: def.theme,
+                        ...(def.village ? { village: def.village } : {}),
                         region: def.region,
+                        lore: def.lore,
                         blessing: def.blessing,
                         tier,
                         total: state.total,

@@ -26751,3 +26751,26 @@ html.lite-fx .hg-flame { animation: none; }
 }
 
     .sector-traces-close:hover { opacity: 1; }
+
+/* Shrine themes — the Hollow Gate ward glows violet, the Ancients' shrine glows
+   old gold-white; village shrines keep the standard gold aura. */
+.sector-traces-lore {
+    margin: .1rem 0 .4rem;
+    font-size: 12px;
+    line-height: 1.45;
+    opacity: .82;
+}
+
+    .sector-traces-lore.is-hollow-gate { color: #d8caff; }
+
+    .sector-traces-lore.is-ancients { color: #f3e6c2; }
+
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-1 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 8px rgba(167, 139, 250, .4)); }
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-2 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 12px rgba(167, 139, 250, .55)); }
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-3 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 18px rgba(167, 139, 250, .7)); }
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-4 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 24px rgba(196, 181, 253, .85)); }
+
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-1 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 8px rgba(250, 240, 200, .4)); }
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-2 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 12px rgba(250, 240, 200, .55)); }
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-3 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 18px rgba(250, 240, 200, .7)); }
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-4 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 26px rgba(255, 250, 224, .9)); }
