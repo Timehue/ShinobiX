@@ -53,7 +53,7 @@ const SCENE_STYLE = [
 // Top-down floor style — the `worldmap` style of gen-sector-map.mjs (kept in sync):
 // a sector floor should read as "zooming into one region of the painted World Map".
 const FLOOR_PRE = 'A complete top-down high-angle adventure map of one small location for a fantasy ninja RPG, drawn in the EXACT art style of a vivid high-fantasy game WORLD MAP — bright luminous highly-saturated colour, crisp clean polished detailed rendering, lush and glowing, a colourful jewel-like fantasy-map illustration, as if zooming into one region of a beautiful world map — viewed from a high bird’s-eye angle with a slight oblique tilt so trees, structures and terrain have visible height. ';
-const FLOOR_POST = ' COMPOSITION: the whole map is densely filled and reads as ONE connected inhabited place — winding paths link every area so the eye flows naturally across the map, terrain features and groves break up the space, and the small points of interest sit naturally along the routes. NO large empty areas and NO empty middle — every part of the map has something interesting — BUT keep the paths and clearings as clear, open, walkable lanes for a character to travel through. Features blend and connect into one another: NO isolated single objects floating in empty space, NO evenly-spaced grid of props. ONE consistent vivid high-fantasy WORLD-MAP illustration style across the entire image — bright, luminous, highly-saturated jewel-like colour, crisp clean polished detail, lush and glowing, colourful and inviting (the biome’s own hue, but always vibrant and luminous, never murky). It must feel like a real little place, not a background. Absolutely NO characters, NO people, NO humans, NO text, NO words, NO UI, NO HUD, NO minimap, NO grid lines, NO hex tiles, NO tile outlines, NO markers, NO icons, NO arrows, NO labels, NO frame, NO border, NO vignette, NO watermark. Match a vivid colourful high-fantasy world-map illustration — bright, saturated and luminous; NOT dark, NOT muted, NOT desaturated, NOT moody, NOT gritty, NOT photoreal, NOT pixel art, NOT a flat cartoon, NOT a tile-set, NOT cel-shaded. The artwork fills the entire frame edge to edge.';
+const FLOOR_POST = ' COMPOSITION: the whole map is densely filled and reads as ONE connected, welcoming place — winding paths link every area so the eye flows naturally across the map, terrain features and groves break up the space, and the small points of interest sit naturally along the routes. NO large empty areas and NO empty middle — every part of the map has something interesting — BUT keep the paths and clearings as clear, open, walkable lanes. Features blend and connect into one another: NO isolated single objects floating in empty space, NO evenly-spaced grid of props. ONE consistent vivid high-fantasy WORLD-MAP illustration style across the entire image — bright, luminous, highly-saturated jewel-like colour, crisp clean polished detail, lush and glowing, colourful and inviting (the biome’s own hue, but always vibrant and luminous, never murky). It must feel like a real little place, not a background. Absolutely NO characters, NO people, NO humans, NO text, NO words, NO UI, NO HUD, NO minimap, NO grid lines, NO hex tiles, NO tile outlines, NO markers, NO icons, NO arrows, NO labels, NO frame, NO border, NO vignette, NO watermark. Match a vivid colourful high-fantasy world-map illustration — bright, saturated and luminous; NOT dark, NOT muted, NOT desaturated, NOT moody, NOT gritty, NOT photoreal, NOT pixel art, NOT a flat cartoon, NOT a tile-set, NOT cel-shaded. The artwork fills the entire frame edge to edge.';
 
 // Shrine standee prompt suffix — painted on a plain white backdrop, then matted out
 // by BiRefNet (flux cannot emit alpha), mirroring the pose de-bg pipeline.
@@ -108,8 +108,9 @@ async function imageBytes(json) {
     return Buffer.from(await (await fetch(url)).arrayBuffer());
 }
 
+const GUIDANCE = parseFloat(arg('guidance', '3.5'));
 async function flux(prompt, imageSize) {
-    const json = await falJson(MODEL, { prompt, image_size: imageSize, num_images: 1, num_inference_steps: 32, guidance_scale: 3.5, enable_safety_checker: false });
+    const json = await falJson(MODEL, { prompt, image_size: imageSize, num_images: 1, num_inference_steps: 32, guidance_scale: GUIDANCE, enable_safety_checker: false });
     return imageBytes(json);
 }
 
@@ -163,7 +164,11 @@ async function main() {
     if (doScenes) for (const n of sectors) {
         const out = path.join(SCENES_DIR, `s${n}.webp`);
         if (!force && fs.existsSync(out)) continue;
-        const prompt = `${SECTOR_ART[n].scene}. ${SCENE_STYLE}`;
+        // Anti-people phrasing must be POSITIVE-ONLY: naming "person/figure" even
+        // in negation injects the token as an attractor and flux paints MORE of
+        // them (2026-07 QA round 2 finding). "Silent, still and empty" carries no
+        // person tokens.
+        const prompt = `${SECTOR_ART[n].scene}, silent, still and empty. ${SCENE_STYLE}`;
         if (dryRun) { console.log(`\n[scene s${n} — ${SECTOR_ART[n].name}]\n${prompt}`); continue; }
         jobs.push(async () => {
             const buf = await edgeCrop(sharp, await flux(prompt, 'landscape_4_3'));
@@ -176,7 +181,8 @@ async function main() {
     if (doFloors) for (const n of sectors) {
         const out = path.join(FLOORS_DIR, `s${n}.webp`);
         if (!force && fs.existsSync(out)) continue;
-        const prompt = FLOOR_PRE + floorPromptFor(n) + FLOOR_POST;
+        // Positive-only stillness (see the scene note above — negation backfires).
+        const prompt = FLOOR_PRE + floorPromptFor(n) + ' The whole place is silent, still and empty.' + FLOOR_POST;
         if (dryRun) { console.log(`\n[floor s${n} — ${SECTOR_ART[n].name}]\n${prompt}`); continue; }
         jobs.push(async () => {
             const buf = await edgeCrop(sharp, await flux(prompt, 'square_hd'));
