@@ -140,6 +140,7 @@ export const TEST_FILES = [
     "api/player/_trade-core.test.ts",
     "api/festival/_black-market.test.ts",
     "api/festival/_sunscar.test.ts",
+    "api/festival/sunscar.test.ts",
     "api/player/_cafeteria.test.ts",
     "api/card-clash/_ai-reward.test.ts",
     "api/cron/_ranked-season.test.ts",
