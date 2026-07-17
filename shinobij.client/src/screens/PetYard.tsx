@@ -100,7 +100,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data?.character) throw new Error(String(data?.error ?? 'Pet update failed.'));
         updateCharacter(data.character as Character);
-        return data as { character: Character; pet?: Pet; missionsCompleted?: Array<{ id: string; name: string; xpReward: number }> };
+        return data as { character: Character; pet?: Pet; settledTraining?: string | null; missionsCompleted?: Array<{ id: string; name: string; xpReward: number }> };
     }
 
     async function startTraining() {
@@ -118,9 +118,46 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // don't accidentally double-dip on payouts.
         petTrainingBusyRef.current = true;
         setPetTrainingBusy(true);
-        try { await runPetProgress('start-training', { focus: trainingType, durationMs: trainingDuration }); }
+        try {
+            const data = await runPetProgress('start-training', { focus: trainingType, durationMs: trainingDuration });
+            // The server self-heals an orphaned finished session: if we'd lost
+            // sight of a completed training, start-training pays out its sealed XP
+            // before starting the new one. Surface that so the payout isn't silent —
+            // and, if settling carried the pet to max level, say why no new session
+            // began (the returned pet has no fresh `training`).
+            const settled = data.settledTraining;
+            if (settled) {
+                const grown = data.pet;
+                if (grown && !grown.training) alert(`${petDisplayName(selectedPet)} finished its previous ${settled} training and is now fully trained (Level ${grown.level}).`);
+                else alert(`Collected ${petDisplayName(selectedPet)}'s previous ${settled} training, then started ${trainingType} training.`);
+            }
+        }
         catch (error) { alert(error instanceof Error ? error.message : 'Training could not be started.'); }
         finally { petTrainingBusyRef.current = false; setPetTrainingBusy(false); }
+    }
+
+    // Recovery escape hatch for the exact stuck state in the bug report: a pet
+    // whose training the client can no longer see (so no Collect button) AND
+    // that is at max level (so the Start button is disabled). complete-training
+    // checks the SERVER's own stored pet.training, so it settles a finished
+    // session even when the local copy has drifted; a "not complete" 409 just
+    // means nothing was pending, which we report plainly.
+    async function recoverFinishedTraining() {
+        if (petTrainingBusyRef.current) return;
+        if (!requireServerSettlement("petTraining")) return;
+        if (!selectedPet) return;
+        petTrainingBusyRef.current = true;
+        setPetTrainingBusy(true);
+        try {
+            const data = await runPetProgress('complete-training');
+            alert(`Collected ${petDisplayName(selectedPet)}'s finished training.${data.pet && data.pet.level > selectedPet.level ? ` Now Level ${data.pet.level}.` : ""}`);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : '';
+            alert(/not complete/i.test(msg) ? `${petDisplayName(selectedPet)} has no unclaimed training to collect.` : (msg || 'Could not collect training.'));
+        } finally {
+            petTrainingBusyRef.current = false;
+            setPetTrainingBusy(false);
+        }
     }
 
     async function startExpedition() {
@@ -1005,7 +1042,18 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                         ))}
                                     </select>
                                     <p className="hint">Expected gains: {petTrainingPreview(selectedPet, trainingType, trainingDuration)}</p>
-                                    <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || selectedPet.level >= selectedPet.maxLevel}>{petTrainingBusy ? "Starting…" : "Start Training"}</button>
+                                    {selectedPet.level >= selectedPet.maxLevel ? (
+                                        // A maxed pet can't start new training (Start is disabled), so this
+                                        // slot becomes the recovery hatch: if a session was still pending
+                                        // server-side (e.g. the training that carried it to Level 100), this
+                                        // collects it instead of leaving the pet stuck.
+                                        <>
+                                            <button className="admin-button" onClick={recoverFinishedTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Checking…" : "Collect Finished Training"}</button>
+                                            <p className="hint">Fully trained — training no longer raises stats. Use this if a previous session is still waiting to be collected.</p>
+                                        </>
+                                    ) : (
+                                        <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Starting…" : "Start Training"}</button>
+                                    )}
                                 </>
                             )}
                         </div>
