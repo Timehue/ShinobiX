@@ -299,9 +299,18 @@ export async function authedPlayerOrAdmin(
     req: ReqLike,
     nameFromRoute?: string,
 ): Promise<{ admin: true } | { admin: false; name: string } | null> {
-    if (isAdmin(req)) return { admin: true };
+    // Player identity takes PRECEDENCE over admin. A request that carries BOTH a
+    // valid player login AND admin credentials (e.g. an admin-build client that
+    // attaches x-admin-password to every request while the operator is signed in
+    // as their own player) resolves to the PLAYER — so player-only actions like
+    // travel/combat work for them instead of being rejected as "admin can't play".
+    // This grants NO extra privilege: a player identity is strictly narrower than
+    // admin (it can only act as itself), and admin-only surfaces gate on
+    // isAdmin()/isFullAdmin() directly, so they are unaffected. Falls back to admin
+    // only when there is no valid player login on the request.
     const name = await authedPlayer(req, nameFromRoute);
     if (name) return { admin: false, name };
+    if (isAdmin(req)) return { admin: true };
     return null;
 }
 
