@@ -11,6 +11,10 @@ import { clearTravelLease, setTravelLease } from '../_realtime/travel-lease.js';
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
 // The server mints the timer so clients cannot claim an arbitrary destination
 // or a permanent untouchable window through presence frames.
+// `arrivalAt` is an absolute deadline on THIS clock, so it is only meaningful
+// to the server (lease, presence, attackability). Responses also carry the
+// duration, because a client that subtracts its own Date.now() from arrivalAt
+// turns any clock drift between the two machines into the mask it shows.
 export const WORLD_TRAVEL_MS = 3_000;
 
 export function isPlayableWorldSector(value: unknown): value is number {
@@ -75,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         edgeOriginSector = exit.sector;
     }
     if (player.sector === destinationSector) {
-        return res.status(200).json({ ok: true, destinationSector, arrivalAt: Date.now(), arrivalTile });
+        return res.status(200).json({ ok: true, destinationSector, arrivalAt: Date.now(), travelMs: 0, arrivalTile });
     }
 
     const arrivalAt = Date.now() + WORLD_TRAVEL_MS;
@@ -99,5 +103,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         player: toPlayerRecord(started),
     });
 
-    return res.status(200).json({ ok: true, destinationSector, arrivalAt, arrivalTile });
+    return res.status(200).json({ ok: true, destinationSector, arrivalAt, travelMs: WORLD_TRAVEL_MS, arrivalTile });
 }
