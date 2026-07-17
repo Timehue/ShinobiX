@@ -23,6 +23,22 @@ export type FateDiceRoll = {
 export const MIRAA_ALLOWED_BETS = [50, 100, 250, 500] as const;
 export type MiraaOutcome = 'win' | 'loss' | 'draw' | 'forfeit';
 
+// Server-rolled Miraa win chance. Owner-approved 2026-07-16. With an even-money
+// payout (win pays 2×stake back, loss keeps the stake) the expected value is
+// 0.40·(+bet) + 0.60·(−bet) = −0.20·bet — a ~20% house edge, so Miraa is a
+// deliberate ryo SINK, not a faucet. Do NOT change without fresh owner sign-off.
+export const MIRAA_WIN_CHANCE = 0.40;
+
+// Single-use wager token lifetime. Long enough to play out a full Shinobi Card
+// Clash match (6 turns × 3 lanes) before the escrowed stake's token expires.
+export const MIRAA_TOKEN_TTL_SECONDS = 15 * 60;
+
+// Daily cap on opened wagers per player (checklist: daily cap AND rate limit).
+// Generous — a legit player rarely plays 50 full card matches a day — but bounds
+// griefing/automation. Each opened wager escrows real ryo, so the sink itself
+// already discourages spam.
+export const MIRAA_DAILY_WAGER_CAP = 50;
+
 function randInt(rand: () => number, min: number, max: number): number {
     return min + Math.floor(rand() * (max - min + 1));
 }
@@ -75,18 +91,40 @@ export function rollFateDice(rand: () => number = Math.random): FateDiceRoll {
     return { roll, reward, message };
 }
 
-export function cleanMiraaOutcome(raw: unknown): MiraaOutcome | null {
-    return raw === 'win' || raw === 'loss' || raw === 'draw' || raw === 'forfeit' ? raw : null;
-}
-
 export function cleanMiraaBet(raw: unknown): number {
     const bet = Math.floor(Number(raw ?? 0));
     return MIRAA_ALLOWED_BETS.includes(bet as typeof MIRAA_ALLOWED_BETS[number]) ? bet : 0;
 }
 
-export function miraaRyoDelta(bet: number, outcome: MiraaOutcome): number {
-    if (!cleanMiraaBet(bet)) return 0;
-    if (outcome === 'win') return bet * 2;
-    if (outcome === 'loss' || outcome === 'forfeit') return -bet;
-    return 0;
+/*
+ * Server-authoritative Miraa settlement.
+ *
+ * Miraa plays skill-based Shinobi Card Clash, whose win/loss is produced entirely
+ * on the (untrusted) client with no determinism contract — so the ryo result
+ * CANNOT be read from a client-reported outcome without reopening a mint (a
+ * hostile client would simply always report 'win'). Instead the wager resolves as
+ * a server-rolled fate draw: `miraa-start` escrows the stake and seals `bet` into
+ * a single-use token, and `miraa-report` calls this to roll the outcome here from
+ * the sealed bet — never from the client body.
+ *
+ * The stake was already debited at start, so this returns only the amount to
+ * CREDIT back on top of the escrow:
+ *   win     → 2×bet  (net +bet vs. the pre-wager balance — matches the "win 2×" UI)
+ *   loss    → 0       (net −bet — the escrowed stake is kept by the house)
+ *   forfeit → 0       (net −bet — bailing mid-match keeps the stake with Miraa)
+ *
+ * `forfeit` (the player left the match) is an automatic loss with no roll; a
+ * played-out match rolls at MIRAA_WIN_CHANCE regardless of the client card result.
+ */
+export function resolveMiraaWager(
+    bet: number,
+    forfeit = false,
+    rand: () => number = Math.random,
+): { outcome: MiraaOutcome; credit: number } {
+    const stake = cleanMiraaBet(bet);
+    if (!stake) return { outcome: 'loss', credit: 0 };
+    if (forfeit) return { outcome: 'forfeit', credit: 0 };
+    return rand() < MIRAA_WIN_CHANCE
+        ? { outcome: 'win', credit: stake * 2 }
+        : { outcome: 'loss', credit: 0 };
 }

@@ -21,14 +21,26 @@ const _sunscar_js_1 = require("./_sunscar.js");
             auraStones: 5,
         });
     });
-    (0, node_test_1.it)('sanitizes Miraa wagers and returns fixed deltas', () => {
+    (0, node_test_1.it)('sanitizes Miraa wagers to the allowed bet ladder', () => {
         node_assert_1.strict.equal((0, _sunscar_js_1.cleanMiraaBet)(100), 100);
         node_assert_1.strict.equal((0, _sunscar_js_1.cleanMiraaBet)(75), 0);
-        node_assert_1.strict.equal((0, _sunscar_js_1.cleanMiraaOutcome)('win'), 'win');
-        node_assert_1.strict.equal((0, _sunscar_js_1.cleanMiraaOutcome)('cheat'), null);
-        node_assert_1.strict.equal((0, _sunscar_js_1.miraaRyoDelta)(250, 'win'), 500);
-        node_assert_1.strict.equal((0, _sunscar_js_1.miraaRyoDelta)(250, 'loss'), -250);
-        node_assert_1.strict.equal((0, _sunscar_js_1.miraaRyoDelta)(250, 'forfeit'), -250);
-        node_assert_1.strict.equal((0, _sunscar_js_1.miraaRyoDelta)(250, 'draw'), 0);
+        node_assert_1.strict.equal((0, _sunscar_js_1.cleanMiraaBet)('500'), 500);
+        node_assert_1.strict.equal((0, _sunscar_js_1.cleanMiraaBet)(-50), 0);
+    });
+    (0, node_test_1.it)('pins the owner-approved Miraa win chance', () => {
+        node_assert_1.strict.equal(_sunscar_js_1.MIRAA_WIN_CHANCE, 0.4);
+    });
+    (0, node_test_1.it)('server-rolls Miraa from the sealed bet — never a client outcome', () => {
+        // rand() < 0.4 → WIN: pays 2×stake back (net +bet vs. the escrow taken at
+        // start), right up to the boundary.
+        node_assert_1.strict.deepEqual((0, _sunscar_js_1.resolveMiraaWager)(250, false, () => 0.1), { outcome: 'win', credit: 500 });
+        node_assert_1.strict.deepEqual((0, _sunscar_js_1.resolveMiraaWager)(250, false, () => 0.39999), { outcome: 'win', credit: 500 });
+        // rand() >= 0.4 → LOSS: no credit, the escrowed stake is kept (net −bet).
+        node_assert_1.strict.deepEqual((0, _sunscar_js_1.resolveMiraaWager)(250, false, () => 0.4), { outcome: 'loss', credit: 0 });
+        node_assert_1.strict.deepEqual((0, _sunscar_js_1.resolveMiraaWager)(250, false, () => 0.9), { outcome: 'loss', credit: 0 });
+        // Forfeit (left mid-match) is an automatic loss with no roll.
+        node_assert_1.strict.deepEqual((0, _sunscar_js_1.resolveMiraaWager)(250, true, () => 0.0), { outcome: 'forfeit', credit: 0 });
+        // Invalid bets never pay.
+        node_assert_1.strict.deepEqual((0, _sunscar_js_1.resolveMiraaWager)(75, false, () => 0.0), { outcome: 'loss', credit: 0 });
     });
 });
