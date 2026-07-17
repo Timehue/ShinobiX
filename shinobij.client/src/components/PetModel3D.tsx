@@ -344,9 +344,16 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
             const material = ROSTER_VISUAL_ID.test(config.visualId)
                 ? sourceMaterial.clone()
                 : cloneAsCombatToon(sourceMaterial);
-            const pbr = material as THREE.MeshToonMaterial;
+            const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             const textured = material as THREE.MeshStandardMaterial;
             if (textured.map) textured.map.anisotropy = Math.max(quality.textureAnisotropy, textured.map.anisotropy);
+            if (ROSTER_VISUAL_ID.test(config.visualId) && (pbr.isMeshStandardMaterial || pbr.isMeshToonMaterial)) {
+                // Save the DCC-authored emission before combat animation begins.
+                // Roster textures provide their identity; runtime hit feedback
+                // must never repaint the entire pet a flat beige or element tint.
+                pbr.userData.petAuthoredEmissive = pbr.emissive?.getHex?.() ?? 0;
+                pbr.userData.petAuthoredEmissiveIntensity = pbr.emissiveIntensity ?? 0;
+            }
             if (pbr.isMeshToonMaterial) {
                 // Preserve authored normals; the hard toon gradient supplies the
                 // graphic light breaks without destroying the rigged surface.
@@ -789,12 +796,16 @@ function LoadedPetModel3D({ config, frame, element }: {
         for (const material of prepared.materials) {
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             if (!pbr.isMeshStandardMaterial && !pbr.isMeshToonMaterial) continue;
-            // Roster models already carry authored color atlases. Element-colored
-            // full-surface emission repaints dark pets into a flat cyan/orange
-            // silhouette during casts, so their response is a neutral warm lift;
-            // the surrounding native VFX carries the element identity instead.
-            pbr.emissive.set(ROSTER_VISUAL_ID.test(config.visualId) ? "#fff1d6" : lightColor);
-            pbr.emissiveIntensity = Math.max(glow, Number(pbr.userData.petIdentityGlow ?? 0));
+            if (ROSTER_VISUAL_ID.test(config.visualId)) {
+                // Sparks, impact frames, rim lights and native VFX already make
+                // roster hits readable. Preserve the approved atlas exactly so
+                // combat never turns a colored pet into an untextured clay model.
+                pbr.emissive.setHex(Number(pbr.userData.petAuthoredEmissive ?? 0));
+                pbr.emissiveIntensity = Number(pbr.userData.petAuthoredEmissiveIntensity ?? 0);
+            } else {
+                pbr.emissive.set(lightColor);
+                pbr.emissiveIntensity = Math.max(glow, Number(pbr.userData.petIdentityGlow ?? 0));
+            }
         }
         if (aura.current) {
             aura.current.intensity = THREE.MathUtils.lerp(aura.current.intensity, glow * 0.38, Math.min(1, delta * 12));

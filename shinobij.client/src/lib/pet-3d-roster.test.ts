@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { APPROVED_ROSTER_MODEL_IDS, approvedRosterCombatModel, inferPet3dProfile, qaRosterBakedRetopoProofModel, qaRosterCombatModel, qaRosterProofModel, qaRosterRetopoProofModel, qaRosterRiggedProofModel } from "./pet-3d-roster";
+import { APPROVED_ROSTER_MODEL_IDS, ROSTER_MODEL_ASSET_REVISION, approvedRosterCombatModel, inferPet3dProfile, qaRosterBakedRetopoProofModel, qaRosterCombatModel, qaRosterProofModel, qaRosterRetopoProofModel, qaRosterRiggedProofModel } from "./pet-3d-roster";
 
 test("roster profile inference keeps major silhouettes in the right locomotion family", () => {
     assert.equal(inferPet3dProfile("Tempest Hawk"), "avian");
@@ -40,7 +40,7 @@ test("only explicitly reviewed roster models leave quarantine", () => {
         "mythic-0", "mythic-1", "mythic-2", "mythic-3", "mythic-4",
         "mythic-5", "mythic-6", "mythic-7", "mythic-8", "mythic-9",
     ]);
-    assert.equal(approvedRosterCombatModel({ id: "standard-0", name: "Red Fox" })?.url, "/pet-models/roster/standard-0.glb");
+    assert.equal(approvedRosterCombatModel({ id: "standard-0", name: "Red Fox" })?.url, `/pet-models/roster/standard-0.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
     assert.equal(approvedRosterCombatModel({ id: "standard-1", name: "Snow Rabbit" })?.profile, "biped");
     assert.equal(approvedRosterCombatModel({ id: "standard-2", name: "Black Cat" })?.profile, "biped");
     assert.equal(approvedRosterCombatModel({ id: "standard-3", name: "Forest Hawk" })?.profile, "avian");
@@ -181,7 +181,7 @@ test("only explicitly reviewed roster models leave quarantine", () => {
     assert.equal(approvedRosterCombatModel({ id: "mythic-8", name: "Stormgod Raijin" })?.profile, "biped");
     assert.equal(approvedRosterCombatModel({ id: "mythic-9", name: "Worldroot Colossus" })?.profile, "heavy");
     const qa = qaRosterCombatModel({ id: "standard-0", name: "Red Fox" });
-    assert.equal(qa.url, "/pet-models/roster/standard-0.glb");
+    assert.equal(qa.url, `/pet-models/roster/standard-0.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
     assert.equal(qa.profile, "quadruped");
     const proof = qaRosterProofModel({ id: "standard-0", name: "Red Fox" });
     assert.equal(proof.url, "/pet-models/proofs/standard-0-multiview.glb");
