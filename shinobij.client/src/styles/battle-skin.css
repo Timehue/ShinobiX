@@ -1004,6 +1004,17 @@ body:has(.arena-fullscreen) .left-profile-card,
     display: none !important;
 }
 
+/* Same treatment for the decorative fixed sector banner (left art rail) on the
+   tiers whose battle board runs full-width with the IN-GRID player dossier as
+   the leftmost combat column (md + xxl). There the banner (fixed, z-index 9999)
+   paints straight over the player's HP/chakra/buff card. lg/xl are excluded on
+   purpose: they reserve the rail and overlay the portaled battle HUD on top of
+   the banner, so it must stay. */
+html[data-vp="md"]:has(.arena-fullscreen) .sector-banner-panel,
+html[data-vp="xxl"]:has(.arena-fullscreen) .sector-banner-panel {
+    display: none !important;
+}
+
 /* =========================================================================
    Combat VFX (cosmetic) — 2.5D plate overlay + impact flash
    Cosmetic only; never affects balance/outcomes.
