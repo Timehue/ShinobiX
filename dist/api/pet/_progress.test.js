@@ -8,6 +8,7 @@ const strict_1 = __importDefault(require("node:assert/strict"));
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 const _progress_js_1 = require("./_progress.js");
+const _utils_js_1 = require("../_utils.js");
 (0, node_test_1.describe)('server pet progression', () => {
     (0, node_test_1.it)('levels from bounded XP and channels growth into the chosen stat', () => {
         const pet = { rarity: 'standard', level: 1, maxLevel: 100, xp: 0, hp: 320, attack: 40, defense: 28, speed: 30, jutsus: [{ power: 50 }] };
@@ -39,10 +40,23 @@ const _progress_js_1 = require("./_progress.js");
         const pet = { rarity: 'standard', level: 1, maxLevel: 100, xp: 0, hp: 320, attack: 40, defense: 28, speed: 30, jutsus: [{ power: 50 }], training: { type: 'strength', endsAt: 10_000, sealedXp: 100 } };
         const out = (0, _progress_js_1.settleFinishedTraining)(pet, 20_000); // now >= endsAt
         strict_1.default.equal(out.settledFocus, 'strength');
-        strict_1.default.equal(out.pet.training, undefined); // property removed, not `undefined`-valued
-        strict_1.default.ok(!('training' in out.pet));
+        strict_1.default.equal(out.pet.training, undefined); // cleared
+        // Cleared as an explicit `undefined` VALUE (key present), NOT `delete`d —
+        // a deleted key is resurrected by the image-preserving save merge (below).
+        strict_1.default.ok('training' in out.pet);
         strict_1.default.equal(out.pet.level, 2); // 100 XP = one level-up at level 1
         strict_1.default.equal(out.pet.attack, 42); // strength channels the growth into attack
+    });
+    (0, node_test_1.it)('a cleared training survives the image-preserving save merge (regression: delete resurrects it)', () => {
+        // Reproduces the versioned-save write: mergePreservingImages(mutatedPet, storedPet).
+        // The merge starts from the STORED pet and only overrides keys the mutated
+        // payload actually contains — so a `delete`d training would come back and the
+        // claim would silently revert. An explicit `undefined` key overrides it.
+        const stored = { id: 'p1', rarity: 'standard', level: 1, maxLevel: 100, xp: 0, hp: 320, attack: 40, defense: 28, speed: 30, jutsus: [{ power: 50 }], training: { type: 'strength', endsAt: 10_000, sealedXp: 100 } };
+        const { pet: cleared } = (0, _progress_js_1.settleFinishedTraining)(stored, 20_000);
+        const merged = (0, _utils_js_1.mergePreservingImages)(cleared, stored);
+        strict_1.default.equal(merged.training, undefined); // NOT resurrected from `stored`
+        strict_1.default.equal(merged.level, 2); // the settle's XP/level-up still lands
     });
     (0, node_test_1.it)('settleFinishedTraining nudges happiness on a finished bond session', () => {
         const pet = { rarity: 'standard', level: 1, maxLevel: 100, xp: 0, happiness: 50, hp: 320, attack: 40, defense: 28, speed: 30, jutsus: [], training: { type: 'bond', endsAt: 0, sealedXp: 60 } };
@@ -57,9 +71,10 @@ const _progress_js_1 = require("./_progress.js");
         strict_1.default.match(progress, /settleFinishedTraining/);
         // A still-running (not-yet-finished) session still blocks a fresh start.
         strict_1.default.match(progress, /Collect the previous training before starting another/);
-        // The settle removes the property; it must NEVER persist `training: undefined`.
-        strict_1.default.match(helper, /delete idle\.training/);
-        strict_1.default.doesNotMatch(progress, /training: undefined/);
-        strict_1.default.doesNotMatch(helper, /training: undefined/);
+        // The settle clears training via an explicit `undefined` (survives the save
+        // merge) rather than `delete` (which the merge resurrects). Guard against a
+        // regression back to delete.
+        strict_1.default.match(helper, /training: undefined/);
+        strict_1.default.doesNotMatch(helper, /delete idle\.training/);
     });
 });
