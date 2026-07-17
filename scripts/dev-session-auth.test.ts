@@ -20,5 +20,10 @@ test('tampering with the player payload or signature invalidates a Vite dev toke
     const parts = token.split('.');
     const renamed = `dev.${Buffer.from('victim').toString('base64url')}.${parts[2]}.${parts[3]}`;
     assert.equal(verifySignedDevSessionToken(renamed, 'victim', secret), null);
-    assert.equal(verifySignedDevSessionToken(`${token.slice(0, -1)}x`, 'rill', secret), null);
+    // The final base64url char of a 32-byte signature carries only 4 significant bits, so
+    // editing it can decode back to the same bytes; flip a whole signature byte instead.
+    const forgedSignature = Buffer.from(parts[3], 'base64url');
+    forgedSignature[0] ^= 0xff;
+    const tampered = `dev.${parts[1]}.${parts[2]}.${forgedSignature.toString('base64url')}`;
+    assert.equal(verifySignedDevSessionToken(tampered, 'rill', secret), null);
 });
