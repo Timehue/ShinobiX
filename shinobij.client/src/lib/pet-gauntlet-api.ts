@@ -1,14 +1,28 @@
 /*
  * Client side of the server-authoritative Pet Gauntlet rewards + weekly board.
  *
- * `start` fetches the WEEKLY SHARED SEED (so every player faces the same gauntlet)
- * plus a single-use run token; the UI seeds startGauntletRun with it. `report`
- * hands back the run result on completion — the server pays Ryo from its SEALED
- * schedule and returns the credited amount + your weekly rank, which we mirror
- * onto the local character (same reconcile pattern as claim-mission). The client
- * never sends or trusts a Ryo amount. Both calls go through the auth-wrapped
- * global fetch (installAuthFetch), so no name/token plumbing is needed here.
+ * `start` fetches a SERVER-MINTED per-run seed plus a single-use run token; the UI
+ * seeds startGauntletRun with that seed so the server can replay the exact run.
+ * `report` sends the player's decision TRANSCRIPT (drafts / rerolls / items /
+ * relics / premium buys / per-fight placement) — the server RE-SIMULATES the run
+ * and pays Ryo/premium from the SERVER-computed roundsCleared/heartsLeft, returning
+ * the credited amounts + weekly rank, which we mirror onto the local character
+ * (same reconcile pattern as claim-mission). The client never sends or trusts a
+ * reward amount, roundsCleared, or heartsLeft. Both calls go through the
+ * auth-wrapped global fetch (installAuthFetch), so no name/token plumbing here.
  */
+
+// One player decision in a run, in the order performed. Fight outcomes are NOT
+// recorded — the server re-fights each round. Mirrors GauntletAction in
+// api/_pet-sim/gauntlet-sim.ts.
+export type GauntletAction =
+    | { k: "buy"; i: number }
+    | { k: "item"; id: string }
+    | { k: "relic"; id: string }
+    | { k: "premium"; kind: "fateShard" | "boneCharm" }
+    | { k: "reroll" }
+    | { k: "release"; id: string }
+    | { k: "fight"; place: { row: number; col: number }[] };
 
 export interface GauntletStart {
     runToken: string;
@@ -45,12 +59,12 @@ export async function startGauntlet(): Promise<GauntletStart | null> {
     }
 }
 
-export async function reportGauntlet(runToken: string, roundsCleared: number, heartsLeft: number, boughtFateShard = false, boughtBoneCharm = false): Promise<GauntletReward | null> {
+export async function reportGauntlet(runToken: string, transcript: GauntletAction[]): Promise<GauntletReward | null> {
     try {
         const r = await fetch("/api/pet/gauntlet", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "report", runToken, roundsCleared, heartsLeft, boughtFateShard, boughtBoneCharm }),
+            body: JSON.stringify({ action: "report", runToken, transcript }),
         });
         if (!r.ok) return null;
         return (await r.json()) as GauntletReward;
