@@ -31,4 +31,21 @@ publish
 deploy.zip
 upstash-backup-*.json
 Shinobi Journey/
-shinobij.client/public/pet-models/
+# Ship only the reviewed Pet Coliseum runtime models. Generated QA renders,
+# concepts, proofs, sources, and references remain excluded from Docker.
+shinobij.client/public/pet-models/*
+!shinobij.client/public/pet-models/roster/
+!shinobij.client/public/pet-models/roster/*.glb
+!shinobij.client/public/pet-models/starter-earth-l.glb
+!shinobij.client/public/pet-models/starter-earth-r.glb
+!shinobij.client/public/pet-models/starter-fire-l.glb
+!shinobij.client/public/pet-models/starter-fire-r.glb
+!shinobij.client/public/pet-models/starter-lightning-l.glb
+!shinobij.client/public/pet-models/starter-lightning-r.glb
+!shinobij.client/public/pet-models/starter-water-l.glb
+!shinobij.client/public/pet-models/starter-water-r.glb
+!shinobij.client/public/pet-models/starter-wind-l.glb
+!shinobij.client/public/pet-models/starter-wind-r.glb
+!shinobij.client/public/pet-models/ember-wolf-rigged.gltf
+!shinobij.client/public/pet-models/roster-manifest.json
+!shinobij.client/public/pet-models/THIRD_PARTY_ASSETS.md
