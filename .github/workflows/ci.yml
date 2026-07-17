@@ -23,10 +23,13 @@ jobs:
       VITE_SENTRY_RELEASE: ci
       VITE_BUILD_COMMIT: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
+          # The action's own runtime, not ours: v4 ran on Node 20, which the
+          # runners now force onto 24 and will stop accepting. node-version
+          # below is unrelated — it is the Node this repo builds and tests on.
           node-version: 22
           cache: npm
           cache-dependency-path: |
