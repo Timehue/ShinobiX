@@ -159,7 +159,7 @@ async function handler(req, res) {
         if (!issued)
             return res.status(500).json({ error: 'Run token was not issued.' });
         const committed = issued;
-        await _storage_js_1.kv.set(`hg-run:${playerName}:${committed.token}`, committed.runToken, { ex: RUN_TTL_SEC });
+        await _storage_js_1.kv.set((0, _run_token_js_1.hollowGateRunKey)(playerName, committed.token), committed.runToken, { ex: RUN_TTL_SEC });
         return res.status(200).json({
             ok: true,
             token: committed.token,

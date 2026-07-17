@@ -8,6 +8,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     HG_CLAWBACK_KEYS,
     HG_HIGH_VALUE_ITEM_ID,
+    hollowGateRunKey,
     itemStackCount,
     maxHaulForDepth,
     rewardMultiplierForToken,
@@ -90,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-settle', 20, 60_000, identity.name))) return;
 
-        const runKey = `hg-run:${playerName}:${token}`;
+        const runKey = hollowGateRunKey(playerName, token);
         return await withKvLock(runKey, async () => {
         const run = await kv.get<HollowGateRunToken>(runKey);
         // Graceful: a stale client (or SESSION_SECRET unset re-mint) just gets a

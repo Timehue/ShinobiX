@@ -5,7 +5,7 @@ import { withKvLock } from '../_lock.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { cors, mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { HG_CLAWBACK_KEYS, type HollowGateRunToken, type HgCurrencyKey } from './_run-token.js';
+import { HG_CLAWBACK_KEYS, hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, type HollowGateRunToken, type HgCurrencyKey } from './_run-token.js';
 import { HOLLOW_GATE_COMBAT_TTL_SECONDS } from './_combat-session.js';
 
 type Action = 'sanctify' | 'arm-second-wind' | 'consume-second-wind';
@@ -32,10 +32,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
 
-        const runKey = `hg-run:${playerName}:${token}`;
+        const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
             const run = await kv.get<HollowGateRunToken>(runKey);
-            if (!run || run.playerName !== playerName) return { status: 409, body: { error: 'The Hollow Gate run expired.' } };
+            if (!run || run.playerName !== playerName) return { status: 409, body: { error: HOLLOW_GATE_RUN_EXPIRED_MESSAGES.consumable } };
             if (run.activeEncounter) return { status: 409, body: { error: 'Finish the active encounter first.' } };
             if (action === 'arm-second-wind' && run.secondWindArmed) return { status: 409, body: { error: 'Second Wind is already armed.' } };
             if (action === 'consume-second-wind' && !run.secondWindArmed) return { status: 200, body: { ok: true, alreadyReported: true } };

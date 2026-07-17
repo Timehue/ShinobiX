@@ -170,6 +170,49 @@ export function reconcileHollowGateSettle(
     return result.credited ? applyServerSettle(character, entry, result.credited) : character;
 }
 
+// ── Expired-run escape ─────────────────────────────────────────────────────────
+// A run token lives 24h (api/hollow-gate/_run-token.ts). Once it lapses the server
+// 409s every action, but the run itself persists on the SAVE and the shrine is
+// deliberately no-retreat (lib/screen-guards.ts) — so the player was restored into
+// a dead gate on every load, handed a dismissable error, and left with no way out.
+// (Reproduced live 2026-07-17; freeing the account took a manual DB edit.) The
+// dismiss path must therefore CLEAR the run, not merely close the dialog.
+
+/** Recognise the server's "this run is gone" replies — see the
+ *  HOLLOW_GATE_RUN_EXPIRED_MESSAGES list in api/hollow-gate/_run-token.ts. A drift
+ *  test imports that list and asserts every message it can send matches here. */
+export function isHollowGateRunExpiredMessage(message: unknown): boolean {
+    return /hollow gate run (has )?expired/i.test(String(message ?? ""));
+}
+
+/** Drop a dead run from the character. `null`, NEVER `undefined`: this rides out on
+ *  the JSON autosave, which strips undefined-valued keys — an absent key leaves the
+ *  server's mergePreservingImages seeding from the STORED record, which resurrects
+ *  the very run we are trying to clear. (The server-side self-heal in
+ *  api/_elapsed-state.ts has the mirror-image constraint: there `undefined` is the
+ *  own key that overrides, and `delete` is what resurrects.) */
+export function clearHollowGateRunLocal(character: Character): Character {
+    return { ...character, hollowGateRun: null };
+}
+
+/** Surface a run error; on an EXPIRED run also fire `onExpired` to free the player.
+ *  Returns whether the run was expired. Nothing is settled or clawed back: the token
+ *  is gone, so the server can no longer credit the dive in either direction, and the
+ *  in-run haul was never banked (the HG currencies are server-ledger fields that the
+ *  save sanitizer freezes for generic saves). So the run is simply void. */
+export function reportHollowGateRunError(
+    error: unknown,
+    fallback: string,
+    onExpired: () => void,
+    notify: (message: string) => void = (m) => { if (typeof window !== "undefined") window.alert(m); },
+): boolean {
+    const message = error instanceof Error && error.message ? error.message : fallback;
+    if (!isHollowGateRunExpiredMessage(message)) { notify(message); return false; }
+    notify(`${message}\n\nThis dive can no longer be settled, so the shrine has released its hold — returning you to the world map.`);
+    onExpired();
+    return true;
+}
+
 /** Today's CLIENT-side run-end result (the no-token fallback). Death claws back
  *  (1 − retention) of the run's haul; extract keeps everything. Always clears the
  *  run. Identical to the prior inline App.tsx expression. */
