@@ -55,6 +55,7 @@ import imgHandler        from './api/img.js';
 import playerAuthHandler from './api/player-auth.js';
 import adminAuthHandler  from './api/admin-auth.js';
 import adminPlayersHandler from './api/admin/players.js';
+import adminGrantSubscriptionHandler from './api/admin/grant-subscription.js';
 import adminPlayerIndexHealthHandler from './api/admin/player-index-health.js';
 import serverResetHandler from './api/admin/server-reset.js';
 import adminRankedSeasonHandler from './api/admin/ranked-season.js';
@@ -210,6 +211,10 @@ import missionsClaimMissionHandler   from './api/missions/claim-mission.js';
 import missionsQueueCombatClaimHandler from './api/missions/queue-combat-claim.js';
 import missionsCombatStartHandler from './api/missions/combat-start.js';
 import missionsRecordProgressHandler from './api/missions/record-progress.js';
+import patreonOauthStartHandler       from './api/patreon/oauth-start.js';
+import patreonOauthCallbackHandler    from './api/patreon/oauth-callback.js';
+import patreonWebhookHandler          from './api/patreon/webhook.js';
+import patreonStatusHandler           from './api/patreon/status.js';
 import sectorWandererGiftHandler      from './api/sector/wanderer-gift.js';
 import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
 import sectorRiftQuestHandler         from './api/sector/rift-quest.js';
@@ -445,7 +450,18 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 const jsonBig = express.json({ limit: '50mb' });
 const jsonSave = express.json({ limit: '1mb' });
 const jsonDefault = express.json({ limit: '5mb' });
+// The Patreon webhook must verify an HMAC-MD5 over the EXACT raw request body,
+// so this parser stashes the raw Buffer on req.rawBody. The capture runs ONLY
+// for that one path — every other request skips it. See api/patreon/webhook.ts.
+const jsonWebhook = express.json({
+    limit: '512kb',
+    verify: (req, _res, buf) => { (req as unknown as { rawBody?: Buffer }).rawBody = buf; },
+});
+function isPatreonWebhookPath(path: string): boolean {
+    return path === '/patreon/webhook' || path === '/api/patreon/webhook';
+}
 app.use((req: Request, res: Response, next: NextFunction) => {
+    if (isPatreonWebhookPath(req.path)) return jsonWebhook(req, res, next);
     switch (classifyBodyLimit(req.path)) {
         case 'big':  return jsonBig(req, res, next);
         case 'save': return jsonSave(req, res, next);
@@ -599,6 +615,9 @@ function route(path: string, handler: AnyHandler) {
                 headers: req.headers,
                 method: req.method,
                 body: req.body,
+                // Raw body for signature-verifying webhooks (Patreon). Only set
+                // by the dedicated webhook parser above; undefined otherwise.
+                rawBody: (req as Request & { rawBody?: Buffer }).rawBody,
             };
             await handler(augmented, res);
         } catch (err) {
@@ -904,6 +923,7 @@ route('/admin-auth',  adminAuthHandler);
 
 // Admin
 route('/admin/players',      adminPlayersHandler);
+route('/admin/grant-subscription', adminGrantSubscriptionHandler);
 route('/admin/player-index-health', adminPlayerIndexHealthHandler);
 route('/admin/server-reset', serverResetHandler);
 route('/admin/ranked-season', adminRankedSeasonHandler);
@@ -1149,6 +1169,13 @@ route('/missions/claim-mission',    missionsClaimMissionHandler);
 route('/missions/queue-combat-claim', missionsQueueCombatClaimHandler);
 route('/missions/combat-start', missionsCombatStartHandler);
 route('/missions/record-progress',  missionsRecordProgressHandler);
+// Patreon — OAuth account-link + membership webhook + subscriber status.
+// Perks are gated on the server-owned character.patreon flag, written ONLY by
+// the signature-verified webhook / OAuth callback (api/patreon/_patreon.ts).
+route('/patreon/oauth-start',       patreonOauthStartHandler);
+route('/patreon/oauth-callback',    patreonOauthCallbackHandler);
+route('/patreon/webhook',           patreonWebhookHandler);
+route('/patreon/status',            patreonStatusHandler);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
 route('/sector/wanderer-quest',     sectorWandererQuestHandler);

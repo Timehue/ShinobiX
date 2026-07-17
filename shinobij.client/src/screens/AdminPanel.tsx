@@ -985,6 +985,34 @@ export function AdminPanel({
         } catch (err) { setPmMsg(`? Failed to save: ${String(err)}`); }
     }
 
+    // --- Comp/grant a Shinobi Supporter subscription (server-owned flag) ---
+    const [pmSubDays, setPmSubDays] = useState(30);
+    const [pmSubMsg, setPmSubMsg] = useState("");
+    async function pmGrantSub(active: boolean) {
+        const name = pmTargetName.trim();
+        if (!name) { setPmSubMsg("❌ Pick or type a player name first."); return; }
+        if (!adminPw) { setPmSubMsg("❌ Admin password missing. Log out and back into admin."); return; }
+        const days = Math.max(1, Math.min(3650, pmSubDays || 30));
+        const verb = active ? `activate a ${days}-day subscription for` : `revoke the subscription of`;
+        if (!(await gameConfirm(`Really ${verb} ${name}?\n\nThis grants the Shinobi Supporter perks regardless of payment.`))) return;
+        setPmSubMsg("Working…");
+        try {
+            const res = await fetch('/api/admin/grant-subscription', {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+                body: JSON.stringify({ playerName: name, active, days }),
+            });
+            const data = await res.json().catch(() => ({})) as { error?: string; expiresAt?: number };
+            if (!res.ok) { setPmSubMsg(`❌ ${data.error ?? `HTTP ${res.status}`}`); return; }
+            if (active) {
+                const until = data.expiresAt ? new Date(data.expiresAt).toLocaleDateString() : "";
+                setPmSubMsg(`✅ Subscription active for ${name}${until ? ` until ${until}` : ""}. They'll see perks on next login.`);
+            } else {
+                setPmSubMsg(`✅ Subscription revoked for ${name}.`);
+            }
+        } catch (err) { setPmSubMsg(`❌ Failed: ${String(err)}`); }
+    }
+
     const [pmEditName, setPmEditName] = useState("");
     const [pmEditSnap, setPmEditSnap] = useState<Record<string, unknown> | null>(null);
     const [pmEditMsg, setPmEditMsg] = useState("");
@@ -4639,6 +4667,29 @@ export function AdminPanel({
                                     </div>
                                 </>
                             )}
+                        </section>
+
+                        {/* -- Grant Subscription (comp) -- */}
+                        <section className="summary-box">
+                            <h4>⭐ Grant Subscription</h4>
+                            <p className="hint" style={{ margin: "0 0 8px" }}>
+                                Comp the Shinobi Supporter perks (15 jutsu, 5 pets, custom avatar, 2 bloodlines) for the player named below — activates whether or not they paid, and auto-expires after the set days. No lookup needed.
+                            </p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                                <input
+                                    style={{ flex: 1, minWidth: 160 }}
+                                    value={pmTargetName}
+                                    onChange={e => setPmTargetName(e.target.value)}
+                                    placeholder="Player name"
+                                />
+                                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.85rem" }}>
+                                    Days
+                                    <input type="number" min={1} max={3650} style={{ width: 72 }} value={pmSubDays} onChange={e => setPmSubDays(Math.max(1, Math.min(3650, Number(e.target.value) || 1)))} />
+                                </label>
+                                <button onClick={() => pmGrantSub(true)}>⭐ Activate</button>
+                                <button className="danger-button" onClick={() => pmGrantSub(false)}>Revoke</button>
+                            </div>
+                            {pmSubMsg && <p className="hint" style={{ color: pmSubMsg.startsWith("✅") ? "#4ade80" : pmSubMsg.startsWith("❌") ? "#f87171" : undefined }}>{pmSubMsg}</p>}
                         </section>
 
                         {/* -- Password Reset -- */}

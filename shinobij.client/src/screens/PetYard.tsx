@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect, useRef } from "react";
 import { serverNow } from "../lib/server-clock";
+import { maxPets } from "../lib/entitlements";
 import "../styles/pet-skin.css";
 import type { Character } from "../types/character";
 import type { Pet, PetExpeditionType, PetTrainingType } from "../types/pet";
@@ -629,7 +630,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                     <button className="back-btn" onClick={onBack}>← Back</button>
                     <div>
                         <h2>Pet Yard</h2>
-                        <p className="hint">{character.pets.length}/5 pets · Town Hall Pet XP Bonus: {petXpBonus.toFixed(2)}%</p>
+                        <p className="hint">{character.pets.length}/{Math.max(maxPets(character), character.pets.length)} pets · Town Hall Pet XP Bonus: {petXpBonus.toFixed(2)}%</p>
                     </div>
                     {character.activePetId && (
                         <p className="hint">Active: {character.pets.find((p) => p.id === character.activePetId)?.name ?? "—"}</p>
@@ -651,7 +652,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                 )}
 
                 <div className="pet-slots-row">
-                    {Array.from({ length: 5 }, (_, i) => {
+                    {Array.from({ length: Math.max(maxPets(character), character.pets.length) }, (_, i) => {
                         const pet = character.pets[i];
                         return (
                             <div
