@@ -187,6 +187,25 @@ async function readOverlayOnce(base, token) {
 }
 
 async function exportStableOverlay() {
+    // Post-cPanel-retirement topology (docs/RETIRE_CPANEL_RUNBOOK.md): with no
+    // overlay proxy configured, save:*/shared:images*/shared:imgfields* live in
+    // the BASE store and are captured by the base-row export. Record an
+    // explicitly empty overlay so the v2 format stays valid end-to-end
+    // (inspect/restore/drill all handle zero overlay entries), instead of
+    // failing the whole backup for a store that no longer exists. Export-time
+    // completeness is still enforced in exportBackup: a backup with no save:*
+    // keys in EITHER store is refused.
+    if (!process.env.KV_PROXY_URL) {
+        return {
+            source: { kind: 'retired-base-only' },
+            patterns: OVERLAY_PATTERNS,
+            consistencyPasses: 0,
+            keyCount: 0,
+            saveCount: 0,
+            sha256: digestOverlay([]),
+            entries: [],
+        };
+    }
     const base = validatedProxyBase(process.env.KV_PROXY_URL);
     const token = process.env.KV_PROXY_TOKEN;
     let previous = await readOverlayOnce(base, token);
@@ -303,6 +322,12 @@ async function exportBackup(outPath) {
             async () => (await client.query(`select key, value, expires_at, updated_at from public.kv_store order by key`)).rows,
             exportStableOverlay,
         );
+        // Completeness guard: live player saves must be present SOMEWHERE. With
+        // the overlay retired they live in the base rows; a backup that finds
+        // them in neither store is capturing the wrong database.
+        if (!overlay.entries.length && !rows.some((row) => String(row.key).startsWith('save:'))) {
+            throw new Error('Backup contains no save:* keys in either store; refusing an incomplete backup.');
+        }
         const payload = {
             format: 'shinobix-kv-v2', createdAt: new Date().toISOString(), source, consistencyAttempt,
             base: { rowCount: rows.length, sha256: digestRows(rows), rows },
