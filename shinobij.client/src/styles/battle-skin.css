@@ -1004,14 +1004,13 @@ body:has(.arena-fullscreen) .left-profile-card,
     display: none !important;
 }
 
-/* Same treatment for the decorative fixed sector banner (left art rail) on the
-   tiers whose battle board runs full-width with the IN-GRID player dossier as
-   the leftmost combat column (md + xxl). There the banner (fixed, z-index 9999)
-   paints straight over the player's HP/chakra/buff card. lg/xl are excluded on
-   purpose: they reserve the rail and overlay the portaled battle HUD on top of
-   the banner, so it must stay. */
-html[data-vp="md"]:has(.arena-fullscreen) .sector-banner-panel,
-html[data-vp="xxl"]:has(.arena-fullscreen) .sector-banner-panel {
+/* Same treatment for the decorative fixed sector banner (left art rail). PvE
+   now shares the PvP duel-dossier layout (in-grid fighter cards, portaled rail
+   HUD hidden at every desktop tier), so during a fight the banner is pure
+   chrome with no battle role — and on the full-width tiers it would paint
+   straight over the player's dossier (fixed, z-index 9999). Hide it whenever a
+   fight board is mounted, matching PvP (which never renders it). */
+html:has(.arena-fullscreen) .sector-banner-panel {
     display: none !important;
 }
 
@@ -1079,8 +1078,12 @@ html[data-vp="xxl"]:has(.arena-fullscreen) .sector-banner-panel {
         overflow: hidden !important;
     }
 
-    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .battle-hud-sidebar,
-    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .battle-hud-sidebar {
+    /* The portaled rail HUD lives OUTSIDE .arena-fullscreen (it portals to
+       #battle-hud-portal on the app shell), so it must be matched via :has().
+       The old `.arena-fullscreen.pvp-battle-layout .battle-hud-sidebar`
+       selector could never match it and lg/xl showed the player HUD twice —
+       once in the rail, once as the in-grid dossier. */
+    html:has(.arena-fullscreen.pvp-battle-layout) .battle-hud-sidebar {
         display: none !important;
     }
 
@@ -1088,6 +1091,33 @@ html[data-vp="xxl"]:has(.arena-fullscreen) .sector-banner-panel {
     html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:first-child,
     .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:first-child {
         display: flex !important;
+    }
+
+    /* Explicit dossier placement. The legacy xl/lg portal-era block (index.css
+       "Battle HUD portal" pass) pins .combat-main-area to grid-column 1 with a
+       higher-specificity !important, which under this 3-column grid shoved the
+       board into the left dossier column and auto-flowed the player card onto a
+       second row. Pin all three columns here (data-vp variants included so
+       these outrank those legacy pins on every desktop tier). */
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:first-child,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:first-child,
+    .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:first-child {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+    }
+
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-main-area,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-main-area,
+    .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-main-area {
+        grid-column: 2 !important;
+        grid-row: 1 !important;
+    }
+
+    html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:last-child,
+    html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:last-child,
+    .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:last-child {
+        grid-column: 3 !important;
+        grid-row: 1 !important;
     }
 
     .arena-fullscreen.pvp-battle-layout .combat-layout,
@@ -1107,6 +1137,10 @@ html[data-vp="xxl"]:has(.arena-fullscreen) .sector-banner-panel {
 
     .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud {
         position: relative !important;
+        /* Legacy desktop-combat rules set `top: 90px` for the sticky-era cards;
+           on these relative dossiers that painted them 90px below the board
+           panel (and past the viewport bottom). */
+        top: 0 !important;
         width: 100% !important;
         min-width: 0 !important;
         height: auto !important;
@@ -1259,7 +1293,9 @@ html[data-vp="xxl"]:has(.arena-fullscreen) .sector-banner-panel {
         position: relative;
         order: 4;
         display: grid !important;
-        grid-template-columns: repeat(7, minmax(92px, 1fr));
+        /* auto-fit (not a fixed 7) so PvE's extra PET action still fits on one
+           row; with PvP's 7 buttons the track count and widths are unchanged. */
+        grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
         gap: 8px !important;
         margin: 0 !important;
         padding: 14px 16px !important;
@@ -1381,6 +1417,10 @@ html[data-vp="xxl"]:has(.arena-fullscreen) .sector-banner-panel {
 
     .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud {
         position: relative !important;
+        /* Neutralize the legacy sticky-era `top: 90px` — on these relative
+           fighter chips it painted them 90px below their grid row, over the
+           board. */
+        top: 0 !important;
         display: grid !important;
         grid-template-columns: 38px minmax(0, 1fr) !important;
         grid-auto-rows: min-content !important;
