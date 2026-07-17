@@ -336,7 +336,7 @@ export function validatePlays(
 
 // ── Turn resolution ──────────────────────────────────────────────────────────
 
-function applyOnReveal(match: ClashMatch, side: ClashSide, sideKey: ClashSideKey, played: ClashPlayed): void {
+export function applyOnReveal(match: ClashMatch, side: ClashSide, sideKey: ClashSideKey, played: ClashPlayed): void {
     const enemyKey: ClashSideKey = sideKey === 'p1' ? 'p2' : 'p1';
     const loc = match.locations[played.loc];
     switch (played.ability) {
