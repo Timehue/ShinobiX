@@ -28,7 +28,8 @@ import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, n
 import { makeNoticePost, normalizeNoticePosts } from "./clan-notices";
 import { sharedClanWarCache } from "./clan-war-api";
 import { addItem, countItem, removeItem } from "./inventory";
-import { nonVanguardCharmSubstitute, nonVanguardShardSubstitute, vanguardOnlyHonorSeals, villageLeadership } from "../App";
+import { nonVanguardCharmSubstitute, nonVanguardShardSubstitute, vanguardOnlyHonorSeals } from "../App";
+import { villageLeadership } from "../data/village-leadership";
 
 export type VillageWarRecord = {
     id: string;

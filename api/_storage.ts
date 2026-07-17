@@ -109,22 +109,26 @@ function getPool(): pg.Pool {
         // a public/internet connection string.
         ssl: process.env.PG_SSL === 'disable' ? false : { rejectUnauthorized: false },
         // Pool size PER PROCESS. cPanel/Passenger runs many small worker
-        // processes, so 5 each is plenty. A single always-on Railway/VPS instance
-        // serving every player's heartbeat writes wants more headroom — set
-        // PG_POOL_MAX=15 (or higher) there. Default unchanged at 5 so a (dormant)
-        // cPanel host booting N Passenger workers can't multiply into the
-        // Supabase connection ceiling; raise it via env on the single live host.
-        max: Number(process.env.PG_POOL_MAX ?? 5),
+        // processes, so 5 each is plenty there. The single always-on Railway
+        // instance serves EVERY player's heartbeat/save traffic through this one
+        // pool, so it defaults to 15 (Railway is detected via the platform's own
+        // RAILWAY_ENVIRONMENT var); with only 5 connections a small burst of slow
+        // statements starves the pool and everything else waits on the 15s
+        // acquire timeout. PG_POOL_MAX overrides either default explicitly, and
+        // a (dormant) cPanel host booting N Passenger workers stays at 5 so it
+        // can't multiply into the Supabase connection ceiling.
+        max: Number(process.env.PG_POOL_MAX ?? (process.env.RAILWAY_ENVIRONMENT ? 15 : 5)),
         idleTimeoutMillis: 30_000,
         connectionTimeoutMillis: 15_000,
         // Bound a pathologically slow query so it can't pin a pool connection
         // indefinitely (there was no query timeout before — a hung statement held
-        // its connection until the server role's 2-min default, and with only ~5
-        // connections a few of those starve the whole pool and everything else
-        // 15s-times-out waiting to acquire). Every base-store query on this path
-        // is a PK/indexed lookup or a small batched read (the multi-MB save/image
-        // blobs route to the disk overlay, NOT here), so 30s is far above any
-        // legitimate statement — this only ever fires on a genuine hang.
+        // its connection until the server role's 2-min default, and with only a
+        // handful of connections a few of those starve the whole pool and
+        // everything else 15s-times-out waiting to acquire). Base-store queries
+        // are PK/indexed lookups or small batched reads; since the cPanel disk
+        // overlay was retired (2026-07-17) the multi-MB save/image blobs also
+        // travel this pool, and 30s remains far above any legitimate statement —
+        // this only ever fires on a genuine hang.
         // statement_timeout is server-enforced; query_timeout is the client-side
         // backstop if the socket itself wedges. Overridable via PG_STATEMENT_TIMEOUT_MS.
         statement_timeout: Number(process.env.PG_STATEMENT_TIMEOUT_MS ?? 30_000),
@@ -1366,14 +1370,14 @@ if (_diskRoot) {
     console.log('[kv] remote proxy overlay active at', _proxyUrl);
 }
 
-// Fail-closed guard. On Railway/cPanel the live player saves (`save:*`) live on
-// the disk overlay; if its env (DISK_KV_DIR, or KV_PROXY_URL + KV_PROXY_TOKEN)
-// is missing on a deploy, save reads/writes SILENTLY fall back to the base store
-// — which doesn't have them — so every player looks logged-out / wiped and new
-// progress is written to the wrong place. When an operator declares the overlay
-// mandatory via REQUIRE_DISK_OVERLAY=1, refuse to boot instead (health check
-// fails loudly) rather than serving/clobbering saves from the base store. Opt-in
-// so legacy single-tier setups are unaffected.
+// Fail-closed guard — RETIRED TOPOLOGY (kept for the rollback path only).
+// Since the cPanel cutover (2026-07-17, docs/RETIRE_CPANEL_RUNBOOK.md) live
+// saves are served from the base Postgres store and REQUIRE_DISK_OVERLAY is
+// UNSET in production, so this guard is intentionally dormant. It still
+// matters during a rollback: an operator re-enabling the overlay sets
+// REQUIRE_DISK_OVERLAY=1 so a half-configured overlay (missing KV_PROXY_URL /
+// KV_PROXY_TOKEN / DISK_KV_DIR) refuses to boot instead of silently serving
+// saves from the wrong store.
 if (process.env.REQUIRE_DISK_OVERLAY === '1' && !_diskOverlay) {
     throw new Error(
         '[kv] REQUIRE_DISK_OVERLAY=1 but no disk overlay is configured ' +
@@ -1384,11 +1388,12 @@ if (process.env.REQUIRE_DISK_OVERLAY === '1' && !_diskOverlay) {
 
 export const kv = _diskOverlay ? _makeRoutedKv(_baseKv, _diskOverlay) : _baseKv;
 
-// Which backend the disk-routed `save:*` keys actually resolve to. Surfaced by
-// the /health?deep=1 probe so an operator can instantly catch a misconfigured
-// deploy that silently routes saves to the (empty) base store instead of the
-// disk overlay — the exact failure REQUIRE_DISK_OVERLAY guards against. A value
-// of 'base-store' on a host that serves /api/save/* means saves are misrouted.
+// Which backend `save:*` keys actually resolve to, surfaced by /health?deep=1.
+// Since the cPanel overlay retirement (2026-07-17) 'base-store' is the
+// EXPECTED value in production — saves live in the base Postgres store. A
+// 'disk'/'remote-proxy' value now means the rollback overlay has been
+// deliberately re-enabled (docs/RETIRE_CPANEL_RUNBOOK.md); release health
+// gates on this via EXPECTED_SAVE_STORE=base-store.
 export const saveStoreKind: 'memory-qa' | 'disk' | 'remote-proxy' | 'base-store' =
     _qaMemoryKv ? 'memory-qa' : (_diskRoot ? 'disk' : ((_proxyUrl && _proxyToken) ? 'remote-proxy' : 'base-store'));
 

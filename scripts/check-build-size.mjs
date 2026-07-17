@@ -12,9 +12,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // below strict; allow a small ceiling bump for the intentional pet evolution
 // 2.5D stage and env-injected deploy variance.
 const TOTAL_JS_CSS_FAIL_BYTES = 6_100_000;
-const ENTRY_JS_FAIL_BYTES = 1_150_000;
-const INITIAL_GRAPH_FAIL_BYTES = 1_900_000;
-const INITIAL_GRAPH_GZIP_FAIL_BYTES = 550_000;
+// Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
+// lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
+// chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
+// from data/storylines so the chapter prose left too (795→581 KB; initial
+// gzip ~497→340 KB). ~10-13% headroom over the measured build — lower these
+// again when the next drain lands, never raise them to "fix" a regression.
+const ENTRY_JS_FAIL_BYTES = 660_000;
+const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 385_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 

@@ -35,6 +35,24 @@ describe('hybrid KV backup evidence helpers', () => {
         assert.throws(() => validatePayload({ ...good, overlay: { ...good.overlay, patterns: ['save:*'] } }), /prefix coverage/i);
     });
 
+    it('accepts the post-retirement base-only payload (explicitly empty overlay)', () => {
+        // Since the cPanel overlay retirement (2026-07-17) exportStableOverlay
+        // records zero overlay entries and saves live in the base rows — the
+        // v2 validator must keep accepting that shape or backup:kv breaks.
+        const saveRows = [...baseRows, { key: 'save:alice', value: { character: { level: 3 } }, expires_at: null, updated_at: '2026-07-12T00:00:04.000Z' }];
+        const baseOnly = {
+            format: 'shinobix-kv-v2',
+            base: { rowCount: saveRows.length, rows: saveRows, sha256: digestRows(saveRows) },
+            overlay: { patterns: ['save:*', 'shared:images*', 'shared:imgfields*'], keyCount: 0, entries: [], sha256: digestOverlay([]) },
+        };
+        assert.equal(validatePayload(baseOnly), baseOnly);
+        const samples = representativeRecords([
+            ...baseOnly.overlay.entries.map((entry) => ({ ...entry, store: 'overlay' })),
+            ...saveRows.map((row) => ({ ...row, store: 'base' })),
+        ]);
+        assert.ok(samples.some((sample) => sample.category === 'player-save' && sample.store === 'base'));
+    });
+
     it('selects redacted representatives with live saves sourced from the overlay', () => {
         const records = [
             ...overlayEntries.map((entry) => ({ ...entry, store: 'overlay' })),

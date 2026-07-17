@@ -169,14 +169,15 @@ async function runSnapshotSaves(maxRuntimeMs = MAX_RUNTIME_MS) {
     const startedAt = Date.now();
     const deadline = startedAt + maxRuntimeMs;
     const saveKeys = await _storage_js_1.kv.keys(`${SAVE_PREFIX}*`);
-    // Alarm on an empty keyspace. The live saves live on the cPanel disk overlay
-    // reached via KV_PROXY_URL / KV_PROXY_TOKEN; if those env vars are missing,
-    // `kv.keys('save:*')` hits the (empty) base store and this would silently
-    // "succeed" while snapshotting ZERO players — exactly when you'd most want a
-    // backup. Surface it loudly instead of masquerading as healthy. No writes
+    // Alarm on an empty keyspace. Since the cPanel overlay retirement
+    // (2026-07-17) live saves are rows in the base Postgres store, so zero
+    // `save:*` keys means this process is pointed at the wrong database
+    // (check DATABASE_URL / SUPABASE_POSTGRES_URL) — or, during a rollback,
+    // that the re-enabled overlay env is incomplete. Either way, "snapshotted
+    // ZERO players" must never masquerade as a healthy backup. No writes
     // happen before this point, so the early return is side-effect free.
     if (saveKeys.length === 0) {
-        console.error('[cron/snapshot-saves] ALARM: zero save:* rows found — KV overlay/proxy likely misconfigured (check KV_PROXY_URL / KV_PROXY_TOKEN). Snapshotted 0 players.');
+        console.error('[cron/snapshot-saves] ALARM: zero save:* rows found — storage misconfigured (check DATABASE_URL / SUPABASE_POSTGRES_URL; if the retired overlay was re-enabled for rollback, check KV_PROXY_URL / KV_PROXY_TOKEN). Snapshotted 0 players.');
         return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
     }
     const playerSaveKeys = saveKeys.filter(isPlayerSnapshotSaveKey);
@@ -275,7 +276,7 @@ async function handler(req, res) {
         if (r.emptyKeyspace) {
             return res.status(500).json({
                 ok: false,
-                error: 'No save rows found — refusing to report a healthy backup. Check KV_PROXY_URL / KV_PROXY_TOKEN on this deployment.',
+                error: 'No save rows found — refusing to report a healthy backup. Check DATABASE_URL / SUPABASE_POSTGRES_URL on this deployment (saves live in the base store since the cPanel overlay retirement).',
                 snapshotted: 0,
                 total: 0,
             });

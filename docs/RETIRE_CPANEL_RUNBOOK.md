@@ -106,7 +106,10 @@ odd with an instant escape hatch.
 
 **11. Decommission.** Once confident: stop the cPanel service, remove `KV_PROXY_TOKEN`
 from Railway. In a later cleanup PR the now-dead overlay/proxy code
-(`_makeRemoteKv`, the routing wrapper, `api/kv-proxy.ts`, `app.js`) can be removed.
+(`_makeRemoteKv`, the routing wrapper, `api/kv-proxy.ts`) can be removed.
+Note `app.js` is NOT overlay code — it is the cPanel/Passenger bootstrap
+(DNS bypass + `require('./dist/server.js')`) and only goes away if/when the
+cPanel deploy target itself is dropped (CLAUDE.md currently says keep it).
 
 ---
 

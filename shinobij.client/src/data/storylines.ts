@@ -12,29 +12,18 @@
  */
 
 import type { CreatorEvent, StoryStep } from "../App";
-import type { Biome } from "../types/core";
 import type { Character } from "../types/character";
+import { bossScaleByLevel, storyAiId } from "./story-boss-meta";
+import { villageBiomeMap } from "./village-biomes";
 
-
-const bossScaleByLevel: Record<number, { hp: number; damage: number; xp: number; ryo: number }> = {
-    // bossScaleByLevel = the authoritative story-boss HP curve. makeStoryBossAi
-    // builds EVERY story boss hpFloorExempt, so these hp values are used verbatim
-    // (no aiHpForLevel floor) and form one clean ascending level→HP curve. Tuned
-    // down for winnability; damage / xp / ryo unchanged.
-    4:   { hp: 900,   damage: 18,  xp: 120,   ryo: 75 },
-    15:  { hp: 2000,  damage: 32,  xp: 500,   ryo: 250 },
-    25:  { hp: 3200,  damage: 50,  xp: 900,   ryo: 500 },
-    35:  { hp: 4600,  damage: 68,  xp: 1400,  ryo: 800 },
-    50:  { hp: 6500,  damage: 90,  xp: 2200,  ryo: 1300 },
-    65:  { hp: 8500,  damage: 120, xp: 3400,  ryo: 2000 },
-    75:  { hp: 9500,  damage: 148, xp: 4600,  ryo: 2800 },
-    85:  { hp: 11000, damage: 185, xp: 6200,  ryo: 4000 },
-    // Kage finale: the peer-band AI (lvl 100) hits with uncapped damage + full
-    // mastery, so 24k HP made the grind unwinnable for non-maxed players. This hp
-    // is now AUTHORITATIVE: makeStoryBossAi builds the finale hpFloorExempt, so the
-    // value here is used verbatim (it can sit below aiHpForLevel(100) ≈ 14.7k).
-    100: { hp: 13000, damage: 250, xp: 10000, ryo: 7500 },
-};
+// bossScaleByLevel + storyAiId now live in ./story-boss-meta and
+// villageBiomeMap in ./village-biomes, so boot-path modules (lib/combat-ai,
+// App.tsx) can read the compact facts without pulling this file's story prose
+// into the entry chunk. Re-exported so lazy story-side consumers keep their
+// existing imports. Boss names/icons in the milestone(...) calls below are
+// parity-tested against story-boss-meta (data/story-boss-meta.test.ts) — if
+// you rename a boss or add/move a chapter HERE, update VILLAGE_BOSSES there.
+export { storyAiId, villageBiomeMap };
 
 const kageLiberatorTitles: Record<string, string> = {
     "Stormveil Village": "Stormbreaker",
@@ -42,17 +31,6 @@ const kageLiberatorTitles: Record<string, string> = {
     "Frostfang Village": "Oathbreaker",
     "Moonshadow Village": "Moon Unmasked",
 };
-
-export const villageBiomeMap: Record<string, Biome> = {
-    "Stormveil Village": "forest",
-    "Ashen Leaf Village": "volcano",
-    "Frostfang Village": "snow",
-    "Moonshadow Village": "shadow",
-};
-
-export function storyAiId(village: string, level: number) {
-    return `story-ai-${village.toLowerCase().replace(/\W+/g, "-")}-${level}`;
-}
 
 function storyPage(title: string, scene: string, speaker: string, dialogue: string[], leftName = speaker, rightName = "Player"): NonNullable<CreatorEvent["vnPages"]>[number] {
     return { title, scene, speaker, dialogue, leftName, rightName, choices: [] };
