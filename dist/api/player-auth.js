@@ -266,9 +266,10 @@ async function handler(req, res) {
         // only — once the auth record exists, the `existing` check below
         // refuses any further registration anyway.
         if (isReservedUsername(name)) {
-            const adminPassword = process.env.ADMIN_PASSWORD;
-            const adminPw = req.headers['x-admin-password'];
-            if (!adminPassword || !adminPw || !(0, _auth_js_1.safeEqual)(adminPw, adminPassword)) {
+            // Full-admin gate — accepts the admin session token (x-admin-token)
+            // or the reusable password (x-admin-password), same as every other
+            // full-admin endpoint.
+            if (!(0, _auth_js_1.isFullAdmin)(req)) {
                 return res.status(403).json({
                     ok: false,
                     error: 'This username is reserved. Ask an admin to register it.',
@@ -459,10 +460,9 @@ async function handler(req, res) {
     }
     if (action === 'delete') {
         // Delete the auth record when a player deletes their character.
-        // Must supply either valid player password or admin password.
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        const adminPw = req.headers['x-admin-password'];
-        if (adminPassword && adminPw && safeStringEqual(adminPw, adminPassword)) {
+        // Must supply either valid player password or admin authority (token or
+        // password).
+        if ((0, _auth_js_1.isFullAdmin)(req)) {
             try {
                 await (0, _lock_js_1.withKvLock)(key, async () => {
                     await (0, _auth_js_1.rotatePlayerSessionEpoch)(name);
@@ -502,9 +502,8 @@ async function handler(req, res) {
     }
     if (action === 'adminreset') {
         // Admin sets a player's password to a new value (e.g. for account recovery).
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        const adminPw = req.headers['x-admin-password'];
-        if (!adminPassword || !adminPw || !safeStringEqual(adminPw, adminPassword)) {
+        // Full-admin gate — accepts the admin session token or the password.
+        if (!(0, _auth_js_1.isFullAdmin)(req)) {
             return res.status(401).json({ ok: false, error: 'Admin authentication required.' });
         }
         if (!newPassword)

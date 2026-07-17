@@ -1,0 +1,59 @@
+import { petVisualId } from "../data/pet-evolutions";
+import type { Pet } from "../types/pet";
+import { approvedRosterCombatModel } from "./pet-3d-roster";
+
+export type PetCombatModelProfile = "quadruped" | "biped" | "avian" | "serpentine" | "heavy";
+
+export type PetCombatModelConfig = {
+    visualId: string;
+    url: string;
+    profile: PetCombatModelProfile;
+    targetHeight: number;
+    fit: "height" | "longest";
+    yawOffset: number;
+    outlineScale: number;
+};
+
+// Ember uses the efficient animated wolf as its anatomical base. Identity comes
+// from the authored ninja/element treatment in PetModel3D, not primitive spikes.
+const MODEL_URL_OVERRIDES: Readonly<Record<string, string>> = {
+    "starter-fire-r": "/pet-models/ember-wolf-rigged.gltf",
+    "starter-fire-l": "/pet-models/ember-wolf-rigged.gltf",
+};
+
+const MODEL_PROFILES: Readonly<Record<string, PetCombatModelProfile>> = {
+    "starter-fire-r": "quadruped",
+    "starter-fire-l": "quadruped",
+    "starter-water-r": "serpentine",
+    "starter-water-l": "serpentine",
+    "starter-wind-r": "avian",
+    "starter-wind-l": "avian",
+    "starter-lightning-r": "quadruped",
+    "starter-lightning-l": "quadruped",
+    "starter-earth-r": "heavy",
+    "starter-earth-l": "heavy",
+};
+
+export const PET_COMBAT_MODEL_IDS = Object.freeze(Object.keys(MODEL_PROFILES));
+
+/** Returns a live Coliseum model only for art that has passed the 3D asset gate.
+ * Every other pet intentionally falls back to the existing full-body standee. */
+export function petCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity">): PetCombatModelConfig | null {
+    const visualId = petVisualId(pet);
+    const profile = MODEL_PROFILES[visualId];
+    if (!profile) return approvedRosterCombatModel(pet as Pick<Pet, "id" | "name">);
+    const overrideUrl = MODEL_URL_OVERRIDES[visualId];
+    return {
+        visualId,
+        url: overrideUrl ?? `/pet-models/${visualId}.glb`,
+        profile,
+        targetHeight: overrideUrl ? (visualId.endsWith("-l") ? 3.55 : 3.3) : visualId.endsWith("-l") ? 2.6 : 2.35,
+        fit: overrideUrl || profile === "serpentine" ? "longest" : "height",
+        yawOffset: 0,
+        outlineScale: overrideUrl ? 1.018 : 1.026,
+    };
+}
+
+export function hasPetCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity">): boolean {
+    return petCombatModel(pet) !== null;
+}
