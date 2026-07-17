@@ -162,7 +162,7 @@ const tilecards_js_1 = __importDefault(require("./api/clan/war/tilecards.js"));
 const queue_js_2 = __importDefault(require("./api/card-clash/queue.js"));
 const match_js_1 = __importDefault(require("./api/card-clash/match.js"));
 const ai_start_js_1 = __importDefault(require("./api/card-clash/ai-start.js"));
-const ai_settle_js_1 = __importDefault(require("./api/card-clash/ai-settle.js"));
+const ai_move_js_1 = __importDefault(require("./api/card-clash/ai-move.js"));
 // Clan — seal pool
 const get_js_1 = __importDefault(require("./api/clan/seal-pool/get.js"));
 const donate_js_2 = __importDefault(require("./api/clan/seal-pool/donate.js"));
@@ -987,7 +987,7 @@ route('/clan/war/tilecards', tilecards_js_1.default);
 route('/card-clash/queue', queue_js_2.default);
 route('/card-clash/match', match_js_1.default);
 route('/card-clash/ai-start', ai_start_js_1.default);
-route('/card-clash/ai-settle', ai_settle_js_1.default);
+route('/card-clash/ai-move', ai_move_js_1.default);
 // ─── Clan: seal pool ───────────────────────────────────────────────────────────
 route('/clan/seal-pool/get', get_js_1.default);
 route('/clan/seal-pool/donate', donate_js_2.default);
