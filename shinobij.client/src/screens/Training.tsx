@@ -7,6 +7,7 @@
  */
 /* eslint-disable react-hooks/purity */
 import type React from "react";
+import { serverNow } from "../lib/server-clock";
 import { useState, useEffect, useRef } from "react";
 import "../styles/training-skin.css";
 import "../styles/hub-screens-skin.css";
@@ -118,7 +119,7 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         trainingBusyRef.current = true;
         setTrainingBusy(true);
         const totalMs = activeTraining.durationMs ?? timers.find((t) => activeTraining.label.startsWith(t.label))?.ms ?? 0;
-        const remaining = Math.max(0, activeTraining.endsAt - Date.now());
+        const remaining = Math.max(0, activeTraining.endsAt - serverNow());
         const progress = totalMs > 0 ? Math.min(1, Math.max(0, 1 - remaining / totalMs)) : 1;
         const proratedGain = Math.floor(activeTraining.statGain * progress);
         const proratedXp = Math.floor(activeTraining.xp * progress);
@@ -143,7 +144,7 @@ export function Training({ character, updateCharacter, activeTraining, setActive
     async function completeTraining() {
         if (trainingBusyRef.current) return;
         if (!activeTraining) return;
-        if (Date.now() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - Date.now()) / 1000)} seconds left.`);
+        if (serverNow() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - serverNow()) / 1000)} seconds left.`);
         trainingBusyRef.current = true;
         setTrainingBusy(true);
         try {
@@ -366,7 +367,7 @@ function JutsuSealPanel({
             const reductionMs = minutesReduced * 60 * 1000;
             setActiveJutsuTraining({
                 ...activeJutsuTraining,
-                endsAt: Math.max(Date.now(), activeJutsuTraining.endsAt - reductionMs),
+                endsAt: Math.max(serverNow(), activeJutsuTraining.endsAt - reductionMs),
             });
             updateCharacter(prev => prev ? ({ ...prev, honorSeals: Number(data.honorSealsRemaining) }) : prev);
             setMsg(`✅ -${minutesReduced} min (spent ${data.sealsSpent} Seals)`);
@@ -407,7 +408,7 @@ function JutsuSealPanel({
                             : "Select a jutsu to see Seal training cost."}
                     </span>
                 )}
-                {activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt && (
+                {activeJutsuTraining && serverNow() < activeJutsuTraining.endsAt && (
                     <>
                         <button onClick={() => void speedUp(1)} disabled={busy || balance < (hasDiscount ? 1 : 1)} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
                             {busy ? "…" : "−10 min (1 Seal)"}
@@ -512,8 +513,8 @@ export function JutsuTrainingHall({
     async function completePaidJutsuTraining() {
         if (!requireServerSettlement("timedJutsuTraining")) return;
         if (!activeJutsuTraining) return;
-        if (Date.now() < activeJutsuTraining.endsAt) {
-            alert(`Training still has ${formatTrainingTime(activeJutsuTraining.endsAt - Date.now())} left.`);
+        if (serverNow() < activeJutsuTraining.endsAt) {
+            alert(`Training still has ${formatTrainingTime(activeJutsuTraining.endsAt - serverNow())} left.`);
             return;
         }
 
@@ -543,7 +544,7 @@ export function JutsuTrainingHall({
     async function finishWithRyo() {
         if (!requireServerSettlement("timedJutsuTraining")) return;
         if (!activeJutsuTraining) return;
-        const remainingMs = activeJutsuTraining.endsAt - Date.now();
+        const remainingMs = activeJutsuTraining.endsAt - serverNow();
         if (remainingMs <= 0) return;
         const cost = jutsuRyoFinishCost(remainingMs);
         if (character.ryo < cost) return alert(`Not enough ryo. You need ${cost.toLocaleString()} ryo to finish instantly.`);

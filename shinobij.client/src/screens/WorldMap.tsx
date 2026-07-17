@@ -47,6 +47,8 @@ import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
 import { createPortal } from "react-dom";
 import { addItem, ownsItem } from "../lib/inventory";
 import { travelMaskMs } from "../lib/travel-mask";
+import { serverNow } from "../lib/server-clock";
+import { peerIsTraveling } from "../lib/presence-character";
 
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
@@ -706,7 +708,7 @@ export function WorldMap({
     }, [selectedSector, selfBounty, character.name, character.level, character.wandererCooldowns]);
     const courierWanderers = useMemo<Wanderer[]>(() => {
         const favor = character.activeWandererFavor;
-        if (!isWanderersEnabled() || selectedSector == null || !favor || favor.targetSector !== selectedSector || Date.now() > favor.expiresAt) return [];
+        if (!isWanderersEnabled() || selectedSector == null || !favor || favor.targetSector !== selectedSector || serverNow() > favor.expiresAt) return [];
         const home = interiorTileFromKey(`${favor.id}:${selectedSector}`);
         return [{
             id: `courier-${favor.id}`,
@@ -3697,7 +3699,7 @@ export function WorldMap({
                             ) : (
                                 sectorPlayers.map((player) => {
                                     const isSleeping = Boolean(player.__sleeping);
-                                    const isTravelingTarget = Boolean(player.travelingUntil && player.travelingUntil > Date.now());
+                                    const isTravelingTarget = peerIsTraveling(player);
                                     const isInBattleTarget = Boolean(player.inBattle);
                                     const targetUnavailable = isTravelingTarget || isInBattleTarget;
                                     const playerAvatarSrc = sharedImages['avatar:' + player.name.toLowerCase()] || (player.character.avatarImage as string) || "";

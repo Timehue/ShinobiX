@@ -13,6 +13,7 @@
  * persist* writers POST changes back.
  */
 import type { Biome, WeatherType } from "../types/core";
+import { serverNow } from "./server-clock";
 import type { Character, PlayerRecord } from "../types/character";
 import type { NoticePost } from "../types/clan";
 import { CW_DAMAGE } from "../constants/clan";
@@ -591,8 +592,8 @@ export function recordVillageWarPvp(winner: Character, loser: Character, sector?
     // No war damage during the pre-war pending window — the server
     // would reject the write anyway, but skipping client-side keeps
     // the UI quiet and saves a round-trip.
-    if (war.pendingUntil && war.pendingUntil > Date.now()) {
-        const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - Date.now()) / 60_000));
+    if (war.pendingUntil && war.pendingUntil > serverNow()) {
+        const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - serverNow()) / 60_000));
         return ` Village War starts in ${minsLeft} min — fight didn't count yet.`;
     }
     // Clan-size gate: clan-leadership titles only get the +20 tier
@@ -642,8 +643,8 @@ export function recordVillageWarRaid(character: Character, sector: number, roste
     if (!war || war.warGroundHp <= 0) return empty;
     // Pre-war pending window — server rejects damage writes anyway, so
     // bail early to avoid the noisy 409 in the console + UI.
-    if (war.pendingUntil && war.pendingUntil > Date.now()) {
-        const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - Date.now()) / 60_000));
+    if (war.pendingUntil && war.pendingUntil > serverNow()) {
+        const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - serverNow()) / 60_000));
         return { ...empty, note: ` Village War starts in ${minsLeft} min — raid didn't damage HP yet.` };
     }
     const enemyVillage = war.villages.find(village => village !== character.village);
