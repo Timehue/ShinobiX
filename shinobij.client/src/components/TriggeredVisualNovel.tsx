@@ -83,11 +83,17 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     }, [event.id, pageIndex, lineIndex, pendingChoice, showFinale]);
     const isAuraSphereEvent = event.id === AURA_SPHERE_VN_ID;
     const isStoryChapterEvent = event.id.startsWith("story-");
+    // Rift VNs (lib/hollow-rifts): the wandering giver's report and the
+    // at-the-rift scene. Accepting, descending and abandoning all leave the
+    // scene through onChoice, so the only choice that can reach the end of one
+    // is a decline — and a decline has no finale to show. It closes back to the
+    // sector instead (see advanceAfterChoice).
+    const isRiftEvent = event.id.startsWith("rift-giver-") || event.id.startsWith("rift-descend-");
     // Story interludes ("story-interlude-*") and road events ("story-road-*"):
     // VN-only story scenes — no free battle, no XP/ryo (road-event fights come
     // only from choices). The choice itself is the payoff, recorded server-side,
     // so the free-battle affordances are hidden and the finale copy changes.
-    const isStoryInterlude = event.id.startsWith("story-interlude-") || event.id.startsWith("story-road-") || event.id.startsWith("rift-giver-") || event.id.startsWith("rift-descend-");
+    const isStoryInterlude = event.id.startsWith("story-interlude-") || event.id.startsWith("story-road-") || isRiftEvent;
     // Post-finale ending epilogues ("story-epilogue-*", lib/story-epilogue.ts):
     // pure goodbye scenes — no battle, no reward, never re-offered.
     const isStoryEpilogue = event.id.startsWith("story-epilogue-");
@@ -113,7 +119,15 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     // scene concludes there (interludes end this way) instead of re-looping the
     // choice list forever.
     function advanceAfterChoice(target: number) {
-        if (target === pageIndex) { setShowFinale(true); return; }
+        if (target === pageIndex) {
+            // Turning a rift giver down ends the scene where the player was
+            // standing. The finale would promise a fight the rift never offers
+            // and claim a choice was recorded when saying no records nothing.
+            // The caller already holds the action lock, so complete directly.
+            if (isRiftEvent) { onComplete(); return; }
+            setShowFinale(true);
+            return;
+        }
         setPageIndex(target); setLineIndex(0);
     }
     function confirmPendingChoice() {
@@ -162,7 +176,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                 </p>
             </div>
             <div className="menu">
-                {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent ? (
+                {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude ? (
                     <>
                         <button className="admin-button" onClick={() => startBattle()}>
                             Enter Battle — {biomeLabel(event.biome)}
