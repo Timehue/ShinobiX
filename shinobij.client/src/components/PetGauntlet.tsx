@@ -22,7 +22,7 @@ import {
     GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, GAUNTLET_SHARD_COST, GAUNTLET_CHARM_COST, GAUNTLET_SPIKE_ROUND, itemCost,
     type GauntletRun, type GauntletBuffs,
 } from "../lib/pet-gauntlet";
-import { startGauntlet, reportGauntlet, type GauntletReward } from "../lib/pet-gauntlet-api";
+import { startGauntlet, reportGauntlet, type GauntletReward, type GauntletAction } from "../lib/pet-gauntlet-api";
 import { GAUNTLET_NEW_RUN_FEE, payGauntletNewRun } from "../lib/entry-fee";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-gauntlet-stats";
@@ -145,6 +145,12 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     const [meta, setMeta] = useState<{ token: string; weekKey: string; rewardEligible: boolean } | null>(null);
     const [reward, setReward] = useState<GauntletReward | null>(null);   // shown on the end screen
     const reportedRef = useRef(false);                                   // report the finished run exactly once
+    // The player's decision transcript (drafts / rerolls / items / relics / premium
+    // buys / per-fight placement), in order — replayed server-side to re-simulate the
+    // run. Fight outcomes are NOT recorded (the server re-fights each round). Reset on
+    // each new run; a run-changing action is recorded next to its setRun call.
+    const transcriptRef = useRef<GauntletAction[]>([]);
+    const record = (a: GauntletAction) => { transcriptRef.current.push(a); };
     const [shopOpen, setShopOpen] = useState(false);                     // the 🛒 relic bazaar overlay (opened on demand)
     // The active fight: the precomputed board result the board renderer plays.
     const [fight, setFight] = useState<{ result: BoardResult; key: number } | null>(null);
@@ -207,11 +213,12 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
             setFight(null);
             setReward(null);
             reportedRef.current = false;
-            // Fresh RANDOM seed every run → the recruit shop + enemy squads are
-            // randomized each time (not the same fixed weekly draw). The server
-            // token still gates rewards; the board leaderboard ranks by how far you
-            // clear (with run-to-run RNG, like any roguelike).
-            setRun(startGauntletRun(((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0x7fffffff) >>> 0));
+            transcriptRef.current = [];
+            // Seed the run with the SERVER-MINTED per-run seed so the server can
+            // replay it (the reward path is server-authoritative). Offline / no token
+            // → an unrewarded local random seed keeps the mode playable.
+            const seed = s?.seed ?? (((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0x7fffffff) >>> 0);
+            setRun(startGauntletRun(seed >>> 0));
         })();
         return () => { alive = false; };
     }, [nonce]);
@@ -224,12 +231,9 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         if (run.status !== "won" && run.status !== "lost") return;
         reportedRef.current = true;
         const { token } = meta;
-        const rc = run.roundsCleared;
-        const hl = run.hearts;
-        const shard = run.boughtFateShard;
-        const charm = run.boughtBoneCharm;
+        const transcript = transcriptRef.current;
         void (async () => {
-            const rep = await reportGauntlet(token, rc, hl, shard, charm);
+            const rep = await reportGauntlet(token, transcript);
             if (!rep) return;
             setReward(rep);
             // Mirror the SERVER-granted amounts onto the local character (reconcile).
@@ -290,7 +294,12 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         const enemy = enemySquadForRound(activeRun);
         if (!squad.length || !enemy.length) return;
         const playerUnits: GridUnit[] = squad.map((pet) => ({ pet, row: placement[pet.id]?.row ?? 2, col: placement[pet.id]?.col ?? 0 }));
-        const result = runPetGridBattle(playerUnits, enemyUnits(enemy), fightSeed(activeRun), { playerMods: boardModsFromRelics(activeRun.relics) });
+        // accuracy:false pins the fight deterministic so the server re-sim agrees
+        // regardless of the per-device accuracy flag.
+        const result = runPetGridBattle(playerUnits, enemyUnits(enemy), fightSeed(activeRun), { playerMods: boardModsFromRelics(activeRun.relics), accuracy: false });
+        // Record the fight with the placement used (parallel to the fielded order),
+        // so the server re-fights this round with the same positioning.
+        record({ k: "fight", place: playerUnits.map((u) => ({ row: u.row, col: u.col })) });
         setRun(beginFight(activeRun));
         setFight({ result, key: activeRun.round });
     }
@@ -474,7 +483,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                         } />
                                     </div>
                                     </div>
-                                    {selId && <div style={{ textAlign: "center", marginTop: 6 }}><button type="button" style={btn("#7f1d1d")} onClick={() => { setRun(releasePet(run, selId)); setSelId(null); }}>✕ Release selected</button></div>}
+                                    {selId && <div style={{ textAlign: "center", marginTop: 6 }}><button type="button" style={btn("#7f1d1d")} onClick={() => { record({ k: "release", id: selId }); setRun(releasePet(run, selId)); setSelId(null); }}>✕ Release selected</button></div>}
                                 </div>
                             )}
                     </div>
@@ -495,7 +504,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
                             <h4 style={{ margin: 0, color: "#e2e8f0" }}>Recruit Shop</h4>
-                            <button type="button" style={btn("#38bdf8", run.valor < rerollCost)} disabled={run.valor < rerollCost} onClick={() => setRun(rerollShop(run))}>
+                            <button type="button" style={btn("#38bdf8", run.valor < rerollCost)} disabled={run.valor < rerollCost} onClick={() => { record({ k: "reroll" }); setRun(rerollShop(run)); }}>
                                 🎲 Reroll ({rerollCost === 0 ? "free" : `${rerollCost}✦`})
                             </button>
                         </div>
@@ -513,7 +522,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                     const blocked = run.valor < cost || (rosterFull && !merges);
                                     return (
                                         <PetMiniCard key={`${offer.pet.id}-${i}`} pet={offer.pet} sharedImages={sharedImages} badge={merges ? `★${nextStar}` : undefined} footer={
-                                            <button type="button" style={btn(merges ? "#fcd34d" : "#4ade80", blocked)} disabled={blocked} onClick={() => setRun(buyOffer(run, i))}>
+                                            <button type="button" style={btn(merges ? "#fcd34d" : "#4ade80", blocked)} disabled={blocked} onClick={() => { record({ k: "buy", i }); setRun(buyOffer(run, i)); }}>
                                                 {merges ? `Merge ★${nextStar} · ${cost}✦` : rosterFull ? "Roster full" : `Recruit · ${cost}✦`}
                                             </button>
                                         } />
@@ -555,7 +564,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                             {def.max > 1 && <span style={{ fontSize: "0.64rem", color: "#64748b" }}>{owned}/{def.max}</span>}
                                         </div>
                                         <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{def.blurb}</p>
-                                        <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => setRun(buyItem(run, def.id))}>{label}</button>
+                                        <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => { record({ k: "item", id: def.id }); setRun(buyItem(run, def.id)); }}>{label}</button>
                                     </div>
                                 );
                             })}
@@ -584,7 +593,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                             {d.name}
                                         </strong>
                                         <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{d.blurb}</p>
-                                        <button type="button" style={btn("#a855f7", blocked)} disabled={blocked} onClick={() => setRun(buyRelic(run, id))}>Buy · {d.cost}✦</button>
+                                        <button type="button" style={btn("#a855f7", blocked)} disabled={blocked} onClick={() => { record({ k: "relic", id }); setRun(buyRelic(run, id)); }}>Buy · {d.cost}✦</button>
                                     </div>
                                 ); })}
                         </div>
@@ -606,7 +615,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                         <div key={p.kind} style={{ border: "1px solid #b45309", borderRadius: 10, background: "rgba(67,40,8,0.5)", padding: "8px 10px", width: 162 }}>
                                             <strong style={{ fontSize: "0.84rem", color: "#fde68a" }}>{p.icon} {p.name}</strong>
                                             <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>Bank 1 {p.name} to your account when the run ends.</p>
-                                            <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => setRun(buyPremium(run, p.kind))}>{p.bought ? "Queued ✓" : `Buy · ${p.cost}✦`}</button>
+                                            <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => { record({ k: "premium", kind: p.kind }); setRun(buyPremium(run, p.kind)); }}>{p.bought ? "Queued ✓" : `Buy · ${p.cost}✦`}</button>
                                         </div>
                                     );
                                 })}
