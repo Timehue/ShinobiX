@@ -46,6 +46,7 @@ import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { anbuInfiltrationEnabled } from "../lib/anbu-infiltration-api";
 import { createPortal } from "react-dom";
 import { addItem, ownsItem } from "../lib/inventory";
+import { travelMaskMs } from "../lib/travel-mask";
 
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
@@ -2064,7 +2065,7 @@ export function WorldMap({
                     body: JSON.stringify({ destinationSector: sector, ...request }),
                     signal: AbortSignal.timeout(12_000),
                 });
-                const data = await response.json().catch(() => null) as { arrivalAt?: number; arrivalTile?: number; error?: string } | null;
+                const data = await response.json().catch(() => null) as { arrivalAt?: number; travelMs?: number; arrivalTile?: number; error?: string } | null;
                 if (!response.ok || !data?.arrivalAt) {
                     setTravelToast({
                         id: Date.now(),
@@ -2073,9 +2074,12 @@ export function WorldMap({
                     });
                     return;
                 }
-                // Preserve the intentional three-second loading mask, but use the
-                // server-issued deadline so presence and attackability agree.
-                const arrivalAt = data.arrivalAt;
+                // Mask on the server's DURATION, rebased onto our clock — never on
+                // `data.arrivalAt - Date.now()`, which spans both machines' clocks and
+                // turns their drift into the timer (see lib/travel-mask). The server
+                // keeps its own absolute arrivalAt for the lease and attackability.
+                const travelMs = travelMaskMs(data.travelMs);
+                const arrivalAt = Date.now() + travelMs;
                 setPendingTravel({ destinationSector: sector, arrivalAt });
                 setTravelingUntil(arrivalAt);
                 setSelectedSector(null);
@@ -2084,7 +2088,7 @@ export function WorldMap({
                     arrive(data.arrivalTile);
                     setPendingTravel(null);
                     setTravelingUntil(0);
-                }, Math.max(0, arrivalAt - Date.now()));
+                }, travelMs);
             } catch {
                 setTravelToast({
                     id: Date.now(),

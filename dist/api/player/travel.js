@@ -15,6 +15,10 @@ const travel_lease_js_1 = require("../_realtime/travel-lease.js");
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
 // The server mints the timer so clients cannot claim an arbitrary destination
 // or a permanent untouchable window through presence frames.
+// `arrivalAt` is an absolute deadline on THIS clock, so it is only meaningful
+// to the server (lease, presence, attackability). Responses also carry the
+// duration, because a client that subtracts its own Date.now() from arrivalAt
+// turns any clock drift between the two machines into the mask it shows.
 exports.WORLD_TRAVEL_MS = 3_000;
 function isPlayableWorldSector(value) {
     return typeof value === 'number'
@@ -72,7 +76,7 @@ async function handler(req, res) {
         edgeOriginSector = exit.sector;
     }
     if (player.sector === destinationSector) {
-        return res.status(200).json({ ok: true, destinationSector, arrivalAt: Date.now(), arrivalTile });
+        return res.status(200).json({ ok: true, destinationSector, arrivalAt: Date.now(), travelMs: 0, arrivalTile });
     }
     const arrivalAt = Date.now() + exports.WORLD_TRAVEL_MS;
     const started = online_store_js_1.onlineStore.startTravel(identity.name, destinationSector, arrivalAt, edgeOriginSector, arrivalTile);
@@ -96,5 +100,5 @@ async function handler(req, res) {
         sector: started.sector,
         player: (0, presence_input_js_1.toPlayerRecord)(started),
     });
-    return res.status(200).json({ ok: true, destinationSector, arrivalAt, arrivalTile });
+    return res.status(200).json({ ok: true, destinationSector, arrivalAt, travelMs: exports.WORLD_TRAVEL_MS, arrivalTile });
 }
