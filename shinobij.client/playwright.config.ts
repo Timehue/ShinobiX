@@ -17,6 +17,14 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
         reducedMotion: 'reduce',
+        // Block the asset service worker (public/sw.js) during e2e. It caches only
+        // hashed /assets/ files in production, but once it controls the page,
+        // requests bypass Playwright's page.route() network stubs — on WebKit that
+        // let the stubbed /api/perf-beacon fall through to the backend-less preview
+        // server and 404, failing the runtime-failure assertions. These smoke tests
+        // exercise the landing/creator journey and rely on deterministic mocking,
+        // not SW behaviour, so disabling registration here is the standard fix.
+        serviceWorkers: 'block',
     },
     webServer: {
         command: 'npm run preview -- --host 127.0.0.1 --port 4173',
