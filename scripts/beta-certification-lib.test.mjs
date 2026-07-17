@@ -6,7 +6,7 @@ import { betaCertificationEvidencePath, REQUIRED_JOURNEY_STEPS, REQUIRED_SAFETY_
 const valid = () => ({
   schemaVersion: 'shinobix.beta-certification.v1',
   environment: { kind: 'staging' },
-  deployment: { commit: 'abcdef123456', saveStore: 'remote-proxy' },
+  deployment: { commit: 'abcdef123456', saveStore: 'base-store' },
   account: { dedicatedTestRecord: true, marker: 'beta-cert-20260714-a', cleanupStatus: 'deleted' },
   steps: REQUIRED_JOURNEY_STEPS.map((id) => ({ id, status: 'pass', ...(['first-save', 'first-reward'].includes(id) ? { requestId: `req-${id}` } : {}) })),
   safetyChecks: REQUIRED_SAFETY_CHECKS.map((id) => ({ id, status: 'pass' })),

@@ -715,10 +715,11 @@ async function runDbHealthProbe(): Promise<{
 }> {
     const checks: Record<string, boolean> = {};
     const t0 = Date.now();
-    // Which backend `save:*` resolves to. 'base-store' on a host that serves
-    // /api/save/* means the disk overlay is misconfigured and saves are being
-    // read/written against the wrong (empty) store — see REQUIRE_DISK_OVERLAY
-    // in api/_storage.ts. Surfacing it here lets an operator catch that instantly.
+    // Which backend `save:*` resolves to. Since the cPanel overlay retirement
+    // (2026-07-17) 'base-store' is the EXPECTED production value; a
+    // 'disk'/'remote-proxy' value means the rollback overlay was deliberately
+    // re-enabled (docs/RETIRE_CPANEL_RUNBOOK.md). Surfaced so release health
+    // can gate on EXPECTED_SAVE_STORE and an operator can spot a drifted env.
     let saveStore: string | undefined;
     try {
         const { kv, saveStoreKind } = await import('./api/_storage.js');
@@ -747,9 +748,13 @@ async function runDbHealthProbe(): Promise<{
         checks.hdel = true;
         await kv.del(hashKey).catch(() => undefined);
 
-        // Disk-routed overlay (the `save:<player>` reads missions depend on).
+        // A `save:`-prefixed key — the exact path /api/save/* and missions read.
+        // Post-retirement this resolves to the base store like everything else
+        // (saveStore above says which); during a rollback it exercises the
+        // re-enabled overlay. The 60s TTL means a failed del can't leave a
+        // permanent probe row sitting next to real saves.
         const diskKey = `save:health-probe-${tag}`;
-        await kv.set(diskKey, { probe: token });
+        await kv.set(diskKey, { probe: token }, { ex: 60 });
         checks.diskWrite = true;
         const disk = await kv.get<{ probe?: string }>(diskKey);
         checks.diskRead = !!disk && disk.probe === token;
@@ -1358,9 +1363,29 @@ app.all(/^\/api(?:\/|$)/, (_req, res) => {
     res.status(404).json({ error: 'API route not found.' });
 });
 
+// The SPA fallback is the hottest static path (every deep link / client-route
+// navigation lands here), so serve index.html from memory instead of a
+// stat+open per request. The file only changes on deploy, and a deploy always
+// restarts the process on both hosts (Railway container swap; cPanel
+// auto-deploy restarts Passenger), so a boot-time-frozen copy can never go
+// stale. Lazily read on first hit — staticDir is env-dependent — and falls
+// back to sendFile if the read ever fails so a missing file still surfaces
+// through the normal error path.
+let _indexHtmlCache: Buffer | null = null;
 app.get(/(.*)/, (_req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
-    res.sendFile(join(staticDir, 'index.html'));
+    if (_indexHtmlCache) {
+        res.type('html').send(_indexHtmlCache);
+        return;
+    }
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const fs = require('node:fs') as typeof import('node:fs');
+        _indexHtmlCache = fs.readFileSync(join(staticDir, 'index.html'));
+        res.type('html').send(_indexHtmlCache);
+    } catch {
+        res.sendFile(join(staticDir, 'index.html'));
+    }
 });
 
 // ─── Error handler ────────────────────────────────────────────────────────────

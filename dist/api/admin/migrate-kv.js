@@ -3,6 +3,13 @@
  * Admin endpoint: migrate disk-routed keys from the base backend (Supabase /
  * Postgres) to the disk overlay (cPanel disk or remote proxy).
  *
+ * ‼ POST-RETIREMENT WARNING (2026-07-17): the base Postgres store is now the
+ * AUTHORITATIVE home of save:* — this endpoint MOVES saves off it (copy then
+ * delete-from-base). With no overlay configured it throws before touching
+ * data, so it is inert in the current topology; it exists solely as the
+ * forward-reconcile step of the documented rollback
+ * (docs/RETIRE_CPANEL_RUNBOOK.md). Do not run it outside that runbook.
+ *
  * Routed prefixes (see _DISK_PREFIXES in _storage.ts):
  *   - save:*
  *   - shared:images*

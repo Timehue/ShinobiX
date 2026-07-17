@@ -31,6 +31,7 @@ import { STARTER_EVOLUTIONS } from "../data/pet-evolutions";
 import { isWildSpawnable } from "../lib/pet-balance";
 import { PRIMARY_SUBROLE, type PetRole } from "../lib/pet-roles";
 import { storylines } from "../data/storylines";
+import { storyToCreatorEvent } from "../lib/story-trigger";
 import { starterItems } from "../data/starter-items";
 import { aiHpForLevel, aiStatsForLevel } from "../lib/ai-stats";
 import { addToAllStats, baseStats, capStat, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel, reconcileCharacterStatBudget } from "../lib/stats";
@@ -68,15 +69,11 @@ import {
     defaultAncientChestVn,
     defaultPetEncounterVn,
     getAllJutsus,
-    loadVillageLeadershipImages,
-    normalizeVillageLeadershipImages,
-    saveVillageLeadershipImages,
-    storyToCreatorEvent,
     stringifyServerSavePayload,
-    villageLeadership,
     type CreatorEvent,
-    type VillageLeadershipImages,
 } from "../App";
+import { loadVillageLeadershipImages, saveVillageLeadershipImages } from "../lib/village-leadership-images";
+import { normalizeVillageLeadershipImages, villageLeadership, type VillageLeadershipImages } from "../data/village-leadership";
 import { HOLLOW_GATE_MAX_FLOOR, setHollowGateMaxFloor } from "../constants/game";
 import { persistSharedGameState, setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
 

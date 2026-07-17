@@ -7,6 +7,13 @@
       "runtimeArgs": ["/c", "set DEV_SERVER_PORT=%PORT%&& set VITE_SKIP_HTTPS=1&& npm run dev --prefix shinobij.client"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "prod-server",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set PORT=%PORT%&& set DISABLE_REALTIME=1&& set DISABLE_SNAPSHOT_CRON=1&& node dist/server.js"],
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }
