@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect, useRef } from "react";
+import { serverNow } from "../lib/server-clock";
 import "../styles/pet-skin.css";
 import type { Character } from "../types/character";
 import type { Pet, PetExpeditionType, PetTrainingType } from "../types/pet";
@@ -86,7 +87,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     }
 
     useEffect(() => {
-        const hasActivePetTimer = character.pets.some((p) => (p.training && Date.now() < p.training.endsAt) || Boolean(p.expedition));
+        const hasActivePetTimer = character.pets.some((p) => (p.training && serverNow() < p.training.endsAt) || Boolean(p.expedition));
         if (!hasActivePetTimer) return;
         const id = setInterval(() => setTick((t) => t + 1), 1000);
         return () => clearInterval(id);
@@ -109,7 +110,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
-        if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
+        if (selectedPet.training && serverNow() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
         // Training builds stats through the level-ups it fuels, so a max-level pet
         // can't grow further — block it here (and the preview shows "Maxed").
         if (selectedPet.level >= selectedPet.maxLevel) return alert(`${petDisplayName(selectedPet)} is fully trained (Level ${selectedPet.maxLevel}).`);
@@ -163,7 +164,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     async function startExpedition() {
         if (!selectedPet) return;
         if (selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL) return alert(`${petDisplayName(selectedPet)} must reach Level ${PET_EXPEDITION_UNLOCK_LEVEL} before going on expeditions.`);
-        if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is training right now.`);
+        if (selectedPet.training && serverNow() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is training right now.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is already exploring.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         const option = petExpeditionOptions.find(entry => entry.type === expeditionType) ?? petExpeditionOptions[0];
@@ -211,7 +212,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
     async function collectExpedition() {
         if (expeditionBusyRef.current) return;
         if (!selectedPet?.expedition) return;
-        if (Date.now() < selectedPet.expedition.endsAt)
+        if (serverNow() < selectedPet.expedition.endsAt)
             return alert(`${petDisplayName(selectedPet)} returns in ${formatPetTimer(selectedPet.expedition.endsAt - Date.now())}.`);
 
         const expType = selectedPet.expedition.type;
@@ -345,7 +346,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         if (petTrainingBusyRef.current) return;
         if (!requireServerSettlement("petTraining")) return;
         if (!selectedPet?.training) return;
-        if (Date.now() < selectedPet.training.endsAt) {
+        if (serverNow() < selectedPet.training.endsAt) {
             return alert(`${selectedPet.name} needs ${formatPetTimer(selectedPet.training.endsAt - Date.now())} more.`);
         }
         // -10% pet training XP while the village is "demoralized" from a war loss,
@@ -673,12 +674,12 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                         {pet.trait && <span className="pet-trait-tag">{pet.trait}</span>}
                                         {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
                                         {character.activePetId2v2 === pet.id && <span className="pet-2v2-tag">2v2</span>}
-                                        {pet.expedition && Date.now() < pet.expedition.endsAt && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>}
-                                        {pet.expedition && Date.now() >= pet.expedition.endsAt && <span className="pet-ready-tag" onClick={(e) => { e.stopPropagation(); setSelectedPetId(pet.id); }}>🎁 Claim</span>}
-                                        {pet.training && Date.now() < pet.training.endsAt && (
+                                        {pet.expedition && serverNow() < pet.expedition.endsAt && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - serverNow())}</span>}
+                                        {pet.expedition && serverNow() >= pet.expedition.endsAt && <span className="pet-ready-tag" onClick={(e) => { e.stopPropagation(); setSelectedPetId(pet.id); }}>🎁 Claim</span>}
+                                        {pet.training && serverNow() < pet.training.endsAt && (
                                             <span className="pet-training-tag">⏳ {formatPetTimer(pet.training.endsAt - Date.now())}</span>
                                         )}
-                                        {pet.training && Date.now() >= pet.training.endsAt && (
+                                        {pet.training && serverNow() >= pet.training.endsAt && (
                                             <span className="pet-ready-tag">✅ Ready</span>
                                         )}
                                     </>
@@ -1017,7 +1018,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                     )}
                                 </div>
                             )}
-                            {selectedPet.training && Date.now() < selectedPet.training.endsAt ? (
+                            {selectedPet.training && serverNow() < selectedPet.training.endsAt ? (
                                 <div className="training-in-progress">
                                     <p>⏳ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label}</p>
                                     <p className="training-timer">{formatPetTimer(selectedPet.training.endsAt - Date.now())} remaining</p>
@@ -1060,7 +1061,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
 
                         <div className="pet-training-panel">
                             <h4>Expedition</h4>
-                            {selectedPet.expedition && Date.now() < selectedPet.expedition.endsAt ? (
+                            {selectedPet.expedition && serverNow() < selectedPet.expedition.endsAt ? (
                                 <div className="training-in-progress">
                                     <p>Exploring Badge Active</p>
                                     <p className="training-timer">{formatPetTimer(selectedPet.expedition.endsAt - Date.now())} remaining</p>

@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useCallback } from "react";
+import { serverNow } from "../lib/server-clock";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import { GiCrossedSwords, GiScrollUnfurled, GiTrophy, GiEyeball, GiBlackFlag } from "react-icons/gi";
 const VW_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -284,9 +285,9 @@ export function VillageWarScreen({
                     <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
                         <div style={{ fontWeight: 700, color: "#f87171", fontSize: "1.1rem" }}>{myVillage} vs {enemyVillage}</div>
                         <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Started {new Date(activeWar.startedAt).toLocaleDateString()}</div>
-                        {activeWar.pendingUntil && activeWar.pendingUntil > Date.now() && (
+                        {activeWar.pendingUntil && activeWar.pendingUntil > serverNow() && (
                             <div style={{ marginTop: 8, padding: "0.5rem 0.7rem", background: "linear-gradient(#3b2a05, #1f1402)", border: "1px solid #fbbf24", borderRadius: 6 }}>
-                                <strong style={{ color: "#fde047" }}>⏳ War starts in {Math.max(1, Math.ceil((activeWar.pendingUntil - Date.now()) / 60_000))} min</strong>
+                                <strong style={{ color: "#fde047" }}>⏳ War starts in {Math.max(1, Math.ceil((activeWar.pendingUntil - serverNow()) / 60_000))} min</strong>
                                 <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 0" }}>
                                     Pre-war window. No HP can drop, no PvP raid will count yet. Use this time to rally your village, queue guards, and gather pre-fight buffs.
                                 </p>
@@ -413,7 +414,7 @@ export function VillageWarScreen({
                                 const contribs = Object.values(w.contributions ?? {});
                                 const topA = contribs.filter(c => c.side === vA).sort((a, b) => b.damage - a.damage)[0];
                                 const topB = contribs.filter(c => c.side === vB).sort((a, b) => b.damage - a.damage)[0];
-                                const ageDays = Math.floor((Date.now() - w.startedAt) / (24 * 60 * 60 * 1000));
+                                const ageDays = Math.floor((serverNow() - w.startedAt) / (24 * 60 * 60 * 1000));
                                 return (
                                     <div key={w.id} style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.65rem" }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
