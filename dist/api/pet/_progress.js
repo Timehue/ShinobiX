@@ -68,16 +68,23 @@ function gainServerPetXp(pet, amountRaw, focus) {
  * settles an orphaned-but-finished session instead of trapping the pet), so the
  * reward is identical no matter which path collects it. The XP was sealed when
  * the session started, so paying it out here is exactly what the player earned —
- * no client-supplied value is ever trusted. The property is `delete`d (never
- * left as an explicit undefined value) so every storage adapter and the client
- * see an unambiguous idle pet.
+ * no client-supplied value is ever trusted.
+ *
+ * The cleared training is set to `undefined` (NOT `delete`d), matching how
+ * `settleServerPetExpedition` clears `expedition`. This is load-bearing: the
+ * versioned save is persisted through `mergePreservingImages`, which starts from
+ * the STORED record and only overrides keys the incoming payload actually
+ * contains. A `delete`d key is absent from the payload, so the stored training
+ * survives the merge and the claim silently reverts on the next read ("claimed
+ * but it came back"). An explicit `undefined` key IS in the payload, overrides
+ * the stored value, and then drops out on JSON serialization — an unambiguous
+ * idle pet that actually persists.
  */
 function settleFinishedTraining(pet, now) {
     const training = pet.training;
     if (!training || now < Number(training.endsAt))
         return { pet, settledFocus: null };
-    const idle = { ...pet };
-    delete idle.training;
+    const idle = { ...pet, training: undefined };
     const settled = gainServerPetXp(idle, Math.min(5000, Math.max(0, Number(training.sealedXp) || 0)), String(training.type ?? ''));
     if (training.type === 'bond')
         settled.happiness = Math.min(100, petHappiness(settled) + 5);
