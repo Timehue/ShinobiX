@@ -2,10 +2,10 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     cleanMiraaBet,
-    cleanMiraaOutcome,
     FATE_DICE_COST,
     FATE_DICE_DAILY_CAP,
-    miraaRyoDelta,
+    MIRAA_WIN_CHANCE,
+    resolveMiraaWager,
     rollFateDice,
 } from './_sunscar.js';
 
@@ -29,14 +29,28 @@ describe('_sunscar', () => {
         });
     });
 
-    it('sanitizes Miraa wagers and returns fixed deltas', () => {
+    it('sanitizes Miraa wagers to the allowed bet ladder', () => {
         assert.equal(cleanMiraaBet(100), 100);
         assert.equal(cleanMiraaBet(75), 0);
-        assert.equal(cleanMiraaOutcome('win'), 'win');
-        assert.equal(cleanMiraaOutcome('cheat'), null);
-        assert.equal(miraaRyoDelta(250, 'win'), 500);
-        assert.equal(miraaRyoDelta(250, 'loss'), -250);
-        assert.equal(miraaRyoDelta(250, 'forfeit'), -250);
-        assert.equal(miraaRyoDelta(250, 'draw'), 0);
+        assert.equal(cleanMiraaBet('500'), 500);
+        assert.equal(cleanMiraaBet(-50), 0);
+    });
+
+    it('pins the owner-approved Miraa win chance', () => {
+        assert.equal(MIRAA_WIN_CHANCE, 0.4);
+    });
+
+    it('server-rolls Miraa from the sealed bet — never a client outcome', () => {
+        // rand() < 0.4 → WIN: pays 2×stake back (net +bet vs. the escrow taken at
+        // start), right up to the boundary.
+        assert.deepEqual(resolveMiraaWager(250, false, () => 0.1), { outcome: 'win', credit: 500 });
+        assert.deepEqual(resolveMiraaWager(250, false, () => 0.39999), { outcome: 'win', credit: 500 });
+        // rand() >= 0.4 → LOSS: no credit, the escrowed stake is kept (net −bet).
+        assert.deepEqual(resolveMiraaWager(250, false, () => 0.4), { outcome: 'loss', credit: 0 });
+        assert.deepEqual(resolveMiraaWager(250, false, () => 0.9), { outcome: 'loss', credit: 0 });
+        // Forfeit (left mid-match) is an automatic loss with no roll.
+        assert.deepEqual(resolveMiraaWager(250, true, () => 0.0), { outcome: 'forfeit', credit: 0 });
+        // Invalid bets never pay.
+        assert.deepEqual(resolveMiraaWager(75, false, () => 0.0), { outcome: 'loss', credit: 0 });
     });
 });

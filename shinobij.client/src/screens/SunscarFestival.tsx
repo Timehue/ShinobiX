@@ -10,7 +10,7 @@ import { FestivalPortrait } from "../components/Pills";
 import { effectiveCharacterXpGain } from "../lib/progression";
 import { CardClashDuel } from "./CardClashDuel";
 import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from "../lib/black-market";
-import { FATE_DICE_GLYPHS, rollFateDice, settleMiraaWager, type MiraaOutcome } from "../lib/sunscar-festival";
+import { FATE_DICE_GLYPHS, rollFateDice, startMiraaWager, reportMiraaWager } from "../lib/sunscar-festival";
 import { BlackMarketCrate } from "../components/BlackMarketCrate";
 import festBg from "../assets/festival/fest-bg.webp";
 import kaelArt from "../assets/festival/fest-kael.webp";
@@ -31,12 +31,36 @@ export function SunscarFestival({
         "Kael the Sand Dealer watches you from beneath a gold mask."
     );
 
-    // -- Card Duel state — Miraa now plays Shinobi Card Clash for a ryo wager --
+    // -- Card Duel state — Miraa plays Shinobi Card Clash as the wager's theatre --
+    // The stake is escrowed server-side at "bet" (miraa-start → duelToken); the
+    // ryo outcome is server-rolled at settle (reportMiraaWager), never decided by
+    // the client card result. The match is the show; the fates decide the purse.
     type DuelPhase = "idle" | "bet" | "playing";
     const [duelPhase, setDuelPhase] = useState<DuelPhase>("idle");
     const [duelBet, setDuelBet] = useState(0);
+    const [duelToken, setDuelToken] = useState<string | null>(null);
+    const miraaBusyRef = useRef(false);
     const kaelImage = kaelArt;
     const miraaImage = miraaArt;
+
+    // Open a wager: escrow the stake + mint a settle token before the match.
+    async function beginMiraaWager(amount: number) {
+        if (miraaBusyRef.current) return;
+        miraaBusyRef.current = true;
+        try {
+            const res = await startMiraaWager(character.name, amount);
+            if (!res.ok || !res.token || !res.character) {
+                setFestivalLog(`Miraa: ${res.error ?? "The wager won't hold. Try again."}`);
+                return;
+            }
+            updateCharacter(res.character); // reflect the escrowed stake immediately
+            setDuelBet(amount);
+            setDuelToken(res.token);
+            setDuelPhase("playing");
+        } finally {
+            miraaBusyRef.current = false;
+        }
+    }
 
     // -- Black Market gamble (server-authoritative ryo sink) --
     const [bmBusy, setBmBusy] = useState(false);
@@ -107,13 +131,14 @@ export function SunscarFestival({
             <div className="card" style={{ maxWidth: 480, margin: "0 auto" }}>
                 <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.4rem" }}>🔮</div>
                 <h2 style={{ textAlign: "center", marginBottom: "0.2rem" }}>Miraa the Card Seer</h2>
-                <p style={{ color: "#aaa", textAlign: "center", marginBottom: "1rem" }}>"Place your wager and we shall clash. The winner takes the pot."</p>
+                <p style={{ color: "#aaa", textAlign: "center", marginBottom: "0.6rem" }}>"The cards are a mirror of fate, not skill. Lay down your ryo — fortune favors the few."</p>
+                <p style={{ color: "#7a6", textAlign: "center", fontSize: "0.85rem", marginBottom: "1rem" }}>Your stake is placed when you sit down. Most who wager walk away lighter — win, and the pot doubles.</p>
                 <p style={{ marginBottom: "0.8rem" }}>Your ryo: <strong>{character.ryo}</strong></p>
                 <div className="menu" style={{ flexDirection: "column", gap: "0.5rem" }}>
                     {[50, 100, 250, 500].map((amount) => (
                         <button key={amount}
                             disabled={character.ryo < amount}
-                            onClick={() => { setDuelBet(amount); setDuelPhase("playing"); }}>
+                            onClick={() => void beginMiraaWager(amount)}>
                             Bet {amount} ryo — win {amount * 2} ryo
                         </button>
                     ))}
@@ -124,26 +149,39 @@ export function SunscarFestival({
     }
 
     if (duelPhase === "playing") {
-        const settle = async (outcome: MiraaOutcome, log: string) => {
-            const res = await settleMiraaWager(character.name, duelBet, outcome);
+        // Settle the escrowed wager. A played-out match (win/lose/draw on the
+        // board) rolls the fates server-side; leaving mid-match forfeits the stake.
+        // The board result never decides the ryo — only the server roll does.
+        const settle = async (forfeit: boolean) => {
+            const token = duelToken;
+            setDuelPhase("idle");
+            setDuelToken(null);
+            if (!token) {
+                setFestivalLog("Miraa: that wager was already settled.");
+                return;
+            }
+            const res = await reportMiraaWager(character.name, token, forfeit);
             if (!res.ok || !res.character) {
-                setFestivalLog(`Miraa: ${res.error ?? "The wager slips into the sand. Try again."}`);
-                setDuelPhase("idle");
+                setFestivalLog(`Miraa: ${res.error ?? "The verdict slips into the sand. Refresh before retrying."}`);
                 return;
             }
             updateCharacter(res.character);
+            const bet = res.bet ?? duelBet;
+            const log =
+                res.outcome === "win" ? `"The fates read in your favor." You win ${bet * 2} ryo.`
+                : res.outcome === "forfeit" ? `"You fold — the wager is mine." You forfeit ${bet} ryo.`
+                : `"The desert claims its due." You lose ${bet} ryo.`;
             setFestivalLog(`Miraa: ${log}`);
-            setDuelPhase("idle");
         };
         return (
             <CardClashDuel
                 character={character}
                 creatorCards={creatorCards}
                 tileDifficulty="normal"
-                onDungeonWin={() => void settle("win", `"You read the sands well." You win ${duelBet * 2} ryo.`)}
-                onDungeonLose={() => void settle("loss", `"The desert claims the weak." You lose ${duelBet} ryo.`)}
-                onDungeonDraw={() => void settle("draw", `"Even fate blinks." A draw — your ${duelBet} ryo is returned.`)}
-                onDungeonLeave={() => void settle("forfeit", `"You fold — the wager is mine." You forfeit ${duelBet} ryo.`)}
+                onDungeonWin={() => void settle(false)}
+                onDungeonLose={() => void settle(false)}
+                onDungeonDraw={() => void settle(false)}
+                onDungeonLeave={() => void settle(true)}
             />
         );
     }
@@ -199,7 +237,7 @@ export function SunscarFestival({
                     <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
                         "The cards remember every shinobi who has sat across from me. Most don't return."
                     </p>
-                    <p style={{ marginBottom: "0.5rem" }}>Challenge Miraa to <strong>Shinobi Card Clash</strong>. Bet ryo — winner takes double.</p>
+                    <p style={{ marginBottom: "0.5rem" }}>Sit for a game of <strong>Shinobi Card Clash</strong> and wager on the fates. Win, and the pot doubles.</p>
                     <button onClick={() => setDuelPhase("bet")} style={{ marginTop: "0.5rem" }}>Challenge Miraa</button>
                 </section>
 
