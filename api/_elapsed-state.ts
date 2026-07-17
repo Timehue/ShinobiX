@@ -1,6 +1,7 @@
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { mergePreservingImages, safeName } from './_utils.js';
+import { hollowGateRunKey } from './hollow-gate/_run-token.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 
 const AURA_SPHERE_ITEM_ID = 'aura-sphere';
@@ -14,6 +15,7 @@ export type SettleResult<T extends SaveRecord = SaveRecord> = {
     changed: boolean;
     vitalsChanged: boolean;
     travelChanged: boolean;
+    hollowGateRunCleared: boolean;
 };
 
 function num(value: unknown, fallback = 0): number {
@@ -57,6 +59,18 @@ function hasActiveHollowGateRun(character: Record<string, unknown>): boolean {
     return Boolean(run && typeof run === 'object' && !(run as Record<string, unknown>).completed);
 }
 
+/** The server run token a persisted dive is bound to, if any. A run without one
+ *  predates the server-authoritative loop; its liveness is unknowable from KV, so
+ *  the self-heal below leaves it alone. */
+export function hollowGateRunTokenOf(record: SaveRecord): string | null {
+    const char = record.character;
+    if (!char || typeof char !== 'object') return null;
+    const run = (char as Record<string, unknown>).hollowGateRun;
+    if (!run || typeof run !== 'object') return null;
+    const token = (run as Record<string, unknown>).runToken;
+    return typeof token === 'string' && token ? token : null;
+}
+
 function hasEquippedAuraSphere(character: Record<string, unknown>): boolean {
     const equipment = character.equipment;
     if (!equipment || typeof equipment !== 'object') return false;
@@ -91,7 +105,7 @@ function regenVital(character: Record<string, unknown>, key: 'hp' | 'chakra' | '
 
 export function settleSaveRecord<T extends SaveRecord>(
     record: T,
-    opts: { now?: number; battleLocked?: boolean } = {},
+    opts: { now?: number; battleLocked?: boolean; hollowGateRunExpired?: boolean } = {},
 ): SettleResult<T> {
     const now = Math.max(0, Math.floor(opts.now ?? Date.now()));
     const battleLocked = Boolean(opts.battleLocked);
@@ -99,10 +113,38 @@ export function settleSaveRecord<T extends SaveRecord>(
     let changed = false;
     let vitalsChanged = false;
     let travelChanged = false;
+    let hollowGateRunCleared = false;
 
-    const char = record.character && typeof record.character === 'object'
+    let char = record.character && typeof record.character === 'object'
         ? record.character as Record<string, unknown>
         : null;
+
+    // ─── Expired Hollow Gate run self-heal ────────────────────────────────────
+    // The shrine is deliberately no-retreat (lib/screen-guards.ts) and the run
+    // lives on the SAVE, so once the server token lapses the player is restored
+    // into a gate where every action 409s — a permanent trap that previously
+    // needed a manual Postgres edit to undo. Dropping the dead run here is the
+    // backstop that frees them on the next read even if their client never
+    // manages to post the clear.
+    //
+    // This grants nothing: an expired token can no longer settle, and the in-run
+    // haul was never credited (the HG currencies are server-ledger fields that
+    // sanitizeCharacterSave freezes for generic saves), so there is nothing to
+    // pay out or claw back — only the dead run pointer goes away.
+    //
+    // `= undefined`, NEVER `delete`: settleSaveRecordForRead persists through
+    // mergePreservingImages, which seeds from the STORED record and only
+    // overrides keys present on the incoming one. A deleted key is absent, so the
+    // stored run would be resurrected right back onto the save; an explicit
+    // undefined is an own key that overrides, and JSON drops it on write.
+    if (char && opts.hollowGateRunExpired && char.hollowGateRun != null) {
+        next = cloneRecord(record);
+        char = cloneCharacter(char);
+        char.hollowGateRun = undefined;
+        (next as Record<string, unknown>).character = char;
+        changed = true;
+        hollowGateRunCleared = true;
+    }
 
     const travel = pendingTravelFrom(record.pendingTravel);
     if (travel && now >= travel.arrivalAt) {
@@ -144,7 +186,7 @@ export function settleSaveRecord<T extends SaveRecord>(
         }
     }
 
-    return { record: next, changed, vitalsChanged, travelChanged };
+    return { record: next, changed, vitalsChanged, travelChanged, hollowGateRunCleared };
 }
 
 export async function battleLockFlagsForPlayers(names: string[]): Promise<Map<string, boolean>> {
@@ -156,24 +198,52 @@ export async function battleLockFlagsForPlayers(names: string[]): Promise<Map<st
     return flags;
 }
 
+/** True when a persisted dive names a server run token that KV no longer holds —
+ *  i.e. the run was settled, lost, or its 24h TTL lapsed, and every endpoint will
+ *  now 409 it as expired. Costs one KV read, and only for a save that is actually
+ *  mid-dive: a player with no open run never pays for this probe. A token-less
+ *  legacy run returns false (unknowable — left for the player to walk out of). */
+export async function hollowGateRunExpiredFor<T extends SaveRecord>(slug: string, record: T): Promise<boolean> {
+    const token = hollowGateRunTokenOf(record);
+    if (!slug || !token) return false;
+    try {
+        return (await kv.get(hollowGateRunKey(slug, token))) == null;
+    } catch {
+        // Fail toward KEEPING the run: a KV blip is not evidence that a dive
+        // expired, and this read must never be the thing that voids a live one
+        // (or 500s the save GET of a player who is merely mid-dive).
+        return false;
+    }
+}
+
 export async function settleSaveRecordForRead<T extends SaveRecord>(
     playerName: string,
     record: T,
     opts: { persist?: boolean; now?: number } = {},
 ): Promise<SettleResult<T>> {
     const slug = safeName(playerName);
-    if (!slug) return { record, changed: false, vitalsChanged: false, travelChanged: false };
+    if (!slug) return { record, changed: false, vitalsChanged: false, travelChanged: false, hollowGateRunCleared: false };
     const now = Math.max(0, Math.floor(opts.now ?? Date.now()));
-    const lockFlags = await battleLockFlagsForPlayers([slug]);
-    const projected = settleSaveRecord(record, { now, battleLocked: lockFlags.get(slug) === true });
+    const [lockFlags, hollowGateRunExpired] = await Promise.all([
+        battleLockFlagsForPlayers([slug]),
+        hollowGateRunExpiredFor(slug, record),
+    ]);
+    const projected = settleSaveRecord(record, { now, battleLocked: lockFlags.get(slug) === true, hollowGateRunExpired });
     if (!opts.persist || !projected.changed) return projected;
 
     const saveKey = `save:${slug}`;
     const persisted = await withKvLock<SettleResult<T>>(saveKey, async () => {
         const fresh = await kv.get<T>(saveKey);
         if (!fresh) return projected;
-        const freshFlags = await battleLockFlagsForPlayers([slug]);
-        const next = settleSaveRecord(fresh, { now, battleLocked: freshFlags.get(slug) === true });
+        // Re-probe under the lock against the FRESH record: the run token it names
+        // may differ from the one we read outside the lock (a dive that just
+        // started, or a fresh run minted between the two reads). Re-deriving the
+        // flag here keeps a live run from being cleared by a stale observation.
+        const [freshFlags, freshExpired] = await Promise.all([
+            battleLockFlagsForPlayers([slug]),
+            hollowGateRunExpiredFor(slug, fresh),
+        ]);
+        const next = settleSaveRecord(fresh, { now, battleLocked: freshFlags.get(slug) === true, hollowGateRunExpired: freshExpired });
         if (!next.changed) return next;
         const versioned = bumpSaveVersion(next.record);
         await kv.set(saveKey, mergePreservingImages(versioned, fresh));

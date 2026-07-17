@@ -8,7 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { gainXp } from '../_xp-engine.js';
 import { readSession, settleConsumedItemsForMember } from '../towers/_tower-store.js';
-import type { HollowGateRunToken } from './_run-token.js';
+import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, type HollowGateRunToken } from './_run-token.js';
 import {
     hollowGateCombatBindingKey,
     hollowGatePostWinHp,
@@ -111,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!initialBinding || initialBinding.playerName !== playerName) return res.status(404).json({ error: 'Encounter not found.' });
         const receiptKey = `hg-combat-paid:${runId}`;
 
-        const runKey = `hg-run:${playerName}:${token}`;
+        const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
             const [run, binding, session, existingReceipt] = await Promise.all([
                 kv.get<HollowGateRunToken>(runKey),
@@ -138,7 +138,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (binding.status !== 'active' || binding.settledAt) {
                 return { status: 409, body: { error: 'The encounter is settled but its reward receipt is unavailable.' } };
             }
-            if (!run) return { status: 409, body: { error: 'The Hollow Gate run expired before settlement.' } };
+            if (!run) return { status: 409, body: { error: HOLLOW_GATE_RUN_EXPIRED_MESSAGES.combatSettle } };
             const validation = validateHollowGateCombatSession({ binding, session, activeEncounter: run.activeEncounter, playerName, token });
             if (!validation.ok) return { status: 409, body: { error: `Hollow Gate settlement rejected: ${validation.reason}.` } };
 
