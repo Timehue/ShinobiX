@@ -37,37 +37,62 @@ async function handler(req, res) {
             const pet = pets[index];
             let nextCharacter = character;
             let nextPet = pet;
+            // Set when this call paid out a finished training session (either the
+            // explicit collect, or the start-training self-heal below). Drives the
+            // Pet Tamer "trained a pet" mission credit + the client notice.
+            let settledTraining = null;
             if (action === 'start-training') {
                 const durationMs = Math.floor(Number(body.durationMs));
                 const focus = String(body.focus ?? '');
                 if (!_progress_js_1.PET_TRAINING_DURATIONS.has(durationMs) || !_progress_js_1.PET_TRAINING_FOCI.has(focus))
                     return { ok: false, status: 400, error: 'Invalid training plan.' };
-                // Finished training remains claimable until complete-training
-                // removes it. Do not let a second start overwrite that reward.
-                if (pet.expedition || pet.training)
-                    return { ok: false, status: 409, error: pet.training ? 'Collect the previous training before starting another.' : 'Pet is already busy.' };
-                if (Number(pet.level) >= Number(pet.maxLevel))
-                    return { ok: false, status: 409, error: 'Pet is fully trained.' };
-                const rank = Math.max(0, Math.min(10, Number(character.professionRank) || 0));
-                const speedPct = character.profession === 'petTamer' ? Math.min(50, 10 + rank + (0, _profession_mastery_js_1.masteryBonus)(character.profession, character.masterySpec, 'petTrainTimePct')) : 0;
-                const effectiveMs = Math.max(60_000, Math.floor(durationMs * Math.max(0.5, 1 - speedPct / 100)));
-                const mult = _progress_js_1.PET_TRAINING_DURATIONS.get(durationMs) * (pet.trait === 'Loyal' ? 1.5 : 1) * ((0, _progress_js_1.petHappiness)(pet) >= 80 ? 1.15 : (0, _progress_js_1.petHappiness)(pet) >= 50 ? 1.05 : 1);
-                const masteryXp = character.profession === 'petTamer' ? (0, _profession_mastery_js_1.masteryBonus)(character.profession, character.masterySpec, 'petTrainXpPct') : 0;
-                const sealedXp = Math.max(15, Math.round(45 * mult * (1 + masteryXp / 100) * (focus === 'bond' ? 1.35 : 1)));
-                nextPet = { ...pet, training: { type: focus, startedAt: now, endsAt: now + effectiveMs, durationMs, sealedXp } };
+                // An unclaimed expedition keeps its own collect flow (report-pet-event)
+                // and a sealed reward token, so it still blocks a fresh training.
+                if (pet.expedition)
+                    return { ok: false, status: 409, error: 'Pet is already busy.' };
+                // Self-heal an ORPHANED finished training. The client only offers
+                // "Collect" when ITS copy of pet.training is set; a dropped
+                // start-training response, a concurrent local-state overwrite, or a
+                // stale cached read can leave the client showing the idle "Start"
+                // form while the server still holds a finished, unclaimed session —
+                // which used to trap the pet forever (start was hard-blocked and no
+                // Collect button was ever shown, and at max level the Start control
+                // is disabled entirely). Settle it here instead, exactly as if the
+                // player had clicked Collect first, then continue. A still-RUNNING
+                // session is left untouched and still blocks — that's a valid lease.
+                const settle = (0, _progress_js_1.settleFinishedTraining)(pet, now);
+                if (pet.training && settle.settledFocus === null)
+                    return { ok: false, status: 409, error: 'Collect the previous training before starting another.' };
+                settledTraining = settle.settledFocus;
+                const workingPet = settle.pet;
+                if (Number(workingPet.level) >= Number(workingPet.maxLevel)) {
+                    // A genuinely maxed pet with nothing pending can't train. But if
+                    // settling the finished session just carried it to max level,
+                    // PERSIST that settle (which unsticks the pet) rather than
+                    // erroring — an error would roll the settle back and re-trap it.
+                    if (settle.settledFocus === null)
+                        return { ok: false, status: 409, error: 'Pet is fully trained.' };
+                    nextPet = workingPet;
+                }
+                else {
+                    const rank = Math.max(0, Math.min(10, Number(character.professionRank) || 0));
+                    const speedPct = character.profession === 'petTamer' ? Math.min(50, 10 + rank + (0, _profession_mastery_js_1.masteryBonus)(character.profession, character.masterySpec, 'petTrainTimePct')) : 0;
+                    const effectiveMs = Math.max(60_000, Math.floor(durationMs * Math.max(0.5, 1 - speedPct / 100)));
+                    const mult = _progress_js_1.PET_TRAINING_DURATIONS.get(durationMs) * (workingPet.trait === 'Loyal' ? 1.5 : 1) * ((0, _progress_js_1.petHappiness)(workingPet) >= 80 ? 1.15 : (0, _progress_js_1.petHappiness)(workingPet) >= 50 ? 1.05 : 1);
+                    const masteryXp = character.profession === 'petTamer' ? (0, _profession_mastery_js_1.masteryBonus)(character.profession, character.masterySpec, 'petTrainXpPct') : 0;
+                    const sealedXp = Math.max(15, Math.round(45 * mult * (1 + masteryXp / 100) * (focus === 'bond' ? 1.35 : 1)));
+                    nextPet = { ...workingPet, training: { type: focus, startedAt: now, endsAt: now + effectiveMs, durationMs, sealedXp } };
+                }
             }
             else if (action === 'complete-training') {
-                const training = pet.training;
-                if (!training || now < Number(training.endsAt))
+                // Same settle as the start-training self-heal — one implementation,
+                // so the reward is identical whether the player clicks Collect or
+                // the server heals an orphaned session.
+                const settle = (0, _progress_js_1.settleFinishedTraining)(pet, now);
+                if (settle.settledFocus === null)
                     return { ok: false, status: 409, error: 'Training is not complete.' };
-                // Remove the property rather than persisting `training:
-                // undefined`. That gives every storage adapter and the client an
-                // unambiguous idle pet, so the next session can start immediately.
-                const idlePet = { ...pet };
-                delete idlePet.training;
-                nextPet = (0, _progress_js_1.gainServerPetXp)(idlePet, Math.min(5000, Math.max(0, Number(training.sealedXp) || 0)), String(training.type ?? ''));
-                if (training.type === 'bond')
-                    nextPet.happiness = Math.min(100, (0, _progress_js_1.petHappiness)(nextPet) + 5);
+                settledTraining = settle.settledFocus;
+                nextPet = settle.pet;
             }
             else if (action === 'feed') {
                 const itemId = String(body.itemId ?? '');
@@ -135,12 +160,14 @@ async function handler(req, res) {
             else
                 return { ok: false, status: 400, error: 'Invalid pet action.' };
             const nextPets = pets.map((entry, i) => i === index ? nextPet : entry);
-            return { ok: true, character: { ...nextCharacter, pets: nextPets }, value: { action, pet: nextPet } };
+            return { ok: true, character: { ...nextCharacter, pets: nextPets }, value: { action, pet: nextPet, settledTraining } };
         });
         if (!result.ok)
             return res.status(result.status).json({ error: result.error });
         let missionsCompleted = [];
-        if (action === 'complete-training' && result.character.profession === 'petTamer') {
+        // A settled training earns Pet Tamer "trained a pet" credit whether it was
+        // collected explicitly OR healed during a start-training attempt.
+        if (Boolean(result.value.settledTraining) && result.character.profession === 'petTamer') {
             const missionResult = await (0, _progress_js_2.reportMissionEvent)({ playerName, profession: 'petTamer', kind: 'pet-tamer-pet-train' });
             missionsCompleted = missionResult.missionsCompleted;
         }
