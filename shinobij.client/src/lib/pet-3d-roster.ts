@@ -35,6 +35,18 @@ export const APPROVED_ROSTER_MODEL_IDS: ReadonlySet<string> = new Set([
     "mythic-5", "mythic-6", "mythic-7", "mythic-8", "mythic-9",
 ]);
 
+/**
+ * Roster GLBs were replaced in-place during the reconstruction/rigging pass.
+ * Drei's useGLTF cache is URL keyed, so a stable path can otherwise keep an
+ * early untextured or untrimmed candidate alive for the rest of the browser
+ * session. Bump this revision whenever the approved production GLBs change.
+ */
+export const ROSTER_MODEL_ASSET_REVISION = "20260717-color-trim-v1";
+
+function rosterModelUrl(id: string): string {
+    return `/pet-models/roster/${id}.glb?v=${ROSTER_MODEL_ASSET_REVISION}`;
+}
+
 // The three built-in Coliseum opponents predate the canonical 140-pet roster,
 // so their persistent ids do not have dedicated GLBs. Give each one the closest
 // approved species model instead of forcing every AI exhibition back to the
@@ -214,7 +226,7 @@ export function qaRosterCombatModel(pet: Pick<Pet, "id" | "name">): PetCombatMod
     const profile = ROSTER_MODEL_PROFILES[pet.id] ?? inferPet3dProfile(pet.name);
     return {
         visualId: pet.id,
-        url: `/pet-models/roster/${pet.id}.glb`,
+        url: rosterModelUrl(pet.id),
         profile,
         targetHeight: profile === "heavy" ? 2.65 : profile === "serpentine" ? 2.5 : profile === "avian" ? 2.4 : 2.35,
         fit: profile === "serpentine" ? "longest" : "height",
