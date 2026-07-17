@@ -50,6 +50,11 @@ before(async () => {
         return 'OK';
     };
     kv.del = async (...ks: string[]) => ks.reduce((n, k) => n + (store.delete(k) ? 1 : 0), 0);
+    kv.delIfEqual = async (k: string, expected: string) => {
+        if (store.get(k) !== expected) return false;
+        store.delete(k);
+        return true;
+    };
     aiStart = (await import('./ai-start.js')).default as unknown as Handler;
     aiMove = (await import('./ai-move.js')).default as unknown as Handler;
 });

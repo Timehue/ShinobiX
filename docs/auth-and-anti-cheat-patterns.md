@@ -131,3 +131,139 @@ token deletion for exactly-once semantics.
 - [ ] **Register the new endpoint in `server.ts`** (cPanel parity) and confirm
       the client call path matches the handler file path (Vercel parity).
 - [ ] `npm test` (repo root) + `npm run lint` (`shinobij.client/`).
+
+---
+
+## 5. Fable-5 security-hardening pass (2026-07-17)
+
+### 5.1 PvP base-reward authorization (`api/pvp/session.ts`, `claim-rewards.ts`)
+
+A non-admin browser must never decide that a battle is reward-bearing or invent a
+reward-bearing NPC. `sealBaseRewardStamp()` (exported, unit-tested) owns the
+decision at session creation:
+
+- **`baseRewards` is honored only when BOTH fighters resolve to authoritative
+  saves** (real players), or the creator is admin. A fabricated no-save NPC
+  opponent — "mint ryo vs a bot you invented" — no longer opts a session into
+  base rewards. Every legitimate base-reward flow is player-vs-real-player
+  (challenge accept, sector raid vs a real defender); save-less AI guards take a
+  separate client `raidAi` path that never sets `baseRewards`.
+- **A non-admin cannot self-assign the Death's Gate (sector 99) 2× multiplier.**
+  The 2× is honored only when the server confirms from **presence** that BOTH
+  fighters are at sector 99. An attacker controls only their own presence, so the
+  opponent being at 99 (which they cannot fake) is what gates the bonus — it
+  applies only to a genuine Death's Gate fight, and an unverified claimed `99` is
+  neutralized to `0`. (The home-terrain buff reads the raw body sector and is
+  separately gated on server-verified territory ownership.)
+- **Fail-closed and not silent:** a denied base-reward request runs the fight but
+  grants no base rewards and logs a `[pvp/session] base-reward request denied`
+  marker.
+- **Settlement re-verifies independently** (`settleBaseForWinner`): base ryo/XP is
+  paid only when the LOSER has an authoritative save at the money-moving step —
+  session creation is not the only enforcement point. A pre-gate legacy session or
+  a no-save loser never pays out.
+
+### 5.2 Non-owner save projection is an explicit allowlist (`api/save/[name].ts`)
+
+Foreign player-save reads go through `buildPublicSaveDTO()` — an explicit **root +
+character allowlist**, private by default. The old projection allowlisted
+`character` but spread the entire top-level save, leaking `savedBloodlines`,
+`creator*`, `activeTraining`, `missionProgress`, `currentSector`,
+`triggeredEvents`, `_saveVersion`, and any field added later. Now:
+
+- Base foreign read → `{ character: <PUBLIC_CHAR_FIELDS> }` only.
+- `?combatOnly=1` additionally exposes `savedBloodlines / creatorJutsus /
+  creatorItems` (the minimal scouting surface the client's `fetchPlayerCombatSave`
+  consumes). PvP itself re-hydrates the opponent's loadout server-side, so nothing
+  private is required by foreign clients.
+- A newly added top-level or character field is **private until explicitly
+  listed** — enforced by `_public-save-dto.test.ts` (sentinel-secret contract).
+
+### 5.3 Lock release is an atomic compare-and-delete (`api/_lock.ts`, `_storage.ts`)
+
+`KvLike.delIfEqual(key, expected)` deletes a key only if its stored value still
+equals the caller's token, in one row-locked statement (`DELETE … WHERE key=$1 AND
+value=$2::jsonb`). Lock release now uses it instead of a `get`-then-`del`, which
+raced: between the read and the delete the short-TTL lock could expire and a NEW
+holder re-acquire it, and the stale holder would delete the new holder's lock.
+`api/pvp/move.ts` releases its per-move lock the same way. Fails safe — a backend
+that cannot match the value deletes nothing (the lock lingers to its TTL), never
+another holder's lock.
+
+### 5.4 Route-specific body limits (`server.ts`, `api/_body-limits.ts`)
+
+`classifyBodyLimit()` scopes the 50 MB JSON parser to the exact image/import
+routes — no longer the whole `/admin/*` tree, where an unauthenticated caller
+could force a 50 MB buffer + parse before a handler's auth check. Player saves get
+a dedicated 1 MB parser, so an oversized save is rejected at the parser boundary
+(matching the save handler's 1 MB cap) rather than after a 5 MB parse.
+
+### 5.5 cPanel DNS fallback cannot recurse (`app.js`, `cpanel-dns.cjs`)
+
+`makeCustomLookup()` binds the ORIGINAL `dns.lookup` captured **before** the global
+patch, so a failed `resolve4` terminates in Node's real resolver instead of
+re-entering the patched `customLookup` (previously infinite recursion). No project
+hostname or fallback IP is embedded in source (env-driven only).
+
+### 5.6 Admin session tokens (`api/_auth.ts`, `admin-auth.ts`, client `authFetch.ts`)
+
+The admin panel used to keep the reusable `ADMIN_PASSWORD` in `sessionStorage` and
+attach it (`x-admin-password`) to **every** admin request. A short-lived signed
+session token replaces that:
+
+- `/api/admin-auth` mints `av1.<role>.<expMs>.<epoch>.<sig>` on login (`issueAdminToken`).
+  The client stores the token, drops the password from storage, and sends
+  `x-admin-token`. `authFetch` **swaps** any `x-admin-password` for the token on
+  the wire, so even the ~100 call sites that set the password header never send
+  the plaintext. `isAdmin`/`isFullAdmin` verify the token statelessly (HMAC +
+  expiry + epoch, no KV — they stay synchronous); `player-auth.ts`'s admin
+  operations now use `isFullAdmin` too.
+- **Revocation:** bump `ADMIN_SESSION_EPOCH` (redeploy) to invalidate every
+  outstanding token; rotating `ADMIN_SESSION_SECRET` does the same immediately.
+- **INERT WITHOUT `ADMIN_SESSION_SECRET`:** no token is minted, the client keeps
+  the password path, behaviour is unchanged — so enabling admin sessions is
+  opt-in and cannot lock a single-operator deployment out.
+- **`ADMIN_STRICT_TOKEN_ONLY=1`** makes the server reject the reusable-password
+  admin path (token-only end state). Default off so the migration can't lock out.
+- **Residual (documented):** the admin credential lives in `sessionStorage`
+  (token), readable by same-origin XSS — an accepted intermediate per the plan;
+  an HttpOnly cookie + CSRF is the next step.
+
+### 5.7 Anonymous challenge inbox is no longer anon-readable (`supabase-schema.sql`)
+
+`challenges:*` was removed from the anon SELECT allowlist AND the Realtime
+publication filter. The browser never actually subscribed to it — challenges
+arrive over the **authenticated** HTTP heartbeat + a Socket.IO nudge
+(`api/player/challenge.ts` `kickPlayer`), and the stored payload is already
+redacted (`projectChallenge`) — so the anon grant only let anyone with the public
+anon key enumerate every player's projected challenge inbox. Delivery is
+unaffected. **Ops step:** apply the two-statement `ALTER POLICY` / `ALTER
+PUBLICATION` on the live DB (the schema file is the canonical end state);
+`supabase-schema-security.test.ts` guards against re-adding the grant.
+
+### 5.8 Atomic, exactly-once PvP settlement (`api/pvp/_reward-settlement.ts`, `claim-rewards.ts`)
+
+Rating, base-reward, and item-consumption settlement used to write an idempotency
+receipt to one KV key and the credited save to another. A crash (deploy / OOM /
+DB blip) between the two left the receipt placed but the save un-credited — and
+the retry then skipped, **permanently losing** the reward/rating (it only ever
+failed toward "player got less", never a mint).
+
+The idempotency marker now lives **inside the credited save**
+(`character.serverSettlementReceipts`, a server-owned field the sanitizer
+preserves), reusing the same machinery shop/inventory settlement use. Credit +
+receipt land in **one `kv.set`** — a single Postgres row write, which is atomic:
+
+- crash BEFORE the write → nothing persisted → retry re-credits (fresh);
+- crash AFTER the write → credit + receipt together → retry skips (replay).
+
+No cross-row transaction, no migration. The idempotency key is server-derived
+from the battleId (`pvp-<kind>-<battleId>`), so it can't be forged, and each
+fighter's save tracks its own settlement — a two-sided rating recovers each side
+on its own retry. Rating and item-consumption are now fully atomic. The base
+reward's payout is atomic too; its two *auxiliary* rows (the repeat-opponent
+decay counter and the daily stat-growth budget) can, in the rare crash-between-
+those-and-the-write case, advance twice — which only shrinks a *future* reward
+(still fails toward less), and is strictly better than losing the whole payout.
+Covered by `api/pvp/_reward-settlement.test.ts` (exactly-once, crash-before-write
+recovery, independent two-sided rating).

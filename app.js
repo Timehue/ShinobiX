@@ -18,37 +18,28 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 // SUPABASE_HARDCODED_IP when CageFS cannot resolve the Supabase hostname;
 // source code deliberately contains no project hostname or fallback IP because
 // those are host-specific and can rotate.
-const { buildHardcodedDnsMap } = require('./cpanel-dns.cjs');
+const { buildHardcodedDnsMap, makeCustomLookup } = require('./cpanel-dns.cjs');
 const HARDCODED_DNS = buildHardcodedDnsMap(process.env);
 const HARDCODED_DNS_ENABLED = Object.keys(HARDCODED_DNS).length > 0;
 
+// Capture the ORIGINAL dns.lookup BEFORE we patch it. The custom lookup's
+// fallback path uses this captured reference, so a failed resolve4 terminates in
+// Node's real resolver instead of re-entering the patched global — which used to
+// recurse infinitely (require('dns').lookup === customLookup after the patch).
+const _dns = require('dns');
+const _originalDnsLookup = _dns.lookup.bind(_dns);
+
 // Custom lookup function shared by dns.lookup patch and undici Agent.
-function customLookup(hostname, options, callback) {
-    if (typeof options === 'function') { callback = options; options = {}; }
-    if (HARDCODED_DNS[hostname]) {
-        console.log('[app] DNS hardcode hit:', hostname, '->', HARDCODED_DNS[hostname]);
-        return callback(null, HARDCODED_DNS[hostname], 4);
-    }
-    // Fallback: try c-ares with explicit public DNS servers.
-    try {
-        const dns = require('dns');
-        dns.setServers(['8.8.8.8', '1.1.1.1']);
-        dns.resolve4(hostname, (err, addresses) => {
-            if (err || !addresses || !addresses.length) {
-                require('dns').lookup(hostname, options, callback);
-            } else {
-                callback(null, addresses[0], 4);
-            }
-        });
-    } catch (_) {
-        require('dns').lookup(hostname, options, callback);
-    }
-}
+const customLookup = makeCustomLookup(HARDCODED_DNS, {
+    resolve4: _dns.resolve4.bind(_dns),
+    setServers: _dns.setServers.bind(_dns),
+    originalLookup: _originalDnsLookup,
+    log: console.log,
+});
 
 // Patch dns.lookup globally so Node's https module uses the env DNS map.
 try {
-    const dns = require('dns');
-    dns.lookup = customLookup;
+    _dns.lookup = customLookup;
     console.log(HARDCODED_DNS_ENABLED
         ? '[app] dns.lookup patched with env-driven hardcoded DNS.'
         : '[app] dns.lookup patched for IPv4/public-resolver fallback; no hardcoded DNS entries configured.');

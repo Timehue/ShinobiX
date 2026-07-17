@@ -31,7 +31,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { kv } from './_storage.js';
+import { kv, type KvLike } from './_storage.js';
 
 export type LockOptions = {
     /** TTL (seconds) for the lock key. Default 5. */
@@ -128,18 +128,33 @@ export async function withLockCore<T>(
     }
 }
 
-// Real KV-backed primitives. `kv.set` with {nx} resolves truthy ('OK') only
-// when the key was newly created, i.e. the lock was claimed.
-const kvLockPrimitives: LockPrimitives = {
-    tryAcquire: async (lockKey, ttlSec) => {
-        const ownerToken = randomUUID();
-        return (await kv.set(lockKey, ownerToken, { nx: true, ex: ttlSec })) ? ownerToken : null;
-    },
-    release: async (lockKey, ownerToken) => {
-        const current = await kv.get<string>(lockKey);
-        if (current === ownerToken) await kv.del(lockKey);
-    },
-};
+/**
+ * Build lock primitives backed by a KV store. `tryAcquire` claims `lockKey` with
+ * an NX write (atomic on the Postgres/Supabase backends), stamping a random owner
+ * token; `release` deletes the lock ONLY if that token still matches, via an
+ * atomic compare-and-delete.
+ *
+ * The compare-and-delete is load-bearing: the old release did a `get` then a
+ * `del`, and between the two the lock's short TTL could expire and a NEW holder
+ * re-acquire it — the stale holder would then delete the new holder's lock,
+ * collapsing mutual exclusion. `delIfEqual` performs the value check and the
+ * delete in one row-locked operation, so a holder can only ever delete the lock
+ * it still owns. Exported so tests can back it with an in-memory KV.
+ */
+export function makeKvLockPrimitives(store: Pick<KvLike, 'set' | 'delIfEqual'>): LockPrimitives {
+    return {
+        tryAcquire: async (lockKey, ttlSec) => {
+            const ownerToken = randomUUID();
+            return (await store.set(lockKey, ownerToken, { nx: true, ex: ttlSec })) ? ownerToken : null;
+        },
+        release: async (lockKey, ownerToken) => {
+            await store.delIfEqual(lockKey, ownerToken);
+        },
+    };
+}
+
+// Real KV-backed primitives.
+const kvLockPrimitives: LockPrimitives = makeKvLockPrimitives(kv);
 
 /**
  * Acquire a short-lived KV lock around `target`, run `fn`, release the lock.

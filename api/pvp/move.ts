@@ -1260,7 +1260,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         async function finish(payload: PvpSession) {
-            await kv.del(lockKey).catch(() => undefined);
+            await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
             return res.status(200).json(payload);
         }
 
@@ -1512,7 +1512,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             case 'jutsu': {
-                if (!jutsuId) { await kv.del(lockKey).catch(() => undefined); return res.status(400).json({ error: 'Missing jutsuId' }); }
+                if (!jutsuId) { await kv.delIfEqual(lockKey, lockToken).catch(() => undefined); return res.status(400).json({ error: 'Missing jutsuId' }); }
                 const jutsuList = (me.character.jutsu as Jutsu[] | undefined) ?? [];
                 const jutsu = jutsuList.find(j => j.id === jutsuId);
                 if (!jutsu) {
@@ -1799,7 +1799,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'weapon': {
                 const serverItem = equippedPvpItem(me, itemId, itemName);
                 if (!serverItem || !['hand', 'thrown'].includes(normalizeEquipmentSlot(serverItem.slot))) {
-                    await kv.del(lockKey).catch(() => undefined);
+                    await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
                     return res.status(400).json({ error: 'Weapon is not equipped for this fighter' });
                 }
                 const wSlot = normalizeEquipmentSlot(serverItem.slot);
@@ -1890,7 +1890,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'item': {
                 const serverItem = equippedPvpItem(me, itemId, itemName);
                 if (!serverItem || ['hand', 'thrown'].includes(normalizeEquipmentSlot(serverItem.slot))) {
-                    await kv.del(lockKey).catch(() => undefined);
+                    await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
                     return res.status(400).json({ error: 'Item is not equipped for this fighter' });
                 }
                 const iApCost = serverItem.apCost ?? 35;
@@ -2001,7 +2001,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             default:
-                await kv.del(lockKey).catch(() => undefined);
+                await kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
                 return res.status(400).json({ error: `Unknown action: ${action}` });
         }
 

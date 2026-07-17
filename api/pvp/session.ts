@@ -239,6 +239,12 @@ export function trimPvpLog(log: string[]): string[] {
 const P1_START = 62;
 const P2_START = 33;
 
+// Death's Gate is the one sector whose base PvP-win reward is doubled
+// (computePvpWinGains in api/_xp-engine.ts checks `rewardSector === 99`). The
+// sector is unverifiable from a session-create request, so a non-admin client
+// cannot self-assign it for the 2× — see the base-reward stamp in the handler.
+const DEATHS_GATE_SECTOR = 99;
+
 // ─── Server-side sanitization of client-supplied combat data ─────────────────
 // Even with auth, the player can hand-edit their localStorage / save blob, so
 // the server clamps everything that matters for damage calculation to safe
@@ -984,6 +990,42 @@ export function pvpSessionCreationAllowedDuringSettlement(isAdmin: boolean): boo
     return true;
 }
 
+// Decide a session's sealed base-reward stamp (extracted from the handler so the
+// security decision is unit-testable). Closes two client-trusted holes:
+//   • baseRewards is honored ONLY when both fighters have authoritative saves
+//     (real players), or the creator is admin — a fabricated no-save NPC
+//     opponent cannot opt a session into base rewards.
+//   • The Death's Gate (sector 99) 2× multiplier is NOT taken from the client
+//     body. A claimed 99 is honored only when `deathsGateVerified` — the server
+//     confirmed from presence that BOTH fighters are actually at sector 99 (see
+//     the handler). An attacker controls only their OWN presence, so the
+//     opponent being at 99 (which the attacker cannot fake) is what gates the
+//     bonus, so it applies only to a genuine Death's Gate fight. Unverified 99
+//     is neutralized to 0. Admins keep the raw value for test flows.
+// `denied` marks the "requested, but opponent has no save" case so the handler
+// logs it (fail-closed, not silent) instead of quietly dropping the reward.
+export function sealBaseRewardStamp(opts: {
+    baseRewards: boolean;
+    rewardSector: unknown;
+    isAdmin: boolean;
+    p1HasSave: boolean;
+    p2HasSave: boolean;
+    deathsGateVerified: boolean;
+}): { stamp: Pick<PvpSession, 'baseRewards' | 'rewardSector'>; denied: boolean } {
+    if (!opts.baseRewards) return { stamp: {}, denied: false };
+    const bothRealPlayers = opts.p1HasSave && opts.p2HasSave;
+    if (!opts.isAdmin && !bothRealPlayers) return { stamp: {}, denied: true };
+    const s = Number(opts.rewardSector);
+    const rawSector = Number.isFinite(s) ? Math.floor(s) : 0;
+    let sealedSector = rawSector;
+    if (rawSector === DEATHS_GATE_SECTOR && !opts.isAdmin && !opts.deathsGateVerified) {
+        // Client claimed Death's Gate but the server could not confirm both
+        // fighters are there → drop the 2× (0 reads as "no sector bonus").
+        sealedSector = 0;
+    }
+    return { stamp: { baseRewards: true, rewardSector: sealedSector }, denied: false };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -1246,15 +1288,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
-            // ── Base-reward stamp (audit #7 / Stage 3 Phase 3) ───────────────
+            // ── Base-reward stamp (audit #7 / Stage 3 Phase 3; #1A hardening) ─
             // Opt this session into server crediting of the winner's base ryo +
-            // XP. Only the sector matters for the math (Death's Gate ×2); the
-            // pet trait + elder focus + exam gates are read from the winner's
-            // full save under the claim lock. Dormant until the client opts in.
-            let baseRewardStamp: Pick<PvpSession, 'baseRewards' | 'rewardSector'> = {};
-            if (baseRewards === true) {
-                const s = Number(rewardSector);
-                baseRewardStamp = { baseRewards: true, rewardSector: Number.isFinite(s) ? Math.floor(s) : 0 };
+            // XP. Two client-trusted holes are closed here:
+            //
+            //   1. baseRewards is honored ONLY when BOTH fighters resolve to
+            //      authoritative SAVES (real players), or the creator is admin. A
+            //      fabricated no-save NPC opponent — the "mint ryo vs a bot you
+            //      invented" exploit — no longer opts a session into base rewards.
+            //      Every legitimate base-reward flow is player-vs-real-player
+            //      (challenge accept, sector raid vs a real defender); save-less
+            //      AI guards take a separate (raidAi) client path that never sets
+            //      baseRewards here. claim-rewards re-checks the loser's save at
+            //      settlement, so this is not the only enforcement point.
+            //   2. rewardSector's only reward effect is the Death's Gate (sector
+            //      99) 2× multiplier, and the sector is unverifiable from the
+            //      request — so a non-admin client CANNOT self-assign 99 for the
+            //      2×: a claimed 99 is neutralized to 0 for reward purposes. (The
+            //      home-terrain buff above reads the RAW body sector and is
+            //      separately gated on server-verified territory ownership, so it
+            //      is unaffected.) Admins keep the full value for test fights.
+            //
+            // Fail-closed and NOT silent: a base-reward request whose opponent
+            // has no save runs the fight but grants no base rewards, and logs a
+            // clear marker. See docs/auth-and-anti-cheat-patterns.md.
+            // Death's Gate (sector 99) 2× is verified from PRESENCE, not the
+            // client body: BOTH fighters must be reported at sector 99. The
+            // attacker controls only their own presence, so the OPPONENT being
+            // at 99 (which they cannot fake) is what actually gates the bonus —
+            // it applies only when the opponent is genuinely at Death's Gate.
+            const deathsGateVerified =
+                onlineStore.get(p1Norm)?.sector === DEATHS_GATE_SECTOR
+                && onlineStore.get(p2Norm)?.sector === DEATHS_GATE_SECTOR;
+            const { stamp: baseRewardStamp, denied: baseRewardDenied } = sealBaseRewardStamp({
+                baseRewards: baseRewards === true,
+                rewardSector,
+                isAdmin: identity.admin,
+                p1HasSave: !!p1Save?.character,
+                p2HasSave: !!p2Save?.character,
+                deathsGateVerified,
+            });
+            if (baseRewardDenied) {
+                const creatorName = identity.admin ? 'admin' : identity.name;
+                console.warn(
+                    `[pvp/session] base-reward request denied — opponent has no authoritative save `
+                    + `(creator=${creatorName}, p1=${p1Norm || '∅'}, p2=${p2Norm || '∅'}). `
+                    + `Fight runs WITHOUT base rewards.`,
+                );
             }
 
             // Ranked fights are fought on NEUTRAL ground. A session creator could

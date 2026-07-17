@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
-import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT } from "./authFetch";
+import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT } from "./authFetch";
 import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAlert";
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
@@ -7418,10 +7418,10 @@ export default function App() {
 
                 {screen === "adminLogin" && (
                     <AdminLogin
-                        onLogin={async (account, pw, role) => {
+                        onLogin={async (account, pw, role, token) => {
                             setAdminLoggedIn(true);
                             setAdminAccount(account);
-                            sessionStorage.setItem("admin:pw", pw);
+                            setAdminSession(token, pw); // Phase 4: store token (else password); authFetch sends x-admin-token, never the plaintext.
                             // Persist the role so a refresh doesn't lose it
                             // and re-show restricted tabs to Admin 2.
                             sessionStorage.setItem("admin:role", role);

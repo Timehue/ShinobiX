@@ -99,6 +99,46 @@ export function setActiveToken(token: string | null): void {
     }
 }
 
+// ── Admin session token (Phase 4) ────────────────────────────────────────────
+// The admin panel used to keep the reusable ADMIN_PASSWORD in sessionStorage and
+// attach it (x-admin-password) to every admin request. When the server issues a
+// signed admin session token at login (ADMIN_SESSION_SECRET set), we store the
+// token instead and the interceptor sends `x-admin-token`, swapping out any
+// x-admin-password so the plaintext admin password never leaves the browser.
+const ADMIN_TOKEN_KEY = 'admin:token';
+const ADMIN_PW_KEY = 'admin:pw';
+
+function getAdminToken(): string | null {
+    try {
+        return sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Establish (or clear) the admin session credential.
+ *   - `token` present → store the signed session token; the reusable password is
+ *     removed so it can neither linger in storage nor be sent (authFetch swaps
+ *     x-admin-password → x-admin-token on the wire).
+ *   - no `token` but a `passwordFallback` → legacy path (ADMIN_SESSION_SECRET
+ *     unset on the server): persist the password so admin requests keep working.
+ *   - neither → clear the admin session (logout).
+ */
+export function setAdminSession(token: string | null, passwordFallback?: string | null): void {
+    try {
+        if (token) {
+            sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+            sessionStorage.removeItem(ADMIN_PW_KEY);
+        } else {
+            sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+            if (passwordFallback) sessionStorage.setItem(ADMIN_PW_KEY, passwordFallback);
+        }
+    } catch {
+        /* storage disabled — ignore */
+    }
+}
+
 // ── Session-expiry signal (audit #14) ────────────────────────────────────────
 // A token-first client clears its stored password once it has a token (M5), so
 // after the 24h token expires — or SESSION_SECRET is rotated — there is nothing
@@ -164,6 +204,7 @@ function hasAuthHeader(init: RequestInit | undefined, input: RequestInfo | URL):
         headers.has('x-player-token') ||
         headers.has('x-player-password') ||
         headers.has('x-admin-password') ||
+        headers.has('x-admin-token') ||
         headers.has('x-kv-token')
     );
 }
@@ -227,27 +268,41 @@ export function installAuthFetch(): void {
         const newHeaders = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
         attachFingerprint(newHeaders);
 
+        // ── Admin credential (Phase 4) ───────────────────────────────────────
+        // A signed admin session token supersedes the reusable password
+        // EVERYWHERE. When a token is stored, ensure the plaintext admin password
+        // never leaves the browser — even for the many call sites that manually
+        // set x-admin-password — by swapping it for the token. Fall back to the
+        // stored password only when there is no token (ADMIN_SESSION_SECRET unset
+        // on the server, or a pre-token client).
+        const adminToken = getAdminToken();
+        if (adminToken) {
+            if (newHeaders.has('x-admin-password')) newHeaders.delete('x-admin-password');
+            newHeaders.set('x-admin-token', adminToken);
+        } else {
+            let adminPw: string | null = null;
+            try {
+                adminPw = sessionStorage.getItem('admin:pw');
+            } catch {
+                /* storage disabled */
+            }
+            if (adminPw && !newHeaders.has('x-admin-password')) {
+                newHeaders.set('x-admin-password', adminPw);
+            }
+        }
+
         if (hasAuthHeader(init, input)) {
+            // A caller supplied an auth credential (player token/password, kv
+            // token, or a manual admin header we normalized above). The admin
+            // credential is already resolved on newHeaders — attach nothing else.
             newInit.headers = newHeaders;
             return observeSaveVersion(await originalFetch(input, newInit));
         }
 
-        // Attach admin auth when present. We do NOT return early here: if the
-        // operator is ALSO signed in as their own player, we attach the player
-        // token too (below) so player-only actions (travel/combat/missions) work
-        // while admin mode is active. The server's authedPlayerOrAdmin prefers the
-        // player identity when both are present, and admin-only endpoints check the
-        // admin password directly — so both hats work at once. (The old early
-        // return sent admin-only, which made every player action 401 for an admin.)
-        let adminPw: string | null = null;
-        try {
-            adminPw = sessionStorage.getItem('admin:pw');
-        } catch {
-            /* storage disabled */
-        }
-        if (adminPw && !newHeaders.has('x-admin-password')) {
-            newHeaders.set('x-admin-password', adminPw);
-        }
+        // We do NOT gate on admin here: if the operator is ALSO signed in as their
+        // own player, attach the player token too (below) so player-only actions
+        // (travel/combat/missions) work while admin mode is active. The server's
+        // authedPlayerOrAdmin prefers the player identity when both are present.
 
         // Player auth: attach the session token when signed in.
         const activeName = getActivePlayer();

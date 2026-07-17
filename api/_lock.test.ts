@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { withLockCore, LockContendedError, type LockPrimitives } from './_lock.js';
+import { withLockCore, LockContendedError, makeKvLockPrimitives, type LockPrimitives } from './_lock.js';
+import { _makeMemoryKv } from './_storage.js';
 
 // Exercises the lock orchestration (acquire → run → release) and the
 // `failClosed` acquire-failure policy via injected primitives — no KV, no
@@ -84,5 +85,42 @@ describe('withLockCore', () => {
         };
         await withLockCore('x', async () => 'ok', prims, FAST);
         assert.equal(releasedToken, 'owner-token');
+    });
+});
+
+// The real kv-backed primitives, exercised against an in-memory KV so the
+// compare-and-delete release contract is covered end-to-end (not just the fake
+// primitives above). This is the concrete regression for the release TOCTOU.
+describe('makeKvLockPrimitives (compare-and-delete release)', () => {
+    it('release deletes only the caller-owned lock, never a re-acquired one', async () => {
+        const kv = _makeMemoryKv();
+        const prims = makeKvLockPrimitives(kv);
+        const lockKey = 'lock:save:treasury';
+
+        const tokenA = await prims.tryAcquire(lockKey, 5);
+        assert.ok(tokenA, 'A acquires');
+        // A second acquire fails while A holds the lock (mutual exclusion).
+        assert.equal(await prims.tryAcquire(lockKey, 5), null, 'B blocked while A holds');
+
+        // Simulate A's lease expiring and B re-acquiring by force-replacing the
+        // lock value with a different owner token.
+        await kv.set(lockKey, 'ownerB', { ex: 5 });
+        // A's release must NOT delete B's lock.
+        await prims.release(lockKey, tokenA!);
+        assert.equal(await kv.get(lockKey), 'ownerB', "A's stale release left B's lock intact");
+
+        // B's own release clears exactly its lock.
+        await prims.release(lockKey, 'ownerB');
+        assert.equal(await kv.get(lockKey), null);
+    });
+
+    it('a full acquire → run → release cycle frees the lock for the next holder', async () => {
+        const kv = _makeMemoryKv();
+        const prims = makeKvLockPrimitives(kv);
+        let ran = 0;
+        await withLockCore('save:bank', async () => { ran++; }, prims, { ...FAST, failClosed: true });
+        // Lock was released, so a second failClosed critical section still runs.
+        await withLockCore('save:bank', async () => { ran++; }, prims, { ...FAST, failClosed: true });
+        assert.equal(ran, 2);
     });
 });

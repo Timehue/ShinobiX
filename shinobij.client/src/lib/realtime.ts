@@ -17,8 +17,10 @@
 //      on the prefixes this client subscribes to:
 //        pvp:*           — PvP session state
 //        cw-tilecards:*  — Clan-war tile-card duels
-//        challenges:*    — Incoming duel-challenge inbox
-//      Anything else stays invisible to the browser.
+//      Anything else stays invisible to the browser. (challenges:* used to be
+//      here but the client never actually subscribed to it — incoming challenges
+//      arrive over the authenticated heartbeat + Socket.IO — so its anon read
+//      grant was removed 2026-07-17.)
 //
 // To add a new realtime-subscribed prefix: update supabase-schema.sql's
 // SELECT policy AND this comment, then re-run the schema file.

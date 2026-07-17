@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { cors } from './_utils.js';
-import { safeEqual } from './_auth.js';
+import { safeEqual, issueAdminToken } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 
 // Login endpoint for the admin panel.
@@ -42,11 +42,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const matchFull = safeEqual(password, adminPassword);
     const matchContent = adminContentPassword ? safeEqual(password, adminContentPassword) : false;
 
+    // Mint a short-lived session token so the client stops forwarding the raw
+    // password on every request (Phase 4). `token` is null when
+    // ADMIN_SESSION_SECRET is unset — the client then keeps using the password,
+    // unchanged. The token encodes only the role; it carries no password.
     if (matchFull) {
-        return res.status(200).json({ success: true, account: 'Admin 1', role: 'full' });
+        return res.status(200).json({ success: true, account: 'Admin 1', role: 'full', token: issueAdminToken('full') });
     }
     if (matchContent) {
-        return res.status(200).json({ success: true, account: 'Admin 2', role: 'content' });
+        return res.status(200).json({ success: true, account: 'Admin 2', role: 'content', token: issueAdminToken('content') });
     }
 
     return res.status(401).json({ success: false, error: 'Incorrect password.' });
