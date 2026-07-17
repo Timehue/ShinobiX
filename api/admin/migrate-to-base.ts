@@ -42,10 +42,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return;
     }
     const dryRun = req.query?.dry === '1' || req.query?.dry === 'true';
-    if (!dryRun && process.env.KV_MIGRATION_WRITE_FROZEN !== '1') {
+    // A live copy must run only while save writes are frozen. Accept EITHER the
+    // explicit migration flag OR MAINTENANCE_MODE=1 — maintenance mode genuinely
+    // pauses every gameplay save (the real freeze), so it is a valid and more
+    // reliable "writes are frozen" acknowledgment than a separate flag.
+    const writesFrozen = process.env.KV_MIGRATION_WRITE_FROZEN === '1'
+        || process.env.MAINTENANCE_MODE === '1';
+    if (!dryRun && !writesFrozen) {
         res.status(409).json({
             ok: false,
-            error: 'Live copy requires KV_MIGRATION_WRITE_FROZEN=1 (freeze save writes first — set MAINTENANCE_MODE=1 then this flag).',
+            error: 'Live copy requires the game frozen first: set MAINTENANCE_MODE=1 (or KV_MIGRATION_WRITE_FROZEN=1).',
         });
         return;
     }
