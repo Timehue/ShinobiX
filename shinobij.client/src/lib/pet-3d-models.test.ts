@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PET_COMBAT_MODEL_IDS, hasPetCombatModel, petCombatModel } from "./pet-3d-models.ts";
+import { ROSTER_MODEL_ASSET_REVISION } from "./pet-3d-roster.ts";
 
 const pet = (id: string, evolutionStage?: 0 | 1 | 2, rarity: "standard" | "rare" | "legendary" = "standard") => ({ id, evolutionStage, rarity });
 
@@ -26,13 +27,13 @@ test("base starters and unrelated pets keep the safe standee fallback", () => {
 });
 
 test("all built-in Coliseum AI opponents resolve to approved roster models", () => {
-    assert.equal(petCombatModel(pet("generic-ai-pet-sparrow"))?.url, "/pet-models/roster/standard-44.glb");
-    assert.equal(petCombatModel(pet("generic-ai-pet-guardhound"))?.url, "/pet-models/roster/rare-24.glb");
-    assert.equal(petCombatModel(pet("generic-ai-pet-emberlynx"))?.url, "/pet-models/roster/rare-26.glb");
+    assert.equal(petCombatModel(pet("generic-ai-pet-sparrow"))?.url, `/pet-models/roster/standard-44.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+    assert.equal(petCombatModel(pet("generic-ai-pet-guardhound"))?.url, `/pet-models/roster/rare-24.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+    assert.equal(petCombatModel(pet("generic-ai-pet-emberlynx"))?.url, `/pet-models/roster/rare-26.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
 });
 
 test("timestamped encounter clones retain their canonical combat model", () => {
-    assert.equal(petCombatModel(pet("mythic-7-1784319745000"))?.url, "/pet-models/roster/mythic-7.glb");
+    assert.equal(petCombatModel(pet("mythic-7-1784319745000"))?.url, `/pet-models/roster/mythic-7.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
 });
 
 test("legacy evolved saves infer the model from rarity", () => {
