@@ -7,7 +7,8 @@ This is the repeatable certification gate for a deployed staging or isolated-tes
 - Use a dedicated account whose marker begins with `beta-cert-`.
 - Do not run destructive mutation checks against an ordinary production player.
 - Record the deployed commit, deep-health `saveStore`, request IDs, and the final cleanup disposition.
-- Run `npm run release:health -- https://staging-host` first with `HEALTH_DEEP_TOKEN`, `EXPECTED_SAVE_STORE=remote-proxy`, `REQUIRE_DISK_OVERLAY=1`, and `REQUIRE_FRESH_BACKUP=1`.
+- Run `npm run release:health -- https://staging-host` first with `HEALTH_DEEP_TOKEN`, `EXPECTED_SAVE_STORE=base-store`, and `REQUIRE_FRESH_BACKUP=1`.
+- Leave `KV_PROXY_URL`, `KV_PROXY_TOKEN`, `DISK_KV_DIR`, and `REQUIRE_DISK_OVERLAY` unset. The cPanel overlay is retired; a passing deep-health response must report `saveStore="base-store"` and `checks.backupFresh=true`.
 - Copy `docs/BETA_RELEASE_CERTIFICATION_TEMPLATE.json` to `release-audit/evidence/<safe-name>.json`, fill evidence as each step passes, then run `npm run beta:certify -- <safe-name>.json`. The CLI intentionally accepts a filename only and will not read outside that local evidence directory.
 
 ## Required journey

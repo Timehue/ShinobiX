@@ -21,6 +21,7 @@ import type { ArenaRole, ArenaSlot } from "./lib/pet-arena-sim";
 import { PetModelQa } from "./components/PetModelQa";
 import { petElementByName } from "./data/pet-elements";
 import { balanceBuiltInPetTemplate } from "./lib/pet-balance";
+import { genericPetArenaOpponents } from "./data/pet-arena-opponents";
 const jts = (...js: PetJutsu[]) => js;   // typed inline jutsu list for the duel harness
 
 // Demo creature billboards for the coliseum harness — transparent full-body
@@ -66,6 +67,12 @@ function Harness() {
     const requestedRosterId = rosterFoxMode ? "standard-0" : PARAMS.get("rosterpet");
     const rosterBattlePet = requestedRosterId ? rawPetPool.find((pet) => pet.id === requestedRosterId) : undefined;
     const model3dMode = PARAMS.get("model3d") === "1" || modelQaMode || Boolean(rosterBattlePet);
+    // ?liveai=emberlynx reproduces the real built-in Coliseum matchup instead of
+    // pairing roster QA with an evolved starter. This caught the production-only
+    // model-alias gap that a starter-vs-roster preview could not expose.
+    const liveAiEnemy = PARAMS.get("liveai") === "emberlynx"
+        ? genericPetArenaOpponents.find((entry) => entry.pet.id === "generic-ai-pet-emberlynx")?.pet
+        : undefined;
     // ?legendary=1 lets visual QA compare the alternate evolved mesh without
     // changing the live model gate or the deterministic fight setup.
     const legendaryModelMode = PARAMS.get("legendary") === "1";
@@ -100,7 +107,7 @@ function Harness() {
                 : jts({ name: "Ember Bolt", kind: "burn", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Cinder Veil", kind: "slow", power: 55, cooldown: 3, currentCooldown: 0 }, { name: "Stone Ward", kind: "barrier", power: 60, cooldown: 3, currentCooldown: 0 })),
         };
     }, [model3dMode, rosterBattlePet, legendaryModelMode, quickDemoMode]);
-    const duelEnemy = useMemo(() => ({ ...harnessPet(7, { element: model3dMode ? "Water" : "Lightning" }), id: model3dMode ? "starter-water" : "generic-ai-pet-guardhound", name: model3dMode ? "Tidal Selkie" : "Guardhound", hp: quickDemoMode ? 520 : 1200, attack: quickDemoMode ? 160 : 115, speed: 84,
+    const duelEnemy = useMemo(() => liveAiEnemy ? ({ ...liveAiEnemy, hp: quickDemoMode ? 520 : liveAiEnemy.hp }) : ({ ...harnessPet(7, { element: model3dMode ? "Water" : "Lightning" }), id: model3dMode ? "starter-water" : "generic-ai-pet-guardhound", name: model3dMode ? "Tidal Selkie" : "Guardhound", hp: quickDemoMode ? 520 : 1200, attack: quickDemoMode ? 160 : 115, speed: 84,
         ...(model3dMode ? { evolutionStage: legendaryModelMode ? 2 as const : 1 as const, rarity: legendaryModelMode ? "legendary" as const : "rare" as const } : {}),
         jutsus: model3dMode
             ? jts(
@@ -109,7 +116,7 @@ function Harness() {
                 { name: "Flow State", kind: "haste", power: 54, cooldown: 5, currentCooldown: 0 },
                 { name: "Riptide Shift", kind: "move", power: 1, cooldown: 3, currentCooldown: 0 },
             )
-            : jts({ name: "Iron Bite", kind: "damage", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Warding Howl", kind: "stun", power: 45, cooldown: 4, currentCooldown: 0 }) }), [model3dMode, legendaryModelMode, quickDemoMode]);
+            : jts({ name: "Iron Bite", kind: "damage", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Warding Howl", kind: "stun", power: 45, cooldown: 4, currentCooldown: 0 }) }), [model3dMode, legendaryModelMode, quickDemoMode, liveAiEnemy]);
     const duelPlayerRes = useMemo(() => ({ ...harnessPet(1, { element: "Water" }), id: "legendary-0", name: "Ally", hp: 1000, attack: 100,
         jutsus: jts({ name: "Frost Lance", kind: "freeze", power: 90, cooldown: 3, currentCooldown: 0 }, { name: "Tide Mend", kind: "heal", power: 120, cooldown: 4, currentCooldown: 0 }) }), []);
     const duelEnemyRes = useMemo(() => ({ ...harnessPet(8, { element: "Earth" }), id: "legendary-1", name: "Foe", hp: 1000, attack: 100,
