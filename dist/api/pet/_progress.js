@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PET_FEED_XP = exports.PET_TRAINING_FOCI = exports.PET_TRAINING_DURATIONS = void 0;
 exports.petHappiness = petHappiness;
 exports.gainServerPetXp = gainServerPetXp;
+exports.settleFinishedTraining = settleFinishedTraining;
 exports.removePetItem = removePetItem;
 exports.settleServerPetExpedition = settleServerPetExpedition;
 const BASE = {
@@ -54,6 +55,33 @@ function gainServerPetXp(pet, amountRaw, focus) {
         defense: Math.max(1, whole(pet.defense, 1) + Math.round(base.defense * 0.04 * grew.defense)),
         speed: Math.max(1, whole(pet.speed, 1) + Math.round(base.speed * 0.04 * grew.speed)),
     };
+}
+/**
+ * Settle a pet's training lease IF it has finished. Returns the settled pet
+ * (training removed, sealed XP applied via `gainServerPetXp`, plus the bond
+ * happiness nudge) and the focus of the session that paid out — or the pet
+ * UNCHANGED with `settledFocus: null` when there is no training or it is still
+ * running.
+ *
+ * This is the single settle implementation shared by BOTH the explicit
+ * `complete-training` action and the self-heal path in `start-training` (which
+ * settles an orphaned-but-finished session instead of trapping the pet), so the
+ * reward is identical no matter which path collects it. The XP was sealed when
+ * the session started, so paying it out here is exactly what the player earned —
+ * no client-supplied value is ever trusted. The property is `delete`d (never
+ * left as an explicit undefined value) so every storage adapter and the client
+ * see an unambiguous idle pet.
+ */
+function settleFinishedTraining(pet, now) {
+    const training = pet.training;
+    if (!training || now < Number(training.endsAt))
+        return { pet, settledFocus: null };
+    const idle = { ...pet };
+    delete idle.training;
+    const settled = gainServerPetXp(idle, Math.min(5000, Math.max(0, Number(training.sealedXp) || 0)), String(training.type ?? ''));
+    if (training.type === 'bond')
+        settled.happiness = Math.min(100, petHappiness(settled) + 5);
+    return { pet: settled, settledFocus: String(training.type ?? '') };
 }
 function removePetItem(character, itemId) {
     const stacks = Array.isArray(character.itemStacks) ? character.itemStacks : [];

@@ -50,6 +50,32 @@ export function gainServerPetXp(pet: Record<string, unknown>, amountRaw: unknown
     };
 }
 
+/**
+ * Settle a pet's training lease IF it has finished. Returns the settled pet
+ * (training removed, sealed XP applied via `gainServerPetXp`, plus the bond
+ * happiness nudge) and the focus of the session that paid out — or the pet
+ * UNCHANGED with `settledFocus: null` when there is no training or it is still
+ * running.
+ *
+ * This is the single settle implementation shared by BOTH the explicit
+ * `complete-training` action and the self-heal path in `start-training` (which
+ * settles an orphaned-but-finished session instead of trapping the pet), so the
+ * reward is identical no matter which path collects it. The XP was sealed when
+ * the session started, so paying it out here is exactly what the player earned —
+ * no client-supplied value is ever trusted. The property is `delete`d (never
+ * left as an explicit undefined value) so every storage adapter and the client
+ * see an unambiguous idle pet.
+ */
+export function settleFinishedTraining(pet: Record<string, unknown>, now: number): { pet: Record<string, unknown>; settledFocus: string | null } {
+    const training = pet.training as Record<string, unknown> | undefined;
+    if (!training || now < Number(training.endsAt)) return { pet, settledFocus: null };
+    const idle = { ...pet };
+    delete idle.training;
+    const settled = gainServerPetXp(idle, Math.min(5000, Math.max(0, Number(training.sealedXp) || 0)), String(training.type ?? ''));
+    if (training.type === 'bond') settled.happiness = Math.min(100, petHappiness(settled) + 5);
+    return { pet: settled, settledFocus: String(training.type ?? '') };
+}
+
 export function removePetItem(character: Record<string, unknown>, itemId: string): Record<string, unknown> | null {
     const stacks = Array.isArray(character.itemStacks) ? character.itemStacks as Array<Record<string, unknown>> : [];
     let removed = false;
