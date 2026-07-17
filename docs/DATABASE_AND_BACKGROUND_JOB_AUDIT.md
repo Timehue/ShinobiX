@@ -218,8 +218,9 @@ Round 2 — connection lifecycle + hot-path write reduction (dormant-cPanel/sing
   byte-identical** — the memo only skips a redundant refresh, never changes what is recorded (risk explained in-file).
 
 Tests: **`api/_storage.test.ts`** (4 pagination/chunk tests), **`api/_player-ips.test.ts`** (new; 4 IP-throttle
-tests), **`scripts/test-files.mjs`** (manifest). **`dist/`** regenerated — only edited files have real diffs
-(rest is CRLF churn; do not stage). Commit real dist diffs with the source for cPanel; Railway self-builds.
+tests) — both colocated, so `scripts/run-tests.mjs` discovers them with no registration step. **`dist/`**
+regenerated — only edited files have real diffs (rest is CRLF churn; do not stage). Commit real dist diffs
+with the source for cPanel; Railway self-builds.
 
 No gameplay balance, reward rate, cost, odd, AP, cooldown, or formula changed. No schema/migration applied.
 
