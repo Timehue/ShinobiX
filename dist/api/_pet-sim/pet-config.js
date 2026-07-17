@@ -117,6 +117,8 @@ exports.stackableItemIds = new Set([
     "hollow-gate-key",
     "dungeon-legendary-fragment",
     "veil-of-the-hollow",
+    "elemental-shard",
+    "elemental-core",
     // High-volume consumables / throwables / reward materials. These are the
     // items players accumulate in bulk, so they live as counted stacks in
     // Character.itemStacks (one entry each) instead of one inventory[] slot per
@@ -127,6 +129,9 @@ exports.stackableItemIds = new Set([
     _game_consts_js_1.LEGENDARY_WAR_CRATE_ID,
     _game_consts_js_1.WARFORGED_RELIC_ID,
     _game_consts_js_1.DUNGEON_LEGENDARY_RELIC_ID,
+    // Anbu Vault Infiltration war caches (server-minted; cap 9999/stack).
+    // KEEP IN SYNC with api/_anbu-infiltration.ts CACHE_ITEM_IDS.
+    "war-supply-cache", "war-resource-cache",
     "thrown-shuriken", "thrown-senbon", "thrown-serpent-dust",
     "item-smoke-bomb", "item-attack-pill", "item-defense-pill",
     "potion-rejuvenation",

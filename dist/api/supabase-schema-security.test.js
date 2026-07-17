@@ -29,4 +29,12 @@ const node_path_1 = require("node:path");
         strict_1.default.match(schema, /key like 'pvp:%'/i);
         strict_1.default.match(schema, /revoke all\s+on public\.kv_store from authenticated;/i);
     });
+    (0, node_test_1.it)('does NOT expose the per-player challenge inbox to the anon role', () => {
+        // challenges:* was removed from BOTH the anon SELECT allowlist and the
+        // Realtime publication filter (2026-07-17). The browser never subscribed
+        // to it — challenges arrive over the authenticated heartbeat + Socket.IO —
+        // so the grant only let the public anon key enumerate every player's
+        // (projected) challenge inbox. Do not re-add it.
+        strict_1.default.doesNotMatch(schema, /key like 'challenges:%'/i, 'challenges:* must not be anon-readable');
+    });
 });

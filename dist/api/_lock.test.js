@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const node_assert_1 = require("node:assert");
 const _lock_js_1 = require("./_lock.js");
+const _storage_js_1 = require("./_storage.js");
 // Exercises the lock orchestration (acquire → run → release) and the
 // `failClosed` acquire-failure policy via injected primitives — no KV, no
 // network, deterministic. `withKvLock` is a thin wrapper that binds the real KV
@@ -73,5 +74,37 @@ const FAST = { maxAttempts: 2, baseBackoffMs: 1 };
         };
         await (0, _lock_js_1.withLockCore)('x', async () => 'ok', prims, FAST);
         node_assert_1.strict.equal(releasedToken, 'owner-token');
+    });
+});
+// The real kv-backed primitives, exercised against an in-memory KV so the
+// compare-and-delete release contract is covered end-to-end (not just the fake
+// primitives above). This is the concrete regression for the release TOCTOU.
+(0, node_test_1.describe)('makeKvLockPrimitives (compare-and-delete release)', () => {
+    (0, node_test_1.it)('release deletes only the caller-owned lock, never a re-acquired one', async () => {
+        const kv = (0, _storage_js_1._makeMemoryKv)();
+        const prims = (0, _lock_js_1.makeKvLockPrimitives)(kv);
+        const lockKey = 'lock:save:treasury';
+        const tokenA = await prims.tryAcquire(lockKey, 5);
+        node_assert_1.strict.ok(tokenA, 'A acquires');
+        // A second acquire fails while A holds the lock (mutual exclusion).
+        node_assert_1.strict.equal(await prims.tryAcquire(lockKey, 5), null, 'B blocked while A holds');
+        // Simulate A's lease expiring and B re-acquiring by force-replacing the
+        // lock value with a different owner token.
+        await kv.set(lockKey, 'ownerB', { ex: 5 });
+        // A's release must NOT delete B's lock.
+        await prims.release(lockKey, tokenA);
+        node_assert_1.strict.equal(await kv.get(lockKey), 'ownerB', "A's stale release left B's lock intact");
+        // B's own release clears exactly its lock.
+        await prims.release(lockKey, 'ownerB');
+        node_assert_1.strict.equal(await kv.get(lockKey), null);
+    });
+    (0, node_test_1.it)('a full acquire → run → release cycle frees the lock for the next holder', async () => {
+        const kv = (0, _storage_js_1._makeMemoryKv)();
+        const prims = (0, _lock_js_1.makeKvLockPrimitives)(kv);
+        let ran = 0;
+        await (0, _lock_js_1.withLockCore)('save:bank', async () => { ran++; }, prims, { ...FAST, failClosed: true });
+        // Lock was released, so a second failClosed critical section still runs.
+        await (0, _lock_js_1.withLockCore)('save:bank', async () => { ran++; }, prims, { ...FAST, failClosed: true });
+        node_assert_1.strict.equal(ran, 2);
     });
 });

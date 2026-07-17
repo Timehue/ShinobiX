@@ -335,12 +335,26 @@ export interface DuelActorSnap {
     id: string; team: "player" | "enemy"; slot: number;
     x: number; y: number; faceX: number; faceY: number;
     hp: number; maxHp: number; stamina: number; state: DuelState; statuses: string[];
+    /** Present only when a developer explicitly requests an AI trace. */
+    ai?: DuelAiDebug;
 }
 export interface DuelProjSnap { id: number; x: number; y: number; team: "player" | "enemy"; kind: PetJutsu["kind"]; element?: string | null; }
 export interface DuelSnapshot { t: number; actors: DuelActorSnap[]; projectiles: DuelProjSnap[]; }
 
-export type DuelEventType = "dash" | "dodge" | "windup" | "cast" | "hit" | "whiff" | "stagger" | "heal" | "shield" | "buff" | "ultimate" | "ko";
-export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; ranged?: boolean; move?: string; signature?: boolean; }
+export type DuelAiState = "engage" | "attack" | "kite" | "flank" | "retreat" | "regroup" | "burst" | "hold position" | "reposition" | "prepare combo" | "execute combo" | "escape danger" | "eliminated";
+export interface DuelAiDebug {
+    state: DuelAiState;
+    targetId: string | null;
+    desiredRange: number;
+    plan: string;
+    reason: string;
+    path?: Array<{ x: number; y: number }>;
+    cooldownPriorities?: string[];
+    elementalSetup?: string;
+}
+
+export type DuelEventType = "dash" | "maneuver" | "dodge" | "windup" | "cast" | "hit" | "whiff" | "stagger" | "heal" | "shield" | "buff" | "ultimate" | "ko";
+export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; ranged?: boolean; move?: string; signature?: boolean; combo?: string; }
 
 export interface DuelResult {
     result: "win" | "loss" | "draw";   // from the PLAYER team's perspective

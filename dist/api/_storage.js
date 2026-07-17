@@ -203,6 +203,15 @@ const pgKv = {
         const { rowCount } = await getPool().query(`DELETE FROM public.kv_store WHERE key = ANY($1::text[])`, [keys]);
         return rowCount ?? 0;
     },
+    async delIfEqual(key, expected) {
+        _cacheInvalidate(key);
+        // Single atomic statement — the value comparison and the delete happen in
+        // one row-locked operation, so no other writer can slip a new lock in
+        // between. The lock value is stored as a JSONB string, so compare against
+        // the JSON-encoded token.
+        const { rowCount } = await getPool().query(`DELETE FROM public.kv_store WHERE key = $1 AND value = $2::jsonb`, [key, JSON.stringify(expected)]);
+        return (rowCount ?? 0) > 0;
+    },
     async incr(key, options) {
         _cacheInvalidate(key);
         const exp = options?.ex ? expiresAt(options.ex) : null;
@@ -419,6 +428,19 @@ const supabaseKv = {
             total += count ?? 0;
         }
         return total;
+    },
+    async delIfEqual(key, expected) {
+        const db = getSupabase();
+        // Retired Vercel/Supabase-REST backend — locks route to pgKv on
+        // Railway/cPanel, so this is never on the real lock path. Filtering the
+        // JSONB `value` column with a scalar .eq can be finicky in PostgREST, so
+        // this fails SAFE: on ANY error it deletes nothing and returns false, so
+        // the lock simply lingers to its short TTL rather than risking deleting a
+        // different holder's lock. Never throws (a lock release must not error).
+        const { count, error } = await db.from('kv_store').delete({ count: 'exact' }).eq('key', key).eq('value', expected);
+        if (error)
+            return false;
+        return (count ?? 0) > 0;
     },
     async incr(key, options) {
         const db = getSupabase();
@@ -736,6 +758,13 @@ function _makeMemoryKv() {
                     deleted += 1;
             return deleted;
         },
+        async delIfEqual(key, expected) {
+            const entry = liveEntry(key);
+            if (!entry || entry.value !== expected)
+                return false;
+            entries.delete(key);
+            return true;
+        },
         async incr(key, options) {
             const current = Number(liveEntry(key)?.value ?? 0);
             const next = current + 1;
@@ -832,6 +861,16 @@ function _makeDiskKv(root) {
                 if (await _diskUnlink(root, k))
                     n++;
             return n;
+        },
+        async delIfEqual(key, expected) {
+            // Serialized read-compare-unlink under the same per-key lock the RMW
+            // ops use, so it is atomic against a concurrent nx-claim on this file.
+            return _withDiskKeyLock(root, key, async () => {
+                const rec = await _diskRead(root, key);
+                if (!rec || isExpired(rec.expires_at) || rec.value !== expected)
+                    return false;
+                return _diskUnlink(root, key);
+            });
         },
         // Non-atomic RMW. Disk-routed keys (save:/shared:) never use incr, so
         // this exists only to satisfy KvLike — the rate limiter's incr always
@@ -996,6 +1035,16 @@ function _makeRemoteKv(baseUrl, token, opts) {
         async del(...keys) {
             return (await call('del', { keys })).count;
         },
+        async delIfEqual(key, expected) {
+            // Lock keys are `lock:*` (base-routed), so a compare-and-delete never
+            // reaches the remote overlay. Kept for KvLike conformance as a
+            // best-effort read-then-conditional-delete; the proxy exposes no
+            // atomic CAS op, so do not route a lock here.
+            const cur = await this.get(key);
+            if (cur !== expected)
+                return false;
+            return (await this.del(key)) > 0;
+        },
         // Non-atomic RMW over the proxy. Never used for disk-routed keys (the
         // only keys that reach the remote overlay), so the rate limiter never
         // hits this path — see the routed incr below.
@@ -1081,6 +1130,11 @@ function _makeRoutedKv(base, disk) {
                 snapshotKeys.length ? disk.del(...snapshotKeys).catch(() => 0) : Promise.resolve(0),
             ]);
             return a + b + c + d;
+        },
+        async delIfEqual(key, expected) {
+            // Lock keys (`lock:*`) are base-routed, so this resolves to the base
+            // store's atomic compare-and-delete on every real deployment.
+            return _routesToDisk(key) ? disk.delIfEqual(key, expected) : base.delIfEqual(key, expected);
         },
         async incr(key, options) {
             return _routesToDisk(key) ? disk.incr(key, options) : base.incr(key, options);

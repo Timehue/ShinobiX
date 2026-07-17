@@ -25,6 +25,12 @@ let issuePlayerToken;
         return 'OK';
     };
     kv.del = async (...keys) => keys.reduce((n, key) => n + (store.delete(key) ? 1 : 0), 0);
+    kv.delIfEqual = async (key, expected) => {
+        if (store.get(key) !== expected)
+            return false;
+        store.delete(key);
+        return true;
+    };
     kv.incr = async (key) => {
         const next = (Number(store.get(key)) || 0) + 1;
         store.set(key, next);

@@ -16,8 +16,11 @@ exports.readPlayerSessionEpoch = readPlayerSessionEpoch;
 exports.rotatePlayerSessionEpoch = rotatePlayerSessionEpoch;
 exports.issuePlayerToken = issuePlayerToken;
 exports.verifyPlayerToken = verifyPlayerToken;
+exports.issueAdminToken = issueAdminToken;
+exports.verifyAdminToken = verifyAdminToken;
 exports.isFullAdmin = isFullAdmin;
 exports.isAdmin = isAdmin;
+exports.adminRole = adminRole;
 exports.authedPlayer = authedPlayer;
 exports.authedPlayerOrAdmin = authedPlayerOrAdmin;
 exports.bodyNameMatchesAuth = bodyNameMatchesAuth;
@@ -194,16 +197,74 @@ async function verifyPlayerToken(token) {
         return null;
     }
 }
+const ADMIN_TOKEN_VERSION = 'av1';
+// 12h — shorter than the 24h player token because admin is more sensitive.
+const ADMIN_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+function adminSessionSecret() {
+    const s = process.env.ADMIN_SESSION_SECRET;
+    return s && s.length > 0 ? s : null;
+}
+function adminSessionEpoch() {
+    const e = process.env.ADMIN_SESSION_EPOCH;
+    return e && e.length > 0 ? e : '0';
+}
+function signAdminToken(role, expMs, epoch, secret) {
+    return (0, crypto_1.createHmac)('sha256', secret).update(`${role}.${expMs}.${epoch}`).digest('base64url');
+}
+/** Mint a short-lived admin session token. null when ADMIN_SESSION_SECRET is unset. */
+function issueAdminToken(role, ttlMs = ADMIN_TOKEN_TTL_MS) {
+    const secret = adminSessionSecret();
+    if (!secret)
+        return null;
+    const expMs = Date.now() + ttlMs;
+    const epoch = adminSessionEpoch();
+    return `${ADMIN_TOKEN_VERSION}.${role}.${expMs}.${epoch}.${signAdminToken(role, expMs, epoch, secret)}`;
+}
+/** Verify an admin session token → its role, or null. Stateless; no KV; no scrypt. */
+function verifyAdminToken(token) {
+    const secret = adminSessionSecret();
+    if (!secret || !token)
+        return null;
+    const parts = token.split('.');
+    if (parts.length !== 5 || parts[0] !== ADMIN_TOKEN_VERSION)
+        return null;
+    const role = parts[1];
+    if (role !== 'full' && role !== 'content')
+        return null;
+    const expMs = Number(parts[2]);
+    if (!Number.isFinite(expMs) || expMs <= Date.now())
+        return null;
+    const epoch = parts[3];
+    if (epoch !== adminSessionEpoch())
+        return null; // revoked by an epoch bump
+    if (!safeEqual(parts[4], signAdminToken(role, expMs, epoch, secret)))
+        return null;
+    return role;
+}
 /**
- * Verify the request carries the FULL admin password (Admin 1 only).
- * Accepts header `x-admin-password`. Constant-time compare.
+ * When true (ADMIN_STRICT_TOKEN_ONLY=1), the reusable-password path on
+ * isAdmin/isFullAdmin is REJECTED — only a signed admin token is accepted. This
+ * is the token-only end state; the operator flips it once the client is issuing
+ * tokens. Default OFF (password still accepted) so enabling admin sessions can
+ * never lock a single-operator deployment out mid-migration.
+ */
+function strictAdminTokenOnly() {
+    return process.env.ADMIN_STRICT_TOKEN_ONLY === '1';
+}
+/**
+ * Verify the request carries FULL admin authority (Admin 1 only): a signed
+ * 'full' admin session token (`x-admin-token`), or — unless strict-token-only is
+ * on — the reusable ADMIN_PASSWORD (`x-admin-password`, constant-time compare).
  *
- * Use this for the destructive / sensitive endpoints that Admin 2 must
- * NOT have access to: player management, moderation, server reset, KV
- * migration. Every other admin endpoint uses `isAdmin()` which accepts
- * either password.
+ * Use this for the destructive / sensitive endpoints Admin 2 must NOT reach:
+ * player management, moderation, server reset, KV migration. Other admin
+ * endpoints use `isAdmin()` which accepts either role.
  */
 function isFullAdmin(req) {
+    if (verifyAdminToken(headerString(req, 'x-admin-token')) === 'full')
+        return true;
+    if (strictAdminTokenOnly())
+        return false;
     const expected = process.env.ADMIN_PASSWORD;
     if (!expected)
         return false;
@@ -213,18 +274,18 @@ function isFullAdmin(req) {
     return safeEqual(provided, expected);
 }
 /**
- * Verify the request carries A valid admin password — either ADMIN_PASSWORD
- * (Admin 1, full access) or ADMIN_CONTENT_PASSWORD (Admin 2, content-only
- * access). Use this for endpoints that BOTH admin roles should be able to
- * call (content curation: bloodline-review, item-review, save:admin* writes,
- * villageLeadershipImages, etc.).
- *
- * For the restricted set (player management, moderation, etc.) use
- * `isFullAdmin()` instead.
+ * Verify the request carries A valid admin authority — full OR content — via a
+ * signed admin session token (`x-admin-token`) or, unless strict-token-only is
+ * on, either admin password (`x-admin-password`). Use for endpoints BOTH admin
+ * roles may call (content curation). For the restricted set use `isFullAdmin()`.
  */
 function isAdmin(req) {
     if (isFullAdmin(req))
         return true;
+    if (verifyAdminToken(headerString(req, 'x-admin-token')) === 'content')
+        return true;
+    if (strictAdminTokenOnly())
+        return false;
     const expectedContent = process.env.ADMIN_CONTENT_PASSWORD;
     if (!expectedContent)
         return false;
@@ -232,6 +293,19 @@ function isAdmin(req) {
     if (!provided)
         return false;
     return safeEqual(provided, expectedContent);
+}
+/**
+ * The verified admin role on this request ('full' | 'content'), or null. Derived
+ * from the same token/password checks as isAdmin/isFullAdmin — so audit code can
+ * record the actor's role from the VERIFIED credential instead of trusting a
+ * body-supplied `actor`.
+ */
+function adminRole(req) {
+    if (isFullAdmin(req))
+        return 'full';
+    if (isAdmin(req))
+        return 'content';
+    return null;
 }
 /**
  * Verify the request carries valid player credentials.

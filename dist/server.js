@@ -280,6 +280,7 @@ const _auth_js_1 = require("./api/_auth.js");
 // Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
 const _utils_js_1 = require("./api/_utils.js");
+const _body_limits_js_1 = require("./api/_body-limits.js");
 const _http_security_js_1 = require("./api/_http-security.js");
 const _launch_controls_js_1 = require("./api/_launch-controls.js");
 const _canonical_domain_js_1 = require("./api/_canonical-domain.js");
@@ -420,13 +421,22 @@ app.use((_req, res, next) => {
 // grant the 50 MB ceiling only to the routes that need it. Player saves are
 // <=1 MB-gated in api/save/[name].ts and the leadership-portrait POST to
 // /api/game-state both fit the 5 MB default with room to spare.
+// Route-specific JSON body limits (see api/_body-limits.ts). The 50 MB parser is
+// scoped to the exact image/import routes that need it — NOT the whole /admin/*
+// tree, so an unauthenticated caller can't force a 50 MB buffer + parse before a
+// handler's auth check. Player saves get a 1 MB parser (the save handler already
+// rejects >1 MB), rejecting an oversized save at the parser boundary rather than
+// after a larger parse. game-state's leadership portrait still fits the 5 MB
+// default with room to spare.
 const jsonBig = express_1.default.json({ limit: '50mb' });
+const jsonSave = express_1.default.json({ limit: '1mb' });
 const jsonDefault = express_1.default.json({ limit: '5mb' });
-const BIG_BODY_RE = /(?:^|\/)(?:images|img|generate-image|kv-proxy|admin)(?:\/|$)/;
 app.use((req, res, next) => {
-    if (BIG_BODY_RE.test(req.path))
-        return jsonBig(req, res, next);
-    return jsonDefault(req, res, next);
+    switch ((0, _body_limits_js_1.classifyBodyLimit)(req.path)) {
+        case 'big': return jsonBig(req, res, next);
+        case 'save': return jsonSave(req, res, next);
+        default: return jsonDefault(req, res, next);
+    }
 });
 app.use(express_1.default.urlencoded({ extended: true, limit: '5mb' }));
 // Per-request correlation id — a short, greppable token on every request,
@@ -501,7 +511,7 @@ app.use((req, res, next) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-player-token, x-kv-token, x-client-fp');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-admin-token, x-player-password, x-player-name, x-player-token, x-kv-token, x-client-fp');
     // HSTS: tell browsers to always use HTTPS for this host (1 year). Only emit
     // it on responses that actually arrived over HTTPS — both Railway's edge and
     // cPanel's Apache terminate TLS and forward with x-forwarded-proto. Per the
