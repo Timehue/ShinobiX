@@ -162,7 +162,7 @@ import clanWarTilecardsHandler from './api/clan/war/tilecards.js';
 import cardClashQueueHandler   from './api/card-clash/queue.js';
 import cardClashMatchHandler   from './api/card-clash/match.js';
 import cardClashAiStartHandler from './api/card-clash/ai-start.js';
-import cardClashAiSettleHandler from './api/card-clash/ai-settle.js';
+import cardClashAiMoveHandler  from './api/card-clash/ai-move.js';
 // Clan — seal pool
 import clanSealPoolGetHandler        from './api/clan/seal-pool/get.js';
 import clanSealPoolDonateHandler     from './api/clan/seal-pool/donate.js';
@@ -1060,7 +1060,7 @@ route('/clan/war/tilecards', clanWarTilecardsHandler);
 route('/card-clash/queue', cardClashQueueHandler);
 route('/card-clash/match', cardClashMatchHandler);
 route('/card-clash/ai-start', cardClashAiStartHandler);
-route('/card-clash/ai-settle', cardClashAiSettleHandler);
+route('/card-clash/ai-move', cardClashAiMoveHandler);
 
 // ─── Clan: seal pool ───────────────────────────────────────────────────────────
 route('/clan/seal-pool/get',        clanSealPoolGetHandler);
