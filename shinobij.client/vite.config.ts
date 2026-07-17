@@ -327,7 +327,10 @@ export default defineConfig({
             // background art is pre-converted to WebP q80 via scripts/to-webp.mjs;
             // re-encoding it here (the webp setting below is q70) would be a
             // needless second lossy pass. New WebP added by that script is final.
-            exclude: /\.(svg|webp)$/i,
+            // Pet QA turnarounds and generation proofs are already final review
+            // artifacts. Processing thousands of them concurrently can exhaust
+            // Windows' file-handle limit; none are shipped by the live build.
+            exclude: /(?:[\\/]pet-models[\\/](?:qa|roster-concepts|proofs|sources|roster-references)[\\/])|(?:\.(?:svg|webp)$)/i,
             // Compress PNGs — background images drop from ~2.5–3.5 MB to
             // ~250–600 KB. Quality dropped from 78 → 70: at 70 the visual
             // difference on decorative game art is imperceptible, but

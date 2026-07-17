@@ -1373,7 +1373,7 @@ async function handler(req, res) {
             return res.status(200).json(withRejected(session, 'The battle is busy applying another action — please try again.'));
         }
         async function finish(payload) {
-            await _storage_js_1.kv.del(lockKey).catch(() => undefined);
+            await _storage_js_1.kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
             return res.status(200).json(payload);
         }
         // Now that we hold the lock, re-read the freshest session: a writer may
@@ -1611,7 +1611,7 @@ async function handler(req, res) {
             }
             case 'jutsu': {
                 if (!jutsuId) {
-                    await _storage_js_1.kv.del(lockKey).catch(() => undefined);
+                    await _storage_js_1.kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
                     return res.status(400).json({ error: 'Missing jutsuId' });
                 }
                 const jutsuList = me.character.jutsu ?? [];
@@ -1833,7 +1833,7 @@ async function handler(req, res) {
             case 'weapon': {
                 const serverItem = equippedPvpItem(me, itemId, itemName);
                 if (!serverItem || !['hand', 'thrown'].includes(normalizeEquipmentSlot(serverItem.slot))) {
-                    await _storage_js_1.kv.del(lockKey).catch(() => undefined);
+                    await _storage_js_1.kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
                     return res.status(400).json({ error: 'Weapon is not equipped for this fighter' });
                 }
                 const wSlot = normalizeEquipmentSlot(serverItem.slot);
@@ -1916,7 +1916,7 @@ async function handler(req, res) {
             case 'item': {
                 const serverItem = equippedPvpItem(me, itemId, itemName);
                 if (!serverItem || ['hand', 'thrown'].includes(normalizeEquipmentSlot(serverItem.slot))) {
-                    await _storage_js_1.kv.del(lockKey).catch(() => undefined);
+                    await _storage_js_1.kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
                     return res.status(400).json({ error: 'Item is not equipped for this fighter' });
                 }
                 const iApCost = serverItem.apCost ?? 35;
@@ -2021,7 +2021,7 @@ async function handler(req, res) {
                 break;
             }
             default:
-                await _storage_js_1.kv.del(lockKey).catch(() => undefined);
+                await _storage_js_1.kv.delIfEqual(lockKey, lockToken).catch(() => undefined);
                 return res.status(400).json({ error: `Unknown action: ${action}` });
         }
         // If this commit resolved the fight, grant server-side Vanguard

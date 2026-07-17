@@ -40,11 +40,15 @@ async function handler(req, res) {
     // takes the same time regardless of which (or neither) matched.
     const matchFull = (0, _auth_js_1.safeEqual)(password, adminPassword);
     const matchContent = adminContentPassword ? (0, _auth_js_1.safeEqual)(password, adminContentPassword) : false;
+    // Mint a short-lived session token so the client stops forwarding the raw
+    // password on every request (Phase 4). `token` is null when
+    // ADMIN_SESSION_SECRET is unset — the client then keeps using the password,
+    // unchanged. The token encodes only the role; it carries no password.
     if (matchFull) {
-        return res.status(200).json({ success: true, account: 'Admin 1', role: 'full' });
+        return res.status(200).json({ success: true, account: 'Admin 1', role: 'full', token: (0, _auth_js_1.issueAdminToken)('full') });
     }
     if (matchContent) {
-        return res.status(200).json({ success: true, account: 'Admin 2', role: 'content' });
+        return res.status(200).json({ success: true, account: 'Admin 2', role: 'content', token: (0, _auth_js_1.issueAdminToken)('content') });
     }
     return res.status(401).json({ success: false, error: 'Incorrect password.' });
 }

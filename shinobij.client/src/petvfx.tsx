@@ -18,6 +18,9 @@ import { runPetGridBattle } from "./lib/pet-board-sim";
 import type { PetJutsu, Pet } from "./types/pet";
 import type { Character } from "./types/character";
 import type { ArenaRole, ArenaSlot } from "./lib/pet-arena-sim";
+import { PetModelQa } from "./components/PetModelQa";
+import { petElementByName } from "./data/pet-elements";
+import { balanceBuiltInPetTemplate } from "./lib/pet-balance";
 const jts = (...js: PetJutsu[]) => js;   // typed inline jutsu list for the duel harness
 
 // Demo creature billboards for the coliseum harness — transparent full-body
@@ -36,6 +39,8 @@ function harnessPet(index: number, over: Partial<(typeof rawPetPool)[number]>) {
 const PARAMS = new URLSearchParams(window.location.search);
 const START_SEED = Number(PARAMS.get("seed")) || 20260601;
 const START_FRAME = PARAMS.get("frame") !== null ? Math.max(0, Number(PARAMS.get("frame")) || 0) : null;
+const START_DUEL_TICK = PARAMS.get("dueltick") !== null ? Math.max(0, Number(PARAMS.get("dueltick")) || 0) : 0;
+const DEBUG_AI = PARAMS.get("debugAI") === "1";
 
 function Harness() {
     const [seed, setSeed] = useState(START_SEED);
@@ -52,11 +57,59 @@ function Harness() {
     // ?cine=1 — play the NEW cinematic engine (pet-duel-cinematic.ts) through the
     // same renderer (precompute the result + pass it in).
     const cineMode = PARAMS.get("cine") === "1";
-    // A pure-RANGED kiter vs a MELEE chaser — the clearest tactical contrast.
-    const duelPlayer = useMemo(() => ({ ...harnessPet(0, { element: "Fire" }), id: "generic-ai-pet-emberlynx", name: "Emberlynx", hp: 1100, attack: 110, speed: 95,
-        jutsus: jts({ name: "Ember Bolt", kind: "burn", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Cinder Veil", kind: "slow", power: 55, cooldown: 3, currentCooldown: 0 }, { name: "Stone Ward", kind: "barrier", power: 60, cooldown: 3, currentCooldown: 0 }) }), []);
-    const duelEnemy = useMemo(() => ({ ...harnessPet(7, { element: "Lightning" }), id: "generic-ai-pet-guardhound", name: "Guardhound", hp: 1200, attack: 115, speed: 80,
-        jutsus: jts({ name: "Iron Bite", kind: "damage", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Warding Howl", kind: "stun", power: 45, cooldown: 4, currentCooldown: 0 }) }), []);
+    // ?model3d=1 — force a pair of evolved starters with approved GLB combat art.
+    // This is the deterministic visual-QA route for the live 3D Coliseum path.
+    const modelQaMode = PARAMS.get("modelqa") === "1";
+    // ?rosterfox=1 runs the approved production Red Fox against the regular
+    // 3D water opponent, proving roster art through the full fight renderer.
+    const rosterFoxMode = PARAMS.get("rosterfox") === "1";
+    const requestedRosterId = rosterFoxMode ? "standard-0" : PARAMS.get("rosterpet");
+    const rosterBattlePet = requestedRosterId ? rawPetPool.find((pet) => pet.id === requestedRosterId) : undefined;
+    const model3dMode = PARAMS.get("model3d") === "1" || modelQaMode || Boolean(rosterBattlePet);
+    // ?legendary=1 lets visual QA compare the alternate evolved mesh without
+    // changing the live model gate or the deterministic fight setup.
+    const legendaryModelMode = PARAMS.get("legendary") === "1";
+    // ?quick=1 — exhibition pacing for short recordings. Dev harness only;
+    // the live simulator, combat formulas, rewards and ranked paths are untouched.
+    const quickDemoMode = PARAMS.get("quick") === "1";
+    // Roster QA must preserve the selected pet's ACTUAL combat identity. The old
+    // harness put every model into the same all-ranged fire-kiter kit, which made a
+    // melee/support pet such as Eclipse Kitsune spend the preview running away.
+    const duelPlayer = useMemo(() => {
+        // The preview must use the finalized template the live game uses: this
+        // includes its role, elemental special, and signature move rather than an
+        // unbalanced raw roster record with part of the kit missing.
+        const base = rosterBattlePet ? balanceBuiltInPetTemplate(rosterBattlePet) : harnessPet(0, { element: "Fire" });
+        const element = rosterBattlePet ? base.element ?? petElementByName[base.name] ?? "Fire" : "Fire";
+        return {
+            ...base,
+            element,
+            id: rosterBattlePet?.id ?? (model3dMode ? "starter-fire" : "generic-ai-pet-emberlynx"),
+            name: rosterBattlePet?.name ?? (model3dMode ? "Ember Wolf" : "Emberlynx"),
+            hp: quickDemoMode ? 520 : Math.max(1100, base.hp ?? 0),
+            attack: quickDemoMode ? Math.max(150, base.attack ?? 0) : Math.max(110, base.attack ?? 0),
+            speed: Math.max(88, base.speed ?? 0),
+            ...(model3dMode ? { evolutionStage: legendaryModelMode ? 2 as const : 1 as const, rarity: rosterBattlePet?.rarity ?? (legendaryModelMode ? "legendary" as const : "rare" as const) } : {}),
+            jutsus: rosterBattlePet ? base.jutsus.map((move) => ({ ...move, currentCooldown: 0 })) : (model3dMode
+                ? jts(
+                    { name: "Ember Fang", kind: "damage", power: 82, cooldown: 1, currentCooldown: 0 },
+                    { name: "Cinder Volley", kind: "burn", power: 86, cooldown: 2, currentCooldown: 0 },
+                    { name: "Flame Burst", kind: "push", power: 112, cooldown: 4, currentCooldown: 0, signature: true },
+                    { name: "Blazing Focus", kind: "buff", power: 58, cooldown: 5, currentCooldown: 0 },
+                )
+                : jts({ name: "Ember Bolt", kind: "burn", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Cinder Veil", kind: "slow", power: 55, cooldown: 3, currentCooldown: 0 }, { name: "Stone Ward", kind: "barrier", power: 60, cooldown: 3, currentCooldown: 0 })),
+        };
+    }, [model3dMode, rosterBattlePet, legendaryModelMode, quickDemoMode]);
+    const duelEnemy = useMemo(() => ({ ...harnessPet(7, { element: model3dMode ? "Water" : "Lightning" }), id: model3dMode ? "starter-water" : "generic-ai-pet-guardhound", name: model3dMode ? "Tidal Selkie" : "Guardhound", hp: quickDemoMode ? 520 : 1200, attack: quickDemoMode ? 160 : 115, speed: 84,
+        ...(model3dMode ? { evolutionStage: legendaryModelMode ? 2 as const : 1 as const, rarity: legendaryModelMode ? "legendary" as const : "rare" as const } : {}),
+        jutsus: model3dMode
+            ? jts(
+                { name: "Riptide Fang", kind: "damage", power: 82, cooldown: 1, currentCooldown: 0 },
+                { name: "Tidal Crash", kind: "push", power: 106, cooldown: 3, currentCooldown: 0, signature: true },
+                { name: "Flow State", kind: "haste", power: 54, cooldown: 5, currentCooldown: 0 },
+                { name: "Riptide Shift", kind: "move", power: 1, cooldown: 3, currentCooldown: 0 },
+            )
+            : jts({ name: "Iron Bite", kind: "damage", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Warding Howl", kind: "stun", power: 45, cooldown: 4, currentCooldown: 0 }) }), [model3dMode, legendaryModelMode, quickDemoMode]);
     const duelPlayerRes = useMemo(() => ({ ...harnessPet(1, { element: "Water" }), id: "legendary-0", name: "Ally", hp: 1000, attack: 100,
         jutsus: jts({ name: "Frost Lance", kind: "freeze", power: 90, cooldown: 3, currentCooldown: 0 }, { name: "Tide Mend", kind: "heal", power: 120, cooldown: 4, currentCooldown: 0 }) }), []);
     const duelEnemyRes = useMemo(() => ({ ...harnessPet(8, { element: "Earth" }), id: "legendary-1", name: "Foe", hp: 1000, attack: 100,
@@ -150,16 +203,23 @@ function Harness() {
     const cineResult = useMemo(() => {
         if (!cineMode) return undefined;
         return partyMode
-            ? runPetPartyDuelCinematic(duelPlayer, duelPlayerRes, duelEnemy, duelEnemyRes, seed)
-            : runPetDuelCinematic(duelPlayer, duelEnemy, seed);
+            ? runPetPartyDuelCinematic(duelPlayer, duelPlayerRes, duelEnemy, duelEnemyRes, seed, 1, 1, false, true, undefined, DEBUG_AI)
+            : runPetDuelCinematic(duelPlayer, duelEnemy, seed, 1, 1, false, true, undefined, null, DEBUG_AI);
     }, [cineMode, partyMode, duelPlayer, duelEnemy, duelPlayerRes, duelEnemyRes, seed]);
+    useEffect(() => {
+        // Dev-only deterministic QA hook: lets the browser harness locate exact
+        // maneuver/signature ticks without adding scrub controls to production UI.
+        (window as unknown as { __petDuelResult?: unknown }).__petDuelResult = cineResult;
+    }, [cineResult]);
 
     const btn: React.CSSProperties = { padding: "6px 12px", background: "#1e3a8a", color: "#fff", border: "1px solid #3b82f6", borderRadius: 6, cursor: "pointer", font: "600 12px Inter, sans-serif" };
+    if (modelQaMode) return <PetModelQa />;
     if (gauntletMode) {
         return <div className="pet-arena-screen" style={{ maxWidth: 1000, margin: "16px auto", padding: 12 }}><PetGauntlet character={mockChar} updateCharacter={() => {}} /></div>;
     }
     return (
         <div style={{ maxWidth: 880, margin: "16px auto", padding: 12 }}>
+            {cineResult && <output hidden data-testid="pet-duel-qa" data-events={JSON.stringify(cineResult.events)} />}
             {(duelMode || cineMode) && (
                 <PetColiseumDuel
                     playerPet={duelPlayer}
@@ -168,6 +228,7 @@ function Harness() {
                     enemyReservePet={partyMode ? duelEnemyRes : undefined}
                     seed={seed}
                     result={cineResult}
+                    initialTick={START_DUEL_TICK}
                     sharedImages={harnessShared}
                     onFightAgain={restart}
                     onExit={() => {}}
@@ -234,4 +295,8 @@ function Harness() {
     );
 }
 
-createRoot(document.getElementById("root")!).render(<Harness />);
+const rootNode = document.getElementById("root")!;
+const devWindow = window as typeof window & { __petVfxRoot?: ReturnType<typeof createRoot> };
+const petVfxRoot = devWindow.__petVfxRoot ?? createRoot(rootNode);
+devWindow.__petVfxRoot = petVfxRoot;
+petVfxRoot.render(<Harness />);

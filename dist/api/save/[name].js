@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildPublicSaveDTO = buildPublicSaveDTO;
 exports.adminSaveTargetAllowed = adminSaveTargetAllowed;
 exports.sanitizeCharacterSave = sanitizeCharacterSave;
 exports.default = handler;
@@ -28,17 +29,17 @@ const _first_save_baseline_js_1 = require("./_first-save-baseline.js");
 const _stat_entitlement_js_1 = require("./_stat-entitlement.js");
 const _forge_js_1 = require("../bloodlines/_forge.js");
 const formulas_js_1 = require("../combat-core/formulas.js");
-// Fields stripped from character objects when a non-owner reads another player's save.
-// Prevents ryo farming (reading other players' wallets) and inventory snooping.
-const PRIVATE_CHAR_FIELDS = [
-    'ryo', 'bankedRyo', 'inventory', 'itemStacks', 'missions', 'missionLog',
-    'completedMissions', 'activeMissions', 'questLog', 'bankLog',
-    'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
-    'clanPointHistory', 'clanExchangePurchases',
-];
-// Public-safe subset used when ANY player reads another player's save.
-// Avoids leaking PvP loadout (jutsu, equipment, computed combat multipliers)
-// which an attacker could use to scout opponents and metagame them.
+// Non-owner reads use an explicit ALLOWLIST at BOTH the root and character
+// level (see buildPublicSaveDTO). A blacklist is not the boundary anymore: the
+// old projection spread the entire top-level save into the response and only
+// allowlisted `character`, so every root-level field (savedBloodlines,
+// creatorJutsus/Items/Ais/…, activeTraining, missionProgress, currentSector,
+// triggeredEvents, _saveVersion, and any field added later) leaked to any
+// logged-in player. The allowlist below is private-by-default: a newly added
+// top-level or character field is NOT public unless it is explicitly listed.
+// Public-safe character subset used when ANY player reads another player's save.
+// Avoids leaking PvP loadout (jutsu, equipment, computed combat multipliers,
+// stats) which an attacker could use to scout opponents and metagame them.
 const PUBLIC_CHAR_FIELDS = new Set([
     'name', 'level', 'village', 'rank', 'avatarImage', 'specialty', 'storyProgress',
     'hp', 'maxHp', 'chakra', 'maxChakra', 'stamina', 'maxStamina',
@@ -47,31 +48,45 @@ const PUBLIC_CHAR_FIELDS = new Set([
     // profile-view screens can render rank/XP for other players.
     'profession', 'professionRank', 'professionXp',
 ]);
-function publicProjection(data) {
+// Top-level (non-character) save fields exposed on a BASE non-owner read
+// (roster / profile view). Deliberately empty — a profile view needs only the
+// public character projection, and everything else at the top level is private.
+const PUBLIC_TOPLEVEL_FIELDS = [];
+// Additional top-level fields exposed ONLY on a combat-scouting read
+// (?combatOnly=1). The live client's fetchPlayerCombatSave (shinobij.client/
+// src/lib/pvp-session.ts) reads these to build the opponent's session-create
+// payload — but the server RE-HYDRATES the opponent's authoritative loadout from
+// save:<name> at session create (session.ts resolveEquippedLoadout /
+// resolveEquippedPvpItems), so this is a bounded scouting surface, not a trust
+// boundary. Kept intentionally minimal: creator AIs/events/missions/raids/cards,
+// training state, mission progress, current sector, triggered events, and all
+// internal _-metadata are NEVER exposed to a non-owner, on any read.
+const PUBLIC_COMBAT_TOPLEVEL_FIELDS = ['savedBloodlines', 'creatorJutsus', 'creatorItems'];
+// Build the non-owner response: an explicit allowlist DTO. Nothing from the
+// stored save reaches a foreign reader unless it is named here — no top-level
+// spread, no internal metadata (_saveVersion / _saveAt), and future fields are
+// private until deliberately added.
+function buildPublicSaveDTO(data, opts) {
     const char = data.character;
-    if (!char || typeof char !== 'object')
-        return data;
-    const projected = {};
-    for (const k of PUBLIC_CHAR_FIELDS) {
-        if (k in char)
-            projected[k] = char[k];
+    const projectedChar = {};
+    if (char && typeof char === 'object') {
+        for (const k of PUBLIC_CHAR_FIELDS) {
+            if (k in char)
+                projectedChar[k] = char[k];
+        }
     }
-    return { ...data, character: projected };
-}
-function stripPrivateFields(data) {
-    const char = data.character;
-    if (!char || typeof char !== 'object')
-        return data;
-    const sanitized = { ...char };
-    for (const field of PRIVATE_CHAR_FIELDS)
-        delete sanitized[field];
-    // _saveVersion / _saveAt are server bookkeeping for the multi-tab autosave
-    // guard. Owners need to see them (so they can echo `_baseSaveVersion`
-    // back on the next POST), but non-owners shouldn't get internal metadata.
-    const stripped = { ...data, character: sanitized };
-    delete stripped._saveVersion;
-    delete stripped._saveAt;
-    return stripped;
+    const out = { character: projectedChar };
+    for (const k of PUBLIC_TOPLEVEL_FIELDS) {
+        if (k in data)
+            out[k] = data[k];
+    }
+    if (opts.combat) {
+        for (const k of PUBLIC_COMBAT_TOPLEVEL_FIELDS) {
+            if (k in data)
+                out[k] = data[k];
+        }
+    }
+    return out;
 }
 /** Content admin is limited to the two explicit admin content save records. */
 function adminSaveTargetAllowed(targetName, fullAdmin, anyAdmin) {
@@ -2025,31 +2040,35 @@ async function handler(req, res) {
         const data = isClanSave
             ? stored
             : (await (0, _elapsed_state_js_1.settleSaveRecordForRead)(name, stored, { persist: true })).record;
-        // Strip sensitive fields when someone reads another player's save.
-        // - Owners + admins: full save.
-        // - Clan saves: full save (any logged-in player can read shared clan record).
-        // - Anyone else: public-only projection (name/level/village/HP/etc.).
-        //   This drops PvP loadout (jutsu, pvpItems, equipment, armor*, bloodlineMult,
-        //   itemDamagePct, stats, savedBloodlines, creatorJutsus, creatorItems)
-        //   so opponents can't be scouted out-of-band. The server hydrates
-        //   actual opponent combat data from save:<name> directly when PvP
-        //   sessions are created.
+        // Project the save by reader.
+        // - Owners + authorized admins + clan saves: full save (combatOnly just
+        //   trims combat-irrelevant fields for bandwidth).
+        // - Anyone else: an explicit ROOT + CHARACTER allowlist DTO
+        //   (buildPublicSaveDTO). Nothing leaks unless it is named there —
+        //   closing the old spread that shipped every top-level field
+        //   (savedBloodlines, creator*, activeTraining, missionProgress,
+        //   currentSector, triggeredEvents, _saveVersion, and any future field)
+        //   to any logged-in player. The server hydrates real opponent combat
+        //   data from save:<name> directly when PvP sessions are created, so a
+        //   foreign reader never needs the private loadout.
         //
-        // ?combatOnly=1 layers a second strip on top — drops mission /
-        // achievement / lifetime-counter fields that combat never reads.
-        // Used by client fetchPlayerCombatSave() to shave ~50–150KB per
-        // PvP fetch (challenge accept + village raid prep do 2 fetches each).
+        // ?combatOnly=1 additionally exposes the minimal combat-scouting fields
+        // the live client's fetchPlayerCombatSave consumes (see
+        // PUBLIC_COMBAT_TOPLEVEL_FIELDS) and, for owners, trims mission /
+        // achievement / lifetime-counter fields combat never reads.
         // identity.name and `name` are both safeName slugs, so a direct compare
-        // correctly recognises the owner (the old `.toLowerCase().trim()` left a
-        // spaced-name owner looking like a foreigner and served them a stripped
-        // public projection of their own save).
+        // correctly recognises the owner.
         const adminCanReadTarget = identity.admin
             && adminSaveTargetAllowed(name, (0, _auth_js_1.isFullAdmin)(req), (0, _auth_js_1.isAdmin)(req));
         const isOwner = adminCanReadTarget || isClanSave || (!identity.admin && identity.name === name);
         const combatOnly = req.query.combatOnly === '1';
-        let payload = isOwner ? data : publicProjection(stripPrivateFields(data));
-        if (combatOnly)
-            payload = combatProjection(payload);
+        let payload;
+        if (isOwner) {
+            payload = combatOnly ? combatProjection(data) : data;
+        }
+        else {
+            payload = buildPublicSaveDTO(data, { combat: combatOnly });
+        }
         return res.status(200).json(payload);
     }
     if (req.method === 'POST') {
