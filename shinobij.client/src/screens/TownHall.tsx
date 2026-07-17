@@ -23,11 +23,11 @@ import { postGuardQueue } from "../lib/clan-api";
 import {
     HOLLOW_GATE_UNLOCK_COST,
     getPvpJutsuLoadout,
-    loadVillageLeadershipImages,
     normalizeCharacter,
-    villageLeadership,
     type DuelChallenge,
 } from "../App";
+import { loadVillageLeadershipImages } from "../lib/village-leadership-images";
+import { villageLeadership } from "../data/village-leadership";
 import {
     cleanVillageTreasury,
     normalizeAnbuAppointees,

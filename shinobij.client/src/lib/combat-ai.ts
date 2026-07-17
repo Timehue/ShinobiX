@@ -7,10 +7,9 @@
  */
 import type { Jutsu, Stats } from "../types/combat";
 import type { AiLoadoutId, AiRule, CreatorAi } from "../types/creator-ai";
-import type { StoryStep } from "../App";
 import { MAX_LEVEL } from "../constants/game";
 import { starterJutsus } from "../data/jutsu";
-import { storylines, storyAiId } from "../data/storylines";
+import { storyBossMeta, type StoryBossMeta } from "../data/story-boss-meta";
 import { makeId } from "./utils";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, normalizeJutsu } from "./jutsu";
 import { STAT_KEYS, addToAllStats, maxChakraForLevel, maxStaminaForLevel, normalizeStats } from "./stats";
@@ -318,7 +317,13 @@ export function relevelBuiltinAi(base: CreatorAi, targetLevel: number, statBonus
     return { ...rebuilt, image: base.image, masterAi: base.masterAi };
 }
 
-function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
+// Story bosses build from data/story-boss-meta — the compact chapter facts —
+// NOT from data/storylines, so the entry chunk never carries the story prose.
+// The meta module is parity-tested against storylines (same names/icons/levels/
+// scale in the same order), so the roster below is byte-identical to the old
+// Object.entries(storylines) derivation.
+function makeStoryBossAi(meta: StoryBossMeta): CreatorAi {
+    const village = meta.village;
     const villageJutsus = starterJutsus.filter((jutsu) => {
         if (village === "Stormveil Village") return ["Wind", "Lightning", "Water"].includes(jutsu.element);
         if (village === "Ashen Leaf Village") return ["Fire", "Earth"].includes(jutsu.element);
@@ -326,20 +331,20 @@ function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
         if (village === "Moonshadow Village") return jutsu.type === "Genjutsu" || ["Lightning", "Wind"].includes(jutsu.element);
         return true;
     });
-    const jutsuCount = step.levelReq >= 85 ? 6 : step.levelReq >= 50 ? 5 : 4;
+    const jutsuCount = meta.levelReq >= 85 ? 6 : meta.levelReq >= 50 ? 5 : 4;
     const selectedJutsus = (villageJutsus.length ? villageJutsus : starterJutsus).slice(0, jutsuCount);
-    const statBonus = Math.max(25, Math.floor(step.bossDamage * 0.9));
+    const statBonus = Math.max(25, Math.floor(meta.bossDamage * 0.9));
     // ALL story bosses use their authored bossHp verbatim (hpFloorExempt) so the
     // bossScaleByLevel table is the single source of truth and forms one clean
     // ascending level→HP curve. Without this the aiHpForLevel peer-band floor
     // silently inflated every boss (e.g. the L50 table 6500 → ~9.4k, overtaking
     // the L65 boss). Bosses stay hard via the peer band + damage, not a bigger HP pool.
-    const bossHp = Math.max(1, Math.floor(step.bossHp));
+    const bossHp = Math.max(1, Math.floor(meta.bossHp));
     return makeBuiltinAi(
-        step.aiProfileId ?? storyAiId(village, step.levelReq),
-        step.bossName,
-        step.bossIcon,
-        step.levelReq,
+        meta.aiProfileId,
+        meta.bossName,
+        meta.bossIcon,
+        meta.levelReq,
         village,
         selectedJutsus,
         statBonus,
@@ -348,7 +353,7 @@ function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
         true
     );
 }
-export const storyBossAis = Object.entries(storylines).flatMap(([village, steps]) => steps.map((step) => makeStoryBossAi(village, step)));
+export const storyBossAis = storyBossMeta.map((meta) => makeStoryBossAi(meta));
 
 // -- Weekly world-boss roster --------------------------------------------
 // The five rotating apex bosses the client schedule advertises

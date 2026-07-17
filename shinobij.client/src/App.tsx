@@ -174,7 +174,7 @@ import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-
 import { mergePlayerRoster } from "./lib/roster-merge";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
-import { damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
+import { damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
 import { useWarRewardClaims } from "./lib/use-war-reward-claims";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
@@ -356,8 +356,8 @@ import { starterItems } from "./data/starter-items";
 import { rawPetPool } from "./data/pet-pool";
 import { STARTER_PETS } from "./data/starter-pets";
 import { STARTER_EVOLUTIONS } from "./data/pet-evolutions";
-import { villageBiomeMap } from "./data/storylines";
-import { nextStoryTrigger, overlayVnImages, reportStoryInterlude, interludeChosenTrait, selectStoryEpilogueEvent } from "./lib/story-trigger";
+import { villageBiomeMap } from "./data/village-biomes";
+import { loadStoryTrigger } from "./lib/story-trigger-loader";
 import {
     awakeningLv2VnEvent,
     auraSphereLv9VnEvent,
@@ -1000,21 +1000,11 @@ export function getProfessionRankForXp(profession: Profession, xp: number): numb
 export let HOLLOW_GATE_UNLOCK_COST = 10_000;
 export function setHollowGateUnlockCost(v: number) { HOLLOW_GATE_UNLOCK_COST = v; }
 
-import { normalizeVillageLeadershipImages, villageLeadership, type VillageLeadershipImages } from "./data/village-leadership";
-export { normalizeVillageLeadershipImages, villageLeadership };
-export type { VillageLeadershipImages };
-
-let sharedVillageLeadershipImagesCache: VillageLeadershipImages | null = null;
-
-export function loadVillageLeadershipImages(): VillageLeadershipImages {
-    if (sharedVillageLeadershipImagesCache) return normalizeVillageLeadershipImages(sharedVillageLeadershipImagesCache);
-    return normalizeVillageLeadershipImages();
-}
-
-export function saveVillageLeadershipImages(images: VillageLeadershipImages) {
-    sharedVillageLeadershipImagesCache = normalizeVillageLeadershipImages(images);
-    persistSharedGameState({ kind: "villageLeadershipImages", images: sharedVillageLeadershipImagesCache });
-}
+// Village-leadership portrait cache + load/save drained to
+// ./lib/village-leadership-images; villageLeadership data stays in
+// ./data/village-leadership (import from those modules, not from App).
+import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "./data/village-leadership";
+import { setVillageLeadershipImagesCache } from "./lib/village-leadership-images";
 
 // Village upgrade system (definitions, levels/bonuses, costs + the derived
 // bonus helpers) extracted to ./lib/village-upgrades. The symbols still
@@ -1438,8 +1428,6 @@ export function stringifyServerSavePayload(payload: unknown) {
     return JSON.stringify(payload, (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
 }
 
-// storyToCreatorEvent drained to lib/story-trigger (re-exported for the AdminPanel import site).
-export { storyToCreatorEvent } from "./lib/story-trigger";
 
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
@@ -1875,7 +1863,7 @@ export default function App() {
                 const sig = JSON.stringify(normalized);
                 if (sig === lastSig) return;
                 lastSig = sig;
-                sharedVillageLeadershipImagesCache = normalized;
+                setVillageLeadershipImagesCache(normalized);
                 setSharedGameStateVersion(version => version + 1);
             } catch {
                 // Portraits will refresh on the next slow tick.
@@ -3936,21 +3924,28 @@ export default function App() {
         // Don't fire beneath the forced ProfessionPicker modal (level 13+, no
         // profession) — it out-z-indexes the VN and traps input until picked.
         if (character.level >= 13 && !character.profession) return;
-        const next = nextStoryTrigger(character, triggeredEvents, [...dismissedStoryScenesRef.current]);
-        if (!next) return;
-        if (vnTriggerClaimRef.current) return;
-        vnTriggerClaimRef.current = true;
-        // Prefer the admin-edited version from creatorEvents (uploaded images,
-        // custom dialogue, etc.), then overlay any KV-stored images.
-        const edited = creatorEvents.find(e => e.id === next.eventId);
-        const vnEvent = overlayVnImages({ ...(edited ?? next.base), xpReward: 0, ryoReward: 0 }, next.eventId, sharedImages);
-        // Interludes are consumed at COMPLETION (once a choice is made), not at
-        // fire time — a refresh mid-scene must re-offer the beat, not lose it.
-        if (!next.eventId.startsWith("story-interlude-")) setTriggeredEvents(ids => ids.includes(next.eventId) ? ids : [...ids, next.eventId]);
-        setActiveTriggeredEvent(vnEvent);
-        setActiveTriggerReturnScreen(next.returnScreen === "storyHall" ? "storyHall" : screen);
-        setTriggerPage(0);
-        setTriggerLine(0);
+        // Selection lives behind the lazy story chunk (lib/story-trigger-loader);
+        // the idle prefetch makes this resolve in a microtask in practice. The
+        // stale guard drops a resolution whose effect deps have already changed.
+        let stale = false;
+        void loadStoryTrigger().then(({ nextStoryTrigger, overlayVnImages }) => {
+            if (stale) return;
+            const next = nextStoryTrigger(character, triggeredEvents, [...dismissedStoryScenesRef.current]);
+            if (!next || vnTriggerClaimRef.current) return;
+            vnTriggerClaimRef.current = true;
+            // Prefer the admin-edited version from creatorEvents (uploaded images,
+            // custom dialogue, etc.), then overlay any KV-stored images.
+            const edited = creatorEvents.find(e => e.id === next.eventId);
+            const vnEvent = overlayVnImages({ ...(edited ?? next.base), xpReward: 0, ryoReward: 0 }, next.eventId, sharedImages);
+            // Interludes are consumed at COMPLETION (once a choice is made), not at
+            // fire time — a refresh mid-scene must re-offer the beat, not lose it.
+            if (!next.eventId.startsWith("story-interlude-")) setTriggeredEvents(ids => ids.includes(next.eventId) ? ids : [...ids, next.eventId]);
+            setActiveTriggeredEvent(vnEvent);
+            setActiveTriggerReturnScreen(next.returnScreen === "storyHall" ? "storyHall" : screen);
+            setTriggerPage(0);
+            setTriggerLine(0);
+        }).catch(() => undefined);
+        return () => { stale = true; };
     }, [activeTriggeredEvent, character, creatorEvents, screen, sharedImages, triggeredEvents]);
 
     // When sharedImages updates while any VN is open (images loaded after trigger fired),
@@ -5439,12 +5434,16 @@ export default function App() {
             // to the server story record; closing without choosing only dismisses
             // it for this session so a refresh re-offers the scene.
             if (event.id.startsWith("story-interlude-")) {
-                if (interludeChosenTrait(character, event.id)) {
-                    void reportStoryInterlude(character, event.id);
-                    setTriggeredEvents(ids => ids.includes(event.id) ? ids : [...ids, event.id]);
-                } else {
-                    dismissedStoryScenesRef.current.add(event.id);
-                }
+                // Story chunk is already cached here (the trigger that opened this
+                // VN loaded it), so the .then settles in a microtask.
+                void loadStoryTrigger().then(({ interludeChosenTrait, reportStoryInterlude }) => {
+                    if (interludeChosenTrait(character, event.id)) {
+                        void reportStoryInterlude(character, event.id);
+                        setTriggeredEvents(ids => ids.includes(event.id) ? ids : [...ids, event.id]);
+                    } else {
+                        dismissedStoryScenesRef.current.add(event.id);
+                    }
+                }).catch(() => undefined);
             }
             const leveled = gainXp(character, event.xpReward);
             const isRewardEvent = event.eventKind !== "visualNovel";
@@ -5793,7 +5792,8 @@ export default function App() {
             setPendingAiProfileId("");
             if (data.finale) {
                 unlockVillageKageSystem(data.character.storyVillage || data.character.village, data.character.name);
-                storyEpilogueRef.current.queued = selectStoryEpilogueEvent(data.character, storyEpilogueRef.current.lane);
+                const finaleCharacter = data.character;
+                void loadStoryTrigger().then((m) => { storyEpilogueRef.current.queued = m.selectStoryEpilogueEvent(finaleCharacter, storyEpilogueRef.current.lane); }).catch(() => undefined);
             }
             return pendingArenaStoryBattle.kind === "academySparring"
                 ? `Sparring match won! +${data.xp ?? 60} XP, +${data.ryo ?? 30} ryo.`
@@ -5869,7 +5869,8 @@ export default function App() {
             void pushSaveToServer(nextCharacter, currentAccountName || character.name)
                 .then(() => unlockVillageKageSystem(character.storyVillage || character.village, character.name))
                 .catch(() => undefined);
-            storyEpilogueRef.current.queued = selectStoryEpilogueEvent(nextCharacter, storyEpilogueRef.current.lane);
+            const finaleCharacter = nextCharacter;
+            void loadStoryTrigger().then((m) => { storyEpilogueRef.current.queued = m.selectStoryEpilogueEvent(finaleCharacter, storyEpilogueRef.current.lane); }).catch(() => undefined);
         }
         setCharacter(nextCharacter);
         setPendingAiProfileId("");

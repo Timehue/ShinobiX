@@ -1,5 +1,10 @@
 # cPanel Deployment Guide — ShinobiX
 
+> **Status:** Railway is the live production host; cPanel is a maintained,
+> in-parity **fallback** and serves no live player traffic (the cPanel disk
+> overlay for saves was retired 2026-07-17 — see docs/RETIRE_CPANEL_RUNBOOK.md).
+> Keep this deploy working, but treat RAILWAY_SETUP.md as the production guide.
+
 Runs the Express API + React SPA on cPanel via Phusion Passenger (Node.js).
 No Vercel needed. Direct Postgres connection to Supabase cuts cold-start latency.
 
