@@ -51,11 +51,19 @@ Frontend (run inside `shinobij.client/`):
   `src/components/`, game data/config in `src/data/` & `src/constants/`,
   helpers in `src/lib/`, types in `src/types/`. `authFetch.ts` wraps
   authenticated API calls; `fingerprint.ts` produces the `x-client-fp` header.
-- **Storage** — Supabase via `@supabase/supabase-js` (and `pg`). Schema in
+- **Storage** — Supabase Postgres via `@supabase/supabase-js` (and `pg`). Schema in
   `supabase-schema.sql`; migration notes in `SUPABASE_MIGRATION.md`. The legacy
   Upstash/Redis KV layer has been fully migrated to Supabase (the one-off
   `migrate-upstash-*` / `import-*` scripts have been removed; see git history).
-  `api/kv-proxy.ts` is the live Railway→cPanel disk-overlay proxy, not Upstash-era.
+  **cPanel disk overlay RETIRED 2026-07-17:** `save:*`, `shared:images*`,
+  `shared:imgfields*` now live in Supabase Postgres (the base `kv_store`), same as
+  every other key — NOT the cPanel disk. `KV_PROXY_URL` / `REQUIRE_DISK_OVERLAY`
+  are unset on Railway (`saveStoreKind='base-store'`). The overlay/proxy code
+  (`api/kv-proxy.ts`, `_makeRemoteKv`, the routing wrapper) is now dormant/dead;
+  the cutover ran via `POST /api/admin/migrate-to-base` (see
+  `docs/RETIRE_CPANEL_RUNBOOK.md`). During the soak, cPanel data is retained for
+  rollback (re-add `KV_PROXY_URL` + `REQUIRE_DISK_OVERLAY`); after decommission the
+  overlay code can be removed.
 - **`scripts/`** — one-off migration and PvP balance-simulation scripts. Also
   `gen-story-pdf.mjs` (+ `_story-pdf-build.py`): render the whole story
   (chapters/interludes/road events) to a review PDF from the LIVE data —
