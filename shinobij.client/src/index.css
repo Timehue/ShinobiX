@@ -26526,10 +26526,22 @@ html.lite-fx .hg-flame { animation: none; }
     padding: 0 3px;
 }
 
-/* The shrine standee: frameless 2.5D cutout + name pill (atlas-landmark override,
-   same pattern as .atlas-hollowGate). Tier classes brighten its aura. */
+/* The shrine standee: a painted 2.5D cutout standing ON the sector terrain, so it
+   carries no card chrome of its own — the art is the marker (same intent as
+   .atlas-hollowGate). Self-contained rather than an .atlas-landmark override:
+   the atlas card class exists to paint label cards, and inheriting it only to
+   strip it back out meant any later map skin could sit a panel behind the art.
+   Tier classes brighten its aura. */
 .sector-shrine-standee {
-    min-width: 0;
+    position: absolute;
+    z-index: 7;
+    /* NOTE: this width is not what actually sizes the art today. The name row is
+       `white-space: nowrap`, so the grid column takes the NAME's min-content width
+       and the art (width:100% of that column) scales to the label rather than the
+       board — "Shrine of the Ancients" renders ~125px wide, "Tidecaller" ~64px.
+       Pinning the column (grid-template-columns: minmax(0, 1fr)) makes this width
+       real, but it also visibly shrinks every shrine on a narrow board, so it is
+       an art-direction call rather than a drive-by fix — left alone deliberately. */
     width: clamp(64px, 14%, 116px);
     padding: 0;
     display: grid;
@@ -26538,20 +26550,41 @@ html.lite-fx .hg-flame { animation: none; }
     background: transparent;
     border: none;
     box-shadow: none;
+    /* Anchors the shrine's BASE (not its centre) to the placed left/top point, so
+       it reads as standing on that spot. This resolves against the button's own
+       height, and every position in shared/shrines.ts was tuned against that
+       height WITH the name row in it — so the name below keeps its layout row
+       (hidden by opacity, never display/absolute) or all six shrines slide off
+       the ground they were placed on. */
     transform: translate(-50%, -62%);
     cursor: pointer;
     transition: transform .15s ease;
 }
 
-    .sector-shrine-standee:hover { transform: translate(-50%, -62%) scale(1.05); }
+    .sector-shrine-standee:hover,
+    .sector-shrine-standee:focus-visible { transform: translate(-50%, -62%) scale(1.05); }
 
+    /* Paired shadows read as contact + ambient occlusion against the painted
+       ground. Both track the cutout silhouette, so they stay aligned on every
+       shrine regardless of where that asset's base sits in its own box.
+       --shrine-aura is the tier/theme glow, layered on by the rules below. */
     .sector-shrine-standee img {
         width: 100%;
         display: block;
-        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .55));
+        filter:
+            drop-shadow(0 2px 1px rgba(0, 0, 0, .55))
+            drop-shadow(0 7px 8px rgba(0, 0, 0, .38))
+            var(--shrine-aura, );
     }
 
-    .sector-shrine-standee span {
+    /* The name is a hover/focus reveal, not a permanent pill: a label pinned over
+       the terrain is what made the shrine read as UI pasted on the map. The sector
+       card and the offering sheet both still name it outright.
+       Hidden with opacity ONLY. This row is load-bearing twice over — it sizes the
+       grid column (the art's width) and it pads the button height the -62% anchor
+       resolves against — so display:none / position:absolute here would resize AND
+       move all six shrines off their placed ground. */
+    .sector-shrine-standee-name {
         font-size: 10px;
         line-height: 1.2;
         padding: 2px 7px;
@@ -26560,12 +26593,18 @@ html.lite-fx .hg-flame { animation: none; }
         border: 1px solid rgba(254, 243, 199, .4);
         color: #fef3c7;
         white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity .15s ease;
     }
 
-    .sector-shrine-standee.shrine-tier-1 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 8px rgba(253, 230, 138, .35)); }
-    .sector-shrine-standee.shrine-tier-2 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 12px rgba(253, 230, 138, .5)); }
-    .sector-shrine-standee.shrine-tier-3 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 18px rgba(253, 230, 138, .65)); }
-    .sector-shrine-standee.shrine-tier-4 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 24px rgba(196, 181, 253, .8)); }
+    .sector-shrine-standee:hover .sector-shrine-standee-name,
+    .sector-shrine-standee:focus-visible .sector-shrine-standee-name { opacity: 1; }
+
+    .sector-shrine-standee.shrine-tier-1 { --shrine-aura: drop-shadow(0 0 8px rgba(253, 230, 138, .35)); }
+    .sector-shrine-standee.shrine-tier-2 { --shrine-aura: drop-shadow(0 0 12px rgba(253, 230, 138, .5)); }
+    .sector-shrine-standee.shrine-tier-3 { --shrine-aura: drop-shadow(0 0 18px rgba(253, 230, 138, .65)); }
+    .sector-shrine-standee.shrine-tier-4 { --shrine-aura: drop-shadow(0 0 24px rgba(196, 181, 253, .8)); }
 
 /* Command-panel card */
 .sector-traces-card .sector-trace-btn {
@@ -26765,15 +26804,15 @@ html.lite-fx .hg-flame { animation: none; }
 
     .sector-traces-lore.is-ancients { color: #f3e6c2; }
 
-.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-1 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 8px rgba(167, 139, 250, .4)); }
-.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-2 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 12px rgba(167, 139, 250, .55)); }
-.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-3 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 18px rgba(167, 139, 250, .7)); }
-.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-4 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 24px rgba(196, 181, 253, .85)); }
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-1 { --shrine-aura: drop-shadow(0 0 8px rgba(167, 139, 250, .4)); }
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-2 { --shrine-aura: drop-shadow(0 0 12px rgba(167, 139, 250, .55)); }
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-3 { --shrine-aura: drop-shadow(0 0 18px rgba(167, 139, 250, .7)); }
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-4 { --shrine-aura: drop-shadow(0 0 24px rgba(196, 181, 253, .85)); }
 
-.sector-shrine-standee.shrine-theme-ancients.shrine-tier-1 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 8px rgba(250, 240, 200, .4)); }
-.sector-shrine-standee.shrine-theme-ancients.shrine-tier-2 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 12px rgba(250, 240, 200, .55)); }
-.sector-shrine-standee.shrine-theme-ancients.shrine-tier-3 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 18px rgba(250, 240, 200, .7)); }
-.sector-shrine-standee.shrine-theme-ancients.shrine-tier-4 img { filter: drop-shadow(0 4px 6px rgba(0,0,0,.55)) drop-shadow(0 0 26px rgba(255, 250, 224, .9)); }
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-1 { --shrine-aura: drop-shadow(0 0 8px rgba(250, 240, 200, .4)); }
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-2 { --shrine-aura: drop-shadow(0 0 12px rgba(250, 240, 200, .55)); }
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-3 { --shrine-aura: drop-shadow(0 0 18px rgba(250, 240, 200, .7)); }
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-4 { --shrine-aura: drop-shadow(0 0 26px rgba(255, 250, 224, .9)); }
 
 /* World-map shrine affix — shrine sectors carry a small torii mark so the six
    pilgrimage sites are discoverable at a glance (same affix pattern as the
