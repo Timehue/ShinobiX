@@ -5399,8 +5399,13 @@ export function Arena({
     // (deps: 4), restore is one-shot on mount, and the child component
     // takes all the state as props + an onRestore callback.
 
+    // `pvp-battle-layout` opts PvE into the same duel-dossier combat HUD as
+    // PvP (battle-skin.css "PvP combat reference restore"): symmetric in-grid
+    // fighter dossiers on desktop, compact fighter chips on mobile. The two
+    // screens render mirror-identical combat-layout markup, so the shared
+    // class is what keeps them visually in lockstep.
     return (
-        <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+        <div className={`arena-fullscreen pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {/* Onboarding spar coaching — read-only top banner, only during the
                 guaranteed-first-win Academy spar. Never covers the bottom action
                 bar; dismissible so it can't trap. */}
@@ -5584,20 +5589,6 @@ export function Arena({
                         <div className="arena-title-panel">
                             <h2>{biomeLabel(currentBiome)}</h2>
                             <p>Turn {turn} | Shinobi Duel</p>
-                            {isWeeklyBossFight && (
-                                <p style={{
-                                    margin: "4px 0 0",
-                                    fontWeight: 800,
-                                    fontSize: "0.82rem",
-                                    letterSpacing: "0.05em",
-                                    color: isWeeklyBossOpenRound(turn) ? "#ffd166" : "#7fd1ff",
-                                    textShadow: isWeeklyBossOpenRound(turn) ? "0 0 10px rgba(255,209,102,0.55)" : "none",
-                                }}>
-                                    {isWeeklyBossOpenRound(turn)
-                                        ? "GUARD DOWN — STRIKE NOW (2× damage)"
-                                        : "GUARD UP — chip away, wait for the opening"}
-                                </p>
-                            )}
                         </div>
                     </div>
 
@@ -5617,6 +5608,24 @@ export function Arena({
                         )}
                         {weatherEffects[currentWeather].negativeElement && (
                             <span className="twp-buff twp-negative">{weatherEffects[currentWeather].negativeElement} -2%</span>
+                        )}
+                        {/* Weekly-boss guard cue lives in the strip (not the title
+                            panel) because the shared duel-dossier layout hides
+                            .arena-top-panel on desktop and mobile alike. */}
+                        {isWeeklyBossFight && (
+                            <>
+                                <span className="twp-strip-sep">·</span>
+                                <span style={{
+                                    fontWeight: 800,
+                                    letterSpacing: "0.05em",
+                                    color: isWeeklyBossOpenRound(turn) ? "#ffd166" : "#7fd1ff",
+                                    textShadow: isWeeklyBossOpenRound(turn) ? "0 0 10px rgba(255,209,102,0.55)" : "none",
+                                }}>
+                                    {isWeeklyBossOpenRound(turn)
+                                        ? "GUARD DOWN — STRIKE NOW (2× damage)"
+                                        : "GUARD UP — chip away, wait for the opening"}
+                                </span>
+                            </>
                         )}
                     </div>
 
