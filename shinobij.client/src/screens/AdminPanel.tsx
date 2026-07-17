@@ -5990,10 +5990,11 @@ export function AdminPanel({
                 <button onClick={() => setScreen("profile")}>Test Profile</button>
                 <button onClick={() => setScreen("arena")}>Test Combat</button>
                 <button className="danger-button" onClick={() => {
-                    // Clear admin session including the role + password so
-                    // the next login starts fresh (and Admin 2 logging in
-                    // after Admin 1 doesn't inherit "full" by accident).
+                    // Clear admin session including the role + password + session
+                    // token so the next login starts fresh (and Admin 2 logging
+                    // in after Admin 1 doesn't inherit "full" by accident).
                     sessionStorage.removeItem("admin:pw");
+                    sessionStorage.removeItem("admin:token");
                     sessionStorage.removeItem("admin:role");
                     setAdminLoggedIn(false);
                     setScreen("start");

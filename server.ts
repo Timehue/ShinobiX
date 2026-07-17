@@ -281,6 +281,7 @@ import { safeEqual } from './api/_auth.js';
 // Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
 import { isAllowedOrigin, isMalformedJsonBodyError, MALFORMED_JSON_BODY_ERROR } from './api/_utils.js';
+import { classifyBodyLimit } from './api/_body-limits.js';
 import { publicErrorPayload, securityHeaders } from './api/_http-security.js';
 import { evaluateLaunchControl } from './api/_launch-controls.js';
 import {
@@ -434,12 +435,22 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 // grant the 50 MB ceiling only to the routes that need it. Player saves are
 // <=1 MB-gated in api/save/[name].ts and the leadership-portrait POST to
 // /api/game-state both fit the 5 MB default with room to spare.
+// Route-specific JSON body limits (see api/_body-limits.ts). The 50 MB parser is
+// scoped to the exact image/import routes that need it — NOT the whole /admin/*
+// tree, so an unauthenticated caller can't force a 50 MB buffer + parse before a
+// handler's auth check. Player saves get a 1 MB parser (the save handler already
+// rejects >1 MB), rejecting an oversized save at the parser boundary rather than
+// after a larger parse. game-state's leadership portrait still fits the 5 MB
+// default with room to spare.
 const jsonBig = express.json({ limit: '50mb' });
+const jsonSave = express.json({ limit: '1mb' });
 const jsonDefault = express.json({ limit: '5mb' });
-const BIG_BODY_RE = /(?:^|\/)(?:images|img|generate-image|kv-proxy|admin)(?:\/|$)/;
 app.use((req: Request, res: Response, next: NextFunction) => {
-    if (BIG_BODY_RE.test(req.path)) return jsonBig(req, res, next);
-    return jsonDefault(req, res, next);
+    switch (classifyBodyLimit(req.path)) {
+        case 'big':  return jsonBig(req, res, next);
+        case 'save': return jsonSave(req, res, next);
+        default:     return jsonDefault(req, res, next);
+    }
 });
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
@@ -518,7 +529,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-player-token, x-kv-token, x-client-fp');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-admin-token, x-player-password, x-player-name, x-player-token, x-kv-token, x-client-fp');
     // HSTS: tell browsers to always use HTTPS for this host (1 year). Only emit
     // it on responses that actually arrived over HTTPS — both Railway's edge and
     // cPanel's Apache terminate TLS and forward with x-forwarded-proto. Per the

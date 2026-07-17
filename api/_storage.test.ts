@@ -80,6 +80,7 @@ function makeStub(label: string, store: Record<string, unknown>, log: string[]):
         },
         set: unused('set') as KvLike['set'],
         del: unused('del') as KvLike['del'],
+        delIfEqual: unused('delIfEqual') as KvLike['delIfEqual'],
         incr: unused('incr') as KvLike['incr'],
         keys: unused('keys') as KvLike['keys'],
         hgetall: unused('hgetall') as KvLike['hgetall'],
@@ -100,6 +101,7 @@ function memoryKv(initial: Record<string, unknown> = {}): KvLike & { data: Map<s
             return 'OK';
         },
         async del(...keys) { let n = 0; for (const key of keys) if (data.delete(key)) n += 1; return n; },
+        async delIfEqual(key, expected) { if (data.get(key) !== expected) return false; data.delete(key); return true; },
         async incr(key) { const n = Number(data.get(key) ?? 0) + 1; data.set(key, n); return n; },
         async keys(pattern) {
             const re = new RegExp('^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');

@@ -60,10 +60,18 @@ create index if not exists kv_store_key_pattern_idx
 -- Anon allowlist:
 --   pvp:*            — PvP session state (intentionally shared between fighters and spectators)
 --   cw-tilecards:*   — Clan-war tile-card duel state (same rationale)
---   challenges:*     — Per-player incoming duel-challenge inbox
 --
--- Adding a new client-subscribed key prefix? Add it to the USING clause
--- of the SELECT policy below AND update lib/realtime.ts. Keep both in sync.
+-- `challenges:*` was REMOVED from the anon allowlist (2026-07-17 hardening). The
+-- browser never subscribed to it via Realtime — incoming challenges are carried
+-- by the AUTHENTICATED HTTP heartbeat plus a Socket.IO nudge
+-- (api/player/challenge.ts kickPlayer), so the anon grant only let anyone holding
+-- the public anon key enumerate every player's (projected) challenge inbox.
+-- Delivery is unaffected by the removal. Do NOT re-add it — deliver any new
+-- per-player inbox over the authenticated channel instead.
+--
+-- Adding a new client-subscribed key prefix? Add it to the USING clause of the
+-- SELECT policy below, the publication filter, AND lib/realtime.ts. Keep all
+-- three in sync.
 
 alter table public.kv_store enable row level security;
 
@@ -79,7 +87,6 @@ create policy "kv_store_anon_select"
     using (
         key like 'pvp:%'
         or key like 'cw-tilecards:%'
-        or key like 'challenges:%'
     );
 
 -- Belt-and-suspenders: also revoke broad table grants from anon so that
@@ -125,7 +132,7 @@ do $$
 begin
     if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
         alter publication supabase_realtime set table public.kv_store
-            where (key like 'pvp:%' or key like 'cw-tilecards:%' or key like 'challenges:%');
+            where (key like 'pvp:%' or key like 'cw-tilecards:%');
     end if;
 end $$;
 

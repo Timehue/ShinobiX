@@ -78,9 +78,10 @@ export function BattleTowersLobby({
     // Endless Spire (dedicated ascension boss gauntlet). You may enter up to one tier above
     // your highest cleared; the default selection is the next unlocked floor.
     const spireUnlocked = character.battleTowerAscension ?? 0;
-    // Admins (the x-admin-password authFetch auto-attaches → server bypasses the unlock gate)
-    // may SELECT any floor to preview/test it; regular players stay capped at unlocked+1.
-    const isAdmin = (() => { try { return !!sessionStorage.getItem("admin:pw"); } catch { return false; } })();
+    // Admins (authFetch auto-attaches the admin token / password → server bypasses
+    // the unlock gate) may SELECT any floor to preview/test it; regular players
+    // stay capped at unlocked+1.
+    const isAdmin = (() => { try { return !!(sessionStorage.getItem("admin:token") || sessionStorage.getItem("admin:pw")); } catch { return false; } })();
     const spireMaxSelectable = isAdmin ? SPIRE_MAX_TIER : Math.min(SPIRE_MAX_TIER, spireUnlocked + 1);
     const [spireTier, setSpireTier] = useState(Math.min(SPIRE_MAX_TIER, spireUnlocked + 1));
     const [spireBoard, setSpireBoard] = useState<SpireLeaderboardRow[]>([]);
