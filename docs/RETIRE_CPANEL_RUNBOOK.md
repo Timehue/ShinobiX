@@ -1,5 +1,17 @@
 # Retire cPanel — move `save:*` off the disk overlay into Postgres (Option B)
 
+> **STATUS: ✅ COMPLETED 2026-07-17.** The cutover ran successfully: all 118
+> disk-routed keys copied cPanel→Postgres (read-back verified, byte-identical),
+> `KV_PROXY_URL` + `REQUIRE_DISK_OVERLAY` removed on Railway, `saveStore=base-store`
+> confirmed, real player saves writing to Postgres post-flip. Now in the **soak
+> window** — cPanel data retained for rollback (re-add `KV_PROXY_URL` +
+> `REQUIRE_DISK_OVERLAY=1`, redeploy) until the cPanel service is decommissioned.
+> Remaining cleanup: shut down cPanel, remove `KV_PROXY_TOKEN` + `FORCE_DEPLOY`,
+> flip release-health `EXPECTED_SAVE_STORE` remote-proxy→base-store, and later
+> delete the now-dead overlay/proxy code. The steps below are kept as the record
+> and for the rollback path.
+
+
 Goal: stop routing player saves through the cPanel disk overlay (`KV_PROXY_URL`)
 and serve them from the Postgres base store, so cPanel can be decommissioned.
 Chosen because it removes the most moving parts, is the only option that works
