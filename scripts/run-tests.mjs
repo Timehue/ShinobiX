@@ -4,7 +4,7 @@ import { run } from 'node:test';
 import { spec } from 'node:test/reporters';
 
 const root = resolve(import.meta.dirname, '..');
-const scanRoots = ['api', 'scripts', 'shinobij.client/src'];
+const scanRoots = ['api', 'scripts', 'shinobij.client/src', 'shinobij.client/scripts'];
 const files = ['cpanel-dns.test.cjs', 'server-routes.test.ts'];
 
 function collect(dir) {
