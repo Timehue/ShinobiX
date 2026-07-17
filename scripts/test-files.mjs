@@ -143,6 +143,8 @@ export const TEST_FILES = [
     "api/festival/sunscar.test.ts",
     "api/player/_cafeteria.test.ts",
     "api/card-clash/_ai-reward.test.ts",
+    "api/card-clash/_ai-engine.test.ts",
+    "api/card-clash/ai-move.test.ts",
     "api/cron/_ranked-season.test.ts",
     "api/cron/_snapshot-dedup.test.ts",
     "api/missions/_weekly-board.test.ts",

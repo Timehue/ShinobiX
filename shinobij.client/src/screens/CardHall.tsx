@@ -12,7 +12,7 @@
  * via getAllTileCards; card art comes from each card's `image`. Rewards/stats
  * persist on the Character through the normal save (additive fields).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import "../styles/card-clash-skin.css";
 import type { Character } from "../types/character";
@@ -24,16 +24,19 @@ import {
     indexClashCards,
     validateDeck,
     buildPlayableDeck,
-    createCardClashMatch,
-    playCard,
-    endTurn,
-    retreat,
     CARD_CLASH_DECK_SIZE,
     type CardClashCard,
     type CardClashMatchState,
+    type CardClashResult,
     type CardClashRewardSummary,
 } from "../lib/card-clash";
-import { startCardClashAiMatch, settleCardClashAiMatch } from "../lib/card-clash-ai";
+import {
+    startCardClashAiMatch,
+    cardClashAiMove,
+    hydrateServerMatch,
+    toDeckPayload,
+    type CardClashAiMoveResult,
+} from "../lib/card-clash-ai";
 import { CardClashCollection } from "../components/CardClashCollection";
 import { CardClashDeckBuilder } from "../components/CardClashDeckBuilder";
 import { CardClashBoard } from "../components/CardClashBoard";
@@ -84,7 +87,10 @@ export function CardHall({
     const [reward, setReward] = useState<CardClashRewardSummary | null>(null);
     const [aiMatchId, setAiMatchId] = useState<string | null>(null);
     const [startingMatch, setStartingMatch] = useState(false);
-    const [settlingReward, setSettlingReward] = useState(false);
+    // Re-entrancy guard: each move round-trips to the server (which resolves it
+    // authoritatively), so block a second move until the current one returns —
+    // a ref (not state) so the guard is synchronous against rapid double-taps.
+    const busyRef = useRef(false);
     const [showTutorial, setShowTutorial] = useState<boolean>(() => !character.cardClashTutorialSeen);
 
     // ── Free-play PvP matchmaking queue ──────────────────────────────────────
@@ -157,17 +163,17 @@ export function CardHall({
     const [starterToast, setStarterToast] = useState(false);
 
     async function beginMatch(deck: string[]): Promise<boolean> {
-        if (startingMatch) return false;
+        if (startingMatch || busyRef.current) return false;
         setStartingMatch(true);
-        const start = await startCardClashAiMatch(character.name);
+        const start = await startCardClashAiMatch(character.name, toDeckPayload(deck, clashById), character.level);
         setStartingMatch(false);
-        if (!start.ok || !start.matchId) {
+        if (!start.ok || !start.matchId || !start.session) {
             alert(start.error ?? "Could not start a Card Clash match.");
             return false;
         }
         setAiMatchId(start.matchId);
         setReward(null);
-        setMatch(createCardClashMatch(deck, allCards, character.level));
+        setMatch(hydrateServerMatch(start.session, clashById));
         return true;
     }
     async function startMatch() {
@@ -202,49 +208,49 @@ export function CardHall({
     }, [autoStart]);
     /* eslint-enable react-hooks/set-state-in-effect */
 
-    async function finalize(next: CardClashMatchState) {
-        const winner = next.winner ?? "draw";
-        const matchId = aiMatchId;
-        if (!matchId) {
-            alert("This Card Clash match did not receive a server token, so no reward was paid.");
+    // The match is over on the server: it already settled the reward from the
+    // server-computed winner (folded into the terminal move's response). Mirror
+    // the credited amounts + reward banner; the client never asserts an outcome.
+    function finalizeFromServer(r: CardClashAiMoveResult) {
+        const winner = (r.session?.winner ?? "draw") as CardClashResult;
+        if (r.reward) {
+            const ryo = r.reward.ryo ?? 0;
+            const baseRyo = r.reward.dailyBonus ? Math.max(0, ryo - 250) : ryo;
+            if (r.character) updateCharacter(r.character);
+            setReward({ result: winner, ryo, baseRyo, dailyBonus: Boolean(r.reward.dailyBonus) });
+        } else {
             setReward({ result: winner, ryo: 0, baseRyo: 0, dailyBonus: false });
-            return;
         }
-
-        setSettlingReward(true);
-        const settled = await settleCardClashAiMatch(character.name, matchId, winner);
-        setSettlingReward(false);
         setAiMatchId(null);
-        if (!settled.ok || !settled.character) {
-            alert(settled.error ?? "Could not settle the Card Clash reward.");
-            setReward({ result: winner, ryo: 0, baseRyo: 0, dailyBonus: false });
-            return;
-        }
-
-        const ryo = settled.ryo ?? 0;
-        const baseRyo = winner === "player" && settled.dailyBonus ? Math.max(0, ryo - 250) : ryo;
-        updateCharacter(settled.character);
-        setReward({ result: winner, ryo, baseRyo, dailyBonus: Boolean(settled.dailyBonus) });
     }
 
-    function handlePlayCard(handIndex: number, locationIndex: number) {
-        if (!match || settlingReward) return;
-        const res = playCard(match, "player", handIndex, locationIndex);
-        if (!res.error) setMatch(res.state);
+    async function handlePlayCard(handIndex: number, locationIndex: number) {
+        if (!match || !aiMatchId || busyRef.current || match.status !== "playing") return;
+        busyRef.current = true;
+        const r = await cardClashAiMove(aiMatchId, "play", { handIndex, locationIndex });
+        busyRef.current = false;
+        // An illegal play (e.g. not enough Chakra) leaves the board untouched.
+        if (r.ok && r.session) setMatch(hydrateServerMatch(r.session, clashById));
     }
 
-    function handleEndTurn() {
-        if (!match || settlingReward || match.status !== "playing") return;
-        const next = endTurn(match);
-        setMatch(next);
-        if (next.status === "complete") void finalize(next);
+    async function handleEndTurn() {
+        if (!match || !aiMatchId || busyRef.current || match.status !== "playing") return;
+        busyRef.current = true;
+        const r = await cardClashAiMove(aiMatchId, "end-turn");
+        busyRef.current = false;
+        if (!r.ok || !r.session) { alert(r.error ?? "That move could not be resolved."); return; }
+        setMatch(hydrateServerMatch(r.session, clashById));
+        if (r.session.status === "done") finalizeFromServer(r);
     }
 
-    function handleRetreat() {
-        if (!match || settlingReward || match.status !== "playing") return;
-        const next = retreat(match);
-        setMatch(next);
-        void finalize(next);
+    async function handleRetreat() {
+        if (!match || !aiMatchId || busyRef.current || match.status !== "playing") return;
+        busyRef.current = true;
+        const r = await cardClashAiMove(aiMatchId, "retreat");
+        busyRef.current = false;
+        if (!r.ok || !r.session) { alert(r.error ?? "Could not retreat."); return; }
+        setMatch(hydrateServerMatch(r.session, clashById));
+        if (r.session.status === "done") finalizeFromServer(r);
     }
 
     const record = `${character.cardClashWins ?? 0}W · ${character.cardClashLosses ?? 0}L · ${character.cardClashDraws ?? 0}D`;
@@ -304,7 +310,6 @@ export function CardHall({
                         match={match}
                         reward={reward}
                         startingMatch={startingMatch}
-                        settlingReward={settlingReward}
                         savedDeckValid={savedDeckValid}
                         savedDeckCount={savedDeck.length}
                         ownedCount={ownedCards.length}
@@ -348,13 +353,12 @@ export function CardHall({
 
 function PlayTab({
     match, reward, savedDeckValid, savedDeckCount, ownedCount,
-    startingMatch, settlingReward,
+    startingMatch,
     onStart, onGoToDeck, onPlayCard, onEndTurn, onRetreat, onPlayAgain, onExitMatch,
 }: {
     match: CardClashMatchState | null;
     reward: CardClashRewardSummary | null;
     startingMatch: boolean;
-    settlingReward: boolean;
     savedDeckValid: boolean;
     savedDeckCount: number;
     ownedCount: number;
@@ -388,11 +392,11 @@ function PlayTab({
         );
     }
 
-    if (match && match.status === "complete" && settlingReward) {
+    if (match && match.status === "complete" && !reward) {
         return (
             <div>
                 <div className="cc-result draw">
-                    <h2>Settling reward...</h2>
+                    <h2>Finishing…</h2>
                     <div className="cc-reward">Confirming the match with the server.</div>
                 </div>
                 <CardClashBoard match={match} onPlayCard={onPlayCard} onEndTurn={onEndTurn} onRetreat={onRetreat} />
