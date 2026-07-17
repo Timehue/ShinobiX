@@ -35,6 +35,24 @@ export const APPROVED_ROSTER_MODEL_IDS: ReadonlySet<string> = new Set([
     "mythic-5", "mythic-6", "mythic-7", "mythic-8", "mythic-9",
 ]);
 
+// The three built-in Coliseum opponents predate the canonical 140-pet roster,
+// so their persistent ids do not have dedicated GLBs. Give each one the closest
+// approved species model instead of forcing every AI exhibition back to the
+// legacy 2D renderer. Their combat stats, names, elements and kits stay intact;
+// this mapping is presentation-only.
+const COLISEUM_MODEL_ALIASES: Readonly<Record<string, string>> = {
+    "generic-ai-pet-sparrow": "standard-44",   // Glide Sparrow
+    "generic-ai-pet-guardhound": "rare-24",    // Young Direwolf
+    "generic-ai-pet-emberlynx": "rare-26",     // Ember Ocelot
+};
+
+function approvedModelId(id: string): string {
+    // Encounter/PvP snapshots can append a timestamp while preserving the
+    // canonical pet identity. Match the same suffix rule as battle-sprite art.
+    const canonicalId = id.replace(/-\d{10,}$/, "");
+    return COLISEUM_MODEL_ALIASES[canonicalId] ?? canonicalId;
+}
+
 /** Generated roster art can choose a different locomotion skeleton than the
  * species-name fallback. These explicit entries are added with the model's
  * approval and prevent an upright ninja pet from inheriting quadruped steering. */
@@ -241,5 +259,8 @@ export function qaRosterBakedRetopoProofModel(pet: Pick<Pet, "id" | "name">): Pe
 }
 
 export function approvedRosterCombatModel(pet: Pick<Pet, "id" | "name">): PetCombatModelConfig | null {
-    return APPROVED_ROSTER_MODEL_IDS.has(pet.id) ? qaRosterCombatModel(pet) : null;
+    const modelId = approvedModelId(pet.id);
+    return APPROVED_ROSTER_MODEL_IDS.has(modelId)
+        ? qaRosterCombatModel({ id: modelId, name: pet.name })
+        : null;
 }

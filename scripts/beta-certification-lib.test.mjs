@@ -17,6 +17,12 @@ test('complete dedicated staging evidence passes certification', () => {
   assert.deepEqual(validateBetaCertification(valid()), []);
 });
 
+test('certification rejects the retired cPanel save store', () => {
+  const evidence = valid();
+  evidence.deployment.saveStore = 'remote-proxy';
+  assert.ok(validateBetaCertification(evidence).includes('deployment.saveStore must be base-store.'));
+});
+
 test('certification fails closed for a missing journey step, unsafe account, and missing request IDs', () => {
   const evidence = valid();
   evidence.account.dedicatedTestRecord = false;

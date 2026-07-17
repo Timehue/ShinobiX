@@ -1,7 +1,7 @@
 {
   "schemaVersion": "shinobix.beta-certification.v1",
   "environment": { "kind": "staging", "baseUrl": "https://staging-host" },
-  "deployment": { "commit": "replace-with-commit-sha", "saveStore": "remote-proxy" },
+  "deployment": { "commit": "replace-with-commit-sha", "saveStore": "base-store" },
   "account": {
     "dedicatedTestRecord": true,
     "marker": "beta-cert-YYYYMMDD-a",

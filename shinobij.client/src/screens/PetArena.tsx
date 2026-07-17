@@ -131,6 +131,8 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
 // HD-2D coliseum renderer — the pet-battle arena. Lazy so three/react-three-fiber
 // load ONLY when a battle actually mounts, keeping the cold-landing bundle untouched.
 const loadPetColiseum = () => import("../components/PetColiseum");
+const preloadPetColiseumModels = (pets: readonly Pet[]) => import("../lib/pet-model-preload")
+    .then((module) => module.preloadPetColiseumModels(pets));
 const PetColiseum = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetColiseum })));
 // Continuous-duel renderer (the new authoritative PvE engine, behind
 // petDuelEngine.v1) — same lazy chunk, mounted instead of PetColiseum when the
@@ -382,6 +384,15 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [selectedOpponentKey, setSelectedOpponentKey] = useState("");
     const selectedPet = character.pets.find((pet) => pet.id === selectedPetId && !isPetOnExpedition(pet)) ?? character.pets.find((pet) => !isPetOnExpedition(pet));
     const selectedOpponent = opponentPets.find((entry) => `${entry.owner}:${entry.pet.id}` === selectedOpponentKey) ?? opponentPets[0];
+
+    // The matchup cards are visible for several seconds before Fight begins.
+    // Spend that idle time fetching/parsing the exact two GLBs so the live duel
+    // opens on finished 3D combatants instead of its temporary sprite fallback.
+    useEffect(() => {
+        if (!selectedPet || !selectedOpponent?.pet) return;
+        void preloadPetColiseumModels([selectedPet, selectedOpponent.pet]).catch(() => undefined);
+    }, [selectedPet?.id, selectedPet?.evolutionStage, selectedPet?.rarity, selectedOpponent?.pet.id, selectedOpponent?.pet.evolutionStage, selectedOpponent?.pet.rarity]);
+
     const [battleReady, setBattleReady] = useState(false);
     const [battleOpponent, setBattleOpponent] = useState<PetArenaOpponent | null>(null);
     const [battleLog, setBattleLog] = useState<string[]>([]);
@@ -485,8 +496,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         }
         const pendingClanPetBattle = loadPendingClanPetBattle();
         if (isPetOnExpedition(opponent.pet)) return alert(`${petDisplayName(opponent.pet)} is exploring and cannot battle right now.`);
-        // Battle simulation/setup gives the renderer a head start on first use.
-        void loadPetColiseum().catch(() => undefined);
+        // Also cover instant incoming challenges, which can bypass the ordinary
+        // matchup-card dwell time used by the preload effect above.
+        void preloadPetColiseumModels([selectedPet, opponent.pet]).catch(() => undefined);
         setPartyResult(null);
         setDuelBattle(null); // fresh fight — clear any prior duel overlay
         const nextDuelId = duelNonce + 1; // React key for the duel renderer

@@ -33,7 +33,7 @@ export function validateBetaCertification(input) {
   if (input.account?.dedicatedTestRecord !== true) errors.push('account.dedicatedTestRecord must be true.');
   if (!String(input.account?.marker ?? '').startsWith('beta-cert-')) errors.push('account.marker must start with beta-cert-.');
   if (!String(input.deployment?.commit ?? '').match(/^[0-9a-f]{7,40}$/i)) errors.push('deployment.commit must be a git commit SHA.');
-  if (!input.deployment?.saveStore) errors.push('deployment.saveStore is required.');
+  if (input.deployment?.saveStore !== 'base-store') errors.push('deployment.saveStore must be base-store.');
 
   const steps = new Map((Array.isArray(input.steps) ? input.steps : []).map((step) => [step?.id, step]));
   for (const id of REQUIRED_JOURNEY_STEPS) {

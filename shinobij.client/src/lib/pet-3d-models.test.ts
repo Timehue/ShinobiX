@@ -22,7 +22,17 @@ test("all ten evolved starter forms have a combat model", () => {
 
 test("base starters and unrelated pets keep the safe standee fallback", () => {
     assert.equal(petCombatModel(pet("starter-fire", 0)), null);
-    assert.equal(hasPetCombatModel(pet("generic-ai-pet-emberlynx")), false);
+    assert.equal(hasPetCombatModel(pet("unmodeled-event-pet")), false);
+});
+
+test("all built-in Coliseum AI opponents resolve to approved roster models", () => {
+    assert.equal(petCombatModel(pet("generic-ai-pet-sparrow"))?.url, "/pet-models/roster/standard-44.glb");
+    assert.equal(petCombatModel(pet("generic-ai-pet-guardhound"))?.url, "/pet-models/roster/rare-24.glb");
+    assert.equal(petCombatModel(pet("generic-ai-pet-emberlynx"))?.url, "/pet-models/roster/rare-26.glb");
+});
+
+test("timestamped encounter clones retain their canonical combat model", () => {
+    assert.equal(petCombatModel(pet("mythic-7-1784319745000"))?.url, "/pet-models/roster/mythic-7.glb");
 });
 
 test("legacy evolved saves infer the model from rarity", () => {

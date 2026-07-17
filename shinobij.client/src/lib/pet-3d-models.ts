@@ -39,9 +39,14 @@ export const PET_COMBAT_MODEL_IDS = Object.freeze(Object.keys(MODEL_PROFILES));
 /** Returns a live Coliseum model only for art that has passed the 3D asset gate.
  * Every other pet intentionally falls back to the existing full-body standee. */
 export function petCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity">): PetCombatModelConfig | null {
-    const visualId = petVisualId(pet);
+    // Player/PvP encounter records may append a timestamp to the canonical id.
+    // Normalize it before both starter evolution lookup and roster approval so a
+    // cloned pet does not silently lose its production model.
+    const canonicalId = pet.id.replace(/-\d{10,}$/, "");
+    const canonicalPet = canonicalId === pet.id ? pet : { ...pet, id: canonicalId };
+    const visualId = petVisualId(canonicalPet);
     const profile = MODEL_PROFILES[visualId];
-    if (!profile) return approvedRosterCombatModel(pet as Pick<Pet, "id" | "name">);
+    if (!profile) return approvedRosterCombatModel(canonicalPet as Pick<Pet, "id" | "name">);
     const overrideUrl = MODEL_URL_OVERRIDES[visualId];
     return {
         visualId,
