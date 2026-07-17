@@ -3,6 +3,7 @@
 @import "./styles/banner-skin.css";
 @import "./styles/start-skin.css";
 @import "./styles/landing-skin.css";
+@import "./styles/patreon-skin.css";
 
 * {
     box-sizing: border-box;

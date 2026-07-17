@@ -10,6 +10,8 @@ import type { JutsuType } from "../types/core";
 import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/achievements";
 import { ANIMATED_MAX_MB, CHARACTER_XP_GAIN_MULTIPLIER, MAX_LEVEL, MAX_STAT } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
+import { PatreonLink } from "../components/PatreonLink";
+import { maxLoadout, canCustomAvatar } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
@@ -98,6 +100,10 @@ export function Profile({
         const file = event.target.files?.[0];
         if (!file) return;
         if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
+        if (!canCustomAvatar(character)) {
+            event.target.value = "";
+            return alert("Custom avatars are a Shinobi Supporter perk. Link your Patreon to unlock custom avatars.");
+        }
 
         void (async () => {
             const animated = await isAnimatedImageFile(file);
@@ -336,8 +342,11 @@ export function Profile({
             return;
         }
 
-        if (character.equippedJutsuIds.length >= 15) {
-            alert("You can only equip 15 jutsu.");
+        const loadoutCap = maxLoadout(character);
+        if (character.equippedJutsuIds.length >= loadoutCap) {
+            alert(loadoutCap < 15
+                ? `You can only equip ${loadoutCap} jutsu. Link your Patreon (Shinobi Supporter) to equip 15.`
+                : "You can only equip 15 jutsu.");
             return;
         }
 
@@ -408,7 +417,7 @@ export function Profile({
                 ...(CHARACTER_XP_GAIN_MULTIPLIER !== 1
                     ? [{ label: "Testing XP", value: `${CHARACTER_XP_GAIN_MULTIPLIER}x`, detail: "active", tone: "danger" as const }]
                     : []),
-                { label: "Jutsu", value: `${formatAmount(character.equippedJutsuIds.length)}/15`, detail: "equipped loadout", tone: character.equippedJutsuIds.length > 0 ? "village" : "neutral" },
+                { label: "Jutsu", value: `${formatAmount(character.equippedJutsuIds.length)}/${maxLoadout(character)}`, detail: "equipped loadout", tone: character.equippedJutsuIds.length > 0 ? "village" : "neutral" },
                 { label: "Equipment", value: formatAmount(equippedItems.length), detail: "equipped items" },
             ],
         },
@@ -519,6 +528,8 @@ export function Profile({
                     </label>
                 )}
             />
+
+            <PatreonLink character={character} />
 
             <section className="profile-overview-panel profile-dossier-panel" aria-label="Profile dossier">
                 <div className="profile-dossier-grid">
@@ -764,7 +775,7 @@ export function Profile({
             <div className={mobileTab !== 'jutsu' ? 'profile-tab-hidden' : ''}>
             <section className="profile-build-panel">
                 <div className="stat-header">
-                    <h2>Jutsu Loadout: {character.equippedJutsuIds.length}/15</h2>
+                    <h2>Jutsu Loadout: {character.equippedJutsuIds.length}/{maxLoadout(character)}</h2>
                     <button
                         className="danger-button"
                         onClick={() => updateCharacter({ ...character, equippedJutsuIds: [] })}

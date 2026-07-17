@@ -10,6 +10,7 @@ import { describeJutsuEffects } from "../lib/jutsu-effects";
 import { bloodlineArchetypes, bloodlineTemplateJutsus } from "../lib/bloodline-templates";
 import { compactImage, compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
 import { formatJutsuResourcePercent, jutsuResourceBackingCost, lockJutsuResourceCosts } from "../lib/jutsu-scaling";
+import { maxStoredBloodlines, isPatreonSubscriber } from "../lib/entitlements";
 import { gameConfirm } from "../components/GameAlert";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
 import { makeId } from "../lib/utils";
@@ -282,14 +283,15 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         ]);
         const imageSaveFailed = imageResults.some((result) => result === false);
         const newBloodline = { id: finalId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), weatherElement, lore: bloodlineLore.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) };
-        // When creating a NEW bloodline (not editing), discard every other
-        // user-saved bloodline — players keep at most one custom bloodline
-        // at a time, and the new one auto-equips below via
-        // replaceCharacterBloodline. Editing replaces the existing entry
-        // in place, preserving the previous id.
+        // When creating a NEW bloodline (not editing), keep up to the player's
+        // stored-bloodline cap — Patreon perk: 1 for the base tier, 2 for
+        // subscribers — newest first, dropping the oldest beyond the cap. The new
+        // one auto-equips below via replaceCharacterBloodline; a second stored
+        // bloodline can be swapped in from the Saved list. Editing replaces the
+        // existing entry in place, preserving the previous id.
         const nextBloodlines = editingBloodline
             ? savedBloodlines.map((b) => b.id === finalId ? newBloodline : b)
-            : [newBloodline];
+            : [newBloodline, ...savedBloodlines].slice(0, maxStoredBloodlines(character));
         const swapped = replaceCharacterBloodline(character, newBloodline, savedBloodlines);
         // Auto-grant level-1 mastery to the new bloodline's jutsu so they are
         // immediately equippable + usable. replaceCharacterBloodline strips their
@@ -310,6 +312,31 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         updateCharacter(nextCharacter);
         onSaveBloodlines?.(nextBloodlines, nextCharacter);
         alert(imageSaveFailed ? `${bloodlineName} saved, but one or more images did not upload to shared storage.` : `${bloodlineName} saved.`);
+    }
+    // Swap the equipped bloodline to another STORED one (subscriber perk: you can
+    // keep 2). PERSISTS each bloodline's jutsu mastery: the swap only removes the
+    // outgoing bloodline's jutsu from the LOADOUT (they lose access under the new
+    // bloodline), never from jutsuMastery — so swapping back restores your
+    // training. Because each custom bloodline has distinct jutsu ids, both
+    // mastery sets coexist harmlessly (you can only equip the accessible ones).
+    // The target's jutsu get level-1 mastery only the first time (when unmastered).
+    function equipStoredBloodline(target: SavedBloodline) {
+        if (target.id === character.equippedBloodlineId) return;
+        if (!window.confirm(`Equip ${target.name}? Your other bloodline keeps its jutsu mastery for when you swap back.`)) return;
+        const outgoing = savedBloodlines.find((b) => b.id === character.equippedBloodlineId);
+        const outgoingJutsuIds = new Set(outgoing?.jutsus.map((j) => j.id) ?? []);
+        const masteredIds = new Set((character.jutsuMastery ?? []).map((m) => m.jutsuId));
+        const granted = target.jutsus
+            .filter((j) => !masteredIds.has(j.id))
+            .map((j) => ({ jutsuId: j.id, level: 1, xp: 0 }));
+        const next: Character = {
+            ...character,
+            equippedBloodlineId: target.id,
+            equippedJutsuIds: character.equippedJutsuIds.filter((id) => !outgoingJutsuIds.has(id)),
+            jutsuMastery: [...(character.jutsuMastery ?? []), ...granted],
+        };
+        updateCharacter(next);
+        onSaveBloodlines?.(savedBloodlines, next);
     }
     const stepCount = bloodlineWizardStepCount(rank);
     const stepKind = bloodlineWizardStepKind(step, rank);
@@ -567,7 +594,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     ))}
                     {renderPointTotal()}
                     <button onClick={saveBloodline} disabled={overLimit} style={overLimit ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>Save Bloodline</button>
-                    {savedBloodlines.length > 0 && <><h3>Saved</h3>{savedBloodlines.map((b) => <div className="summary-box" key={b.id}>{b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}{b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}{b.lore && <p className="hint">{b.lore}</p>}</div>)}</>}
+                    {savedBloodlines.length > 0 && <><h3>Saved <small className="hint">({savedBloodlines.length}/{maxStoredBloodlines(character)} stored{!isPatreonSubscriber(character) ? " — link Patreon to store 2 & swap" : ""})</small></h3>{savedBloodlines.map((b) => <div className="summary-box" key={b.id}>{b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}{b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}{b.lore && <p className="hint">{b.lore}</p>}{b.id === character.equippedBloodlineId ? <p className="hint">✓ Equipped</p> : <button onClick={() => equipStoredBloodline(b)}>Equip</button>}</div>)}</>}
                 </div>
             )}
 

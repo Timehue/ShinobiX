@@ -376,6 +376,24 @@ export type Character = {
     professionRank?: number;
     professionXp?: number;
     professionChosenAt?: number;
+    // Patreon subscriber entitlement — SERVER-OWNED. Written ONLY by the
+    // signature-verified Patreon webhook / OAuth callback (api/patreon/*), never
+    // by a client save: api/save/[name].ts forces it from the stored record via
+    // ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS. Drives the $15 subscription perks
+    // (see lib/entitlements.ts). Absent/inactive → treated as non-subscriber.
+    patreon?: {
+        userId: string;
+        tier: string;
+        active: boolean;
+        entitledCents: number;
+        since?: number;
+        updatedAt: number;
+        // Admin-comped subscriptions auto-expire at this epoch-ms (the entitlement
+        // check treats a lapsed comp as inactive — no cron needed). Absent for
+        // Patreon-webhook-driven subs, which flip off via members:delete instead.
+        expiresAt?: number;
+        source?: 'patreon' | 'admin';
+    };
     // Account creation timestamp (ms). Used to gate Vanguard rewards from
     // killing brand-new alt accounts. Backfilled to Date.now() on first
     // save if missing (existing characters get a "now" stamp on rollout).

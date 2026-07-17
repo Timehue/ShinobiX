@@ -27,6 +27,7 @@ import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS 
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { addStoryTrait } from "../lib/character-progress";
+import { maxPets } from "../lib/entitlements";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
@@ -2562,8 +2563,11 @@ export function WorldMap({
                             // carried over from the VN must not auto-resolve this.
                             if (!petDecisionReady) return;
                             // Re-read length inside the handler in case of fast double-click.
-                            if (character.pets.length >= 5) {
-                                return alert("Your Pet Yard is full (5/5). Release a pet before befriending another.");
+                            const petCap = maxPets(character);
+                            if (character.pets.length >= petCap) {
+                                return alert(petCap < 5
+                                    ? `Your Pet Yard is full (${character.pets.length}/${petCap}). Link your Patreon (Shinobi Supporter) for 5 pet slots, or release a pet.`
+                                    : `Your Pet Yard is full (${petCap}/${petCap}). Release a pet before befriending another.`);
                             }
                             // Capture the encounter and clear it immediately so a second
                             // click before re-render finds no encounter and does nothing.
