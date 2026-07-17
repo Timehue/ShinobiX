@@ -145,6 +145,8 @@ export const TEST_FILES = [
     "api/card-clash/_ai-reward.test.ts",
     "api/card-clash/_ai-engine.test.ts",
     "api/card-clash/ai-move.test.ts",
+    "api/_pet-sim/_gauntlet-pool.test.ts",
+    "api/_pet-sim/gauntlet-sim.test.ts",
     "api/cron/_ranked-season.test.ts",
     "api/cron/_snapshot-dedup.test.ts",
     "api/missions/_weekly-board.test.ts",
