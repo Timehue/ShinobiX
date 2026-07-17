@@ -5652,12 +5652,12 @@ export function Arena({
                                 <div className="round-timer-ring">
                                     <span className="round-timer-num">—</span>
                                 </div>
-                                <small>{activeActor === "enemy" ? "Enemy turn…" : "—"}</small>
+                                <small>{activeActor === "enemy" ? `${opponentName}'s Turn` : "—"}</small>
                             </div>
                         )}
 
                         <div>
-                            <strong>Enemy AP</strong>
+                            <strong>{opponentName} AP</strong>
                             <div className="hud-bar enemy-ap-display-bar">
                                 <span style={{ width: `${enemyAp}%` }} />
                             </div>
