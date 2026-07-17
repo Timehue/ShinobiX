@@ -2637,7 +2637,11 @@ export function WorldMap({
                         return;
                     }
                     if (c.trait === RIFT_ABANDON_MARKER) {
-                        setSelectedCreatorEvent(null);
+                        // Closing the scene here would unmount the VN in this same
+                        // batch and throw away the choice's conclusion beat. Drop the
+                        // quest now and leave the scene up: the VN plays the goodbye
+                        // and ends itself through onComplete, like the sibling
+                        // "step back" choice that carries no marker.
                         void abandonRift(character.name);
                         updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: null }) : prev);
                         return;

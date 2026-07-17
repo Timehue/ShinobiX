@@ -84,10 +84,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const isAuraSphereEvent = event.id === AURA_SPHERE_VN_ID;
     const isStoryChapterEvent = event.id.startsWith("story-");
     // Rift VNs (lib/hollow-rifts): the wandering giver's report and the
-    // at-the-rift scene. Accepting, descending and abandoning all leave the
-    // scene through onChoice, so the only choice that can reach the end of one
-    // is a decline — and a decline has no finale to show. It closes back to the
-    // sector instead (see advanceAfterChoice).
+    // at-the-rift scene. Accepting and descending leave the scene through
+    // onChoice; declining and abandoning play out here, and neither has a
+    // finale to show — they close back to the sector instead (see
+    // advanceAfterChoice).
     const isRiftEvent = event.id.startsWith("rift-giver-") || event.id.startsWith("rift-descend-");
     // Story interludes ("story-interlude-*") and road events ("story-road-*"):
     // VN-only story scenes — no free battle, no XP/ryo (road-event fights come
