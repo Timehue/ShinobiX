@@ -9,6 +9,15 @@ Live read-only DB evidence was collected against the production Supabase project
 Supabase MCP (SELECT-only; no mutations, no `EXPLAIN ANALYZE` on writes). All evidence in
 this document is aggregate — no player names, saves, IPs, fingerprints, tokens, or secrets.
 
+> **UPDATE 2026-07-17 — cPanel retired.** Acting on the topology finding below,
+> `save:*` / `shared:images*` / `shared:imgfields*` were migrated off the cPanel
+> disk overlay into Supabase Postgres (base-store), and `KV_PROXY_URL` /
+> `REQUIRE_DISK_OVERLAY` were removed on Railway. Saves now live in Postgres like
+> every other key — the "remote KV proxy" / disk-overlay hop (a latency and 502
+> source) is eliminated. See `docs/RETIRE_CPANEL_RUNBOOK.md`. The topology map
+> below describes the *pre-cutover* two-tier layout; the live layout is now
+> single-stack (Railway + Postgres).
+
 ---
 
 ## 1. Runtime & storage topology

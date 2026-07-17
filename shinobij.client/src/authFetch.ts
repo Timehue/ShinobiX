@@ -232,37 +232,38 @@ export function installAuthFetch(): void {
             return observeSaveVersion(await originalFetch(input, newInit));
         }
 
-        // Try admin auth first (higher priority when both exist)
+        // Attach admin auth when present. We do NOT return early here: if the
+        // operator is ALSO signed in as their own player, we attach the player
+        // token too (below) so player-only actions (travel/combat/missions) work
+        // while admin mode is active. The server's authedPlayerOrAdmin prefers the
+        // player identity when both are present, and admin-only endpoints check the
+        // admin password directly — so both hats work at once. (The old early
+        // return sent admin-only, which made every player action 401 for an admin.)
         let adminPw: string | null = null;
         try {
             adminPw = sessionStorage.getItem('admin:pw');
         } catch {
             /* storage disabled */
         }
-
-        if (adminPw) {
-            if (!newHeaders.has('x-admin-password')) newHeaders.set('x-admin-password', adminPw);
-            newInit.headers = newHeaders;
-            return observeSaveVersion(await originalFetch(input, newInit));
+        if (adminPw && !newHeaders.has('x-admin-password')) {
+            newHeaders.set('x-admin-password', adminPw);
         }
 
-        // Fall back to player auth
+        // Player auth: attach the session token when signed in.
         const activeName = getActivePlayer();
         const token = getActiveToken();
-        // Nothing to attach (logged out) — pass through unauthenticated.
-        if (!activeName || !token) {
-            newInit.headers = newHeaders;
-            return observeSaveVersion(await originalFetch(input, newInit));
+        if (activeName && token) {
+            if (!newHeaders.has('x-player-name')) newHeaders.set('x-player-name', activeName);
+            if (!newHeaders.has('x-player-token')) newHeaders.set('x-player-token', token);
         }
-
-        if (!newHeaders.has('x-player-name')) newHeaders.set('x-player-name', activeName);
-        if (!newHeaders.has('x-player-token')) newHeaders.set('x-player-token', token);
         newInit.headers = newHeaders;
 
         const response = await originalFetch(input, newInit);
 
-        // A rejected session token requires a clean login. We intentionally do
-        // not persist a reusable password merely to refresh tokens in-place.
+        // A rejected session token requires a clean login. Only surface this when a
+        // player token was actually sent — an admin-only request's 401 is not a
+        // player session expiry. We intentionally do not persist a reusable
+        // password merely to refresh tokens in-place.
         if (response.status === 401 && token && !isAuthEndpoint(input)) {
             notifySessionExpired();
         }
