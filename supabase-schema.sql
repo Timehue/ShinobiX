@@ -104,21 +104,28 @@ revoke all      on public.kv_store from authenticated;
 -- falls back to SSE in that case, so this is a latency optimisation, not a
 -- correctness requirement, but enabling it restores the ~30-80ms WS path.
 --
--- Idempotent: REPLICA IDENTITY FULL is a no-op if already set, and the table is
--- only added to the publication when not already a member. `supabase_realtime`
--- is created by Supabase on every project; guard in case a bare Postgres lacks it.
-alter table public.kv_store replica identity full;
+-- Publication row filter (applied to prod 2026-07-16, migration
+-- `scope_realtime_publication_to_subscribed_prefixes`). The browser only ever
+-- subscribes to three key prefixes (pvp: / cw-tilecards: / challenges:, the same
+-- RLS SELECT allowlist above), but the publication previously published EVERY
+-- kv_store change — so the Realtime walsender decoded every save, rate-limit
+-- counter, and presence beat only for RLS to drop it downstream. That decode was
+-- the single largest DB cost. The WHERE filter drops non-subscribed rows at
+-- WAL-decode time instead; client behavior is byte-identical (a client already
+-- couldn't receive those rows). `key` is the primary key, so the filter is valid
+-- under REPLICA IDENTITY DEFAULT — FULL is NOT required (the client reads the new
+-- row on insert/update, which DEFAULT already carries). Keep this filter's prefix
+-- list in sync with the anon SELECT policy above AND lib/realtime.ts.
+--   To widen: add the prefix here, to the RLS policy, and to the client.
+--   Rollback (publish everything): alter publication supabase_realtime set table public.kv_store;
+-- Idempotent: SET TABLE is safe to re-run and re-asserts the exact table+filter.
+-- `supabase_realtime` is created by Supabase on every project; guard in case a
+-- bare Postgres lacks it.
 do $$
 begin
-    if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
-       and not exists (
-            select 1 from pg_publication_tables
-            where pubname = 'supabase_realtime'
-              and schemaname = 'public'
-              and tablename  = 'kv_store'
-       )
-    then
-        alter publication supabase_realtime add table public.kv_store;
+    if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+        alter publication supabase_realtime set table public.kv_store
+            where (key like 'pvp:%' or key like 'cw-tilecards:%' or key like 'challenges:%');
     end if;
 end $$;
 

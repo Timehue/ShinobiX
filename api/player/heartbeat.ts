@@ -76,14 +76,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
+        // The three per-beat signal reads ride ONE mget (they all live on the base
+        // store, so the routed mget is a single round trip) — this endpoint fires
+        // every second per online player, so each read saved here is ~1 op/s/player.
         const existing = onlineStore.get(name);
-        const [pendingChallenges, resetSignal, healSignal, savedLocation, persistedTravel] = await Promise.all([
-            kv.get<unknown[]>(challengeKey),
-            kv.get(resetSignalKey),
-            kv.get<{ by?: string; at?: number }>(healSignalKey),
+        const [signals, savedLocation, persistedTravel] = await Promise.all([
+            kv.mget(challengeKey, resetSignalKey, healSignalKey),
             existing ? Promise.resolve(null) : kv.get<{ currentSector?: number }>(`save:${safeName(name)}`),
             existing ? Promise.resolve(null) : getTravelLease(name),
         ]);
+        const pendingChallenges = signals[0] as unknown[] | null;
+        const resetSignal = signals[1];
+        const healSignal = signals[2] as { by?: string; at?: number } | null;
 
         if (resetSignal) {
             return res.status(200).json({ forceReload: true });
