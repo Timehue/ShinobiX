@@ -75,6 +75,7 @@ function makeStub(label, store, log) {
         },
         set: unused('set'),
         del: unused('del'),
+        delIfEqual: unused('delIfEqual'),
         incr: unused('incr'),
         keys: unused('keys'),
         hgetall: unused('hgetall'),
@@ -97,6 +98,8 @@ function memoryKv(initial = {}) {
         async del(...keys) { let n = 0; for (const key of keys)
             if (data.delete(key))
                 n += 1; return n; },
+        async delIfEqual(key, expected) { if (data.get(key) !== expected)
+            return false; data.delete(key); return true; },
         async incr(key) { const n = Number(data.get(key) ?? 0) + 1; data.set(key, n); return n; },
         async keys(pattern) {
             const re = new RegExp('^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');

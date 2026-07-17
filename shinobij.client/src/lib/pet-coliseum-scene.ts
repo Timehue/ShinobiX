@@ -249,7 +249,7 @@ export function beatChoreoMs(state: PetVisualState): number {
         case "charge":
         case "rangedCast":
         case "projectileFire": return 300;
-        case "dodge": return 380;
+        case "dodge": return 200;
         default: return 1;
     }
 }
@@ -326,10 +326,21 @@ export function beatTimeline(
             };
         }
         case "dodge": {
-            // Sidestep toward the camera with an afterimage fade, then settle back.
+            // A quick evasive hop: launch sideways, clear the floor, then land with
+            // a small squash. The prior flat slide read like ordinary strafing.
             const slide = easeOutQuad(clamp01(p / 0.45));
             const back = easeInQuad(clamp01((p - 0.55) / 0.45));
-            return { ...IDLE, dz: 0.95 * slide * (1 - back), opacity: 1 - 0.4 * hump(p), sx: 1 - 0.06 * slide };
+            const air = hump(p);
+            const landing = easeOutQuad(clamp01((p - 0.72) / 0.28));
+            return {
+                ...IDLE,
+                dy: 0.82 * air,
+                dz: 1.08 * slide * (1 - back),
+                opacity: 1 - 0.32 * air,
+                sx: 1 - 0.05 * slide + 0.1 * landing,
+                sy: 1 + 0.1 * air - 0.12 * landing,
+                rot: -0.1 * t * air,
+            };
         }
         default:
             // idle / guard / victory / ko — static, identical to before.

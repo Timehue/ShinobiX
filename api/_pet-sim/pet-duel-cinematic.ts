@@ -42,7 +42,7 @@
 // all untouched.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { Pet, PetJutsu } from "./pet-types.js";
-import { WALK_MASK, WALK_COLS, WALK_ROWS } from "./pet-arena-walkmask.js";
+import { WALK_COLS, WALK_ROWS } from "./pet-arena-walkmask.js";
 const petAccuracyEnabled = (): boolean => false; // server: accuracy is passed in explicitly
 import {
     applyPetPvpGear, petConsumableCharges, petGearStartShield, petGearExecuteMult,
@@ -52,15 +52,18 @@ import {
 import {
     DUEL_TPS, ARENA_X, ARENA_Y, elementMult, terrainPetMult, KIND_ACCURACY,
     type DuelResult, type DuelSnapshot, type DuelActorSnap, type DuelProjSnap,
-    type DuelEvent, type DuelState,
+    type DuelEvent, type DuelState, type DuelAiState,
 } from "./pet-duel-sim.js";
 
 // ── Tunables (own copies; balance numbers mirror the shipped engine so outcomes
 //    stay in the current bands — only the POSITIONING around them is new) ───────
-const CAP_TICKS = DUEL_TPS * 75;            // ~75s cap; the sudden-death ramp guarantees a real KO before it
-const TTK_HP = 3.0;                          // HP scale → long, meaty fights that show the kiting/repositioning (tune knob)
-const LATE_T = DUEL_TPS * 50;                // sudden-death: past here damage ramps so fights END in a KO
-const LATE_RAMP = DUEL_TPS * 20;             // dmg ×(1 + (t−LATE_T)/RAMP) → ×2.25 at cap
+const CAP_TICKS = DUEL_TPS * 75;             // one complete cinematic fight, decided by one KO
+// Restore the original single-life durability budget. The failed three-life
+// experiment reduced each bar to 0.95x base HP; one life needs the full 3x bar so
+// the movement, power-up and ultimate phases all have time to develop.
+const TTK_HP = 3.0;
+const LATE_T = DUEL_TPS * 34;                // final act: preserve the full bar, but prevent defensive score decisions
+const LATE_RAMP = DUEL_TPS * 7;
 // STALL BREAKER — two same-role kiters (assassin/tracker mirror) can circle-strafe forever
 // and never land a hit → a 0-damage stand-off that draws regardless of stats. When NO damage
 // has been dealt by EITHER side for STALL_START_SECS, ramp a "force the exchange" pressure over
@@ -80,9 +83,18 @@ const COST_BASIC = 12;
 const COST_DODGE = 20;
 const CRIT_CHANCE = 0.12;
 const DMG_SCALE = 1.5;
+const TARGET_LOCK_TICKS = Math.round(DUEL_TPS * 1.4);
 const BASIC_REACH = 1.2;                     // melee contact distance (basic attack)
-const MIN_SEP = BASIC_REACH * 0.9;
+// Creature bodies are substantially wider than a hit point. Keep their simulation
+// centres far enough apart that a melee contact reads as a collision, not two meshes
+// occupying the same space while they trade attacks.
+const MIN_SEP = BASIC_REACH * 2.0;
 const MELEE_RANGE = 1.6;
+const SUPPORT_CAST_CLEARANCE = 6.2;
+// Every exchange must create enough screen-space to read as a NEW engagement.
+// This is deliberately spectacle-first: even a planted brawler has to break the
+// pocket, run a new lane, and earn its next collision.
+const MIN_REPOSITION_RANGE = 5.8;
 // Ranged range is DELIBERATELY WIDE so kiters hold a gap the camera can SEE — the
 // renderer squishes field→world ~0.44×, so a 4-unit gap reads as sprites touching;
 // an ~8-unit kite gap renders as a real, readable separation (≈1.5 sprite-widths).
@@ -108,8 +120,7 @@ const BAND_H = 0.9;          // half-width of the R* engagement band
 const SLOW_RADIUS = 1.5;     // Arrive damping band → decelerate into R* (anti-overshoot)
 const INT_CLOSE = 1.0;       // interest: too far → close in
 const INT_BACK = 0.95;       // interest: too close → back off (strong so retreats read)
-const INT_STRAFE = 0.85;     // interest: in-band → circle-strafe (wide circling reads as movement)
-const CENTER_BIAS = 0.12;    // faint pull to arena center (anti-corner "racing line")
+const EDGE_RETURN_BIAS = 0.24; // only pull inward at the actual boundary; the outer lanes belong to the fight
 const DANGER_ENEMY = 0.6;    // enemy threat bubble
 const DANGER_TELE = 1.0;     // telegraphed incoming attack
 const DANGER_WALL = 0.85;    // arena edge / solid tiles
@@ -123,15 +134,50 @@ const CELL_Y = (ARENA_Y * 2) / GROWS;
 const cellCol = (x: number) => clamp(Math.floor((x + ARENA_X) / CELL_X), 0, GCOLS - 1);
 const cellRow = (y: number) => clamp(Math.floor((y + ARENA_Y) / CELL_Y), 0, GROWS - 1);
 const cellCenter = (c: number, r: number): [number, number] => [(c + 0.5) * CELL_X - ARENA_X, (r + 0.5) * CELL_Y - ARENA_Y];
-const maskAt = (c: number, r: number) => WALK_MASK.charCodeAt(r * GCOLS + c) === 49;
+// Cinematic battles happen on the visible OPEN coliseum floor. The old tactics-
+// diorama mask created invisible corridors that did not match this arena and
+// could be sealed by a visible prop. Keep only a soft octagonal boundary here.
+const arenaFloorCell = (c: number, r: number): boolean => {
+    if (c < 0 || r < 0 || c >= GCOLS || r >= GROWS) return false;
+    const [x, y] = cellCenter(c, r), ax = Math.abs(x), ay = Math.abs(y);
+    return ax <= ARENA_X - 0.35 && ay <= ARENA_Y - 0.35 && !(ax > ARENA_X - 2.1 && ay > ARENA_Y - 1.65);
+};
+/** The cinematic 1v1 floor stays physically open. Earlier permanent pylons
+ * became things pets stood on rather than readable tactical choices. Temporary
+ * ability-created walls still participate in navigation and line of sight. */
+export const DUEL_COVER_NODES: readonly Readonly<{ x: number; y: number; radius: number; variant: number }>[] = Object.freeze([]);
+const DUEL_COVER_MASK = (() => {
+    const blocked = new Uint8Array(GCOLS * GROWS);
+    for (let r = 0; r < GROWS; r++) for (let c = 0; c < GCOLS; c++) {
+        const cx = (c + 0.5) * CELL_X - ARENA_X, cy = (r + 0.5) * CELL_Y - ARENA_Y;
+        for (const cover of DUEL_COVER_NODES) {
+            const dx = cx - cover.x, dy = cy - cover.y;
+            if (dx * dx + dy * dy < cover.radius * cover.radius) { blocked[r * GCOLS + c] = 1; break; }
+        }
+    }
+    return blocked;
+})();
+// Independent arena destinations. Repositioning runs to these coordinates—not
+// to another point on a circle around the opponent—so exchanges use the whole
+// floor: corner-to-corner crossings, cover wraps, retreats and re-entries.
+const ROUTE_ANCHORS: readonly (readonly [number, number])[] = [
+    [-10.8, -4.9], [-10.4, 4.9], [-5.4, 6.0], [2.8, 6.0],
+    [10.5, 4.8], [10.8, -4.8], [5.5, -5.9], [-3.8, -5.9],
+];
+const ROUTE_MIN_TRAVEL = 6.4;
 // BARRIER EARTH WALLS — temporary solid obstacles a barrier cast raises between the two
 // fighters. Blocks movement AND line-of-sight (hasLineOfSight samples walkableAt), so
 // neither can attack through it for a beat — they buff/heal or path around. Module-level
 // + reset each simulate() run → fully deterministic (barriers cast at deterministic ticks).
-let SIM_WALLS: { x: number; y: number; r: number; expiry: number }[] = [];
+let SIM_WALLS: { x: number; y: number; r: number; expiry: number; ownerId: string }[] = [];
 // Stall-breaker state (reset per simulate() run, like SIM_WALLS → deterministic, no carry-over).
 let _stallPressure = 0;    // 0 in every fight where damage lands; ramps only in a true no-damage stand-off
 let _forcedEngage = false; // latched once a stand-off is confirmed → a decisive brawl to the finish
+// One team owns neutral pressure at a time. The other team may still read a
+// telegraph, dodge, and punish recovery, but it does not mirror the attacker's
+// locomotion. This turns a continuous mutual chase into authored-looking beats:
+// pressure → evade/impact → exit → counter-pressure.
+let _cinematicInitiativeTeam: "player" | "enemy" = "player";
 const WALL_TICKS = Math.round(DUEL_TPS * 0.85);   // how long a wall BLOCKS (short → a beat, not a big defensive advantage)
 const WALL_PENALTY_TICKS = Math.round(DUEL_TPS * 3.0);   // caster's damage halved this long after raising a wall (the wall's cost)
 const cellBlockedByWall = (c: number, r: number): boolean => {
@@ -140,11 +186,27 @@ const cellBlockedByWall = (c: number, r: number): boolean => {
     for (const w of SIM_WALLS) { const dx = cx - w.x, dy = cy - w.y; if (dx * dx + dy * dy < w.r * w.r) return true; }
     return false;
 };
+const cellBlockedByArenaCover = (c: number, r: number): boolean => DUEL_COVER_MASK[r * GCOLS + c] === 1;
 const cellWalkable = (c: number, r: number) =>
-    c >= 0 && r >= 0 && c < GCOLS && r < GROWS && (maskAt(c, r) || maskAt(GCOLS - 1 - c, r)) && !cellBlockedByWall(c, r);
+    arenaFloorCell(c, r)
+    && !cellBlockedByArenaCover(c, r) && !cellBlockedByWall(c, r);
 function walkableAt(x: number, y: number): boolean {
     if (x < -ARENA_X || x > ARENA_X || y < -ARENA_Y || y > ARENA_Y) return false;
     return cellWalkable(cellCol(x), cellRow(y));
+}
+function sightWalkableAt(x: number, y: number): boolean {
+    if (x < -ARENA_X || x > ARENA_X || y < -ARENA_Y || y > ARENA_Y) return false;
+    const c = cellCol(x), r = cellRow(y);
+    // Arena props are real cover: a pet must peek around an edge before committing
+    // a shot or pounce. Authored terrain and temporary Earth barriers block too.
+    return cellWalkable(c, r);
+}
+function arenaCoverAt(x: number, y: number, padding = 0): boolean {
+    for (const cover of DUEL_COVER_NODES) {
+        const dx = x - cover.x, dy = y - cover.y, radius = cover.radius + padding;
+        if (dx * dx + dy * dy <= radius * radius) return true;
+    }
+    return false;
 }
 function snapPos(x: number, y: number): [number, number] {
     if (walkableAt(x, y)) return [x, y];
@@ -163,7 +225,7 @@ function hasLineOfSight(ax: number, ay: number, bx: number, by: number): boolean
     const steps = Math.ceil(d / (CELL_X * 0.6));
     for (let i = 1; i < steps; i++) {
         const tt = i / steps;
-        if (!walkableAt(ax + dx * tt, ay + dy * tt)) return false;
+        if (!sightWalkableAt(ax + dx * tt, ay + dy * tt)) return false;
     }
     return true;
 }
@@ -219,10 +281,17 @@ function buildAbility(j: PetJutsu): Ability {
         name: j.name, kind: j.kind, accuracy: KIND_ACCURACY[j.kind] ?? 100, cls, isMove: j.kind === "move",
         power: Math.max(1, j.power || 1), signature: !!j.signature, aoe: !!j.aoe,
         range: cls === "support" ? 999 : cls === "ranged" ? RANGED_RANGE : MELEE_RANGE,
-        castTicks: Math.round(DUEL_TPS * (j.signature ? 0.5 : cls === "support" ? 0.25 : 0.3)),
+        castTicks: Math.max(4, Math.round(DUEL_TPS * (j.signature ? 0.34 : cls === "support" ? 0.21 : 0.2))),
         cdTicks: base + (j.signature ? Math.round(DUEL_TPS * 1.5) : 0),
-        cdLeft: j.signature ? Math.round(DUEL_TPS * 2.5) : Math.round(DUEL_TPS * 0.5),
-        cost: j.signature ? 40 : cls === "support" ? 16 : 22,
+        cdLeft: j.signature
+            ? Math.round(DUEL_TPS * 2.5)
+            : (j.kind === "buff" || j.kind === "haste")
+                // Comes online just after the first attack tell. A mobile pet can
+                // evade that read and convert it into dodge -> retreat -> power-up;
+                // it is not available for an unearned frame-zero opening buff.
+                ? Math.round(DUEL_TPS * 0.36)
+                : Math.round(DUEL_TPS * 0.5),
+        cost: j.kind === "move" ? 6 : j.signature ? 40 : cls === "support" ? 16 : 22,
     };
 }
 // The 4-move loadout the engine fights with (first 4 jutsu, signature guaranteed a slot).
@@ -233,7 +302,12 @@ function petCinematicAbilities(pet: Pet): Ability[] {
     return jlist.map(buildAbility);
 }
 function statusTicks(ab: Ability, rounds?: number): number {
-    return Math.round(DUEL_TPS * (rounds && rounds > 0 ? rounds * 0.8 : ab.signature ? 1.4 : 1.0));
+    if (rounds && rounds > 0) return Math.round(DUEL_TPS * rounds * 0.8);
+    // Setup statuses must survive the reposition/cooldown beat long enough for
+    // their owner (or an ally) to create a deliberate payoff, not expire while
+    // both pets are still leaving the first exchange.
+    const setup = ab.kind === "burn" || ab.kind === "dot" || ab.kind === "wound" || ab.kind === "mark" || ab.kind === "slow";
+    return Math.round(DUEL_TPS * (setup ? 2.6 : 1.0) * (ab.signature ? 1.4 : 1));
 }
 // Self-buffs (damage-up / speed-up) and the damage-down debuff are tactical STANCES — spending
 // a turn on one should pay off across a few exchanges, so they hold much longer than the quick
@@ -278,6 +352,8 @@ interface Style {
     retreatHp: number;      // HP frac below which it disengages/kites hard
     dodgeBias: number;      // added to the speed-driven dodge chance
     orbitStrong: boolean;   // strafes/kites more (reads as circling)
+    rangeBias: number;      // elemental preferred-range adjustment
+    speedMult: number;      // elemental movement identity
     // ── MOTION IDENTITY — how THIS archetype physically fights (so a glass rusher, a
     //    heavy brawler and a planted defender read as different fighters on screen). ──
     lungeInit: number;      // how far out it commits its pounce (long dive vs only-when-close)
@@ -291,7 +367,28 @@ interface Style {
     reposBack: number;      // how far it backs out on the reposition beat (holds ground vs kites far)
 }
 
+/** Neutral-game identity in data, separate from individual move scripts. */
+export const CINEMATIC_ELEMENT_PROFILES = Object.freeze({
+    Fire:      { aggression: 0.09, retreat: -0.02, dodge: 0.00, rangeBias: -0.20, speedMult: 1.02 },
+    Water:     { aggression: -0.03, retreat: 0.03, dodge: 0.04, rangeBias: 0.35, speedMult: 0.98 },
+    Lightning: { aggression: 0.06, retreat: 0.00, dodge: 0.08, rangeBias: -0.10, speedMult: 1.12 },
+    Earth:     { aggression: -0.04, retreat: -0.04, dodge: 0.00, rangeBias: 0.10, speedMult: 0.90 },
+    Wind:      { aggression: 0.00, retreat: 0.02, dodge: 0.10, rangeBias: 0.55, speedMult: 1.10 },
+    None:      { aggression: 0.00, retreat: 0.00, dodge: 0.00, rangeBias: 0.00, speedMult: 1.00 },
+});
+function elementProfile(element?: string | null) {
+    const key = String(element ?? "None").toLowerCase();
+    if (key === "fire") return CINEMATIC_ELEMENT_PROFILES.Fire;
+    if (key === "water") return CINEMATIC_ELEMENT_PROFILES.Water;
+    if (key === "lightning") return CINEMATIC_ELEMENT_PROFILES.Lightning;
+    if (key === "earth") return CINEMATIC_ELEMENT_PROFILES.Earth;
+    if (key === "wind") return CINEMATIC_ELEMENT_PROFILES.Wind;
+    return CINEMATIC_ELEMENT_PROFILES.None;
+}
+
 // ── Fighter ────────────────────────────────────────────────────────────────────
+type RouteIntent = "cover" | "flank" | "retreat" | "cross";
+
 interface Fighter {
     id: string; team: "player" | "enemy"; slot: number; pet: Pet; element?: string | null;
     x: number; y: number; vx: number; vy: number; faceX: number; faceY: number;
@@ -311,8 +408,21 @@ interface Fighter {
     moveDx: number; moveDy: number;         // stored dir for dash/dodge states
     dodgeCd: number;                        // ticks until it can actively dodge again
     reposLeft: number;                      // post-attack reposition beat: strafe/kite, don't re-commit yet (the in-out cadence)
+    orbitDir: -1 | 1;                       // stable lane choice; opponents use the same LOCAL turn so they split to opposite world-space flanks
+    reposManeuverUsed: boolean;             // at most one named traversal skill per exchange exit
+    maneuverLeft: number;                   // curved traversal beat; intentionally not the attack/pounce dash state
+    maneuverTotal: number;
+    maneuverGoalX: number; maneuverGoalY: number; // crossfield destination—never an opponent-centric orbit
+    guardLeft: number;                      // brief planted read after a traversal pivot
+    spacingBeat: number;                    // cycles through close/mid/wide destinations instead of one permanent radius
+    spacingOffset: number;
+    routeX: number; routeY: number; routeActive: boolean; // independent post-exchange arena destination
+    routeIntent: RouteIntent;                 // why this lane was chosen; drives cover-side vs flank-side routing
+    postDodgeSupport: boolean;                // dodge -> retreat lane -> planted self-buff chain
+    supportCastLocked: boolean;               // one setup cast must be converted into a landed offensive exchange before another
     commit: number;                         // anti-stall: rises while in-band with a ready move but not firing
-    targetId: string | null;
+    targetId: string | null; targetLockLeft: number;
+    aiState: DuelAiState; desiredRange: number; aiPlan: string; aiReason: string;
     itemsOn: boolean;
     cDodge: number; cMitigatePct: number; cEndure: number; cThornsPct: number; cLifelinePct: number; cCleanse: number;
     basicRanged: boolean;
@@ -326,7 +436,7 @@ interface Fighter {
 // + exported (petCinematicArchetype) so the balance harness buckets from ONE source.
 function classifyArchetype(pet: Pet, abilities: Ability[]): Archetype {
     const attack = Math.max(0, pet.attack || 0), defense = Math.max(0, pet.defense || 0), speed = Math.max(0, pet.speed || 0);
-    const hasRanged = abilities.some((a) => a.cls === "ranged");
+    const hasRanged = abilities.some((a) => a.cls === "ranged" && !a.isMove);
     const hasMelee = abilities.some((a) => a.cls === "melee");
     const hasSupport = abilities.some((a) => a.cls === "support");
     const glass = attack > defense * 1.35;
@@ -351,18 +461,18 @@ function classifyArchetype(pet: Pet, abilities: Ability[]): Archetype {
 const MOTION: Record<Archetype, { li: number; lm: number; lt: number; lk: number; tm: number; wm: number; rm: number; rd: number; rb: number }> = {
     // rb (reposBack) + rd (reposDur) bumped so even melee pets DISENGAGE visibly after an
     // exchange — break apart, circle, then re-commit — instead of staying meshed and trading.
-    rusher:   { li: 5.2, lm: 4.8, lt: 0.16, lk: 18, tm: 1.20, wm: 0.80, rm: 0.85, rd: 0.36, rb: 2.0 },
+    rusher:   { li: 5.2, lm: 4.8, lt: 0.16, lk: 18, tm: 1.20, wm: 0.80, rm: 0.85, rd: 1.00, rb: 4.8 },
     // brawler = a RELENTLESS body-check: lumbering turn + big committed dives that track
     // you down (high lt), but NORMAL attack tempo (slowing its wind/recover tanked its DPS).
-    brawler:  { li: 4.4, lm: 3.4, lt: 0.28, lk: 20, tm: 0.82, wm: 1.00, rm: 1.05, rd: 0.48, rb: 2.1 },
-    kiter:    { li: 3.4, lm: 3.6, lt: 0.12, lk: 14, tm: 1.10, wm: 1.00, rm: 1.00, rd: 0.80, rb: 3.2 },
-    defender: { li: 2.8, lm: 3.2, lt: 0.18, lk: 12, tm: 0.85, wm: 1.10, rm: 1.00, rd: 0.40, rb: 1.7 },
-    support:  { li: 3.0, lm: 3.4, lt: 0.14, lk: 14, tm: 1.00, wm: 1.00, rm: 1.00, rd: 0.90, rb: 3.4 },
-    balanced: { li: 4.0, lm: 3.5, lt: 0.14, lk: 16, tm: 1.00, wm: 1.00, rm: 1.00, rd: 0.58, rb: 2.2 },
+    brawler:  { li: 4.4, lm: 3.4, lt: 0.28, lk: 20, tm: 0.82, wm: 1.00, rm: 1.05, rd: 1.05, rb: 4.6 },
+    kiter:    { li: 3.4, lm: 3.6, lt: 0.12, lk: 14, tm: 1.10, wm: 1.00, rm: 1.00, rd: 1.10, rb: 4.8 },
+    defender: { li: 2.8, lm: 3.2, lt: 0.18, lk: 12, tm: 0.85, wm: 1.10, rm: 1.00, rd: 1.00, rb: 4.4 },
+    support:  { li: 3.0, lm: 3.4, lt: 0.14, lk: 14, tm: 1.00, wm: 1.00, rm: 1.00, rd: 1.45, rb: 6.2 },
+    balanced: { li: 4.0, lm: 3.5, lt: 0.14, lk: 16, tm: 1.00, wm: 1.00, rm: 1.00, rd: 1.10, rb: 4.8 },
 };
 function deriveStyle(pet: Pet, abilities: Ability[], oppElement: string | null | undefined, itemsOn: boolean): Style {
     const trait = pet.trait;
-    const hasRanged = abilities.some((a) => a.cls === "ranged");
+    const hasRanged = abilities.some((a) => a.cls === "ranged" && !a.isMove);
     const hasMelee = abilities.some((a) => a.cls === "melee");
     const arche = classifyArchetype(pet, abilities);
     const m = MOTION[arche];
@@ -396,8 +506,13 @@ function deriveStyle(pet: Pet, abilities: Ability[], oppElement: string | null |
         if (ch.thorns > 0) aggression = clamp(aggression + 0.05, 0, 1);
         if (ch.dodge > 0) dodgeBias += 0.05;
     }
+    const ep = elementProfile(pet.element);
+    aggression = clamp(aggression + ep.aggression, 0, 1);
+    retreatHp = clamp(retreatHp + ep.retreat, 0.08, 0.75);
+    dodgeBias += ep.dodge;
+    if (String(pet.element ?? "").toLowerCase() === "wind") orbitStrong = true;
     return {
-        arche, rangedPref, aggression, retreatHp, dodgeBias, orbitStrong,
+        arche, rangedPref, aggression, retreatHp, dodgeBias, orbitStrong, rangeBias: ep.rangeBias, speedMult: ep.speedMult,
         lungeInit: m.li, lungeMult: m.lm, lungeTrack: m.lt, lungeTicks: m.lk,
         turnMult: m.tm, windMult: m.wm, recovMult: m.rm, reposDur: m.rd, reposBack: m.rb,
     };
@@ -407,11 +522,12 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
     const gp = applyItems ? applyPetPvpGear(pet) : pet;
     const speed = Math.max(0, gp.speed || 0);
     const maxHp = Math.max(1, Math.round((gp.hp || 1) * hpMult * TTK_HP));
-    const moveSpeed = clamp(2.8 + speed * 0.02, 2.8, 6.6) / DUEL_TPS;   // units/tick
+    const baseMoveSpeed = clamp(4.35 + speed * 0.035, 4.35, 9.4) / DUEL_TPS;
     const abilities = petCinematicAbilities(gp);
     const sigAb = abilities.find((a) => a.signature);
     if (sigAb) { sigAb.cdTicks = Math.max(sigAb.cdTicks, Math.round(DUEL_TPS * 9)); sigAb.cdLeft = Math.round(DUEL_TPS * 4.5); }
     const style = deriveStyle(gp, abilities, oppElement, applyItems);
+    const moveSpeed = baseMoveSpeed * style.speedMult;   // brisk anime traversal with element identity, units/tick
     const statuses = emptyStatuses();
     const ch = applyItems ? petConsumableCharges(gp) : null;
     if (applyItems) statuses.shieldHp = petGearStartShield(gp);
@@ -429,11 +545,18 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         staggerT: Math.round(DUEL_TPS * 0.35), dashT: 7, dodgeT: 6,
         critChance: CRIT_CHANCE + (gp.trait === "Lucky" ? 0.1 : 0),
         style, abilities, statuses,
-        moveDx: 0, moveDy: 0, dodgeCd: 0, reposLeft: 0, commit: 0, targetId: null,
+        moveDx: 0, moveDy: 0, dodgeCd: 0, reposLeft: 0,
+        orbitDir: (slot & 1) === 0 ? 1 : -1, reposManeuverUsed: false,
+        maneuverLeft: 0, maneuverTotal: 0, maneuverGoalX: x, maneuverGoalY: y, guardLeft: 0,
+        spacingBeat: team === "player" ? 0 : 2, spacingOffset: 0,
+        routeX: x, routeY: y, routeActive: false, routeIntent: "cross", postDodgeSupport: false,
+        supportCastLocked: false,
+        commit: 0, targetId: null, targetLockLeft: 0,
+        aiState: "hold position", desiredRange: 0, aiPlan: "size up", aiReason: "opening evaluation",
         itemsOn: applyItems,
         cDodge: ch ? ch.dodge : 0, cMitigatePct: ch ? ch.mitigate : 0, cEndure: ch ? ch.endure : 0,
         cThornsPct: ch ? ch.thorns : 0, cLifelinePct: ch ? ch.lifeline : 0, cCleanse: ch ? ch.cleanse : 0,
-        basicRanged: abilities.some((a) => a.cls === "ranged"),
+        basicRanged: abilities.some((a) => a.cls === "ranged" && !a.isMove),
         lungeAbIdx: -2, lungeTgtId: null, lungeStuck: 0,
     };
 }
@@ -443,15 +566,35 @@ interface Projectile { id: number; ownerId: string; team: "player" | "enemy"; ta
 
 // ── Targeting ────────────────────────────────────────────────────────────────────
 function pickTarget(f: Fighter, fighters: Fighter[]): Fighter | null {
-    if (f.statuses.tauntById) { const t = fighters.find((g) => g.id === f.statuses.tauntById && g.hp > 0); if (t) return t; }
-    const lane = fighters.find((g) => g.team !== f.team && g.slot === f.slot && g.hp > 0);
-    if (lane) return lane;
+    if (f.statuses.tauntById) {
+        const t = fighters.find((g) => g.id === f.statuses.tauntById && g.hp > 0);
+        if (t) { f.targetId = t.id; f.targetLockLeft = TARGET_LOCK_TICKS; return t; }
+    }
+    const locked = f.targetId ? fighters.find((g) => g.id === f.targetId && g.team !== f.team && g.hp > 0) : null;
+    if (locked && f.targetLockLeft > 0) return locked;
     let best: Fighter | null = null, bestKey = Infinity;
     for (const g of fighters) {
         if (g.team === f.team || g.hp <= 0) continue;
         const dx = g.x - f.x, dy = g.y - f.y;
-        const key = g.hp * 1e6 + dx * dx + dy * dy;
+        const distance = Math.hypot(dx, dy), hpFrac = g.hp / g.maxHp;
+        const attackingAlly = (g.pendingTargetId != null && fighters.some((ally) => ally.team === f.team && ally.id === g.pendingTargetId))
+            || (g.lungeTgtId != null && fighters.some((ally) => ally.team === f.team && ally.id === g.lungeTgtId));
+        const open = g.state === "recover" || g.state === "stagger";
+        let key = distance * 0.08 + hpFrac * 0.55;
+        if (f.style.arche === "rusher") key = distance * 0.045 + hpFrac * 1.2 - (open ? 0.65 : 0);
+        else if (f.style.arche === "defender") key = distance * 0.13 + hpFrac * 0.25 - (attackingAlly ? 0.85 : 0);
+        else if (f.style.arche === "support") key = distance * 0.1 + hpFrac * 0.35 - (attackingAlly ? 0.65 : 0);
+        else if (f.style.arche === "kiter") key = distance * 0.06 + hpFrac * 0.75 - (open ? 0.25 : 0);
+        if (g.slot === f.slot) key -= 0.16;
+        if (g.id === f.targetId) key -= 0.22;
+        const matchup = elementMult(f.element, g.element);
+        if (matchup > 1) key -= 0.12;
+        else if (matchup < 1) key += 0.08;
         if (key < bestKey || (key === bestKey && best && g.id < best.id)) { bestKey = key; best = g; }
+    }
+    if (best && best.id !== f.targetId) {
+        f.targetId = best.id;
+        f.targetLockLeft = TARGET_LOCK_TICKS;
     }
     return best;
 }
@@ -466,14 +609,46 @@ function pickAlly(f: Fighter, fighters: Fighter[]): Fighter {
 }
 const teamAlive = (fighters: Fighter[], team: "player" | "enemy") => fighters.some((f) => f.team === team && f.hp > 0);
 
+function setIntent(f: Fighter, state: DuelAiState, desiredRange: number, plan: string, reason: string) {
+    f.aiState = state;
+    f.desiredRange = quant(Math.max(0, desiredRange));
+    f.aiPlan = plan;
+    f.aiReason = reason;
+}
+
 // ── Damage (verbatim-equivalent to pet-duel-sim.applyDamage → balance-neutral) ───
+function elementalPayoff(att: Fighter, tgt: Fighter): { mult: number; combo?: string } {
+    const el = String(att.element ?? "").toLowerCase();
+    if (el === "fire") {
+        if (tgt.statuses.burnLeft > 0) return { mult: 1.12, combo: "Inferno Pressure" };
+        if (tgt.statuses.rootLeft > 0 || tgt.statuses.slowLeft > 0) return { mult: 1.08, combo: "Ignition Trap" };
+    }
+    if (el === "water" && (tgt.statuses.slowLeft > 0 || tgt.statuses.stunLeft > 0)) return { mult: 1.08, combo: "Undertow Punish" };
+    if (el === "lightning") {
+        if (tgt.statuses.marked) return { mult: 1, combo: "Charged Burst" };
+        if (tgt.statuses.slowLeft > 0 || tgt.statuses.stunLeft > 0) return { mult: 1.18, combo: "Conductive Surge" };
+    }
+    if (el === "earth" && (att.statuses.shieldHp > 0 || att.statuses.wallPenaltyLeft > 0)) return { mult: 1.08, combo: "Fortified Counter" };
+    if (el === "wind") {
+        if (tgt.statuses.burnLeft > 0) return { mult: 1.10, combo: "Firestorm Chain" };
+        if (tgt.statuses.rootLeft > 0 || tgt.statuses.slowLeft > 0) return { mult: 1.10, combo: "Gale Extension" };
+    }
+    return { mult: 1 };
+}
+
 function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => number, t: number, events: DuelEvent[], viaProjectile: boolean) {
     if (tgt.hp <= 0) return;
     const crit = rng() < att.critChance;
     if (tgt.itemsOn && tgt.cDodge > 0) { tgt.cDodge -= 1; events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id }); return; }
     const powerScale = ab ? ab.power / 100 : 1;
     const buff = att.statuses.buffLeft > 0 ? 1 + att.statuses.buffMag : 1;
-    let mult = elementMult(att.element, tgt.element) * (crit ? 1.6 : 1) * Math.max(0.3, buff);
+    const matchup = elementMult(att.element, tgt.element);
+    // Cinematic fights make the type story legible: the advantaged pet presses
+    // harder and its clean openings matter, while resisted hits feel resisted.
+    const matchupRead = matchup > 1 ? 1.45 : matchup < 1 ? 0.55 : 1;
+    let mult = matchup * matchupRead * (crit ? 1.6 : 1) * Math.max(0.3, buff);
+    const elemental = elementalPayoff(att, tgt);
+    mult *= elemental.mult;
     if (att.statuses.wallPenaltyLeft > 0) mult *= 0.5;   // barrier caster's OFFENSE halved while its wall stands (the visible cost)
     if (tgt.statuses.wallPenaltyLeft > 0) mult *= 1.7;   // …and it's EXPOSED — takes extra damage — which is what actually offsets a tanky pet's outlast-via-wall advantage
     if (tgt.statuses.marked) { mult *= 1.4; tgt.statuses.marked = false; }
@@ -489,7 +664,8 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     if (tgt.statuses.shieldHp > 0) { const soak = Math.min(tgt.statuses.shieldHp, dmg); tgt.statuses.shieldHp = quant(tgt.statuses.shieldHp - soak); dmg -= soak; }
     if (tgt.itemsOn && tgt.cEndure > 0 && dmg >= tgt.hp && tgt.hp > 1) { dmg = tgt.hp - 1; tgt.cEndure -= 1; }
     tgt.hp -= dmg;
-    events.push({ t, type: "hit", side: att.team, actorId: att.id, targetId: tgt.id, dmg, crit, element: att.element, kind: ab ? ab.kind : "damage", ranged: viaProjectile, move: ab ? ab.name : undefined, signature: ab ? ab.signature : undefined });
+    att.supportCastLocked = false;
+    events.push({ t, type: "hit", side: att.team, actorId: att.id, targetId: tgt.id, dmg, crit, element: att.element, kind: ab ? ab.kind : "damage", ranged: viaProjectile, move: ab ? ab.name : undefined, signature: ab ? ab.signature : undefined, combo: elemental.combo });
     if (ab) applyOnHit(att, tgt, ab);
     if (ab && ab.kind === "lifesteal" && att.hp > 0) att.hp = Math.min(att.maxHp, att.hp + Math.round(dmg * 0.5));
     if (dmg > 0) {
@@ -546,6 +722,10 @@ function applyOnHit(att: Fighter, tgt: Fighter, ab: Ability) {
     }
 }
 function castSupport(f: Fighter, ab: Ability, fighters: Fighter[], t: number, events: DuelEvent[]) {
+    // A support beat is a setup, not a loop. The lock clears when this fighter
+    // next lands damage, forcing pets with deep defensive kits (notably Eclipse
+    // Kitsune) to convert their power-up/ward into visible offensive pressure.
+    f.supportCastLocked = true;
     const ally = pickAlly(f, fighters);
     if (ab.kind === "heal") {
         const hasAlly = fighters.some((g) => g.team === f.team && g.id !== f.id && g.hp > 0);
@@ -567,7 +747,7 @@ function castSupport(f: Fighter, ab: Ability, fighters: Fighter[], t: number, ev
             for (const g of fighters) { if (g.team === f.team || g.hp <= 0) continue; const dd = (g.x - f.x) * (g.x - f.x) + (g.y - f.y) * (g.y - f.y); if (dd < bd) { bd = dd; foe = g; } }
             if (foe) {
                 const gap = Math.sqrt(bd);
-                SIM_WALLS.push({ x: f.x + (foe.x - f.x) * 0.5, y: f.y + (foe.y - f.y) * 0.5, r: clamp(gap * 0.28, 0.95, 1.7), expiry: t + WALL_TICKS });
+                SIM_WALLS.push({ x: f.x + (foe.x - f.x) * 0.5, y: f.y + (foe.y - f.y) * 0.5, r: clamp(gap * 0.28, 0.95, 1.7), expiry: t + WALL_TICKS, ownerId: f.id });
             }
         }
     } else if (ab.kind === "buff") {
@@ -595,6 +775,143 @@ function payAbilityCost(f: Fighter, ab: Ability | null) {
 // (stagger/stun/death/anti-stall dash) or a stale lungeAbIdx makes the shared "dash"
 // state re-resolve the move for free on the next dash. See bug: leaked lungeAbIdx.
 function clearLunge(f: Fighter) { f.lungeAbIdx = -2; f.lungeTgtId = null; f.lungeStuck = 0; }
+function routeTravelSq(f: Fighter, goal: readonly [number, number]): number {
+    const dx = goal[0] - f.x, dy = goal[1] - f.y;
+    return dx * dx + dy * dy;
+}
+function outerArenaDestination(f: Fighter, e: Fighter | null, retreat: boolean): [number, number] {
+    const lead = f.team === "player" ? 0 : 4;
+    let fallback = snapPos(-f.x * 0.9, -f.y * 0.9);
+    let fallbackScore = -1e9;
+    for (let attempt = 0; attempt < ROUTE_ANCHORS.length; attempt++) {
+        const idx = (f.spacingBeat + lead + f.slot * 2 + attempt) % ROUTE_ANCHORS.length;
+        const raw = ROUTE_ANCHORS[idx];
+        const candidate = snapPos(raw[0], raw[1]);
+        const travelSq = routeTravelSq(f, candidate);
+        const enemySq = e ? (candidate[0] - e.x) * (candidate[0] - e.x) + (candidate[1] - e.y) * (candidate[1] - e.y) : 0;
+        const score = retreat ? enemySq + travelSq * 0.35 : travelSq - attempt * 1.5;
+        if (score > fallbackScore) { fallback = candidate; fallbackScore = score; }
+        // Crosses rotate through several valid long lanes instead of always choosing
+        // the mathematically farthest corner. Retreats still take the safest corner.
+        if (!retreat && travelSq >= ROUTE_MIN_TRAVEL * ROUTE_MIN_TRAVEL) return candidate;
+    }
+    return fallback;
+}
+function coverArenaDestination(f: Fighter, e: Fighter, flank: boolean): [number, number] {
+    const lead = f.team === "player" ? 0 : 1;
+    let best = outerArenaDestination(f, e, false);
+    let bestScore = -1e9;
+    for (let attempt = 0; attempt < DUEL_COVER_NODES.length; attempt++) {
+        const cover = DUEL_COVER_NODES[(f.spacingBeat + lead + attempt) % DUEL_COVER_NODES.length];
+        let nx = cover.x - e.x, ny = cover.y - e.y;
+        const nl = Math.sqrt(nx * nx + ny * ny);
+        if (nl > 1e-4) { nx /= nl; ny /= nl; }
+        else { nx = f.team === "player" ? -1 : 1; ny = 0; }
+        let rawX: number, rawY: number;
+        if (flank) {
+            // Melee wraps a side edge. Its team-local orbit direction alternates each
+            // exchange, so repeated pursuits attack from opposite angles.
+            const tx = -ny * f.orbitDir, ty = nx * f.orbitDir;
+            rawX = cover.x + tx * (cover.radius + 1.65) + nx * 0.45;
+            rawY = cover.y + ty * (cover.radius + 1.65) + ny * 0.45;
+        } else {
+            // Ranged/support/wounded pets take the protected side, then naturally
+            // BFS around the nearest edge to peek once their reset beat ends.
+            rawX = cover.x + nx * (cover.radius + 1.7);
+            rawY = cover.y + ny * (cover.radius + 1.7);
+        }
+        const candidate = snapPos(rawX, rawY);
+        const travelSq = routeTravelSq(f, candidate);
+        const enemySq = (candidate[0] - e.x) * (candidate[0] - e.x) + (candidate[1] - e.y) * (candidate[1] - e.y);
+        const tooShort = travelSq < ROUTE_MIN_TRAVEL * ROUTE_MIN_TRAVEL ? 80 : 0;
+        const score = flank ? travelSq * 0.7 - enemySq * 0.08 - tooShort - attempt : enemySq * 0.55 + travelSq * 0.3 - tooShort - attempt;
+        if (score > bestScore) { best = candidate; bestScore = score; }
+    }
+    return best;
+}
+function assignArenaDestination(f: Fighter, e: Fighter | null) {
+    const spacingPhrase = [-0.6, 1.25, 0.15, 1.85] as const;
+    const nextBeat = f.spacingBeat + 1;
+    const wounded = f.hp / f.maxHp < f.style.retreatHp;
+    let intent: RouteIntent;
+    if (wounded && f.style.arche !== "rusher" && f.style.arche !== "brawler") intent = "retreat";
+    else if (f.style.rangedPref || f.style.arche === "support") intent = nextBeat % 4 === 1 ? "cross" : nextBeat % 4 === 3 ? "flank" : "cover";
+    else intent = nextBeat % 3 === 0 ? "cross" : "flank";
+
+    let chosen: [number, number];
+    if (!e) chosen = outerArenaDestination(f, null, false);
+    else if (intent === "cover") chosen = coverArenaDestination(f, e, false);
+    else if (intent === "flank") chosen = coverArenaDestination(f, e, true);
+    else chosen = outerArenaDestination(f, e, intent === "retreat");
+    if (routeTravelSq(f, chosen) < ROUTE_MIN_TRAVEL * ROUTE_MIN_TRAVEL) chosen = outerArenaDestination(f, e, intent === "retreat");
+
+    f.spacingBeat = nextBeat;
+    f.routeIntent = intent;
+    f.routeX = chosen[0]; f.routeY = chosen[1]; f.routeActive = true;
+    f.spacingOffset = spacingPhrase[f.spacingBeat % spacingPhrase.length];
+}
+function waypointToward(f: Fighter, goalX: number, goalY: number): [number, number] {
+    const next = bfsNextStep(cellCol(f.x), cellRow(f.y), cellCol(goalX), cellRow(goalY));
+    return next ? cellCenter(next[0], next[1]) : [goalX, goalY];
+}
+function routeWaypoint(f: Fighter): [number, number] {
+    return waypointToward(f, f.routeX, f.routeY);
+}
+function beginReposition(f: Fighter, ticks: number, e: Fighter | null = null) {
+    // Pick one tactical destination per beat: protected side for range/support,
+    // an obstacle-side flank for melee, or a long outer-ring cross/retreat.
+    if (f.reposLeft <= 0) {
+        f.orbitDir = f.orbitDir === 1 ? -1 : 1;
+        f.reposManeuverUsed = false;
+        assignArenaDestination(f, e);
+        const travel = Math.sqrt(routeTravelSq(f, [f.routeX, f.routeY]));
+        // The beat lasts long enough to actually arrive. The old fixed one-second
+        // timer expired halfway across the floor and made every route look like a
+        // small shuffle around center.
+        const travelTicks = clamp(Math.round(travel / Math.max(1e-4, f.maxSpeed * 0.86)), Math.round(DUEL_TPS * 1.15), Math.round(DUEL_TPS * 3.0));
+        ticks = Math.max(ticks, travelTicks);
+    }
+    f.reposLeft = Math.max(f.reposLeft, Math.max(1, ticks));
+}
+function beginDodgeRetreat(f: Fighter, e: Fighter | null) {
+    if (!e) { beginReposition(f, Math.round(DUEL_TPS * 0.8), null); return; }
+    const ex = f.x - e.x, ey = f.y - e.y, ed = Math.max(1e-4, Math.hypot(ex, ey));
+    const awayX = ex / ed, awayY = ey / ed;
+    // Score several backward/sideways lanes. Near an arena edge, blindly clamping
+    // the straight-away vector can collapse it to a tiny move; an arbitrary outer
+    // fallback can be even worse and point back toward the foe. This candidate read
+    // keeps or increases separation while preserving the direction of the side-hop.
+    const sideX = f.moveDx, sideY = f.moveDy;
+    const directions: readonly (readonly [number, number])[] = [
+        [awayX * 5.2 + sideX * 2.7, awayY * 5.2 + sideY * 2.7],
+        [awayX * 3.2 + sideX * 5.1, awayY * 3.2 + sideY * 5.1],
+        [awayX * 3.2 - sideX * 5.1, awayY * 3.2 - sideY * 5.1],
+        [sideX * 5.8, sideY * 5.8],
+        [-sideX * 5.8, -sideY * 5.8],
+    ];
+    let goal: [number, number] | null = null;
+    let bestScore = -Infinity;
+    for (const [gx, gy] of directions) {
+        const candidate = snapPos(f.x + gx, f.y + gy);
+        const travel = Math.sqrt(routeTravelSq(f, candidate));
+        if (travel < 2.8) continue;
+        const enemyGap = Math.hypot(candidate[0] - e.x, candidate[1] - e.y);
+        const awayProgress = (candidate[0] - f.x) * awayX + (candidate[1] - f.y) * awayY;
+        const dodgeContinuity = (candidate[0] - f.x) * sideX + (candidate[1] - f.y) * sideY;
+        const score = enemyGap * 3 + travel * 0.35 + awayProgress * 0.9 + dodgeContinuity * 0.18;
+        if (score > bestScore) { bestScore = score; goal = candidate; }
+    }
+    if (!goal) goal = outerArenaDestination(f, e, true);
+    f.spacingBeat++;
+    f.spacingOffset = 1.85;
+    f.routeX = goal[0]; f.routeY = goal[1];
+    f.routeActive = true; f.routeIntent = "retreat";
+    // Reserve the mobility move: this sequence should read dodge -> run back ->
+    // plant, not dodge -> unrelated named dash -> buff.
+    f.reposManeuverUsed = true;
+    const travel = Math.sqrt(routeTravelSq(f, goal));
+    f.reposLeft = Math.max(f.reposLeft, clamp(Math.round(travel / Math.max(1e-4, f.maxSpeed)), Math.round(DUEL_TPS * 0.72), Math.round(DUEL_TPS * 1.45)));
+}
 // Melee ability / basic resolved AT CONTACT (called by the lunge on connect, or by
 // resolveCast for the non-lunge path). Cost is paid by the caller; this only rolls
 // accuracy and applies damage to whatever is in reach around the pounce's landing.
@@ -626,13 +943,13 @@ function resolveCast(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
     if (accuracyEnabled && ab && accRoll >= ab.accuracy / 100) { events.push({ t, type: "whiff", side: f.team, actorId: f.id }); return; }
     if (ab && ab.cls === "ranged") {
         const targets = ab.aoe ? fighters.filter((g) => g.team !== f.team && g.hp > 0) : [fighters.find((g) => g.id === f.pendingTargetId && g.hp > 0)].filter(Boolean) as Fighter[];
-        for (const tgt of targets) projectiles.push({ id: nextProjId.n++, ownerId: f.id, team: f.team, targetId: tgt.id, abilityIdx: idx, x: f.x, y: f.y, speed: 0.34, ttl: Math.round(DUEL_TPS * 3), element: f.element, kind: ab.kind });
+        for (const tgt of targets) projectiles.push({ id: nextProjId.n++, ownerId: f.id, team: f.team, targetId: tgt.id, abilityIdx: idx, x: f.x, y: f.y, speed: 0.56, ttl: Math.round(DUEL_TPS * 3), element: f.element, kind: ab.kind });
         events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: ab.kind, move: ab.name });
         return;
     }
     if (!ab && f.basicRanged) {
         const tgt = fighters.find((g) => g.id === f.pendingTargetId && g.hp > 0);
-        if (tgt) { projectiles.push({ id: nextProjId.n++, ownerId: f.id, team: f.team, targetId: tgt.id, abilityIdx: -1, x: f.x, y: f.y, speed: 0.34, ttl: Math.round(DUEL_TPS * 3), element: f.element, kind: "damage" }); events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: "damage" }); }
+        if (tgt) { projectiles.push({ id: nextProjId.n++, ownerId: f.id, team: f.team, targetId: tgt.id, abilityIdx: -1, x: f.x, y: f.y, speed: 0.56, ttl: Math.round(DUEL_TPS * 3), element: f.element, kind: "damage" }); events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: "damage" }); }
         return;
     }
     // Fallback (melee via resolveCast — normally unreachable; the lunge handles melee).
@@ -655,7 +972,18 @@ function stepProjectiles(fighters: Fighter[], projectiles: Projectile[], rng: ()
                 if (rng() < ev) { events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id }); projectiles.splice(i, 1); continue; }
             }
             if (d <= 0.7) { const ab = owner.abilities[p.abilityIdx] ?? null; applyDamage(owner, tgt, ab, rng, t, events, true); projectiles.splice(i, 1); continue; }
-            if (d > 1e-6) { p.x += (dx / d) * p.speed; p.y += (dy / d) * p.speed; }
+            if (d > 1e-6) {
+                const nextX = p.x + (dx / d) * p.speed, nextY = p.y + (dy / d) * p.speed;
+                // A target that reaches cover after the shot was fired can still break
+                // the homing line. The projectile visibly dies on the prop instead of
+                // ghosting through it and invalidating the tactical retreat.
+                if (arenaCoverAt(nextX, nextY, 0.12)) {
+                    events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id, targetId: owner.id, move: "Cover" });
+                    projectiles.splice(i, 1);
+                    continue;
+                }
+                p.x = nextX; p.y = nextY;
+            }
         }
         p.x = quant(p.x); p.y = quant(p.y);
         if (--p.ttl <= 0) projectiles.splice(i, 1);
@@ -668,6 +996,37 @@ function effMoveSpeed(f: Fighter): number {
     if (f.statuses.slowLeft > 0) s *= 0.6;
     if (f.statuses.hasteLeft > 0) s *= 1.35;
     return s;
+}
+function followRouteWaypoint(f: Fighter, e: Fighter, goal: readonly [number, number], sprint = false) {
+    const gx = goal[0] - f.x, gy = goal[1] - f.y;
+    const gd = Math.max(1e-4, Math.sqrt(gx * gx + gy * gy));
+    const tx = gx / gd, ty = gy / gd;
+    // Authored routes are action beats, so a sprint receives a real burst cap.
+    // Ordinary steering remains readable and controlled between those beats.
+    const sprintMult = sprint ? 1.24 : 1;
+    const speed = effMoveSpeed(f) * sprintMult * (sprint ? 1 : clamp(gd / Math.max(CELL_X, CELL_Y), 0.35, 1));
+    const desiredX = tx * speed, desiredY = ty * speed;
+    let sx = desiredX - f.vx, sy = desiredY - f.vy;
+    const sl = Math.sqrt(sx * sx + sy * sy);
+    // Pathfinding already selected a safe cell, so turns can be more decisive
+    // than free steering while still preserving a rounded running line.
+    const routeForce = f.maxForce * 1.55;
+    if (sl > routeForce && sl > 1e-6) { sx = (sx / sl) * routeForce; sy = (sy / sl) * routeForce; }
+    f.vx += sx; f.vy += sy;
+    const vl = Math.sqrt(f.vx * f.vx + f.vy * f.vy), cap = effMoveSpeed(f) * sprintMult;
+    if (vl > cap && vl > 1e-6) { f.vx = (f.vx / vl) * cap; f.vy = (f.vy / vl) * cap; }
+    const [nx, ny] = tryStep(f.x + f.vx, f.y + f.vy, f.x, f.y);
+    f.x = nx; f.y = ny;
+    // A sprint reads as a real run only when the body commits to its travel lane.
+    // Facing the opponent throughout a long route made quadrupeds backpedal,
+    // rotate continuously and look as if they were sliding. At the destination
+    // the route branch plants the feet and performs the turn back to the rival.
+    if (sprint && vl > 0.02) {
+        f.faceX = f.vx / vl; f.faceY = f.vy / vl;
+    } else {
+        const ex = e.x - f.x, ey = e.y - f.y, ed = Math.max(1e-4, Math.sqrt(ex * ex + ey * ey));
+        f.faceX = ex / ed; f.faceY = ey / ed;
+    }
 }
 function writeMap(map: number[], dx: number, dy: number, value: number, sharp: boolean) {
     for (let i = 0; i < N; i++) {
@@ -694,29 +1053,94 @@ const _danger = new Array(N).fill(0);
 /** Build interest+danger maps for f against its target, arbitrate to a heading +
  *  speed, and integrate through the Reynolds Arrive/max-force substrate. `rStar`
  *  is the desired engagement range (set by the decision layer). */
-function steer(f: Fighter, e: Fighter, fighters: Fighter[], rStar: number, routeGoal?: [number, number]) {
+function steer(f: Fighter, e: Fighter, fighters: Fighter[], rStar: number, routeGoal?: [number, number], repositioning = false) {
     for (let i = 0; i < N; i++) { _interest[i] = 0; _danger[i] = 0; }
     const ex = e.x - f.x, ey = e.y - f.y;
     const d = Math.max(1e-4, Math.sqrt(ex * ex + ey * ey));
     const tx = ex / d, ty = ey / d;               // unit toward enemy
     // ROOT / movelock — planted: keep facing + firing (handled in decide) but no move.
     if (f.statuses.rootLeft > 0) { f.vx = 0; f.vy = 0; f.faceX = tx; f.faceY = ty; return; }
+    // PLANTED GUARD. During cooldowns, fighters that have already reached their
+    // chosen range should watch and breathe instead of orbiting forever. They break
+    // the stance for a telegraph, opening, route, forced-engage, or committed
+    // reposition. Residual velocity eases out so the stop has weight rather than
+    // looking like a network snap.
+    // A reposition has a DESTINATION. Once it is reached, plant there until the
+    // beat expires instead of tracing another lap at the same radius.
+    const settledReposition = !routeGoal && repositioning && Math.abs(d - rStar) <= BAND_H;
+    if (settledReposition) {
+        f.vx *= 0.48; f.vy *= 0.48;
+        if (Math.hypot(f.vx, f.vy) < 0.012) { f.vx = 0; f.vy = 0; }
+        const nx = f.x + f.vx, ny = f.y + f.vy;
+        if (walkableAt(nx, ny)) { f.x = nx; f.y = ny; }
+        else { f.vx = 0; f.vy = 0; }
+        f.faceX = tx; f.faceY = ty;
+        return;
+    }
+    const settledInBand = !routeGoal && !repositioning && Math.abs(d - rStar) <= BAND_H;
+    // Once range is established, hold it. Attacks, telegraph dodges and authored
+    // reposition routes create the footwork; neutral cooldown time is a readable
+    // stare-down, not another small circle around the same radius.
+    const holdNeutral = settledInBand && !_forcedEngage && _stallPressure <= 0;
+    if (holdNeutral) {
+        f.vx *= 0.56; f.vy *= 0.56;
+        if (Math.hypot(f.vx, f.vy) < 0.012) { f.vx = 0; f.vy = 0; }
+        const nx = f.x + f.vx, ny = f.y + f.vy;
+        if (walkableAt(nx, ny)) { f.x = nx; f.y = ny; }
+        else { f.vx = 0; f.vy = 0; }
+        f.faceX = tx; f.faceY = ty;
+        return;
+    }
     // INTEREST. When line-of-sight to the foe is blocked, SEEK the BFS waypoint at
     // full interest (route around the terrain first); otherwise do R* spacing.
     if (routeGoal) {
         const gx = routeGoal[0] - f.x, gy = routeGoal[1] - f.y, gd = Math.max(1e-4, Math.sqrt(gx * gx + gy * gy));
         writeMap(_interest, gx / gd, gy / gd, INT_CLOSE, false);
-    } else if (d > rStar + BAND_H) writeMap(_interest, tx, ty, INT_CLOSE, false);
-    else if (d < rStar - BAND_H) writeMap(_interest, -tx, -ty, INT_BACK, false);
-    else {
-        const strafe = f.style.orbitStrong ? INT_STRAFE : INT_STRAFE * 0.7;
-        const dir = ((f.slot & 1) === 0 ? 1 : -1) * (f.team === "player" ? 1 : -1);
-        writeMap(_interest, -ty * dir, tx * dir, strafe, false);
-        writeMap(_interest, tx * 0.2, ty * 0.2, 0.2, false);   // slight inward bias to hold the band
+    } else if (repositioning) {
+        const dir = f.orbitDir;
+        const tangentX = -ty * dir, tangentY = tx * dir;
+        if (d < rStar - BAND_H) {
+            // One decisive diagonal racing line. Separate max-blended away/strafe
+            // interests used to collapse to a plain backpedal; this vector guarantees
+            // the exit changes both distance AND camera angle.
+            const exitX = -tx * 0.72 + tangentX * 0.69;
+            const exitY = -ty * 0.72 + tangentY * 0.69;
+            const exitLen = Math.max(1e-4, Math.hypot(exitX, exitY));
+            writeMap(_interest, exitX / exitLen, exitY / exitLen, INT_CLOSE, false);
+        } else {
+            // If an earlier exchange put us beyond this beat's chosen destination,
+            // run a shallow inward arc. The in-band case plants above.
+            const returnX = tx * 0.72 + tangentX * 0.42;
+            const returnY = ty * 0.72 + tangentY * 0.42;
+            const returnLen = Math.max(1e-4, Math.hypot(returnX, returnY));
+            writeMap(_interest, returnX / returnLen, returnY / returnLen, INT_CLOSE * 0.9, false);
+        }
+    } else if (d > rStar + BAND_H) {
+        const ev = Math.sqrt(e.vx * e.vx + e.vy * e.vy);
+        if (ev > 0.025) {
+            // Offset pursuit, not seek: predict where the moving target is going
+            // and claim a side of that future pocket. This produces a cutoff line
+            // instead of the visible leader/follower train caused by seeking e.x/y.
+            const leadTicks = clamp(Math.round(d / Math.max(1e-4, effMoveSpeed(f) + ev) * 0.42), 4, 18);
+            const px = e.x + e.vx * leadTicks, py = e.y + e.vy * leadTicks;
+            const hx = e.vx / ev, hy = e.vy / ev;
+            const side = f.team === "player" ? 1 : -1;
+            const offset = clamp(rStar * 0.42, 1.0, 3.0);
+            const goalX = px - hy * offset * side, goalY = py + hx * offset * side;
+            const gx = goalX - f.x, gy = goalY - f.y, gd = Math.max(1e-4, Math.sqrt(gx * gx + gy * gy));
+            writeMap(_interest, gx / gd, gy / gd, INT_CLOSE, false);
+        } else writeMap(_interest, tx, ty, INT_CLOSE, false);
     }
-    // Openness bias toward center (anti-corner "racing line").
+    else if (d < rStar - BAND_H) {
+        writeMap(_interest, -tx, -ty, INT_BACK, false);
+    }
+    else writeMap(_interest, tx, ty, 0.28, false);
+    // The old constant center pull quietly undid every outer-ring destination.
+    // Only recover inward when actually grazing the boundary; otherwise pets own
+    // the whole floor and may hold an outside lane or use cover there.
     const cl = Math.sqrt(f.x * f.x + f.y * f.y);
-    if (cl > 1e-3) writeMap(_interest, -f.x / cl, -f.y / cl, CENTER_BIAS, false);
+    const edge = Math.max(Math.abs(f.x) / ARENA_X, Math.abs(f.y) / ARENA_Y);
+    if (cl > 1e-3 && edge > 0.84) writeMap(_interest, -f.x / cl, -f.y / cl, EDGE_RETURN_BIAS * clamp((edge - 0.84) / 0.16, 0, 1), false);
     // DANGER — enemy threat bubble, telegraph, walls, personal space.
     const reach = e.state === "windup" ? 3.0 : 1.8;
     const prox = clamp(1 - (d - reach) / Math.max(1e-3, reach), 0, 1);
@@ -759,10 +1183,17 @@ function steer(f: Fighter, e: Fighter, fighters: Fighter[], rStar: number, route
     }
     if (best < 0) { best = 0; for (let i = 1; i < N; i++) if (_danger[i] < _danger[best]) best = i; }   // all dangerous → least-bad
     const hx = SLOT_X[best], hy = SLOT_Y[best];
-    let spd = effMoveSpeed(f) * clamp(_interest[best], 0, 1);
+    // A melee pursuer needs a short closing gear or an equally fast kiter can
+    // preserve the same gap forever. This is locomotion—not a teleport/dash—and
+    // drops away inside the attack approach, preserving the in/out rhythm.
+    const pursuitMult = !repositioning && !f.style.rangedPref && d > rStar + BAND_H + 1 ? 1.22 : 1;
+    let spd = effMoveSpeed(f) * pursuitMult * clamp(_interest[best], 0, 1);
+    // Exit beats are sprints, not hesitant backpedals. The speed floor also makes
+    // the renderer select the full run cycle for a sustained, readable interval.
+    if (repositioning) spd = Math.max(spd, effMoveSpeed(f) * 0.86);
     // Arrive: decelerate into the R* band so it doesn't overshoot + jitter. (Skip
     // while routing around terrain — there we want full speed to the waypoint.)
-    if (!routeGoal) { const bandErr = Math.abs(d - rStar); if (bandErr < SLOW_RADIUS) spd *= Math.max(0.15, bandErr / SLOW_RADIUS); }
+    if (!routeGoal && !repositioning) { const bandErr = Math.abs(d - rStar); if (bandErr < SLOW_RADIUS) spd *= Math.max(0.15, bandErr / SLOW_RADIUS); }
     // Steer the velocity toward desired with a max-force turn-rate limit (this is
     // the temporal smoothing — arcs, not twitches).
     const desVx = hx * spd, desVy = hy * spd;
@@ -771,7 +1202,7 @@ function steer(f: Fighter, e: Fighter, fighters: Fighter[], rStar: number, route
     if (slen > f.maxForce && slen > 1e-6) { sx = (sx / slen) * f.maxForce; sy = (sy / slen) * f.maxForce; }
     f.vx += sx; f.vy += sy;
     const vl = Math.sqrt(f.vx * f.vx + f.vy * f.vy);
-    const cap = effMoveSpeed(f);
+    const cap = effMoveSpeed(f) * pursuitMult;
     if (vl > cap && vl > 1e-6) { f.vx = (f.vx / vl) * cap; f.vy = (f.vy / vl) * cap; }
     // Move (walkmask edge-slide) + always FACE the enemy (kiting = face + backpedal).
     const nx = f.x + f.vx, ny = f.y + f.vy;
@@ -804,7 +1235,81 @@ function bestOffensive(f: Fighter, e: Fighter | null, forceSig: boolean): number
     }
     return best;
 }
+function readyMobility(f: Fighter): number {
+    for (let i = 0; i < f.abilities.length; i++) {
+        const a = f.abilities[i];
+        if (a.isMove && a.cdLeft <= 0 && f.stamina >= a.cost) return i;
+    }
+    return -1;
+}
+function maneuverName(f: Fighter): string {
+    switch (String(f.element ?? "")) {
+        case "Fire": return "Blazing Crescent";
+        case "Water": return "Undertow Circuit";
+        case "Wind": return "Gale Spiral";
+        case "Lightning": return "Volt Switchback";
+        case "Earth": return "Stonebound Pivot";
+        default: return "Crossfield Arc";
+    }
+}
+function beginManeuver(f: Fighter, e: Fighter, idx: number, t: number, events: DuelEvent[]) {
+    const ab = f.abilities[idx];
+    if (!f.routeActive || Math.hypot(f.routeX - f.x, f.routeY - f.y) < 3.2) assignArenaDestination(f, e);
+    const dx = f.routeX - f.x, dy = f.routeY - f.y;
+    const d = Math.max(1e-4, Math.hypot(dx, dy));
+    const tx = dx / d, ty = dy / d;
+    let tangentX = -ty * f.orbitDir, tangentY = tx * f.orbitDir;
+    // The move launches down a crossfield racing line with a small lateral hook.
+    // Its reference is a real arena destination, never the opponent's radius.
+    let mx = tx * 0.99 + tangentX * 0.12;
+    let my = ty * 0.99 + tangentY * 0.12;
+    let ml = Math.max(1e-4, Math.hypot(mx, my));
+    mx /= ml; my /= ml;
+    const probe = 3.2;
+    if (!walkableAt(f.x + mx * probe, f.y + my * probe)) {
+        tangentX = -tangentX; tangentY = -tangentY;
+        f.orbitDir = f.orbitDir === 1 ? -1 : 1;
+        mx = tx * 0.99 + tangentX * 0.12;
+        my = ty * 0.99 + tangentY * 0.12;
+        ml = Math.max(1e-4, Math.hypot(mx, my));
+        mx /= ml; my /= ml;
+    }
+    payAbilityCost(f, ab);
+    clearLunge(f);
+    f.moveDx = mx; f.moveDy = my;
+    f.maneuverGoalX = f.routeX; f.maneuverGoalY = f.routeY;
+    f.faceX = mx; f.faceY = my;
+    f.vx = 0; f.vy = 0;
+    // A movement skill is a short anime range-shift, not a second walk cycle.
+    // It covers a meaningful pocket, pivots, and returns control quickly.
+    f.maneuverTotal = clamp(Math.round(d / Math.max(1e-4, f.maxSpeed * 2.55)), Math.round(DUEL_TPS * 0.34), Math.round(DUEL_TPS * 0.6));
+    f.maneuverLeft = f.maneuverTotal;
+    f.reposManeuverUsed = true;
+    f.reposLeft = 0;
+    f.commit = 0;
+    events.push({ t, type: "maneuver", side: f.team, actorId: f.id, targetId: e.id, kind: "move", move: ab.name || maneuverName(f) });
+}
+function beginEngageManeuver(f: Fighter, e: Fighter, idx: number, desiredRange: number, t: number, events: DuelEvent[]): boolean {
+    const dx = e.x - f.x, dy = e.y - f.y;
+    const d = Math.max(1e-4, Math.hypot(dx, dy));
+    const tx = dx / d, ty = dy / d;
+    const side = f.team === "player" ? 1 : -1;
+    const targetSpeed = Math.hypot(e.vx, e.vy);
+    const futureX = e.x + (targetSpeed > 0.02 ? e.vx * 7 : 0);
+    const futureY = e.y + (targetSpeed > 0.02 ? e.vy * 7 : 0);
+    const lateral = clamp(desiredRange * 0.28, 1.25, 2.15);
+    const pocket = snapPos(
+        futureX - tx * desiredRange - ty * lateral * side,
+        futureY - ty * desiredRange + tx * lateral * side,
+    );
+    if (routeTravelSq(f, pocket) < 2.4 * 2.4) return false;
+    f.routeX = pocket[0]; f.routeY = pocket[1];
+    f.routeActive = true; f.routeIntent = "flank";
+    beginManeuver(f, e, idx, t, events);
+    return true;
+}
 function readySupport(f: Fighter, fighters: Fighter[]): number {
+    if (f.supportCastLocked) return -1;
     const ally = pickAlly(f, fighters);
     for (let i = 0; i < f.abilities.length; i++) {
         const a = f.abilities[i];
@@ -820,7 +1325,10 @@ function readySupport(f: Fighter, fighters: Fighter[]): number {
 function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng: () => number, t: number, events: DuelEvent[]) {
     const e = pickTarget(f, fighters);
     f.targetId = e ? e.id : null;
-    if (!e) { f.vx *= 0.8; f.vy *= 0.8; return; }
+    if (!e) {
+        setIntent(f, "regroup", 0, "scan for next target", "no active opponent remains");
+        f.vx *= 0.8; f.vy *= 0.8; return;
+    }
     const dx = e.x - f.x, dy = e.y - f.y;
     const d = Math.max(1e-4, Math.sqrt(dx * dx + dy * dy));
     const hpFrac = f.hp / f.maxHp;
@@ -828,37 +1336,125 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // Battleborn trait, or an endure/lifeline charge in the tank) stops fleeing and gathers
     // for one committed strike: the anime last-ditch attack that sometimes reverses a fight.
     // Kiters/supports still flee (preserves style-contrast).
-    const desperate = hpFrac < CRIT_HP && (f.style.arche === "rusher" || f.style.arche === "brawler"
+    const desperateHp = Math.max(CRIT_HP, 0.28);
+    const desperate = hpFrac < desperateHp && (f.style.arche === "rusher" || f.style.arche === "brawler"
         || f.pet.trait === "Aggressive" || f.pet.trait === "Battleborn" || f.cEndure > 0 || f.cLifelinePct > 0);
     // KILL-SHOT — the foe is nearly dead: drop the in-out reposition beat and go finish it.
-    const killShot = e.hp / e.maxHp < KILL_HP;
+    const enemyHpFrac = e.hp / e.maxHp;
+    const killShot = enemyHpFrac < Math.max(KILL_HP, 0.22);
 
-    // 1) SUPPORT — highest priority when it applies.
+    // Cache support readiness before the defensive read. A ready buff no longer
+    // steals priority from an incoming telegraph; the pet evades first, then earns
+    // room and powers up as one readable anime phrase.
     const sup = readySupport(f, fighters);
-    if (sup >= 0) { beginCast(f, sup, f.id, t, events); return; }
-
-    // 2) ACTIVE DODGE — the enemy is winding up a blow aimed at me and I can still
+    // 1) ACTIVE DODGE — the enemy is winding up a blow aimed at me and I can still
     // move out of it. SPEED-gated: a fast pet reacts + clears; a slow one can't.
     // A last-stand does NOT dodge — it commits.
+    const incomingWindup = e.state === "windup" && e.pendingTargetId === f.id && e.stateLeft >= 2;
+    const incomingPounce = e.state === "dash" && e.lungeAbIdx > -2 && e.lungeTgtId === f.id && e.stateLeft >= 3;
     if (!desperate && f.dodgeCd <= 0 && f.stamina >= COST_DODGE && f.statuses.rootLeft <= 0
-        && e.state === "windup" && e.pendingTargetId === f.id && e.stateLeft >= 2) {
-        const eAb = e.pendingIdx >= 0 ? e.abilities[e.pendingIdx] : null;
-        const eRange = eAb ? eAb.range : e.reach + 0.6;
-        if (d <= eRange + 1.2) {
-            const chance = clamp(0.14 + (f.spd - e.spd) * 0.0022 + f.style.dodgeBias, 0.05, 0.85) * (1 - (_forcedEngage ? 1 : _stallPressure));
+        && (incomingWindup || incomingPounce)) {
+        const eAb = incomingPounce
+            ? (e.lungeAbIdx >= 0 ? e.abilities[e.lungeAbIdx] : null)
+            : (e.pendingIdx >= 0 ? e.abilities[e.pendingIdx] : null);
+        const meleeTell = eAb ? eAb.cls === "melee" : !e.basicRanged;
+        const threatRange = meleeTell ? MELEE_RANGE + 0.9 : (eAb ? eAb.range : RANGED_RANGE * 0.85);
+        if (d <= threatRange) {
+            const chance = clamp(0.22 + (f.spd - e.spd) * 0.0022 + f.style.dodgeBias, 0.05, 0.85) * (1 - (_forcedEngage ? 1 : _stallPressure));
             if (rng() < chance) {   // rng() always drawn (order preserved); stall just lowers the threshold → no dodge
                 // Sidestep perpendicular to the incoming line (away from arena edge).
                 let px = -dy / d, py = dx / d;
                 if (!walkableAt(f.x + px * 1.6, f.y + py * 1.6)) { px = -px; py = -py; }
                 f.moveDx = px; f.moveDy = py; f.state = "dodge"; f.stateLeft = f.dodgeT;
-                f.stamina -= COST_DODGE; f.dodgeCd = Math.round(DUEL_TPS * 0.9); f.vx = 0; f.vy = 0;
+                f.postDodgeSupport = sup >= 0;
+                // A successful read breaks the lock of the ranged attack that was
+                // visibly telegraphed. Otherwise it releases after the hop and homes
+                // into the pet during its buff, making the dodge look fake.
+                const rangedTell = eAb ? eAb.cls === "ranged" : e.basicRanged;
+                if (incomingWindup && rangedTell) e.pendingTargetId = null;
+                f.stamina -= COST_DODGE; f.dodgeCd = Math.round(DUEL_TPS * 1.8); f.vx = 0; f.vy = 0;
+                setIntent(f, "escape danger", Math.max(4.5, d + 2), f.postDodgeSupport ? "sidestep, disengage, then power up" : "sidestep and reset", incomingPounce ? "incoming committed pounce" : "incoming attack telegraph");
                 events.push({ t, type: "dodge", side: f.team, actorId: f.id, move: "Evade" });
                 return;
             }
+            // One read per telegraph. Without this short failed-read lockout, the
+            // defender rerolled every pounce tick and eventually dodged nearly every hit.
+            f.dodgeCd = Math.max(f.dodgeCd, Math.round(DUEL_TPS * 0.4));
         }
     }
 
-    // 3) Choose the move I want + the range I want to fight at (R*). The signature is
+    // 2) DODGE FOLLOW-THROUGH — continue the side-hop into a diagonal backward
+    // lane, reach the destination, plant, then self-buff. This is deliberately
+    // serialized so the pet never jitters between flee/cast decisions every tick.
+    if (f.postDodgeSupport) {
+        const postSup = readySupport(f, fighters);
+        if (postSup < 0) f.postDodgeSupport = false;
+        else {
+            const remaining = Math.hypot(f.routeX - f.x, f.routeY - f.y);
+            if (f.routeActive && remaining > 1.15) {
+                f.reposLeft = Math.max(1, f.reposLeft);
+                setIntent(f, "retreat", Math.max(SUPPORT_CAST_CLEARANCE, d + 1), "open a safe casting pocket", "successful dodge created a buff window");
+                followRouteWaypoint(f, e, routeWaypoint(f), true);
+                return;
+            }
+            // Re-read the live gap at the destination. A pursuer may have cut the
+            // retreat lane while we were travelling; casting here would turn the
+            // earned dodge/buff phrase back into a point-blank power-up. Extend the
+            // disengage once, along a newly scored escape lane, until the pocket is
+            // genuinely safe.
+            if (d < SUPPORT_CAST_CLEARANCE) {
+                beginDodgeRetreat(f, e);
+                setIntent(f, "retreat", SUPPORT_CAST_CLEARANCE, "extend the escape lane before powering up", "pursuer closed the original buff pocket");
+                followRouteWaypoint(f, e, routeWaypoint(f), true);
+                return;
+            }
+            f.postDodgeSupport = false;
+            f.reposLeft = 0; f.routeActive = false;
+            f.vx = 0; f.vy = 0;
+            setIntent(f, "prepare combo", SUPPORT_CAST_CLEARANCE, f.abilities[postSup]?.name ?? "self buff", "safe after dodge and disengage");
+            beginCast(f, postSup, f.id, t, events);
+            return;
+        }
+    }
+
+    // CINEMATIC INITIATIVE — only one side drives neutral movement. The rival is
+    // not a leash partner: it plants, tracks the pressure pet, and waits for a
+    // telegraph/recovery opening. Active dodges above and punish windows below
+    // still break the hold, so this remains an autobattle rather than a turn lock.
+    const ownsBeat = f.team === _cinematicInitiativeTeam || _forcedEngage;
+    const counterWindow = e.state === "recover" || e.state === "stagger" || e.state === "strike";
+    const finishingExit = f.reposLeft > 0 && f.routeActive;
+    if (!ownsBeat && !counterWindow && !finishingExit) {
+        f.vx = 0; f.vy = 0;
+        f.faceX = dx / d; f.faceY = dy / d;
+        setIntent(f, "hold position", f.desiredRange, "plant and read the next attack", "opponent owns the current pressure beat");
+        return;
+    }
+
+    // 3) SUPPORT — outside an active defensive read, support pets still earn room
+    // before healing or raising a ward. Opening buff/haste is held briefly: it is
+    // available as the payoff for an early successful dodge, but pets that were not
+    // pressured do not both stand still and power up at the first possible tick.
+    const supportAbility = sup >= 0 ? f.abilities[sup] : null;
+    const holdOpeningPower = t < Math.round(DUEL_TPS * 2.2)
+        && (supportAbility?.kind === "buff" || supportAbility?.kind === "haste");
+    if (sup >= 0 && !holdOpeningPower) {
+        if (!desperate && d < SUPPORT_CAST_CLEARANCE) {
+            setIntent(f, "retreat", SUPPORT_CAST_CLEARANCE, `make room for ${supportAbility?.name ?? "support"}`, "enemy is inside support cast clearance");
+            beginReposition(f, Math.round(DUEL_TPS * 0.9), e);
+            const supportShift = readyMobility(f);
+            if (supportShift >= 0 && f.routeActive && f.statuses.rootLeft <= 0) {
+                beginManeuver(f, e, supportShift, t, events);
+                return;
+            }
+            followRouteWaypoint(f, e, routeWaypoint(f), true);
+            return;
+        }
+        setIntent(f, "prepare combo", SUPPORT_CAST_CLEARANCE, supportAbility?.name ?? "support action", "support window is safe and ready");
+        beginCast(f, sup, f.id, t, events); return;
+    }
+
+    // 4) Choose the move I want + the range I want to fight at (R*). The signature is
     // hoarded unless the foe is low/open or this is a last-stand/kill-shot (forceSig).
     const offIdx = bestOffensive(f, e, desperate || killShot);
     const offAb = offIdx >= 0 ? f.abilities[offIdx] : null;
@@ -872,9 +1468,17 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // toward max range; aggressive ones press inward.
     let rStar: number;
     if (useRanged) {
-        rStar = clamp(moveRange - BAND_H - 0.4 + (0.5 - aggr) * 0.7, MELEE_RANGE + 0.5, moveRange - 0.4);
+        // Ranged exchanges deliberately change depth. Each fighter enters this
+        // four-beat phrase at a different point, so the pair alternates close
+        // pressure, midrange volleys, and long-range resets instead of preserving
+        // one constant leash distance for the entire fight.
+        // Keep a genuine ranged identity even on its closest pressure beat. The old
+        // 0.58 slot dragged kiters into melee, making each exit look like panic.
+        const rangePhrase = [0.58, 0.94, 0.72, 0.86] as const;
+        const phraseRange = moveRange * rangePhrase[f.spacingBeat % rangePhrase.length];
+        rStar = clamp(phraseRange + (0.5 - aggr) * 0.35 + f.style.rangeBias, MELEE_RANGE + 0.5, moveRange - 0.4);
     } else {
-        rStar = MELEE_RANGE * clamp(1.1 - aggr * 0.3, 0.85, 1.15);
+        rStar = MELEE_RANGE * clamp(1.1 - aggr * 0.3, 0.85, 1.15) + f.style.rangeBias * 0.2;
     }
 
     // 4) PUNISH — the enemy just whiffed / is recovering: press the opening HARD
@@ -884,54 +1488,142 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // fight has an in-out cadence and the movement is visible (not a trade every tick).
     // A wide-open enemy (PUNISH) or an interrupt-ready control move overrides it.
     if (f.reposLeft > 0) f.reposLeft--;
-    const holdRepos = f.reposLeft > 0 && !enemyOpen && !killShot && !desperate;   // finishing / last-stand ignores the in-out beat
-    // 5) FIRE if a move is ready and the target is in range. Melee commits from up to
-    // LUNGE_INIT away — the pounce (see stepFighter "dash") covers the gap, so attacks
-    // read as leaps across the arena, not head-bashing. LoS is required for any commit
-    // from beyond melee range (ranged shot or far dive) so nobody lunges through a wall.
+    // Once a fighter has committed, it must finish the exit beat before attacking
+    // again. An open enemy is still pursued after the reset; it no longer cancels the
+    // reset and turns the exchange into repeated point-blank smacks.
+    const holdRepos = f.reposLeft > 0 && !killShot && !desperate;
+    if (!holdRepos) f.routeActive = false;
+    // A loadout's movement slot now caps the running exit with a CURVED elemental
+    // traversal. It is not the pounce/dash state: the pet runs a crescent lane,
+    // pivots, plants, and only then re-engages.
+    const mobilityIdx = readyMobility(f);
+    if (holdRepos && !f.reposManeuverUsed && mobilityIdx >= 0 && f.routeActive
+        && f.statuses.rootLeft <= 0) {
+        setIntent(f, hpFrac < f.style.retreatHp ? "retreat" : "reposition", Math.max(rStar, MIN_REPOSITION_RANGE), `use ${f.abilities[mobilityIdx].name} to change lanes`, hpFrac < f.style.retreatHp ? "low health disengage" : "post-attack spacing reset");
+        beginManeuver(f, e, mobilityIdx, t, events);
+        return;
+    }
+    // 5) FIRE if a move is ready and the target is genuinely in range. Melee no longer
+    // receives a hidden dash-in allowance: it must earn contact through locomotion,
+    // while ranged attacks still require a clear line through the arena.
     const meleeOff = offAb != null && offAb.cls !== "ranged";
-    const commitRange = offAb == null ? 0 : meleeOff ? Math.max(offAb.range, f.style.lungeInit) : offAb.range;
+    // Simulation centres stay apart to protect the 3D creature silhouettes. A
+    // melee tell may therefore start from the visible body-edge pocket, then its
+    // post-windup pounce bridges the remaining centre distance.
+    const commitRange = offAb == null ? 0 : meleeOff ? Math.max(offAb.range + 0.25, MIN_SEP + 1.15) : offAb.range;
     const losForCommit = d <= MELEE_RANGE + 0.6 ? true : hasLineOfSight(f.x, f.y, e.x, e.y);
     const canFire = !holdRepos && offAb != null && d <= commitRange && losForCommit && (f.faceX * dx + f.faceY * dy) > -0.2;
-    if (canFire) { f.commit = 0; beginCast(f, offIdx, e.id, t, events); return; }
-    // Basic attack — melee basics also lunge (commit from LUNGE_INIT); ranged basics poke.
+    if (canFire) {
+        setIntent(f, offAb.signature || killShot || desperate ? "burst" : "execute combo", rStar, offAb.name, killShot ? "enemy is vulnerable" : desperate ? "last-stand opening" : "ability is ready, in range, and line of sight is clear");
+        f.commit = 0; beginCast(f, offIdx, e.id, t, events); return;
+    }
+    // Basic attack — melee must already be at contact range; ranged basics poke.
     if (!holdRepos && f.basicCdLeft <= 0 && f.stamina >= COST_BASIC) {
-        const basicRange = f.basicRanged ? RANGED_RANGE * 0.85 : Math.max(f.reach + 0.05, f.style.lungeInit);
+        const basicRange = f.basicRanged ? RANGED_RANGE * 0.85 : Math.max(f.reach + 0.35, MIN_SEP + 1.15);
         const basicLos = f.basicRanged ? hasLineOfSight(f.x, f.y, e.x, e.y) : losForCommit;
-        if (d <= basicRange && basicLos && (f.faceX * dx + f.faceY * dy) > -0.2) { f.commit = 0; beginCast(f, -1, e.id, t, events); return; }
+        if (d <= basicRange && basicLos && (f.faceX * dx + f.faceY * dy) > -0.2) {
+            setIntent(f, killShot ? "burst" : "attack", rStar, f.basicRanged ? "ranged pressure" : "contact strike", killShot ? "enemy is vulnerable" : "basic attack window is open");
+            f.commit = 0; beginCast(f, -1, e.id, t, events); return;
+        }
     }
 
-    // (A dedicated "move"-ability reposition DASH was prototyped here but destabilized the
-    // tuned archetype balance — brawlers collapsed, defenders dominated — so it was dropped.
-    // The move ability is simply no longer fired as a junk 1-dmg poke, above; movement and
-    // repositioning come from the context-steering + the per-archetype reposition beat.)
+    // Only one side owns the ingress burst for an exchange. It dashes to an
+    // offset firing pocket (never into the opponent's body); the other side may
+    // hold, dodge, or answer after the shared pressure role flips next beat.
+    const pressureTeam: Fighter["team"] = _cinematicInitiativeTeam;
+    if (!holdRepos && mobilityIdx >= 0 && f.team === pressureTeam && f.commit >= Math.round(DUEL_TPS * 0.55)
+        && d > rStar + BAND_H + 1.8 && f.statuses.rootLeft <= 0 && e.state !== "windup") {
+        setIntent(f, "flank", rStar, `burst to an offset ${useRanged ? "firing" : "attack"} lane`, "owns this exchange's ingress");
+        if (beginEngageManeuver(f, e, mobilityIdx, rStar, t, events)) return;
+    }
 
-    // 6) Nothing to fire → position via context steering. Anti-stall backstop: if I
-    // sit with a ready move but can't get a shot off for too long, force the exchange
-    // (melee dashes in; ranged presses into guaranteed range). With the R* fix above
-    // this rarely trips, but it guarantees fights never waltz to the cap.
+    // 6) Nothing to fire → position via context steering. The anti-stall backstop
+    // tightens desired range but never teleports or dashes either fighter into contact.
     if (offAb || f.basicCdLeft <= 0) f.commit++; else f.commit = Math.max(0, f.commit - 1);
-    if (f.commit > Math.round(DUEL_TPS * 2.5)) {
+    if (f.commit > Math.round(DUEL_TPS * 1.25)) {
         if (!useRanged) {
-            clearLunge(f);   // a plain commit-break dash is NOT a pounce — ensure the dash handler doesn't misread a stale lungeAbIdx
-            f.moveDx = dx / d; f.moveDy = dy / d; f.state = "dash"; f.stateLeft = f.dashT; f.commit = 0;
-            events.push({ t, type: "dash", side: f.team, actorId: f.id });
-            return;
+            rStar = Math.min(rStar, MELEE_RANGE * 0.78);
+            f.commit = Math.round(DUEL_TPS * 1.2);
+        } else {
+            rStar = Math.min(rStar, moveRange * 0.55);
+            f.commit = Math.round(DUEL_TPS * 1.2);
         }
-        rStar = Math.min(rStar, moveRange * 0.55); f.commit = Math.round(DUEL_TPS * 1.2);   // press into range
     }
     if ((enemyOpen || killShot) && !useRanged && d > moveRange) rStar = Math.min(rStar, moveRange * 0.9);   // press the opening / go for the kill
-    if (holdRepos) rStar += f.style.reposBack;   // reposition beat: back out by the archetype's amount (kiter dances far, defender holds ground) then circle back in — the in-out cadence
+    if (holdRepos) rStar = Math.max(rStar + f.style.reposBack + f.spacingOffset, MIN_REPOSITION_RANGE);
+    else rStar = Math.max(MELEE_RANGE * 0.82, rStar + f.spacingOffset * (useRanged ? 0.34 : 0.16));
     // STALL BREAKER: collapse R* toward melee so a no-damage kiter stand-off is forced to close
     // and trade (the stronger stats then win). p=0 in normal fights → no effect.
     { const p = _forcedEngage ? 1 : _stallPressure; if (p > 0) rStar *= 1 - 0.9 * p; }
+    if (holdRepos) setIntent(f, hpFrac < f.style.retreatHp ? "retreat" : "reposition", rStar, "complete the exit lane and re-evaluate", hpFrac < f.style.retreatHp ? "health is below retreat threshold" : "attack recovery requires a spacing reset");
+    else if (killShot || desperate) setIntent(f, "burst", rStar, "close and finish", killShot ? "enemy is vulnerable" : "last-stand pressure");
+    else if (useRanged && d < rStar - BAND_H) setIntent(f, "kite", rStar, "open ranged spacing", "enemy is inside preferred range");
+    else if (d > rStar + BAND_H) setIntent(f, "engage", rStar, "claim preferred attack range", "target is outside effective range");
+    else setIntent(f, "hold position", rStar, "read cooldowns and preserve the firing pocket", "already inside preferred range band");
+    // Central duel-stage arbitration: only one fighter may own a full exit route at
+    // a time. If both attempt to reset, the newer route wins (stable player-side
+    // tiebreak); the other fighter plants and watches the lane rather than becoming
+    // a second runner.
+    const rivalOwnsSharedExit = holdRepos && e.reposLeft > 0 && e.routeActive
+        && (e.reposLeft > f.reposLeft || (e.reposLeft === f.reposLeft && e.team === "player"));
+    if (rivalOwnsSharedExit) {
+        setIntent(f, "hold position", rStar, "plant and cover the opponent's exit lane", "opponent owns the shared reset route");
+        f.routeActive = false; f.reposLeft = 0;
+        f.vx = 0; f.vy = 0;
+        f.faceX = dx / d; f.faceY = dy / d;
+        return;
+    }
+    // A reset owns a real destination. Run there, wrap around cover if necessary,
+    // then plant and watch the opponent until the beat expires. This branch never
+    // asks for a radius around the foe, so it cannot devolve into circling.
+    if (holdRepos && f.routeActive) {
+        const gx = f.routeX - f.x, gy = f.routeY - f.y;
+        if (gx * gx + gy * gy <= 1.2 * 1.2) {
+            f.vx *= 0.42; f.vy *= 0.42;
+            if (Math.hypot(f.vx, f.vy) < 0.012) { f.vx = 0; f.vy = 0; }
+            f.faceX = dx / d; f.faceY = dy / d;
+            return;
+        }
+        // Global pathfinding owns obstacle navigation. This turns a stump from a
+        // collision circle into a decision: take its protected side, wrap a chosen
+        // edge, then emerge on a new attack angle.
+        const destination = routeWaypoint(f);
+        setIntent(f, hpFrac < f.style.retreatHp ? "retreat" : "reposition", rStar, "run the committed arena route", hpFrac < f.style.retreatHp ? "create recovery distance" : "change depth and attack angle");
+        followRouteWaypoint(f, e, destination, true);
+        return;
+    }
+    // The opponent owns a reset route. Hold the current stage mark and track it;
+    // attacks above may still catch the runner, but locomotion never follows the
+    // same line or destination. This creates a clean distance break before the
+    // next side receives initiative.
+    if (!holdRepos && e.reposLeft > 0 && e.routeActive) {
+        setIntent(f, "hold position", rStar, "track the disengage and prepare a counter", "opponent owns the exit beat");
+        f.vx = 0; f.vy = 0;
+        f.faceX = dx / d; f.faceY = dy / d;
+        return;
+    }
     // Route around terrain (BFS waypoint) when the direct line to the foe is blocked.
     let routeGoal: [number, number] | undefined;
     if (!hasLineOfSight(f.x, f.y, e.x, e.y)) {
-        const nxt = bfsNextStep(cellCol(f.x), cellRow(f.y), cellCol(e.x), cellRow(e.y));
-        if (nxt) routeGoal = cellCenter(nxt[0], nxt[1]);
+        // Close cover stand-off: both fighters take opposite world-space edges
+        // (their target vectors are reversed), so they do not meet nose-to-nose
+        // at the same shortest-path cell. The first pet to clear an edge can fire;
+        // the other may keep wrapping, producing a real peek/flank exchange.
+        let targetX = e.x, targetY = e.y;
+        if (d < 5.0) {
+            targetX = f.x - (dy / d) * 3.1;
+            targetY = f.y + (dx / d) * 3.1;
+            [targetX, targetY] = snapPos(targetX, targetY);
+        }
+        const nxt = bfsNextStep(cellCol(f.x), cellRow(f.y), cellCol(targetX), cellRow(targetY));
+        if (nxt) {
+            routeGoal = cellCenter(nxt[0], nxt[1]);
+            setIntent(f, "flank", rStar, "path around blocked line of sight", "terrain or a temporary wall blocks the direct angle");
+            followRouteWaypoint(f, e, routeGoal);
+            return;
+        }
     }
-    steer(f, e, fighters, rStar, routeGoal);
+    steer(f, e, fighters, rStar, routeGoal, holdRepos);
 }
 
 // ── Per-fighter tick ─────────────────────────────────────────────────────────────
@@ -948,8 +1640,43 @@ function tickStatuses(f: Fighter) {
     if (s.wallPenaltyLeft > 0) s.wallPenaltyLeft--;
     if (s.buffLeft > 0 && --s.buffLeft <= 0) s.buffMag = 0;
 }
+function stepManeuver(f: Fighter, fighters: Fighter[]) {
+    const e = pickTarget(f, fighters);
+    if (!e) { f.maneuverLeft = 0; return; }
+    const dx = f.maneuverGoalX - f.x, dy = f.maneuverGoalY - f.y;
+    const d = Math.max(1e-4, Math.hypot(dx, dy));
+    const tx = dx / d, ty = dy / d;
+    const tangentX = -ty, tangentY = tx;
+    const p = 1 - f.maneuverLeft / Math.max(1, f.maneuverTotal);
+    // Keep only a hint of lateral shape. The former wide S-hook repeatedly spun
+    // agile quadrupeds during a single burst and read as orbiting rather than a
+    // decisive anime lane change.
+    const hook = (p < 0.5 ? p * 2 : (1 - p) * 2) * 0.12 * f.orbitDir;
+    let mx = tx * 0.99 + tangentX * hook;
+    let my = ty * 0.99 + tangentY * hook;
+    const ml = Math.max(1e-4, Math.hypot(mx, my)); mx /= ml; my /= ml;
+    const burst = p < 0.5 ? p * 2 : (1 - p) * 2;
+    const speed = f.maxSpeed * (2.15 + burst * 0.72);
+    const [nx, ny] = tryStep(f.x + mx * speed, f.y + my * speed, f.x, f.y);
+    f.x = nx; f.y = ny;
+    // Run into the lane, then visibly pivot back toward the opponent at the end.
+    const ex = e.x - f.x, ey = e.y - f.y, ed = Math.max(1e-4, Math.hypot(ex, ey));
+    f.faceX = p < 0.82 ? mx : ex / ed;
+    f.faceY = p < 0.82 ? my : ey / ed;
+    if (--f.maneuverLeft <= 0) {
+        f.maneuverLeft = 0;
+        f.vx = 0; f.vy = 0;
+        f.routeActive = false;
+        f.faceX = ex / ed; f.faceY = ey / ed;
+        // An inward flank is the first half of a dash attack: hand control back almost
+        // immediately so the strike follows the burst instead of adding an idle pause.
+        // Disengages still plant long enough to make their support cast readable.
+        f.guardLeft = Math.round(DUEL_TPS * (f.routeIntent === "flank" ? 0.08 : 0.27));
+    }
+}
 function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextProjId: { n: number }, rng: () => number, t: number, events: DuelEvent[], accuracyEnabled: boolean) {
     if (f.state === "dead" || f.hp <= 0) return;
+    if (f.targetLockLeft > 0) f.targetLockLeft--;
     if (f.basicCdLeft > 0) f.basicCdLeft--;
     for (const ab of f.abilities) if (ab.cdLeft > 0) ab.cdLeft--;
     if (f.dodgeCd > 0) f.dodgeCd--;
@@ -958,7 +1685,24 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
         // Hard CC interrupts a pounce: convert the mid-air dive to a stagger so the pose
         // is right during the stun and the stale lunge can't resume aimed at a ghost.
         if (f.state === "dash" && f.lungeAbIdx > -2) { f.state = "stagger"; f.stateLeft = f.staggerT; clearLunge(f); }
+        f.maneuverLeft = 0; f.guardLeft = 0;
         f.vx = 0; f.vy = 0; f.x = clamp(f.x, -ARENA_X, ARENA_X); f.y = clamp(f.y, -ARENA_Y, ARENA_Y); return;
+    }
+    if (f.maneuverLeft > 0) {
+        stepManeuver(f, fighters);
+        f.x = clamp(f.x, -ARENA_X, ARENA_X); f.y = clamp(f.y, -ARENA_Y, ARENA_Y);
+        return;
+    }
+    if (f.guardLeft > 0 && f.state === "idle") {
+        const e = pickTarget(f, fighters);
+        // A telegraph cancels the pose so defensive reactions remain responsive.
+        if (!e || e.state !== "windup") {
+            f.guardLeft--;
+            f.vx = 0; f.vy = 0;
+            if (e) { const dx = e.x - f.x, dy = e.y - f.y, d = Math.max(1e-4, Math.hypot(dx, dy)); f.faceX = dx / d; f.faceY = dy / d; }
+            return;
+        }
+        f.guardLeft = 0;
     }
     switch (f.state) {
         case "idle": decide(f, fighters, projectiles, rng, t, events); break;
@@ -1033,32 +1777,88 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
             }
             const [nx, ny] = tryStep(f.x + f.moveDx * f.maxSpeed * 3.0, f.y + f.moveDy * f.maxSpeed * 3.0, f.x, f.y); f.x = nx; f.y = ny; f.faceX = f.moveDx; f.faceY = f.moveDy; if (--f.stateLeft <= 0) f.state = "idle"; break;
         }
-        case "dodge": { const [nx, ny] = tryStep(f.x + f.moveDx * f.maxSpeed * 2.7, f.y + f.moveDy * f.maxSpeed * 2.7, f.x, f.y); f.x = nx; f.y = ny; if (--f.stateLeft <= 0) f.state = "idle"; break; }
+        case "dodge": {
+            const [nx, ny] = tryStep(f.x + f.moveDx * f.maxSpeed * 2.9, f.y + f.moveDy * f.maxSpeed * 2.9, f.x, f.y);
+            f.x = nx; f.y = ny;
+            if (--f.stateLeft <= 0) {
+                f.state = "idle";
+                const target = pickTarget(f, fighters);
+                if (f.postDodgeSupport) beginDodgeRetreat(f, target);
+                else beginReposition(f, Math.round(DUEL_TPS * 0.65), target);
+            }
+            break;
+        }
         case "windup": if (--f.stateLeft <= 0) {
             const wab = f.pendingIdx >= 0 ? f.abilities[f.pendingIdx] : null;
             const isMelee = wab ? wab.cls === "melee" : !f.basicRanged;
             if (isMelee) {
                 payAbilityCost(f, wab);
-                if (f.statuses.rootLeft > 0) {
-                    // Rooted → can't dive; resolve the strike in place (planted attack).
+                const target = f.pendingTargetId ? fighters.find((candidate) => candidate.id === f.pendingTargetId && candidate.hp > 0) : null;
+                const dx = target ? target.x - f.x : 0, dy = target ? target.y - f.y : 0;
+                const distance = target ? Math.hypot(dx, dy) : Infinity;
+                const contact = (wab ? wab.range : f.reach) + 0.45;
+                if (target && distance <= contact) {
                     resolveMeleeContact(f, wab, f.pendingTargetId, fighters, rng, t, events, accuracyEnabled);
                     f.state = "strike"; f.stateLeft = 2;
+                } else if (target && distance <= f.style.lungeInit + contact) {
+                    // The pet already earned an attack pocket before winding up. If
+                    // the defender slips backward during the tell, finish with one
+                    // short committed pounce. This is part of the strike—not the old
+                    // opening dash choreography or an endlessly repeated gap closer.
+                    const len = Math.max(1e-4, distance);
+                    f.moveDx = dx / len; f.moveDy = dy / len;
+                    f.faceX = f.moveDx; f.faceY = f.moveDy;
+                    f.lungeAbIdx = f.pendingIdx; f.lungeTgtId = f.pendingTargetId;
+                    f.lungeStuck = 0; f.state = "dash"; f.stateLeft = f.style.lungeTicks;
                 } else {
-                    // Windup done → LAUNCH the pounce. Aim at the target and hand off to the
-                    // "dash" state which carries the dive into contact.
-                    const tgt = f.pendingTargetId ? fighters.find((g) => g.id === f.pendingTargetId) : null;
-                    if (tgt) { const ddx = tgt.x - f.x, ddy = tgt.y - f.y, dd = Math.max(1e-4, Math.sqrt(ddx * ddx + ddy * ddy)); f.moveDx = ddx / dd; f.moveDy = ddy / dd; f.faceX = ddx / dd; f.faceY = ddy / dd; }
-                    f.lungeAbIdx = f.pendingIdx; f.lungeTgtId = f.pendingTargetId; f.lungeStuck = 0;
-                    f.state = "dash"; f.stateLeft = f.style.lungeTicks; f.vx = 0; f.vy = 0;
+                    events.push({ t, type: "whiff", side: f.team, actorId: f.id, move: wab?.name });
+                    f.state = "recover"; f.stateLeft = Math.max(1, f.recovT);
                 }
             } else {
-                resolveCast(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled);
-                f.state = "strike"; f.stateLeft = 1;
+                const supportCast = wab?.cls === "support";
+                const nearestEnemy = supportCast
+                    ? fighters.filter((candidate) => candidate.team !== f.team && candidate.hp > 0)
+                        .sort((a, b) => Math.hypot(a.x - f.x, a.y - f.y) - Math.hypot(b.x - f.x, b.y - f.y))[0]
+                    : null;
+                const enemyGap = nearestEnemy ? Math.hypot(nearestEnemy.x - f.x, nearestEnemy.y - f.y) : Infinity;
+                if (supportCast && nearestEnemy && enemyGap < SUPPORT_CAST_CLEARANCE - 0.35) {
+                    // The cast began in a safe pocket, but the opponent invaded the
+                    // tell before payoff. Abort without spending the move and turn
+                    // that pressure into another readable disengage instead of a
+                    // point-blank buff animation.
+                    f.state = "idle"; f.stateLeft = 0; f.pendingIdx = -2; f.pendingTargetId = null;
+                    f.postDodgeSupport = true;
+                    beginDodgeRetreat(f, nearestEnemy);
+                    setIntent(f, "retreat", SUPPORT_CAST_CLEARANCE, "break contact and restart the power-up", "opponent invaded the casting pocket");
+                } else {
+                    resolveCast(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled);
+                    f.state = "strike"; f.stateLeft = 1;
+                }
             }
         } break;
         case "strike": if (--f.stateLeft <= 0) { f.state = "recover"; f.stateLeft = Math.max(1, f.recovT); } break;
-        case "recover": if (--f.stateLeft <= 0) { f.state = "idle"; f.reposLeft = Math.round(DUEL_TPS * f.style.reposDur); } break;   // reposition beat: per-archetype (rusher stays on you, kiter dances out) — the anime in-out cadence
-        case "stagger": if (--f.stateLeft <= 0) f.state = "idle"; break;
+        case "recover": if (--f.stateLeft <= 0) {
+            f.state = "idle";
+            const target = pickTarget(f, fighters);
+            if (target) _cinematicInitiativeTeam = target.team;
+            // The completed action hands pressure to the opponent while this pet
+            // exits to a new stage mark. If the rival is already disengaging from
+            // a dodge, do not launch a second route in parallel.
+            if (target?.routeActive && target.reposLeft > 0) {
+                f.routeActive = false; f.reposLeft = 0;
+                f.vx = 0; f.vy = 0;
+                f.guardLeft = Math.round(DUEL_TPS * 0.18);
+            } else beginReposition(f, Math.round(DUEL_TPS * f.style.reposDur), target);
+        } break;
+        case "stagger": if (--f.stateLeft <= 0) {
+            f.state = "idle";
+            // Knockback already created the defensive displacement. Plant after
+            // hit-stun and read the attacker instead of starting a second exit
+            // route that turns the pair into a leader/follower train.
+            f.routeActive = false; f.reposLeft = 0; f.maneuverLeft = 0;
+            f.vx = 0; f.vy = 0;
+            f.guardLeft = Math.round(DUEL_TPS * 0.2);
+        } break;
     }
     f.x = clamp(f.x, -ARENA_X, ARENA_X); f.y = clamp(f.y, -ARENA_Y, ARENA_Y);
 }
@@ -1073,8 +1873,16 @@ function separateAll(fighters: Fighter[]) {
         const a = fighters[i], b = fighters[j];
         if (a.hp <= 0 || b.hp <= 0) continue;
         const dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy);
-        if (d >= MIN_SEP) continue;
-        const push = (MIN_SEP - d) / 2;
+        // Contact spacing belongs to a committed attack. If both pets are merely
+        // reading/repositioning, open a visible pocket immediately instead of
+        // letting them idle nose-to-nose until the next cooldown.
+        const calmFaceoff = a.state === "idle" && b.state === "idle";
+        // Keep an idle face-off wide enough that two full 3D silhouettes never read
+        // as body-blocking each other. Committed casts and dodges still own closer
+        // combat pockets before their next reset.
+        const separation = calmFaceoff ? MIN_SEP + 1.0 : MIN_SEP;
+        if (d >= separation) continue;
+        const push = (separation - d) / 2;
         if (d > 1e-6) { const ux = dx / d, uy = dy / d; const [ax, ay] = snapPos(a.x - ux * push, a.y - uy * push); a.x = ax; a.y = ay; const [bx, by] = snapPos(b.x + ux * push, b.y + uy * push); b.x = bx; b.y = by; }
         else { a.x -= push; b.x += push; }
     }
@@ -1084,16 +1892,46 @@ function quantizeFighter(f: Fighter) {
     f.stamina = quant(f.stamina); f.faceX = quant(f.faceX); f.faceY = quant(f.faceY);
     f.statuses.shieldHp = quant(f.statuses.shieldHp);
 }
-function snap(t: number, fighters: Fighter[], projectiles: Projectile[]): DuelSnapshot {
+
+function snap(t: number, fighters: Fighter[], projectiles: Projectile[], debugTrace: boolean): DuelSnapshot {
     return {
         t,
-        actors: fighters.map((f): DuelActorSnap => ({ id: f.id, team: f.team, slot: f.slot, x: f.x, y: f.y, faceX: f.faceX, faceY: f.faceY, hp: Math.max(0, f.hp), maxHp: f.maxHp, stamina: f.stamina, state: f.state, statuses: statusFlags(f.statuses) })),
+        actors: fighters.map((f): DuelActorSnap => ({
+            id: f.id, team: f.team, slot: f.slot,
+            x: f.x, y: f.y, faceX: f.faceX, faceY: f.faceY,
+            hp: Math.max(0, f.hp), maxHp: f.maxHp, stamina: f.stamina,
+            state: f.state, statuses: statusFlags(f.statuses),
+            ...(debugTrace ? { ai: {
+                state: f.aiState, targetId: f.targetId,
+                desiredRange: f.desiredRange, plan: f.aiPlan, reason: f.aiReason,
+                path: f.routeActive
+                    ? [{ x: f.x, y: f.y }, { x: f.routeX, y: f.routeY }]
+                    : f.maneuverLeft > 0
+                        ? [{ x: f.x, y: f.y }, { x: f.maneuverGoalX, y: f.maneuverGoalY }]
+                        : [],
+                cooldownPriorities: f.abilities
+                    .map((ab) => ({ ab, score: (ab.cdLeft > 0 ? 1000 + ab.cdLeft : 0) + (ab.signature ? 20 : 0) }))
+                    .sort((a, b) => a.score - b.score || a.ab.name.localeCompare(b.ab.name))
+                    .slice(0, 4)
+                    .map(({ ab }) => `${ab.name}: ${ab.cdLeft <= 0 ? "ready" : `${(ab.cdLeft / DUEL_TPS).toFixed(1)}s`}`),
+                elementalSetup: (() => {
+                    const target = f.targetId ? fighters.find((g) => g.id === f.targetId) : null;
+                    const el = String(f.element ?? "None").toLowerCase();
+                    if (el === "fire") return target?.statuses.burnLeft ? "Burn active — force movement / finish" : "Looking to apply Burn pressure";
+                    if (el === "water") return target && (target.statuses.slowLeft || target.statuses.stunLeft) ? "Control active — punish or sustain" : "Looking for slow / redirection setup";
+                    if (el === "lightning") return target?.statuses.marked ? "Mark armed — burst will consume it" : "Looking for mark / interrupt window";
+                    if (el === "earth") return f.statuses.shieldHp > 0 || f.statuses.wallPenaltyLeft > 0 ? "Fortified zone active" : "Looking to establish barrier space";
+                    if (el === "wind") return target && (target.statuses.rootLeft || target.statuses.slowLeft) ? "Spacing control active — extend pressure" : "Looking to displace and change angle";
+                    return "No elemental setup active";
+                })(),
+            } } : {}),
+        })),
         projectiles: projectiles.map((p): DuelProjSnap => ({ id: p.id, x: p.x, y: p.y, team: p.team, kind: p.kind, element: p.element })),
     };
 }
 
 // ── Core loop ──────────────────────────────────────────────────────────────────
-function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean): DuelResult {
+function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean, debugTrace: boolean): DuelResult {
     const rng = makeRng(seed);
     const projectiles: Projectile[] = [];
     const nextProjId = { n: 0 };
@@ -1103,6 +1941,7 @@ function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean): 
     let winner: "player" | "enemy" | null = null;
     SIM_WALLS = [];   // reset barrier walls per run → deterministic (no carry-over between fights)
     _stallPressure = 0; _forcedEngage = false;
+    _cinematicInitiativeTeam = (seed & 1) === 0 ? "player" : "enemy";
     let lastDmgTick = 0, prevTotalHp = 0;
     for (const f of fighters) prevTotalHp += Math.max(0, f.hp);
     for (const f of fighters) { const [sx, sy] = snapPos(f.x, f.y); f.x = sx; f.y = sy; }
@@ -1121,21 +1960,42 @@ function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean): 
         stepProjectiles(fighters, projectiles, rng, t, events);
         for (const f of fighters) tickStatuses(f);
         separateAll(fighters);
+        const newlyDefeated = new Set<string>();
         for (const f of fighters) {
             if (f.hp <= 0 && f.state !== "dead" && f.reviveLeft > 0) { f.reviveLeft -= 1; f.hp = Math.max(1, Math.round(f.maxHp * 0.4)); clearLunge(f); }
-            if (f.hp <= 0 && f.state !== "dead") { f.state = "dead"; clearLunge(f); }
+            if (f.hp <= 0 && f.state !== "dead") {
+                f.hp = 0;
+                f.state = "dead"; f.stateLeft = 0;
+                f.vx = 0; f.vy = 0; f.routeActive = false; f.maneuverLeft = 0;
+                f.targetId = null; f.targetLockLeft = 0;
+                clearLunge(f);
+                setIntent(f, "eliminated", 0, "match over", "health reached zero");
+                newlyDefeated.add(f.id);
+                events.push({ t, type: "ko", side: f.team, actorId: f.id });
+            }
             const [sx, sy] = snapPos(f.x, f.y); f.x = sx; f.y = sy;
             quantizeFighter(f);
+        }
+        if (newlyDefeated.size > 0) {
+            // Projectiles owned by or targeting a defeated pet cannot resolve after
+            // the decisive knockout. Other active projectiles continue normally.
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                if (newlyDefeated.has(p.ownerId) || newlyDefeated.has(p.targetId)) projectiles.splice(i, 1);
+            }
+            SIM_WALLS = SIM_WALLS.filter((wall) => !newlyDefeated.has(wall.ownerId));
         }
         // Any damage this tick (a landed hit OR a DoT) resets the stall timer → pressure only
         // builds in a genuine no-damage stand-off.
         { let totalHp = 0; for (const f of fighters) totalHp += Math.max(0, f.hp); if (totalHp < prevTotalHp - 0.5) lastDmgTick = t; prevTotalHp = totalHp; }
-        snapshots.push(snap(t, fighters, projectiles));
+        snapshots.push(snap(t, fighters, projectiles, debugTrace));
         const pA = teamAlive(fighters, "player"), eA = teamAlive(fighters, "enemy");
-        if (!pA || !eA) { winner = pA && !eA ? "player" : eA && !pA ? "enemy" : null; events.push({ t, type: "ko", side: winner === "player" ? "enemy" : "player", actorId: "" }); break; }
+        if (!pA || !eA) { winner = pA && !eA ? "player" : eA && !pA ? "enemy" : null; break; }
     }
     if (winner === null && teamAlive(fighters, "player") && teamAlive(fighters, "enemy")) {
-        const frac = (team: "player" | "enemy") => { let hp = 0, max = 0; for (const f of fighters) if (f.team === team) { hp += Math.max(0, f.hp); max += f.maxHp; } return max > 0 ? hp / max : 0; };
+        const frac = (team: "player" | "enemy") => fighters
+            .filter((f) => f.team === team)
+            .reduce((score, f) => score + Math.max(0, f.hp) / f.maxHp, 0);
         const pf = frac("player"), ef = frac("enemy");
         winner = Math.abs(pf - ef) < 1e-6 ? null : pf > ef ? "player" : "enemy";
     }
@@ -1151,25 +2011,26 @@ export function runPetDuelCinematic(
     playerPet: Pet, enemyPet: Pet, seed: number,
     playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false,
     applyItems = true, accuracyEnabled = petAccuracyEnabled(), terrain: string | null = null,
+    debugTrace = false,
 ): DuelResult {
     const fighters = [
         buildFighter(playerPet, "player", 0, -5.6, 2.6, enemyPet.element, playerDamageMult * terrainPetMult(terrain, playerPet.element), playerHpMult, playerReviveOnce, applyItems),
         buildFighter(enemyPet, "enemy", 0, 5.6, 2.6, playerPet.element, terrainPetMult(terrain, enemyPet.element), 1, false, applyItems),
     ];
-    return simulate(fighters, seed, accuracyEnabled);
+    return simulate(fighters, seed, accuracyEnabled, debugTrace);
 }
 /** 2v2 cinematic coliseum duel — player lead+reserve vs enemy lead+reserve. */
 export function runPetPartyDuelCinematic(
     playerLead: Pet, playerReserve: Pet | null,
     enemyLead: Pet, enemyReserve: Pet | null,
     seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false,
-    applyItems = true, accuracyEnabled = petAccuracyEnabled(),
+    applyItems = true, accuracyEnabled = petAccuracyEnabled(), debugTrace = false,
 ): DuelResult {
     const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -5.6, 2.6, enemyLead.element, playerDamageMult, playerHpMult, playerReviveOnce, applyItems)];
     if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -5.0, -3.2, enemyReserve?.element ?? enemyLead.element, playerDamageMult, playerHpMult, false, applyItems));
     fighters.push(buildFighter(enemyLead, "enemy", 0, 5.6, 2.6, playerLead.element, 1, 1, false, applyItems));
     if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 5.0, -3.2, playerReserve?.element ?? playerLead.element, 1, 1, false, applyItems));
-    return simulate(fighters, seed, accuracyEnabled);
+    return simulate(fighters, seed, accuracyEnabled, debugTrace);
 }
 /** The fighting archetype the engine assigns a pet — exported for the balance harness
  *  so per-archetype win-rate is measured from the SAME classifier the sim uses. */

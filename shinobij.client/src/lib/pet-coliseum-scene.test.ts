@@ -265,11 +265,13 @@ test("beatTimeline: ranged cast recoils away on release", () => {
     assert.ok(beatTimeline("projectileFire", -1, 1, 0.75).dx > 0, "enemy caster kicks the other way");
 });
 
-test("beatTimeline: dodge fades and returns to its lane", () => {
+test("beatTimeline: dodge hops, fades, and returns to its lane", () => {
     const mid = beatTimeline("dodge", 1, 1, 0.4);
     const end = beatTimeline("dodge", 1, 1, 1);
+    assert.ok(mid.dy > 0.5, "dodge has a clearly visible hop arc");
     assert.ok(mid.opacity < 1, "afterimage fade mid-dodge");
     assert.ok(Math.abs(mid.dz) > 0.1, "sidesteps toward the camera");
+    assert.ok(Math.abs(end.dy) < 1e-6, "feet return to the floor");
     assert.ok(Math.abs(end.dz) < 0.1, "settles back into its lane by the end");
 });
 

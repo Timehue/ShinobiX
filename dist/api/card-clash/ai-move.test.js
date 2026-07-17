@@ -49,6 +49,12 @@ let aiMove;
         return 'OK';
     };
     kv.del = async (...ks) => ks.reduce((n, k) => n + (store.delete(k) ? 1 : 0), 0);
+    kv.delIfEqual = async (k, expected) => {
+        if (store.get(k) !== expected)
+            return false;
+        store.delete(k);
+        return true;
+    };
     aiStart = (await import('./ai-start.js')).default;
     aiMove = (await import('./ai-move.js')).default;
 });

@@ -398,10 +398,26 @@ tmp/
 # locally, publish via /api/images, don't commit the raw generated WebPs.
 shinobij.client/asset-gen-out/
 
-# Evolved-pet 3D models (scripts/gen-pet-3d.mjs, fal Hunyuan3D) — ~3.5MB each,
-# ~38MB total, not wired into the cutscene yet (CSS spin is the default) and not
-# visually QA'd. Kept locally; too heavy to commit. Optimize / CDN-host before use.
+# Generated pet-model work products stay local. Only the reviewed runtime roster
+# and starter models below are published with the coliseum.
 shinobij.client/public/pet-models/
+!shinobij.client/public/pet-models/
+shinobij.client/public/pet-models/*
+!shinobij.client/public/pet-models/roster/
+!shinobij.client/public/pet-models/roster/*.glb
+!shinobij.client/public/pet-models/starter-earth-l.glb
+!shinobij.client/public/pet-models/starter-earth-r.glb
+!shinobij.client/public/pet-models/starter-fire-l.glb
+!shinobij.client/public/pet-models/starter-fire-r.glb
+!shinobij.client/public/pet-models/starter-lightning-l.glb
+!shinobij.client/public/pet-models/starter-lightning-r.glb
+!shinobij.client/public/pet-models/starter-water-l.glb
+!shinobij.client/public/pet-models/starter-water-r.glb
+!shinobij.client/public/pet-models/starter-wind-l.glb
+!shinobij.client/public/pet-models/starter-wind-r.glb
+!shinobij.client/public/pet-models/ember-wolf-rigged.gltf
+!shinobij.client/public/pet-models/roster-manifest.json
+!shinobij.client/public/pet-models/THIRD_PARTY_ASSETS.md
 
 # Composite badge sources — re-export from AI tool if needed; sliced output in shinobij.client/public/badges/ is committed
 scripts/badge-sources/

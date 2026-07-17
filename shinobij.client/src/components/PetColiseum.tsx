@@ -1,9 +1,10 @@
 /*
- * ── PetColiseum — HD-2D coliseum battle renderer (Phase 1+2) ──────────────────
- * A react-three-fiber drop-in alternative to PetArenaBattlefield: the pets are
- * 2D BILLBOARD sprites standing on a 3D arena floor at an angled camera, and
- * they actually FIGHT — lunge to engage, recoil on hit, guard, topple on KO —
- * with elemental VFX flying between them and camera shake on heavy blows.
+ * ── PetColiseum — hybrid 3D coliseum battle renderer ──────────────────────────
+ * A react-three-fiber drop-in alternative to PetArenaBattlefield. Approved pets
+ * fight as lit, shadow-casting GLB models with real floor movement and facing;
+ * the rest retain their HD-2D full-body standee until their model is ready.
+ * Both paths lunge, recoil, guard, dodge and topple on KO, with elemental VFX
+ * and a cinematic camera selling the heavy blows.
  *
  * CRITICAL: this is a pure PRESENTATION layer. It consumes the SAME inputs the
  * DOM renderer does — the deterministic frame, the buildPetAnimationEvents()
@@ -12,12 +13,11 @@
  * determinism are untouched. Motion easing + camera shake use a clock/sin only
  * (no RNG) and never feed back into the sim.
  *
- * Today the billboard texture is the pet's existing portrait when published
- * (via petBattleSprite → sharedImages), else a procedural placeholder so it runs
- * with no backend (the /petvfx.html harness). Real transparent full-body art +
- * a generated coliseum backdrop are the next asset step; the renderer is ready.
+ * The fallback billboard texture is the pet's published battle art (via
+ * petBattleSprite → sharedImages), or a procedural placeholder in the dev
+ * harness. Model availability is gated by lib/pet-3d-models.ts.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
 import { GameIcon } from "./icons/GameIcon";
@@ -53,6 +53,10 @@ import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { SceneAmbience } from "./SceneAmbience";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 import { petBloomEnabled, petArenaV2Enabled } from "../lib/pet-coliseum-flag";
+import { petCombatModel } from "../lib/pet-3d-models";
+import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
+import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
+import { PetRenderStatsProbe } from "./PetRenderStatsProbe";
 
 type Vec3 = [number, number, number];
 const FLOOR_Y = 0;
@@ -65,10 +69,11 @@ const FX_Y = 1.0; // mid-body height for impacts / casts
  *  transparent arena Canvas the alpha compositing needs eyeballing. Read once per mount,
  *  same as the other coliseum flags. */
 function BloomFx() {
-    if (!petBloomEnabled()) return null;
+    const quality = petVisualQuality();
+    if (quality.id === "low" || (!petBloomEnabled() && quality.id !== "high")) return null;
     return (
         <EffectComposer>
-            <Bloom luminanceThreshold={0.55} luminanceSmoothing={0.22} intensity={0.9} mipmapBlur />
+            <Bloom luminanceThreshold={0.72} luminanceSmoothing={0.18} intensity={quality.id === "high" ? 0.48 : 0.32} mipmapBlur />
         </EffectComposer>
     );
 }
@@ -80,9 +85,12 @@ function BloomFx() {
 // Pulled back + raised to frame the ENLARGED arena (7.0×4.0 footprint) so the
 // whole tactical battlefield + four pets fit without cropping. Scales with the
 // footprint so pets stay readable. Tunable — nudge y/z if it's too wide/tight.
-const CAM_POS: Vec3 = [0, 5.9, 14.8];
-const CAM_LOOK: Vec3 = [0, 1.65, -2.6];
-const CAM_FOV = 36;
+// High three-quarter "tactical broadcast" view. A literal overhead camera makes
+// the pets read like board-game pieces; this angle still shows their faces and
+// silhouettes while making the depth lanes, flanks, and breakaways obvious.
+const CAM_POS: Vec3 = [0, 8.6, 14.6];
+const CAM_LOOK: Vec3 = [0, 0.5, -1.9];
+const CAM_FOV = 38;
 
 // Generated coliseum scene art (OpenAI gpt-image-1 → WebP, bundled). Resolved
 // via new URL(...) so Vite rewrites them to hashed asset URLs at build time —
@@ -108,6 +116,17 @@ const ELEMENT_COLOR: Record<string, { base: string; glow: string }> = {
 };
 function elementColor(element?: string | null) {
     return ELEMENT_COLOR[String(element ?? "")] ?? { base: "#c4b5fd", glow: "#e9d5ff" };
+}
+
+const ELEMENT_GLYPH: Record<string, string> = {
+    Fire: "火",
+    Water: "水",
+    Wind: "風",
+    Lightning: "雷",
+    Earth: "地",
+};
+function elementGlyph(element?: string | null) {
+    return ELEMENT_GLYPH[String(element ?? "")] ?? "獣";
 }
 
 function makePlaceholderTexture(pet: Pet): THREE.CanvasTexture {
@@ -351,6 +370,59 @@ function glowTexture(): THREE.CanvasTexture {
     _glowTexture = new THREE.CanvasTexture(c);
     _glowTexture.colorSpace = THREE.SRGBColorSpace;
     return _glowTexture;
+}
+
+// Painted golden aura used by the 3D buff column. A soft alpha silhouette reads
+// like hand-authored anime energy; the previous open cone geometry exposed its
+// polygon edges and looked like a prototype spotlight.
+let _powerAuraTexture: THREE.CanvasTexture | null = null;
+function _makePowerAuraTexture(): THREE.CanvasTexture {
+    if (_powerAuraTexture) return _powerAuraTexture;
+    const W = 512, H = 768;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d")!;
+    const flamePath = (inset: number) => {
+        const cx = W / 2, base = H - 24;
+        const sx = inset > 0 ? 0.66 : 1;
+        const sy = inset > 0 ? 0.86 : 1;
+        // Alternating shoulders and needle tips give the aura a deliberate
+        // cel-animation silhouette instead of a soft oval or VFX cone.
+        const points: readonly (readonly [number, number])[] = [
+            [256, 744], [88, 726], [126, 656], [72, 596], [146, 542],
+            [96, 466], [172, 412], [126, 334], [202, 286], [166, 196],
+            [230, 230], [256, 24], [282, 230], [346, 196], [310, 286],
+            [386, 334], [340, 412], [416, 466], [366, 542], [440, 596],
+            [386, 656], [424, 726], [256, 744],
+        ];
+        g.beginPath();
+        points.forEach(([x, y], index) => {
+            const px = cx + (x - cx) * sx;
+            const py = base - (base - y) * sy;
+            if (index === 0) g.moveTo(px, py); else g.lineTo(px, py);
+        });
+        g.closePath();
+    };
+    g.save();
+    g.shadowColor = "rgba(255,205,40,0.7)"; g.shadowBlur = 42;
+    const outer = g.createLinearGradient(0, H, 0, 30);
+    outer.addColorStop(0, "rgba(255,252,202,0.88)");
+    outer.addColorStop(0.35, "rgba(255,207,42,0.78)");
+    outer.addColorStop(0.72, "rgba(255,137,14,0.54)");
+    outer.addColorStop(1, "rgba(255,192,32,0.12)");
+    flamePath(0); g.fillStyle = outer; g.fill();
+    g.strokeStyle = "rgba(255,239,126,0.72)"; g.lineWidth = 4; g.lineJoin = "round"; g.stroke();
+    g.shadowBlur = 20;
+    const inner = g.createLinearGradient(0, H, 0, 180);
+    inner.addColorStop(0, "rgba(255,255,245,0.94)");
+    inner.addColorStop(0.5, "rgba(255,239,130,0.55)");
+    inner.addColorStop(1, "rgba(255,205,40,0)");
+    flamePath(58); g.fillStyle = inner; g.fill();
+    g.restore();
+    _powerAuraTexture = new THREE.CanvasTexture(c);
+    _powerAuraTexture.colorSpace = THREE.SRGBColorSpace;
+    _powerAuraTexture.minFilter = THREE.LinearFilter;
+    _powerAuraTexture.magFilter = THREE.LinearFilter;
+    return _powerAuraTexture;
 }
 
 
@@ -971,13 +1043,32 @@ function Arena({ floor, backdrop, big = false }: { floor: THREE.Texture; backdro
     // modulation of the scene lights so the whole arena breathes like firelight.
     useFrame((state) => {
         const t = state.clock.elapsedTime;
-        if (ambient.current) ambient.current.intensity = 0.95 + Math.sin(t * 7.3) * 0.025 + Math.sin(t * 12.7) * 0.018;
-        if (sun.current) sun.current.intensity = 0.9 + Math.sin(t * 9.1) * 0.03;
+        const ambientBase = big ? 0.42 : 0.5;
+        const sunBase = big ? 0.94 : 1.2;
+        if (ambient.current) ambient.current.intensity = ambientBase + Math.sin(t * 7.3) * 0.02 + Math.sin(t * 12.7) * 0.014;
+        if (sun.current) sun.current.intensity = sunBase + Math.sin(t * 9.1) * 0.035;
     });
     return (
         <group>
-            <ambientLight ref={ambient} intensity={0.95} />
-            <directionalLight ref={sun} position={[3, 8, 5]} intensity={0.9} />
+            <ambientLight ref={ambient} intensity={big ? 0.42 : 0.5} />
+            <hemisphereLight args={["#8fc7ff", "#4a210d", big ? 0.46 : 0.56]} />
+            <directionalLight
+                ref={sun}
+                position={[5, 10, 6]}
+                intensity={big ? 0.94 : 1.2}
+                color="#ffe0b5"
+                castShadow
+                shadow-mapSize-width={1024}
+                shadow-mapSize-height={1024}
+                shadow-camera-near={1}
+                shadow-camera-far={30}
+                shadow-camera-left={-12}
+                shadow-camera-right={12}
+                shadow-camera-top={12}
+                shadow-camera-bottom={-12}
+            />
+            <directionalLight position={[-7, 5, -7]} intensity={big ? 0.38 : 0.64} color="#79aaff" />
+            <pointLight position={[0, 3.5, 2]} intensity={big ? 7 : 14} distance={15} decay={2} color="#ff7a35" />
             {/* Curved coliseum wall (inner face of a cylinder arc behind the pit).
                 Rings the floor so panning/pull-back never exposes void. */}
             <mesh position={[0, big ? 9 : 6.0, 0]}>
@@ -985,7 +1076,7 @@ function Arena({ floor, backdrop, big = false }: { floor: THREE.Texture; backdro
                 <meshBasicMaterial map={wall} side={THREE.BackSide} toneMapped={false} fog={false} />
             </mesh>
             {/* Arena floor (the battle map). Per-pet blob shadows ground the sprites. */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]} receiveShadow>
                 <circleGeometry args={[floorR, 64]} />
                 <meshStandardMaterial map={floor} roughness={0.95} />
             </mesh>
@@ -1642,30 +1733,23 @@ function StageCamera({ fit = "cover", worldW = STAGE.worldW, worldH = STAGE.worl
 // shadows instead of floating over a painted wall. Map the sim field (±ARENA_X,
 // ±ARENA_Y) onto the floor plane (x = left↔right, z = depth toward/away camera);
 // perspective + grounding then come from the scene, not a faked projection.
-const DUEL_FLOOR_HALF_W = 6.2;   // field x → world x extent on the floor
-const DUEL_FLOOR_HALF_D = 2.3;   // field y → world z (depth) extent
+const DUEL_FLOOR_HALF_W = 7.2;   // use more of the physical coliseum for crossfield runs
+const DUEL_FLOOR_HALF_D = 4.25;  // deeper lanes make cover wraps and re-entry angles readable
 const DUEL_FLOOR_Z0 = -0.4;      // centre the action near the camera's look point
 const DUEL_MIN_WORLD_X = 3.7;    // min world-x gap so two big fighters never merge / cross
 const DUEL_SEP_BAND_Z = 1.7;     // only separate a pair within this depth band
 const DUEL_CONTACT_GAP = 1.7;    // world-x left between sprites at the peak of a melee lunge (close but not overlapping)
-// ── Opening choreography (render-only) — the pets appear FAR apart and "size each
-// other up", then CHARGE in to the combat face-off before the sim plays. Purely
-// cosmetic (the sim's positions are untouched); driven by clock.intro (seconds).
-const INTRO_SPLASH_END = 1.5;    // s — the VS start-up splash clears here, so the buff + charge play IN THE CLEAR (not under the overlay)
-const INTRO_PAUSE_END = 1.7;     // s — a STILL face-off pause first (pets just stand, sizing up) BEFORE the buff
-const INTRO_SIZEUP_END = 2.7;    // s — buff / power-up gather runs from PAUSE_END → here
-const INTRO_CHARGE_END = 3.4;    // s — charge in to the combat gap by here
-const INTRO_TOTAL = 3.6;         // s — brief lock-in beat, then FIGHT (the sim plays)
-const SIZEUP_EXTRA_WX = 4.2;     // world-x each fighter is pushed OUTWARD while sizing up
+const DUEL_3D_BODY_GAP = 4.2;    // wider neutral pocket for readable silhouettes and dodge lanes
+const DUEL_3D_CONTACT_GAP = 3.4; // committed hit distance: VFX bridges the gap without face-over-face overlap
+const DUEL_3D_READABLE_X_GAP = 2.15; // stop depth-aligned pets collapsing into one camera silhouette
+// ── Opening choreography (render-only) — a still ranged face-off and restrained
+// power gather. Movement begins only when the combat simulation starts.
+const INTRO_SPLASH_END = 1.5;    // s — VS splash clears before the gather is fully visible
+const INTRO_PAUSE_END = 1.7;     // s — still face-off before the power-up pose
+const INTRO_SIZEUP_END = 3.15;   // s — power gather at the real starting positions
+const INTRO_TOTAL = 3.35;        // s — brief lock-in beat, then FIGHT
 const INTRO_WIDE_DOLLY = 15.6;   // camera pull-back distance for the wide size-up shot
-/** 1 = held far apart (sizing up) → 0 = arrived at the face-off. Eased charge-in. */
-function introApproach(introSec: number): number {
-    if (introSec >= INTRO_CHARGE_END) return 0;
-    if (introSec <= INTRO_SIZEUP_END) return 1;
-    const p = (introSec - INTRO_SIZEUP_END) / (INTRO_CHARGE_END - INTRO_SIZEUP_END);
-    const eased = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;   // easeInOutQuad
-    return 1 - eased;
-}
+const introWideHold = (introSec: number): number => introSec < INTRO_TOTAL ? 1 : 0;
 function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
     return { wx: (fx / ARENA_X) * DUEL_FLOOR_HALF_W, wz: DUEL_FLOOR_Z0 + (fy / ARENA_Y) * DUEL_FLOOR_HALF_D };
 }
@@ -1674,11 +1758,13 @@ function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
  *  on the floor with a real contact shadow, driven by the interpolated duel tick
  *  stream + the anime strike choreography (ability-distinct strikes, recoil,
  *  status tints, KO topple). Same grounded rig as the round renderer's Standee. */
-function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
-    duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>;
+function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRoam3d }: {
+    duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>; freeRoam3d: boolean;
 }) {
     const sprite = usePetSprite(pet, sharedImages, mirror);   // mirror flips the art so the enemy faces the player
     const poses = usePetPoses(petVisualId(pet), mirror);
+    const combatModel = useMemo(() => petCombatModel(pet), [pet]);
+    const modelFrame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
     const group = useRef<THREE.Group>(null);     // floor position + lunge offset
     const poseG = useRef<THREE.Group>(null);      // squash/stretch + topple, pivots at the feet
     // Deform "rig": a meshBasicMaterial whose vertex shader is patched
@@ -1713,16 +1799,22 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const [poseCat, setPoseCat] = useState<PoseCat>("idle");
     const prevHp = useRef(Infinity);
     const flash = useRef(0);
-    const lastPos = useRef<[number, number]>([0, 0]);
+    const visualPos = useRef<[number, number] | null>(null);
+    const lastPos = useRef<[number, number] | null>(null);
+    const smoothedSpeed = useRef(0);
+    const locomotionActive = useRef(false);
+    const travelFacing = useRef<[number, number]>([mirror ? -1 : 1, 0]);
     const runClock = useRef(0);
     // Anime strike choreography (render-only): eased offsets + phase clocks. The LONG sim
     // states (windup/stagger/dodge) drive beatTimeline directly; the 1-tick `strike` drives
     // a self-timed forward pulse off the windup-exit edge.
-    const choX = useRef(0), choY = useRef(0), choSX = useRef(1), choSY = useRef(1), choRot = useRef(0);
+    const choX = useRef(0), choY = useRef(0), choZ = useRef(0), choSX = useRef(1), choSY = useRef(1), choRot = useRef(0);
     const choKind = useRef<PetVisualState>("idle");
     const choStart = useRef(0);
     const prevSimState = useRef<DuelState>("idle");
     const strikeStart = useRef(-999);
+    const buffPoseStart = useRef(-999);
+    const buffWasActive = useRef(false);
     // Per-strike choreography params, set on the windup→strike edge from the
     // resolution that's about to land (melee lunge vs ranged kick, how hard).
     const strikeKind = useRef<"melee" | "ranged">("melee");
@@ -1773,7 +1865,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
 
     useFrame((state, delta) => {
         const g = group.current, pg = poseG.current, m = matRef.current;
-        if (!g || !pg || !m) return;
+        if (!g || !pg || (!m && !combatModel)) return;
         const snaps = duel.snapshots;
         const tf = Math.max(0, Math.min(snaps.length - 1, clock.current.t));
         const i0 = Math.floor(tf), i1 = Math.min(snaps.length - 1, i0 + 1), f = tf - i0;
@@ -1786,15 +1878,15 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         const teleport = (tdx * tdx + tdy * tdy) > 9;
         const ff = teleport ? (f < 0.5 ? 0 : 1) : f;
         const fp = duelFieldToFloor(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
-        let wx = fp.wx; const wz = fp.wz;
+        let wx = fp.wx, wz = fp.wz;
 
-        // World-space spacing — player-team fighters stay on the LEFT, enemy-team on
-        // the RIGHT: opposing fighters NEVER cross and always hold a clear gap, so the
-        // statically-mirrored sprites always FACE each other (never back-to-back).
-        // Draw-position clamp only — never fed back to the sim.
+        // World-space spacing: statically mirrored standees stay left/right so their
+        // art cannot turn backward. All-model fights retain the sim's free-roaming
+        // floor path and true facing. Presentation only — never fed back to the sim.
         const myEnemy = id.startsWith("enemy");
         const actors = snaps[i0].actors;
-        let foeWX: number | null = null;   // nearest opposing fighter's world-x → melee lunge target
+        let foeWX: number | null = null;   // nearest opposing fighter's world-x → legacy standee lunge target
+        let foeDistance: number | null = null; // true floor distance → 3D free-roam lunge target
         for (let k = 0; k < actors.length; k++) {
             const other = actors[k];
             if (other.id === id || other.state === "dead") continue;
@@ -1803,33 +1895,106 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             const of = duelFieldToFloor(lerp(oa0.x, oa1.x, ff), lerp(oa0.y, oa1.y, ff));
             if (other.id.startsWith("enemy") === myEnemy) {
                 // Same team (2v2 reserve) — a modest symmetric gap, same-depth only.
-                if (Math.abs(wz - of.wz) > DUEL_SEP_BAND_Z) continue;
-                const gapX = wx - of.wx, need = DUEL_MIN_WORLD_X * 0.7;
-                if (Math.abs(gapX) < need) { const dir = gapX >= 0 ? 1 : -1; wx += dir * (need - Math.abs(gapX)) * 0.5; }
+                if (!freeRoam3d) {
+                    if (Math.abs(wz - of.wz) > DUEL_SEP_BAND_Z) continue;
+                    const gapX = wx - of.wx, need = DUEL_MIN_WORLD_X * 0.7;
+                    if (Math.abs(gapX) < need) { const dir = gapX >= 0 ? 1 : -1; wx += dir * (need - Math.abs(gapX)) * 0.5; }
+                } else {
+                    const gx = wx - of.wx, gz = wz - of.wz, gap = Math.hypot(gx, gz), need = DUEL_3D_BODY_GAP * 0.78;
+                    if (gap < need) {
+                        const ux = gap > 1e-4 ? gx / gap : (myEnemy ? 1 : -1), uz = gap > 1e-4 ? gz / gap : 0;
+                        wx += ux * (need - gap) * 0.5; wz += uz * (need - gap) * 0.5;
+                    }
+                }
             } else {
                 // OPPOSING — enforce ordering (player left of enemy) + the full gap,
                 // centred on the pair midpoint so neither can pass through the other.
-                const mid = (wx + of.wx) / 2;
-                wx = myEnemy ? Math.max(wx, mid + DUEL_MIN_WORLD_X / 2) : Math.min(wx, mid - DUEL_MIN_WORLD_X / 2);
+                if (!freeRoam3d) {
+                    const mid = (wx + of.wx) / 2;
+                    wx = myEnemy ? Math.max(wx, mid + DUEL_MIN_WORLD_X / 2) : Math.min(wx, mid - DUEL_MIN_WORLD_X / 2);
+                }
                 if (foeWX === null || Math.abs(of.wx - wx) < Math.abs(foeWX - wx)) foeWX = of.wx;
+                // Preserve a modest lateral lane as well as radial spacing. Pets can
+                // be far apart in depth yet still collapse into one camera silhouette.
+                const xGap = wx - of.wx;
+                if (freeRoam3d && Math.abs(xGap) < DUEL_3D_READABLE_X_GAP) {
+                    const laneDir = Math.abs(xGap) > 0.15 ? Math.sign(xGap) : (myEnemy ? 1 : -1);
+                    wx += laneDir * (DUEL_3D_READABLE_X_GAP - Math.abs(xGap)) * 0.5;
+                }
+                let distance = Math.hypot(of.wx - wx, of.wz - wz);
+                if (freeRoam3d && distance < DUEL_3D_BODY_GAP) {
+                    // Resolve presentation-space body overlap along the actual 3D line
+                    // between the pets. Both standees apply half the correction, so they
+                    // remain centred on the simulation contact while their meshes stay apart.
+                    const gx = wx - of.wx, gz = wz - of.wz;
+                    const ux = distance > 1e-4 ? gx / distance : (myEnemy ? 1 : -1);
+                    const uz = distance > 1e-4 ? gz / distance : 0;
+                    wx += ux * (DUEL_3D_BODY_GAP - distance) * 0.5;
+                    wz += uz * (DUEL_3D_BODY_GAP - distance) * 0.5;
+                    distance = DUEL_3D_BODY_GAP;
+                }
+                if (foeDistance === null || distance < foeDistance) foeDistance = distance;
             }
         }
 
-        // Opening choreography: during the VS intro, hold FAR apart (sizing each other
-        // up), then CHARGE in to the face-off. Render-only — the sim's x/y are untouched,
-        // and this is 0 once the fight plays (introSec ≥ INTRO_CHARGE_END). The movement
-        // registers as speed below → the run cycle plays while they close in.
+        // Opening choreography stays at the simulation's real starting positions.
+        // The old render-only charge made both pets sprint together before either
+        // fighter had made a tactical decision.
         const introSec = clock.current.intro ?? 999;
-        if (introSec < INTRO_CHARGE_END) wx += (myEnemy ? 1 : -1) * SIZEUP_EXTRA_WX * introApproach(introSec);
 
-        // Speed (world units) → drives the run cycle + bob.
-        const dwx = wx - lastPos.current[0], dwz = wz - lastPos.current[1];
-        const spd = Math.sqrt(dwx * dwx + dwz * dwz);
+        // The sim publishes at 30 Hz while the renderer normally runs at 60–144 Hz.
+        // Interpolate the presentation target again with a frame-rate-independent
+        // response so a slow capture/GPU frame cannot expose snapshot stair-steps.
+        // Dashes stay snappy; neutral travel is slightly softer. Teleports still cut.
+        if (!visualPos.current || teleport) visualPos.current = [wx, wz];
+        else {
+            const response = a0.state === "dash" || a0.state === "dodge" ? 20 : a0.state === "idle" ? 14 : 17;
+            const alpha = 1 - Math.exp(-response * Math.min(delta, 1 / 15));
+            visualPos.current[0] = lerp(visualPos.current[0], wx, alpha);
+            visualPos.current[1] = lerp(visualPos.current[1], wz, alpha);
+        }
+        wx = visualPos.current[0];
+        wz = visualPos.current[1];
+
+        // Speed (world units per render frame) → drives the run cycle + bob.
+        const dwx = lastPos.current ? wx - lastPos.current[0] : 0;
+        const dwz = lastPos.current ? wz - lastPos.current[1] : 0;
+        const rawSpeed = Math.hypot(dwx, dwz) / Math.max(1 / 240, delta);
+        const travelStep = Math.hypot(dwx, dwz);
+        if (!teleport && travelStep > 0.003) {
+            // Preserve locomotion direction independently from target-facing.
+            // Quadrupeds consume this so a lateral kite becomes a real turn-and-run
+            // instead of a forward walk animation sliding sideways across the floor.
+            // Filter the direction itself: tiny curved-path corrections otherwise
+            // flip the yaw target every frame and make a running model shake.
+            const directionAlpha = 1 - Math.exp(-5 * Math.min(delta, 1 / 15));
+            const targetX = dwx / travelStep;
+            const targetZ = dwz / travelStep;
+            const filteredX = lerp(travelFacing.current[0], targetX, directionAlpha);
+            const filteredZ = lerp(travelFacing.current[1], targetZ, directionAlpha);
+            const filteredLength = Math.hypot(filteredX, filteredZ) || 1;
+            travelFacing.current[0] = filteredX / filteredLength;
+            travelFacing.current[1] = filteredZ / filteredLength;
+        }
+        const speedAlpha = 1 - Math.exp(-11 * Math.min(delta, 1 / 15));
+        smoothedSpeed.current = teleport ? 0 : lerp(smoothedSpeed.current, rawSpeed, speedAlpha);
         lastPos.current = [wx, wz];
-        const moving = spd > 0.01 && a0.state !== "dead";
+        // The duel snapshots arrive at 30 Hz while render frames arrive much faster.
+        // Per-frame displacement therefore pulses between a larger snapshot step and
+        // tiny interpolation tails. Hysteresis keeps the locomotion clip engaged
+        // through those tails instead of restarting idle/run several times per tick.
+        if (a0.state === "dead") locomotionActive.current = false;
+        else if (smoothedSpeed.current > 0.22) locomotionActive.current = true;
+        else if (smoothedSpeed.current < 0.075) locomotionActive.current = false;
+        const moving = locomotionActive.current;
         // Face/lunge toward the foe: player (left) → +x, enemy (right) → −x. With the
         // non-crossing clamp above, this always matches the statically-mirrored art.
-        const facing = myEnemy ? -1 : 1;
+        const mappedFaceX = a0.faceX * (DUEL_FLOOR_HALF_W / ARENA_X);
+        const mappedFaceZ = a0.faceY * (DUEL_FLOOR_HALF_D / ARENA_Y);
+        const faceLength = Math.hypot(mappedFaceX, mappedFaceZ) || 1;
+        const faceWX = freeRoam3d ? mappedFaceX / faceLength : (myEnemy ? -1 : 1);
+        const faceWZ = freeRoam3d ? mappedFaceZ / faceLength : 0;
+        const facing = faceWX < 0 ? -1 : 1;
 
         // ── Anime strike choreography (render-only — never touches the sim) ──────
         // The LONG sim states drive beatTimeline (windup coils back, stagger recoils,
@@ -1837,9 +2002,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // windup→exit edge. On the real 3D floor the melee lunge ARCS (a small hop).
         let basePose: PetVisualState =
             a0.state === "windup" ? "windup" : a0.state === "stagger" ? "recoil" : a0.state === "dodge" ? "dodge" : "idle";
-        // Opening: after a still face-off PAUSE, both pets play their BUFF / power-up
-        // GATHER while sizing each other up (held far apart), then drop it and CHARGE in.
-        // Render-only, intro-phase only.
+        // Opening: after a still face-off pause, both pets gather power without
+        // closing distance. Actual locomotion begins when the simulation starts.
         const sizingUp = introSec >= INTRO_PAUSE_END && introSec < INTRO_SIZEUP_END;
         if (sizingUp) basePose = "charge";
         const curTick = Math.floor(clock.current.t);
@@ -1851,6 +2015,14 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 if (it.t >= curTick - 1) { if (it.choreo === "support") basePose = "charge"; break; }
             }
         }
+        // Status activation gets its own planted power-up beat after the tactical
+        // disengage. The cast windup gathers the energy; this short pose is the
+        // visible release/stance change when buff or haste actually comes online.
+        const buffActive = a0.statuses.includes("buff") || a0.statuses.includes("haste");
+        if (buffActive && !buffWasActive.current) buffPoseStart.current = state.clock.elapsedTime;
+        buffWasActive.current = buffActive;
+        const buffPoseElapsed = state.clock.elapsedTime - buffPoseStart.current;
+        const buffPosing = buffPoseElapsed >= 0 && buffPoseElapsed < 0.82;
         if (basePose !== choKind.current) { choKind.current = basePose; choStart.current = state.clock.elapsedTime; }
         const baseProg = basePose === "idle" ? 1 : Math.min(1, (state.clock.elapsedTime - choStart.current) / (beatChoreoMs(basePose) / 1000));
         // Stagger ENTRY → scale this recoil's knockback by how hard the incoming blow landed.
@@ -1883,7 +2055,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         }
         prevSimState.current = a0.state;
         const pe = state.clock.elapsedTime - strikeStart.current;
-        let dxT = base.dx, dyT = base.dy, sxT = base.sx, syT = base.sy, rotT = base.rot;
+        let dxT = base.dx, dyT = base.dy, dzT = 0, sxT = base.sx, syT = base.sy, rotT = base.rot;
         if (pe >= 0 && pe < pulseS.current) {
             const pp = pe / pulseS.current;
             const thrust = pp < 0.32 ? pp / 0.32 : 1 - (pp - 0.32) / 0.68;
@@ -1909,9 +2081,11 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 // of a hop into empty air. A heavy slam commits a hair closer (closeMul<1);
                 // stop short (DUEL_CONTACT_GAP) so the big sprites never overlap. Falls back
                 // to a fixed reach if no foe is tracked.
-                const gapToFoe = foeWX !== null ? Math.abs(foeWX - wx) : DUEL_MIN_WORLD_X;
+                const gapToFoe = freeRoam3d && foeDistance !== null
+                    ? foeDistance
+                    : foeWX !== null ? Math.abs(foeWX - wx) : DUEL_MIN_WORLD_X;
                 // Clamped so a single lunge can never overshoot the contact line into the foe.
-                const reach = meleeLungeReach(gapToFoe, pw, ct, DUEL_CONTACT_GAP, mods.closeMul);
+                const reach = meleeLungeReach(gapToFoe, pw, ct, freeRoam3d ? DUEL_3D_CONTACT_GAP : DUEL_CONTACT_GAP, mods.closeMul);
                 // Crit OR a slash archetype → a quick 2-tap flurry overlaid on the lunge;
                 // else one thrust (a pierce / heavy slam commits as a single deep blow).
                 const jab = (ct || mods.doubleTap) ? 0.72 + 0.28 * Math.abs(Math.cos(pp * Math.PI * 2)) : 1;
@@ -1927,12 +2101,33 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 rotT = -(0.05 + 0.16 * pw + mods.chop * 0.16) * e * facing * (ct ? 1.35 : 1);   // deeper overhead chop on slam/crit
             }
         }
+        if (buffPosing) {
+            const bp = Math.min(1, buffPoseElapsed / 0.82);
+            const surge = Math.sin(Math.PI * Math.min(1, bp / 0.62));
+            const plant = 1 - Math.pow(1 - Math.min(1, bp / 0.2), 3);
+            // Brace on the floor and rise through the torso while the golden energy
+            // column climbs. No hopping or side rotation: this is a planted power-up.
+            dxT = 0;
+            dyT = Math.max(dyT, 0.035 * surge);
+            sxT = 1 + 0.08 * plant - 0.025 * surge;
+            syT = 1 - 0.1 * plant + 0.13 * surge;
+            rotT = 0;
+        }
         // KO finisher — topple + sink when down (the dead pose fades; this lands it
         // with weight instead of just blinking out).
         if (a0.state === "dead") { dxT = -0.4 * facing; dyT = 0; rotT = 1.1 * facing; sxT = 1.05; syT = 0.7; }
-        const ck = (a0.state === "strike" || a0.state === "stagger" || pe < pulseS.current) ? 0.5 : 0.3;   // snappier on the hit beats
+        // The old billboard rig can only lunge on screen-x. A model can commit along
+        // its actual facing vector, so attacks still connect after a flank or crossover.
+        if (freeRoam3d) {
+            const longitudinal = dxT * facing;
+            dxT = longitudinal * faceWX;
+            dzT = longitudinal * faceWZ;
+        }
+        const choreoResponse = (a0.state === "strike" || a0.state === "stagger" || pe < pulseS.current || buffPosing) ? 28 : 18;
+        const ck = 1 - Math.exp(-choreoResponse * Math.min(delta, 1 / 15));
         choX.current = lerp(choX.current, dxT, ck);
         choY.current = lerp(choY.current, dyT, ck);
+        choZ.current = lerp(choZ.current, dzT, ck);
         choSX.current = lerp(choSX.current, sxT, ck);
         choSY.current = lerp(choSY.current, syT, ck);
         choRot.current = lerp(choRot.current, rotT, ck);
@@ -1944,23 +2139,34 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // rage aura + red rim (below), so the climax of a long fight actually looks like one.
         const frac = a0.hp / Math.max(1, a0.maxHp);
         const desperate = a0.state !== "dead" && frac > 0 && frac < 0.26;
-        const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 12 + bobPhase)) * 0.06 : 0;
-        // NEUTRAL VARIETY (R5): a slow circle-step drift + an occasional feint-lean so the
-        // seconds between exchanges aren't a metronome (per-actor bobPhase de-syncs the pair).
+        // Authored skeletal clips already contain their vertical cadence. Adding
+        // the billboard run-bob and squash rig on top makes a real 3D pet judder
+        // at every snapshot/state transition, so models receive only world-space
+        // repositioning/lunge offsets here.
+        const bob = moving && !combatModel ? Math.abs(Math.sin(state.clock.elapsedTime * 12 + bobPhase)) * 0.06 : 0;
+        // A planted guard reads as intention; translating both pets during every idle
+        // frame looked like synchronized dancing. Keep only a rare, tiny body feint.
         const neutralT = state.clock.elapsedTime * 0.6 + bobPhase;
-        const circle = idling ? Math.sin(neutralT) * 0.05 : 0;
-        const feint = idling ? Math.max(0, Math.sin(neutralT * 1.7) - 0.72) * 0.6 * facing : 0;
-        const footwork = idling ? facing * 0.08 + Math.sin(state.clock.elapsedTime * 2.4 + bobPhase) * 0.05 + circle + feint : 0;
+        const feint = idling ? Math.max(0, Math.sin(neutralT * 1.35) - 0.96) * 0.45 * facing : 0;
         const bFreq = desperate ? 7.4 : 5.2, bAmp = desperate ? 0.075 : 0.04;
-        const breathe = idling ? 1 + Math.abs(Math.sin(state.clock.elapsedTime * bFreq + bobPhase)) * bAmp : 1;
-        g.position.set(wx + choX.current + footwork, FLOOR_Y + Math.max(0, choY.current) + bob, wz);
-        pg.scale.set(choSX.current, choSY.current * breathe, 1);
-        pg.rotation.z = lerp(pg.rotation.z, choRot.current, 0.4);
+        const breathe = idling && !combatModel ? 1 + Math.abs(Math.sin(state.clock.elapsedTime * bFreq + bobPhase)) * bAmp : 1;
+        g.position.set(wx + choX.current, FLOOR_Y + Math.max(0, choY.current) + bob, wz + choZ.current);
+        if (combatModel) {
+            const settle = 1 - Math.exp(-16 * Math.min(delta, 1 / 15));
+            pg.scale.x = lerp(pg.scale.x, 1, settle);
+            pg.scale.y = lerp(pg.scale.y, 1, settle);
+            pg.scale.z = lerp(pg.scale.z, 1, settle);
+            pg.rotation.z = lerp(pg.rotation.z, 0, settle);
+        } else {
+            pg.scale.set(choSX.current, choSY.current * breathe, 1);
+            pg.rotation.z = lerp(pg.rotation.z, choRot.current + feint, 0.4);
+        }
 
         // Pose: alternate the 2-frame run cycle while traversing (if the pet has
         // one), else the state pose (attack / hurt / cast / idle).
         let cat = poseCategory(DUEL_STATE_POSE[a0.state]);
         if (sizingUp) cat = "cast";   // the buff / power-up sprite pose during the size-up
+        if (buffPosing) cat = "cast";
         // Generated ATTACK SEQUENCE: a windup frame during the wind-up, then
         // lunge→impact→recover across the strike pulse (melee only) — so the
         // creature really swings. Falls back to the single "attack" pose for pets
@@ -1975,7 +2181,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             }
         }
         if (moving && poses?.hasRun && (a0.state === "idle" || a0.state === "dash")) {
-            runClock.current += delta * 8.5;
+            runClock.current += delta * 12.5;
             cat = Math.floor(runClock.current) % 2 === 0 ? "run-a" : "run-b";
         }
         if (cat !== poseCat) setPoseCat(cat);
@@ -2003,18 +2209,32 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         }
         tg -= 0.3 * hurt; tb -= 0.3 * hurt;
         if (desperate) { tr = Math.min(1.25, tr + 0.14); tg *= 0.93; tb *= 0.88; }   // bloodied red-rage rim (R3)
-        m.color.setRGB(Math.min(2, tr + fl), Math.min(2, Math.max(0, tg) + fl), Math.min(2, Math.max(0, tb) + fl));
-        m.opacity = a0.state === "dead" ? lerp(m.opacity, 0.25, 0.1) : 1;
-        if (m.map !== useTex) m.map = useTex;
-        // Drive the deform "rig": lean into the lunge, arch on the hop, body/tail
-        // follow-through wave (stronger while moving / striking, gentle idle sway).
-        if (deformU.current) {
-            deformU.current.uHalfH.value = L.planeH * 0.5;
-            deformU.current.uTime.value = state.clock.elapsedTime;
-            // Lean into the lunge — clamped so the now-deeper gap-closing reach doesn't shear the sprite.
-            deformU.current.uLean.value = lerp(deformU.current.uLean.value, Math.max(-0.6, Math.min(0.6, choX.current * (strikeHeavy.current ? 0.4 : 0.3))), 0.4);   // heavier lean on a charged blow (R1)
-            deformU.current.uArch.value = Math.max(0, choY.current) * 0.5;
-            deformU.current.uWave.value = 0.025 + Math.min(0.14, spd * 2.2) + (pe >= 0 && pe < pulseS.current ? 0.12 : 0) + (desperate ? 0.04 : 0);   // bloodied jitter (R3)
+        const mf = modelFrame.current;
+        mf.motion = a0.state === "idle" && moving ? "run" : a0.state;
+        mf.moving = moving;
+        mf.speed = smoothedSpeed.current;
+        mf.moveX = travelFacing.current[0];
+        mf.moveZ = travelFacing.current[1];
+        mf.faceX = faceWX;
+        mf.faceZ = faceWZ;
+        mf.hit = flash.current;
+        mf.casting = sizingUp || buffPosing || (a0.state === "windup" && strikeKind.current === "ranged");
+        mf.desperate = desperate;
+        mf.statuses = st;
+        if (m) {
+            m.color.setRGB(Math.min(2, tr + fl), Math.min(2, Math.max(0, tg) + fl), Math.min(2, Math.max(0, tb) + fl));
+            m.opacity = a0.state === "dead" ? lerp(m.opacity, 0.25, 0.1) : 1;
+            if (m.map !== useTex) m.map = useTex;
+            // Drive the deform "rig": lean into the lunge, arch on the hop, body/tail
+            // follow-through wave (stronger while moving / striking, gentle idle sway).
+            if (deformU.current) {
+                deformU.current.uHalfH.value = L.planeH * 0.5;
+                deformU.current.uTime.value = state.clock.elapsedTime;
+                // Lean into the lunge — clamped so the now-deeper gap-closing reach doesn't shear the sprite.
+                deformU.current.uLean.value = lerp(deformU.current.uLean.value, Math.max(-0.6, Math.min(0.6, choX.current * (strikeHeavy.current ? 0.4 : 0.3))), 0.4);   // heavier lean on a charged blow (R1)
+                deformU.current.uArch.value = Math.max(0, choY.current) * 0.5;
+                deformU.current.uWave.value = 0.025 + Math.min(0.14, smoothedSpeed.current * 0.12) + (pe >= 0 && pe < pulseS.current ? 0.12 : 0) + (desperate ? 0.04 : 0);   // bloodied jitter (R3)
+            }
         }
 
         // HP bar + dead dim via DOM refs (no React re-render).
@@ -2029,7 +2249,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
 
         // Contact shadow — flat on the floor, tracks x/z, fades + shrinks as the pet lifts.
         if (shadow.current && shadowMat.current) {
-            shadow.current.position.set(wx + choX.current, 0.02, wz);
+            shadow.current.position.set(wx + choX.current, 0.02, wz + choZ.current);
             const lift = Math.max(0, choY.current);
             const sf = Math.max(0, 1 - lift * 0.7);
             shadowMat.current.opacity = 0.42 * sf * (a0.state === "dead" ? 0.4 : 1);
@@ -2041,17 +2261,32 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     return (
         <group>
             <group ref={group}>
-                {/* Y-axis-locked billboard: yaws to face the camera but stays vertical,
-                    so the feet never lift off the floor at the angled camera. */}
-                <Billboard lockX lockZ>
+                {combatModel ? (
                     <group ref={poseG}>
-                        <mesh position={[L.meshX, L.meshY, 0]}>
-                            <planeGeometry args={[L.planeW, L.planeH, 6, 20]} />
-                            <primitive object={baseMat} ref={matRef} attach="material" />
-                        </mesh>
+                        <Suspense fallback={(
+                            <Billboard lockX lockZ>
+                                <mesh position={[L.meshX, L.meshY, 0]}>
+                                    <planeGeometry args={[L.planeW, L.planeH, 6, 20]} />
+                                    <primitive object={baseMat} ref={matRef} attach="material" />
+                                </mesh>
+                            </Billboard>
+                        )}>
+                            <PetModel3D config={combatModel} frame={modelFrame} element={pet.element} />
+                        </Suspense>
                     </group>
-                </Billboard>
-                <Html position={[0, L.contentWorldH + 0.4, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
+                ) : (
+                    /* Y-axis-locked billboard: yaws to face the camera but stays vertical,
+                       so the feet never lift off the floor at the angled camera. */
+                    <Billboard lockX lockZ>
+                        <group ref={poseG}>
+                            <mesh position={[L.meshX, L.meshY, 0]}>
+                                <planeGeometry args={[L.planeW, L.planeH, 6, 20]} />
+                                <primitive object={baseMat} ref={matRef} attach="material" />
+                            </mesh>
+                        </group>
+                    </Billboard>
+                )}
+                <Html position={[0, combatModel ? combatModel.targetHeight + 0.5 : L.contentWorldH + 0.4, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
                     <div ref={nameWrap} style={{ textAlign: "center", font: "700 12px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none" }}>
                         <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>Lv.{pet.level} {pet.name}</div>
                         <div style={{ position: "relative", width: 64, height: 6, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
@@ -2373,14 +2608,47 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, spawnTrail, elementById, nameById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
+type DuelSetPieceKind = "flameBurst" | "tidalWave" | "tornado" | "lightningStorm" | "earthBurst" | "elemental";
+type DuelElementBurstKind = "fire" | "water" | "wind" | "lightning" | "earth" | "arcane";
+type DuelMoveCalloutTone = "attack" | "support" | "maneuver" | "combo";
+type DuelImpactMode = "impact" | "tell" | "dodge";
+type DuelSupportKind = "heal" | "shield";
+function duelElementBurstKind(element?: string | null): DuelElementBurstKind {
+    const key = String(element ?? "").toLowerCase();
+    if (key === "fire" || key === "water" || key === "wind" || key === "lightning" || key === "earth") return key;
+    return "arcane";
+}
+function liveDuelEffectPosition(duel: DuelResult, clock: { current: DuelClock }, actorId?: string): { wx: number; wz: number } | null {
+    if (!actorId || duel.snapshots.length === 0) return null;
+    const snapshot = duel.snapshots[Math.min(duel.snapshots.length - 1, Math.max(0, Math.floor(clock.current.t)))];
+    const actor = snapshot?.actors.find((candidate) => candidate.id === actorId);
+    return actor ? duelFieldToFloor(actor.x, actor.y) : null;
+}
+function duelSetPieceKind(element?: string | null, move?: string): DuelSetPieceKind {
+    const name = String(move ?? "").toLowerCase();
+    if (/tidal|wave|tsunami|torrent|undertow/.test(name) || element === "Water") return "tidalWave";
+    if (/tornado|cyclone|tempest|gale|vortex/.test(name) || element === "Wind") return "tornado";
+    if (/flame|fire|inferno|blaze|cinder|burst/.test(name) || element === "Fire") return "flameBurst";
+    if (/lightning|thunder|volt|storm|static/.test(name) || element === "Lightning") return "lightningStorm";
+    if (/earth|stone|rock|quake|cataclysm/.test(name) || element === "Earth") return "earthBurst";
+    return "elemental";
+}
+function arenaScaleMove(move?: string): boolean {
+    return /wave|tornado|cyclone|tempest|burst|inferno|eruption|cataclysm|storm/i.test(String(move ?? ""));
+}
+
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnElementBurst, spawnFx, spawnSupport, spawnShock, spawnPowerUp, spawnTrail, spawnSetPiece, elementById, nameById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
-    spawnImpact: (n: { x: number; z: number; color: string; big: boolean }) => void;
+    spawnImpact: (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => void;
+    spawnElementBurst: (n: { x: number; z: number; element?: string | null; color: string; big: boolean }) => void;
     spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
+    spawnSupport: (n: { x: number; z: number; color: string; kind: DuelSupportKind; actorId?: string }) => void;
     spawnShock: (n: { x: number; z: number; color: string; big: boolean }) => void;
+    spawnPowerUp: (n: { x: number; z: number; color: string; actorId?: string }) => void;
     spawnTrail: (n: { x: number; z: number; toward: number; kind: MoveChoreoKind; color: string }) => void;
+    spawnSetPiece: (n: { fromX: number; fromZ: number; toX: number; toZ: number; element?: string | null; move?: string }) => void;
     elementById: Record<string, string | null | undefined>;
     nameById: Record<string, string>;
     ultById: Record<string, string>;
@@ -2390,10 +2658,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     onCallout: (text: string) => void;                       // big "CRITICAL!/FINISH!" banner
     onCombo: (n: number) => void;                            // combo counter pop
     onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => void;  // play-by-play commentary
-    onMoveCallout: (text: string, side: "player" | "enemy") => void;                       // named-move flash ("Hellhound Execution!")
+    onMoveCallout: (text: string, side: "player" | "enemy", tone?: DuelMoveCalloutTone) => void;
 }) {
     const { camera } = useThree();
-    const lastTick = useRef(-1);
+    const lastTick = useRef(Math.max(-1, Math.floor(clock.current.t) - 1));
     const ended = useRef(false);
     const shake = useRef(0);
     const hitStop = useRef(0);
@@ -2408,6 +2676,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const holdUntil = useRef(0);                     // wall-time to HOLD the current slow-mo until (savor beat)
     const lastMoveCall = useRef(0);                  // wall-time of the last move-name callout (debounce)
     const lastHeroCut = useRef(-999);                // wall-time of the last hero-move anime cut-in (throttle)
+    const lastElementChain = useRef(-999);           // elemental payoff banner throttle
     // ── Cinematic camera (render-only): a live look target eased toward the fighters'
     // midpoint, briefly OVERRIDDEN by cuts (attacker on wind-up / defender on impact /
     // victim on KO), plus an adaptive dolly that tightens when they plant close.
@@ -2425,7 +2694,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         // sim). Neutral runs a touch FAST so dead approach time doesn't drag; each
         // hit/cast SAVOR-slows playback and HOLDS it (holdUntil) so the exchange
         // reads like a staged anime beat, then eases back. Hit-stop FREEZES on impact.
-        const BASE_SCALE = 1.12;
+        const BASE_SCALE = 1.32;
         let dt = delta * timeScale.current;
         if (hitStop.current > 0) { hitStop.current = Math.max(0, hitStop.current - delta); dt = 0; }
         if (now >= holdUntil.current) timeScale.current = lerp(timeScale.current, BASE_SCALE, 0.05);
@@ -2442,9 +2711,31 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     if (a) {
                         const frac = Math.min(1, e.dmg / Math.max(1, a.maxHp));
                         const heavy = !!e.crit || frac > 0.12;
+                        const attacker = findActor(snapAt, e.actorId);
+                        // A hit that arrives immediately after the same actor crossed
+                        // from a farther maneuver pocket is a dash-in combo. Sell the
+                        // whole phrase at CONTACT instead of making the traversal and
+                        // attack look like unrelated, weightless actions.
+                        const dashCombo = !!attacker && duel.events.some((m) => {
+                            if (m.type !== "maneuver" || m.actorId !== e.actorId || !m.targetId || m.t >= e.t
+                                || e.t - m.t > Math.round(DUEL_TPS * 1.45)) return false;
+                            const startSnap = snaps[Math.min(maxT, m.t)];
+                            const startActor = findActor(startSnap, m.actorId);
+                            const startTarget = findActor(startSnap, m.targetId);
+                            if (!startActor || !startTarget) return false;
+                            const before = Math.hypot(startTarget.x - startActor.x, startTarget.y - startActor.y);
+                            const after = Math.hypot(a.x - attacker.x, a.y - attacker.y);
+                            return before - after > 1.15;
+                        });
+                        const impactHeavy = heavy || dashCombo;
                         const col = elementColor(e.element).glow;
+                        const followsUltimate = !!e.move && duel.events.some((u) => u.type === "ultimate" && u.actorId === e.actorId && u.move === e.move && u.t < e.t && e.t - u.t <= Math.round(DUEL_TPS * 2));
+                        if (e.move && !e.signature && arenaScaleMove(e.move) && !followsUltimate) {
+                            if (attacker) spawnSetPiece({ fromX: attacker.x, fromZ: attacker.y, toX: a.x, toZ: a.y, element: e.element, move: e.move });
+                        }
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
-                        spawnImpact({ x: a.x, z: a.y, color: col, big: heavy });
+                        spawnImpact({ x: a.x, z: a.y, color: col, big: impactHeavy });
+                        spawnElementBurst({ x: a.x, z: a.y, element: e.element, color: col, big: impactHeavy });
                         const heavyKind = e.kind === "crush" || e.kind === "push";
                         const fxKey = moveFxKey(e.kind);   // themed burst (blood/shadow/poison/spark/ice/…) or "" → element combo
                         // The BURST on contact. A themed status/special move keeps its single
@@ -2455,13 +2746,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         // projectile impact keeps the single element bloom (its `cast` already
                         // telegraphed the move at the caster).
                         if (fxKey) {
-                            spawnFx({ x: a.x, z: a.y, key: fxKey, scale: heavy ? 2.7 : 1.9, dur: heavy ? 520 : 400 });
+                            spawnFx({ x: a.x, z: a.y, key: fxKey, scale: impactHeavy ? 2.9 : 1.9, dur: impactHeavy ? 540 : 400 });
                         } else if (e.ranged) {
-                            spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 2.7 : 1.9, dur: heavy ? 520 : 400 });
+                            spawnFx({ x: a.x, z: a.y, element: e.element, scale: impactHeavy ? 2.9 : 1.9, dur: impactHeavy ? 540 : 400 });
                         } else {
                             const arche = classifyMoveChoreo(e.kind, false, e.element);
                             const ax = a.x, az = a.y;
-                            for (const b of meleeContactFx(e.element, arche, !!e.crit, heavyKind || heavy)) {
+                            for (const b of meleeContactFx(e.element, arche, !!e.crit, heavyKind || impactHeavy)) {
                                 const fire = () => spawnFx(b.key ? { x: ax, z: az, key: b.key, scale: b.scale, dur: b.dur } : { x: ax, z: az, element: e.element, scale: b.scale, dur: b.dur });
                                 if (b.at <= 0) fire(); else window.setTimeout(fire, b.at);
                             }
@@ -2473,23 +2764,32 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             const att = findActor(snapAt, e.actorId);
                             if (att) spawnTrail({ x: att.x, z: att.y, toward: e.actorId.startsWith("enemy") ? -1 : 1, kind: classifyMoveChoreo(e.kind, false, e.element), color: col });
                         }
-                        hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0));
-                        shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0));
-                        // Element-tinted full-screen FLASH + a ground SHOCKWAVE on every
-                        // hit (bigger on heavy/crit) so even a small spell reads as an event.
-                        onFlash(col, Math.min(0.5, 0.1 + frac * 0.9) + (e.crit ? 0.16 : 0));
-                        spawnShock({ x: a.x, z: a.y, color: col, big: heavy });
+                        hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0) + (dashCombo ? 0.075 : 0));
+                        shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0) + (dashCombo ? 1.15 : 0));
+                        // Reserve the ground shockwave for blows with actual mass. Basic
+                        // contacts already have a 3D element burst; a ring on every hit
+                        // makes the fight read like UI telegraphs instead of anime action.
+                        if (impactHeavy || e.move) onFlash(col, Math.min(0.34, 0.05 + frac * 0.55) + (e.crit ? 0.1 : 0) + (dashCombo ? 0.06 : 0));
+                        if (impactHeavy || e.signature) spawnShock({ x: a.x, z: a.y, color: col, big: impactHeavy });
+                        if (dashCombo) {
+                            const ax = a.x, az = a.y;
+                            window.setTimeout(() => spawnImpact({ x: ax, z: az, color: "#ffffff", big: false }), 70);
+                        }
                         // Dramatic SAVOR — slow the moment so the swing reads; deeper on a
                         // signature, then a crit/heavy slam, then any named ability, then a basic.
                         const isSig = !!e.signature, isAbility = !!e.move;
-                        if (isSig) savor(0.26, 0.5);
-                        else if (e.crit || heavyKind) savor(0.34, 0.3);
-                        else if (isAbility || heavy) savor(0.42, 0.22);
-                        else savor(0.6, 0.12);
+                        if (isSig) savor(0.34, 0.34);
+                        else if (e.crit || heavyKind) savor(0.56, 0.16);
+                        else if (dashCombo) savor(0.62, 0.12);
+                        else if (isAbility || heavy) savor(0.84, 0.07);
                         // Camera ZOOM-PUNCH — every meaningful blow pushes in; abilities/crits/signatures harder.
-                        zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : (isAbility || heavy) ? 1.8 : 0.9);
+                        zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : dashCombo ? 2.5 : (isAbility || heavy) ? 1.45 : 0.42);
                         // Camera CUT to whoever got hit — the impact reads on the defender.
-                        { const cp = duelFieldToFloor(a.x, a.y); camAim.current = [cp.wx * 0.55, 1.4, CAM_LOOK[2] + cp.wz * 0.4]; camAimHold.current = Math.max(camAimHold.current, 0.13); }
+                        if (impactHeavy || isAbility) {
+                            const cp = duelFieldToFloor(a.x, a.y);
+                            camAim.current = [cp.wx * 0.48, 1.4, CAM_LOOK[2] + cp.wz * 0.34];
+                            camAimHold.current = Math.max(camAimHold.current, 0.11);
+                        }
                         // A pet's HERO move (its signature, else its strongest jutsu) triggers the
                         // anime freeze-frame CUT-IN (throttled so it stays special); other named
                         // abilities show the smaller banner. (Signatures also cut in via 'ultimate'.)
@@ -2501,12 +2801,17 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             zoomKick.current = Math.max(zoomKick.current, 3.0); onFlash(col, 0.4);
                             onCutIn(e.actorId, e.move);
                         } else if (e.move && !isSig && now - lastMoveCall.current > 0.4) {
-                            lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
+                            lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack");
                         }
                         // Combo counter — consecutive hits inside a 1.1s window.
                         comboN.current = now < comboT.current ? comboN.current + 1 : 1;
                         comboT.current = now + 1.1;
                         if (comboN.current >= 2) onCombo(comboN.current);
+                        if (e.combo && now - lastElementChain.current > 2.2) {
+                            lastElementChain.current = now;
+                            onMoveCallout(e.combo, e.actorId.startsWith("enemy") ? "enemy" : "player", "combo");
+                            onFlash(col, 0.22);
+                        }
                         if (e.crit) onCallout("CRITICAL!");
                         if (e.crit) camPosBias.current[1] = -0.9;   // dip to a low hero angle on a crit (R4), eases back
                         // Crit → a couple of trailing sparks read as a multi-hit flurry.
@@ -2520,23 +2825,30 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const a = findActor(snapAt, e.targetId);
                     if (a) {
                         spawnNumber({ x: a.x, z: a.y, text: `+${e.dmg}`, crit: false, heal: true });
-                        // A green RESTORE bloom on the mended ally (was a bare number).
-                        spawnFx({ x: a.x, z: a.y, key: "heal", scale: 1.9, dur: 460 });
+                        // A real 3D restoration column keeps healing in the same visual
+                        // language as the models instead of dropping a flat flipbook on them.
+                        spawnSupport({ x: a.x, z: a.y, color: "#8ff7c5", kind: "heal", actorId: a.id });
                     }
                 } else if (e.type === "shield" && e.targetId) {
-                    // A protective DOME on the warded ally (was completely invisible).
+                    // A protective 3D dome and orbit rings make a ward readable from the
+                    // arena camera without obscuring the pet silhouette.
                     const a = findActor(snapAt, e.targetId);
                     if (a) {
-                        const tel = String(elementById[e.targetId] ?? "").toLowerCase();
-                        spawnFx({ x: a.x, z: a.y, key: tel === "water" || tel === "earth" ? "shield" : "eshield", scale: 2.1, dur: 520 });
+                        spawnSupport({ x: a.x, z: a.y, color: elementColor(elementById[e.targetId]).glow, kind: "shield", actorId: a.id });
                         onFlash("#bfe3ff", 0.14);
                     }
                 } else if (e.type === "buff" && e.actorId) {
-                    // A self POWER-UP gather — a rising aura (was completely invisible).
+                    // Dedicated Super-Saiyan-style power column. This deliberately
+                    // avoids the generic aura/element flipbooks, which looked like
+                    // an attack had landed on the pet rather than a self-buff.
                     const c = findActor(snapAt, e.actorId);
                     if (c) {
-                        spawnFx({ x: c.x, z: c.y, key: "aura", scale: 2.0, dur: 480 });
-                        onFlash(elementColor(elementById[e.actorId]).glow, 0.12);
+                        const el = elementById[e.actorId];
+                        const color = elementColor(el).glow;
+                        spawnPowerUp({ x: c.x, z: c.y, color, actorId: c.id });
+                        zoomKick.current = Math.max(zoomKick.current, 0.55);
+                        savor(0.92, 0.04);
+                        onFlash("#fff2a6", 0.09);
                     }
                 } else if (e.type === "windup" && e.actorId) {
                     // Element TELL — a charge ring at the attacker a beat before the blow,
@@ -2545,17 +2857,33 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const c = findActor(snapAt, e.actorId);
                     if (c) {
                         const heavyTell = e.kind !== "buff" && e.kind !== "heal" && e.kind !== "shield" && e.kind !== "barrier" && e.kind !== "absorb" && e.kind !== "haste";
-                        spawnImpact({ x: c.x, z: c.y, color: elementColor(elementById[e.actorId]).glow, big: heavyTell });
-                        if (heavyTell) { spawnFx({ x: c.x, z: c.y, key: "charge", scale: 1.3, dur: 220 }); savor(0.75, 0.06); }
-                        const p = duelFieldToFloor(c.x, c.y);
-                        camAim.current = [p.wx * 0.55, 1.4, CAM_LOOK[2] + p.wz * 0.4];
-                        camAimHold.current = Math.max(camAimHold.current, 0.15);
-                        camDollyBias.current = Math.max(camDollyBias.current, 0.7);
+                        spawnImpact({ x: c.x, z: c.y, color: elementColor(elementById[e.actorId]).glow, big: heavyTell, mode: "tell" });
+                        if (heavyTell) { savor(0.75, 0.06); }
+                        if (heavyTell) {
+                            const p = duelFieldToFloor(c.x, c.y);
+                            camAim.current = [p.wx * 0.48, 1.4, CAM_LOOK[2] + p.wz * 0.34];
+                            camAimHold.current = Math.max(camAimHold.current, 0.11);
+                            camDollyBias.current = Math.max(camDollyBias.current, 0.5);
+                        }
                     }
                 } else if (e.type === "dodge" && e.actorId) {
-                    // Parry/slip shimmer where the dodge happened (a clean defensive read).
+                    // The model performs the vertical hop; short world-space speed
+                    // accents make the evade readable without a floor UI reticle.
                     const d = findActor(snapAt, e.actorId);
-                    if (d) spawnImpact({ x: d.x, z: d.y, color: "#bae6fd", big: false });
+                    if (d) {
+                        spawnImpact({ x: d.x, z: d.y, color: "#dff9ff", big: false, mode: "dodge" });
+                    }
+                } else if (e.type === "maneuver" && e.kind === "move" && e.move && e.actorId) {
+                    // A short elemental range-shift: afterimages carry the motion; no
+                    // floor ring is needed because this is not an impact.
+                    const runner = findActor(snapAt, e.actorId);
+                    if (runner) {
+                        zoomKick.current = Math.max(zoomKick.current, 0.35);
+                    }
+                    if (now - lastMoveCall.current > 0.4) {
+                        lastMoveCall.current = now;
+                        onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "maneuver");
+                    }
                 } else if ((e.type === "cast" || e.type === "ultimate") && e.actorId) {
                     // The UNLEASH at the caster. A status cast wears its themed muzzle glow
                     // (poison gathers GREEN, a stun SPARKS); a support cast gathers a soft AURA
@@ -2564,9 +2892,14 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const c = findActor(snapAt, e.actorId);
                     const el = elementById[e.actorId];
                     const supportCast = e.type === "cast" && classifyMoveChoreo(e.kind, true) === "support";
+                    const powerUpCast = e.type === "cast" && (e.kind === "buff" || e.kind === "haste");
                     if (c) {
                         if (supportCast) {
-                            spawnFx({ x: c.x, z: c.y, key: "aura", scale: 1.6, dur: 340 });
+                            // Buff/haste own the dedicated golden 3D power column in
+                            // their `buff` event. The generic cyan support flipbook made
+                            // those moves look like an incoming hit and visually doubled
+                            // the effect. Heal/shield support casts keep this soft gather.
+                            if (!powerUpCast) spawnFx({ x: c.x, z: c.y, key: "aura", scale: 1.6, dur: 340 });
                         } else {
                             if (e.type === "ultimate") spawnFx({ x: c.x, z: c.y, key: "charge", scale: 2.2, dur: 360 });  // charge-up telegraph
                             const castKey = e.type === "ultimate" ? "" : moveFxKey(e.kind);
@@ -2575,6 +2908,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             if (e.type === "ultimate") {
                                 const ex = c.x, ey = c.y;
                                 window.setTimeout(() => spawnFx({ x: ex, z: ey, element: el, scale: 3.4, dur: 540 }), 200);
+                                const target = e.targetId ? findActor(snapAt, e.targetId) : null;
+                                if (target && target.id !== c.id) {
+                                    spawnSetPiece({ fromX: c.x, fromZ: c.y, toX: target.x, toZ: target.y, element: el, move: e.move });
+                                }
                             }
                         }
                     }
@@ -2607,19 +2944,21 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         } else {
                             // A lesser named ability — the smaller banner + a short savor beat.
                             lastMoveCall.current = now;
-                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
-                            savor(0.5, 0.18);
+                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", supportCast ? "support" : "attack");
+                            savor(supportCast ? 0.92 : 0.82, 0.06);
                         }
                     }
                 } else if (e.type === "ko") {
                     // KO finisher: a big element blast on the victim + a hard freeze → deep
-                    // slow-mo → camera PULL-BACK reveal. The TERMINAL ko event carries no
+                    // slow-mo → camera PULL-BACK reveal. A knockout decides the fight.
+                    // The terminal ko event carries no
                     // actorId, so find the downed fighter from the snapshot (this also fixes
                     // the final KO previously showing no blast / no "is down!" line).
                     const dead = e.actorId ? findActor(snapAt, e.actorId) : (snapAt.actors.find((ac) => ac.hp <= 0) ?? null);
                     const del = dead ? elementById[dead.id] : null;
                     if (dead) {
-                        spawnFx({ x: dead.x, z: dead.y, element: del, scale: 3.0, dur: 620 });
+                        spawnImpact({ x: dead.x, z: dead.y, color: elementColor(del).glow, big: true });
+                        spawnShock({ x: dead.x, z: dead.y, color: elementColor(del).glow, big: true });
                         // Camera holds on the fallen pet as it topples (koPull does the reveal).
                         const p = duelFieldToFloor(dead.x, dead.y);
                         camAim.current = [p.wx * 0.5, 1.2, CAM_LOOK[2] + p.wz * 0.4];
@@ -2627,16 +2966,16 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     }
                     shake.current = Math.max(shake.current, 3.0);
                     hitStop.current = Math.max(hitStop.current, 0.34);
-                    savor(0.3, 0.9);   // deep, HELD slow-mo for the finishing blow
+                    savor(0.3, 0.9);
                     koPull.current = 3.4;
-                    camPosBias.current[1] = 2.4;   // rise to an overhead angle for the KO reveal (R4)
+                    camPosBias.current[1] = 2.4;
                     onFlash("#fff7e6", 0.5);
                     onCallout("FINISH!");
-                    if (dead) onAnnounce(`${nameById[dead.id] ?? "A fighter"} is down!`, "ko");
+                    if (dead) onAnnounce(`${nameById[dead.id] ?? "A fighter"} is eliminated!`, "ko");
                 } else if (e.type === "whiff" && e.actorId) {
                     // A MISS — the attacker's blow finds nothing. Say so (was silent before).
                     const c = findActor(snapAt, e.actorId);
-                    if (c) { onCallout("MISS"); spawnImpact({ x: c.x, z: c.y, color: "#cbd5e1", big: false }); }
+                    if (c) { onCallout("MISS"); spawnImpact({ x: c.x, z: c.y, color: "#cbd5e1", big: false, mode: "dodge" }); }
                 } else if (e.type === "stagger" && e.actorId) {
                     // A recoil puff where a fighter got knocked out of its wind-up.
                     const c = findActor(snapAt, e.actorId);
@@ -2680,17 +3019,21 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         koPull.current = lerp(koPull.current, 0, 0.025);
         // Live framing target from the fighters still standing (midpoint + x spread).
         const camSnap = snaps[Math.min(maxT, Math.floor(clock.current.t))];
-        let cmx = 0, cmz = 0, cn = 0, xmin = Infinity, xmax = -Infinity;
+        let cmx = 0, cmz = 0, cn = 0, xmin = Infinity, xmax = -Infinity, zmin = Infinity, zmax = -Infinity;
         if (camSnap) for (const ac of camSnap.actors) {
             if (ac.hp <= 0) continue;
             const p = duelFieldToFloor(ac.x, ac.y);
             cmx += p.wx; cmz += p.wz; cn++;
             if (p.wx < xmin) xmin = p.wx;
             if (p.wx > xmax) xmax = p.wx;
+            if (p.wz < zmin) zmin = p.wz;
+            if (p.wz > zmax) zmax = p.wz;
         }
         const midX = cn > 0 ? cmx / cn : 0;
         const midZ = cn > 0 ? cmz / cn : DUEL_FLOOR_Z0;
-        const spread = cn > 1 ? xmax - xmin : 4;
+        // Depth separation matters just as much as left/right separation now that
+        // the tactical camera exposes the entire floor instead of flattening it.
+        const spread = cn > 1 ? Math.max(xmax - xmin, (zmax - zmin) * 1.35) : 4;
         // Neutral look eases to the live midpoint; a cut HOLDS its own aim until camAimHold decays.
         if (camAimHold.current > 0) camAimHold.current = Math.max(0, camAimHold.current - delta);
         else {
@@ -2704,9 +3047,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         // Opening: pull WIDE for the size-up, then punch in as the pets charge to the face-off,
         // and give a "lock-in" shake the instant they arrive.
         const dollyIntro = clock.current.intro ?? 999;
-        if (dollyIntro < INTRO_CHARGE_END) dollyTarget = lerp(dollyTarget, INTRO_WIDE_DOLLY, introApproach(dollyIntro));
+        if (dollyIntro < INTRO_TOTAL) dollyTarget = lerp(dollyTarget, INTRO_WIDE_DOLLY, introWideHold(dollyIntro));
         else if (dollyIntro < 900 && !introLocked.current) { introLocked.current = true; shake.current = Math.max(shake.current, 1.4); }
-        camDolly.current = lerp(camDolly.current, dollyTarget, dollyIntro < INTRO_CHARGE_END ? 0.1 : 0.03);
+        camDolly.current = lerp(camDolly.current, dollyTarget, dollyIntro < INTRO_TOTAL ? 0.1 : 0.03);
         const db = camDollyBias.current; camDollyBias.current *= 0.9;
         // Ease the transient angle bias (crit low / KO overhead) back to neutral so it reads as
         // a deliberate camera MOVE, not a teleport (R4 — angle variety).
@@ -2720,32 +3063,218 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
 }
 
 /** Element-colored impact burst — an expanding additive ring + flash core. */
-function DuelImpact({ at, color, big, onDone }: { at: Vec3; color: string; big: boolean; onDone: () => void }) {
-    const grp = useRef<THREE.Group>(null);
-    const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+function DuelImpact({ at, color, big, mode = "impact", onDone }: { at: Vec3; color: string; big: boolean; mode?: DuelImpactMode; onDone: () => void }) {
+    const root = useRef<THREE.Group>(null);
+    const core = useRef<THREE.Mesh>(null);
     const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+    const haloMat = useRef<THREE.MeshBasicMaterial>(null);
+    const ringOne = useRef<THREE.MeshBasicMaterial>(null);
+    const ringTwo = useRef<THREE.MeshBasicMaterial>(null);
+    const rays = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
     const start = useRef<number | null>(null);
-    const DUR = big ? 0.42 : 0.3;
+    const rayLayout = useMemo(() => Array.from({ length: big ? 10 : 7 }, (_, i) => {
+        const a = (i / (big ? 10 : 7)) * Math.PI * 2 + 0.17;
+        return { a, radius: 0.64 + (i % 3) * 0.12, length: 0.7 + (i % 4) * 0.14 };
+    }), [big]);
+    const duration = mode === "tell" ? 0.46 : mode === "dodge" ? 0.3 : big ? 0.46 : 0.34;
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
-        const p = Math.min(1, (state.clock.elapsedTime - start.current) / DUR);
-        if (grp.current) { const s = (big ? 0.85 : 0.6) * (0.35 + p * 1.5); grp.current.scale.set(s, s, s); }
-        if (ringMat.current) ringMat.current.opacity = (1 - p) * 0.9;
-        if (coreMat.current) coreMat.current.opacity = (1 - Math.min(1, p * 1.8)) * 0.85;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / duration);
+        const rise = 1 - Math.pow(1 - p, 2);
+        const fade = 1 - p;
+        if (root.current) {
+            const scale = mode === "tell" ? 0.46 + rise * (big ? 0.78 : 0.58) : mode === "dodge" ? 0.28 + rise * 0.48 : 0.34 + rise * (big ? 1.28 : 0.94);
+            root.current.scale.setScalar(scale);
+            root.current.rotation.y = p * (mode === "dodge" ? -1.35 : 1.9);
+        }
+        if (core.current) {
+            core.current.rotation.x = p * 4.2;
+            core.current.rotation.y = p * 5.6;
+            core.current.scale.setScalar(mode === "impact" ? 0.48 + (1 - Math.abs(p - 0.33) * 2) * (big ? 0.52 : 0.34) : 0.42 + rise * 0.2);
+        }
+        if (coreMat.current) coreMat.current.opacity = mode === "impact" ? Math.max(0, (1 - p * 1.42)) * 0.62 : fade * 0.2;
+        if (haloMat.current) haloMat.current.opacity = fade * (mode === "impact" ? 0.48 : 0.32);
+        if (ringOne.current) ringOne.current.opacity = fade * (mode === "tell" ? 0.36 : 0.3);
+        if (ringTwo.current) ringTwo.current.opacity = Math.max(0, fade - 0.16) * (mode === "dodge" ? 0.38 : 0.2);
+        rays.current.forEach((material) => { if (material) material.opacity = mode === "impact" ? Math.max(0, fade - 0.04) * 0.7 : 0; });
+        if (p >= 1) onDone();
+    });
+    const floorOnly = mode !== "impact";
+    return (
+        <group ref={root} position={at}>
+            {floorOnly ? (
+                <group>
+                    <mesh position={mode === "dodge" ? [-0.46, 0.22, 0.08] : [-0.34, 0.38, 0.12]} rotation={[0, 0, mode === "dodge" ? -1.08 : -0.16]} scale={[1, mode === "dodge" ? 1.45 : 1, 1]}>
+                        <coneGeometry args={[0.05, 0.74, 5]} />
+                        <meshBasicMaterial ref={ringOne} color={color} transparent opacity={0.38} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                    <mesh position={mode === "dodge" ? [0.4, 0.34, -0.08] : [0.36, 0.48, -0.12]} rotation={[0, 0, mode === "dodge" ? 1.02 : 0.14]} scale={[0.78, mode === "dodge" ? 1.3 : 0.82, 0.78]}>
+                        <coneGeometry args={[0.045, 0.68, 5]} />
+                        <meshBasicMaterial ref={ringTwo} color={mode === "dodge" ? "#dff9ff" : color} transparent opacity={0.28} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                </group>
+            ) : (
+                <>
+                    <mesh ref={core} position={[0, 0.12, 0]}>
+                        <icosahedronGeometry args={[0.28, 1]} />
+                        <meshBasicMaterial ref={coreMat} color="#fff8df" transparent opacity={0.88} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                    <mesh position={[0, 0.12, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                        <torusGeometry args={[0.5, 0.032, 6, 24]} />
+                        <meshBasicMaterial ref={haloMat} color={color} transparent opacity={0.7} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                    {rayLayout.map((ray, i) => (
+                        <mesh key={i} position={[Math.cos(ray.a) * ray.radius, 0.16 + (i % 2) * 0.14, Math.sin(ray.a) * ray.radius]} rotation={[0, -ray.a + Math.PI / 2, Math.PI / 2]}>
+                            <coneGeometry args={[0.055, ray.length, 5]} />
+                            <meshBasicMaterial ref={(material) => { rays.current[i] = material; }} color={i % 3 === 0 ? "#ffffff" : color} transparent opacity={0.68} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    ))}
+                </>
+            )}
+        </group>
+    );
+}
+
+/** Element-specific contact volume layered behind the graphic hit frame. The
+ * generic white ring sells timing; these solid toon shapes sell WHAT struck:
+ * flame tongues, water droplets, wind crescents, lightning splinters, or stone.
+ * Normal-blended bodies preserve color and depth instead of bleaching the pet. */
+function DuelElementBurst({ at, kind, color, big, onDone }: { at: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; onDone: () => void }) {
+    const root = useRef<THREE.Group>(null);
+    const pieces = useRef<Array<THREE.Mesh | null>>([]);
+    const materials = useRef<Array<THREE.Material & { opacity: number }>>([]);
+    const light = useRef<THREE.PointLight>(null);
+    const start = useRef<number | null>(null);
+    const layout = useMemo(() => Array.from({ length: big ? 10 : 7 }, (_, i) => {
+        const a = (i / (big ? 10 : 7)) * Math.PI * 2 + 0.23;
+        return { a, radius: 0.34 + (i % 3) * 0.16, lift: 0.06 + (i % 4) * 0.14, size: 0.68 + (i % 3) * 0.13 };
+    }), [big]);
+    const duration = big ? 0.66 : 0.48;
+    const palette = kind === "fire"
+        ? { body: "#ef3f13", accent: "#ffb21c", core: "#fff0a6" }
+        : kind === "water"
+            ? { body: "#0879c9", accent: "#32d5f2", core: "#d8fbff" }
+            : kind === "wind"
+                ? { body: "#14796f", accent: "#61e3c2", core: "#ddfff4" }
+                : kind === "lightning"
+                    ? { body: "#6847d9", accent: "#d8c6ff", core: "#fff8c9" }
+                    : kind === "earth"
+                        ? { body: "#754321", accent: "#d59a42", core: "#ffe0a1" }
+                        : { body: color, accent: "#d8c8ff", core: "#fff7dc" };
+    const registerMaterial = (material: (THREE.Material & { opacity: number }) | null) => {
+        if (!material || materials.current.includes(material)) return;
+        material.userData.baseOpacity = material.opacity;
+        materials.current.push(material);
+    };
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const elapsed = state.clock.elapsedTime - start.current;
+        const p = Math.min(1, elapsed / duration);
+        const burst = 1 - Math.pow(1 - Math.min(1, p / 0.42), 3);
+        const fade = p < 0.58 ? 1 : Math.max(0, 1 - (p - 0.58) / 0.42);
+        if (root.current) {
+            root.current.scale.setScalar((big ? 1.08 : 0.9) * (0.24 + burst * 0.86));
+            root.current.rotation.y = p * (kind === "wind" ? 2.8 : 0.72);
+        }
+        pieces.current.forEach((piece, i) => {
+            if (!piece) return;
+            const spec = layout[i];
+            const travel = burst * (0.5 + (i % 3) * 0.14);
+            piece.position.x = Math.cos(spec.a) * (spec.radius + travel);
+            piece.position.z = Math.sin(spec.a) * (spec.radius + travel);
+            piece.position.y = spec.lift + travel * (kind === "water" ? 0.42 : kind === "earth" ? 0.24 : 0.78);
+            piece.rotation.x += 0.045 + (i % 2) * 0.018;
+            piece.rotation.z += (i % 2 ? -1 : 1) * 0.052;
+        });
+        for (const material of materials.current) material.opacity = Number(material.userData.baseOpacity ?? 0.8) * fade;
+        if (light.current) light.current.intensity = fade * (big ? 3.2 : 1.8);
         if (p >= 1) onDone();
     });
     return (
-        <group ref={grp} position={at}>
-            <Billboard>
-                <mesh>
-                    <ringGeometry args={[0.42, 0.6, 24]} />
-                    <meshBasicMaterial ref={ringMat} color={color} transparent opacity={0.9} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
-                </mesh>
-                <mesh position={[0, 0, -0.01]}>
-                    <circleGeometry args={[0.34, 16]} />
-                    <meshBasicMaterial ref={coreMat} color={color} transparent opacity={0.85} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-                </mesh>
-            </Billboard>
+        <group ref={root} position={at} scale={0.01}>
+            <mesh scale={big ? 0.42 : 0.3}>
+                <icosahedronGeometry args={[1, 1]} />
+                <meshToonMaterial ref={registerMaterial} color={palette.core} emissive={palette.accent} emissiveIntensity={0.32} transparent opacity={0.82} depthWrite={false} />
+            </mesh>
+            {layout.map((piece, i) => {
+                const common = {
+                    ref: (mesh: THREE.Mesh | null) => { pieces.current[i] = mesh; },
+                    position: [Math.cos(piece.a) * piece.radius, piece.lift, Math.sin(piece.a) * piece.radius] as [number, number, number],
+                    rotation: [0, -piece.a, (i % 2 ? -1 : 1) * 0.34] as [number, number, number],
+                    scale: piece.size,
+                };
+                if (kind === "fire") return (
+                    <mesh key={i} {...common}><coneGeometry args={[0.16, 0.9, 5]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.22} transparent opacity={0.9} depthWrite={false} /></mesh>
+                );
+                if (kind === "water") return (
+                    <mesh key={i} {...common} scale={[piece.size * 0.52, piece.size, piece.size * 0.52]}><sphereGeometry args={[0.28, 10, 7]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.18} transparent opacity={0.82} depthWrite={false} /></mesh>
+                );
+                if (kind === "wind") return (
+                    <mesh key={i} {...common} rotation={[Math.PI / 2, -piece.a, (i % 2 ? -1 : 1) * 0.28]}><torusGeometry args={[0.38, 0.055, 6, 18, Math.PI * 1.18]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.2} transparent opacity={0.86} depthWrite={false} /></mesh>
+                );
+                if (kind === "earth") return (
+                    <mesh key={i} {...common}><dodecahedronGeometry args={[0.24, 0]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.08} transparent opacity={0.94} depthWrite={false} /></mesh>
+                );
+                return (
+                    <mesh key={i} {...common} scale={[piece.size * 0.2, piece.size * 1.25, piece.size * 0.2]}><octahedronGeometry args={[0.34, 0]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.core} emissiveIntensity={0.32} transparent opacity={0.9} depthWrite={false} /></mesh>
+                );
+            })}
+            <Sparkles count={big ? 16 : 9} scale={[2.8, 2.2, 2.8]} size={2.0} speed={1.25} opacity={0.46} color={palette.core} noise={1.6} />
+            <pointLight ref={light} color={palette.accent} intensity={0} distance={big ? 6 : 4} decay={2} />
+        </group>
+    );
+}
+
+function DuelSupportEffect({ at, color, kind, actorId, duel, clock, onDone }: { at: Vec3; color: string; kind: DuelSupportKind; actorId?: string; duel: DuelResult; clock: { current: DuelClock }; onDone: () => void }) {
+    const root = useRef<THREE.Group>(null);
+    const domeMat = useRef<THREE.MeshToonMaterial>(null);
+    const shaftMat = useRef<THREE.MeshBasicMaterial>(null);
+    const detailMats = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
+    const start = useRef<number | null>(null);
+    const duration = kind === "shield" ? 0.78 : 0.66;
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / duration);
+        const settle = p < 0.22 ? p / 0.22 : 1;
+        const fade = p < 0.68 ? 1 : Math.max(0, 1 - (p - 0.68) / 0.32);
+        if (root.current) {
+            const live = liveDuelEffectPosition(duel, clock, actorId);
+            if (live) root.current.position.set(live.wx, at[1], live.wz);
+            root.current.rotation.y = p * (kind === "shield" ? 2.5 : -1.8);
+            root.current.scale.setScalar(0.78 + settle * 0.22);
+        }
+        if (domeMat.current) domeMat.current.opacity = fade * 0.18;
+        if (shaftMat.current) shaftMat.current.opacity = fade * 0.32;
+        detailMats.current.forEach((material) => { if (material) material.opacity = fade * 0.52; });
+        if (p >= 1) onDone();
+    });
+    return (
+        <group ref={root} position={at}>
+            {kind === "shield" ? (
+                <>
+                    <mesh position={[0, 0.86, 0]} scale={[0.96, 1.08, 0.96]}>
+                        <sphereGeometry args={[1, 24, 16]} />
+                        <meshToonMaterial ref={domeMat} color={color} emissive={color} emissiveIntensity={0.42} transparent opacity={0.18} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    {Array.from({ length: 6 }, (_, i) => {
+                        const a = (i / 6) * Math.PI * 2;
+                        return (
+                            <mesh key={`ward-${i}`} position={[Math.cos(a) * 0.82, 0.72 + (i % 2) * 0.34, Math.sin(a) * 0.82]} rotation={[0, -a + Math.PI / 2, 0]} scale={0.42}>
+                                <circleGeometry args={[0.7, 6]} />
+                                <meshBasicMaterial ref={(material) => { detailMats.current[i] = material; }} color={color} transparent opacity={0.48} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                            </mesh>
+                        );
+                    })}
+                </>
+            ) : (
+                <>
+                    <mesh position={[0, 1.05, 0]}><cylinderGeometry args={[0.18, 0.58, 2.1, 10, 1, true]} /><meshBasicMaterial ref={shaftMat} color={color} transparent opacity={0.3} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} /></mesh>
+                    {Array.from({ length: 6 }, (_, i) => {
+                        const a = (i / 6) * Math.PI * 2;
+                        return <mesh key={i} position={[Math.cos(a) * 0.48, 0.42 + (i % 3) * 0.44, Math.sin(a) * 0.48]} scale={0.08 + (i % 2) * 0.025}><octahedronGeometry args={[1, 0]} /><meshBasicMaterial ref={(material) => { detailMats.current[i] = material; }} color={i % 2 ? "#c5ffe4" : color} transparent opacity={0.52} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>;
+                    })}
+                </>
+            )}
         </group>
     );
 }
@@ -2755,25 +3284,47 @@ function DuelImpact({ at, color, big, onDone }: { at: Vec3; color: string; big: 
  *  SWEEPS, a heavy slam CHOPS overhead, a drain RAKES back. Procedural texture, tinted
  *  by the attacker's element; self-timed; mirrored by `toward` (the attacker's facing).
  *  Render-only — spawned off the deterministic hit stream, never fed back. */
-function DuelMeleeTrail({ at, toward, kind, color, onDone }: { at: Vec3; toward: number; kind: MoveChoreoKind; color: string; onDone: () => void }) {
+function DuelMeleeTrail({ at, toward, kind, color, native = false, onDone }: { at: Vec3; toward: number; kind: MoveChoreoKind; color: string; native?: boolean; onDone: () => void }) {
     const spec = useMemo(() => meleeTrailSpec(kind), [kind]);
     const tex = useMemo(() => (spec.tex === "streak" ? trailStreakTexture() : projCrescentTexture()), [spec.tex]);
     const mesh = useRef<THREE.Mesh>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const edgeMat = useRef<THREE.MeshBasicMaterial>(null);
     const start = useRef<number | null>(null);
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
         const p = Math.min(1, (state.clock.elapsedTime - start.current) / (spec.life / 1000));
         const e = p * p * (3 - 2 * p);   // smoothstep through the swing
         if (mesh.current) {
-            mesh.current.position.set(lerp(spec.dx0, spec.dx1, e), lerp(spec.dy0, spec.dy1, e), 0);
-            mesh.current.rotation.z = lerp(spec.rot0, spec.rot1, e);
             const grow = 0.7 + 0.5 * Math.sin(Math.PI * Math.min(1, p / 0.7));   // swell, then settle
-            mesh.current.scale.set(spec.w * grow, spec.h * grow, 1);
+            if (native) {
+                // Real geometry in arena space: a short saber arc owns a little
+                // depth, catches the lights, and never turns to face the camera.
+                mesh.current.position.set(0, 0.12 + Math.sin(Math.PI * e) * 0.14, 0);
+                mesh.current.rotation.set(0.34 + e * 0.35, (toward < 0 ? -1 : 1) * e * 0.36, lerp(-0.9, 0.9, e));
+                mesh.current.scale.setScalar(grow * (kind === "heavySlam" ? 1.24 : 1));
+            } else {
+                mesh.current.position.set(lerp(spec.dx0, spec.dx1, e), lerp(spec.dy0, spec.dy1, e), 0);
+                mesh.current.rotation.z = lerp(spec.rot0, spec.rot1, e);
+                mesh.current.scale.set(spec.w * grow, spec.h * grow, 1);
+            }
         }
         if (mat.current) mat.current.opacity = (p < 0.22 ? p / 0.22 : 1 - (p - 0.22) / 0.78) * 0.9;
+        if (edgeMat.current) edgeMat.current.opacity = (p < 0.22 ? p / 0.22 : 1 - (p - 0.22) / 0.78) * 0.68;
         if (p >= 1) onDone();
     });
+    if (native) return (
+        <group position={at} scale={[toward, 1, 1]}>
+            <mesh ref={mesh}>
+                <torusGeometry args={[0.78, kind === "heavySlam" ? 0.095 : 0.068, 8, 24, Math.PI * 0.86]} />
+                <meshBasicMaterial ref={mat} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <mesh position={[0, 0.13, 0.025]} rotation={[0.34, 0, -0.04]}>
+                <torusGeometry args={[0.78, 0.026, 6, 24, Math.PI * 0.86]} />
+                <meshBasicMaterial ref={edgeMat} color="#fff8df" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+        </group>
+    );
     return (
         <group position={at}>
             <Billboard>
@@ -2798,28 +3349,592 @@ function DuelShockwave({ at, color, big, onDone }: { at: Vec3; color: string; bi
     const m2 = useRef<THREE.MeshBasicMaterial>(null);
     const start = useRef<number | null>(null);
     const DUR = big ? 0.5 : 0.36;
-    const maxR = big ? 3.0 : 1.7;
+    const maxR = big ? 2.15 : 1.3;
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
         const p = Math.min(1, (state.clock.elapsedTime - start.current) / DUR);
         const ease = 1 - (1 - p) * (1 - p);
         if (r1.current) r1.current.scale.setScalar(0.3 + ease * maxR);
-        if (m1.current) m1.current.opacity = (1 - p) * 0.7;
+        if (m1.current) m1.current.opacity = (1 - p) * 0.46;
         if (r2.current) r2.current.scale.setScalar(0.2 + Math.max(0, ease - 0.15) * maxR * 0.7);
-        if (m2.current) m2.current.opacity = (1 - p) * 0.5;
+        if (m2.current) m2.current.opacity = (1 - p) * 0.3;
         if (p >= 1) onDone();
     });
     return (
         <group position={[at[0], 0.05, at[2]]} rotation={[-Math.PI / 2, 0, 0]}>
             <mesh ref={r1}>
-                <ringGeometry args={[0.72, 1.0, 40]} />
-                <meshBasicMaterial ref={m1} color={color} transparent opacity={0.7} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                <ringGeometry args={[0.9, 1.0, 40]} />
+                <meshBasicMaterial ref={m1} color={color} transparent opacity={0.46} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
             </mesh>
             <mesh ref={r2}>
-                <ringGeometry args={[0.8, 0.94, 40]} />
-                <meshBasicMaterial ref={m2} color="#ffffff" transparent opacity={0.5} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                <ringGeometry args={[0.91, 0.96, 40]} />
+                <meshBasicMaterial ref={m2} color={color} transparent opacity={0.28} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
             </mesh>
         </group>
+    );
+}
+
+/** A restrained 3D anime power-up column. The pet remains readable inside a
+ * golden, flame-pointed shell while element-tinted rings and motes stream up.
+ * Unlike the old aura flipbook this is world-space geometry, so it wraps the
+ * model and reads as a sustained transformation beat instead of an impact. */
+function DuelPowerUpAura({ at, color, quality, actorId, duel, clock, onDone }: { at: Vec3; color: string; quality: PetVisualQualityConfig; actorId?: string; duel: DuelResult; clock: { current: DuelClock }; onDone: () => void }) {
+    const root = useRef<THREE.Group>(null);
+    const petalMeshes = useRef<Array<THREE.Mesh | null>>([]);
+    const petalMats = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const ringA = useRef<THREE.Mesh>(null);
+    const ringB = useRef<THREE.Mesh>(null);
+    const ringMatA = useRef<THREE.MeshBasicMaterial>(null);
+    const ringMatB = useRef<THREE.MeshBasicMaterial>(null);
+    const light = useRef<THREE.PointLight>(null);
+    const start = useRef<number | null>(null);
+    const auraPetals = useMemo(() => Array.from({ length: 9 }, (_, i) => makeFlamePetalGeometry(2.25 + (i % 4) * 0.28, 0.18 + (i % 3) * 0.045, 0.34 + (i % 2) * 0.22)), []);
+    useEffect(() => () => auraPetals.forEach((geometry) => geometry.dispose()), [auraPetals]);
+    const duration = 0.92;
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const elapsed = state.clock.elapsedTime - start.current;
+        const p = Math.min(1, elapsed / duration);
+        const arrive = 1 - Math.pow(1 - Math.min(1, p / 0.16), 3);
+        const fade = p < 0.72 ? 1 : Math.max(0, 1 - (p - 0.72) / 0.28);
+        const pulse = 0.94 + Math.sin(elapsed * 28) * 0.045;
+        if (root.current) {
+            const live = liveDuelEffectPosition(duel, clock, actorId);
+            if (live) root.current.position.set(live.wx, at[1], live.wz);
+            root.current.scale.set(pulse * arrive, arrive * (0.82 + 0.18 * pulse), pulse * arrive);
+        }
+        petalMeshes.current.forEach((mesh, i) => {
+            if (!mesh) return;
+            const flicker = Math.sin(elapsed * (10 + i % 3) + i * 1.31);
+            mesh.scale.y = 0.9 + flicker * 0.1;
+            mesh.scale.x = mesh.scale.z = 1.0 - flicker * 0.045;
+            mesh.rotation.z = flicker * 0.035;
+        });
+        petalMats.current.forEach((material, i) => { if (material) material.opacity = fade * (i % 3 === 0 ? 0.72 : 0.54); });
+        const liftA = (p * 2.4) % 1;
+        const liftB = (p * 2.4 + 0.5) % 1;
+        if (ringA.current) { ringA.current.position.y = 0.12 + liftA * 2.7; ringA.current.scale.setScalar(1.25 - liftA * 0.62); }
+        if (ringB.current) { ringB.current.position.y = 0.12 + liftB * 2.7; ringB.current.scale.setScalar(1.25 - liftB * 0.62); }
+        if (ringMatA.current) ringMatA.current.opacity = fade * Math.sin(Math.PI * liftA) * 0.36;
+        if (ringMatB.current) ringMatB.current.opacity = fade * Math.sin(Math.PI * liftB) * 0.3;
+        if (light.current) light.current.intensity = fade * arrive * (0.8 + Math.abs(Math.sin(elapsed * 18)) * 0.45);
+        if (p >= 1) onDone();
+    });
+    return (
+        <group ref={root} position={[at[0], 0.03, at[2]]} scale={0.01}>
+            {auraPetals.map((geometry, i) => {
+                const a = (i / auraPetals.length) * Math.PI * 2;
+                const radius = i < 3 ? 0.32 : 0.62 + (i % 3) * 0.1;
+                return (
+                    <mesh key={i} ref={(mesh) => { petalMeshes.current[i] = mesh; }} geometry={geometry} position={[Math.cos(a) * radius, 0.02, Math.sin(a) * radius]} rotation={[0, a, 0]}>
+                        <meshToonMaterial ref={(material) => { petalMats.current[i] = material; }} color={i % 3 === 0 ? "#ffe45c" : i % 2 ? "#ff9d24" : color} emissive={i % 3 === 0 ? "#ffb000" : "#b94c12"} emissiveIntensity={0.28} transparent opacity={0} depthWrite={false} />
+                    </mesh>
+                );
+            })}
+            <mesh ref={ringA} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[1.0, 0.022, 6, 40]} />
+                <meshBasicMaterial ref={ringMatA} color="#ffd85a" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <mesh ref={ringB} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.88, 0.018, 6, 40]} />
+                <meshBasicMaterial ref={ringMatB} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            <Sparkles count={Math.max(6, Math.round(quality.setPieceParticles * 0.42))} scale={[2.3, 3.15, 2.3]} position={[0, 1.52, 0]} size={2.35} speed={1.5} opacity={0.58} color="#fff0a1" noise={0.5} />
+            {quality.translucentLayers > 1 && <Sparkles count={Math.max(4, Math.round(quality.setPieceParticles * 0.2))} scale={[3.0, 0.38, 3.0]} position={[0, 0.17, 0]} size={1.8} speed={0.48} opacity={0.34} color="#d9a74f" noise={0.65} />}
+            {quality.dynamicPetLight && <pointLight ref={light} color="#ffc94a" intensity={0} distance={4.8} decay={2} position={[0, 1.15, 0]} />}
+        </group>
+    );
+}
+
+/** Hand-drawn anime wave silhouette used by the arena-scale Water set piece.
+ * The opaque blue body gives it mass while the white contour strokes read as
+ * foam; NormalBlending prevents it turning into a washed-out additive slab. */
+function _makeAnimeWaveTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d")!;
+    const body = ctx.createLinearGradient(0, 60, 0, 510);
+    body.addColorStop(0, "rgba(224,252,255,0.96)");
+    body.addColorStop(0.18, "rgba(76,201,240,0.94)");
+    body.addColorStop(0.62, "rgba(15,120,199,0.88)");
+    body.addColorStop(1, "rgba(4,51,118,0.72)");
+
+    // One broad crest with a curled leading lip and a heavy rolling base.
+    ctx.beginPath();
+    ctx.moveTo(8, 492);
+    ctx.bezierCurveTo(94, 414, 164, 372, 260, 388);
+    ctx.bezierCurveTo(324, 398, 362, 424, 414, 420);
+    ctx.bezierCurveTo(356, 354, 354, 276, 398, 202);
+    ctx.bezierCurveTo(472, 76, 650, 42, 796, 132);
+    ctx.bezierCurveTo(874, 180, 912, 250, 1008, 276);
+    ctx.bezierCurveTo(948, 282, 888, 262, 828, 226);
+    ctx.bezierCurveTo(874, 284, 942, 354, 1018, 448);
+    ctx.lineTo(1024, 512);
+    ctx.lineTo(0, 512);
+    ctx.closePath();
+    ctx.fillStyle = body;
+    ctx.fill();
+
+    // Graphic-novel ink edge under the foam keeps the silhouette crisp.
+    ctx.strokeStyle = "rgba(5,44,104,0.82)";
+    ctx.lineWidth = 20;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(238,255,255,0.98)";
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.moveTo(401, 205);
+    ctx.bezierCurveTo(479, 78, 651, 52, 793, 139);
+    ctx.bezierCurveTo(866, 184, 910, 247, 997, 272);
+    ctx.stroke();
+
+    // Curved cel-shaded speed bands make the body feel like moving water.
+    ctx.lineCap = "round";
+    for (let i = 0; i < 4; i += 1) {
+        const y = 284 + i * 45;
+        ctx.strokeStyle = i % 2 === 0 ? "rgba(180,245,255,0.68)" : "rgba(7,72,151,0.62)";
+        ctx.lineWidth = i % 2 === 0 ? 9 : 13;
+        ctx.beginPath();
+        ctx.moveTo(158 - i * 20, y + 64);
+        ctx.bezierCurveTo(360, y - 35, 690, y - 40, 925 + i * 18, y + 22);
+        ctx.stroke();
+    }
+
+    // Foam clusters along the curling lip.
+    ctx.fillStyle = "rgba(245,255,255,0.94)";
+    [[424, 186, 20], [455, 151, 15], [491, 127, 19], [540, 104, 13], [586, 94, 18], [638, 99, 12], [689, 112, 17], [736, 132, 12], [784, 161, 16], [831, 194, 11]].forEach(([x, y, r]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    texture.premultiplyAlpha = true;
+    return texture;
+}
+
+/** Saturated cel-animation fire payoff. A jagged red/orange burst supplies the
+ * graphic silhouette; tapered yellow tongues keep it reading as flame rather
+ * than the pale crystal spikes produced by enlarged transparent cones. */
+function _makeAnimeFlameBurstTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement("canvas");
+    canvas.width = 768;
+    canvas.height = 768;
+    const ctx = canvas.getContext("2d")!;
+    const cx = 384, cy = 420;
+    const star = (spikes: number, inner: number, outer: number, phase: number) => {
+        ctx.beginPath();
+        for (let i = 0; i < spikes * 2; i += 1) {
+            const a = phase + (i / (spikes * 2)) * Math.PI * 2;
+            const r = i % 2 === 0 ? outer * (0.88 + (i % 5) * 0.025) : inner;
+            const x = cx + Math.cos(a) * r;
+            const y = cy + Math.sin(a) * r * 0.82;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+    };
+
+    const outer = ctx.createRadialGradient(cx, cy, 28, cx, cy, 342);
+    outer.addColorStop(0, "#fffbd1");
+    outer.addColorStop(0.2, "#ffd338");
+    outer.addColorStop(0.58, "#ff6a1a");
+    outer.addColorStop(1, "rgba(175,24,13,0.9)");
+    star(18, 222, 352, -Math.PI / 2);
+    ctx.fillStyle = outer;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(75,12,12,0.88)";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 18;
+    ctx.stroke();
+
+    // A light inner impact star gives the burst a hard anime hit-frame core.
+    star(12, 105, 232, -Math.PI / 2);
+    const core = ctx.createRadialGradient(cx, cy, 12, cx, cy, 230);
+    core.addColorStop(0, "#ffffff");
+    core.addColorStop(0.28, "#fff39a");
+    core.addColorStop(0.72, "#ffb20e");
+    core.addColorStop(1, "rgba(255,82,10,0.8)");
+    ctx.fillStyle = core;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(139,31,8,0.72)";
+    ctx.lineWidth = 10;
+    ctx.stroke();
+
+    // Five asymmetrical flame tongues stretch the silhouette vertically.
+    [-210, -112, 0, 112, 210].forEach((offset, i) => {
+        const baseY = 585 - Math.abs(offset) * 0.16;
+        const tipY = 78 + (i % 2) * 86 + Math.abs(offset) * 0.22;
+        const width = i === 2 ? 92 : 62;
+        ctx.beginPath();
+        ctx.moveTo(cx + offset - width, baseY);
+        ctx.bezierCurveTo(cx + offset - width * 0.75, 430, cx + offset - width * 0.35, tipY + 80, cx + offset + (i % 2 ? 22 : -18), tipY);
+        ctx.bezierCurveTo(cx + offset + width * 0.35, tipY + 104, cx + offset + width, 438, cx + offset + width, baseY);
+        ctx.closePath();
+        const tongue = ctx.createLinearGradient(0, tipY, 0, baseY);
+        tongue.addColorStop(0, "rgba(255,243,120,0.96)");
+        tongue.addColorStop(0.5, "rgba(255,126,16,0.94)");
+        tongue.addColorStop(1, "rgba(195,30,12,0.78)");
+        ctx.fillStyle = tongue;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(94,17,10,0.8)";
+        ctx.lineWidth = 12;
+        ctx.stroke();
+    });
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    texture.premultiplyAlpha = true;
+    return texture;
+}
+
+function makeWaveVolumeGeometry(): THREE.BufferGeometry {
+    const sx = 30, sy = 14;
+    const positions: number[] = [], uvs: number[] = [], indices: number[] = [];
+    for (let iy = 0; iy <= sy; iy++) {
+        const v = iy / sy;
+        for (let ix = 0; ix <= sx; ix++) {
+            const u = ix / sx;
+            const x = (u - 0.5) * 5.4;
+            const crestProfile = u <= 0.68 ? Math.pow(u / 0.68, 0.58) : Math.pow((1 - u) / 0.32, 0.72);
+            const height = 0.62 + 2.48 * crestProfile;
+            const curl = v < 0.7 ? v * 0.2 : 0.14 + ((v - 0.7) / 0.3) * 1.08;
+            const ripple = Math.sin(u * Math.PI * 7 + v * 3.2) * 0.055 * (0.3 + v);
+            positions.push(x, 0.03 + v * height, -0.28 + curl + ripple);
+            uvs.push(u, v);
+        }
+    }
+    for (let iy = 0; iy < sy; iy++) for (let ix = 0; ix < sx; ix++) {
+        const a = iy * (sx + 1) + ix, b = a + 1, c = a + sx + 1, d = c + 1;
+        indices.push(a, c, b, b, c, d);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+}
+
+function makeWaveCrestGeometry(): THREE.TubeGeometry {
+    const points = Array.from({ length: 13 }, (_, i) => {
+        const u = i / 12;
+        const x = (u - 0.5) * 5.4;
+        const crestProfile = u <= 0.68 ? Math.pow(u / 0.68, 0.58) : Math.pow((1 - u) / 0.32, 0.72);
+        return new THREE.Vector3(x, 0.66 + 2.48 * crestProfile, 0.84 + Math.sin(u * Math.PI * 5) * 0.07);
+    });
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 48, 0.115, 7, false);
+}
+
+function makeFlamePetalGeometry(height: number, radius: number, bend: number): THREE.BufferGeometry {
+    // Enough curvature to keep the flame silhouette stylized, without the visibly
+    // faceted paper-shard look from the first arena-scale burst.
+    const rings = 10, sides = 10;
+    const positions: number[] = [], indices: number[] = [];
+    for (let ring = 0; ring <= rings; ring++) {
+        const t = ring / rings;
+        const rr = Math.max(0.025, radius * Math.pow(1 - t, 0.72));
+        const centerZ = bend * t * t;
+        for (let side = 0; side < sides; side++) {
+            const a = (side / sides) * Math.PI * 2;
+            positions.push(Math.cos(a) * rr, t * height, centerZ + Math.sin(a) * rr);
+        }
+    }
+    for (let ring = 0; ring < rings; ring++) for (let side = 0; side < sides; side++) {
+        const next = (side + 1) % sides;
+        const a = ring * sides + side, b = ring * sides + next;
+        const c = (ring + 1) * sides + side, d = (ring + 1) * sides + next;
+        indices.push(a, c, b, b, c, d);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+}
+
+function makeTornadoTube(phase: number): THREE.TubeGeometry {
+    const points = Array.from({ length: 38 }, (_, i) => {
+        const t = i / 37;
+        const a = phase + t * Math.PI * 6;
+        const radius = 0.22 + t * 1.72;
+        return new THREE.Vector3(Math.cos(a) * radius, 0.12 + t * 4.65, Math.sin(a) * radius);
+    });
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 72, 0.052, 6, false);
+}
+
+/** Arena-scale signature spectacle. These are procedural 3D shapes rather than a
+ * billboard enlarged until it blurs: Water travels as a cresting wall, Wind owns
+ * vertical space as a rotating funnel, and Fire blooms outward in layered flame
+ * petals. They remain translucent so the pets stay readable through the effect. */
+function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
+    kind: DuelSetPieceKind; from: Vec3; to: Vec3; color: string; quality: PetVisualQualityConfig; onDone: () => void;
+}) {
+    const root = useRef<THREE.Group>(null);
+    const materials = useRef<Array<THREE.Material & { opacity: number }>>([]);
+    const flameMeshes = useRef<THREE.Mesh[]>([]);
+    const flameLight = useRef<THREE.PointLight>(null);
+    const start = useRef<number | null>(null);
+    const completed = useRef(false);
+    const waveVolume = useMemo(() => kind === "tidalWave" ? makeWaveVolumeGeometry() : null, [kind]);
+    const waveCrest = useMemo(() => kind === "tidalWave" ? makeWaveCrestGeometry() : null, [kind]);
+    const flamePetalCount = quality.id === "low" ? 6 : quality.id === "medium" ? 7 : 8;
+    const tornadoTubeCount = quality.id === "low" ? 2 : quality.id === "medium" ? 3 : 4;
+    const flamePetals = useMemo(() => kind === "flameBurst"
+        ? Array.from({ length: flamePetalCount }, (_, i) => makeFlamePetalGeometry(1.72 + (i % 4) * 0.3, 0.38 + (i % 3) * 0.075, 0.62 + (i % 2) * 0.32))
+        : [], [kind, flamePetalCount]);
+    const tornadoTubes = useMemo(() => kind === "tornado"
+        ? Array.from({ length: tornadoTubeCount }, (_, i) => (i / tornadoTubeCount) * Math.PI * 2).map(makeTornadoTube)
+        : [], [kind, tornadoTubeCount]);
+    useEffect(() => () => {
+        waveVolume?.dispose(); waveCrest?.dispose();
+        flamePetals.forEach((geometry) => geometry.dispose());
+        tornadoTubes.forEach((geometry) => geometry.dispose());
+    }, [waveVolume, waveCrest, flamePetals, tornadoTubes]);
+    const dx = to[0] - from[0], dz = to[2] - from[2];
+    const angle = Math.atan2(dx, dz);
+    // The cut-in supplies the anticipation; the set piece itself arrives fast,
+    // then holds its full arena silhouette for the payoff instead of drifting in.
+    const duration = kind === "tornado" ? 2.4 : kind === "tidalWave" ? 2.45 : kind === "flameBurst" ? 2.3 : kind === "lightningStorm" ? 2.15 : kind === "earthBurst" ? 2.25 : 2.05;
+    const registerMaterial = (material: (THREE.Material & { opacity: number }) | null) => {
+        if (!material || materials.current.includes(material)) return;
+        material.userData.baseOpacity = material.opacity;
+        materials.current.push(material);
+    };
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / duration);
+        const rise = Math.min(1, p / 0.18);
+        const fade = p < 0.82 ? rise : Math.max(0, 1 - (p - 0.82) / 0.18);
+        const g = root.current;
+        if (g) {
+            if (kind === "tidalWave") {
+                // Cross the lane in about 0.8s, then hold the full crest past the
+                // cut-in so speed never costs the player the actual water payoff.
+                const travel = 1 - Math.pow(1 - Math.min(1, p / 0.3), 2);
+                g.position.set(lerp(from[0], to[0], travel), 0.15, lerp(from[2], to[2], travel));
+                g.rotation.y = angle;
+                g.scale.set(0.72 + p * 0.32, 0.68 + Math.sin(Math.PI * p) * 0.34, 0.82 + p * 0.18);
+            } else {
+                g.position.set(to[0], 0.08, to[2]);
+                g.rotation.y = angle + p * (kind === "tornado" ? Math.PI * 5.5 : Math.PI * 1.3);
+                // Snap large, then HOLD the arena silhouette until the final fade.
+                // The previous sine swell collapsed back to half-size while the
+                // cut-in was still clearing, which made the actual payoff look tiny.
+                const grow = 1 - Math.pow(1 - Math.min(1, p / 0.22), 3);
+                const fullScale = kind === "flameBurst" ? 1.08 : kind === "tornado" ? 1.38 : kind === "lightningStorm" ? 1.28 : kind === "earthBurst" ? 1.18 : 1.25;
+                const settle = p < 0.82 ? 1 : 1 - Math.min(1, (p - 0.82) / 0.18) * 0.16;
+                g.scale.setScalar((0.45 + grow * (fullScale - 0.45)) * settle);
+            }
+        }
+        if (kind === "flameBurst") {
+            flameMeshes.current.forEach((mesh, i) => {
+                const flicker = Math.sin(state.clock.elapsedTime * (8.5 + (i % 3)) + i * 1.7);
+                mesh.scale.y = 0.9 + flicker * 0.13;
+                mesh.scale.x = mesh.scale.z = 1.02 - flicker * 0.055;
+                mesh.rotation.z = flicker * 0.045;
+            });
+            if (flameLight.current) flameLight.current.intensity = fade * (5 + Math.abs(Math.sin(state.clock.elapsedTime * 11)) * 3);
+        }
+        for (const material of materials.current) material.opacity = Number(material.userData.baseOpacity ?? 0.5) * fade;
+        if (p >= 1 && !completed.current) { completed.current = true; onDone(); }
+    });
+
+    const mat = (opacity: number, white = false) => (
+        <meshBasicMaterial ref={registerMaterial} color={white ? "#effcff" : color} transparent opacity={opacity} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+    );
+    return (
+        <group ref={root}>
+            {kind === "tidalWave" && (
+                <group>
+                    <mesh geometry={waveVolume ?? undefined} castShadow>
+                        <meshToonMaterial ref={registerMaterial} color="#087dbf" emissive="#063a73" emissiveIntensity={0.22} transparent opacity={0.58} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <mesh geometry={waveVolume ?? undefined} position={[0, 0.02, -0.24]} scale={[1.02, 0.88, 0.94]}>
+                        <meshToonMaterial ref={registerMaterial} color="#064f91" emissive="#032b63" emissiveIntensity={0.18} transparent opacity={0.3} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <mesh geometry={waveCrest ?? undefined}>
+                        <meshToonMaterial ref={registerMaterial} color="#d8fbff" emissive="#73dbe8" emissiveIntensity={0.34} transparent opacity={0.76} depthWrite={false} />
+                    </mesh>
+                    <mesh position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <ringGeometry args={[1.2, 2.65, 48]} />
+                        {mat(0.22)}
+                    </mesh>
+                    <Sparkles count={quality.setPieceParticles} position={[0, 1.52, 0.35]} scale={[5.4, 2.8, 1.55]} size={2.6} speed={1.15} opacity={0.48} color="#c8f8ff" noise={1.55} />
+                </group>
+            )}
+            {kind === "tornado" && (
+                <group>
+                    <mesh position={[0, 2.25, 0]}>
+                        <coneGeometry args={[1.95, 4.5, 20, 1, true]} />
+                        <meshToonMaterial ref={registerMaterial} color="#215f5c" emissive="#0c3c3a" emissiveIntensity={0.14} transparent opacity={0.1} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <mesh position={[0, 1.96, 0]}>
+                        <coneGeometry args={[0.78, 3.92, 16, 1, true]} />
+                        <meshToonMaterial ref={registerMaterial} color="#123b3d" emissive="#082527" emissiveIntensity={0.1} transparent opacity={0.3} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    {tornadoTubes.map((geometry, i) => (
+                        <mesh key={i} geometry={geometry}>
+                            <meshToonMaterial
+                                ref={registerMaterial}
+                                color={i % 3 === 0 ? "#b8f5e8" : i % 3 === 1 ? "#36bfa7" : "#176f69"}
+                                emissive={i % 3 === 0 ? "#4bc9b4" : "#0b403e"}
+                                emissiveIntensity={i % 3 === 0 ? 0.28 : 0.12}
+                                transparent
+                                opacity={i % 3 === 0 ? 0.7 : 0.48}
+                                depthWrite={false}
+                            />
+                        </mesh>
+                    ))}
+                    <mesh position={[0, 0.12, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                        <torusGeometry args={[1.28, 0.085, 7, 34, Math.PI * 1.72]} />
+                        <meshToonMaterial ref={registerMaterial} color="#48c9b2" emissive="#1c766e" emissiveIntensity={0.22} transparent opacity={0.58} depthWrite={false} />
+                    </mesh>
+                    {Array.from({ length: 9 }, (_, i) => {
+                        const a = (i / 9) * Math.PI * 2;
+                        const r = 0.75 + (i % 3) * 0.48;
+                        return (
+                            <mesh key={`debris-${i}`} position={[Math.cos(a) * r, 0.35 + (i % 4) * 0.58, Math.sin(a) * r]} scale={0.1 + (i % 3) * 0.045}>
+                                <dodecahedronGeometry args={[1, 0]} />
+                                <meshToonMaterial ref={registerMaterial} color="#708078" transparent opacity={0.72} depthWrite={false} />
+                            </mesh>
+                        );
+                    })}
+                    <Sparkles count={quality.setPieceParticles} scale={[4.4, 5.5, 4.4]} position={[0, 2.25, 0]} size={2.4} speed={1.35} opacity={0.38} color="#b9f5e7" noise={2.3} />
+                </group>
+            )}
+            {kind === "flameBurst" && (
+                <group>
+                    <mesh position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <ringGeometry args={[1.05, 2.35, 48]} />
+                        {mat(0.5)}
+                    </mesh>
+                    {flamePetals.map((geometry, i) => {
+                        const a = (i / flamePetals.length) * Math.PI * 2;
+                        const r = i < 3 ? 0.32 : 0.76 + (i % 3) * 0.2;
+                        const inner = i < 3;
+                        return (
+                            <mesh
+                                key={i}
+                                ref={(mesh) => { if (mesh) flameMeshes.current[i] = mesh; }}
+                                geometry={geometry}
+                                position={[Math.cos(a) * r, 0.04, Math.sin(a) * r]}
+                                rotation={[0, a, 0]}
+                                castShadow
+                            >
+                                <meshToonMaterial
+                                    ref={registerMaterial}
+                                    color={inner ? "#ffe45c" : i % 2 ? "#ff6a18" : "#d92f12"}
+                                    emissive={inner ? "#ffb000" : "#7f1708"}
+                                    emissiveIntensity={inner ? 0.48 : 0.24}
+                                    transparent
+                                    opacity={inner ? 0.94 : 0.9}
+                                    depthWrite={inner}
+                                />
+                            </mesh>
+                        );
+                    })}
+                    <mesh position={[0, 0.82, 0]} scale={0.88}>
+                        <icosahedronGeometry args={[1, 1]} />
+                        <meshToonMaterial ref={registerMaterial} color="#fff4a3" emissive="#ff6a00" emissiveIntensity={0.52} transparent opacity={0.66} depthWrite={false} />
+                    </mesh>
+                    {quality.dynamicPetLight && <pointLight ref={flameLight} position={[0, 1.4, 0]} color="#ff6a22" intensity={0} distance={8} decay={2} />}
+                    <Sparkles count={quality.setPieceParticles} scale={[5.2, 4.3, 5.2]} position={[0, 1.5, 0]} size={3.4} speed={1.35} opacity={0.6} color="#fff1c2" noise={2.0} />
+                </group>
+            )}
+            {kind === "lightningStorm" && (
+                <group>
+                    {[0, 1, 2, 3].map((i) => (
+                        <mesh key={`cloud-${i}`} position={[(i - 1.5) * 0.48, 3.35 + (i % 2) * 0.18, (i % 2 ? -1 : 1) * 0.28]} scale={[0.92, 0.48, 0.72]}>
+                            <icosahedronGeometry args={[0.72, 1]} />
+                            <meshToonMaterial ref={registerMaterial} color={i % 2 ? "#34255f" : "#21163e"} emissive="#5b3db0" emissiveIntensity={0.16} transparent opacity={0.86} depthWrite={false} />
+                        </mesh>
+                    ))}
+                    {Array.from({ length: 9 }, (_, i) => {
+                        const zig = i % 2 ? 0.34 : -0.28;
+                        return (
+                            <mesh key={`bolt-${i}`} position={[zig + (i > 5 ? 0.28 : 0), 3.12 - i * 0.36, (i % 3 - 1) * 0.08]} rotation={[0, 0, (i % 2 ? -1 : 1) * 0.42]} scale={[0.13, 0.48, 0.13]}>
+                                <octahedronGeometry args={[0.5, 0]} />
+                                <meshToonMaterial ref={registerMaterial} color={i % 3 === 0 ? "#fff3a3" : "#b89cff"} emissive={i % 3 === 0 ? "#ffd83d" : "#7b4fff"} emissiveIntensity={0.5} transparent opacity={0.96} depthWrite={false} />
+                            </mesh>
+                        );
+                    })}
+                    <mesh position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <ringGeometry args={[0.8, 2.25, 46]} />
+                        <meshBasicMaterial ref={registerMaterial} color="#7657dc" transparent opacity={0.32} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                    </mesh>
+                    <Sparkles count={quality.setPieceParticles} scale={[4.8, 5.2, 4.8]} position={[0, 2.0, 0]} size={2.5} speed={1.8} opacity={0.52} color="#e4d8ff" noise={2.4} />
+                </group>
+            )}
+            {kind === "earthBurst" && (
+                <group>
+                    <mesh position={[0, 0.42, 0]} scale={[1.28, 0.66, 1.28]} castShadow>
+                        <dodecahedronGeometry args={[1.15, 0]} />
+                        <meshToonMaterial ref={registerMaterial} color="#6b4026" emissive="#2f1c12" emissiveIntensity={0.06} transparent opacity={0.94} depthWrite />
+                    </mesh>
+                    {Array.from({ length: 12 }, (_, i) => {
+                        const a = (i / 12) * Math.PI * 2;
+                        const r = 0.9 + (i % 3) * 0.38;
+                        return (
+                            <mesh key={`stone-${i}`} position={[Math.cos(a) * r, 0.45 + (i % 4) * 0.38, Math.sin(a) * r]} rotation={[a * 0.4, -a, a * 0.22]} scale={0.22 + (i % 3) * 0.08} castShadow>
+                                <dodecahedronGeometry args={[1, 0]} />
+                                <meshToonMaterial ref={registerMaterial} color={i % 3 === 0 ? "#d49a4a" : i % 2 ? "#83512e" : "#533520"} emissive="#3a2416" emissiveIntensity={0.05} transparent opacity={0.96} depthWrite />
+                            </mesh>
+                        );
+                    })}
+                    <mesh position={[0, 0.07, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                        <ringGeometry args={[1.1, 2.65, 12]} />
+                        <meshToonMaterial ref={registerMaterial} color="#c38b47" emissive="#5c3821" emissiveIntensity={0.12} transparent opacity={0.58} depthWrite={false} side={THREE.DoubleSide} />
+                    </mesh>
+                    <Sparkles count={Math.max(10, Math.round(quality.setPieceParticles * 0.7))} scale={[5.4, 2.8, 5.4]} position={[0, 1.15, 0]} size={3.2} speed={0.72} opacity={0.42} color="#d8b17a" noise={2.1} />
+                </group>
+            )}
+            {kind === "elemental" && (
+                <group>
+                    {[0, 1, 2].map((i) => (
+                        <mesh key={i} position={[0, 0.35 + i * 0.75, 0]} rotation={[Math.PI / 2, i * 0.6, 0]}>
+                            <torusGeometry args={[0.8 + i * 0.55, 0.1, 8, 40, Math.PI * 1.7]} />
+                            {mat(0.52 - i * 0.08, i === 2)}
+                        </mesh>
+                    ))}
+                    <Sparkles count={38} scale={[4.6, 4.2, 4.6]} position={[0, 1.5, 0]} size={3} speed={0.9} opacity={0.55} color="#ffffff" noise={1.7} />
+                </group>
+            )}
+        </group>
+    );
+}
+
+function DuelAiDebugHud({ duel, clock, nameById }: { duel: DuelResult; clock: { current: DuelClock }; nameById: Record<string, string> }) {
+    const [tick, setTick] = useState(0);
+    useEffect(() => {
+        const timer = window.setInterval(() => setTick(Math.max(0, Math.floor(clock.current.t))), 100);
+        return () => window.clearInterval(timer);
+    }, [clock]);
+    const snap = duel.snapshots[Math.min(duel.snapshots.length - 1, tick)];
+    if (!snap) return null;
+    const recent = duel.events.filter((event) => event.type === "hit" && event.t <= tick && event.t >= tick - DUEL_TPS * 2).slice(-4);
+    return (
+        <div data-testid="pet-duel-ai-debug" style={{ position: "absolute", top: 52, right: 12, zIndex: 50, width: "min(390px,45vw)", maxHeight: "70vh", overflow: "auto", pointerEvents: "none", padding: 10, borderRadius: 10, border: "1px solid rgba(125,211,252,0.55)", background: "rgba(2,6,23,0.88)", color: "#e2e8f0", boxShadow: "0 10px 30px rgba(0,0,0,0.45)", font: "600 10px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7, color: "#7dd3fc", fontWeight: 900 }}><span>AI TRUTH TRACE</span><span>t {(tick / DUEL_TPS).toFixed(1)}s</span></div>
+            {snap.actors.map((actor) => (
+                <div key={actor.id} style={{ padding: "7px 0", borderTop: "1px solid rgba(148,163,184,0.18)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", color: actor.team === "player" ? "#86efac" : "#fca5a5", fontWeight: 900 }}>
+                        <span>{nameById[actor.id] ?? actor.id}</span><span>{Math.round(actor.hp)}/{actor.maxHp} HP</span>
+                    </div>
+                    <div><span style={{ color: "#fef08a" }}>{actor.ai?.state ?? "trace unavailable"}</span> → {actor.ai?.targetId ? (nameById[actor.ai.targetId] ?? actor.ai.targetId) : "none"} · R* {actor.ai?.desiredRange ?? "—"}</div>
+                    <div>plan: {actor.ai?.plan ?? "—"}</div>
+                    <div style={{ color: "#94a3b8" }}>why: {actor.ai?.reason ?? "—"}</div>
+                    <div style={{ color: "#c4b5fd" }}>element: {actor.ai?.elementalSetup ?? "—"}</div>
+                    <div>status: {actor.statuses.join(", ") || "clear"}</div>
+                    {actor.ai?.path && actor.ai.path.length > 1 && <div>path: {actor.ai.path.map((point) => `(${point.x.toFixed(1)},${point.y.toFixed(1)})`).join(" → ")}</div>}
+                    {actor.ai?.cooldownPriorities?.length ? <div style={{ color: "#bae6fd" }}>cd: {actor.ai.cooldownPriorities.join(" · ")}</div> : null}
+                </div>
+            ))}
+            <div style={{ borderTop: "1px solid rgba(148,163,184,0.18)", paddingTop: 6, color: "#fda4af" }}>recent damage: {recent.length ? recent.map((event) => `${nameById[event.actorId] ?? event.actorId} ${event.dmg ?? 0}`).join(" · ") : "none"}</div>
+        </div>
     );
 }
 
@@ -2835,11 +3950,16 @@ export type PetColiseumDuelProps = {
      *  /petvfx.html preview harness, where the renderer self-runs from the seed. */
     result?: DuelResult;
     sharedImages?: Record<string, string>;
+    /** Dev-harness scrub point for deterministic VFX screenshots. Live callers omit it. */
+    initialTick?: number;
     onFightAgain?: () => void;
     onExit: () => void;
 };
 
-export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, sharedImages = {}, onFightAgain, onExit }: PetColiseumDuelProps) {
+export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, sharedImages = {}, initialTick = 0, onFightAgain, onExit }: PetColiseumDuelProps) {
+    const quality = useMemo(() => petVisualQuality(), []);
+    const perfQa = useMemo(() => new URLSearchParams(window.location.search).get("petPerf") === "1", []);
+    const mobileQa = useMemo(() => new URLSearchParams(window.location.search).get("mobileqa") === "1", []);
     const duel = useMemo(
         () => result
             ?? ((playerReservePet || enemyReservePet)
@@ -2855,28 +3975,34 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (enemyReservePet) r.push({ id: "enemy-1", pet: enemyReservePet, mirror: true });
         return r;
     }, [playerPet, enemyPet, playerReservePet, enemyReservePet]);
+    const freeRoam3d = useMemo(() => roster.every((fighter) => petCombatModel(fighter.pet) !== null), [roster]);
+    const debugAi = useMemo(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debugAI") === "1", []);
     // 3D coliseum scene textures (curved wall + lit floor) — same as the round
     // renderer, so the duel inherits the grounded look the owner liked.
     const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
     useEffect(() => () => { floor.dispose(); backdrop.dispose(); }, [floor, backdrop]);
 
-    const clock = useRef<DuelClock>({ t: 0, playing: false, intro: 0 });   // starts paused for the VS intro + opening choreography
+    const clock = useRef<DuelClock>({ t: Math.max(0, initialTick), playing: false, intro: 0 });   // starts paused for the VS intro + opening choreography
     const seqRef = useRef(0);
     const [runId, setRunId] = useState(0);
     const [ended, setEnded] = useState(false);
     const [paused, setPaused] = useState(false);
     const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
-    const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
+    const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean; mode: DuelImpactMode }>>([]);
+    const [elementBursts, setElementBursts] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean }>>([]);
+    const [supportFx, setSupportFx] = useState<Array<{ id: number; pos: Vec3; color: string; kind: DuelSupportKind; actorId?: string }>>([]);
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
     const [cutIn, setCutIn] = useState<{ id: number; pet: Pet; side: "player" | "enemy"; move: string } | null>(null);
     const [shocks, setShocks] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
+    const [powerUps, setPowerUps] = useState<Array<{ id: number; pos: Vec3; color: string; actorId?: string }>>([]);
     const [trails, setTrails] = useState<Array<{ id: number; pos: Vec3; toward: number; kind: MoveChoreoKind; color: string }>>([]);
+    const [setPieces, setSetPieces] = useState<Array<{ id: number; from: Vec3; to: Vec3; color: string; kind: DuelSetPieceKind }>>([]);
     const [flash, setFlash] = useState<{ id: number; color: string; intensity: number } | null>(null);
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
     const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" } | null>(null);  // play-by-play broadcast line
-    const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy" } | null>(null);  // named-move flash
+    const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy"; tone: DuelMoveCalloutTone } | null>(null);  // tiered move ID
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     const nameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.name])) as Record<string, string>, [roster]);
@@ -2896,9 +4022,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setIntro(true);
         clock.current.playing = false;
-        clock.current.intro = 0;   // restart the size-up → charge-in choreography
-        // Clear the VS splash FIRST (after its own beat), so the buff + charge play in the
-        // clear rather than under the overlay; hold the sim paused for the full opening.
+        clock.current.intro = 0;   // restart the still size-up / power-gather choreography
+        // Clear the VS splash first, then let the gather play in the clear while the
+        // simulation remains paused for the full opening.
         const splashT = window.setTimeout(() => setIntro(false), INTRO_SPLASH_END * 1000);
         const fightT = window.setTimeout(() => { clock.current.playing = true; setPaused(false); }, INTRO_TOTAL * 1000);
         return () => { window.clearTimeout(splashT); window.clearTimeout(fightT); };
@@ -2912,15 +4038,30 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setNumbers((arr) => [...arr, { id, text: n.text, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 1.05, fp.wz], crit: n.crit, heal: n.heal }]);
         window.setTimeout(() => setNumbers((arr) => arr.filter((x) => x.id !== id)), 850);
     };
-    const spawnImpact = (n: { x: number; z: number; color: string; big: boolean }) => {
+    const spawnImpact = (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setImpacts((arr) => [...arr, { id, pos: [fp.wx, FX_Y, fp.wz], color: n.color, big: n.big }]);
+        const mode = n.mode ?? "impact";
+        setImpacts((arr) => [...arr, { id, pos: [fp.wx, mode === "impact" ? FX_Y : FLOOR_Y + 0.035, fp.wz], color: n.color, big: n.big, mode }]);
+    };
+    const spawnElementBurst = (n: { x: number; z: number; element?: string | null; color: string; big: boolean }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setElementBursts((arr) => [...arr, { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element), color: n.color, big: n.big }]);
+    };
+    const spawnSupport = (n: { x: number; z: number; color: string; kind: DuelSupportKind; actorId?: string }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setSupportFx((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y + 0.035, fp.wz], color: n.color, kind: n.kind, actorId: n.actorId }]);
     };
     // Element-distinct ability VFX — an explicit fx-folder `key` (the tactical-arena
     // assets: kaboom/explosion/vortex/spark/bighit) when given, else the plain
     // element burst (fire/water/lightning/earth/wind).
     const spawnFx = (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => {
+        // High-quality models use native scene effects above. Retaining the old
+        // flipbook sprites here only for fallback/2D pets avoids mixing visual
+        // languages in the professional 3D presentation.
+        if (freeRoam3d) return;
         const frames = bundledJutsuFxFrames(n.key || elementVfxKey(n.element));
         if (!frames) return;
         const id = seqRef.current++;
@@ -2933,11 +4074,28 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const fp = duelFieldToFloor(n.x, n.z);
         setShocks((arr) => [...arr, { id, pos: [fp.wx, 0, fp.wz], color: n.color, big: n.big }]);
     };
+    const spawnPowerUp = (n: { x: number; z: number; color: string; actorId?: string }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setPowerUps((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y, fp.wz], color: n.color, actorId: n.actorId }]);
+    };
     // Swept melee weapon trail at the ATTACKER (mid-body), per choreography archetype.
     const spawnTrail = (n: { x: number; z: number; toward: number; kind: MoveChoreoKind; color: string }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
         setTrails((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 0.42, fp.wz], toward: n.toward, kind: n.kind, color: n.color }]);
+    };
+    const spawnSetPiece = (n: { fromX: number; fromZ: number; toX: number; toZ: number; element?: string | null; move?: string }) => {
+        const id = seqRef.current++;
+        const from = duelFieldToFloor(n.fromX, n.fromZ);
+        const to = duelFieldToFloor(n.toX, n.toZ);
+        setSetPieces((arr) => [...arr, {
+            id,
+            from: [from.wx, FLOOR_Y, from.wz],
+            to: [to.wx, FLOOR_Y, to.wz],
+            color: elementColor(n.element).glow,
+            kind: duelSetPieceKind(n.element, n.move),
+        }]);
     };
     // Full-screen element flash / big "CRITICAL!/FINISH!" callout / combo-counter pop.
     const triggerFlash = (color: string, intensity: number) => setFlash({ id: seqRef.current++, color, intensity: Math.min(0.6, intensity) });
@@ -2946,7 +4104,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // Play-by-play broadcast line (lower-third) — narrates the swings of the fight.
     const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); window.setTimeout(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
     // Named-move flash ("Hellhound Execution!") — a quick stylish callout, side-tinted.
-    const triggerMoveCallout = (text: string, side: "player" | "enemy") => { const id = seqRef.current++; setMoveCallout({ id, text, side }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), 1000); };
+    const triggerMoveCallout = (text: string, side: "player" | "enemy", tone: DuelMoveCalloutTone = "attack") => { const id = seqRef.current++; setMoveCallout({ id, text, side, tone }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), tone === "support" ? 1150 : 1000); };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
     const triggerCutIn = (actorId: string, move: string) => {
@@ -2956,16 +4114,16 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         window.setTimeout(() => setCutIn((c) => (c && c.id === id ? null : c)), 1650);
     };
     const advanceClock = (maxT: number, delta: number) => {
-        // Before the fight plays, advance the opening-choreography clock (size-up → charge-in).
+        // Before the fight plays, advance the still size-up / power-gather clock.
         if (!clock.current.playing) { clock.current.intro = (clock.current.intro ?? 0) + delta; return; }
         clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setTrails([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = Math.max(0, initialTick); clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setElementBursts([]); setSupportFx([]); setFxList([]); setCutIn(null); setShocks([]); setPowerUps([]); setTrails([]); setSetPieces([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
     return createPortal((
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
+        <div data-testid="pet-duel-root" style={{ position: "fixed", inset: mobileQa ? undefined : 0, top: mobileQa ? 0 : undefined, left: mobileQa ? "50%" : undefined, transform: mobileQa ? "translateX(-50%)" : undefined, zIndex: 200, width: mobileQa ? 390 : "100vw", height: mobileQa ? "min(844px,100vh)" : "100vh", overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
             <style>{`
                 @keyframes petDuelFlash { 0% { opacity: 0; } 14% { opacity: var(--fp, 0.4); } 100% { opacity: 0; } }
                 @keyframes petDuelCallout { 0% { opacity: 0; transform: scale(0.5); } 18% { opacity: 1; transform: scale(1.12); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.95); } }
@@ -2975,6 +4133,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
                 @keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
                 @keyframes petDuelMove { 0% { opacity: 0; transform: translateX(-50%) scale(0.6) skewX(-10deg); } 22% { opacity: 1; transform: translateX(-50%) scale(1.06) skewX(-10deg); } 72% { opacity: 1; transform: translateX(-50%) scale(1) skewX(-10deg); } 100% { opacity: 0; transform: translateX(-50%) scale(1) skewX(-10deg); } }
+                @keyframes petDuelTacticalMove { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); } 18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 76% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
                 @keyframes petCutinBg { 0% { opacity: 0; } 9% { opacity: 1; } 76% { opacity: 1; } 100% { opacity: 0; } }
                 @keyframes petCutinStreak { 0% { opacity: 0; transform: translateX(-28%); } 14% { opacity: 0.95; } 100% { opacity: 0; transform: translateX(18%); } }
                 @keyframes petCutinName { 0% { opacity: 0; transform: translateX(-16%) skewX(-7deg) scale(0.68); } 16% { opacity: 1; transform: translateX(0) skewX(-7deg) scale(1.09); } 30% { transform: translateX(0) skewX(-7deg) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateX(7%) skewX(-7deg) scale(1); } }
@@ -2986,26 +4145,38 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {/* The duel now plays INSIDE the 3D coliseum (curved wall + lit floor +
                 perspective hero camera), so fighters STAND on the floor with real
                 contact shadows instead of floating over a painted wall. */}
-            <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
+            <Canvas shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={quality.dpr} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
                 <Arena floor={floor} backdrop={backdrop} big />
                 {/* Ambient embers drifting through the arena — the world feels alive. */}
-                <Sparkles count={46} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.32} color="#ffb46b" noise={1.6} />
+                <Sparkles count={quality.ambientParticles} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.28} color="#ffb46b" noise={1.6} />
                 {roster.map((r) => (
-                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} />
+                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} freeRoam3d={freeRoam3d} />
                 ))}
                 {Array.from({ length: 8 }).map((_, i) => (
                     <DuelProjectile key={i} index={i} duel={duel} clock={clock} />
                 ))}
                 {impacts.map((im) => (
-                    <DuelImpact key={im.id} at={im.pos} color={im.color} big={im.big} onDone={() => setImpacts((p) => p.filter((x) => x.id !== im.id))} />
+                    <DuelImpact key={im.id} at={im.pos} color={im.color} big={im.big} mode={im.mode} onDone={() => setImpacts((p) => p.filter((x) => x.id !== im.id))} />
+                ))}
+                {elementBursts.map((burst) => (
+                    <DuelElementBurst key={burst.id} at={burst.pos} kind={burst.kind} color={burst.color} big={burst.big} onDone={() => setElementBursts((p) => p.filter((x) => x.id !== burst.id))} />
+                ))}
+                {supportFx.map((fx) => (
+                    <DuelSupportEffect key={fx.id} at={fx.pos} color={fx.color} kind={fx.kind} actorId={fx.actorId} duel={duel} clock={clock} onDone={() => setSupportFx((p) => p.filter((x) => x.id !== fx.id))} />
                 ))}
                 {shocks.map((s) => (
                     <DuelShockwave key={s.id} at={s.pos} color={s.color} big={s.big} onDone={() => setShocks((p) => p.filter((x) => x.id !== s.id))} />
                 ))}
+                {powerUps.map((power) => (
+                    <DuelPowerUpAura key={power.id} at={power.pos} color={power.color} quality={quality} actorId={power.actorId} duel={duel} clock={clock} onDone={() => setPowerUps((p) => p.filter((x) => x.id !== power.id))} />
+                ))}
                 {trails.map((tr) => (
-                    <DuelMeleeTrail key={tr.id} at={tr.pos} toward={tr.toward} kind={tr.kind} color={tr.color} onDone={() => setTrails((p) => p.filter((x) => x.id !== tr.id))} />
+                    <DuelMeleeTrail key={tr.id} at={tr.pos} toward={tr.toward} kind={tr.kind} color={tr.color} native={freeRoam3d} onDone={() => setTrails((p) => p.filter((x) => x.id !== tr.id))} />
+                ))}
+                {setPieces.map((piece) => (
+                    <DuelElementSetPiece key={piece.id} kind={piece.kind} from={piece.from} to={piece.to} color={piece.color} quality={quality} onDone={() => setSetPieces((p) => p.filter((x) => x.id !== piece.id))} />
                 ))}
                 {fxList.map((fx) => (
                     <FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />
@@ -3015,8 +4186,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} spawnTrail={spawnTrail} elementById={elementById} nameById={nameById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
                 <BloomFx />
+                {perfQa && <PetRenderStatsProbe quality={quality.id} />}
             </Canvas>
 
             {/* VS pre-fight intro — both fighters hold their face-off while a "VS"
@@ -3036,11 +4208,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 move name lands huge. Self-contained (no external CSS) so it always shows. */}
             {cutIn && (() => {
                 const isEnemy = cutIn.side === "enemy";
-                const glow = isEnemy ? "rgba(248,113,113,0.95)" : "rgba(96,165,250,0.95)";
-                const glowSoft = isEnemy ? "rgba(248,113,113,0.42)" : "rgba(96,165,250,0.42)";
-                const streak = isEnemy ? "rgba(248,113,113,0.16)" : "rgba(96,165,250,0.16)";
-                const band = isEnemy ? "rgba(127,29,29,0.6)" : "rgba(30,58,138,0.6)";
                 const portrait = petBattleSprite(cutIn.pet, sharedImages).src;
+                const { base: elementBase, glow: elementGlow } = elementColor(cutIn.pet.element);
+                const glow = `${elementGlow}f2`;
+                const glowSoft = `${elementGlow}6b`;
+                const streak = `${elementGlow}29`;
+                const band = `${elementBase}99`;
                 return (
                     <div key={`cutin-${cutIn.id}`} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 30 }}>
                         <div style={{ position: "absolute", inset: 0, background: "rgba(3,5,12,0.55)", animation: "petCutinBg 1650ms ease-out forwards" }} />
@@ -3053,12 +4226,17 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div style={{ position: "absolute", top: "50%", [isEnemy ? "right" : "left"]: "18%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
                             {portrait
                                 ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "clamp(240px,54vh,430px)", width: "auto", maxWidth: "40vw", objectFit: "contain", filter: `drop-shadow(0 0 38px ${glow}) drop-shadow(0 14px 28px #000) saturate(1.15)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
-                                : <div style={{ width: "clamp(170px,32vh,250px)", height: "clamp(170px,32vh,250px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 68px var(--font-display)", color: "#fff", boxShadow: `0 0 44px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
+                                : <div style={{ width: "clamp(180px,32vh,255px)", height: "clamp(210px,38vh,300px)", position: "relative", display: "grid", placeItems: "center", filter: `drop-shadow(0 0 32px ${glow}) drop-shadow(0 16px 24px #000)` }}>
+                                    <div style={{ position: "absolute", inset: "7% 0", clipPath: "polygon(50% 0, 96% 20%, 86% 78%, 50% 100%, 8% 78%, 0 24%)", background: `linear-gradient(145deg, ${elementGlow}, ${elementBase} 46%, #08101f 100%)`, boxShadow: `inset 0 0 0 5px rgba(255,255,255,0.72)` }} />
+                                    <div style={{ position: "absolute", inset: "14% 9%", clipPath: "polygon(50% 0, 96% 20%, 86% 78%, 50% 100%, 8% 78%, 0 24%)", border: "2px solid rgba(255,255,255,0.7)", background: "repeating-linear-gradient(118deg, transparent 0 12px, rgba(255,255,255,0.13) 12px 16px)" }} />
+                                    <span style={{ position: "relative", zIndex: 1, font: "900 clamp(78px,15vh,126px)/1 Georgia,serif", color: "#fff", textShadow: "0 4px 0 rgba(4,18,38,0.72), 0 0 22px rgba(255,255,255,0.75)" }}>{elementGlyph(cutIn.pet.element)}</span>
+                                    <span style={{ position: "absolute", zIndex: 1, bottom: "14%", font: "900 12px var(--font-display)", letterSpacing: "0.22em", color: "#fff", textTransform: "uppercase", textShadow: "0 2px 6px #000" }}>{cutIn.pet.element ?? "Spirit"}</span>
+                                </div>}
                         </div>
                         {/* pet name + big move name — CENTERED in a safe zone so it never runs under
                             the side panels / off-frame, and wraps when the move name is long. */}
                         <div style={{ position: "absolute", left: 0, right: 0, top: "13%", padding: "0 16%", textAlign: "center", animation: "petCutinName 1650ms cubic-bezier(.2,.9,.2,1) forwards" }}>
-                            <div style={{ font: "800 clamp(12px,1.6vw,20px) var(--font-display)", letterSpacing: "0.22em", textTransform: "uppercase", color: isEnemy ? "#fca5a5" : "#93c5fd", textShadow: "0 2px 8px #000" }}>{cutIn.pet.name}</div>
+                            <div style={{ font: "800 clamp(12px,1.6vw,20px) var(--font-display)", letterSpacing: "0.22em", textTransform: "uppercase", color: elementGlow, textShadow: "0 2px 8px #000" }}>{cutIn.pet.name}</div>
                             <div style={{ font: "900 clamp(26px,4.6vw,56px)/0.95 var(--font-display)", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 32px ${glow}, 0 6px 16px #000`, marginTop: 6, overflowWrap: "break-word" }}>{cutIn.move}!</div>
                         </div>
                     </div>
@@ -3069,29 +4247,71 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {flash && (
                 <div key={`flash-${flash.id}`} style={{ position: "absolute", inset: 0, background: flash.color, opacity: 0, mixBlendMode: "screen", pointerEvents: "none", animation: "petDuelFlash 340ms ease-out forwards", ["--fp" as string]: flash.intensity } as React.CSSProperties} />
             )}
-            {callout && (
-                <div key={`callout-${callout.id}`} style={{ position: "absolute", top: "28%", left: 0, right: 0, textAlign: "center", pointerEvents: "none", font: "900 clamp(34px,7vw,72px)/1 var(--font-display)", color: "#fff", letterSpacing: "0.05em", textShadow: "0 0 18px rgba(250,204,21,0.9), 0 4px 10px #000", animation: "petDuelCallout 740ms cubic-bezier(.2,.9,.2,1) forwards" }}>{callout.text}</div>
-            )}
-            {combo && combo.n >= 2 && (
+            {callout && !cutIn && (() => {
+                const minor = callout.text === "MISS";
+                return <div key={`callout-${callout.id}`} style={{
+                    position: "absolute",
+                    top: minor ? "23%" : "28%",
+                    left: minor ? "50%" : 0,
+                    right: minor ? undefined : 0,
+                    transform: minor ? "translateX(-50%)" : undefined,
+                    width: minor ? "max-content" : undefined,
+                    textAlign: "center",
+                    pointerEvents: "none",
+                    padding: minor ? "4px 14px" : undefined,
+                    borderRadius: minor ? 999 : undefined,
+                    background: minor ? "rgba(8,11,22,0.72)" : undefined,
+                    border: minor ? "1px solid rgba(226,232,240,0.6)" : undefined,
+                    font: minor ? "900 clamp(18px,2.5vw,28px)/1 var(--font-display)" : "900 clamp(34px,7vw,72px)/1 var(--font-display)",
+                    color: "#fff",
+                    letterSpacing: "0.05em",
+                    textShadow: minor ? "0 2px 8px #000" : "0 0 18px rgba(250,204,21,0.9), 0 4px 10px #000",
+                    animation: minor ? "petDuelTacticalMove 740ms ease-out forwards" : "petDuelCallout 740ms cubic-bezier(.2,.9,.2,1) forwards",
+                    zIndex: 13,
+                }}>{callout.text}</div>;
+            })()}
+            {combo && combo.n >= 2 && !cutIn && !callout && (
                 <div key={`combo-${combo.id}`} style={{ position: "absolute", top: "20%", right: "8%", pointerEvents: "none", textAlign: "center", font: "900 clamp(30px,5vw,58px)/1 Inter, system-ui, sans-serif", color: "#fde68a", textShadow: "0 0 14px rgba(245,158,11,0.85), 0 3px 8px #000", animation: "petDuelCombo 700ms ease-out forwards" }}>{combo.n}<span style={{ fontSize: "0.45em", letterSpacing: "0.15em", display: "block" }}>HIT COMBO</span></div>
             )}
             {/* Named-move flash — the ability's name slams in on cast/hit (signatures
                 use the bigger cut-in instead), side-tinted blue (you) / red (foe). */}
-            {moveCallout && (
-                <div key={`move-${moveCallout.id}`} style={{ position: "absolute", left: "50%", top: "40%", transform: "translateX(-50%)", pointerEvents: "none", padding: "4px 20px", borderRadius: 6, border: `2px solid ${moveCallout.side === "player" ? "#60a5fa" : "#f87171"}`, background: "rgba(8,11,22,0.55)", color: moveCallout.side === "player" ? "#dbeafe" : "#fee2e2", font: "900 clamp(20px,3.4vw,40px)/1 var(--font-display)", letterSpacing: "0.04em", textShadow: "0 2px 10px #000", whiteSpace: "nowrap", animation: "petDuelMove 1000ms cubic-bezier(.2,.9,.2,1) forwards" }}>{moveCallout.text}</div>
-            )}
+            {moveCallout && !cutIn && !callout && (() => {
+                const tactical = moveCallout.tone === "support" || moveCallout.tone === "maneuver";
+                const sideColor = moveCallout.side === "player" ? "#60a5fa" : "#f87171";
+                return <div key={`move-${moveCallout.id}`} style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: tactical ? "19%" : "33%",
+                    transform: "translateX(-50%)",
+                    pointerEvents: "none",
+                    padding: tactical ? "4px 12px" : "4px 20px",
+                    borderRadius: tactical ? 999 : 6,
+                    border: `${tactical ? 1 : 2}px solid ${sideColor}`,
+                    background: tactical ? "rgba(8,11,22,0.82)" : "rgba(8,11,22,0.64)",
+                    boxShadow: tactical ? `0 5px 18px rgba(0,0,0,0.42), 0 0 14px ${sideColor}22` : "0 6px 22px rgba(0,0,0,0.48)",
+                    color: moveCallout.side === "player" ? "#dbeafe" : "#fee2e2",
+                    font: tactical ? "800 clamp(13px,1.7vw,20px)/1 var(--font-display)" : "900 clamp(18px,3vw,34px)/1 var(--font-display)",
+                    letterSpacing: tactical ? "0.08em" : "0.04em",
+                    textShadow: "0 2px 10px #000",
+                    whiteSpace: "nowrap",
+                    animation: tactical ? "petDuelTacticalMove 1000ms ease-out forwards" : "petDuelMove 1000ms cubic-bezier(.2,.9,.2,1) forwards",
+                    zIndex: 12,
+                }}>{moveCallout.tone === "support" ? "POWER UP · " : moveCallout.tone === "maneuver" ? "SHIFT · " : ""}{moveCallout.text}</div>;
+            })()}
             {/* Play-by-play broadcast line (lower-third) — narrates the swings:
                 a fighter on the ropes, a reversal, an ultimate, the finish. */}
-            {announce && !ended && (
+            {announce && !ended && !cutIn && !callout && !moveCallout && (
                 <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", maxWidth: "84vw", pointerEvents: "none", padding: "7px 22px", borderRadius: 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : "#fecaca", font: "800 clamp(15px,2.6vw,24px)/1.1 var(--font-display)", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
             )}
 
-            <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
+            {debugAi && <DuelAiDebugHud duel={duel} clock={clock} nameById={nameById} />}
+
+            {!ended && !cutIn && <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
                 <button onClick={onExit} style={duelBtn}>✕ Exit</button>
                 <button onClick={togglePause} style={duelBtn}>{paused ? "▶ Play" : "❚❚ Pause"}</button>
                 <button onClick={replay} style={duelBtn}>⟲ Replay</button>
-            </div>
-            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}>⚔️ Pet Coliseum</div>
+            </div>}
+            {!ended && !cutIn && <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}>⚔️ {freeRoam3d ? "3D Coliseum" : "Pet Coliseum"}</div>}
 
             {ended && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
