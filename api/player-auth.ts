@@ -3,10 +3,10 @@ import { kv } from './_storage.js';
 import { cors, safeName } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import {
-    safeEqual,
     issuePlayerToken,
     readPlayerSessionEpoch,
     rotatePlayerSessionEpoch,
+    isFullAdmin,
 } from './_auth.js';
 import { withKvLock } from './_lock.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
@@ -279,9 +279,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // only — once the auth record exists, the `existing` check below
         // refuses any further registration anyway.
         if (isReservedUsername(name)) {
-            const adminPassword = process.env.ADMIN_PASSWORD;
-            const adminPw = req.headers['x-admin-password'] as string | undefined;
-            if (!adminPassword || !adminPw || !safeEqual(adminPw, adminPassword)) {
+            // Full-admin gate — accepts the admin session token (x-admin-token)
+            // or the reusable password (x-admin-password), same as every other
+            // full-admin endpoint.
+            if (!isFullAdmin(req)) {
                 return res.status(403).json({
                     ok: false,
                     error: 'This username is reserved. Ask an admin to register it.',
@@ -475,10 +476,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (action === 'delete') {
         // Delete the auth record when a player deletes their character.
-        // Must supply either valid player password or admin password.
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        const adminPw = req.headers['x-admin-password'] as string | undefined;
-        if (adminPassword && adminPw && safeStringEqual(adminPw, adminPassword)) {
+        // Must supply either valid player password or admin authority (token or
+        // password).
+        if (isFullAdmin(req)) {
             try {
                 await withKvLock(key, async () => {
                     await rotatePlayerSessionEpoch(name);
@@ -516,9 +516,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (action === 'adminreset') {
         // Admin sets a player's password to a new value (e.g. for account recovery).
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        const adminPw = req.headers['x-admin-password'] as string | undefined;
-        if (!adminPassword || !adminPw || !safeStringEqual(adminPw, adminPassword)) {
+        // Full-admin gate — accepts the admin session token or the password.
+        if (!isFullAdmin(req)) {
             return res.status(401).json({ ok: false, error: 'Admin authentication required.' });
         }
         if (!newPassword) return res.status(400).json({ ok: false, error: 'Missing newPassword.' });

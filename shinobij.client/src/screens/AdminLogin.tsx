@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type AdminAccount, type AdminRole, type Screen } from "../App";
 import { PLAYER_PASSWORD_MAX_LENGTH, playerPasswordPolicyError } from "../lib/player-auth-policy";
 
-export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string, role: AdminRole) => void; setScreen: (screen: Screen) => void }) {
+export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string, role: AdminRole, token: string | null) => void; setScreen: (screen: Screen) => void }) {
     // Require direct entry on this screen; never shuttle an admin password
     // through browser storage merely to avoid retyping it.
     const [password, setPassword] = useState("");
@@ -24,6 +24,10 @@ export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAcc
                 error?: string;
                 account?: AdminAccount;
                 role?: AdminRole;
+                // Short-lived signed admin session token (Phase 4). Present only
+                // when the server has ADMIN_SESSION_SECRET set; null otherwise, in
+                // which case the client keeps using the password path.
+                token?: string | null;
             };
             if (data.success) {
                 // Trust the server's choice of account + role. ADMIN_PASSWORD
@@ -31,7 +35,7 @@ export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAcc
                 // Admin 2 / content (restricted tabs). Fall back to the
                 // legacy "Admin 1 / full" combo if the server is on an old
                 // version that doesn't return these fields.
-                onLogin(data.account ?? "Admin 1", pw, data.role ?? "full");
+                onLogin(data.account ?? "Admin 1", pw, data.role ?? "full", data.token ?? null);
             } else {
                 // Surface the server's specific error when present (e.g.
                 // "Rate limited", "Account suspended"). Falls back to the

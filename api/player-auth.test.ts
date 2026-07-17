@@ -34,6 +34,11 @@ before(async () => {
         return 'OK' as const;
     };
     kv.del = async (...keys: string[]) => keys.reduce((count, key) => count + (store.delete(key) ? 1 : 0), 0);
+    kv.delIfEqual = async (key: string, expected: string) => {
+        if (store.get(key) !== expected) return false;
+        store.delete(key);
+        return true;
+    };
     kv.incr = async (key: string) => {
         const next = (Number(store.get(key)) || 0) + 1;
         store.set(key, next);

@@ -14,6 +14,7 @@ import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_S
 import { recordBetaMetric } from '../_beta-metrics.js';
 import type { PvpSession } from './session.js';
 import { grantTerritoryScrollsToInventory } from '../missions/_mission-catalog.js';
+import { pvpSettlementId, inspectPvpCredit, embedPvpSettlementReceipt } from './_reward-settlement.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
@@ -166,24 +167,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (claimerRole && Object.keys(usedByClaimer).length > 0) {
             try {
                 await withSavesLocked([playerName], async () => {
-                    // Exactly-once is enforced by the save: lock (concurrent claims
-                    // for this player serialize here) + an idempotency receipt READ
-                    // before the work. The receipt is only SET after the save write
-                    // succeeds (#19): if the write throws, the receipt is never
-                    // placed, so a retry re-does the deduction instead of skipping
-                    // it and letting the player keep items the server marked used.
-                    const consumedKey = `pvp:items-consumed:${playerName}:${battleId}`;
-                    const already = await kv.get(consumedKey);
-                    if (already) return; // already deducted on a prior claim
+                    // Exactly-once AND atomic: the idempotency receipt lives IN the
+                    // deducted save (serverSettlementReceipts), so the deduction and
+                    // its receipt land in ONE kv.set. The old two-key pattern set the
+                    // receipt in a SEPARATE write after the save, so a crash between
+                    // them could re-deduct on retry; now a crash before the write
+                    // re-deducts (fresh) and a crash after skips (replay) — no gap.
+                    // Serialized by the save lock so concurrent claims can't double.
                     const saveKey = `save:${playerName}`;
                     const record = await kv.get<Record<string, unknown>>(saveKey);
                     const char = record?.character as Record<string, unknown> | undefined;
                     if (!record || !char) return;
-                    const updated = deductUsedItems(char, usedByClaimer);
-                    const next = bumpSaveVersion({ ...record, character: updated });
+                    const sid = pvpSettlementId('items', battleId);
+                    const decision = inspectPvpCredit(char, sid, 'items');
+                    if (!decision.fresh) return; // already deducted on a prior claim
+                    const deducted = deductUsedItems(char, usedByClaimer);
+                    const withReceipt = embedPvpSettlementReceipt(deducted, decision.receipts, sid, 'items', Date.now());
+                    const next = bumpSaveVersion({ ...record, character: withReceipt });
                     await kv.set(saveKey, mergePreservingImages(next, record));
-                    // Receipt set ONLY after the write lands — retry-safe deduction.
-                    await kv.set(consumedKey, { ts: Date.now() }, { ex: CLAIM_TTL_SECONDS } as never);
                 });
             } catch { /* lock contention (failClosed) → skip; a later claim retry settles */ }
         }
@@ -245,46 +246,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } catch { /* fail open */ }
             }
 
-            // Apply ONE fighter's once-per-battle ranked-rating delta (guarded by
-            // its own NX receipt) and return that fighter's resulting rating. A
-            // re-settle (receipt already placed) reads back the stored value.
+            // Apply ONE fighter's once-per-battle ranked-rating delta and return
+            // that fighter's resulting rating. Exactly-once AND atomic: the rating
+            // patch and its idempotency receipt are written together in ONE kv.set
+            // (the receipt lives in the same save via serverSettlementReceipts), so
+            // a crash can never place the receipt without the credit. The old
+            // separate-key receipt COULD be placed while the save write was lost —
+            // and the retry then skipped, permanently losing the Elo change.
             const settleRatingFor = async (slug: string, role: 'winner' | 'loser'): Promise<RatingOut | undefined> => {
                 if (!rankedEligible || !slug) return undefined;
                 const saveKey = `save:${slug}`;
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (record?.character ?? null) as Record<string, unknown> | null;
                 if (!record || !char) return undefined;
-                const placed = await kv.set(`pvp:ranked-rating:${slug}:${battleId}`, { role, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
                 const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind });
-                if (placed) {
-                    const next = bumpSaveVersion({ ...record, character: { ...char, ...r.patch } });
+                const sid = pvpSettlementId('rating', battleId);
+                const decision = inspectPvpCredit(char, sid, `rating-${role}`);
+                if (decision.fresh) {
+                    const credited = embedPvpSettlementReceipt({ ...char, ...r.patch }, decision.receipts, sid, `rating-${role}`, Date.now());
+                    const next = bumpSaveVersion({ ...record, character: credited });
                     await kv.set(saveKey, mergePreservingImages(next, record));
                     return { field: ratingField, value: r.newRating, delta: r.delta };
                 }
+                // Already settled — return the stored authoritative rating.
                 const cur = Number(char[ratingField]);
                 return { field: ratingField, value: Number.isFinite(cur) ? cur : r.newRating, delta: r.delta };
             };
 
-            // Credit the winner's base ryo+XP (once), gated on `alreadyForWinner`
-            // (the winner's own claim receipt). Re-reads the save so a rating
-            // patch applied just above is preserved.
-            const settleBaseForWinner = async (alreadyForWinner: boolean): Promise<BaseOut | undefined> => {
+            // Credit the winner's base ryo+XP exactly once, ATOMICALLY: the credit
+            // and its idempotency receipt (serverSettlementReceipts) are written in
+            // ONE kv.set, so a crash between the two can't permanently lose the
+            // payout the way the old separate-receipt `key` gate did. Re-reads the
+            // save so a rating patch applied just above is preserved.
+            const settleBaseForWinner = async (): Promise<BaseOut | undefined> => {
                 const saveKey = `save:${winnerSlug}`;
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (record?.character ?? null) as Record<string, unknown> | null;
                 if (!record || !char) return undefined;
+                // #1A settlement-side guard (defense in depth): base ryo/XP is a
+                // PvP-win reward, so re-verify AT THE MONEY-MOVING STEP that the
+                // loser was a real player with an authoritative save — session
+                // creation is not the only enforcement point. A fabricated no-save
+                // NPC opponent (or any legacy session stamped baseRewards before
+                // the session-side gate landed) never pays out. Fails closed on a
+                // transient loser-save read miss; the winner can retry the claim.
+                const loserRecord = loserSlug ? await kv.get<Record<string, unknown>>(`save:${loserSlug}`) : null;
+                if (!loserRecord?.character) return undefined;
                 const { xpGain, ryoGain } = computePvpWinGains(char, session.rewardSector);
-                if (!alreadyForWinner) {
+                const sid = pvpSettlementId('base', battleId);
+                const decision = inspectPvpCredit(char, sid, 'base');
+                if (decision.fresh) {
                     // Repeat-opponent decay (audit #1): scale this win's base
                     // reward down by how many times the winner already banked a
-                    // win over THIS loser in the last hour. Recorded exactly once
-                    // here — on the single real credit (the `!alreadyForWinner`
-                    // branch), never on a replay — so the farm counter advances
-                    // per banked win, not per claim retry. SCOPED to genuine
-                    // player-vs-player: an AI raid boss / NPC loser has no save,
-                    // so PvE grind (sector raids vs bosses) keeps its full reward.
-                    const loserRecord = loserSlug ? await kv.get<Record<string, unknown>>(`save:${loserSlug}`) : null;
-                    const decay = loserRecord?.character ? await recordPairWinAndDecay(winnerSlug, loserSlug) : 1;
+                    // win over THIS loser in the last hour. The in-save receipt
+                    // makes the PAYOUT exactly-once; the decay counter + daily stat
+                    // budget below are separate rows, so in the rare case of a
+                    // crash AFTER these advance but BEFORE the atomic save write,
+                    // the retry advances them once more. That only ever shrinks a
+                    // FUTURE reward (fails toward less, never a mint), and is
+                    // strictly better than the old bug where the whole payout was
+                    // lost. The loser is a confirmed real player (guarded above),
+                    // so the pair-decay always applies.
+                    const decay = await recordPairWinAndDecay(winnerSlug, loserSlug);
                     const dXp = Math.max(0, Math.floor(xpGain * decay));
                     const dRyo = Math.max(0, Math.floor(ryoGain * decay));
                     const credit = creditPvpWinBase(char, dXp, dRyo);
@@ -335,7 +358,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         monthlyPvpKills: Number(finalChar.monthlyPvpKills),
                         pvpKillMonth: month,
                     } as typeof summary;
-                    const next = bumpSaveVersion({ ...record, character: finalChar });
+                    // Embed the idempotency receipt INTO the credited character so
+                    // the payout and its marker persist together in one atomic write.
+                    const credited = embedPvpSettlementReceipt(finalChar, decision.receipts, sid, 'base', Date.now());
+                    const next = bumpSaveVersion({ ...record, character: credited });
                     await kv.set(saveKey, mergePreservingImages(next, record));
                     return summary;
                 }
@@ -373,9 +399,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ? await settleRatingFor(loserSlug, 'loser')
                         : undefined;
 
-                    // Winner base reward — only when the WINNER is the caller.
+                    // Winner base reward — only when the WINNER is the caller. Its
+                    // own in-save receipt gates the credit now (not `already`), so
+                    // a crash that placed `key` but lost the payout is RECOVERED on
+                    // retry instead of being permanently skipped.
                     const base = (creditBase && claimerSlug === winnerSlug)
-                        ? await settleBaseForWinner(already)
+                        ? await settleBaseForWinner()
                         : undefined;
 
                     const rating = claimerSlug === winnerSlug ? winnerRatingOut
