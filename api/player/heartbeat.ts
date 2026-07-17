@@ -167,6 +167,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pendingAttacker,
             pendingChallenges: pendingChallenges ?? [],
             pendingHeal: healSignal ? { by: typeof healSignal.by === 'string' ? healSignal.by : '' } : null,
+            // This clock mints every deadline the client renders (training endsAt,
+            // travelingUntil, war pendingUntil) and re-checks them on claim. The
+            // beat is the client's reference for it — a player whose own clock
+            // drifts otherwise reads all of those timers wrong (lib/server-clock).
+            serverNow: Date.now(),
         });
     } catch (err) {
         console.error('[heartbeat]', err);

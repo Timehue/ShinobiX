@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
+import { serverNow } from "../lib/server-clock";
 import type { ReactElement } from "react";
 import { createPortal } from "react-dom";
 import "../styles/central-skin.css";
@@ -856,9 +857,9 @@ export function CentralHub({
                 const enemy = activeWarBanner.villages.find(v => v !== myVillage) ?? "?";
                 const myHp = activeWarBanner.hp?.[myVillage] ?? 0;
                 const enemyHp = activeWarBanner.hp?.[enemy] ?? 0;
-                const isPending = !!activeWarBanner.pendingUntil && activeWarBanner.pendingUntil > Date.now();
-                const minsToWar = isPending ? Math.max(1, Math.ceil((activeWarBanner.pendingUntil! - Date.now()) / 60_000)) : 0;
-                const ageDays = Math.floor((Date.now() - (activeWarBanner.pendingUntil ?? activeWarBanner.startedAt)) / (24 * 60 * 60 * 1000));
+                const isPending = !!activeWarBanner.pendingUntil && activeWarBanner.pendingUntil > serverNow();
+                const minsToWar = isPending ? Math.max(1, Math.ceil((activeWarBanner.pendingUntil! - serverNow()) / 60_000)) : 0;
+                const ageDays = Math.floor((serverNow() - (activeWarBanner.pendingUntil ?? activeWarBanner.startedAt)) / (24 * 60 * 60 * 1000));
                 return (
                     <div
                         style={{

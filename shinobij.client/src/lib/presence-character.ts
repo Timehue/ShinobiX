@@ -28,6 +28,19 @@
  * was pure waste. Stats/jutsus stay, so the pet battle sim is unaffected.
  */
 import type { Character } from "../types/character";
+import { serverNow } from "./server-clock";
+
+/**
+ * Is this peer still mid-travel (and so unattackable)? `travelingUntil` is minted
+ * by the server's travel lease and enforced against the server's own clock
+ * (api/_realtime/online-store), so it must be read on that clock too — a viewer
+ * whose own clock drifts would otherwise refuse an attack on a peer who landed
+ * minutes ago, or offer one the server then rejects. UI gate only; the server
+ * decides.
+ */
+export function peerIsTraveling(peer: { travelingUntil?: number } | null | undefined): boolean {
+    return Boolean(peer?.travelingUntil && peer.travelingUntil > serverNow());
+}
 
 const PRESENCE_PET_FIELDS = [
     'id', 'name', 'rarity', 'level', 'element', 'trait', 'species',
