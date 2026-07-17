@@ -8,32 +8,29 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
+const gauntlet_sim_js_1 = require("../_pet-sim/gauntlet-sim.js");
 /*
  * /api/pet/gauntlet — Pet Gauntlet rewards + weekly leaderboard.
  *
  *   GET  [?week=current|<key>][&top=N]        → { weekKey, total, leaderboard }
  *   POST { action:'start' }                    → { runToken, seed, weekKey, rewardEligible, maxRounds }
  *   POST { action:'report', runToken,
- *          roundsCleared, heartsLeft }         → { ryo, score, rank, weekKey, roundsCleared, heartsLeft }
+ *          transcript }                        → { ryo, fateShards, boneCharms, score, rank, ... }
  *
- * SERVER-AUTHORITATIVE (mint-token pattern, same shape as pet/ranked-start →
- * pet/battle-result and missions/claim-mission):
- *   • `start` mints a single-use run token that SEALS the Ryo reward schedule +
- *     reward-eligibility (the daily rewarded-run cap is decided here, not by the
- *     client) and hands back the WEEKLY SHARED SEED so every player faces the
- *     same gauntlet → a fair leaderboard.
- *   • `report` REQUIRES that token, consumes it atomically (under its own lock),
- *     and pays Ryo from the SEALED schedule — never from a client-supplied
- *     amount. roundsCleared / heartsLeft are clamped to their legal bounds before
- *     they feed the payout or the board, so a tampered body can at most claim a
- *     perfect run (bounded by the sealed per-round Ryo + the daily cap). The
- *     in-run Valor economy is purely client-side and never touches Ryo.
- *
- * v1 trust model matches field/hunt missions + pet expeditions: the run is
- * deterministic from the seed, so a future hardening can re-simulate it
- * server-side (port pet-board-sim, like _duel-sim is the ranked twin) to make
- * the leaderboard fully replay-validated. For now the token + clamps + daily cap
- * bound the abuse surface.
+ * SERVER-AUTHORITATIVE (mint-token + SERVER RE-SIMULATION — P1 reward integrity;
+ * see docs/DATABASE_AND_BACKGROUND_JOB_AUDIT.md §5 + auth-and-anti-cheat §2):
+ *   • `start` mints a single-use run token that SEALS the Ryo schedule + the daily
+ *     rewarded-run eligibility AND a PER-RUN random seed. The seed is server-minted
+ *     (was a client random before) so the server can replay the run; variety is
+ *     unchanged (each run still gets its own random draw).
+ *   • `report` REQUIRES that token and a decision TRANSCRIPT, and RE-SIMULATES the
+ *     whole run server-side (replayGauntlet: the ported board sim + state machine +
+ *     drift-tested pool). roundsCleared / heartsLeft / premium eligibility come from
+ *     the RE-SIM — never from a client-asserted value. It pays Ryo from the sealed
+ *     schedule and banks a Fate Shard / Bone Charm only when the RE-SIMULATED run
+ *     actually queued the buy AND cleared round 9 (buyPremium enforces both), still
+ *     capped once/day/currency via the NX flags below. A fabricated transcript can
+ *     at most reproduce a legal (losing) run — the fights are actually re-fought.
  */
 // ── Tunables (sealed server-side) ────────────────────────────────────────────
 const MAX_ROUNDS = 10; // mirrors GAUNTLET_MAX_ROUNDS on the client
@@ -43,46 +40,14 @@ const CLEAR_BONUS = 1500; // extra Ryo for clearing all rounds
 const REWARDED_RUNS_PER_DAY = 3; // only the first N rewarded runs/day pay Ryo
 const TOKEN_TTL_SECONDS = 60 * 60; // a full run fits comfortably
 const LB_MAX = 1000;
-// Premium-currency exchange: a Fate Shard / Bone Charm bought with Valor is only
-// BANKED if the run cleared round 9, and at most ONCE per UTC day per currency
-// (a server NX flag — the client can never mint premium currency on its own).
-const PREMIUM_ROUNDS_CLEARED = 9;
-// Valor COST of each premium buy, mirrored from the client engine
-// (GAUNTLET_SHARD_COST / GAUNTLET_CHARM_COST in lib/pet-gauntlet.ts). The grant is
-// gated on the run being able to AFFORD the buy server-side, not on a client flag.
-const SHARD_VALOR_COST = 15;
-const CHARM_VALOR_COST = 10;
-// In-run Valor economy (mirrored from lib/pet-gauntlet.ts) so the server can bound
-// the MAXIMUM Valor a run could have banked by the round it cleared — the ceiling a
-// premium buy is validated against. A tampered client that never spent the Valor
-// (or never had it) is rejected here even if it sets boughtFateShard/boughtBoneCharm.
-const START_VALOR = 10; // GAUNTLET_START_VALOR
-const LOSS_VALOR = 3; // GAUNTLET_LOSS_VALOR (consolation per surviving loss)
-const MERCHANT_VALOR_PER_ROUND = 3; // best passive Valor/round from a single relic (Merchant's Charm)
-const valorWinReward = (round) => 4 + round; // valorRewardForRound(round)
-/**
- * Upper bound on the Valor a run could possibly hold by the time it has cleared
- * `roundsCleared` rounds — start Valor + every round-win reward (rounds 1..N) +
- * the consolation Valor from the most losses a 3-heart run can survive (2) + the
- * most passive relic income reachable (Merchant's Charm bought round 1, paying out
- * on entering rounds 2..N). This INTENTIONALLY ignores spending, so it never
- * under-counts a legitimate run; it exists only to reject buys a run with this seed
- * could not have funded under any play. Premium buys only unlock at round 9.
- */
-function maxReachableValor(roundsCleared, startHearts) {
-    let wins = 0;
-    for (let r = 1; r <= roundsCleared; r++)
-        wins += valorWinReward(r);
-    const maxLosses = Math.max(0, startHearts - 1); // the final heart-loss ends the run
-    const passive = Math.max(0, roundsCleared - 1) * MERCHANT_VALOR_PER_ROUND;
-    return START_VALOR + wins + maxLosses * LOSS_VALOR + passive;
-}
+// A legit run is a few hundred actions at most; cap the transcript so a huge
+// payload can't make the re-sim do unbounded work before the run naturally ends.
+const MAX_TRANSCRIPT = 5000;
 // Epoch-Monday week index (Jan 1 2024 was a Monday) → stable weekly reset, UTC.
 const EPOCH_MONDAY = Date.UTC(2024, 0, 1);
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 function currentWeekIndex() { return Math.floor((Date.now() - EPOCH_MONDAY) / WEEK_MS); }
 function weekKeyOf(idx) { return `w${idx}`; }
-function seedForWeek(idx) { return (Math.imul(idx + 1, 2654435761) >>> 0) & 0x7fffffff; }
 const dayStamp = () => new Date().toISOString().slice(0, 10);
 const tokenKey = (id) => `petgauntlet:tok:${id}`;
 const lbKey = (weekKey) => `petgauntlet:lb:${weekKey}`;
@@ -123,7 +88,7 @@ async function handler(req, res) {
         if (identity.admin)
             return res.status(400).json({ error: 'Gauntlet runs require a player identity.' });
         const me = identity.name;
-        // ── start: mint a single-use run token + hand back the weekly seed ─────
+        // ── start: mint a single-use run token + a SEALED per-run seed ─────────
         if (action === 'start') {
             if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'pet-gauntlet-start', 10, 60_000, me))
                 return;
@@ -133,8 +98,11 @@ async function handler(req, res) {
             const startChar = (startSave?.character ?? null);
             const used = startChar?.petGauntletRewardDate === dayStamp() ? Number(startChar.petGauntletRewardCount ?? 0) : 0;
             const rewardEligible = used < REWARDED_RUNS_PER_DAY;
+            // Per-run random seed, minted + sealed server-side so `report` can replay
+            // the exact run. The client uses this seed for startGauntletRun (it used
+            // to mint its own random one — same variety, now verifiable).
             const sealed = {
-                player: me, weekKey, seed: seedForWeek(idx), rewardEligible,
+                player: me, weekKey, seed: (0, node_crypto_1.randomInt)(1, 0x7fffffff), rewardEligible,
                 perRound: RYO_PER_ROUND, clearBonus: CLEAR_BONUS, maxRounds: MAX_ROUNDS, startHearts: START_HEARTS,
             };
             const id = (0, node_crypto_1.randomUUID)();
@@ -155,28 +123,28 @@ async function handler(req, res) {
                 return res.status(409).json({ error: 'Run token already used or expired.' });
             if (sealed.player !== me)
                 return res.status(403).json({ error: 'Run token belongs to another player.' });
-            const roundsCleared = clampInt(body.roundsCleared, 0, sealed.maxRounds);
-            const heartsLeft = clampInt(body.heartsLeft, 0, sealed.startHearts);
+            // RE-SIMULATE the run from the SEALED seed + the client's decision
+            // transcript. roundsCleared / heartsLeft / premium eligibility are the
+            // SERVER's, computed by re-fighting every round — never the client's word.
+            const transcript = body.transcript;
+            if (transcript != null && (!Array.isArray(transcript) || transcript.length > MAX_TRANSCRIPT)) {
+                return res.status(400).json({ error: 'Invalid run transcript.' });
+            }
+            const replay = (0, gauntlet_sim_js_1.replayGauntlet)(sealed.seed, transcript);
+            const roundsCleared = clampInt(replay.roundsCleared, 0, sealed.maxRounds);
+            const heartsLeft = clampInt(replay.heartsLeft, 0, sealed.startHearts);
             const score = scoreOf(roundsCleared, heartsLeft);
             // ── Pay Ryo from the SEALED schedule (under the save lock), honouring
             //    the daily rewarded-run cap (re-checked atomically here so abandoned
             //    runs never burn a slot). ─────────────────────────────────────────
             let ryo = 0;
-            // Premium-currency buys (Fate Shard / Bone Charm) bank ONLY if the run
-            // cleared round 9, and at most once/day each (the NX claim flags below).
-            // SERVER-AUTHORITATIVE on the COST: the run must have been able to AFFORD
-            // the requested buy(s) — we never derive the grant from client booleans
-            // alone. Both buys spend from the same run-local Valor pool, so their
-            // costs are summed against the maximum Valor this run could have banked by
-            // the round it cleared (maxReachableValor). A tampered body that flags both
-            // buys but whose run could never have funded them is rejected here.
-            const reqShard = body.boughtFateShard === true && roundsCleared >= PREMIUM_ROUNDS_CLEARED;
-            const reqCharm = body.boughtBoneCharm === true && roundsCleared >= PREMIUM_ROUNDS_CLEARED;
-            const valorCeiling = maxReachableValor(roundsCleared, sealed.startHearts);
-            const requestedCost = (reqShard ? SHARD_VALOR_COST : 0) + (reqCharm ? CHARM_VALOR_COST : 0);
-            const affordable = requestedCost <= valorCeiling;
-            const wantShard = reqShard && affordable;
-            const wantCharm = reqCharm && affordable;
+            // Premium-currency buys (Fate Shard / Bone Charm) are taken straight from
+            // the RE-SIM: replayGauntlet only sets these when the run actually queued
+            // the buy AND cleared round 9 AND could afford the Valor (buyPremium
+            // enforces all three), so the client can never mint premium currency. Each
+            // is still capped once/day/currency via the NX claim flags below.
+            const wantShard = replay.boughtFateShard;
+            const wantCharm = replay.boughtBoneCharm;
             const day = dayStamp();
             let name = me;
             let village;
