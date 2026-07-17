@@ -15,8 +15,9 @@
 import './api/_force-ipv4.js';
 
 import { startGameLoop, stopGameLoop } from './api/_realtime/game-loop.js';
-import { attachSocketServer } from './api/_realtime/socket.js';
+import { attachSocketServer, closeSocketServer } from './api/_realtime/socket.js';
 import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
+import { closeStoragePool } from './api/_storage.js';
 import compression from 'compression';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
@@ -76,6 +77,7 @@ import itemReviewHandler   from './api/admin/item-review.js';
 import bloodlinesListHandler from './api/bloodlines/list.js';
 import kvProxyHandler     from './api/kv-proxy.js';
 import migrateKvHandler   from './api/admin/migrate-kv.js';
+import migrateToBaseHandler from './api/admin/migrate-to-base.js';
 import raidStartHandler   from './api/missions/raid-start.js';
 import towersFloorsHandler from './api/towers/floors.js';
 import towersStartHandler  from './api/towers/start.js';
@@ -344,6 +346,19 @@ function gracefulShutdown(code: number, reason: string): void {
     console.log(`[shutdown] draining in-flight requests (${reason})`);
     stopGameLoop();
     stopSnapshotCron();
+    // Close the realtime layer and the pg pool cleanly on the way out. Both are
+    // shutdown-only and fire-and-forget under the 4s backstop below, so they can
+    // only improve the exit path, never hang it:
+    //   • closeSocketServer() disconnects live websockets so _httpServer.close()
+    //     can actually finish draining (long-lived sockets otherwise hold it open
+    //     until the backstop). Clients reconnect to the fresh worker / fall back
+    //     to the HTTP heartbeat — the same outcome as the old abrupt sever, but
+    //     with a clean disconnect event instead of a TCP reset.
+    //   • closeStoragePool() ends idle connections and waits for in-flight queries
+    //     to finish before releasing them, instead of leaving the supervisor to
+    //     reap half-open connections against the Supabase ceiling on every deploy.
+    void closeSocketServer().catch(() => undefined);
+    void closeStoragePool().catch(() => undefined);
     let exited = false;
     const exit = (how: string): void => {
         if (exited) return;
@@ -922,6 +937,9 @@ route('/kv/:op', kvProxyHandler);
 
 // Admin: migrate disk-routed keys from Supabase → disk overlay.
 route('/admin/migrate-kv', migrateKvHandler);
+// Admin: REVERSE copy disk overlay → Supabase base, to retire the overlay/cPanel
+// (Option B, docs/RETIRE_CPANEL_RUNBOOK.md). Copy-only — never deletes the overlay.
+route('/admin/migrate-to-base', migrateToBaseHandler);
 
 // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
 // AI raids use this short-lived single-use token instead).

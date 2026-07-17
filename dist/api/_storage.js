@@ -27,6 +27,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports._diskKvForProxy = exports.saveStoreKind = exports.kv = void 0;
 exports.closeStoragePool = closeStoragePool;
 exports._toSqlPattern = _toSqlPattern;
+exports._chunkArray = _chunkArray;
+exports._collectPaginated = _collectPaginated;
 exports._makeMemoryKv = _makeMemoryKv;
 exports._makeDiskKv = _makeDiskKv;
 exports._validatedRemoteKvBaseUrl = _validatedRemoteKvBaseUrl;
@@ -34,6 +36,8 @@ exports._makeRemoteKv = _makeRemoteKv;
 exports._makeRoutedKv = _makeRoutedKv;
 exports._migrateDiskRoutedKeys = _migrateDiskRoutedKeys;
 exports.migrateDiskRoutedKeysToOverlay = migrateDiskRoutedKeysToOverlay;
+exports._copyDiskRoutedKeysToBase = _copyDiskRoutedKeysToBase;
+exports.copyDiskRoutedKeysToBase = copyDiskRoutedKeysToBase;
 const _readCache = new Map();
 // These prefixes change too rapidly to benefit from caching.
 const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:'];
@@ -113,10 +117,24 @@ function getPool() {
         // Pool size PER PROCESS. cPanel/Passenger runs many small worker
         // processes, so 5 each is plenty. A single always-on Railway/VPS instance
         // serving every player's heartbeat writes wants more headroom — set
-        // PG_POOL_MAX=15 (or higher) there. Default unchanged at 5.
+        // PG_POOL_MAX=15 (or higher) there. Default unchanged at 5 so a (dormant)
+        // cPanel host booting N Passenger workers can't multiply into the
+        // Supabase connection ceiling; raise it via env on the single live host.
         max: Number(process.env.PG_POOL_MAX ?? 5),
         idleTimeoutMillis: 30_000,
         connectionTimeoutMillis: 15_000,
+        // Bound a pathologically slow query so it can't pin a pool connection
+        // indefinitely (there was no query timeout before — a hung statement held
+        // its connection until the server role's 2-min default, and with only ~5
+        // connections a few of those starve the whole pool and everything else
+        // 15s-times-out waiting to acquire). Every base-store query on this path
+        // is a PK/indexed lookup or a small batched read (the multi-MB save/image
+        // blobs route to the disk overlay, NOT here), so 30s is far above any
+        // legitimate statement — this only ever fires on a genuine hang.
+        // statement_timeout is server-enforced; query_timeout is the client-side
+        // backstop if the socket itself wedges. Overridable via PG_STATEMENT_TIMEOUT_MS.
+        statement_timeout: Number(process.env.PG_STATEMENT_TIMEOUT_MS ?? 30_000),
+        query_timeout: Number(process.env.PG_STATEMENT_TIMEOUT_MS ?? 30_000),
     });
     _pool.on('error', (err) => {
         console.error('[pg pool error]', err.message);
@@ -323,6 +341,37 @@ function getSupabase() {
 function isExpired(exp) {
     return !!exp && new Date(exp) <= new Date();
 }
+// ─── PostgREST result-limit safety ────────────────────────────────────────────
+// PostgREST silently caps every response at the project's max-rows setting
+// (Supabase default: 1000 rows) — it does NOT error, it just truncates. The
+// production kv_store already holds >4k rows and the `save-snapshot:*` prefix
+// alone is near the cap, so an unpaginated keys()/mget() would silently drop
+// matches (incomplete snapshot dedup, truncated admin restore lists, partial
+// batch deletes). Reads paginate with .range(); .in() inputs are chunked so a
+// batch can never exceed one page (and the filter URL stays bounded).
+const SUPABASE_PAGE_SIZE = 1000;
+const SUPABASE_IN_CHUNK = 200;
+function _chunkArray(items, size) {
+    const out = [];
+    for (let i = 0; i < items.length; i += size)
+        out.push(items.slice(i, i + size));
+    return out;
+}
+/**
+ * Drain a paginated PostgREST query: `fetchPage(from, to)` returns one
+ * inclusive `.range(from, to)` page; pages are requested until one comes back
+ * short. Ordering must be stable (callers order by key) or rows could repeat/
+ * skip across pages.
+ */
+async function _collectPaginated(fetchPage, pageSize = SUPABASE_PAGE_SIZE) {
+    const all = [];
+    for (let from = 0;; from += pageSize) {
+        const page = await fetchPage(from, from + pageSize - 1);
+        all.push(...page);
+        if (page.length < pageSize)
+            return all;
+    }
+}
 const supabaseKv = {
     async get(key) {
         const db = getSupabase();
@@ -355,10 +404,17 @@ const supabaseKv = {
         if (!keys.length)
             return 0;
         const db = getSupabase();
-        const { count, error } = await db.from('kv_store').delete({ count: 'exact' }).in('key', keys);
-        if (error)
-            throw new Error(`kv.del: ${error.message}`);
-        return count ?? 0;
+        // Chunked so a bulk delete (server-reset, cleanup sweeps) can't build an
+        // oversized .in() filter URL. DELETE itself has no row cap, but the
+        // filter list rides the request line — keep it bounded like mget.
+        let total = 0;
+        for (const chunk of _chunkArray(keys, SUPABASE_IN_CHUNK)) {
+            const { count, error } = await db.from('kv_store').delete({ count: 'exact' }).in('key', chunk);
+            if (error)
+                throw new Error(`kv.del: ${error.message}`);
+            total += count ?? 0;
+        }
+        return total;
     },
     async incr(key, options) {
         const db = getSupabase();
@@ -373,13 +429,20 @@ const supabaseKv = {
         // Fetch key + expires_at and filter expiry client-side.
         // Avoid putting a timestamp inside .or() — the colons in ISO strings
         // confuse the PostgREST filter parser and cause consistent 500 errors.
-        const { data, error } = await db
-            .from('kv_store').select('key, expires_at')
-            .like('key', _toSqlPattern(pattern));
-        if (error)
-            throw new Error(`kv.keys(${pattern}): ${error.message}`);
+        // Paginated: PostgREST truncates at max-rows (default 1000) without an
+        // error, so a single-request scan silently drops matches past the cap.
+        const rows = await _collectPaginated(async (from, to) => {
+            const { data, error } = await db
+                .from('kv_store').select('key, expires_at')
+                .like('key', _toSqlPattern(pattern))
+                .order('key')
+                .range(from, to);
+            if (error)
+                throw new Error(`kv.keys(${pattern}): ${error.message}`);
+            return (data ?? []);
+        });
         const now = Date.now();
-        return (data ?? [])
+        return rows
             .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
             .map((r) => r.key);
     },
@@ -389,15 +452,23 @@ const supabaseKv = {
         const db = getSupabase();
         // Same pattern as keys(): fetch expires_at and filter client-side
         // to avoid the PostgREST timestamp colon parsing bug.
-        const { data, error } = await db
-            .from('kv_store').select('key, value, expires_at')
-            .in('key', keys);
-        if (error)
-            throw new Error(`kv.mget: ${error.message}`);
+        // Chunked: a chunk of ≤ SUPABASE_IN_CHUNK keys can never exceed one
+        // PostgREST page (so no silent truncation) and keeps the .in() filter
+        // URL bounded. Input order and duplicate keys are preserved by the
+        // final map-back over the caller's original key list.
+        const map = new Map();
         const now = Date.now();
-        const map = new Map((data ?? [])
-            .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
-            .map((r) => [r.key, r.value]));
+        for (const chunk of _chunkArray(keys, SUPABASE_IN_CHUNK)) {
+            const { data, error } = await db
+                .from('kv_store').select('key, value, expires_at')
+                .in('key', chunk);
+            if (error)
+                throw new Error(`kv.mget: ${error.message}`);
+            for (const r of (data ?? [])) {
+                if (!r.expires_at || new Date(r.expires_at).getTime() > now)
+                    map.set(r.key, r.value);
+            }
+        }
         return keys.map((k) => (map.has(k) ? map.get(k) : null));
     },
     async hgetall(key) {
@@ -1136,6 +1207,48 @@ async function migrateDiskRoutedKeysToOverlay(opts) {
     if (!_diskOverlay)
         throw new Error('No disk overlay configured (set DISK_KV_DIR or KV_PROXY_URL).');
     return _migrateDiskRoutedKeys(_baseKv, _diskOverlay, _DISK_PREFIXES, opts);
+}
+async function _copyDiskRoutedKeysToBase(overlay, base, prefixes, opts) {
+    let copied = 0;
+    let verified = 0;
+    let skipped = 0;
+    let sourceCount = 0;
+    const mismatches = [];
+    for (const prefix of prefixes) {
+        const ks = await overlay.keys(prefix + '*');
+        for (const k of ks) {
+            sourceCount += 1;
+            const source = await overlay.get(k);
+            if (source === null || source === undefined) {
+                skipped += 1;
+                continue;
+            }
+            if (opts?.dryRun) {
+                copied += 1;
+                continue;
+            }
+            await base.set(k, source);
+            const readBack = await base.get(k);
+            if (migrationValueEqual(source, readBack)) {
+                copied += 1;
+                verified += 1;
+            }
+            else
+                mismatches.push(k);
+        }
+    }
+    return { copied, verified, skipped, sourceCount, mismatches };
+}
+/**
+ * Copy all disk-routed keys from the configured overlay into the base store, in
+ * preparation for retiring the overlay (see Option B in the DB audit runbook).
+ * Requires an overlay to be configured (KV_PROXY_URL or DISK_KV_DIR) — that's
+ * what we're reading FROM. Never deletes the overlay.
+ */
+async function copyDiskRoutedKeysToBase(opts) {
+    if (!_diskOverlay)
+        throw new Error('No disk overlay configured — nothing to copy from (set KV_PROXY_URL or DISK_KV_DIR).');
+    return _copyDiskRoutedKeysToBase(_diskOverlay, _baseKv, _DISK_PREFIXES, opts);
 }
 // ─── Export the right backend ─────────────────────────────────────────────────
 //

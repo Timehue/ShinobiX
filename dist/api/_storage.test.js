@@ -12,6 +12,45 @@ const _single_use_token_js_1 = require("./_single-use-token.js");
         node_assert_1.strict.equal((0, _storage_js_1._toSqlPattern)(String.raw `save:\alice_%*?`), String.raw `save:\\alice\_\%%_`);
     });
 });
+// PostgREST silently truncates every response at the project's max-rows setting
+// (Supabase default 1000). These pin the pagination/chunking that keeps the REST
+// backend's keys()/mget()/del() from silently dropping rows past that cap — the
+// live save-snapshot prefix already holds ~880 rows, near the cap.
+(0, node_test_1.describe)('PostgREST result-limit safety helpers', () => {
+    (0, node_test_1.it)('_chunkArray splits into bounded, order-preserving, non-overlapping chunks', () => {
+        node_assert_1.strict.deepEqual((0, _storage_js_1._chunkArray)([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+        node_assert_1.strict.deepEqual((0, _storage_js_1._chunkArray)([], 3), []);
+        node_assert_1.strict.deepEqual((0, _storage_js_1._chunkArray)([1, 2], 10), [[1, 2]]);
+        // Flattening a chunked list must reproduce the input exactly (no dupes/gaps).
+        const input = Array.from({ length: 205 }, (_, i) => i);
+        node_assert_1.strict.deepEqual((0, _storage_js_1._chunkArray)(input, 50).flat(), input);
+        node_assert_1.strict.equal((0, _storage_js_1._chunkArray)(input, 50).length, 5); // 50,50,50,50,5
+    });
+    (0, node_test_1.it)('_collectPaginated drains every full page and stops on the first short page', async () => {
+        // 2350 synthetic rows behind a 1000-row page cap → 3 pages (1000,1000,350).
+        const total = 2350;
+        const all = Array.from({ length: total }, (_, i) => `k${i}`);
+        const ranges = [];
+        const rows = await (0, _storage_js_1._collectPaginated)(async (from, to) => {
+            ranges.push([from, to]);
+            return all.slice(from, to + 1);
+        }, 1000);
+        node_assert_1.strict.equal(rows.length, total);
+        node_assert_1.strict.deepEqual(rows, all); // order preserved across pages
+        node_assert_1.strict.deepEqual(ranges, [[0, 999], [1000, 1999], [2000, 2999]]);
+    });
+    (0, node_test_1.it)('_collectPaginated makes a second request when the first page is exactly full', async () => {
+        // Exactly one full page then empty — must probe the next page to learn it ended.
+        const rows = await (0, _storage_js_1._collectPaginated)(async (from) => (from === 0 ? Array.from({ length: 1000 }, (_, i) => i) : []), 1000);
+        node_assert_1.strict.equal(rows.length, 1000);
+    });
+    (0, node_test_1.it)('_collectPaginated single short page → one request only', async () => {
+        let calls = 0;
+        const rows = await (0, _storage_js_1._collectPaginated)(async () => { calls += 1; return [1, 2, 3]; }, 1000);
+        node_assert_1.strict.deepEqual(rows, [1, 2, 3]);
+        node_assert_1.strict.equal(calls, 1);
+    });
+});
 // The routed KV splits keys across two backends — a disk overlay for the
 // disk-routed prefixes ('save:', 'shared:images', 'shared:imgfields') and the
 // base store for everything else. save-snapshot: is base-primary with a legacy
@@ -233,6 +272,63 @@ function memoryKv(initial = {}) {
         node_assert_1.strict.deepEqual(result.conflicts, ['save:alice']);
         node_assert_1.strict.deepEqual(await backing.get('save:alice'), { _saveVersion: 3, writer: 'concurrent' });
         node_assert_1.strict.equal(result.deleted, 0);
+    });
+});
+// The overlay→base copy that retires the disk overlay / cPanel. Unlike the
+// migrate-TO-overlay path it must NEVER delete the source (rollback = re-point
+// env at the intact overlay) and must OVERWRITE stale base copies (overlay is
+// the source of truth). Every write is read back and compared.
+(0, node_test_1.describe)('_copyDiskRoutedKeysToBase — retire-the-overlay copy', () => {
+    (0, node_test_1.it)('copies every disk-routed key into base, verifies, and leaves the overlay intact', async () => {
+        const overlay = memoryKv({
+            'save:alice': { _saveVersion: 5, ryo: 100 },
+            'save:bob': { _saveVersion: 2, ryo: 7 },
+            'shared:images:cat': { a: 1 },
+            'other:ignored': { keep: true }, // not a disk-routed prefix → untouched
+        });
+        const base = memoryKv();
+        const r = await (0, _storage_js_1._copyDiskRoutedKeysToBase)(overlay, base, ['save:', 'shared:images', 'shared:imgfields']);
+        node_assert_1.strict.equal(r.sourceCount, 3);
+        node_assert_1.strict.equal(r.copied, 3);
+        node_assert_1.strict.equal(r.verified, 3);
+        node_assert_1.strict.deepEqual(r.mismatches, []);
+        // Base now holds byte-identical copies.
+        node_assert_1.strict.deepEqual(await base.get('save:alice'), { _saveVersion: 5, ryo: 100 });
+        node_assert_1.strict.deepEqual(await base.get('shared:images:cat'), { a: 1 });
+        // Non-routed key was never copied.
+        node_assert_1.strict.equal(await base.get('other:ignored'), null);
+        // Overlay is fully intact — cutover stays reversible.
+        node_assert_1.strict.deepEqual(await overlay.get('save:alice'), { _saveVersion: 5, ryo: 100 });
+        node_assert_1.strict.equal((await overlay.keys('save:*')).length, 2);
+    });
+    (0, node_test_1.it)('overwrites a stale legacy value already in base (overlay wins)', async () => {
+        const overlay = memoryKv({ 'save:alice': { _saveVersion: 9, ryo: 999 } });
+        const base = memoryKv({ 'save:alice': { _saveVersion: 1, ryo: 1 } }); // stale legacy copy
+        const r = await (0, _storage_js_1._copyDiskRoutedKeysToBase)(overlay, base, ['save:']);
+        node_assert_1.strict.equal(r.copied, 1);
+        node_assert_1.strict.deepEqual(r.mismatches, []);
+        node_assert_1.strict.deepEqual(await base.get('save:alice'), { _saveVersion: 9, ryo: 999 });
+    });
+    (0, node_test_1.it)('dryRun writes nothing to base but reports what would copy', async () => {
+        const overlay = memoryKv({ 'save:alice': { ryo: 100 }, 'save:bob': { ryo: 7 } });
+        const base = memoryKv();
+        const r = await (0, _storage_js_1._copyDiskRoutedKeysToBase)(overlay, base, ['save:'], { dryRun: true });
+        node_assert_1.strict.equal(r.copied, 2);
+        node_assert_1.strict.equal(r.verified, 0); // nothing actually written/verified
+        node_assert_1.strict.equal(base.data.size, 0); // base untouched
+    });
+    (0, node_test_1.it)('reports a mismatch when a base write does not read back equal (never silent)', async () => {
+        const overlay = memoryKv({ 'save:alice': { ryo: 100 } });
+        // A base whose set is a no-op → read-back is null → must be flagged, not counted as copied.
+        const brokenBase = {
+            ...memoryKv(),
+            async set() { return 'OK'; },
+            async get() { return null; },
+        };
+        const r = await (0, _storage_js_1._copyDiskRoutedKeysToBase)(overlay, brokenBase, ['save:']);
+        node_assert_1.strict.equal(r.copied, 0);
+        node_assert_1.strict.equal(r.verified, 0);
+        node_assert_1.strict.deepEqual(r.mismatches, ['save:alice']);
     });
 });
 // Transport resilience for the remote (cPanel) proxy overlay. The proxy box is

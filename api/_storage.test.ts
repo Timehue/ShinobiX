@@ -3,12 +3,55 @@ import { strict as assert } from 'node:assert';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { _makeDiskKv, _makeRoutedKv, _makeRemoteKv, _migrateDiskRoutedKeys, _toSqlPattern, type KvLike } from './_storage.js';
+import { _makeDiskKv, _makeRoutedKv, _makeRemoteKv, _migrateDiskRoutedKeys, _copyDiskRoutedKeysToBase, _toSqlPattern, _chunkArray, _collectPaginated, type KvLike } from './_storage.js';
 import { consumeSingleUseToken } from './_single-use-token.js';
 
 describe('SQL key-pattern escaping', () => {
     it('escapes LIKE metacharacters and escape characters before expanding glob syntax', () => {
         assert.equal(_toSqlPattern(String.raw`save:\alice_%*?`), String.raw`save:\\alice\_\%%_`);
+    });
+});
+
+// PostgREST silently truncates every response at the project's max-rows setting
+// (Supabase default 1000). These pin the pagination/chunking that keeps the REST
+// backend's keys()/mget()/del() from silently dropping rows past that cap — the
+// live save-snapshot prefix already holds ~880 rows, near the cap.
+describe('PostgREST result-limit safety helpers', () => {
+    it('_chunkArray splits into bounded, order-preserving, non-overlapping chunks', () => {
+        assert.deepEqual(_chunkArray([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
+        assert.deepEqual(_chunkArray([], 3), []);
+        assert.deepEqual(_chunkArray([1, 2], 10), [[1, 2]]);
+        // Flattening a chunked list must reproduce the input exactly (no dupes/gaps).
+        const input = Array.from({ length: 205 }, (_, i) => i);
+        assert.deepEqual(_chunkArray(input, 50).flat(), input);
+        assert.equal(_chunkArray(input, 50).length, 5); // 50,50,50,50,5
+    });
+
+    it('_collectPaginated drains every full page and stops on the first short page', async () => {
+        // 2350 synthetic rows behind a 1000-row page cap → 3 pages (1000,1000,350).
+        const total = 2350;
+        const all = Array.from({ length: total }, (_, i) => `k${i}`);
+        const ranges: Array<[number, number]> = [];
+        const rows = await _collectPaginated(async (from, to) => {
+            ranges.push([from, to]);
+            return all.slice(from, to + 1);
+        }, 1000);
+        assert.equal(rows.length, total);
+        assert.deepEqual(rows, all); // order preserved across pages
+        assert.deepEqual(ranges, [[0, 999], [1000, 1999], [2000, 2999]]);
+    });
+
+    it('_collectPaginated makes a second request when the first page is exactly full', async () => {
+        // Exactly one full page then empty — must probe the next page to learn it ended.
+        const rows = await _collectPaginated(async (from) => (from === 0 ? Array.from({ length: 1000 }, (_, i) => i) : []), 1000);
+        assert.equal(rows.length, 1000);
+    });
+
+    it('_collectPaginated single short page → one request only', async () => {
+        let calls = 0;
+        const rows = await _collectPaginated(async () => { calls += 1; return [1, 2, 3]; }, 1000);
+        assert.deepEqual(rows, [1, 2, 3]);
+        assert.equal(calls, 1);
     });
 });
 
@@ -254,6 +297,75 @@ describe('_migrateDiskRoutedKeys conflict safety', () => {
         assert.deepEqual(result.conflicts, ['save:alice']);
         assert.deepEqual(await backing.get('save:alice'), { _saveVersion: 3, writer: 'concurrent' });
         assert.equal(result.deleted, 0);
+    });
+});
+
+// The overlay→base copy that retires the disk overlay / cPanel. Unlike the
+// migrate-TO-overlay path it must NEVER delete the source (rollback = re-point
+// env at the intact overlay) and must OVERWRITE stale base copies (overlay is
+// the source of truth). Every write is read back and compared.
+describe('_copyDiskRoutedKeysToBase — retire-the-overlay copy', () => {
+    it('copies every disk-routed key into base, verifies, and leaves the overlay intact', async () => {
+        const overlay = memoryKv({
+            'save:alice': { _saveVersion: 5, ryo: 100 },
+            'save:bob': { _saveVersion: 2, ryo: 7 },
+            'shared:images:cat': { a: 1 },
+            'other:ignored': { keep: true },   // not a disk-routed prefix → untouched
+        });
+        const base = memoryKv();
+
+        const r = await _copyDiskRoutedKeysToBase(overlay, base, ['save:', 'shared:images', 'shared:imgfields']);
+
+        assert.equal(r.sourceCount, 3);
+        assert.equal(r.copied, 3);
+        assert.equal(r.verified, 3);
+        assert.deepEqual(r.mismatches, []);
+        // Base now holds byte-identical copies.
+        assert.deepEqual(await base.get('save:alice'), { _saveVersion: 5, ryo: 100 });
+        assert.deepEqual(await base.get('shared:images:cat'), { a: 1 });
+        // Non-routed key was never copied.
+        assert.equal(await base.get('other:ignored'), null);
+        // Overlay is fully intact — cutover stays reversible.
+        assert.deepEqual(await overlay.get('save:alice'), { _saveVersion: 5, ryo: 100 });
+        assert.equal((await overlay.keys('save:*')).length, 2);
+    });
+
+    it('overwrites a stale legacy value already in base (overlay wins)', async () => {
+        const overlay = memoryKv({ 'save:alice': { _saveVersion: 9, ryo: 999 } });
+        const base = memoryKv({ 'save:alice': { _saveVersion: 1, ryo: 1 } }); // stale legacy copy
+
+        const r = await _copyDiskRoutedKeysToBase(overlay, base, ['save:']);
+
+        assert.equal(r.copied, 1);
+        assert.deepEqual(r.mismatches, []);
+        assert.deepEqual(await base.get('save:alice'), { _saveVersion: 9, ryo: 999 });
+    });
+
+    it('dryRun writes nothing to base but reports what would copy', async () => {
+        const overlay = memoryKv({ 'save:alice': { ryo: 100 }, 'save:bob': { ryo: 7 } });
+        const base = memoryKv();
+
+        const r = await _copyDiskRoutedKeysToBase(overlay, base, ['save:'], { dryRun: true });
+
+        assert.equal(r.copied, 2);
+        assert.equal(r.verified, 0);      // nothing actually written/verified
+        assert.equal(base.data.size, 0);  // base untouched
+    });
+
+    it('reports a mismatch when a base write does not read back equal (never silent)', async () => {
+        const overlay = memoryKv({ 'save:alice': { ryo: 100 } });
+        // A base whose set is a no-op → read-back is null → must be flagged, not counted as copied.
+        const brokenBase: KvLike = {
+            ...memoryKv(),
+            async set() { return 'OK'; },
+            async get() { return null; },
+        };
+
+        const r = await _copyDiskRoutedKeysToBase(overlay, brokenBase, ['save:']);
+
+        assert.equal(r.copied, 0);
+        assert.equal(r.verified, 0);
+        assert.deepEqual(r.mismatches, ['save:alice']);
     });
 });
 

@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports._shouldStamp = _shouldStamp;
+exports._resetPlayerIpStampMemo = _resetPlayerIpStampMemo;
 exports.stampPlayerIp = stampPlayerIp;
 exports.recentIps = recentIps;
 exports.recentFps = recentFps;
@@ -16,6 +18,38 @@ const _client_ip_js_1 = require("./_client-ip.js");
 // localStorage / using incognito. Together they require BOTH evasions, which
 // raises the cost of farming meaningfully.
 const TTL_SECONDS = 7 * 24 * 60 * 60;
+// Re-stamp throttle. The heartbeat fires ~once/second per online player and used
+// to write BOTH the ip and fp keys every beat purely to refresh a 7-day TTL — a
+// steady write flood on the hottest endpoint for zero anti-alt benefit. The keys
+// only need to EXIST within the 7-day window; refreshing at most once per this
+// interval is functionally identical for detection (5 min << 7 days). Anti-alt
+// semantics are unchanged: a NEW (player, ip/fp) pair always writes on first
+// sight (memo miss), and a process restart clears the memo → the next beat
+// re-stamps (strictly more writes, never fewer). This memo NEVER decides what is
+// recorded, only how often an already-recorded pair is re-touched.
+const RESTAMP_INTERVAL_MS = Number(process.env.PLAYER_IP_RESTAMP_MS ?? 5 * 60_000);
+const _lastStampedAt = new Map();
+// Return true (and record the stamp) if this key hasn't been written within the
+// throttle window; false if it was and the write can be skipped. Opportunistic
+// prune keeps the map bounded to roughly (online players × recent ips/fps).
+// Exported for deterministic unit testing (time is injected via `now`).
+function _shouldStamp(memoKey, now) {
+    const last = _lastStampedAt.get(memoKey);
+    if (last !== undefined && now - last < RESTAMP_INTERVAL_MS)
+        return false;
+    _lastStampedAt.set(memoKey, now);
+    if (_lastStampedAt.size > 5000) {
+        for (const [k, t] of _lastStampedAt) {
+            if (now - t >= RESTAMP_INTERVAL_MS * 2)
+                _lastStampedAt.delete(k);
+        }
+    }
+    return true;
+}
+// Test-only: reset the in-process throttle memo.
+function _resetPlayerIpStampMemo() {
+    _lastStampedAt.clear();
+}
 function ipKey(name, ip) {
     return `player-ip:${(0, _utils_js_1.safeName)(name)}:${ip}`;
 }
@@ -42,10 +76,16 @@ async function stampPlayerIp(req, name) {
     try {
         const ip = extractIp(req);
         const fp = extractFp(req);
-        await Promise.all([
-            ip ? _storage_js_1.kv.set(ipKey(name, ip), 1, { ex: TTL_SECONDS }) : Promise.resolve(),
-            fp ? _storage_js_1.kv.set(fpKey(name, fp), 1, { ex: TTL_SECONDS }) : Promise.resolve(),
-        ]);
+        const now = Date.now();
+        // Only issue the write when this pair hasn't been stamped within the
+        // throttle window (see _shouldStamp). A new ip/fp still writes immediately.
+        const writes = [];
+        if (ip && _shouldStamp(ipKey(name, ip), now))
+            writes.push(_storage_js_1.kv.set(ipKey(name, ip), 1, { ex: TTL_SECONDS }));
+        if (fp && _shouldStamp(fpKey(name, fp), now))
+            writes.push(_storage_js_1.kv.set(fpKey(name, fp), 1, { ex: TTL_SECONDS }));
+        if (writes.length)
+            await Promise.all(writes);
     }
     catch { /* ignore */ }
 }
