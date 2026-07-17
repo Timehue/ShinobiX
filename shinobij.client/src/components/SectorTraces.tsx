@@ -84,6 +84,10 @@ export function SectorTraceMarkers({ signs, onOpen }: {
     );
 }
 
+// Deliberately NOT .atlas-landmark: that is the world atlas' label-card chrome,
+// and the standee is a painted object standing on the terrain. Borrowing the card
+// class only to undo its background/border/shadow left the standee one skin pass
+// away from wearing a dark panel again — which is exactly what happened.
 export function SectorShrineStandee({ shrine, tier, onOpen }: {
     shrine: ShrineDef;
     tier: number;
@@ -92,13 +96,13 @@ export function SectorShrineStandee({ shrine, tier, onOpen }: {
     return (
         <button
             type="button"
-            className={`atlas-landmark sector-shrine-standee shrine-tier-${tier} shrine-theme-${shrine.theme}`}
+            className={`sector-shrine-standee shrine-tier-${tier} shrine-theme-${shrine.theme}`}
             style={{ left: `${shrine.left}%`, top: `${shrine.top}%` }}
             onClick={onOpen}
             title={`${shrine.name} — ${tierName(tier)}. Make an offering?`}
         >
             <img src={`/landmarks/shrine-${shrine.id}.webp`} alt="" draggable={false} />
-            <span>{shrine.name.replace(/ Shrine$/, "")}</span>
+            <span className="sector-shrine-standee-name">{shrine.name.replace(/ Shrine$/, "")}</span>
         </button>
     );
 }

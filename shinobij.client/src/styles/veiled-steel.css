@@ -1645,7 +1645,13 @@ html[data-vp="xl"] .app-shell:has(#battle-hud-portal > .battle-hud-sidebar) .cen
     0 0 0 1px rgba(209, 167, 88, 0.28) !important;
 }
 
-.atlas-landmark {
+/* Scoped to the world atlas on purpose. The sector board reuses .atlas-landmark
+   for its absolute positioning (shrine standee, rift mouth, war vault), and those
+   are painted 2.5D objects standing ON the terrain, not label cards. Unscoped,
+   this !important card background sat a dark panel behind the shrine standee and
+   overpainted the rift/vault inline landmark art (the shorthand resets
+   background-image, which even outranks their inline style). */
+.generated-world-map .atlas-landmark {
   border-color: rgba(230, 196, 119, 0.92) !important;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.08), transparent 54%),
