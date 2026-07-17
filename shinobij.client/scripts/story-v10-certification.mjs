@@ -30,7 +30,9 @@ const villages = [
 
 async function buildFreshClient() {
     const clientRoot = path.join(repoRoot, 'shinobij.client');
-    const command = process.platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : 'npm';
+    // npm on Windows is npm.cmd, which Node refuses to spawn without a shell, so go
+    // through cmd.exe explicitly — resolved from PATH rather than the ComSpec env var.
+    const command = process.platform === 'win32' ? 'cmd.exe' : 'npm';
     const args = process.platform === 'win32'
         ? ['/d', '/s', '/c', 'npm run build']
         : ['run', 'build'];

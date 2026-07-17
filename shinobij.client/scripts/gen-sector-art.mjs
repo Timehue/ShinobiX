@@ -65,7 +65,13 @@ const DEPTH_DIR = path.join(CLIENT, 'public', 'sector-depth');
 const LANDMARKS_DIR = path.join(CLIENT, 'public', 'landmarks');
 const MANIFEST = path.join(CLIENT, 'src', 'data', 'sector-art-manifest.ts');
 
+// The slug is interpolated into the fal.run request path, so hold it to the
+// vendor/model[/variant] shape rather than letting --model reshape the URL.
 const MODEL = arg('model', 'fal-ai/flux/dev');
+if (!/^[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9._-]+){1,3}$/i.test(MODEL)) {
+    console.error(`bad --model "${MODEL}" — expected a fal slug like fal-ai/flux/dev`);
+    process.exit(1);
+}
 const CONCURRENCY = Math.max(1, parseInt(arg('concurrency', '3'), 10) || 3);
 const only = (arg('only') || '').split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n));
 const force = flag('force');
@@ -90,8 +96,8 @@ const FAL_KEY = dryRun ? '' : envKey('FAL_KEY');
 if (!dryRun && !FAL_KEY) { console.error('no FAL_KEY (set it in env or shinobij.client/.env)'); process.exit(1); }
 
 async function falJson(model, body) {
-    // This offline generator intentionally sends its curated prompt/image and configured API credential to fal.ai.
-    // codeql[js/file-access-to-http]
+    // This offline generator intentionally sends its curated prompt/image and the
+    // developer's own FAL_KEY to fal.ai — that traffic is the point of the script.
     const res = await fetch(`https://fal.run/${model}`, {
         method: 'POST',
         headers: { Authorization: `Key ${FAL_KEY}`, 'Content-Type': 'application/json' },
