@@ -70,14 +70,18 @@ async function handler(req, res) {
         const healSignalKey = `heal-signal:${(0, _utils_js_1.safeName)(name)}`;
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
+        // The three per-beat signal reads ride ONE mget (they all live on the base
+        // store, so the routed mget is a single round trip) — this endpoint fires
+        // every second per online player, so each read saved here is ~1 op/s/player.
         const existing = online_store_js_1.onlineStore.get(name);
-        const [pendingChallenges, resetSignal, healSignal, savedLocation, persistedTravel] = await Promise.all([
-            _storage_js_1.kv.get(challengeKey),
-            _storage_js_1.kv.get(resetSignalKey),
-            _storage_js_1.kv.get(healSignalKey),
+        const [signals, savedLocation, persistedTravel] = await Promise.all([
+            _storage_js_1.kv.mget(challengeKey, resetSignalKey, healSignalKey),
             existing ? Promise.resolve(null) : _storage_js_1.kv.get(`save:${(0, _utils_js_1.safeName)(name)}`),
             existing ? Promise.resolve(null) : (0, travel_lease_js_1.getTravelLease)(name),
         ]);
+        const pendingChallenges = signals[0];
+        const resetSignal = signals[1];
+        const healSignal = signals[2];
         if (resetSignal) {
             return res.status(200).json({ forceReload: true });
         }
