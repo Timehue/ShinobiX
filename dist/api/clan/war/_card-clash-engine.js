@@ -42,6 +42,7 @@ exports.locationSidePower = locationSidePower;
 exports.totalBoardPower = totalBoardPower;
 exports.determineWinner = determineWinner;
 exports.validatePlays = validatePlays;
+exports.applyOnReveal = applyOnReveal;
 exports.resolveTurn = resolveTurn;
 // ── Constants ────────────────────────────────────────────────────────────────
 exports.CLASH_DECK_SIZE = 12;
