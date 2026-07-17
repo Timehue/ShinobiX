@@ -26,12 +26,26 @@ export type SunscarDiceResult = {
 };
 
 export type MiraaOutcome = "win" | "loss" | "draw" | "forfeit";
+
+// Opening a wager escrows the stake server-side and returns a single-use token
+// that the settle call later redeems. The server, not the client, decides the
+// outcome — see reportMiraaWager.
+export type MiraaStartResult = {
+    ok: boolean;
+    error?: string;
+    token?: string;
+    bet?: number;
+    balanceRyo?: number;
+    character?: Character;
+};
+
 export type MiraaResult = {
     ok: boolean;
     error?: string;
-    bet?: number;
     outcome?: MiraaOutcome;
-    delta?: number;
+    bet?: number;
+    /** Ryo credited back on this settle (0 on a loss/forfeit; 2×bet on a win). */
+    credit?: number;
     balanceRyo?: number;
     character?: Character;
 };
@@ -55,6 +69,16 @@ export function rollFateDice(playerName: string): Promise<SunscarDiceResult> {
     return postSunscar<SunscarDiceResult>({ kind: "dice", playerName }, "The dice refuse to roll. Try again.");
 }
 
-export function settleMiraaWager(playerName: string, bet: number, outcome: MiraaOutcome): Promise<MiraaResult> {
-    return postSunscar<MiraaResult>({ kind: "miraa", playerName, bet, outcome }, "Miraa slips the wager back into the sands. Try again.");
+/** Open a Miraa wager: the server escrows the stake and mints a single-use token. */
+export function startMiraaWager(playerName: string, bet: number): Promise<MiraaStartResult> {
+    return postSunscar<MiraaStartResult>({ kind: "miraa-start", playerName, bet }, "Miraa won't take that wager. Try again.");
+}
+
+/**
+ * Settle an opened wager. The server rolls the outcome from the sealed bet — the
+ * client-side card result never decides the ryo, it only distinguishes a played-
+ * out match from a forfeit (leaving mid-match keeps the stake with Miraa).
+ */
+export function reportMiraaWager(playerName: string, token: string, forfeit = false): Promise<MiraaResult> {
+    return postSunscar<MiraaResult>({ kind: "miraa-report", playerName, token, forfeit }, "Miraa's verdict slipped into the sands. Refresh before retrying.");
 }
