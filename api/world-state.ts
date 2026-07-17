@@ -5,6 +5,7 @@ import { cors, safeName, clanRecordKey, setSafeRecordValue } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
+import { cachedFor } from './_proc-cache.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 import { resolveClaimedWarSupply } from './_territory-supply.js';
 import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js';
@@ -635,11 +636,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let warsRaw: VillageWar[];
         let standingRows: WarStanding[];
         try {
-            [territories, warsRaw, standingRows] = await Promise.all([
+            // Proc-cached like game-state.ts: this GET is polled by every online
+            // client, and each CDN miss cost 3 keyspace scans + 3 mgets. The 3s
+            // cache bounds origin storage work to one build per window regardless
+            // of poll fan-in (single-flight); the CDN s-maxage below still applies
+            // on top. Treat the cached arrays as immutable — the decay/settle
+            // logic below already derives fresh objects instead of mutating.
+            [territories, warsRaw, standingRows] = await cachedFor('world-state:frame', 3_000, () => Promise.all([
                 getByPrefix<SectorTerritory>(TERRITORY_KEY_PREFIX),
                 getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX),
                 getByPrefix<WarStanding>(WAR_STANDING_PREFIX),
-            ]);
+            ]));
         } catch (err) {
             // Storage is down — fail safe with an explicit degraded flag and a
             // non-cacheable 503 instead of a 200 with empty data. The client
@@ -697,7 +704,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // not skip them. Freshness is identical; only the repeat bytes are saved.
         // (Mirrors api/game-state.ts. Pairs with the client's `cache: "no-cache"`.)
         const etag = `W/"${createHash('sha1').update(JSON.stringify(payload)).digest('base64')}"`;
-        res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=10');
+        // s-maxage lowered 15→12 to offset the 3s proc cache above, keeping the
+        // total worst-case staleness at the original ~15s (see api/_proc-cache.ts).
+        res.setHeader('Cache-Control', 's-maxage=12, stale-while-revalidate=10');
         res.setHeader('ETag', etag);
         if (req.headers['if-none-match'] === etag) {
             return res.status(304).end();

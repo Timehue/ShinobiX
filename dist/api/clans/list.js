@@ -4,6 +4,17 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const _proc_cache_js_1 = require("../_proc-cache.js");
+// Process-local cache for the clan list build. `kv.keys('save:clan-*')` routes
+// to the DISK overlay, and the disk/proxy keys() implementation walks the
+// ENTIRE storage tree (every player save + image file on the cPanel box) no
+// matter how narrow the pattern is — so before this cache, every player opening
+// the Clan hall triggered a full remote tree walk (the response cache below is
+// `private`, per-client, so concurrent players didn't share it). 15s here
+// bounds that to at most 4 walks/min per process regardless of player count;
+// clan create/disband latency grows by ≤15s on a list that already tolerated
+// 30s client-side staleness.
+const CLANS_LIST_TTL_MS = 15_000;
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -26,15 +37,21 @@ async function handler(req, res) {
         // pre-migration clan record still surfaces in the list. Dedupe by key
         // (a migrated clan can exist under both) preferring the `save:clan-*`
         // copy, which is the one the rest of the app reads/writes.
-        const [saveKeys, legacyKeys] = await Promise.all([
-            _storage_js_1.kv.keys('save:clan-*'),
-            _storage_js_1.kv.keys('clan:*').catch(() => []),
-        ]);
-        // Normalize both layouts (`save:clan-storm` and legacy `clan:storm`)
-        // to the bare slug so a clan present under both isn't listed twice.
-        const bareSlug = (k) => k.replace(/^save:clan-/, '').replace(/^clan[:-]/, '');
-        const seen = new Set(saveKeys.map(bareSlug));
-        const keys = [...saveKeys, ...legacyKeys.filter((k) => !seen.has(bareSlug(k)))];
+        // Auth is enforced per-request ABOVE; only the storage build is shared.
+        const clans = await (0, _proc_cache_js_1.cachedFor)('clans:list', CLANS_LIST_TTL_MS, async () => {
+            const [saveKeys, legacyKeys] = await Promise.all([
+                _storage_js_1.kv.keys('save:clan-*'),
+                _storage_js_1.kv.keys('clan:*').catch(() => []),
+            ]);
+            // Normalize both layouts (`save:clan-storm` and legacy `clan:storm`)
+            // to the bare slug so a clan present under both isn't listed twice.
+            const bareSlug = (k) => k.replace(/^save:clan-/, '').replace(/^clan[:-]/, '');
+            const seen = new Set(saveKeys.map(bareSlug));
+            const keys = [...saveKeys, ...legacyKeys.filter((k) => !seen.has(bareSlug(k)))];
+            if (!keys.length)
+                return [];
+            return (await _storage_js_1.kv.mget(...keys)).filter(Boolean);
+        });
         // 30s browser-private cache. Now that the list is auth-gated it must
         // NOT sit in a shared/edge cache (that could re-serve the authed list to
         // an unauthenticated client and defeat the gate); `private` keeps the
@@ -42,10 +59,7 @@ async function handler(req, res) {
         // without that risk. The list changes only on create/disband/edit, so
         // 30s latency is fine.
         res.setHeader('Cache-Control', 'private, max-age=30');
-        if (!keys.length)
-            return res.status(200).json([]);
-        const clans = await _storage_js_1.kv.mget(...keys);
-        return res.status(200).json(clans.filter(Boolean));
+        return res.status(200).json(clans);
     }
     catch (err) {
         console.error('[clans/list]', err);

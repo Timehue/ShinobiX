@@ -56,6 +56,7 @@ export const TEST_FILES = [
     "api/_ratelimit.test.ts",
     "api/_request-metrics.test.ts",
     "api/_client-ip.test.ts",
+    "api/_player-ips.test.ts",
     "api/_lock.test.ts",
     "api/_proc-cache.test.ts",
     "api/_receipts.test.ts",

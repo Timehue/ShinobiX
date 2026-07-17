@@ -1,0 +1,125 @@
+# Retire cPanel — move `save:*` off the disk overlay into Postgres (Option B)
+
+Goal: stop routing player saves through the cPanel disk overlay (`KV_PROXY_URL`)
+and serve them from the Postgres base store, so cPanel can be decommissioned.
+Chosen because it removes the most moving parts, is the only option that works
+if you ever run more than one server instance, and lowers cost (drops the cPanel
+bill; Postgres storage stays inside Supabase Pro's included quota).
+
+**Reversible by design:** the copy NEVER deletes the cPanel data. Rollback is a
+one-variable env change + redeploy at any point until you decommission cPanel.
+
+Confirmed starting state (from Railway vars, 2026-07-16): `KV_PROXY_URL` set,
+`KV_PROXY_TOKEN` set, `REQUIRE_DISK_OVERLAY` set, `DATABASE_URL` set, no
+`DISK_KV_DIR`. So saves currently live on cPanel via the proxy.
+
+---
+
+## What moves
+
+The three disk-routed prefixes (`_DISK_PREFIXES` in `api/_storage.ts`):
+`save:*`, `shared:images*`, `shared:imgfields*`. `save-snapshot:*` is already
+base-primary (untouched — it stays your recovery copy). Everything else is
+already in Postgres.
+
+## Tooling
+
+- **`POST /api/admin/migrate-to-base`** (full-admin) — copies overlay → base.
+  `?dry=1` reports what would copy without writing. A live run requires
+  `KV_MIGRATION_WRITE_FROZEN=1`. Response `ok:true` + `mismatches:[]` means every
+  key was copied AND byte-verified in Postgres. Idempotent; never deletes overlay.
+- **`GET /health?deep=1`** (with `HEALTH_DEEP_TOKEN`) — reports `saveStore`
+  (`remote-proxy` before, `base-store` after) and exercises a real save read/write.
+- `npm run backup:kv` — pre-flight backup of overlay + base with digests.
+
+---
+
+## Runbook (do during a quiet window; the data is tiny so the copy is minutes)
+
+Replace `$HOST`, `$ADMIN_PW`, `$DEEP_TOKEN` with your values. No secrets belong in
+this file or in any log.
+
+**1. Fresh backup.** `npm run backup:kv` locally (or trigger the snapshot cron).
+Keep the output; it's your floor.
+
+**2. Dry-run the copy** (safe, writes nothing):
+```
+curl -sS -X POST "$HOST/api/admin/migrate-to-base?dry=1" -H "x-admin-password: $ADMIN_PW"
+```
+Confirm `sourceCount` looks right (≈ your player count + a few image keys).
+
+**3. Freeze save writes.** In Railway, set:
+- `MAINTENANCE_MODE=1` (pauses gameplay mutations at the route boundary; reads still work)
+- `KV_MIGRATION_WRITE_FROZEN=1` (unlocks the live copy)
+
+Redeploy so both take effect. Players see a maintenance notice briefly.
+
+**4. Live copy:**
+```
+curl -sS -X POST "$HOST/api/admin/migrate-to-base" -H "x-admin-password: $ADMIN_PW"
+```
+Require `"ok": true` and `"mismatches": []`. If any mismatch is listed, STOP —
+do not flip the env; re-run, and if it persists investigate those exact keys.
+
+**5. Catch stragglers.** Re-run step 4 once more (idempotent). The background
+game-loop can settle a sleeper/travel save shortly after players stop pinging;
+a second pass copies any such straggler. Require `ok:true`, `mismatches:[]` again.
+
+**6. (I verify Postgres-side.)** Confirm `select count(*) from kv_store where key
+like 'save:%'` matches the copied count, and spot-check a couple of representative
+players/clans/images. (Ask me — I have read-only DB access.)
+
+**7. Flip the env OFF the overlay.** In Railway:
+- **remove** `KV_PROXY_URL`
+- **remove** `REQUIRE_DISK_OVERLAY` (or the app refuses to boot without an overlay — that guard is working as intended)
+- **remove** `KV_MIGRATION_WRITE_FROZEN`
+- keep `DATABASE_URL`, `KV_PROXY_TOKEN` (harmless leftover; remove after decommission)
+
+Redeploy.
+
+**8. Verify live:**
+```
+curl -sS "$HOST/health?deep=1" -H "authorization: Bearer $DEEP_TOKEN"
+```
+Require `"saveStore": "base-store"` and all `checks` true. Then load several real
+players in-game and confirm progress/inventory are intact. Also change your
+release-health expectation from `EXPECTED_SAVE_STORE=remote-proxy` to
+`EXPECTED_SAVE_STORE=base-store` (docs/BETA_RELEASE_CERTIFICATION.md) — and drop
+`REQUIRE_DISK_OVERLAY=1` from that command.
+
+**9. Unfreeze.** Remove `MAINTENANCE_MODE`. Redeploy. You're now cPanel-free for saves.
+
+**10. Soak (a few days).** cPanel data is untouched, so you can watch for anything
+odd with an instant escape hatch.
+
+**11. Decommission.** Once confident: stop the cPanel service, remove `KV_PROXY_TOKEN`
+from Railway. In a later cleanup PR the now-dead overlay/proxy code
+(`_makeRemoteKv`, the routing wrapper, `api/kv-proxy.ts`, `app.js`) can be removed.
+
+---
+
+## Rollback (any time before step 11)
+
+Re-add `KV_PROXY_URL` (and `REQUIRE_DISK_OVERLAY=1`) in Railway and redeploy.
+Saves read/write cPanel again — its data was never deleted, so nothing to restore.
+Any save written to Postgres during the base-store window would be the newer copy;
+if you roll back after players have progressed on Postgres, re-run the copy in the
+OTHER direction first (`/api/admin/migrate-kv`) to carry those forward. Rolling back
+immediately after step 7 (before players write) needs no reconciliation.
+
+## Risks & mitigations
+
+- **Incomplete copy → a player looks wiped.** Mitigated by the freeze (no writes
+  mid-copy), the per-key read-back verification (`mismatches` must be empty to
+  proceed), the straggler re-run, and the Postgres-side count check. And cPanel is
+  never deleted, so worst case is a one-variable rollback.
+- **Large image blobs in Postgres.** Fine on Railway — it uses the direct `pg`
+  path (no REST size limit), and Cloudflare still fronts image serving.
+- **DR after cutover.** Live saves + snapshots both in Supabase; Supabase's own
+  daily backups / PITR are the separate recovery domain. Before public launch,
+  consider an independent offsite backup (or move large images to object storage).
+
+## Post-cutover: DR note
+
+`save-snapshot:*` continues nightly (unchanged). The `saveStore=base-store` value
+that deep-health used to flag as "misrouted" is now the intended state on this host.
