@@ -23,6 +23,37 @@ describe('isolated QA memory KV', () => {
         assert.deepEqual(await kv.hgetall('registry'), { two: 22, three: 3 });
     });
 
+    it('delIfEqual deletes only when the stored value still matches', async () => {
+        const kv = _makeMemoryKv();
+        await kv.set('lock:x', 'ownerA');
+        assert.equal(await kv.delIfEqual('lock:x', 'ownerB'), false, 'wrong token deletes nothing');
+        assert.equal(await kv.get('lock:x'), 'ownerA', 'lock survives a non-owner release');
+        assert.equal(await kv.delIfEqual('lock:x', 'ownerA'), true, 'owner deletes its own lock');
+        assert.equal(await kv.get('lock:x'), null);
+        assert.equal(await kv.delIfEqual('missing', 'anything'), false, 'absent key deletes nothing');
+    });
+
+    it('delIfEqual will not delete a lock re-acquired by a new holder after expiry', async () => {
+        // Reproduces the release TOCTOU: an old holder whose lease expired must
+        // never delete the NEW holder's freshly-acquired lock.
+        const kv = _makeMemoryKv();
+        const realNow = Date.now;
+        let now = 1_000_000;
+        Date.now = () => now;
+        try {
+            assert.equal(await kv.set('lock:save:treasury', 'ownerA', { nx: true, ex: 5 }), 'OK');
+            now += 5_001; // A's lease expires
+            assert.equal(await kv.set('lock:save:treasury', 'ownerB', { nx: true, ex: 5 }), 'OK', 'B re-acquires');
+            // A's late release must be a no-op against B's lock.
+            assert.equal(await kv.delIfEqual('lock:save:treasury', 'ownerA'), false);
+            assert.equal(await kv.get('lock:save:treasury'), 'ownerB', "B's lock survives A's stale release");
+            assert.equal(await kv.delIfEqual('lock:save:treasury', 'ownerB'), true, 'B releases its own lock');
+            assert.equal(await kv.get('lock:save:treasury'), null);
+        } finally {
+            Date.now = realNow;
+        }
+    });
+
     it('expires TTL entries and lets NX reclaim them', async () => {
         const kv = _makeMemoryKv();
         const realNow = Date.now;
