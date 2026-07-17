@@ -1,4 +1,5 @@
 import { PET_CATALOG } from './_catalog.js';
+import { maxPets } from '../_entitlements.js';
 
 const TRAITS = ['Loyal', 'Aggressive', 'Guardian', 'Swift', 'Lucky', 'Battleborn'] as const;
 export type WildPetTrait = typeof TRAITS[number];
@@ -15,7 +16,9 @@ export function rollWildPet(random: () => number, now = Date.now()): Record<stri
 
 export function grantWildPet(character: Record<string, unknown>, pet: Record<string, unknown>, random: () => number) {
     const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
-    if (pets.length >= 5) return { ok: false as const, reason: 'pet-yard-full' as const };
+    // Subscriber-aware roster cap (Patreon perk): 3 base / 5 subscriber. This is
+    // the authoritative befriend gate (the save handler only backstops it).
+    if (pets.length >= maxPets(character)) return { ok: false as const, reason: 'pet-yard-full' as const };
     const pool = pet.rarity === 'mythic' ? TRAITS : TRAITS.filter((trait) => trait !== 'Guardian');
     const trait = pool[Math.floor(Math.max(0, Math.min(0.999999, random())) * pool.length)];
     const n = (key: string) => Number(pet[key]) || 0;
