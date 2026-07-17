@@ -10,6 +10,7 @@ import {
     augmentDisplay,
     HG_CLAWBACK_KEYS,
     HG_HIGH_VALUE_ITEM_ID,
+    hollowGateRunKey,
     itemStackCount,
     canonicalHollowGateDepth,
     type HollowGateRunToken,
@@ -168,7 +169,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!issued) return res.status(500).json({ error: 'Run token was not issued.' });
         const committed = issued as { token: string; runToken: HollowGateRunToken; offers: ReturnType<typeof rollAugmentOffers> };
-        await kv.set(`hg-run:${playerName}:${committed.token}`, committed.runToken, { ex: RUN_TTL_SEC });
+        await kv.set(hollowGateRunKey(playerName, committed.token), committed.runToken, { ex: RUN_TTL_SEC });
         return res.status(200).json({
             ok: true,
             token: committed.token,

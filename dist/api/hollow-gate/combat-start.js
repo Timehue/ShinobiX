@@ -37,11 +37,11 @@ async function handler(req, res) {
             return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName)
             return res.status(403).json({ error: 'Not your run.' });
-        const runKey = `hg-run:${playerName}:${token}`;
+        const runKey = (0, _run_token_js_1.hollowGateRunKey)(playerName, token);
         const outcome = await (0, _lock_js_1.withKvLock)(runKey, async () => {
             const run = await _storage_js_1.kv.get(runKey);
             if (!run)
-                return { status: 409, body: { error: 'The Hollow Gate run has expired.' } };
+                return { status: 409, body: { error: _run_token_js_1.HOLLOW_GATE_RUN_EXPIRED_MESSAGES.combatStart } };
             if (run.playerName !== playerName)
                 return { status: 403, body: { error: 'Not your run.' } };
             if (floor < 1 || floor > run.floorDepth)

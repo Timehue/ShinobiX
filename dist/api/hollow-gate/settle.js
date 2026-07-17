@@ -81,7 +81,7 @@ async function handler(req, res) {
             return res.status(403).json({ error: 'Not your run.' });
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'hollow-gate-settle', 20, 60_000, identity.name)))
             return;
-        const runKey = `hg-run:${playerName}:${token}`;
+        const runKey = (0, _run_token_js_1.hollowGateRunKey)(playerName, token);
         return await (0, _lock_js_1.withKvLock)(runKey, async () => {
             const run = await _storage_js_1.kv.get(runKey);
             // Graceful: a stale client (or SESSION_SECRET unset re-mint) just gets a

@@ -5,7 +5,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import type { HollowGateRunToken } from './_run-token.js';
+import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
 import { maxLockedDoorsForDepth, rollHollowLockedDoor, type HollowLockedDoorResult } from './_locked-door.js';
 
 const unit = () => randomInt(1_000_000_000) / 1_000_000_000;
@@ -25,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'hollow-gate-locked-door', 30, 60_000, identity.name))) return;
-        const run = await kv.get<HollowGateRunToken>(`hg-run:${playerName}:${token}`);
+        const run = await kv.get<HollowGateRunToken>(hollowGateRunKey(playerName, token));
         if (!run || run.playerName.toLowerCase() !== playerName.toLowerCase()) return res.status(409).json({ error: 'invalid-or-spent-run' });
         const resultKey = `hg-locked-result:${playerName}:${token}:${requestId}`;
         const result = await withKvLock(resultKey, async () => {

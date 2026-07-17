@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AUGMENT_CATALOG = exports.HG_HIGH_VALUE_ITEM_ID = exports.HOLLOW_GATE_SERVER_DEPTH = exports.HG_CLAWBACK_KEYS = exports.HOLLOW_GATE_RUNS_ENABLED = void 0;
+exports.AUGMENT_CATALOG = exports.HG_HIGH_VALUE_ITEM_ID = exports.HOLLOW_GATE_SERVER_DEPTH = exports.HG_CLAWBACK_KEYS = exports.HOLLOW_GATE_RUN_EXPIRED_MESSAGES = exports.HOLLOW_GATE_RUNS_ENABLED = void 0;
 exports.hollowGateRunsEnabled = hollowGateRunsEnabled;
+exports.hollowGateRunKey = hollowGateRunKey;
 exports.canonicalHollowGateDepth = canonicalHollowGateDepth;
 exports.hollowShardDrop = hollowShardDrop;
 exports.maxShardsForDepth = maxShardsForDepth;
@@ -22,6 +23,26 @@ exports.HOLLOW_GATE_RUNS_ENABLED = true;
 function hollowGateRunsEnabled() {
     return exports.HOLLOW_GATE_RUNS_ENABLED;
 }
+/** The KV key holding a live run token. The run is gone — settled, died, or the
+ *  24h TTL lapsed — exactly when this key is absent, which is what the endpoints
+ *  below report as an expired run. The save-read self-heal (api/_elapsed-state.ts)
+ *  probes the same key, so every producer/consumer shares this helper rather than
+ *  re-spelling the literal. `playerName` is always a safeName slug. */
+function hollowGateRunKey(playerName, token) {
+    return `hg-run:${playerName}:${token}`;
+}
+/** Every "this run is gone" message a run endpoint returns alongside its 409.
+ *  An expired run used to strand the player: the shrine is deliberately
+ *  no-retreat (lib/screen-guards.ts) and the run persists on the SAVE, so a
+ *  dismissed error just looped them back into a dead gate. The client matcher
+ *  (shinobij.client/src/lib/hollow-gate-server.ts isHollowGateRunExpiredMessage)
+ *  turns any of these into a clear-and-exit. KEEP IN SYNC — a drift test imports
+ *  this list and asserts the client recognises every entry. */
+exports.HOLLOW_GATE_RUN_EXPIRED_MESSAGES = {
+    combatStart: 'The Hollow Gate run has expired.',
+    combatSettle: 'The Hollow Gate run expired before settlement.',
+    consumable: 'The Hollow Gate run expired.',
+};
 /*
  * Hollow Gate — server-authoritative run token + augment layer (Tier 1).
  *

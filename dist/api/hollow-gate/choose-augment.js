@@ -41,7 +41,7 @@ async function handler(req, res) {
         }
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'hollow-gate-choose', 30, 60_000, identity.name)))
             return;
-        const key = `hg-run:${playerName}:${token}`;
+        const key = (0, _run_token_js_1.hollowGateRunKey)(playerName, token);
         const run = await _storage_js_1.kv.get(key);
         if (!run)
             return res.status(200).json({ ok: true, reason: 'invalid-or-spent' });

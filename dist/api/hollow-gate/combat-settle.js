@@ -10,6 +10,7 @@ const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
 const _tower_store_js_1 = require("../towers/_tower-store.js");
+const _run_token_js_1 = require("./_run-token.js");
 const _combat_session_js_1 = require("./_combat-session.js");
 const COMBAT_RECEIPT_TTL_SECONDS = 8 * 24 * 60 * 60;
 const HOSPITAL_DURATION_MS = 60_000;
@@ -92,7 +93,7 @@ async function handler(req, res) {
         if (!initialBinding || initialBinding.playerName !== playerName)
             return res.status(404).json({ error: 'Encounter not found.' });
         const receiptKey = `hg-combat-paid:${runId}`;
-        const runKey = `hg-run:${playerName}:${token}`;
+        const runKey = (0, _run_token_js_1.hollowGateRunKey)(playerName, token);
         const result = await (0, _lock_js_1.withKvLock)(runKey, async () => {
             const [run, binding, session, existingReceipt] = await Promise.all([
                 _storage_js_1.kv.get(runKey),
@@ -123,7 +124,7 @@ async function handler(req, res) {
                 return { status: 409, body: { error: 'The encounter is settled but its reward receipt is unavailable.' } };
             }
             if (!run)
-                return { status: 409, body: { error: 'The Hollow Gate run expired before settlement.' } };
+                return { status: 409, body: { error: _run_token_js_1.HOLLOW_GATE_RUN_EXPIRED_MESSAGES.combatSettle } };
             const validation = (0, _combat_session_js_1.validateHollowGateCombatSession)({ binding, session, activeEncounter: run.activeEncounter, playerName, token });
             if (!validation.ok)
                 return { status: 409, body: { error: `Hollow Gate settlement rejected: ${validation.reason}.` } };

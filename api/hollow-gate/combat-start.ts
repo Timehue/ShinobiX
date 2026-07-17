@@ -7,7 +7,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { buildAuthoritativeSoloEncounter, dynamicBossFloor, hollowGateEnemyTemplate } from '../_authoritative-pve.js';
 import { readSession, sessionKey, writeSession } from '../towers/_tower-store.js';
-import { AUGMENT_CATALOG, type HollowGateRunToken } from './_run-token.js';
+import { AUGMENT_CATALOG, hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, type HollowGateRunToken } from './_run-token.js';
 import {
     createHollowGateCombatBinding,
     hollowGateCombatBindingKey,
@@ -44,10 +44,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
 
-        const runKey = `hg-run:${playerName}:${token}`;
+        const runKey = hollowGateRunKey(playerName, token);
         const outcome = await withKvLock<StartOutcome>(runKey, async () => {
             const run = await kv.get<HollowGateRunToken>(runKey);
-            if (!run) return { status: 409, body: { error: 'The Hollow Gate run has expired.' } };
+            if (!run) return { status: 409, body: { error: HOLLOW_GATE_RUN_EXPIRED_MESSAGES.combatStart } };
             if (run.playerName !== playerName) return { status: 403, body: { error: 'Not your run.' } };
             if (floor < 1 || floor > run.floorDepth) return { status: 409, body: { error: 'The encounter floor does not match the sealed run.' } };
             if (kind === 'boss' && floor !== run.floorDepth) {

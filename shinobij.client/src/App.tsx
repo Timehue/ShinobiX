@@ -576,7 +576,7 @@ import {
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
-import { beginHollowGateServerRun, consumeHollowGateServerSecondWind, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun } from "./lib/hollow-gate-server";
+import { beginHollowGateServerRun, consumeHollowGateServerSecondWind, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult } from "./lib/hollow-gate-combat-api";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
 import { markHollowGateSeen } from "./lib/hollow-gate-path";
@@ -6014,14 +6014,14 @@ export default function App() {
         if (!character) return;
         setCharacter({ ...character, hollowGateIntroSeen: false });
     }
-    function adminHollowGateClearRun() {
-        if (!character) return;
+    function clearHollowGateRunState(exit?: boolean) {
         setHollowGateRun(null);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
         setHollowGateLog([]);
-        setHollowGateIntroPage(null);
-        setCharacter({ ...character, hollowGateRun: null });
+        setHollowGateIntroPage(null); setHollowGateAuthoritativeFight(null);
+        setCharacter((prev) => prev ? clearHollowGateRunLocal(prev) : prev);
+        if (exit) setScreen("worldMap");
     }
     function adminHollowGateGrantKey() {
         if (!character) return;
@@ -6186,7 +6186,7 @@ export default function App() {
             if (started.petAssisted) pushHollowGateLog("Your active pet steadies you at full strength and draws first blood.");
             return;
         } catch (error) {
-            alert(error instanceof Error ? error.message : "The Hollow Gate encounter could not start.");
+            reportHollowGateRunError(error, "The Hollow Gate encounter could not start.", () => clearHollowGateRunState(true));
             return;
         }
     }
@@ -6216,7 +6216,7 @@ export default function App() {
         try {
             settlement ??= await settleActiveHollowGateCombat(fight.runId, character.name);
         } catch (error) {
-            alert(error instanceof Error ? error.message : "The encounter is still settling. Retry in a moment.");
+            reportHollowGateRunError(error, "The encounter is still settling. Retry in a moment.", () => clearHollowGateRunState(true));
             return;
         }
         setHollowGateAuthoritativeFight(null);
@@ -7514,7 +7514,7 @@ export default function App() {
                         setHollowGateEventConfig={setHollowGateEventConfig}
                         onHollowGateForceUnlock={adminHollowGateForceUnlock}
                         onHollowGateResetIntro={adminHollowGateResetIntro}
-                        onHollowGateClearRun={adminHollowGateClearRun}
+                        onHollowGateClearRun={() => clearHollowGateRunState()}
                         onHollowGateGrantKey={adminHollowGateGrantKey}
                         sharedImages={sharedImages}
                         setSharedImages={setSharedImages}

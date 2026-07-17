@@ -7,6 +7,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _run_token_js_1 = require("./_run-token.js");
 const _locked_door_js_1 = require("./_locked-door.js");
 const unit = () => (0, node_crypto_1.randomInt)(1_000_000_000) / 1_000_000_000;
 const cleanToken = (value) => typeof value === 'string' && /^[A-Za-z0-9]{16,96}$/.test(value) ? value : '';
@@ -31,7 +32,7 @@ async function handler(req, res) {
             return res.status(403).json({ error: 'Not your run.' });
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'hollow-gate-locked-door', 30, 60_000, identity.name)))
             return;
-        const run = await _storage_js_1.kv.get(`hg-run:${playerName}:${token}`);
+        const run = await _storage_js_1.kv.get((0, _run_token_js_1.hollowGateRunKey)(playerName, token));
         if (!run || run.playerName.toLowerCase() !== playerName.toLowerCase())
             return res.status(409).json({ error: 'invalid-or-spent-run' });
         const resultKey = `hg-locked-result:${playerName}:${token}:${requestId}`;
