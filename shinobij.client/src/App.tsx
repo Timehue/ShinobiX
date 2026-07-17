@@ -22,7 +22,8 @@ import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
-import { presenceCharacter } from "./lib/presence-character";
+import { presenceCharacter, peerIsTraveling } from "./lib/presence-character";
+import { noteServerTime } from "./lib/server-clock";
 import {
     percentageTags,
     cappedDamageTags,
@@ -2604,7 +2605,8 @@ export default function App() {
                     signal: AbortSignal.timeout(12000),
                 });
                 if (!res.ok) return;
-                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string } | null; forceReload?: boolean } = await res.json();
+                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string } | null; forceReload?: boolean; serverNow?: number } = await res.json();
+                noteServerTime(data.serverNow); // the beat is our reference for the clock that mints every deadline
                 // Admin reset this account — wipe local state and reload from server
                 if (data.forceReload) {
                     const accountName = currentAccountName || char.name.toLowerCase();
@@ -7810,10 +7812,7 @@ export default function App() {
                                 alert("You cannot attack while traveling.");
                                 return;
                             }
-                            if (opponent.travelingUntil && opponent.travelingUntil > Date.now()) {
-                                alert(`${opponent.name} is traveling and cannot be attacked right now.`);
-                                return;
-                            }
+                            if (peerIsTraveling(opponent)) return void alert(`${opponent.name} is traveling and cannot be attacked right now.`);
                             // Use local character data — the server hydrates both
                             // fighters from their KV save records directly (see
                             // api/pvp/session.ts ~line 502), so the redundant

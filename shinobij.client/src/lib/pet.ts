@@ -14,6 +14,7 @@
  */
 
 import type { Pet } from "../types/pet";
+import { serverNow } from "./server-clock";
 
 // Display name — prefer the user's nickname if set, else the pet's
 // canonical name. Trim guards against accidental empty-string nicknames.
@@ -31,7 +32,7 @@ export function petHappiness(pet: Pick<Pet, "happiness">): number {
 export function isPetOnExpedition(
     pet?: Pick<Pet, "expedition"> | null,
 ): boolean {
-    return Boolean(pet?.expedition && Date.now() < pet.expedition.endsAt);
+    return Boolean(pet?.expedition && serverNow() < pet.expedition.endsAt);
 }
 
 // Combat damage formula used by the pet arena + boss-summon flows.
