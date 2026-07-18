@@ -469,7 +469,10 @@ function findClip(clips: readonly THREE.AnimationClip[], candidates: readonly st
 
 function combatClip(clips: readonly THREE.AnimationClip[], frame: PetModelFrame, profile: PetCombatModelConfig["profile"]): THREE.AnimationClip | null {
     if (frame.motion === "dead") return findClip(clips, ["death"]);
-    if (frame.motion === "strike" || frame.motion === "windup") return findClip(clips, ["attack"]);
+    // Keep the authored attack take alive from anticipation through follow-through.
+    // Previously `windup -> strike -> recover` reset/cross-faded the same clip on
+    // every state edge, so only its first few frames ever appeared in battle.
+    if (frame.motion === "strike" || frame.motion === "windup" || frame.motion === "recover") return findClip(clips, ["attack"]);
     if (frame.motion === "stagger") return findClip(clips, ["idle_hitreact1", "out_of_water", "idle_hitreact2"]);
     if (frame.motion === "dodge") return findClip(clips, ["gallop_jump", "swimming_impulse", "jump_toidle", "swimming_fast"]);
     if (frame.motion === "dash") return findClip(clips, ["gallop", "swimming_fast", "swimming_impulse", "walk"]);
@@ -483,6 +486,17 @@ function combatClip(clips: readonly THREE.AnimationClip[], frame: PetModelFrame,
     }
     if (frame.casting) return findClip(clips, ["idle_2", "swimming_impulse", "idle"]);
     return findClip(clips, ["idle", "swimming_normal", "idle_2"]);
+}
+
+type CombatAnimationFamily = "idle" | "locomotion" | "attack" | "dodge" | "hit" | "death";
+
+function combatAnimationFamily(frame: PetModelFrame): CombatAnimationFamily {
+    if (frame.motion === "dead") return "death";
+    if (frame.motion === "windup" || frame.motion === "strike" || frame.motion === "recover") return "attack";
+    if (frame.motion === "dodge") return "dodge";
+    if (frame.motion === "stagger") return "hit";
+    if (frame.moving || frame.motion === "run" || frame.motion === "dash") return "locomotion";
+    return "idle";
 }
 
 /** Elemental silhouette pieces turn the approved animal bases into authored battle
@@ -665,7 +679,7 @@ function LoadedPetModel3D({ config, frame, element }: {
     const mixer = useMemo(() => prepared.clips.length ? new THREE.AnimationMixer(prepared.surface) : null, [prepared]);
     const outlineMixer = useMemo(() => prepared.clips.length && prepared.outline ? new THREE.AnimationMixer(prepared.outline) : null, [prepared]);
     const activeClip = useRef<THREE.AnimationClip | null>(null);
-    const activeMotion = useRef<PetModelFrame["motion"]>("idle");
+    const activeFamily = useRef<CombatAnimationFamily>("idle");
     const activeAction = useRef<THREE.AnimationAction | null>(null);
     const activeOutlineAction = useRef<THREE.AnimationAction | null>(null);
     const root = useRef<THREE.Group>(null);
@@ -709,9 +723,9 @@ function LoadedPetModel3D({ config, frame, element }: {
         const dodgeArc = f.motion === "dodge" ? Math.sin(Math.PI * dodgeP) : 0;
         if (mixer) {
             const clip = combatClip(prepared.clips, f, config.profile);
-            const oneShot = f.motion === "dead" || f.motion === "dodge" || f.motion === "stagger"
-                || f.motion === "windup" || f.motion === "strike";
-            const enteringOneShot = oneShot && activeMotion.current !== f.motion;
+            const family = combatAnimationFamily(f);
+            const oneShot = family === "death" || family === "dodge" || family === "hit" || family === "attack";
+            const enteringOneShot = oneShot && activeFamily.current !== family;
             if (clip && (activeClip.current !== clip || enteringOneShot)) {
                 const previous = activeAction.current;
                 const next = mixer.clipAction(clip);
@@ -734,10 +748,10 @@ function LoadedPetModel3D({ config, frame, element }: {
                     activeOutlineAction.current = nextOutline;
                 }
                 activeClip.current = clip;
-                activeMotion.current = f.motion;
+                activeFamily.current = family;
                 activeAction.current = next;
             }
-            activeMotion.current = f.motion;
+            activeFamily.current = family;
             // Cadence follows measured world velocity. The previous fixed rate was
             // acceptable at the old arena speed but became obvious foot sliding
             // after movement skills and reposition sprints were accelerated.
@@ -747,11 +761,17 @@ function LoadedPetModel3D({ config, frame, element }: {
             // playback is brought into a readable 2-3 strides/second range.
             const locomotionRate = authoredCombatRig
                 ? f.motion === "dodge"
-                    ? 1.05
+                    ? 1.16
+                    : f.motion === "windup"
+                        ? 0.76
+                        : f.motion === "strike"
+                            ? 1.48
+                            : f.motion === "recover"
+                                ? 1.04
                     : f.motion === "dash"
-                        ? THREE.MathUtils.clamp(0.95 + f.speed * 0.12, 1.15, 1.85)
+                        ? THREE.MathUtils.clamp(0.98 + f.speed * 0.16, 1.2, 2.15)
                         : f.motion === "run" || f.moving
-                            ? THREE.MathUtils.clamp(0.68 + f.speed * 0.15, 0.85, 1.55)
+                            ? THREE.MathUtils.clamp(0.7 + f.speed * 0.18, 0.9, 1.85)
                             : 1
                 : f.motion === "dodge"
                     ? 1.3
@@ -795,13 +815,28 @@ function LoadedPetModel3D({ config, frame, element }: {
             r.rotation.y = smoothAngle(r.rotation.y, wantedYaw, Math.min(1, delta * turnRate));
         }
         r.position.y = THREE.MathUtils.lerp(r.position.y, Math.max(0, bob), Math.min(1, delta * 12));
-        const authoredPitch = authoredCombatRig ? 0 : dead ? -1.42 : dodge ? -0.08 * dodgeArc : windup ? -0.16 : strike ? 0.2 : stagger ? -0.18 : 0;
-        const authoredRoll = authoredCombatRig ? 0 : dead ? 0.58 : dodge ? 0.17 * dodgeArc : running ? Math.sin(t * gait) * 0.035 : 0;
+        // The generated roster takes provide leg/head motion but their attack clip
+        // has almost no centre-of-mass commitment. Layer one smooth, restrained
+        // anime pose over state edges so the pet coils, drives through contact and
+        // absorbs a hit without reintroducing the per-frame shake removed above.
+        const authoredPitch = authoredCombatRig
+            ? dead ? -0.18 : dodge ? -0.07 * dodgeArc : windup ? -0.11 : strike ? 0.14 : f.motion === "recover" ? 0.035 : stagger ? -0.12
+                : running ? Math.min(0.085, 0.025 + f.speed * 0.008) : 0
+            : dead ? -1.42 : dodge ? -0.08 * dodgeArc : windup ? -0.16 : strike ? 0.2 : stagger ? -0.18 : 0;
+        const authoredRoll = authoredCombatRig
+            ? dead ? 0.08 : dodge ? 0.12 * dodgeArc : stagger ? 0.055 : 0
+            : dead ? 0.58 : dodge ? 0.17 * dodgeArc : running ? Math.sin(t * gait) * 0.035 : 0;
         b.rotation.x = THREE.MathUtils.lerp(b.rotation.x, authoredPitch, Math.min(1, delta * (dead ? 4 : 15)));
         b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, authoredRoll, Math.min(1, delta * 11));
-        const sx = authoredCombatRig ? 1 + breath * 0.12 : dead ? 1.08 : stagger ? 1.07 : strike ? 0.94 : 1 + breath;
-        const sy = authoredCombatRig ? 1 - breath * 0.06 : dead ? 0.72 : stagger ? 0.88 : strike ? 1.08 : 1 - breath * 0.5;
-        const sz = authoredCombatRig ? 1 + breath * 0.12 : dead ? 1.05 : windup ? 0.9 : strike ? 1.13 : 1 + breath;
+        const sx = authoredCombatRig
+            ? strike ? 0.96 : stagger ? 1.035 : 1 + breath * 0.12
+            : dead ? 1.08 : stagger ? 1.07 : strike ? 0.94 : 1 + breath;
+        const sy = authoredCombatRig
+            ? strike ? 1.035 : windup ? 0.97 : stagger ? 0.965 : 1 - breath * 0.06
+            : dead ? 0.72 : stagger ? 0.88 : strike ? 1.08 : 1 - breath * 0.5;
+        const sz = authoredCombatRig
+            ? strike ? 1.085 : windup ? 0.94 : f.motion === "recover" ? 1.025 : 1 + breath * 0.12
+            : dead ? 1.05 : windup ? 0.9 : strike ? 1.13 : 1 + breath;
         b.scale.x = THREE.MathUtils.lerp(b.scale.x, sx, Math.min(1, delta * 13));
         b.scale.y = THREE.MathUtils.lerp(b.scale.y, sy, Math.min(1, delta * 13));
         b.scale.z = THREE.MathUtils.lerp(b.scale.z, sz, Math.min(1, delta * 13));
