@@ -6,7 +6,7 @@ import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.j
 import type { PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import { PetIdentityEffects3D } from "./PetIdentityEffects3D";
-import { isolatePetAtlasTexture, lockPetAtlas } from "../lib/pet-atlas-material";
+import { bindPetAtlasTexture, lockPetAtlas } from "../lib/pet-atlas-material";
 
 export type PetModelMotion =
     | "idle"
@@ -69,7 +69,6 @@ type PreparedModel = {
     offset: [number, number, number];
     scale: number;
     materials: THREE.Material[];
-    textures: THREE.Texture[];
     uniforms: DeformUniforms[];
     clips: readonly THREE.AnimationClip[];
     geometries: THREE.BufferGeometry[];
@@ -322,12 +321,9 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
     const fitSize = config.fit === "longest" ? Math.max(size.x, size.y, size.z) : size.y;
     const scale = config.targetHeight / Math.max(0.001, fitSize);
     const materials: THREE.Material[] = [];
-    // GLTFLoader caches textures by model URL.  Keep the decoded image source,
-    // but give every mounted fighter its own Texture/WebGL sampler.  The full
-    // game preloads and remounts Coliseum models; sharing the cache-owned Texture
-    // let a stale/disposed sampler leave intact geometry with an all-white body.
-    const textures: THREE.Texture[] = [];
-    const isolatedTextures = new Map<THREE.Texture, THREE.Texture>();
+    // Fighter materials are isolated, but GLTFLoader remains the sole owner of
+    // their baked colour atlases. Cloning/disposing the Texture wrapper broke
+    // colours after the real selection-screen preload + battle remount cycle.
     const uniforms: DeformUniforms[] = [];
     const tint = new THREE.Color(ELEMENT_LIGHT[String(element ?? "")] ?? "#c4b5fd");
     const tintAmount = element === "Water" ? 0.18 : element === "Fire" ? 0.1 : element === "Earth" ? 0.14 : 0.16;
@@ -355,21 +351,7 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             const textured = material as THREE.MeshStandardMaterial;
             if (textured.map) {
-                const cachedMap = textured.map;
-                let isolatedMap = isolatedTextures.get(cachedMap);
-                if (!isolatedMap) {
-                    isolatedMap = isolatePetAtlasTexture(cachedMap, quality.textureAnisotropy, config.visualId);
-                    isolatedTextures.set(cachedMap, isolatedMap);
-                    textures.push(isolatedMap);
-                }
-                textured.map = isolatedMap;
-                // Generated roster atlases are authored as display colour.  Be
-                // explicit here instead of relying on loader/cache history: an
-                // atlas first seen through an older build can otherwise retain a
-                // linear colour-space flag and render as pale clay in combat.
-                textured.map.colorSpace = THREE.SRGBColorSpace;
-                textured.map.anisotropy = Math.max(quality.textureAnisotropy, textured.map.anisotropy);
-                textured.map.needsUpdate = true;
+                textured.map = bindPetAtlasTexture(textured.map, quality.textureAnisotropy);
             }
             if (ROSTER_VISUAL_ID.test(config.visualId) && (pbr.isMeshStandardMaterial || pbr.isMeshToonMaterial)) {
                 // The colour atlas is the pet's identity. Generated production
@@ -446,7 +428,7 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
         });
     }
 
-    return { surface, outline, offset, scale, materials, textures, uniforms, clips, geometries };
+    return { surface, outline, offset, scale, materials, uniforms, clips, geometries };
 }
 
 const normalizedClipName = (clip: THREE.AnimationClip) => clip.name.split("|").at(-1)?.toLowerCase() ?? clip.name.toLowerCase();
@@ -702,7 +684,6 @@ function LoadedPetModel3D({ config, frame, element }: {
         if (prepared.materials.length) {
             for (const material of prepared.materials) material.dispose();
         }
-        for (const texture of prepared.textures) texture.dispose();
         for (const geometry of prepared.geometries) geometry.dispose();
     }, [mixer, outlineMixer, prepared]);
 
