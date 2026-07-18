@@ -178,7 +178,7 @@ export const MobileNav = memo(function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("logbook")} onPointerDown={() => preloadScreen("logbook")}><GiBookCover size={20} />Logbook</button>
                         <button className="mobile-menu-btn" onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
                         <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiChatBubble size={20} />Discord</button>
-                        <button className="mobile-menu-btn" onClick={() => { window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiHearts size={20} />Patreon</button>
+                        <button className="mobile-menu-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}><GiHearts size={20} />Patreon</button>
                         {isAdminAccount && (
                             <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>
                         )}
