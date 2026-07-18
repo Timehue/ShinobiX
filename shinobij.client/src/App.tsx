@@ -6,6 +6,7 @@ import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAl
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
+import { ScreenContextHeader } from "./components/ScreenContextHeader";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
@@ -20,6 +21,8 @@ import { adoptSaveVersion } from "./lib/save-version";
 import { requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
 import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
+import { shouldShowScreenContextHeader } from "./lib/screen-context";
+import { STUDIO_SCREEN_PRESENTATION } from "./lib/studio-screen-presentation";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
 import { presenceCharacter, peerIsTraveling } from "./lib/presence-character";
@@ -7178,6 +7181,7 @@ export default function App() {
     }
 
     const hideBattleChrome = shouldHideBattleChrome({ screen, arenaBattleActive, petBattleActive });
+    const studioPresentation = STUDIO_SCREEN_PRESENTATION[screen];
     const introCinematicActive = Boolean(
         character
         && (character.onboardingStep === "academyIntro" || character.onboardingStep === "starter" || character.onboardingStep === "companionIntro")
@@ -7188,6 +7192,8 @@ export default function App() {
     return (
         <div
             className={`app-shell shell-biome-${currentBiome} screen-${screen}`}
+            data-studio-family={studioPresentation.family}
+            data-village={character?.village ?? ""}
             style={{
                 // Darkening overlay only — the full-bleed scene is painted once by
                 // the fixed `.app-background` layer below (cover/no-repeat). Tiling the
@@ -7260,7 +7266,7 @@ export default function App() {
             )}
             <div
                 className="app-background"
-                style={{ backgroundImage: `url(${backgroundImage})` }}
+                style={{ backgroundImage: `url(${screen === "start" ? backgroundImage : studioPresentation.artwork})` }}
             />
 
             {character &&
@@ -7346,6 +7352,11 @@ export default function App() {
                         onBack={canGoBack ? goBack : undefined}
                     />
                     </Suspense>
+                )}
+                {character && screen !== "start" && !hideBattleChrome && shouldShowScreenContextHeader(screen) && (
+                    <div className="screen-context-shell">
+                        <ScreenContextHeader screen={screen} village={character.village} />
+                    </div>
                 )}
                 {screen === "start" && restoringSession && (
                     <div className="start-screen">

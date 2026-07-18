@@ -31,6 +31,7 @@ html body.ui-scroll-locked {
 .app-shell:not(.screen-start) {
   --village-accent: var(--sj-spirit);
   --village-accent-soft: var(--sj-spirit-bright);
+  isolation: isolate;
   color: var(--sj-text-primary);
   font-family: var(--font-body);
 }
