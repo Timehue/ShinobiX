@@ -1,0 +1,500 @@
+/* =====================================================================
+   Mobile UI polish  (≤800px)
+   Targets oversized elements that feel out of scale on a phone screen.
+   ===================================================================== */
+@media (max-width: 800px) {
+
+    /* ── Location / VN card buttons ──────────────────────────────────── */
+    .location-grid {
+        grid-template-columns: 1fr !important;
+        gap: 7px !important;
+    }
+
+    .location-button {
+        min-height: 0 !important;
+        height: auto !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 10px !important;
+        padding: 10px 14px !important;
+        text-align: left !important;
+        border-radius: 10px !important;
+    }
+
+    .location-button .tile-icon,
+    .tile-icon {
+        font-size: 20px !important;
+        flex-shrink: 0 !important;
+        width: 28px !important;
+        text-align: center !important;
+    }
+
+    .location-button span:not(.tile-icon) {
+        font-size: 0.88rem !important;
+        font-weight: 700 !important;
+        line-height: 1.3 !important;
+    }
+
+    .location-button small {
+        font-size: 0.72rem !important;
+        opacity: 0.75 !important;
+        display: block !important;
+    }
+
+    /* ── Visual novel — mobile stacks the dialogue BELOW the scene picture, so the
+       variable-height text box (long lines / choice buttons) never overlaps the
+       portraits the way the desktop absolute-overlay did. ─────────────────────── */
+    .vn-stage {
+        display: grid !important;
+        grid-template-rows: auto auto !important;
+        min-height: 0 !important;
+        border-width: 2px !important;
+        background: linear-gradient(180deg, rgba(7, 12, 27, .96), rgba(3, 7, 18, .98)) !important;
+        box-shadow: inset 0 0 0 1px rgba(250,204,21,.22), 0 14px 32px rgba(0,0,0,.34) !important;
+    }
+
+    .vn-stage.vn-has-image {
+        background-image: none !important;
+        background-color: #040812 !important;
+    }
+
+    .vn-stage::after {
+        content: none !important;
+    }
+
+    .vn-picture {
+        display: block !important;
+        position: relative;
+        height: clamp(240px, 58svh, 430px);
+        overflow: hidden;
+        background:
+            linear-gradient(180deg, rgba(7,12,27,.05) 0%, rgba(7,12,27,.24) 64%, rgba(3,7,18,.7) 100%),
+            var(--vn-page-image, radial-gradient(circle at 78% 12%, rgba(255,247,205,.95) 0 38px, rgba(255,247,205,.15) 39px 78px, transparent 79px), radial-gradient(circle at 22% 35%, rgba(56,189,248,.22), transparent 22%), linear-gradient(180deg, #173e68 0 38%, #0f243b 39% 70%, #08111f 71%)) !important;
+        background-size: cover !important;
+        background-position: center !important;
+        border-bottom: 1px solid rgba(250,204,21,.28);
+        isolation: isolate;
+    }
+
+    .vn-picture .vn-backdrop {
+        inset: 0 !important;
+    }
+
+    .vn-has-image .vn-picture .vn-backdrop {
+        display: none !important;
+    }
+
+    .vn-character {
+        width: 82px !important;
+        height: 112px !important;
+        font-size: 24px !important;
+        border-width: 2px !important;
+        border-radius: 10px 10px 4px 4px !important;
+    }
+
+    .mentor-character { left: 5% !important; bottom: 6px !important; }
+    .hero-character   { right: 5% !important; bottom: 6px !important; }
+
+    .vn-scene-card {
+        top: 6px !important;
+        width: min(92%, 330px) !important;
+        font-size: 0.75rem !important;
+        padding: 6px 10px !important;
+    }
+
+    /* Dialogue leaves the absolute overlay and flows as a normal block under the
+       picture (position:relative keeps it above the .vn-stage::after vignette). */
+    .vn-dialogue {
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        margin: 0 !important;
+        min-height: 0 !important;
+        padding: 12px 14px calc(12px + env(safe-area-inset-bottom)) !important;
+        border-width: 2px !important;
+        border-left: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+        border-radius: 0 !important;
+        z-index: 7;
+    }
+
+    .vn-speaker {
+        font-size: 0.72rem !important;
+        padding: 4px 8px !important;
+        margin-bottom: 5px !important;
+    }
+
+    .vn-dialogue p {
+        font-size: clamp(14px, 3.8vw, 17px) !important;
+        line-height: 1.45 !important;
+    }
+
+    /* ── VN controls / action row ────────────────────────────────────── */
+    .vn-controls,
+    .vn-choice-row,
+    .vn-reward-strip {
+        gap: 6px !important;
+        padding: 8px !important;
+    }
+
+    .vn-controls button,
+    .vn-choice-row button {
+        padding: 8px 12px !important;
+        font-size: 0.8rem !important;
+        min-height: 44px !important;
+        border-radius: 8px !important;
+    }
+
+    .vn-reward-strip {
+        font-size: 0.8rem !important;
+        flex-direction: column !important;
+        gap: 3px !important;
+    }
+
+    .vn-choice-btn {
+        padding: 8px 12px !important;
+        font-size: clamp(13px, 3.5vw, 15px) !important;
+    }
+
+    /* ── Header / act label ──────────────────────────────────────────── */
+    .vn-header {
+        gap: 8px !important;
+        flex-wrap: wrap !important;
+    }
+
+    .vn-header-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .vn-skip-button {
+        min-height: 44px !important;
+        padding: 8px 12px !important;
+        flex: 0 0 auto;
+    }
+
+    .vn-header h2 {
+        font-size: 1rem !important;
+        margin: 0 !important;
+    }
+
+    .act-label {
+        font-size: 10px !important;
+        letter-spacing: 1px !important;
+    }
+
+    .vn-progress {
+        font-size: 0.75rem !important;
+    }
+
+    /* ── General cards / panels ──────────────────────────────────────── */
+    .cinematic-panel {
+        padding: 12px !important;
+        border-radius: 12px !important;
+    }
+
+    .summary-box {
+        padding: 10px 12px !important;
+        border-radius: 8px !important;
+    }
+
+    .summary-box h3,
+    .summary-box h4 {
+        font-size: 0.88rem !important;
+        margin: 0 0 6px !important;
+    }
+
+    /* ── Generic button sizing ───────────────────────────────────────── */
+    .admin-button {
+        padding: 9px 14px !important;
+        font-size: 0.82rem !important;
+        min-height: 38px !important;
+        border-radius: 8px !important;
+    }
+
+    /* ── back / nav buttons ──────────────────────────────────────────── */
+    .back-btn,
+    .back-to-hub-btn {
+        padding: 7px 12px !important;
+        font-size: 0.8rem !important;
+        min-height: 34px !important;
+    }
+}
+
+/* =====================================================================
+   MOBILE SCROLL FIX — specificity-based, not source-order-based.
+
+   Plain class selectors (.center-game) all have specificity 0,1,0.
+   When multiple !important rules share the same specificity the LATER
+   one in source order wins — and there are many later .center-game
+   blocks we can't easily reorder.
+
+   Fix: use the html[data-vp] attribute selector (set by the JS hook in
+   App.tsx) which has specificity 0,2,0 and therefore beats every plain
+   .center-game !important rule regardless of where it appears in the
+   file.  xs = <560px, sm = 560-979px — covers all phones & tablets.
+   ===================================================================== */
+html[data-vp="xs"],
+html[data-vp="sm"] {
+    height: auto !important;
+    overflow-y: auto !important;
+}
+
+html[data-vp="xs"] body,
+html[data-vp="sm"] body {
+    height: auto !important;
+    overflow-y: auto !important;
+}
+
+html[data-vp="xs"] #root,
+html[data-vp="sm"] #root {
+    height: auto !important;
+    overflow-y: auto !important;
+}
+
+/* center-game must NOT be a fixed-height scroll box on mobile —
+   let the body scroll so all tab content is reachable */
+html[data-vp="xs"] .center-game,
+html[data-vp="sm"] .center-game {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    /* Clear the fixed mobile nav bar (≈112px) + device safe-area */
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Profile panels, stat grids — must never clip their content */
+html[data-vp="xs"] .profile-page-card,
+html[data-vp="sm"] .profile-page-card,
+html[data-vp="xs"] .profile-build-panel,
+html[data-vp="sm"] .profile-build-panel,
+html[data-vp="xs"] .stat-grid,
+html[data-vp="sm"] .stat-grid,
+html[data-vp="xs"] .profile-overview-panel,
+html[data-vp="sm"] .profile-overview-panel {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* =====================================================================
+   MOBILE SECTOR VIEW FIX — stack map above actions panel, full width.
+
+   The 980px @media rule intentionally makes .instance-frame 760px wide
+   (wider than the phone screen) with overflow-x:auto on .map-instance,
+   creating a landscape horizontal scroller. On a phone this causes a
+   left black gap (pixel-map is centered in the 760px container) and the
+   actions panel overflows to the right.
+
+   Fix: collapse everything to 100vw, stack vertically, let the pixel-map
+   scroll sideways inside its own container so users can pan the map.
+   Uses specificity 0,3,0 (attr + class + class) to beat all 0,2,0 rules.
+   ===================================================================== */
+
+/* Outer scroll container: no horizontal scroll on the wrapper itself */
+html[data-vp="xs"] .map-instance,
+html[data-vp="sm"] .map-instance {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+}
+
+/* Frame: collapse to screen width, flex column */
+html[data-vp="xs"] .map-instance .instance-frame,
+html[data-vp="sm"] .map-instance .instance-frame {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    grid-template-areas: unset !important;
+    grid-template-columns: unset !important;
+    gap: 0 !important;
+    padding: 6px !important;
+}
+
+/* Map tile-scene: full width, sensible height, horizontal panning */
+html[data-vp="xs"] .map-instance .instance-frame > main.tile-scene,
+html[data-vp="sm"] .map-instance .instance-frame > main.tile-scene {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: min(80vw, 380px) !important;
+    min-height: 220px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+}
+
+/* Pixel/walkable/sector-image map: fills the scene, scrolls inside it */
+html[data-vp="xs"] .map-instance .instance-frame > main.tile-scene .pixel-map,
+html[data-vp="xs"] .map-instance .instance-frame > main.tile-scene .walkable-sector-map,
+html[data-vp="xs"] .map-instance .instance-frame > main.tile-scene .sector-image-map,
+html[data-vp="sm"] .map-instance .instance-frame > main.tile-scene .pixel-map,
+html[data-vp="sm"] .map-instance .instance-frame > main.tile-scene .walkable-sector-map,
+html[data-vp="sm"] .map-instance .instance-frame > main.tile-scene .sector-image-map {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    aspect-ratio: auto !important;
+    margin-inline: 0 !important;
+}
+
+/* Actions panel: full width, content wraps naturally below the map */
+html[data-vp="xs"] .map-instance .instance-frame > aside.instance-actions,
+html[data-vp="sm"] .map-instance .instance-frame > aside.instance-actions {
+    position: static !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    overflow-x: hidden !important;
+    flex-shrink: 0 !important;
+    padding: 10px 12px !important;
+    box-sizing: border-box !important;
+}
+
+/* Let sector-instance-wrap (territory screens) also stack & fill */
+html[data-vp="xs"] .sector-instance-wrap,
+html[data-vp="sm"] .sector-instance-wrap {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+        "scene"
+        "actions" !important;
+}
+
+html[data-vp="xs"] .sector-instance-wrap .tile-scene,
+html[data-vp="sm"] .sector-instance-wrap .tile-scene {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: min(80vw, 380px) !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+html[data-vp="xs"] .sector-instance-wrap .tile-scene .pixel-map,
+html[data-vp="xs"] .sector-instance-wrap .tile-scene .walkable-sector-map,
+html[data-vp="xs"] .sector-instance-wrap .tile-scene .sector-image-map,
+html[data-vp="sm"] .sector-instance-wrap .tile-scene .pixel-map,
+html[data-vp="sm"] .sector-instance-wrap .tile-scene .walkable-sector-map,
+html[data-vp="sm"] .sector-instance-wrap .tile-scene .sector-image-map {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    aspect-ratio: auto !important;
+    margin-inline: 0 !important;
+}
+
+html[data-vp="xs"] .sector-instance-wrap .instance-actions,
+html[data-vp="sm"] .sector-instance-wrap .instance-actions {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    box-sizing: border-box !important;
+}
+
+/* =====================================================================
+   MOBILE BANNER TIMER WIDGET
+   Top-right corner of the journey banner — shows server clock + all
+   active training / expedition countdowns. Hidden on md/lg/xl because
+   the left profile card already surfaces this info on desktop.
+   ===================================================================== */
+
+.banner-mobile-timers {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    pointer-events: none;
+}
+
+.bmt-clock {
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--text-dim);
+    background: rgba(2, 6, 23, 0.80);
+    border: 1px solid rgba(250, 204, 21, 0.22);
+    border-radius: 5px;
+    padding: 2px 7px;
+    letter-spacing: 0.5px;
+}
+
+.bmt-timers {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.bmt-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(2, 6, 23, 0.85);
+    border: 1px solid rgba(250, 204, 21, 0.20);
+    border-radius: 4px;
+    padding: 2px 6px;
+    max-width: 190px;
+}
+
+.bmt-icon {
+    font-size: 10px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.bmt-label {
+    color: var(--slate-300);
+    font-size: 9px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bmt-value {
+    color: var(--gold);
+    font-family: monospace;
+    font-size: 9px;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+/* Hide on desktop — left profile card covers this */
+html[data-vp="md"] .banner-mobile-timers,
+html[data-vp="lg"] .banner-mobile-timers,
+html[data-vp="xl"] .banner-mobile-timers,
+html[data-vp="xxl"] .banner-mobile-timers {
+    display: none !important;
+}
+

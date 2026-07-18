@@ -1,0 +1,355 @@
+/* ===== Shinobi combat skin ===== */
+
+.arena-fullscreen {
+    border-radius: 4px;
+    border: 6px solid #7c3f11;
+    background: linear-gradient(90deg, rgba(120,53,15,.72), rgba(15,23,42,.98) 12%, rgba(15,23,42,.98) 88%, rgba(120,53,15,.72));
+    box-shadow: 0 18px 45px rgba(0,0,0,.52), inset 0 0 0 2px var(--gold);
+}
+
+.combat-layout {
+    grid-template-columns: 190px minmax(0, 1fr) 190px;
+    gap: 10px;
+}
+
+.combat-side-hud {
+    border: 2px solid var(--gold-2);
+    border-radius: 0;
+    background: linear-gradient(180deg, #7f1d1d, #3f0b16);
+    color: #f8fafc;
+}
+
+.combat-avatar {
+    border-color: var(--gold);
+    border-radius: 0;
+}
+
+.arena-title-panel,
+.dual-ap-panel {
+    border-radius: 0;
+    border: 2px solid #7c3f11;
+    background: #17070a;
+}
+
+.arena-fullscreen .hex-battlefield {
+    min-height: 430px !important;
+    max-height: none !important;
+    padding: 12px !important;
+    border-width: 2px;
+    border-radius: 0;
+    overflow: hidden !important;
+    display: grid !important;
+    place-items: center !important;
+    background: linear-gradient(135deg, rgba(15,23,42,.96), rgba(30,58,138,.78));
+}
+
+
+.arena-fullscreen .hex-tile {
+    width: 38px;
+    height: 32px;
+    margin-left: -3px;
+    font-size: 15px;
+}
+
+    .arena-fullscreen .hex-tile:nth-child(24n+13),
+    .arena-fullscreen .hex-tile:nth-child(24n+14),
+    .arena-fullscreen .hex-tile:nth-child(24n+15),
+    .arena-fullscreen .hex-tile:nth-child(24n+16),
+    .arena-fullscreen .hex-tile:nth-child(24n+17),
+    .arena-fullscreen .hex-tile:nth-child(24n+18),
+    .arena-fullscreen .hex-tile:nth-child(24n+19),
+    .arena-fullscreen .hex-tile:nth-child(24n+20),
+    .arena-fullscreen .hex-tile:nth-child(24n+21),
+    .arena-fullscreen .hex-tile:nth-child(24n+22),
+    .arena-fullscreen .hex-tile:nth-child(24n+23),
+    .arena-fullscreen .hex-tile:nth-child(24n+24) {
+        transform: translateX(17px);
+    }
+
+.shinobi-command-bar {
+    grid-template-columns: repeat(4, minmax(96px, 1fr));
+    border-radius: 0;
+    border: 3px solid #7c3f11;
+    background: linear-gradient(#a16207, #7c2d12);
+}
+
+    .shinobi-command-bar button {
+        min-height: 54px;
+        background: linear-gradient(#1e3a8a, #172554);
+        border: 2px solid #fef3c7;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+        .shinobi-command-bar button span {
+            font-size: 14px;
+            color: #f8fafc;
+        }
+
+        .shinobi-command-bar button small {
+            font-size: 10px;
+            color: #dbeafe;
+        }
+
+.arena-fullscreen .jutsu-layout-card {
+    border-radius: 0;
+    border: 3px solid #111827;
+    background: #d8d0f0;
+    max-height: 270px;
+}
+
+.arena-fullscreen .shinobi-jutsu-card {
+    min-height: 126px;
+    grid-template-rows: 60px auto auto auto;
+    border-radius: 3px;
+}
+
+.arena-fullscreen .jutsu-art {
+    font-size: 34px;
+}
+
+.arena-fullscreen .combat-text-log {
+    max-height: 460px;
+    border: 3px solid #7c3f11;
+    border-radius: 0;
+    background: #17070a;
+    color: #f8fafc;
+}
+
+.arena-fullscreen .combat-log-header {
+    background: #7f1d1d;
+    color: #fef3c7;
+}
+
+.combat-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+}
+
+    .combat-tabs button {
+        position: relative;
+        min-height: 36px;
+        border: 2px solid #7c3f11;
+        background: linear-gradient(180deg, #243f7c, #172d66);
+        color: #f8fafc;
+        font-weight: 800;
+    }
+
+        .combat-tabs button.active {
+            border-color: #ffd21f;
+            color: #ffd21f;
+            box-shadow: 0 0 10px rgba(255, 210, 31, .35);
+        }
+
+    .combat-tabs span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        margin-left: 4px;
+        border-radius: 999px;
+        background: var(--red-600);
+        color: #fff;
+        font-size: 11px;
+    }
+
+.combat-timeline .timeline-entry strong {
+    color: #ffd21f;
+}
+
+.arena-fullscreen .timeline-round {
+    background: rgba(248, 250, 252, .96);
+    border-color: #7c3f11;
+}
+
+.arena-fullscreen .timeline-round-header {
+    background: #cbd8e6;
+    color: var(--slate-900);
+}
+
+.arena-fullscreen .combat-text-log .timeline-player {
+    color: #047857;
+}
+
+.arena-fullscreen .combat-text-log .timeline-enemy {
+    color: var(--red-600);
+}
+
+/* ===== PvP rich battle log ===== */
+.pvp-rich-log {
+    background: #0c0f17 !important;
+    border-color: var(--slate-800) !important;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.pvp-log-empty {
+    color: var(--slate-600);
+    font-style: italic;
+    padding: 8px;
+}
+
+/* Round section */
+.pvp-round-section {
+    margin-bottom: 6px;
+}
+
+.pvp-round-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px 3px;
+    margin-bottom: 3px;
+}
+
+.pvp-round-label::before,
+.pvp-round-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #1e3a5f;
+}
+
+.pvp-round-badge {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 12px;
+    padding: 2px 10px;
+    white-space: nowrap;
+}
+
+/* Action block */
+.pvp-log-block {
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 3px 0;
+    border-left: 3px solid transparent;
+}
+
+.pvp-block-player {
+    border-left-color: var(--success);
+    background: rgba(20, 50, 30, 0.55);
+}
+
+.pvp-block-enemy {
+    border-left-color: var(--danger);
+    background: rgba(50, 15, 15, 0.55);
+}
+
+.pvp-block-system {
+    border-left-color: var(--slate-600);
+    background: rgba(15, 23, 42, 0.5);
+}
+
+.pvp-block-victory {
+    border-left-color: #fbbf24 !important;
+    background: rgba(40, 30, 5, 0.7) !important;
+}
+
+/* Block header */
+.pvp-block-header {
+    padding: 5px 8px 3px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px;
+    font-weight: 700;
+}
+
+.pvp-actor-name {
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.pvp-actor-me { color: var(--green-400); }
+.pvp-actor-opp { color: var(--red-400); }
+
+.pvp-uses-text {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 11px;
+}
+
+.pvp-jutsu-name {
+    color: var(--gold-300);
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.pvp-block-full {
+    color: var(--slate-300);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.pvp-victory-text {
+    color: #fbbf24 !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+}
+
+/* Jutsu description */
+.pvp-block-desc {
+    margin: 0;
+    padding: 1px 8px 4px 9px;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    font-style: italic;
+    line-height: 1.4;
+    border-left: 2px solid rgba(100, 116, 139, 0.3);
+    margin-left: 8px;
+    margin-bottom: 3px;
+}
+
+/* Effect list */
+.pvp-block-effects {
+    list-style: none;
+    margin: 0;
+    padding: 0 6px 5px 8px;
+}
+
+.pvp-effect-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    padding: 2px 2px;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.pvp-effect-icon {
+    font-size: 9px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    min-width: 14px;
+    text-align: center;
+}
+
+/* Effect line colors */
+.pvp-effect-damage { color: var(--red-300); }
+.pvp-effect-heal   { color: var(--green-300); }
+.pvp-effect-shield { color: var(--blue-300); }
+.pvp-effect-debuff { color: #fdba74; }
+.pvp-effect-buff   { color: #a5f3fc; }
+.pvp-effect-hit    { color: var(--gold-300); font-weight: 700; }
+.pvp-effect-miss   { color: var(--slate-600); font-style: italic; }
+.pvp-effect-move   { color: #67e8f9; }
+.pvp-effect-system { color: var(--text-dim); }
+
+@media (max-width: 1100px) {
+    .combat-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .combat-main-area {
+        order: -1;
+    }
+}

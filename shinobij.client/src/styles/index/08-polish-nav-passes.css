@@ -1,0 +1,599 @@
+/* ===== Visual polish pass ===== */
+
+/* Core design tokens (--ink, --panel, --gold, --cyan, --red, --paper, …) now
+   live in styles/tokens.css, imported first as the single source of truth. */
+
+body {
+    color: var(--text);
+    font-family: var(--font-body);
+    background: radial-gradient(circle at 14% 8%, rgba(56, 189, 248, .18), transparent 28%), radial-gradient(circle at 82% 2%, rgba(247, 201, 72, .15), transparent 24%), radial-gradient(circle at 60% 92%, rgba(185, 28, 28, .12), transparent 28%), linear-gradient(135deg, #07101d, #0f1b2d 46%, #120712);
+}
+
+.game {
+    max-width: 1320px;
+    padding: 0;
+}
+
+.hero,
+.card,
+.nav,
+.profile,
+.top-hud div {
+    border-color: var(--line);
+    box-shadow: 0 18px 50px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+h1 {
+    font-size: clamp(42px, 6vw, 68px);
+    letter-spacing: 1px;
+    color: var(--gold);
+    text-shadow: 0 3px 0 #2b0d0d, 0 0 22px rgba(247,201,72,.35);
+}
+
+h2 {
+    color: var(--gold);
+    border-bottom-color: rgba(247,201,72,.4);
+}
+
+.card {
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,.035), transparent 120px), linear-gradient(135deg, var(--panel), var(--panel-2));
+}
+
+.nav {
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(30, 58, 138, .34), rgba(9, 14, 26, .96));
+    position: relative;
+    top: auto;
+}
+
+button {
+    border-color: rgba(250, 204, 21, .28);
+    border-radius: var(--r-sm);
+    background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 45%), linear-gradient(#244aa0, #142761);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 3px 0 rgba(2, 6, 23, .92), 0 10px 18px rgba(0,0,0,.18);
+}
+
+    button:hover {
+        filter: saturate(1.08) brightness(1.12);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 0 0 1px rgba(56,189,248,.34), 0 10px 22px rgba(56,189,248,.16);
+    }
+
+.danger-button,
+.nav button:last-child {
+    background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 45%), linear-gradient(var(--red), #5b1010);
+}
+
+.location-button,
+.summary-box,
+.jutsu-card,
+.shinobi-jutsu-card,
+.stat-card {
+    border-color: rgba(148,163,184,.24);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 24px rgba(0,0,0,.18);
+}
+
+.location-button {
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(56,189,248,.08), transparent), linear-gradient(135deg, rgba(30,58,138,.92), rgba(9,14,26,.96));
+}
+
+.summary-box {
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, .96), rgba(2, 6, 23, .96));
+}
+
+.summary-box.bloodline-over-budget {
+    border: 1px solid var(--danger);
+    background: linear-gradient(135deg, rgba(60, 10, 10, .96), rgba(30, 5, 5, .96));
+}
+
+.bloodline-over-budget-label {
+    color: var(--red-400);
+    font-weight: 600;
+    margin-left: 6px;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.atlas-world-map {
+    border-radius: 8px;
+    border-color: rgba(186, 230, 253, .55);
+    box-shadow: inset 0 0 80px rgba(0, 38, 87, .58), 0 16px 40px rgba(0,0,0,.34);
+}
+
+.atlas-landmass {
+    filter: drop-shadow(0 8px 10px rgba(0,0,0,.42));
+}
+
+.atlas-sector {
+    font-size: 17px;
+    transition: transform .12s ease, filter .12s ease;
+}
+
+.atlas-landmark {
+    border-color: rgba(254, 243, 199, .85);
+    background: linear-gradient(180deg, rgba(255,255,255,.08), transparent), rgba(10, 18, 33, .88);
+}
+
+    .atlas-landmark strong {
+        color: var(--gold);
+    }
+
+.map-instance .instance-frame,
+.arena-fullscreen {
+    border-radius: 8px;
+    border-color: #9a5b1f;
+    border-image: none;
+    background: linear-gradient(90deg, rgba(127, 29, 29, .72), rgba(13, 21, 37, .98) 14%, rgba(13, 21, 37, .98) 86%, rgba(146, 64, 14, .72));
+    box-shadow: 0 22px 55px rgba(0,0,0,.48), inset 0 0 0 2px rgba(250,204,21,.42), inset 0 0 45px rgba(0,0,0,.28);
+}
+
+.instance-sidebar,
+.instance-actions,
+.combat-side-hud {
+    border-radius: 6px;
+    background: linear-gradient(180deg, rgba(255,255,255,.055), transparent 34%), linear-gradient(180deg, #811b22, #360914);
+}
+
+.tile-scene,
+.pixel-map,
+.village-map,
+.hex-battlefield {
+    border-radius: 6px;
+}
+
+.pixel-map {
+    background: linear-gradient(135deg, rgba(56,189,248,.2), transparent 24%), #0c4a91;
+    box-shadow: inset 0 0 25px rgba(0,0,0,.28);
+}
+
+.scene-title {
+    background: linear-gradient(90deg, #2b1408, #111827 42%, #2b1408);
+}
+
+.scene-hotbar span {
+    border-radius: 4px;
+    background: linear-gradient(180deg, rgba(255,255,255,.11), transparent), linear-gradient(#204891, #172554);
+}
+
+.portrait-badge {
+    border-radius: 8px;
+    box-shadow: 0 0 24px rgba(56,189,248,.22);
+}
+
+.shinobi-command-bar {
+    border-radius: 6px;
+    background: linear-gradient(180deg, rgba(250,204,21,.24), transparent), linear-gradient(#8a4b12, #5c1f0d);
+}
+
+.arena-fullscreen .jutsu-layout-card {
+    border-radius: 6px;
+    background: linear-gradient(180deg, #efe7ff, #cfc3ed);
+}
+
+.arena-fullscreen .shinobi-jutsu-card {
+    border-radius: 6px;
+    background: linear-gradient(180deg, #fff, #eef2ff);
+}
+
+.arena-fullscreen .combat-text-log {
+    border-radius: 6px;
+    background: linear-gradient(180deg, rgba(255,255,255,.035), transparent), #16090d;
+}
+/* ===== Restored combat board + village lore ===== */
+
+.game {
+    max-width: 1700px !important;
+}
+
+.combat-layout {
+    display: grid !important;
+    grid-template-columns: 220px minmax(940px, 1fr) 220px !important;
+    gap: 10px !important;
+    align-items: start !important;
+}
+
+.combat-main-area {
+    min-width: 0 !important;
+}
+
+.hex-battlefield {
+    position: relative !important;
+    width: 100% !important;
+    height: 600px !important;
+    min-height: 680px !important;
+    overflow: hidden !important;
+    padding: 26px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: radial-gradient(circle at center, rgba(37,99,235,.25), transparent 55%), linear-gradient(135deg, #063b8f, #0757d8 50%, #032968) !important;
+    border: 4px solid var(--slate-700) !important;
+    border-radius: 8px !important;
+}
+
+.hex-tile {
+    position: absolute !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%) !important;
+    border: 1px solid #164ea8 !important;
+    border-radius: 0 !important;
+    background: radial-gradient(circle at 50% 38%, rgba(50,130,255,.42), transparent 40%), linear-gradient(135deg, #0b63e5, #0643a0) !important;
+    box-shadow: inset 0 1px 4px rgba(255,255,255,.12), inset 0 -6px 9px rgba(0,0,0,.22) !important;
+    display: grid !important;
+    place-items: center !important;
+    color: white !important;
+    font-size: 30px !important;
+    transform: none !important;
+}
+
+    .hex-tile:nth-child(n) {
+        transform: none !important;
+    }
+
+.hex-player {
+    background: radial-gradient(circle, #67e8f9, #0757d8 70%) !important;
+    border: 2px solid #67e8f9 !important;
+    z-index: 5 !important;
+}
+
+.hex-enemy {
+    background: radial-gradient(circle, #fb7185, #991b1b 70%) !important;
+    border: 2px solid #fb7185 !important;
+    z-index: 5 !important;
+}
+
+.combat-side-hud {
+    min-height: 620px !important;
+    padding: 14px !important;
+    color: #f8fafc !important;
+    background: linear-gradient(90deg, rgba(245,158,11,.9) 0 5px, transparent 5px), linear-gradient(180deg, #1a0f12, #2b1a1e 45%, #170c0f) !important;
+    border-left: 3px solid var(--gold-2) !important;
+    border-right: 3px solid #7c2d12 !important;
+    border-radius: 0 !important;
+}
+
+.combat-avatar {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 1 !important;
+    margin: 0 0 14px !important;
+    border-radius: 12px !important;
+    border: 3px solid #020617 !important;
+    background: #67e8f9 !important;
+    display: grid !important;
+    place-items: center !important;
+    font-size: 70px !important;
+    overflow: hidden !important;
+}
+
+.basic-action-bar {
+    display: grid !important;
+    grid-template-columns: repeat(8, 1fr) !important;
+    gap: 6px !important;
+    margin-top: 8px !important;
+    padding: 8px !important;
+    background: #d6c19a !important;
+    border: 3px solid #6b3f16 !important;
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.jutsu-layout-card {
+    background: #d8d2ef !important;
+    border: 3px solid #111827 !important;
+    border-top: 0 !important;
+    border-radius: 0 0 10px 10px !important;
+    padding: 8px !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+}
+
+.jutsu-card-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)) !important;
+    gap: 7px !important;
+}
+
+.shinobi-jutsu-card {
+    min-height: 138px !important;
+    padding: 4px !important;
+    border-radius: 8px !important;
+    background: #f8fafc !important;
+    border: 2px solid var(--slate-800) !important;
+    color: var(--slate-900) !important;
+    display: grid !important;
+    grid-template-rows: 78px 20px 16px 16px 18px !important;
+}
+
+/* =========================================================
+   MOBILE LIST + ACTION PATTERN — Jutsu / Technique browser
+   On desktop this is a 2-column layout (grid left, filter+action
+   panel right). Stacking it on mobile (existing rule) put the
+   Equip button below the entire grid + filter form, so on long
+   lists it gets buried.
+   Fix: turn the filter panel into a sticky "header" at the top
+   of the screen with the action button at the very top of it
+   (CSS order: -1), so the primary action stays one tap away no
+   matter how far the user scrolls.
+   ========================================================= */
+@media (max-width: 800px) {
+    .technique-shell {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    /* Grid: pushed below the sticky filter panel */
+    .technique-shell .technique-grid {
+        order: 2 !important;
+    }
+
+    /* Filter panel: pinned to the top of the viewport */
+    .technique-shell .technique-filter-panel {
+        order: 1 !important;
+        position: sticky !important;
+        top: 4px !important;
+        z-index: 50 !important;
+        background: rgba(2, 6, 23, 0.94) !important;
+        backdrop-filter: blur(6px) !important;
+        padding: 8px 10px !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(250, 204, 21, 0.28) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+        max-height: 55vh !important;
+        overflow-y: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Filter labels + inputs compact on mobile */
+    .technique-shell .technique-filter-panel > label {
+        font-size: 11px !important;
+        margin: 4px 0 1px !important;
+        color: var(--text-dim) !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+
+    .technique-shell .technique-filter-panel > input,
+    .technique-shell .technique-filter-panel > select {
+        padding: 5px 8px !important;
+        font-size: 13px !important;
+        margin: 0 !important;
+    }
+
+    /* Selected jutsu panel: PROMOTED to the top of the flex column
+       (above the filter inputs) so the Equip/Unequip button is the
+       first thing the player sees. */
+    .technique-shell .technique-selected-panel {
+        order: -1 !important;
+        margin: 0 0 6px !important;
+        padding: 0 0 6px !important;
+        border-bottom: 1px solid rgba(250, 204, 21, 0.22) !important;
+    }
+
+    /* Action button (Equip/Unequip) — big, full-width, unmistakable */
+    .technique-shell .technique-selected-panel .menu {
+        margin: 0 0 4px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+    }
+
+    .technique-shell .technique-selected-panel .menu button {
+        width: 100% !important;
+        min-height: 44px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.3px !important;
+    }
+
+    /* Selected-jutsu details: kept but compact so the Equip button
+       doesn't get pushed off the sticky panel by a long description. */
+    .technique-shell .technique-selected-panel h4 {
+        margin: 2px 0 !important;
+        font-size: 14px !important;
+    }
+
+    .technique-shell .technique-selected-panel p {
+        font-size: 12px !important;
+        margin: 2px 0 !important;
+        line-height: 1.35 !important;
+    }
+}
+/* ===== Cleaner image/UI pass ===== */
+
+body {
+    background: linear-gradient(180deg, rgba(5, 7, 13, .22), rgba(5, 7, 13, .86)), radial-gradient(circle at 12% 10%, rgba(56, 189, 248, .18), transparent 28%), radial-gradient(circle at 88% 0%, rgba(248, 113, 113, .13), transparent 25%), url("/Shinobi-Journeys.png") center top / cover fixed;
+}
+
+.game {
+    backdrop-filter: saturate(1.05);
+}
+
+.hero {
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,.16);
+    background: linear-gradient(90deg, rgba(4, 8, 17, .86), rgba(17, 24, 39, .72)), linear-gradient(135deg, rgba(248, 113, 113, .18), rgba(56, 189, 248, .14));
+}
+
+    .hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -6% -58px 40%;
+        height: 130px;
+        background: linear-gradient(90deg, transparent, rgba(250,204,21,.32), transparent);
+        filter: blur(24px);
+        transform: rotate(-7deg);
+        pointer-events: none;
+    }
+
+.card,
+.summary-box,
+.jutsu-card {
+    border-color: rgba(210, 230, 255, .18);
+    background: linear-gradient(180deg, rgba(255,255,255,.06), transparent 130px), linear-gradient(135deg, rgba(12, 19, 34, .94), rgba(22, 32, 51, .9));
+}
+
+.card {
+    box-shadow: 0 24px 70px rgba(0,0,0,.46), inset 0 1px 0 rgba(255,255,255,.07);
+}
+
+.location-button,
+.equipment-item,
+.shinobi-jutsu-card,
+.jutsu-card {
+    transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+
+    .location-button:hover,
+    .equipment-item:hover,
+    .shinobi-jutsu-card:hover,
+    .jutsu-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(250,204,21,.56);
+        box-shadow: 0 16px 32px rgba(0,0,0,.28), 0 0 0 1px rgba(250,204,21,.14);
+    }
+
+.admin-jutsu-preview,
+.jutsu-art,
+.shinobi-jutsu-image-frame,
+.admin-event-list-preview {
+    border-color: rgba(186,230,253,.6);
+    box-shadow: 0 10px 24px rgba(0,0,0,.32), inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+    .admin-jutsu-preview img,
+    .jutsu-art img,
+    .admin-event-list-preview img,
+    .shinobi-jutsu-image-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        filter: saturate(1.08) contrast(1.04);
+    }
+
+.visual-novel {
+    isolation: isolate;
+}
+
+.vn-stage {
+    background: linear-gradient(180deg, rgba(9, 14, 28, .06), rgba(7, 9, 18, .78)), url("/Shinobi-Journeys.png") center / cover;
+}
+
+    .vn-stage::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 50% 18%, rgba(250,204,21,.2), transparent 20%), linear-gradient(180deg, transparent 0 54%, rgba(3, 7, 18, .68));
+        pointer-events: none;
+    }
+
+.vn-character,
+.vn-scene-card,
+.vn-dialogue {
+    z-index: 6;
+}
+
+.vn-character {
+    border-radius: 12px;
+    border-color: rgba(250,204,21,.76);
+    background: radial-gradient(circle at 50% 20%, rgba(255,255,255,.85) 0 13%, transparent 14%), linear-gradient(180deg, rgba(59,130,246,.72), rgba(15,23,42,.94));
+}
+
+.mentor-character {
+    background: radial-gradient(circle at 50% 20%, rgba(255,255,255,.82) 0 13%, transparent 14%), linear-gradient(180deg, rgba(148,163,184,.65), rgba(15,23,42,.96));
+}
+
+.vn-dialogue {
+    border-color: rgba(250,204,21,.84);
+    background: linear-gradient(180deg, rgba(255,255,255,.1), transparent 36%), rgba(4, 8, 18, .94);
+}
+
+.combat-side-hud,
+.jutsu-layout-card,
+.combat-text-log,
+.arena-lobby .summary-box {
+    box-shadow: 0 18px 42px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.07);
+}
+
+.hex-battlefield {
+    background: radial-gradient(circle at 50% 42%, rgba(250,204,21,.18), transparent 24%), radial-gradient(circle at 22% 18%, rgba(56,189,248,.22), transparent 24%), linear-gradient(135deg, #0b376d, #0f58a8 48%, #061529) !important;
+}
+
+.hex-tile {
+    border-color: rgba(186,230,253,.3) !important;
+}
+
+.atlas-world-map {
+    filter: saturate(1.08) contrast(1.02);
+}
+
+.atlas-sector,
+.atlas-landmark {
+    box-shadow: 0 8px 18px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.08);
+}
+/* ===== Clean navigation pass ===== */
+
+.nav {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+    gap: 10px;
+    margin: 16px 0;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(186, 230, 253, .22);
+    background: linear-gradient(180deg, rgba(255,255,255,.07), transparent 52%), rgba(6, 11, 24, .76);
+    box-shadow: 0 14px 34px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.08);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 8px;
+    z-index: 20;
+}
+
+    .nav button {
+        min-height: 42px;
+        padding: 9px 12px;
+        border-radius: 7px;
+        border: 1px solid rgba(147, 197, 253, .28);
+        color: #f8fafc;
+        font-size: 13px;
+        letter-spacing: 0;
+        text-shadow: 0 1px 0 rgba(0,0,0,.45);
+        background: linear-gradient(180deg, rgba(255,255,255,.13), transparent 48%), linear-gradient(135deg, #244a91, #12204c);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 3px 0 rgba(2,6,23,.88);
+    }
+
+        .nav button:hover {
+            border-color: rgba(250, 204, 21, .62);
+            transform: translateY(-1px);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 0 18px rgba(59,130,246,.28), 0 5px 0 rgba(2,6,23,.84);
+        }
+
+    .nav .danger-button {
+        background: linear-gradient(180deg, rgba(255,255,255,.13), transparent 48%), linear-gradient(135deg, var(--red), #581010);
+    }
+
+.top-hud {
+    grid-template-columns: repeat(4, minmax(118px, 1fr));
+}
+
+@media (max-width: 760px) {
+    .nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        top: 4px;
+    }
+}
+
+@media (max-width: 1150px) {
+    .combat-layout {
+        grid-template-columns: 1fr !important;
+    }
+}

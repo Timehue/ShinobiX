@@ -1,0 +1,1077 @@
+/* ===== World Map ===== */
+
+.anime-world-map {
+    position: relative;
+    height: 600px;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 3px solid var(--slate-800);
+    background: radial-gradient(circle at 21% 25%, #166534 0 12%, transparent 13%), radial-gradient(circle at 78% 24%, #7f1d1d 0 13%, transparent 14%), radial-gradient(circle at 22% 78%, #bfdbfe 0 13%, transparent 14%), radial-gradient(circle at 78% 78%, #312e81 0 13%, transparent 14%), radial-gradient(circle at 50% 50%, #a16207 0 14%, transparent 15%), linear-gradient(135deg, #075985, #082f49 45%, #020617);
+    box-shadow: inset 0 0 110px rgba(0,0,0,.72), 0 0 25px rgba(14,165,233,.18);
+}
+
+    .anime-world-map::before {
+        content: "";
+        position: absolute;
+        inset: 7%;
+        background: #477857;
+        clip-path: polygon(24% 5%, 45% 8%, 64% 15%, 83% 31%, 78% 48%, 91% 64%, 74% 91%, 53% 84%, 37% 95%, 18% 82%, 8% 61%, 17% 42%, 7% 23%);
+        filter: drop-shadow(0 0 25px #000);
+        opacity: .95;
+    }
+
+.region {
+    position: absolute;
+    z-index: 3;
+    background: rgba(2,6,23,.82);
+    border: 1px solid rgba(255,255,255,.22);
+    border-radius: 999px;
+    color: white;
+    padding: 7px 11px;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.forest-region {
+    left: 10%;
+    top: 11%;
+}
+
+.volcano-region {
+    right: 8%;
+    top: 11%;
+}
+
+.snow-region {
+    left: 10%;
+    bottom: 10%;
+}
+
+.shadow-region {
+    right: 8%;
+    bottom: 10%;
+}
+
+.central-city {
+    position: absolute;
+    z-index: 6;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: #020617;
+    border: 2px solid var(--gold);
+    border-radius: 14px;
+    padding: 14px 18px;
+    color: #fef3c7;
+    font-weight: 900;
+    font-size: 21px;
+    box-shadow: 0 0 28px rgba(250,204,21,.45);
+}
+
+.anime-route {
+    position: absolute;
+    z-index: 4;
+    height: 6px;
+    border-radius: 999px;
+    background: repeating-linear-gradient(90deg, var(--gold-300) 0 10px, #a16207 10px 18px);
+    box-shadow: 0 0 12px rgba(250,204,21,.55);
+    transform-origin: left center;
+}
+
+.route-a {
+    width: 34%;
+    left: 20%;
+    top: 27%;
+    transform: rotate(35deg);
+}
+
+.route-b {
+    width: 34%;
+    left: 50%;
+    top: 50%;
+    transform: rotate(-35deg);
+}
+
+.route-c {
+    width: 34%;
+    left: 21%;
+    top: 78%;
+    transform: rotate(-38deg);
+}
+
+.route-d {
+    width: 34%;
+    left: 50%;
+    top: 50%;
+    transform: rotate(38deg);
+}
+
+.anime-location {
+    position: absolute;
+    z-index: 8;
+    transform: translate(-50%, -50%);
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+}
+
+    .anime-location button {
+        min-width: 130px;
+        padding: 8px 10px;
+        background: rgba(2,6,23,.9);
+        border: 1px solid var(--cyan);
+        font-size: 12px;
+    }
+
+.location-icon {
+    display: block;
+    font-size: 26px;
+}
+
+.small-map-button {
+    min-width: 62px !important;
+    background: linear-gradient(#991b1b, #450a0a) !important;
+    font-size: 11px;
+    padding: 5px 8px !important;
+}
+
+.hex-world-map {
+    height: auto;
+    min-height: 540px;
+    padding: 34px 22px 44px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: repeat(10, 58px);
+    grid-auto-rows: 48px;
+    justify-content: center;
+    align-content: start;
+    gap: 0;
+    border-radius: 4px;
+    border-color: #2f415e;
+    background: linear-gradient(90deg, rgba(15,64,135,.55), rgba(18,93,184,.35)), linear-gradient(135deg, #123d68, #0c4ca8 42%, #082c68);
+}
+
+    .hex-world-map::before {
+        display: none;
+    }
+
+.world-travel-point {
+    width: 64px;
+    height: 54px;
+    margin-left: -4px;
+    margin-top: -1px;
+    clip-path: polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0% 50%);
+    border: 1px solid rgba(120, 80, 36, .78);
+    border-radius: 0;
+    padding: 3px 5px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 1px;
+    color: #1f2937;
+    background: linear-gradient(135deg, #fee9ba, #ffc39d);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55);
+    text-shadow: none;
+}
+
+    .world-travel-point:nth-child(20n+11),
+    .world-travel-point:nth-child(20n+12),
+    .world-travel-point:nth-child(20n+13),
+    .world-travel-point:nth-child(20n+14),
+    .world-travel-point:nth-child(20n+15),
+    .world-travel-point:nth-child(20n+16),
+    .world-travel-point:nth-child(20n+17),
+    .world-travel-point:nth-child(20n+18),
+    .world-travel-point:nth-child(20n+19),
+    .world-travel-point:nth-child(20n+20) {
+        transform: translateX(29px);
+    }
+
+    .world-travel-point:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+        box-shadow: 0 0 18px rgba(250,204,21,.55), inset 0 1px 0 rgba(255,255,255,.65);
+    }
+
+    .world-travel-point:nth-child(20n+11):hover,
+    .world-travel-point:nth-child(20n+12):hover,
+    .world-travel-point:nth-child(20n+13):hover,
+    .world-travel-point:nth-child(20n+14):hover,
+    .world-travel-point:nth-child(20n+15):hover,
+    .world-travel-point:nth-child(20n+16):hover,
+    .world-travel-point:nth-child(20n+17):hover,
+    .world-travel-point:nth-child(20n+18):hover,
+    .world-travel-point:nth-child(20n+19):hover,
+    .world-travel-point:nth-child(20n+20):hover {
+        transform: translateX(29px) translateY(-1px);
+    }
+
+    .world-travel-point span {
+        font-size: 18px;
+        font-weight: 900;
+        color: var(--slate-900);
+    }
+
+    .world-travel-point small {
+        max-width: 44px;
+        overflow: hidden;
+        color: #111827;
+        font-size: 9px;
+        font-weight: 900;
+        line-height: 1.05;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+.world-forest {
+    background: linear-gradient(135deg, #fef08a, #fddc8a);
+}
+
+.world-volcano {
+    background: linear-gradient(135deg, #ffd0a6, #ffb389);
+}
+
+.world-snow {
+    background: linear-gradient(135deg, #fff7b2, #dbeafe);
+}
+
+.world-shadow {
+    background: linear-gradient(135deg, #ffd7b5, #c4b5fd);
+}
+
+.world-central {
+    background: linear-gradient(135deg, var(--gold-300), #fbbf24);
+}
+
+.world-village,
+.world-central,
+.world-event {
+    border-color: #7c2d12;
+    box-shadow: 0 0 14px rgba(250,204,21,.35), inset 0 0 0 2px rgba(255,255,255,.25);
+}
+
+.world-village {
+    background: linear-gradient(135deg, #fee2b3, #fb923c);
+}
+
+.world-central {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #f8fafc;
+}
+
+    .world-central span,
+    .world-central small {
+        color: #f8fafc;
+    }
+
+.sector-card {
+    display: grid;
+    gap: 14px;
+}
+
+    .sector-card > button {
+        justify-self: start;
+    }
+
+.sector-stage {
+    min-height: 320px;
+    display: grid;
+    place-items: center;
+    gap: 8px;
+    align-content: center;
+    border: 3px solid var(--slate-700);
+    border-radius: 6px;
+    background: radial-gradient(circle at 50% 38%, rgba(255,255,255,.2), transparent 18%), linear-gradient(135deg, #0f4ca7, #092f6b);
+}
+
+    .sector-stage h2,
+    .sector-stage p {
+        margin: 0;
+    }
+
+.sector-node {
+    width: 132px;
+    height: 112px;
+    display: grid;
+    place-items: center;
+    clip-path: polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0% 50%);
+    background: linear-gradient(135deg, #fee9ba, #ffc39d);
+    border: 3px solid #7c2d12;
+    color: #111827;
+    font-size: 42px;
+    font-weight: 900;
+    text-shadow: none;
+}
+
+.sector-forest .sector-node {
+    background: linear-gradient(135deg, #fef08a, #fddc8a);
+}
+
+.sector-volcano .sector-node {
+    background: linear-gradient(135deg, #ffd0a6, #ff9f80);
+}
+
+.sector-snow .sector-node {
+    background: linear-gradient(135deg, #fff7b2, #dbeafe);
+}
+
+.sector-shadow .sector-node {
+    background: linear-gradient(135deg, #ffd7b5, #c4b5fd);
+}
+
+.sector-central .sector-node {
+    background: linear-gradient(135deg, var(--success), #15803d);
+    color: #f8fafc;
+}
+
+.atlas-world-map {
+    height: min(76vw, 860px, calc(100dvh - 20px));
+    min-height: 560px;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 4px solid rgba(186,230,253,.7);
+    background: radial-gradient(circle at 8% 12%, rgba(255,255,255,.72) 0 3px, transparent 4px), radial-gradient(circle at 17% 84%, rgba(255,255,255,.72) 0 3px, transparent 4px), radial-gradient(circle at 83% 74%, rgba(255,255,255,.72) 0 3px, transparent 4px), radial-gradient(circle at 91% 14%, rgba(255,255,255,.72) 0 3px, transparent 4px), radial-gradient(circle at 52% 47%, rgba(125,211,252,.18), transparent 31%), linear-gradient(135deg, #0474ca, #075fae 44%, #083d85);
+    box-shadow: inset 0 0 90px rgba(0, 38, 87, .6), inset 0 0 0 2px rgba(255,255,255,.09), 0 20px 50px rgba(0,0,0,.38);
+}
+
+    .atlas-world-map::before {
+        display: none;
+    }
+
+.atlas-landmass {
+    position: absolute;
+    z-index: 1;
+    border: 3px solid rgba(185, 235, 255, .75);
+    box-shadow: 0 0 0 2px rgba(14, 84, 130, .72), 0 12px 20px rgba(0,0,0,.36), inset 0 0 26px rgba(255,255,255,.12);
+}
+
+.continent-west {
+    left: 6%;
+    top: 13%;
+    width: 45%;
+    height: 60%;
+    background: radial-gradient(circle at 20% 18%, var(--red) 0 13%, transparent 14%), radial-gradient(circle at 30% 60%, #14532d 0 18%, transparent 19%), radial-gradient(circle at 72% 61%, #d9c59a 0 36%, transparent 37%), linear-gradient(135deg, #9f6532, #b99058 48%, #dccca5);
+    clip-path: polygon(8% 31%, 17% 10%, 37% 6%, 47% 15%, 67% 12%, 89% 27%, 95% 48%, 82% 67%, 77% 94%, 55% 89%, 42% 74%, 20% 82%, 5% 64%);
+}
+
+.continent-east {
+    left: 46%;
+    top: 28%;
+    width: 36%;
+    height: 42%;
+    background: radial-gradient(circle at 33% 42%, var(--red-600) 0 22%, transparent 23%), radial-gradient(circle at 73% 72%, #166534 0 18%, transparent 19%), linear-gradient(135deg, var(--text-dim), #78ddb7 48%, var(--blue-400));
+    clip-path: polygon(5% 35%, 23% 8%, 52% 5%, 76% 18%, 96% 42%, 86% 65%, 95% 90%, 68% 96%, 50% 75%, 22% 89%, 8% 65%);
+}
+
+.frozen-north {
+    left: 52%;
+    top: 4%;
+    width: 29%;
+    height: 26%;
+    background: radial-gradient(circle at 28% 44%, #f8fafc 0 20%, transparent 21%), linear-gradient(135deg, #e0f2fe, var(--blue-300) 50%, var(--text-muted));
+    clip-path: polygon(7% 27%, 24% 6%, 45% 12%, 59% 3%, 82% 17%, 94% 45%, 78% 70%, 89% 92%, 50% 87%, 24% 96%, 10% 70%);
+}
+
+.island-south {
+    left: 44%;
+    top: 75%;
+    width: 42%;
+    height: 17%;
+    background: radial-gradient(circle at 74% 36%, var(--success) 0 16%, transparent 17%), linear-gradient(135deg, #7c3aed, #6ee7b7 50%, #d9f99d);
+    clip-path: polygon(4% 45%, 14% 18%, 29% 34%, 43% 11%, 59% 29%, 76% 18%, 95% 40%, 87% 70%, 61% 62%, 45% 89%, 22% 72%);
+}
+
+.sea-label {
+    position: absolute;
+    z-index: 2;
+    color: rgba(5, 45, 100, .58);
+    font-size: clamp(20px, 3vw, 42px);
+    font-weight: 900;
+    pointer-events: none;
+    text-shadow: 0 1px 0 rgba(255,255,255,.16);
+}
+
+.sea-north {
+    left: 9%;
+    top: 4%;
+}
+
+.sea-east {
+    right: 4%;
+    top: 8%;
+    max-width: 170px;
+}
+
+.sea-south {
+    left: 58%;
+    bottom: 7%;
+}
+
+.atlas-region-label {
+    position: absolute;
+    z-index: 3;
+    max-width: 130px;
+    color: #fff7ed;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.05;
+    text-align: center;
+    text-shadow: 0 2px 2px #111827;
+    pointer-events: none;
+}
+
+.label-volcano {
+    left: 21%;
+    top: 19%;
+}
+
+.label-forest {
+    left: 21%;
+    top: 49%;
+}
+
+.label-fire {
+    left: 56%;
+    top: 38%;
+}
+
+.label-ice {
+    left: 62%;
+    top: 14%;
+    color: #082f49;
+    text-shadow: 0 1px 0 #f8fafc;
+}
+
+.atlas-sector {
+    position: absolute;
+    z-index: 5;
+    width: 28px;
+    height: 28px;
+    min-width: 0;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    transform: translate(-50%, -50%);
+    border: 0;
+    border-radius: 999px;
+    border: 2px solid var(--red-600);
+    background: radial-gradient(circle at 35% 28%, rgba(255,255,255,.7), transparent 22%), linear-gradient(180deg, #fde047, var(--gold-2));
+    color: #7f1d1d;
+    font-size: 12px;
+    font-weight: 900;
+    text-shadow: 0 1px 0 rgba(255,255,255,.45);
+    box-shadow: 0 2px 0 #7f1d1d, 0 4px 10px rgba(0,0,0,.35);
+}
+
+    .atlas-sector:hover {
+        transform: translate(-50%, -50%) scale(1.18);
+        filter: brightness(1.12);
+        text-shadow: 0 1px 0 rgba(255,255,255,.55);
+        box-shadow: 0 2px 0 #7f1d1d, 0 0 16px rgba(250,204,21,.75);
+    }
+
+.atlas-sector-deaths-gate {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    background: radial-gradient(circle at 38% 30%, rgba(255,100,0,.25), transparent 40%), linear-gradient(180deg, #1a0000, #3b0000);
+    border: 2px solid var(--red-600);
+    box-shadow: 0 0 0 3px rgba(220,38,38,.35), 0 0 18px rgba(220,38,38,.6), 0 4px 10px rgba(0,0,0,.6);
+    z-index: 10;
+    animation: deaths-gate-pulse 2.2s ease-in-out infinite;
+}
+
+.atlas-sector-deaths-gate:hover {
+    transform: translate(-50%, -50%) scale(1.22);
+    box-shadow: 0 0 0 4px rgba(220,38,38,.5), 0 0 30px rgba(255,80,0,.8), 0 4px 14px rgba(0,0,0,.7);
+}
+
+@keyframes deaths-gate-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(220,38,38,.35), 0 0 18px rgba(220,38,38,.6), 0 4px 10px rgba(0,0,0,.6); }
+    50% { box-shadow: 0 0 0 5px rgba(220,38,38,.5), 0 0 32px rgba(255,60,0,.85), 0 4px 14px rgba(0,0,0,.7); }
+}
+
+/* Roaming weekly boss — highlights the sector it is CURRENTLY rampaging in
+   (replaces the old floating portrait marker). A warm pulsing ring + a 👹 flag so
+   players can spot which sector to travel into to challenge it. Position updates
+   as the boss hops (WorldMap recomputes weeklyBossRoamState). */
+.atlas-sector-weekly-boss {
+    z-index: 11;
+    border-color: #f97316;
+    box-shadow: 0 0 0 3px rgba(249,115,22,.45), 0 0 20px rgba(249,115,22,.7), 0 4px 10px rgba(0,0,0,.5);
+    animation: weekly-boss-sector-pulse 1.8s ease-in-out infinite;
+}
+.atlas-sector-weekly-boss:hover {
+    transform: translate(-50%, -50%) scale(1.2);
+    box-shadow: 0 0 0 4px rgba(249,115,22,.6), 0 0 30px rgba(255,140,0,.85), 0 4px 14px rgba(0,0,0,.6);
+}
+.atlas-sector-hunt-trail {
+    z-index: 10;
+    border-color: var(--gold-300);
+    box-shadow: 0 0 0 3px rgba(250,204,21,.35), 0 0 18px rgba(250,204,21,.55), 0 4px 10px rgba(0,0,0,.45);
+}
+@keyframes weekly-boss-sector-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(249,115,22,.45), 0 0 18px rgba(249,115,22,.65), 0 4px 10px rgba(0,0,0,.5); }
+    50% { box-shadow: 0 0 0 5px rgba(249,115,22,.6), 0 0 34px rgba(255,120,0,.9), 0 4px 14px rgba(0,0,0,.6); }
+}
+.atlas-boss-flag {
+    position: absolute;
+    top: -13px;
+    left: -13px;
+    font-size: 16px;
+    line-height: 1;
+    pointer-events: none;
+    filter: drop-shadow(0 0 4px #f97316) drop-shadow(0 1px 1px #000);
+    animation: weekly-boss-flag-bob 1.8s ease-in-out infinite;
+}
+@keyframes weekly-boss-flag-bob {
+    0%, 100% { transform: translateY(0) rotate(-6deg); }
+    50% { transform: translateY(-2px) rotate(6deg); }
+}
+.atlas-hunt-flag {
+    position: absolute;
+    right: -12px;
+    bottom: -12px;
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #451a03;
+    background: linear-gradient(180deg, var(--gold-300), var(--gold-2));
+    border: 1px solid rgba(120,53,15,.85);
+    pointer-events: none;
+    filter: drop-shadow(0 0 4px rgba(250,204,21,.9)) drop-shadow(0 1px 1px #000);
+    animation: weekly-boss-flag-bob 1.8s ease-in-out infinite;
+}
+.atlas-hunt-flag svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* ── World-map zoom mode (worldMapZoom.v1) ────────────────────────────────────
+   When <html> carries `.wm-zoom` (set by useWorldMapZoom on narrow / touch
+   viewports), the painted map FITS the screen and the player pinch / drag-zooms
+   it — replacing the legacy fixed-1100 horizontal-scroll mobile map that piled
+   the markers into an overlapping blob and clipped the map at the screen edges.
+   Higher specificity + the inline `--wm-tf` transform var override the
+   @media(max-width:800px) rules, so the fallback path needs no markup change. */
+html.wm-zoom .world-map-scroll {
+    position: relative;
+    width: 100% !important;
+    max-width: 100% !important;
+    /* Fill the vertical space between the top bar and the region chips instead of
+       being a short letterboxed strip. The map inside is scaled to COVER this
+       height by useWorldMapZoom (never letterboxes — min-zoom = cover). Subtract
+       the mobile chrome (top HUD + banner + "← Village" bar + region chips +
+       bottom-nav padding); clamped so tiny phones keep a usable map and tablets
+       don't get an enormous one. Taller than the first pass per user feedback. */
+    height: clamp(340px, calc(100dvh - 336px), 700px) !important;
+    overflow: hidden !important;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    padding-bottom: 0 !important;
+    border-radius: 12px !important;
+    border: 3px solid rgba(250, 204, 21, .5);
+    box-shadow: inset 0 0 70px rgba(0, 0, 0, .5), 0 12px 30px rgba(0, 0, 0, .4);
+}
+html.wm-zoom .world-map-scroll .anime-world-map,
+html.wm-zoom .world-map-scroll .atlas-world-map,
+html.wm-zoom .world-map-scroll .generated-world-map {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    /* Displayed TALLER than the source 3:2 so the art (background-size:100% 100%)
+       stretches vertically to better fill a phone screen; driven by useWorldMapZoom
+       (must match its MAP_AR). Markers are %-positioned so they stretch with it. */
+    aspect-ratio: var(--wm-map-ar, 1.25) !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    transform-origin: 0 0;
+    transform: var(--wm-tf, none) !important;
+    will-change: transform;
+    touch-action: none;
+}
+/* Markers ride the map transform, so keep their BASE (un-inflated) size — the
+   54px mobile blow-up was what piled them into an overlapping blob. */
+html.wm-zoom .world-map-scroll .atlas-sector {
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    min-height: 22px !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+}
+html.wm-zoom .world-map-scroll .atlas-sector-deaths-gate {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 13px !important;
+}
+/* A transparent hit-ring so small overview markers still catch taps. */
+html.wm-zoom .world-map-scroll .atlas-sector::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 999px;
+}
+/* Keep village name-plates from ballooning at overview scale. */
+html.wm-zoom .world-map-scroll .atlas-landmark {
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 4px 7px !important;
+    font-size: 11px !important;
+}
+/* The Hollow Gate carries its own image-only sizing (52px in the fallback scroll
+   layout) that the .atlas-landmark rule above doesn't touch — so at overview scale
+   it needs its own shrink or it towers over the 22px nodes and covers them. Sized a
+   hair above the sector nodes, with a transparent hit-ring so it still catches taps. */
+html.wm-zoom .world-map-scroll .atlas-hollowGate {
+    min-width: 24px !important;
+    width: 24px !important;
+    height: 24px !important;
+    max-width: 24px !important;
+}
+html.wm-zoom .world-map-scroll .atlas-hollowGate::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 999px;
+}
+
+/* ── Marker counter-scale (worldMapZoom.v1) ──────────────────────────────────
+   The pinned markers ride the map's scale(zoom) transform, so on their own they
+   grow at the SAME rate as the spacing and tightly-clustered sectors stay
+   overlapping at every zoom (the "it's just a magnified picture" problem).
+   Counter-scale them by --wm-marker-scale (≈ zoom^-0.7, driven by useWorldMapZoom)
+   so each pin holds a near-constant, tappable on-screen size while the gaps
+   between them open up — zooming SPREADS the sectors apart. transform-origin:center
+   keeps every marker centred on its % anchor while it scales. */
+html.wm-zoom .world-map-scroll .atlas-sector {
+    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
+    transform-origin: center !important;
+}
+html.wm-zoom .world-map-scroll .atlas-sector:hover {
+    transform: translate(-50%, -50%) scale(calc(var(--wm-marker-scale, 1) * 1.18)) !important;
+    z-index: 20 !important;
+}
+html.wm-zoom .world-map-scroll .atlas-landmark {
+    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
+    transform-origin: center !important;
+}
+/* Village-war ownership banners/rings ride the same %-anchors — scale them in
+   step so they stay pinned to their (now constant-size) sector markers. */
+html.wm-zoom .world-map-scroll .vw-sector-claim {
+    transform: scale(var(--wm-marker-scale, 1));
+    transform-origin: center;
+}
+
+/* Zoom controls live in the top bar (beside "← Village"); the region chips sit
+   in a row BELOW the map — neither overlays the painted map anymore. */
+.wm-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.wm-zoom-controls {
+    display: flex;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+.wm-village-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+.wm-zoom-btn {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, .35);
+    background: rgba(2, 6, 23, .72);
+    color: #fef3c7;
+    font-size: 20px;
+    font-weight: 900;
+    line-height: 1;
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+}
+.wm-zoom-btn:active { transform: scale(.94); }
+.wm-village-chip {
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .3);
+    background: rgba(2, 6, 23, .74);
+    color: var(--slate-200);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+}
+.wm-village-chip .wm-chip-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.atlas-landmark {
+    position: absolute;
+    z-index: 7;
+    min-width: 88px;
+    padding: 7px 8px;
+    display: grid;
+    gap: 1px;
+    transform: translate(-50%, -50%);
+    border-radius: 8px;
+    border: 2px solid #fef3c7;
+    background: rgba(2, 6, 23, .78);
+    color: #f8fafc;
+    font-size: 10px;
+    line-height: 1.05;
+    text-align: center;
+    box-shadow: 0 3px 0 rgba(2,6,23,.8), 0 0 16px rgba(0,0,0,.58);
+}
+
+    .atlas-landmark strong {
+        color: var(--gold);
+        font-size: 16px;
+    }
+
+.atlas-central {
+    background: rgba(22, 101, 52, .9);
+}
+
+/* Hollow Gate POI is a hidden shrine entrance — render as JUST the
+   admin-generated landmark image (set via inline background-image),
+   with no frame, no 'HG' text overlay, and no label. The image itself
+   is the marker. Tooltip still shows 'Hollow Gate' on hover.
+   A subtle violet drop-shadow on hover makes it feel interactive. */
+.atlas-hollowGate {
+    min-width: 56px;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    font-size: 0;
+    line-height: 1;
+    gap: 0;
+    display: block;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 6px;
+    overflow: hidden;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+    transition: filter .15s ease, transform .12s ease;
+}
+
+    .atlas-hollowGate strong,
+    .atlas-hollowGate span {
+        display: none;   /* hide both the 'HG' icon text and the 'Hollow Gate' label */
+    }
+
+    .atlas-hollowGate:hover {
+        filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.75)) drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+    }
+
+.atlas-landmark:hover {
+    transform: translate(-50%, -50%) scale(1.06);
+}
+
+.map-instance {
+    display: grid;
+    gap: 12px;
+}
+
+    .map-instance > button {
+        justify-self: start;
+    }
+
+.instance-frame {
+    display: grid;
+    grid-template-columns: 150px minmax(360px, 1fr) 150px;
+    gap: 8px;
+    padding: 12px;
+    border: 6px solid #7c3f11;
+    border-image: linear-gradient(var(--gold-2), #7c2d12) 1;
+    background: linear-gradient(90deg, rgba(120,53,15,.88), rgba(15,23,42,.96) 16%, rgba(15,23,42,.96) 84%, rgba(120,53,15,.88));
+    box-shadow: 0 18px 45px rgba(0,0,0,.52), inset 0 0 0 2px var(--gold);
+}
+
+.instance-sidebar,
+.instance-actions {
+    padding: 10px;
+    border: 2px solid var(--gold-2);
+    background: linear-gradient(180deg, #7f1d1d, #3f0b16);
+    color: #f8fafc;
+    box-shadow: inset 0 0 18px rgba(0,0,0,.45);
+}
+
+.instance-sidebar {
+    display: grid;
+    align-content: start;
+    gap: 7px;
+    text-align: center;
+    font-size: 12px;
+}
+
+    .instance-sidebar p {
+        margin: 0;
+        padding: 5px;
+        background: rgba(2,6,23,.55);
+        border: 1px solid rgba(250,204,21,.35);
+    }
+
+.portrait-badge {
+    width: 82px;
+    height: 82px;
+    margin: 0 auto;
+    display: grid;
+    place-items: center;
+    border: 3px solid var(--gold);
+    background: radial-gradient(circle, #67e8f9, #1d4ed8 62%, #111827);
+    color: #f8fafc;
+    font-size: 26px;
+    font-weight: 900;
+}
+
+.tile-scene {
+    min-width: 0;
+    border: 3px solid #111827;
+    background: #050816;
+}
+
+.scene-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    background: linear-gradient(#2f1d0c, #111827);
+    border-bottom: 3px solid var(--gold-2);
+    color: #fef3c7;
+}
+
+.pixel-map {
+    aspect-ratio: 1 / 1;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: repeat(12, 1fr);
+    gap: 1px;
+    padding: 8px;
+    background: #0f4ca7;
+    image-rendering: pixelated;
+}
+
+/* SectorMap — painted adventure-map board behind the grid. Fills the grid exactly
+   (cover, no pan/over-scale) so the painted layout stays aligned under the tiles;
+   smooth painterly rendering (overrides the grid's pixelated default). */
+.sector-map-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    image-rendering: auto;
+    pointer-events: none;
+}
+/* Soft frame + centre-lift so the orb pops on the trails. */
+.sector-map-vignette {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    box-shadow: inset 0 0 70px 10px rgba(8, 12, 24, 0.5);
+    background: radial-gradient(ellipse at center, rgba(8, 12, 24, 0) 58%, rgba(8, 12, 24, 0.26) 100%);
+}
+
+.scene-tile {
+    min-width: 0;
+    min-height: 0;
+    /* These tiles are <button>s and would otherwise inherit the global
+       button padding (10px 13px). That asymmetric padding shrinks each
+       tile's content box to a small, non-square area, which squashes the
+       88%-sized avatar into an off-center oval — catastrophically so on
+       mobile, where tiles are only ~25-30px. The 88% sizing provides the
+       inset, so the tile itself needs none. */
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(0,0,0,.12);
+    color: #fef3c7;
+    font-size: clamp(10px, 2vw, 18px);
+    font-weight: 900;
+    text-shadow: 0 1px 2px #111827;
+}
+
+.tile-grass {
+    background: linear-gradient(135deg, #16a34a 0 50%, #15803d 50%);
+}
+
+.tile-tree {
+    background: radial-gradient(circle at 55% 35%, var(--success) 0 24%, transparent 25%), linear-gradient(135deg, #166534, #14532d);
+}
+
+.tile-water {
+    background: linear-gradient(135deg, #0ea5e9 0 50%, #0369a1 50%);
+}
+
+.tile-path {
+    background: linear-gradient(135deg, var(--gold-300) 0 50%, #f8c57e 50%);
+    color: #111827;
+    text-shadow: none;
+}
+
+.tile-rock {
+    background: linear-gradient(135deg, var(--text-muted) 0 50%, var(--slate-700) 50%);
+}
+
+.tile-snow {
+    background: linear-gradient(135deg, #f8fafc 0 50%, #bae6fd 50%);
+    color: #082f49;
+    text-shadow: none;
+}
+
+.tile-lava {
+    background: linear-gradient(135deg, var(--danger) 0 50%, #7f1d1d 50%);
+}
+
+.tile-ash {
+    background: linear-gradient(135deg, #57534e 0 50%, #292524 50%);
+}
+
+.tile-shadow {
+    background: linear-gradient(135deg, #312e81 0 50%, #111827 50%);
+}
+
+.tile-stone {
+    background: linear-gradient(135deg, var(--text-dim) 0 50%, var(--slate-600) 50%);
+}
+
+.tile-village {
+    background: linear-gradient(135deg, #b45309 0 50%, #78350f 50%);
+}
+
+.tile-castle {
+    background: linear-gradient(135deg, var(--gold) 0 50%, #16a34a 50%);
+}
+
+.scene-hotbar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    padding: 7px;
+    background: linear-gradient(#7f1d1d, #be123c);
+    border-top: 3px solid var(--gold-2);
+}
+
+    .scene-hotbar span {
+        padding: 7px 4px;
+        text-align: center;
+        background: #1e3a8a;
+        border: 2px solid #f8fafc;
+        color: #f8fafc;
+        font-size: 11px;
+        font-weight: 900;
+    }
+
+.instance-actions {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+}
+
+    .instance-actions h3 {
+        margin: 0;
+        padding-bottom: 8px;
+        color: #fef3c7;
+        border-bottom: 1px solid rgba(250,204,21,.45);
+    }
+
+    .instance-actions button {
+        min-height: 42px;
+        background: linear-gradient(#92400e, #431407);
+        border-color: var(--gold);
+    }
+
+@media (max-width: 900px) {
+    .journey-banner {
+        height: 160px;
+        background-position: center 100%;
+    }
+
+    .journey-overlay {
+        padding: 16px 22px;
+    }
+
+    .journey-left h1 {
+        font-size: 42px;
+    }
+
+    .journey-left p {
+        font-size: 14px;
+    }
+}
+
+.right-menu-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 240px;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 999999;
+    padding: 12px;
+    padding-top: 225px;
+    color: white;
+    overflow-y: auto;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-left: 3px solid gold;
+    box-shadow: 0 0 25px black;
+}
+
+    .right-menu-panel.closed {
+        width: 74px;
+    }
+
+    .right-menu-panel h3 {
+        color: var(--gold);
+        margin-top: 12px;
+        text-shadow: 0 2px 4px #000, 0 0 10px rgba(0, 0, 0, 0.9);
+    }
+
+.right-menu-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+/* Game-icon glyph + label, centered as a row (mirrors the mobile menu). */
+.right-menu-buttons button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.right-menu-buttons button > svg {
+    flex: 0 0 auto;
+    opacity: 0.85;
+}
+

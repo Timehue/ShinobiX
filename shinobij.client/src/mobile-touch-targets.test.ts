@@ -3,7 +3,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 
-const css = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'index.css'), 'utf8');
+// index.css is a pure @import manifest (split 2026-07-18); the rules these
+// tests assert on live in the ./styles/index/NN-*.css parts. Concatenating the
+// parts in manifest order reproduces the old monolith body, so the positional
+// assertions below (indexOf/lastIndexOf) keep their original semantics.
+const indexManifest = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'index.css'), 'utf8');
+const css = [...indexManifest.matchAll(/@import "\.\/(styles\/index\/[\w.-]+\.css)";/g)]
+    .map((m) => readFileSync(join(process.cwd(), 'shinobij.client', 'src', ...m[1].split('/')), 'utf8'))
+    .join('');
 const introCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'features', 'intro-cinematic', 'intro-cinematic.css'), 'utf8');
 const battleSkinCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'styles', 'battle-skin.css'), 'utf8');
 const nextGoalSource = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'components', 'NextGoalPin.tsx'), 'utf8');

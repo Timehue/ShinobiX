@@ -1,0 +1,931 @@
+/* ===================================================================
+   Viewport-class adaptive rules  (set by JS in App → useLayoutEffect)
+   html[data-vp] values: xs (<560) | sm (560-979) | md (980-1179)
+                          lg (1180-1399) | xl (≥1400)
+
+   Use these for adjustments that:
+   • span the gap between two media-query breakpoints, OR
+   • need to be read from JS (e.g. conditional rendering logic)
+   ===================================================================*/
+
+/* ── xl: large desktop (≥1400px) — give content a bit more breathing room ── */
+/* ── xl: 1080p desktop (1400–2199px) — tight layout ── */
+html[data-vp="xl"] {
+    --side-rail-w: clamp(190px, 14vw, 240px);
+    --right-menu-w: clamp(185px, 13vw, 230px);
+    --banner-h: clamp(100px, 10dvh, 140px);
+}
+
+html[data-vp="xl"] .right-menu-buttons button {
+    min-height: 32px !important;
+    padding: 4px 8px !important;
+    font-size: 0.8rem !important;
+}
+
+html[data-vp="xl"] .journey-live-stats .stat-box strong {
+    font-size: clamp(12px, 1vw, 16px) !important;
+}
+
+/* Left profile card: prevent bottom cutoff on 1080p. Top padding seats the
+   avatar/content INSIDE the darker inset panel (::before starts at 56px) —
+   the old 50px let the avatar poke ~6px above the rectangle on xl screens. */
+html[data-vp="xl"] .left-profile-card {
+    height: 92vh !important;
+    padding: 64px 14px 16px !important;
+    gap: 6px !important;
+    font-size: 0.82rem !important;
+    overflow-y: auto !important;
+}
+
+html[data-vp="xl"] .left-profile-avatar {
+    width: 140px !important;
+    height: 140px !important;
+}
+
+html[data-vp="xl"] .left-profile-name {
+    font-size: 0.9rem !important;
+}
+
+html[data-vp="xl"] .left-profile-rank,
+html[data-vp="xl"] .left-profile-stat {
+    font-size: 0.78rem !important;
+    line-height: 1.3 !important;
+}
+
+/* Location tiles: fit all on screen without scrolling on 1080p */
+html[data-vp="xl"] .location-grid,
+html[data-vp="xl"] .card .location-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 3px !important;
+    max-height: none !important;
+}
+
+html[data-vp="xl"] .location-button,
+html[data-vp="xl"] .card .location-button {
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 3px 2px !important;
+    font-size: 0.7rem !important;
+    gap: 0 !important;
+}
+
+html[data-vp="xl"] .location-grid .tile-icon,
+html[data-vp="xl"] .location-button .tile-icon,
+html[data-vp="xl"] .card .tile-icon {
+    font-size: 13px !important;
+}
+
+html[data-vp="xl"] .location-button small {
+    display: none !important;
+}
+
+/* ── Battle HUD portal: player HUD overlays left sidebar on xl ── */
+
+/* By default, the portaled sidebar HUD is hidden; the in-grid one shows */
+.battle-hud-sidebar {
+    display: none;
+}
+
+/* On xl (1080p): show the portaled sidebar, hide the in-grid player hud */
+html[data-vp="xl"] .battle-hud-sidebar,
+html[data-vp="lg"] .battle-hud-sidebar {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--side-rail-w, 220px);
+    height: 100vh;
+    height: 100dvh;
+    z-index: 10001;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(120,53,15,.72), rgba(15,23,42,.96) 18%, rgba(15,23,42,.96) 82%, rgba(120,53,15,.72));
+    border: 4px solid #7c3f11;
+    border-image: linear-gradient(var(--gold-2), #7c2d12) 1;
+    border-left: none;
+    box-shadow: inset 0 0 0 2px rgba(250,204,21,.4), 4px 0 16px rgba(0,0,0,.5);
+    padding: 60px 18px 16px 14px;
+    box-sizing: border-box;
+}
+
+html[data-vp="xl"] .battle-hud-sidebar .combat-side-hud,
+html[data-vp="lg"] .battle-hud-sidebar .combat-side-hud {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 0.82rem !important;
+}
+
+html[data-vp="xl"] .battle-hud-sidebar .combat-avatar,
+html[data-vp="lg"] .battle-hud-sidebar .combat-avatar {
+    max-width: 80px !important;
+    max-height: 80px !important;
+    margin: 0 auto 6px !important;
+}
+
+html[data-vp="xl"] .battle-hud-sidebar .combat-avatar img,
+html[data-vp="lg"] .battle-hud-sidebar .combat-avatar img {
+    max-width: 80px !important;
+    max-height: 80px !important;
+}
+
+/* Narrow the sector banner (ornate frame) on xl to match the battle HUD sidebar */
+html[data-vp="xl"] .sector-banner-panel,
+html[data-vp="lg"] .sector-banner-panel {
+    width: var(--side-rail-w) !important;
+}
+
+/* Hide the first (player) combat-side-hud in the grid on xl — it's portaled to the sidebar */
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child,
+html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
+    display: none !important;
+}
+
+/* On xl, arena fits within the center-game column without overhanging */
+html[data-vp="xl"] .arena-fullscreen,
+html[data-vp="lg"] .arena-fullscreen {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+}
+
+/* On xl, PvE combat-layout stays 2-column (main area + enemy hud) */
+html[data-vp="xl"] .arena-fullscreen .combat-layout,
+html[data-vp="lg"] .arena-fullscreen .combat-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 200px) !important;
+    gap: 6px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+}
+
+/* On xl, PvP combat-layout becomes 3-column (main area + chat + enemy hud) */
+html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout,
+html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout {
+    grid-template-columns: minmax(0, 1fr) 140px minmax(150px, 200px) !important;
+    gap: 0 !important;
+}
+
+/* Keep hex battlefield within bounds */
+html[data-vp="xl"] .arena-fullscreen .hex-battlefield,
+html[data-vp="lg"] .arena-fullscreen .hex-battlefield {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    /* Wide PvP layouts are wider than the painted arena art's aspect ratio.
+       Cover fills the container; height-based sizing left black side bands. */
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    padding: 6px 4px !important;
+}
+
+/* ── Biome backgrounds — full image on .arena-fullscreen so the 14px
+   padding zone between border and hex-battlefield shows the biome
+   scene instead of a flat dark gradient. The hex-battlefield still
+   has its own image + glow on top as the focal arena floor; this
+   layer is the "barrier ring" around it. Tint is softer than the
+   base .arena-fullscreen gradient (.55 vs .97) so the image is
+   visible while keeping content above readable. Fallback color
+   preserved in case the image fails to load. ── */
+.arena-fullscreen.arena-bg-snow {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/arena-snow.webp') center center / cover no-repeat !important;
+    background-color: #1e3a5f !important;
+}
+.arena-fullscreen.arena-bg-volcano {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/arena-volcano.webp') center center / cover no-repeat !important;
+    background-color: #4a0e0e !important;
+}
+.arena-fullscreen.arena-bg-forest {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/arena-forest.webp') center center / cover no-repeat !important;
+    background-color: #0f3d1e !important;
+}
+.arena-fullscreen.arena-bg-shadow {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/arena-shadow.webp') center center / cover no-repeat !important;
+    background-color: #2d1654 !important;
+}
+.arena-fullscreen.arena-bg-central {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/arena-central.webp') center center / cover no-repeat !important;
+    background-color: var(--slate-800) !important;
+}
+.arena-fullscreen.arena-bg-deathsgate {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/deathsgate-arena.webp') center center / cover no-repeat !important;
+    background-color: #0a1f0f !important;
+}
+
+/* ── Battle spectator & chat side panels ── */
+.battle-side-left,
+.battle-side-right {
+    display: none;
+}
+
+html[data-vp="xl"] .battle-side-left,
+html[data-vp="lg"] .battle-side-left {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 140px;
+    height: 100%;
+    z-index: 10;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    box-sizing: border-box;
+    font-size: 0.78rem;
+    color: var(--slate-300);
+    backdrop-filter: blur(6px);
+}
+
+.battle-side-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: #fbbf24;
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.battle-side-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 8px;
+}
+
+.battle-spectator-name {
+    padding: 3px 0;
+    font-size: 0.76rem;
+    color: var(--text-dim);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+/* ── Battle chat column ── */
+/* Non-xl: floating panel in top-right corner */
+.battle-chat-col {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 60px;
+    right: 8px;
+    width: 220px;
+    max-height: 320px;
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 0.78rem;
+    color: var(--slate-300);
+    overflow: hidden;
+    z-index: 50;
+}
+.battle-chat-col .battle-chat-messages {
+    flex: 1 1 0;
+    min-height: 120px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.battle-chat-col.battle-chat-hidden {
+    width: 36px !important;
+    max-height: 32px !important;
+    overflow: hidden;
+}
+
+/* Phones: the floating chat defaulted to 220x320 pinned top-right, covering most
+   of the battlefield. Shrink it to a small corner panel (the collapse toggle
+   still hides it entirely) so it stops blocking the fight on small screens. */
+html[data-vp="xs"] .battle-chat-col,
+html[data-vp="sm"] .battle-chat-col {
+    width: 150px;
+    max-height: 168px;
+    top: 52px;
+    right: 4px;
+    font-size: 0.7rem;
+}
+html[data-vp="xs"] .battle-chat-col .battle-chat-messages,
+html[data-vp="sm"] .battle-chat-col .battle-chat-messages {
+    min-height: 80px;
+    max-height: 108px;
+}
+
+/* xl: in-grid column instead of floating */
+html[data-vp="xl"] .battle-chat-col,
+html[data-vp="lg"] .battle-chat-col {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: auto;
+    max-height: none;
+    background: rgba(0, 0, 0, 0.45);
+    border: none;
+    border-left: 1px solid rgba(148, 163, 184, 0.15);
+    border-right: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 0;
+    min-height: 0;
+    z-index: 5;
+    align-self: stretch;
+}
+html[data-vp="xl"] .battle-chat-col .battle-chat-messages,
+html[data-vp="lg"] .battle-chat-col .battle-chat-messages {
+    flex: 1 1 0;
+    min-height: 200px;
+    max-height: none;
+}
+html[data-vp="xl"] .battle-chat-col.battle-chat-hidden,
+html[data-vp="lg"] .battle-chat-col.battle-chat-hidden {
+    width: 36px !important;
+    max-height: none !important;
+    overflow: hidden;
+}
+
+/* Chat panel (old absolute — keep for non-xl fallback) */
+.battle-chat-panel.battle-chat-hidden {
+    width: 36px !important;
+    overflow: hidden;
+}
+
+.battle-chat-hidden .battle-side-header span { display: none; }
+.battle-chat-hidden .battle-side-header { justify-content: center; }
+
+.battle-chat-toggle {
+    background: none;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    color: var(--text-dim);
+    font-size: 14px;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    line-height: 1;
+}
+
+.battle-chat-toggle:hover { color: #fbbf24; border-color: #fbbf24; }
+
+.battle-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.battle-chat-spectators {
+    padding: 4px 8px;
+    font-size: 0.68rem;
+    color: #a78bfa;
+    background: rgba(139, 92, 246, 0.1);
+    border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+    line-height: 1.3;
+}
+.battle-chat-spectator-label {
+    color: #7c3aed;
+    font-weight: 600;
+}
+.battle-chat-empty {
+    color: var(--slate-600);
+    font-size: 0.72rem;
+    font-style: italic;
+    text-align: center;
+    margin-top: 12px;
+}
+
+.battle-chat-msg {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.battle-chat-msg strong {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+}
+
+.chat-fighter strong { color: var(--blue-400); }
+.chat-spectator strong { color: #a78bfa; }
+
+.battle-chat-msg span {
+    font-size: 0.74rem;
+    color: var(--slate-200);
+    word-break: break-word;
+}
+
+.battle-chat-input-row {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.battle-chat-input-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 0.72rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 4px;
+    background: rgba(15, 23, 42, 0.8);
+    color: var(--slate-200);
+    outline: none;
+}
+
+.battle-chat-input-row input:focus {
+    border-color: #fbbf24;
+}
+
+.battle-chat-input-row button {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    border-radius: 4px;
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+    cursor: pointer;
+}
+
+.battle-chat-input-row button:disabled { opacity: 0.4; cursor: default; }
+.battle-chat-input-row button:hover:not(:disabled) { background: rgba(251, 191, 36, 0.3); }
+
+html[data-vp="xl"] .arena-fullscreen,
+html[data-vp="lg"] .arena-fullscreen {
+    position: relative;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area,
+html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-main-area {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child,
+html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+}
+
+/* PvP 3-column: chat in col 2, enemy HUD pushed to col 3 */
+html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .battle-chat-col,
+html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout > .battle-chat-col {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:last-child,
+html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:last-child {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-side-hud,
+html[data-vp="lg"] .arena-fullscreen .combat-side-hud {
+    padding: 8px !important;
+    font-size: 0.8rem !important;
+}
+
+/* Gold ornate frame on the enemy HUD (right side) */
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child,
+html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+    background: linear-gradient(180deg, rgba(120,53,15,.72), rgba(15,23,42,.96) 18%, rgba(15,23,42,.96) 82%, rgba(120,53,15,.72)) !important;
+    border: 4px solid #7c3f11 !important;
+    border-image: linear-gradient(var(--gold-2), #7c2d12) 1 !important;
+    border-right: none !important;
+    box-shadow: inset 0 0 0 2px rgba(250,204,21,.4), -4px 0 16px rgba(0,0,0,.5) !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-avatar,
+html[data-vp="lg"] .arena-fullscreen .combat-avatar {
+    max-width: 140px !important;
+    max-height: 140px !important;
+}
+
+/* ── Battle command bar & jutsu/item layout on 1080p ── */
+
+/* Basic action buttons: single row, all buttons visible */
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar,
+html[data-vp="lg"] .arena-fullscreen .shinobi-command-bar {
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
+    gap: 4px !important;
+    padding: 4px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button,
+html[data-vp="lg"] .arena-fullscreen .shinobi-command-bar button {
+    min-height: clamp(44px, 2.85vw, 58px) !important;
+    padding: clamp(4px, 0.4vw, 9px) clamp(6px, 0.55vw, 12px) !important;
+    font-size: clamp(13px, 0.85vw, 17px) !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button span,
+html[data-vp="lg"] .arena-fullscreen .shinobi-command-bar button span {
+    font-size: clamp(13px, 0.85vw, 17px) !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button small,
+html[data-vp="lg"] .arena-fullscreen .shinobi-command-bar button small {
+    font-size: clamp(10px, 0.65vw, 13px) !important;
+}
+
+/* Jutsu cards — compact square-image icons (1400–2199px). */
+html[data-vp="xl"] .arena-fullscreen .combat-equipped-jutsu-grid,
+html[data-vp="lg"] .arena-fullscreen .combat-equipped-jutsu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(clamp(100px, 6.4vw, 116px), 1fr)) !important;
+    gap: 7px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-button,
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-button {
+    min-height: 0 !important;
+    padding: 4px !important;
+    grid-template-rows: auto auto auto !important;
+    gap: 2px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-thumb,
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-thumb {
+    height: auto !important;
+    aspect-ratio: 1 / 1 !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-name,
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-name {
+    font-size: clamp(11px, 0.72vw, 13px) !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-info,
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-info {
+    font-size: clamp(9px, 0.6vw, 11px) !important;
+}
+
+/* Jutsu cards on laptops (1180–1399px) — compact square-image icons. */
+html[data-vp="lg"] .arena-fullscreen .combat-equipped-jutsu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)) !important;
+    gap: 6px !important;
+}
+
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-button {
+    min-height: 0 !important;
+    padding: 4px !important;
+    grid-template-rows: auto auto auto !important;
+    gap: 2px !important;
+}
+
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-thumb {
+    height: auto !important;
+    aspect-ratio: 1 / 1 !important;
+}
+
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-name {
+    font-size: 12px !important;
+}
+
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-info {
+    font-size: 10px !important;
+}
+
+/* Jutsu layout card: tighter, less max-height so it doesn't dominate */
+html[data-vp="xl"] .arena-fullscreen .jutsu-layout-card,
+html[data-vp="lg"] .arena-fullscreen .jutsu-layout-card {
+    max-height: clamp(220px, 24vh, 320px) !important;
+    overflow-y: auto !important;
+    padding: clamp(5px, 0.55vw, 11px) !important;
+}
+
+/* Combat tabs (Jutsu/Weapons/Items tab buttons) */
+html[data-vp="xl"] .arena-fullscreen .combat-tabs,
+html[data-vp="lg"] .arena-fullscreen .combat-tabs {
+    gap: 4px !important;
+    margin-top: 5px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-tabs button,
+html[data-vp="lg"] .arena-fullscreen .combat-tabs button {
+    min-height: clamp(32px, 2.2vw, 42px) !important;
+    font-size: clamp(12px, 0.78vw, 15px) !important;
+    padding: clamp(3px, 0.35vw, 7px) clamp(8px, 0.65vw, 14px) !important;
+}
+
+/* Village stormveil map: fit the whole town scene within the viewport so the
+   bottom row of building tiles is always visible.
+
+   This used to be gated to data-vp="xl" (1400–2199px wide) on the assumption
+   that "xl == 1080p desktop". But the clip is driven by viewport HEIGHT, not
+   width: any desktop bucket on a short viewport (1366×768 laptops → "lg",
+   ultrawides ≥2200px → "xxl", small windows → "md") kept the fixed 820px
+   min-height and pushed the bottom ~3 building tiles below the fold. So the
+   fit rule now covers every desktop bucket (md/lg/xl/xxl). Mobile (≤800px) is
+   unaffected — its own media query relaxes the map to natural height + scroll. */
+html[data-vp="md"] .stormveil-village-screen,
+html[data-vp="lg"] .stormveil-village-screen,
+html[data-vp="xl"] .stormveil-village-screen,
+html[data-vp="xxl"] .stormveil-village-screen {
+    min-height: unset !important;
+    margin-top: 96px !important;
+}
+
+html[data-vp="md"] .stormveil-map,
+html[data-vp="lg"] .stormveil-map,
+html[data-vp="xl"] .stormveil-map,
+html[data-vp="xxl"] .stormveil-map {
+    /* Fill the viewport below the 96px top margin so the town scene is as large
+       as fits and the bottom building-tile row stays visible, with no dead band
+       at the bottom on tall/ultrawide screens. The earlier `- var(--banner-h) -
+       156px` over-reserved ~120px (the banner is collapsed here) and left a
+       ~170px band at 2005×1271. 131px ≈ the 96px top margin + the screen's own
+       top offset + a small bottom margin; verified to fill (≤22px band) and not
+       overflow at 1366×768, 1365×911, and 2005×1271. */
+    min-height: calc(100dvh - 131px) !important;
+    max-height: calc(100dvh - 131px) !important;
+}
+
+html[data-vp="md"] .stormveil-map-button,
+html[data-vp="lg"] .stormveil-map-button,
+html[data-vp="xl"] .stormveil-map-button,
+html[data-vp="xxl"] .stormveil-map-button {
+    min-width: 90px !important;
+    padding: 4px 6px !important;
+    gap: 1px !important;
+    border-radius: 7px !important;
+}
+
+html[data-vp="md"] .stormveil-map-button strong,
+html[data-vp="lg"] .stormveil-map-button strong,
+html[data-vp="xl"] .stormveil-map-button strong,
+html[data-vp="xxl"] .stormveil-map-button strong {
+    font-size: 10px !important;
+}
+
+/* ── xxl: 1440p+ desktop (≥2200px) — comfortable layout ── */
+html[data-vp="xxl"] {
+    --side-rail-w: clamp(220px, 17vw, 280px);
+    --right-menu-w: clamp(210px, 16vw, 268px);
+    --banner-h: clamp(130px, 13dvh, 175px);
+}
+
+html[data-vp="xxl"] .right-menu-buttons button {
+    min-height: 36px !important;
+    font-size: 0.85rem !important;
+}
+
+html[data-vp="xxl"] .journey-live-stats .stat-box strong {
+    font-size: clamp(15px, 1.2vw, 20px) !important;
+}
+
+html[data-vp="xxl"] .location-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    gap: 6px !important;
+}
+
+html[data-vp="xxl"] .location-button {
+    min-height: 64px !important;
+    padding: 8px 6px !important;
+    font-size: 0.82rem !important;
+    gap: 2px !important;
+}
+
+html[data-vp="xxl"] .tile-icon {
+    font-size: 22px !important;
+}
+
+/* ── xxl arena scaling — content-only (no structural overrides) ───────────
+   The previous xxl arena block included structural rules (grid-template-
+   columns override + display:none on the in-grid player HUD + a portaled
+   battle-hud-sidebar) that broke the layout because the portal mount
+   didn't always fire on xxl. That whole block was removed.
+
+   This pass restores the *content scaling* — bigger jutsu cards, bigger
+   command-bar buttons, bigger AP/HUD text — without touching the grid
+   structure. The base 3-column layout (player | main | enemy) is the
+   working layout users see now; these rules just make the things inside
+   each column bigger so the UI doesn't feel cramped at 100% zoom on a
+   2560p monitor (which is what the user reported — felt right at 125-150%
+   browser zoom because that drops the viewport into the xl tier).      ── */
+
+/* Hex board — bigger on widescreen so the player/enemy figures aren't dots. */
+html[data-vp="xxl"] .arena-fullscreen .hex-battlefield {
+    height: clamp(700px, 72vh, 920px) !important;
+    min-height: clamp(700px, 72vh, 920px) !important;
+}
+
+/* Title strip + AP panel — bigger labels. */
+html[data-vp="xxl"] .arena-fullscreen .arena-title-panel h2 {
+    font-size: 30px !important;
+    letter-spacing: 0.26em !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .arena-title-panel p {
+    font-size: 16px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .twp-strip {
+    padding: 10px 14px !important;
+    font-size: 14px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .twp-strip-biome,
+html[data-vp="xxl"] .arena-fullscreen .twp-strip-value,
+html[data-vp="xxl"] .arena-fullscreen .twp-buff {
+    font-size: 14px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .twp-strip-label {
+    font-size: 12px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .dual-ap-panel {
+    padding: 12px 14px !important;
+    gap: 12px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .dual-ap-panel strong {
+    font-size: 18px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .dual-ap-panel small {
+    font-size: 14px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .dual-ap-panel .hud-bar {
+    height: 18px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .round-timer-display .round-timer-ring {
+    width: 60px !important;
+    height: 60px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .round-timer-display .round-timer-num {
+    font-size: 22px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .round-timer-display small {
+    font-size: 12px !important;
+}
+
+/* HUD avatars + bars — chunky enough to read at-a-glance on a 1440p monitor. */
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud .combat-avatar,
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud .combat-avatar img {
+    width: 160px !important;
+    height: 160px !important;
+    max-width: 160px !important;
+    max-height: 160px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud h3 {
+    font-size: 18px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud .resource-label {
+    font-size: 16px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud .resource-label small {
+    font-size: 13px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud .hud-bar {
+    height: 16px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud .combat-hud-meta {
+    font-size: 13px !important;
+}
+
+/* Command bar — bigger click targets + readable labels. */
+html[data-vp="xxl"] .arena-fullscreen .shinobi-command-bar,
+html[data-vp="xxl"] .arena-fullscreen .basic-action-bar {
+    gap: 10px !important;
+    padding: 10px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .shinobi-command-bar button,
+html[data-vp="xxl"] .arena-fullscreen .basic-action-bar button {
+    min-height: 78px !important;
+    padding: 14px 18px !important;
+    font-size: 20px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .shinobi-command-bar button span,
+html[data-vp="xxl"] .arena-fullscreen .basic-action-bar button span {
+    font-size: 20px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .shinobi-command-bar button small,
+html[data-vp="xxl"] .arena-fullscreen .basic-action-bar button small {
+    font-size: 14px !important;
+}
+
+/* Jutsu cards — compact square-image icons (a touch larger on huge displays). */
+html[data-vp="xxl"] .arena-fullscreen .combat-equipped-jutsu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)) !important;
+    gap: 9px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-button {
+    min-height: 0 !important;
+    padding: 5px !important;
+    grid-template-rows: auto auto auto !important;
+    gap: 3px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-thumb {
+    height: auto !important;
+    aspect-ratio: 1 / 1 !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-thumb strong {
+    font-size: 40px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-name {
+    font-size: 14px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-info {
+    font-size: 11px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .jutsu-layout-card {
+    padding: 12px !important;
+    max-height: clamp(360px, 28vh, 480px) !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-tabs button {
+    min-height: 48px !important;
+    font-size: 16px !important;
+    padding: 10px 18px !important;
+}
+
+/* Combat log — readable not microscopic. */
+html[data-vp="xxl"] .arena-fullscreen .combat-text-log {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-text-log p {
+    margin: 4px 0 !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-log-header {
+    font-size: 15px !important;
+    padding: 6px 12px !important;
+}
+
+/* ── md: small laptop / landscape tablet (980–1179px) ─────────────────────
+   Sidebars are visible but tight.  Compact the right-menu and left-rail
+   inner elements so they don't squeeze the center content.               ── */
+html[data-vp="md"] .right-menu-buttons button {
+    min-height: 32px !important;
+    padding: 5px 7px !important;
+    font-size: 0.76rem !important;
+    border-radius: 6px !important;
+}
+
+html[data-vp="md"] .left-profile-card {
+    gap: 4px !important;
+    font-size: 0.76rem !important;
+}
+
+html[data-vp="md"] .left-profile-avatar {
+    width: clamp(110px, 13vw, 140px) !important;
+    height: clamp(110px, 13vw, 140px) !important;
+}
+
+html[data-vp="md"] .left-nav-button {
+    padding: 6px 8px !important;
+    font-size: 0.76rem !important;
+    min-height: 32px !important;
+}
+
+html[data-vp="md"] .journey-live-stats .stat-box {
+    padding: 4px 6px !important;
+}
+
+html[data-vp="md"] .journey-live-stats .stat-box strong {
+    font-size: clamp(11px, 0.95vw, 14px) !important;
+}
+
+/* ── sm: mobile / portrait tablet (560–979px) ─────────────────────────────
+   No sidebars (handled by @media ≤980px).  Fine-tune center padding and
+   any elements that still feel cramped at mid-phone widths.               ── */
+html[data-vp="sm"] .center-game {
+    padding: clamp(6px, 2vw, 10px) !important;
+}
+
+/* ── xs: small phone (<560px) — maximize every pixel ─────────────────────── */
+html[data-vp="xs"] .center-game {
+    padding: 4px !important;
+}
+
+html[data-vp="xs"] .profile-mobile-tabs {
+    gap: 2px !important;
+    padding: 4px !important;
+}
+
+html[data-vp="xs"] .pmtab {
+    font-size: 0.62rem !important;
+    padding: 7px 1px !important;
+    min-height: 38px !important;
+}
+

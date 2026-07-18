@@ -1,0 +1,817 @@
+/* ===== FINAL MOBILE / RESOLUTION SAFE PATCH ===== */
+
+/* Fix the banner cut-off caused by the older center -115px rule. */
+.journey-banner {
+    background-position: center 70% !important;
+}
+
+.journey-banner-img {
+    object-position: center 70% !important;
+}
+
+/* Give the main middle screen a tiny breathing space without shifting the side panels. */
+.center-game {
+    padding-top: clamp(8px, 1.3vh, 16px) !important;
+}
+
+/* Make the arena use the available resolution instead of forcing one desktop size. */
+.arena-fullscreen {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+}
+
+    .arena-fullscreen .combat-layout {
+        display: grid !important;
+        grid-template-columns: minmax(150px, 190px) minmax(0, 1fr) minmax(150px, 190px) !important;
+        gap: clamp(6px, 1vw, 12px) !important;
+        align-items: start !important;
+    }
+
+    .arena-fullscreen .combat-main-area {
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .arena-fullscreen .dual-ap-panel,
+    .arena-fullscreen .jutsu-layout-card {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* The App.tsx positions hexes with left/top, so stop CSS grid and row-shift rules from fighting it. */
+    .arena-fullscreen .hex-battlefield {
+        width: 100% !important;
+        height: clamp(520px, 68vh, 720px) !important;
+        min-height: clamp(520px, 68vh, 720px) !important;
+        max-height: none !important;
+        padding: clamp(6px, 1vw, 12px) !important;
+        margin: 0 auto 12px auto !important;
+        overflow: hidden !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        grid-auto-rows: auto !important;
+        place-items: center !important;
+        justify-content: center !important;
+        align-content: center !important;
+        background: radial-gradient(circle at center, rgba(37, 99, 235, .22), transparent 56%), linear-gradient(135deg, rgba(15,23,42,.96), rgba(30,58,138,.78)) !important;
+    }
+
+    /* Biome arena backgrounds — must follow the !important base rule above */
+    .arena-fullscreen .hex-battlefield.hex-volcano {
+        background: url('/arena-volcano-floor.webp') center center / cover no-repeat !important;
+        border-color: var(--red) !important;
+        box-shadow: inset 0 0 80px rgba(220,38,38,.35), 0 0 24px rgba(234,88,12,.4) !important;
+    }
+    .arena-fullscreen .hex-battlefield.hex-snow {
+        background: url('/arena-snow-floor.webp') center center / cover no-repeat !important;
+        border-color: var(--blue-300) !important;
+        box-shadow: inset 0 0 80px rgba(147,197,253,.2), 0 0 24px rgba(186,230,253,.35) !important;
+    }
+    .arena-fullscreen .hex-battlefield.hex-forest {
+        background: url('/arena-forest-floor.webp') center center / cover no-repeat !important;
+        border-color: var(--green-400) !important;
+        box-shadow: inset 0 0 80px rgba(74,222,128,.18), 0 0 24px rgba(34,197,94,.3) !important;
+    }
+    .arena-fullscreen .hex-battlefield.hex-shadow {
+        background: url('/arena-shadow-floor.webp') center center / cover no-repeat !important;
+        border-color: #6d28d9 !important;
+        box-shadow: inset 0 0 80px rgba(109,40,217,.35), 0 0 24px rgba(167,139,250,.3) !important;
+    }
+    .arena-fullscreen .hex-battlefield.hex-central {
+        background: url('/arena-central-floor.webp') center center / cover no-repeat !important;
+        border-color: var(--text-dim) !important;
+        box-shadow: inset 0 0 80px rgba(148,163,184,.18), 0 0 24px rgba(148,163,184,.2) !important;
+    }
+    .arena-fullscreen .hex-battlefield.hex-deathsgate {
+        background: url('/deathsgate-arena-floor.webp') center center / cover no-repeat !important;
+        border-color: #16a34a !important;
+        box-shadow: inset 0 0 80px rgba(22,163,74,.25), 0 0 32px rgba(134,239,172,.35), 0 0 60px rgba(0,0,0,.8) !important;
+    }
+
+    .arena-fullscreen .hex-grid-layer {
+        position: absolute !important;
+        margin: 0 !important;
+        transform-origin: top left !important;
+    }
+
+    .arena-fullscreen .hex-tile {
+        position: absolute !important;
+        margin-left: 0 !important;
+        margin-top: 0 !important;
+        transform: none !important;
+    }
+
+        .arena-fullscreen .hex-tile:nth-child(24n+13),
+        .arena-fullscreen .hex-tile:nth-child(24n+14),
+        .arena-fullscreen .hex-tile:nth-child(24n+15),
+        .arena-fullscreen .hex-tile:nth-child(24n+16),
+        .arena-fullscreen .hex-tile:nth-child(24n+17),
+        .arena-fullscreen .hex-tile:nth-child(24n+18),
+        .arena-fullscreen .hex-tile:nth-child(24n+19),
+        .arena-fullscreen .hex-tile:nth-child(24n+20),
+        .arena-fullscreen .hex-tile:nth-child(24n+21),
+        .arena-fullscreen .hex-tile:nth-child(24n+22),
+        .arena-fullscreen .hex-tile:nth-child(24n+23),
+        .arena-fullscreen .hex-tile:nth-child(24n+24) {
+            transform: none !important;
+        }
+
+/* Smaller laptops/tablets: stack the combat panels and let the React board scaler shrink the map. */
+@media (max-width: 1100px) {
+    .arena-fullscreen .combat-layout {
+        grid-template-columns: 1fr !important;
+    }
+
+    .arena-fullscreen .combat-side-hud {
+        position: static !important;
+        width: 100% !important;
+    }
+
+    .arena-fullscreen .combat-avatar {
+        width: 96px !important;
+        height: 96px !important;
+        aspect-ratio: auto !important;
+        margin: 0 auto 8px auto !important;
+        font-size: 42px !important;
+    }
+
+    .arena-fullscreen .hex-battlefield {
+        height: clamp(430px, 58vh, 620px) !important;
+        min-height: clamp(430px, 58vh, 620px) !important;
+    }
+}
+
+/* Phone / narrow mobile view. */
+@media (max-width: 800px) {
+    body {
+        overflow-x: hidden !important;
+    }
+
+    .left-profile-card,
+    .sector-banner-panel {
+        display: none !important;
+    }
+
+    .right-menu-panel {
+        display: none !important;
+    }
+
+    .center-game {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        /* No top padding — MobileStatusHUD lives at the top edge with
+           its own safe-area inset. Horizontal padding starts after the
+           HUD via the inner content. Bottom padding clears the fixed
+           bottom nav (handled by the bottom-nav rule). */
+        padding: 0 8px 8px !important;
+    }
+
+    /* Slim mobile banner — top chrome is now the persistent
+       MobileStatusHUD (sticky bar above), so the banner is
+       reduced to a thin atmospheric strip instead of taking
+       120px of vertical real estate. overflow: visible lets
+       the BMT training-timer pills (anchored to banner top-right)
+       extend downward over content — each pill has its own
+       background so it stays readable. */
+    .journey-banner {
+        height: 60px !important;
+        min-height: 60px !important;
+        background-position: center 35% !important;
+        overflow: visible !important;
+        position: relative !important;
+    }
+
+    .journey-banner-img {
+        object-position: center 35% !important;
+    }
+
+    .journey-live-stats {
+        display: none !important;
+    }
+
+    .arena-fullscreen {
+        padding: 5px !important;
+        border-width: 2px !important;
+    }
+
+        /* Scale hex board to viewport height so it doesn't dominate
+           the scrollable battle page on phones. ~36vh keeps it the
+           biggest single element without pushing everything else
+           offscreen. Min 240 protects very short landscape phones. */
+        .arena-fullscreen .hex-battlefield {
+            height: clamp(240px, 36vh, 340px) !important;
+            min-height: clamp(240px, 36vh, 340px) !important;
+            padding: 4px !important;
+        }
+
+    .dual-ap-panel {
+        grid-template-columns: 1fr !important;
+        font-size: 12px !important;
+        gap: 4px !important;
+    }
+
+    /* 4-up on phones: with Dash/Forfeit/Speed removed the bar is short enough that
+       four columns fit, halving the row count so the action bar barely scrolls. */
+    .shinobi-command-bar,
+    .basic-action-bar {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 3px !important;
+        padding: 3px !important;
+    }
+
+    /* Tighten command-bar buttons on phones — base styles target a roomier landscape size
+       and waste vertical space when stacked. Compact height + font + tame the wide uppercase
+       tracking so PvP / PvE / Tower action bars don't dominate the screen on mobile. */
+    .arena-fullscreen .shinobi-command-bar button,
+    .arena-fullscreen .basic-action-bar button {
+        min-height: 32px !important;
+        padding: 2px 3px !important;
+        font-size: 10px !important;
+        letter-spacing: 0.04em !important;
+        gap: 0 !important;
+    }
+    .arena-fullscreen .shinobi-command-bar button span,
+    .arena-fullscreen .basic-action-bar button span { font-size: 10px !important; }
+    .arena-fullscreen .shinobi-command-bar button small,
+    .arena-fullscreen .basic-action-bar button small { font-size: 8px !important; letter-spacing: 0 !important; }
+
+    /* Jutsu layout card already scrolls internally — keep it small
+       so the player can see the hex board without scrolling the page. */
+    .arena-fullscreen .jutsu-layout-card {
+        max-height: clamp(160px, 22vh, 220px) !important;
+        overflow-y: auto !important;
+        padding: 4px !important;
+    }
+
+    /* Player HUD: compact horizontal strip rather than a tall card. */
+    .arena-fullscreen .combat-side-hud {
+        padding: 6px !important;
+        font-size: 12px !important;
+    }
+
+    .arena-fullscreen .combat-avatar {
+        width: 64px !important;
+        height: 64px !important;
+        min-width: 64px !important;
+    }
+
+    /* Equipped jutsu grid: 3-up on phones so cards aren't postage-stamps. */
+    .arena-fullscreen .combat-equipped-jutsu-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 4px !important;
+    }
+
+    .arena-fullscreen .combat-jutsu-button {
+        min-height: 78px !important;
+        padding: 3px !important;
+    }
+
+    .arena-fullscreen .combat-jutsu-thumb {
+        height: 44px !important;
+    }
+}
+
+@media (max-width: 520px) {
+    .arena-fullscreen .hex-battlefield {
+        height: 320px !important;
+        min-height: 320px !important;
+    }
+
+    .shinobi-command-bar button,
+    .basic-action-bar button {
+        min-height: 44px !important;
+        padding: 6px !important;
+        font-size: 12px !important;
+    }
+
+        .shinobi-command-bar button small,
+        .basic-action-bar button small {
+            font-size: 9px !important;
+        }
+}
+
+
+/* ===== FINAL FIX: combat jutsu cards are real buttons now ===== */
+.combat-jutsu-card-wrap {
+    position: relative !important;
+    min-width: 0 !important;
+}
+
+button.combat-jutsu-button,
+.combat-jutsu-button {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    width: 100% !important;
+    appearance: none !important;
+    border-style: solid !important;
+}
+
+    button.combat-jutsu-button:hover {
+        transform: none !important;
+        filter: brightness(1.12) !important;
+        box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.85), 0 0 14px rgba(250, 204, 21, 0.45) !important;
+    }
+
+.combat-jutsu-arm-click {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+.combat-jutsu-help {
+    z-index: 50 !important;
+    pointer-events: auto !important;
+}
+
+.ancient-chest-vn-card,
+.ancient-chest-reveal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* ===== Adaptive layout sizing ===== */
+:root {
+    --side-rail-w: clamp(190px, 17vw, 260px);
+    --right-menu-w: clamp(190px, 16vw, 255px);
+    --main-gutter: clamp(6px, 1vw, 14px);
+    --banner-h: clamp(108px, 15dvh, 170px);
+    --sector-side-w: clamp(124px, 15vw, 190px);
+    --battle-side-w: clamp(150px, 16vw, 210px);
+    /* Board height drives the auto-fit grid scale. Raised so the hex grid grows
+       to fill widescreen instead of floating small. Width is capped to ~grid
+       aspect (1.62:1) below so the arena hugs the grid rather than ballooning. */
+    --battle-board-h: clamp(360px, 50dvh, 640px);
+    --jutsu-card-min: clamp(82px, 8.6vw, 118px);
+    --jutsu-card-h: clamp(82px, 11vh, 104px);
+}
+
+.sector-banner-panel,
+.left-profile-card {
+    width: var(--side-rail-w) !important;
+}
+
+.right-menu-panel {
+    width: var(--right-menu-w) !important;
+    max-width: var(--right-menu-w) !important;
+}
+
+.center-game {
+    margin-left: calc(var(--side-rail-w) + var(--main-gutter)) !important;
+    margin-right: calc(var(--right-menu-w) + var(--main-gutter)) !important;
+    width: calc(100vw - var(--side-rail-w) - var(--right-menu-w) - (var(--main-gutter) * 2)) !important;
+    min-width: 0 !important;
+    padding-inline: clamp(4px, 0.8vw, 12px) !important;
+}
+
+.journey-banner {
+    height: var(--banner-h) !important;
+    min-height: var(--banner-h) !important;
+    max-height: var(--banner-h) !important;
+    overflow: hidden !important;
+    /* auto 100% scales the image to exactly fill the banner height — no vertical clipping */
+    background-size: auto 100% !important;
+    background-position: left center !important;
+    background-repeat: no-repeat !important;
+}
+
+.journey-banner-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    object-position: left center !important;
+}
+
+.journey-live-stats {
+    right: clamp(10px, 2vw, 28px) !important;
+    gap: clamp(4px, 0.5vw, 7px) !important;
+}
+
+.journey-live-stats .stat-box {
+    min-width: 0 !important;
+    padding: clamp(4px, 0.6vw, 8px) clamp(6px, 0.8vw, 12px) !important;
+    border-radius: 10px !important;
+}
+
+.journey-live-stats .stat-box span {
+    font-size: clamp(9px, 0.7vw, 11px) !important;
+    margin-bottom: 2px !important;
+    letter-spacing: 0.06em !important;
+}
+
+.journey-live-stats .stat-box strong {
+    font-size: clamp(13px, 1.1vw, 18px) !important;
+    white-space: nowrap !important;
+}
+
+.map-instance,
+.sector-instance-wrap,
+.map-instance .instance-frame {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+.sector-instance-wrap,
+.map-instance .instance-frame {
+    /* Fill the available viewport height so the sector/town map is as large as
+       fits and the bottom tile row is always visible — on every desktop height.
+
+       The old `min(952px, calc(100dvh - var(--banner-h) ± Npx))` was wrong two
+       ways on the screens players actually use (measured at 1365×911 and
+       2005×1271, dpr=1): the 952px hard cap left a ~300px dead band at the
+       bottom of tall/ultrawide viewports, and subtracting `--banner-h`
+       over-reserved ~120px of top space that these map screens don't use (their
+       banner collapses to 0). The net was a short, floating map with empty bands
+       above and below. Filling `100dvh − 24px` (≈ the frame's ~16px top offset +
+       a small bottom margin) tracks the viewport: it grows to fill tall screens
+       and shrinks to fit short laptops (768px) without overflow. */
+    height: calc(100dvh - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+    min-height: clamp(560px, 76dvh, 872px) !important;
+}
+
+.map-instance .sector-instance-wrap:not(:has(.instance-info)) {
+    grid-template-columns: minmax(0, 1fr) clamp(104px, 12vw, 140px) !important;
+}
+
+.map-instance .sector-instance-wrap:has(.instance-info),
+.sector-instance-wrap {
+    grid-template-columns: minmax(0, 1fr) var(--sector-side-w) !important;
+}
+
+.sector-instance-wrap .instance-info,
+.sector-instance-wrap .instance-actions,
+.map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-info,
+.map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions {
+    width: var(--sector-side-w) !important;
+    min-width: var(--sector-side-w) !important;
+    max-width: var(--sector-side-w) !important;
+}
+
+.map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
+    width: clamp(104px, 12vw, 140px) !important;
+    min-width: clamp(104px, 12vw, 140px) !important;
+    max-width: clamp(104px, 12vw, 140px) !important;
+}
+
+.tile-scene,
+.pixel-map,
+.walkable-sector-map,
+.sector-image-map {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.sector-instance-wrap .tile-scene {
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    /* Breathing room so the bottom tile row's player token isn't clipped */
+    padding-bottom: 22px !important;
+}
+
+.pixel-map,
+.walkable-sector-map {
+    aspect-ratio: 1 / 1 !important;
+    /* cap to the tile-scene row height; the 1fr row already shrinks
+       to fit so max-height: 100% is the binding constraint */
+    height: min(100%, calc(100dvh - var(--banner-h) - 40px)) !important;
+    max-height: 100% !important;
+    margin-inline: auto !important;
+}
+
+.sector-image-map {
+    aspect-ratio: auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: none !important;
+    min-height: min(76dvh, 820px) !important;
+}
+
+.sector-instance-wrap .sector-move-controls {
+    flex-shrink: 0 !important;
+}
+
+.arena-fullscreen {
+    min-width: 0 !important;
+    padding: clamp(6px, 1vw, 14px) !important;
+}
+
+.arena-fullscreen .combat-layout {
+    grid-template-columns: minmax(132px, var(--battle-side-w)) minmax(0, 1fr) minmax(132px, var(--battle-side-w)) !important;
+    gap: clamp(6px, 1vw, 14px) !important;
+}
+
+.arena-fullscreen .hex-battlefield {
+    height: var(--battle-board-h) !important;
+    /* Cap width to ~the grid's 1.62:1 aspect (+ small arena margin) and center,
+       so on widescreen the arena hugs the grid instead of stretching wide with a
+       tiny grid floating in the middle. */
+    width: min(100%, calc(var(--battle-board-h) * 1.72)) !important;
+    margin-inline: auto !important;
+    min-height: clamp(300px, 38dvh, 440px) !important;
+    max-height: min(640px, calc(100dvh - var(--banner-h) - 170px)) !important;
+    padding: clamp(10px, 1.8vmin, 18px) !important;
+}
+
+.arena-fullscreen .hex-grid-layer {
+    position: absolute !important;
+    margin: 0 !important;
+    transform-origin: top left !important;
+}
+
+.shinobi-command-bar,
+.basic-action-bar {
+    grid-template-columns: repeat(auto-fit, minmax(clamp(88px, 10vw, 132px), 1fr)) !important;
+    gap: clamp(5px, 0.8vw, 9px) !important;
+}
+
+.shinobi-command-bar button,
+.basic-action-bar button {
+    min-width: 0 !important;
+    min-height: clamp(42px, 6vh, 58px) !important;
+    padding: clamp(5px, 0.75vw, 8px) !important;
+}
+
+.arena-fullscreen .jutsu-layout-card,
+.combat-jutsu-bar {
+    min-height: 0 !important;
+    max-height: clamp(210px, 30dvh, 340px) !important;
+}
+
+.combat-equipped-jutsu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(var(--jutsu-card-min), 1fr)) !important;
+    gap: clamp(5px, 0.6vw, 8px) !important;
+}
+
+.combat-jutsu-button {
+    /* Square-image cards: a square image with the name (+ a quiet cost line)
+       below. Height follows content (auto rows) so nothing clips and the card
+       stays compact — per-viewport blocks below only set the card width. */
+    min-height: 0 !important;
+    padding: 4px !important;
+    gap: 2px !important;
+    grid-template-rows: auto auto auto !important;
+}
+
+.combat-jutsu-thumb {
+    /* Square thumbnail (aspect-ratio) — the image is the card. */
+    height: auto !important;
+    min-height: 0 !important;
+    aspect-ratio: 1 / 1 !important;
+}
+
+/* Cost line: kept for reference but quiet (AP/range also live in the tooltip). */
+.arena-fullscreen .combat-jutsu-info {
+    color: rgba(203, 213, 225, 0.62) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+}
+
+@media (max-width: 1180px) {
+    :root {
+        --side-rail-w: clamp(150px, 16vw, 205px);
+        --right-menu-w: clamp(150px, 16vw, 205px);
+        --banner-h: clamp(98px, 14dvh, 145px);
+        --battle-board-h: clamp(320px, 44dvh, 560px);
+    }
+
+    .left-profile-card {
+        gap: 5px !important;
+        font-size: 0.8rem !important;
+    }
+
+    .left-profile-avatar {
+        width: clamp(110px, 14vw, 140px) !important;
+        height: clamp(110px, 14vw, 140px) !important;
+    }
+
+    .right-menu-buttons button {
+        min-height: 34px !important;
+        padding: 6px 8px !important;
+        font-size: 0.78rem !important;
+    }
+}
+
+/* The full Next-Goal banner shows only on mobile; on desktop (≥981px) the compact
+   copy under the Lv/XP bar in the left-profile rail replaces it (NextGoalPin compact). */
+@media (min-width: 981px) {
+    .next-goal-pin {
+        display: none !important;
+    }
+}
+
+@media (max-width: 980px) {
+    .sector-banner-panel,
+    .left-profile-card,
+    .right-menu-panel {
+        display: none !important;
+    }
+
+    .center-game {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        /* shorthand padding — overridden on ≤800px to restore nav-bar clearance */
+        padding: clamp(6px, 2vw, 12px) !important;
+    }
+
+    /* ── Restore bottom clearance for the fixed mobile nav bar (≤800px).
+       This rule MUST live after the ≤980px block above because that block's
+       shorthand `padding` overwrites the bottom value set earlier.         ── */
+    @media (max-width: 800px) {
+        .center-game {
+            padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)) !important;
+        }
+
+        /* Give the profile card a little extra breathing room at the bottom */
+        .profile-page-card {
+            padding-bottom: 12px !important;
+        }
+    }
+
+    .journey-banner {
+        height: clamp(90px, 14dvh, 120px) !important;
+        min-height: clamp(90px, 14dvh, 120px) !important;
+        max-height: clamp(90px, 14dvh, 120px) !important;
+        background-position: left center !important;
+        background-repeat: no-repeat !important;
+    }
+
+    .journey-live-stats {
+        display: none !important;
+    }
+
+    /* Arena keeps 3-column layout at this breakpoint — only collapse to
+       single-column on mobile (≤800px) where the compact HUD strip takes over. */
+
+    .arena-fullscreen .combat-side-hud {
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .sector-instance-wrap,
+    .map-instance .instance-frame,
+    .map-instance .sector-instance-wrap:has(.instance-info),
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) {
+        grid-template-columns: 1fr !important;
+        grid-template-areas:
+            "profile"
+            "scene"
+            "actions" !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) {
+        grid-template-areas:
+            "scene"
+            "actions" !important;
+    }
+
+    .sector-instance-wrap .instance-info,
+    .sector-instance-wrap .instance-actions,
+    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-info,
+    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions,
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .pixel-map,
+    .walkable-sector-map {
+        height: auto !important;
+        min-height: min(84vw, 560px) !important;
+    }
+}
+
+/* ── Sector explore: overlay actions panel on the map at tablet/mobile widths ──
+   The ≤980px block above collapses instance-frame to single-column, which pushes
+   the action buttons (Explore, Recover, Leave) below the full-height map and out
+   of view. This block overrides just the instance-frame case to keep the map
+   full-height and float the actions panel as a translucent overlay instead.      */
+@media (max-width: 980px) {
+    .map-instance .instance-frame {
+        position: relative !important;
+        grid-template-columns: 1fr !important;
+        grid-template-areas: "scene" !important;
+        height: min(92dvh, 920px) !important;
+        min-height: clamp(480px, 70dvh, 760px) !important;
+        overflow: hidden !important;
+    }
+
+    .map-instance .instance-frame > main.tile-scene {
+        grid-area: scene !important;
+        grid-column: 1 !important;
+        display: grid !important;
+        grid-template-rows: auto 1fr !important;
+        height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    .map-instance .instance-frame .sector-image-map {
+        height: 100% !important;
+        min-height: 0 !important;
+    }
+
+    /* Float the action buttons as an overlay in the top-right of the map */
+    .map-instance .instance-frame > aside.instance-actions {
+        position: absolute !important;
+        top: 36px !important;   /* clear the scene-title bar */
+        right: 8px !important;
+        width: clamp(124px, 18vw, 160px) !important;
+        min-width: 120px !important;
+        max-width: 160px !important;
+        max-height: calc(100% - 52px) !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        z-index: 20 !important;
+        grid-area: unset !important;
+        grid-column: unset !important;
+        background: rgba(6, 10, 22, 0.92) !important;
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
+        border-radius: 8px !important;
+        border: 1px solid rgba(250, 204, 21, 0.45) !important;
+        padding: 6px !important;
+    }
+}
+
+/* Desktop complement to the ≤980px tile-scene grid blocks above. Those give
+   .map-instance's <main.tile-scene> a `grid-template-rows: auto 1fr` layout so
+   the 12×12 sector map sits in the 1fr row BELOW the .scene-title bar and never
+   overflows the frame. On desktop (>980px) the tile-scene was left as the
+   default display:block, so `.sector-image-map { height:100% }` resolved to 100%
+   of the tile-scene INCLUDING the title's space — the grid spilled past the
+   frame's overflow:hidden and clipped the bottom ~3 tile rows on tall/widescreen
+   monitors (measured at 1365×911 and 2005×1271: 11–9 of 12 rows visible). Same
+   fix, applied to desktop so all 12 rows always show. Mobile (≤980px) keeps its
+   own blocks; this is min-width:981px so the two never overlap. */
+@media (min-width: 981px) {
+    .map-instance .instance-frame > main.tile-scene {
+        display: grid !important;
+        grid-template-rows: auto minmax(0, 1fr) !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .map-instance .instance-frame > main.tile-scene > .pixel-map,
+    .map-instance .instance-frame > main.tile-scene > .sector-image-map,
+    .map-instance .instance-frame > main.tile-scene > .walkable-sector-map {
+        min-height: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+    }
+}
+
+@media (max-width: 560px) {
+    :root {
+        --battle-board-h: clamp(240px, 34dvh, 320px);
+        --jutsu-card-min: 78px;
+        --jutsu-card-h: 78px;
+    }
+
+    .center-game {
+        padding: 6px !important;
+    }
+
+    .journey-banner {
+        height: 92px !important;
+        min-height: 92px !important;
+    }
+
+    .arena-fullscreen .hex-battlefield {
+        height: var(--battle-board-h) !important;
+        min-height: 230px !important;
+        max-height: 320px !important;
+        padding: 8px !important;
+    }
+
+    .arena-fullscreen .hex-grid-layer {
+        margin: auto !important;
+    }
+
+    .shinobi-command-bar,
+    .basic-action-bar {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .combat-jutsu-name {
+        font-size: 8px !important;
+    }
+
+    .combat-jutsu-info {
+        font-size: 7px !important;
+    }
+}
+
