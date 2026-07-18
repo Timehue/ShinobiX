@@ -1,0 +1,1002 @@
+/* ===== Mobile: the tavern is a full-page chat — only the message log scrolls =====
+   The mobile shell is a document-scroll page (html/body/#root scroll, .center-game
+   is height:auto). That let the whole page scroll around the chat. On the tavern
+   screen only, pin the chat to the viewport so the page itself can't scroll and the
+   sole scroller is .tavern-log. */
+@media (max-width: 800px) {
+    /* Stop the tavern screen's container from growing/scrolling. */
+    .center-game.screen-tavern {
+        min-height: 0 !important;
+        height: 100dvh !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+    }
+
+    /* The tavern carries its own Back button + title, so the sticky top status
+       HUD is redundant here and would otherwise sit above the full-page chat. */
+    .screen-tavern .mobile-top-hud { display: none !important; }
+
+    /* Fill the viewport from the top edge down to just above the fixed bottom
+       nav (~62px + safe area). Global banners (z-index 99999) and the nav
+       (z-index 1000) still render above this. */
+    .screen-tavern .tavern-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+        height: auto;
+        min-height: 0;
+        max-width: 100%;
+        margin: 0;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        border-top: 0;
+        padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 8px;
+        z-index: 5;
+    }
+
+    /* Keep overscroll from chaining to the body (no rubber-band behind the chat). */
+    .screen-tavern .tavern-log {
+        overscroll-behavior: contain;
+    }
+}
+
+@media (max-width: 480px) {
+    .crafter-recipe-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hunt-contract-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
+   ELDER FOCUS
+═══════════════════════════════════════════════════════ */
+
+.elder-card-active {
+    border-color: rgba(250, 204, 21, .6) !important;
+    box-shadow: 0 0 18px rgba(250, 204, 21, .15);
+}
+
+.elder-focus-desc {
+    display: block;
+    color: var(--text-dim);
+    font-size: 0.76rem;
+    margin: 4px 0 6px;
+    line-height: 1.4;
+}
+
+.elder-card button.active {
+    background: linear-gradient(135deg, rgba(180, 83, 9, .88), rgba(14, 116, 144, .7));
+    border-color: rgba(250, 204, 21, .65);
+    color: #fef3c7;
+    font-weight: 700;
+}
+
+/* Legendary set item card glow variants */
+.item-card-legendary-damage  { box-shadow: 0 0 8px rgba(239, 68, 68, .40); }
+.item-card-legendary-absorb  { box-shadow: 0 0 8px rgba(34, 197, 94, .40); }
+.item-card-legendary-steal   { box-shadow: 0 0 8px rgba(251, 146, 60, .40); }
+.item-card-legendary-shield  { box-shadow: 0 0 8px rgba(96, 165, 250, .40); }
+.item-card-legendary-reflect { box-shadow: 0 0 8px rgba(192, 132, 252, .40); }
+
+/* =============================================
+   MOBILE TOP STATUS HUD
+   Persistent resource bar — fills the gap left by the
+   desktop-only LeftProfileCard and JourneyLiveStats.
+   Pattern from Genshin/Clash/Marvel SNAP: avatar +
+   bars + currency always visible at the top of the
+   viewport, even while scrolling the content below.
+   ============================================= */
+
+.mobile-top-hud {
+  display: none; /* hidden on desktop — LeftProfileCard covers this role */
+}
+
+@media (max-width: 800px) {
+  .mobile-top-hud {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    padding: 6px 10px;
+    padding-top: calc(6px + env(safe-area-inset-top, 0px));
+    background: linear-gradient(180deg, rgba(7, 17, 31, 0.97) 0%, rgba(2, 6, 15, 0.92) 100%);
+    border-bottom: 1px solid rgba(250, 204, 21, 0.32);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  /* Back arrow — only shown when the parent passes onBack (i.e. there's
+     somewhere in history to pop to). 36×36 tap target sits at the far
+     left of the HUD, separated from the identity zone. */
+  .mthd-back {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border: 1px solid rgba(250, 204, 21, 0.4);
+    background: rgba(2, 6, 23, 0.6);
+    color: var(--gold);
+    border-radius: 50%;
+    font-size: 20px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background 120ms, transform 120ms;
+  }
+
+  .mthd-back:active {
+    background: rgba(250, 204, 21, 0.18);
+    transform: translateX(-2px);
+  }
+
+  .mthd-identity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    max-width: 38%;
+  }
+
+  .mthd-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(250, 204, 21, 0.55);
+    background: var(--slate-800);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--gold);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .mthd-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mthd-name-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.1;
+    min-width: 0;
+  }
+
+  .mthd-name {
+    font-size: 11px;
+    color: #e8eef8;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  .mthd-level {
+    font-size: 10px;
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  .mthd-bars {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .mthd-bar {
+    position: relative;
+    height: 11px;
+    background: rgba(2, 6, 23, 0.75);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  .mthd-bar-fill {
+    height: 100%;
+    transition: width 220ms ease-out;
+  }
+
+  .mthd-bar-hp .mthd-bar-fill {
+    background: linear-gradient(90deg, var(--red) 0%, var(--red-400) 100%);
+    box-shadow: 0 0 6px rgba(248, 113, 113, 0.35);
+  }
+
+  .mthd-bar-chakra .mthd-bar-fill {
+    background: linear-gradient(90deg, #0369a1 0%, var(--cyan) 100%);
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.35);
+  }
+
+  .mthd-bar-stamina .mthd-bar-fill {
+    background: linear-gradient(90deg, #65a30d 0%, #a3e635 100%);
+    box-shadow: 0 0 6px rgba(163, 230, 53, 0.35);
+  }
+
+  .mthd-bar-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    line-height: 1;
+    letter-spacing: 0.2px;
+  }
+
+  .mthd-resources {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+    font-size: 11px;
+    line-height: 1.15;
+    font-weight: 600;
+  }
+
+  .mthd-resource {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+  }
+
+  .mthd-ryo {
+    color: var(--gold);
+  }
+
+  .mthd-shards {
+    color: #ce93d8;
+  }
+
+  .mthd-resource-icon {
+    font-size: 11px;
+    line-height: 1;
+  }
+}
+
+/* =============================================
+   MOBILE BOTTOM NAV + MENU OVERLAY
+   ============================================= */
+
+.mobile-bottom-nav {
+  display: none; /* hidden on desktop */
+}
+
+/* Hidden on desktop — the desktop right-rail NotificationBar already covers this.
+   The fixed-to-bottom layout is defined only inside the mobile media query below,
+   so without this base rule the bar would fall back to normal flow and render as a
+   stray full-width chip at the very top of the page on desktop. */
+.mobile-notif-bar {
+  display: none;
+}
+
+/* Unread-mail indicators (shared by the desktop right-rail + mobile nav). */
+.mail-unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  margin-left: 7px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--red-600);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.mobile-nav-unread-dot {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--red-600);
+  box-shadow: 0 0 0 2px #0b1120;
+}
+
+/* Self-service change-password form (Profile → Account). */
+.change-password-card {
+  margin-bottom: 14px;
+}
+.change-password-card h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #e5e7eb;
+}
+.change-password-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+}
+.change-password-fields input {
+  width: 100%;
+}
+.change-password-show {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.change-password-card > button {
+  margin-top: 8px;
+}
+
+/* Profile action buttons (UserView) + Users-directory follow controls. */
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+.profile-action-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  background: rgba(250, 204, 21, 0.08);
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.profile-action-btn:disabled { opacity: 0.5; cursor: default; }
+.profile-action-btn.following {
+  border-color: var(--green-400);
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--green-400);
+}
+
+.user-hub-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+}
+.user-hub-tab {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+.user-hub-tab.active {
+  border-color: rgba(250, 204, 21, 0.5);
+  background: rgba(250, 204, 21, 0.12);
+  color: var(--gold);
+}
+
+.user-hub-follow-star {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  margin-left: 8px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.user-hub-follow-star.following { color: var(--gold); }
+
+@media (max-width: 800px) {
+  /* Add bottom padding to center-game so content isn't under the nav */
+  .center-game {
+    padding-bottom: 70px !important;
+  }
+
+  /* The onboarding tutorial banner is fixed to the bottom (inline bottom:16px)
+     and sits at z-index 9000 — above the bottom nav (z-index 1000). On mobile
+     the nav occupies that bottom strip (~70px + safe-area inset), so the banner
+     overlapped it and intercepted nav taps. Lift the banner clear of the nav
+     here; desktop has no bottom nav, so the inline bottom:16px stands. */
+  .onboarding-coach-banner {
+    bottom: calc(70px + env(safe-area-inset-bottom) + 8px) !important;
+  }
+
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: linear-gradient(180deg, rgba(7,17,31,0.97), rgba(2,6,15,1));
+    border-top: 1px solid rgba(250,204,21,0.3);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    gap: 2px;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  /* Mobile status notification strip — floats just above the bottom nav and
+     horizontally scrolls if several chips are active. Only the .mobile-notif-bar
+     wrapper is mobile-specific; the .notif-chip / .tone-* styles are shared
+     with the desktop right-rail bar. */
+  .mobile-notif-bar {
+    display: flex;
+    gap: 6px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(70px + env(safe-area-inset-bottom));
+    /* Above the bottom nav (z-index 1000) so chips floating just over the nav
+       are never clipped by it. */
+    z-index: 1001;
+    padding: 6px 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    pointer-events: auto;
+  }
+  .mobile-notif-bar::-webkit-scrollbar { display: none; }
+
+  .mobile-notif-bar .notif-chip {
+    width: auto;
+    flex: 0 0 auto;
+    max-width: 70vw;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+
+  .mobile-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    /* Even 1/n share of the bar so all buttons fit without overflow as the
+       button count grows (Travel / Tavern / Char / Items / You / Menu). */
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 52px;
+    padding: 6px 4px;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    color: var(--text-dim);
+    font-size: 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .mobile-nav-btn:active {
+    background: rgba(250,204,21,0.15);
+    color: var(--gold);
+  }
+
+  .mobile-nav-btn .mnb-icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .mobile-nav-btn.menu-btn {
+    color: var(--gold);
+    background: rgba(250,204,21,0.1);
+    border: 1px solid rgba(250,204,21,0.3);
+    position: relative; /* anchor for the unread-mail dot */
+  }
+
+  .mobile-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  /* Full-screen overlay menu */
+  .mobile-menu-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background:
+      linear-gradient(118deg, transparent 0 18%, rgba(56,189,248,0.08) 18.4% 19.1%, transparent 19.5% 100%),
+      linear-gradient(152deg, transparent 0 58%, rgba(250,204,21,0.08) 58.5% 59.4%, transparent 59.8% 100%),
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 16px),
+      linear-gradient(160deg, rgba(3,7,18,0.99) 0%, rgba(11,18,32,0.99) 42%, rgba(31,12,22,0.99) 100%);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    box-shadow: inset 0 1px 0 rgba(250,204,21,0.18);
+  }
+
+  .mobile-menu-overlay::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(250,204,21,0.12), transparent 18%, transparent 82%, rgba(239,68,68,0.1)),
+      linear-gradient(180deg, rgba(15,23,42,0.08), rgba(2,6,15,0.55));
+    mix-blend-mode: screen;
+  }
+
+  .mobile-menu-header,
+  .mobile-char-card,
+  .mobile-menu-grid {
+    position: relative;
+    z-index: 1;
+  }
+
+  .mobile-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(250,204,21,0.16);
+  }
+
+  .mobile-menu-title {
+    color: var(--gold);
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-shadow: 0 0 16px rgba(250,204,21,0.42), 0 2px 0 rgba(69,26,3,0.8);
+  }
+
+  .mobile-menu-close {
+    flex: 0 0 44px;
+    width: 44px !important;
+    min-width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(248,113,113,0.42);
+    background: linear-gradient(145deg, rgba(127,29,29,0.55), rgba(15,23,42,0.82));
+    color: #e8eef8;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 18px rgba(248,113,113,0.16), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  .mobile-char-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background:
+      linear-gradient(135deg, rgba(250,204,21,0.13), rgba(14,165,233,0.1) 48%, rgba(190,18,60,0.15)),
+      rgba(15,23,42,0.92);
+    border: 1px solid rgba(250,204,21,0.42);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 16px;
+    box-shadow: 0 12px 34px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  .mobile-char-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 2px solid var(--gold);
+    object-fit: cover;
+    flex-shrink: 0;
+    background: linear-gradient(145deg, #111827, #3f1d12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    overflow: hidden;
+    box-shadow: 0 0 0 4px rgba(250,204,21,0.08), 0 0 22px rgba(250,204,21,0.18);
+  }
+
+  .mobile-char-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mobile-char-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-char-name {
+    color: var(--gold);
+    font-weight: 900;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 0 12px rgba(250,204,21,0.28);
+  }
+
+  .mobile-char-sub {
+    color: var(--slate-300);
+    font-size: 12px;
+    margin-top: 2px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-xp-bar-track {
+    height: 4px;
+    background: rgba(15,23,42,0.9);
+    border-radius: 2px;
+    margin-top: 6px;
+    border: 1px solid rgba(148,163,184,0.16);
+    overflow: hidden;
+  }
+
+  .mobile-xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), #f97316, var(--danger));
+    border-radius: 2px;
+    transition: width 0.3s;
+    box-shadow: 0 0 12px rgba(250,204,21,0.45);
+  }
+
+  .mobile-menu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .mobile-menu-btn {
+    --menu-accent: var(--gold);
+    --menu-accent-glow: rgba(250,204,21,0.22);
+    --menu-accent-border: rgba(250,204,21,0.35);
+    position: relative;
+    overflow: hidden;
+    padding: 14px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--menu-accent-border);
+    background:
+      linear-gradient(120deg, transparent 0 66%, var(--menu-accent-glow) 66.6% 71%, transparent 71.5% 100%),
+      linear-gradient(135deg, var(--menu-accent-glow), rgba(15,23,42,0.1) 46%),
+      linear-gradient(180deg, rgba(15,23,42,0.96), rgba(3,7,18,0.94));
+    color: #e8eef8;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    text-align: center;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.85);
+    transition: background 0.15s, border-color 0.15s, color 0.15s, filter 0.15s, transform 0.08s;
+    min-height: 48px;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+1) {
+    --menu-accent: var(--gold);
+    --menu-accent-glow: rgba(250,204,21,0.22);
+    --menu-accent-border: rgba(250,204,21,0.36);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+2) {
+    --menu-accent: var(--cyan);
+    --menu-accent-glow: rgba(56,189,248,0.19);
+    --menu-accent-border: rgba(56,189,248,0.32);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+3) {
+    --menu-accent: #a78bfa;
+    --menu-accent-glow: rgba(167,139,250,0.2);
+    --menu-accent-border: rgba(167,139,250,0.33);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+4) {
+    --menu-accent: #fb7185;
+    --menu-accent-glow: rgba(251,113,133,0.19);
+    --menu-accent-border: rgba(251,113,133,0.32);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+5) {
+    --menu-accent: #34d399;
+    --menu-accent-glow: rgba(52,211,153,0.18);
+    --menu-accent-border: rgba(52,211,153,0.3);
+  }
+
+  .mobile-menu-grid .mobile-menu-btn:nth-child(6n+6) {
+    --menu-accent: #f97316;
+    --menu-accent-glow: rgba(249,115,22,0.2);
+    --menu-accent-border: rgba(249,115,22,0.34);
+  }
+
+  /* Menu glyphs carry each button's accent color. */
+  .mobile-menu-btn > svg {
+    flex: 0 0 auto;
+    color: var(--menu-accent);
+    opacity: 1;
+    filter: drop-shadow(0 0 8px var(--menu-accent-glow));
+  }
+
+  @media (hover: hover) {
+    .mobile-menu-btn:hover {
+      border-color: var(--menu-accent);
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+  }
+
+  .mobile-menu-btn:active {
+    background:
+      linear-gradient(120deg, transparent 0 62%, var(--menu-accent-glow) 62.6% 74%, transparent 74.5% 100%),
+      linear-gradient(135deg, var(--menu-accent-glow), rgba(250,204,21,0.1)),
+      linear-gradient(180deg, rgba(30,41,59,0.96), rgba(15,23,42,0.96));
+    border-color: var(--menu-accent);
+    color: #fff7ed;
+    transform: translateY(1px) scale(0.99);
+  }
+
+  .mobile-menu-btn.danger {
+    --menu-accent: var(--red-400);
+    --menu-accent-glow: rgba(248,113,113,0.22);
+    --menu-accent-border: rgba(239,68,68,0.4);
+    color: var(--red-400);
+  }
+
+  .mobile-menu-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* General mobile touch improvements */
+  button {
+    min-height: 44px;
+  }
+
+  .start-grid {
+    grid-template-columns: 1fr !important;
+    padding: 12px !important;
+    margin: 0 !important;
+    gap: 12px !important;
+  }
+
+  .creator-card {
+    margin: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-menu-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .mobile-menu-btn {
+    font-size: 12px;
+    padding: 12px 6px;
+  }
+}
+
+/* =============================================
+   MOBILE "YOU" SHEET
+   The desktop left-rail profile card, surfaced on mobile from the bottom-nav
+   "You" button. Portal-rendered to <body> above the nav (z-index 1000) and
+   side rails, following the full-screen-overlay portal pattern. Only ever
+   shown on mobile (the "You" button lives in the mobile nav), so it's defined
+   globally rather than behind a media query.
+   ============================================= */
+.mobile-profile-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  background: rgba(2, 6, 15, 0.82);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 14px 12px calc(14px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-profile-sheet {
+  width: 100%;
+  max-width: 360px;
+  margin: auto;
+  background: linear-gradient(180deg, rgba(5, 7, 13, 0.98), rgba(10, 14, 28, 0.98));
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.mobile-profile-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(250, 204, 21, 0.2);
+}
+
+.mobile-profile-sheet-title {
+  color: var(--gold);
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.mobile-profile-sheet-close {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--slate-700);
+  background: rgba(51, 65, 85, 0.5);
+  color: #e8eef8;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Recreate the desktop rail's flex-column-centred container so the reused
+   .left-* body elements (which assume that context) lay out correctly. */
+.mobile-profile-sheet-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  color: #fff;
+}
+
+/* The desktop avatar is a large 140px block; trim it a touch so the card
+   header reads well inside the narrower mobile sheet. */
+.mobile-profile-sheet-body .left-profile-avatar {
+  width: 112px !important;
+  height: 112px !important;
+}
+
+/* =============================================
+   VILLAGE MAP — MOBILE OVERRIDES
+   The background image comes from an inline style
+   (so it works for all villages). On mobile we:
+   - Add a ::before overlay to darken the image
+     so buttons are readable against it
+   - Switch buttons from absolute-positioned to a
+     flex-wrap grid so none overlap
+   - Push safe-zone badge below the button grid
+
+   Breakpoint is 979px (not 800px) so it covers the WHOLE sub-desktop range:
+   the data-vp fit rules below only start at "md" (≥980px), so 801–979px
+   (portrait tablets ~810/834px, landscape phones) used to fall through to the
+   base .stormveil-map { min-height: 820px } and clip the bottom building row.
+   979px hands off cleanly to "md" at 980px — no gap, no overlap. ≤800px is
+   unchanged (same rules, just a wider ceiling). */
+
+@media (max-width: 979px) {
+  .stormveil-village-screen {
+    min-height: unset !important;
+    margin-top: 18px !important; /* tight on mobile — vertical space is scarce */
+  }
+
+  /* Keep the inline-style background image visible;
+     this pseudo-element darkens it without removing it */
+  .stormveil-map::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: rgba(2, 6, 23, 0.52) !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+  }
+
+  .stormveil-map {
+    position: relative !important;
+    min-height: 480px !important; /* enough to show the image */
+    /* Switch from absolute-child positioning to flex wrap */
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding: 12px 12px 72px !important; /* bottom pad clears safe-zone */
+    justify-content: center !important;
+    align-content: flex-start !important;
+  }
+
+  .journey-guide {
+    position: relative !important;
+    left: unset !important;
+    top: unset !important;
+    width: 100% !important;
+    z-index: 3 !important;
+    flex: 1 1 100% !important;
+    order: -1 !important;
+    margin-bottom: 4px !important;
+  }
+
+  .journey-guide-list li {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+  }
+
+  .journey-guide-list li button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .journey-guide-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .journey-guide-footer button {
+    width: 100%;
+  }
+
+  .journey-guide-collapsed {
+    flex-wrap: wrap;
+  }
+
+  .journey-guide-collapsed div {
+    flex: 1 1 180px;
+  }
+
+  .stormveil-map-button {
+    position: relative !important;
+    left: unset !important;
+    top: unset !important;
+    transform: none !important;
+    z-index: 2 !important; /* above the ::before overlay */
+    flex: 1 1 calc(30% - 8px) !important;
+    min-width: 88px !important;
+    max-width: 128px !important;
+    padding: 10px 6px !important;
+    background: rgba(2, 6, 23, 0.82) !important;
+  }
+
+  .stormveil-map-button:hover,
+  .stormveil-map-button:active {
+    transform: none !important;
+  }
+
+  .stormveil-map-button strong {
+    font-size: 10px !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Safe-zone badge — sits at the bottom of stormveil-village-screen,
+     below all the flex-wrapped buttons */
+  .village-save-bar {
+    bottom: 10px !important;
+    z-index: 5 !important;
+  }
+}
+

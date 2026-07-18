@@ -1,0 +1,196 @@
+/* ===== Shinobi Journeys title/login screen ===== */
+
+.game:has(.title-login-screen) {
+    width: 100%;
+    max-width: none !important;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 0;
+}
+
+.title-login-screen {
+    position: relative;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    align-items: center;
+    justify-items: center;
+    isolation: isolate;
+    background: linear-gradient(180deg, rgba(2, 6, 23, .08), rgba(2, 6, 23, .36) 58%, rgba(2, 6, 23, .82)), url("/Shinobi-Journeys.png") center / cover no-repeat;
+}
+
+    .title-login-screen::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: radial-gradient(circle at 50% 28%, rgba(255, 230, 174, .2), transparent 19%), linear-gradient(90deg, rgba(0,0,0,.62), transparent 18%, transparent 82%, rgba(0,0,0,.58));
+    }
+
+.title-logo-lockup {
+    display: grid;
+    justify-items: center;
+    align-self: center;
+    margin-top: min(17vh, 150px);
+    text-align: center;
+    filter: drop-shadow(0 16px 0 rgba(0,0,0,.82)) drop-shadow(0 0 16px rgba(0,0,0,.95));
+    transform: rotate(-2deg);
+}
+
+    .title-logo-lockup span {
+        display: block;
+        line-height: .82;
+        letter-spacing: 0;
+        text-transform: uppercase;
+    }
+
+.title-logo-top {
+    color: #f8fafc;
+    font-size: clamp(76px, 12vw, 190px);
+    font-weight: 1000;
+    font-style: italic;
+    -webkit-text-stroke: 3px #070707;
+    text-shadow: 8px 8px 0 #050505, 0 0 30px rgba(255,255,255,.22);
+}
+
+.title-logo-bottom {
+    color: #d5100c;
+    font-size: clamp(58px, 9vw, 140px);
+    font-weight: 1000;
+    font-style: italic;
+    -webkit-text-stroke: 2px #250000;
+    text-shadow: 7px 7px 0 #050505, 0 0 20px rgba(213,16,12,.35);
+}
+
+.title-logo-kanji {
+    margin-top: 14px;
+    color: #f8fafc;
+    font-size: clamp(24px, 3vw, 48px);
+    font-weight: 900;
+    letter-spacing: 8px !important;
+    text-shadow: 0 4px 0 #050505;
+}
+
+.title-menu {
+    width: min(980px, calc(100vw - 32px));
+    display: grid;
+    grid-template-columns: repeat(5, minmax(90px, 1fr));
+    gap: clamp(12px, 3vw, 44px);
+    align-items: end;
+    margin-bottom: clamp(22px, 5vh, 56px);
+}
+
+    .title-menu button {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        color: #fff7ed;
+        text-transform: uppercase;
+        font-family: "Trebuchet MS", Verdana, Arial, sans-serif;
+        font-style: italic;
+        font-size: clamp(16px, 2vw, 28px);
+        text-shadow: 0 4px 0 #020617, 0 0 12px rgba(0,0,0,.9);
+    }
+
+        .title-menu button:hover {
+            transform: translateY(-6px) scale(1.04);
+            filter: brightness(1.16) saturate(1.15);
+            box-shadow: none;
+        }
+
+.title-menu-icon {
+    width: clamp(58px, 7vw, 92px);
+    height: clamp(58px, 7vw, 92px);
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    border: 3px solid rgba(2, 6, 23, .9);
+    background: radial-gradient(circle at 35% 25%, #fff, var(--slate-300) 42%, #111827 43%, #020617);
+    color: #111827;
+    font-size: clamp(28px, 4vw, 54px);
+    box-shadow: 0 9px 0 rgba(0,0,0,.72), 0 0 16px rgba(255,255,255,.2);
+}
+
+.scroll-icon {
+    border-radius: 20px;
+    background: linear-gradient(90deg, #ead7ad, #7c2d12 54%, #ead7ad);
+    color: #111827;
+}
+
+.mask-icon {
+    background: radial-gradient(circle at 50% 44%, #ffffff 0 42%, var(--danger) 43% 51%, #111827 52%);
+}
+
+.blade-icon {
+    background: radial-gradient(circle, #e0f2fe, var(--text-muted) 58%, #111827);
+    color: #dbeafe;
+}
+
+.pouch-icon {
+    background: radial-gradient(circle at 50% 38%, #8fbf72, #314d24 62%, #10200d);
+    color: #172554;
+}
+
+.title-creator-panel {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(120px, 18vh, 190px);
+    width: min(520px, calc(100vw - 28px));
+    transform: translateX(-50%);
+    z-index: 3;
+}
+
+.title-character-card {
+    padding: 16px;
+    border: 2px solid rgba(250,204,21,.55);
+    border-radius: 10px;
+    background: rgba(5, 8, 15, .9);
+    box-shadow: 0 24px 70px rgba(0,0,0,.72), inset 0 1px 0 rgba(255,255,255,.08);
+    backdrop-filter: blur(8px);
+}
+
+    .title-character-card h2 {
+        margin-bottom: 8px;
+    }
+
+    .title-character-card label {
+        margin-top: 8px;
+    }
+
+    .title-character-card input,
+    .title-character-card select {
+        max-width: none;
+        padding: 8px 10px;
+    }
+
+@media (max-width: 760px) {
+    .title-login-screen {
+        min-height: 100svh;
+        background-position: center;
+    }
+
+    .title-logo-lockup {
+        margin-top: 16vh;
+    }
+
+    .title-menu {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+        width: calc(100vw - 18px);
+    }
+
+        .title-menu button {
+            font-size: 11px;
+        }
+
+    .title-creator-panel {
+        bottom: 96px;
+    }
+}

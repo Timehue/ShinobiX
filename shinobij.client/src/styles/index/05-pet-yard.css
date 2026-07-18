@@ -1,0 +1,416 @@
+/* ===== Pet Yard ===== */
+.pet-yard-screen {
+    position: fixed;
+    inset: 0;
+    background: url('/pet-yard.webp') center/cover no-repeat;
+    overflow-y: auto;
+    z-index: 10;
+}
+
+/* On desktop the fixed full-bleed pet yard must sit between the left profile
+   card and the right menu (the same 265/255 gutters .center-game uses) instead
+   of sliding underneath them and hiding its left column. Below 981px there are
+   no sidebars, so the full-viewport overlay is correct as-is. */
+@media (min-width: 981px) {
+    .pet-yard-screen {
+        left: 265px !important;
+        right: 255px !important;
+        width: auto !important;
+    }
+}
+
+.starter-pet-backdrop {
+    position: fixed;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(7,12,27,0.80) 0%, rgba(4,6,18,0.93) 100%),
+        url('/pet-yard.webp') center / cover no-repeat;
+}
+
+@media (min-width: 981px) {
+    .starter-pet-backdrop {
+        left: 265px;
+        right: 255px;
+    }
+}
+
+.pet-yard-overlay {
+    min-height: 100%;
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(7,12,27,.55) 0%, rgba(7,12,27,.82) 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.pet-yard-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+    .pet-yard-header h2 {
+        margin: 0;
+        color: #fef3c7;
+        font-size: 1.6rem;
+    }
+
+.pet-slots-row {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.pet-slot-card {
+    width: 150px;
+    min-height: 180px;
+    background: rgba(2,6,23,.72);
+    border: 2px solid rgba(148,163,184,.3);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.12s;
+}
+
+    .pet-slot-card:hover:not(.pet-empty) {
+        border-color: var(--gold-400);
+        transform: translateY(-2px);
+    }
+
+    .pet-slot-card.pet-selected {
+        border-color: var(--gold-400);
+        background: rgba(250,204,21,.12);
+    }
+
+    .pet-slot-card.pet-active {
+        border-color: #34d399;
+    }
+
+    .pet-slot-card.pet-empty {
+        cursor: default;
+        opacity: 0.45;
+    }
+
+.pet-slot-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgba(148,163,184,.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .pet-slot-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+.pet-initials {
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #fef3c7;
+}
+
+.pet-slot-name {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #f8fafc;
+    text-align: center;
+}
+
+.pet-empty-label {
+    font-size: 0.75rem;
+    color: rgba(148,163,184,.6);
+}
+
+.rarity-standard {
+    background: rgba(148,163,184,.25);
+    color: var(--text-dim);
+}
+
+.rarity-uncommon {
+    background: rgba(132,204,22,.22);
+    color: #bef264;
+}
+
+.rarity-rare {
+    background: rgba(56,189,248,.22);
+    color: #7dd3fc;
+}
+
+.rarity-legendary {
+    background: rgba(250,204,21,.2);
+    color: var(--gold-400);
+}
+
+.rarity-mythic {
+    background: rgba(167,139,250,.25);
+    color: #c4b5fd;
+}
+
+.pet-rarity-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.pet-rarity-tag {
+    border-radius: 10px;
+    font-weight: 800;
+    padding: 3px 8px;
+}
+
+    .pet-rarity-summary .pet-rarity-tag {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+    }
+
+.pet-trait-tag {
+    font-size: 0.6rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: rgba(52,211,153,.2);
+    color: #6ee7b7;
+    font-weight: 700;
+}
+
+.pet-active-tag {
+    font-size: 0.6rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: rgba(52,211,153,.35);
+    color: #34d399;
+    font-weight: 900;
+}
+
+.pet-2v2-tag {
+    font-size: 0.6rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: rgba(232,121,249,.3);
+    color: #e879f9;
+    font-weight: 900;
+}
+
+.pet-training-tag {
+    font-size: 0.6rem;
+    color: var(--blue-300);
+    font-weight: 700;
+}
+
+.pet-ready-tag {
+    font-size: 0.6rem;
+    color: #34d399;
+    font-weight: 900;
+}
+
+.pet-detail-panel {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    background: rgba(2,6,23,.78);
+    border: 1px solid rgba(148,163,184,.2);
+    border-radius: 16px;
+    padding: 20px;
+}
+
+.pet-detail-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 200px;
+    flex: 1;
+}
+
+.pet-detail-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgba(148,163,184,.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(250,204,21,.4);
+}
+
+    .pet-detail-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+.pet-detail-initials {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: #fef3c7;
+}
+
+.pet-trait-display {
+    background: rgba(52,211,153,.1);
+    border: 1px solid rgba(52,211,153,.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+    .pet-trait-display strong {
+        color: #6ee7b7;
+    }
+
+    .pet-trait-display p {
+        margin: 4px 0 0;
+        font-size: 0.82rem;
+        color: var(--text-dim);
+    }
+
+.pet-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+    .pet-stats-grid span {
+        font-size: 0.85rem;
+        color: #f8fafc;
+        font-weight: 700;
+    }
+
+.pet-description {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+.pet-happiness-meter {
+    display: grid;
+    gap: 6px;
+    padding: 8px 10px;
+    border: 1px solid rgba(250, 204, 21, 0.3);
+    border-radius: 10px;
+    background: rgba(2, 6, 23, 0.48);
+}
+
+.pet-happiness-meter-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.82rem;
+}
+
+    .pet-happiness-meter-top strong {
+        color: #fef3c7;
+    }
+
+    .pet-happiness-meter-top span {
+        color: var(--slate-200);
+        font-weight: 900;
+    }
+
+.pet-happiness-track {
+    height: 12px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: linear-gradient(90deg, #7f1d1d, #ca8a04 50%, #166534);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+    .pet-happiness-track span {
+        display: block;
+        width: var(--pet-happiness, 0%);
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--danger), var(--gold) 50%, var(--success));
+        box-shadow: 0 0 12px rgba(250, 204, 21, 0.3);
+        transition: width 0.25s ease;
+    }
+
+.pet-training-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-width: 220px;
+}
+
+    .pet-training-panel h4 {
+        margin: 0;
+        color: #fef3c7;
+    }
+
+.training-in-progress {
+    background: rgba(96,165,250,.1);
+    border: 1px solid rgba(96,165,250,.3);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.training-timer {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: var(--blue-300);
+    margin: 6px 0 0;
+}
+
+.training-complete {
+    background: rgba(52,211,153,.1);
+    border: 1px solid rgba(52,211,153,.3);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pet-jutsu-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(148,163,184,.08);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    flex-wrap: wrap;
+}
+
+    .pet-jutsu-row strong {
+        color: #fef3c7;
+        flex: 1;
+    }
+
+.pet-jutsu-kind-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid;
+    background: rgba(0,0,0,0.3);
+    white-space: nowrap;
+}
+
+.pet-jutsu-stat {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.pet-empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-dim);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+}
+

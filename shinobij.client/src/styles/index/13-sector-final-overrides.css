@@ -1,0 +1,374 @@
+/* ===== Compact sector explore screen ===== */
+
+.map-instance {
+    gap: 4px !important;
+}
+
+.instance-frame {
+    grid-template-columns: 110px minmax(0, 1fr) 120px !important;
+    gap: 6px !important;
+    padding: 6px !important;
+    height: calc(100dvh - var(--banner-h) - 2px) !important;
+    overflow: hidden !important;
+}
+
+.player-sidebar {
+    width: 220px;
+    min-width: 220px;
+    height: calc(100vh - 40px);
+    position: relative;
+    padding: 14px;
+    border-left: 3px solid #ffb300;
+    border-right: 3px solid #ffb300;
+    background: linear-gradient( to bottom, rgba(18, 22, 32, 0.96), rgba(10, 12, 18, 0.96) );
+    backdrop-filter: blur(6px);
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.55), 0 0 18px rgba(255,170,0,0.18);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+    .player-sidebar button,
+    .sector-sidebar button {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,190,0,0.45);
+        background: linear-gradient( to bottom, #1b2438, #101827 );
+        color: white;
+        font-weight: 700;
+        transition: all 0.2s ease;
+    }
+
+        .player-sidebar button:hover,
+        .sector-sidebar button:hover {
+            transform: scale(1.03);
+            border-color: gold;
+            background: linear-gradient( to bottom, #243250, #172033 );
+        }
+
+.portrait-badge {
+    width: 62px !important;
+    height: 62px !important;
+    font-size: 20px !important;
+}
+
+.instance-actions button {
+    min-height: 34px !important;
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+}
+
+.scene-title {
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+}
+
+.pixel-map {
+    height: calc(100dvh - var(--banner-h) - 60px) !important;
+    aspect-ratio: auto !important;
+    padding: 4px !important;
+}
+
+.walkable-tile {
+    min-height: 0 !important;
+    font-size: 16px !important;
+}
+
+.sector-move-controls {
+    margin-top: 4px !important;
+    gap: 3px !important;
+}
+
+    .sector-move-controls button {
+        width: 38px !important;
+        height: 28px !important;
+        font-size: 15px !important;
+    }
+/* ===== FINAL SECTOR SCREEN OVERRIDE ===== */
+
+.instance-frame {
+    grid-template-columns: 170px minmax(0, 1fr) 120px !important;
+    gap: 6px !important;
+    padding: 6px !important;
+    background: linear-gradient(90deg, rgba(8,12,24,0.98), rgba(12,18,32,0.98) 14%, rgba(12,18,32,0.98) 86%, rgba(8,12,24,0.98)) !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+/* ── Sidebar ── */
+.instance-sidebar {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 10px 8px !important;
+    background: radial-gradient(circle at top, rgba(59,130,246,0.18), transparent 28%), linear-gradient(180deg, rgba(13,18,32,0.98), rgba(5,8,16,0.98)) !important;
+    border: 2px solid rgba(250,204,21,0.65) !important;
+    border-radius: 10px !important;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.7) !important;
+    overflow: hidden !important;
+}
+
+    .instance-sidebar strong {
+        color: var(--gold) !important;
+    }
+
+    .instance-sidebar p {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        padding: 5px 7px !important;
+        border-radius: 6px !important;
+        background: linear-gradient(90deg, rgba(250,204,21,0.1), rgba(2,6,23,0.88)) !important;
+        border: 1px solid rgba(250,204,21,0.4) !important;
+        color: #f8fafc !important;
+        font-size: 10px !important;
+        font-weight: 700 !important;
+        word-break: break-word !important;
+    }
+
+.portrait-badge {
+    width: 72px !important;
+    height: 72px !important;
+    border-radius: 12px !important;
+    border: 2px solid var(--gold) !important;
+    background: radial-gradient(circle, #7dd3fc, #2563eb 58%, #020617) !important;
+    box-shadow: 0 0 18px rgba(59,130,246,0.65) !important;
+    font-size: 24px !important;
+}
+
+/* ── Actions panel ── */
+.instance-actions {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 6px 5px !important;
+    background: linear-gradient(180deg, rgba(22,27,38,0.98), rgba(8,12,22,0.98)) !important;
+    border: 2px solid rgba(250,204,21,0.65) !important;
+    border-radius: 10px !important;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.7) !important;
+    overflow: hidden !important;
+    display: grid !important;
+    align-content: start !important;
+    gap: 5px !important;
+    word-break: break-word !important;
+}
+
+    .instance-actions h3 {
+        font-size: 11px !important;
+        color: #fef3c7 !important;
+        margin: 0 0 3px !important;
+        padding-bottom: 4px !important;
+        border-bottom: 1px solid rgba(250,204,21,0.35) !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    .instance-actions p,
+    .instance-actions span {
+        font-size: 9px !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        margin: 0 !important;
+    }
+
+    .instance-actions button {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 5px 3px !important;
+        font-size: 10px !important;
+        min-height: 28px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        background: linear-gradient(#1f2f4d, #101827) !important;
+        border: 1px solid rgba(250,204,21,0.6) !important;
+        box-shadow: none !important;
+    }
+
+.sector-banner-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 260px;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 9999;
+    overflow: hidden;
+    background: #05070d;
+    border-right: 3px solid var(--gold);
+}
+
+.sector-banner-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.center-game {
+    margin-left: 265px;
+}
+
+.left-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 11px;
+    display: block;
+}
+
+.left-profile-avatar {
+    cursor: pointer;
+}
+
+body {
+    background: radial-gradient(circle at 20% 0%, rgba(56,189,248,.18), transparent 32%), linear-gradient(135deg, #07111f, #101827 45%, #05070d) !important;
+}
+
+.journey-banner-img {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center 70% !important;
+}
+/* Fix the gap — anchor left profile card out of flow */
+.left-profile-card {
+    position: fixed !important;
+    top: 50% !important;
+    left: 0 !important;
+    transform: translateY(-50%) !important;
+    width: 260px !important;
+    height: 85vh !important;
+    z-index: 10000 !important;
+    overflow-y: auto !important;
+    background: linear-gradient( 180deg, rgba(5,7,13,0.96), rgba(10,14,28,0.96) ) !important;
+    border-right: 3px solid gold !important;
+    padding: 1px !important;
+    color: white !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+/* Fix stats back to the right */
+.journey-banner {
+    background-position: center -115px !important;
+}
+
+.journey-live-stats {
+    position: absolute !important;
+    right: 42px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 5 !important;
+}
+
+.start-background {
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    width: 100vw !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    background-attachment: fixed !important;
+    padding: 48px !important;
+}
+
+    .start-background > * {
+        position: relative;
+        z-index: 2;
+    }
+
+.app-background {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    height: 100dvh;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: -1;
+    pointer-events: none;
+}
+    /* keep UI above background */
+    .app-background > * {
+        position: relative;
+        z-index: 2;
+        height: 100%;
+    }
+/* ===== GLOBAL BACKGROUND - carries through every page ===== */
+
+html,
+body,
+#root {
+    min-height: 100%;
+}
+
+body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    background: #05070d;
+    overflow-x: hidden;
+}
+
+/* Main app should not trap/cut the background */
+.game {
+    position: relative;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    height: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    background: transparent !important;
+}
+
+    /* Permanent background image layer */
+    .game::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        background: linear-gradient(rgba(3, 7, 18, 0.55), rgba(3, 7, 18, 0.75)), url("../../assets/background-image.webp") center center / cover no-repeat;
+    }
+
+    /* Optional dark mist/glow layer so text stays readable */
+    .game::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background: radial-gradient(circle at 20% 10%, rgba(56, 189, 248, 0.18), transparent 30%), radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.10), transparent 28%), radial-gradient(circle at 50% 100%, rgba(15, 23, 42, 0.85), transparent 45%);
+    }
+
+/* Make page containers sit above the background */
+main,
+.card,
+.sector-card,
+.creator-card,
+.admin-subpanel,
+.profile-card,
+.nav,
+.left-profile-card,
+.right-menu,
+.top-hud {
+    position: relative;
+    z-index: 2;
+}
+
+.inventory-card {
+    position: relative;
+    z-index: 1;
+}
