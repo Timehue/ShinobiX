@@ -16,6 +16,8 @@
     "test:e2e:install": "playwright install chromium firefox webkit",
     "qa:story-v10": "node scripts/story-v10-certification.mjs",
     "qa:story-v10:production-network": "node scripts/story-v10-production-network.mjs",
+    "qa:pet-models": "node scripts/pet-model-certification.mjs",
+    "qa:pet-models:contacts": "node scripts/build-pet-model-contact-sheets.mjs",
     "gen:asset": "node scripts/gen-asset.mjs"
   },
   "dependencies": {
