@@ -129,7 +129,7 @@ export const RightMenu = memo(function RightMenu({
                         <button aria-current={screen === "logbook" ? "page" : undefined} onClick={() => guardedNavigate("logbook")} onPointerDown={() => preloadScreen("logbook")}><GiBookCover size={16} />Logbook</button>
                         <button aria-current={screen === "guides" ? "page" : undefined} onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={16} />Guides</button>
                         <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}><GiChatBubble size={16} />Discord</button>
-                        <button onClick={() => window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer")}><GiHearts size={16} />Patreon</button>
+                        <button onClick={() => guardedNavigate("profile")} onPointerDown={() => preloadScreen("profile")} title="Shinobi Supporter — link Patreon, see your perks"><GiHearts size={16} />Patreon</button>
                         {(isAdminAccount || adminLoggedIn) && (
                             <button onClick={() => guardedNavigate(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={16} />Admin</button>
                         )}
