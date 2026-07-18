@@ -88,18 +88,16 @@ function makeTaperedTailGeometry(points: readonly THREE.Vector3[], baseRadius: n
 }
 
 function makeRockGeometry(): THREE.BufferGeometry {
-    const positions = [
-        -0.72, -0.54, -0.5, 0.64, -0.58, -0.42, 0.76, -0.48, 0.56, -0.58, -0.5, 0.7,
-        -0.5, 0.58, -0.62, 0.55, 0.72, -0.48, 0.62, 0.55, 0.48, -0.66, 0.66, 0.55,
-    ];
-    const indices = [
-        0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6,
-        0, 4, 5, 0, 5, 1, 1, 5, 6, 1, 6, 2,
-        2, 6, 7, 2, 7, 3, 3, 7, 4, 3, 4, 0,
-    ];
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setIndex(indices);
+    const geometry = new THREE.IcosahedronGeometry(1, 1);
+    const positions = geometry.getAttribute("position");
+    for (let index = 0; index < positions.count; index += 1) {
+        const x = positions.getX(index);
+        const y = positions.getY(index);
+        const z = positions.getZ(index);
+        const irregularity = 0.88 + Math.sin(x * 8.3 + y * 5.7 + z * 9.1) * 0.09;
+        positions.setXYZ(index, x * 0.86 * irregularity, y * 0.68 * irregularity, z * 0.76 * irregularity);
+    }
+    positions.needsUpdate = true;
     geometry.computeVertexNormals();
     return geometry;
 }
