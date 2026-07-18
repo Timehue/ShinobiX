@@ -6,6 +6,7 @@ import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.j
 import type { PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import { PetIdentityEffects3D } from "./PetIdentityEffects3D";
+import { isolatePetAtlasTexture, lockPetAtlas } from "../lib/pet-atlas-material";
 
 export type PetModelMotion =
     | "idle"
@@ -68,6 +69,7 @@ type PreparedModel = {
     offset: [number, number, number];
     scale: number;
     materials: THREE.Material[];
+    textures: THREE.Texture[];
     uniforms: DeformUniforms[];
     clips: readonly THREE.AnimationClip[];
     geometries: THREE.BufferGeometry[];
@@ -320,6 +322,12 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
     const fitSize = config.fit === "longest" ? Math.max(size.x, size.y, size.z) : size.y;
     const scale = config.targetHeight / Math.max(0.001, fitSize);
     const materials: THREE.Material[] = [];
+    // GLTFLoader caches textures by model URL.  Keep the decoded image source,
+    // but give every mounted fighter its own Texture/WebGL sampler.  The full
+    // game preloads and remounts Coliseum models; sharing the cache-owned Texture
+    // let a stale/disposed sampler leave intact geometry with an all-white body.
+    const textures: THREE.Texture[] = [];
+    const isolatedTextures = new Map<THREE.Texture, THREE.Texture>();
     const uniforms: DeformUniforms[] = [];
     const tint = new THREE.Color(ELEMENT_LIGHT[String(element ?? "")] ?? "#c4b5fd");
     const tintAmount = element === "Water" ? 0.18 : element === "Fire" ? 0.1 : element === "Earth" ? 0.14 : 0.16;
@@ -347,6 +355,14 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             const textured = material as THREE.MeshStandardMaterial;
             if (textured.map) {
+                const cachedMap = textured.map;
+                let isolatedMap = isolatedTextures.get(cachedMap);
+                if (!isolatedMap) {
+                    isolatedMap = isolatePetAtlasTexture(cachedMap, quality.textureAnisotropy, config.visualId);
+                    isolatedTextures.set(cachedMap, isolatedMap);
+                    textures.push(isolatedMap);
+                }
+                textured.map = isolatedMap;
                 // Generated roster atlases are authored as display colour.  Be
                 // explicit here instead of relying on loader/cache history: an
                 // atlas first seen through an older build can otherwise retain a
@@ -362,6 +378,7 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
                 // warm Coliseum lights. Lock the authored base factor and keep
                 // full-body emission black. Impacts use particles/rim lights.
                 pbr.userData.petAuthoredBaseColor = pbr.color?.getHex?.() ?? 0xffffff;
+                pbr.userData.petAuthoredMap = textured.map ?? null;
                 pbr.color?.setHex?.(Number(pbr.userData.petAuthoredBaseColor));
                 pbr.emissive?.setHex?.(0x000000);
                 pbr.emissiveIntensity = 0;
@@ -429,7 +446,7 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
         });
     }
 
-    return { surface, outline, offset, scale, materials, uniforms, clips, geometries };
+    return { surface, outline, offset, scale, materials, textures, uniforms, clips, geometries };
 }
 
 const normalizedClipName = (clip: THREE.AnimationClip) => clip.name.split("|").at(-1)?.toLowerCase() ?? clip.name.toLowerCase();
@@ -671,6 +688,7 @@ function LoadedPetModel3D({ config, frame, element }: {
         if (prepared.materials.length) {
             for (const material of prepared.materials) material.dispose();
         }
+        for (const texture of prepared.textures) texture.dispose();
         for (const geometry of prepared.geometries) geometry.dispose();
     }, [mixer, outlineMixer, prepared]);
 
@@ -815,9 +833,8 @@ function LoadedPetModel3D({ config, frame, element }: {
                 // robust against stale cached material instances and against any
                 // status/hit branch attempting to tint a shared GLTF material.
                 pbr.color.setHex(Number(pbr.userData.petAuthoredBaseColor ?? 0xffffff));
-                if (pbr.map) {
-                    pbr.map.colorSpace = THREE.SRGBColorSpace;
-                }
+                const authoredMap = pbr.userData.petAuthoredMap as THREE.Texture | null | undefined;
+                if (authoredMap) lockPetAtlas(pbr, authoredMap);
                 pbr.emissive.setHex(0x000000);
                 pbr.emissiveIntensity = 0;
             } else {
