@@ -346,13 +346,27 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
                 : cloneAsCombatToon(sourceMaterial);
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             const textured = material as THREE.MeshStandardMaterial;
-            if (textured.map) textured.map.anisotropy = Math.max(quality.textureAnisotropy, textured.map.anisotropy);
+            if (textured.map) {
+                // Generated roster atlases are authored as display colour.  Be
+                // explicit here instead of relying on loader/cache history: an
+                // atlas first seen through an older build can otherwise retain a
+                // linear colour-space flag and render as pale clay in combat.
+                textured.map.colorSpace = THREE.SRGBColorSpace;
+                textured.map.anisotropy = Math.max(quality.textureAnisotropy, textured.map.anisotropy);
+                textured.map.needsUpdate = true;
+            }
             if (ROSTER_VISUAL_ID.test(config.visualId) && (pbr.isMeshStandardMaterial || pbr.isMeshToonMaterial)) {
-                // Save the DCC-authored emission before combat animation begins.
-                // Roster textures provide their identity; runtime hit feedback
-                // must never repaint the entire pet a flat beige or element tint.
-                pbr.userData.petAuthoredEmissive = pbr.emissive?.getHex?.() ?? 0;
-                pbr.userData.petAuthoredEmissiveIntensity = pbr.emissiveIntensity ?? 0;
+                // The colour atlas is the pet's identity. Generated production
+                // rigs intentionally have no emissive map; a full-body emissive
+                // colour flattens their blue/red/green planes into beige under the
+                // warm Coliseum lights. Lock the authored base factor and keep
+                // full-body emission black. Impacts use particles/rim lights.
+                pbr.userData.petAuthoredBaseColor = pbr.color?.getHex?.() ?? 0xffffff;
+                pbr.color?.setHex?.(Number(pbr.userData.petAuthoredBaseColor));
+                pbr.emissive?.setHex?.(0x000000);
+                pbr.emissiveIntensity = 0;
+                pbr.roughness = Math.min(0.82, Math.max(0.58, pbr.roughness ?? 0.72));
+                pbr.metalness = Math.min(0.05, pbr.metalness ?? 0);
             }
             if (pbr.isMeshToonMaterial) {
                 // Preserve authored normals; the hard toon gradient supplies the
@@ -797,11 +811,15 @@ function LoadedPetModel3D({ config, frame, element }: {
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             if (!pbr.isMeshStandardMaterial && !pbr.isMeshToonMaterial) continue;
             if (ROSTER_VISUAL_ID.test(config.visualId)) {
-                // Sparks, impact frames, rim lights and native VFX already make
-                // roster hits readable. Preserve the approved atlas exactly so
-                // combat never turns a colored pet into an untextured clay model.
-                pbr.emissive.setHex(Number(pbr.userData.petAuthoredEmissive ?? 0));
-                pbr.emissiveIntensity = Number(pbr.userData.petAuthoredEmissiveIntensity ?? 0);
+                // Reassert the approved atlas every frame. This makes combat
+                // robust against stale cached material instances and against any
+                // status/hit branch attempting to tint a shared GLTF material.
+                pbr.color.setHex(Number(pbr.userData.petAuthoredBaseColor ?? 0xffffff));
+                if (pbr.map) {
+                    pbr.map.colorSpace = THREE.SRGBColorSpace;
+                }
+                pbr.emissive.setHex(0x000000);
+                pbr.emissiveIntensity = 0;
             } else {
                 pbr.emissive.set(lightColor);
                 pbr.emissiveIntensity = Math.max(glow, Number(pbr.userData.petIdentityGlow ?? 0));
