@@ -4,16 +4,18 @@ ShinobiX / "Shinobi Journey" — a shinobi RPG browser game. React 19 + Vite SPA
 frontend, a set of Vercel-style TypeScript serverless handlers for the API, and
 Supabase (Postgres) for storage. The handlers run under a single Express server
 (`server.ts` → `dist/server.js`) that serves both the API and the SPA on one
-port — deployed on Railway (Docker) and cPanel / Phusion Passenger. (Vercel was
-the original target and is retired; the handlers keep their Vercel-style shape.)
+port — deployed on Railway (Docker). (cPanel / Phusion Passenger was a maintained
+fallback but is **RETIRED as of 2026-07-17** — Railway is the sole host. Vercel
+was the original target and is also retired; the handlers keep their Vercel-style
+shape.)
 
 ## Commands
 
 Run from the repo root (`shinobix-api` package) unless noted.
 
 - `npm run build`: Build everything — `build:server` (`tsc -p tsconfig.cpanel.json` → `dist/`), then `build:client`, then `verify:dist`.
-- `npm run verify:dist`: Post-build sanity check (`node scripts/verify-dist.mjs`); part of `build`, runnable on its own. Fails the build if `dist/server.js` is missing/broken, so a bad compile can't be committed and shipped to cPanel.
-- `npm start`: Run the production server (`node app.js`) — the cPanel/Passenger entry point.
+- `npm run verify:dist`: Post-build sanity check (`node scripts/verify-dist.mjs`); part of `build`, runnable on its own. Fails the build if `dist/server.js` is missing/broken, so a bad compile fails the Railway build instead of shipping.
+- `npm start`: Run the production server (`node app.js`) — the (now-retired) cPanel/Passenger entry point, kept for local use. Railway runs `node dist/server.js` directly.
 - `npm run dev`: Run the server with `node --watch app.js`.
 - `npm test`: Run the API/unit tests (`node --import tsx --test` over the colocated `*.test.ts` files). Includes `server-routes.test.ts` (route-parity) and the client `App.size.test.ts` ratchet.
 
@@ -37,14 +39,16 @@ Frontend (run inside `shinobij.client/`):
   `_auth.ts`, `_utils.ts` (CORS, etc.), `_storage.ts`, `_ratelimit.ts`,
   `_lock.ts`, `_text-moderation.ts`, `_player-ips.ts`, and the `_*-validate.ts`
   validators. Import from these; don't add a route file starting with `_`.
-- **`server.ts`** (repo root) — the Express server (Railway + cPanel). It imports
+- **`server.ts`** (repo root) — the Express server (Railway). It imports
   the `api/**` handlers unchanged and registers each on **both** the bare path and
-  the `/api`-prefixed path (Passenger may or may not strip `/api`). It also serves
+  the `/api`-prefixed path (a dormant holdover from Passenger, which may or may not
+  have stripped `/api`; harmless on Railway). It also serves
   the React SPA static build and provides `/health` and `/restart`. Compiles to
   `dist/server.js`.
-- **`app.js`** (repo root, CommonJS) — the Passenger entry point that `server.ts`
-  runs under. It hardcodes Supabase DNS and forces IPv4 (CageFS/CloudLinux can't
-  resolve DNS or route IPv6), loads `.env`, then `require('./dist/server.js')`.
+- **`app.js`** (repo root, CommonJS) — the (retired) cPanel/Passenger entry point;
+  Railway runs `node dist/server.js` directly, so this is now dormant. It hardcodes
+  Supabase DNS and forces IPv4 (CageFS/CloudLinux couldn't resolve DNS or route
+  IPv6), loads `.env`, then `require('./dist/server.js')`.
 - **`shinobij.client/`** — React 19 + TypeScript + Vite SPA. `src/main.tsx` →
   `src/App.tsx`; feature views in `src/screens/` (Village, PvP, Ranked, Clan,
   Mission, Training, Pet, GuardDuty, BloodlineCodex), shared UI in
@@ -76,20 +80,20 @@ Frontend (run inside `shinobij.client/`):
 
 ## Deployment
 
-Two targets run the same Express server (`dist/server.js`), which serves the API
-**and** the React SPA on one port, plus the in-process daily snapshot cron.
-**Railway is the current live/production host;** cPanel / Passenger is kept as a
-maintained, in-parity fallback (it is not serving live player traffic). Keep both
-working when changing handlers.
+**Railway is the sole live/production host.** It runs the Express server
+(`dist/server.js`) serving the API **and** the React SPA on one port, plus the
+in-process daily snapshot cron.
 
 - **Railway** (`railway.json` → `Dockerfile`) — `node dist/server.js`. The Docker
-  build runs `npm run build` fresh (server + client), so it self-builds from
-  source. Health check `/health`.
-- **cPanel / Phusion Passenger** — `app.js` → `dist/server.js`. The `.cpanel.yml`
-  auto-deploy does **not** build — it serves the committed `dist/` verbatim, so
-  `npm run build` must be run and committed before deploying (**both** root
-  `dist/` and `shinobij.client/dist/`, the latter force-added past `.gitignore`).
-  See `CPANEL_SETUP.md` and `Passengerfile.json`.
+  build runs `npm run build` fresh (server + client) on every push to `main`, so
+  it **self-builds from source** — committed `dist/` is NOT used. Health check
+  `/health`.
+- **cPanel / Phusion Passenger — RETIRED (2026-07-17).** No longer a deploy
+  target. `app.js` (the Passenger entry) and the dual bare-path/`/api`-path route
+  registration in `server.ts` remain as dormant, harmless code, but nothing
+  serves the committed `dist/` anymore. **Do not commit `dist/`** — it is served
+  by no one, and a source rebuild churns ~600 files on line-endings alone.
+  `CPANEL_SETUP.md` / `Passengerfile.json` / `.cpanel.yml` are historical.
 
 (Vercel was the original target and is retired. Do not add `vercel.json`,
 Vercel routes, builds, env, cron, or runtime settings back to this repo. If a
@@ -98,7 +102,7 @@ delete that project outside the repo instead.)
 
 Note: there is **no folder-convention auto-routing** anymore — every `api/**`
 handler must be imported and `route()`-registered in `server.ts` or it is
-unreachable on both targets. `server-routes.test.ts` enforces this both ways
+unreachable. `server-routes.test.ts` enforces this both ways
 (client call ↔ registration, and handler file ↔ wiring).
 
 ## Conventions
@@ -157,13 +161,14 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
 - Do not modify auth, password, admin, rate-limit, or IP-tracking logic without explaining the risk first.
 - Keep player auth **token-first**: never reintroduce durable plaintext-password storage on the client, and never break the no-token (`SESSION_SECRET` unset) fallback path.
 - A new client-reported reward/currency endpoint must be **server-authoritative** — recompute the reward, or use the mint-token pattern (see `docs/auth-and-anti-cheat-patterns.md`); never pay out from client-supplied amounts/outcomes.
-- Do not remove cPanel/Passenger or Railway support when changing API handlers.
+- Do not remove Railway support when changing API handlers. (cPanel/Passenger is retired; its dormant `app.js` and the dual-path `route()` registration can stay but need not be maintained.)
 - When adding a new API endpoint, you must BOTH create the `api/**` handler AND
   import + `route()`-register it in `server.ts` — there is no auto-routing, so an
-  unregistered handler is unreachable on Railway and cPanel alike.
-- After any `api/`/`server.ts` change destined for cPanel, run `npm run build` and
-  commit the regenerated `dist/` in the same change — the cPanel auto-deploy serves
-  committed `dist/` verbatim and will otherwise ship stale code. (Railway self-builds.)
+  unregistered handler is unreachable.
+- **Do NOT commit `dist/`.** Railway self-builds from source on every push to
+  `main`, and cPanel (which used to serve committed `dist/`) is retired — so a
+  committed `dist/` is served by no one, and a source rebuild only churns it on
+  line-endings.
 - Keep CORS headers in `api/_utils.ts` and `server.ts` synchronized.
 - Do not commit secrets, API keys, Supabase service keys, passwords, or `.env` contents.
 - Always run the relevant tests before saying a task is complete.
