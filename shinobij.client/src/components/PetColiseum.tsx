@@ -3526,19 +3526,19 @@ function DuelPowerUpAura({ at, color, quality, actorId, duel, clock, onDone }: {
                 const radius = i < 3 ? 0.32 : 0.62 + (i % 3) * 0.1;
                 return (
                     <mesh key={i} ref={(mesh) => { petalMeshes.current[i] = mesh; }} geometry={geometry} position={[Math.cos(a) * radius, 0.02, Math.sin(a) * radius]} rotation={[0, a, 0]}>
-                        <meshToonMaterial ref={(material) => { petalMats.current[i] = material; }} color={i % 3 === 0 ? "#ffe45c" : i % 2 ? "#ff9d24" : color} emissive={i % 3 === 0 ? "#ffb000" : "#b94c12"} emissiveIntensity={0.28} transparent opacity={0} depthWrite={false} />
+                        <meshToonMaterial ref={(material) => { petalMats.current[i] = material; }} color={i % 3 === 0 ? "#fff4bd" : color} emissive={color} emissiveIntensity={0.28} transparent opacity={0} depthWrite={false} />
                     </mesh>
                 );
             })}
             <mesh ref={ringA} rotation={[Math.PI / 2, 0, 0]}>
                 <torusGeometry args={[1.0, 0.022, 6, 40]} />
-                <meshBasicMaterial ref={ringMatA} color="#ffd85a" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                <meshBasicMaterial ref={ringMatA} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
             </mesh>
             <mesh ref={ringB} rotation={[Math.PI / 2, 0, 0]}>
                 <torusGeometry args={[0.88, 0.018, 6, 40]} />
                 <meshBasicMaterial ref={ringMatB} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
             </mesh>
-            <Sparkles count={Math.max(6, Math.round(quality.setPieceParticles * 0.42))} scale={[2.3, 3.15, 2.3]} position={[0, 1.52, 0]} size={2.35} speed={1.5} opacity={0.58} color="#fff0a1" noise={0.5} />
+            <Sparkles count={Math.max(6, Math.round(quality.setPieceParticles * 0.42))} scale={[2.3, 3.15, 2.3]} position={[0, 1.52, 0]} size={2.35} speed={1.5} opacity={0.58} color={color} noise={0.5} />
             {quality.translucentLayers > 1 && <Sparkles count={Math.max(4, Math.round(quality.setPieceParticles * 0.2))} scale={[3.0, 0.38, 3.0]} position={[0, 0.17, 0]} size={1.8} speed={0.48} opacity={0.34} color="#d9a74f" noise={0.65} />}
             {quality.dynamicPetLight && <pointLight ref={light} color="#ffc94a" intensity={0} distance={4.8} decay={2} position={[0, 1.15, 0]} />}
         </group>
