@@ -2569,6 +2569,19 @@ function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
     const light = useRef<THREE.PointLight>(null);
     const trail = useRef<THREE.Group>(null);
     const key = visual.spriteKey ?? (visual.tex === "crescent" ? "wind" : visual.tex === "bolt" ? "lightning" : visual.tex === "rock" ? "earth" : "arcane");
+    const flameHead = useMemo(() => key === "fire" ? makeFlamePetalGeometry(0.92, 0.28, 0.32) : null, [key]);
+    const flameInner = useMemo(() => key === "fire" ? makeFlamePetalGeometry(0.68, 0.17, 0.2) : null, [key]);
+    const energyTrails = useMemo(() => key === "earth" ? [] : Array.from({ length: 3 }, (_, i) => makeFlameRibbonGeometry(
+        0.9 - i * 0.14,
+        0.07 - i * 0.01,
+        0.18 + i * 0.04,
+        i * 1.7,
+    )), [key]);
+    useEffect(() => () => {
+        flameHead?.dispose();
+        flameInner?.dispose();
+        energyTrails.forEach((geometry) => geometry.dispose());
+    }, [energyTrails, flameHead, flameInner]);
     const coreColor = key === "fire" ? "#ff5a18" : key === "water" ? "#168fda" : key === "wind" ? "#49cdb7" : key === "earth" ? "#9a5a2d" : key === "lightning" ? "#8d63ff" : visual.core;
     const edgeColor = key === "fire" ? "#ffd65a" : key === "water" ? "#c9f8ff" : key === "wind" ? "#e0fff5" : key === "earth" ? "#e8ad5d" : key === "lightning" ? "#fff6a9" : visual.glow;
     useFrame((state) => {
@@ -2593,26 +2606,47 @@ function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
         <group ref={root} scale={visual.size * 2.8}>
             {/* Solid identity core. */}
             {key === "earth" ? (
-                <mesh castShadow><dodecahedronGeometry args={[0.36, 1]} /><meshToonMaterial color={coreColor} emissive="#2b1309" emissiveIntensity={0.08} /></mesh>
+                <group rotation={[0.18, -0.32, 0.12]}>
+                    <mesh castShadow scale={[1.22, 0.88, 1]}><icosahedronGeometry args={[0.34, 1]} /><meshToonMaterial color={coreColor} emissive="#2b1309" emissiveIntensity={0.08} /></mesh>
+                    <mesh position={[-0.18, 0.2, 0.2]} rotation={[0.6, 0.2, -0.4]} scale={0.34}><icosahedronGeometry args={[0.34, 1]} /><meshToonMaterial color="#c27a3c" emissive="#2b1309" emissiveIntensity={0.06} /></mesh>
+                    <mesh position={[0.15, -0.18, -0.18]} rotation={[-0.5, 0.7, 0.2]} scale={0.27}><icosahedronGeometry args={[0.34, 1]} /><meshToonMaterial color="#704128" emissive="#2b1309" emissiveIntensity={0.05} /></mesh>
+                </group>
             ) : key === "water" ? (
                 <mesh scale={[1.18, 0.82, 0.82]}><sphereGeometry args={[0.38, 18, 12]} /><meshToonMaterial color={coreColor} emissive="#063e73" emissiveIntensity={0.2} transparent opacity={0.9} depthWrite={false} /></mesh>
+            ) : key === "fire" && flameHead && flameInner ? (
+                <group position={[-0.28, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+                    <mesh geometry={flameHead} rotation={[0, 0, 0.12]}>
+                        <meshToonMaterial color="#e63712" emissive="#7f1308" emissiveIntensity={0.32} transparent opacity={0.94} depthWrite={false} />
+                    </mesh>
+                    <mesh geometry={flameInner} position={[0, 0.05, 0.025]} rotation={[0, 0.18, -0.08]}>
+                        <meshToonMaterial color="#ffd957" emissive="#ff6318" emissiveIntensity={0.58} transparent opacity={0.92} depthWrite={false} />
+                    </mesh>
+                </group>
             ) : key === "wind" ? (
                 <group>
                     <mesh rotation={[Math.PI / 2, 0, 0.36]}><torusGeometry args={[0.34, 0.085, 8, 28, Math.PI * 1.32]} /><meshToonMaterial color={coreColor} emissive="#0c4e48" emissiveIntensity={0.18} transparent opacity={0.88} depthWrite={false} /></mesh>
                     <mesh rotation={[-Math.PI / 2, 0, -0.38]} scale={0.74}><torusGeometry args={[0.34, 0.065, 8, 24, Math.PI * 1.16]} /><meshToonMaterial color={edgeColor} transparent opacity={0.74} depthWrite={false} /></mesh>
                 </group>
             ) : key === "lightning" ? (
-                <group>
-                    <mesh rotation={[0, 0, Math.PI / 2]} scale={[0.78, 0.25, 0.25]}><octahedronGeometry args={[0.55, 0]} /><meshToonMaterial color={coreColor} emissive={edgeColor} emissiveIntensity={0.45} /></mesh>
-                    {[-1, 1].map((side) => <mesh key={side} position={[-0.12, side * 0.22, side * 0.13]} rotation={[side * 0.55, 0, side * 0.72]} scale={[0.32, 0.08, 0.08]}><octahedronGeometry args={[0.7, 0]} />{additive(0.78)}</mesh>)}
+                <group rotation={[0, 0, -0.12]}>
+                    {[
+                        { x: 0.24, y: 0.12, a: -0.35, l: 0.46 },
+                        { x: -0.08, y: -0.02, a: 0.48, l: 0.4 },
+                        { x: -0.36, y: 0.1, a: -0.42, l: 0.38 },
+                    ].map((segment, i) => (
+                        <group key={i} position={[segment.x, segment.y, i % 2 ? -0.035 : 0.035]} rotation={[0, 0, segment.a]}>
+                            <mesh scale={[segment.l, 0.11, 0.11]}><boxGeometry args={[1, 1, 1]} /><meshBasicMaterial color={edgeColor} toneMapped={false} /></mesh>
+                            <mesh scale={[segment.l * 1.08, 0.2, 0.2]}><boxGeometry args={[1, 1, 1]} />{additive(0.48, coreColor)}</mesh>
+                        </group>
+                    ))}
                 </group>
             ) : (
-                <mesh><icosahedronGeometry args={[0.36, 2]} /><meshToonMaterial color={coreColor} emissive={edgeColor} emissiveIntensity={key === "fire" ? 0.48 : 0.24} /></mesh>
+                <mesh><sphereGeometry args={[0.36, 22, 14]} /><meshToonMaterial color={coreColor} emissive={edgeColor} emissiveIntensity={key === "fire" ? 0.48 : 0.28} /></mesh>
             )}
 
             {/* Energy envelope catches the silhouette without whitening the core. */}
             <mesh ref={shell} scale={key === "wind" ? 1.35 : 1.15}>
-                {key === "wind" ? <torusGeometry args={[0.34, 0.045, 7, 30, Math.PI * 1.7]} /> : <icosahedronGeometry args={[0.43, 2]} />}
+                {key === "wind" ? <torusGeometry args={[0.34, 0.045, 7, 30, Math.PI * 1.7]} /> : <sphereGeometry args={[0.43, 20, 12]} />}
                 {additive(key === "earth" ? 0.12 : 0.26)}
             </mesh>
 
@@ -2621,13 +2655,9 @@ function NativeProjectileBody({ visual }: { visual: ProjectileVisual }) {
                 {[0, 1, 2].map((i) => key === "earth" ? (
                     <mesh key={i} position={[-0.5 - i * 0.28, (i - 1) * 0.1, (i % 2 ? -1 : 1) * 0.11]} scale={0.13 - i * 0.02} rotation={[i, i * 0.8, 0]}><dodecahedronGeometry args={[1, 0]} /><meshToonMaterial color={i ? "#6f3d22" : edgeColor} /></mesh>
                 ) : (
-                    <mesh key={i} position={[-0.43 - i * 0.31, 0, 0]} rotation={[0, Math.PI / 2, 0]} scale={1 - i * 0.18}>
-                        <torusGeometry args={[0.25, 0.026 + (2 - i) * 0.008, 6, 22]} />
-                        {additive(0.42 - i * 0.1, i === 0 ? edgeColor : coreColor)}
+                    <mesh key={i} geometry={energyTrails[i]} position={[-0.42 - i * 0.18, (i - 1) * 0.11, (i % 2 ? -1 : 1) * 0.09]} rotation={[0, i * 0.42, -Math.PI / 2]} scale={[0.8 - i * 0.12, 0.78 - i * 0.1, 0.78 - i * 0.1]}>
+                        {additive(0.4 - i * 0.1, i === 0 ? edgeColor : coreColor)}
                     </mesh>
-                ))}
-                {key === "fire" && [-1, 1].map((side) => (
-                    <mesh key={side} position={[-0.6, side * 0.16, side * 0.08]} rotation={[0, 0, Math.PI / 2 + side * 0.22]} scale={[0.55, 0.16, 0.16]}><coneGeometry args={[0.42, 1.1, 7]} />{additive(0.38, side > 0 ? "#ff8b1f" : "#ffd85a")}</mesh>
                 ))}
             </group>
             <pointLight ref={light} color={edgeColor} intensity={2.4} distance={visual.charged ? 5.4 : 3.8} decay={2} />
@@ -2693,12 +2723,17 @@ function DuelProjectile({ index, duel, clock, native = false }: { index: number;
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-type DuelSetPieceKind = "flameBurst" | "tidalWave" | "tornado" | "lightningStorm" | "earthBurst" | "elemental";
-type DuelElementBurstKind = "fire" | "water" | "wind" | "lightning" | "earth" | "arcane";
+type DuelSetPieceKind = "flameBurst" | "abyssBurst" | "tidalWave" | "tornado" | "lightningStorm" | "earthBurst" | "elemental";
+type DuelElementBurstKind = "fire" | "water" | "wind" | "lightning" | "earth" | "abyss" | "arcane";
 type DuelMoveCalloutTone = "attack" | "support" | "maneuver" | "combo";
 type DuelImpactMode = "impact" | "tell" | "dodge";
 type DuelSupportKind = "heal" | "shield";
-function duelElementBurstKind(element?: string | null): DuelElementBurstKind {
+function duelElementBurstKind(element?: string | null, move?: string): DuelElementBurstKind {
+    const name = String(move ?? "").toLowerCase();
+    // Some pets deliberately subvert their roster element. The Oni Hound is an
+    // Earth-slot assassin, but a move named Hellhound Execution should erupt in
+    // abyssal hellfire instead of throwing generic tan rocks at the opponent.
+    if (/hell|oni|abyss|demon|soul|corruption/.test(name)) return "abyss";
     const key = String(element ?? "").toLowerCase();
     if (key === "fire" || key === "water" || key === "wind" || key === "lightning" || key === "earth") return key;
     return "arcane";
@@ -2711,6 +2746,7 @@ function liveDuelEffectPosition(duel: DuelResult, clock: { current: DuelClock },
 }
 function duelSetPieceKind(element?: string | null, move?: string): DuelSetPieceKind {
     const name = String(move ?? "").toLowerCase();
+    if (/hell|oni|abyss|demon|soul|corruption/.test(name)) return "abyssBurst";
     if (/tidal|wave|tsunami|torrent|undertow/.test(name) || element === "Water") return "tidalWave";
     if (/tornado|cyclone|tempest|gale|vortex/.test(name) || element === "Wind") return "tornado";
     if (/flame|fire|inferno|blaze|cinder|burst/.test(name) || element === "Fire") return "flameBurst";
@@ -2723,7 +2759,7 @@ function arenaScaleMove(move?: string): boolean {
     // the pet's prefixed move name (for example "Tempest Hawk Force Pulse").
     // Ultimate events already receive a set piece; this gate is only for the few
     // explicitly arena-scale named attacks that arrive through a regular hit.
-    return /\b(tidal wave|tsunami|maelstrom|tornado|cyclone|flame burst|inferno|eruption|cataclysm|thunderstorm)\b/i.test(String(move ?? ""));
+    return /\b(tidal wave|tsunami|maelstrom|tornado|cyclone|flame burst|inferno|eruption|cataclysm|thunderstorm|hellhound execution|hellgate|soul devour)\b/i.test(String(move ?? ""));
 }
 
 function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnElementBurst, spawnFx, spawnSupport, spawnShock, spawnPowerUp, spawnTrail, spawnSetPiece, elementById, nameById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
@@ -2731,7 +2767,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
     spawnImpact: (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => void;
-    spawnElementBurst: (n: { x: number; z: number; element?: string | null; color: string; big: boolean }) => void;
+    spawnElementBurst: (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean }) => void;
     spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
     spawnSupport: (n: { x: number; z: number; color: string; kind: DuelSupportKind; actorId?: string }) => void;
     spawnShock: (n: { x: number; z: number; color: string; big: boolean }) => void;
@@ -2827,7 +2863,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         }
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                         spawnImpact({ x: a.x, z: a.y, color: col, big: impactHeavy });
-                        spawnElementBurst({ x: a.x, z: a.y, element: e.element, color: col, big: impactHeavy });
+                        spawnElementBurst({ x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: impactHeavy });
                         const heavyKind = e.kind === "crush" || e.kind === "push";
                         const fxKey = moveFxKey(e.kind);   // themed burst (blood/shadow/poison/spark/ice/…) or "" → element combo
                         // The BURST on contact. A themed status/special move keeps its single
@@ -3248,6 +3284,15 @@ function DuelElementBurst({ at, kind, color, big, onDone }: { at: Vec3; kind: Du
         const a = (i / (big ? 10 : 7)) * Math.PI * 2 + 0.23;
         return { a, radius: 0.34 + (i % 3) * 0.16, lift: 0.06 + (i % 4) * 0.14, size: 0.68 + (i % 3) * 0.13 };
     }), [big]);
+    const flamePetals = useMemo(() => kind === "fire" || kind === "abyss"
+        ? layout.map((_, i) => makeFlameRibbonGeometry(
+            0.72 + (i % 3) * 0.15,
+            0.1 + (i % 2) * 0.018,
+            0.2 + (i % 4) * 0.06,
+            (i / layout.length) * Math.PI * 2,
+        ))
+        : [], [kind, layout]);
+    useEffect(() => () => flamePetals.forEach((geometry) => geometry.dispose()), [flamePetals]);
     const duration = big ? 0.66 : 0.48;
     const palette = kind === "fire"
         ? { body: "#ef3f13", accent: "#ffb21c", core: "#fff0a6" }
@@ -3259,6 +3304,8 @@ function DuelElementBurst({ at, kind, color, big, onDone }: { at: Vec3; kind: Du
                     ? { body: "#6847d9", accent: "#d8c6ff", core: "#fff8c9" }
                     : kind === "earth"
                         ? { body: "#754321", accent: "#d59a42", core: "#ffe0a1" }
+                        : kind === "abyss"
+                            ? { body: "#4b1038", accent: "#ef234f", core: "#ffd0b2" }
                         : { body: color, accent: "#d8c8ff", core: "#fff7dc" };
     const registerMaterial = (material: (THREE.Material & { opacity: number }) | null) => {
         if (!material || materials.current.includes(material)) return;
@@ -3295,6 +3342,14 @@ function DuelElementBurst({ at, kind, color, big, onDone }: { at: Vec3; kind: Du
                 <icosahedronGeometry args={[1, 1]} />
                 <meshToonMaterial ref={registerMaterial} color={palette.core} emissive={palette.accent} emissiveIntensity={0.32} transparent opacity={0.82} depthWrite={false} />
             </mesh>
+            {/* Offset saber arcs give the burst a drawn anime impact silhouette;
+                they are intentionally partial rather than another flat full ring. */}
+            {[0, 1, 2].map((i) => (
+                <mesh key={`impact-sweep-${i}`} position={[0, 0.14 + i * 0.08, 0]} rotation={[0.34 + i * 0.28, i * 1.92, -0.62 + i * 0.54]}>
+                    <torusGeometry args={[0.58 + i * 0.17, 0.028 + (2 - i) * 0.008, 7, 32, Math.PI * (0.9 + i * 0.1)]} />
+                    <meshBasicMaterial ref={registerMaterial} color={i === 0 ? palette.core : palette.accent} transparent opacity={0.54 - i * 0.1} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                </mesh>
+            ))}
             {layout.map((piece, i) => {
                 const common = {
                     ref: (mesh: THREE.Mesh | null) => { pieces.current[i] = mesh; },
@@ -3302,8 +3357,10 @@ function DuelElementBurst({ at, kind, color, big, onDone }: { at: Vec3; kind: Du
                     rotation: [0, -piece.a, (i % 2 ? -1 : 1) * 0.34] as [number, number, number],
                     scale: piece.size,
                 };
-                if (kind === "fire") return (
-                    <mesh key={i} {...common}><coneGeometry args={[0.16, 0.9, 5]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.22} transparent opacity={0.9} depthWrite={false} /></mesh>
+                if (kind === "fire" || kind === "abyss") return (
+                    <mesh key={i} {...common} geometry={flamePetals[i]} rotation={[0, -piece.a, (i % 2 ? -1 : 1) * 0.18]} scale={piece.size * (kind === "abyss" ? 1.08 : 1)}>
+                        <meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={kind === "abyss" ? 0.34 : 0.24} transparent opacity={0.9} depthWrite={false} />
+                    </mesh>
                 );
                 if (kind === "water") return (
                     <mesh key={i} {...common} scale={[piece.size * 0.52, piece.size, piece.size * 0.52]}><sphereGeometry args={[0.28, 10, 7]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.18} transparent opacity={0.82} depthWrite={false} /></mesh>
@@ -3312,13 +3369,13 @@ function DuelElementBurst({ at, kind, color, big, onDone }: { at: Vec3; kind: Du
                     <mesh key={i} {...common} rotation={[Math.PI / 2, -piece.a, (i % 2 ? -1 : 1) * 0.28]}><torusGeometry args={[0.38, 0.055, 6, 18, Math.PI * 1.18]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.2} transparent opacity={0.86} depthWrite={false} /></mesh>
                 );
                 if (kind === "earth") return (
-                    <mesh key={i} {...common}><dodecahedronGeometry args={[0.24, 0]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.08} transparent opacity={0.94} depthWrite={false} /></mesh>
+                    <mesh key={i} {...common} scale={[piece.size * 0.62, piece.size * 1.18, piece.size * 0.62]}><icosahedronGeometry args={[0.24, 0]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.accent} emissiveIntensity={0.08} transparent opacity={0.94} depthWrite={false} /></mesh>
                 );
                 return (
                     <mesh key={i} {...common} scale={[piece.size * 0.2, piece.size * 1.25, piece.size * 0.2]}><octahedronGeometry args={[0.34, 0]} /><meshToonMaterial ref={registerMaterial} color={i % 3 ? palette.body : palette.accent} emissive={palette.core} emissiveIntensity={0.32} transparent opacity={0.9} depthWrite={false} /></mesh>
                 );
             })}
-            <Sparkles count={big ? 16 : 9} scale={[2.8, 2.2, 2.8]} size={2.0} speed={1.25} opacity={0.46} color={palette.core} noise={1.6} />
+            <Sparkles count={big ? 22 : 12} scale={[2.8, 2.2, 2.8]} size={1.7} speed={1.55} opacity={0.5} color={palette.core} noise={1.8} />
             <pointLight ref={light} color={palette.accent} intensity={0} distance={big ? 6 : 4} decay={2} />
         </group>
     );
@@ -3387,6 +3444,7 @@ function DuelMeleeTrail({ at, toward, kind, color, native = false, onDone }: { a
     const spec = useMemo(() => meleeTrailSpec(kind), [kind]);
     const tex = useMemo(() => (spec.tex === "streak" ? trailStreakTexture() : projCrescentTexture()), [spec.tex]);
     const mesh = useRef<THREE.Mesh>(null);
+    const nativeArc = useRef<THREE.Group>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     const edgeMat = useRef<THREE.MeshBasicMaterial>(null);
     const start = useRef<number | null>(null);
@@ -3394,19 +3452,18 @@ function DuelMeleeTrail({ at, toward, kind, color, native = false, onDone }: { a
         if (start.current === null) start.current = state.clock.elapsedTime;
         const p = Math.min(1, (state.clock.elapsedTime - start.current) / (spec.life / 1000));
         const e = p * p * (3 - 2 * p);   // smoothstep through the swing
-        if (mesh.current) {
-            const grow = 0.7 + 0.5 * Math.sin(Math.PI * Math.min(1, p / 0.7));   // swell, then settle
-            if (native) {
-                // Real geometry in arena space: a short saber arc owns a little
-                // depth, catches the lights, and never turns to face the camera.
-                mesh.current.position.set(0, 0.12 + Math.sin(Math.PI * e) * 0.14, 0);
-                mesh.current.rotation.set(0.34 + e * 0.35, (toward < 0 ? -1 : 1) * e * 0.36, lerp(-0.9, 0.9, e));
-                mesh.current.scale.setScalar(grow * (kind === "heavySlam" ? 1.24 : 1));
-            } else {
+        const grow = 0.7 + 0.5 * Math.sin(Math.PI * Math.min(1, p / 0.7));   // swell, then settle
+        if (native && nativeArc.current) {
+            // Move every layered blade together. The former implementation only
+            // animated the thick inner torus while its highlight stayed behind,
+            // creating a cheap split-ring artifact during the actual contact frame.
+            nativeArc.current.position.set(0, 0.12 + Math.sin(Math.PI * e) * 0.18, 0);
+            nativeArc.current.rotation.set(0.28 + e * 0.46, (toward < 0 ? -1 : 1) * e * 0.42, lerp(-1.02, 0.96, e));
+            nativeArc.current.scale.setScalar(grow * (kind === "heavySlam" ? 1.3 : 1));
+        } else if (mesh.current) {
                 mesh.current.position.set(lerp(spec.dx0, spec.dx1, e), lerp(spec.dy0, spec.dy1, e), 0);
                 mesh.current.rotation.z = lerp(spec.rot0, spec.rot1, e);
                 mesh.current.scale.set(spec.w * grow, spec.h * grow, 1);
-            }
         }
         if (mat.current) mat.current.opacity = (p < 0.22 ? p / 0.22 : 1 - (p - 0.22) / 0.78) * 0.9;
         if (edgeMat.current) edgeMat.current.opacity = (p < 0.22 ? p / 0.22 : 1 - (p - 0.22) / 0.78) * 0.68;
@@ -3414,14 +3471,26 @@ function DuelMeleeTrail({ at, toward, kind, color, native = false, onDone }: { a
     });
     if (native) return (
         <group position={at} scale={[toward, 1, 1]}>
-            <mesh ref={mesh}>
-                <torusGeometry args={[0.78, kind === "heavySlam" ? 0.095 : 0.068, 8, 24, Math.PI * 0.86]} />
-                <meshBasicMaterial ref={mat} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            </mesh>
-            <mesh position={[0, 0.13, 0.025]} rotation={[0.34, 0, -0.04]}>
-                <torusGeometry args={[0.78, 0.026, 6, 24, Math.PI * 0.86]} />
-                <meshBasicMaterial ref={edgeMat} color="#fff8df" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            </mesh>
+            <group ref={nativeArc}>
+                <mesh ref={mesh}>
+                    <torusGeometry args={[0.78, kind === "heavySlam" ? 0.11 : 0.078, 10, 36, Math.PI * 0.9]} />
+                    <meshBasicMaterial ref={mat} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh position={[0, 0, 0.018]} scale={0.99}>
+                    <torusGeometry args={[0.78, 0.028, 8, 36, Math.PI * 0.9]} />
+                    <meshBasicMaterial ref={edgeMat} color="#fff8df" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh position={[0, 0, -0.025]} scale={1.09}>
+                    <torusGeometry args={[0.78, 0.018, 7, 36, Math.PI * 0.9]} />
+                    <meshBasicMaterial color={color} transparent opacity={0.34} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                {[0, 1, 2].map((i) => (
+                    <mesh key={`blade-chip-${i}`} position={[0.72 - i * 0.16, 0.45 + i * 0.11, (i - 1) * 0.08]} rotation={[i * 0.4, i * 0.7, 0.35]} scale={0.055 + i * 0.012}>
+                        <octahedronGeometry args={[1, 0]} />
+                        <meshBasicMaterial color={i === 0 ? "#fff8df" : color} transparent opacity={0.72 - i * 0.12} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                ))}
+            </group>
         </group>
     );
     return (
@@ -3487,7 +3556,12 @@ function DuelPowerUpAura({ at, color, quality, actorId, duel, clock, onDone }: {
     const ringMatB = useRef<THREE.MeshBasicMaterial>(null);
     const light = useRef<THREE.PointLight>(null);
     const start = useRef<number | null>(null);
-    const auraPetals = useMemo(() => Array.from({ length: 9 }, (_, i) => makeFlamePetalGeometry(2.25 + (i % 4) * 0.28, 0.18 + (i % 3) * 0.045, 0.34 + (i % 2) * 0.22)), []);
+    const auraPetals = useMemo(() => Array.from({ length: 8 }, (_, i) => makeFlameRibbonGeometry(
+        1.72 + (i % 4) * 0.24,
+        0.1 + (i % 3) * 0.018,
+        0.3 + (i % 3) * 0.11,
+        (i / 8) * Math.PI * 2,
+    )), []);
     useEffect(() => () => auraPetals.forEach((geometry) => geometry.dispose()), [auraPetals]);
     const duration = 0.92;
     useFrame((state) => {
@@ -3509,7 +3583,7 @@ function DuelPowerUpAura({ at, color, quality, actorId, duel, clock, onDone }: {
             mesh.scale.x = mesh.scale.z = 1.0 - flicker * 0.045;
             mesh.rotation.z = flicker * 0.035;
         });
-        petalMats.current.forEach((material, i) => { if (material) material.opacity = fade * (i % 3 === 0 ? 0.72 : 0.54); });
+        petalMats.current.forEach((material, i) => { if (material) material.opacity = fade * (i % 3 === 0 ? 0.5 : 0.34); });
         const liftA = (p * 2.4) % 1;
         const liftB = (p * 2.4 + 0.5) % 1;
         if (ringA.current) { ringA.current.position.y = 0.12 + liftA * 2.7; ringA.current.scale.setScalar(1.25 - liftA * 0.62); }
@@ -3523,7 +3597,7 @@ function DuelPowerUpAura({ at, color, quality, actorId, duel, clock, onDone }: {
         <group ref={root} position={[at[0], 0.03, at[2]]} scale={0.01}>
             {auraPetals.map((geometry, i) => {
                 const a = (i / auraPetals.length) * Math.PI * 2;
-                const radius = i < 3 ? 0.32 : 0.62 + (i % 3) * 0.1;
+                const radius = i < 2 ? 0.24 : 0.53 + (i % 3) * 0.1;
                 return (
                     <mesh key={i} ref={(mesh) => { petalMeshes.current[i] = mesh; }} geometry={geometry} position={[Math.cos(a) * radius, 0.02, Math.sin(a) * radius]} rotation={[0, a, 0]}>
                         <meshToonMaterial ref={(material) => { petalMats.current[i] = material; }} color={i % 3 === 0 ? "#fff4bd" : color} emissive={color} emissiveIntensity={0.28} transparent opacity={0} depthWrite={false} />
@@ -3755,6 +3829,37 @@ function makeFlamePetalGeometry(height: number, radius: number, bend: number): T
     return geometry;
 }
 
+/** A tapered, curling energy tongue. Unlike a cone or a straight radial petal,
+ * its centreline changes direction as it rises, so a cluster reads as flowing
+ * flame/ki from every camera angle instead of a crown of rigid crystals. */
+function makeFlameRibbonGeometry(height: number, radius: number, sway: number, phase: number): THREE.BufferGeometry {
+    const rings = 16, sides = 9;
+    const positions: number[] = [], indices: number[] = [];
+    for (let ring = 0; ring <= rings; ring++) {
+        const t = ring / rings;
+        const envelope = Math.pow(1 - t, 0.72) * (0.58 + Math.sin(Math.PI * t) * 0.52);
+        const rr = Math.max(0.012, radius * envelope);
+        const turn = phase + t * (2.4 + (phase % 0.7));
+        const cx = Math.sin(turn) * sway * t * t;
+        const cz = Math.cos(turn * 0.86) * sway * t * t;
+        for (let side = 0; side < sides; side++) {
+            const a = (side / sides) * Math.PI * 2;
+            positions.push(cx + Math.cos(a) * rr, t * height, cz + Math.sin(a) * rr);
+        }
+    }
+    for (let ring = 0; ring < rings; ring++) for (let side = 0; side < sides; side++) {
+        const next = (side + 1) % sides;
+        const a = ring * sides + side, b = ring * sides + next;
+        const c = (ring + 1) * sides + side, d = (ring + 1) * sides + next;
+        indices.push(a, c, b, b, c, d);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+}
+
 function makeTornadoTube(phase: number): THREE.TubeGeometry {
     // A compact, widening ribbon rather than a tall wire corkscrew.  The old
     // six-turn path read as a transparent spring and regularly left the frame.
@@ -3780,13 +3885,20 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
     const flameLight = useRef<THREE.PointLight>(null);
     const start = useRef<number | null>(null);
     const completed = useRef(false);
+    const abyssal = kind === "abyssBurst";
+    const flameLike = kind === "flameBurst" || abyssal;
     const waveVolume = useMemo(() => kind === "tidalWave" ? makeWaveVolumeGeometry() : null, [kind]);
     const waveCrest = useMemo(() => kind === "tidalWave" ? makeWaveCrestGeometry() : null, [kind]);
     const flamePetalCount = quality.id === "low" ? 6 : quality.id === "medium" ? 7 : 8;
     const tornadoTubeCount = quality.id === "low" ? 2 : 3;
-    const flamePetals = useMemo(() => kind === "flameBurst"
-        ? Array.from({ length: flamePetalCount }, (_, i) => makeFlamePetalGeometry(1.72 + (i % 4) * 0.3, 0.38 + (i % 3) * 0.075, 0.62 + (i % 2) * 0.32))
-        : [], [kind, flamePetalCount]);
+    const flamePetals = useMemo(() => flameLike
+        ? Array.from({ length: flamePetalCount }, (_, i) => makeFlameRibbonGeometry(
+            1.28 + (i % 4) * 0.24,
+            0.17 + (i % 3) * 0.025,
+            0.52 + (i % 3) * 0.18,
+            (i / flamePetalCount) * Math.PI * 2,
+        ))
+        : [], [flameLike, flamePetalCount]);
     const tornadoTubes = useMemo(() => kind === "tornado"
         ? Array.from({ length: tornadoTubeCount }, (_, i) => (i / tornadoTubeCount) * Math.PI * 2).map(makeTornadoTube)
         : [], [kind, tornadoTubeCount]);
@@ -3799,7 +3911,7 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
     const angle = Math.atan2(dx, dz);
     // The cut-in supplies the anticipation; the set piece itself arrives fast,
     // then holds its full arena silhouette for the payoff instead of drifting in.
-    const duration = kind === "tornado" ? 2.4 : kind === "tidalWave" ? 2.45 : kind === "flameBurst" ? 2.3 : kind === "lightningStorm" ? 2.15 : kind === "earthBurst" ? 2.25 : 2.05;
+    const duration = kind === "tornado" ? 2.4 : kind === "tidalWave" ? 2.45 : flameLike ? 2.3 : kind === "lightningStorm" ? 2.15 : kind === "earthBurst" ? 2.25 : 2.05;
     const registerMaterial = (material: (THREE.Material & { opacity: number }) | null) => {
         if (!material || materials.current.includes(material)) return;
         material.userData.baseOpacity = material.opacity;
@@ -3826,12 +3938,12 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                 // The previous sine swell collapsed back to half-size while the
                 // cut-in was still clearing, which made the actual payoff look tiny.
                 const grow = 1 - Math.pow(1 - Math.min(1, p / 0.22), 3);
-                const fullScale = kind === "flameBurst" ? 1.08 : kind === "tornado" ? 1.16 : kind === "lightningStorm" ? 1.28 : kind === "earthBurst" ? 1.18 : 1.25;
+                const fullScale = flameLike ? 1.08 : kind === "tornado" ? 1.16 : kind === "lightningStorm" ? 1.28 : kind === "earthBurst" ? 1.18 : 1.25;
                 const settle = p < 0.82 ? 1 : 1 - Math.min(1, (p - 0.82) / 0.18) * 0.16;
                 g.scale.setScalar((0.45 + grow * (fullScale - 0.45)) * settle);
             }
         }
-        if (kind === "flameBurst") {
+        if (flameLike) {
             flameMeshes.current.forEach((mesh, i) => {
                 const flicker = Math.sin(state.clock.elapsedTime * (8.5 + (i % 3)) + i * 1.7);
                 mesh.scale.y = 0.9 + flicker * 0.13;
@@ -3844,8 +3956,13 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
         if (p >= 1 && !completed.current) { completed.current = true; onDone(); }
     });
 
+    const setPieceColor = abyssal ? "#d51d56" : kind === "flameBurst" ? "#ff4b18"
+        : kind === "tidalWave" ? "#2fc9ea"
+            : kind === "tornado" ? "#50d9be"
+                : kind === "lightningStorm" ? "#9b7cff"
+                    : kind === "earthBurst" ? "#c88b43" : color;
     const mat = (opacity: number, white = false) => (
-        <meshBasicMaterial ref={registerMaterial} color={white ? "#effcff" : color} transparent opacity={opacity} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+        <meshBasicMaterial ref={registerMaterial} color={white ? "#effcff" : setPieceColor} transparent opacity={opacity} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
     );
     return (
         <group ref={root}>
@@ -3958,16 +4075,16 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                     <Sparkles count={quality.setPieceParticles} scale={[4.4, 5.5, 4.4]} position={[0, 2.25, 0]} size={2.4} speed={1.35} opacity={0.38} color="#b9f5e7" noise={2.3} />
                 </group>
             )}
-            {kind === "flameBurst" && (
+            {flameLike && (
                 <group>
                     <mesh position={[0, 0.08, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                        <ringGeometry args={[1.05, 2.35, 48]} />
-                        {mat(0.5)}
+                        <ringGeometry args={[1.08, 1.42, 48]} />
+                        {mat(0.22)}
                     </mesh>
                     {flamePetals.map((geometry, i) => {
                         const a = (i / flamePetals.length) * Math.PI * 2;
-                        const r = i < 3 ? 0.32 : 0.76 + (i % 3) * 0.2;
-                        const inner = i < 3;
+                        const r = i < 2 ? 0.22 : 0.58 + (i % 3) * 0.18;
+                        const inner = i < 2;
                         return (
                             <mesh
                                 key={i}
@@ -3979,22 +4096,24 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                             >
                                 <meshToonMaterial
                                     ref={registerMaterial}
-                                    color={inner ? "#ffe45c" : i % 2 ? "#ff6a18" : "#d92f12"}
-                                    emissive={inner ? "#ffb000" : "#7f1708"}
-                                    emissiveIntensity={inner ? 0.48 : 0.24}
+                                    color={abyssal
+                                        ? inner ? "#ffb4d1" : i % 2 ? "#d5164f" : "#551056"
+                                        : inner ? "#ffe777" : i % 2 ? "#ff5a18" : "#c92319"}
+                                    emissive={abyssal ? (inner ? "#ff335f" : "#26082f") : (inner ? "#ff9d00" : "#681018")}
+                                    emissiveIntensity={inner ? 0.42 : 0.2}
                                     transparent
-                                    opacity={inner ? 0.94 : 0.9}
-                                    depthWrite={inner}
+                                    opacity={inner ? 0.86 : 0.74}
+                                    depthWrite={false}
                                 />
                             </mesh>
                         );
                     })}
-                    <mesh position={[0, 0.82, 0]} scale={0.88}>
-                        <icosahedronGeometry args={[1, 1]} />
-                        <meshToonMaterial ref={registerMaterial} color="#fff4a3" emissive="#ff6a00" emissiveIntensity={0.52} transparent opacity={0.66} depthWrite={false} />
+                    <mesh position={[0, 0.42, 0]} scale={[0.68, 0.46, 0.68]}>
+                        <sphereGeometry args={[1, 22, 14]} />
+                        <meshToonMaterial ref={registerMaterial} color={abyssal ? "#b71b59" : "#ffb426"} emissive={abyssal ? "#54105f" : "#ff3d12"} emissiveIntensity={0.38} transparent opacity={0.4} depthWrite={false} />
                     </mesh>
-                    {quality.dynamicPetLight && <pointLight ref={flameLight} position={[0, 1.4, 0]} color="#ff6a22" intensity={0} distance={8} decay={2} />}
-                    <Sparkles count={quality.setPieceParticles} scale={[5.2, 4.3, 5.2]} position={[0, 1.5, 0]} size={3.4} speed={1.35} opacity={0.6} color="#fff1c2" noise={2.0} />
+                    {quality.dynamicPetLight && <pointLight ref={flameLight} position={[0, 1.4, 0]} color={abyssal ? "#ef2b67" : "#ff6a22"} intensity={0} distance={8} decay={2} />}
+                    <Sparkles count={quality.setPieceParticles} scale={[5.2, 4.3, 5.2]} position={[0, 1.5, 0]} size={3.4} speed={1.35} opacity={0.6} color={abyssal ? "#ffd0e0" : "#fff1c2"} noise={2.0} />
                 </group>
             )}
             {kind === "lightningStorm" && (
@@ -4196,10 +4315,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const mode = n.mode ?? "impact";
         setImpacts((arr) => [...arr, { id, pos: [fp.wx, mode === "impact" ? FX_Y : FLOOR_Y + 0.035, fp.wz], color: n.color, big: n.big, mode }]);
     };
-    const spawnElementBurst = (n: { x: number; z: number; element?: string | null; color: string; big: boolean }) => {
+    const spawnElementBurst = (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setElementBursts((arr) => [...arr, { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element), color: n.color, big: n.big }]);
+        setElementBursts((arr) => [...arr, { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element, n.move), color: n.color, big: n.big }]);
     };
     const spawnSupport = (n: { x: number; z: number; color: string; kind: DuelSupportKind; actorId?: string }) => {
         const id = seqRef.current++;
