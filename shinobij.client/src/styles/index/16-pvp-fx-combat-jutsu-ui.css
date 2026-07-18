@@ -1,0 +1,724 @@
+/* ===== PvP ground-effect coloring by jutsu element / tags ===== */
+.hex-tile.ground-target-tile.ground-effect-move {
+    background: radial-gradient(circle at 50% 40%, rgba(254, 240, 138, 0.55), rgba(34, 211, 238, 0.45) 42%, rgba(7, 89, 133, 0.96) 82%) !important;
+    border-color: rgba(250, 204, 21, 0.9) !important;
+}
+.hex-tile.ground-effect-fire {
+    background: radial-gradient(circle at 50% 42%, rgba(254, 202, 202, 0.42), rgba(248, 113, 113, 0.62) 45%, rgba(127, 29, 29, 0.98) 88%) !important;
+    border-color: rgba(251, 113, 133, 0.95) !important;
+}
+.hex-tile.ground-effect-poison {
+    background: radial-gradient(circle at 50% 42%, rgba(187, 247, 208, 0.42), rgba(34, 197, 94, 0.58) 45%, rgba(20, 83, 45, 0.98) 88%) !important;
+    border-color: rgba(74, 222, 128, 0.95) !important;
+}
+.hex-tile.ground-effect-lightning {
+    background: radial-gradient(circle at 50% 42%, rgba(216, 180, 254, 0.5), rgba(96, 165, 250, 0.62) 45%, rgba(49, 46, 129, 0.98) 88%) !important;
+    border-color: rgba(129, 140, 248, 0.98) !important;
+}
+.hex-tile.ground-effect-guard,
+.hex-tile.ground-effect-water {
+    background: radial-gradient(circle at 50% 42%, rgba(186, 230, 253, 0.46), rgba(45, 212, 191, 0.5) 44%, rgba(15, 118, 110, 0.98) 88%) !important;
+    border-color: rgba(94, 234, 212, 0.95) !important;
+}
+.hex-tile.ground-effect-earth {
+    background: radial-gradient(circle at 50% 42%, rgba(254, 215, 170, 0.42), rgba(161, 98, 7, 0.56) 46%, rgba(68, 64, 60, 0.98) 88%) !important;
+    border-color: rgba(217, 119, 6, 0.92) !important;
+}
+.hex-tile.ground-effect-wind {
+    background: radial-gradient(circle at 50% 42%, rgba(220, 252, 231, 0.42), rgba(74, 222, 128, 0.48) 45%, rgba(21, 94, 117, 0.98) 88%) !important;
+    border-color: rgba(125, 211, 252, 0.92) !important;
+}
+.hex-tile.ground-effect-force {
+    background: radial-gradient(circle at 50% 42%, rgba(221, 214, 254, 0.45), rgba(168, 85, 247, 0.5) 45%, rgba(88, 28, 135, 0.98) 88%) !important;
+    border-color: rgba(196, 181, 253, 0.95) !important;
+}
+.hex-tile.ground-affected-tile.ground-effect-fire,
+.hex-tile.ground-affected-tile.ground-effect-poison,
+.hex-tile.ground-affected-tile.ground-effect-lightning,
+.hex-tile.ground-affected-tile.ground-effect-guard,
+.hex-tile.ground-affected-tile.ground-effect-water,
+.hex-tile.ground-affected-tile.ground-effect-earth,
+.hex-tile.ground-affected-tile.ground-effect-wind,
+.hex-tile.ground-affected-tile.ground-effect-force {
+    filter: saturate(1.65) brightness(1.22);
+}
+/* AOE_SPIRAL ground nova — large footprint pulses like a lingering shockwave */
+.hex-tile.ground-effect-nova {
+    animation: pvpGroundNova 1.15s ease-in-out infinite;
+}
+@keyframes pvpGroundNova {
+    0%, 100% { filter: saturate(1.55) brightness(1.12); }
+    50% {
+        filter: saturate(2) brightness(1.42);
+        box-shadow:
+            inset 0 0 26px rgba(255, 255, 255, 0.35),
+            0 0 22px rgba(255, 255, 255, 0.3) !important;
+    }
+}
+/* ===== PvP movement / dash visual effects ===== */
+.pvp-dash-fx {
+    position: absolute;
+    inset: 0;
+    z-index: 18;
+    pointer-events: none;
+}
+.pvp-dash-trail {
+    position: absolute;
+    height: 8px;
+    border-radius: 999px;
+    transform-origin: 0 50%;
+    background: linear-gradient(90deg, rgba(248, 250, 252, 0), rgba(125, 211, 252, 0.9), rgba(250, 204, 21, 0.95));
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.8), 0 0 28px rgba(250, 204, 21, 0.45);
+    opacity: 0;
+    animation: pvpDashTrail 520ms ease-out forwards;
+}
+.pvp-dash-ghost {
+    position: absolute;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 2px solid rgba(254, 243, 199, 0.95);
+    background:
+        radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.94), rgba(125, 211, 252, 0.5) 42%, rgba(14, 165, 233, 0.12) 68%, transparent 72%);
+    box-shadow: 0 0 18px rgba(125, 211, 252, 0.95), 0 0 34px rgba(250, 204, 21, 0.5);
+    animation: pvpDashGhost 520ms cubic-bezier(.2, .8, .2, 1) forwards;
+}
+.pvp-dash-impact {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 3px solid rgba(250, 204, 21, 0.95);
+    box-shadow: inset 0 0 18px rgba(250, 204, 21, 0.42), 0 0 22px rgba(250, 204, 21, 0.7);
+    animation: pvpDashImpact 560ms ease-out forwards;
+}
+.enemy-dash-fx .pvp-dash-trail {
+    background: linear-gradient(90deg, rgba(248, 250, 252, 0), rgba(251, 113, 133, 0.9), rgba(168, 85, 247, 0.95));
+    box-shadow: 0 0 18px rgba(251, 113, 133, 0.85), 0 0 28px rgba(168, 85, 247, 0.5);
+}
+.enemy-dash-fx .pvp-dash-ghost {
+    border-color: rgba(254, 205, 211, 0.95);
+    background:
+        radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.92), rgba(251, 113, 133, 0.54) 42%, rgba(168, 85, 247, 0.14) 68%, transparent 72%);
+    box-shadow: 0 0 18px rgba(251, 113, 133, 0.9), 0 0 34px rgba(168, 85, 247, 0.5);
+}
+.enemy-dash-fx .pvp-dash-impact {
+    border-color: rgba(251, 113, 133, 0.95);
+    box-shadow: inset 0 0 18px rgba(251, 113, 133, 0.45), 0 0 22px rgba(251, 113, 133, 0.72);
+}
+@keyframes pvpDashTrail {
+    0%   { opacity: 0; }
+    18%  { opacity: 1; }
+    100% { opacity: 0; filter: blur(5px); }
+}
+@keyframes pvpDashGhost {
+    0%   { opacity: 0; transform: translate(0, 0) scale(0.72); filter: blur(3px); }
+    15%  { opacity: 1; }
+    78%  { opacity: 0.85; transform: translate(var(--dash-x), var(--dash-y)) scale(1.05); filter: blur(0); }
+    100% { opacity: 0; transform: translate(var(--dash-x), var(--dash-y)) scale(0.85); filter: blur(5px); }
+}
+@keyframes pvpDashImpact {
+    0%   { opacity: 0; transform: scale(0.35); }
+    28%  { opacity: 1; transform: scale(0.95); }
+    100% { opacity: 0; transform: scale(1.8); }
+}
+
+/* ===== Combat equipped jutsu buttons only ===== */
+
+.combat-jutsu-bar {
+    padding: 8px !important;
+    max-height: 170px !important;
+    overflow-y: auto !important;
+}
+
+.combat-equipped-jutsu-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+    gap: 7px !important;
+}
+
+.combat-jutsu-button {
+    min-height: 58px !important;
+    padding: 7px 8px !important;
+    display: grid !important;
+    grid-template-rows: auto auto auto !important;
+    align-content: center !important;
+    gap: 2px !important;
+    text-align: left !important;
+    border-radius: 7px !important;
+    background: linear-gradient(#1e3a8a, #172554) !important;
+    border: 1px solid var(--text-muted) !important;
+    color: #e0f2fe !important;
+    box-shadow: none !important;
+}
+
+    .combat-jutsu-button strong {
+        font-size: 11px !important;
+        line-height: 1.1 !important;
+        color: #fef3c7 !important;
+    }
+
+    .combat-jutsu-button span {
+        font-size: 9px !important;
+        line-height: 1.1 !important;
+        color: #bfdbfe !important;
+    }
+
+    .combat-jutsu-button small {
+        font-size: 8px !important;
+        line-height: 1.1 !important;
+        color: var(--slate-300) !important;
+    }
+
+    .combat-jutsu-button.selected-action {
+        border-color: var(--gold) !important;
+        background: linear-gradient(#92400e, #451a03) !important;
+        box-shadow: 0 0 10px rgba(250, 204, 21, 0.45) !important;
+    }
+
+/* Make sure the old dropdown browser never appears in combat */
+.combat-jutsu-bar .jutsu-dropdown-list,
+.combat-jutsu-bar .technique-browser,
+.combat-jutsu-bar .technique-filter-panel,
+.combat-jutsu-bar .jutsu-art {
+    display: none !important;
+}
+/* ===== Combat jutsu icon grid ===== */
+
+.combat-equipped-jutsu-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)) !important;
+    gap: 6px !important;
+}
+
+.combat-jutsu-button {
+    min-height: 96px !important;
+    padding: 3px !important;
+    display: grid !important;
+    grid-template-rows: 64px auto auto !important;
+    gap: 2px !important;
+    text-align: center !important;
+    border-radius: 6px !important;
+    background: #e8f1fb !important;
+    border: 2px solid var(--slate-700) !important;
+    color: #020617 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+}
+
+.combat-jutsu-thumb {
+    width: 100% !important;
+    height: 64px !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
+    background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.55), transparent 24%), linear-gradient(135deg, var(--slate-900), #312e81, #7c2d12) !important;
+}
+
+    .combat-jutsu-thumb img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        display: block !important;
+    }
+
+    .combat-jutsu-thumb strong {
+        font-size: 26px !important;
+        line-height: 1 !important;
+    }
+
+.combat-jutsu-name {
+    /* Up to two lines so longer names ("Stone Needle Barrage") don't truncate to
+       "Stone Nee…". Multi-line ellipsis via line-clamp instead of nowrap. */
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+    line-clamp: 2 !important;
+    font-size: 9px !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
+    color: #111827 !important;
+    white-space: normal !important;
+    overflow: hidden !important;
+    overflow-wrap: anywhere !important;
+}
+
+.combat-jutsu-info {
+    display: block !important;
+    font-size: 8px !important;
+    line-height: 1 !important;
+    color: var(--slate-700) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.combat-jutsu-button.selected-action {
+    border-color: var(--gold) !important;
+    background: #fef3c7 !important;
+    box-shadow: 0 0 10px rgba(250, 204, 21, 0.55) !important;
+}
+
+.combat-jutsu-button:hover {
+    transform: none !important;
+}
+/* ===== Darker combat jutsu background ===== */
+
+.combat-jutsu-bar {
+    background: linear-gradient(180deg, rgba(8, 12, 24, 0.96), rgba(14, 20, 38, 0.96)) !important;
+    border: 1px solid rgba(250, 204, 21, 0.25) !important;
+    border-radius: 8px !important;
+    padding: 8px !important;
+}
+
+.combat-equipped-jutsu-grid {
+    background: rgba(3, 7, 18, 0.55) !important;
+    border-radius: 8px !important;
+    padding: 6px !important;
+}
+
+.combat-jutsu-button {
+    background: linear-gradient(180deg, #16284f, #0f1b36) !important;
+    border: 2px solid #4b5563 !important;
+    color: #f8fafc !important;
+}
+
+.combat-jutsu-name {
+    color: #f8fafc !important;
+}
+
+.combat-jutsu-info {
+    color: var(--slate-300) !important;
+}
+
+/* optional: make selected jutsu stand out more */
+.combat-jutsu-button.selected-action {
+    background: linear-gradient(180deg, #3b2a09, #24180a) !important;
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 10px rgba(250, 204, 21, 0.4) !important;
+}
+
+.combat-jutsu-button.jutsu-on-cooldown {
+    cursor: not-allowed !important;
+    filter: grayscale(1) brightness(0.62) !important;
+    opacity: 0.62 !important;
+    border-color: var(--text-muted) !important;
+    background: linear-gradient(180deg, var(--slate-600), #1f2937) !important;
+}
+/* Unaffordable / not-your-turn jutsu + item cards read as inert at a glance
+   (catalog affordance, C5/C1 parity). On-cooldown cards keep their own dim +
+   CD badge above, so this only dims the other disabled states. */
+.combat-jutsu-button:disabled:not(.jutsu-on-cooldown) {
+    cursor: not-allowed;
+    opacity: 0.45;
+    filter: grayscale(0.4);
+}
+
+    .combat-jutsu-button.jutsu-on-cooldown .combat-jutsu-thumb img,
+    .combat-jutsu-button.jutsu-on-cooldown .combat-jutsu-thumb {
+        filter: grayscale(1) brightness(0.78) !important;
+    }
+
+    .combat-jutsu-button.jutsu-on-cooldown .combat-jutsu-name,
+    .combat-jutsu-button.jutsu-on-cooldown .combat-jutsu-info {
+        color: #d1d5db !important;
+    }
+
+/* Weapon / thrown / consumable item cards on cooldown: the green/red item-card
+   tint below (same specificity, later source order) would otherwise win the
+   `background` and the card wouldn't read as "spent". Re-assert the grey
+   cooldown look at higher specificity so items grey out exactly like jutsu. */
+.combat-weapon-card .combat-jutsu-button.jutsu-on-cooldown,
+.combat-consumable-card .combat-jutsu-button.jutsu-on-cooldown,
+.combat-item-button.jutsu-on-cooldown {
+    cursor: not-allowed !important;
+    filter: grayscale(1) brightness(0.62) !important;
+    opacity: 0.62 !important;
+    border-color: var(--text-muted) !important;
+    background: linear-gradient(180deg, var(--slate-600), #1f2937) !important;
+}
+
+/* Cooldown countdown badge — rounds remaining until the jutsu / weapon / item is
+   ready again. Lives in the card wrap as a SIBLING of the greyed button, so the
+   button's grayscale filter never touches it and the number stays bright + bold.
+   Sits top-right (the ℹ️ help button owns bottom-left). */
+.combat-cd-badge {
+    position: absolute !important;
+    top: 3px !important;
+    right: 3px !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    padding: 0 5px !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(248, 250, 252, 0.9) !important;
+    background: rgba(220, 38, 38, 0.96) !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    font-variant-numeric: tabular-nums !important;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.7) !important;
+    pointer-events: none !important;
+    z-index: 5 !important;
+}
+/* ===== Make combat jutsu menu fit 3 rows ===== */
+
+.combat-jutsu-bar {
+    max-height: 340px !important;
+    min-height: 310px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+.combat-equipped-jutsu-grid {
+    max-height: none !important;
+    overflow: visible !important;
+    align-content: start !important;
+}
+
+.combat-equipped-items-row {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(118px, 150px)) !important;
+    gap: 7px !important;
+    align-items: start !important;
+    margin-top: 8px !important;
+    padding: 6px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(52, 211, 153, 0.22) !important;
+    background: rgba(6, 78, 59, 0.2) !important;
+}
+
+.combat-item-card-wrap {
+    max-width: 150px !important;
+}
+
+.combat-item-button {
+    border-color: rgba(52, 211, 153, 0.72) !important;
+    background: linear-gradient(180deg, #064e3b, #052e2b) !important;
+}
+
+.combat-item-button.rarity-rare {
+    border-color: rgba(96, 165, 250, 0.82) !important;
+}
+
+.combat-item-button.rarity-epic,
+.combat-item-button.rarity-legendary,
+.combat-item-button.rarity-mythic {
+    border-color: rgba(250, 204, 21, 0.82) !important;
+}
+
+.combat-item-thumb {
+    background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.34), transparent 28%), linear-gradient(135deg, #052e16, #164e63, #713f12) !important;
+}
+
+/* ── Weapon cards: green tint ── */
+.combat-weapon-card .combat-jutsu-button {
+    border-color: rgba(52, 211, 153, 0.72) !important;
+    background: linear-gradient(180deg, #064e3b, #052e2b) !important;
+}
+.combat-weapon-card .combat-jutsu-thumb {
+    background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.25), transparent 28%), linear-gradient(135deg, #052e16, #0a4a2e, #064e3b) !important;
+}
+
+/* ── Consumable / item cards: red tint ── */
+.combat-consumable-card .combat-jutsu-button {
+    border-color: rgba(248, 113, 113, 0.72) !important;
+    background: linear-gradient(180deg, #4c1014, #2d0a0e) !important;
+}
+.combat-consumable-card .combat-jutsu-thumb {
+    background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.25), transparent 28%), linear-gradient(135deg, #3b0e0e, #4c1014, #5a1a1a) !important;
+}
+
+/* Armed weapon — glows orange to signal "select a target" */
+.jutsu-armed {
+    outline: 2px solid rgba(251, 146, 60, 0.95) !important;
+    box-shadow:
+        inset 0 0 14px rgba(251, 146, 60, 0.45),
+        0 0 14px rgba(251, 146, 60, 0.65) !important;
+    filter: saturate(1.3) brightness(1.12);
+}
+
+.combat-no-jutsu-note {
+    margin-top: 8px !important;
+}
+
+.combat-item-effect-box {
+    margin-top: 10px !important;
+    padding: 10px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(52, 211, 153, 0.24) !important;
+    background: rgba(6, 78, 59, 0.16) !important;
+}
+
+.combat-item-effect-box strong {
+    color: #bbf7d0 !important;
+}
+
+.combat-item-effect-box p {
+    margin: 6px 0 0 !important;
+    color: #d1fae5 !important;
+}
+
+/* Keep each jutsu card compact enough for 3 rows */
+.combat-jutsu-button {
+    min-height: 92px !important;
+    height: 92px !important;
+    max-height: 92px !important;
+}
+
+.combat-jutsu-thumb {
+    height: 58px !important;
+}
+
+.combat-jutsu-button {
+    grid-template-rows: 58px auto auto !important;
+}
+/* ===== Combat jutsu help popup ===== */
+
+.combat-jutsu-card-wrap {
+    position: relative !important;
+    min-width: 0 !important;
+}
+
+.combat-jutsu-help {
+    position: absolute !important;
+    left: 4px !important;
+    bottom: 26px !important;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    min-height: 18px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(255, 255, 255, 0.75) !important;
+    background: rgba(15, 23, 42, 0.88) !important;
+    color: #f8fafc !important;
+    font-size: 11px !important;
+    line-height: 1 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.65) !important;
+    z-index: 4 !important;
+}
+
+    .combat-jutsu-help:hover {
+        transform: none !important;
+        background: var(--gold) !important;
+        color: #111827 !important;
+    }
+
+.combat-jutsu-detail-popover {
+    margin-top: 8px !important;
+    max-width: 520px !important;
+    padding: 8px !important;
+    border-radius: 6px !important;
+    border: 1px solid #6f87a4 !important;
+    background: #2f4359 !important;
+    color: #f8fafc !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55) !important;
+    font-size: 11px !important;
+}
+
+.combat-jutsu-detail-header {
+    display: flex !important;
+    align-items: start !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    padding-bottom: 6px !important;
+    margin-bottom: 8px !important;
+    border-bottom: 1px solid rgba(203, 213, 225, 0.35) !important;
+}
+
+    .combat-jutsu-detail-header strong {
+        display: block !important;
+        color: #f8fafc !important;
+        font-size: 13px !important;
+    }
+
+    .combat-jutsu-detail-header small {
+        display: block !important;
+        margin-top: 2px !important;
+        color: var(--slate-300) !important;
+        font-size: 10px !important;
+    }
+
+    .combat-jutsu-detail-header button {
+        width: 24px !important;
+        height: 24px !important;
+        min-height: 24px !important;
+        padding: 0 !important;
+        display: grid !important;
+        place-items: center !important;
+        border-radius: 4px !important;
+        background: rgba(15, 23, 42, 0.8) !important;
+        border: 1px solid rgba(203, 213, 225, 0.35) !important;
+        color: #f8fafc !important;
+        box-shadow: none !important;
+    }
+
+.combat-jutsu-detail-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 4px 12px !important;
+    padding: 8px !important;
+    border-radius: 5px !important;
+    background: rgba(15, 23, 42, 0.35) !important;
+}
+
+    .combat-jutsu-detail-grid span {
+        color: var(--slate-200) !important;
+        line-height: 1.25 !important;
+    }
+
+    .combat-jutsu-detail-grid strong {
+        color: #ffffff !important;
+    }
+
+.combat-jutsu-detail-desc {
+    margin: 8px 0 0 !important;
+    padding: 7px !important;
+    border-radius: 5px !important;
+    background: rgba(15, 23, 42, 0.35) !important;
+    color: #dbeafe !important;
+    font-style: italic !important;
+    line-height: 1.35 !important;
+}
+
+.combat-jutsu-effects-list {
+    display: grid !important;
+    gap: 7px !important;
+    margin-top: 8px !important;
+}
+
+.jutsu-effect-cards {
+    display: grid !important;
+    gap: 8px !important;
+    margin: 8px 0 !important;
+}
+
+.jutsu-effect-card {
+    padding: 9px 10px !important;
+    border: 1px solid rgba(96, 165, 250, 0.28) !important;
+    border-radius: 7px !important;
+    background: rgba(15, 23, 42, 0.72) !important;
+    color: #dbeafe !important;
+}
+
+.jutsu-effect-card-head,
+.jutsu-effect-meta {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+}
+
+.jutsu-effect-card-head strong {
+    color: #fef3c7 !important;
+    font-size: 0.88rem !important;
+}
+
+.jutsu-effect-card-head span {
+    flex: 0 0 auto !important;
+    color: var(--blue-300) !important;
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+}
+
+.jutsu-effect-card p {
+    margin: 6px 0 !important;
+    color: #e0f2fe !important;
+    line-height: 1.35 !important;
+}
+
+.jutsu-effect-card small {
+    display: block !important;
+    color: var(--text-dim) !important;
+    line-height: 1.35 !important;
+}
+
+.jutsu-effect-meta {
+    flex-wrap: wrap !important;
+    margin: 6px 0 !important;
+    font-size: 0.75rem !important;
+    color: #bfdbfe !important;
+}
+
+.combat-jutsu-effect-box {
+    padding: 8px !important;
+    border-radius: 5px !important;
+    background: rgba(203, 213, 225, 0.12) !important;
+    border: 1px solid rgba(203, 213, 225, 0.12) !important;
+}
+
+    .combat-jutsu-effect-box > strong {
+        display: block !important;
+        margin-bottom: 5px !important;
+        color: #ffffff !important;
+    }
+
+    .combat-jutsu-effect-box em {
+        color: #fef3c7 !important;
+    }
+
+.combat-jutsu-effect-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 3px 10px !important;
+}
+
+    .combat-jutsu-effect-grid span {
+        color: var(--slate-200) !important;
+        line-height: 1.25 !important;
+    }
+
+.combat-jutsu-effect-box p {
+    margin: 6px 0 0 !important;
+    color: #dbeafe !important;
+    line-height: 1.35 !important;
+}
+
+.combat-jutsu-card-wrap {
+    position: relative !important;
+}
+
+.combat-jutsu-button {
+    pointer-events: none !important;
+}
+
+.combat-jutsu-arm-click {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 20 !important;
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    appearance: none !important;
+}
+
+    .combat-jutsu-arm-click:hover {
+        transform: none !important;
+        filter: none !important;
+        box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.9), 0 0 14px rgba(250, 204, 21, 0.55) !important;
+    }
+
+.combat-jutsu-help {
+    position: absolute !important;
+    top: 4px !important;
+    left: 4px !important;
+    z-index: 40 !important;
+    pointer-events: auto !important;
+}
+/* terrain-weather-panel relocated to twp-strip inside combat-main-area */

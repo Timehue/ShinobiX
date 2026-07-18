@@ -1,0 +1,1637 @@
+/* =========================================================
+   DESKTOP UI SCALING — TIER 1: 1080p monitors (801–2199px)
+   Tuned for 1920×1080 viewports — relaxed ~10% from the
+   original "tightening" pass after feedback that 100% zoom
+   felt cramped vs 110%+ zoom. Original values are in git
+   history if a smaller pass is needed again.
+   ========================================================= */
+@media (min-width: 801px) {
+
+    /* ── Global button size ── */
+    button {
+        padding: 7px 14px;
+        font-size: 0.92rem;
+    }
+
+    /* ── Menus: less vertical margin ── */
+    .menu {
+        margin: 8px 0;
+        gap: 7px;
+    }
+
+    /* ── Summary boxes: tighter padding + less margin ── */
+    .summary-box,
+    .jutsu-card {
+        padding: 12px;
+        margin-top: 9px;
+    }
+
+    /* ── Headings: smaller margins ── */
+    h2 {
+        margin: 0 0 9px;
+        font-size: 1.26rem;
+        padding-bottom: 7px;
+    }
+
+    h3 {
+        margin-top: 0;
+        margin-bottom: 5px;
+        font-size: 1.06rem;
+    }
+
+    h4 {
+        margin-top: 0;
+        margin-bottom: 3px;
+        font-size: 0.99rem;
+    }
+
+    p {
+        margin: 4px 0;
+    }
+
+    label {
+        font-size: 0.92rem;
+        margin-bottom: 2px;
+    }
+
+    /* Location grid and tile sizing handled by data-vp viewport rules */
+
+    /* ── Cards: tighter internal gap ── */
+    .card {
+        gap: 9px;
+        padding: 14px;
+    }
+
+    /* ── Town hall / clan hall ── */
+    .town-hall-screen,
+    .clan-hall-screen {
+        gap: 9px;
+    }
+
+    .town-hall-hero {
+        padding: 11px 16px;
+    }
+
+    .town-hall-wallet strong {
+        font-size: 20px;
+    }
+
+    .town-hall-grid {
+        gap: 9px;
+    }
+
+    /* ── Tab strips ── */
+    .expanded-tabs {
+        padding: 7px;
+        gap: 6px;
+    }
+
+    .expanded-tabs button {
+        min-height: 38px;
+        padding: 6px 12px;
+        font-size: 0.9rem;
+    }
+
+    .clan-tabs {
+        gap: 5px;
+        margin-bottom: 9px;
+        padding-bottom: 7px;
+    }
+
+    .clan-tabs button {
+        padding: 5px 12px;
+        font-size: 0.88rem;
+    }
+
+    /* ── Inline grid (selects, small button rows) ── */
+    .inline-grid {
+        gap: 6px;
+    }
+
+    /* ── Stat grid / jutsu list ── */
+    .stat-grid,
+    .jutsu-list,
+    .jutsu-combat-grid {
+        gap: 7px;
+    }
+
+    /* ── Inputs / selects ── */
+    input,
+    select,
+    textarea {
+        padding: 6px 10px;
+        font-size: 0.94rem;
+    }
+
+    /* ── Technique browser ── */
+    .technique-grid {
+        max-height: 320px;
+        gap: 6px;
+        padding: 6px;
+    }
+
+    .technique-card {
+        min-height: 115px;
+        grid-template-rows: 72px minmax(28px, auto);
+        padding: 5px;
+        gap: 4px;
+    }
+
+    /* ── Shop items ── */
+    .shop-item-button {
+        min-height: 132px !important;
+    }
+
+    /* ── Hints / subtitles ── */
+    .hint,
+    .subtitle {
+        font-size: 0.88rem;
+        line-height: 1.4;
+    }
+
+    /* ── Hero banner ── */
+    .hero {
+        padding: 16px 20px;
+        gap: 11px;
+    }
+
+    /* ── Card visual thumbs ── */
+    .card-visual-thumb {
+        width: 66px;
+        height: 66px;
+    }
+
+    /* ── Clan / leader portraits ── */
+    .clan-image-mark,
+    .leader-portrait-img {
+        width: 64px;
+        height: 64px;
+    }
+
+    /* ── Contribute / guard / rank grids ── */
+    .contrib-rank-grid,
+    .clan-guard-list {
+        gap: 5px;
+    }
+
+    .clan-guard-row {
+        padding: 6px 10px;
+    }
+
+    /* ── Town upgrade grid ── */
+    .town-upgrade-grid {
+        gap: 9px;
+    }
+
+    .town-upgrade-card {
+        padding: 12px;
+    }
+
+    /* ── Elder seat grid ── */
+    .elder-seat-grid {
+        gap: 9px;
+    }
+
+    .elder-card {
+        padding: 12px;
+    }
+
+    /* ── Training / hospital ── */
+    .training-in-progress {
+        padding: 12px;
+    }
+
+    /* ── Logbook / event cards ── */
+    .event-card,
+    .logbook-entry {
+        padding: 10px;
+    }
+
+    /* ── Profile page ── */
+    .profile-page-card {
+        gap: 14px;
+    }
+
+    .profile-overview-panel {
+        padding: 14px;
+    }
+
+    .profile-big-avatar {
+        width: 156px;
+        height: 156px;
+    }
+
+    .profile-info-grid {
+        gap: 12px;
+    }
+
+    /* ── War status / notice board ── */
+    .town-notice-board .notice-post {
+        padding: 10px;
+    }
+
+    /* ── Bars (HP, XP, etc.) ── */
+    .bar,
+    .town-upgrade-bar {
+        height: 12px;
+    }
+
+    /* ── Journey banner: tighter ── */
+    .journey-banner {
+        height: auto;
+        min-height: 200px;
+    }
+
+    /* ── Archives cards ── */
+    .archives-card {
+        padding: 12px;
+    }
+
+    .archives-card-img-wrap {
+        width: 112px;
+        min-width: 112px;
+    }
+
+    /* ── Bloodline maker ── */
+    .bloodline-save-card {
+        gap: 6px;
+    }
+
+    /* ── Danger / action buttons: slightly less padding ── */
+    .danger-button,
+    .admin-button {
+        padding: 6px 12px;
+    }
+
+    /* ── Top HUD ── */
+    .top-hud {
+        gap: 6px;
+    }
+
+    .top-hud span {
+        font-size: 11px;
+    }
+
+    /* ── Hospital admitted banner ── */
+    .hospital-admitted-banner {
+        padding: 10px 14px;
+        gap: 10px;
+    }
+
+    .hospital-admitted-icon {
+        font-size: 1.55rem;
+    }
+
+    /* ── Pet battle arena ── */
+    .pet-arena-grid {
+        gap: 7px;
+    }
+
+    /* ── Sector instance / map instance ── */
+    .instance-sidebar {
+        padding: 10px;
+    }
+
+    .instance-actions {
+        gap: 5px;
+    }
+
+    /* ── Nav (hidden on desktop, but in case it shows) ── */
+    .nav {
+        padding: 10px;
+        gap: 6px;
+        margin: 10px 0;
+    }
+
+    /* ── Treasury grid ── */
+    .treasury-grid {
+        gap: 7px;
+    }
+
+    /* ── Leader admin grid ── */
+    .leader-admin-grid {
+        gap: 9px;
+    }
+
+    .leader-admin-card {
+        padding: 10px;
+    }
+
+    /* ── War record grid ── */
+    .war-record-grid {
+        gap: 7px;
+    }
+
+    .war-record-card {
+        padding: 10px;
+    }
+
+    /* ── General card spacing reductions ── */
+    .card > .summary-box:first-child {
+        margin-top: 0;
+    }
+
+    /* ── Make select dropdowns compact ── */
+    select {
+        padding: 5px 10px;
+    }
+}
+
+/* =========================================================
+   DESKTOP UI SCALING — TIER 2: 1440p+ widescreen monitors
+   For 2560×1440 and above. Originally this tier *compacted*
+   further than Tier 1, which was the wrong direction —
+   widescreens have *more* real estate, not less. Now this
+   tier scales *up* from Tier 1 by another ~6–8%.
+   ========================================================= */
+@media (min-width: 2200px) {
+
+    /* ── Global button size ── */
+    button {
+        padding: 8px 16px;
+        font-size: 0.98rem;
+    }
+
+    /* ── Menus: less vertical margin ── */
+    .menu {
+        margin: 9px 0;
+        gap: 8px;
+    }
+
+    /* ── Summary boxes: tighter padding + less margin ── */
+    .summary-box,
+    .jutsu-card {
+        padding: 14px;
+        margin-top: 11px;
+    }
+
+    /* ── Headings: smaller margins ── */
+    h2 {
+        margin: 0 0 11px;
+        font-size: 1.38rem;
+        padding-bottom: 8px;
+    }
+
+    h3 {
+        margin-top: 0;
+        margin-bottom: 6px;
+        font-size: 1.14rem;
+    }
+
+    h4 {
+        margin-top: 0;
+        margin-bottom: 4px;
+        font-size: 1.06rem;
+    }
+
+    p {
+        margin: 5px 0;
+    }
+
+    label {
+        font-size: 0.98rem;
+        margin-bottom: 2px;
+    }
+
+    /* Location grid and tile sizing handled by data-vp viewport rules */
+
+    /* ── Cards: tighter internal gap ── */
+    .card {
+        gap: 11px;
+        padding: 16px;
+    }
+
+    /* ── Town hall / clan hall ── */
+    .town-hall-screen,
+    .clan-hall-screen {
+        gap: 11px;
+    }
+
+    .town-hall-hero {
+        padding: 12px 18px;
+    }
+
+    .town-hall-wallet strong {
+        font-size: 22px;
+    }
+
+    .town-hall-grid {
+        gap: 11px;
+    }
+
+    /* ── Tab strips ── */
+    .expanded-tabs {
+        padding: 8px;
+        gap: 7px;
+    }
+
+    .expanded-tabs button {
+        min-height: 42px;
+        padding: 7px 14px;
+        font-size: 0.96rem;
+    }
+
+    .clan-tabs {
+        gap: 6px;
+        margin-bottom: 11px;
+        padding-bottom: 8px;
+    }
+
+    .clan-tabs button {
+        padding: 6px 14px;
+        font-size: 0.94rem;
+    }
+
+    /* ── Inline grid (selects, small button rows) ── */
+    .inline-grid {
+        gap: 7px;
+    }
+
+    /* ── Stat grid / jutsu list ── */
+    .stat-grid,
+    .jutsu-list,
+    .jutsu-combat-grid {
+        gap: 8px;
+    }
+
+    /* ── Inputs / selects ── */
+    input,
+    select,
+    textarea {
+        padding: 7px 12px;
+        font-size: 1rem;
+    }
+
+    /* ── Technique browser ── */
+    .technique-grid {
+        max-height: 350px;
+        gap: 7px;
+        padding: 7px;
+    }
+
+    .technique-card {
+        min-height: 125px;
+        grid-template-rows: 78px minmax(30px, auto);
+        padding: 6px;
+        gap: 5px;
+    }
+
+    /* ── Shop items ── */
+    .shop-item-button {
+        min-height: 144px !important;
+    }
+
+    /* ── Hints / subtitles ── */
+    .hint,
+    .subtitle {
+        font-size: 0.94rem;
+        line-height: 1.45;
+    }
+
+    /* ── Hero banner ── */
+    .hero {
+        padding: 18px 22px;
+        gap: 13px;
+    }
+
+    /* ── Card visual thumbs ── */
+    .card-visual-thumb {
+        width: 72px;
+        height: 72px;
+    }
+
+    /* ── Clan / leader portraits ── */
+    .clan-image-mark,
+    .leader-portrait-img {
+        width: 70px;
+        height: 70px;
+    }
+
+    /* ── Contribute / guard / rank grids ── */
+    .contrib-rank-grid,
+    .clan-guard-list {
+        gap: 6px;
+    }
+
+    .clan-guard-row {
+        padding: 7px 12px;
+    }
+
+    /* ── Town upgrade grid ── */
+    .town-upgrade-grid {
+        gap: 11px;
+    }
+
+    .town-upgrade-card {
+        padding: 14px;
+    }
+
+    /* ── Elder seat grid ── */
+    .elder-seat-grid {
+        gap: 11px;
+    }
+
+    .elder-card {
+        padding: 14px;
+    }
+
+    /* ── Training / hospital ── */
+    .training-in-progress {
+        padding: 14px;
+    }
+
+    /* ── Logbook / event cards ── */
+    .event-card,
+    .logbook-entry {
+        padding: 12px;
+    }
+
+    /* ── Profile page ── */
+    .profile-page-card {
+        gap: 16px;
+    }
+
+    .profile-overview-panel {
+        padding: 16px;
+    }
+
+    .profile-big-avatar {
+        width: 172px;
+        height: 172px;
+    }
+
+    .profile-info-grid {
+        gap: 14px;
+    }
+
+    /* ── War status / notice board ── */
+    .town-notice-board .notice-post {
+        padding: 12px;
+    }
+
+    /* ── Bars (HP, XP, etc.) ── */
+    .bar,
+    .town-upgrade-bar {
+        height: 14px;
+    }
+
+    /* ── Journey banner: tighter ── */
+    .journey-banner {
+        height: auto;
+        min-height: 220px;
+    }
+
+    /* ── Archives cards ── */
+    .archives-card {
+        padding: 14px;
+    }
+
+    .archives-card-img-wrap {
+        width: 124px;
+        min-width: 124px;
+    }
+
+    /* ── Bloodline maker ── */
+    .bloodline-save-card {
+        gap: 7px;
+    }
+
+    /* ── Danger / action buttons: slightly less padding ── */
+    .danger-button,
+    .admin-button {
+        padding: 7px 14px;
+    }
+
+    /* ── Top HUD ── */
+    .top-hud {
+        gap: 7px;
+    }
+
+    .top-hud span {
+        font-size: 12px;
+    }
+
+    /* ── Hospital admitted banner ── */
+    .hospital-admitted-banner {
+        padding: 12px 16px;
+        gap: 12px;
+    }
+
+    .hospital-admitted-icon {
+        font-size: 1.7rem;
+    }
+
+    /* ── Pet battle arena ── */
+    .pet-arena-grid {
+        gap: 8px;
+    }
+
+    /* ── Sector instance / map instance ── */
+    .instance-sidebar {
+        padding: 12px;
+    }
+
+    .instance-actions {
+        gap: 6px;
+    }
+
+    /* ── Nav (hidden on desktop, but in case it shows) ── */
+    .nav {
+        padding: 12px;
+        gap: 7px;
+        margin: 12px 0;
+    }
+
+    /* ── Treasury grid ── */
+    .treasury-grid {
+        gap: 8px;
+    }
+
+    /* ── Leader admin grid ── */
+    .leader-admin-grid {
+        gap: 11px;
+    }
+
+    .leader-admin-card {
+        padding: 12px;
+    }
+
+    /* ── War record grid ── */
+    .war-record-grid {
+        gap: 8px;
+    }
+
+    .war-record-card {
+        padding: 12px;
+    }
+
+    /* ── General card spacing reductions ── */
+    .card > .summary-box:first-child {
+        margin-top: 0;
+    }
+
+    /* ── Make select dropdowns compact ── */
+    select {
+        padding: 6px 12px;
+    }
+}
+
+/* ── Achievement unlock toast ───────────────────────────────────── */
+.achievement-toast-stack {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 9999;
+    pointer-events: none;
+    max-width: calc(100vw - 32px);
+}
+.achievement-toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 320px;
+    padding: 12px 14px;
+    background: linear-gradient(180deg, rgba(12,18,34,0.96) 0%, rgba(6,10,22,0.98) 100%);
+    border: 1px solid rgba(196,162,90,0.6);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.7), 0 0 24px rgba(196,162,90,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+    cursor: pointer;
+    animation: achievement-toast-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
+    color: #e8edf5;
+}
+.achievement-toast.secret {
+    border-color: rgba(206,147,216,0.7);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.7), 0 0 24px rgba(206,147,216,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.achievement-toast-icon {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    flex: 0 0 52px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: radial-gradient(circle at 30% 30%, rgba(232,212,150,0.2), rgba(0,0,0,0.6) 70%);
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(196,162,90,0.55);
+}
+.achievement-toast.secret .achievement-toast-icon {
+    border-color: rgba(206,147,216,0.6);
+}
+.achievement-toast-icon img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+}
+.achievement-toast-emoji {
+    font-size: 26px;
+    line-height: 1;
+}
+.achievement-toast-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.achievement-toast-label {
+    font: 600 9px var(--font-display);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #c4a25a;
+    margin-bottom: 2px;
+}
+.achievement-toast.secret .achievement-toast-label {
+    color: #ce93d8;
+}
+.achievement-toast-body strong {
+    font: 700 14px var(--font-display);
+    letter-spacing: 0.08em;
+    color: #e8d496;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.achievement-toast.secret .achievement-toast-body strong {
+    color: #f0c9ff;
+}
+.achievement-toast-body small {
+    font: 400 11px/1.35 Inter, sans-serif;
+    color: #c8cfdc;
+    margin-top: 2px;
+}
+@keyframes achievement-toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+@media (max-width: 800px) {
+    .achievement-toast {
+        width: 100%;
+    }
+}
+
+
+/* VN character slots: layer initials BEHIND the image so missing/failed
+   portraits gracefully reveal the initials underneath. Image is positioned
+   to fill the slot; on error the React handler sets display:none and the
+   initials show through. */
+.vn-character {
+    display: grid;
+    place-items: center;
+    color: #f4e6c4;
+    font: 700 36px var(--font-display);
+    text-shadow: 0 2px 6px rgba(0,0,0,0.75);
+    letter-spacing: 0.08em;
+}
+.vn-character > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 2;
+}
+.vn-character-initials {
+    position: relative;
+    z-index: 1;
+}
+
+/* ══ SceneAmbience — 2D liveness overlay (particles + god-rays + lightning) ══
+   Mounted inside any position:relative scene container. Pure decoration,
+   pointer-events:none so gameplay clicks pass straight through. */
+/* Scene containers that host an ambience overlay need a positioning context. */
+.sector-image-map,
+.generated-world-map,
+.village-scene-stage { position: relative; }
+.scene-ambience {
+    position: absolute;
+    inset: 0;
+    pointer-events: none !important;
+    overflow: hidden;
+    z-index: 4;
+    border-radius: inherit;
+}
+/* Sit beneath higher-z interactive markers (village building buttons are z-4). */
+.scene-ambience.amb-under { z-index: 2; }
+/* 3D parallax depth field sits just behind the 2D particle layer. */
+.scene-ambience-3d {
+    position: absolute;
+    inset: 0;
+    pointer-events: none !important;
+    overflow: hidden;
+    z-index: 3;
+    border-radius: inherit;
+}
+/* CRITICAL: react-three-fiber sets pointer-events:auto inline on its <canvas>
+   for raycasting — that would sit over the sector tile grid and swallow every
+   click (movement breaks; only WASD works). Force every ambience descendant
+   click-through so gameplay underneath stays interactive. */
+.scene-ambience *,
+.scene-ambience-3d * { pointer-events: none !important; }
+.scene-ambience-3d canvas { width: 100% !important; height: 100% !important; display: block; }
+.scene-ambience-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.scene-ambience-rays {
+    position: absolute;
+    inset: -12%;
+    mix-blend-mode: screen;
+    opacity: .5;
+    background: linear-gradient(115deg, transparent 36%, rgba(255,255,255,.10) 49%, transparent 62%);
+    animation: scene-ray-sweep 16s linear infinite;
+}
+.scene-rays-snow    { background: linear-gradient(115deg, transparent 36%, rgba(186,230,253,.16) 49%, transparent 62%); }
+.scene-rays-volcano { background: linear-gradient(115deg, transparent 36%, rgba(255,160,80,.16) 49%, transparent 62%); }
+.scene-rays-shadow  { background: linear-gradient(115deg, transparent 36%, rgba(192,132,252,.14) 49%, transparent 62%); }
+.scene-rays-forest  { background: linear-gradient(115deg, transparent 36%, rgba(190,255,170,.14) 49%, transparent 62%); }
+.scene-rays-central { background: linear-gradient(115deg, transparent 36%, rgba(255,240,180,.18) 49%, transparent 62%); }
+@keyframes scene-ray-sweep {
+    0%   { transform: translateX(-28%); opacity: 0; }
+    20%  { opacity: .55; }
+    50%  { opacity: .32; }
+    80%  { opacity: .55; }
+    100% { transform: translateX(28%); opacity: 0; }
+}
+/* Thunderstorm lightning (jagged bolts + a synced, fast-decaying flash) is now
+   drawn procedurally on the SceneAmbience canvas (SceneAmbience.tsx) so the flash
+   stays in sync with each strike and honours reduced-motion / low-end gating there.
+   No CSS flash layer — that old flat full-screen blink read as the screen glitching. */
+@media (prefers-reduced-motion: reduce) {
+    .scene-ambience-rays { animation: none; opacity: .22; }
+}
+
+/* ═══ Day/night sky (DayNightSky.tsx) ════════════════════════════════════════
+   A translucent colour-veil + vignette washed to the player's real local time.
+   Sits at z-index 2 by default (over the painted backdrop + depth layers, under
+   the hero avatar/particles/markers); `.amb-under` keeps it below the z-4
+   village/world map markers. The slow 2s transitions ride the 60s clock tick so
+   the hour change is imperceptible, never a jump. */
+.day-night-sky {
+    position: absolute;
+    inset: 0;
+    pointer-events: none !important;
+    overflow: hidden;
+    z-index: 2;
+    border-radius: inherit;
+}
+.day-night-sky.amb-under { z-index: 2; }
+.day-night-sky * { pointer-events: none !important; }
+.day-night-tint {
+    position: absolute;
+    inset: 0;
+    transition: background 2s linear, opacity 2s linear;
+}
+.day-night-vignette {
+    position: absolute;
+    inset: 0;
+    transition: opacity 2s linear;
+}
+@media (prefers-reduced-motion: reduce) {
+    .day-night-tint, .day-night-vignette { transition: none; }
+}
+
+/* ═══ Ambient wildlife (SceneCritters.tsx) ═══════════════════════════════════
+   Canvas of birds / butterflies / dragonflies / fireflies keyed by biome + time
+   of day. Same z-slot rules as the particle ambience. */
+.scene-critters {
+    position: absolute;
+    inset: 0;
+    pointer-events: none !important;
+    overflow: hidden;
+    z-index: 4;
+    border-radius: inherit;
+}
+.scene-critters.amb-under { z-index: 2; }
+.scene-critters * { pointer-events: none !important; }
+.scene-critters-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* ═══ Sector foreground parallax band (SectorForeground.tsx) ═════════════════
+   The near-camera foliage strip that frames the scene and parallaxes against the
+   backdrop as the player crosses the grid (the "patrolling through the biome"
+   cue). z-index 4: in front of the walking avatar, behind the z-5 markers. The
+   wrapper sways gently so the foreground breathes even when idle; the art carries
+   the focus-driven parallax transform (transitioned so movement glides). */
+.sector-foreground {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none !important;
+    overflow: hidden;
+    border-radius: inherit;
+    animation: sectorFgSway 15s ease-in-out infinite;
+}
+.sector-foreground * { pointer-events: none !important; }
+.sector-foreground-art {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 132%;
+    height: auto;
+    transform-origin: bottom center;
+    transition: transform 1.2s ease-out;
+    filter: drop-shadow(0 -2px 10px rgba(0,0,0,0.25));
+}
+@keyframes sectorFgSway {
+    0%, 100% { transform: translateX(-0.6%); }
+    50%      { transform: translateX(0.6%); }
+}
+.sector-foreground.is-still { animation: none; }
+.sector-foreground.is-still .sector-foreground-art { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+    .sector-foreground { animation: none; }
+    .sector-foreground-art { transition: none; }
+}
+
+/* ═══ Sector scatter props (SectorScatter.tsx) ══════════════════════════════
+   Biome ground-objects (rocks / bushes / crystals / lanterns…) filling the
+   play-field. z-index -1 = UNDER the tile grid, so a prop never hides an
+   other-player marker, encounter marker, or the gold target tile; it paints
+   above the backdrop and is tinted by the z-2 day/night wash. Each prop stands
+   bottom-centre on its cell, depth-scaled (--s), softly shadowed, and swaying;
+   glow props pulse a halo coloured by --glow-c. pointer-events:none throughout,
+   so click-to-move underneath is untouched. */
+.sector-scatter {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none !important;
+    overflow: hidden;
+    border-radius: inherit;
+}
+.sector-scatter * { pointer-events: none !important; }
+.sector-scatter-prop {
+    position: absolute;
+    width: calc(7.5% * var(--s, 1));
+    transform: translate(-50%, -100%); /* stand the prop on its cell point */
+    transform-origin: 50% 100%;
+}
+.sector-scatter-sway {
+    display: block;
+    transform-origin: 50% 100%;
+    animation: scatterSway 6s ease-in-out infinite;
+}
+.sector-scatter-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.28));
+}
+.is-glow .sector-scatter-img {
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.28)) drop-shadow(0 0 7px var(--glow-c, rgba(255,220,150,0.5)));
+}
+.sector-scatter-shadow {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 76%;
+    height: 12%;
+    transform: translate(-50%, 42%);
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.42), rgba(0,0,0,0) 70%);
+}
+.sector-scatter-glow {
+    position: absolute;
+    left: 50%;
+    bottom: 14%;
+    width: 130%;
+    height: 130%;
+    transform: translate(-50%, 0);
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--glow-c, rgba(255,225,150,0.5)), transparent 64%);
+    mix-blend-mode: screen;
+    animation: scatterGlow 3.2s ease-in-out infinite;
+}
+@keyframes scatterSway { 0%, 100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
+@keyframes scatterGlow { 0%, 100% { opacity: .35; } 50% { opacity: .82; } }
+@media (prefers-reduced-motion: reduce) {
+    .sector-scatter-sway { animation: none; }
+    .sector-scatter-glow { animation: none; opacity: .55; }
+}
+
+/* ═══ World-map biome atmosphere + settlement life ═══════════════════════════
+   Per-nation elemental glows so the four homelands read at a glance, plus a soft
+   hearth glow + rising smoke over each town. All pointer-events:none, below the
+   z-10 atlas markers. */
+.world-biome-glow {
+    position: absolute;
+    width: 26%;
+    height: 30%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 1;
+    border-radius: 50%;
+    mix-blend-mode: screen;
+    filter: blur(8px);
+    animation: biomeGlowPulse 9s ease-in-out infinite;
+}
+.wbg-volcano { background: radial-gradient(circle, rgba(255,120,50,.50), transparent 65%); }
+.wbg-snow    { background: radial-gradient(circle, rgba(150,210,255,.45), transparent 65%); }
+.wbg-forest  { background: radial-gradient(circle, rgba(120,220,140,.42), transparent 65%); }
+.wbg-shadow  { background: radial-gradient(circle, rgba(180,130,255,.46), transparent 65%); }
+.wbg-central { background: radial-gradient(circle, rgba(255,225,150,.40), transparent 65%); }
+@keyframes biomeGlowPulse { 0%, 100% { opacity: .38; } 50% { opacity: .62; } }
+
+.world-poi-life {
+    position: absolute;
+    width: 0;
+    height: 0;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 6;
+}
+.world-poi-glow {
+    position: absolute;
+    left: 0; top: 0;
+    width: 36px; height: 36px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,200,110,.55), transparent 70%);
+    mix-blend-mode: screen;
+    animation: poiGlow 4.5s ease-in-out infinite;
+}
+.world-poi-smoke {
+    position: absolute;
+    left: 0; top: 0;
+    width: 7px; height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(to top, rgba(220,222,228,0), rgba(220,222,228,.32), rgba(220,222,228,0));
+    filter: blur(2px);
+    animation: poiSmoke 6s linear infinite;
+}
+.world-poi-smoke-2 { left: 5px; animation-delay: 3s; }
+@keyframes poiGlow {
+    0%, 100% { opacity: .32; transform: translate(-50%, -50%) scale(.9); }
+    50%      { opacity: .68; transform: translate(-50%, -50%) scale(1.12); }
+}
+@keyframes poiSmoke {
+    0%   { opacity: 0; transform: translate(-50%, -2px) scaleY(.6); }
+    20%  { opacity: .5; }
+    100% { opacity: 0; transform: translate(-50%, -26px) scaleY(1.3); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .world-biome-glow, .world-poi-glow, .world-poi-smoke { animation: none; }
+    .world-poi-smoke { opacity: 0; }
+}
+
+/* ═══ Lite-FX — weak-device downgrade (device-tier.ts → <html class="lite-fx">) ══
+   On auto-detected low-end mobiles, stop purely-decorative, continuously-animating
+   atmosphere on the hub / world / sector screens so they stay smooth. Mirrors the
+   prefers-reduced-motion treatments above, but targets detected weak hardware
+   instead of a user setting. Cosmetic only — nothing here hides gameplay info;
+   backdrops, markers, avatars and HUD are untouched. The 2D particle/critter
+   canvases and the 3D parallax scenes are gated separately in their components. */
+.lite-fx .scene-ambience-rays { animation: none; opacity: .22; }
+.lite-fx .sector-scene-haze,
+.lite-fx .sector-foreground,
+.lite-fx .sector-scatter-sway { animation: none; }
+.lite-fx .sector-scatter-glow { animation: none; opacity: .5; }
+.lite-fx .world-biome-glow { animation: none; filter: none; }
+.lite-fx .world-poi-glow { animation: none; }
+.lite-fx .world-poi-smoke { animation: none; opacity: 0; }
+/* Idle bob only — the walking animation lives on a more specific selector and
+   keeps playing (no !important here, so it wins on specificity). */
+.lite-fx .sector-avatar-body { animation: none; }
+/* Live-peer idle bob is continuous per marker — drop it on weak devices where a
+   crowded sector would otherwise run dozens of forever-animations. The glide
+   transition + grounded shadow stay, so peers still read as alive. */
+.lite-fx .sector-peer-figure { animation: none; }
+/* Prismatic collar = a continuous hue-rotate filter (one of the costliest things
+   to run forever on a mobile GPU). Drop the cycle; the white collar border stays. */
+.lite-fx .avatar-orb.pet-collar-prismatic,
+.lite-fx .pet-battle-avatar.pet-collar-prismatic { animation: none; }
+
+/* ─── a11y: keyboard focus visibility ──────────────────────────────────────────
+   Give keyboard users a clear focus ring on interactive controls. :focus-visible
+   matches ONLY keyboard navigation, so mouse/touch focus stays clean (no ring on
+   click/tap). Placed at EOF so it wins the cascade over element-level
+   `outline:none` rules. A few class-scoped `.x:focus { outline:none }` inputs
+   out-specify this and would still need per-class :focus-visible rules. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+[role="button"]:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+
+/* ─── Live PvP HP-delta floating numbers (RTX-1) ───────────────────────────────
+   A damage (red) / heal (green) number floats up and fades over a fighter when
+   their HP changes, so an opponent's offense reads in real time instead of only
+   as a silently-dropping HP bar. Overlay-only (pointer-events:none). */
+.pvp-hit-fx {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 60;
+    font-weight: 800;
+    font-size: 1.35rem;
+    line-height: 1;
+    pointer-events: none;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.85);
+    animation: pvp-hit-float 1.1s ease-out forwards;
+    will-change: transform, opacity;
+}
+.pvp-hit-damage { color: var(--red-400); }
+.pvp-hit-heal { color: var(--green-400); }
+@keyframes pvp-hit-float {
+    0%   { opacity: 0; transform: translate(-50%, -40%) scale(0.7); }
+    15%  { opacity: 1; transform: translate(-50%, -65%) scale(1.1); }
+    100% { opacity: 0; transform: translate(-50%, -160%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .pvp-hit-fx { animation: pvp-hit-fade 1.1s ease-out forwards; }
+    @keyframes pvp-hit-fade {
+        0%   { opacity: 0; transform: translate(-50%, -90%); }
+        15%  { opacity: 1; transform: translate(-50%, -90%); }
+        100% { opacity: 0; transform: translate(-50%, -90%); }
+    }
+}
+
+/* Live PvP combat VFX: display-only procedural shapes keyed by action intent. */
+.arena-fullscreen .avatar-orb:has(.pvp-guard-aura) {
+    overflow: visible;
+}
+.pvp-guard-aura {
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 2px solid rgba(125, 211, 252, 0.86);
+    background: radial-gradient(circle, rgba(125, 211, 252, 0.22), transparent 64%);
+    box-shadow: 0 0 18px rgba(125, 211, 252, 0.75), inset 0 0 18px rgba(255, 255, 255, 0.2);
+    pointer-events: none;
+    z-index: 0;
+    animation: pvp-ward-pulse 1.7s ease-in-out infinite;
+}
+.pvp-guard-reflect {
+    border-color: rgba(216, 180, 254, 0.92);
+    background: radial-gradient(circle, rgba(168, 85, 247, 0.22), transparent 64%);
+    box-shadow: 0 0 18px rgba(168, 85, 247, 0.78), inset 0 0 18px rgba(255, 255, 255, 0.22);
+}
+.pvp-guard-absorb {
+    border-color: rgba(45, 212, 191, 0.92);
+    background: radial-gradient(circle, rgba(20, 184, 166, 0.24), transparent 64%);
+    box-shadow: 0 0 18px rgba(20, 184, 166, 0.78), inset 0 0 18px rgba(255, 255, 255, 0.22);
+}
+@keyframes pvp-ward-pulse {
+    0%, 100% { transform: scale(0.96); opacity: 0.72; }
+    50% { transform: scale(1.08); opacity: 1; }
+}
+.pvp-combat-vfx-group {
+    position: absolute;
+    inset: 0;
+    z-index: 32;
+    pointer-events: none;
+}
+.pvp-combat-vfx {
+    --vfx-a: #f8fafc;
+    --vfx-b: var(--text-dim);
+    --vfx-c: rgba(248, 250, 252, 0.18);
+    position: absolute;
+    width: calc(66px * var(--vfx-scale, 1));
+    height: calc(66px * var(--vfx-scale, 1));
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    animation: pvp-vfx-pop var(--vfx-duration, 680ms) ease-out forwards;
+    will-change: transform, opacity, filter;
+}
+.pvp-vfx-has-asset {
+    opacity: 1;
+    animation: none;
+    filter: none;
+    will-change: auto;
+}
+.pvp-combat-vfx-tile {
+    width: calc(50px * var(--vfx-scale, 1));
+    height: calc(50px * var(--vfx-scale, 1));
+    animation-name: pvp-vfx-tile-pulse;
+}
+.pvp-vfx-ring,
+.pvp-vfx-core,
+.pvp-vfx-cut,
+.pvp-vfx-sparks {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 2;
+}
+.pvp-vfx-asset {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 158%;
+    height: 158%;
+    object-fit: contain;
+    border: 0;
+    pointer-events: none;
+    user-select: none;
+    mix-blend-mode: screen;
+    opacity: 0;
+    z-index: 1;
+    filter: saturate(1.12) contrast(1.08);
+    transform-origin: center center;
+    animation: pvp-vfx-asset-bloom var(--vfx-duration, 680ms) ease-out forwards;
+}
+.pvp-vfx-asset-burst {
+    transform: translate(-50%, calc(-50% + var(--vfx-asset-lift, 0px))) scale(var(--vfx-asset-scale, 1.42));
+}
+.pvp-vfx-asset-ground {
+    top: 54%;
+    width: 166%;
+    height: 166%;
+    transform: translate(-50%, calc(-50% + var(--vfx-asset-lift, 0px))) perspective(360px) rotateX(11deg) scale(var(--vfx-asset-scale, 1.42));
+}
+.pvp-vfx-asset-slash {
+    width: 170%;
+    height: 170%;
+    transform: translate(-50%, calc(-50% + var(--vfx-asset-lift, 0px))) rotate(-5deg) scale(var(--vfx-asset-scale, 1.42));
+}
+.pvp-vfx-asset-ward {
+    top: 52%;
+    width: 172%;
+    height: 172%;
+    transform: translate(-50%, calc(-52% + var(--vfx-asset-lift, 0px))) scale(var(--vfx-asset-scale, 1.42));
+}
+.pvp-vfx-ring {
+    border: 3px solid var(--vfx-a);
+    box-shadow: 0 0 18px var(--vfx-a), inset 0 0 18px var(--vfx-c);
+}
+.pvp-vfx-core {
+    inset: 18%;
+    background: radial-gradient(circle, rgba(255,255,255,0.9), var(--vfx-a) 18%, var(--vfx-b) 48%, transparent 72%);
+    filter: blur(0.5px);
+    opacity: 0.84;
+}
+.pvp-vfx-cut {
+    top: 48%;
+    left: -10%;
+    right: -10%;
+    height: 8px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, #fff, var(--vfx-a), transparent);
+    box-shadow: 0 0 14px var(--vfx-a);
+    transform: rotate(-22deg);
+}
+.pvp-vfx-sparks {
+    background:
+        conic-gradient(from 12deg, transparent 0 10%, var(--vfx-a) 11% 13%, transparent 14% 24%, var(--vfx-b) 25% 27%, transparent 28% 45%, var(--vfx-a) 46% 48%, transparent 49% 100%);
+    opacity: 0.55;
+    filter: blur(0.2px);
+}
+.pvp-vfx-has-asset .pvp-vfx-ring {
+    --vfx-layer-opacity: 0.48;
+    opacity: 0;
+}
+.pvp-vfx-has-asset .pvp-vfx-core {
+    --vfx-layer-opacity: 0.32;
+    opacity: 0;
+    filter: blur(1.4px);
+}
+.pvp-vfx-has-asset .pvp-vfx-cut {
+    --vfx-layer-opacity: 0.58;
+    opacity: 0;
+}
+.pvp-vfx-has-asset .pvp-vfx-sparks {
+    --vfx-layer-opacity: 0.34;
+    opacity: 0;
+}
+.pvp-vfx-has-asset .pvp-vfx-ring,
+.pvp-vfx-has-asset .pvp-vfx-core,
+.pvp-vfx-has-asset .pvp-vfx-cut,
+.pvp-vfx-has-asset .pvp-vfx-sparks {
+    animation: pvp-vfx-layer-pop var(--vfx-duration, 680ms) ease-out forwards;
+}
+.pvp-vfx-plane-ward .pvp-vfx-ring {
+    --vfx-layer-opacity: 0.64;
+}
+.pvp-vfx-plane-ground .pvp-vfx-ring {
+    transform: perspective(320px) rotateX(38deg) scale(1.08);
+}
+.pvp-vfx-fire,
+.pvp-vfx-fire60 { --vfx-a: #fb923c; --vfx-b: var(--danger); --vfx-c: rgba(251, 146, 60, 0.24); }
+.pvp-vfx-water,
+.pvp-vfx-water60 { --vfx-a: var(--cyan); --vfx-b: #14b8a6; --vfx-c: rgba(56, 189, 248, 0.24); }
+.pvp-vfx-wind,
+.pvp-vfx-wind60 { --vfx-a: var(--green-300); --vfx-b: #22d3ee; --vfx-c: rgba(134, 239, 172, 0.22); }
+.pvp-vfx-lightning,
+.pvp-vfx-lightning60,
+.pvp-vfx-spark { --vfx-a: #fef08a; --vfx-b: var(--blue-400); --vfx-c: rgba(250, 204, 21, 0.24); }
+.pvp-vfx-earth,
+.pvp-vfx-earth60 { --vfx-a: #d97706; --vfx-b: #78716c; --vfx-c: rgba(217, 119, 6, 0.24); }
+.pvp-vfx-blood,
+.pvp-vfx-wound { --vfx-a: #f43f5e; --vfx-b: #7f1d1d; --vfx-c: rgba(244, 63, 94, 0.24); }
+.pvp-vfx-shadow,
+.pvp-vfx-seal { --vfx-a: var(--purple-400); --vfx-b: #312e81; --vfx-c: rgba(192, 132, 252, 0.24); }
+.pvp-vfx-poison,
+.pvp-vfx-poisonCloud { --vfx-a: var(--green-400); --vfx-b: #365314; --vfx-c: rgba(74, 222, 128, 0.24); }
+.pvp-vfx-magma,
+.pvp-vfx-burn { --vfx-a: #f97316; --vfx-b: var(--red); --vfx-c: rgba(249, 115, 22, 0.26); }
+.pvp-vfx-metal,
+.pvp-vfx-pierce { --vfx-a: var(--slate-300); --vfx-b: var(--text-muted); --vfx-c: rgba(203, 213, 225, 0.22); }
+.pvp-vfx-heal { --vfx-a: #6ee7b7; --vfx-b: var(--success); --vfx-c: rgba(110, 231, 183, 0.24); }
+.pvp-vfx-shield { --vfx-a: #67e8f9; --vfx-b: #818cf8; --vfx-c: rgba(103, 232, 249, 0.24); }
+.pvp-vfx-reflect { --vfx-a: var(--purple-400); --vfx-b: #67e8f9; --vfx-c: rgba(192, 132, 252, 0.24); }
+.pvp-vfx-absorb { --vfx-a: #5eead4; --vfx-b: var(--success); --vfx-c: rgba(94, 234, 212, 0.24); }
+.pvp-vfx-drain { --vfx-a: #a78bfa; --vfx-b: var(--slate-900); --vfx-c: rgba(167, 139, 250, 0.24); }
+.pvp-vfx-cleanse,
+.pvp-vfx-buff { --vfx-a: #bae6fd; --vfx-b: #fef08a; --vfx-c: rgba(186, 230, 253, 0.22); }
+.pvp-vfx-debuff { --vfx-a: #f0abfc; --vfx-b: #7e22ce; --vfx-c: rgba(240, 171, 252, 0.22); }
+.pvp-vfx-slash,
+.pvp-vfx-impact,
+.pvp-vfx-weapon,
+.pvp-vfx-throwable,
+.pvp-vfx-heavy { --vfx-a: #f8fafc; --vfx-b: var(--gold-2); --vfx-c: rgba(248, 250, 252, 0.2); }
+.pvp-vfx-namedWeapon,
+.pvp-vfx-ko { --vfx-a: var(--gold-300); --vfx-b: #f43f5e; --vfx-c: rgba(253, 230, 138, 0.28); }
+.pvp-vfx-heal .pvp-vfx-cut,
+.pvp-vfx-shield .pvp-vfx-cut,
+.pvp-vfx-reflect .pvp-vfx-cut,
+.pvp-vfx-absorb .pvp-vfx-cut,
+.pvp-vfx-buff .pvp-vfx-cut,
+.pvp-vfx-cleanse .pvp-vfx-cut,
+.pvp-combat-vfx-tile .pvp-vfx-core,
+.pvp-combat-vfx-tile .pvp-vfx-cut,
+.pvp-combat-vfx-tile .pvp-vfx-sparks {
+    display: none;
+}
+.pvp-vfx-has-asset .pvp-vfx-cut {
+    display: none;
+}
+.pvp-vfx-has-asset.pvp-vfx-slash .pvp-vfx-cut,
+.pvp-vfx-has-asset.pvp-vfx-weapon .pvp-vfx-cut,
+.pvp-vfx-has-asset.pvp-vfx-namedWeapon .pvp-vfx-cut,
+.pvp-vfx-has-asset.pvp-vfx-throwable .pvp-vfx-cut,
+.pvp-vfx-has-asset.pvp-vfx-pierce .pvp-vfx-cut {
+    display: block;
+}
+.pvp-vfx-slash .pvp-vfx-ring,
+.pvp-vfx-weapon .pvp-vfx-ring,
+.pvp-vfx-namedWeapon .pvp-vfx-ring,
+.pvp-vfx-throwable .pvp-vfx-ring,
+.pvp-vfx-pierce .pvp-vfx-ring {
+    border-color: transparent;
+    box-shadow: none;
+}
+.pvp-vfx-throwable .pvp-vfx-cut { transform: rotate(-8deg); }
+.pvp-vfx-pierce .pvp-vfx-cut { height: 5px; left: -22%; right: -22%; transform: rotate(0deg); }
+.pvp-vfx-shield .pvp-vfx-core,
+.pvp-vfx-reflect .pvp-vfx-core,
+.pvp-vfx-absorb .pvp-vfx-core {
+    inset: 10%;
+    background: radial-gradient(circle, transparent 38%, var(--vfx-c) 40%, transparent 68%);
+    border: 2px solid var(--vfx-a);
+}
+.pvp-vfx-heavy,
+.pvp-vfx-ko,
+.pvp-vfx-finisher {
+    filter: saturate(1.3) brightness(1.12);
+}
+@keyframes pvp-vfx-pop {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.34); filter: blur(2px); }
+    18% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); filter: blur(0); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.42); filter: blur(2.5px); }
+}
+@keyframes pvp-vfx-layer-pop {
+    0% { opacity: 0; transform: scale(0.42); filter: blur(2px); }
+    18% { opacity: var(--vfx-layer-opacity, 0.48); transform: scale(1.04); filter: blur(0); }
+    100% { opacity: 0; transform: scale(1.42); filter: blur(2.5px); }
+}
+@keyframes pvp-vfx-asset-bloom {
+    0% { opacity: 0; filter: blur(2px) saturate(1.2) contrast(1.12); }
+    16% { opacity: var(--vfx-asset-opacity, 0.88); filter: blur(0) saturate(1.18) contrast(1.12); }
+    80% { opacity: 0.72; filter: blur(0) saturate(1.12) contrast(1.08); }
+    100% { opacity: 0; filter: blur(2px) saturate(1.08) contrast(1.04); }
+}
+@keyframes pvp-vfx-tile-pulse {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.72); }
+    20% { opacity: 0.85; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .pvp-guard-aura { animation: none; opacity: 0.78; }
+    .pvp-combat-vfx {
+        animation: pvp-vfx-fade var(--vfx-duration, 680ms) ease-out forwards;
+    }
+    .pvp-vfx-asset {
+        animation: pvp-vfx-asset-bloom var(--vfx-duration, 680ms) ease-out forwards;
+    }
+    .pvp-vfx-sparks { display: none; }
+    @keyframes pvp-vfx-fade {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
+        20% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+    }
+}
+.lite-fx .pvp-vfx-sparks,
+.pvp-vfx-lite .pvp-vfx-sparks {
+    display: none;
+}
+
+/* ═══ Hollow Gate dungeon — Spirit-Tracks pass ═══════════════════════════════
+   The shrine floor renders as a seamless top-down dungeon: fixed 48px tiles
+   (--hg-tile) in a camera viewport (.hg-viewport) that follows the player,
+   neighbour-aware walls (flat tops vs south-facing FACES for depth), doors
+   framed in the walls, and a three-state fog: .hg-lit (current room /
+   torchlight), .hg-dim (explored map-memory), .hg-dark (unknown). Admin atlas
+   textures arrive as inline backgrounds and override the CSS look; the wall
+   depth pass rides on ::before so it survives texture overrides. */
+
+.hg-layout {
+    display: grid;
+    grid-template-columns: 1fr 240px;
+    gap: 16px;
+}
+@media (max-width: 900px) {
+    .hg-layout { grid-template-columns: 1fr; }
+}
+
+.hg-viewport {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    background: #05030c;
+    height: min(62vh, var(--hg-bh, 62vh));
+    box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.85);
+    touch-action: manipulation;
+}
+.hg-board {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    transition: transform 340ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: transform;
+}
+
+.hg-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.hg-clickable { cursor: pointer; }
+.hg-clickable:hover::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 2px rgba(233, 213, 255, 0.35);
+    pointer-events: none;
+}
+
+/* ── Floors (seamless — no per-cell borders; a soft checker breathes) ── */
+.hg-floor-room {
+    background: linear-gradient(160deg, #3f2f68 0%, #362a59 100%);
+}
+.hg-floor-corridor {
+    background: linear-gradient(160deg, #271d46 0%, #211738 100%);
+    box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.35);
+}
+.hg-check { box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.026); }
+.hg-floor-corridor.hg-check { box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.35), inset 0 0 0 999px rgba(255, 255, 255, 0.026); }
+
+/* ── Doors: a framed threshold set into the wall line ── */
+.hg-door {
+    background: linear-gradient(180deg, #170e2b 0%, #2c1e4c 34%, #4c3a72 100%);
+}
+.hg-door::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(10, 6, 20, 0.85) 0%, rgba(10, 6, 20, 0) 18%, rgba(10, 6, 20, 0) 82%, rgba(10, 6, 20, 0.85) 100%),
+        linear-gradient(180deg, rgba(10, 6, 20, 0.75) 0%, rgba(10, 6, 20, 0) 22%);
+    pointer-events: none;
+}
+
+/* ── Walls: flat tops vs south-facing faces (the depth pass) ── */
+.hg-wall-top {
+    background: #1a1128;
+    box-shadow: inset 0 0 0 1px rgba(36, 23, 54, 0.9);
+}
+.hg-wall-face {
+    background: #3c2b5a;
+}
+.hg-wall-face::before {
+    /* cap (top third, same tone as wall tops) + brick courses + edge light */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, #1a1128 0%, #1a1128 32%, rgba(26, 17, 40, 0) 33%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0) 32%, rgba(233, 213, 255, 0.14) 33%, rgba(233, 213, 255, 0) 46%),
+        repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0 10px, rgba(0, 0, 0, 0.22) 10px 12px),
+        repeating-linear-gradient(90deg, rgba(0, 0, 0, 0) 0 14px, rgba(0, 0, 0, 0.14) 14px 16px),
+        linear-gradient(0deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 26%);
+    pointer-events: none;
+}
+/* Painted-masonry faces (shrine:tile-wall-face art assigned): the texture
+   carries the brick courses itself, so the CSS pass thins down to just the
+   top cap + base shading — no painted-over course lines. */
+.hg-wall-face.hg-tex::before {
+    background:
+        linear-gradient(180deg, #1a1128 0%, #1a1128 30%, rgba(26, 17, 40, 0) 31%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(233, 213, 255, 0.10) 31%, rgba(233, 213, 255, 0) 42%),
+        linear-gradient(0deg, rgba(0, 0, 0, 0.32) 0%, rgba(0, 0, 0, 0) 24%);
+}
+
+.hg-wall-face::after {
+    /* floor-contact highlight — the lit seam where face meets ground */
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: rgba(233, 213, 255, 0.10);
+    pointer-events: none;
+}
+
+/* ── Fog states (declared AFTER terrain so they win the cascade) ── */
+.hg-cell.hg-dim { filter: brightness(0.52) saturate(0.4); }
+.hg-cell.hg-dark { background: #06040e; box-shadow: none; }
+.hg-dark::before,
+.hg-dark::after { content: none; }
+
+/* ── Content icons ── */
+.hg-icon {
+    font-size: 25px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.85));
+    pointer-events: none;
+}
+.hg-icon-img {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+    pointer-events: none;
+}
+
+/* ── Click-to-walk destination ring ── */
+.hg-dest::after {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border: 2px solid #fbbf24;
+    border-radius: 8px;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.5);
+    animation: hgDestPulse 900ms ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes hgDestPulse {
+    0%, 100% { opacity: 0.95; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.9); }
+}
+
+/* ── Torch sconces on lit wall faces ── */
+.hg-flame {
+    position: absolute;
+    top: 34%;
+    left: 50%;
+    width: 10px;
+    height: 15px;
+    transform: translateX(-50%);
+    border-radius: 50% 50% 38% 38%;
+    background: radial-gradient(circle at 50% 32%, var(--gold-300) 0%, var(--gold-2) 52%, rgba(180, 83, 9, 0) 78%);
+    filter: drop-shadow(0 0 7px rgba(251, 191, 36, 0.85));
+    animation: hgFlicker 1.4s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes hgFlicker {
+    0%, 100% { opacity: 0.95; transform: translateX(-50%) scale(1, 1); }
+    30% { opacity: 0.7; transform: translateX(-50%) scale(0.9, 1.08); }
+    65% { opacity: 0.9; transform: translateX(-50%) scale(1.06, 0.94); }
+}
+html.lite-fx .hg-flame { animation: none; }
+
