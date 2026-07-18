@@ -1,21 +1,30 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three";
-import { isolatePetAtlasTexture, lockPetAtlas } from "./pet-atlas-material";
+import { bindPetAtlasTexture, lockPetAtlas, petAtlasHasImageData } from "./pet-atlas-material";
 
-test("Coliseum fighters own an sRGB atlas sampler instead of the GLTF cache texture", () => {
+test("Coliseum fighters reuse the cache-owned GLTF atlas", () => {
     const cached = new THREE.Texture({ width: 16, height: 16 });
     cached.name = "mythic-4-atlas";
     cached.anisotropy = 2;
     cached.colorSpace = THREE.LinearSRGBColorSpace;
 
-    const isolated = isolatePetAtlasTexture(cached, 8, "mythic-4");
-    assert.notEqual(isolated, cached);
-    assert.equal(isolated.source, cached.source, "the decoded image payload should be reused");
-    assert.equal(isolated.colorSpace, THREE.SRGBColorSpace);
-    assert.equal(isolated.anisotropy, 8);
-    assert.match(isolated.name, /combat-atlas$/);
-    assert.ok(isolated.version > 0, "the isolated sampler must upload on first render");
+    const bound = bindPetAtlasTexture(cached, 8);
+    assert.equal(bound, cached, "the loader cache must remain the texture owner");
+    assert.equal(bound.colorSpace, THREE.SRGBColorSpace);
+    assert.equal(bound.anisotropy, 8);
+    assert.ok(bound.version > 0, "a decoded atlas can safely refresh changed sampling metadata");
+});
+
+test("an image-less cache entry is never forced through a broken upload", () => {
+    const cached = new THREE.Texture();
+    cached.colorSpace = THREE.LinearSRGBColorSpace;
+    assert.equal(petAtlasHasImageData(cached), false);
+
+    const bound = bindPetAtlasTexture(cached, 8);
+    assert.equal(bound, cached);
+    assert.equal(bound.version, 0, "no upload should be requested without image data");
+    assert.equal(bound.colorSpace, THREE.LinearSRGBColorSpace);
 });
 
 test("an approved roster material restores its authored atlas after mutation", () => {
