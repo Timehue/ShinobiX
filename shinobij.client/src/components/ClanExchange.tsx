@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import { ClanImageMark } from "./Marks";
+import { clanExchangeItemArt } from "./ClanExchangeItemArt";
 import { CloseButton } from "./ui/CloseButton";
 import { Modal } from "./ui/Modal";
+import clanVaultHero from "../assets/clan-exchange/clan-vault-hero.webp";
 import type { Character } from "../types/character";
 import type { ClanTreasury, EnhancedClanData } from "../types/clan";
 import type { GameItem } from "../types/combat";
@@ -54,8 +56,12 @@ const EXCHANGE_ITEMS: ExchangeItem[] = [
     { id: "armorCache", tier: 3, requiredClanLevel: 10, name: "Armor Cache", description: "Roll one existing Epic or Legendary armor piece from the live item catalog.", cost: 8000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "armor" } },
 ];
 
-const FEATURED_IDS = new Set(["weaponCache", "armorCache", "premiumFateShardCrate", "auraStoneBundle"]);
 const ARMOR_SLOTS = new Set(["armor", "head", "body", "waist", "legs", "feet"]);
+const EXCHANGE_TIERS = [
+    { tier: 1, level: 1, label: "Member stores", icon: "scroll" as GameIconName },
+    { tier: 2, level: 5, label: "Officer stores", icon: "shield" as GameIconName },
+    { tier: 3, level: 10, label: "Elite vault", icon: "sword" as GameIconName },
+] as const;
 
 function num(value: unknown): number {
     const n = Number(value);
@@ -147,11 +153,14 @@ function ExchangeProductArt({ item }: { item: ExchangeItem }) {
         reward.kind === "item" ? "scroll" :
         "locked";
 
+    const art = clanExchangeItemArt(item.id);
     return (
         <div className={`clan-exchange-art ${item.rarity} ${theme}`} aria-hidden="true">
             <span className="clan-exchange-art-ring" />
             <span className="clan-exchange-art-glow" />
-            <span className="clan-exchange-art-main"><ExchangeRewardIcon item={item} /></span>
+            {art
+                ? <img src={art} alt="" className="clan-exchange-art-img" loading="lazy" />
+                : <span className="clan-exchange-art-main"><ExchangeRewardIcon item={item} /></span>}
             <span className="clan-exchange-art-mini top"><GameIcon name={accentIcon} size={18} /></span>
             <span className="clan-exchange-art-mini bottom"><GameIcon name={item.tier >= 3 ? "sigil" : item.tier === 2 ? "scroll" : "sparkle"} size={16} /></span>
         </div>
@@ -161,12 +170,13 @@ function ExchangeProductArt({ item }: { item: ExchangeItem }) {
 function itemStatus(character: Character, clanData: EnhancedClanData, item: ExchangeItem, allItems: GameItem[]) {
     const count = purchaseCount(character, item);
     const limit = limitCount(item);
-    if (item.reward.kind === "locked") return { disabled: true, label: "Coming Soon", reason: item.reward.reason, count, limit };
-    if (clanData.level < item.requiredClanLevel) return { disabled: true, label: `Level ${item.requiredClanLevel}`, reason: `Requires Clan Level ${item.requiredClanLevel}.`, count, limit };
-    if (count >= limit) return { disabled: true, label: "Limit Reached", reason: item.limit.kind === "oneTime" ? "Already purchased." : "Limit reached for this period.", count, limit };
-    if (item.reward.kind === "cache" && eligibleCacheCount(allItems, item.reward.cache) === 0) return { disabled: true, label: "No Items", reason: "No eligible live catalog items are configured.", count, limit };
-    if (num(character.clanPoints) < item.cost) return { disabled: true, label: "Need Points", reason: `${item.cost.toLocaleString()} Clan Points required.`, count, limit };
-    return { disabled: false, label: "Purchase", reason: "", count, limit };
+    if (item.reward.kind === "locked") return { state: "coming-soon", disabled: true, label: "Coming soon", reason: item.reward.reason, count, limit } as const;
+    if (clanData.level < item.requiredClanLevel) return { state: "level-locked", disabled: true, label: `Clan Level ${item.requiredClanLevel}`, reason: `Unlocks at Clan Level ${item.requiredClanLevel}.`, count, limit } as const;
+    if (count >= limit) return { state: "limit-reached", disabled: true, label: "Limit reached", reason: item.limit.kind === "oneTime" ? "Already requisitioned." : "Requisition limit reached for this period.", count, limit } as const;
+    if (item.reward.kind === "cache" && eligibleCacheCount(allItems, item.reward.cache) === 0) return { state: "unavailable", disabled: true, label: "Unavailable", reason: "No eligible live catalog items are configured.", count, limit } as const;
+    const pointGap = Math.max(0, item.cost - num(character.clanPoints));
+    if (pointGap > 0) return { state: "need-points", disabled: true, label: `${pointGap.toLocaleString()} CP short`, reason: `${num(character.clanPoints).toLocaleString()} / ${item.cost.toLocaleString()} Clan Points`, count, limit } as const;
+    return { state: "ready", disabled: false, label: "Requisition", reason: "Ready to claim", count, limit } as const;
 }
 
 function applyExchangeResponse(
@@ -212,9 +222,20 @@ export function ClanExchange({
     const weeklyEarned = character.weeklyClanPointsWeek === isoWeekKey() ? num(character.weeklyClanPoints) : 0;
     const weekPct = Math.min(100, (weeklyEarned / CLAN_POINTS_WEEKLY_CAP) * 100);
     const xpNeed = clanXpNeeded(clanData.level);
-    const tier = clanData.level >= 10 ? 3 : clanData.level >= 5 ? 2 : 1;
-    const itemsByTier = useMemo(() => [1, 2, 3].map((t) => EXCHANGE_ITEMS.filter((item) => item.tier === t)), []);
-    const featured = useMemo(() => EXCHANGE_ITEMS.filter((item) => FEATURED_IDS.has(item.id)), []);
+    const statusPriority = { ready: 0, "need-points": 1, "limit-reached": 2, unavailable: 3, "level-locked": 4, "coming-soon": 5 } as const;
+    const unlockedItems = EXCHANGE_ITEMS
+        .filter((item) => item.reward.kind !== "locked" && clanData.level >= item.requiredClanLevel)
+        .sort((a, b) => {
+            const stateDifference = statusPriority[itemStatus(character, clanData, a, allItems).state] - statusPriority[itemStatus(character, clanData, b, allItems).state];
+            return stateDifference || a.cost - b.cost;
+        });
+    const readyCount = unlockedItems.filter((item) => itemStatus(character, clanData, item, allItems).state === "ready").length;
+    const nextPurchase = unlockedItems.find((item) => itemStatus(character, clanData, item, allItems).state === "need-points");
+    const nextTier = EXCHANGE_TIERS.find((entry) => entry.level > clanData.level);
+    const futureGroups = EXCHANGE_TIERS
+        .map((entry) => ({ ...entry, items: EXCHANGE_ITEMS.filter((item) => item.reward.kind !== "locked" && item.requiredClanLevel === entry.level && clanData.level < entry.level) }))
+        .filter((entry) => entry.items.length > 0);
+    const comingSoonItems = EXCHANGE_ITEMS.filter((item) => item.reward.kind === "locked");
     const closeConfirmation = useCallback(() => {
         if (!purchaseBusyRef.current) setConfirming(null);
     }, []);
@@ -239,60 +260,86 @@ export function ClanExchange({
     return (
         <div className="clan-exchange">
             <section className="clan-exchange-hero">
-                <div className="clan-exchange-identity">
-                    <ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} />
-                    <div>
-                        <span className="clan-exchange-kicker">Clan Exchange</span>
-                        <h3>{clanData.name}</h3>
-                        <p>{clanData.village} exchange tier {tier} unlocked</p>
+                <img className="clan-exchange-hero-art" src={clanVaultHero} alt="" aria-hidden="true" />
+                <div className="clan-exchange-hero-copy">
+                    <div className="clan-exchange-identity">
+                        <ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} />
+                        <div>
+                            <span className="clan-exchange-kicker">Quartermaster · {clanData.name}</span>
+                            <h3>Clan Exchange</h3>
+                            <p>Turn clan service into field-ready rewards. Live requisitions are always sorted before future unlocks.</p>
+                        </div>
                     </div>
                 </div>
-                <div className="clan-exchange-wallet">
-                    <div>
-                        <span>Clan Points</span>
-                        <strong>{clanPoints.toLocaleString()}</strong>
+                <aside className="clan-exchange-ledger" aria-label="Clan exchange balance and progress">
+                    <div className="clan-exchange-wallet">
+                        <span>Available balance</span>
+                        <div><strong>{clanPoints.toLocaleString()}</strong><b>CP</b></div>
                     </div>
                     <div className="clan-exchange-week">
-                        <span>{weeklyEarned.toLocaleString()} / {CLAN_POINTS_WEEKLY_CAP.toLocaleString()} this week</span>
+                        <span><b>Weekly earnings</b><em>{weeklyEarned.toLocaleString()} / {CLAN_POINTS_WEEKLY_CAP.toLocaleString()}</em></span>
                         <div><i style={{ width: `${weekPct}%` }} /></div>
                     </div>
-                </div>
-                <div className="clan-exchange-level">
-                    <GameIcon name="medal" size={35} />
-                    <div>
-                        <span>Clan Level {clanData.level}</span>
+                    <div className="clan-exchange-level">
+                        <span><b>Hall progress</b><em>{clanData.xp.toLocaleString()} / {xpNeed.toLocaleString()} XP</em></span>
                         <div><i style={{ width: `${Math.min(100, (clanData.xp / xpNeed) * 100)}%` }} /></div>
                     </div>
+                    <div className="clan-exchange-next">
+                        <span>{readyCount > 0 ? "Ready to requisition" : nextPurchase ? "Next affordable reward" : "Current catalog"}</span>
+                        <strong>{readyCount > 0 ? `${readyCount} reward${readyCount === 1 ? "" : "s"} ready now` : nextPurchase ? `${nextPurchase.name} · ${(nextPurchase.cost - clanPoints).toLocaleString()} CP away` : `${unlockedItems.length} live reward${unlockedItems.length === 1 ? "" : "s"}`}</strong>
+                    </div>
+                </aside>
+            </section>
+
+            <section className="clan-exchange-current">
+                <div className="clan-exchange-section-head">
+                    <div>
+                        <span>Available to you</span>
+                        <h4>Your unlocked requisitions</h4>
+                        <p>Ready purchases appear first, followed by rewards that only need more Clan Points.</p>
+                    </div>
+                    <div className="clan-exchange-section-stats">
+                        <span>{unlockedItems.length} unlocked</span>
+                        <strong>{readyCount} ready now</strong>
+                    </div>
+                </div>
+                <div className="clan-exchange-grid clan-exchange-current-grid">
+                    {unlockedItems.map((item) => <ExchangeCard key={item.id} item={item} character={character} clanData={clanData} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}
                 </div>
             </section>
 
-            <section className="clan-exchange-featured">
-                <div className="clan-exchange-section-head">
+            {(futureGroups.length > 0 || comingSoonItems.length > 0) && <section className="clan-exchange-progression">
+                <div className="clan-exchange-section-head clan-exchange-progress-head">
                     <div>
-                        <span>Featured requisitions</span>
-                        <h4>High-value clan rewards</h4>
+                        <span>Clan progression</span>
+                        <h4>{nextTier ? `Next vault access at Clan Level ${nextTier.level}` : "Every exchange tier unlocked"}</h4>
+                        <p>Future stock stays below your live catalog and opens as the clan hall advances.</p>
                     </div>
                     <GameIcon name="map" size={27} />
                 </div>
-                <div className="clan-exchange-feature-grid">
-                    {featured.map((item) => <ExchangeCard key={item.id} item={item} character={character} clanData={clanData} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}
-                </div>
-            </section>
-
-            {itemsByTier.map((items, index) => (
-                <section className="clan-exchange-tier" key={index + 1}>
-                    <div className="clan-exchange-section-head">
-                        <div>
-                            <span>Tier {index + 1}</span>
-                            <h4>{index === 0 ? "Member issue" : index === 1 ? "Officer stores" : "Elite vault"}</h4>
+                <div className="clan-exchange-future-shelves">
+                    {futureGroups.map((group, index) => (
+                        <details className="clan-exchange-future-group" key={group.tier} open={index === 0}>
+                            <summary>
+                                <span><GameIcon name={group.icon} size={20} /> Tier {group.tier} · {group.label}</span>
+                                <strong>Unlocks at Clan Level {group.level} · {group.items.length} rewards</strong>
+                            </summary>
+                            <div className="clan-exchange-locked-grid">
+                                {group.items.map((item) => <LockedExchangeCard key={item.id} item={item} allItems={allItems} />)}
+                            </div>
+                        </details>
+                    ))}
+                    {comingSoonItems.length > 0 && <details className="clan-exchange-future-group clan-exchange-coming-soon">
+                        <summary>
+                            <span><GameIcon name="sparkle" size={20} /> In development</span>
+                            <strong>{comingSoonItems.length} future reward{comingSoonItems.length === 1 ? "" : "s"}</strong>
+                        </summary>
+                        <div className="clan-exchange-locked-grid">
+                            {comingSoonItems.map((item) => <LockedExchangeCard key={item.id} item={item} allItems={allItems} comingSoon />)}
                         </div>
-                        {index === 0 ? <GameIcon name="scroll" size={26} /> : index === 1 ? <GameIcon name="shield" size={27} /> : <GameIcon name="sword" size={27} />}
-                    </div>
-                    <div className="clan-exchange-grid">
-                        {items.map((item) => <ExchangeCard key={item.id} item={item} character={character} clanData={clanData} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}
-                    </div>
-                </section>
-            ))}
+                    </details>}
+                </div>
+            </section>}
 
             {children}
 
@@ -367,27 +414,48 @@ function ExchangeCard({
 }) {
     const status = itemStatus(character, clanData, item, allItems);
     const remaining = Math.max(0, status.limit - status.count);
+    const pointPct = Math.min(100, (num(character.clanPoints) / item.cost) * 100);
     return (
-        <article className={`clan-exchange-card ${item.rarity}${status.disabled ? " locked" : ""}`}>
+        <article className={`clan-exchange-card ${item.rarity} is-${status.state}${status.disabled ? " locked" : ""}`}>
             <div className="clan-exchange-card-top">
                 <span className={`clan-exchange-rarity ${item.rarity}`}>{item.rarity}</span>
-                <span>{item.cost.toLocaleString()} CP</span>
+                <strong><GameIcon name="sigil" size={15} /> {item.cost.toLocaleString()} CP</strong>
             </div>
             <ExchangeProductArt item={item} />
-            <h5>{item.name}</h5>
-            <p>{item.description}</p>
+            <div className="clan-exchange-card-copy">
+                <h5>{item.name}</h5>
+                <p>{item.description}</p>
+            </div>
             <div className="clan-exchange-reward">
-                <span>Reward</span>
+                <span>You receive</span>
                 <strong>{rewardSummary(item, allItems)}</strong>
             </div>
             <div className="clan-exchange-card-meta">
-                <span>Level {item.requiredClanLevel}+</span>
+                <span>{item.limit.kind === "oneTime" ? "One-time claim" : item.limit.kind === "monthly" ? "Monthly stock" : "Weekly stock"}</span>
                 <span>{item.limit.kind === "oneTime" ? "One-time" : `${remaining}/${status.limit} left`}</span>
             </div>
-            {status.reason && <small>{status.reason}</small>}
+            {status.state === "need-points" && <div className="clan-exchange-affordability" aria-label={status.reason}>
+                <span><i style={{ width: `${pointPct}%` }} /></span>
+                <small>{status.reason}</small>
+            </div>}
+            {status.state !== "need-points" && <small className={`clan-exchange-status is-${status.state}`}>{status.reason}</small>}
             <button disabled={status.disabled || busy} onClick={() => onConfirm(item)}>
-                {busy ? "Purchasing..." : status.label}
+                {busy ? "Requisitioning..." : status.state === "ready" ? `${status.label} · ${item.cost.toLocaleString()} CP` : status.label}
             </button>
+        </article>
+    );
+}
+
+function LockedExchangeCard({ item, allItems, comingSoon = false }: { item: ExchangeItem; allItems: GameItem[]; comingSoon?: boolean }) {
+    return (
+        <article className={`clan-exchange-locked-card ${item.rarity}`}>
+            <ExchangeProductArt item={item} />
+            <div className="clan-exchange-locked-copy">
+                <div><span className={`clan-exchange-rarity ${item.rarity}`}>{item.rarity}</span><strong>{item.cost.toLocaleString()} CP</strong></div>
+                <h5>{item.name}</h5>
+                <p>{rewardSummary(item, allItems)}</p>
+                <span className="clan-exchange-lock-label"><GameIcon name={comingSoon ? "sparkle" : "shield"} size={15} /> {comingSoon ? "Coming soon" : `Clan Level ${item.requiredClanLevel}`}</span>
+            </div>
         </article>
     );
 }
