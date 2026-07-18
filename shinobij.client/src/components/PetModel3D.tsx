@@ -707,7 +707,10 @@ function LoadedPetModel3D({ config, frame, element }: {
             motionStart.current = t;
         }
         const motionAge = t - motionStart.current;
-        const dodgeP = Math.min(1, motionAge / 0.2);
+        // A dodge is one readable launch-and-land phrase. The presentation track
+        // holds the state for ~0.44 s; matching that window prevents the model from
+        // finishing its hop halfway through the lateral escape and skating to rest.
+        const dodgeP = Math.min(1, motionAge / 0.42);
         const dodgeArc = f.motion === "dodge" ? Math.sin(Math.PI * dodgeP) : 0;
         if (mixer) {
             const clip = combatClip(prepared.clips, f, config.profile);
