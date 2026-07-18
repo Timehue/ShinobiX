@@ -6,7 +6,8 @@ import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.j
 import type { PetCombatModelConfig } from "../lib/pet-3d-models";
 import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import { PetIdentityEffects3D } from "./PetIdentityEffects3D";
-import { bindPetAtlasTexture, lockPetAtlas } from "../lib/pet-atlas-material";
+import { bindPetAtlasTexture, copyPetAtlasSampling, lockPetAtlas } from "../lib/pet-atlas-material";
+import { readPetGlbAtlas } from "../lib/pet-glb-atlas";
 
 export type PetModelMotion =
     | "idle"
@@ -308,7 +309,7 @@ function removeEarthSourceFloor(root: THREE.Group, config: PetCombatModelConfig)
     return owned;
 }
 
-function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: readonly THREE.AnimationClip[], quality: PetVisualQualityConfig, element?: string): PreparedModel {
+function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: readonly THREE.AnimationClip[], quality: PetVisualQualityConfig, element?: string, persistentAtlas?: THREE.Texture | null): PreparedModel {
     // SkeletonUtils is required for independent SkinnedMesh bone trees. Object3D.clone
     // shares skeleton bindings and causes one fighter's animation to corrupt the other.
     const surface = cloneSkeleton(source) as THREE.Group;
@@ -350,7 +351,12 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
                 : cloneAsCombatToon(sourceMaterial);
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             const textured = material as THREE.MeshStandardMaterial;
-            if (textured.map) {
+            if (persistentAtlas && ROSTER_VISUAL_ID.test(config.visualId)) {
+                // Live selection parses GLBs before a renderer exists. Decode the
+                // baked PNG independently so a stale GLTF ImageBitmap can never
+                // turn an otherwise valid fighter into a white clay model.
+                textured.map = bindPetAtlasTexture(copyPetAtlasSampling(persistentAtlas, textured.map), quality.textureAnisotropy);
+            } else if (textured.map) {
                 textured.map = bindPetAtlasTexture(textured.map, quality.textureAnisotropy);
             }
             if (ROSTER_VISUAL_ID.test(config.visualId) && (pbr.isMeshStandardMaterial || pbr.isMeshToonMaterial)) {
@@ -656,8 +662,9 @@ function LoadedPetModel3D({ config, frame, element }: {
     element?: string;
 }) {
     const gltf = useGLTF(config.url) as { scene: THREE.Group; animations: THREE.AnimationClip[] };
+    const persistentAtlas = ROSTER_VISUAL_ID.test(config.visualId) ? readPetGlbAtlas(config.url) : null;
     const quality = useMemo(() => petVisualQuality(), []);
-    const prepared = useMemo(() => prepareModel(gltf.scene, config, gltf.animations ?? [], quality, element), [gltf.scene, gltf.animations, config, quality, element]);
+    const prepared = useMemo(() => prepareModel(gltf.scene, config, gltf.animations ?? [], quality, element, persistentAtlas), [gltf.scene, gltf.animations, config, quality, element, persistentAtlas]);
     const mixer = useMemo(() => prepared.clips.length ? new THREE.AnimationMixer(prepared.surface) : null, [prepared]);
     const outlineMixer = useMemo(() => prepared.clips.length && prepared.outline ? new THREE.AnimationMixer(prepared.outline) : null, [prepared]);
     const activeClip = useRef<THREE.AnimationClip | null>(null);
@@ -870,11 +877,11 @@ function LoadedPetModel3D({ config, frame, element }: {
             <group ref={body}>
                 {prepared.outline && (
                     <group scale={prepared.scale * config.outlineScale}>
-                        <primitive object={prepared.outline} position={prepared.offset} />
+                        <primitive object={prepared.outline} position={prepared.offset} dispose={null} />
                     </group>
                 )}
                 <group scale={prepared.scale}>
-                    <primitive object={prepared.surface} position={prepared.offset} />
+                    <primitive object={prepared.surface} position={prepared.offset} dispose={null} />
                 </group>
                 <PetIdentityEffects3D config={config} frame={frame} quality={quality} />
             </group>

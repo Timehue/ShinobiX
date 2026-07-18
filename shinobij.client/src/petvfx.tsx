@@ -45,6 +45,20 @@ const DEBUG_AI = PARAMS.get("debugAI") === "1";
 
 function Harness() {
     const [seed, setSeed] = useState(START_SEED);
+    const [qaFightMounted, setQaFightMounted] = useState(true);
+    const [qaRemounts, setQaRemounts] = useState(0);
+    useEffect(() => {
+        if (PARAMS.get("remountqa") !== "1") return;
+        const timers: number[] = [];
+        [1400, 2800, 4200].forEach((start) => {
+            timers.push(window.setTimeout(() => setQaFightMounted(false), start));
+            timers.push(window.setTimeout(() => {
+                setQaFightMounted(true);
+                setQaRemounts((count) => count + 1);
+            }, start + 420));
+        });
+        return () => timers.forEach((timer) => window.clearTimeout(timer));
+    }, []);
     // Phase-0 HD-2D spike toggle (?coliseum=1 or the button below). Swaps the
     // current DOM battlefield for the throwaway react-three-fiber scene so the
     // coliseum look can be eyeballed. Dev-only; nothing here ships.
@@ -229,7 +243,8 @@ function Harness() {
     return (
         <div style={{ maxWidth: 880, margin: "16px auto", padding: 12 }}>
             {cineResult && <output hidden data-testid="pet-duel-qa" data-events={JSON.stringify(cineResult.events)} />}
-            {(duelMode || cineMode) && (
+            <output hidden data-testid="pet-atlas-remount-qa" data-remounts={qaRemounts} />
+            {(duelMode || cineMode) && qaFightMounted && (
                 <PetColiseumDuel
                     playerPet={duelPlayer}
                     enemyPet={duelEnemy}
@@ -308,4 +323,22 @@ const rootNode = document.getElementById("root")!;
 const devWindow = window as typeof window & { __petVfxRoot?: ReturnType<typeof createRoot> };
 const petVfxRoot = devWindow.__petVfxRoot ?? createRoot(rootNode);
 devWindow.__petVfxRoot = petVfxRoot;
-petVfxRoot.render(<Harness />);
+
+async function mountHarness() {
+    // Reproduce the live PetArena lifecycle: decode both chosen GLBs while no
+    // Canvas exists, then mount the fight from those warmed caches. This catches
+    // atlas ownership bugs that a direct /petvfx first render cannot expose.
+    if (PARAMS.get("preloadqa") === "1") {
+        const requested = PARAMS.get("rosterpet");
+        const player = requested ? rawPetPool.find((pet) => pet.id === requested) : undefined;
+        const liveAi = PARAMS.get("liveai")?.toLowerCase();
+        const enemy = liveAi ? genericPetArenaOpponents.find((entry) => entry.pet.id === `generic-ai-pet-${liveAi}`)?.pet : undefined;
+        if (player && enemy) {
+            const { preloadPetColiseumModels } = await import("./lib/pet-model-preload");
+            await preloadPetColiseumModels([player, enemy]);
+        }
+    }
+    petVfxRoot.render(<Harness />);
+}
+
+void mountHarness();

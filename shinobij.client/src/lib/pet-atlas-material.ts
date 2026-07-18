@@ -26,6 +26,25 @@ export function bindPetAtlasTexture(source: THREE.Texture, anisotropy: number): 
     return source;
 }
 
+/** Carry the glTF sampler/UV transform onto the independently decoded atlas. */
+export function copyPetAtlasSampling(atlas: THREE.Texture, source: THREE.Texture | null | undefined): THREE.Texture {
+    if (!source) return atlas;
+    atlas.wrapS = source.wrapS;
+    atlas.wrapT = source.wrapT;
+    atlas.magFilter = source.magFilter;
+    atlas.minFilter = source.minFilter;
+    atlas.generateMipmaps = source.generateMipmaps;
+    atlas.flipY = source.flipY;
+    atlas.channel = source.channel;
+    atlas.offset.copy(source.offset);
+    atlas.repeat.copy(source.repeat);
+    atlas.center.copy(source.center);
+    atlas.rotation = source.rotation;
+    atlas.matrixAutoUpdate = source.matrixAutoUpdate;
+    atlas.needsUpdate = true;
+    return atlas;
+}
+
 /** Rebind the approved atlas if any runtime material/status path replaces it. */
 export function lockPetAtlas(material: THREE.MeshStandardMaterial, atlas: THREE.Texture): void {
     bindPetAtlasTexture(atlas, atlas.anisotropy);
