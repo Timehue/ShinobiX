@@ -67,11 +67,13 @@ function Harness() {
     const requestedRosterId = rosterFoxMode ? "standard-0" : PARAMS.get("rosterpet");
     const rosterBattlePet = requestedRosterId ? rawPetPool.find((pet) => pet.id === requestedRosterId) : undefined;
     const model3dMode = PARAMS.get("model3d") === "1" || modelQaMode || Boolean(rosterBattlePet);
-    // ?liveai=emberlynx reproduces the real built-in Coliseum matchup instead of
-    // pairing roster QA with an evolved starter. This caught the production-only
-    // model-alias gap that a starter-vs-roster preview could not expose.
-    const liveAiEnemy = PARAMS.get("liveai") === "emberlynx"
-        ? genericPetArenaOpponents.find((entry) => entry.pet.id === "generic-ai-pet-emberlynx")?.pet
+    // ?liveai=guardhound|emberlynx|sparrow reproduces an exact built-in Coliseum
+    // matchup instead of pairing roster QA with an evolved starter. Keeping all
+    // three aliases available prevents a generic starter preview from certifying
+    // a production-only model/material failure.
+    const liveAiKey = PARAMS.get("liveai")?.toLowerCase();
+    const liveAiEnemy = liveAiKey
+        ? genericPetArenaOpponents.find((entry) => entry.pet.id === `generic-ai-pet-${liveAiKey}`)?.pet
         : undefined;
     // ?legendary=1 lets visual QA compare the alternate evolved mesh without
     // changing the live model gate or the deterministic fight setup.

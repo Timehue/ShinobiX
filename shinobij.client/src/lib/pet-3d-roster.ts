@@ -41,7 +41,7 @@ export const APPROVED_ROSTER_MODEL_IDS: ReadonlySet<string> = new Set([
  * early untextured or untrimmed candidate alive for the rest of the browser
  * session. Bump this revision whenever the approved production GLBs change.
  */
-export const ROSTER_MODEL_ASSET_REVISION = "20260717-color-trim-v1";
+export const ROSTER_MODEL_ASSET_REVISION = "20260718-premier-atlas-v2";
 
 function rosterModelUrl(id: string): string {
     return `/pet-models/roster/${id}.glb?v=${ROSTER_MODEL_ASSET_REVISION}`;
