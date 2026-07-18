@@ -1,0 +1,402 @@
+/* ===== Story / cinematic ===== */
+
+.cinematic-panel {
+    padding: 22px;
+    border-radius: 18px;
+    border: 1px solid rgba(250,204,21,.35);
+    background: linear-gradient(135deg, rgba(2,6,23,.94), rgba(30,41,59,.88));
+}
+
+.act-label {
+    color: var(--gold);
+    letter-spacing: 2px;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.scene-text {
+    color: #dbeafe;
+    font-size: 17px;
+    line-height: 1.7;
+    font-style: italic;
+}
+
+.dialogue-box {
+    margin-top: 16px;
+    padding: 16px;
+    border-left: 4px solid var(--cyan);
+    background: rgba(2,6,23,.72);
+    border-radius: 12px;
+}
+
+.visual-novel {
+    display: grid;
+    gap: 12px;
+}
+
+.vn-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: end;
+}
+
+.vn-progress {
+    padding: 8px 12px;
+    border: 1px solid rgba(250,204,21,.36);
+    border-radius: 999px;
+    background: rgba(2,6,23,.72);
+    color: #fef3c7;
+    font-weight: 900;
+}
+
+.vn-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.vn-skip-button {
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 1px solid rgba(248, 113, 113, .58);
+    background: rgba(69, 10, 10, .82);
+    color: #fee2e2;
+    position: relative;
+    z-index: 10;
+}
+
+.vn-stage {
+    position: relative;
+    min-height: 620px;
+    overflow: hidden;
+    border: 4px solid #8a5a22;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(7, 12, 27, .1), rgba(7,12,27,.72)), linear-gradient(135deg, #17375f, #0b1728 58%, #31101a);
+    box-shadow: inset 0 0 0 2px rgba(250,204,21,.28), 0 18px 45px rgba(0,0,0,.38);
+}
+
+/* Scene-picture wrapper. On desktop it's transparent (display:contents) so the
+   backdrop / portraits / narration position against .vn-stage exactly as before;
+   mobile turns it into a real fixed-height box so the dialogue can stack below. */
+.vn-picture {
+    display: contents;
+}
+
+.vn-backdrop {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 78% 12%, rgba(255,247,205,.95) 0 38px, rgba(255,247,205,.15) 39px 78px, transparent 79px), radial-gradient(circle at 22% 35%, rgba(56,189,248,.22), transparent 22%), linear-gradient(180deg, #173e68 0 38%, #0f243b 39% 70%, #08111f 71%);
+}
+
+    .vn-backdrop::before,
+    .vn-backdrop::after {
+        content: "";
+        position: absolute;
+        left: -5%;
+        right: -5%;
+        bottom: 105px;
+        height: 190px;
+        background: linear-gradient(135deg, transparent 0 8%, rgba(8, 47, 73, .88) 8% 15%, transparent 15% 22%, rgba(12, 74, 110, .9) 22% 35%, transparent 35% 45%, rgba(8, 47, 73, .92) 45% 61%, transparent 61% 72%, rgba(12, 74, 110, .85) 72% 83%, transparent 83%);
+        clip-path: polygon(0 72%, 9% 36%, 18% 66%, 28% 25%, 39% 70%, 52% 20%, 67% 75%, 79% 28%, 92% 66%, 100% 42%, 100% 100%, 0 100%);
+    }
+
+    .vn-backdrop::after {
+        bottom: 78px;
+        height: 140px;
+        opacity: .72;
+        filter: blur(1px);
+    }
+
+.vn-village-silhouette {
+    position: absolute;
+    left: 10%;
+    right: 8%;
+    bottom: 118px;
+    height: 80px;
+    background: linear-gradient(90deg, transparent 0 6%, #120b12 6% 14%, transparent 14% 17%, #120b12 17% 31%, transparent 31% 36%, #120b12 36% 48%, transparent 48% 54%, #120b12 54% 69%, transparent 69% 75%, #120b12 75% 91%, transparent 91%), linear-gradient(#120b12, #120b12);
+    clip-path: polygon(0 90%, 5% 46%, 11% 90%, 16% 28%, 25% 90%, 33% 40%, 45% 90%, 53% 18%, 66% 90%, 75% 42%, 86% 90%, 94% 35%, 100% 90%, 100% 100%, 0 100%);
+    opacity: .9;
+}
+
+.vn-character {
+    position: absolute;
+    z-index: 3;
+    width: 170px;
+    height: 240px;
+    display: grid;
+    place-items: center;
+    border: 4px solid rgba(250,204,21,.55);
+    border-radius: 18px 18px 8px 8px;
+    color: #f8fafc;
+    font-size: 42px;
+    font-weight: 900;
+    text-shadow: 0 2px 0 #111827;
+    box-shadow: 0 18px 35px rgba(0,0,0,.42), inset 0 0 40px rgba(255,255,255,.12);
+    overflow: hidden;
+}
+
+.vn-character img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Speaker spotlight: the non-speaking portrait dims back so the current speaker
+   stands out. Applied only by TriggeredVisualNovel (vn-speaking / vn-dimmed). */
+.vn-character {
+    transition: opacity 0.25s ease, filter 0.25s ease;
+}
+.vn-character.vn-dimmed {
+    opacity: 0.5;
+    filter: saturate(0.6) brightness(0.82);
+}
+
+.mentor-character {
+    left: 8%;
+    bottom: 150px;
+    background: radial-gradient(circle at 50% 25%, #e0f2fe 0 18%, transparent 19%), linear-gradient(180deg, var(--slate-700), var(--slate-900));
+}
+
+.hero-character {
+    right: 8%;
+    bottom: 150px;
+    background: radial-gradient(circle at 50% 25%, #bae6fd 0 18%, transparent 19%), linear-gradient(180deg, #1d4ed8, #111827);
+}
+
+.vn-scene-card {
+    position: absolute;
+    z-index: 4;
+    left: 50%;
+    top: 24px;
+    width: min(620px, 84%);
+    transform: translateX(-50%);
+    padding: 14px 18px;
+    border: 1px solid rgba(250,204,21,.38);
+    border-radius: 10px;
+    background: rgba(2,6,23,.72);
+    color: #dbeafe;
+    text-align: center;
+    font-weight: 800;
+}
+
+.vn-dialogue {
+    position: absolute;
+    z-index: 5;
+    left: 28px;
+    right: 28px;
+    bottom: 24px;
+    min-height: 150px;
+    padding: 18px 20px 16px;
+    border: 3px solid var(--gold);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,.08), transparent 40%), rgba(6, 12, 24, .94);
+    box-shadow: 0 18px 35px rgba(0,0,0,.42);
+}
+
+.vn-speaker {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: linear-gradient(var(--red), #5b1010);
+    color: #fef3c7;
+    font-weight: 900;
+}
+
+.vn-dialogue p {
+    margin: 0;
+    color: #f8fafc;
+    font-size: clamp(18px, 2.4vw, 26px);
+    line-height: 1.35;
+}
+
+.vn-controls,
+.vn-choice-row,
+.vn-reward-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.vn-controls {
+    justify-content: flex-end;
+    margin-top: 14px;
+}
+
+.vn-controls button,
+.vn-choice-row button,
+.vn-finale-panel .menu button {
+    min-height: 44px;
+}
+
+.vn-choice-row {
+    padding: 10px;
+    border: 1px solid rgba(148,163,184,.22);
+    border-radius: 10px;
+    background: rgba(2,6,23,.35);
+}
+
+.vn-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.vn-choice-btn {
+    min-height: 44px;
+    text-align: left;
+    padding: 10px 16px;
+    border: 1px solid rgba(250,204,21,.55);
+    border-radius: 8px;
+    background: rgba(2,6,23,.82);
+    color: #fef3c7;
+    font-size: clamp(14px, 1.8vw, 18px);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+    .vn-choice-btn:hover {
+        background: rgba(250,204,21,.18);
+        border-color: var(--gold-400);
+    }
+
+.vn-conclusion {
+    margin-top: 14px;
+    padding: 12px 16px;
+    border-left: 3px solid rgba(250,204,21,.7);
+    background: rgba(2,6,23,.75);
+    border-radius: 0 8px 8px 0;
+}
+
+.vn-conclusion-text {
+    color: #fef3c7;
+    font-size: clamp(14px, 1.8vw, 17px);
+    font-style: italic;
+    margin: 0 0 12px;
+    line-height: 1.6;
+}
+
+.vn-choice-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid rgba(250,204,21,.2);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: rgba(2,6,23,.35);
+}
+
+.vn-character-preview-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+    .vn-character-preview-row img {
+        width: 76px;
+        height: 76px;
+        object-fit: cover;
+        border-radius: 10px;
+    }
+
+.vn-avatar-editor-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    margin: 6px 0 10px;
+}
+
+.vn-avatar-editor-card {
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    padding: 10px;
+    border: 1px solid rgba(96,165,250,.24);
+    border-radius: 8px;
+    background: rgba(2,6,23,.32);
+}
+
+    .vn-avatar-editor-card span {
+        color: #dbeafe;
+        font-weight: 900;
+    }
+
+    .vn-avatar-editor-card small {
+        min-height: 32px;
+        color: var(--text-dim);
+        line-height: 1.35;
+    }
+
+.vn-avatar-editor-preview {
+    width: 96px;
+    height: 128px;
+    display: grid;
+    place-items: center;
+    border: 2px solid rgba(250,204,21,.5);
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(30,41,59,.88), rgba(2,6,23,.9));
+    color: #f8fafc;
+    font-size: 28px;
+    font-weight: 900;
+    overflow: hidden;
+}
+
+    .vn-avatar-editor-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+.vn-battle-trigger-editor {
+    border: 1px solid rgba(96,165,250,.25);
+    border-radius: 8px;
+    padding: 8px;
+    background: rgba(15,23,42,.5);
+}
+
+    .vn-battle-trigger-editor summary {
+        cursor: pointer;
+        color: #bfdbfe;
+        font-weight: 800;
+    }
+
+.kage-unlock-panel {
+    border-color: rgba(248,113,113,.38);
+}
+
+.kage-unlock-panel.unlocked {
+    border-color: rgba(250,204,21,.55);
+    background: linear-gradient(135deg, rgba(113,63,18,.42), rgba(15,23,42,.82));
+}
+
+    .vn-choice-editor textarea {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 13px;
+        color: var(--slate-300);
+        background: rgba(2,6,23,.6);
+        border: 1px solid rgba(100,116,139,.4);
+        border-radius: 6px;
+        padding: 6px 10px;
+        resize: vertical;
+    }
+
+.vn-reward-strip {
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(2,6,23,.72);
+    color: #fef3c7;
+    font-weight: 900;
+}
+
+.vn-complete {
+    min-height: 420px;
+}

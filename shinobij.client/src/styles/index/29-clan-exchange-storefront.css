@@ -1,0 +1,1445 @@
+/* =====================================================================
+   Clan Exchange — production storefront pass
+   Live stock leads; locked rewards collapse into the progression shelf.
+   ===================================================================== */
+
+/* Superseded verbose storefront pass; kept commented for visual archaeology.
+.clan-exchange {
+    --exchange-ink: #07101d;
+    --exchange-panel: rgba(7, 16, 29, .94);
+    --exchange-line: rgba(148, 163, 184, .2);
+    display: grid;
+    gap: 22px;
+}
+
+.clan-exchange-hero {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(290px, 360px);
+    align-items: end;
+    gap: 28px;
+    min-height: 330px;
+    padding: clamp(22px, 3vw, 38px);
+    overflow: hidden;
+    border: 1px solid rgba(223, 178, 82, .48);
+    border-radius: 16px;
+    background: #07111d;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 22px 55px rgba(0,0,0,.36);
+}
+
+.clan-exchange-hero::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(4, 10, 18, .95) 0%, rgba(4, 10, 18, .82) 39%, rgba(4, 10, 18, .34) 70%, rgba(4, 10, 18, .18) 100%),
+        linear-gradient(0deg, rgba(3, 8, 15, .92) 0%, transparent 62%);
+    pointer-events: none;
+}
+
+.clan-exchange-hero-art {
+    position: absolute;
+    z-index: -2;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    filter: saturate(.9) contrast(1.04);
+}
+
+.clan-exchange-hero-copy {
+    display: grid;
+    align-content: end;
+    gap: 18px;
+    min-width: 0;
+    max-width: 690px;
+}
+
+.clan-exchange .clan-exchange-identity {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.clan-exchange-identity h3 {
+    margin: 3px 0 7px;
+    color: #fff4d3;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(2rem, 4vw, 3.45rem);
+    line-height: .98;
+    letter-spacing: -.035em;
+    text-shadow: 0 3px 20px rgba(0,0,0,.7);
+}
+
+.clan-exchange-identity p {
+    max-width: 610px;
+    margin: 0;
+    color: #d4deea;
+    font-size: .95rem;
+    line-height: 1.55;
+    text-shadow: 0 2px 6px rgba(0,0,0,.8);
+}
+
+.clan-exchange-kicker {
+    color: #8fd8ff;
+    font-size: .7rem;
+    letter-spacing: .16em;
+}
+
+.clan-exchange-access-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.clan-exchange-access-chips span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border: 1px solid rgba(143, 216, 255, .28);
+    border-radius: 999px;
+    background: rgba(5, 15, 27, .72);
+    color: #dcebf7;
+    font-size: .74rem;
+    font-weight: 850;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+    backdrop-filter: blur(8px);
+}
+
+.clan-exchange-ledger {
+    display: grid;
+    gap: 13px;
+    padding: 18px;
+    border: 1px solid rgba(223, 178, 82, .38);
+    border-radius: 13px;
+    background: linear-gradient(160deg, rgba(7, 17, 30, .92), rgba(4, 12, 22, .82));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 16px 34px rgba(0,0,0,.28);
+    backdrop-filter: blur(12px);
+}
+
+.clan-exchange .clan-exchange-wallet,
+.clan-exchange .clan-exchange-level {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.clan-exchange-wallet > span,
+.clan-exchange-next > span {
+    color: #91a5ba;
+    font-size: .68rem;
+    font-weight: 900;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+}
+
+.clan-exchange-wallet > div {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin-top: 4px;
+}
+
+.clan-exchange-wallet strong {
+    display: block;
+    color: #ffd87a;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 2.65rem;
+    line-height: .95;
+    text-shadow: 0 0 24px rgba(223, 178, 82, .2);
+}
+
+.clan-exchange-wallet b {
+    color: #bdc9d6;
+    font-size: .74rem;
+    letter-spacing: .12em;
+}
+
+.clan-exchange-week,
+.clan-exchange-level {
+    display: grid !important;
+    gap: 6px;
+}
+
+.clan-exchange-week > span,
+.clan-exchange-level > span {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0;
+    color: #d7e2ec;
+    font-size: .72rem;
+}
+
+.clan-exchange-week em,
+.clan-exchange-level em {
+    color: #91a5ba;
+    font-style: normal;
+    font-weight: 750;
+}
+
+.clan-exchange-week > div,
+.clan-exchange-level > div {
+    height: 6px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, .16);
+}
+
+.clan-exchange-week i,
+.clan-exchange-level i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #57b7d5, #e5bd68);
+    box-shadow: 0 0 12px rgba(87, 183, 213, .28);
+}
+
+.clan-exchange-next {
+    display: grid;
+    gap: 2px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(148, 163, 184, .16);
+}
+
+.clan-exchange-next strong {
+    color: #f5ecd9;
+    font-size: .82rem;
+}
+
+.clan-exchange-current,
+.clan-exchange-progression {
+    display: grid;
+    gap: 13px;
+}
+
+.clan-exchange .clan-exchange-section-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 0 3px;
+}
+
+.clan-exchange-section-head h4 {
+    margin-top: 3px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.38rem;
+}
+
+.clan-exchange-section-head p {
+    margin: 5px 0 0;
+    color: #91a5ba;
+    font-size: .8rem;
+    line-height: 1.4;
+}
+
+.clan-exchange-section-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.clan-exchange-section-stats span,
+.clan-exchange-section-stats strong {
+    padding: 6px 9px;
+    border-radius: 999px;
+    font-size: .68rem;
+    font-weight: 900;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.clan-exchange-section-stats span {
+    color: #b9c8d7;
+    border: 1px solid rgba(148,163,184,.22);
+    background: rgba(15,23,42,.5);
+}
+
+.clan-exchange-section-stats strong {
+    color: #ccfbe0;
+    border: 1px solid rgba(52,211,153,.27);
+    background: rgba(6,78,59,.25);
+}
+
+.clan-exchange .clan-exchange-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+    gap: 12px;
+}
+
+.clan-exchange-current-grid {
+    align-items: stretch;
+}
+
+.clan-exchange .clan-exchange-card {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto minmax(76px, 1fr) auto auto auto auto;
+    gap: 10px;
+    min-height: 420px;
+    padding: 12px;
+    overflow: hidden;
+    border: 1px solid var(--exchange-line);
+    border-radius: 13px;
+    background:
+        linear-gradient(155deg, rgba(15, 27, 43, .96), rgba(5, 12, 23, .98));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 12px 28px rgba(0,0,0,.18);
+    filter: none;
+    transition: transform 170ms ease, border-color 170ms ease, box-shadow 170ms ease;
+}
+
+.clan-exchange .clan-exchange-card::before {
+    border-top-width: 2px;
+    opacity: .9;
+}
+
+.clan-exchange-card.is-ready {
+    border-color: rgba(94, 219, 170, .38);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 15px 36px rgba(0,0,0,.25), 0 0 0 1px rgba(52,211,153,.05);
+}
+
+@media (hover: hover) {
+    .clan-exchange-card.is-ready:hover {
+        transform: translateY(-3px);
+        border-color: rgba(94, 219, 170, .62);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 20px 42px rgba(0,0,0,.32), 0 0 22px rgba(52,211,153,.08);
+    }
+}
+
+.clan-exchange-card-top strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #d6e7f3;
+    font-size: .76rem;
+    font-weight: 900;
+}
+
+.clan-exchange .clan-exchange-art {
+    min-height: 168px;
+    border-color: rgba(148, 163, 184, .2);
+    border-radius: 10px;
+    background:
+        radial-gradient(circle at 50% 44%, rgba(83, 166, 191, .17), transparent 38%),
+        linear-gradient(150deg, rgba(14, 33, 50, .9), rgba(5, 13, 24, .96));
+}
+
+.clan-exchange .clan-exchange-art::before {
+    inset: 8px;
+    border-color: rgba(255,255,255,.055);
+    border-radius: 8px;
+}
+
+.clan-exchange .clan-exchange-art::after {
+    inset: auto 9% -31% 9%;
+    height: 82px;
+    opacity: .65;
+}
+
+.clan-exchange .clan-exchange-art-ring {
+    width: 116px;
+    height: 116px;
+    border-color: rgba(223,178,82,.22);
+    background: radial-gradient(circle, rgba(255,255,255,.05), transparent 64%);
+}
+
+.clan-exchange .clan-exchange-art-glow {
+    width: 88px;
+    height: 88px;
+    opacity: .52;
+}
+
+.clan-exchange .clan-exchange-art-img {
+    width: 146px;
+    height: 146px;
+    object-fit: contain;
+    filter: drop-shadow(0 14px 18px rgba(0,0,0,.56));
+    transform: translateY(1px);
+}
+
+.clan-exchange-card.is-need-points .clan-exchange-art-img,
+.clan-exchange-card.is-limit-reached .clan-exchange-art-img,
+.clan-exchange-card.is-unavailable .clan-exchange-art-img {
+    filter: saturate(.78) brightness(.88) drop-shadow(0 12px 18px rgba(0,0,0,.5));
+}
+
+.clan-exchange .clan-exchange-art-mini {
+    width: 28px;
+    height: 28px;
+    border-color: rgba(143,216,255,.23);
+    background: rgba(7, 25, 39, .88);
+}
+
+.clan-exchange-card-copy h5,
+.clan-exchange-locked-copy h5 {
+    margin: 0;
+    color: #fff4d3;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.02rem;
+    line-height: 1.2;
+}
+
+.clan-exchange-card-copy p {
+    margin: 5px 0 0;
+    color: #aebdcc;
+    font-size: .79rem;
+    line-height: 1.45;
+}
+
+.clan-exchange .clan-exchange-reward {
+    min-height: 54px;
+    padding: 9px 10px;
+    border-color: rgba(87, 183, 213, .18);
+    border-radius: 8px;
+    background: rgba(5, 22, 36, .7);
+}
+
+.clan-exchange-reward strong {
+    color: #e5eef6;
+    font-size: .78rem;
+    line-height: 1.25;
+}
+
+.clan-exchange-card-meta {
+    color: #8598ab;
+    font-size: .7rem;
+}
+
+.clan-exchange-affordability {
+    display: grid;
+    gap: 4px;
+}
+
+.clan-exchange-affordability > span {
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(148,163,184,.14);
+}
+
+.clan-exchange-affordability i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #3f8aaa, #d4ae5f);
+}
+
+.clan-exchange-affordability small,
+.clan-exchange-status {
+    min-height: 15px;
+    color: #91a5ba;
+    font-size: .68rem;
+}
+
+.clan-exchange-status.is-ready { color: #83e6bb; }
+.clan-exchange-status.is-limit-reached,
+.clan-exchange-status.is-unavailable { color: #d6a1a1; }
+
+.clan-exchange-card button {
+    width: 100%;
+    min-height: 42px;
+    border-radius: 8px;
+    font-size: .78rem;
+    font-weight: 950;
+    letter-spacing: .025em;
+}
+
+.clan-exchange-card.is-ready button {
+    border-color: rgba(96, 225, 174, .45);
+    background: linear-gradient(180deg, #197a68, #105348);
+    color: #effff9;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 8px 20px rgba(16,83,72,.24);
+}
+
+.clan-exchange-card.is-need-points button:disabled,
+.clan-exchange-card.is-limit-reached button:disabled,
+.clan-exchange-card.is-unavailable button:disabled {
+    opacity: 1;
+    border-color: rgba(112, 137, 164, .24);
+    background: linear-gradient(180deg, rgba(31, 50, 76, .92), rgba(20, 33, 53, .96));
+    color: #8fa1b4;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.clan-exchange-progression {
+    padding-top: 4px;
+}
+
+.clan-exchange-progress-head > svg {
+    color: #d9b563;
+}
+
+.clan-exchange-roadmap {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.clan-exchange-roadmap > div {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid rgba(148,163,184,.18);
+    border-radius: 10px;
+    background: rgba(8,17,30,.74);
+}
+
+.clan-exchange-roadmap > div > span {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: rgba(16,42,60,.72);
+    color: #9fdcff;
+}
+
+.clan-exchange-roadmap small,
+.clan-exchange-roadmap strong {
+    display: block;
+    min-width: 0;
+}
+
+.clan-exchange-roadmap small {
+    color: #74879a;
+    font-size: .62rem;
+    font-weight: 850;
+    text-transform: uppercase;
+}
+
+.clan-exchange-roadmap strong {
+    overflow: hidden;
+    color: #dbe6ee;
+    font-size: .75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.clan-exchange-roadmap b {
+    color: #718497;
+    font-size: .62rem;
+    text-transform: uppercase;
+}
+
+.clan-exchange-roadmap > div.unlocked {
+    border-color: rgba(52,211,153,.24);
+    background: linear-gradient(145deg, rgba(6,78,59,.22), rgba(8,17,30,.76));
+}
+
+.clan-exchange-roadmap > div.unlocked > span { color: #91edc5; background: rgba(6,78,59,.35); }
+.clan-exchange-roadmap > div.unlocked b { color: #75dcb1; }
+
+.clan-exchange-future-shelves {
+    display: grid;
+    gap: 9px;
+}
+
+.clan-exchange-future-group {
+    overflow: hidden;
+    border: 1px solid rgba(148,163,184,.18);
+    border-radius: 11px;
+    background: rgba(6,14,25,.72);
+}
+
+.clan-exchange-future-group summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 13px 15px;
+    cursor: pointer;
+    list-style: none;
+    background: linear-gradient(90deg, rgba(18,37,55,.76), rgba(8,17,30,.5));
+}
+
+.clan-exchange-future-group summary::-webkit-details-marker { display: none; }
+
+.clan-exchange-future-group summary::after {
+    content: "+";
+    flex: 0 0 auto;
+    color: #8ca1b5;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.clan-exchange-future-group[open] summary::after { content: "−"; }
+
+.clan-exchange-future-group summary > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #e6edf4;
+    font-size: .78rem;
+    font-weight: 900;
+}
+
+.clan-exchange-future-group summary > strong {
+    margin-left: auto;
+    color: #8fa1b3;
+    font-size: .68rem;
+}
+
+.clan-exchange-future-group summary:focus-visible {
+    outline: 2px solid #7dd3fc;
+    outline-offset: -2px;
+}
+
+.clan-exchange-locked-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
+    gap: 9px;
+    padding: 11px;
+    border-top: 1px solid rgba(148,163,184,.12);
+}
+
+.clan-exchange-locked-card {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 11px;
+    min-width: 0;
+    padding: 9px;
+    border: 1px solid rgba(148,163,184,.16);
+    border-radius: 9px;
+    background: rgba(12,22,36,.72);
+}
+
+.clan-exchange-locked-card .clan-exchange-art {
+    min-height: 112px;
+    height: 100%;
+    border-radius: 7px;
+    filter: saturate(.48) brightness(.64);
+}
+
+.clan-exchange-locked-card .clan-exchange-art-img {
+    width: 96px;
+    height: 96px;
+}
+
+.clan-exchange-locked-card .clan-exchange-art-ring {
+    width: 78px;
+    height: 78px;
+}
+
+.clan-exchange-locked-card .clan-exchange-art-mini { display: none; }
+
+.clan-exchange-locked-copy {
+    display: grid;
+    align-content: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.clan-exchange-locked-copy > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 7px;
+}
+
+.clan-exchange-locked-copy > div > strong {
+    color: #8294a6;
+    font-size: .66rem;
+}
+
+.clan-exchange-locked-copy h5 {
+    color: #cfd8e1;
+    font-size: .9rem;
+}
+
+.clan-exchange-locked-copy p {
+    margin: 0;
+    color: #7f91a3;
+    font-size: .69rem;
+    line-height: 1.3;
+}
+
+.clan-exchange-lock-label {
+    display: inline-flex;
+    width: max-content;
+    align-items: center;
+    gap: 5px;
+    color: #b3c2cf;
+    font-size: .67rem;
+    font-weight: 850;
+}
+
+.clan-exchange-coming-soon {
+    border-style: dashed;
+}
+
+@media (max-width: 920px) {
+    .clan-exchange-hero {
+        grid-template-columns: 1fr;
+        min-height: 390px;
+    }
+
+    .clan-exchange-ledger {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .clan-exchange-next {
+        padding-top: 0;
+        padding-left: 12px;
+        border-top: 0;
+        border-left: 1px solid rgba(148,163,184,.16);
+    }
+
+    .clan-exchange-roadmap {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 620px) {
+    .clan-exchange {
+        gap: 18px;
+    }
+
+    .clan-exchange-hero {
+        grid-template-columns: 1fr;
+        align-items: end;
+        gap: 18px;
+        min-height: 500px;
+        padding: 18px;
+        border-radius: 12px;
+    }
+
+    .clan-exchange-hero::before {
+        background:
+            linear-gradient(0deg, rgba(3,8,15,.98) 0%, rgba(3,8,15,.76) 63%, rgba(3,8,15,.28) 100%),
+            linear-gradient(90deg, rgba(3,8,15,.76), transparent);
+    }
+
+    .clan-exchange-hero-art {
+        object-position: 69% center;
+    }
+
+    .clan-exchange .clan-exchange-identity {
+        grid-template-columns: 1fr;
+    }
+
+    .clan-exchange-identity > :first-child {
+        display: none;
+    }
+
+    .clan-exchange-identity h3 {
+        font-size: 2.35rem;
+    }
+
+    .clan-exchange-ledger {
+        grid-template-columns: 1fr;
+        padding: 14px;
+    }
+
+    .clan-exchange-next {
+        padding-top: 10px;
+        padding-left: 0;
+        border-top: 1px solid rgba(148,163,184,.16);
+        border-left: 0;
+    }
+
+    .clan-exchange .clan-exchange-section-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .clan-exchange-section-stats {
+        width: 100%;
+    }
+
+    .clan-exchange .clan-exchange-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .clan-exchange .clan-exchange-card {
+        min-height: 0;
+    }
+
+    .clan-exchange-future-group summary {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .clan-exchange-future-group summary > strong {
+        order: 3;
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .clan-exchange-locked-grid {
+        grid-template-columns: 1fr;
+        padding: 8px;
+    }
+
+    .clan-exchange-locked-card {
+        grid-template-columns: 92px minmax(0, 1fr);
+    }
+
+    .clan-exchange-locked-card .clan-exchange-art {
+        min-height: 98px;
+    }
+
+    .clan-exchange-locked-card .clan-exchange-art-img {
+        width: 82px;
+        height: 82px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .clan-exchange-card {
+        transition: none !important;
+    }
+}
+*/
+
+/* Clan Exchange — compact production storefront skin. */
+.clan-exchange {
+    --ex-line: rgba(148,163,184,.2);
+    display: grid;
+    gap: 20px;
+}
+
+.clan-exchange-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0,1fr) minmax(280px,350px);
+    gap: 26px;
+    min-height: 320px;
+    padding: clamp(22px,3vw,36px);
+    overflow: hidden;
+    border: 1px solid rgba(223,178,82,.48);
+    border-radius: 16px;
+    background: #07111d;
+}
+
+.clan-exchange-hero::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background: linear-gradient(90deg,rgba(4,10,18,.96),rgba(4,10,18,.8) 42%,rgba(4,10,18,.2)),linear-gradient(0deg,rgba(3,8,15,.92),transparent 62%);
+}
+
+.clan-exchange-hero-art {
+    position: absolute;
+    z-index: -2;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.clan-exchange-hero-copy { display: grid; align-content: end; gap: 18px; }
+.clan-exchange .clan-exchange-identity { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 16px; padding: 0; border: 0; background: none; }
+.clan-exchange-identity h3 { margin: 3px 0 7px; color: #fff4d3; font: 700 clamp(2rem,4vw,3.4rem)/.98 Georgia,serif; letter-spacing: -.035em; text-shadow: 0 3px 20px #000; }
+.clan-exchange-identity p { margin: 0; color: #d4deea; font-size: .94rem; }
+.clan-exchange-kicker,.clan-exchange-section-head>div>span,.clan-exchange-reward span,.clan-exchange-confirm-row span { color: #8fd8ff; font-size: .68rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+
+/* Superseded ledger detail pass.
+.clan-exchange-ledger { display: grid; gap: 12px; padding: 17px; border: 1px solid rgba(223,178,82,.38); border-radius: 13px; background: rgba(5,14,25,.9); box-shadow: inset 0 1px rgba(255,255,255,.07),0 16px 34px rgba(0,0,0,.28); }
+.clan-exchange .clan-exchange-wallet,.clan-exchange .clan-exchange-level { display: block; padding: 0; border: 0; background: none; }
+.clan-exchange-wallet>span,.clan-exchange-next>span { color: #91a5ba; font-size: .66rem; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; }
+.clan-exchange-wallet>div { display: flex; align-items: baseline; gap: 7px; margin-top: 4px; }
+.clan-exchange-wallet strong { color: #ffd87a; font: 700 2.6rem/.95 Georgia,serif; }
+.clan-exchange-wallet b { color: #bdc9d6; font-size: .72rem; }
+.clan-exchange-week,.clan-exchange-level { display: grid!important; gap: 6px; }
+.clan-exchange-week>span,.clan-exchange-level>span { display: flex; justify-content: space-between; gap: 12px; margin: 0; color: #d7e2ec; font-size: .7rem; }
+.clan-exchange-week em,.clan-exchange-level em { color: #91a5ba; font-style: normal; }
+.clan-exchange-week>div,.clan-exchange-level>div { height: 6px; overflow: hidden; border: 0; border-radius: 999px; background: rgba(148,163,184,.16); }
+.clan-exchange-week i,.clan-exchange-level i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#57b7d5,#e5bd68); }
+.clan-exchange-next { display: grid; gap: 2px; padding-top: 11px; border-top: 1px solid rgba(148,163,184,.16); }
+.clan-exchange-next strong { color: #f5ecd9; font-size: .8rem; }
+*/
+.clan-exchange-ledger { display: grid; gap: 10px; padding: 15px; border: 1px solid #735f35; border-radius: 12px; background: #071523e8; }
+.clan-exchange-wallet>div,.clan-exchange-week>span,.clan-exchange-level>span { display: flex; justify-content: space-between; gap: 8px; }
+.clan-exchange-wallet strong { color: #ffd87a; font: 700 2.5rem Georgia,serif; }
+.clan-exchange-week em,.clan-exchange-level em,.clan-exchange-next>span { color: #91a5ba; font: normal .67rem sans-serif; }
+.clan-exchange-week>div,.clan-exchange-level>div { height: 6px; overflow: hidden; background: #344154; }
+.clan-exchange-week i,.clan-exchange-level i { display: block; height: 100%; background: #57b7d5; }
+.clan-exchange-next { padding-top: 8px; border-top: 1px solid #344154; }
+.clan-exchange-next strong { display: block; color: #f5ecd9; font-size: .76rem; }
+
+.clan-exchange-current,.clan-exchange-progression { display: grid; gap: 13px; }
+.clan-exchange .clan-exchange-section-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 0 3px; }
+.clan-exchange-section-head h4 { margin: 3px 0 0; color: #fff4d3; font: 700 1.36rem Georgia,serif; }
+.clan-exchange-section-head p { margin: 5px 0 0; color: #91a5ba; font-size: .78rem; }
+.clan-exchange .clan-exchange-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(245px,1fr)); gap: 12px; }
+
+.clan-exchange .clan-exchange-card { position: relative; display: grid; gap: 10px; min-height: 410px; padding: 12px; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 13px; background: linear-gradient(155deg,#0f1b2b,#050c17); }
+.clan-exchange-card::before { content: ""; position: absolute; inset: 0; border-top: 2px solid #64748b; pointer-events: none; }
+.clan-exchange-card.rare::before { border-color: #38bdf8; }
+.clan-exchange-card.epic::before { border-color: #a78bfa; }
+.clan-exchange-card.legendary::before { border-color: #dfb252; }
+.clan-exchange-card.is-ready { border-color: #3b8b70; }
+.clan-exchange-card-top,.clan-exchange-card-meta,.clan-exchange-reward,.clan-exchange-confirm-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.clan-exchange-card-top strong { color: #d6e7f3; font-size: .74rem; }
+
+/* Superseded product-plate detail pass.
+.clan-exchange-art { position: relative; display: grid; place-items: center; min-height: 164px; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 10px; background: radial-gradient(circle at 50% 44%,rgba(83,166,191,.17),transparent 38%),linear-gradient(150deg,#0e2132,#050d18); }
+.clan-exchange-art::before { content: ""; position: absolute; inset: 8px; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; }
+.clan-exchange-art-ring,.clan-exchange-art-glow,.clan-exchange-art-main,.clan-exchange-art-mini { position: absolute; }
+.clan-exchange-art-ring { width: 112px; height: 112px; border: 1px solid rgba(223,178,82,.25); border-radius: 50%; background: radial-gradient(circle,rgba(255,255,255,.05),transparent 64%); }
+.clan-exchange-art-glow { width: 86px; height: 86px; border-radius: 50%; background: rgba(250,204,21,.22); filter: blur(18px); opacity: .5; }
+.clan-exchange-art-img { position: relative; z-index: 1; width: 144px; height: 144px; object-fit: contain; filter: drop-shadow(0 14px 18px rgba(0,0,0,.56)); }
+.clan-exchange-art-main { z-index: 1; display: grid; place-items: center; width: 58px; height: 58px; color: #fff7d6; border: 1px solid rgba(255,255,255,.16); border-radius: 8px; background: rgba(2,6,23,.46); }
+.clan-exchange-art-mini { z-index: 2; display: grid; place-items: center; width: 28px; height: 28px; color: #e0f2fe; border: 1px solid rgba(125,211,252,.28); border-radius: 50%; background: rgba(8,47,73,.82); }
+.clan-exchange-art-mini.top { top: 10px; right: 10px; }
+.clan-exchange-art-mini.bottom { bottom: 10px; left: 10px; }
+*/
+.clan-exchange-art { position: relative; display: grid; place-items: center; min-height: 164px; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 10px; background: #0b2131; }
+.clan-exchange-art-ring,.clan-exchange-art-glow { display: none; }
+.clan-exchange-art-img { position: relative; z-index: 1; width: 144px; height: 144px; object-fit: contain; }
+.clan-exchange-art-main { position: absolute; display: grid; place-items: center; width: 58px; height: 58px; color: #fff7d6; }
+.clan-exchange-art-mini { display: none; }
+
+.clan-exchange-card-copy h5,.clan-exchange-locked-copy h5 { margin: 0; color: #fff4d3; font: 700 1rem/1.2 Georgia,serif; }
+.clan-exchange-card-copy p { margin: 5px 0 0; color: #aebdcc; font-size: .77rem; line-height: 1.42; }
+.clan-exchange .clan-exchange-reward { min-height: 52px; padding: 9px 10px; border: 1px solid rgba(87,183,213,.18); border-radius: 8px; background: rgba(5,22,36,.7); }
+.clan-exchange-reward strong,.clan-exchange-confirm-row strong { color: #e5eef6; font-size: .76rem; }
+.clan-exchange-card-meta { color: #8598ab; }
+.clan-exchange-affordability small,.clan-exchange-status { min-height: 15px; color: #91a5ba; font-size: .66rem; }
+.clan-exchange-status.is-ready { color: #83e6bb; }
+.clan-exchange-card button { width: 100%; min-height: 42px; border-radius: 8px; font-size: .76rem; font-weight: 900; }
+.clan-exchange-card.is-ready button { border-color: #49ad8f; background: linear-gradient(#197a68,#105348); color: #effff9; }
+
+.clan-exchange-rarity { display: inline-flex; width: max-content; padding: 3px 8px; border: 1px solid var(--ex-line); border-radius: 999px; color: #cbd5e1; background: rgba(15,23,42,.72); font-size: .66rem; font-weight: 900; text-transform: uppercase; }
+.clan-exchange-rarity.rare { color: #bae6fd; border-color: #2789a9; }
+.clan-exchange-rarity.epic { color: #ddd6fe; border-color: #7957a8; }
+.clan-exchange-rarity.legendary { color: #fef3c7; border-color: #a98436; }
+
+
+/* Superseded progression-shelf detail pass.
+.clan-exchange-future-shelves { display: grid; gap: 9px; }
+.clan-exchange-future-group { overflow: hidden; border: 1px solid var(--ex-line); border-radius: 11px; background: rgba(6,14,25,.72); }
+.clan-exchange-future-group summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; cursor: pointer; list-style: none; background: linear-gradient(90deg,rgba(18,37,55,.76),rgba(8,17,30,.5)); }
+.clan-exchange-future-group summary::-webkit-details-marker { display: none; }
+.clan-exchange-future-group summary::after { content: "+"; color: #8ca1b5; font-size: 1.1rem; }
+.clan-exchange-future-group[open] summary::after { content: "−"; }
+.clan-exchange-future-group summary>span { display: inline-flex; align-items: center; gap: 7px; color: #e6edf4; font-size: .76rem; font-weight: 900; }
+.clan-exchange-future-group summary>strong { margin-left: auto; color: #8fa1b3; font-size: .66rem; }
+.clan-exchange-locked-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(270px,1fr)); gap: 9px; padding: 11px; border-top: 1px solid var(--ex-line); }
+.clan-exchange-locked-card { display: grid; grid-template-columns: 108px minmax(0,1fr); gap: 11px; padding: 9px; border: 1px solid var(--ex-line); border-radius: 9px; background: rgba(12,22,36,.72); }
+.clan-exchange-locked-card .clan-exchange-art { min-height: 108px; filter: saturate(.48) brightness(.64); }
+.clan-exchange-locked-card .clan-exchange-art-img { width: 92px; height: 92px; }
+.clan-exchange-locked-card .clan-exchange-art-ring { width: 74px; height: 74px; }
+.clan-exchange-locked-card .clan-exchange-art-mini { display: none; }
+.clan-exchange-locked-copy { display: grid; align-content: center; gap: 6px; min-width: 0; }
+.clan-exchange-locked-copy>div { display: flex; justify-content: space-between; gap: 7px; }
+.clan-exchange-locked-copy>div>strong,.clan-exchange-locked-copy p { margin: 0; color: #8294a6; font-size: .66rem; }
+.clan-exchange-lock-label { display: inline-flex; align-items: center; gap: 5px; color: #b3c2cf; font-size: .65rem; font-weight: 850; }
+*/
+.clan-exchange-future-shelves { display: grid; gap: 9px; }
+.clan-exchange-future-group { overflow: hidden; border: 1px solid var(--ex-line); border-radius: 10px; }
+.clan-exchange-future-group summary { display: flex; gap: 12px; padding: 12px; cursor: pointer; background: #102536; }
+.clan-exchange-future-group summary>strong { margin-left: auto; color: #8fa1b3; font-size: .64rem; }
+.clan-exchange-locked-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 8px; padding: 9px; }
+.clan-exchange-locked-card { display: grid; grid-template-columns: 104px 1fr; gap: 9px; padding: 8px; background: #0c1624; }
+.clan-exchange-locked-card .clan-exchange-art { min-height: 104px; filter: saturate(.48) brightness(.64); }
+.clan-exchange-locked-copy { display: grid; align-content: center; gap: 5px; }
+.clan-exchange-locked-copy>div { display: flex; justify-content: space-between; }
+.clan-exchange-locked-copy p,.clan-exchange-lock-label { margin: 0; color: #8294a6; font-size: .64rem; }
+
+.clan-exchange-modal { position: relative; display: grid; gap: 12px; width: min(420px,calc(100vw - 28px)); padding: 22px; border: 1px solid #806a3c; background: #0b2031; }
+.clan-exchange-modal h3 { margin: 0; color: #fef3c7; }
+.modal-close { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; min-height: 0; padding: 0; border-radius: 50%; }
+.clan-exchange-reveal { justify-items: center; text-align: center; }
+.clan-exchange-reveal-mark { color: #fef3c7; }
+
+/* Superseded responsive detail pass.
+@media (hover:hover) { .clan-exchange-card.is-ready:hover { transform: translateY(-3px); border-color: #5edbaa; } }
+@media (max-width:920px) { .clan-exchange-hero { grid-template-columns: 1fr; min-height: 390px; } .clan-exchange-ledger { grid-template-columns: repeat(2,1fr); } .clan-exchange-roadmap { grid-template-columns: 1fr; } }
+@media (max-width:620px) {
+    .clan-exchange-hero { min-height: 490px; padding: 18px; }
+    .clan-exchange-hero::before { background: linear-gradient(0deg,#03080ffc,rgba(3,8,15,.72) 65%,transparent); }
+    .clan-exchange-hero-art { object-position: 69% center; }
+    .clan-exchange .clan-exchange-identity,.clan-exchange-ledger,.clan-exchange .clan-exchange-grid,.clan-exchange-locked-grid { grid-template-columns: 1fr; }
+    .clan-exchange-identity>:first-child { display: none; }
+    .clan-exchange .clan-exchange-section-head { align-items: flex-start; flex-direction: column; }
+    .clan-exchange-section-stats { width: 100%; }
+    .clan-exchange .clan-exchange-card { min-height: 0; }
+    .clan-exchange-locked-card { grid-template-columns: 88px minmax(0,1fr); }
+    .clan-exchange-locked-card .clan-exchange-art { min-height: 94px; }
+    .clan-exchange-locked-card .clan-exchange-art-img { width: 78px; height: 78px; }
+}
+@media (prefers-reduced-motion:reduce) { .clan-exchange-card { transition: none!important; } }
+*/
+@media (max-width:920px) { .clan-exchange-hero { grid-template-columns: 1fr; } }
+@media (max-width:620px) {
+    .clan-exchange-hero { min-height: 480px; padding: 18px; }
+    .clan-exchange-hero-art { object-position: 69%; }
+    .clan-exchange .clan-exchange-identity,.clan-exchange-ledger,.clan-exchange .clan-exchange-grid,.clan-exchange-locked-grid { grid-template-columns: 1fr; }
+    .clan-exchange-identity>:first-child { display: none; }
+    .clan-exchange .clan-exchange-section-head { align-items: flex-start; flex-direction: column; }
+    .clan-exchange .clan-exchange-card { min-height: 0; }
+    .clan-exchange-locked-card { grid-template-columns: 84px 1fr; }
+    .clan-exchange-locked-card .clan-exchange-art-img { width: 76px; height: 76px; }
+}
+
+/* ── The walking avatar (grounded pin, SectorAvatar presentation) ── */
+.hg-avatar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 6;
+    pointer-events: none;
+}
+.hg-avatar-shadow {
+    position: absolute;
+    bottom: 1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 64%;
+    height: 9px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 70%);
+}
+.hg-avatar-aura {
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 115%;
+    height: 15px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(168, 85, 247, 0.35) 0%, rgba(168, 85, 247, 0) 70%);
+}
+.hg-avatar-sprite {
+    position: absolute;
+    inset: 0;
+    display: block;
+    transform: scaleX(var(--face, 1));
+    transform-origin: 50% 100%;
+}
+.hg-avatar.is-walking .hg-avatar-sprite { animation: hgWalkBob 0.3s ease-in-out infinite; }
+@keyframes hgWalkBob {
+    0%, 100% { translate: 0 0; }
+    50% { translate: 0 -3px; }
+}
+.hg-avatar-body {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+    width: 100%;
+    height: 76%;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid rgba(196, 181, 253, 0.9);
+    background: #1d1435;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55), 0 0 12px rgba(168, 85, 247, 0.4);
+}
+.hg-avatar-body img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.hg-avatar-initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-weight: 700;
+    font-size: 13px;
+    color: #e9d5ff;
+}
+.hg-avatar-pin {
+    position: absolute;
+    left: 50%;
+    top: 74%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 12px solid rgba(196, 181, 253, 0.9);
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+/* ── Minimap ── */
+.hg-minimap {
+    display: grid;
+    gap: 0;
+    width: max-content;
+    max-width: 100%;
+    background: #0a0616;
+    padding: 4px;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.hg-minimap span { display: block; }
+.hg-mm-dark { background: transparent; }
+.hg-mm-wall { background: #251840; }
+.hg-mm-floor { background: #4b3a76; }
+.hg-mm-lit { background: #7c5fb8; }
+.hg-mm-goal { background: #fbbf24; border-radius: 50%; }
+.hg-mm-exit { background: #34d399; border-radius: 50%; }
+.hg-mm-you { background: #ffffff; border-radius: 50%; box-shadow: 0 0 4px var(--blue-400); }
+
+@media (prefers-reduced-motion: reduce) {
+    .hg-board { transition: none; }
+    .hg-flame, .hg-dest::after, .hg-avatar.is-walking .hg-avatar-sprite { animation: none; }
+}
+
+/* ————— Sector traces: trail signs, shrine standee, traces reader ————— */
+
+.sector-trace-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.sector-trace-sign {
+    position: absolute;
+    transform: translate(-50%, -85%);
+    width: clamp(26px, 6%, 44px);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    pointer-events: auto;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .55));
+    transition: transform .12s ease;
+}
+
+    .sector-trace-sign:hover { transform: translate(-50%, -85%) scale(1.12); }
+
+    .sector-trace-sign img { width: 100%; display: block; }
+
+.sector-trace-sign-fallback { display: none; font-size: 20px; line-height: 1; }
+    .sector-trace-sign-fallback.is-visible { display: block; }
+
+.sector-trace-sign-count {
+    position: absolute;
+    top: -6px;
+    right: -9px;
+    background: var(--gold, #eab308);
+    color: #1c1917;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    padding: 0 3px;
+}
+
+/* The shrine standee: a painted 2.5D cutout standing ON the sector terrain, so it
+   carries no card chrome of its own — the art is the marker (same intent as
+   .atlas-hollowGate). Self-contained rather than an .atlas-landmark override:
+   the atlas card class exists to paint label cards, and inheriting it only to
+   strip it back out meant any later map skin could sit a panel behind the art.
+   Tier classes brighten its aura. */
+.sector-shrine-standee {
+    position: absolute;
+    z-index: 7;
+    /* NOTE: this width is not what actually sizes the art today. The name row is
+       `white-space: nowrap`, so the grid column takes the NAME's min-content width
+       and the art (width:100% of that column) scales to the label rather than the
+       board — "Shrine of the Ancients" renders ~125px wide, "Tidecaller" ~64px.
+       Pinning the column (grid-template-columns: minmax(0, 1fr)) makes this width
+       real, but it also visibly shrinks every shrine on a narrow board, so it is
+       an art-direction call rather than a drive-by fix — left alone deliberately. */
+    width: clamp(64px, 14%, 116px);
+    padding: 0;
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    /* Anchors the shrine's BASE (not its centre) to the placed left/top point, so
+       it reads as standing on that spot. This resolves against the button's own
+       height, and every position in shared/shrines.ts was tuned against that
+       height WITH the name row in it — so the name below keeps its layout row
+       (hidden by opacity, never display/absolute) or all six shrines slide off
+       the ground they were placed on. */
+    transform: translate(-50%, -62%);
+    cursor: pointer;
+    transition: transform .15s ease;
+}
+
+    .sector-shrine-standee:hover,
+    .sector-shrine-standee:focus-visible { transform: translate(-50%, -62%) scale(1.05); }
+
+    /* Paired shadows read as contact + ambient occlusion against the painted
+       ground. Both track the cutout silhouette, so they stay aligned on every
+       shrine regardless of where that asset's base sits in its own box.
+       --shrine-aura is the tier/theme glow, layered on by the rules below. */
+    .sector-shrine-standee img {
+        width: 100%;
+        display: block;
+        filter:
+            drop-shadow(0 2px 1px rgba(0, 0, 0, .55))
+            drop-shadow(0 7px 8px rgba(0, 0, 0, .38))
+            var(--shrine-aura, );
+    }
+
+    /* The name is a hover/focus reveal, not a permanent pill: a label pinned over
+       the terrain is what made the shrine read as UI pasted on the map. The sector
+       card and the offering sheet both still name it outright.
+       Hidden with opacity ONLY. This row is load-bearing twice over — it sizes the
+       grid column (the art's width) and it pads the button height the -62% anchor
+       resolves against — so display:none / position:absolute here would resize AND
+       move all six shrines off their placed ground. */
+    .sector-shrine-standee-name {
+        font-size: 10px;
+        line-height: 1.2;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: rgba(2, 6, 23, .74);
+        border: 1px solid rgba(254, 243, 199, .4);
+        color: #fef3c7;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity .15s ease;
+    }
+
+    .sector-shrine-standee:hover .sector-shrine-standee-name,
+    .sector-shrine-standee:focus-visible .sector-shrine-standee-name { opacity: 1; }
+
+    .sector-shrine-standee.shrine-tier-1 { --shrine-aura: drop-shadow(0 0 8px rgba(253, 230, 138, .35)); }
+    .sector-shrine-standee.shrine-tier-2 { --shrine-aura: drop-shadow(0 0 12px rgba(253, 230, 138, .5)); }
+    .sector-shrine-standee.shrine-tier-3 { --shrine-aura: drop-shadow(0 0 18px rgba(253, 230, 138, .65)); }
+    .sector-shrine-standee.shrine-tier-4 { --shrine-aura: drop-shadow(0 0 24px rgba(196, 181, 253, .8)); }
+
+/* Command-panel card */
+.sector-traces-card .sector-trace-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    margin-top: 6px;
+}
+
+.sector-footfall-pill {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, .14);
+    border: 1px solid rgba(56, 189, 248, .35);
+    color: #bae6fd;
+    white-space: nowrap;
+}
+
+/* Portaled traces reader (fixed overlays inside main.center-game get painted
+   over by nav — portal to body + high z, see the overlay portal pattern). */
+.sector-traces-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1000000;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(4, 6, 12, .72);
+}
+
+.sector-traces-sheet {
+    position: relative;
+    width: min(94vw, 480px);
+    max-height: 86dvh;
+    overflow-y: auto;
+    background: #141926;
+    border: 1px solid #38405a;
+    border-radius: 14px;
+    padding: 1.05rem 1.1rem;
+    text-align: left;
+}
+
+.sector-traces-head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: .6rem;
+}
+
+    .sector-traces-head h3 { margin: 0 0 2px; }
+
+.sector-traces-shrine-art {
+    width: 84px;
+    height: 84px;
+    object-fit: contain;
+    flex: 0 0 auto;
+    filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .5));
+}
+
+.sector-traces-sub { margin: 0; font-size: 12px; opacity: .85; }
+
+.sector-traces-blessing { margin: 4px 0 0; font-size: 12px; font-style: italic; color: #fde68a; }
+
+.sector-traces-board { margin-top: .7rem; }
+
+    .sector-traces-board h4 { margin: 0 0 4px; font-size: 13px; }
+
+.sector-traces-board-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 3px 0;
+    font-size: 13px;
+}
+
+.sector-traces-lastweek { margin: 6px 0 0; font-size: 11px; opacity: .75; }
+
+.sector-traces-offer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: .75rem;
+}
+
+.sector-traces-custom { display: flex; gap: 6px; align-items: stretch; }
+
+    .sector-traces-custom input {
+        width: 96px;
+        background: #0d1220;
+        border: 1px solid #38405a;
+        border-radius: 8px;
+        color: inherit;
+        padding: 4px 8px;
+    }
+
+.sector-traces-ryo { margin: .6rem 0 0; font-size: 12px; opacity: .8; }
+
+.sector-traces-list {
+    display: grid;
+    gap: 8px;
+    margin: .6rem 0;
+    max-height: 42dvh;
+    overflow-y: auto;
+}
+
+.sector-traces-sign-row {
+    background: rgba(2, 6, 23, .5);
+    border: 1px solid #2b3350;
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+
+    .sector-traces-sign-row.is-focused { border-color: var(--gold, #eab308); box-shadow: 0 0 10px rgba(234, 179, 8, .3); }
+
+.sector-traces-sign-text { margin: 0 0 4px; font-size: 13.5px; }
+
+.sector-traces-sign-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 11.5px;
+    opacity: .85;
+}
+
+.sector-traces-spark {
+    background: rgba(234, 179, 8, .12);
+    border: 1px solid rgba(234, 179, 8, .4);
+    border-radius: 999px;
+    color: #fde68a;
+    font-size: 11.5px;
+    padding: 2px 9px;
+    cursor: pointer;
+}
+
+    .sector-traces-spark:disabled { opacity: .55; cursor: default; }
+
+    .sector-traces-spark.is-sparked { background: rgba(234, 179, 8, .3); }
+
+.sector-traces-compose textarea {
+    width: 100%;
+    min-height: 64px;
+    resize: vertical;
+    background: #0d1220;
+    border: 1px solid #38405a;
+    border-radius: 10px;
+    color: inherit;
+    padding: 8px 10px;
+    font: inherit;
+    font-size: 13px;
+}
+
+.sector-traces-compose-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+    .sector-traces-compose-row small { opacity: .7; }
+
+.sector-traces-note {
+    margin: .6rem 0 0;
+    font-size: 12.5px;
+    color: #bae6fd;
+}
+
+.sector-traces-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 15px;
+    opacity: .7;
+    cursor: pointer;
+}
+
+    .sector-traces-close:hover { opacity: 1; }
+
+/* Shrine themes — the Hollow Gate ward glows violet, the Ancients' shrine glows
+   old gold-white; village shrines keep the standard gold aura. */
+.sector-traces-lore {
+    margin: .1rem 0 .4rem;
+    font-size: 12px;
+    line-height: 1.45;
+    opacity: .82;
+}
+
+    .sector-traces-lore.is-hollow-gate { color: #d8caff; }
+
+    .sector-traces-lore.is-ancients { color: #f3e6c2; }
+
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-1 { --shrine-aura: drop-shadow(0 0 8px rgba(167, 139, 250, .4)); }
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-2 { --shrine-aura: drop-shadow(0 0 12px rgba(167, 139, 250, .55)); }
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-3 { --shrine-aura: drop-shadow(0 0 18px rgba(167, 139, 250, .7)); }
+.sector-shrine-standee.shrine-theme-hollow-gate.shrine-tier-4 { --shrine-aura: drop-shadow(0 0 24px rgba(196, 181, 253, .85)); }
+
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-1 { --shrine-aura: drop-shadow(0 0 8px rgba(250, 240, 200, .4)); }
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-2 { --shrine-aura: drop-shadow(0 0 12px rgba(250, 240, 200, .55)); }
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-3 { --shrine-aura: drop-shadow(0 0 18px rgba(250, 240, 200, .7)); }
+.sector-shrine-standee.shrine-theme-ancients.shrine-tier-4 { --shrine-aura: drop-shadow(0 0 26px rgba(255, 250, 224, .9)); }
+
+/* World-map shrine affix — shrine sectors carry a small torii mark so the six
+   pilgrimage sites are discoverable at a glance (same affix pattern as the
+   weekly-boss highlight; tooltip names the shrine). */
+.atlas-sector-shrine::after {
+    content: "⛩";
+    position: absolute;
+    top: -10px;
+    right: -8px;
+    font-size: 12px;
+    line-height: 1;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .75));
+    pointer-events: none;
+}

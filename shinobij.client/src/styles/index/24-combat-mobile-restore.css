@@ -1,0 +1,1298 @@
+/* =============================================
+   COMBAT — MOBILE LAYOUT OVERHAUL
+   On phones the two full-width side HUDs stack
+   vertically and eat all the vertical space. Fix:
+   put both HUDs side-by-side in a compact top
+   strip so the hex grid gets maximum room.
+   ============================================= */
+
+@media (max-width: 800px) {
+  /* Rearrange: 2-col top strip [player | enemy], full-width main below */
+  .arena-fullscreen .combat-layout {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: auto 1fr !important;
+    gap: 6px !important;
+  }
+
+  /* Player HUD — left column, row 1 */
+  .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  /* Main combat area — spans both columns, row 2 */
+  .arena-fullscreen .combat-layout > .combat-main-area {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+  }
+
+  /* Enemy HUD — right column, row 1 */
+  .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  /* Compact both HUDs — HP + Chakra + Stamina (+ Shield) + the compact
+     MobileEffectsStrip. The verbose Buffs/Debuffs columns are hidden on mobile
+     (below) and replaced by that one-row strip, so the HUD stays short without
+     clipping the (now glanceable) status info. */
+  .arena-fullscreen .combat-side-hud {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+  }
+
+  /* Swap the verbose effect columns for the compact strip on phones. */
+  .arena-fullscreen .combat-side-hud .combat-effect-panel { display: none !important; }
+  .arena-fullscreen .combat-side-hud .combat-mobile-effects { display: flex !important; }
+
+  .arena-fullscreen .combat-side-hud h3 {
+    font-size: 11px !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Header row: name + village + waiting/acting pill — pack tightly. */
+  .arena-fullscreen .combat-side-hud .combat-hud-header {
+    gap: 4px !important;
+    margin-bottom: 2px !important;
+  }
+  .arena-fullscreen .combat-side-hud .combat-hud-village,
+  .arena-fullscreen .combat-side-hud .combat-hud-turn-badge {
+    font-size: 9px !important;
+    padding: 1px 5px !important;
+  }
+
+  .arena-fullscreen .combat-avatar {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 20px !important;
+    margin: 0 auto 2px !important;
+  }
+
+  .arena-fullscreen .combat-avatar img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* Resource lines — tight stack, label inline, bar full-width below. */
+  .arena-fullscreen .combat-side-hud .resource-line {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1px !important;
+    margin: 0 !important;
+  }
+  .arena-fullscreen .combat-side-hud .resource-label {
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+    color: var(--slate-300) !important;
+  }
+  .arena-fullscreen .combat-side-hud .resource-label small {
+    font-size: 9px !important;
+    margin-left: 3px !important;
+    color: var(--text-dim) !important;
+  }
+  .arena-fullscreen .combat-side-hud .hud-bar {
+    height: 6px !important;
+    margin: 0 !important;
+  }
+
+  /* One authoritative SQUARE avatar for the mobile side HUD. Several older
+     .combat-avatar size rules disagree (width from a 64px rule, height from a
+     32px rule) and rendered a stretched oval. This 3-class scope + !important
+     wins on phones (the data-vp avatar rules only target xl/lg/xxl). */
+  .arena-fullscreen .combat-side-hud .combat-avatar,
+  .arena-fullscreen .combat-side-hud .combat-avatar img {
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    aspect-ratio: 1 / 1 !important;
+    margin: 0 auto 4px !important;
+  }
+
+  /* Round counter / "Round N" line at the bottom — keep small. */
+  .arena-fullscreen .combat-side-hud .combat-hud-meta {
+    font-size: 9px !important;
+    margin-top: 2px !important;
+    color: var(--text-dim) !important;
+  }
+
+  /* Hex battlefield — block layout so JS margin-centering works reliably */
+  .arena-fullscreen .hex-battlefield {
+    display: block !important;      /* override CSS-grid centering; JS handles it */
+    height: clamp(280px, 46dvh, 420px) !important;
+    min-height: 260px !important;
+    max-height: 420px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+  }
+
+  /* JS sets transform-origin: top left and left/top — don't fight it */
+  .arena-fullscreen .hex-grid-layer {
+    position: absolute !important;
+    transform-origin: top left !important;
+    margin: 0 !important;
+  }
+
+  /* ───── Reorder: move AP/turn-timer panel under the hex board ───────────
+     User request — top-of-screen real estate is more valuable for the hex
+     board (the targeting surface) than the AP bars. The .dual-ap-panel
+     normally sits between the terrain strip and the hex; on phones we
+     flex-reorder it to sit just below the hex instead. Keeps the rest of
+     the column in source order via a baseline order: 5. */
+  .arena-fullscreen .combat-main-area {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .arena-fullscreen .combat-main-area > * {
+    order: 5;
+  }
+  .arena-fullscreen .combat-main-area > .arena-top-panel { order: 1; }
+  .arena-fullscreen .combat-main-area > .twp-strip       { order: 2; }
+  .arena-fullscreen .combat-main-area > .hex-battlefield { order: 3; }
+  .arena-fullscreen .combat-main-area > .dual-ap-panel   { order: 4; }
+  /* Command bar / jutsu / log etc. keep order: 5 (baseline) so they fall
+     into place after the AP panel in their natural source order. */
+
+  /* ───── Compactification: reclaim vertical space for the action zone ─────
+     Before this block, mobile battle stacked: HUDs + arena title + terrain
+     strip + AP panel + hex (~340px) + command bar + jutsu cards + 220px
+     combat log = often 900–1000px. Phones are ~700–800px usable. Result:
+     constant scrolling between hex and jutsu mid-fight.
+     The full game-style fix is a tabbed bottom panel (Jutsu/Log/Status)
+     which requires JSX changes in two places (PvE + PvP) — high risk.
+     This CSS-only pass instead compresses the auxiliary panels so the
+     core action loop (hex + AP + command bar + jutsu) all fit one
+     viewport on most phones. The log stays available as a small strip
+     with internal scroll instead of dominating the page. */
+
+  /* Arena title panel — was decorative-large on desktop, on phones it's
+     just consuming vertical space that the player needs for action. */
+  .arena-fullscreen .arena-top-panel {
+    padding: 4px 8px !important;
+    margin-bottom: 4px !important;
+  }
+  .arena-fullscreen .arena-title-panel h2 {
+    font-size: 14px !important;
+    margin: 0 !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0.1em !important;
+  }
+  .arena-fullscreen .arena-title-panel p {
+    font-size: 10px !important;
+    margin: 1px 0 0 !important;
+    line-height: 1 !important;
+  }
+
+  /* Terrain/Weather strip — single condensed line, wrap labels off */
+  .arena-fullscreen .twp-strip {
+    padding: 3px 6px !important;
+    gap: 4px !important;
+    margin-bottom: 3px !important;
+    font-size: 10px !important;
+  }
+  .arena-fullscreen .twp-strip-label,
+  .arena-fullscreen .twp-strip-sep {
+    display: none !important; /* labels and dot separators eat width */
+  }
+  .arena-fullscreen .twp-strip-biome,
+  .arena-fullscreen .twp-strip-value,
+  .arena-fullscreen .twp-buff {
+    font-size: 10px !important;
+  }
+
+  /* AP panel — single row instead of 3-stack, compact bars */
+  .arena-fullscreen .dual-ap-panel {
+    grid-template-columns: 1fr auto 1fr !important;
+    gap: 6px !important;
+    padding: 4px 6px !important;
+    margin-bottom: 4px !important;
+  }
+  .arena-fullscreen .dual-ap-panel .hud-bar {
+    height: 8px !important;
+  }
+  .arena-fullscreen .dual-ap-panel strong {
+    font-size: 11px !important;
+  }
+  .arena-fullscreen .dual-ap-panel small {
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+  }
+
+  /* Round timer — shrink to fit beside the AP bars */
+  .arena-fullscreen .round-timer-display .round-timer-ring {
+    width: 36px !important;
+    height: 36px !important;
+  }
+  .arena-fullscreen .round-timer-display .round-timer-num {
+    font-size: 14px !important;
+  }
+  .arena-fullscreen .round-timer-display small {
+    font-size: 9px !important;
+  }
+
+  /* Combat log — collapse to a short strip that still shows the most
+     recent entries. The log scrolls internally, so making it tall is
+     wasteful on phones. ~90px shows ~3-4 lines, good for "what just
+     happened" without dominating the viewport. */
+  .arena-fullscreen .combat-text-log {
+    max-height: 90px !important;
+    margin-top: 6px !important;
+    padding: 4px 8px !important;
+    border-width: 2px !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+  .arena-fullscreen .combat-text-log p {
+    margin: 2px 0 !important;
+  }
+  .arena-fullscreen .combat-log-header {
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+  }
+  .arena-fullscreen .timeline-round {
+    margin: 3px 0 !important;
+  }
+  .arena-fullscreen .timeline-round-header {
+    font-size: 10px !important;
+    padding: 2px 4px !important;
+  }
+
+  /* HUD inner bits — bars, name, level — compact stack */
+  .arena-fullscreen .combat-side-hud .hud-bar {
+    height: 8px !important;
+    margin: 2px 0 !important;
+  }
+  .arena-fullscreen .combat-side-hud strong {
+    font-size: 11px !important;
+    line-height: 1.15 !important;
+  }
+  .arena-fullscreen .combat-side-hud small {
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .arena-fullscreen .hex-battlefield {
+    height: clamp(250px, 42dvh, 360px) !important;
+    min-height: 240px !important;
+    max-height: 360px !important;
+    padding: 0 !important;
+  }
+
+  .arena-fullscreen .combat-side-hud {
+    /* Height follows content (header + avatar + 3-4 bars + the compact
+       MobileEffectsStrip); the verbose effect columns are hidden on mobile so
+       the HUD stays short without a hard clamp clipping the status strip. */
+    font-size: 10px !important;
+  }
+
+  .arena-fullscreen .combat-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 16px !important;
+  }
+
+  /* ── World map scroll fix ── */
+  /* Let the map be its natural landscape size so sectors stay properly
+     placed; the scroll wrapper handles horizontal panning. */
+  .world-map-scroll {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    border-radius: 8px !important;
+  }
+
+  .world-map-scroll .atlas-world-map {
+    /* Keep the map at a fixed landscape size the sector % positions were
+       designed for, so they line up with the background image. */
+    min-width: 720px !important;
+    width: 720px !important;
+    height: 520px !important;
+    min-height: 520px !important;
+    border-radius: 0 !important;
+  }
+}
+
+/* ── Hex battle grid zoom slider ── */
+.hex-zoom-bar {
+    display: none; /* hidden on desktop */
+}
+
+@media (max-width: 768px) {
+    .hex-zoom-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 6px 10px;
+        background: linear-gradient(90deg, rgba(15,23,42,0.92), rgba(30,58,138,0.82));
+        border: 1px solid rgba(99,132,220,0.4);
+        border-radius: 8px;
+        margin-bottom: 6px;
+    }
+
+    .hex-zoom-label {
+        font-size: 16px;
+        flex-shrink: 0;
+        opacity: 0.85;
+    }
+
+    .hex-zoom-slider {
+        flex: 1;
+        -webkit-appearance: none;
+        appearance: none;
+        height: 5px;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #1e40af, var(--blue-400));
+        outline: none;
+        cursor: pointer;
+    }
+
+    .hex-zoom-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--gold);
+        border: 2px solid #92400e;
+        box-shadow: 0 0 6px rgba(250,204,21,0.6);
+        cursor: pointer;
+    }
+
+    .hex-zoom-slider::-moz-range-thumb {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--gold);
+        border: 2px solid #92400e;
+        box-shadow: 0 0 6px rgba(250,204,21,0.6);
+        cursor: pointer;
+    }
+
+    .hex-zoom-reset {
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 1px solid rgba(99,132,220,0.5);
+        background: rgba(30,58,138,0.7);
+        color: var(--blue-300);
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+    }
+
+    .hex-zoom-reset:active {
+        background: rgba(59,130,246,0.4);
+    }
+}
+
+/* ── Round timer display ──────────────────────────────────────────────────── */
+
+/* Make the AP panel a 3-column layout: player AP | timer | enemy AP */
+.arena-fullscreen .dual-ap-panel {
+    grid-template-columns: 1fr auto 1fr !important;
+    align-items: center !important;
+}
+
+/* ── Mobile: lock arena to viewport so the grid can't overflow ── */
+@media (max-width: 800px) {
+    /* Fix the whole arena to the viewport height */
+    .arena-fullscreen {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+    }
+
+    /* The combat-layout fills remaining height */
+    .arena-fullscreen .combat-layout {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    /* combat-main-area fills the remaining grid row */
+    .arena-fullscreen .combat-layout > .combat-main-area {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    /* Battlefield grows to fill remaining space in the flex column */
+    .arena-fullscreen .hex-battlefield {
+        flex: 1 1 0 !important;
+        height: auto !important;
+        min-height: 200px !important;
+        max-height: none !important;
+    }
+
+    /* Jutsu bar stays compact and scrollable */
+    .arena-fullscreen .jutsu-layout-card,
+    .arena-fullscreen .combat-jutsu-bar {
+        flex-shrink: 0 !important;
+        max-height: 120px !important;
+        overflow-y: auto !important;
+    }
+
+    /* AP panel stays compact */
+    .arena-fullscreen .dual-ap-panel {
+        flex-shrink: 0 !important;
+    }
+
+    /* Command bar stays compact */
+    .arena-fullscreen .basic-action-bar,
+    .arena-fullscreen .shinobi-command-bar {
+        flex-shrink: 0 !important;
+    }
+}
+
+.round-timer-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0 6px;
+}
+
+.round-timer-display small {
+    font-size: 9px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    white-space: nowrap;
+}
+
+.round-timer-ring {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: conic-gradient(
+        var(--cyan) calc(var(--rt-pct, 100%)),
+        rgba(30, 58, 138, 0.55) calc(var(--rt-pct, 100%))
+    );
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    transition: background 0.9s linear;
+}
+
+/* Inset "hole" for donut effect */
+.round-timer-ring::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    background: var(--slate-900);
+    border-radius: 50%;
+}
+
+.round-timer-num {
+    position: relative;
+    z-index: 1;
+    font-size: 15px;
+    font-weight: 900;
+    color: var(--slate-200);
+    line-height: 1;
+}
+
+/* Urgent state: last 10 seconds */
+.round-timer-display.round-timer-urgent .round-timer-ring {
+    background: conic-gradient(
+        var(--danger) calc(var(--rt-pct, 0%)),
+        rgba(127, 29, 29, 0.55) calc(var(--rt-pct, 0%))
+    ) !important;
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.6) !important;
+    animation: timer-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.round-timer-display.round-timer-urgent .round-timer-num {
+    color: var(--red-300);
+}
+
+@keyframes timer-pulse {
+    from { box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+    to   { box-shadow: 0 0 24px rgba(239, 68, 68, 0.9); }
+}
+
+/* Inactive placeholder when it's the enemy's turn */
+.round-timer-display.round-timer-inactive .round-timer-ring {
+    background: rgba(30, 41, 59, 0.6) !important;
+    box-shadow: none !important;
+    animation: none !important;
+}
+
+.round-timer-display.round-timer-inactive .round-timer-num {
+    color: var(--slate-600);
+}
+
+/* Mobile: make the ring a bit smaller so the AP panel doesn't get too tall */
+@media (max-width: 800px) {
+    .round-timer-ring {
+        width: 38px !important;
+        height: 38px !important;
+    }
+    .round-timer-num {
+        font-size: 12px !important;
+    }
+    .round-timer-ring::before {
+        inset: 5px !important;
+    }
+}
+
+/* =====================================================
+   COMBAT — PORTRAIT PHONE VERTICAL SPACE RECLAIM
+   The journey banner + info strips + HUDs consume
+   almost the entire viewport before the hex grid
+   even appears. Hide decorative chrome during combat
+   and give the battlefield the leftover height.
+   ===================================================== */
+
+/* Hide the top banner entirely on all combat screens */
+@media (max-width: 800px) {
+  .screen-arena .journey-banner,
+  .screen-storyBoss .journey-banner,
+  .screen-battleArena .journey-banner,
+  .screen-battleTowers .journey-banner,
+  .screen-arenaDistrict .journey-banner {
+    display: none !important;
+  }
+
+  /* Hide the decorative arena title card + terrain/weather strip */
+  .arena-fullscreen .arena-top-panel,
+  .arena-fullscreen .twp-strip {
+    display: none !important;
+  }
+
+  /* Compact the AP bars panel */
+  .arena-fullscreen .dual-ap-panel {
+    padding: 5px 8px !important;
+    margin-bottom: 4px !important;
+    gap: 6px !important;
+    font-size: 11px !important;
+  }
+
+  /* Slim the zoom slider bar */
+  .hex-zoom-bar {
+    padding: 3px 8px !important;
+    margin-bottom: 3px !important;
+  }
+
+  /*
+    Battlefield: fill whatever is left after the compact chrome.
+    Budget (approximate):
+      HUD strip        130px  (max-height from the layout rule above)
+      zoom bar          34px
+      AP panel          34px
+      jutsu bar        130px  (new max-height below)
+      gaps + padding    30px
+      ─────────────────────
+      total non-field  358px  → leave 360 as a safe round number
+  */
+  .arena-fullscreen .hex-battlefield {
+    height: calc(100dvh - 360px) !important;
+    min-height: 260px !important;
+    max-height: none !important;
+    padding: 0 !important;
+  }
+
+  /* Compact jutsu bar — one scrollable row of cards */
+  .arena-fullscreen .jutsu-layout-card,
+  .arena-fullscreen .combat-jutsu-bar {
+    max-height: 130px !important;
+    overflow-y: auto !important;
+  }
+}
+
+/* Extra-small phones (≤520px) */
+@media (max-width: 520px) {
+  .arena-fullscreen .hex-battlefield {
+    height: calc(100dvh - 330px) !important;
+    min-height: 240px !important;
+  }
+
+  .arena-fullscreen .jutsu-layout-card,
+  .arena-fullscreen .combat-jutsu-bar {
+    max-height: 110px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Pet Arena — per-action-kind VFX tile overlays
+   ═══════════════════════════════════════════════════ */
+
+/* ── lifesteal: dual red→green burst on target tile ── */
+.pet-vfx-tile-lifesteal {
+    animation: pet-tile-lifesteal 0.55s ease-out forwards !important;
+}
+@keyframes pet-tile-lifesteal {
+    0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0), inset 0 0 0 0 rgba(34,197,94,0); background: transparent; }
+    30%  { box-shadow: 0 0 22px 8px rgba(239,68,68,0.75), inset 0 0 18px 6px rgba(239,68,68,0.4); background: rgba(239,68,68,0.18); }
+    70%  { box-shadow: 0 0 22px 8px rgba(34,197,94,0.65), inset 0 0 18px 6px rgba(34,197,94,0.3); background: rgba(34,197,94,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── shield: quick cyan pulse ring ── */
+.pet-vfx-tile-shield {
+    animation: pet-tile-shield 0.6s ease-out forwards !important;
+}
+@keyframes pet-tile-shield {
+    0%   { box-shadow: 0 0 0 0 rgba(6,182,212,0.9), inset 0 0 0 0 rgba(6,182,212,0); background: transparent; }
+    40%  { box-shadow: 0 0 0 14px rgba(6,182,212,0.45), inset 0 0 16px 4px rgba(6,182,212,0.3); background: rgba(6,182,212,0.12); }
+    100% { box-shadow: 0 0 0 26px rgba(6,182,212,0), inset 0 0 0 0 rgba(6,182,212,0); background: transparent; }
+}
+
+/* ── absorb: golden protective bubble expands then settles ── */
+.pet-vfx-tile-absorb {
+    animation: pet-tile-absorb 0.75s ease-out forwards !important;
+}
+@keyframes pet-tile-absorb {
+    0%   { box-shadow: 0 0 0 0 rgba(250,204,21,0.9); background: rgba(250,204,21,0.05); }
+    35%  { box-shadow: 0 0 18px 10px rgba(250,204,21,0.55), inset 0 0 20px 6px rgba(250,204,21,0.25); background: rgba(250,204,21,0.15); }
+    70%  { box-shadow: 0 0 30px 14px rgba(250,204,21,0.28); background: rgba(250,204,21,0.08); }
+    100% { box-shadow: 0 0 0 0 rgba(250,204,21,0); background: transparent; }
+}
+
+/* ── barrier: deep blue wall flash ── */
+.pet-vfx-tile-barrier {
+    animation: pet-tile-barrier 0.65s ease-out forwards !important;
+}
+@keyframes pet-tile-barrier {
+    0%   { box-shadow: inset 0 0 0 0 rgba(59,130,246,0); background: transparent; }
+    30%  { box-shadow: inset 0 0 30px 10px rgba(59,130,246,0.55), 0 0 20px 8px rgba(59,130,246,0.4); background: rgba(59,130,246,0.18); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── heal: soft green sparkle on self ── */
+.pet-vfx-tile-heal {
+    animation: pet-tile-heal 0.65s ease-out forwards !important;
+}
+@keyframes pet-tile-heal {
+    0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0); background: transparent; }
+    40%  { box-shadow: 0 0 20px 10px rgba(34,197,94,0.55), inset 0 0 14px 4px rgba(34,197,94,0.3); background: rgba(34,197,94,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── damage: sharp red flash ── */
+.pet-vfx-tile-damage {
+    animation: pet-tile-damage 0.45s ease-out forwards !important;
+}
+@keyframes pet-tile-damage {
+    0%   { box-shadow: inset 0 0 0 0 rgba(239,68,68,0); background: transparent; }
+    20%  { box-shadow: inset 0 0 28px 10px rgba(239,68,68,0.7), 0 0 18px 6px rgba(239,68,68,0.5); background: rgba(239,68,68,0.2); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── basic attack: white impact flash ── */
+.pet-vfx-tile-basic {
+    animation: pet-tile-basic 0.35s ease-out forwards !important;
+}
+@keyframes pet-tile-basic {
+    0%   { box-shadow: inset 0 0 0 0 rgba(255,255,255,0); background: transparent; }
+    25%  { box-shadow: inset 0 0 20px 8px rgba(255,255,255,0.55); background: rgba(255,255,255,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── debuff: purple gloom ── */
+.pet-vfx-tile-debuff {
+    animation: pet-tile-debuff 0.55s ease-out forwards !important;
+}
+@keyframes pet-tile-debuff {
+    0%   { box-shadow: 0 0 0 0 rgba(168,85,247,0); background: transparent; }
+    35%  { box-shadow: 0 0 20px 10px rgba(168,85,247,0.6), inset 0 0 18px 5px rgba(168,85,247,0.35); background: rgba(168,85,247,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── dot (poison): pulsing toxic green ── */
+.pet-vfx-tile-dot {
+    animation: pet-tile-dot 0.7s ease-out forwards !important;
+}
+@keyframes pet-tile-dot {
+    0%   { box-shadow: 0 0 0 0 rgba(132,204,22,0); background: transparent; }
+    40%  { box-shadow: 0 0 18px 10px rgba(132,204,22,0.6), inset 0 0 14px 5px rgba(132,204,22,0.3); background: rgba(132,204,22,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── movelock: chain/orange freeze ── */
+.pet-vfx-tile-movelock {
+    animation: pet-tile-movelock 0.55s ease-out forwards !important;
+}
+@keyframes pet-tile-movelock {
+    0%   { box-shadow: 0 0 0 0 rgba(251,146,60,0); background: transparent; }
+    40%  { box-shadow: 0 0 22px 10px rgba(251,146,60,0.65), inset 0 0 18px 6px rgba(251,146,60,0.3); background: rgba(251,146,60,0.16); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── move: cool blue motion blur ── */
+.pet-vfx-tile-move {
+    animation: pet-tile-move 0.4s ease-out forwards !important;
+}
+@keyframes pet-tile-move {
+    0%   { box-shadow: 0 0 0 0 rgba(56,189,248,0); background: transparent; }
+    30%  { box-shadow: 0 0 16px 8px rgba(56,189,248,0.5), inset 0 0 12px 4px rgba(56,189,248,0.25); background: rgba(56,189,248,0.1); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── buff: golden shimmer on self ── */
+.pet-vfx-tile-buff {
+    animation: pet-tile-buff 0.6s ease-out forwards !important;
+}
+@keyframes pet-tile-buff {
+    0%   { box-shadow: 0 0 0 0 rgba(250,204,21,0); background: transparent; }
+    35%  { box-shadow: 0 0 20px 10px rgba(250,204,21,0.65), inset 0 0 16px 5px rgba(250,204,21,0.3); background: rgba(250,204,21,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── Lifesteal float: green drain text ── */
+.pet-damage-float.lifesteal {
+    color: var(--green-400) !important;
+    text-shadow: 0 0 8px rgba(74,222,128,0.8) !important;
+}
+
+/* ── Absorb status badge ── */
+.pet-status-badge.absorb {
+    background: linear-gradient(90deg, #854d0e, #ca8a04);
+    color: #fef9c3;
+    border-color: #fde047;
+    text-shadow: 0 0 4px rgba(250,204,21,0.6);
+}
+
+/* ── Obstacle blocks — more dramatic 3-D look ── */
+.pet-obstacle-block {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+.pet-obstacle-top {
+    position: absolute;
+    top: 0; left: 8%;
+    width: 84%; height: 40%;
+    background: linear-gradient(135deg, #78716c, #57534e);
+    border-radius: 3px 3px 0 0;
+    box-shadow: inset 0 2px 4px rgba(255,255,255,0.18);
+}
+.pet-obstacle-face {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 72%; height: 62%;
+    background: linear-gradient(180deg, #57534e, #3b3330);
+    box-shadow: inset 1px 0 6px rgba(0,0,0,0.4);
+}
+.pet-obstacle-side {
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 30%; height: 62%;
+    background: linear-gradient(180deg, #44403c, #292524);
+    box-shadow: inset -1px 0 4px rgba(0,0,0,0.5);
+}
+
+/* ===== Desktop combat restore =====
+   Keep the full PC battle chrome visible: title, terrain/weather strip,
+   AP bars, board, actions, and side HUDs. Phone rules below 800px still
+   own the compact mobile combat view. */
+@media (min-width: 801px) {
+    .arena-fullscreen {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    .arena-fullscreen .combat-layout {
+        display: grid !important;
+        grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) minmax(160px, 220px) !important;
+        grid-template-rows: auto !important;
+        gap: clamp(8px, 1vw, 14px) !important;
+        align-items: start !important;
+        overflow: visible !important;
+    }
+
+    .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+    }
+
+    .arena-fullscreen .combat-layout > .combat-main-area {
+        grid-column: 2 !important;
+        grid-row: 1 !important;
+        display: block !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+        order: 0 !important;
+    }
+
+    .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+        grid-column: 3 !important;
+        grid-row: 1 !important;
+    }
+
+    .arena-fullscreen .combat-side-hud {
+        position: sticky !important;
+        top: 90px !important;
+        width: auto !important;
+        max-width: none !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .arena-fullscreen .arena-top-panel {
+        display: grid !important;
+        margin-bottom: 10px !important;
+    }
+
+    .arena-fullscreen .twp-strip {
+        display: flex !important;
+        margin-bottom: 8px !important;
+    }
+
+    .arena-fullscreen .dual-ap-panel {
+        display: grid !important;
+        grid-template-columns: 1fr auto 1fr !important;
+        margin-bottom: 10px !important;
+    }
+
+    .arena-fullscreen .hex-zoom-bar {
+        display: none !important;
+    }
+
+    .arena-fullscreen .hex-battlefield {
+        height: clamp(420px, 52dvh, 520px) !important;
+        min-height: clamp(420px, 52dvh, 520px) !important;
+        max-height: none !important;
+        margin-bottom: 12px !important;
+        overflow: hidden !important;
+    }
+
+    .arena-fullscreen .jutsu-layout-card,
+    .arena-fullscreen .combat-jutsu-bar {
+        display: grid !important;
+        visibility: visible !important;
+    }
+}
+
+/* ===== Mobile combat scroll restore =====
+   Let phone players scroll through the full command and jutsu/item controls.
+   Earlier mobile combat rules lock the arena to 100dvh and hide overflow,
+   which traps content below the battlefield. */
+@media (max-width: 800px) {
+    body:has(.arena-fullscreen),
+    .game:has(.arena-fullscreen),
+    .center-game:has(.arena-fullscreen) {
+        overflow-y: auto !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    .center-game:has(.arena-fullscreen) {
+        padding-bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    }
+
+    .arena-fullscreen {
+        height: auto !important;
+        min-height: 100dvh !important;
+        max-height: none !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    .arena-fullscreen .combat-layout {
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
+    .arena-fullscreen .combat-layout > .combat-main-area {
+        display: block !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
+    .arena-fullscreen .hex-battlefield {
+        height: clamp(260px, 48dvh, 430px) !important;
+        min-height: 260px !important;
+        max-height: none !important;
+        margin-bottom: 8px !important;
+        flex: none !important;
+    }
+
+    .arena-fullscreen .basic-action-bar,
+    .arena-fullscreen .shinobi-command-bar {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .arena-fullscreen .jutsu-layout-card,
+    .arena-fullscreen .combat-jutsu-bar {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+}
+
+/* Final mobile map/menu pass: keep this at EOF so it wins over older mobile patches. */
+@media (max-width: 800px) {
+    html,
+    body,
+    #root,
+    .game {
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+
+    .center-game {
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow: visible !important;
+        padding: 8px 8px calc(112px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    .center-game > .card,
+    .center-game > .creator-card,
+    .center-game > .admin-subpanel,
+    .center-game > .bloodline-maker-screen,
+    .center-game > .profile-card,
+    .center-game > .cinematic-card,
+    .profile-build-panel,
+    .summary-box {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+    }
+
+    .world-map-scroll {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior-x: contain !important;
+        border-radius: 12px !important;
+        padding-bottom: 6px !important;
+    }
+
+    .world-map-scroll .anime-world-map,
+    .world-map-scroll .atlas-world-map,
+    .world-map-scroll .generated-world-map {
+        flex: 0 0 auto !important;
+        width: 1100px !important;
+        min-width: 1100px !important;
+        max-width: none !important;
+        height: 733px !important;
+        min-height: 733px !important;
+        max-height: none !important;
+        aspect-ratio: auto !important;
+        transform: none !important;
+        background-size: 100% 100% !important;
+        background-position: center center !important;
+    }
+
+    .world-map-scroll .atlas-sector {
+        width: 54px !important;
+        height: 54px !important;
+        min-width: 54px !important;
+        min-height: 54px !important;
+        font-size: 24px !important;
+        line-height: 1 !important;
+    }
+
+    .world-map-scroll .atlas-landmark {
+        min-width: 124px !important;
+        max-width: 168px !important;
+        padding: 8px 10px !important;
+        font-size: 15px !important;
+    }
+
+    /* Hollow Gate marker inside the wider .world-map-scroll layout — image-only,
+       sized just under the 54px sector nodes so it reads as a landmark instead of
+       covering the numbered nodes around it ("eating the map"). */
+    .world-map-scroll .atlas-hollowGate {
+        min-width: 52px !important;
+        width: 52px !important;
+        height: 52px !important;
+        max-width: 52px !important;
+        padding: 0 !important;
+        font-size: 0 !important;
+        line-height: 1 !important;
+        gap: 0 !important;
+    }
+
+        .world-map-scroll .atlas-hollowGate strong,
+        .world-map-scroll .atlas-hollowGate span {
+            display: none !important;
+        }
+
+    .map-instance {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding-bottom: 10px !important;
+    }
+
+    .map-instance .instance-frame,
+    .sector-instance-wrap,
+    .map-instance .sector-instance-wrap:has(.instance-info),
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) {
+        width: 760px !important;
+        min-width: 760px !important;
+        max-width: none !important;
+        height: auto !important;
+        min-height: 720px !important;
+        overflow: visible !important;
+        grid-template-columns: minmax(0, 1fr) 240px !important;
+        grid-template-areas: "scene actions" !important;
+        align-items: start !important;
+    }
+
+    .map-instance .instance-frame > main.tile-scene,
+    .sector-instance-wrap .tile-scene {
+        grid-area: scene !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .map-instance .instance-frame > aside.instance-actions,
+    .sector-instance-wrap .instance-actions,
+    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions,
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
+        grid-area: actions !important;
+        width: 240px !important;
+        min-width: 240px !important;
+        max-width: 240px !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .walkable-sector-map,
+    .sector-image-map {
+        width: 520px !important;
+        min-width: 520px !important;
+        max-width: 520px !important;
+        height: 720px !important;
+        min-height: 720px !important;
+        max-height: none !important;
+        aspect-ratio: auto !important;
+    }
+
+    .location-grid,
+    .jutsu-list,
+    .tag-grid,
+    .inline-grid,
+    .admin-grid,
+    .start-grid,
+    .profile-summary,
+    .inventory-character-layout,
+    .technique-shell,
+    .pet-stats-grid,
+    .pet-arena-grid {
+        grid-template-columns: 1fr !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    /* Stats get 2 columns on mobile so each group fits without excessive scrolling */
+    .stat-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    .stat-card,
+    .location-button,
+    .jutsu-card,
+    .summary-box {
+        min-width: 0 !important;
+    }
+
+    .stat-card-input-row,
+    .menu {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    /* Title row stacks vertically so the button never clips off-screen */
+    .profile-title-row {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.5rem !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .profile-title-input {
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .profile-title-btn {
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .profile-title-counter {
+        align-self: flex-end !important;
+        margin-top: -0.25rem !important;
+    }
+
+    .profile-title-row input,
+    .profile-title-row button,
+    .profile-title-row select,
+    .stat-card-input-row input,
+    .stat-card-input-row button,
+    .menu button,
+    input,
+    select,
+    textarea,
+    button {
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .world-map-scroll .anime-world-map,
+    .world-map-scroll .atlas-world-map,
+    .world-map-scroll .generated-world-map {
+        width: 1020px !important;
+        min-width: 1020px !important;
+        height: 640px !important;
+        min-height: 640px !important;
+    }
+
+    .map-instance .instance-frame,
+    .sector-instance-wrap,
+    .map-instance .sector-instance-wrap:has(.instance-info),
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) {
+        width: 720px !important;
+        min-width: 720px !important;
+        grid-template-columns: minmax(0, 1fr) 220px !important;
+    }
+
+    .walkable-sector-map,
+    .sector-image-map {
+        width: 500px !important;
+        min-width: 500px !important;
+    }
+
+    .map-instance .instance-frame > aside.instance-actions,
+    .sector-instance-wrap .instance-actions,
+    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions,
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
+        width: 220px !important;
+        min-width: 220px !important;
+        max-width: 220px !important;
+    }
+}
+
+/* ── Notice Board ───────────────────────────────────────── */
+.notice-board-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+}
+.notice-post {
+    background: var(--slate-800);
+    border: 1px solid var(--slate-700);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.notice-post.pinned {
+    border-color: #fbbf24;
+    background: #1c1a0e;
+}
+.notice-post-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+}
+.notice-post-head span:first-child {
+    background: var(--slate-900);
+    border: 1px solid var(--slate-700);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+.notice-post-head strong {
+    font-size: 0.88rem;
+    color: var(--slate-200);
+    flex: 1;
+    min-width: 0;
+}
+.notice-post-head small {
+    color: var(--text-dim);
+    font-size: 0.72rem;
+}
+.notice-post-meta {
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    margin-left: auto;
+    white-space: nowrap;
+}
+.notice-post p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--slate-300);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.notice-post-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: var(--slate-900);
+    border: 1px solid var(--slate-700);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.notice-post-form label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+}
+.notice-post-form textarea {
+    resize: vertical;
+    min-height: 64px;
+}
+
