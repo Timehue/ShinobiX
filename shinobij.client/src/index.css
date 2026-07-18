@@ -27207,6 +27207,7 @@ html.lite-fx .hg-flame { animation: none; }
 
 .clan-exchange-hero {
     position: relative;
+    isolation: isolate;
     display: grid;
     grid-template-columns: minmax(0,1fr) minmax(280px,350px);
     gap: 26px;
@@ -27223,7 +27224,7 @@ html.lite-fx .hg-flame { animation: none; }
     position: absolute;
     z-index: -1;
     inset: 0;
-    background: linear-gradient(90deg,rgba(4,10,18,.96),rgba(4,10,18,.8) 42%,rgba(4,10,18,.2)),linear-gradient(0deg,rgba(3,8,15,.92),transparent 62%);
+    background: #03080fc9;
 }
 
 .clan-exchange-hero-art {
@@ -27235,10 +27236,9 @@ html.lite-fx .hg-flame { animation: none; }
     object-fit: cover;
 }
 
-.clan-exchange-hero-copy { display: grid; align-content: end; gap: 18px; }
 .clan-exchange .clan-exchange-identity { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 16px; padding: 0; border: 0; background: none; }
-.clan-exchange-identity h3 { margin: 3px 0 7px; color: #fff4d3; font: 700 clamp(2rem,4vw,3.4rem)/.98 Georgia,serif; letter-spacing: -.035em; text-shadow: 0 3px 20px #000; }
-.clan-exchange-identity p { margin: 0; color: #d4deea; font-size: .94rem; }
+.clan-exchange-identity h3 { margin: 3px 0 7px; color: #fff4d3; font: 700 clamp(2rem,4vw,3.4rem) Georgia,serif; }
+.clan-exchange-identity p { margin: 0; color: #d4deea; }
 .clan-exchange-kicker,.clan-exchange-section-head>div>span,.clan-exchange-reward span,.clan-exchange-confirm-row span { color: #8fd8ff; font-size: .68rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
 
 /* Superseded ledger detail pass.
@@ -27257,7 +27257,7 @@ html.lite-fx .hg-flame { animation: none; }
 .clan-exchange-next strong { color: #f5ecd9; font-size: .8rem; }
 */
 .clan-exchange-ledger { display: grid; gap: 10px; padding: 15px; border: 1px solid #735f35; border-radius: 12px; background: #071523e8; }
-.clan-exchange-wallet>div,.clan-exchange-week>span,.clan-exchange-level>span { display: flex; justify-content: space-between; gap: 8px; }
+.clan-exchange-week>span,.clan-exchange-level>span { display: flex; justify-content: space-between; }
 .clan-exchange-wallet strong { color: #ffd87a; font: 700 2.5rem Georgia,serif; }
 .clan-exchange-week em,.clan-exchange-level em,.clan-exchange-next>span { color: #91a5ba; font: normal .67rem sans-serif; }
 .clan-exchange-week>div,.clan-exchange-level>div { height: 6px; overflow: hidden; background: #344154; }
@@ -27266,16 +27266,11 @@ html.lite-fx .hg-flame { animation: none; }
 .clan-exchange-next strong { display: block; color: #f5ecd9; font-size: .76rem; }
 
 .clan-exchange-current,.clan-exchange-progression { display: grid; gap: 13px; }
-.clan-exchange .clan-exchange-section-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 0 3px; }
+.clan-exchange .clan-exchange-section-head { display: flex; justify-content: space-between; gap: 18px; }
 .clan-exchange-section-head h4 { margin: 3px 0 0; color: #fff4d3; font: 700 1.36rem Georgia,serif; }
-.clan-exchange-section-head p { margin: 5px 0 0; color: #91a5ba; font-size: .78rem; }
 .clan-exchange .clan-exchange-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(245px,1fr)); gap: 12px; }
 
 .clan-exchange .clan-exchange-card { position: relative; display: grid; gap: 10px; min-height: 410px; padding: 12px; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 13px; background: linear-gradient(155deg,#0f1b2b,#050c17); }
-.clan-exchange-card::before { content: ""; position: absolute; inset: 0; border-top: 2px solid #64748b; pointer-events: none; }
-.clan-exchange-card.rare::before { border-color: #38bdf8; }
-.clan-exchange-card.epic::before { border-color: #a78bfa; }
-.clan-exchange-card.legendary::before { border-color: #dfb252; }
 .clan-exchange-card.is-ready { border-color: #3b8b70; }
 .clan-exchange-card-top,.clan-exchange-card-meta,.clan-exchange-reward,.clan-exchange-confirm-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .clan-exchange-card-top strong { color: #d6e7f3; font-size: .74rem; }
@@ -27293,25 +27288,21 @@ html.lite-fx .hg-flame { animation: none; }
 .clan-exchange-art-mini.bottom { bottom: 10px; left: 10px; }
 */
 .clan-exchange-art { position: relative; display: grid; place-items: center; min-height: 164px; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 10px; background: #0b2131; }
-.clan-exchange-art-ring,.clan-exchange-art-glow { display: none; }
 .clan-exchange-art-img { position: relative; z-index: 1; width: 144px; height: 144px; object-fit: contain; }
 .clan-exchange-art-main { position: absolute; display: grid; place-items: center; width: 58px; height: 58px; color: #fff7d6; }
-.clan-exchange-art-mini { display: none; }
 
 .clan-exchange-card-copy h5,.clan-exchange-locked-copy h5 { margin: 0; color: #fff4d3; font: 700 1rem/1.2 Georgia,serif; }
-.clan-exchange-card-copy p { margin: 5px 0 0; color: #aebdcc; font-size: .77rem; line-height: 1.42; }
-.clan-exchange .clan-exchange-reward { min-height: 52px; padding: 9px 10px; border: 1px solid rgba(87,183,213,.18); border-radius: 8px; background: rgba(5,22,36,.7); }
+.clan-exchange-card-copy p { margin: 5px 0 0; color: #aebdcc; font-size: .77rem; }
+.clan-exchange .clan-exchange-reward { padding: 8px; border: 1px solid var(--ex-line); border-radius: 8px; }
 .clan-exchange-reward strong,.clan-exchange-confirm-row strong { color: #e5eef6; font-size: .76rem; }
-.clan-exchange-card-meta { color: #8598ab; }
-.clan-exchange-affordability small,.clan-exchange-status { min-height: 15px; color: #91a5ba; font-size: .66rem; }
-.clan-exchange-status.is-ready { color: #83e6bb; }
-.clan-exchange-card button { width: 100%; min-height: 42px; border-radius: 8px; font-size: .76rem; font-weight: 900; }
-.clan-exchange-card.is-ready button { border-color: #49ad8f; background: linear-gradient(#197a68,#105348); color: #effff9; }
+.clan-exchange-affordability small,.clan-exchange-status { color: #91a5ba; font-size: .66rem; }
+.clan-exchange-card button { width: 100%; min-height: 42px; font-weight: 900; }
+.clan-exchange-card.is-ready button { background: #146457; color: #effff9; }
 
-.clan-exchange-rarity { display: inline-flex; width: max-content; padding: 3px 8px; border: 1px solid var(--ex-line); border-radius: 999px; color: #cbd5e1; background: rgba(15,23,42,.72); font-size: .66rem; font-weight: 900; text-transform: uppercase; }
-.clan-exchange-rarity.rare { color: #bae6fd; border-color: #2789a9; }
-.clan-exchange-rarity.epic { color: #ddd6fe; border-color: #7957a8; }
-.clan-exchange-rarity.legendary { color: #fef3c7; border-color: #a98436; }
+.clan-exchange-rarity { padding: 3px 7px; border: 1px solid var(--ex-line); border-radius: 999px; color: #cbd5e1; font-size: .66rem; text-transform: uppercase; }
+.clan-exchange-rarity.rare { color: #bae6fd; }
+.clan-exchange-rarity.epic { color: #ddd6fe; }
+.clan-exchange-rarity.legendary { color: #fef3c7; }
 
 
 /* Superseded progression-shelf detail pass.
@@ -27337,13 +27328,13 @@ html.lite-fx .hg-flame { animation: none; }
 .clan-exchange-future-shelves { display: grid; gap: 9px; }
 .clan-exchange-future-group { overflow: hidden; border: 1px solid var(--ex-line); border-radius: 10px; }
 .clan-exchange-future-group summary { display: flex; gap: 12px; padding: 12px; cursor: pointer; background: #102536; }
-.clan-exchange-future-group summary>strong { margin-left: auto; color: #8fa1b3; font-size: .64rem; }
+.clan-exchange-future-group summary>strong { margin-left: auto; color: #8fa1b3; }
 .clan-exchange-locked-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 8px; padding: 9px; }
 .clan-exchange-locked-card { display: grid; grid-template-columns: 104px 1fr; gap: 9px; padding: 8px; background: #0c1624; }
-.clan-exchange-locked-card .clan-exchange-art { min-height: 104px; filter: saturate(.48) brightness(.64); }
+.clan-exchange-locked-card .clan-exchange-art { min-height: 104px; opacity: .55; }
 .clan-exchange-locked-copy { display: grid; align-content: center; gap: 5px; }
 .clan-exchange-locked-copy>div { display: flex; justify-content: space-between; }
-.clan-exchange-locked-copy p,.clan-exchange-lock-label { margin: 0; color: #8294a6; font-size: .64rem; }
+.clan-exchange-locked-copy p,.clan-exchange-lock-label { margin: 0; color: #8294a6; }
 
 .clan-exchange-modal { position: relative; display: grid; gap: 12px; width: min(420px,calc(100vw - 28px)); padding: 22px; border: 1px solid #806a3c; background: #0b2031; }
 .clan-exchange-modal h3 { margin: 0; color: #fef3c7; }

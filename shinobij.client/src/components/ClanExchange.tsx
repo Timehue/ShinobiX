@@ -136,33 +136,12 @@ function ExchangeRewardIcon({ item }: { item: ExchangeItem }) {
 }
 
 function ExchangeProductArt({ item }: { item: ExchangeItem }) {
-    const reward = item.reward;
-    const accentIcon = reward.kind === "currency"
-        ? currencyIcon(reward.currency)
-        : reward.kind === "treasury"
-            ? "sigil"
-            : reward.kind === "cache"
-                ? reward.cache === "weapon" ? "sword" : "shield"
-                : reward.kind === "item"
-                    ? "scroll"
-                    : "sparkle";
-    const theme =
-        reward.kind === "currency" ? reward.currency :
-        reward.kind === "treasury" ? "treasury" :
-        reward.kind === "cache" ? reward.cache :
-        reward.kind === "item" ? "scroll" :
-        "locked";
-
     const art = clanExchangeItemArt(item.id);
     return (
-        <div className={`clan-exchange-art ${item.rarity} ${theme}`} aria-hidden="true">
-            <span className="clan-exchange-art-ring" />
-            <span className="clan-exchange-art-glow" />
+        <div className={`clan-exchange-art ${item.rarity}`} aria-hidden="true">
             {art
                 ? <img src={art} alt="" className="clan-exchange-art-img" loading="lazy" />
                 : <span className="clan-exchange-art-main"><ExchangeRewardIcon item={item} /></span>}
-            <span className="clan-exchange-art-mini top"><GameIcon name={accentIcon} size={18} /></span>
-            <span className="clan-exchange-art-mini bottom"><GameIcon name={item.tier >= 3 ? "sigil" : item.tier === 2 ? "scroll" : "sparkle"} size={16} /></span>
         </div>
     );
 }
