@@ -497,12 +497,9 @@ function normalizePendingTravel(value: unknown): PendingTravelSave | null {
 
 // StoryStep moved to ./types/vn (re-exported with CreatorEvent above).
 
+// (The old "storyBoss" member is gone — story bosses are sealed server sessions
+// hosted inside StoryHall, not Arena battles. See api/story/boss-start.)
 export type PendingArenaStoryBattle =
-    | {
-        kind: "storyBoss";
-        step: StoryStep;
-        returnScreen: Screen;
-    }
     | {
         kind: "triggeredEvent";
         event: CreatorEvent;
@@ -578,6 +575,7 @@ import {
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
 import { beginHollowGateServerRun, consumeHollowGateServerSecondWind, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult } from "./lib/hollow-gate-combat-api";
+import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
 import { markHollowGateSeen } from "./lib/hollow-gate-path";
 import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
@@ -5698,16 +5696,17 @@ export default function App() {
         }
     }
 
-    function startStoryArenaBattle(step: StoryStep) {
-        setTemporaryStoryAi(null);
-        setPendingPvpOpponent(null);
-        setRaidBattleKind("none");
-        setPendingArenaStoryBattle({ kind: "storyBoss", step, returnScreen: "storyHall" });
-        setPendingAiProfileId(step.aiProfileId ?? "");
-        setCurrentBiome(step.biome ?? villageBiomeMap[character?.village ?? ""] ?? "central");
-        setCurrentWeather(weatherForBiome(step.biome ?? villageBiomeMap[character?.village ?? ""] ?? "central"));
-        setArenaKey((key) => key + 1);
-        setScreen("arena");
+    // Server-authoritative story boss settle effects (fight runs inside StoryHall
+    // as a sealed Tower session): adopt the server character + App-scope finale wiring.
+    function handleServerStoryBossSettled(result: StoryBossSettleResult) {
+        if (!result.character) return;
+        latestSaveVersionRef.current = adoptSaveVersion(latestSaveVersionRef.current, result._saveVersion);
+        setCharacter(result.character);
+        if (result.finale && !result.replayed) {
+            unlockVillageKageSystem(result.character.storyVillage || result.character.village, result.character.name);
+            const finaleCharacter = result.character;
+            void loadStoryTrigger().then((m) => { storyEpilogueRef.current.queued = m.selectStoryEpilogueEvent(finaleCharacter, storyEpilogueRef.current.lane); }).catch(() => undefined);
+        }
     }
 
     function startTriggeredEventArenaBattle(
@@ -5772,7 +5771,7 @@ export default function App() {
     async function completePendingArenaStoryBattle(survivingHp: number, aiFightToken?: string) {
         if (!pendingArenaStoryBattle || !character) return "Story battle complete.";
 
-        if (pendingArenaStoryBattle.kind === "storyBoss" || pendingArenaStoryBattle.kind === "academySparring") {
+        if (pendingArenaStoryBattle.kind === "academySparring") {
             if (!aiFightToken) throw new Error("The story battle token is missing. Retry the battle from the story screen.");
             const response = await fetch('/api/story/settle', {
                 method: 'POST',
@@ -5795,9 +5794,9 @@ export default function App() {
                 const finaleCharacter = data.character;
                 void loadStoryTrigger().then((m) => { storyEpilogueRef.current.queued = m.selectStoryEpilogueEvent(finaleCharacter, storyEpilogueRef.current.lane); }).catch(() => undefined);
             }
-            return pendingArenaStoryBattle.kind === "academySparring"
-                ? `Sparring match won! +${data.xp ?? 60} XP, +${data.ryo ?? 30} ryo.`
-                : `${(pendingArenaStoryBattle as Extract<PendingArenaStoryBattle, { kind: "storyBoss" }>).step.bossName} defeated. +${data.xp ?? 0} XP, +${data.ryo ?? 0} ryo, +${data.auraDust ?? 0} Aura Dust. Story advanced.`;
+            // Only the Academy spar still reaches this Arena branch — storyBoss
+            // fights are sealed server sessions hosted inside StoryHall now.
+            return `Sparring match won! +${data.xp ?? 60} XP, +${data.ryo ?? 30} ryo.`;
         }
 
         if (pendingArenaStoryBattle.kind === "dungeonAi") {
@@ -7974,7 +7973,7 @@ export default function App() {
                     <StoryHall
                         character={character}
                         setScreen={setScreen}
-                        onStartBattle={startStoryArenaBattle}
+                        onServerBossSettled={handleServerStoryBossSettled}
                         creatorEvents={creatorEvents}
                         sharedImages={sharedImages}
                         onStartVisualNovel={(event) => {

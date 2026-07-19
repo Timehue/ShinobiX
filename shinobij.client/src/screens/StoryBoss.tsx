@@ -19,6 +19,9 @@ import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "../lib/battle-save";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { BattleTowerFight } from "./BattleTowerFight";
+import { startStoryBossCombat, settleStoryBossCombat, type StoryBossSettleResult } from "../lib/story-combat-api";
+import type { TowerSession } from "../lib/towers-api";
 import {
     type CreatorEvent,
     type StoryStep,
@@ -27,14 +30,15 @@ import {
 export function StoryHall({
     character,
     setScreen,
-    onStartBattle,
+    onServerBossSettled,
     creatorEvents,
     sharedImages,
     onStartVisualNovel,
 }: {
     character: Character;
     setScreen: (screen: Screen) => void;
-    onStartBattle: (step: StoryStep) => void;
+    /** App-side settle effects: adopt save version + character, finale kage/epilogue wiring. */
+    onServerBossSettled: (result: StoryBossSettleResult) => void;
     creatorEvents: CreatorEvent[];
     sharedImages: Record<string, string>;
     onStartVisualNovel: (event: CreatorEvent) => void;
@@ -42,9 +46,49 @@ export function StoryHall({
     const storyLine = storylines[character.storyVillage || character.village] || [];
     const current = getCurrentStory(character);
     const [lineIndex, setLineIndex] = useState(0);
+    // Server-authoritative story boss (SERVER_COMBAT_MIGRATION_PLAN Stage 4):
+    // /api/story/boss-start seals the milestone into a solo Tower session and the
+    // fight runs on the server engine — the old client-Arena launch is retired.
+    // Hooks stay above every early return so hook order is stable entering and
+    // leaving the inline fight (same rule as Missions.tsx).
+    const [serverFight, setServerFight] = useState<{ step: StoryStep; runId: string; session: TowerSession } | null>(null);
+    const [startingBoss, setStartingBoss] = useState(false);
+
+    async function startServerBossBattle(step: StoryStep) {
+        if (startingBoss || serverFight) return;
+        setStartingBoss(true);
+        try {
+            const started = await startStoryBossCombat({ playerName: character.name, bossName: step.bossName });
+            setServerFight({ step, runId: started.runId, session: started.session });
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "The story battle could not start.");
+        } finally {
+            setStartingBoss(false);
+        }
+    }
+
+    async function settleServerBoss(runId: string, playerName: string): Promise<unknown> {
+        const result = await settleStoryBossCombat({ playerName, runId });
+        onServerBossSettled(result);
+        alert(result.replayed
+            ? "This story reward was already collected."
+            : `${serverFight?.step.bossName ?? "Story boss"} defeated. +${result.xp} XP, +${result.ryo} ryo, +${result.auraDust} Aura Dust. Story advanced.${result.title ? ` Title earned: ${result.title}.` : ""}`);
+        return result;
+    }
     // Gate the village story behind tutorial completion (matches the auto-trigger
     // gate in App.tsx). Story Hall is no longer part of the Academy tutorial.
     const storyTutorialLocked = normalizeOnboardingStep(character.onboardingStep) !== "done";
+    if (serverFight) {
+        return (
+            <BattleTowerFight
+                character={character}
+                runId={serverFight.runId}
+                initialSession={serverFight.session}
+                settleFn={settleServerBoss}
+                onExit={() => setServerFight(null)}
+            />
+        );
+    }
     if (storyTutorialLocked) {
         return (
             <div className="card cinematic-card">
@@ -111,7 +155,7 @@ export function StoryHall({
         || sharedImages[`vn:${chapterId}:page:0:right`]
         || defaultVnPortrait(speaker);
     const hideSpeakerSlot = !speakerPortrait && speaker.trim().toLowerCase() === "narrator";
-    return <div className="card cinematic-card"><BackToVillageButton onClick={() => setScreen("village")} /><div className="visual-novel"><div className="vn-header"><div><p className="act-label">{current.cinematicTitle}</p><h2>{current.title}</h2></div><div className="vn-progress">Chapter {character.storyProgress + 1}/{storyLine.length}</div></div><div className={"vn-stage vn-biome-" + storyBiome + (storySceneBg ? " vn-has-image" : "")} style={storySceneBg ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${storySceneBg})` } : undefined}><div className="vn-backdrop"><span className="vn-moon"></span><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span></div>{!hideSpeakerSlot && (<div className="vn-character hero-character">{speakerPortrait ? <img src={speakerPortrait} alt={speaker} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{speakerInitials}</span></div>)}<div className="vn-scene-card">{current.scene}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={lineIndex === 0} onClick={() => setLineIndex((index) => Math.max(0, index - 1))}>Back</button>{lineIndex < current.dialogue.length - 1 ? <button onClick={() => setLineIndex((index) => Math.min(current.dialogue.length - 1, index + 1))}>Next</button> : locked ? <button disabled>Requires Level {current.levelReq}</button> : <button onClick={() => onStartBattle(current)}>Face {current.bossName}</button>}</div></div></div><div className="vn-choice-row"><button onClick={() => setLineIndex(0)}>Replay Scene</button><button onClick={() => setScreen("worldMap")}>Investigate World Map</button><button disabled={locked} onClick={() => onStartBattle(current)}><GiCrossedSwords aria-hidden="true" /> Boss: {current.bossName}</button></div><div className="vn-reward-strip"><span>Requirement: Level {current.levelReq}</span><span>Reward: {effectiveCharacterXpGain(character, current.rewardXp)} XP / {current.rewardRyo} ryo</span></div>{creatorVnShelf}</div></div>;
+    return <div className="card cinematic-card"><BackToVillageButton onClick={() => setScreen("village")} /><div className="visual-novel"><div className="vn-header"><div><p className="act-label">{current.cinematicTitle}</p><h2>{current.title}</h2></div><div className="vn-progress">Chapter {character.storyProgress + 1}/{storyLine.length}</div></div><div className={"vn-stage vn-biome-" + storyBiome + (storySceneBg ? " vn-has-image" : "")} style={storySceneBg ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${storySceneBg})` } : undefined}><div className="vn-backdrop"><span className="vn-moon"></span><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span></div>{!hideSpeakerSlot && (<div className="vn-character hero-character">{speakerPortrait ? <img src={speakerPortrait} alt={speaker} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{speakerInitials}</span></div>)}<div className="vn-scene-card">{current.scene}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={lineIndex === 0} onClick={() => setLineIndex((index) => Math.max(0, index - 1))}>Back</button>{lineIndex < current.dialogue.length - 1 ? <button onClick={() => setLineIndex((index) => Math.min(current.dialogue.length - 1, index + 1))}>Next</button> : locked ? <button disabled>Requires Level {current.levelReq}</button> : <button disabled={startingBoss} onClick={() => void startServerBossBattle(current)}>{startingBoss ? "Sealing the battle…" : `Face ${current.bossName}`}</button>}</div></div></div><div className="vn-choice-row"><button onClick={() => setLineIndex(0)}>Replay Scene</button><button onClick={() => setScreen("worldMap")}>Investigate World Map</button><button disabled={locked || startingBoss} onClick={() => void startServerBossBattle(current)}><GiCrossedSwords aria-hidden="true" /> Boss: {current.bossName}</button></div><div className="vn-reward-strip"><span>Requirement: Level {current.levelReq}</span><span>Reward: {effectiveCharacterXpGain(character, current.rewardXp)} XP / {current.rewardRyo} ryo</span></div>{creatorVnShelf}</div></div>;
 }
 
 type SavedStoryBoss = { savedAt: number; storyProgress: number; bossHp: number; playerHp: number; ap: number; turn: number; summonedPetId: string; log: string };
