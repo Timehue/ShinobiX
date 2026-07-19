@@ -26,13 +26,7 @@ const titleOverrides: Partial<Record<Screen, string>> = {
   adminPanel: "Administration",
   professionPicker: "Choose a Profession",
   profile: "Character Dossier",
-  jutsuTraining: "Jutsu Training",
-  missions: "Mission Hall",
   hunting: "Hunter Board",
-  arena: "Battle Arena",
-  battleArena: "Battle Arena",
-  clan: "Clan Hall",
-  pets: "Pet Yard",
   storyBoss: "Boss Encounter",
   bloodlineMaker: "Bloodline Forge",
   userHub: "Shinobi Network",
@@ -41,7 +35,6 @@ const titleOverrides: Partial<Record<Screen, string>> = {
   hollowGateTiles: "Hollow Gate",
   sectorCard: "Card Clash",
   sectorPet: "Pet Battle",
-  cardClashFreePlay: "Card Clash",
   messages: "Mail",
 };
 
@@ -52,11 +45,15 @@ function titleForScreen(screen: Screen): string {
 
 export function ScreenContextHeader({ screen, village }: { screen: Screen; village: string }) {
   const context = STUDIO_SCREEN_PRESENTATION[screen];
-  const title = titleForScreen(screen);
+  const title = context.facility?.name ?? titleForScreen(screen);
   const villageLabel = village.replace(/\s+Village$/i, "");
   return (
-    <header className="journey-context" aria-label={`${title} screen`}>
-      <span className="journey-context-icon" aria-hidden="true">{iconByFamily[context.family]}</span>
+    <header className={`journey-context${context.facility ? " journey-context-facility" : ""}`} aria-label={`${title} screen`}>
+      <span className={`journey-context-icon${context.facility ? " facility-icon" : ""}`} aria-hidden="true">
+        {context.facility
+          ? <img src={context.facility.thumbnail} alt="" draggable={false} />
+          : iconByFamily[context.family]}
+      </span>
       <span className="journey-context-copy">
         <span className="journey-context-eyebrow">{context.eyebrow}</span>
         <strong>{title}</strong>
