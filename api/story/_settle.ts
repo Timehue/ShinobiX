@@ -3,7 +3,7 @@ import type { AiFightToken } from '../missions/_ai-fight-token.js';
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
 
 export const STORY_LEVELS = [4, 15, 25, 35, 50, 65, 75, 85, 100] as const;
-const STORY_REWARDS = [
+export const STORY_REWARDS = [
     { xp: 120, ryo: 75 },
     { xp: 500, ryo: 250 },
     { xp: 900, ryo: 500 },
@@ -15,7 +15,7 @@ const STORY_REWARDS = [
     { xp: 10000, ryo: 7500 },
 ] as const;
 
-const LIBERATOR_TITLES: Record<string, string> = {
+export const LIBERATOR_TITLES: Record<string, string> = {
     'Stormveil Village': 'Stormbreaker',
     'Ashen Leaf Village': 'Root Liberator',
     'Frostfang Village': 'Oathbreaker',
