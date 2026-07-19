@@ -11,6 +11,7 @@ import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, towerClosingRingTiles, HEX_W, HEX_H,
 } from "../lib/tower-grid";
 import { useBoardScale } from "../lib/use-board-scale";
+import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { tagMatchesName } from "../lib/tags";
 import { equipSlotForItem } from "../lib/equipment";
 import { gameConfirm } from "../components/GameAlert";
@@ -152,6 +153,7 @@ export function BattleTowerFight({
     settleFn,
     settleOnAnyDone,
     actionFn,
+    storyTheme,
 }: {
     character: Character;
     /** optimistically mirror a spire unlock onto the client save so the lobby shows
@@ -175,6 +177,10 @@ export function BattleTowerFight({
     // (api/village/anbu-infiltration action:'act') instead of /api/towers/action.
     // Same request/response shape (the server runs the shared tower engine).
     actionFn?: typeof submitTowerAction;
+    // Story-boss presentation (display-only — never touches stats or rewards):
+    // chapter backdrop art, a chapter label, and boss "barks" spoken at fight
+    // start and as the boss's HP falls. See lib/story-fight-theme.ts.
+    storyTheme?: StoryFightTheme;
 }) {
     const [session, setSession] = useState<TowerSession>(initialSession);
     const [mode, setMode] = useState<Mode>("idle");
@@ -186,6 +192,30 @@ export function BattleTowerFight({
     const [reject, setReject] = useState<string | null>(null);
     const [settle, setSettle] = useState<TowerSettleResponse | null>(null);
     const settledRef = useRef(false);
+
+    // ── Story barks (display-only): the boss speaks its own authored VN lines
+    // at fight start and as its HP crosses 2/3 and 1/3. One at a time, ~6s.
+    const [bark, setBark] = useState<string | null>(null);
+    const barkStageRef = useRef(0);
+    const barkTimerRef = useRef(0);
+    const storyBoss = storyTheme
+        ? session.actors.find((a) => a.side !== "squad" && (a.character as { boss?: boolean } | undefined)?.boss)
+            ?? session.actors.find((a) => a.side !== "squad")
+        : undefined;
+    const storyBossHpFrac = storyBoss ? Math.max(0, storyBoss.hp) / Math.max(1, storyBoss.maxHp) : 1;
+    useEffect(() => {
+        const barks = storyTheme?.barks;
+        if (!barks?.length) return;
+        const stage = barkStageRef.current;
+        const next = stage < 1 ? 0 : stage < 2 && storyBossHpFrac <= 2 / 3 && barks.length > 1 ? 1
+            : stage < 3 && storyBossHpFrac <= 1 / 3 && barks.length > 2 ? 2 : -1;
+        if (next < 0) return;
+        barkStageRef.current = next + 1;
+        setBark(barks[next]);
+        window.clearTimeout(barkTimerRef.current);
+        barkTimerRef.current = window.setTimeout(() => setBark(null), 6000);
+    }, [storyTheme, storyBossHpFrac]);
+    useEffect(() => () => window.clearTimeout(barkTimerRef.current), []);
 
     const me = character.name;
     // Server slugs are lowercased (safeName), so a squad actor's ownerSlug is the
@@ -522,7 +552,9 @@ export function BattleTowerFight({
         const sealed = a.character?.avatarImage;
         if (typeof sealed === "string" && sealed) return sealed;
         const visual = String(a.character?.visual ?? "");
-        return ENEMY_SPRITE[visual] ?? null;
+        // Painted sprite first; else published AI art (story bosses, mission
+        // bosses, and creator AIs share the `ai:<id>` shared-image key space).
+        return ENEMY_SPRITE[visual] ?? sharedImages?.[`ai:${visual}`] ?? null;
     }
     function emojiFor(a: TowerActor): string {
         if (a.side === "squad") return "🥷";
@@ -578,7 +610,17 @@ export function BattleTowerFight({
         mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
 
     return (
-        <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "var(--slate-200)", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${gameBg}) center/cover fixed` }}>
+        <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "var(--slate-200)", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme?.backdropImage || gameBg}) center/cover fixed` }}>
+            {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
+            {bark && storyBoss && (
+                <div className="story-fight-bark" role="status">
+                    {avatarFor(storyBoss) && <img className="story-fight-bark-face" src={avatarFor(storyBoss)!} alt="" />}
+                    <div className="story-fight-bark-body">
+                        <strong>{storyTheme?.bossName ?? storyBoss.name}</strong>
+                        <span>{bark}</span>
+                    </div>
+                </div>
+            )}
             {/* Endless Spire — boss intro nameplate (fresh entry only; click to skip) */}
             {showIntro && spireMeta && (
                 <div className="spire-intro" onClick={() => setShowIntro(false)}>

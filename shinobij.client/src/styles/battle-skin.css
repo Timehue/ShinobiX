@@ -2022,3 +2022,106 @@ html:has(.arena-fullscreen) .sector-banner-panel {
         font-size: 19px !important;
     }
 }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   STORY-BOSS FIGHT PRESENTATION (display-only). The sealed story fight is
+   hosted in a body portal (StoryBossFightHost) so nav/rails never paint over
+   it; the chapter label + boss bark strip ride the tower fight root.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.story-fight-portal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000000;
+    overflow: hidden auto;
+    background: #05070d;
+}
+
+.story-fight-chapter {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    width: fit-content;
+    max-width: min(92%, 720px);
+    margin: 0 auto;
+    padding: 5px 18px;
+    border: 1px solid rgba(196, 162, 90, 0.5);
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    background: linear-gradient(180deg, rgba(8, 12, 22, 0.94), rgba(5, 8, 15, 0.88));
+    color: #e8d496;
+    font: 800 12px/1.4 var(--font-display);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+
+.story-fight-bark {
+    position: absolute;
+    top: 46px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: min(92%, 560px);
+    padding: 8px 14px;
+    border: 1px solid rgba(224, 68, 68, 0.5);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(26, 10, 14, 0.95), rgba(10, 5, 8, 0.92));
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 0 22px rgba(224, 68, 68, 0.08);
+    pointer-events: none;
+    animation: story-bark-in 260ms ease-out;
+}
+
+.story-fight-bark-face {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    border: 1px solid rgba(224, 68, 68, 0.55);
+    object-fit: cover;
+}
+
+.story-fight-bark-body {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.story-fight-bark-body strong {
+    color: #fca5a5;
+    font: 800 11px/1 var(--font-display);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.story-fight-bark-body span {
+    color: #f1e6d4;
+    font: italic 600 13px/1.35 Inter, sans-serif;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+@keyframes story-bark-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .story-fight-bark { animation: none; }
+}
+
+@media (max-width: 800px) {
+    .story-fight-chapter { font-size: 10px; padding: 4px 12px; }
+    .story-fight-bark { top: 34px; padding: 6px 10px; }
+    .story-fight-bark-face { width: 32px; height: 32px; }
+    .story-fight-bark-body span { font-size: 12px; }
+}

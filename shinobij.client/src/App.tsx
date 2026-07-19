@@ -576,6 +576,8 @@ import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop }
 import { beginHollowGateServerRun, consumeHollowGateServerSecondWind, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult } from "./lib/hollow-gate-combat-api";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
+import { extractBossBarks, requestStoryBossFight } from "./lib/story-fight-theme";
+import { StoryBossFightHost } from "./components/StoryBossFightHost";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
 import { markHollowGateSeen } from "./lib/hollow-gate-path";
 import { useHollowGateWalk } from "./features/hollowGate/use-hollow-gate-walk";
@@ -5728,6 +5730,19 @@ export default function App() {
             setScreen("eventTiles");
             return;
         }
+        // Story CHAPTER battles (not interludes/roads) = the Story Hall milestone →
+        // fight the SEALED server session via the shared host (the only path that
+        // persists storyProgress). Replayed past chapters keep the flavor Arena.
+        const chapterIdx = /^story-(?!interlude-|road-)[a-z0-9-]+?-(\d+)$/.exec(event.id)?.[1];
+        if (battle && chapterIdx !== undefined && Number(chapterIdx) === (character?.storyProgress ?? -1)) {
+            const started = requestStoryBossFight({
+                bossName: battle.bossName || event.name,
+                chapterLabel: `Chapter ${Number(chapterIdx) + 1} — ${event.vnTitle ?? event.name}`,
+                backdropImage: sharedImages[`event:${event.id}:bg`] || sharedImages[`vn:${event.id}:page:0`] || undefined,
+                barks: extractBossBarks(event.vnPages, battle.bossName || ""),
+            });
+            if (started) { setActiveTriggeredEvent(null); return; }
+        }
         let aiProfileId = battle?.aiProfileId || event.aiProfileId || "";
         if (!aiProfileId && battle) {
             aiProfileId = `temp-vn-ai-${event.id}-${Date.now()}`;
@@ -5844,22 +5859,8 @@ export default function App() {
                 rankTitle: event.liberatorTitle ?? nextCharacter.rankTitle,
             }, [HOLLOW_GATE_KEY_ID]);
         }
-        // Story chapter battles (triggered via auto-VN) must advance storyProgress just
-        // like kind:"storyBoss" does. The event id always starts with "story-" for these.
-        // Interludes ("story-interlude-*") and road events ("story-road-*") are story
-        // scenes: a battle launched from one must NOT advance the milestone index
-        // (that would skip a chapter).
-        const isStoryChapterBattle = event.id.startsWith("story-") && !event.id.startsWith("story-interlude-") && !event.id.startsWith("story-road-");
-        if (isStoryChapterBattle) {
-            nextCharacter = {
-                ...nextCharacter,
-                storyProgress: character.storyProgress + 1,
-                auraDust: (nextCharacter.auraDust ?? 0) + 12,
-                hp: Math.min(nextCharacter.maxHp, survivingHp + 25),
-                stamina: Math.min(nextCharacter.maxStamina, nextCharacter.stamina + 20),
-                chakra: Math.min(nextCharacter.maxChakra, nextCharacter.chakra + 20),
-            };
-        }
+        // (Story CHAPTER battles never reach this branch anymore — sealed server
+        // sessions own them, and only /api/story/settle can advance storyProgress.)
         if (event.kageFinale && event.village === character.village) {
             // Flush-then-unlock, AFTER storyProgress+1 is on nextCharacter: the
             // kage gate reads the SAVED character, so unlocking before the save
@@ -5875,9 +5876,7 @@ export default function App() {
         setPendingAiProfileId("");
         const displayedXpReward = effectiveCharacterXpGain(character, xpReward);
         const kageFinaleBonus = event.kageFinale && event.village === character.village ? ", +1 Hollow Gate Key" : "";
-        return isStoryChapterBattle
-            ? `${battle?.bossName ?? event.name} defeated. +${displayedXpReward} XP, +${ryoReward} ryo, +12 Aura Dust${kageFinaleBonus}. Story advanced.`
-            : `${battle?.bossName ?? event.name} defeated. +${displayedXpReward} XP, +${ryoReward} ryo${kageFinaleBonus}. Event reward claimed.`;
+        return `${battle?.bossName ?? event.name} defeated. +${displayedXpReward} XP, +${ryoReward} ryo${kageFinaleBonus}. Event reward claimed.`;
     }
 
     function continuePendingArenaStoryBattle() {
@@ -7324,6 +7323,8 @@ export default function App() {
                 />
             )}
 
+            <StoryBossFightHost character={character} sharedImages={sharedImages} onSettled={handleServerStoryBossSettled} />
+
             <main
                 className={`center-game screen-${screen}${hideBattleChrome ? " battle-focus" : ""}`}
                 style={{
@@ -7973,7 +7974,6 @@ export default function App() {
                     <StoryHall
                         character={character}
                         setScreen={setScreen}
-                        onServerBossSettled={handleServerStoryBossSettled}
                         creatorEvents={creatorEvents}
                         sharedImages={sharedImages}
                         onStartVisualNovel={(event) => {
