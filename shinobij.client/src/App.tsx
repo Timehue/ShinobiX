@@ -6,7 +6,6 @@ import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAl
 import { IncomingChallengeModal } from "./components/IncomingChallengeModal";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
-import { ScreenContextHeader } from "./components/ScreenContextHeader";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks";
@@ -21,7 +20,6 @@ import { adoptSaveVersion } from "./lib/save-version";
 import { requiresLegacyAdminRecovery, type PlayerAuthResponse } from "./lib/player-auth-policy";
 import { preloadScreen } from "./lib/screen-preload";
 import { imageCategoriesForScreen } from "./lib/screen-image-categories";
-import { shouldShowScreenContextHeader } from "./lib/screen-context";
 import { STUDIO_SCREEN_PRESENTATION } from "./lib/studio-screen-presentation";
 import { updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
 import { pushLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLiveSectorContext } from "./lib/presence-store";
@@ -343,7 +341,7 @@ import {
 const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
 const Messages = lazyWithRetry(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
 const UserView = lazyWithRetry(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
-const MobileStatusHUD = lazyWithRetry(() => import("./components/MobileStatusHUD").then(m => ({ default: m.MobileStatusHUD })));
+const ScreenTopChrome = lazyWithRetry(() => import("./components/ScreenTopChrome").then(m => ({ default: m.ScreenTopChrome })));
 const HollowGateShrineView = lazyWithRetry(() => import("./features/hollowGate/HollowGateShrineView").then(m => ({ default: m.HollowGateShrineView })));
 const LeftProfileCard = lazyWithRetry(() => import("./components/LeftProfileCard").then(m => ({ default: m.LeftProfileCard })));
 const SectorBanner = lazyWithRetry(() => import("./components/SectorBanner").then(m => ({ default: m.SectorBanner })));
@@ -7181,7 +7179,6 @@ export default function App() {
     }
 
     const hideBattleChrome = shouldHideBattleChrome({ screen, arenaBattleActive, petBattleActive });
-    const studioPresentation = STUDIO_SCREEN_PRESENTATION[screen];
     const introCinematicActive = Boolean(
         character
         && (character.onboardingStep === "academyIntro" || character.onboardingStep === "starter" || character.onboardingStep === "companionIntro")
@@ -7190,16 +7187,13 @@ export default function App() {
     );
 
     return (
-        <div
-            className={`app-shell shell-biome-${currentBiome} screen-${screen}`}
-            data-studio-family={studioPresentation.family}
-            data-village={character?.village ?? ""}
-            style={{
+        <div className={`app-shell shell-biome-${currentBiome} screen-${screen}${STUDIO_SCREEN_PRESENTATION[screen].facility ? " screen-facility" : ""}`} data-village={character?.village ?? ""}
+            style={{ "--facility-accent": STUDIO_SCREEN_PRESENTATION[screen].facility?.accent,
                 // Darkening overlay only — the full-bleed scene is painted once by
                 // the fixed `.app-background` layer below (cover/no-repeat). Tiling the
                 // image here too made the portrait art repeat across wide viewports.
                 backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.38), rgba(2, 6, 23, 0.76))`,
-            }}
+            } as React.CSSProperties}
         >
             <GameAlertHost /><GameConfirmHost />
             <SaveErrorBanner visible={saveBlocked} />
@@ -7266,7 +7260,7 @@ export default function App() {
             )}
             <div
                 className="app-background"
-                style={{ backgroundImage: `url(${screen === "start" ? backgroundImage : studioPresentation.artwork})` }}
+                style={{ backgroundImage: `url(${screen === "start" ? backgroundImage : STUDIO_SCREEN_PRESENTATION[screen].artwork})` }}
             />
 
             {character &&
@@ -7347,16 +7341,11 @@ export default function App() {
                     is redundant there and just costs vertical space. */}
                 {character && screen !== "start" && !hideBattleChrome && (
                     <Suspense fallback={null}>
-                    <MobileStatusHUD
-                        character={character}
+                    <ScreenTopChrome
+                        character={character} screen={screen}
                         onBack={canGoBack ? goBack : undefined}
                     />
                     </Suspense>
-                )}
-                {character && screen !== "start" && !hideBattleChrome && shouldShowScreenContextHeader(screen) && (
-                    <div className="screen-context-shell">
-                        <ScreenContextHeader screen={screen} village={character.village} />
-                    </div>
                 )}
                 {screen === "start" && restoringSession && (
                     <div className="start-screen">
