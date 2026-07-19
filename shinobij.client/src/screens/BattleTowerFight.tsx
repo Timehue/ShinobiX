@@ -12,6 +12,7 @@ import {
 } from "../lib/tower-grid";
 import { useBoardScale } from "../lib/use-board-scale";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
+import { playStoryChapterSting, playStoryFinalPhaseSting, playStoryVictorySting } from "../lib/story-sfx";
 import { tagMatchesName } from "../lib/tags";
 import { equipSlotForItem } from "../lib/equipment";
 import { gameConfirm } from "../components/GameAlert";
@@ -193,28 +194,73 @@ export function BattleTowerFight({
     const [settle, setSettle] = useState<TowerSettleResponse | null>(null);
     const settledRef = useRef(false);
 
-    // ── Story barks (display-only): the boss speaks its own authored VN lines
-    // at fight start and as its HP crosses 2/3 and 1/3. One at a time, ~6s.
-    const [bark, setBark] = useState<string | null>(null);
+    // ── Story presentation (display-only): the boss speaks its own authored VN
+    // lines at fight start / 2⁄3 / 1⁄3 HP and its last words on the killing
+    // blow; the mentor cuts in when the PLAYER is hurting; the last-stand
+    // threshold adds a vignette + sting. One bubble at a time, ~6s.
+    const [bark, setBark] = useState<{ name: string; text: string; side: "boss" | "ally" } | null>(null);
     const barkStageRef = useRef(0);
+    const allyStageRef = useRef(0);
     const barkTimerRef = useRef(0);
+    const stingRef = useRef({ opened: false, finalPhase: false, victory: false });
     const storyBoss = storyTheme
         ? session.actors.find((a) => a.side !== "squad" && (a.character as { boss?: boolean } | undefined)?.boss)
             ?? session.actors.find((a) => a.side !== "squad")
         : undefined;
     const storyBossHpFrac = storyBoss ? Math.max(0, storyBoss.hp) / Math.max(1, storyBoss.maxHp) : 1;
+    const storySelf = storyTheme ? session.actors.find((a) => a.side === "squad" && a.ownerSlug?.toLowerCase() === character.name.toLowerCase()) : undefined;
+    const storySelfHpFrac = storySelf ? Math.max(0, storySelf.hp) / Math.max(1, storySelf.maxHp) : 1;
+    const storyDone = session.status === "done";
+    const storyFinalPhase = !!storyTheme && !storyDone && storyBossHpFrac <= 1 / 3;
     useEffect(() => {
-        const barks = storyTheme?.barks;
-        if (!barks?.length) return;
-        const stage = barkStageRef.current;
-        const next = stage < 1 ? 0 : stage < 2 && storyBossHpFrac <= 2 / 3 && barks.length > 1 ? 1
-            : stage < 3 && storyBossHpFrac <= 1 / 3 && barks.length > 2 ? 2 : -1;
-        if (next < 0) return;
-        barkStageRef.current = next + 1;
-        setBark(barks[next]);
-        window.clearTimeout(barkTimerRef.current);
-        barkTimerRef.current = window.setTimeout(() => setBark(null), 6000);
-    }, [storyTheme, storyBossHpFrac]);
+        if (!storyTheme) return;
+        if (!stingRef.current.opened) {
+            stingRef.current.opened = true;
+            playStoryChapterSting(storyTheme.village);
+        }
+        const show = (name: string, text: string, side: "boss" | "ally") => {
+            setBark({ name, text, side });
+            window.clearTimeout(barkTimerRef.current);
+            barkTimerRef.current = window.setTimeout(() => setBark(null), 6500);
+        };
+        const bossName = storyTheme.bossName || storyBoss?.name || "???";
+        if (storyDone) {
+            if (session.winner === "squad" && !stingRef.current.victory) {
+                stingRef.current.victory = true;
+                playStoryVictorySting();
+                if (storyTheme.defeatLine && barkStageRef.current < 4) {
+                    barkStageRef.current = 4;
+                    show(bossName, storyTheme.defeatLine, "boss");
+                }
+            }
+            return;
+        }
+        const barks = storyTheme.barks ?? [];
+        const next = barkStageRef.current < 1 && barks[0] ? 0
+            : barkStageRef.current < 2 && storyBossHpFrac <= 2 / 3 && barks[1] ? 1
+                : barkStageRef.current < 3 && storyBossHpFrac <= 1 / 3 && barks[2] ? 2 : -1;
+        if (next >= 0) {
+            barkStageRef.current = next + 1;
+            show(bossName, barks[next], "boss");
+            return;
+        }
+        const ally = storyTheme.ally;
+        if (ally?.lines[0] && allyStageRef.current < 1 && storySelfHpFrac <= 0.5) {
+            allyStageRef.current = 1;
+            show(ally.name, ally.lines[0], "ally");
+            return;
+        }
+        if (ally?.lines[1] && allyStageRef.current < 2 && storySelfHpFrac <= 0.2) {
+            allyStageRef.current = 2;
+            show(ally.name, ally.lines[1], "ally");
+        }
+    }, [storyTheme, storyBossHpFrac, storySelfHpFrac, storyDone, session.winner, storyBoss?.name]);
+    useEffect(() => {
+        if (storyFinalPhase && !stingRef.current.finalPhase) {
+            stingRef.current.finalPhase = true;
+            playStoryFinalPhaseSting();
+        }
+    }, [storyFinalPhase]);
     useEffect(() => () => window.clearTimeout(barkTimerRef.current), []);
 
     const me = character.name;
@@ -612,12 +658,15 @@ export function BattleTowerFight({
     return (
         <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "var(--slate-200)", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme?.backdropImage || gameBg}) center/cover fixed` }}>
             {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
-            {bark && storyBoss && (
-                <div className="story-fight-bark" role="status">
-                    {avatarFor(storyBoss) && <img className="story-fight-bark-face" src={avatarFor(storyBoss)!} alt="" />}
+            {storyFinalPhase && <div className="story-fight-vignette" aria-hidden="true" />}
+            {bark && (
+                <div className={`story-fight-bark${bark.side === "ally" ? " story-fight-bark--ally" : ""}`} role="status">
+                    {bark.side === "boss" && storyBoss && avatarFor(storyBoss) && (
+                        <img className="story-fight-bark-face" src={avatarFor(storyBoss)!} alt="" />
+                    )}
                     <div className="story-fight-bark-body">
-                        <strong>{storyTheme?.bossName ?? storyBoss.name}</strong>
-                        <span>{bark}</span>
+                        <strong>{bark.name}</strong>
+                        <span>{bark.text}</span>
                     </div>
                 </div>
             )}
