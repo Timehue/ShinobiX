@@ -3,8 +3,7 @@ import civicDistrict from "../assets/studio/civic-district.webp";
 import combatCitadel from "../assets/studio/combat-citadel.webp";
 import companionSanctuary from "../assets/studio/companion-sanctuary.webp";
 import frontierOutpost from "../assets/studio/frontier-outpost.webp";
-import clanVault from "../assets/clan-exchange/clan-vault-hero.webp";
-import townHallCommandCenter from "../assets/town-hall/town-hall-command-center.webp";
+import { FACILITY_PRESENTATION, type FacilityId, type FacilityPresentation } from "./facility-presentation";
 import type { Screen } from "../types/core";
 
 export type StudioScreenFamily =
@@ -21,6 +20,7 @@ export type StudioScreenPresentation = {
   artwork: string;
   eyebrow: string;
   description: string;
+  facility?: FacilityPresentation;
 };
 
 const archive = {
@@ -39,7 +39,7 @@ const civic = {
 
 const clan = {
   family: "clan",
-  artwork: clanVault,
+  artwork: FACILITY_PRESENTATION["clan-hall"].hero,
   eyebrow: "Clan command",
   description: "Coordinate your alliance, shared progress, and rewards.",
 } as const;
@@ -67,10 +67,15 @@ const frontier = {
 
 const town = {
   family: "town",
-  artwork: townHallCommandCenter,
+  artwork: FACILITY_PRESENTATION["town-hall"].hero,
   eyebrow: "Village command",
   description: "Direct village growth, defenses, and shared resources.",
 } as const;
+
+function atFacility(base: StudioScreenPresentation, facilityId: FacilityId): StudioScreenPresentation {
+  const facility = FACILITY_PRESENTATION[facilityId];
+  return { ...base, artwork: facility.hero, eyebrow: facility.eyebrow, facility };
+}
 
 export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation> = {
   start: archive,
@@ -82,34 +87,34 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   profile: archive,
   inventory: archive,
   logbook: archive,
-  training: combat,
-  jutsuTraining: combat,
-  missions: archive,
-  arena: combat,
-  battleArena: combat,
-  arenaDistrict: combat,
+  training: atFacility(combat, "stat-training"),
+  jutsuTraining: atFacility(combat, "jutsu-training"),
+  missions: atFacility(archive, "mission-hall"),
+  arena: atFacility(combat, "battle-arena"),
+  battleArena: atFacility(combat, "battle-arena"),
+  arenaDistrict: atFacility(combat, "battle-arena"),
   bloodlineMaker: archive,
-  clan,
-  worldMap: frontier,
-  townHall: town,
-  bank: civic,
-  shop: civic,
-  grandMarketplace: civic,
-  hospital: civic,
-  cafeteria: civic,
-  storyHall: archive,
+  clan: atFacility(clan, "clan-hall"),
+  worldMap: atFacility(frontier, "world-map"),
+  townHall: atFacility(town, "town-hall"),
+  bank: atFacility(civic, "bank"),
+  shop: atFacility(civic, "shop"),
+  grandMarketplace: atFacility(civic, "shop"),
+  hospital: atFacility(civic, "hospital"),
+  cafeteria: atFacility(civic, "cafeteria"),
+  storyHall: atFacility(archive, "story-hall"),
   storyBoss: combat,
   sunscarFestival: civic,
   centralHub: archive,
-  petArena: companion,
-  petLadder: companion,
-  pets: companion,
-  shinobiTiles: combat,
+  petArena: atFacility(companion, "pet-yard"),
+  petLadder: atFacility(companion, "pet-yard"),
+  pets: atFacility(companion, "pet-yard"),
+  shinobiTiles: atFacility(combat, "card-hall"),
   eventPetBattle: companion,
   eventTiles: combat,
   dungeon: frontier,
   hunting: frontier,
-  tavern: civic,
+  tavern: atFacility(civic, "tavern"),
   hallOfLegends: archive,
   shinobiCouncil: town,
   userHub: archive,
@@ -125,7 +130,7 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   tilecardsDuel: combat,
   sectorCard: combat,
   sectorPet: companion,
-  cardClashFreePlay: combat,
+  cardClashFreePlay: atFacility(combat, "card-hall"),
   guides: archive,
   messages: civic,
 };
