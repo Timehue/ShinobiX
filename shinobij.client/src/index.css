@@ -1,8 +1,8 @@
-/* index.css is a pure @import manifest  the monolith was split into
+/* index.css is a pure @import manifest -- the monolith was split into
    ./styles/index/NN-*.css on 2026-07-18. ORDER IS LOAD-BEARING: the game's
    CSS grew as append-only override passes, so later files intentionally win
    specificity ties. Add new rules to the matching part file (or a new
-   numbered part at the END)  never insert above an override that must beat
+   numbered part at the END) -- never insert above an override that must beat
    it. Enforced by src/index-css-manifest.test.ts. */
 @import "./styles/tokens.css";
 @import "./styles/ui.css";
@@ -18,7 +18,6 @@
 @import "./styles/index/06-combat-core.css";
 @import "./styles/index/07-combat-skin-battle-log.css";
 @import "./styles/index/08-polish-nav-passes.css";
-@import "./styles/index/09-title-login.css";
 @import "./styles/index/10-layout-lock-herald.css";
 @import "./styles/index/11-sector-explore-village-themes.css";
 @import "./styles/index/12-village-screen.css";
