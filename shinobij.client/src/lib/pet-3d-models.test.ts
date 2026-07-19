@@ -13,6 +13,9 @@ test("all ten evolved starter forms have a combat model", () => {
         if (element === "fire") {
             assert.equal(rare?.url, "/pet-models/ember-wolf-rigged.gltf");
             assert.equal(legendary?.url, "/pet-models/ember-wolf-rigged.gltf");
+        } else if (element === "earth") {
+            assert.equal(rare?.url, "/pet-models/starter-earth-r.glb");
+            assert.equal(legendary?.url, "/pet-models/starter-earth-r.glb");
         } else {
             assert.equal(rare?.url, `/pet-models/starter-${element}-r.glb`);
             assert.equal(legendary?.url, `/pet-models/starter-${element}-l.glb`);

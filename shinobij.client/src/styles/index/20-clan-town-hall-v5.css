@@ -216,10 +216,6 @@
     background: radial-gradient(circle at 10% 20%, rgba(250,204,21,.12), transparent 28%), rgba(2, 6, 23, .58);
 }
 
-.town-tabs {
-    margin-bottom: 4px;
-}
-
 .town-notice-board p {
     margin: 5px 0;
     color: var(--slate-300);
@@ -243,7 +239,6 @@
 .clan-exchange-quicknav { display: flex; justify-content: space-between; gap: 10px; padding: 9px 11px; border: 1px solid #24516a; border-radius: 8px; background: #081c2c; }
 .clan-exchange-quicknav span { color: #bae6fd; }
 .clan-exchange-quicknav strong { color: #fef3c7; text-align: right; }
-
 
 @media (max-width: 820px) {
     .clan-create-hero,

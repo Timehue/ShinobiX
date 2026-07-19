@@ -1,0 +1,1 @@
+import{s as e}from"./three-vendor-DEd1JKd1.js";import{r as t,t as n}from"./pet-glb-atlas-BC9yFf-O.js";async function r(r){let i=new Set,a=[];for(let o of r){let r=t(o);!r||i.has(r.url)||(i.add(r.url),a.push(n(r.url)),e.preload(r.url))}await Promise.all(a)}export{r as preloadPetColiseumModels};

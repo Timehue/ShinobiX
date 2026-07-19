@@ -817,6 +817,7 @@
 
 .clan-exchange-hero {
     position: relative;
+    isolation: isolate;
     display: grid;
     grid-template-columns: minmax(0,1fr) minmax(280px,350px);
     gap: 26px;
@@ -828,14 +829,6 @@
     background: #07111d;
 }
 
-.clan-exchange-hero::before {
-    content: "";
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    background: linear-gradient(90deg,rgba(4,10,18,.96),rgba(4,10,18,.8) 42%,rgba(4,10,18,.2)),linear-gradient(0deg,rgba(3,8,15,.92),transparent 62%);
-}
-
 .clan-exchange-hero-art {
     position: absolute;
     z-index: -2;
@@ -843,13 +836,12 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    opacity: .3;
 }
 
-.clan-exchange-hero-copy { display: grid; align-content: end; gap: 18px; }
-.clan-exchange .clan-exchange-identity { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 16px; padding: 0; border: 0; background: none; }
-.clan-exchange-identity h3 { margin: 3px 0 7px; color: #fff4d3; font: 700 clamp(2rem,4vw,3.4rem)/.98 Georgia,serif; letter-spacing: -.035em; text-shadow: 0 3px 20px #000; }
-.clan-exchange-identity p { margin: 0; color: #d4deea; font-size: .94rem; }
-.clan-exchange-kicker,.clan-exchange-section-head>div>span,.clan-exchange-reward span,.clan-exchange-confirm-row span { color: #8fd8ff; font-size: .68rem; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.clan-exchange .clan-exchange-identity { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 16px; }
+.clan-exchange-identity h3 { margin: 3px 0; color: #fff4d3; font: 700 clamp(2rem,4vw,3.4rem) Georgia,serif; }
+.clan-exchange-kicker,.clan-exchange-section-head>div>span,.clan-exchange-reward span,.clan-exchange-confirm-row span { color: #8fd8ff; font-size: .68rem; text-transform: uppercase; }
 
 /* Superseded ledger detail pass.
 .clan-exchange-ledger { display: grid; gap: 12px; padding: 17px; border: 1px solid rgba(223,178,82,.38); border-radius: 13px; background: rgba(5,14,25,.9); box-shadow: inset 0 1px rgba(255,255,255,.07),0 16px 34px rgba(0,0,0,.28); }
@@ -866,29 +858,20 @@
 .clan-exchange-next { display: grid; gap: 2px; padding-top: 11px; border-top: 1px solid rgba(148,163,184,.16); }
 .clan-exchange-next strong { color: #f5ecd9; font-size: .8rem; }
 */
-.clan-exchange-ledger { display: grid; gap: 10px; padding: 15px; border: 1px solid #735f35; border-radius: 12px; background: #071523e8; }
-.clan-exchange-wallet>div,.clan-exchange-week>span,.clan-exchange-level>span { display: flex; justify-content: space-between; gap: 8px; }
+.clan-exchange-ledger { padding: 15px; border: 1px solid #735f35; background: #071523e8; }
 .clan-exchange-wallet strong { color: #ffd87a; font: 700 2.5rem Georgia,serif; }
-.clan-exchange-week em,.clan-exchange-level em,.clan-exchange-next>span { color: #91a5ba; font: normal .67rem sans-serif; }
-.clan-exchange-week>div,.clan-exchange-level>div { height: 6px; overflow: hidden; background: #344154; }
-.clan-exchange-week i,.clan-exchange-level i { display: block; height: 100%; background: #57b7d5; }
-.clan-exchange-next { padding-top: 8px; border-top: 1px solid #344154; }
-.clan-exchange-next strong { display: block; color: #f5ecd9; font-size: .76rem; }
+.clan-exchange-next { margin-top: 8px; }
+.clan-exchange-next strong { display: block; color: #f5ecd9; }
 
 .clan-exchange-current,.clan-exchange-progression { display: grid; gap: 13px; }
-.clan-exchange .clan-exchange-section-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 0 3px; }
+.clan-exchange .clan-exchange-section-head { display: flex; justify-content: space-between; gap: 18px; }
 .clan-exchange-section-head h4 { margin: 3px 0 0; color: #fff4d3; font: 700 1.36rem Georgia,serif; }
-.clan-exchange-section-head p { margin: 5px 0 0; color: #91a5ba; font-size: .78rem; }
 .clan-exchange .clan-exchange-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(245px,1fr)); gap: 12px; }
 
-.clan-exchange .clan-exchange-card { position: relative; display: grid; gap: 10px; min-height: 410px; padding: 12px; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 13px; background: linear-gradient(155deg,#0f1b2b,#050c17); }
-.clan-exchange-card::before { content: ""; position: absolute; inset: 0; border-top: 2px solid #64748b; pointer-events: none; }
-.clan-exchange-card.rare::before { border-color: #38bdf8; }
-.clan-exchange-card.epic::before { border-color: #a78bfa; }
-.clan-exchange-card.legendary::before { border-color: #dfb252; }
+.clan-exchange .clan-exchange-card { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--ex-line); border-radius: 12px; background: #091522; }
 .clan-exchange-card.is-ready { border-color: #3b8b70; }
 .clan-exchange-card-top,.clan-exchange-card-meta,.clan-exchange-reward,.clan-exchange-confirm-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.clan-exchange-card-top strong { color: #d6e7f3; font-size: .74rem; }
+.clan-exchange-card-top strong { color: #d6e7f3; }
 
 /* Superseded product-plate detail pass.
 .clan-exchange-art { position: relative; display: grid; place-items: center; min-height: 164px; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 10px; background: radial-gradient(circle at 50% 44%,rgba(83,166,191,.17),transparent 38%),linear-gradient(150deg,#0e2132,#050d18); }
@@ -902,26 +885,17 @@
 .clan-exchange-art-mini.top { top: 10px; right: 10px; }
 .clan-exchange-art-mini.bottom { bottom: 10px; left: 10px; }
 */
-.clan-exchange-art { position: relative; display: grid; place-items: center; min-height: 164px; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 10px; background: #0b2131; }
-.clan-exchange-art-ring,.clan-exchange-art-glow { display: none; }
-.clan-exchange-art-img { position: relative; z-index: 1; width: 144px; height: 144px; object-fit: contain; }
-.clan-exchange-art-main { position: absolute; display: grid; place-items: center; width: 58px; height: 58px; color: #fff7d6; }
-.clan-exchange-art-mini { display: none; }
+.clan-exchange-art { display: grid; place-items: center; min-height: 164px; border: 1px solid var(--ex-line); background: #0b2131; }
+.clan-exchange-art-img { width: 144px; height: 144px; object-fit: contain; }
+.clan-exchange-art-main { color: #fff7d6; }
 
 .clan-exchange-card-copy h5,.clan-exchange-locked-copy h5 { margin: 0; color: #fff4d3; font: 700 1rem/1.2 Georgia,serif; }
-.clan-exchange-card-copy p { margin: 5px 0 0; color: #aebdcc; font-size: .77rem; line-height: 1.42; }
-.clan-exchange .clan-exchange-reward { min-height: 52px; padding: 9px 10px; border: 1px solid rgba(87,183,213,.18); border-radius: 8px; background: rgba(5,22,36,.7); }
-.clan-exchange-reward strong,.clan-exchange-confirm-row strong { color: #e5eef6; font-size: .76rem; }
-.clan-exchange-card-meta { color: #8598ab; }
-.clan-exchange-affordability small,.clan-exchange-status { min-height: 15px; color: #91a5ba; font-size: .66rem; }
-.clan-exchange-status.is-ready { color: #83e6bb; }
-.clan-exchange-card button { width: 100%; min-height: 42px; border-radius: 8px; font-size: .76rem; font-weight: 900; }
-.clan-exchange-card.is-ready button { border-color: #49ad8f; background: linear-gradient(#197a68,#105348); color: #effff9; }
+.clan-exchange .clan-exchange-reward { padding: 8px; background: #0b2131; }
+.clan-exchange-status { color: #91a5ba; font-size: .66rem; }
+.clan-exchange-card button { width: 100%; min-height: 42px; }
+.clan-exchange-card.is-ready button { background: #146457; color: #effff9; }
 
-.clan-exchange-rarity { display: inline-flex; width: max-content; padding: 3px 8px; border: 1px solid var(--ex-line); border-radius: 999px; color: #cbd5e1; background: rgba(15,23,42,.72); font-size: .66rem; font-weight: 900; text-transform: uppercase; }
-.clan-exchange-rarity.rare { color: #bae6fd; border-color: #2789a9; }
-.clan-exchange-rarity.epic { color: #ddd6fe; border-color: #7957a8; }
-.clan-exchange-rarity.legendary { color: #fef3c7; border-color: #a98436; }
+.clan-exchange-rarity { padding: 3px 7px; border: 1px solid var(--ex-line); border-radius: 999px; color: #cbd5e1; font-size: .66rem; text-transform: uppercase; }
 
 
 /* Superseded progression-shelf detail pass.
@@ -944,22 +918,16 @@
 .clan-exchange-locked-copy>div>strong,.clan-exchange-locked-copy p { margin: 0; color: #8294a6; font-size: .66rem; }
 .clan-exchange-lock-label { display: inline-flex; align-items: center; gap: 5px; color: #b3c2cf; font-size: .65rem; font-weight: 850; }
 */
-.clan-exchange-future-shelves { display: grid; gap: 9px; }
-.clan-exchange-future-group { overflow: hidden; border: 1px solid var(--ex-line); border-radius: 10px; }
-.clan-exchange-future-group summary { display: flex; gap: 12px; padding: 12px; cursor: pointer; background: #102536; }
-.clan-exchange-future-group summary>strong { margin-left: auto; color: #8fa1b3; font-size: .64rem; }
-.clan-exchange-locked-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 8px; padding: 9px; }
-.clan-exchange-locked-card { display: grid; grid-template-columns: 104px 1fr; gap: 9px; padding: 8px; background: #0c1624; }
-.clan-exchange-locked-card .clan-exchange-art { min-height: 104px; filter: saturate(.48) brightness(.64); }
-.clan-exchange-locked-copy { display: grid; align-content: center; gap: 5px; }
+.clan-exchange-future-group { border: 1px solid var(--ex-line); }
+.clan-exchange-future-group summary { display: flex; padding: 12px; cursor: pointer; background: #102536; }
+.clan-exchange-future-group summary>strong { margin-left: auto; }
+.clan-exchange-locked-grid { display: grid; gap: 8px; padding: 9px; }
+.clan-exchange-locked-card { padding: 8px; }
 .clan-exchange-locked-copy>div { display: flex; justify-content: space-between; }
-.clan-exchange-locked-copy p,.clan-exchange-lock-label { margin: 0; color: #8294a6; font-size: .64rem; }
+.clan-exchange-locked-copy p,.clan-exchange-lock-label { margin: 0; color: #8294a6; }
 
-.clan-exchange-modal { position: relative; display: grid; gap: 12px; width: min(420px,calc(100vw - 28px)); padding: 22px; border: 1px solid #806a3c; background: #0b2031; }
-.clan-exchange-modal h3 { margin: 0; color: #fef3c7; }
+.clan-exchange-modal { position: relative; display: grid; gap: 12px; width: min(420px,calc(100vw - 28px)); padding: 22px; background: #0b2031; }
 .modal-close { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; min-height: 0; padding: 0; border-radius: 50%; }
-.clan-exchange-reveal { justify-items: center; text-align: center; }
-.clan-exchange-reveal-mark { color: #fef3c7; }
 
 /* Superseded responsive detail pass.
 @media (hover:hover) { .clan-exchange-card.is-ready:hover { transform: translateY(-3px); border-color: #5edbaa; } }
@@ -979,16 +947,10 @@
 }
 @media (prefers-reduced-motion:reduce) { .clan-exchange-card { transition: none!important; } }
 */
-@media (max-width:920px) { .clan-exchange-hero { grid-template-columns: 1fr; } }
 @media (max-width:620px) {
-    .clan-exchange-hero { min-height: 480px; padding: 18px; }
-    .clan-exchange-hero-art { object-position: 69%; }
-    .clan-exchange .clan-exchange-identity,.clan-exchange-ledger,.clan-exchange .clan-exchange-grid,.clan-exchange-locked-grid { grid-template-columns: 1fr; }
+    .clan-exchange-hero,.clan-exchange .clan-exchange-identity,.clan-exchange .clan-exchange-grid { grid-template-columns: 1fr; }
+    .clan-exchange-hero { padding: 18px; }
     .clan-exchange-identity>:first-child { display: none; }
-    .clan-exchange .clan-exchange-section-head { align-items: flex-start; flex-direction: column; }
-    .clan-exchange .clan-exchange-card { min-height: 0; }
-    .clan-exchange-locked-card { grid-template-columns: 84px 1fr; }
-    .clan-exchange-locked-card .clan-exchange-art-img { width: 76px; height: 76px; }
 }
 
 /* ── The walking avatar (grounded pin, SectorAvatar presentation) ── */
@@ -1443,3 +1405,15 @@
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .75));
     pointer-events: none;
 }
+
+/* Town Hall command center */
+.town-hall-screen{gap:12px}.town-hall-hero{position:relative;isolation:isolate;min-height:250px;align-items:flex-end;overflow:hidden;padding:clamp(22px,4vw,48px);border:1px solid #765f35;border-radius:18px}
+.town-hall-hero::before{content:"";position:absolute;inset:0;z-index:-1;background-image:linear-gradient(90deg,rgba(2,6,15,.98) 0%,rgba(2,8,18,.78) 38%,rgba(2,8,18,.08) 78%),linear-gradient(0deg,rgba(2,6,15,.9),transparent 62%),var(--town-art);background-size:cover;background-position:center}
+.town-hall-hero-copy{max-width:590px;text-shadow:0 2px 16px #000}.town-hall-hero-copy h2{margin:.15rem 0 .35rem;font:900 clamp(2.1rem,4vw,3.7rem)/.95 Georgia,serif;color:#fff7d6}.town-hall-hero-copy p:last-child{margin:0;color:#d6dfeb}.town-hall-ledger{display:grid;min-width:220px;border:1px solid #765f35;border-radius:12px;background:#020812c9}.town-hall-ledger span{display:grid;padding:9px 12px}.town-hall-ledger small{color:#8ea2ba;font-size:.68rem;font-weight:800;text-transform:uppercase}.town-hall-ledger strong{color:#f5d98d}
+.town-command{display:grid;gap:12px}.town-action-center,.town-hall-panel,.town-secondary-grid>.summary-box,.town-upgrade-summary{border-color:#27394f;background:#081525}.town-section-heading h3{margin:.1rem 0 .25rem;color:#f8ebc3;font-family:Georgia,serif}.town-section-heading p{margin:0}
+.town-priority-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.town-priority-card{display:grid;gap:10px;min-height:205px;padding:14px;border:1px solid #2a3b51;border-top:3px solid #55708b;border-radius:12px;background:#0a1726}.town-priority-card[data-state="ready"]{border-top-color:#d5a847}.town-priority-card[data-state="done"]{border-top-color:#3f8b72}.town-priority-card>div:first-child{display:flex;justify-content:space-between;gap:10px}.town-priority-card>div:first-child span{color:#8fa3b9;font-size:.72rem;font-weight:900;text-transform:uppercase}.town-priority-card>div strong{color:#f4dda0;text-align:right}.town-priority-card p{color:#9fb0c2;font-size:.85rem}.town-priority-card button{width:100%;margin-top:auto}.town-task-list{display:grid;gap:5px}.town-task-list span{display:flex;justify-content:space-between;gap:8px;padding:5px 7px;border-radius:6px;background:#07111e;color:#b7c3d0;font-size:.74rem}.town-task-list b{color:#d8e6f5}
+.town-hall-grid,.town-secondary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.town-hall-panel{margin:0}.town-panel-head,.town-leader-row{display:flex;align-items:center;gap:10px}.town-panel-head{justify-content:space-between}.town-leader-row{margin:8px 0 12px}.town-leader-row p{margin:0}.town-leader-row small{color:#8093aa;text-transform:uppercase}.town-leader-row strong{color:#f3d78d}.town-kage-card,.elder-card{padding:10px;border:1px solid #2a3b50;border-radius:10px;background:#091423}.elder-card span{color:#9bdcff;font-weight:800}.town-war-actions{display:flex;gap:8px;margin-top:12px}.town-war-actions button{flex:1}.town-war-actions button:first-child{border-color:#7d3e45;background:#421923}.town-war-actions button:last-child{border-color:#356486;background:#102f49}
+.town-upgrade-overview{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}.town-upgrade-overview span{display:grid;padding:10px;border:1px solid #2a3b50;border-radius:9px;background:#07111f}.town-upgrade-overview small{color:#8396ab;font-size:.7rem;text-transform:uppercase}.town-upgrade-overview strong{color:#f1d48c}.town-upgrade-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:10px}.town-upgrade-card{display:grid;gap:8px;padding:12px;border:1px solid #2a3b50;border-top:3px solid #536a82;border-radius:12px;background:#081525}.town-upgrade-card[data-state="ready"]{border-top-color:#d8aa4f}.town-upgrade-card[data-state="done"]{border-top-color:#438870;opacity:.84}.town-upgrade-topline{display:flex;align-items:center;gap:10px}.town-upgrade-icon{display:grid;place-items:center;overflow:hidden;width:58px;height:58px;border:1px solid #485b70;border-radius:12px}.town-upgrade-icon img{width:100%;height:100%;object-fit:cover}.town-upgrade-icon.clan-upgrade-emblem img{object-fit:contain}.town-upgrade-topline strong{color:#f6dda0}.town-upgrade-topline p,.town-upgrade-desc,.town-upgrade-bonus{margin:0}.town-upgrade-desc{min-height:42px;color:#91a2b5;font-size:12px}.town-upgrade-bonus{color:#d3deea;font-size:13px}.town-upgrade-card button{width:100%;margin-top:auto}.hollow-gate-card{border-color:#5e477c;background:#100e20}
+.war-status{display:inline-flex;margin:0;padding:5px 9px;border-radius:99px;font-size:.75rem;font-weight:900}.war-status.peace{color:#bbf7d0;border:1px solid #2f7650;background:#123522}.war-status.at-war{color:#fecaca;border:1px solid #944c52;background:#3c171d}.war-record-card{min-height:0;border-left:3px solid #53718d}.town-secondary-grid .town-notice-board{max-height:280px;overflow:auto}
+@media(max-width:860px){.town-hall-hero{min-height:340px;align-items:flex-end;flex-direction:column;justify-content:flex-end}.town-hall-ledger{width:100%;grid-template-columns:repeat(3,1fr)}.town-priority-grid{grid-template-columns:1fr}.town-priority-card{min-height:0}.town-hall-grid,.town-secondary-grid{grid-template-columns:1fr}.town-upgrade-overview{grid-template-columns:1fr}}
+@media(max-width:560px){.town-hall-hero{min-height:380px;padding:20px}.town-hall-hero::before{background-position:60% center}.town-hall-ledger{grid-template-columns:1fr}.town-war-actions{display:grid}.town-upgrade-grid{grid-template-columns:1fr}}

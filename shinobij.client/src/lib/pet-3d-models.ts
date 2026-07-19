@@ -19,6 +19,11 @@ export type PetCombatModelConfig = {
 const MODEL_URL_OVERRIDES: Readonly<Record<string, string>> = {
     "starter-fire-r": "/pet-models/ember-wolf-rigged.gltf",
     "starter-fire-l": "/pet-models/ember-wolf-rigged.gltf",
+    // The evolved Earth reconstruction contains a source planter fused into
+    // the animal surface, so a safe topology trim cannot remove it without
+    // taking the legs with it. Use the clean approved Earth guardian base at a
+    // larger heroic scale; its evolved identity still comes from visualId VFX.
+    "starter-earth-l": "/pet-models/starter-earth-r.glb",
 };
 
 const MODEL_PROFILES: Readonly<Record<string, PetCombatModelProfile>> = {
@@ -48,14 +53,15 @@ export function petCombatModel(pet: Pick<Pet, "id" | "evolutionStage" | "rarity"
     const profile = MODEL_PROFILES[visualId];
     if (!profile) return approvedRosterCombatModel(canonicalPet as Pick<Pet, "id" | "name">);
     const overrideUrl = MODEL_URL_OVERRIDES[visualId];
+    const isFireRig = visualId.startsWith("starter-fire");
     return {
         visualId,
         url: overrideUrl ?? `/pet-models/${visualId}.glb`,
         profile,
-        targetHeight: overrideUrl ? (visualId.endsWith("-l") ? 3.55 : 3.3) : visualId.endsWith("-l") ? 2.6 : 2.35,
-        fit: overrideUrl || profile === "serpentine" ? "longest" : "height",
+        targetHeight: isFireRig ? (visualId.endsWith("-l") ? 3.55 : 3.3) : visualId.endsWith("-l") ? 2.6 : 2.35,
+        fit: isFireRig || profile === "serpentine" ? "longest" : "height",
         yawOffset: 0,
-        outlineScale: overrideUrl ? 1.018 : 1.026,
+        outlineScale: isFireRig ? 1.018 : 1.026,
     };
 }
 

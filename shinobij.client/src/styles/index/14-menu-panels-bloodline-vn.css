@@ -1230,36 +1230,6 @@ textarea {
     white-space: nowrap;
 }
 
-.clan-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 14px;
-    border-bottom: 1px solid var(--slate-800);
-    padding-bottom: 8px;
-}
-
-    .clan-tabs button {
-        padding: 6px 14px;
-        border-radius: 8px 8px 0 0;
-        background: transparent;
-        border: 1px solid transparent;
-        color: var(--text-muted);
-        font-size: 0.82rem;
-        cursor: pointer;
-        transition: color 0.15s, border-color 0.15s;
-    }
-
-        .clan-tabs button:hover {
-            color: var(--text-dim);
-        }
-
-        .clan-tabs button.active {
-            color: var(--slate-200);
-            border-color: var(--slate-700);
-            background: rgba(30,41,59,0.6);
-        }
-
 /* Roster */
 .clan-roster {
     display: flex;

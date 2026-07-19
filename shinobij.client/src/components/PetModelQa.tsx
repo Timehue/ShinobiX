@@ -1,5 +1,5 @@
-import { useMemo, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { ContactShadows, Environment, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { Pet } from "../types/pet";
@@ -37,6 +37,20 @@ function QaPet({ pet, x, angle, configOverride, frameOverride }: { pet: Pet; x: 
     );
 }
 
+function QaReadySignal({ signature }: { signature: string }) {
+    const frames = useRef(0);
+    useFrame(() => {
+        frames.current += 1;
+        if (frames.current === 2) document.documentElement.dataset.petModelReady = signature;
+    });
+    useEffect(() => {
+        return () => {
+            delete document.documentElement.dataset.petModelReady;
+        };
+    }, [signature]);
+    return null;
+}
+
 export function PetModelQa() {
     const params = useMemo(() => new URLSearchParams(window.location.search), []);
     const legendary = params.get("legendary") === "1";
@@ -52,6 +66,7 @@ export function PetModelQa() {
     })), [legendary]);
     const angleValue = params.get("angle");
     const angle: ModelAngle = angleValue === "front" || angleValue === "side" || angleValue === "rear" || angleValue === "threequarter" ? angleValue : "threequarter";
+    const allAngles = params.get("allAngles") === "1";
     const only = params.get("pet")?.toLowerCase();
     const quality = petVisualQuality();
     const motionValue = params.get("motion");
@@ -67,7 +82,11 @@ export function PetModelQa() {
     const visiblePets = qaRosterPet ? [qaRosterPet] : only
         ? pets.filter((pet) => pet.element?.toLowerCase() === only || pet.id.toLowerCase() === only)
         : [...pets];
-    const cameraZ = visiblePets.length > 2 ? 11.5 : 7.6;
+    const displayedAngles: ModelAngle[] = allAngles ? ["front", "threequarter", "side", "rear"] : [angle];
+    const renderEntries = visiblePets.flatMap((pet) => displayedAngles.map((displayAngle) => ({ pet, angle: displayAngle })));
+    const cameraZ = renderEntries.length > 2 ? 11.5 : 7.6;
+    const readySignature = `${qaRosterPet?.id ?? only ?? "starters"}:${allAngles ? "all" : angle}:${motion}:${quality.id}`;
+    const modelLabel = qaRosterPet ? `${qaRosterPet.id} · ${qaRosterPet.name}` : only ? `${only} starter` : "starter roster";
     return (
         <div data-testid="pet-model-qa" style={{ position: "fixed", inset: 0, background: "radial-gradient(circle at 50% 38%,#28344a 0,#101726 52%,#070b12 100%)", color: "white" }}>
             <Canvas
@@ -82,24 +101,27 @@ export function PetModelQa() {
                 <directionalLight position={[4, 7, 6]} intensity={2.4} color="#fff3dd" castShadow={quality.modelShadows} shadow-mapSize-width={quality.id === "high" ? 1536 : 768} shadow-mapSize-height={quality.id === "high" ? 1536 : 768} />
                 <directionalLight position={[-5, 3, -3]} intensity={1.1} color="#6aa9ff" />
                 <pointLight position={[0, 2, -4]} intensity={1.4} distance={12} color="#ff7d4d" />
-                {visiblePets.map((pet, index) => (
-                    <QaPet
-                        key={pet.id}
-                        pet={pet}
-                        x={(index - (visiblePets.length - 1) / 2) * 1.8}
-                        angle={angle}
-                        configOverride={qaRosterPet && pet.id === qaRosterPet.id
-                            ? proofModelId
-                                ? riggedProof
-                                    ? qaRosterRiggedProofModel(qaRosterPet)
-                                    : bakedRetopoProof
-                                        ? qaRosterBakedRetopoProofModel(qaRosterPet)
-                                        : retopoProof ? qaRosterRetopoProofModel(qaRosterPet) : qaRosterProofModel(qaRosterPet)
-                                : qaRosterCombatModel(qaRosterPet)
-                            : undefined}
-                        frameOverride={frameOverride}
-                    />
-                ))}
+                <Suspense fallback={null}>
+                    {renderEntries.map(({ pet, angle: displayAngle }, index) => (
+                        <QaPet
+                            key={`${pet.id}-${displayAngle}`}
+                            pet={pet}
+                            x={(index - (renderEntries.length - 1) / 2) * (allAngles ? 2.25 : 1.8)}
+                            angle={displayAngle}
+                            configOverride={qaRosterPet && pet.id === qaRosterPet.id
+                                ? proofModelId
+                                    ? riggedProof
+                                        ? qaRosterRiggedProofModel(qaRosterPet)
+                                        : bakedRetopoProof
+                                            ? qaRosterBakedRetopoProofModel(qaRosterPet)
+                                            : retopoProof ? qaRosterRetopoProofModel(qaRosterPet) : qaRosterProofModel(qaRosterPet)
+                                    : qaRosterCombatModel(qaRosterPet)
+                                : undefined}
+                            frameOverride={frameOverride}
+                        />
+                    ))}
+                    <QaReadySignal signature={readySignature} />
+                </Suspense>
                 <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.01, 0]}>
                     <circleGeometry args={[5.7, 64]} />
                     <meshStandardMaterial color="#273449" roughness={0.92} metalness={0.02} />
@@ -110,10 +132,10 @@ export function PetModelQa() {
                 <OrbitControls makeDefault target={[0, 1.15, 0]} minDistance={4.2} maxDistance={11} enablePan={false} />
             </Canvas>
             <div style={{ position: "absolute", top: 18, left: 20, padding: "9px 12px", borderRadius: 10, background: "rgba(5,10,20,.72)", border: "1px solid rgba(148,163,184,.35)", font: "700 12px Inter,system-ui,sans-serif" }}>
-                MODEL QA · {angle.toUpperCase()} · {quality.id.toUpperCase()}
+                MODEL QA · {modelLabel.toUpperCase()} · {allAngles ? "4-ANGLE CERTIFICATION" : angle.toUpperCase()} · {quality.id.toUpperCase()}
             </div>
             <div style={{ position: "absolute", bottom: 18, left: "50%", transform: "translateX(-50%)", padding: "8px 13px", borderRadius: 999, background: "rgba(5,10,20,.72)", color: "#cbd5e1", font: "600 11px Inter,system-ui,sans-serif" }}>
-                Drag to orbit · wheel to zoom · `pet=fire|water` · `angle=front|side|rear|threequarter` · `petQuality=low|medium|high`
+                {allAngles ? "FRONT · THREE-QUARTER · SIDE · REAR" : "Drag to orbit · wheel to zoom · `pet=fire|water` · `angle=front|side|rear|threequarter` · `petQuality=low|medium|high`"}
             </div>
         </div>
     );
