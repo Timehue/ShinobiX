@@ -576,7 +576,7 @@ import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop }
 import { beginHollowGateServerRun, consumeHollowGateServerSecondWind, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult } from "./lib/hollow-gate-combat-api";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
-import { extractBossBarks, requestStoryBossFight } from "./lib/story-fight-theme";
+import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "./lib/story-fight-theme";
 import { StoryBossFightHost } from "./components/StoryBossFightHost";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
 import { markHollowGateSeen } from "./lib/hollow-gate-path";
@@ -5730,16 +5730,17 @@ export default function App() {
             setScreen("eventTiles");
             return;
         }
-        // Story CHAPTER battles (not interludes/roads) = the Story Hall milestone →
-        // fight the SEALED server session via the shared host (the only path that
-        // persists storyProgress). Replayed past chapters keep the flavor Arena.
+        // Story CHAPTER battles (not interludes/roads) = the Story Hall milestone → the
+        // SEALED server session via the shared host (the only path persisting
+        // storyProgress). Replayed past chapters keep the flavor Arena.
         const chapterIdx = /^story-(?!interlude-|road-)[a-z0-9-]+?-(\d+)$/.exec(event.id)?.[1];
         if (battle && chapterIdx !== undefined && Number(chapterIdx) === (character?.storyProgress ?? -1)) {
             const started = requestStoryBossFight({
                 bossName: battle.bossName || event.name,
                 chapterLabel: `Chapter ${Number(chapterIdx) + 1} — ${event.vnTitle ?? event.name}`,
                 backdropImage: sharedImages[`event:${event.id}:bg`] || sharedImages[`vn:${event.id}:page:0`] || undefined,
-                barks: extractBossBarks(event.vnPages, battle.bossName || ""),
+                ...extractStoryFightScript(event.vnPages, battle.bossName || ""),
+                ally: extractMentorLines(event.vnPages, battle.bossName || "", character?.name ?? ""), village: event.village || character?.village,
             });
             if (started) { setActiveTriggeredEvent(null); return; }
         }
