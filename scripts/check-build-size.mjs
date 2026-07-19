@@ -11,7 +11,12 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // build-arg code that is not always present in local builds. Keep startup gates
 // below strict; allow a small ceiling bump for the intentional pet evolution
 // 2.5D stage and env-injected deploy variance.
-const TOTAL_JS_CSS_FAIL_BYTES = 6_100_000;
+// 2026-07-19: 6.10 → 6.20 MB. The village facility art system + studio screen
+// presentation (main) and the story-fight presentation + server-authoritative
+// story bosses (story migration slice) together landed 7 KB past the old
+// ceiling (measured 6,107,103 B). All startup gates below are untouched and
+// pass with headroom (initial graph 1.43 MB raw / 367 KB gzip).
+const TOTAL_JS_CSS_FAIL_BYTES = 6_200_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
