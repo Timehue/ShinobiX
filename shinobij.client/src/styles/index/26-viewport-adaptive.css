@@ -667,23 +667,6 @@ html[data-vp="xxl"] .stormveil-map {
     max-height: calc(100dvh - 131px) !important;
 }
 
-html[data-vp="md"] .stormveil-map-button,
-html[data-vp="lg"] .stormveil-map-button,
-html[data-vp="xl"] .stormveil-map-button,
-html[data-vp="xxl"] .stormveil-map-button {
-    min-width: 90px !important;
-    padding: 4px 6px !important;
-    gap: 1px !important;
-    border-radius: 7px !important;
-}
-
-html[data-vp="md"] .stormveil-map-button strong,
-html[data-vp="lg"] .stormveil-map-button strong,
-html[data-vp="xl"] .stormveil-map-button strong,
-html[data-vp="xxl"] .stormveil-map-button strong {
-    font-size: 10px !important;
-}
-
 /* ── xxl: 1440p+ desktop (≥2200px) — comfortable layout ── */
 html[data-vp="xxl"] {
     --side-rail-w: clamp(220px, 17vw, 280px);

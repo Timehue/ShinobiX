@@ -968,30 +968,6 @@
     flex: 1 1 180px;
   }
 
-  .stormveil-map-button {
-    position: relative !important;
-    left: unset !important;
-    top: unset !important;
-    transform: none !important;
-    z-index: 2 !important; /* above the ::before overlay */
-    flex: 1 1 calc(30% - 8px) !important;
-    min-width: 88px !important;
-    max-width: 128px !important;
-    padding: 10px 6px !important;
-    background: rgba(2, 6, 23, 0.82) !important;
-  }
-
-  .stormveil-map-button:hover,
-  .stormveil-map-button:active {
-    transform: none !important;
-  }
-
-  .stormveil-map-button strong {
-    font-size: 10px !important;
-    text-align: center !important;
-    line-height: 1.2 !important;
-  }
-
   /* Safe-zone badge — sits at the bottom of stormveil-village-screen,
      below all the flex-wrapped buttons */
   .village-save-bar {

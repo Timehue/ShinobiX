@@ -68,18 +68,6 @@
         gap: 9px;
     }
 
-    .town-hall-hero {
-        padding: 11px 16px;
-    }
-
-    .town-hall-wallet strong {
-        font-size: 20px;
-    }
-
-    .town-hall-grid {
-        gap: 9px;
-    }
-
     /* ── Tab strips ── */
     .expanded-tabs {
         padding: 7px;
@@ -90,17 +78,6 @@
         min-height: 38px;
         padding: 6px 12px;
         font-size: 0.9rem;
-    }
-
-    .clan-tabs {
-        gap: 5px;
-        margin-bottom: 9px;
-        padding-bottom: 7px;
-    }
-
-    .clan-tabs button {
-        padding: 5px 12px;
-        font-size: 0.88rem;
     }
 
     /* ── Inline grid (selects, small button rows) ── */
@@ -176,24 +153,6 @@
 
     .clan-guard-row {
         padding: 6px 10px;
-    }
-
-    /* ── Town upgrade grid ── */
-    .town-upgrade-grid {
-        gap: 9px;
-    }
-
-    .town-upgrade-card {
-        padding: 12px;
-    }
-
-    /* ── Elder seat grid ── */
-    .elder-seat-grid {
-        gap: 9px;
-    }
-
-    .elder-card {
-        padding: 12px;
     }
 
     /* ── Training / hospital ── */
@@ -407,18 +366,6 @@
         gap: 11px;
     }
 
-    .town-hall-hero {
-        padding: 12px 18px;
-    }
-
-    .town-hall-wallet strong {
-        font-size: 22px;
-    }
-
-    .town-hall-grid {
-        gap: 11px;
-    }
-
     /* ── Tab strips ── */
     .expanded-tabs {
         padding: 8px;
@@ -429,17 +376,6 @@
         min-height: 42px;
         padding: 7px 14px;
         font-size: 0.96rem;
-    }
-
-    .clan-tabs {
-        gap: 6px;
-        margin-bottom: 11px;
-        padding-bottom: 8px;
-    }
-
-    .clan-tabs button {
-        padding: 6px 14px;
-        font-size: 0.94rem;
     }
 
     /* ── Inline grid (selects, small button rows) ── */
@@ -515,24 +451,6 @@
 
     .clan-guard-row {
         padding: 7px 12px;
-    }
-
-    /* ── Town upgrade grid ── */
-    .town-upgrade-grid {
-        gap: 11px;
-    }
-
-    .town-upgrade-card {
-        padding: 14px;
-    }
-
-    /* ── Elder seat grid ── */
-    .elder-seat-grid {
-        gap: 11px;
-    }
-
-    .elder-card {
-        padding: 14px;
     }
 
     /* ── Training / hospital ── */

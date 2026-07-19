@@ -269,8 +269,90 @@ function stylizeApprovedRig(root: THREE.Group, config: PetCombatModelConfig) {
     scaleNode("Tail1", 1.31, 1.09, 1.31);
 }
 
-function removeEarthSourceFloor(root: THREE.Group, config: PetCombatModelConfig): THREE.BufferGeometry[] {
-    if (!config.visualId.startsWith("starter-earth")) return [];
+type TriangleComponent = {
+    root: number;
+    triangles: number;
+    bounds: THREE.Box3;
+};
+
+function weldedTriangleComponents(
+    position: THREE.BufferAttribute | THREE.InterleavedBufferAttribute,
+    index: THREE.BufferAttribute,
+    triangleOffsets: readonly number[],
+): { componentByTriangle: Map<number, number>; components: TriangleComponent[] } {
+    const parent: number[] = [];
+    const rank: number[] = [];
+    const weldedByVertex = new Map<number, number>();
+    const weldedByPosition = new Map<string, number>();
+
+    const find = (value: number): number => {
+        let root = value;
+        while (parent[root] !== root) root = parent[root];
+        let current = value;
+        while (parent[current] !== current) {
+            const next = parent[current];
+            parent[current] = root;
+            current = next;
+        }
+        return root;
+    };
+    const union = (a: number, b: number) => {
+        let rootA = find(a);
+        let rootB = find(b);
+        if (rootA === rootB) return;
+        if (rank[rootA] < rank[rootB]) [rootA, rootB] = [rootB, rootA];
+        parent[rootB] = rootA;
+        if (rank[rootA] === rank[rootB]) rank[rootA] += 1;
+    };
+    const weld = (vertex: number) => {
+        const existingVertex = weldedByVertex.get(vertex);
+        if (existingVertex !== undefined) return existingVertex;
+        // Image-to-3D exports split coincident vertices at UV and normal seams.
+        // Quantizing positions reconnects the actual surface without joining
+        // visibly separate reconstruction islands.
+        const key = `${Math.round(position.getX(vertex) * 100000)},${Math.round(position.getY(vertex) * 100000)},${Math.round(position.getZ(vertex) * 100000)}`;
+        let welded = weldedByPosition.get(key);
+        if (welded === undefined) {
+            welded = parent.length;
+            parent.push(welded);
+            rank.push(0);
+            weldedByPosition.set(key, welded);
+        }
+        weldedByVertex.set(vertex, welded);
+        return welded;
+    };
+
+    for (const offset of triangleOffsets) {
+        const a = weld(index.getX(offset));
+        const b = weld(index.getX(offset + 1));
+        const c = weld(index.getX(offset + 2));
+        union(a, b);
+        union(b, c);
+    }
+
+    const componentByTriangle = new Map<number, number>();
+    const byRoot = new Map<number, TriangleComponent>();
+    for (const offset of triangleOffsets) {
+        const vertices = [index.getX(offset), index.getX(offset + 1), index.getX(offset + 2)];
+        const root = find(weld(vertices[0]));
+        componentByTriangle.set(offset, root);
+        let component = byRoot.get(root);
+        if (!component) {
+            component = { root, triangles: 0, bounds: new THREE.Box3() };
+            byRoot.set(root, component);
+        }
+        component.triangles += 1;
+        for (const vertex of vertices) {
+            component.bounds.expandByPoint(new THREE.Vector3(position.getX(vertex), position.getY(vertex), position.getZ(vertex)));
+        }
+    }
+    return { componentByTriangle, components: [...byRoot.values()] };
+}
+
+function removeStarterSourceArtifacts(root: THREE.Group, config: PetCombatModelConfig): THREE.BufferGeometry[] {
+    const isEarth = config.visualId.startsWith("starter-earth");
+    const isEvolvedWind = config.visualId === "starter-wind-l";
+    if (!isEarth && !isEvolvedWind) return [];
     const owned: THREE.BufferGeometry[] = [];
     root.traverse((node) => {
         if (!(node instanceof THREE.Mesh)) return;
@@ -287,18 +369,44 @@ function removeEarthSourceFloor(root: THREE.Group, config: PetCombatModelConfig)
             geometry.dispose();
             return;
         }
-        // The image-to-3D Earth export contains a broad, nearly-flat white
-        // reconstruction island under the feet. Drop only triangles whose three
-        // vertices live in the bottom 4.5% of the source mesh; leg/foot sidewalls
-        // extend above this slice and remain intact.
-        const cut = bounds.min.y + (bounds.max.y - bounds.min.y) * 0.045;
-        const kept: number[] = [];
+        const candidateOffsets: number[] = [];
+        const earthCut = bounds.min.y + (bounds.max.y - bounds.min.y) * 0.045;
         for (let i = 0; i < sourceIndex.count; i += 3) {
             const a = sourceIndex.getX(i);
             const b = sourceIndex.getX(i + 1);
             const c = sourceIndex.getX(i + 2);
-            if (position.getY(a) <= cut && position.getY(b) <= cut && position.getY(c) <= cut) continue;
-            kept.push(a, b, c);
+            // Both Earth exports contain a broad reconstruction floor. The true
+            // feet extend above this narrow slice, so only fully-low triangles go.
+            if (isEarth && position.getY(a) <= earthCut && position.getY(b) <= earthCut && position.getY(c) <= earthCut) continue;
+            candidateOffsets.push(i);
+        }
+
+        const { componentByTriangle, components } = weldedTriangleComponents(position, sourceIndex, candidateOffsets);
+        const totalTriangles = Math.max(1, candidateOffsets.length);
+        let keepRoots: Set<number>;
+        if (isEarth) {
+            // Once the floor is cut, the pet is the dominant closed surface. The
+            // remaining low pot/wall chunks are detached islands (10% on the
+            // evolved form, 2.2% on the base form) and must not enter combat.
+            const largest = components.reduce((best, component) => component.triangles > best.triangles ? component : best);
+            keepRoots = new Set([largest.root]);
+        } else {
+            // The evolved Wind source includes a second, nearly planar 33% image
+            // card. Preserve the animal and its small detached details while
+            // removing only large components with background-card flatness.
+            keepRoots = new Set(components.filter((component) => {
+                const size = component.bounds.getSize(new THREE.Vector3());
+                const largestAxis = Math.max(size.x, size.y, size.z, 0.000001);
+                const flatness = Math.min(size.x, size.y, size.z) / largestAxis;
+                return !(component.triangles / totalTriangles > 0.1 && flatness < 0.05);
+            }).map((component) => component.root));
+        }
+
+        const kept: number[] = [];
+        for (const offset of candidateOffsets) {
+            const rootId = componentByTriangle.get(offset);
+            if (rootId === undefined || !keepRoots.has(rootId)) continue;
+            kept.push(sourceIndex.getX(offset), sourceIndex.getX(offset + 1), sourceIndex.getX(offset + 2));
         }
         geometry.setIndex(kept);
         geometry.computeBoundingBox();
@@ -314,7 +422,7 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
     // shares skeleton bindings and causes one fighter's animation to corrupt the other.
     const surface = cloneSkeleton(source) as THREE.Group;
     stylizeApprovedRig(surface, config);
-    const geometries = removeEarthSourceFloor(surface, config);
+    const geometries = removeStarterSourceArtifacts(surface, config);
     const box = undeformedBounds(surface);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
@@ -411,7 +519,10 @@ function prepareModel(source: THREE.Group, config: PetCombatModelConfig, clips: 
     // inked texture remains its silhouette treatment while the light floor
     // pixels are culled by the material pass above.
     const outline = quality.outline && config.outlineScale > 1.001 && !config.visualId.startsWith("starter-earth")
-        ? cloneSkeleton(source) as THREE.Group
+        // Clone the certified combat surface, not the untouched import. Starter
+        // source-card cleanup happens above; rebuilding the hull from `source`
+        // silently resurrected that removed geometry as a dark background slab.
+        ? cloneSkeleton(surface) as THREE.Group
         : null;
     if (outline) {
         stylizeApprovedRig(outline, config);
@@ -707,7 +818,10 @@ function LoadedPetModel3D({ config, frame, element }: {
             motionStart.current = t;
         }
         const motionAge = t - motionStart.current;
-        const dodgeP = Math.min(1, motionAge / 0.2);
+        // A dodge is one readable launch-and-land phrase. The presentation track
+        // holds the state for ~0.44 s; matching that window prevents the model from
+        // finishing its hop halfway through the lateral escape and skating to rest.
+        const dodgeP = Math.min(1, motionAge / 0.42);
         const dodgeArc = f.motion === "dodge" ? Math.sin(Math.PI * dodgeP) : 0;
         if (mixer) {
             const clip = combatClip(prepared.clips, f, config.profile);
