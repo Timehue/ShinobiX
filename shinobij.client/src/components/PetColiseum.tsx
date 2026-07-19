@@ -119,17 +119,6 @@ function elementColor(element?: string | null) {
     return ELEMENT_COLOR[String(element ?? "")] ?? { base: "#c4b5fd", glow: "#e9d5ff" };
 }
 
-const ELEMENT_GLYPH: Record<string, string> = {
-    Fire: "火",
-    Water: "水",
-    Wind: "風",
-    Lightning: "雷",
-    Earth: "地",
-};
-function elementGlyph(element?: string | null) {
-    return ELEMENT_GLYPH[String(element ?? "")] ?? "獣";
-}
-
 function makePlaceholderTexture(pet: Pet): THREE.CanvasTexture {
     const W = 512, H = 640;
     const c = document.createElement("canvas");
@@ -1092,7 +1081,7 @@ function ResponsiveCamera() {
     const { camera, size } = useThree();
     useFrame(() => {
         const aspect = size.width / Math.max(1, size.height);
-        const fov = aspect < 0.8 ? 56 : aspect < 1.2 ? 47 : CAM_FOV;
+        const fov = aspect < 0.8 ? 60 : aspect < 1.2 ? 47 : CAM_FOV;
         const cam = camera as THREE.PerspectiveCamera;
         if (cam.fov !== fov) {
             // eslint-disable-next-line react-hooks/immutability -- the r3f camera is a mutable three.js object; per-frame mutation inside useFrame is the library's idiomatic pattern (same as CameraRig's position writes)
@@ -1750,6 +1739,8 @@ const INTRO_PAUSE_END = 1.7;     // s — still face-off before the power-up pos
 const INTRO_SIZEUP_END = 3.15;   // s — power gather at the real starting positions
 const INTRO_TOTAL = 3.35;        // s — brief lock-in beat, then FIGHT
 const INTRO_WIDE_DOLLY = 15.6;   // camera pull-back distance for the wide size-up shot
+const DUEL_CAMERA_Y = 5.75;
+const DUEL_LOOK_Y = 0.9;
 const introWideHold = (introSec: number): number => introSec < INTRO_TOTAL ? 1 : 0;
 function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
     return { wx: (fx / ARENA_X) * DUEL_FLOOR_HALF_W, wz: DUEL_FLOOR_Z0 + (fy / ARENA_Y) * DUEL_FLOOR_HALF_D };
@@ -2767,7 +2758,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
     spawnImpact: (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => void;
-    spawnElementBurst: (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean }) => void;
+    spawnElementBurst: (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean; heading?: number }) => void;
     spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
     spawnSupport: (n: { x: number; z: number; color: string; kind: DuelSupportKind; actorId?: string }) => void;
     spawnShock: (n: { x: number; z: number; color: string; big: boolean }) => void;
@@ -2785,12 +2776,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => void;  // play-by-play commentary
     onMoveCallout: (text: string, side: "player" | "enemy", tone?: DuelMoveCalloutTone) => void;
 }) {
-    const { camera } = useThree();
+    const { camera, size } = useThree();
     // The QA harness can open a replay at an arbitrary tick. Treat that tick as
     // established history so effects do not fire underneath the intro curtain;
     // normal replays still start at tick zero and consume every subsequent beat.
     const lastTick = useRef(Math.max(-1, Math.floor(clock.current.t)));
     const ended = useRef(false);
+    const endHold = useRef(0);
     const shake = useRef(0);
     const hitStop = useRef(0);
     const timeScale = useRef(1);   // playback slow-mo on ultimate / KO; eases to 1
@@ -2813,6 +2805,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const camDolly = useRef(CAM_POS[2]); // eased dolly distance (adaptive on the leads' spread)
     const camDollyBias = useRef(0);    // transient extra push-in during a wind-up cut (decays)
     const camPosBias = useRef<[number, number, number]>([0, 0, 0]);   // transient eye offset (low crit / overhead KO angle), eases back to 0
+    const camBiasHold = useRef(0);
     const introLocked = useRef(false); // fires the "lock-in" shake once when the opening charge completes
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
@@ -2863,7 +2856,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         }
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                         spawnImpact({ x: a.x, z: a.y, color: col, big: impactHeavy });
-                        spawnElementBurst({ x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: impactHeavy });
+                        const heading = attacker ? Math.atan2(a.x - attacker.x, a.y - attacker.y) : (e.actorId.startsWith("enemy") ? -Math.PI / 2 : Math.PI / 2);
+                        spawnElementBurst({ x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: impactHeavy, heading });
                         const heavyKind = e.kind === "crush" || e.kind === "push";
                         const fxKey = moveFxKey(e.kind);   // themed burst (blood/shadow/poison/spark/ice/…) or "" → element combo
                         // The BURST on contact. A themed status/special move keeps its single
@@ -2916,7 +2910,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         if (impactHeavy || isAbility) {
                             const cp = duelFieldToFloor(a.x, a.y);
                             camAim.current = [cp.wx * 0.48, 1.4, CAM_LOOK[2] + cp.wz * 0.34];
-                            camAimHold.current = Math.max(camAimHold.current, 0.11);
+                            camAimHold.current = Math.max(camAimHold.current, 0.3);
+                            camPosBias.current = [cp.wx < 0 ? 1.7 : -1.7, -1.45, -1.35];
+                            camBiasHold.current = Math.max(camBiasHold.current, 0.2);
                         }
                         // A pet's HERO move (its signature, else its strongest jutsu) triggers the
                         // anime freeze-frame CUT-IN (throttled so it stays special); other named
@@ -2924,8 +2920,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         const hero = heroMoveById[e.actorId];
                         if (e.move && !isSig && hero && e.move === hero && now - lastHeroCut.current > 9) {
                             lastHeroCut.current = now; lastMoveCall.current = now;
-                            hitStop.current = Math.max(hitStop.current, 0.5);   // FREEZE-FRAME the impact
-                            savor(0.2, 0.7); shake.current = Math.max(shake.current, 1.6);
+                            hitStop.current = Math.max(hitStop.current, 0.18);
+                            savor(0.46, 0.3); shake.current = Math.max(shake.current, 1.6);
                             zoomKick.current = Math.max(zoomKick.current, 3.0); onFlash(col, 0.4);
                             onCutIn(e.actorId, e.move);
                         } else if (e.move && !isSig && now - lastMoveCall.current > 0.4) {
@@ -2990,8 +2986,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         if (heavyTell) {
                             const p = duelFieldToFloor(c.x, c.y);
                             camAim.current = [p.wx * 0.48, 1.4, CAM_LOOK[2] + p.wz * 0.34];
-                            camAimHold.current = Math.max(camAimHold.current, 0.11);
+                            camAimHold.current = Math.max(camAimHold.current, 0.24);
                             camDollyBias.current = Math.max(camDollyBias.current, 0.5);
+                            camPosBias.current = [p.wx < 0 ? -1.15 : 1.15, -0.85, -0.75];
+                            camBiasHold.current = Math.max(camBiasHold.current, 0.16);
                         }
                     }
                 } else if (e.type === "dodge" && e.actorId) {
@@ -3000,6 +2998,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const d = findActor(snapAt, e.actorId);
                     if (d) {
                         spawnImpact({ x: d.x, z: d.y, color: "#dff9ff", big: false, mode: "dodge" });
+                        const landing = findActor(snaps[Math.min(maxT, e.t + Math.round(DUEL_TPS * 0.4))], e.actorId);
+                        if (landing) window.setTimeout(() => spawnImpact({ x: landing.x, z: landing.y, color: "#b8e8df", big: false, mode: "dodge" }), 300);
                     }
                 } else if (e.type === "maneuver" && e.kind === "move" && e.move && e.actorId) {
                     // A short elemental range-shift: afterimages carry the motion; no
@@ -3045,7 +3045,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                                     // the player could see the arena again. Let the
                                     // cut-in supply anticipation, then reveal the
                                     // full 3D elemental payoff as it fades away.
-                                    window.setTimeout(() => spawnSetPiece(spectacle), ultimateGetsCutIn ? 1425 : 90);
+                                    window.setTimeout(() => spawnSetPiece(spectacle), ultimateGetsCutIn ? 180 : 90);
                                 }
                             }
                         }
@@ -3058,9 +3058,16 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             shake.current = Math.max(shake.current, 1.8);
                             zoomKick.current = Math.max(zoomKick.current, 3.0);
                             onFlash(elementColor(el).glow, 0.42);
-                            hitStop.current = Math.max(hitStop.current, 0.55);     // FREEZE-FRAME on the unleash
-                            savor(0.22, 0.7);                                      // then deep, HELD slow-mo
+                            hitStop.current = Math.max(hitStop.current, 0.18);
+                            savor(0.4, 0.36);
                             onCutIn(e.actorId, e.move ?? ultById[e.actorId] ?? "");  // anime portrait cut-in
+                            if (c) {
+                                const p = duelFieldToFloor(c.x, c.y);
+                                camAim.current = [p.wx * 0.58, 1.35, CAM_LOOK[2] + p.wz * 0.42];
+                                camAimHold.current = Math.max(camAimHold.current, 0.62);
+                                camPosBias.current = [p.wx < 0 ? -1.6 : 1.6, -1.2, -1.4];
+                                camBiasHold.current = Math.max(camBiasHold.current, 0.48);
+                            }
                             onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
                         } else {
                             // A quick REPEAT unleash — lighter beat, no cut-in / heavy shake.
@@ -3073,7 +3080,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         if (heroC && e.move === heroC && now - lastHeroCut.current > 9) {
                             // A ranged / support HERO move → the anime cut-in freeze-frame.
                             lastHeroCut.current = now; lastMoveCall.current = now;
-                            hitStop.current = Math.max(hitStop.current, 0.45); savor(0.2, 0.7);
+                            hitStop.current = Math.max(hitStop.current, 0.16); savor(0.44, 0.3);
                             shake.current = Math.max(shake.current, 1.4); zoomKick.current = Math.max(zoomKick.current, 2.8);
                             onFlash(elementColor(elementById[e.actorId]).glow, 0.38); onCutIn(e.actorId, e.move);
                         } else {
@@ -3173,12 +3180,12 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         if (camAimHold.current > 0) camAimHold.current = Math.max(0, camAimHold.current - delta);
         else {
             camAim.current[0] = lerp(camAim.current[0], midX * 0.7, 0.05);
-            camAim.current[1] = lerp(camAim.current[1], CAM_LOOK[1], 0.05);
+            camAim.current[1] = lerp(camAim.current[1], DUEL_LOOK_Y, 0.05);
             camAim.current[2] = lerp(camAim.current[2], CAM_LOOK[2] + midZ * 0.5, 0.05);
         }
         // Adaptive dolly: pull back to fit the current spread, eased slowly (a gentle
         // breathing zoom, never jitter). Clamped so it never crops or over-tightens.
-        let dollyTarget = Math.max(10.8, Math.min(CAM_POS[2], 9.4 + spread * 1.05));
+        let dollyTarget = Math.max(11.4, Math.min(14.2, 9.7 + spread * 0.92));
         // Opening: pull WIDE for the size-up, then punch in as the pets charge to the face-off,
         // and give a "lock-in" shake the instant they arrive.
         const dollyIntro = clock.current.intro ?? 999;
@@ -3189,10 +3196,24 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         // Ease the transient angle bias (crit low / KO overhead) back to neutral so it reads as
         // a deliberate camera MOVE, not a teleport (R4 — angle variety).
         const pb = camPosBias.current;
-        pb[0] = lerp(pb[0], 0, 0.045); pb[1] = lerp(pb[1], 0, 0.045); pb[2] = lerp(pb[2], 0, 0.045);
-        camera.position.set(CAM_POS[0] + midX * 0.1 + sx + pb[0], CAM_POS[1] + sy + pb[1], camDolly.current - zk - db + koPull.current + pb[2]);
+        if (camBiasHold.current > 0) camBiasHold.current = Math.max(0, camBiasHold.current - delta);
+        else { pb[0] = lerp(pb[0], 0, 0.045); pb[1] = lerp(pb[1], 0, 0.045); pb[2] = lerp(pb[2], 0, 0.045); }
+        // A portrait canvas has less than half the horizontal field of the desktop
+        // shot. Preserve the camera pitch while pulling the physical camera back;
+        // relying on FOV alone produced severe fisheye and still cropped the pets.
+        const viewportAspect = size.width / Math.max(1, size.height);
+        const portraitPull = viewportAspect < 0.8 ? (0.8 - viewportAspect) * 14 : 0;
+        const portraitCutScale = viewportAspect < 0.8 ? 0.32 : 1;
+        camera.position.set(
+            CAM_POS[0] + midX * 0.1 + sx + pb[0] * portraitCutScale,
+            DUEL_CAMERA_Y + sy + pb[1] * portraitCutScale + portraitPull * 0.95,
+            camDolly.current - (zk + db) * portraitCutScale + koPull.current + pb[2] * portraitCutScale + portraitPull * 0.45,
+        );
         camera.lookAt(camAim.current[0], camAim.current[1], camAim.current[2]);
-        if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
+        if (!ended.current && clock.current.t >= maxT) {
+            if (!endHold.current) endHold.current = now + 1.05;
+            else if (now >= endHold.current) { ended.current = true; onEnd(); }
+        }
     });
     return null;
 }
@@ -3205,12 +3226,7 @@ function DuelImpact({ at, color, big, mode = "impact", onDone }: { at: Vec3; col
     const haloMat = useRef<THREE.MeshBasicMaterial>(null);
     const ringOne = useRef<THREE.MeshBasicMaterial>(null);
     const ringTwo = useRef<THREE.MeshBasicMaterial>(null);
-    const rays = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
     const start = useRef<number | null>(null);
-    const rayLayout = useMemo(() => Array.from({ length: big ? 10 : 7 }, (_, i) => {
-        const a = (i / (big ? 10 : 7)) * Math.PI * 2 + 0.17;
-        return { a, radius: 0.64 + (i % 3) * 0.12, length: 0.7 + (i % 4) * 0.14 };
-    }), [big]);
     const duration = mode === "tell" ? 0.46 : mode === "dodge" ? 0.3 : big ? 0.46 : 0.34;
     useFrame((state) => {
         if (start.current === null) start.current = state.clock.elapsedTime;
@@ -3231,7 +3247,6 @@ function DuelImpact({ at, color, big, mode = "impact", onDone }: { at: Vec3; col
         if (haloMat.current) haloMat.current.opacity = fade * (mode === "impact" ? 0.48 : 0.32);
         if (ringOne.current) ringOne.current.opacity = fade * (mode === "tell" ? 0.36 : 0.3);
         if (ringTwo.current) ringTwo.current.opacity = Math.max(0, fade - 0.16) * (mode === "dodge" ? 0.38 : 0.2);
-        rays.current.forEach((material) => { if (material) material.opacity = mode === "impact" ? Math.max(0, fade - 0.04) * 0.7 : 0; });
         if (p >= 1) onDone();
     });
     const floorOnly = mode !== "impact";
@@ -3258,12 +3273,6 @@ function DuelImpact({ at, color, big, mode = "impact", onDone }: { at: Vec3; col
                         <torusGeometry args={[0.5, 0.032, 6, 24]} />
                         <meshBasicMaterial ref={haloMat} color={color} transparent opacity={0.7} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                     </mesh>
-                    {rayLayout.map((ray, i) => (
-                        <mesh key={i} position={[Math.cos(ray.a) * ray.radius, 0.16 + (i % 2) * 0.14, Math.sin(ray.a) * ray.radius]} rotation={[0, -ray.a + Math.PI / 2, Math.PI / 2]}>
-                            <coneGeometry args={[0.055, ray.length, 5]} />
-                            <meshBasicMaterial ref={(material) => { rays.current[i] = material; }} color={i % 3 === 0 ? "#ffffff" : color} transparent opacity={0.68} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-                        </mesh>
-                    ))}
                 </>
             )}
         </group>
@@ -3274,16 +3283,21 @@ function DuelImpact({ at, color, big, mode = "impact", onDone }: { at: Vec3; col
  * generic white ring sells timing; these solid toon shapes sell WHAT struck:
  * flame tongues, water droplets, wind crescents, lightning splinters, or stone.
  * Normal-blended bodies preserve color and depth instead of bleaching the pet. */
-function DuelElementBurst({ at, kind, color, big, onDone }: { at: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; onDone: () => void }) {
+function DuelElementBurst({ at, kind, color, big, heading, onDone }: { at: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; heading: number; onDone: () => void }) {
     const root = useRef<THREE.Group>(null);
     const pieces = useRef<Array<THREE.Mesh | null>>([]);
     const materials = useRef<Array<THREE.Material & { opacity: number }>>([]);
     const light = useRef<THREE.PointLight>(null);
     const start = useRef<number | null>(null);
-    const layout = useMemo(() => Array.from({ length: big ? 10 : 7 }, (_, i) => {
-        const a = (i / (big ? 10 : 7)) * Math.PI * 2 + 0.23;
+    const layout = useMemo(() => {
+        const pieces = kind === "abyss" ? 0 : big ? 8 : 5;
+        return Array.from({ length: pieces }, (_, i) => {
+        // Continue the attack through the target in a directional fan. The old
+        // full radial crown read as unrelated crystal spikes around the fighter.
+        const a = -0.72 + (i / (pieces - 1)) * 1.44;
         return { a, radius: 0.34 + (i % 3) * 0.16, lift: 0.06 + (i % 4) * 0.14, size: 0.68 + (i % 3) * 0.13 };
-    }), [big]);
+        });
+    }, [big, kind]);
     const flamePetals = useMemo(() => kind === "fire" || kind === "abyss"
         ? layout.map((_, i) => makeFlameRibbonGeometry(
             0.72 + (i % 3) * 0.15,
@@ -3320,7 +3334,7 @@ function DuelElementBurst({ at, kind, color, big, onDone }: { at: Vec3; kind: Du
         const fade = p < 0.58 ? 1 : Math.max(0, 1 - (p - 0.58) / 0.42);
         if (root.current) {
             root.current.scale.setScalar((big ? 1.08 : 0.9) * (0.24 + burst * 0.86));
-            root.current.rotation.y = p * (kind === "wind" ? 2.8 : 0.72);
+            root.current.rotation.y = heading + p * (kind === "wind" ? 0.48 : 0.14);
         }
         pieces.current.forEach((piece, i) => {
             if (!piece) return;
@@ -3338,16 +3352,16 @@ function DuelElementBurst({ at, kind, color, big, onDone }: { at: Vec3; kind: Du
     });
     return (
         <group ref={root} position={at} scale={0.01}>
-            <mesh scale={big ? 0.42 : 0.3}>
+            {kind !== "abyss" && <mesh scale={big ? 0.42 : 0.3}>
                 <icosahedronGeometry args={[1, 1]} />
                 <meshToonMaterial ref={registerMaterial} color={palette.core} emissive={palette.accent} emissiveIntensity={0.32} transparent opacity={0.82} depthWrite={false} />
-            </mesh>
+            </mesh>}
             {/* Offset saber arcs give the burst a drawn anime impact silhouette;
                 they are intentionally partial rather than another flat full ring. */}
             {[0, 1, 2].map((i) => (
-                <mesh key={`impact-sweep-${i}`} position={[0, 0.14 + i * 0.08, 0]} rotation={[0.34 + i * 0.28, i * 1.92, -0.62 + i * 0.54]}>
-                    <torusGeometry args={[0.58 + i * 0.17, 0.028 + (2 - i) * 0.008, 7, 32, Math.PI * (0.9 + i * 0.1)]} />
-                    <meshBasicMaterial ref={registerMaterial} color={i === 0 ? palette.core : palette.accent} transparent opacity={0.54 - i * 0.1} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                <mesh key={`impact-sweep-${i}`} position={kind === "abyss" ? [(i - 1) * 0.18, 0.055 + i * 0.012, (i - 1) * 0.09] : [0, 0.14 + i * 0.08, 0]} rotation={kind === "abyss" ? [-Math.PI / 2, 0, -0.5 + i * 0.1] : [0.34 + i * 0.28, i * 1.92, -0.62 + i * 0.54]}>
+                    <torusGeometry args={[0.58 + i * 0.17, (kind === "abyss" ? 0.06 : 0.045) + (2 - i) * 0.008, 7, 32, Math.PI * (kind === "abyss" ? 0.72 : 0.9 + i * 0.1)]} />
+                    <meshBasicMaterial ref={registerMaterial} color={kind === "abyss" ? (i === 1 ? "#ff6b55" : "#d7193f") : i === 0 ? palette.core : palette.accent} transparent opacity={(kind === "abyss" ? 0.78 : 0.64) - i * 0.1} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
                 </mesh>
             ))}
             {layout.map((piece, i) => {
@@ -3886,7 +3900,7 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
     const start = useRef<number | null>(null);
     const completed = useRef(false);
     const abyssal = kind === "abyssBurst";
-    const flameLike = kind === "flameBurst" || abyssal;
+    const flameLike = kind === "flameBurst";
     const waveVolume = useMemo(() => kind === "tidalWave" ? makeWaveVolumeGeometry() : null, [kind]);
     const waveCrest = useMemo(() => kind === "tidalWave" ? makeWaveCrestGeometry() : null, [kind]);
     const flamePetalCount = quality.id === "low" ? 6 : quality.id === "medium" ? 7 : 8;
@@ -3911,7 +3925,7 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
     const angle = Math.atan2(dx, dz);
     // The cut-in supplies the anticipation; the set piece itself arrives fast,
     // then holds its full arena silhouette for the payoff instead of drifting in.
-    const duration = kind === "tornado" ? 2.4 : kind === "tidalWave" ? 2.45 : flameLike ? 2.3 : kind === "lightningStorm" ? 2.15 : kind === "earthBurst" ? 2.25 : 2.05;
+    const duration = kind === "tornado" ? 2.4 : kind === "tidalWave" ? 2.45 : flameLike || abyssal ? 2.3 : kind === "lightningStorm" ? 2.15 : kind === "earthBurst" ? 2.25 : 2.05;
     const registerMaterial = (material: (THREE.Material & { opacity: number }) | null) => {
         if (!material || materials.current.includes(material)) return;
         material.userData.baseOpacity = material.opacity;
@@ -3933,12 +3947,14 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                 g.scale.set(0.72 + p * 0.32, 0.68 + Math.sin(Math.PI * p) * 0.34, 0.82 + p * 0.18);
             } else {
                 g.position.set(to[0], 0.08, to[2]);
-                g.rotation.y = angle + p * (kind === "tornado" ? Math.PI * 5.5 : Math.PI * 1.3);
+                // Only a tornado should continuously spin. Rotating every signature
+                // made grounded attacks orbit the target like a decorative carousel.
+                g.rotation.y = kind === "tornado" ? angle + p * Math.PI * 5.5 : angle;
                 // Snap large, then HOLD the arena silhouette until the final fade.
                 // The previous sine swell collapsed back to half-size while the
                 // cut-in was still clearing, which made the actual payoff look tiny.
                 const grow = 1 - Math.pow(1 - Math.min(1, p / 0.22), 3);
-                const fullScale = flameLike ? 1.08 : kind === "tornado" ? 1.16 : kind === "lightningStorm" ? 1.28 : kind === "earthBurst" ? 1.18 : 1.25;
+                const fullScale = flameLike || abyssal ? 1.08 : kind === "tornado" ? 1.16 : kind === "lightningStorm" ? 1.28 : kind === "earthBurst" ? 1.18 : 1.25;
                 const settle = p < 0.82 ? 1 : 1 - Math.min(1, (p - 0.82) / 0.18) * 0.16;
                 g.scale.setScalar((0.45 + grow * (fullScale - 0.45)) * settle);
             }
@@ -3950,8 +3966,8 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                 mesh.scale.x = mesh.scale.z = 1.02 - flicker * 0.055;
                 mesh.rotation.z = flicker * 0.045;
             });
-            if (flameLight.current) flameLight.current.intensity = fade * (5 + Math.abs(Math.sin(state.clock.elapsedTime * 11)) * 3);
         }
+        if (flameLight.current) flameLight.current.intensity = fade * ((abyssal ? 3.2 : 5) + Math.abs(Math.sin(state.clock.elapsedTime * 11)) * (abyssal ? 1.4 : 3));
         for (const material of materials.current) material.opacity = Number(material.userData.baseOpacity ?? 0.5) * fade;
         if (p >= 1 && !completed.current) { completed.current = true; onDone(); }
     });
@@ -4113,7 +4129,54 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
                         <meshToonMaterial ref={registerMaterial} color={abyssal ? "#b71b59" : "#ffb426"} emissive={abyssal ? "#54105f" : "#ff3d12"} emissiveIntensity={0.38} transparent opacity={0.4} depthWrite={false} />
                     </mesh>
                     {quality.dynamicPetLight && <pointLight ref={flameLight} position={[0, 1.4, 0]} color={abyssal ? "#ef2b67" : "#ff6a22"} intensity={0} distance={8} decay={2} />}
-                    <Sparkles count={quality.setPieceParticles} scale={[5.2, 4.3, 5.2]} position={[0, 1.5, 0]} size={3.4} speed={1.35} opacity={0.6} color={abyssal ? "#ffd0e0" : "#fff1c2"} noise={2.0} />
+                    <Sparkles count={quality.setPieceParticles} scale={[5.2, 4.3, 5.2]} position={[0, 1.5, 0]} size={3.4} speed={1.35} opacity={0.6} color="#fff1c2" noise={2.0} />
+                </group>
+            )}
+            {abyssal && (
+                <group>
+                    {/* Hellgate is an aimed attack, not a radial flame crown. The
+                        dark floor seal establishes the origin while three offset
+                        claw trails continue through the victim along the attack
+                        heading. Normal blending keeps the shadows dark instead of
+                        bleaching both pets with additive magenta. */}
+                    <mesh position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.24, 1.24, 1]}>
+                        <circleGeometry args={[1.12, 48]} />
+                        <meshBasicMaterial ref={registerMaterial} color="#160b24" transparent opacity={0.72} depthWrite={false} blending={THREE.NormalBlending} />
+                    </mesh>
+                    {[0, 1].map((i) => (
+                        <mesh key={`hellgate-ring-${i}`} position={[0, 0.045 + i * 0.012, 0]} rotation={[-Math.PI / 2, 0, i * 0.38]}>
+                            <torusGeometry args={[0.7 + i * 0.34, 0.045 - i * 0.008, 8, 48, Math.PI * (1.52 + i * 0.2)]} />
+                            <meshBasicMaterial ref={registerMaterial} color={i === 0 ? "#dc1839" : "#68112f"} transparent opacity={i === 0 ? 0.7 : 0.52} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    ))}
+                    {[0, 1, 2].map((i) => (
+                        <group key={`abyss-claw-${i}`} position={[(i - 1) * 0.34, 0.085 + i * 0.012, 0.05 + (i - 1) * 0.12]} rotation={[-Math.PI / 2, 0, -0.54 + i * 0.08]}>
+                            <mesh>
+                                <torusGeometry args={[0.86 + i * 0.09, 0.085 - i * 0.008, 8, 42, Math.PI * 0.72]} />
+                                <meshToonMaterial ref={registerMaterial} color={i === 1 ? "#ef2846" : "#7f1435"} emissive="#3c091f" emissiveIntensity={0.3} transparent opacity={0.88 - i * 0.08} depthWrite={false} side={THREE.DoubleSide} />
+                            </mesh>
+                            <mesh position={[0, 0, -0.055]} scale={1.18}>
+                                <torusGeometry args={[0.86 + i * 0.09, 0.035, 6, 38, Math.PI * 0.72]} />
+                                <meshBasicMaterial ref={registerMaterial} color="#ff8a68" transparent opacity={0.5} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                            </mesh>
+                        </group>
+                    ))}
+                    <mesh position={[0, 0.68, 0.08]} scale={[0.54, 0.72, 0.42]}>
+                        <icosahedronGeometry args={[1, 2]} />
+                        <meshBasicMaterial ref={registerMaterial} color="#db1938" transparent opacity={0.3} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                    {Array.from({ length: quality.id === "low" ? 6 : 9 }, (_, i) => {
+                        const lane = (i % 3) - 1;
+                        const row = Math.floor(i / 3);
+                        return (
+                            <mesh key={`abyss-fragment-${i}`} position={[lane * (0.48 + row * 0.12), 0.34 + row * 0.43 + (i % 2) * 0.11, 0.28 + row * 0.38]} rotation={[i * 0.72, i * 0.41, i * 0.93]} scale={[0.08, 0.18 + (i % 2) * 0.05, 0.08]}>
+                                <octahedronGeometry args={[1, 0]} />
+                                <meshToonMaterial ref={registerMaterial} color={i % 3 === 1 ? "#d91d3d" : "#261024"} emissive="#8e1639" emissiveIntensity={0.16} transparent opacity={0.82} depthWrite={false} />
+                            </mesh>
+                        );
+                    })}
+                    {quality.dynamicPetLight && <pointLight ref={flameLight} position={[0, 1.05, 0.15]} color="#db263f" intensity={0} distance={6.5} decay={2} />}
+                    <Sparkles count={Math.max(8, Math.round(quality.setPieceParticles * 0.62))} scale={[3.7, 2.8, 3.8]} position={[0, 1.05, 0.3]} size={2.1} speed={1.05} opacity={0.34} color="#ff8069" noise={1.7} />
                 </group>
             )}
             {kind === "lightningStorm" && (
@@ -4261,7 +4324,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [paused, setPaused] = useState(false);
     const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
     const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean; mode: DuelImpactMode }>>([]);
-    const [elementBursts, setElementBursts] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean }>>([]);
+    const [elementBursts, setElementBursts] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; heading: number }>>([]);
     const [supportFx, setSupportFx] = useState<Array<{ id: number; pos: Vec3; color: string; kind: DuelSupportKind; actorId?: string }>>([]);
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
     const [cutIn, setCutIn] = useState<{ id: number; pet: Pet; side: "player" | "enemy"; move: string } | null>(null);
@@ -4315,10 +4378,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const mode = n.mode ?? "impact";
         setImpacts((arr) => [...arr, { id, pos: [fp.wx, mode === "impact" ? FX_Y : FLOOR_Y + 0.035, fp.wz], color: n.color, big: n.big, mode }]);
     };
-    const spawnElementBurst = (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean }) => {
+    const spawnElementBurst = (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean; heading?: number }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setElementBursts((arr) => [...arr, { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element, n.move), color: n.color, big: n.big }]);
+        setElementBursts((arr) => [...arr, { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element, n.move), color: n.color, big: n.big, heading: n.heading ?? 0 }]);
     };
     const spawnSupport = (n: { x: number; z: number; color: string; kind: DuelSupportKind; actorId?: string }) => {
         const id = seqRef.current++;
@@ -4375,14 +4438,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // Play-by-play broadcast line (lower-third) — narrates the swings of the fight.
     const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); window.setTimeout(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
     // Named-move flash ("Hellhound Execution!") — a quick stylish callout, side-tinted.
-    const triggerMoveCallout = (text: string, side: "player" | "enemy", tone: DuelMoveCalloutTone = "attack") => { const id = seqRef.current++; setMoveCallout({ id, text, side, tone }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), tone === "support" ? 1150 : 1000); };
+    const triggerMoveCallout = (text: string, side: "player" | "enemy", tone: DuelMoveCalloutTone = "attack") => { const id = seqRef.current++; setMoveCallout({ id, text, side, tone }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), tone === "support" ? 900 : 780); };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
     const triggerCutIn = (actorId: string, move: string) => {
         const r = roster.find((x) => x.id === actorId); if (!r) return;
         const id = seqRef.current++;
         setCutIn({ id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move") });
-        window.setTimeout(() => setCutIn((c) => (c && c.id === id ? null : c)), 1650);
+        window.setTimeout(() => setCutIn((c) => (c && c.id === id ? null : c)), 900);
     };
     const advanceClock = (maxT: number, delta: number) => {
         // Before the fight plays, advance the still size-up / power-gather clock.
@@ -4405,11 +4468,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
                 @keyframes petDuelMove { 0% { opacity: 0; transform: translateX(-50%) scale(0.6) skewX(-10deg); } 22% { opacity: 1; transform: translateX(-50%) scale(1.06) skewX(-10deg); } 72% { opacity: 1; transform: translateX(-50%) scale(1) skewX(-10deg); } 100% { opacity: 0; transform: translateX(-50%) scale(1) skewX(-10deg); } }
                 @keyframes petDuelTacticalMove { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); } 18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 76% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
-                @keyframes petCutinBg { 0% { opacity: 0; } 9% { opacity: 1; } 76% { opacity: 1; } 100% { opacity: 0; } }
-                @keyframes petCutinStreak { 0% { opacity: 0; transform: translateX(-28%); } 14% { opacity: 0.95; } 100% { opacity: 0; transform: translateX(18%); } }
-                @keyframes petCutinName { 0% { opacity: 0; transform: translateX(-16%) skewX(-7deg) scale(0.68); } 16% { opacity: 1; transform: translateX(0) skewX(-7deg) scale(1.09); } 30% { transform: translateX(0) skewX(-7deg) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateX(7%) skewX(-7deg) scale(1); } }
-                @keyframes petCutinInL { 0% { opacity: 0; transform: translateY(-50%) translateX(-45%) scale(0.9); } 15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1.05); } 30% { transform: translateY(-50%) translateX(0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(-8%) scale(1); } }
-                @keyframes petCutinInR { 0% { opacity: 0; transform: translateY(-50%) translateX(45%) scale(0.9); } 15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1.05); } 30% { transform: translateY(-50%) translateX(0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(8%) scale(1); } }
+                @keyframes petSignatureFocus { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
+                @keyframes petSignatureCue { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.92); } 20% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 72% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
@@ -4432,7 +4492,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     <DuelImpact key={im.id} at={im.pos} color={im.color} big={im.big} mode={im.mode} onDone={() => setImpacts((p) => p.filter((x) => x.id !== im.id))} />
                 ))}
                 {elementBursts.map((burst) => (
-                    <DuelElementBurst key={burst.id} at={burst.pos} kind={burst.kind} color={burst.color} big={burst.big} onDone={() => setElementBursts((p) => p.filter((x) => x.id !== burst.id))} />
+                    <DuelElementBurst key={burst.id} at={burst.pos} kind={burst.kind} color={burst.color} big={burst.big} heading={burst.heading} onDone={() => setElementBursts((p) => p.filter((x) => x.id !== burst.id))} />
                 ))}
                 {supportFx.map((fx) => (
                     <DuelSupportEffect key={fx.id} at={fx.pos} color={fx.color} kind={fx.kind} actorId={fx.actorId} duel={duel} clock={clock} onDone={() => setSupportFx((p) => p.filter((x) => x.id !== fx.id))} />
@@ -4479,36 +4539,18 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 move name lands huge. Self-contained (no external CSS) so it always shows. */}
             {cutIn && (() => {
                 const isEnemy = cutIn.side === "enemy";
-                const portrait = petBattleSprite(cutIn.pet, sharedImages).src;
                 const { base: elementBase, glow: elementGlow } = elementColor(cutIn.pet.element);
-                const glow = `${elementGlow}f2`;
-                const glowSoft = `${elementGlow}6b`;
-                const streak = `${elementGlow}29`;
-                const band = `${elementBase}99`;
                 return (
-                    <div key={`cutin-${cutIn.id}`} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 30 }}>
-                        <div style={{ position: "absolute", inset: 0, background: "rgba(3,5,12,0.55)", animation: "petCutinBg 1650ms ease-out forwards" }} />
-                        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(${isEnemy ? 255 : 105}deg, transparent 40%, ${band} 50%, transparent 60%)`, animation: "petCutinBg 1650ms ease-out forwards" }} />
-                        <div style={{ position: "absolute", inset: "-25%", background: `repeating-linear-gradient(112deg, transparent 0 16px, ${streak} 16px 21px)`, animation: "petCutinStreak 900ms ease-out forwards" }} />
+                    <div key={`cutin-${cutIn.id}`} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 16 }}>
+                        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at ${isEnemy ? 72 : 28}% 55%, ${elementGlow}2e, transparent 46%), linear-gradient(${isEnemy ? 250 : 110}deg, transparent 34%, ${elementBase}24 50%, transparent 66%)`, animation: "petSignatureFocus 900ms ease-out forwards" }} />
                         {/* BIG portrait slamming in from the pet's side */}
                         {/* radial GLOW behind the portrait so the hero shot pops off the dark scene */}
-                        <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: "82vh", transform: "translateY(-50%)", background: `radial-gradient(ellipse 34% 46% at ${isEnemy ? 74 : 26}% 50%, ${glowSoft} 0%, transparent 65%)`, animation: "petCutinBg 1650ms ease-out forwards" }} />
                         {/* BIG portrait hero shot — well inside the arena (clear of the side panels) */}
-                        <div style={{ position: "absolute", top: "50%", [isEnemy ? "right" : "left"]: "18%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
-                            {portrait
-                                ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "clamp(240px,54vh,430px)", width: "auto", maxWidth: "40vw", objectFit: "contain", filter: `drop-shadow(0 0 38px ${glow}) drop-shadow(0 14px 28px #000) saturate(1.15)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
-                                : <div style={{ width: "clamp(180px,32vh,255px)", height: "clamp(210px,38vh,300px)", position: "relative", display: "grid", placeItems: "center", filter: `drop-shadow(0 0 32px ${glow}) drop-shadow(0 16px 24px #000)` }}>
-                                    <div style={{ position: "absolute", inset: "7% 0", clipPath: "polygon(50% 0, 96% 20%, 86% 78%, 50% 100%, 8% 78%, 0 24%)", background: `linear-gradient(145deg, ${elementGlow}, ${elementBase} 46%, #08101f 100%)`, boxShadow: `inset 0 0 0 5px rgba(255,255,255,0.72)` }} />
-                                    <div style={{ position: "absolute", inset: "14% 9%", clipPath: "polygon(50% 0, 96% 20%, 86% 78%, 50% 100%, 8% 78%, 0 24%)", border: "2px solid rgba(255,255,255,0.7)", background: "repeating-linear-gradient(118deg, transparent 0 12px, rgba(255,255,255,0.13) 12px 16px)" }} />
-                                    <span style={{ position: "relative", zIndex: 1, font: "900 clamp(78px,15vh,126px)/1 Georgia,serif", color: "#fff", textShadow: "0 4px 0 rgba(4,18,38,0.72), 0 0 22px rgba(255,255,255,0.75)" }}>{elementGlyph(cutIn.pet.element)}</span>
-                                    <span style={{ position: "absolute", zIndex: 1, bottom: "14%", font: "900 12px var(--font-display)", letterSpacing: "0.22em", color: "#fff", textTransform: "uppercase", textShadow: "0 2px 6px #000" }}>{cutIn.pet.element ?? "Spirit"}</span>
-                                </div>}
-                        </div>
                         {/* pet name + big move name — CENTERED in a safe zone so it never runs under
                             the side panels / off-frame, and wraps when the move name is long. */}
-                        <div style={{ position: "absolute", left: 0, right: 0, top: "13%", padding: "0 16%", textAlign: "center", animation: "petCutinName 1650ms cubic-bezier(.2,.9,.2,1) forwards" }}>
-                            <div style={{ font: "800 clamp(12px,1.6vw,20px) var(--font-display)", letterSpacing: "0.22em", textTransform: "uppercase", color: elementGlow, textShadow: "0 2px 8px #000" }}>{cutIn.pet.name}</div>
-                            <div style={{ font: "900 clamp(26px,4.6vw,56px)/0.95 var(--font-display)", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 32px ${glow}, 0 6px 16px #000`, marginTop: 6, overflowWrap: "break-word" }}>{cutIn.move}!</div>
+                        <div style={{ position: "absolute", left: "50%", top: "9%", maxWidth: "76vw", padding: "5px 16px", borderRadius: 999, border: `1px solid ${elementGlow}`, background: "rgba(5,8,18,0.78)", boxShadow: `0 0 24px ${elementGlow}55`, color: "#fff", textAlign: "center", whiteSpace: "nowrap", animation: "petSignatureCue 900ms ease-out forwards" }}>
+                            <span style={{ color: elementGlow, font: "800 11px var(--font-display)", letterSpacing: "0.14em", textTransform: "uppercase" }}>{cutIn.pet.name}</span>
+                            <span style={{ marginLeft: 9, font: "900 clamp(14px,2vw,22px) var(--font-display)", textShadow: `0 0 14px ${elementGlow}` }}>{cutIn.move}</span>
                         </div>
                     </div>
                 );
@@ -4552,16 +4594,16 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 return <div key={`move-${moveCallout.id}`} style={{
                     position: "absolute",
                     left: "50%",
-                    top: tactical ? "19%" : "33%",
+                    top: "9%",
                     transform: "translateX(-50%)",
                     pointerEvents: "none",
-                    padding: tactical ? "4px 12px" : "4px 20px",
-                    borderRadius: tactical ? 999 : 6,
-                    border: `${tactical ? 1 : 2}px solid ${sideColor}`,
-                    background: tactical ? "rgba(8,11,22,0.82)" : "rgba(8,11,22,0.64)",
-                    boxShadow: tactical ? `0 5px 18px rgba(0,0,0,0.42), 0 0 14px ${sideColor}22` : "0 6px 22px rgba(0,0,0,0.48)",
+                    padding: "4px 13px",
+                    borderRadius: 999,
+                    border: `1px solid ${sideColor}`,
+                    background: "rgba(8,11,22,0.78)",
+                    boxShadow: `0 5px 18px rgba(0,0,0,0.42), 0 0 14px ${sideColor}22`,
                     color: moveCallout.side === "player" ? "#dbeafe" : "#fee2e2",
-                    font: tactical ? "800 clamp(13px,1.7vw,20px)/1 var(--font-display)" : "900 clamp(18px,3vw,34px)/1 var(--font-display)",
+                    font: tactical ? "800 clamp(12px,1.6vw,18px)/1 var(--font-display)" : "900 clamp(13px,2vw,21px)/1 var(--font-display)",
                     letterSpacing: tactical ? "0.08em" : "0.04em",
                     textShadow: "0 2px 10px #000",
                     whiteSpace: "nowrap",

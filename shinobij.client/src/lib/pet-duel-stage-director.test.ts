@@ -75,6 +75,13 @@ test("stage director preserves combat truth while replacing leader/follower moti
     assert.ok(longestPlant >= DUEL_TPS * 0.28, `no readable planted guard beat (${longestPlant} ticks)`);
     assert.ok(directed.snapshots.some((snapshot) => snapshot.actors.some((actor) => actor.state === "dodge")), "the performance should contain a readable evade");
     assert.ok(directed.snapshots.some((snapshot) => snapshot.actors.some((actor) => actor.state === "strike")), "the performance should contain committed strikes");
+    assert.ok(directed.snapshots.some((snapshot) => snapshot.actors.some((actor) => actor.state === "recover")), "contact should hold a recovery pose before repositioning");
+    let dodgeRun = 0, longestDodge = 0;
+    for (const snapshot of directed.snapshots) {
+        dodgeRun = snapshot.actors.some((actor) => actor.state === "dodge") ? dodgeRun + 1 : 0;
+        longestDodge = Math.max(longestDodge, dodgeRun);
+    }
+    assert.ok(longestDodge >= DUEL_TPS * 0.36, `dodge phrase ended before its landing (${longestDodge} ticks)`);
 });
 test("stage director leaves party fights unchanged until multi-actor shot grammar is available", () => {
     const fake = runPetDuelCinematic(pet({ id: "a" }), pet({ id: "b" }), 7);

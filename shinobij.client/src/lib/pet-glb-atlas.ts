@@ -18,34 +18,24 @@ export type EmbeddedPetAtlas = {
  * Texture/ImageBitmap lifetime. Approved roster GLBs contain one baked colour
  * atlas in a BIN buffer view. */
 export function extractEmbeddedPetAtlas(buffer: ArrayBuffer): EmbeddedPetAtlas | null {
-    if (buffer.byteLength < 20) return null;
+    if (buffer.byteLength < 28) return null;
     const view = new DataView(buffer);
     if (view.getUint32(0, true) !== GLB_MAGIC) return null;
     const declaredLength = view.getUint32(8, true);
     if (declaredLength > buffer.byteLength) return null;
 
-    let json: GlbJson | null = null;
-    let binOffset = -1;
-    let binLength = 0;
-    let offset = 12;
-    while (offset + 8 <= declaredLength) {
-        const chunkLength = view.getUint32(offset, true);
-        const chunkType = view.getUint32(offset + 4, true);
-        const dataOffset = offset + 8;
-        if (dataOffset + chunkLength > declaredLength) return null;
-        if (chunkType === GLB_JSON_CHUNK) {
-            const raw = new TextDecoder().decode(new Uint8Array(buffer, dataOffset, chunkLength)).replace(/\0+$/u, "").trimEnd();
-            json = JSON.parse(raw) as GlbJson;
-        } else if (chunkType === GLB_BIN_CHUNK && binOffset < 0) {
-            binOffset = dataOffset;
-            binLength = chunkLength;
-        }
-        offset = dataOffset + chunkLength;
-    }
-
-    const image = json?.images?.find((candidate) => Number.isInteger(candidate.bufferView));
-    if (!image || image.bufferView === undefined || binOffset < 0) return null;
-    const bufferView = json?.bufferViews?.[image.bufferView];
+    const jsonLength = view.getUint32(12, true);
+    const binHeader = 20 + jsonLength;
+    if (view.getUint32(16, true) !== GLB_JSON_CHUNK || binHeader + 8 > declaredLength) return null;
+    const binLength = view.getUint32(binHeader, true);
+    const binOffset = binHeader + 8;
+    if (view.getUint32(binHeader + 4, true) !== GLB_BIN_CHUNK || binOffset + binLength > declaredLength) return null;
+    const json = JSON.parse(
+        new TextDecoder().decode(new Uint8Array(buffer, 20, jsonLength)).replace(/\0+$/u, "").trimEnd(),
+    ) as GlbJson;
+    const image = json.images?.find((candidate) => Number.isInteger(candidate.bufferView));
+    if (image?.bufferView === undefined) return null;
+    const bufferView = json.bufferViews?.[image.bufferView];
     if (!bufferView || (bufferView.buffer ?? 0) !== 0 || !bufferView.byteLength) return null;
     const imageOffset = bufferView.byteOffset ?? 0;
     if (imageOffset < 0 || imageOffset + bufferView.byteLength > binLength) return null;
@@ -57,7 +47,7 @@ export function extractEmbeddedPetAtlas(buffer: ArrayBuffer): EmbeddedPetAtlas |
 }
 
 type AtlasResource = {
-    status: "pending" | "ready" | "error";
+    ready: boolean;
     promise: Promise<THREE.Texture | null>;
     texture: THREE.Texture | null;
 };
@@ -84,18 +74,12 @@ function decodeStableImage(payload: EmbeddedPetAtlas): Promise<HTMLImageElement>
 
 async function loadEmbeddedAtlas(url: string): Promise<THREE.Texture | null> {
     const response = await fetch(url, { cache: "force-cache", credentials: "same-origin" });
-    if (!response.ok) throw new Error(`Pet atlas fetch failed (${response.status}) for ${url}`);
+    if (!response.ok) throw new Error(`Pet atlas HTTP ${response.status}`);
     const payload = extractEmbeddedPetAtlas(await response.arrayBuffer());
-    if (!payload) throw new Error(`No embedded colour atlas was found in ${url}`);
-    const image = await decodeStableImage(payload);
-    const texture = new THREE.Texture(image);
-    texture.name = `${url.split("/").at(-1) ?? "pet"}-persistent-colour-atlas`;
+    if (!payload) throw new Error("Missing embedded pet atlas");
+    const texture = new THREE.Texture(await decodeStableImage(payload));
     texture.flipY = false;
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.generateMipmaps = true;
-    texture.magFilter = THREE.LinearFilter;
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
-    texture.userData.petPersistentAtlas = true;
     texture.needsUpdate = true;
     return texture;
 }
@@ -103,13 +87,13 @@ async function loadEmbeddedAtlas(url: string): Promise<THREE.Texture | null> {
 function atlasResource(url: string): AtlasResource {
     const existing = atlasResources.get(url);
     if (existing) return existing;
-    const resource: AtlasResource = { status: "pending", texture: null, promise: Promise.resolve(null) };
+    const resource: AtlasResource = { ready: false, texture: null, promise: null! };
     resource.promise = loadEmbeddedAtlas(url).then((texture) => {
         resource.texture = texture;
-        resource.status = "ready";
+        resource.ready = true;
         return texture;
-    }).catch((error: unknown) => {
-        resource.status = "error";
+    }, (error: unknown) => {
+        resource.ready = true;
         console.error("[PetColiseum] Persistent colour atlas failed", error);
         return null;
     });
@@ -126,7 +110,7 @@ export function preloadPetGlbAtlas(url: string): Promise<THREE.Texture | null> {
  * material rather than preventing the battle from rendering. */
 export function readPetGlbAtlas(url: string): THREE.Texture | null {
     const resource = atlasResource(url);
-    if (resource.status === "pending") throw resource.promise;
+    if (!resource.ready) throw resource.promise;
     return resource.texture;
 }
 

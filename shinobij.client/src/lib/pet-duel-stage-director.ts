@@ -40,8 +40,9 @@ type Track = {
 
 const MOVE_TICKS = Math.round(DUEL_TPS * 0.52);
 const EXIT_TICKS = Math.round(DUEL_TPS * 0.58);
-const RECOIL_TICKS = Math.round(DUEL_TPS * 0.24);
-const DODGE_TICKS = Math.round(DUEL_TPS * 0.32);
+const RECOIL_TICKS = Math.round(DUEL_TPS * 0.34);
+const DODGE_TICKS = Math.round(DUEL_TPS * 0.44);
+const RECOVERY_TICKS = Math.round(DUEL_TPS * 0.3);
 const WINDUP_LOOKAHEAD = Math.round(DUEL_TPS * 1.35);
 const EPS = 1 / 256;
 
@@ -245,14 +246,16 @@ function buildTracks(result: DuelResult, ids: { player: string; enemy: string })
             if (!event.ranged && distance(hitActor, hitFoe) > 2.7) {
                 addMove(actor, event.t - Math.round(DUEL_TPS * 0.25), event.t, contactPoint(hitActor, hitFoe, 2.35), "dash", 55);
             }
-            addState(actor, event.t - 2, event.t + 5, "strike", 80);
-            addState(foe, event.t, event.t + 8, "stagger", 82);
+            addState(actor, event.t - 2, event.t + 4, "strike", 80);
+            addState(actor, event.t + 5, event.t + 5 + RECOVERY_TICKS, "recover", 74);
+            addState(foe, event.t, event.t + RECOIL_TICKS + 2, "stagger", 82);
             const impactAttacker = trackPosition(actor, event.t);
             const impactTarget = trackPosition(foe, event.t);
             addMove(foe, event.t, event.t + RECOIL_TICKS, recoilPoint(impactTarget, impactAttacker, side), "stagger", 72);
             // The attacker relinquishes the contact lane immediately.  A wide,
             // different mark makes the next exchange a fresh composition.
-            addMove(actor, event.t + 5, event.t + 5 + EXIT_TICKS, nextMark(actor), "idle", 34);
+            const exitStart = event.t + 5 + RECOVERY_TICKS;
+            addMove(actor, exitStart, exitStart + EXIT_TICKS, nextMark(actor), "idle", 34);
             return;
         }
 
@@ -265,7 +268,9 @@ function buildTracks(result: DuelResult, ids: { player: string; enemy: string })
                 y: targetAt.y + through.y * 2.5,
             }, "dash", 58);
             addState(actor, event.t - 2, event.t + 5, "strike", 78);
-            addMove(actor, event.t + 5, event.t + 5 + EXIT_TICKS, nextMark(actor, 1), "idle", 36);
+            addState(actor, event.t + 5, event.t + 5 + RECOVERY_TICKS, "recover", 72);
+            const exitStart = event.t + 5 + RECOVERY_TICKS;
+            addMove(actor, exitStart, exitStart + EXIT_TICKS, nextMark(actor, 1), "idle", 36);
             return;
         }
 
