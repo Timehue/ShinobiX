@@ -24,6 +24,7 @@ export function StoryBossFightHost({
     onSettled: (result: StoryBossSettleResult) => void;
 }) {
     const [fight, setFight] = useState<{ theme: StoryFightTheme; runId: string; session: TowerSession } | null>(null);
+    const [result, setResult] = useState<StoryBossSettleResult | null>(null);
     const startingRef = useRef(false);
     const playerName = character?.name ?? "";
 
@@ -42,12 +43,15 @@ export function StoryBossFightHost({
     if (!fight || !character) return null;
 
     async function settle(runId: string, settlingPlayer: string): Promise<unknown> {
-        const result = await settleStoryBossCombat({ playerName: settlingPlayer, runId });
-        onSettled(result);
-        alert(result.replayed
-            ? "This story reward was already collected."
-            : `${fight?.theme.bossName ?? "Story boss"} defeated. +${result.xp} XP, +${result.ryo} ryo, +${result.auraDust} Aura Dust. Story advanced.${result.title ? ` Title earned: ${result.title}.` : ""}`);
-        return result;
+        const settled = await settleStoryBossCombat({ playerName: settlingPlayer, runId });
+        onSettled(settled);
+        setResult(settled);
+        return settled;
+    }
+
+    function closeFight() {
+        setFight(null);
+        setResult(null);
     }
 
     return createPortal(
@@ -59,8 +63,27 @@ export function StoryBossFightHost({
                 sharedImages={sharedImages}
                 settleFn={settle}
                 storyTheme={fight.theme}
-                onExit={() => setFight(null)}
+                onExit={closeFight}
             />
+            {result && (
+                <div className="story-fight-complete" role="dialog" aria-label="Chapter complete">
+                    <div className="story-fight-complete-card">
+                        <p className="story-fight-complete-kicker">{result.finale ? "Village Story Complete" : "Chapter Complete"}</p>
+                        <h2>{fight.theme.chapterLabel ?? fight.theme.bossName}</h2>
+                        <p className="story-fight-complete-boss">{fight.theme.bossName} has fallen.</p>
+                        {result.replayed
+                            ? <p className="story-fight-complete-rewards">This story reward was already collected.</p>
+                            : (
+                                <p className="story-fight-complete-rewards">
+                                    +{result.xp} XP · +{result.ryo} ryo · +{result.auraDust} Aura Dust
+                                    {result.title ? <span className="story-fight-complete-title">Title earned: {result.title}</span> : null}
+                                    {result.finale && !result.replayed ? <span className="story-fight-complete-title">The Hollow Gate Key is yours.</span> : null}
+                                </p>
+                            )}
+                        <button onClick={closeFight}>Continue</button>
+                    </div>
+                </div>
+            )}
         </div>,
         document.body,
     );

@@ -2125,3 +2125,114 @@ html:has(.arena-fullscreen) .sector-banner-panel {
     .story-fight-bark-face { width: 32px; height: 32px; }
     .story-fight-bark-body span { font-size: 12px; }
 }
+
+/* Ally (mentor) cut-in — same strip, allied blue instead of boss red. */
+.story-fight-bark--ally {
+    border-color: rgba(82, 190, 214, 0.55);
+    background: linear-gradient(180deg, rgba(9, 22, 30, 0.95), rgba(5, 9, 13, 0.92));
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 0 22px rgba(82, 190, 214, 0.1);
+}
+
+.story-fight-bark--ally .story-fight-bark-body strong {
+    color: #7dd3fc;
+}
+
+/* Last-stand vignette — the boss crosses its final bark threshold. Purely
+   presentational: pointer-events none, gentle breathing pulse, static under
+   prefers-reduced-motion. */
+.story-fight-vignette {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 58%, rgba(190, 30, 34, 0.22) 88%, rgba(150, 16, 20, 0.34));
+    animation: story-vignette-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes story-vignette-pulse {
+    0%, 100% { opacity: 0.65; }
+    50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .story-fight-vignette { animation: none; opacity: 0.8; }
+}
+
+/* Chapter-complete card — replaces the plain alert. Entrance is delayed a
+   beat so the boss's final authored words (the defeat bark) land first. */
+.story-fight-complete {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(3, 5, 10, 0.66);
+    animation: story-complete-in 480ms ease-out 2.2s both;
+}
+
+.story-fight-complete-card {
+    width: min(94%, 460px);
+    padding: 26px 24px 22px;
+    border: 1px solid rgba(232, 212, 150, 0.55);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 50% 0%, rgba(232, 212, 150, 0.14), transparent 42%),
+        linear-gradient(180deg, rgba(14, 18, 30, 0.98), rgba(6, 9, 16, 0.98));
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    text-align: center;
+}
+
+.story-fight-complete-kicker {
+    margin: 0 0 6px;
+    color: #e8d496;
+    font: 800 11px/1 var(--font-display);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+.story-fight-complete-card h2 {
+    margin: 0 0 10px;
+    color: #f5ead0;
+    font: 800 20px/1.25 var(--font-display);
+}
+
+.story-fight-complete-boss {
+    margin: 0 0 12px;
+    color: #fca5a5;
+    font: italic 600 13px/1.4 Inter, sans-serif;
+}
+
+.story-fight-complete-rewards {
+    display: grid;
+    gap: 6px;
+    margin: 0 0 16px;
+    color: #cbd5e1;
+    font: 600 14px/1.4 Inter, sans-serif;
+}
+
+.story-fight-complete-title {
+    color: #e8d496;
+    font-weight: 800;
+}
+
+.story-fight-complete-card button {
+    min-height: 44px;
+    padding: 10px 34px;
+    border: 1px solid rgba(232, 212, 150, 0.6);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(52, 42, 20, 0.9), rgba(28, 22, 10, 0.94));
+    color: #f5ead0;
+    font: 800 14px/1 var(--font-display);
+    letter-spacing: 0.06em;
+    cursor: pointer;
+}
+
+@keyframes story-complete-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .story-fight-complete { animation-duration: 1ms; animation-delay: 0.5s; }
+}
