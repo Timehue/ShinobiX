@@ -17,6 +17,7 @@ import { combatMissionByKey } from '../missions/_mission-catalog.js';
 import {
     preserveEntitledStringArray,
     preserveOwnedItems,
+    isServerOwnedItemId,
 } from './_entitlement-guard.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, nextSaveVersion } from './_save-version.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
@@ -1189,7 +1190,12 @@ export function sanitizeCharacterSave(
             const id = typeof row?.itemId === 'string' ? row.itemId : '';
             return Math.max(0, Math.floor(Number(row?.count) || 0)) > (storedCounts.get(id) ?? 0);
         });
-        if (addedInventory.length === 1 && !unownedStackClaim) {
+        // The single-item carve-out lets a legacy client-side pickup persist one
+        // net-new item per save, but NEVER a server-owned id (crates, keys, war
+        // caches, hunt materials) — those are minted only by their own
+        // server-authoritative endpoints, so a hand-crafted save can spend them
+        // but not conjure them.
+        if (addedInventory.length === 1 && !unownedStackClaim && !isServerOwnedItemId(addedInventory[0])) {
             char.inventory = [...(char.inventory as string[]), addedInventory[0]];
         }
     }

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomInt } from 'crypto';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -52,7 +52,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const me = identity.name;
         const opponent = safeName(typeof body.opponentName === 'string' ? body.opponentName : '');
         const petId = typeof body.petId === 'string' ? body.petId.slice(0, 64) : '';
-        const seed = Math.floor(Number(body.seed));
+        // Seed is minted SERVER-SIDE (never from the body). The duel is
+        // deterministic given (aPet, bPet, seed), so a client-supplied seed would
+        // let a challenger grind offline for one that yields their win and submit
+        // only that. Matches pet-ladder / gauntlet / arena, which all mint the
+        // seed with crypto.randomInt. Returned below so the client mirrors the
+        // same duel animation.
+        const seed = randomInt(1, 2 ** 31);
         if (!opponent) return res.status(400).json({ error: 'Missing opponentName.' });
         if (opponent === me) return res.status(400).json({ error: 'You cannot start a ranked match against yourself.' });
 
@@ -80,11 +86,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             bRating: petRatingOf(oppSave),
             aPet: myPet,
             bPet: oppPet,
-            seed: Number.isSafeInteger(seed) ? seed : Date.now(),
+            seed,
             createdAt: Date.now(),
         }, { ex: TOKEN_TTL_SECONDS });
 
-        return res.status(200).json({ ok: true, matchToken: token, opponentName: opponent });
+        return res.status(200).json({ ok: true, matchToken: token, opponentName: opponent, seed });
     } catch (err) {
         console.error('[pet/ranked-start]', err);
         return res.status(500).json({ error: 'Internal server error.' });

@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { getActiveSilence } from '../admin/moderation.js';
 import { withKvLock } from '../_lock.js';
-import { isCleanText, sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
+import { isCleanText, sanitizeUserText, TEXT_LIMITS, hasReservedTitleTerm } from '../_text-moderation.js';
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import { legacyEnabled } from '../_legacy-track.js';
 
@@ -129,7 +129,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // `char.rank` read was always undefined and the tavern
                         // rank chip never showed for offline authors.
                         if (typeof char.rankTitle === 'string') derivedRank = char.rankTitle;
-                        if (typeof char.customTitle === 'string') derivedCustomTitle = char.customTitle;
+                        // Mirror the presence-layer defense (presence-input.ts):
+                        // the tavern chip shows customTitle to every reader, so
+                        // blank any authority-impersonation title ("Admin"/"Kage"/
+                        // "System"/…). The save-time reserved-term gate is
+                        // flag-gated (legacyEnabled), so a title planted while it
+                        // was off must not ride into chat as a fake staff badge.
+                        if (typeof char.customTitle === 'string' && char.customTitle) {
+                            const cleanedTitle = sanitizeUserText(char.customTitle, TEXT_LIMITS.customTitle);
+                            if (cleanedTitle && !hasReservedTitleTerm(cleanedTitle)) derivedCustomTitle = cleanedTitle;
+                        }
                         // Paid title cosmetics ride along (save-sanitizer
                         // allowlisted, same trust as customTitle itself).
                         if (typeof char.customTitleStyle === 'string' && char.customTitleStyle) derivedTitleStyle = char.customTitleStyle;
