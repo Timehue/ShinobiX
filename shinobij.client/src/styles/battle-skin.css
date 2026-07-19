@@ -1931,3 +1931,94 @@ html:has(.arena-fullscreen) .sector-banner-panel {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
 }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   MOBILE VIEWPORT FIT — grid half (Phase 2b of the combat-mobile redesign;
+   page half = styles/index/30-combat-viewport-fit.css, which pins
+   .center-game to 100dvh during battle). This block must stay LAST in this
+   file: it re-budgets the unified mobile battle grid so the whole fight fits
+   one viewport, overriding the content-sized row caps declared above.
+
+   Row order is unchanged (chips+AP / terrain / board / tabs / commands /
+   jutsu). The board stays a bounded band (it is width-bound on portrait);
+   the jutsu tray takes the leftover height and is the ONLY scroll region.
+   Data guardrail (plan §3.5): nothing hidden — sizes and scroll ownership
+   only. Scoped to .pvp-battle-layout: Battle Towers untouched.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 800px) {
+    .arena-fullscreen.pvp-battle-layout .combat-layout {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        grid-template-rows: auto auto minmax(232px, 42dvh) auto auto minmax(96px, 1fr) !important;
+    }
+
+    /* The board fills its row instead of forcing a 260px content minimum —
+       the row's minmax governs, so short phones can compress it. */
+    .arena-fullscreen.pvp-battle-layout .hex-battlefield {
+        min-height: 0 !important;
+        height: 100% !important;
+    }
+
+    /* The jutsu tray is THE scroll region of a fight: its fixed min/max
+       caps hand over to the grid row; overflow stays internal. */
+    .arena-fullscreen.pvp-battle-layout .combat-jutsu-bar {
+        min-height: 0 !important;
+        max-height: none !important;
+        height: 100% !important;
+        overflow: hidden auto !important;
+        overscroll-behavior: contain;
+    }
+
+    /* Log tab: the log spans rows 5-6 — same treatment. */
+    .arena-fullscreen.pvp-battle-layout .combat-text-log {
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: hidden auto !important;
+        overscroll-behavior: contain;
+    }
+
+    /* 521-800px: the 8 PvE actions wrap a repeat(7) grid into a ragged 7+1
+       second row. 4 columns matches the <=520 block above (PvE 2x4, PvP 4+3). */
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button {
+        min-height: 48px !important;
+    }
+}
+
+/* Short phones (667-740px tall): the row minimums above would exceed the
+   viewport, and a grid that cannot fit its minimums overflows — clipping the
+   jutsu tray (the exact failure the 2026-07-03 viewport-fit mock hit).
+   Compress the fixed bands so the minimums always fit ~640px and up. */
+@media (max-width: 800px) and (max-height: 740px) {
+    .arena-fullscreen.pvp-battle-layout .combat-layout {
+        grid-template-rows: auto auto minmax(196px, 36dvh) auto auto minmax(88px, 1fr) !important;
+        gap: 4px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud,
+    .arena-fullscreen.pvp-battle-layout .dual-ap-panel {
+        min-height: 100px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .combat-mobile-effects {
+        max-height: 16px;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button {
+        min-height: 44px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .round-timer-display .round-timer-ring {
+        width: 46px !important;
+        height: 46px !important;
+    }
+
+    .arena-fullscreen.pvp-battle-layout .round-timer-display .round-timer-num {
+        font-size: 19px !important;
+    }
+}
