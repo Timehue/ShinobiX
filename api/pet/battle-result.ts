@@ -90,6 +90,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let casualBattleTokenKey: string | null = null;
         let casualBattleReceipt = '';
         let casualPetIds: string[] = [];
+        // The reward level SEALED at battle-start (opponent actually fought). When
+        // set, it — not the body-named opponent — decides the payout.
+        let sealedOpponentLevel: number | null = null;
         if (!ranked && !identity.admin) {
             if (!battleToken) return res.status(400).json({ error: 'A valid pet battle start token is required.' });
             const tokenKey = `pet:battle-token:${playerName}:${battleToken}`;
@@ -105,6 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             outcome = tokenData.authoritativeOutcome;
             opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(tokenData.opponentLevel ?? opponentLevelRaw))));
+            sealedOpponentLevel = opponentLevelRaw;
             casualBattleTokenKey = tokenKey;
             casualBattleReceipt = battleToken;
             casualPetIds = Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [];
@@ -124,25 +128,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // letting a level-1 player claim opponentLevel 100 for the full
         // 200-ryo-per-win formula (× the 100/day cap = 20k ryo/day for no battles).
         let opponentLevel = opponentLevelRaw;
-        let verifiedLevel: number | null = null;
-        if (opponentNameRaw && opponentNameRaw !== playerName) {
-            const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentNameRaw}`);
-            const oppChar = (oppSave?.character ?? null) as Record<string, unknown> | null;
-            if (oppChar) {
-                verifiedLevel = Math.max(1, Math.min(100, Math.floor(Number(oppChar.level ?? 1))));
+        if (sealedOpponentLevel != null) {
+            // Casual path: pay out from the level SEALED at battle-start (the
+            // opponent actually fought). The body-named opponent is IGNORED here —
+            // otherwise a player could beat a trivial level-8 AI, then report a
+            // real level-100 name to be paid `level*2` ryo (200 vs ~20) for a
+            // fight that never happened (× the 100/day cap ≈ 20k ryo/day).
+            opponentLevel = sealedOpponentLevel;
+        } else {
+            // No sealed token (admin path). Authenticate the claimed level against
+            // the named opponent's real save; otherwise clamp to myLevel + 10.
+            let verifiedLevel: number | null = null;
+            if (opponentNameRaw && opponentNameRaw !== playerName) {
+                const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentNameRaw}`);
+                const oppChar = (oppSave?.character ?? null) as Record<string, unknown> | null;
+                if (oppChar) {
+                    verifiedLevel = Math.max(1, Math.min(100, Math.floor(Number(oppChar.level ?? 1))));
+                }
             }
-        }
-        if (verifiedLevel != null) {
-            // Authenticated opponent — use their real level even if the client
-            // claimed higher (silent correction; the player still gets a reward).
-            opponentLevel = verifiedLevel;
-        } else if (!identity.admin) {
-            // Opponent level could NOT be authenticated — clamp the claim to the
-            // player's own level + 10, read from their real save (not the body).
-            const meSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-            const meChar = (meSave?.character ?? null) as Record<string, unknown> | null;
-            const myLevel = Math.max(1, Math.min(100, Math.floor(Number(meChar?.level ?? 1))));
-            opponentLevel = Math.min(opponentLevelRaw, myLevel + 10);
+            if (verifiedLevel != null) {
+                opponentLevel = verifiedLevel;
+            } else if (!identity.admin) {
+                const meSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                const meChar = (meSave?.character ?? null) as Record<string, unknown> | null;
+                const myLevel = Math.max(1, Math.min(100, Math.floor(Number(meChar?.level ?? 1))));
+                opponentLevel = Math.min(opponentLevelRaw, myLevel + 10);
+            }
         }
 
         const saveKey = `save:${playerName}`;
