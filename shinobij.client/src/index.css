@@ -8061,26 +8061,6 @@ body {
     text-shadow: 0 0 8px rgba(134, 239, 172, 0.6);
 }
 
-.stormveil-village-hud {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 5;
-    padding: 14px 22px;
-    background: linear-gradient( 180deg, rgba(2, 6, 23, 0.95), rgba(2, 6, 23, 0.45) );
-    border-bottom: 1px solid rgba(250, 204, 21, 0.35);
-}
-
-    .stormveil-village-hud h2 {
-        margin: 0 0 6px;
-    }
-
-    .stormveil-village-hud p {
-        margin: 0;
-        font-weight: 800;
-    }
-
 .stormveil-map {
     position: relative;
     width: 100%;
@@ -8090,50 +8070,6 @@ body {
     background-position: center;
     background-repeat: no-repeat;
 }
-
-.stormveil-map-button {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    z-index: 4;
-    padding: 0;
-    display: grid;
-    gap: 3px;
-    place-items: center;
-    border: none;
-    background: transparent;
-    color: white;
-    cursor: pointer;
-    /* The pixel-art icons are transparent cutouts — a drop-shadow grounds them
-       on the scene instead of a heavy pill that competes with the art. */
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7));
-    transition: transform 0.12s ease, filter 0.12s ease;
-}
-
-    .stormveil-map-button:hover {
-        transform: translate(-50%, -50%) scale(1.09);
-        filter: drop-shadow(0 0 9px var(--village-glow, rgba(125, 211, 252, 0.7))) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7));
-        z-index: 6;
-    }
-
-    .stormveil-map-icon {
-        width: 56px;
-        height: 56px;
-        object-fit: contain;
-        display: block;
-        pointer-events: none;
-    }
-
-    .stormveil-map-button strong {
-        font-size: 11px;
-        font-weight: 700;
-        color: #f3f6ff;
-        background: rgba(2, 6, 23, 0.72);
-        border: 1px solid var(--village-accent, rgba(125, 211, 252, 0.4));
-        border-radius: 6px;
-        padding: 1px 7px;
-        white-space: nowrap;
-        text-shadow: 0 1px 2px #000;
-    }
 
 .journey-guide {
     position: absolute;
@@ -10462,36 +10398,6 @@ textarea {
     font-weight: 700;
     white-space: nowrap;
 }
-
-.clan-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 14px;
-    border-bottom: 1px solid var(--slate-800);
-    padding-bottom: 8px;
-}
-
-    .clan-tabs button {
-        padding: 6px 14px;
-        border-radius: 8px 8px 0 0;
-        background: transparent;
-        border: 1px solid transparent;
-        color: var(--text-muted);
-        font-size: 0.82rem;
-        cursor: pointer;
-        transition: color 0.15s, border-color 0.15s;
-    }
-
-        .clan-tabs button:hover {
-            color: var(--text-dim);
-        }
-
-        .clan-tabs button.active {
-            color: var(--slate-200);
-            border-color: var(--slate-700);
-            background: rgba(30,41,59,0.6);
-        }
 
 /* Roster */
 .clan-roster {
@@ -15060,10 +14966,6 @@ button.combat-jutsu-button,
     min-height: 180px;
     border-color: rgba(250, 204, 21, .4);
     background: radial-gradient(circle at 10% 20%, rgba(250,204,21,.12), transparent 28%), rgba(2, 6, 23, .58);
-}
-
-.town-tabs {
-    margin-bottom: 4px;
 }
 
 .town-notice-board p {
@@ -21559,30 +21461,6 @@ button.combat-jutsu-button,
     flex: 1 1 180px;
   }
 
-  .stormveil-map-button {
-    position: relative !important;
-    left: unset !important;
-    top: unset !important;
-    transform: none !important;
-    z-index: 2 !important; /* above the ::before overlay */
-    flex: 1 1 calc(30% - 8px) !important;
-    min-width: 88px !important;
-    max-width: 128px !important;
-    padding: 10px 6px !important;
-    background: rgba(2, 6, 23, 0.82) !important;
-  }
-
-  .stormveil-map-button:hover,
-  .stormveil-map-button:active {
-    transform: none !important;
-  }
-
-  .stormveil-map-button strong {
-    font-size: 10px !important;
-    text-align: center !important;
-    line-height: 1.2 !important;
-  }
-
   /* Safe-zone badge — sits at the bottom of stormveil-village-screen,
      below all the flex-wrapped buttons */
   .village-save-bar {
@@ -23737,23 +23615,6 @@ html[data-vp="xxl"] .stormveil-map {
     max-height: calc(100dvh - 131px) !important;
 }
 
-html[data-vp="md"] .stormveil-map-button,
-html[data-vp="lg"] .stormveil-map-button,
-html[data-vp="xl"] .stormveil-map-button,
-html[data-vp="xxl"] .stormveil-map-button {
-    min-width: 90px !important;
-    padding: 4px 6px !important;
-    gap: 1px !important;
-    border-radius: 7px !important;
-}
-
-html[data-vp="md"] .stormveil-map-button strong,
-html[data-vp="lg"] .stormveil-map-button strong,
-html[data-vp="xl"] .stormveil-map-button strong,
-html[data-vp="xxl"] .stormveil-map-button strong {
-    font-size: 10px !important;
-}
-
 /* ── xxl: 1440p+ desktop (≥2200px) — comfortable layout ── */
 html[data-vp="xxl"] {
     --side-rail-w: clamp(220px, 17vw, 280px);
@@ -24581,17 +24442,6 @@ html[data-vp="xxl"] .banner-mobile-timers {
         font-size: 0.9rem;
     }
 
-    .clan-tabs {
-        gap: 5px;
-        margin-bottom: 9px;
-        padding-bottom: 7px;
-    }
-
-    .clan-tabs button {
-        padding: 5px 12px;
-        font-size: 0.88rem;
-    }
-
     /* ── Inline grid (selects, small button rows) ── */
     .inline-grid {
         gap: 6px;
@@ -24888,17 +24738,6 @@ html[data-vp="xxl"] .banner-mobile-timers {
         min-height: 42px;
         padding: 7px 14px;
         font-size: 0.96rem;
-    }
-
-    .clan-tabs {
-        gap: 6px;
-        margin-bottom: 11px;
-        padding-bottom: 8px;
-    }
-
-    .clan-tabs button {
-        padding: 6px 14px;
-        font-size: 0.94rem;
     }
 
     /* ── Inline grid (selects, small button rows) ── */
@@ -27487,11 +27326,11 @@ html.lite-fx .hg-flame { animation: none; }
 /* Town Hall command center */
 .town-hall-screen{gap:12px}.town-hall-hero{position:relative;isolation:isolate;min-height:250px;align-items:flex-end;overflow:hidden;padding:clamp(22px,4vw,48px);border:1px solid #765f35;border-radius:18px}
 .town-hall-hero::before{content:"";position:absolute;inset:0;z-index:-1;background-image:linear-gradient(90deg,rgba(2,6,15,.98) 0%,rgba(2,8,18,.78) 38%,rgba(2,8,18,.08) 78%),linear-gradient(0deg,rgba(2,6,15,.9),transparent 62%),var(--town-art);background-size:cover;background-position:center}
-.town-hall-hero-copy{max-width:590px;text-shadow:0 2px 16px #000}.town-hall-hero-copy h2{margin:.15rem 0 .35rem;font:900 clamp(2.1rem,4vw,3.7rem)/.95 Georgia,serif;color:#fff7d6}.town-hall-hero-copy p:last-child{margin:0;color:#d6dfeb}.town-hall-ledger{display:grid;min-width:220px;border:1px solid #765f35;border-radius:12px;background:#020812c9}.town-hall-ledger span{display:grid;padding:9px 12px}.town-hall-ledger small{color:#8ea2ba;font-size:.68rem;font-weight:800;text-transform:uppercase}.town-hall-ledger strong{color:#f5d98d}.town-tabs{display:flex;gap:5px;overflow-x:auto;padding:6px;border:1px solid #26364b;border-radius:12px;background:#07111f}.town-tabs button{flex:1 0 auto;padding:7px 15px;border-color:transparent;background:transparent;color:#93a4b8}.town-tabs button.active{border-color:#456b83;background:#102b40;color:#eaf7ff}
+.town-hall-hero-copy{max-width:590px;text-shadow:0 2px 16px #000}.town-hall-hero-copy h2{margin:.15rem 0 .35rem;font:900 clamp(2.1rem,4vw,3.7rem)/.95 Georgia,serif;color:#fff7d6}.town-hall-hero-copy p:last-child{margin:0;color:#d6dfeb}.town-hall-ledger{display:grid;min-width:220px;border:1px solid #765f35;border-radius:12px;background:#020812c9}.town-hall-ledger span{display:grid;padding:9px 12px}.town-hall-ledger small{color:#8ea2ba;font-size:.68rem;font-weight:800;text-transform:uppercase}.town-hall-ledger strong{color:#f5d98d}
 .town-command{display:grid;gap:12px}.town-action-center,.town-hall-panel,.town-secondary-grid>.summary-box,.town-upgrade-summary{border-color:#27394f;background:#081525}.town-section-heading h3{margin:.1rem 0 .25rem;color:#f8ebc3;font-family:Georgia,serif}.town-section-heading p{margin:0}
 .town-priority-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.town-priority-card{display:grid;gap:10px;min-height:205px;padding:14px;border:1px solid #2a3b51;border-top:3px solid #55708b;border-radius:12px;background:#0a1726}.town-priority-card[data-state="ready"]{border-top-color:#d5a847}.town-priority-card[data-state="done"]{border-top-color:#3f8b72}.town-priority-card>div:first-child{display:flex;justify-content:space-between;gap:10px}.town-priority-card>div:first-child span{color:#8fa3b9;font-size:.72rem;font-weight:900;text-transform:uppercase}.town-priority-card>div strong{color:#f4dda0;text-align:right}.town-priority-card p{color:#9fb0c2;font-size:.85rem}.town-priority-card button{width:100%;margin-top:auto}.town-task-list{display:grid;gap:5px}.town-task-list span{display:flex;justify-content:space-between;gap:8px;padding:5px 7px;border-radius:6px;background:#07111e;color:#b7c3d0;font-size:.74rem}.town-task-list b{color:#d8e6f5}
 .town-hall-grid,.town-secondary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.town-hall-panel{margin:0}.town-panel-head,.town-leader-row{display:flex;align-items:center;gap:10px}.town-panel-head{justify-content:space-between}.town-leader-row{margin:8px 0 12px}.town-leader-row p{margin:0}.town-leader-row small{color:#8093aa;text-transform:uppercase}.town-leader-row strong{color:#f3d78d}.town-kage-card,.elder-card{padding:10px;border:1px solid #2a3b50;border-radius:10px;background:#091423}.elder-card span{color:#9bdcff;font-weight:800}.town-war-actions{display:flex;gap:8px;margin-top:12px}.town-war-actions button{flex:1}.town-war-actions button:first-child{border-color:#7d3e45;background:#421923}.town-war-actions button:last-child{border-color:#356486;background:#102f49}
 .town-upgrade-overview{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}.town-upgrade-overview span{display:grid;padding:10px;border:1px solid #2a3b50;border-radius:9px;background:#07111f}.town-upgrade-overview small{color:#8396ab;font-size:.7rem;text-transform:uppercase}.town-upgrade-overview strong{color:#f1d48c}.town-upgrade-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:10px}.town-upgrade-card{display:grid;gap:8px;padding:12px;border:1px solid #2a3b50;border-top:3px solid #536a82;border-radius:12px;background:#081525}.town-upgrade-card[data-state="ready"]{border-top-color:#d8aa4f}.town-upgrade-card[data-state="done"]{border-top-color:#438870;opacity:.84}.town-upgrade-topline{display:flex;align-items:center;gap:10px}.town-upgrade-icon{display:grid;place-items:center;overflow:hidden;width:58px;height:58px;border:1px solid #485b70;border-radius:12px}.town-upgrade-icon img{width:100%;height:100%;object-fit:cover}.town-upgrade-icon.clan-upgrade-emblem img{object-fit:contain}.town-upgrade-topline strong{color:#f6dda0}.town-upgrade-topline p,.town-upgrade-desc,.town-upgrade-bonus{margin:0}.town-upgrade-desc{min-height:42px;color:#91a2b5;font-size:12px}.town-upgrade-bonus{color:#d3deea;font-size:13px}.town-upgrade-card button{width:100%;margin-top:auto}.hollow-gate-card{border-color:#5e477c;background:#100e20}
 .war-status{display:inline-flex;margin:0;padding:5px 9px;border-radius:99px;font-size:.75rem;font-weight:900}.war-status.peace{color:#bbf7d0;border:1px solid #2f7650;background:#123522}.war-status.at-war{color:#fecaca;border:1px solid #944c52;background:#3c171d}.war-record-card{min-height:0;border-left:3px solid #53718d}.town-secondary-grid .town-notice-board{max-height:280px;overflow:auto}
 @media(max-width:860px){.town-hall-hero{min-height:340px;align-items:flex-end;flex-direction:column;justify-content:flex-end}.town-hall-ledger{width:100%;grid-template-columns:repeat(3,1fr)}.town-priority-grid{grid-template-columns:1fr}.town-priority-card{min-height:0}.town-hall-grid,.town-secondary-grid{grid-template-columns:1fr}.town-upgrade-overview{grid-template-columns:1fr}}
-@media(max-width:560px){.town-hall-hero{min-height:380px;padding:20px}.town-hall-hero::before{background-position:60% center}.town-hall-ledger{grid-template-columns:1fr}.town-tabs button{font-size:.78rem;padding:6px 11px}.town-war-actions{display:grid}.town-upgrade-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.town-hall-hero{min-height:380px;padding:20px}.town-hall-hero::before{background-position:60% center}.town-hall-ledger{grid-template-columns:1fr}.town-war-actions{display:grid}.town-upgrade-grid{grid-template-columns:1fr}}
