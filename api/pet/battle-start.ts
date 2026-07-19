@@ -20,6 +20,8 @@ import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 
 const TOKEN_TTL_SECONDS = 15 * 60;
 
+const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.floor(Number.isFinite(n) ? n : 1)));
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -29,7 +31,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? ''));
         const opponentName = typeof body.opponentName === 'string' ? safeName(body.opponentName) : '';
-        const opponentLevel = Math.max(1, Math.min(100, Math.floor(Number(body.opponentLevel ?? 1))));
         const reportKeyRaw = typeof body.reportKey === 'string' ? body.reportKey.slice(0, 64) : '';
         const reportKey = /^[A-Za-z0-9:_-]+$/.test(reportKeyRaw) ? reportKeyRaw : '';
         const mode = body.mode === '2v2' ? '2v2' : '1v1';
@@ -54,14 +55,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!playerPets.length) return res.status(409).json({ error: 'A stored player pet is required.' });
         let opponentPets: Pet[] = [];
         let isAiOpponent = false;
+        let realOpponentLevel: number | null = null;
         if (opponentName) {
             const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentName}`);
             const oppChar = oppSave?.character as Record<string, unknown> | undefined;
             const stored = Array.isArray(oppChar?.pets) ? oppChar.pets as Array<Record<string, unknown>> : [];
             opponentPets = opponentPetIds.map((id) => stored.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
+            if (opponentPets.length && oppChar) realOpponentLevel = clampLevel(Number(oppChar.level ?? 1));
         }
         if (!opponentPets.length) { opponentPets = opponentPetIds.map((id) => SERVER_ARENA_PETS[id]).filter(Boolean); isAiOpponent = opponentPets.length > 0; }
         if (!opponentPets.length) return res.status(409).json({ error: 'A server-known opponent pet is required.' });
+
+        // Reward magnitude is SEALED here from the opponent actually fought — a
+        // real opponent's live save level, or the AI pet's own level — never
+        // body.opponentLevel. battle-result pays `level*2` ryo from this sealed
+        // value, so a client can't beat a trivial level-8 AI and then report a
+        // real level-100 name to be paid as though it beat the level-100 player.
+        const sealedOpponentLevel = realOpponentLevel != null
+            ? realOpponentLevel
+            : clampLevel(Math.max(1, ...opponentPets.map((p) => Number((p as { level?: unknown }).level ?? 1))));
         const rank = Math.max(0, Math.min(10, Number(myChar?.professionRank) || 0));
         const damageMult = isAiOpponent && myChar?.profession === 'petTamer' ? 1 + (5 + rank * 1.5 + masteryBonus(myChar.profession, myChar.masterySpec, 'petPveDamagePct')) / 100 : 1;
         const hpMult = isAiOpponent ? 1 + masteryBonus(myChar?.profession, myChar?.masterySpec, 'petPveHpPct') / 100 : 1;
@@ -74,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await kv.set(`pet:battle-token:${playerName}:${token}`, {
             playerName,
             opponentName: opponentName || undefined,
-            opponentLevel,
+            opponentLevel: sealedOpponentLevel,
             reportKey,
             mode,
             createdAt: Date.now(),

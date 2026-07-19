@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { isUnsafeImageUrlHost, isValidImageString, avatarImageReject, base64DecodedByteLength, categoryFromId, ownershipReject } from './images.js';
+import { isUnsafeImageUrlHost, isValidImageString, avatarImageReject, base64DecodedByteLength, categoryFromId, ownershipReject, isPlayerClaimableImageId } from './images.js';
 
 // Pure validation logic for the shared-image upload endpoint (audit #23). No KV,
 // no network — covers the internal-host / SSRF guard and the data-URL allowlist.
@@ -167,6 +167,30 @@ describe('ownershipReject — player bloodline + jutsu image carve-out', () => {
         for (const prefix of ['card', 'event', 'ai', 'shrine', 'landmark', 'leader']) {
             const r = ownershipReject(`${prefix}:${uuid}`, player);
             assert.ok(r && r.status === 403, `expected 403 for ${prefix}:<uuid>`);
+        }
+    });
+});
+
+describe('isPlayerClaimableImageId — first-writer-wins scope', () => {
+    const uuid = 'b2e291f6-5b58-4bf3-a037-a983f716b121';
+
+    it('includes the player-created carve-out ids (named gear, custom bloodline/jutsu, pet art)', () => {
+        for (const id of [
+            `bloodline:${uuid}`, `jutsu:${uuid}`,
+            'item:named-weapon-abc123', 'item:named-armor-xyz789',
+            'pet:p1', 'petbody:p1', 'petsheet:p1', 'petlayers:p1:mid',
+        ]) {
+            assert.equal(isPlayerClaimableImageId(id), true, id);
+        }
+    });
+
+    it('excludes admin catalog ids, avatars, misc, and malformed ids', () => {
+        for (const id of [
+            'bloodline:starter-bloodline-ashen-eyes', 'jutsu:fireball',
+            'item:wooden-katana', 'avatar:rill', 'card:tile-1',
+            'whatever:foo', 'noColon',
+        ]) {
+            assert.equal(isPlayerClaimableImageId(id), false, id);
         }
     });
 });
