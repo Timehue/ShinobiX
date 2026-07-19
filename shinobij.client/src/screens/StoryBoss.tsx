@@ -19,7 +19,7 @@ import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "../lib/battle-save";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { BackToVillageButton } from "../components/BackToVillageButton";
-import { extractBossBarks, requestStoryBossFight } from "../lib/story-fight-theme";
+import { extractMentorLines, extractStoryFightScript, requestStoryBossFight } from "../lib/story-fight-theme";
 import {
     type CreatorEvent,
     type StoryStep,
@@ -114,11 +114,15 @@ export function StoryHall({
     // App-level host, themed with this chapter's scene art + the boss's own
     // authored lines as mid-fight barks.
     function startServerBossBattle(step: StoryStep) {
+        const script = extractStoryFightScript(step.pages, step.bossName, step.dialogue);
         const started = requestStoryBossFight({
             bossName: step.bossName,
             chapterLabel: `Chapter ${character.storyProgress + 1}/${storyLine.length} — ${step.title}`,
             backdropImage: storySceneBg || undefined,
-            barks: extractBossBarks(step.pages, step.bossName, step.dialogue),
+            barks: script.barks,
+            defeatLine: script.defeatLine,
+            ally: extractMentorLines(step.pages, step.bossName, character.name, step.dialogue),
+            village: storyVillage,
         });
         if (!started) alert("The story battle could not start. Reload the game and retry.");
     }
