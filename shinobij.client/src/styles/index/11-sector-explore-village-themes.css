@@ -1514,26 +1514,6 @@
     text-shadow: 0 0 8px rgba(134, 239, 172, 0.6);
 }
 
-.stormveil-village-hud {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 5;
-    padding: 14px 22px;
-    background: linear-gradient( 180deg, rgba(2, 6, 23, 0.95), rgba(2, 6, 23, 0.45) );
-    border-bottom: 1px solid rgba(250, 204, 21, 0.35);
-}
-
-    .stormveil-village-hud h2 {
-        margin: 0 0 6px;
-    }
-
-    .stormveil-village-hud p {
-        margin: 0;
-        font-weight: 800;
-    }
-
 .stormveil-map {
     position: relative;
     width: 100%;
@@ -1543,50 +1523,6 @@
     background-position: center;
     background-repeat: no-repeat;
 }
-
-.stormveil-map-button {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    z-index: 4;
-    padding: 0;
-    display: grid;
-    gap: 3px;
-    place-items: center;
-    border: none;
-    background: transparent;
-    color: white;
-    cursor: pointer;
-    /* The pixel-art icons are transparent cutouts — a drop-shadow grounds them
-       on the scene instead of a heavy pill that competes with the art. */
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7));
-    transition: transform 0.12s ease, filter 0.12s ease;
-}
-
-    .stormveil-map-button:hover {
-        transform: translate(-50%, -50%) scale(1.09);
-        filter: drop-shadow(0 0 9px var(--village-glow, rgba(125, 211, 252, 0.7))) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7));
-        z-index: 6;
-    }
-
-    .stormveil-map-icon {
-        width: 56px;
-        height: 56px;
-        object-fit: contain;
-        display: block;
-        pointer-events: none;
-    }
-
-    .stormveil-map-button strong {
-        font-size: 11px;
-        font-weight: 700;
-        color: #f3f6ff;
-        background: rgba(2, 6, 23, 0.72);
-        border: 1px solid var(--village-accent, rgba(125, 211, 252, 0.4));
-        border-radius: 6px;
-        padding: 1px 7px;
-        white-space: nowrap;
-        text-shadow: 0 1px 2px #000;
-    }
 
 .journey-guide {
     position: absolute;
