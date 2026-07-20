@@ -23,7 +23,7 @@ import "../styles/pet-skin.css";
 import { GameIcon } from "./icons/GameIcon";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, Html, OrbitControls, OrthographicCamera, Sparkles } from "@react-three/drei";
+import { Billboard, Html, OrbitControls, OrthographicCamera, PerformanceMonitor, Sparkles } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import type { Pet } from "../types/pet";
 import type { PetArenaFrame, PetBattleRecord } from "../types/pet-arena";
@@ -51,7 +51,7 @@ import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum
 import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { SceneAmbience } from "./SceneAmbience";
-import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
+import { isPetSfxMuted, setPetSfxMuted, playPetSfx } from "../lib/pet-sfx";
 import { petBloomEnabled, petArenaV2Enabled } from "../lib/pet-coliseum-flag";
 import { petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
@@ -1079,13 +1079,20 @@ function Arena({ floor, backdrop, big = false }: { floor: THREE.Texture; backdro
 /** Adapt the camera to the canvas aspect: portrait/narrow screens widen the
  *  FOV so both sides of the arena stay in frame on mobile. Applied per-frame
  *  (no-op unless it changed) — the idiomatic r3f mutation point. */
+// Transient FOV punch-IN on crit/KO, set by DuelDirector and applied + decayed by
+// ResponsiveCamera (the single owner of camera.fov, so nothing fights it). A lens
+// snap layered on top of the existing dolly zoom. Safe as a module singleton:
+// only one duel mounts at a time, and it decays to 0 every frame, so a stale
+// value from a prior fight is gone within a few frames.
+const duelFovKick = { current: 0 };
 function ResponsiveCamera() {
     const { camera, size } = useThree();
     useFrame(() => {
         const aspect = size.width / Math.max(1, size.height);
-        const fov = aspect < 0.8 ? 60 : aspect < 1.2 ? 47 : CAM_FOV;
+        const baseFov = aspect < 0.8 ? 60 : aspect < 1.2 ? 47 : CAM_FOV;
+        const fov = baseFov - duelFovKick.current;   // narrower FOV = zoom-in punch (decayed by DuelDirector)
         const cam = camera as THREE.PerspectiveCamera;
-        if (cam.fov !== fov) {
+        if (Math.abs(cam.fov - fov) > 0.001) {
             // eslint-disable-next-line react-hooks/immutability -- the r3f camera is a mutable three.js object; per-frame mutation inside useFrame is the library's idiomatic pattern (same as CameraRig's position writes)
             cam.fov = fov;
             cam.updateProjectionMatrix();
@@ -3087,7 +3094,7 @@ function duelSetPieceTiming(kind: DuelSetPieceKind): { durationSec: number; cont
     return { durationSec: 1.86, contactDelayMs: 180 };
 }
 
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnElementBurst, spawnAftermath, spawnFx, spawnSupport, spawnShock, spawnDust, spawnScorch, spawnPowerUp, spawnTrail, spawnDash, spawnPressure, spawnSetPiece, elementById, nameById, profileById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
@@ -3097,6 +3104,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
     spawnSupport: (n: { x: number; z: number; color: string; kind: DuelSupportKind; actorId?: string }) => void;
     spawnShock: (n: { x: number; z: number; color: string; big: boolean }) => void;
+    spawnDust: (n: { x: number; z: number }) => void;
+    spawnScorch: (n: { x: number; z: number; big?: boolean }) => void;
     spawnPowerUp: (n: { x: number; z: number; color: string; actorId?: string; style?: PetHeroMoveStyle }) => void;
     spawnTrail: (n: { x: number; z: number; toward: number; kind: MoveChoreoKind; color: string; weight: DuelAttackWeight; style: PetHeroMoveStyle }) => void;
     spawnDash: (n: { actorId?: string; fromX: number; fromZ: number; toX: number; toZ: number; impactX?: number; impactZ?: number; color: string; element?: string | null; move?: string; style?: PetHeroMoveStyle; impact: boolean; startTick?: number; contactTick?: number }) => void;
@@ -3431,6 +3440,11 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             });
                         }
                         const contactFeedback = () => {
+                            // Sound rides the contact frame (immediate, or delayed with a
+                            // set-piece), so the hit/crit lands on the same beat as the
+                            // shake + flash. The whole SFX bank already existed; the 3D
+                            // duel simply never called it.
+                            playPetSfx(e.crit ? "crit" : "hit");
                             spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                             hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0) + (dashCombo ? 0.075 : 0));
                             shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0) + (dashCombo ? 1.15 : 0));
@@ -3529,11 +3543,14 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             onFlash(col, 0.22);
                         }
                         if (e.crit) onCallout("CRITICAL!");
+                        if (e.crit) duelFovKick.current = Math.max(duelFovKick.current, 2);   // small lens snap on crit
+                        if (e.crit) spawnScorch({ x: a.x, z: a.y });   // a crit leaves a scorch on the floor
                         if (e.crit) camPosBias.current[1] = -0.9;   // dip to a low hero angle on a crit (R4), eases back
                     }
                 } else if (e.type === "heal" && e.dmg && e.targetId) {
                     const a = findActor(snapAt, e.targetId);
                     if (a) {
+                        playPetSfx("heal");
                         spawnNumber({ x: a.x, z: a.y, text: `+${e.dmg}`, crit: false, heal: true });
                         // A real 3D restoration column keeps healing in the same visual
                         // language as the models instead of dropping a flat flipbook on them.
@@ -3544,6 +3561,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     // arena camera without obscuring the pet silhouette.
                     const a = findActor(snapAt, e.targetId);
                     if (a) {
+                        playPetSfx("shield");
                         if (!majorVfxBusy()) {
                             spawnSupport({ x: a.x, z: a.y, color: elementColor(elementById[e.targetId]).glow, kind: "shield", actorId: a.id });
                             onFlash("#bfe3ff", 0.14);
@@ -3554,6 +3572,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     // avoids the generic aura/element flipbooks, which looked like
                     // an attack had landed on the pet rather than a self-buff.
                     const c = findActor(snapAt, e.actorId);
+                    if (c) playPetSfx("buff");
                     if (c && !majorVfxBusy()) {
                         const el = elementById[e.actorId];
                         // Use the saturated elemental body colour as the aura's
@@ -3658,6 +3677,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     // accents make the evade readable without a floor UI reticle.
                     const d = findActor(snapAt, e.actorId);
                     if (d) {
+                        playPetSfx("dodge");
+                        spawnDust({ x: d.x, z: d.y });   // foot-dust as the evader lands
                         const evadeColor = elementColor(elementById[e.actorId]).base;
                         spawnImpact({ x: d.x, z: d.y, color: evadeColor, big: false, mode: "dodge" });
                         const dp = duelFieldToFloor(d.x, d.y);
@@ -3821,6 +3842,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         // Frame the winner and the fallen pet together. The previous
                         // single-target aim pushed the loser off-screen and made the
                         // victory pose feel disconnected from the finishing blow.
+                        spawnScorch({ x: dead.x, z: dead.y, big: true });   // the fallen fighter leaves a big scorch
+                        spawnDust({ x: dead.x, z: dead.y });
                         const fallen = duelFieldToFloor(dead.x, dead.y);
                         const survivor = snapAt.actors.find((actor) => actor.hp > 0 && actor.id !== dead.id);
                         const standing = survivor ? duelFieldToFloor(survivor.x, survivor.y) : fallen;
@@ -3833,9 +3856,11 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     hitStop.current = Math.max(hitStop.current, 0.34);
                     savor(0.44, 0.62);
                     koPull.current = 3.4;
+                    duelFovKick.current = Math.max(duelFovKick.current, 3.5);   // stronger lens snap on the finish
                     shotDolly.current = -2.2;
                     shotDollyHold.current = Math.max(shotDollyHold.current, 0.82);
                     camPosBias.current[1] = 2.4;
+                    playPetSfx("ko");
                     onFlash("#fff7e6", 0.5);
                     onCallout("FINISH!");
                     if (dead) onAnnounce(`${nameById[dead.id] ?? "A fighter"} is eliminated!`, "ko");
@@ -3893,6 +3918,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         const sx = a > 0.01 ? Math.sin(now * 53) * a * 0.1 : 0;
         const sy = a > 0.01 ? Math.sin(now * 61) * a * 0.06 : 0;
         const zk = zoomKick.current; zoomKick.current *= 0.86;
+        duelFovKick.current = duelFovKick.current > 0.01 ? duelFovKick.current * 0.86 : 0;   // decay the shared FOV punch (ResponsiveCamera applies it)
         koPull.current = lerp(koPull.current, 0, 0.025);
         // Live framing target from the fighters still standing (midpoint + x spread).
         const camTick = Math.max(0, Math.min(maxT, clock.current.t));
@@ -5730,6 +5756,11 @@ function makeFlameRibbonGeometry(height: number, radius: number, sway: number, p
     return geometry;
 }
 
+// The tornado mist sheet is deterministic (no args, no RNG); build it once and
+// reuse it across every tornado set-piece instead of rasterizing a fresh 128x256
+// canvas + a GL upload on the exact frame each cyclone spawns.
+let _tornadoMistTexture: THREE.CanvasTexture | null = null;
+function tornadoMistTexture(): THREE.CanvasTexture { return (_tornadoMistTexture ??= makeTornadoMistTexture()); }
 function makeTornadoMistTexture(): THREE.CanvasTexture {
     const canvas = document.createElement("canvas");
     canvas.width = 128; canvas.height = 256;
@@ -5851,7 +5882,7 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
     const completed = useRef(false);
     const abyssal = kind === "abyssBurst";
     const flameLike = kind === "flameBurst";
-    const tornadoMist = useMemo(() => kind === "tornado" ? makeTornadoMistTexture() : null, [kind]);
+    const tornadoMist = useMemo(() => kind === "tornado" ? tornadoMistTexture() : null, [kind]);
     const flamePetalCount = quality.id === "low" ? 6 : quality.id === "medium" ? 7 : 8;
     // The full-height helix tubes looked like luminous springs in motion. The
     // textured volume plus horizontal calligraphic bands below reads as a real
@@ -6927,6 +6958,13 @@ export type PetColiseumDuelProps = {
 
 export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, sharedImages = {}, initialTick = 0, onFightAgain, onExit }: PetColiseumDuelProps) {
     const quality = useMemo(() => petVisualQuality(), []);
+    // Adaptive resolution: start at the tier's normal DPR (the device ratio clamped
+    // into [min,max] — exactly what the static preset rendered) and let
+    // PerformanceMonitor drop it toward the floor under sustained load, restoring
+    // with headroom. This can only ever render FEWER pixels than before, never
+    // more, so it relieves fill-rate pressure without changing the resting look.
+    const dprBase = useMemo(() => Math.min(Math.max(quality.dpr[0], typeof window !== "undefined" ? window.devicePixelRatio : 1), quality.dpr[1]), [quality]);
+    const [dpr, setDpr] = useState(dprBase);
     const perfQa = useMemo(() => new URLSearchParams(window.location.search).get("petPerf") === "1", []);
     const mobileQa = useMemo(() => new URLSearchParams(window.location.search).get("mobileqa") === "1", []);
     const duel = useMemo(
@@ -6975,6 +7013,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [dashFx, setDashFx] = useState<DuelDashCue[]>([]);
     const [pressureFx, setPressureFx] = useState<DuelPressureCue[]>([]);
     const [setPieces, setSetPieces] = useState<Array<{ id: number; from: Vec3; to: Vec3; targetId?: string; color: string; kind: DuelSetPieceKind }>>([]);
+    const [dusts, setDusts] = useState<Array<{ id: number; at: Vec3 }>>([]);   // transient foot-dust on dodge landings / KO impact
+    const [scorches, setScorches] = useState<Array<{ id: number; pos: Vec3; w: number }>>([]);   // accumulating scorch marks — the arena remembers the fight
     const [flash, setFlash] = useState<{ id: number; color: string; intensity: number } | null>(null);
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
@@ -7069,6 +7109,19 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
         setShocks((arr) => [...arr.slice(-1), { id, pos: [fp.wx, 0, fp.wz], color: n.color, big: n.big }]);
+    };
+    const spawnDust = (n: { x: number; z: number }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setDusts((arr) => [...arr.slice(-4), { id, at: [fp.wx, FLOOR_Y + 0.02, fp.wz] as Vec3 }]);
+    };
+    const spawnScorch = (n: { x: number; z: number; big?: boolean }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        // Flat on the 3D floor with the renderer's own decal convention (rotate to XZ,
+        // just above FLOOR_Y, no depth write); keep only the last 8 so a long fight
+        // does not tile the whole arena.
+        setScorches((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y + 0.025, fp.wz] as Vec3, w: n.big ? 2.3 : 1.55 }].slice(-8));
     };
     const spawnPowerUp = (n: { x: number; z: number; color: string; actorId?: string; style?: PetHeroMoveStyle }) => {
         const id = seqRef.current++;
@@ -7197,7 +7250,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setPressureFx([]);
         setSetPieces([]);
     };
-    const replay = () => { clock.current.t = Math.max(0, initialTick); clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setElementBursts([]); setAftermathFx([]); setSupportFx([]); setFxList([]); setCutInQueue([]); setShocks([]); setPowerUps([]); setTrails([]); setDashFx([]); setPressureFx([]); setSetPieces([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = Math.max(0, initialTick); clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setElementBursts([]); setAftermathFx([]); setSupportFx([]); setFxList([]); setCutInQueue([]); setShocks([]); setDusts([]); setScorches([]); setPowerUps([]); setTrails([]); setDashFx([]); setPressureFx([]); setSetPieces([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
@@ -7238,9 +7291,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {/* The duel now plays INSIDE the 3D coliseum (curved wall + lit floor +
                 perspective hero camera), so fighters STAND on the floor with real
                 contact shadows instead of floating over a painted wall. */}
-            <Canvas shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={quality.dpr} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
+            <Canvas shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={dpr} frameloop={paused || ended ? "demand" : "always"} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
+                {/* Adaptive DPR: drop to the tier floor under sustained load, restore with
+                    headroom; flipflops pins to the floor rather than oscillate. */}
+                <PerformanceMonitor onDecline={() => setDpr(quality.dpr[0])} onIncline={() => setDpr(dprBase)} flipflops={3} onFallback={() => setDpr(quality.dpr[0])} />
                 <Arena floor={floor} backdrop={backdrop} big />
                 {/* Ambient embers drifting through the arena — the world feels alive. */}
                 <Sparkles count={quality.ambientParticles} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.28} color="#ffb46b" noise={1.6} />
@@ -7265,6 +7321,16 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 {shocks.map((s) => (
                     <DuelShockwaveV2 key={s.id} at={s.pos} color={s.color} big={s.big} quality={quality} onDone={() => setShocks((p) => p.filter((x) => x.id !== s.id))} />
                 ))}
+                {/* Accumulating scorch marks (crit/KO) + transient foot-dust — the floor remembers the fight. */}
+                {scorches.map((s) => (
+                    <mesh key={s.id} position={s.pos} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-2}>
+                        <planeGeometry args={[s.w, s.w]} />
+                        <meshBasicMaterial map={shadowTexture()} color="#241a12" transparent opacity={0.5} depthWrite={false} toneMapped={false} />
+                    </mesh>
+                ))}
+                {dusts.map((d) => (
+                    <DustPuff key={d.id} at={d.at} onDone={() => setDusts((p) => p.filter((x) => x.id !== d.id))} />
+                ))}
                 {powerUps.map((power) => (
                     <DuelPowerUpAura key={power.id} at={power.pos} color={power.color} quality={quality} actorId={power.actorId} duel={duel} clock={clock} heroStyle={power.style} onDone={() => setPowerUps((p) => p.filter((x) => x.id !== power.id))} />
                 ))}
@@ -7288,7 +7354,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={finishDuel} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnElementBurst={spawnElementBurst} spawnAftermath={spawnAftermath} spawnFx={spawnFx} spawnSupport={spawnSupport} spawnShock={spawnShock} spawnDust={spawnDust} spawnScorch={spawnScorch} spawnPowerUp={spawnPowerUp} spawnTrail={spawnTrail} spawnDash={spawnDash} spawnPressure={spawnPressure} spawnSetPiece={spawnSetPiece} elementById={elementById} nameById={nameById} profileById={profileById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
                 <BloomFx />
                 {perfQa && <PetRenderStatsProbe quality={quality.id} />}
             </Canvas>
