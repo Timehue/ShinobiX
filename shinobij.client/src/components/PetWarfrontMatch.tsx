@@ -708,8 +708,8 @@ function WfFighter3D({ result, clock, id, pet, config }: {
 // own PetModelFrame so the hounds RUN their skeletal gait along the lanes; a
 // small wisp stands in while the model streams. Pool is imperative — waves
 // never re-render React.
-const HOLLOW_POOL = 4;
-const MINION_POOL = 24;
+const HOLLOW_POOL = 6;    // = sim MOB_CAP (was 4 → up to 2 breach raiders rendered invisible)
+const MINION_POOL = 24;   // = sim MINION_CAP (12) × 2 teams — exact once the cap-overflow bug is fixed
 const HOLLOW_BEAST_ID = "mythic-4";   // Abyssal Oni Hound — the Hollow Gate beast
 
 /** One pooled hound slot: owns its refs (compiler-safe) and drives itself from
@@ -1639,9 +1639,11 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                         const src = actorPos(e.actorId);
                         if (src && Math.hypot(src.x - tgt.x, src.y - tgt.y) >= 1.8) spawnShot(src.x, src.y, tgt.x, tgt.y, e.element, e.crit);
                         else if (e.actorId.startsWith("guard-")) {
+                            // Sentinel fire now reads: a bolt to the target + a muzzle
+                            // flash at the post, and its charged shots (crit) fire big.
                             const [, gTeam, gIdx] = e.actorId.split("-");
                             const gg = snap.guardians[gTeam as Team]?.[Number(gIdx)];
-                            if (gg) spawnShot(gg.x, gg.y, tgt.x, tgt.y, gTeam === "blue" ? "Water" : "Fire", false);
+                            if (gg) { spawnShot(gg.x, gg.y, tgt.x, tgt.y, gTeam === "blue" ? "Water" : "Fire", e.crit); spawnFx(gg.x, gg.y, "spark", null, e.crit ? 1.1 : 0.55, 200); }
                         }
                         if (e.crit) shakeRef.current = Math.max(shakeRef.current, 0.5);
                         // A pet in danger is the story — nudge the camera there.
@@ -1681,6 +1683,16 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                     cut(e.t, e.x, e.y, 12, 3, 2.4);
                 } else if (e.type === "mobhit") {
                     spawnFx(e.x, e.y, "spark", null, 0.7, 200);
+                    // A sentinel or camp boss shooting a minion gets a visible bolt
+                    // from the shooter — their most common attack was invisible.
+                    if (e.targetId?.startsWith("guard-")) {
+                        const [, gTeam, gIdx] = e.targetId.split("-");
+                        const gg = snap.guardians[gTeam as Team]?.[Number(gIdx)];
+                        if (gg) { spawnShot(gg.x, gg.y, e.x, e.y, gTeam === "blue" ? "Water" : "Fire", false); spawnFx(gg.x, gg.y, "spark", null, 0.5, 150); }
+                    } else if (e.targetId?.startsWith("mini-")) {
+                        const m = snap.minis.find((z) => z.padIdx === Number(e.targetId!.split("-")[1]));
+                        if (m) spawnFx(m.x, m.y, null, "Shadow", 0.5, 170);
+                    }
                 } else if (e.type === "mobstrike") {
                     // Small elemental puff — minion attacks now READ (Water=blue
                     // wave, Fire=red wave, Shadow=hollow-spawn).
@@ -1804,6 +1816,11 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                     } else if (e.kind === "flame") {
                         spawnFx(e.x, e.y, null, "Fire", 2.2, 480);
                         shakeRef.current = Math.max(shakeRef.current, 0.5);
+                    } else if (e.kind === "roar") {
+                        // Idle menace — an uncontested camp boss pulses so it reads
+                        // as a living threat, not a statue. No banner/feed spam.
+                        spawnFx(e.x, e.y, "shadow", null, 1.7, 420);
+                        spawnFloater(e.x, e.y, `${bossN} stirs…`, "#c4b5fd", false);
                     }
                 } else if (e.type === "wardenshock") {
                     pushBanner("🌋 RIFT SHOCKWAVE — THE WARDEN RAGES", "#c084fc", true);
