@@ -61,7 +61,7 @@ const WARDEN_LEASH = 6.5;
 const MINI_HP = 1400;
 const MINI_DMG = 90;
 const MINI_CD = Math.round(WARFRONT_TPS * 1.2);
-const MINI_LEASH = 3.6;
+const MINI_AGGRO = 4.5;   // a WIDE neutral aggro so passers-by get pulled into a camp fight
 const MINI_FIRST_SPAWN = WARFRONT_TPS * WF_PHASE_SKIRMISH;   // camps unlock with the Skirmish phase
 const MINI_RESPAWN = WARFRONT_TPS * 75;
 const MINI_BUFF_TICKS = WARFRONT_TPS * 25;
@@ -264,7 +264,7 @@ interface WfPet {
     shieldHp: number; markLeft: number;
 }
 interface WfStatue { x: number; y: number; hp: number; alive: boolean; attackCd: number }
-interface WfGuardian { x: number; y: number; hp: number; maxHp: number; alive: boolean; attackCd: number; faceX: number }
+interface WfGuardian { x: number; y: number; hp: number; maxHp: number; alive: boolean; attackCd: number; faceX: number; shotCount: number }
 const GUARD_HP = 2200;
 const GUARD_DMG_PET = 120;
 const GUARD_DMG_MOB = 160;
@@ -273,7 +273,7 @@ const GUARD_CD = Math.round(WARFRONT_TPS * 1.1);
 export const WF_COIN_GUARD = 250;
 interface WfCore { x: number; y: number; hp: number; alive: boolean; sinceHit: number }
 interface WfMob { id: number; side: Team | "hollow"; elite: boolean; lane: WfLaneId; x: number; y: number; hp: number; maxHp: number; toward: Team; route: Array<[number, number]>; wpIdx: number; attackCd: number; chaseId: string | null }
-interface WfBoss { alive: boolean; dead: boolean; hp: number; x: number; y: number; faceX: number; swipeCd: number; slamIn: number; windUp: number; targetId: string | null; shockDone: boolean }
+interface WfBoss { alive: boolean; dead: boolean; hp: number; x: number; y: number; faceX: number; swipeCd: number; slamIn: number; windUp: number; targetId: string | null; shockDone: boolean; calmTicks: number }
 interface WfMini { padIdx: number; alive: boolean; hp: number; spawnIn: number; x: number; y: number; homeX: number; homeY: number; faceX: number; attackCd: number; sigCd: number; sigWind: number; sigActive: number }
 
 // ── Snapshots + events (the renderer contract) ───────────────────────────────
@@ -305,7 +305,7 @@ export type WfEvent =
     | { t: number; type: "mobstrike"; x: number; y: number; el: string }
     | { t: number; type: "ability"; petId: string; kind: "shield" | "dash" | "mark"; x: number; y: number; targetId?: string }
     | { t: number; type: "focus"; x: number; y: number; targetId: string }
-    | { t: number; type: "bosssig"; padIdx: number; kind: "quake" | "quakeland" | "shell" | "blink" | "flame"; x: number; y: number }
+    | { t: number; type: "bosssig"; padIdx: number; kind: "quake" | "quakeland" | "shell" | "blink" | "flame" | "roar"; x: number; y: number }
     | { t: number; type: "wardenshock"; x: number; y: number }
     | { t: number; type: "elemsig"; petId: string; el: string; name: string; px: number; py: number; x: number; y: number; targetId: string }
     | { t: number; type: "mobkill"; mobId: number; x: number; y: number; team: Team }
@@ -417,15 +417,15 @@ function initState(blue: ArenaSlot[], red: ArenaSlot[], seed: number): WfState {
         t: 0, rng: makeRng(seed), pets,
         statues,
         guardians: {
-            blue: WF_GUARD_POSTS.blue.map(([gx, gy]) => ({ x: gx, y: gy, hp: GUARD_HP, maxHp: GUARD_HP, alive: true, attackCd: 0, faceX: 1 })),
-            red: WF_GUARD_POSTS.red.map(([gx, gy]) => ({ x: gx, y: gy, hp: GUARD_HP, maxHp: GUARD_HP, alive: true, attackCd: 0, faceX: -1 })),
+            blue: WF_GUARD_POSTS.blue.map(([gx, gy]) => ({ x: gx, y: gy, hp: GUARD_HP, maxHp: GUARD_HP, alive: true, attackCd: 0, faceX: 1, shotCount: 0 })),
+            red: WF_GUARD_POSTS.red.map(([gx, gy]) => ({ x: gx, y: gy, hp: GUARD_HP, maxHp: GUARD_HP, alive: true, attackCd: 0, faceX: -1, shotCount: 0 })),
         },
         wardenBuff: { team: null, left: 0 },
         cores: {
             blue: { x: WF_CORE.blue[0], y: WF_CORE.blue[1], hp: CORE_HP, alive: true, sinceHit: 9999 },
             red: { x: WF_CORE.red[0], y: WF_CORE.red[1], hp: CORE_HP, alive: true, sinceHit: 9999 },
         },
-        boss: { alive: true, dead: false, hp: WARDEN_HP, x: WF_LAIR.x, y: WF_LAIR.y, faceX: 1, swipeCd: 0, slamIn: WARDEN_SLAM_EVERY, windUp: 0, targetId: null, shockDone: false },
+        boss: { alive: true, dead: false, hp: WARDEN_HP, x: WF_LAIR.x, y: WF_LAIR.y, faceX: 1, swipeCd: 0, slamIn: WARDEN_SLAM_EVERY, windUp: 0, targetId: null, shockDone: false, calmTicks: 0 },
         minis: WF_PADS.map((pad, i) => ({
             padIdx: i, alive: false, hp: MINI_HP, spawnIn: MINI_FIRST_SPAWN, x: pad[0], y: pad[1], homeX: pad[0], homeY: pad[1], faceX: i < 2 ? 1 : -1, attackCd: 0, sigCd: WARFRONT_TPS * 5, sigWind: 0, sigActive: 0,
         })) as unknown as WfState["minis"],
@@ -1367,6 +1367,7 @@ function guardianTick(st: WfState, team: Team, idx: number) {
     if (mob) {
         g.faceX = mob.x >= g.x ? 1 : -1;
         g.attackCd = GUARD_CD;
+        g.shotCount++;
         mob.hp -= GUARD_DMG_MOB;
         st.events.push({ t: st.t, type: "mobhit", x: quant(mob.x), y: quant(mob.y), targetId: `guard-${team}-${idx}` });
         if (mob.hp <= 0) mobDown(st, mob, null);
@@ -1381,10 +1382,13 @@ function guardianTick(st: WfState, team: Team, idx: number) {
     if (pet) {
         g.faceX = pet.x >= g.x ? 1 : -1;
         g.attackCd = GUARD_CD;
-        let dmg = Math.round(GUARD_DMG_PET * (100 / (100 + pet.def)));
+        // Every 6th shot is a CHARGED bolt (1.8×, flagged crit so it renders big
+        // + shakes) — the sentinel reads as a dangerous turret, not scenery.
+        const heavy = (++g.shotCount % 6 === 0);
+        let dmg = Math.round(GUARD_DMG_PET * (heavy ? 1.8 : 1) * (100 / (100 + pet.def)));
         if (pet.shieldHp > 0) { const soak = Math.min(pet.shieldHp, dmg); pet.shieldHp -= soak; dmg -= soak; }
         pet.hp = Math.max(0, pet.hp - dmg);
-        st.events.push({ t: st.t, type: "hit", targetId: pet.id, actorId: `guard-${team}-${idx}`, dmg, crit: false });
+        st.events.push({ t: st.t, type: "hit", targetId: pet.id, actorId: `guard-${team}-${idx}`, dmg, crit: heavy });
         if (pet.hp <= 0 && pet.state !== "respawning") {
             pet.state = "respawning";
             pet.respawnLeft = RESPAWN_BASE + Math.floor(st.t / (WARFRONT_TPS * 60)) * RESPAWN_PER_MIN;
@@ -1460,10 +1464,14 @@ function bossTick(st: WfState) {
         return;
     }
     b.targetId = tgt ? tgt.id : null;
+    b.calmTicks = tgt ? 0 : b.calmTicks + 1;
     if (!tgt) {
-        // RESET + PATROL: heal fast, then pace a slow circle around the pit rim
-        // so he reads alive even between fights (deterministic, no RNG).
-        b.hp = Math.min(WARDEN_HP, b.hp + (b.hp < WARDEN_HP ? 40 : 0));
+        // RESET + PATROL: the old 40/tick (1,200/s) heal reset the instant a
+        // fight broke — a squad chipped it to half, stepped into a teamfight,
+        // and it was back to full, so it read as STUCK at 50%. Now it recovers
+        // only after a real disengage (6 s untouched) and SLOWLY, so chip damage
+        // sticks and the fight always reads as "we're wearing it down".
+        if (b.calmTicks > WARFRONT_TPS * 6 && b.hp < WARDEN_HP) b.hp = Math.min(WARDEN_HP, b.hp + 8);
         const ang = (st.t / WARFRONT_TPS) * 0.22;
         const hx = WF_LAIR.x + Math.cos(ang) * 1.35, hy = WF_LAIR.y + Math.sin(ang) * 1.05;
         const dx = hx - b.x, dy = hy - b.y;
@@ -1546,11 +1554,18 @@ function miniTick(st: WfState, m: WfMini) {
     if (m.sigActive > 0) m.sigActive--;
     if (m.sigCd > 0) m.sigCd--;
     if (m.attackCd > 0) { m.attackCd--; return; }
-    // Territorial: struck → full leash; invaders inside the den (3.2u) get
-    // attacked on sight. Otherwise the boss PROWLS its camp.
+    // Territorial neutral: it bites anything that strays near — a WIDE aggro so
+    // a pet rotating through the jungle gets pulled into a fight, not just one
+    // that walks onto the den (camps sat idle ~94% of the match otherwise).
+    // Provoked it chases wider; a home-leash keeps it from being kited off.
     const provoked = m.hp < MINI_HP;
-    let tgt: WfPet | null = null, td = provoked ? MINI_LEASH : 3.2;
-    for (const p of st.pets) {
+    const homeD = Math.hypot(m.x - m.homeX, m.y - m.homeY);
+    // In the Hollow Collapse the jungle stops mattering — camps must not pull
+    // pets off the final base race (it was flipping a decisive match to a clock
+    // verdict). They still bite minions and roar; they just don't divert pets.
+    const aggroR = st.t > WARFRONT_TPS * WF_PHASE_SUDDEN ? (provoked ? 6.5 : 0) : (provoked ? 6.5 : MINI_AGGRO);
+    let tgt: WfPet | null = null, td = aggroR;
+    if (homeD < 8) for (const p of st.pets) {
         if (p.state === "respawning") continue;
         const d = Math.hypot(p.x - m.x, p.y - m.y);
         if (d < td) { td = d; tgt = p; }
@@ -1585,6 +1600,25 @@ function miniTick(st: WfState, m: WfMini) {
         // Slow recovery only — a 240/s reset-heal made every camp fight
         // that briefly broke contact unwinnable (0 camp kills across seeds).
         m.hp = Math.min(MINI_HP, m.hp + (provoked ? 0.5 : 1.5));
+        // Bite a stray minion that wanders through the camp — ambient menace so
+        // the boss is visibly DOING something between pet fights.
+        if (m.attackCd <= 0) {
+            let mob: WfMob | null = null, mdd = 2.8;
+            for (const mm of st.mobs) { const d = Math.hypot(mm.x - m.x, mm.y - m.y); if (d < mdd) { mdd = d; mob = mm; } }
+            if (mob) {
+                m.attackCd = MINI_CD;
+                m.faceX = mob.x >= m.x ? 1 : -1;
+                mob.hp -= MINI_DMG;
+                st.events.push({ t: st.t, type: "mobhit", x: quant(mob.x), y: quant(mob.y), targetId: `mini-${m.padIdx}` });
+                if (mob.hp <= 0) mobDown(st, mob, null);
+                return;
+            }
+        }
+        // Every ~15s an uncontested boss ROARS (staggered per camp) — reads as a
+        // living threat on camera, not a statue pacing an empty ring.
+        if ((st.t + m.padIdx * 90) % (WARFRONT_TPS * 15) === 0) {
+            st.events.push({ t: st.t, type: "bosssig", padIdx: m.padIdx, kind: "roar", x: quant(m.x), y: quant(m.y) });
+        }
         // Prowl a slow deterministic loop around the den (mask-checked).
         const ang = (st.t / WARFRONT_TPS) * 0.16 + m.padIdx * 1.9;
         const gx2 = m.homeX + Math.cos(ang) * 1.5, gy2 = m.homeY + Math.sin(ang) * 1.1;
@@ -1612,8 +1646,9 @@ function miniTick(st: WfState, m: WfMini) {
         }
     } else {
         const step = 1.0 / WARFRONT_TPS;
-        m.x += ((tgt.x - m.x) / td) * step;
-        m.y += ((tgt.y - m.y) / td) * step;
+        const nx = m.x + ((tgt.x - m.x) / td) * step, ny = m.y + ((tgt.y - m.y) / td) * step;
+        const [cc, cr] = cellOf(nx, ny);   // wall-checked — wider aggro must not chase onto rock
+        if (wfCellWalkable(cc, cr)) { m.x = nx; m.y = ny; }
     }
 }
 
@@ -1655,13 +1690,14 @@ function mobsTick(st: WfState) {
     if (st.waveTimer <= 0) {
         st.waveTimer = WAVE_EVERY;
         for (const team of ["blue", "red"] as const) {
-            const alive = st.mobs.filter((m) => m.side === team).length;
+            let alive = st.mobs.filter((m) => m.side === team).length;
             for (const lane of ["n", "m", "s"] as const) {
-                if (alive + 1 > MINION_CAP) break;
+                if (alive >= MINION_CAP) break;   // was checked against a STALE count → up to 2 over cap
                 const route = minionRoute(lane, team);
                 const elite = (st.wardenBuff.team === team && st.wardenBuff.left > 0) || st.t > WARFRONT_TPS * WF_PHASE_SUDDEN || st.eliteWaveOwed[team];
                 const mhp = elite ? Math.round(MINION_HP * 1.8) : MINION_HP;
                 st.mobs.push({ id: st.mobSeq++, side: team, elite, lane, x: route[0][0], y: route[0][1], hp: mhp, maxHp: mhp, toward: other(team), route, wpIdx: 1, attackCd: 0, chaseId: null });
+                alive++;
             }
             st.eliteWaveOwed[team] = false;   // the Devourer's gift is one wave
         }
@@ -1681,6 +1717,7 @@ function mobsTick(st: WfState) {
         }
     }
     for (const m of st.mobs) {
+        if (m.hp <= 0) continue;   // killed earlier THIS tick (st.mobs was reassigned mid-loop) — no ghost turn
         if (m.attackCd > 0) m.attackCd--;
         const hostileTo = (side: WfMob["side"]) => side !== m.side;
         // 1) Enemy mob in reach → the wave GRINDS (minion-vs-minion front line).
