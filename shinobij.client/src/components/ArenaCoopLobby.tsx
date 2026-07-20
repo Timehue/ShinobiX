@@ -14,7 +14,11 @@ import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { petCardImage } from "../lib/pet-battle-anim";
 import coopHero from "../assets/coliseum/coop-hero.webp";
 
-const PetArenaMatch = lazy(() => import("./PetColiseum").then((m) => ({ default: m.PetArenaMatch })));
+// The sealed co-op match now plays as the Hollow Warfront (the lane-war mode
+// that replaced the capture-scroll arena). Both clients lock the same auto-buy
+// policy, so the match stays a pure function of {blue, red, seed} — the same
+// shared-determinism contract the old renderer had.
+const PetWarfrontMatch = lazy(() => import("./PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
 
 type Team = "blue" | "red";
 type Seat = { team: Team; slot: 0 | 1; name: string | null; ready: boolean; petCount: number; isYou: boolean };
@@ -86,9 +90,11 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     // ── Running → run the sealed replay (identical on every client) ────────────
     if (lobby?.state === "running" && lobby.match) {
         return (
-            <Suspense fallback={<Overlay><div style={{ color: "var(--text-dim)" }}>Loading arena…</div></Overlay>}>
-                {/* Shared replay must be identical on every client — force the canonical V2 ruleset regardless of any local kill-switch. */}
-                <PetArenaMatch blue={lobby.match.blue} red={lobby.match.red} seed={lobby.match.seed} v2 sharedImages={sharedImages} onExit={onExit} />
+            <Suspense fallback={<Overlay><div style={{ color: "var(--text-dim)" }}>Loading the Warfront…</div></Overlay>}>
+                {/* Shared replay must be identical on every client — lock the auto-buy
+                    policy (no interactive council) so the match is a pure function of
+                    {blue, red, seed} on every machine. */}
+                <PetWarfrontMatch blue={lobby.match.blue} red={lobby.match.red} seed={lobby.match.seed} autoBuy="balanced" onExit={onExit} />
             </Suspense>
         );
     }

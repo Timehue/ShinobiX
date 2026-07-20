@@ -29,6 +29,8 @@ import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
 import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
+import { wfThemeForVillage } from "../lib/pet-warfront-map";
+import { WF_STANCES, type WfBuyPolicy, type WfStance } from "../lib/pet-warfront-sim";
 import tacticalArenaHero from "../assets/coliseum/tactical-arena-hero.webp";
 import petDuelHero from "../assets/coliseum/pet-duel-hero.webp";
 import duelFire from "../assets/coliseum/duel-fire.webp";
@@ -138,8 +140,10 @@ const PetColiseum = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default
 // petDuelEngine.v1) — same lazy chunk, mounted instead of PetColiseum when the
 // flag is on for a non-ranked fight.
 const PetColiseumDuel = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetColiseumDuel })));
-// Tactical Arena game mode (deathmatch + capture-scroll, 2v2 / 4v4) — same lazy chunk.
-const PetArenaMatch = lazyWithRetry(() => loadPetColiseum().then((m) => ({ default: m.PetArenaMatch })));
+// Hollow Warfront — the lane-war game mode that REPLACED the capture-scroll
+// Tactical Arena (Ward Seal objective, Guardian Totems, the Hollow Gate breach,
+// bounty coins + the 30 s War Council). Own lazy chunk (three-heavy).
+const PetWarfrontMatch = lazyWithRetry(() => import("../components/PetWarfrontMatch").then((m) => ({ default: m.PetWarfrontMatch })));
 // Pet Gauntlet — the roguelike run mode (3rd tab). Self-contained (owns its run
 // state + its own fight), so it's lazy-loaded and never touches the duel/arena state here.
 const PetGauntlet = lazyWithRetry(() => import("../components/PetGauntlet").then((m) => ({ default: m.PetGauntlet })));
@@ -181,7 +185,34 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // Tactical Arena setup (single screen): a size toggle + a team grid shared by
     // Fight AI and Challenge-a-Player. Picks seed to the top pets and re-seed on
     // a size change.
-    const [tacticalSize, setTacticalSize] = useState<2 | 4>(4);
+    // Warfront is always 4v4 (2v2 retired with capture-scroll); kept as state-shaped
+    // const so the challenge payload + pick caps read unchanged.
+    const [tacticalSize] = useState<2 | 4>(4);
+    // War Council preference for the Warfront's 30 s buy rounds: manual popup or
+    // a silent auto-buy policy. Per-device persisted; PvP/co-op always lock auto
+    // so both clients' replays stay deterministic.
+    const [wfAutoPref, setWfAutoPref] = useState<WfBuyPolicy>(() => {
+        try {
+            const v = localStorage.getItem("wfAutoBuy.v1");
+            return v === "balanced" || v === "offense" || v === "defense" ? v : "off";
+        } catch { return "off"; }
+    });
+    const setWfAuto = (p: WfBuyPolicy) => {
+        setWfAutoPref(p);
+        try { localStorage.setItem("wfAutoBuy.v1", p); } catch { /* storage disabled — ignore */ }
+    };
+    // Opening FORMATION (stance) for the Warfront — per-device persisted; also
+    // adjustable at every manual War Council mid-match.
+    const [wfStancePref, setWfStancePref] = useState<WfStance>(() => {
+        try {
+            const v = localStorage.getItem("wfStance.v1");
+            return v === "siege" || v === "jungle" || v === "headhunt" || v === "turtle" ? v : "balanced";
+        } catch { return "balanced"; }
+    });
+    const setWfStance = (s: WfStance) => {
+        setWfStancePref(s);
+        try { localStorage.setItem("wfStance.v1", s); } catch { /* storage disabled — ignore */ }
+    };
     const [tacticalPicks, setTacticalPicks] = useState<string[]>(() => pickArenaTeam(character.pets, 4).map((p) => p.id));
     const [arenaChallengeName, setArenaChallengeName] = useState("");
     const [arenaChallengeMsg, setArenaChallengeMsg] = useState("");
@@ -1380,9 +1411,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             {arenaView === "tactical" && (
                 <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
                     <div className="pet-arena-hero" style={{ backgroundImage: `url(${tacticalArenaHero})`, marginBottom: 0 }}>
-                        <h3 className="hero-title">🏟️ Tactical Pet Arena</h3>
+                        <h3 className="hero-title">⛩ Hollow Warfront</h3>
                         <p className="hero-sub">
-                            A full-screen team battle on a big map: your pets traverse the arena, capture the scroll, and clash with abilities. Roles are auto-assigned from each pet's role. Beat the AI team to earn pet-arena ryo (daily cap applies).
+                            A lane war on a huge 3D battlefield: hollow-spawn pour from the central Hollow Gate breach, two Guardian Totems ward each village outpost, and shattering the enemy WARD SEAL wins. Every kill pays bounty coins — spend them at the 90-second War Council, where you can also switch your team's formation. Ten minutes; Ward Seal or Judgment. Beat the AI team to earn pet-arena ryo (daily cap applies).
                         </p>
                     </div>
 
@@ -1446,23 +1477,36 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             );
                         }
 
-                        // ── Single screen: size toggle + team grid + actions ───
+                        // ── Single screen: council preference + team grid + actions ───
+                        // (Warfront is always 4v4 — the old 2v2 size toggle retired with
+                        // the capture-scroll mode.)
                         const canStart = tacticalPicks.length >= 1;
-                        const sizeBtn = (n: 2 | 4, label: string) => (
-                            <button type="button" className={tacticalSize === n ? "active" : ""}
-                                onClick={() => { setTacticalSize(n); setTacticalPicks(pickArenaTeam(character.pets, n).map((p) => p.id)); }}>
-                                {label}
-                            </button>
-                        );
                         return (
                             <div style={{ display: "grid", gap: "0.7rem" }}>
                                 <div className="pet-arena-tactical-top">
                                     <div style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
                                         <div>
-                                            <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Team size</label>
-                                            <div className="pet-arena-mode-toggle" style={{ maxWidth: 320, marginTop: 6 }}>
-                                                {sizeBtn(2, "👥 2v2")}{sizeBtn(4, "👥👥 4v4")}
+                                            <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>📯 War Council (every 90s)</label>
+                                            <div className="pet-arena-mode-toggle" style={{ maxWidth: 470, marginTop: 6 }}>
+                                                {(["off", "balanced", "offense", "defense"] as const).map((p) => (
+                                                    <button key={p} type="button" className={wfAutoPref === p ? "active" : ""} onClick={() => setWfAuto(p)}>
+                                                        {p === "off" ? "🖐 Manual" : p === "balanced" ? "⚖ Auto" : p === "offense" ? "🗡 Auto-Attack" : "🛡 Auto-Guard"}
+                                                    </button>
+                                                ))}
                                             </div>
+                                            <p className="hint" style={{ margin: "4px 0 0" }}>Manual pauses every 90s to spend bounty coins yourself; Auto spends for you. PvP and co-op always run Auto so both players see the identical match.</p>
+                                        </div>
+
+                                        <div>
+                                            <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>📜 Opening formation</label>
+                                            <div className="pet-arena-mode-toggle" style={{ maxWidth: 620, marginTop: 6, flexWrap: "wrap" }}>
+                                                {WF_STANCES.map((s) => (
+                                                    <button key={s.id} type="button" title={s.desc} className={wfStancePref === s.id ? "active" : ""} onClick={() => setWfStance(s.id)}>
+                                                        {s.icon} {s.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="hint" style={{ margin: "4px 0 0" }}>Your team's strategy on the field — the enemy coach counter-picks, and you can adjust yours at every War Council.</p>
                                         </div>
 
                                         <div>
@@ -1524,8 +1568,16 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             {/* Full-screen game-mode overlays — launched from the Tactical Arena
                 view; rendered here so they sit above whichever view is active. */}
             {arenaMatch && (
-                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading arena…</div>}>
-                    <PetArenaMatch blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed} sharedImages={sharedImages} onResult={(result) => reportTacticalArenaWin(arenaMatch, result.winner)} onExit={() => setArenaMatch(null)} />
+                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the Warfront…</div>}>
+                    <PetWarfrontMatch
+                        blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed}
+                        theme={wfThemeForVillage(character.village)}
+                        autoBuy={arenaMatch.vsAi ? wfAutoPref : "balanced"}
+                        stance={wfStancePref}
+                        allowReseed={arenaMatch.vsAi}
+                        onResult={(result) => reportTacticalArenaWin(arenaMatch, result.winner ?? "draw")}
+                        onExit={() => setArenaMatch(null)}
+                    />
                 </Suspense>
             )}
             {showCoop && (

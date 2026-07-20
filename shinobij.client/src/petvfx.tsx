@@ -11,6 +11,9 @@ import { PetArenaBattlefield } from "./components/PetArenaBattlefield";
 import { petFramePace, runPetArenaBattle, runPetArenaParty } from "./lib/pet-battle-sim";
 import { rawPetPool } from "./data/pet-pool";
 import { PetColiseum, PetColiseumDuel, PetArenaMatch } from "./components/PetColiseum";
+import { PetWarfrontMatch } from "./components/PetWarfrontMatch";
+import { WF_THEMES, type WfTheme } from "./lib/pet-warfront-map";
+import type { WfBuyPolicy, WfStance } from "./lib/pet-warfront-sim";
 import { runPetDuelCinematic, runPetPartyDuelCinematic } from "./lib/pet-duel-cinematic";
 import { PetBoardArena } from "./components/PetBoardArena";
 import { PetGauntlet } from "./components/PetGauntlet";
@@ -140,7 +143,10 @@ function Harness() {
 
     // ?arena=1 (2v2) / ?arena4=1 (4v4) — the Tactical Arena game mode.
     const arenaMode = PARAMS.get("arena") === "1" || PARAMS.get("arena4") === "1";
-    const arena4 = PARAMS.get("arena4") === "1";
+    // ?warfront=1 — the Hollow Warfront lane-war mode (always 4v4). Optional
+    // &theme=forest|snow|volcano|shadow|central and &autobuy=balanced|offense|defense.
+    const warfrontMode = PARAMS.get("warfront") === "1";
+    const arena4 = PARAMS.get("arena4") === "1" || warfrontMode;
     const aPet = (id: string, name: string, element: string, over: Record<string, number>) => ({ ...harnessPet(0, { element: element as Pet["element"] }), id, name, ...over });
     const [arenaBlue, arenaRed] = useMemo(() => {
         const blueAll: ArenaSlot[] = [
@@ -260,6 +266,15 @@ function Harness() {
             )}
             {arenaMode && (
                 <PetArenaMatch blue={arenaBlue} red={arenaRed} seed={seed} sharedImages={harnessShared} onExit={() => { }} />
+            )}
+            {warfrontMode && (
+                <PetWarfrontMatch
+                    blue={arenaBlue} red={arenaRed} seed={seed} allowReseed
+                    theme={((): WfTheme => { const t = PARAMS.get("theme") as WfTheme | null; return t && WF_THEMES[t] ? t : "central"; })()}
+                    autoBuy={((): WfBuyPolicy => { const p = PARAMS.get("autobuy"); return p === "balanced" || p === "offense" || p === "defense" ? p : "off"; })()}
+                    stance={((): WfStance => { const s = PARAMS.get("stance"); return s === "siege" || s === "jungle" || s === "headhunt" || s === "turtle" ? s : "balanced"; })()}
+                    onExit={() => { }}
+                />
             )}
             {boardMode && (
                 <PetBoardArena result={boardResult} onDone={restart} />
