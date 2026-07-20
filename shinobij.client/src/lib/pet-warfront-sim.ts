@@ -17,18 +17,19 @@
  *
  * Same determinism discipline as pet-arena-sim: seeded LCG (no Math.random /
  * Date), state quantized to 1/256 per tick. Chunked on purpose:
- * runWarfrontMatch() (full-auto) exists for tests and shared co-op replays,
- * where buy policies are locked at the lobby instead of interactive.
+ * runWarfrontMatch() (full-auto) exists for tests, shared co-op replays, and
+ * the SERVER-AUTHORITATIVE reward re-sim, where buy policies are locked instead
+ * of interactive.
  *
- * DETERMINISM CONTRACT — SAME-ENGINE. Movement/patrol paths use Math.sin/cos/
- * atan2/hypot, whose last-bit results are implementation-defined and NOT
- * guaranteed identical across JS engines (V8 vs SpiderMonkey vs JSC). So a
- * shared replay is byte-identical only when both peers run the SAME engine —
- * which is the real case: co-op peers are the same web build, and the tests
- * (which assert byte-identical snapshots+events) run under one engine. Do NOT
- * advertise cross-browser replay parity without a golden-run test across
- * engines; if that ever becomes a product need, replace sim-time trig with
- * deterministic fixed-point approximations / baked lookups first.
+ * DETERMINISM CONTRACT — CROSS-ENGINE. The result is a pure function of
+ * (teams, seed, policies, stance, choice log) and byte-identical on ANY JS
+ * engine. Only +,-,*,/,Math.sqrt/min/max/round/floor/abs (IEEE-correctly-
+ * rounded → identical everywhere) plus a seeded LCG. Math.sin/cos/atan2/hypot
+ * are BANNED (implementation-defined in the last ULP → diverge across V8 /
+ * SpiderMonkey / JSC, which over an 18k-tick match flips winners); use hyp2 and
+ * dsin/dcos (defined below) instead. This is load-bearing: the reward server
+ * (Node/V8) re-runs this exact sim to verify a browser's reported outcome, so a
+ * Firefox player's win MUST reproduce byte-for-byte on the server.
  */
 import type { Pet } from "../types/pet";
 import type { ArenaRole, ArenaSlot } from "./pet-arena-sim";
@@ -188,6 +189,25 @@ function elementMult(att?: string | null, def?: string | null): number {
 // ── Determinism helpers ──────────────────────────────────────────────────────
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 const quant = (v: number) => Math.round(v * 256) / 256;
+
+// ── Cross-engine-deterministic math ──────────────────────────────────────────
+// Math.hypot / sin / cos / atan2 are implementation-defined in the last ULP and
+// DIVERGE across JS engines (V8 vs SpiderMonkey vs JSC); over an 18k-tick match
+// those differences compound into different WINNERS, which would break the
+// server-authoritative reward re-sim (a Firefox player's win must match the V8
+// server). These use only +,-,*,/,sqrt,round — all IEEE-correctly-rounded, so
+// they are bit-identical on every engine. hyp2 replaces hypot; dsin/dcos are a
+// reflected-Taylor approximation (~2e-4, plenty for patrol/ring motion).
+const TAU = 6.283185307179586;
+const HALF_PI = 1.5707963267948966;
+function hyp2(dx: number, dy: number): number { return Math.sqrt(dx * dx + dy * dy); }
+function dsin(x: number): number {
+    x -= TAU * Math.round(x / TAU);                       // reduce to [-PI, PI]
+    if (x > HALF_PI) x = Math.PI - x; else if (x < -HALF_PI) x = -Math.PI - x;   // fold to [-PI/2, PI/2]
+    const x2 = x * x;
+    return x * (1 + x2 * (-1 / 6 + x2 * (1 / 120 + x2 * (-1 / 5040))));
+}
+function dcos(x: number): number { return dsin(x + HALF_PI); }
 function makeRng(seed: number): () => number {
     let s = (seed >>> 0) || 1;
     return () => {
@@ -512,17 +532,17 @@ function tryUltimate(st: WfState, p: WfPet): boolean {
     if (p.ult < 100 || p.ultCd > 0) return false;
     const foes = st.pets.filter((q) => q.team !== p.team && q.state !== "respawning");
     if (p.role === "defender") {
-        const allies = st.pets.filter((q) => q.team === p.team && q.state !== "respawning" && Math.hypot(q.x - p.x, q.y - p.y) < 4.5);
-        if (!foes.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 7)) return false;
+        const allies = st.pets.filter((q) => q.team === p.team && q.state !== "respawning" && hyp2(q.x - p.x, q.y - p.y) < 4.5);
+        if (!foes.some((q) => hyp2(q.x - p.x, q.y - p.y) < 7)) return false;
         for (const a of allies) a.shieldHp = Math.max(a.shieldHp, Math.round(a.maxHp * 0.2));
     } else if (p.role === "tracker") {
-        const inRange = foes.filter((q) => Math.hypot(q.x - p.x, q.y - p.y) < 5.5).slice(0, 3);
+        const inRange = foes.filter((q) => hyp2(q.x - p.x, q.y - p.y) < 5.5).slice(0, 3);
         if (!inRange.length) return false;
         for (const q of inRange) petDamage(st, p, q, p.atk * 1.6, false);
     } else if (p.role === "assassin") {
         let mark: WfPet | null = null, worst = Infinity;
         for (const q of foes) {
-            const d = Math.hypot(q.x - p.x, q.y - p.y);
+            const d = hyp2(q.x - p.x, q.y - p.y);
             if (d < 6.5 && q.hp < worst) { worst = q.hp; mark = q; }
         }
         if (!mark) return false;
@@ -531,7 +551,7 @@ function tryUltimate(st: WfState, p: WfPet): boolean {
         if (wfCellWalkable(nc, nr)) { p.x = mark.x + 0.8; p.y = mark.y; }
         petDamage(st, p, mark, p.atk * 2.5, true);
     } else {
-        const hurt = st.pets.filter((q) => q.team === p.team && q.state !== "respawning" && q.hp < q.maxHp && Math.hypot(q.x - p.x, q.y - p.y) < 5.5);
+        const hurt = st.pets.filter((q) => q.team === p.team && q.state !== "respawning" && q.hp < q.maxHp && hyp2(q.x - p.x, q.y - p.y) < 5.5);
         if (hurt.length < 2) return false;
         for (const a of hurt) {
             const amount = Math.round(a.maxHp * 0.18);
@@ -594,14 +614,14 @@ function updateCall(st: WfState, team: Team) {
     // 1) Emergency defence of an exposed core under threat.
     const coreT = st.cores[team];
     if (coreT.alive && !st.statues[team][0].alive && !st.statues[team][1].alive) {
-        const threat = st.pets.some((p) => p.team === foe && p.state !== "respawning" && Math.hypot(p.x - coreT.x, p.y - coreT.y) < 9)
-            || st.mobs.some((m) => m.toward === team && Math.hypot(m.x - coreT.x, m.y - coreT.y) < 9);
+        const threat = st.pets.some((p) => p.team === foe && p.state !== "respawning" && hyp2(p.x - coreT.x, p.y - coreT.y) < 9)
+            || st.mobs.some((m) => m.toward === team && hyp2(m.x - coreT.x, m.y - coreT.y) < 9);
         if (threat) squad = { goal: "defend-core", x: coreT.x, y: coreT.y };
     }
     // 2) PUNISH an enemy Warden commit — they are in the pit, so crack a lane.
     if (!squad) {
         const foesAtWarden = st.pets.filter((p) => p.team === foe && p.state !== "respawning"
-            && Math.hypot(p.x - WF_LAIR.x, p.y - WF_LAIR.y) < WF_LAIR.r + 1.5).length;
+            && hyp2(p.x - WF_LAIR.x, p.y - WF_LAIR.y) < WF_LAIR.r + 1.5).length;
         if (st.boss.alive && foesAtWarden >= 3 && alive.length >= 3 && st.t > WARFRONT_TPS * WF_PHASE_SKIRMISH) {
             const target = squadSiegeTarget(st, foe);
             squad = { goal: "push-squad", x: target.x, y: target.y };
@@ -636,8 +656,8 @@ function updateCall(st: WfState, team: Team) {
         const sIdx = lane === "s" ? 1 : 0;
         const own = st.statues[team][sIdx];
         if (own.alive) {
-            const threat = st.pets.some((p) => p.team === foe && p.state !== "respawning" && Math.hypot(p.x - own.x, p.y - own.y) < 6)
-                || st.mobs.some((m) => m.toward === team && m.lane === lane && Math.hypot(m.x - own.x, m.y - own.y) < 6);
+            const threat = st.pets.some((p) => p.team === foe && p.state !== "respawning" && hyp2(p.x - own.x, p.y - own.y) < 6)
+                || st.mobs.some((m) => m.toward === team && m.lane === lane && hyp2(m.x - own.x, m.y - own.y) < 6);
             if (threat) return { goal: `defend-${sIdx}`, x: own.x, y: own.y };
         }
         // JUNGLE REIGN takes its camp before it thinks about waves — trophies
@@ -684,11 +704,11 @@ function updateCall(st: WfState, team: Team) {
         const prev = st.calls[team];
         const own = st.cores[team];
         const ddx = own.x - squad.x, ddy = own.y - squad.y;
-        const dd = Math.hypot(ddx, ddy) || 1;
+        const dd = hyp2(ddx, ddy) || 1;
         const [rc, rr] = nearestWalkableCell(squad.x + (ddx / dd) * 9.5, squad.y + (ddy / dd) * 9.5);
         const [rx, ry] = cellCenter(rc, rr);
         rally = { x: rx, y: ry };
-        const sameTarget = prev.squad && Math.hypot(prev.squad.x - squad.x, prev.squad.y - squad.y) < 3;
+        const sameTarget = prev.squad && hyp2(prev.squad.x - squad.x, prev.squad.y - squad.y) < 3;
         committed = sameTarget ? prev.committed : false;
         rallySince = sameTarget ? (prev.rallySince ?? st.t) : st.t;
     }
@@ -709,7 +729,7 @@ function nearestEnemy(st: WfState, p: WfPet, maxD = 6.5): WfPet | null {
         // them and play the map instead, UNLESS they got bloodied since or
         // they are actually hurting me (my own HP sinking suspends the truce).
         if (p.duelTruce > 0 && q.id === p.duelId && q.hp / q.maxHp > 0.5 && p.hp / p.maxHp > 0.6) continue;
-        const d = Math.hypot(q.x - p.x, q.y - p.y);
+        const d = hyp2(q.x - p.x, q.y - p.y);
         if (d >= maxD + 0.5) continue;
         // BUSH stealth: an enemy inside cover is invisible from outside it
         // beyond point-blank range.
@@ -725,13 +745,13 @@ function nearestEnemy(st: WfState, p: WfPet, maxD = 6.5): WfPet | null {
         if (score < bs) { bs = score; best = q; }
     }
     if (!best) return null;
-    return Math.hypot(best.x - p.x, best.y - p.y) < maxD ? best : null;
+    return hyp2(best.x - p.x, best.y - p.y) < maxD ? best : null;
 }
 function nearestMob(st: WfState, p: WfPet): WfMob | null {
     let best: WfMob | null = null, bd = Infinity;
     for (const m of st.mobs) {
         if (m.side === p.team) continue;   // never farm your own minions
-        const d = Math.hypot(m.x - p.x, m.y - p.y);
+        const d = hyp2(m.x - p.x, m.y - p.y);
         if (d < bd) { bd = d; best = m; }
     }
     return bd < 5 ? best : null;
@@ -747,11 +767,11 @@ function walkToward(st: WfState, p: WfPet, gx: number, gy: number) {
     if (!p.path || !p.path.length) return;
     let [tx, ty] = cellCenter(p.path[p.pathIdx] % WF_COLS, Math.floor(p.path[p.pathIdx] / WF_COLS));
     let dx = tx - p.x, dy = ty - p.y;
-    let d = Math.hypot(dx, dy);
+    let d = hyp2(dx, dy);
     while (d < 0.22 && p.pathIdx < p.path.length - 1) {
         p.pathIdx++;
         [tx, ty] = cellCenter(p.path[p.pathIdx] % WF_COLS, Math.floor(p.path[p.pathIdx] / WF_COLS));
-        dx = tx - p.x; dy = ty - p.y; d = Math.hypot(dx, dy);
+        dx = tx - p.x; dy = ty - p.y; d = hyp2(dx, dy);
     }
     if (d > 1e-6) {
         p.wantD = d;
@@ -764,7 +784,7 @@ function walkToward(st: WfState, p: WfPet, gx: number, gy: number) {
         // jams unwind as a natural-looking shuffle.
         if (p.stuckTicks > WARFRONT_TPS * 0.5) {
             const rot = (p.slot % 2 === 0 ? 1 : -1) * 0.9;
-            const cs = Math.cos(rot), sn = Math.sin(rot);
+            const cs = dcos(rot), sn = dsin(rot);
             const rx = ux * cs - uy * sn, ry = ux * sn + uy * cs;
             ux = rx; uy = ry;
         }
@@ -810,7 +830,7 @@ function suddenRamp(st: WfState): number {
 function siegeMul(st: WfState, p: WfPet): number {
     let backed = 0;
     for (const m of st.mobs) {
-        if (m.side === p.team && Math.hypot(m.x - p.x, m.y - p.y) < 4.5 && ++backed >= 2) break;
+        if (m.side === p.team && hyp2(m.x - p.x, m.y - p.y) < 4.5 && ++backed >= 2) break;
     }
     // SIEGE MARCH identity: their wave-backed blows bite even harder.
     let mul = backed >= 2 ? (st.stance[p.team] === "siege" ? 2.2 : 1.8) : 1;
@@ -834,7 +854,7 @@ function castElement(st: WfState, p: WfPet, tgt: WfPet) {
         name = "TIDAL WAVE";
         for (const q of st.pets) {
             if (q.team === p.team || q.state === "respawning") continue;
-            if (Math.hypot(q.x - tgt.x, q.y - tgt.y) <= 3.2) {
+            if (hyp2(q.x - tgt.x, q.y - tgt.y) <= 3.2) {
                 petDamage(st, p, q, p.atk * 0.8, false);
                 if (q.hp > 0) q.slowLeft = WARFRONT_TPS * 2;
             }
@@ -847,7 +867,7 @@ function castElement(st: WfState, p: WfPet, tgt: WfPet) {
         name = "GALE SLAM";
         petDamage(st, p, tgt, p.atk * 0.8, false);
         if (tgt.state !== "respawning") {
-            const dq = Math.hypot(tgt.x - p.x, tgt.y - p.y) || 1;
+            const dq = hyp2(tgt.x - p.x, tgt.y - p.y) || 1;
             const ux = (tgt.x - p.x) / dq, uy = (tgt.y - p.y) / dq;
             for (let s2 = 0; s2 < 3; s2++) {
                 const [nc2, nr2] = cellOf(tgt.x + ux * 0.7, tgt.y + uy * 0.7);
@@ -862,7 +882,7 @@ function castElement(st: WfState, p: WfPet, tgt: WfPet) {
         let n2: WfPet | null = null, nd = 4;
         for (const q of st.pets) {
             if (q.team === p.team || q === tgt || q.state === "respawning") continue;
-            const dd = Math.hypot(q.x - tgt.x, q.y - tgt.y);
+            const dd = hyp2(q.x - tgt.x, q.y - tgt.y);
             if (dd < nd) { nd = dd; n2 = q; }
         }
         if (n2) petDamage(st, p, n2, p.atk * 0.75, false);
@@ -904,7 +924,7 @@ function petTick(st: WfState, p: WfPet) {
     // the enemy Ward Seal is exposed — then it is win-now time, stay on it).
     if (p.hp / p.maxHp < STANCE_CFG[st.stance[p.team]].disengageHp) {
         const foeCoreExposed = !st.statues[other(p.team)][0].alive && !st.statues[other(p.team)][1].alive;
-        const enemyNear = st.pets.some((q) => q.team !== p.team && q.state !== "respawning" && Math.hypot(q.x - p.x, q.y - p.y) < 5.5);
+        const enemyNear = st.pets.some((q) => q.team !== p.team && q.state !== "respawning" && hyp2(q.x - p.x, q.y - p.y) < 5.5);
         if (!foeCoreExposed && enemyNear) {
             const [hx, hy] = WF_SPAWNS[p.team][p.slot % 4];
             walkToward(st, p, hx, hy);
@@ -928,13 +948,13 @@ function petTick(st: WfState, p: WfPet) {
         if (!p.huntPrey && p.huntCd <= 0 && p.hp / p.maxHp > 0.6) {
             for (const q of st.pets) {
                 if (q.team === p.team || q.state === "respawning") continue;
-                const dq = Math.hypot(q.x - p.x, q.y - p.y);
+                const dq = hyp2(q.x - p.x, q.y - p.y);
                 if (dq < 7 || dq > 20) continue;    // worth a rotation, not a trek
-                const escorted = st.pets.some((al) => al.team === q.team && al !== q && al.state !== "respawning" && Math.hypot(al.x - q.x, al.y - q.y) < 8);
+                const escorted = st.pets.some((al) => al.team === q.team && al !== q && al.state !== "respawning" && hyp2(al.x - q.x, al.y - q.y) < 8);
                 if (escorted) continue;
                 let bx = 0, by = 0, bd = Infinity;  // the bush nearest the prey
                 for (const [ux, uy] of WF_BUSHES) {
-                    const db = Math.hypot(ux - q.x, uy - q.y);
+                    const db = hyp2(ux - q.x, uy - q.y);
                     if (db < bd) { bd = db; bx = ux; by = uy; }
                 }
                 if (bd > 9) continue;               // no cover near them — no ambush
@@ -945,7 +965,7 @@ function petTick(st: WfState, p: WfPet) {
         if (p.huntPrey) {
             const prey = st.pets.find((q) => q.id === p.huntPrey && q.state !== "respawning");
             p.huntTicks--;
-            const dPrey = prey ? Math.hypot(prey.x - p.x, prey.y - p.y) : Infinity;
+            const dPrey = prey ? hyp2(prey.x - p.x, prey.y - p.y) : Infinity;
             if (!prey || p.huntTicks <= 0 || dPrey > 24 || p.hp / p.maxHp < 0.45) {
                 p.huntPrey = null; p.huntCd = Math.round(WARFRONT_TPS * 30 * STANCE_CFG[st.stance[p.team]].huntCdMul);
             } else if (dPrey < 5.5 && wfInBush(p.x, p.y)) {
@@ -953,7 +973,7 @@ function petTick(st: WfState, p: WfPet) {
                 st.events.push({ t: st.t, type: "gank", actorId: p.id, targetId: prey.id, x: quant(p.x), y: quant(p.y) });
                 p.huntPrey = null; p.huntCd = Math.round(WARFRONT_TPS * 40 * STANCE_CFG[st.stance[p.team]].huntCdMul);
             } else {
-                const dBush = Math.hypot(p.huntX - p.x, p.huntY - p.y);
+                const dBush = hyp2(p.huntX - p.x, p.huntY - p.y);
                 if (dBush > 0.8) { walkToward(st, p, p.huntX, p.huntY); return; }
                 p.faceX = (prey.x - p.x) / (dPrey || 1); p.faceY = (prey.y - p.y) / (dPrey || 1);
                 return;   // crouched in cover, watching the prey
@@ -973,8 +993,8 @@ function petTick(st: WfState, p: WfPet) {
             const foe = foePet;
             const noProgress = p.duelFoeHp - foeEhp < foe.maxHp * 0.06;
             const core = st.cores[p.team];
-            const threatens = Math.hypot(foe.x - core.x, foe.y - core.y) < 8
-                || st.statues[p.team].some((s) => s.alive && Math.hypot(foe.x - s.x, foe.y - s.y) < 8);
+            const threatens = hyp2(foe.x - core.x, foe.y - core.y) < 8
+                || st.statues[p.team].some((s) => s.alive && hyp2(foe.x - s.x, foe.y - s.y) < 8);
             if (noProgress && !threatens) {
                 p.duelTruce = WARFRONT_TPS * 20;
                 foePet = nearestEnemy(st, p, engageR);   // re-pick with the truce active
@@ -987,13 +1007,13 @@ function petTick(st: WfState, p: WfPet) {
     // dive into two enemies was how pets kept feeding. Contact fights and
     // committed squad pushes are exempt.
     if (foePet && !(callState.squad && callState.committed)) {
-        const dW = Math.hypot(foePet.x - p.x, foePet.y - p.y);
+        const dW = hyp2(foePet.x - p.x, foePet.y - p.y);
         if (dW > 2.6) {
             let allies = 0, foes = 0;
             for (const q of st.pets) {
                 if (q.state === "respawning") continue;
-                if (q.team === p.team && q !== p && Math.hypot(q.x - p.x, q.y - p.y) < 7) allies++;
-                if (q.team !== p.team && Math.hypot(q.x - foePet.x, q.y - foePet.y) < 6) foes++;
+                if (q.team === p.team && q !== p && hyp2(q.x - p.x, q.y - p.y) < 7) allies++;
+                if (q.team !== p.team && hyp2(q.x - foePet.x, q.y - foePet.y) < 6) foes++;
             }
             if (foes >= 2 && allies === 0) foePet = null;
         }
@@ -1011,7 +1031,7 @@ function petTick(st: WfState, p: WfPet) {
         for (const q of st.pets) {
             if (q.team !== p.team || q === p || q.state === "respawning") continue;
             const frac = q.hp / q.maxHp;
-            if (frac < worst && Math.hypot(q.x - p.x, q.y - p.y) < 6) { worst = frac; ally = q; }
+            if (frac < worst && hyp2(q.x - p.x, q.y - p.y) < 6) { worst = frac; ally = q; }
         }
         if (ally) {
             const amount = Math.round(ally.maxHp * 0.14);
@@ -1025,7 +1045,7 @@ function petTick(st: WfState, p: WfPet) {
     // Priority micro-targets near the pet — enemy pet > warden (when called) >
     // mini (when called) > mob > structure in reach > walk the call.
     if (foePet) {
-        const d = Math.hypot(foePet.x - p.x, foePet.y - p.y);
+        const d = hyp2(foePet.x - p.x, foePet.y - p.y);
         // Role abilities — each is a MAJOR action that ENDS the pet's tick (one
         // major action per tick). Sage heal is handled earlier, outside the enemy
         // gate. Stacking mark/shield + element + basic in one tick was a hidden
@@ -1086,7 +1106,7 @@ function petTick(st: WfState, p: WfPet) {
     // opportunistically when you are already at the pit's edge. Pets FAN OUT
     // around him (per-slot ring angle) and orbit between swings — no stacking.
     if (st.boss.alive) {
-        const d = Math.hypot(st.boss.x - p.x, st.boss.y - p.y);
+        const d = hyp2(st.boss.x - p.x, st.boss.y - p.y);
         const engaged = call.goal === "warden" || st.boss.targetId === p.id || d <= Math.max(p.atkRange, 2.0) + 0.7;
         if (engaged && (call.goal === "warden" || d < 7)) {
             p.faceX = (st.boss.x - p.x) / (d || 1); p.faceY = (st.boss.y - p.y) / (d || 1);
@@ -1116,10 +1136,13 @@ function petTick(st: WfState, p: WfPet) {
                     if (wfCellWalkable(nc, nr)) { p.x = nx; p.y = ny; p.state = "move"; }
                 }
             } else {
-                // Approach a per-slot ring point instead of the boss centre.
-                const ringA = Math.atan2(p.y - st.boss.y, p.x - st.boss.x) + (p.slot - 1.5) * 0.5;
+                // Approach a per-slot ring point — rotate the boss→pet direction
+                // by a fixed per-slot offset (atan2/cos/sin round-trip dropped for
+                // cross-engine determinism).
                 const ringR = Math.max(p.atkRange * 0.85, 2.2);
-                walkToward(st, p, st.boss.x + Math.cos(ringA) * ringR, st.boss.y + Math.sin(ringA) * ringR);
+                const rdx = p.x - st.boss.x, rdy = p.y - st.boss.y, rdd = hyp2(rdx, rdy) || 1;
+                const rux = rdx / rdd, ruy = rdy / rdd, roff = (p.slot - 1.5) * 0.5, rc = dcos(roff), rs = dsin(roff);
+                walkToward(st, p, st.boss.x + (rux * rc - ruy * rs) * ringR, st.boss.y + (rux * rs + ruy * rc) * ringR);
             }
             return;
         }
@@ -1127,7 +1150,7 @@ function petTick(st: WfState, p: WfPet) {
     if (call.goal.startsWith("mini-")) {
         const m = st.minis[Number(call.goal.slice(5)) || 0];
         if (m && m.alive) {
-            const d = Math.hypot(m.x - p.x, m.y - p.y);
+            const d = hyp2(m.x - p.x, m.y - p.y);
             if (d <= Math.max(p.atkRange, 1.7)) {
                 if (p.attackCd > 6) {
                     const dirSign = p.slot % 2 === 0 ? 1 : -1;
@@ -1183,8 +1206,9 @@ function petTick(st: WfState, p: WfPet) {
                     }
                 }
             } else {
-                const ringA = Math.atan2(p.y - m.y, p.x - m.x) + (p.slot - 1.5) * 0.55;
-                walkToward(st, p, m.x + Math.cos(ringA) * 1.9, m.y + Math.sin(ringA) * 1.9);
+                const rdx = p.x - m.x, rdy = p.y - m.y, rdd = hyp2(rdx, rdy) || 1;
+                const rux = rdx / rdd, ruy = rdy / rdd, roff = (p.slot - 1.5) * 0.55, rc = dcos(roff), rs = dsin(roff);
+                walkToward(st, p, m.x + (rux * rc - ruy * rs) * 1.9, m.y + (rux * rs + ruy * rc) * 1.9);
             }
             return;
         }
@@ -1193,7 +1217,7 @@ function petTick(st: WfState, p: WfPet) {
     // Mobs in reach — farm them.
     const mob = nearestMob(st, p);
     if (mob) {
-        const d = Math.hypot(mob.x - p.x, mob.y - p.y);
+        const d = hyp2(mob.x - p.x, mob.y - p.y);
         if (d <= Math.max(p.atkRange, MELEE_REACH)) {
             if (p.attackCd <= 0) {
                 p.attackCd = ATTACK_CD; p.state = "attack";
@@ -1216,7 +1240,7 @@ function petTick(st: WfState, p: WfPet) {
     if (call.goal.startsWith("push") || call.goal.startsWith("defend")) {
         for (const [gi, gg] of st.guardians[foe].entries()) {
             if (!gg.alive) continue;
-            const d = Math.hypot(gg.x - p.x, gg.y - p.y);
+            const d = hyp2(gg.x - p.x, gg.y - p.y);
             if (d <= Math.max(p.atkRange, 1.7)) {
                 if (p.attackCd <= 0) {
                     p.attackCd = ATTACK_CD; p.state = "attack";
@@ -1238,7 +1262,7 @@ function petTick(st: WfState, p: WfPet) {
         }
         for (const [i, s] of st.statues[foe].entries()) {
             if (!s.alive) continue;
-            const d = Math.hypot(s.x - p.x, s.y - p.y);
+            const d = hyp2(s.x - p.x, s.y - p.y);
             if (d <= Math.max(p.atkRange, 1.6)) {
                 if (p.attackCd <= 0) {
                     p.attackCd = ATTACK_CD; p.state = "attack";
@@ -1258,7 +1282,7 @@ function petTick(st: WfState, p: WfPet) {
         const core = st.cores[foe];
         const exposed = !st.statues[foe][0].alive && !st.statues[foe][1].alive;
         if (core.alive && exposed) {
-            const d = Math.hypot(core.x - p.x, core.y - p.y);
+            const d = hyp2(core.x - p.x, core.y - p.y);
             if (d <= Math.max(p.atkRange, 1.6)) {
                 if (p.attackCd <= 0) {
                     p.attackCd = ATTACK_CD; p.state = "attack";
@@ -1282,14 +1306,14 @@ function petTick(st: WfState, p: WfPet) {
         for (const q of st.pets) {
             if (q.team !== p.team || q === p || q.state === "respawning") continue;
             const frac = q.hp / q.maxHp;
-            if (frac < worst && Math.hypot(q.x - p.x, q.y - p.y) < 16) { worst = frac; ally = q; }
+            if (frac < worst && hyp2(q.x - p.x, q.y - p.y) < 16) { worst = frac; ally = q; }
         }
-        if (ally && Math.hypot(ally.x - p.x, ally.y - p.y) > 3.2) { walkToward(st, p, ally.x, ally.y); return; }
+        if (ally && hyp2(ally.x - p.x, ally.y - p.y) > 3.2) { walkToward(st, p, ally.x, ally.y); return; }
     }
     if (p.role === "defender" && !callState.squad) {
         const sageAlly = st.pets.find((q) => q.team === p.team && q.role === "sage" && q.state !== "respawning");
-        if (sageAlly && Math.hypot(sageAlly.x - p.x, sageAlly.y - p.y) > 3
-            && st.pets.some((q) => q.team !== p.team && q.state !== "respawning" && Math.hypot(q.x - sageAlly.x, q.y - sageAlly.y) < 8)) {
+        if (sageAlly && hyp2(sageAlly.x - p.x, sageAlly.y - p.y) > 3
+            && st.pets.some((q) => q.team !== p.team && q.state !== "respawning" && hyp2(q.x - sageAlly.x, q.y - sageAlly.y) < 8)) {
             walkToward(st, p, sageAlly.x, sageAlly.y);
             return;
         }
@@ -1301,15 +1325,15 @@ function petTick(st: WfState, p: WfPet) {
     // with an enemy near keeps its job; it walks straight to a real fight and
     // never dithers, so there's no on-camera jitter.)
     if (!callState.squad && st.t > WARFRONT_TPS * WF_PHASE_SKIRMISH) {
-        const foeClose = st.pets.some((q) => q.team !== p.team && q.state !== "respawning" && Math.hypot(q.x - p.x, q.y - p.y) < 9);
-        const waveClose = st.mobs.some((m) => m.side === p.team && Math.hypot(m.x - p.x, m.y - p.y) < 6);
+        const foeClose = st.pets.some((q) => q.team !== p.team && q.state !== "respawning" && hyp2(q.x - p.x, q.y - p.y) < 9);
+        const waveClose = st.mobs.some((m) => m.side === p.team && hyp2(m.x - p.x, m.y - p.y) < 6);
         if (!foeClose && !waveClose) {
             let rx = 0, ry = 0, rd = 24;
             for (const a of st.pets) {
                 if (a.team !== p.team || a === p || a.state === "respawning") continue;
-                const inFight = st.pets.some((e) => e.team !== p.team && e.state !== "respawning" && Math.hypot(e.x - a.x, e.y - a.y) < 3.5);
+                const inFight = st.pets.some((e) => e.team !== p.team && e.state !== "respawning" && hyp2(e.x - a.x, e.y - a.y) < 3.5);
                 if (!inFight) continue;
-                const d = Math.hypot(a.x - p.x, a.y - p.y);
+                const d = hyp2(a.x - p.x, a.y - p.y);
                 if (d < rd) { rd = d; rx = a.x; ry = a.y; }
             }
             if (rd < 24) { walkToward(st, p, rx, ry); return; }   // join the fight
@@ -1351,7 +1375,7 @@ function statueTick(st: WfState, team: Team, idx: number) {
     if (s.attackCd > 0) { s.attackCd--; return; }
     // Prefer mobs (they siege relentlessly), then enemy pets.
     let mob: WfMob | null = null, md = STATUE_RANGE;
-    for (const m of st.mobs) { if (m.side === team) continue; const d = Math.hypot(m.x - s.x, m.y - s.y); if (d < md) { md = d; mob = m; } }
+    for (const m of st.mobs) { if (m.side === team) continue; const d = hyp2(m.x - s.x, m.y - s.y); if (d < md) { md = d; mob = m; } }
     if (mob) {
         mob.hp -= STATUE_DMG;
         s.attackCd = STATUE_CD;
@@ -1361,7 +1385,7 @@ function statueTick(st: WfState, team: Team, idx: number) {
     let pet: WfPet | null = null, pd = STATUE_RANGE;
     for (const p of st.pets) {
         if (p.team === team || p.state === "respawning") continue;
-        const d = Math.hypot(p.x - s.x, p.y - s.y);
+        const d = hyp2(p.x - s.x, p.y - s.y);
         if (d < pd) { pd = d; pet = p; }
     }
     if (pet) {
@@ -1387,7 +1411,7 @@ function guardianTick(st: WfState, team: Team, idx: number) {
     let mob: WfMob | null = null, md = GUARD_RANGE;
     for (const m of st.mobs) {
         if (m.side === team) continue;
-        const d = Math.hypot(m.x - g.x, m.y - g.y);
+        const d = hyp2(m.x - g.x, m.y - g.y);
         if (d < md) { md = d; mob = m; }
     }
     if (mob) {
@@ -1402,7 +1426,7 @@ function guardianTick(st: WfState, team: Team, idx: number) {
     let pet: WfPet | null = null, pd = GUARD_RANGE;
     for (const p of st.pets) {
         if (p.team === team || p.state === "respawning") continue;
-        const d = Math.hypot(p.x - g.x, p.y - g.y);
+        const d = hyp2(p.x - g.x, p.y - g.y);
         if (d < pd) { pd = d; pet = p; }
     }
     if (pet) {
@@ -1432,7 +1456,7 @@ function bossTick(st: WfState) {
         st.events.push({ t: st.t, type: "wardenshock", x: quant(b.x), y: quant(b.y) });
         for (const q of st.pets) {
             if (q.state === "respawning") continue;
-            const dq = Math.hypot(q.x - b.x, q.y - b.y);
+            const dq = hyp2(q.x - b.x, q.y - b.y);
             if (dq > 6.5) continue;
             let dmg = Math.round(WARDEN_SLAM * 0.8 * (100 / (100 + q.def)));
             if (q.shieldHp > 0) { const soak = Math.min(q.shieldHp, dmg); q.shieldHp -= soak; dmg -= soak; }
@@ -1458,13 +1482,13 @@ function bossTick(st: WfState) {
     let tgt: WfPet | null = null, td = WF_LAIR.r - 0.8;
     for (const p of st.pets) {
         if (p.state === "respawning") continue;
-        const d = Math.hypot(p.x - b.x, p.y - b.y);
+        const d = hyp2(p.x - b.x, p.y - b.y);
         if (d < td) { td = d; tgt = p; }
     }
     if (!tgt && b.targetId) {
         const attacker = st.pets.find((p) => p.id === b.targetId && p.state !== "respawning");
         if (attacker) {
-            const d = Math.hypot(attacker.x - b.x, attacker.y - b.y);
+            const d = hyp2(attacker.x - b.x, attacker.y - b.y);
             if (d < WARDEN_LEASH + 1.5) { tgt = attacker; td = d; }
         }
     }
@@ -1474,7 +1498,7 @@ function bossTick(st: WfState) {
             st.events.push({ t: st.t, type: "wardenslam", x: quant(b.x), y: quant(b.y) });
             for (const p of st.pets) {
                 if (p.state === "respawning") continue;
-                if (Math.hypot(p.x - b.x, p.y - b.y) <= WARDEN_SLAM_R) {
+                if (hyp2(p.x - b.x, p.y - b.y) <= WARDEN_SLAM_R) {
                     let dmg = Math.round(WARDEN_SLAM * (100 / (100 + p.def)));
                     if (p.shieldHp > 0) { const soak = Math.min(p.shieldHp, dmg); p.shieldHp -= soak; dmg -= soak; }
                     p.hp = Math.max(0, p.hp - dmg);
@@ -1499,9 +1523,9 @@ function bossTick(st: WfState) {
         // sticks and the fight always reads as "we're wearing it down".
         if (b.calmTicks > WARFRONT_TPS * 6 && b.hp < WARDEN_HP) b.hp = Math.min(WARDEN_HP, b.hp + 8);
         const ang = (st.t / WARFRONT_TPS) * 0.22;
-        const hx = WF_LAIR.x + Math.cos(ang) * 1.35, hy = WF_LAIR.y + Math.sin(ang) * 1.05;
+        const hx = WF_LAIR.x + dcos(ang) * 1.35, hy = WF_LAIR.y + dsin(ang) * 1.05;
         const dx = hx - b.x, dy = hy - b.y;
-        const d = Math.hypot(dx, dy);
+        const d = hyp2(dx, dy);
         if (d > 0.05) {
             const step = Math.min(0.65 / WARFRONT_TPS, d);
             b.x += (dx / d) * step; b.y += (dy / d) * step;
@@ -1571,7 +1595,7 @@ function miniTick(st: WfState, m: WfMini) {
             // QUAKE lands — the telegraph was the wind-up.
             for (const q of st.pets) {
                 if (q.state === "respawning") continue;
-                if (Math.hypot(q.x - m.x, q.y - m.y) <= 2.7) miniStrike(st, m, q, 1.5);
+                if (hyp2(q.x - m.x, q.y - m.y) <= 2.7) miniStrike(st, m, q, 1.5);
             }
             st.events.push({ t: st.t, type: "bosssig", padIdx: m.padIdx, kind: "quakeland", x: quant(m.x), y: quant(m.y) });
         }
@@ -1585,7 +1609,7 @@ function miniTick(st: WfState, m: WfMini) {
     // that walks onto the den (camps sat idle ~94% of the match otherwise).
     // Provoked it chases wider; a home-leash keeps it from being kited off.
     const provoked = m.hp < MINI_HP;
-    const homeD = Math.hypot(m.x - m.homeX, m.y - m.homeY);
+    const homeD = hyp2(m.x - m.homeX, m.y - m.homeY);
     // In the Hollow Collapse the jungle stops mattering — camps must not pull
     // pets off the final base race (it was flipping a decisive match to a clock
     // verdict). They still bite minions and roar; they just don't divert pets.
@@ -1593,7 +1617,7 @@ function miniTick(st: WfState, m: WfMini) {
     let tgt: WfPet | null = null, td = aggroR;
     if (homeD < 8) for (const p of st.pets) {
         if (p.state === "respawning") continue;
-        const d = Math.hypot(p.x - m.x, p.y - m.y);
+        const d = hyp2(p.x - m.x, p.y - m.y);
         if (d < td) { td = d; tgt = p; }
     }
     if (tgt && m.sigCd <= 0) {
@@ -1608,7 +1632,7 @@ function miniTick(st: WfState, m: WfMini) {
             st.events.push({ t: st.t, type: "bosssig", padIdx: 1, kind: "shell", x: quant(m.x), y: quant(m.y) });
         } else if (m.padIdx === 2 && td > 1.3) {
             // BLINK behind the quarry.
-            const db = Math.hypot(tgt.x - m.x, tgt.y - m.y) || 1;
+            const db = hyp2(tgt.x - m.x, tgt.y - m.y) || 1;
             const bx = tgt.x + ((tgt.x - m.x) / db) * 1.1, by = tgt.y + ((tgt.y - m.y) / db) * 1.1;
             const [bc2, br2] = cellOf(bx, by);
             if (wfCellWalkable(bc2, br2)) { m.x = bx; m.y = by; }
@@ -1617,7 +1641,7 @@ function miniTick(st: WfState, m: WfMini) {
             // FLAME GOUT — a forward cone of fire.
             for (const q of st.pets) {
                 if (q.state === "respawning") continue;
-                if ((q.x - m.x) * m.faceX > 0 && Math.abs(q.y - m.y) < 2.2 && Math.hypot(q.x - m.x, q.y - m.y) < 3.4) miniStrike(st, m, q, 1.2);
+                if ((q.x - m.x) * m.faceX > 0 && Math.abs(q.y - m.y) < 2.2 && hyp2(q.x - m.x, q.y - m.y) < 3.4) miniStrike(st, m, q, 1.2);
             }
             st.events.push({ t: st.t, type: "bosssig", padIdx: 3, kind: "flame", x: quant(m.x), y: quant(m.y) });
         }
@@ -1630,7 +1654,7 @@ function miniTick(st: WfState, m: WfMini) {
         // the boss is visibly DOING something between pet fights.
         if (m.attackCd <= 0) {
             let mob: WfMob | null = null, mdd = 2.8;
-            for (const mm of st.mobs) { const d = Math.hypot(mm.x - m.x, mm.y - m.y); if (d < mdd) { mdd = d; mob = mm; } }
+            for (const mm of st.mobs) { const d = hyp2(mm.x - m.x, mm.y - m.y); if (d < mdd) { mdd = d; mob = mm; } }
             if (mob) {
                 m.attackCd = MINI_CD;
                 m.faceX = mob.x >= m.x ? 1 : -1;
@@ -1647,9 +1671,9 @@ function miniTick(st: WfState, m: WfMini) {
         }
         // Prowl a slow deterministic loop around the den (mask-checked).
         const ang = (st.t / WARFRONT_TPS) * 0.16 + m.padIdx * 1.9;
-        const gx2 = m.homeX + Math.cos(ang) * 1.5, gy2 = m.homeY + Math.sin(ang) * 1.1;
+        const gx2 = m.homeX + dcos(ang) * 1.5, gy2 = m.homeY + dsin(ang) * 1.1;
         const ddx = gx2 - m.x, ddy = gy2 - m.y;
-        const dd = Math.hypot(ddx, ddy);
+        const dd = hyp2(ddx, ddy);
         if (dd > 0.08) {
             const step = Math.min(0.7 / WARFRONT_TPS, dd);
             const nx2 = m.x + (ddx / dd) * step, ny2 = m.y + (ddy / dd) * step;
@@ -1753,7 +1777,7 @@ function mobsTick(st: WfState) {
         let foeMob: WfMob | null = null, fmd = 2.4;
         for (const q of st.mobs) {
             if (!hostileTo(q.side)) continue;
-            const d = Math.hypot(q.x - m.x, q.y - m.y);
+            const d = hyp2(q.x - m.x, q.y - m.y);
             if (d < fmd) { fmd = d; foeMob = q; }
         }
         if (foeMob) {
@@ -1774,7 +1798,7 @@ function mobsTick(st: WfState) {
         for (const pp of st.pets) {
             if (pp.state === "respawning") continue;
             if (m.side !== "hollow" && pp.team === m.side) continue;
-            const d = Math.hypot(pp.x - m.x, pp.y - m.y);
+            const d = hyp2(pp.x - m.x, pp.y - m.y);
             if (d < td) { td = d; tgt = pp; }
         }
         m.chaseId = tgt ? tgt.id : null;
@@ -1802,7 +1826,7 @@ function mobsTick(st: WfState) {
         let hitGuard = false;
         for (const gg of destGuards) {
             if (!gg.alive) continue;
-            if (Math.hypot(gg.x - m.x, gg.y - m.y) <= 1.3) {
+            if (hyp2(gg.x - m.x, gg.y - m.y) <= 1.3) {
                 if (m.attackCd <= 0) {
                     m.attackCd = MOB_CD;
                     gg.hp -= MOB_DMG_STRUCT * (m.elite ? 1.5 : 1) * suddenRamp(st);
@@ -1817,7 +1841,7 @@ function mobsTick(st: WfState) {
         let struckStructure = false;
         for (const [i, s] of destStatues.entries()) {
             if (!s.alive) continue;
-            const d = Math.hypot(s.x - m.x, s.y - m.y);
+            const d = hyp2(s.x - m.x, s.y - m.y);
             if (d <= 1.2) {
                 if (m.attackCd <= 0) {
                     m.attackCd = MOB_CD;
@@ -1836,7 +1860,7 @@ function mobsTick(st: WfState) {
         if (struckStructure) continue;
         const core = st.cores[m.toward];
         const exposed = !destStatues[0].alive && !destStatues[1].alive;
-        if (core.alive && exposed && Math.hypot(core.x - m.x, core.y - m.y) <= 1.2) {
+        if (core.alive && exposed && hyp2(core.x - m.x, core.y - m.y) <= 1.2) {
             if (m.attackCd <= 0) {
                 m.attackCd = MOB_CD;
                 core.hp -= MOB_DMG_STRUCT * (m.elite ? 1.5 : 1) * suddenRamp(st);
@@ -1854,7 +1878,7 @@ function mobsTick(st: WfState) {
         if (m.wpIdx < m.route.length) {
             const [wx, wy] = m.route[m.wpIdx];
             const dx = wx - m.x, dy = wy - m.y;
-            const d = Math.hypot(dx, dy);
+            const d = hyp2(dx, dy);
             if (d < 0.3) m.wpIdx++;
             else mobStep(m, (dx / d) * MOB_SPEED, (dy / d) * MOB_SPEED);
         }
@@ -1868,7 +1892,7 @@ function mobSeparation(st: WfState) {
             const a = st.mobs[i], b = st.mobs[j];
             if (a.side !== b.side) continue;
             const dx = b.x - a.x, dy = b.y - a.y;
-            const d = Math.hypot(dx, dy);
+            const d = hyp2(dx, dy);
             if (d > 1e-6 && d < 0.9) {
                 const push = (0.9 - d) * 0.35;
                 const nx = dx / d, ny = dy / d;
@@ -1885,7 +1909,7 @@ function separation(st: WfState) {
         for (let j = i + 1; j < live.length; j++) {
             const a = live[i], b = live[j];
             const dx = b.x - a.x, dy = b.y - a.y;
-            const d = Math.hypot(dx, dy);
+            const d = hyp2(dx, dy);
             if (d > 1e-6 && d < BODY_R * 2) {
                 const push = (BODY_R * 2 - d) * 0.5;
                 const nx = dx / d, ny = dy / d;
@@ -1968,7 +1992,7 @@ function tick(st: WfState) {
             for (const q of st.pets) {
                 if (q.team !== team || q.state === "respawning") continue;
                 alive++;
-                if (Math.hypot(q.x - cs.rally.x, q.y - cs.rally.y) < 4.5) together++;
+                if (hyp2(q.x - cs.rally.x, q.y - cs.rally.y) < 4.5) together++;
             }
             // The gate scales to who can actually show up, and a patience timer
             // breaks the huddle — waiting on a dead teammate froze whole squads.
@@ -1979,8 +2003,8 @@ function tick(st: WfState) {
         const core = st.cores[team];
         if (core.alive) {
             core.sinceHit++;
-            const foeNear = st.pets.some((p) => p.team !== team && p.state !== "respawning" && Math.hypot(p.x - core.x, p.y - core.y) < CORE_SAFE_RANGE)
-                || st.mobs.some((m) => m.toward === team && Math.hypot(m.x - core.x, m.y - core.y) < CORE_SAFE_RANGE);
+            const foeNear = st.pets.some((p) => p.team !== team && p.state !== "respawning" && hyp2(p.x - core.x, p.y - core.y) < CORE_SAFE_RANGE)
+                || st.mobs.some((m) => m.toward === team && hyp2(m.x - core.x, m.y - core.y) < CORE_SAFE_RANGE);
             // No regen during the Collapse — a besieged Seal must stay cracked.
             if (!foeNear && core.sinceHit > WARFRONT_TPS * 5 && st.t <= WARFRONT_TPS * WF_PHASE_SUDDEN) core.hp = Math.min(CORE_HP, core.hp + CORE_REGEN);
         }
@@ -2007,7 +2031,7 @@ function tick(st: WfState) {
         if (!wfCellWalkable(mc2, mr2)) {
             const [wc2, wr2] = nearestWalkableCell(m.x, m.y);
             const [wx2, wy2] = cellCenter(wc2, wr2);
-            const dd2 = Math.hypot(wx2 - m.x, wy2 - m.y) || 1;
+            const dd2 = hyp2(wx2 - m.x, wy2 - m.y) || 1;
             const s3 = Math.min(MOB_SPEED * 2, dd2);
             m.x += ((wx2 - m.x) / dd2) * s3; m.y += ((wy2 - m.y) / dd2) * s3;
         }
@@ -2018,7 +2042,7 @@ function tick(st: WfState) {
             // Ease (never snap) back onto legal ground.
             const [wc, wr] = nearestWalkableCell(p.x, p.y);
             const [wx2, wy2] = cellCenter(wc, wr);
-            const dd = Math.hypot(wx2 - p.x, wy2 - p.y) || 1;
+            const dd = hyp2(wx2 - p.x, wy2 - p.y) || 1;
             const s2 = Math.min(p.moveSpeed * 1.5, dd);
             p.x += ((wx2 - p.x) / dd) * s2; p.y += ((wy2 - p.y) / dd) * s2;
         }
@@ -2029,7 +2053,7 @@ function tick(st: WfState) {
         // Half-speed threshold + decay (not reset): boundary jitter in a body
         // jam produces the occasional "good" tick that must not clear the count.
         if (p.state === "move" && p.wantD > 0.6
-            && Math.hypot(p.x - p.lastX, p.y - p.lastY) < p.moveSpeed * 0.5) p.stuckTicks++;
+            && hyp2(p.x - p.lastX, p.y - p.lastY) < p.moveSpeed * 0.5) p.stuckTicks++;
         else p.stuckTicks = Math.max(0, p.stuckTicks - 2);
         p.lastX = p.x; p.lastY = p.y;
         p.wantD = 0;

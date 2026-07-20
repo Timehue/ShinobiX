@@ -86,9 +86,26 @@ let cine = read("lib/pet-duel-cinematic.ts")
     .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"');
 write("pet-duel-cinematic.ts", "lib/pet-duel-cinematic.ts", cine);
 
+// 7. Hollow Warfront sim → pet-warfront-{mask-baked,map,sim}.ts. The Warfront
+//    lane-war mode is SERVER-AUTHORITATIVE for its vs-AI reward: the reward
+//    endpoint re-runs this EXACT sim (Node/V8) to verify a browser's reported
+//    outcome. The sim meets the cross-engine determinism contract (no
+//    sin/cos/atan2/hypot — see its header), so any browser reproduces byte-for-
+//    byte on the server. Only import rewrites; ArenaRole/ArenaSlot are inlined.
+write("pet-warfront-mask-baked.ts", "lib/pet-warfront-mask-baked.ts", read("lib/pet-warfront-mask-baked.ts"));
+const wfMap = read("lib/pet-warfront-map.ts")
+    .replace(/from "\.\/pet-warfront-mask-baked"/g, 'from "./pet-warfront-mask-baked.js"');
+write("pet-warfront-map.ts", "lib/pet-warfront-map.ts", wfMap);
+const wfSim = read("lib/pet-warfront-sim.ts")
+    .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
+    .replace(/import type \{ ArenaRole, ArenaSlot \} from "\.\/pet-arena-sim";/,
+        'type ArenaRole = "defender" | "tracker" | "assassin" | "sage";\ninterface ArenaSlot { pet: Pet; role: ArenaRole; }')
+    .replace(/from "\.\/pet-warfront-map"/g, 'from "./pet-warfront-map.js"');
+write("pet-warfront-sim.ts", "lib/pet-warfront-sim.ts", wfSim);
+
 // Sanity: no client-only import paths may survive into the server copy.
-const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"'];
-for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts"]) {
+const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"'];
+for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
 }

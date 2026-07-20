@@ -112,7 +112,7 @@ function buildMask(): string {
     const stampPath = (pts: ReadonlyArray<readonly [number, number]>, halfW: number) => {
         for (let i = 0; i < pts.length - 1; i++) {
             const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
-            const len = Math.hypot(bx - ax, by - ay);
+            const len = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));   // deterministic (no Math.hypot — engine-varying)
             const steps = Math.max(1, Math.ceil(len / (Math.min(WF_CELL_X, WF_CELL_Y) * 0.5)));
             for (let s = 0; s <= steps; s++) {
                 const t = s / steps;
