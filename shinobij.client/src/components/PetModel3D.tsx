@@ -81,6 +81,7 @@ const ELEMENT_LIGHT: Record<string, string> = {
     Wind: "#5eead4",
     Lightning: "#fde047",
     Earth: "#d6a76a",
+    Shadow: "#a855f7",   // hollow/void creatures (Warfront hollow-spawn, Shadow-nature pets)
 };
 
 const ELEMENT_SURFACE: Record<string, { low: string; high: string; strength: number }> = {
@@ -89,6 +90,7 @@ const ELEMENT_SURFACE: Record<string, { low: string; high: string; strength: num
     Wind: { low: "#397c70", high: "#d0fff2", strength: 0.38 },
     Lightning: { low: "#675516", high: "#fff1a8", strength: 0.4 },
     Earth: { low: "#9a7950", high: "#d6ad79", strength: 0.65 },
+    Shadow: { low: "#1b1030", high: "#a855f7", strength: 0.62 },   // hollow-gate void scheme
 };
 
 let combatToonGradient: THREE.DataTexture | null = null;

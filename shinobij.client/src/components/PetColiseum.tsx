@@ -52,8 +52,9 @@ import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { SceneAmbience } from "./SceneAmbience";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
-import { petBloomEnabled, petArenaV2Enabled } from "../lib/pet-coliseum-flag";
+import { petBloomEnabled, petArenaV2Enabled, petArena3dEnabled } from "../lib/pet-coliseum-flag";
 import { petCombatModel } from "../lib/pet-3d-models";
+import { PetArena3DStage } from "./PetArena3DStage";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import { directPetDuelPresentation } from "../lib/pet-duel-stage-director";
 import { petVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
@@ -5458,6 +5459,18 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
         ...blue.map((s, i) => ({ id: `blue-${i}`, pet: s.pet })),
         ...red.map((s, i) => ({ id: `red-${i}`, pet: s.pet })),
     ], [blue, red]);
+    // TRUE-3D stage gate — same all-or-nothing rule as the duel's freeRoam3d:
+    // every fighter needs an approved GLB, else the classic diorama renders.
+    // Purely presentational (same sim/result either way).
+    const use3d = useMemo(() => petArena3dEnabled() && roster.every((r) => petCombatModel(r.pet) !== null), [roster]);
+    useEffect(() => {
+        if (!use3d) return;
+        // Fetch + parse the roster GLBs immediately so the Suspense capsule
+        // placeholders resolve into real models within the opening seconds.
+        import("../lib/pet-model-preload")
+            .then((m) => void m.preloadPetColiseumModels(roster.map((r) => r.pet)))
+            .catch(() => { /* preload is best-effort; Suspense still resolves on demand */ });
+    }, [use3d, roster]);
     const clock = useRef<DuelClock>({ t: 0, playing: true });
     const seqRef = useRef(0);
     const hitstop = useRef(0);
@@ -5545,7 +5558,23 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a" }}>
             <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes arenaFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes arenaFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes arenaBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-58%) scale(1)}}`}</style>
-            {/* The STAGE — backdrop + canvas + Html overlays — is one layer the action camera scales/pans as a unit (everything stays pixel-locked). HUD lives outside it. */}
+            {/* The STAGE. TRUE-3D mode (every pet has an approved GLB): the LoL-style
+                spectator scene owns its own camera/FX and receives the SAME director +
+                HUD frame-writers as children. Classic mode: backdrop + canvas + Html
+                overlays as one layer the CSS action camera scales/pans as a unit. */}
+            {use3d ? (
+                <div ref={stageRef} style={{ position: "absolute", inset: 0, transformOrigin: "0 0" }}>
+                    <PetArena3DStage result={result} roster={roster} clock={clock} shake={shake}>
+                        {(sp3d) => (
+                            <>
+                                <ArenaObjectiveHud result={result} clock={clock} textRef={objTextRef} barWrapRef={objBarWrapRef} barRef={objBarRef} />
+                                <ArenaV2Hud result={result} clock={clock} momBlueRef={momBlueRef} momRedRef={momRedRef} odBlueRef={odBlueRef} odRedRef={odRedRef} />
+                                <ArenaDirector result={result} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnFx={sp3d.spawnFx} spawnShot={sp3d.spawnShot} spawnFloater={sp3d.spawnFloater} spawnDecal={sp3d.spawnDecal} pushFeed={pushFeed} triggerHitstop={triggerHitstop} triggerShake={triggerShake} triggerSlowmo={triggerSlowmo} triggerFlash={triggerFlash} pushBanner={pushBanner} nameOf={nameOf} setScore={setScore} />
+                            </>
+                        )}
+                    </PetArena3DStage>
+                </div>
+            ) : (
             <div ref={stageRef} style={{ position: "absolute", inset: 0, backgroundImage: `url(${DIORAMA_URL})`, backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat", transformOrigin: "0 0", willChange: "transform" }}>
                 <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
                     <StageCamera fit="contain" />
@@ -5569,6 +5598,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                     <BloomFx />
                 </Canvas>
             </div>
+            )}
 
             {/* Screen wash on captures — a team-colored EDGE vignette (cinematic, not a blinding full flash) */}
             {flash && <div key={flash.id} style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at center, transparent 38%, ${flash.color} 100%)`, pointerEvents: "none", animation: "arenaFlash 0.4s ease-out forwards", mixBlendMode: "screen" }} />}
@@ -5612,7 +5642,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                 <button onClick={onExit} style={duelBtn}>✕ Exit</button>
                 <button onClick={replay} style={duelBtn}>⟲ Replay</button>
             </div>
-            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>🏟️ Arena{arenaV2 ? " V2" : ""}{arenaV2 && result.modifier !== "standard" ? ` · ${MODIFIER_LABEL[result.modifier] ?? result.modifier}` : ""} (beta)</div>
+            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>🏟️ Arena{arenaV2 ? " V2" : ""}{use3d ? " · 3D" : ""}{arenaV2 && result.modifier !== "standard" ? ` · ${MODIFIER_LABEL[result.modifier] ?? result.modifier}` : ""} (beta)</div>
 
             {ended && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
