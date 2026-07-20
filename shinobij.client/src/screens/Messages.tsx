@@ -8,6 +8,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { EmptyState } from "../components/ui/EmptyState";
+import { ReportControl } from "../components/ReportControl";
 import type { Character } from "../types/character";
 import { refreshUnreadMail } from "../lib/mail-unread";
 
@@ -99,7 +100,10 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
             {active ? (
                 <div className="summary-box" style={{ display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                        <strong style={{ color: "#fbbf24" }}>{active}</strong>
+                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <strong style={{ color: "#fbbf24" }}>{active}</strong>
+                            <ReportControl targetType="player" targetName={active} context="direct-message" />
+                        </span>
                         <button onClick={() => { setActive(null); setError(""); void loadInbox(); }}>← Inbox</button>
                     </div>
                     <div ref={threadRef} style={{ maxHeight: "50vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }}>

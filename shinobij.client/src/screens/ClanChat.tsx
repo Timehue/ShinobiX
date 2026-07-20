@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { fetchClanChat, sendClanChat, type ClanChatMessage } from "../lib/clan-chat-api";
+import { ReportControl } from "../components/ReportControl";
 
 const CHAT_KEEP = 50;
 
@@ -66,6 +67,9 @@ export function ClanChat({ playerName, clan }: { playerName: string; clan: strin
                         <div key={m.id} className={`clan-chat-msg${m.name === playerName ? " self" : ""}`}>
                             <span className="clan-chat-name">{m.name}</span>
                             <span className="clan-chat-text">{m.text}</span>
+                            {m.name !== playerName && (
+                                <ReportControl targetType="clan-chat" targetName={m.name} targetId={m.id} context="clan-chat" style={{ marginLeft: "auto" }} />
+                            )}
                         </div>
                     ))}
             </div>
