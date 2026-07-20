@@ -5985,7 +5985,7 @@ function DuelElementSetPiece({ kind, from, to, color, quality, onDone }: {
     );
 }
 
-const TSUNAMI_VERTEX = `
+const _TSUNAMI_VERTEX = `
 varying vec2 vUv;
 uniform float uTime;
 uniform float uBuild;
@@ -6000,7 +6000,7 @@ void main() {
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
 }`;
 
-const TSUNAMI_FRAGMENT = `
+const _TSUNAMI_FRAGMENT = `
 varying vec2 vUv;
 uniform float uTime;
 uniform float uOpacity;
@@ -6060,7 +6060,7 @@ void main() {
 /** Thin flow lines sit on the water shell and make its direction readable.
  * They are accents only—the old large-radius tubes became separate rainbow-like
  * arches and made the attack feel assembled instead of like one body of water. */
-function makeTsunamiFlowLineGeometry(index: number, count: number): THREE.TubeGeometry {
+function _makeTsunamiFlowLineGeometry(index: number, count: number): THREE.TubeGeometry {
     const layer = count <= 1 ? 0 : index / (count - 1);
     const width = 5.35 - layer * 0.34;
     const points = Array.from({ length: 29 }, (_, pointIndex) => {
@@ -6081,7 +6081,7 @@ function makeTsunamiFlowLineGeometry(index: number, count: number): THREE.TubeGe
 /** Vertical C-shaped ribs reveal the overhanging lip even in the high broadcast
  * camera. They sit inside the translucent shell, so they read as moving currents
  * rather than a wireframe laid over the effect. */
-function makeTsunamiCurlRibGeometry(index: number, count: number): THREE.TubeGeometry {
+function _makeTsunamiCurlRibGeometry(index: number, count: number): THREE.TubeGeometry {
     const across = count <= 1 ? 0 : index / (count - 1);
     const x = lerp(-2.62, 2.62, across);
     const edge = Math.sin(across * Math.PI);
@@ -6098,7 +6098,7 @@ function makeTsunamiCurlRibGeometry(index: number, count: number): THREE.TubeGeo
     return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 48, 0.045 + edge * 0.018, 6, false);
 }
 
-function makeTsunamiVolumeGeometry(width: number, height: number, depth: number, xSegments: number, ySegments: number): THREE.BufferGeometry {
+function _makeTsunamiVolumeGeometry(width: number, height: number, depth: number, xSegments: number, ySegments: number): THREE.BufferGeometry {
     const positions: number[] = [];
     const uvs: number[] = [];
     const indices: number[] = [];

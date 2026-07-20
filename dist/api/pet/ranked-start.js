@@ -51,7 +51,13 @@ async function handler(req, res) {
         const me = identity.name;
         const opponent = (0, _utils_js_1.safeName)(typeof body.opponentName === 'string' ? body.opponentName : '');
         const petId = typeof body.petId === 'string' ? body.petId.slice(0, 64) : '';
-        const seed = Math.floor(Number(body.seed));
+        // Seed is minted SERVER-SIDE (never from the body). The duel is
+        // deterministic given (aPet, bPet, seed), so a client-supplied seed would
+        // let a challenger grind offline for one that yields their win and submit
+        // only that. Matches pet-ladder / gauntlet / arena, which all mint the
+        // seed with crypto.randomInt. Returned below so the client mirrors the
+        // same duel animation.
+        const seed = (0, crypto_1.randomInt)(1, 2 ** 31);
         if (!opponent)
             return res.status(400).json({ error: 'Missing opponentName.' });
         if (opponent === me)
@@ -81,10 +87,10 @@ async function handler(req, res) {
             bRating: petRatingOf(oppSave),
             aPet: myPet,
             bPet: oppPet,
-            seed: Number.isSafeInteger(seed) ? seed : Date.now(),
+            seed,
             createdAt: Date.now(),
         }, { ex: TOKEN_TTL_SECONDS });
-        return res.status(200).json({ ok: true, matchToken: token, opponentName: opponent });
+        return res.status(200).json({ ok: true, matchToken: token, opponentName: opponent, seed });
     }
     catch (err) {
         console.error('[pet/ranked-start]', err);

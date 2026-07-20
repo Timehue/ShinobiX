@@ -1,12 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.STORY_LEVELS = void 0;
+exports.LIBERATOR_TITLES = exports.STORY_REWARDS = exports.STORY_LEVELS = void 0;
 exports.storyOpponentId = storyOpponentId;
 exports.applyAcademySparSettlement = applyAcademySparSettlement;
 exports.applyStoryBossSettlement = applyStoryBossSettlement;
 const _xp_engine_js_1 = require("../_xp-engine.js");
 exports.STORY_LEVELS = [4, 15, 25, 35, 50, 65, 75, 85, 100];
-const STORY_REWARDS = [
+exports.STORY_REWARDS = [
     { xp: 120, ryo: 75 },
     { xp: 500, ryo: 250 },
     { xp: 900, ryo: 500 },
@@ -17,7 +17,7 @@ const STORY_REWARDS = [
     { xp: 6200, ryo: 4000 },
     { xp: 10000, ryo: 7500 },
 ];
-const LIBERATOR_TITLES = {
+exports.LIBERATOR_TITLES = {
     'Stormveil Village': 'Stormbreaker',
     'Ashen Leaf Village': 'Root Liberator',
     'Frostfang Village': 'Oathbreaker',
@@ -59,19 +59,19 @@ function applyStoryBossSettlement(character, token, survivingHpRaw) {
     if (playerLevel < levelReq)
         return { ok: false, status: 403, error: `Story milestone requires level ${levelReq}.` };
     const village = typeof character.village === 'string' ? character.village : '';
-    if (!LIBERATOR_TITLES[village])
+    if (!exports.LIBERATOR_TITLES[village])
         return { ok: false, status: 409, error: 'Player village has no story catalog.' };
     if (token.opponentId !== storyOpponentId(village, levelReq)) {
         return { ok: false, status: 409, error: 'AI fight token does not match the current story boss.' };
     }
-    const reward = STORY_REWARDS[progress];
+    const reward = exports.STORY_REWARDS[progress];
     const leveled = (0, _xp_engine_js_1.gainXp)(character, reward.xp);
     const maxHp = Math.max(1, Number(leveled.maxHp) || 1);
     const maxStamina = Math.max(0, Number(leveled.maxStamina) || 0);
     const maxChakra = Math.max(0, Number(leveled.maxChakra) || 0);
     const survivingHp = Math.max(0, Math.min(maxHp, Number(survivingHpRaw) || 0));
     const finale = progress === exports.STORY_LEVELS.length - 1;
-    const title = finale ? LIBERATOR_TITLES[village] : undefined;
+    const title = finale ? exports.LIBERATOR_TITLES[village] : undefined;
     const inventory = Array.isArray(leveled.inventory)
         ? leveled.inventory.filter((id) => typeof id === 'string')
         : [];
