@@ -356,6 +356,13 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false }: {
                 <div className="cc-layout">
                     <main className="cc-stage">
                         {renderStep()}
+                        {step === "identity" && (
+                            <p className="cc-legal-consent">
+                                By creating your shinobi, you confirm you are at least 13 years old and agree to the{" "}
+                                <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> and{" "}
+                                <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+                            </p>
+                        )}
                         <div className="cc-actions">
                             {stepIndex > 0 && (
                                 <button type="button" className="cc-secondary" onClick={previousStep}>
