@@ -1,30 +1,15 @@
 import type { Character } from "../types/character";
-import type { Screen } from "../types/core";
-import { shouldShowScreenContextHeader } from "../lib/screen-context";
-import { STUDIO_SCREEN_PRESENTATION } from "../lib/studio-screen-presentation";
 import { MobileStatusHUD } from "./MobileStatusHUD";
-import { ScreenContextHeader } from "./ScreenContextHeader";
 
+// The mobile-only status HUD (HP/chakra/stamina + back control). The shared
+// "screen context" banner that used to render here was removed: it duplicated
+// each page's own heading and added little navigation value.
 export function ScreenTopChrome({
   character,
   onBack,
-  screen,
 }: {
   character: Character;
   onBack?: () => void;
-  screen: Screen;
 }) {
-  const presentation = STUDIO_SCREEN_PRESENTATION[screen];
-  const showContext = Boolean(presentation.facility) || shouldShowScreenContextHeader(screen);
-
-  return (
-    <>
-      <MobileStatusHUD character={character} onBack={onBack} />
-      {showContext && (
-        <div className="screen-context-shell">
-          <ScreenContextHeader screen={screen} village={character.village} />
-        </div>
-      )}
-    </>
-  );
+  return <MobileStatusHUD character={character} onBack={onBack} />;
 }
