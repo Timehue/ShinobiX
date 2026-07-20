@@ -172,6 +172,30 @@ export function setPetColiseumCinematicEnabled(on: boolean): void {
  * the sim's own default is still v2=false so its golden/back-compat tests stay green.
  * Per-device persisted.
  */
+/*
+ * Tactical Arena TRUE-3D stage (PetArena3DStage) — the LoL-style spectator
+ * renderer: approved roster GLBs on a walkmask-generated 3D floor with a
+ * pitched broadcast follow-camera + corner PiP chase cam. Applies only when
+ * EVERY pet in the match has an approved 3D model (petCombatModel) — otherwise
+ * the match falls back to the classic top-down diorama regardless of this flag.
+ * Purely presentational: the deterministic sim, seed, rewards and replays are
+ * identical either way, so flipping this is always safe. DEFAULT ON; instant
+ * rollback with localStorage.setItem("petArena3d.v1","0"). Per-device persisted.
+ */
+const ARENA_3D_KEY = "petArena3d.v1";
+
+export function petArena3dEnabled(): boolean {
+    try {
+        const v = localStorage.getItem(ARENA_3D_KEY);
+        if (v === "0") return false;   // explicit kill-switch → classic diorama stage
+        return true;                   // DEFAULT ON — the true-3D stage is the Tactical Arena
+    } catch { return true; }
+}
+
+export function setPetArena3dEnabled(on: boolean): void {
+    try { localStorage.setItem(ARENA_3D_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}
+
 const ARENA_V2_KEY = "petArenaV2.v1";
 
 export function petArenaV2Enabled(): boolean {
