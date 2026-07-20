@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { runWarfrontMatch as serverRun } from "../api/_pet-sim/pet-warfront-sim";
-import { runWarfrontMatch as clientRun } from "../shinobij.client/src/lib/pet-warfront-sim";
+import { runWarfrontMatch as clientRun, startWarfrontMatch } from "../shinobij.client/src/lib/pet-warfront-sim";
+import type { WfBuyPolicy, WfStance } from "../shinobij.client/src/lib/pet-warfront-sim";
 import type { Pet } from "../shinobij.client/src/types/pet";
 import type { ArenaRole, ArenaSlot } from "../shinobij.client/src/lib/pet-arena-sim";
 
@@ -53,5 +54,31 @@ test("server Warfront parity holds across buy policies and forced stances", () =
             digest(clientRun(squad("A"), squad("B"), 55, "balanced", "balanced", undefined, { blue: stance, red: "balanced", adapt: false })),
             `stance parity drift @ ${stance}`,
         );
+    }
+});
+
+// THE LINCHPIN for a seamless server-auth reward: the client RENDERS the match
+// via the STREAMED advanceRoundPartial (chunked, so the 3D playback never
+// freezes), but the reward server runs the FULL-AUTO runWarfrontMatch. If those
+// two ever disagreed, a player would watch a win the server scored as a loss.
+// This proves they are byte-identical — exactly the render path (autobuy, blue
+// stance, adaptive red, default theme) the reward endpoint mirrors.
+function streamedRender(blue: ArenaSlot[], red: ArenaSlot[], seed: number, policy: WfBuyPolicy, stance: WfStance) {
+    const ctl = startWarfrontMatch(blue, red, seed, { bluePolicy: policy, redPolicy: "balanced", blueStance: stance });
+    let guard = 0;
+    while (!ctl.done && guard++ < 100000) ctl.advanceRoundPartial(70);   // ~renderer chunk size
+    return ctl.result;
+}
+test("streamed render path === full-auto server path (autobuy, all policies + stances)", () => {
+    for (const seed of [3, 29, 404]) {
+        for (const policy of ["balanced", "offense", "defense"] as const) {
+            for (const stance of ["balanced", "siege", "jungle", "headhunt", "turtle"] as const) {
+                assert.equal(
+                    digest(streamedRender(squad("A"), squad("B"), seed, policy, stance)),
+                    digest(serverRun(squad("A"), squad("B"), seed, policy, "balanced", undefined, { blue: stance })),
+                    `stream/full drift @ seed ${seed} ${policy}/${stance} — reward would mismatch the render`,
+                );
+            }
+        }
     }
 });
