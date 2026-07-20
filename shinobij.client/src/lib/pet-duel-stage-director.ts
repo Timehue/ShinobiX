@@ -44,6 +44,11 @@ const RECOIL_TICKS = Math.round(DUEL_TPS * 0.34);
 const DODGE_TICKS = Math.round(DUEL_TPS * 0.44);
 const RECOVERY_TICKS = Math.round(DUEL_TPS * 0.3);
 const WINDUP_LOOKAHEAD = Math.round(DUEL_TPS * 1.35);
+// Melee travel begins well before contact. At the old 0.25-0.30 s lead, even a
+// continuous route crossed the screen in too few rendered poses and therefore
+// read as a teleport. Contact timing and combat truth remain unchanged.
+const MELEE_DASH_LEAD = Math.round(DUEL_TPS * 0.44);
+const MELEE_FALLBACK_LEAD = Math.round(DUEL_TPS * 0.4);
 // At 30 simulation ticks per second this is still a very fast anime burst, but
 // it remains a visible crossing rather than covering half the arena in one frame.
 // Leave enough authored samples for feet, turns and elemental wakes to read at
@@ -324,7 +329,7 @@ function buildTracks(result: DuelResult, ids: { player: string; enemy: string })
             addState(foe, event.t, Math.max(event.t + 4, resolveTick - 5), "idle", 18);
             if (resolve?.type === "hit" && !resolve.ranged) {
                 const targetAtResolve = trackPosition(foe, resolveTick);
-                addMove(actor, resolveTick - Math.round(DUEL_TPS * 0.3), resolveTick, contactPoint(actorAt, targetAtResolve, 2.45), "dash", 52);
+                addMove(actor, resolveTick - MELEE_DASH_LEAD, resolveTick, contactPoint(actorAt, targetAtResolve, 2.45), "dash", 52);
             }
             return;
         }
@@ -349,7 +354,7 @@ function buildTracks(result: DuelResult, ids: { player: string; enemy: string })
             const hitActor = trackPosition(actor, event.t);
             const hitFoe = trackPosition(foe, event.t);
             if (!event.ranged && distance(hitActor, hitFoe) > 2.7) {
-                addMove(actor, event.t - Math.round(DUEL_TPS * 0.25), event.t, contactPoint(hitActor, hitFoe, 2.35), "dash", 55);
+                addMove(actor, event.t - MELEE_FALLBACK_LEAD, event.t, contactPoint(hitActor, hitFoe, 2.35), "dash", 55);
             }
             addState(actor, event.t - 2, event.t + 4, "strike", 80);
             addState(actor, event.t + 5, event.t + 5 + RECOVERY_TICKS, "recover", 74);
