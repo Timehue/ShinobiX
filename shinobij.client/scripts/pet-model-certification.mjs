@@ -8,6 +8,19 @@ const modelRoot = resolve(clientRoot, "public/pet-models");
 const rosterRoot = resolve(modelRoot, "roster");
 const outputRoot = resolve(clientRoot, ".tmp/pet-model-certification");
 const expectedClips = new Set(["attack", "death", "gallop", "gallop_jump", "idle", "idle_2", "idle_hitreact1", "walk"]);
+// These approved silhouettes intentionally do not assign visible geometry to
+// the generic tail chain. Solar Stag still has a complete short tail, but its
+// source rig weights that small tuft to the pelvis; the other forms are
+// anatomically tailless or use wings/abdomen rather than a mammal tail.
+const tailWeightExceptions = new Map([
+    ["standard-13", "Iron Beetle: tailless insect silhouette"],
+    ["standard-27", "Cinder Moth: wing-and-abdomen silhouette"],
+    ["standard-31", "Pebble Crab: tailless crustacean silhouette"],
+    ["rare-13", "Steel Beetle: tailless insect silhouette"],
+    ["rare-20", "Bamboo Ape: tailless ape silhouette"],
+    ["legendary-27", "Titan Golem: tailless construct silhouette"],
+    ["mythic-3", "Solar Stag: visible short tail is pelvis-weighted in the approved source rig"],
+]);
 
 const componentBytes = new Map([[5120, 1], [5121, 1], [5122, 2], [5123, 2], [5125, 4], [5126, 4]]);
 const componentReaders = new Map([
@@ -78,7 +91,7 @@ function unionFind(size) {
     return { find, union };
 }
 
-function geometryMetrics(glb, id, requireRig) {
+function geometryMetrics(glb, id, requireRig, minimumVertices = 8_000) {
     invariant(glb.json.meshes?.length === 1, `${id}: expected one pet mesh`);
     const primitive = glb.json.meshes[0]?.primitives?.[0];
     invariant(glb.json.meshes[0]?.primitives?.length === 1 && primitive, `${id}: loose or multiple primitives found`);
@@ -90,7 +103,7 @@ function geometryMetrics(glb, id, requireRig) {
     const meshoptCompressed = (positionView?.buffer ?? 0) !== 0 || (indexView?.buffer ?? 0) !== 0
         || Boolean(positionView?.extensions?.EXT_meshopt_compression || indexView?.extensions?.EXT_meshopt_compression);
     if (meshoptCompressed) {
-        invariant(positionAccessor.count >= 8_000 && positionAccessor.count <= 60_000, `${id}: unreasonable vertex budget`);
+        invariant(positionAccessor.count >= minimumVertices && positionAccessor.count <= 60_000, `${id}: unreasonable vertex budget`);
         invariant(indexAccessor.count % 3 === 0, `${id}: index count is not triangular`);
         invariant(Array.isArray(positionAccessor.min) && Array.isArray(positionAccessor.max), `${id}: compressed bounds metadata missing`);
         const divisor = positionAccessor.normalized && positionAccessor.componentType === 5122 ? 32767 : 1;
@@ -108,12 +121,13 @@ function geometryMetrics(glb, id, requireRig) {
             possibleDuplicateAnatomy: false,
             validWeightRatio: null,
             maxJoint: null,
+            tailWeightedVertexRatio: null,
             compressed: true,
         };
     }
     const positions = accessorReader(glb, primitive.attributes?.POSITION);
     const indices = accessorReader(glb, primitive.indices);
-    invariant(positions.accessor.count >= 8_000 && positions.accessor.count <= 60_000, `${id}: unreasonable vertex budget`);
+    invariant(positions.accessor.count >= minimumVertices && positions.accessor.count <= 60_000, `${id}: unreasonable vertex budget`);
     invariant(indices.accessor.count % 3 === 0, `${id}: index count is not triangular`);
     const bounds = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
     for (let index = 0; index < positions.accessor.count; index += 1) {
@@ -155,6 +169,7 @@ function geometryMetrics(glb, id, requireRig) {
 
     let validWeightRatio = null;
     let maxJoint = null;
+    let tailWeightedVertexRatio = null;
     if (requireRig) {
         invariant(glb.json.skins?.length === 1, `${id}: production skeleton missing`);
         invariant(glb.json.animations?.length === 8, `${id}: reviewed eight-clip set missing`);
@@ -162,17 +177,27 @@ function geometryMetrics(glb, id, requireRig) {
         invariant([...expectedClips].every((name) => clipNames.has(name)), `${id}: required animation clip missing`);
         const weights = accessorReader(glb, primitive.attributes?.WEIGHTS_0);
         const joints = accessorReader(glb, primitive.attributes?.JOINTS_0);
+        const tailJointSlots = new Set(glb.json.skins[0].joints
+            .map((nodeIndex, slot) => /tail/i.test(glb.json.nodes?.[nodeIndex]?.name ?? "") ? slot : -1)
+            .filter((slot) => slot >= 0));
         let validWeights = 0;
+        let tailWeightedVertices = 0;
         maxJoint = 0;
         for (let index = 0; index < positions.accessor.count; index += 1) {
             let sum = 0;
+            let tailWeight = 0;
             for (let component = 0; component < 4; component += 1) {
-                sum += normalizeWeight(weights.value(index, component), weights.accessor.componentType, weights.accessor.normalized);
-                maxJoint = Math.max(maxJoint, joints.value(index, component));
+                const weight = normalizeWeight(weights.value(index, component), weights.accessor.componentType, weights.accessor.normalized);
+                const joint = joints.value(index, component);
+                sum += weight;
+                if (tailJointSlots.has(joint)) tailWeight += weight;
+                maxJoint = Math.max(maxJoint, joint);
             }
             if (sum >= 0.94 && sum <= 1.06) validWeights += 1;
+            if (tailWeight >= 0.05) tailWeightedVertices += 1;
         }
         validWeightRatio = validWeights / positions.accessor.count;
+        tailWeightedVertexRatio = tailWeightedVertices / positions.accessor.count;
         invariant(validWeightRatio >= 0.995, `${id}: ${((1 - validWeightRatio) * 100).toFixed(2)}% of vertices have invalid skin weights`);
         invariant(maxJoint < glb.json.skins[0].joints.length, `${id}: skin references a missing bone`);
     }
@@ -187,6 +212,7 @@ function geometryMetrics(glb, id, requireRig) {
         possibleDuplicateAnatomy: (componentTriangles[1] ?? 0) / triangleCount >= 0.09,
         validWeightRatio,
         maxJoint,
+        tailWeightedVertexRatio: tailWeightedVertexRatio === null ? null : Number(tailWeightedVertexRatio.toFixed(4)),
     };
 }
 
@@ -236,7 +262,7 @@ async function colorMetrics(payload, id, minimumBytes) {
     };
 }
 
-async function auditGlb(path, { requireRig, minimumAtlasBytes }) {
+async function auditGlb(path, { requireRig, minimumAtlasBytes, minimumVertices = 8_000 }) {
     const id = basename(path, ".glb");
     const file = await readFile(path);
     const glb = parseGlb(file, id);
@@ -247,7 +273,7 @@ async function auditGlb(path, { requireRig, minimumAtlasBytes }) {
     return {
         id,
         fileBytes: file.byteLength,
-        geometry: geometryMetrics(glb, id, requireRig),
+        geometry: geometryMetrics(glb, id, requireRig, minimumVertices),
         color: await colorMetrics(await embeddedImage(glb, id), id, minimumAtlasBytes),
     };
 }
@@ -291,7 +317,10 @@ async function main() {
     const roster = [];
     const starters = [];
     for (const file of rosterFiles) roster.push(await auditGlb(resolve(rosterRoot, file), { requireRig: true, minimumAtlasBytes: 250_000 }));
-    for (const file of starterGlbAssets) starters.push(await auditGlb(resolve(modelRoot, file), { requireRig: false, minimumAtlasBytes: 4_000 }));
+    // Starter forms are deliberately leaner than the rigged 140-pet roster for
+    // mobile combat. Keep the roster's 8k production floor while allowing the
+    // reviewed low-poly Selkie silhouette to certify at 6k+ vertices.
+    for (const file of starterGlbAssets) starters.push(await auditGlb(resolve(modelRoot, file), { requireRig: false, minimumAtlasBytes: 4_000, minimumVertices: 6_000 }));
     const report = {
         generatedAt: new Date().toISOString(),
         productionVisualForms: 150,
@@ -303,10 +332,15 @@ async function main() {
         retiredSourceImports: ["starter-earth-l.glb", "starter-fire-l.glb", "starter-fire-r.glb"],
         emberWolf: await auditEmberWolf(),
         possibleDuplicateAnatomy: roster.filter((entry) => entry.geometry.possibleDuplicateAnatomy).map((entry) => ({ id: entry.id, dominantComponentRatio: entry.geometry.dominantComponentRatio, secondComponentRatio: entry.geometry.secondComponentRatio })),
+        tailAnatomyExceptions: [...tailWeightExceptions].map(([id, reason]) => ({ id, reason })),
+        unexpectedMissingTailWeights: roster
+            .filter((entry) => entry.geometry.tailWeightedVertexRatio === 0 && !tailWeightExceptions.has(entry.id))
+            .map((entry) => entry.id),
     };
     await mkdir(outputRoot, { recursive: true });
     await writeFile(resolve(outputRoot, "structural-audit.json"), `${JSON.stringify(report, null, 2)}\n`);
     invariant(report.possibleDuplicateAnatomy.length === 0, `possible duplicate anatomy remains in: ${report.possibleDuplicateAnatomy.map((entry) => entry.id).join(", ")}`);
+    invariant(report.unexpectedMissingTailWeights.length === 0, `unexpected missing tail-weighted anatomy remains in: ${report.unexpectedMissingTailWeights.join(", ")}`);
     console.log(`Certified ${report.productionVisualForms} visual forms across ${report.distinctProductionAssets} production assets.`);
     console.log(`${report.possibleDuplicateAnatomy.length} assets require explicit multi-angle silhouette review.`);
     console.log(`Report: ${resolve(outputRoot, "structural-audit.json")}`);
