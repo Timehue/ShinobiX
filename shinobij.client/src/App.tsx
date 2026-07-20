@@ -7343,7 +7343,7 @@ export default function App() {
                 {character && screen !== "start" && !hideBattleChrome && (
                     <Suspense fallback={null}>
                     <ScreenTopChrome
-                        character={character} screen={screen}
+                        character={character}
                         onBack={canGoBack ? goBack : undefined}
                     />
                     </Suspense>
