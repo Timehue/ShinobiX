@@ -1630,7 +1630,9 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
     const isPet = (id: string) => id.startsWith("blue-") || id.startsWith("red-");
     useFrame(() => {
         const cur = Math.floor(clockRef.current.t);
-        if (cur < lastTick.current) { lastTick.current = -1; firstBlood.current = false; sprees.current.clear(); siegeWarned.current.clear(); }
+        // Rewind (replay) resets ALL director-local memory — including `ended`,
+        // which otherwise stayed true and stopped onEnd() from firing on replay.
+        if (cur < lastTick.current) { lastTick.current = -1; firstBlood.current = false; sprees.current.clear(); siegeWarned.current.clear(); ended.current = false; }
         // The director orders a camera cut to a story beat; higher priority (or
         // an expired story) always wins the slot.
         const cut = (t: number, x: number, z: number, span: number, prio: number, secs: number) => {
