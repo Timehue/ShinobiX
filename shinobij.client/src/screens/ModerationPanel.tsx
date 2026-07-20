@@ -33,11 +33,18 @@ type ModSnapshot = {
     silence?: ModSilenceRecord | null;
 };
 type ModChatMessage = { author: string; text: string; ts: number; rank?: string; level?: number };
+type ModReport = {
+    id: string; createdAt: number; reporter: string;
+    targetType: string; category: string;
+    targetName: string | null; targetId: string | null;
+    context: string | null; note: string | null; status: string;
+};
 
 export function ModerationPanel({ adminPw }: { adminPw: string }) {
     const [bans, setBans] = useState<Array<{ name: string; record: ModBanRecord }>>([]);
     const [silences, setSilences] = useState<Array<{ name: string; record: ModSilenceRecord }>>([]);
     const [audit, setAudit] = useState<ModAuditEntry[]>([]);
+    const [reports, setReports] = useState<ModReport[]>([]);
     const [searchName, setSearchName] = useState("");
     const [searchSignal, setSearchSignal] = useState("");
     const [signalKind, setSignalKind] = useState<"ip" | "fp">("ip");
@@ -66,9 +73,27 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
         } catch (e) {
             setStatus(`❌ ${(e as Error).message}`);
         }
+        // Player-submitted reports live in their own store (api/report.ts);
+        // best-effort so a report-store hiccup never blanks the whole panel.
+        try {
+            const rr = await fetch("/api/report", { method: "GET", headers: { "x-admin-password": adminPw } });
+            if (rr.ok) { const rd = await rr.json(); setReports(Array.isArray(rd.reports) ? rd.reports : []); }
+        } catch { /* non-fatal */ }
     }, [adminPw]);
 
     useEffect(() => { void refresh(); }, [refresh]);
+
+    async function resolveReport(id: string) {
+        setLoading(true);
+        try {
+            await fetch("/api/report", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+                body: JSON.stringify({ id }),
+            });
+        } catch { /* ignore — refresh reflects the true state */ }
+        finally { setLoading(false); await refresh(); }
+    }
 
     async function modAction(kind: string, body: Record<string, unknown>) {
         if (!adminPw) { setStatus("❌ Admin password missing."); return; }
@@ -386,6 +411,33 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
                         }
                     </div>
                 )}
+            </section>
+
+            <section className="summary-box">
+                <h3>🚩 Player Reports ({reports.length})</h3>
+                {reports.length === 0
+                    ? <p className="hint">No open reports.</p>
+                    : (
+                        <div style={{ display: "grid", gap: 6, maxHeight: 340, overflowY: "auto" }}>
+                            {reports.map((rep) => (
+                                <div key={rep.id} style={{ padding: "0.4rem 0.55rem", background: "#241206", borderRadius: 4, borderLeft: "3px solid #f59e0b" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                        <span>
+                                            <strong style={{ color: "#fbbf24" }}>{rep.category}</strong>
+                                            <span style={{ color: "#94a3b8" }}> · {rep.targetType}</span>
+                                            {rep.targetName && <>{" · "}<button onClick={() => pivotTo(rep.targetName!)} style={{ background: "transparent", border: 0, color: "#fca5a5", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{rep.targetName}</button></>}
+                                        </span>
+                                        <button onClick={() => void resolveReport(rep.id)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.8rem", padding: "0.2rem 0.6rem" }}>Resolve</button>
+                                    </div>
+                                    <div style={{ fontSize: "0.78rem", color: "#94a3b8", marginTop: 2 }}>
+                                        by {rep.reporter} · {new Date(rep.createdAt).toLocaleString()}{rep.context ? ` · ${rep.context}` : ""}{rep.targetId ? ` · id ${rep.targetId}` : ""}
+                                    </div>
+                                    {rep.note && <div style={{ marginTop: 4, color: "#cbd5e1", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{rep.note}</div>}
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
             </section>
 
             <section className="summary-box">

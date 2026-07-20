@@ -69,6 +69,7 @@ import generateImageHandler from './api/generate-image.js';
 import gameStateHandler    from './api/game-state.js';
 import worldStateHandler   from './api/world-state.js';
 import messagesHandler     from './api/messages.js';
+import reportHandler       from './api/report.js';
 import perfBeaconHandler   from './api/perf-beacon.js';
 import kageHandler         from './api/village/kage.js';
 import kageChallengeHandler from './api/village/kage-challenge.js';
@@ -948,6 +949,7 @@ route('/generate-image', generateImageHandler);
 route('/game-state',  gameStateHandler);
 route('/world-state', worldStateHandler);
 route('/messages',    messagesHandler);
+route('/report',      reportHandler);
 
 // Phase 0 load/refresh telemetry — anonymous, zero-storage beacon sink. Logs a
 // single `[perf]` line per page load to stdout (see api/perf-beacon.ts).
@@ -1319,6 +1321,23 @@ app.get('/sitemap.xml', (_req, res) => {
     res.type('application/xml; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.send(sitemapXml());
+});
+
+// Responsible-disclosure contact (RFC 9116). Served at the well-known path plus
+// a root alias. Expires is stamped ~1 year out on each request so the file never
+// goes stale. Registered before express.static / SPA fallback so it isn't
+// shadowed by index.html.
+app.get(['/.well-known/security.txt', '/security.txt'], (_req, res) => {
+    res.type('text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+    res.send(
+        `Contact: mailto:rillt27@gmail.com\n` +
+        `Expires: ${expires}\n` +
+        `Preferred-Languages: en\n` +
+        `Canonical: https://shinobijourney.com/.well-known/security.txt\n` +
+        `Policy: https://shinobijourney.com/notices\n`,
+    );
 });
 
 const staticDir = process.env.STATIC_DIR ?? join(__dirname, '..', 'shinobij.client', 'dist');
