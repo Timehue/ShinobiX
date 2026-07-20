@@ -57,6 +57,7 @@ const state = {
     longTaskTotal: 0,
     longTaskMax: 0,
 };
+let lastLongTaskWarningAt = -Infinity;
 
 // Login / character-creation shells. The first NON-shell screen = "playable".
 const SHELL_SCREENS = new Set(['start', 'createCharacter']);
@@ -137,7 +138,15 @@ function reportLongTask(entry: PerformanceEntry): void {
         state.longTaskMax = Math.max(state.longTaskMax, record.duration);
         const w = window as unknown as { __longTasks?: (typeof record)[] };
         w.__longTasks = [...(w.__longTasks ?? []), record].slice(-50);
-        if (import.meta.env?.DEV) console.warn('[perf:long-task]', record);
+        // Keep collecting every entry, but do not make a development preview do
+        // extra console work for dozens of back-to-back WebGL warm-up tasks. One
+        // sampled warning is enough to diagnose the issue; the complete rolling
+        // record remains available on window.__longTasks.
+        const warningAt = nowMs();
+        if (import.meta.env?.DEV && warningAt - lastLongTaskWarningAt >= 2500) {
+            lastLongTaskWarningAt = warningAt;
+            console.warn('[perf:long-task]', record);
+        }
     } catch {
         /* telemetry is best-effort */
     }

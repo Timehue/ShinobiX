@@ -28,6 +28,40 @@ function arg(name, def) {
 }
 function flag(name) { return process.argv.includes('--' + name); }
 
+function imageDataUri(file) {
+    if (!file) return undefined;
+    if (!fs.existsSync(file)) throw new Error(`reference image not found: ${file}`);
+    const bytes = fs.readFileSync(file);
+    const ext = path.extname(file).slice(1) || 'png';
+    return `data:image/${ext};base64,${bytes.toString('base64')}`;
+}
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function runQueued(endpoint, input, key) {
+    const submit = await fetch(`https://queue.fal.run/${endpoint}`, {
+        method: 'POST',
+        headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+    });
+    if (!submit.ok) throw new Error(`fal queue error ${submit.status}: ${(await submit.text()).slice(0, 600)}`);
+    const ticket = await submit.json();
+    if (!ticket?.status_url || !ticket?.response_url) throw new Error(`fal queue response missing URLs: ${JSON.stringify(ticket).slice(0, 600)}`);
+    for (;;) {
+        await delay(5_000);
+        const statusResponse = await fetch(ticket.status_url, { headers: { Authorization: `Key ${key}` } });
+        if (!statusResponse.ok) throw new Error(`fal status error ${statusResponse.status}: ${(await statusResponse.text()).slice(0, 600)}`);
+        const status = await statusResponse.json();
+        if (status.status === 'COMPLETED') break;
+        if (status.status === 'FAILED' || status.status === 'CANCELLED') throw new Error(`fal job ${status.status.toLowerCase()}: ${JSON.stringify(status).slice(0, 600)}`);
+        const latest = status.logs?.at?.(-1)?.message;
+        if (latest) console.log(`fal:    ${latest}`);
+    }
+    const response = await fetch(ticket.response_url, { headers: { Authorization: `Key ${key}` } });
+    if (!response.ok) throw new Error(`fal result error ${response.status}: ${(await response.text()).slice(0, 600)}`);
+    return response.json();
+}
+
 function resolveFalKey() {
     if (process.env.FAL_KEY) return process.env.FAL_KEY.trim();
     const p = path.join(CLIENT_ROOT, '.env');
@@ -46,6 +80,11 @@ async function main() {
     const src = arg('src', path.join(CLIENT_ROOT, 'asset-gen-out', 'petbody', `${id}.webp`));
     if (!fs.existsSync(src)) { console.error(`source sprite not found: ${src}\n(generate the full-body sprite first, e.g. gen-asset.mjs --id petbody:${id})`); process.exit(1); }
     const textured = !flag('white');
+    const back = arg('back', '');
+    const left = arg('left', '');
+    const right = arg('right', '');
+    const multiView = flag('v3') || Boolean(back || left || right);
+    const trellis = flag('trellis');
     const outDir = path.join(CLIENT_ROOT, 'public', 'pet-models');
     fs.mkdirSync(outDir, { recursive: true });
 
@@ -53,29 +92,41 @@ async function main() {
     if (!key) { console.error('FAL_KEY not found in env or .env'); process.exit(1); }
 
     const bytes = fs.readFileSync(src);
-    const ext = path.extname(src).slice(1) || 'webp';
-    const dataUri = `data:image/${ext};base64,${bytes.toString('base64')}`;
+    const dataUri = imageDataUri(src);
     console.log(`pet:    ${id}  (${(bytes.length / 1024).toFixed(0)} KB ref)`);
-    console.log(`model:  fal-ai/hunyuan3d/v2  → ${textured ? 'textured' : 'white'} .glb`);
-    console.log('generating… (image-to-3D takes ~30-60s)');
+    console.log(`model:  ${trellis ? 'fal-ai/trellis-2' : multiView ? 'fal-ai/hunyuan3d-v3/image-to-3d multiview' : 'fal-ai/hunyuan3d/v2'}  → ${textured ? 'textured' : 'white'} .glb`);
+    console.log('generating…');
 
     // This offline generator intentionally sends the selected local sprite and configured credential to fal.ai.
     // codeql[js/file-access-to-http]
-    const res = await fetch('https://fal.run/fal-ai/hunyuan3d/v2', {
-        method: 'POST',
-        headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    const endpoint = trellis ? 'fal-ai/trellis-2' : multiView ? 'fal-ai/hunyuan3d-v3/image-to-3d' : 'fal-ai/hunyuan3d/v2';
+    const input = trellis
+        ? { image_url: dataUri, resolution: '1024' }
+        : multiView
+        ? {
             input_image_url: dataUri,
-            textured_mesh: textured,
-        }),
-    });
-    if (!res.ok) {
-        console.error(`fal error ${res.status}:`, (await res.text()).slice(0, 600));
-        process.exit(1);
-    }
-    const json = await res.json();
+            ...(back ? { back_image_url: imageDataUri(back) } : {}),
+            ...(left ? { left_image_url: imageDataUri(left) } : {}),
+            ...(right ? { right_image_url: imageDataUri(right) } : {}),
+            enable_pbr: textured,
+            face_count: Math.max(40_000, Math.min(1_500_000, Number(arg('faces', '60000')) || 60_000)),
+            generate_type: textured ? 'LowPoly' : 'Geometry',
+            polygon_type: 'triangle',
+        }
+        : { input_image_url: dataUri, textured_mesh: textured };
+    const json = multiView || trellis
+        ? await runQueued(endpoint, input, key)
+        : await (async () => {
+            const res = await fetch(`https://fal.run/${endpoint}`, {
+                method: 'POST',
+                headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(input),
+            });
+            if (!res.ok) throw new Error(`fal error ${res.status}: ${(await res.text()).slice(0, 600)}`);
+            return res.json();
+        })();
     // fal returns the mesh as a File; field name has been model_mesh across v2.
-    const url = json?.model_mesh?.url || json?.model_glb?.url || json?.mesh?.url;
+    const url = json?.model_glb?.url || json?.model_mesh?.url || json?.mesh?.url || json?.model_urls?.glb?.url;
     if (!url) { console.error('no model in response:', JSON.stringify(json).slice(0, 600)); process.exit(1); }
 
     const maxModelBytes = 100 * 1024 * 1024;
