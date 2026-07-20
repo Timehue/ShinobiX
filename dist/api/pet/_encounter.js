@@ -4,6 +4,7 @@ exports.DAILY_WILD_ENCOUNTER_ATTEMPTS = void 0;
 exports.rollWildPet = rollWildPet;
 exports.grantWildPet = grantWildPet;
 const _catalog_js_1 = require("./_catalog.js");
+const _entitlements_js_1 = require("../_entitlements.js");
 const TRAITS = ['Loyal', 'Aggressive', 'Guardian', 'Swift', 'Lucky', 'Battleborn'];
 exports.DAILY_WILD_ENCOUNTER_ATTEMPTS = 150;
 function rollWildPet(random, now = Date.now()) {
@@ -17,7 +18,9 @@ function rollWildPet(random, now = Date.now()) {
 }
 function grantWildPet(character, pet, random) {
     const pets = Array.isArray(character.pets) ? character.pets : [];
-    if (pets.length >= 5)
+    // Subscriber-aware roster cap (Patreon perk): 3 base / 5 subscriber. This is
+    // the authoritative befriend gate (the save handler only backstops it).
+    if (pets.length >= (0, _entitlements_js_1.maxPets)(character))
         return { ok: false, reason: 'pet-yard-full' };
     const pool = pet.rarity === 'mythic' ? TRAITS : TRAITS.filter((trait) => trait !== 'Guardian');
     const trait = pool[Math.floor(Math.max(0, Math.min(0.999999, random())) * pool.length)];

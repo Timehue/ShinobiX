@@ -6,6 +6,8 @@ exports.base64DecodedByteLength = base64DecodedByteLength;
 exports.avatarImageReject = avatarImageReject;
 exports.categoryFromId = categoryFromId;
 exports.ownershipReject = ownershipReject;
+exports.isPlayerClaimableImageId = isPlayerClaimableImageId;
+exports.imageClaimReject = imageClaimReject;
 exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
@@ -254,19 +256,70 @@ function ownershipReject(id, identity) {
         }
     }
     if (prefix === 'pet') {
-        // pet:<petId>. Ownership is intentionally NOT enforced here (audit #23).
-        // A save-read check (char.pets.some(p => p.id === rest)) looks tempting
-        // but would reject legitimately-created pet portraits: the client
-        // publishes 'pet:<id>' optimistically (App.tsx, on file pick / AI gen)
-        // BEFORE the debounced autosave persists the new pet to save:<name>, so
-        // a fresh pet's id is not yet in the stored save at upload time. A strict
-        // check would 403 real uploads; a fail-open check gives no protection.
-        // Closing this properly needs the client to save-then-upload (a larger
-        // change). Abuse magnitude is bounded by the 256-char id cap and the
-        // shared-bucket size; the worst case is cosmetic (overwriting a pet
-        // portrait whose client-generated id an attacker already knows).
+        // pet:<petId>. First-publish ownership can't be proven here (the client
+        // publishes optimistically before the autosave persists the new pet), so
+        // the static gate stays fail-open — the async first-writer claim below
+        // (imageClaimReject) is what stops one player overwriting another's pet
+        // art once it has been published.
     }
     return null;
+}
+// ── First-writer-wins claim on player-created shared image slots ──────────────
+//
+// The carve-outs above (named weapons/armor, custom bloodline + its jutsus, pet
+// art) let ANY authed player WRITE these ids, because ownership can't be proven
+// at first publish: the client publishes optimistically before the debounced
+// autosave persists the asset to save:<name>. That left an overwrite hole — the
+// ids are discoverable (a custom bloodline's UUID rides the public
+// /api/bloodlines/list gallery), so a player who learned another's id could
+// replace that image for everyone who views it.
+//
+// First-writer-wins closes it WITHOUT breaking the optimistic first publish: the
+// FIRST authed player to publish an id atomically CLAIMS it, and every later
+// write to that id must come from the same player (or an admin). A fresh forge /
+// pet / bloodline mints a brand-new random id no one else holds, so the real
+// creator always wins the claim, and an attacker can't pre-claim an id they
+// can't yet know. Item/bloodline LORE is unaffected — it lives in the
+// owner-gated save (api/save/[name].ts), never in this endpoint.
+// Exactly the player-created carve-outs above. avatar (already name-gated), misc
+// (per-player capped) and the admin-only prefixes are governed by ownershipReject
+// and don't take a claim.
+function isPlayerClaimableImageId(id) {
+    const colon = id.indexOf(':');
+    if (colon < 0)
+        return false;
+    const prefix = id.slice(0, colon).toLowerCase();
+    const rest = id.slice(colon + 1);
+    if (prefix === 'item')
+        return PLAYER_NAMED_ITEM_RE.test(rest);
+    if (prefix === 'bloodline' || prefix === 'jutsu')
+        return PLAYER_UUID_RE.test(rest);
+    return prefix === 'pet' || prefix === 'petbody' || prefix === 'petsheet' || prefix === 'petlayers';
+}
+const imgOwnerKey = (id) => `img-owner:${id}`;
+// Returns an HTTP reject if `identity` may NOT write/replace this player-owned
+// image slot, else null. On POST (claim !== false) it atomically claims an
+// unowned slot for the first writer; on DELETE (claim: false) it only checks an
+// existing claim. Admins, non-claimable ids, and still-unclaimed (legacy) slots
+// pass through — so a first-time creator is never blocked.
+async function imageClaimReject(id, identity, opts) {
+    if (identity.admin)
+        return null;
+    if (!isPlayerClaimableImageId(id))
+        return null;
+    const key = imgOwnerKey(id);
+    if (opts?.claim !== false) {
+        // Atomic first-writer claim — succeeds only when the slot is unowned, so
+        // two racing first-writers can't both win. If we set it, we own it.
+        if ((await _storage_js_1.kv.set(key, identity.name, { nx: true })) === 'OK')
+            return null;
+    }
+    const owner = await _storage_js_1.kv.get(key);
+    if (!owner)
+        return null; // unclaimed legacy slot — allow
+    if (owner === identity.name)
+        return null; // owner re-uploading / editing
+    return { status: 403, error: 'This image belongs to another player.' };
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -389,6 +442,12 @@ async function handler(req, res) {
             const reject = ownershipReject(id, identity);
             if (reject)
                 return res.status(reject.status).json({ error: reject.error });
+            // First-writer-wins on the player-created carve-outs: a player who
+            // didn't publish this id first can't overwrite it (custom bloodline /
+            // jutsu / named gear / pet art). The first publish claims the slot.
+            const claimReject = await imageClaimReject(id, identity);
+            if (claimReject)
+                return res.status(claimReject.status).json({ error: claimReject.error });
             const cat = categoryFromId(id);
             // Avatar hardening (audit #15): inline data URL only + 2 MB decoded
             // cap. Applied after isValidImageString (which would otherwise let a
@@ -470,10 +529,17 @@ async function handler(req, res) {
             const reject = ownershipReject(id, identity);
             if (reject)
                 return res.status(reject.status).json({ error: reject.error });
+            // First-writer-wins: a player can only delete a player-created slot
+            // they own (read-only check — deleting must not create a claim).
+            const claimReject = await imageClaimReject(id, identity, { claim: false });
+            if (claimReject)
+                return res.status(claimReject.status).json({ error: claimReject.error });
             const cat = categoryFromId(id);
             await _storage_js_1.kv.hdel(catHashKey(cat), id);
             // Phase 2: also drop the per-image key so /api/img stops serving it.
             await _storage_js_1.kv.del(`shared:img:${id}`).catch(() => undefined);
+            // Release the ownership claim so a fully-deleted slot is freed.
+            await _storage_js_1.kv.del(imgOwnerKey(id)).catch(() => undefined);
             // Drop the registry metadata + audit the removal (best-effort).
             const actor = identity.admin ? 'admin' : identity.name;
             await (0, _asset_registry_js_1.deleteAssetMeta)(id);
