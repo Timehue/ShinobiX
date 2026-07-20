@@ -16,9 +16,19 @@
  * (teams, seed, policies, choice log) and replays byte-identically.
  *
  * Same determinism discipline as pet-arena-sim: seeded LCG (no Math.random /
- * Date), sqrt/round-only math, state quantized to 1/256 per tick. Chunked on
- * purpose: runWarfrontMatch() (full-auto) exists for tests and shared co-op
- * replays, where buy policies are locked at the lobby instead of interactive.
+ * Date), state quantized to 1/256 per tick. Chunked on purpose:
+ * runWarfrontMatch() (full-auto) exists for tests and shared co-op replays,
+ * where buy policies are locked at the lobby instead of interactive.
+ *
+ * DETERMINISM CONTRACT — SAME-ENGINE. Movement/patrol paths use Math.sin/cos/
+ * atan2/hypot, whose last-bit results are implementation-defined and NOT
+ * guaranteed identical across JS engines (V8 vs SpiderMonkey vs JSC). So a
+ * shared replay is byte-identical only when both peers run the SAME engine —
+ * which is the real case: co-op peers are the same web build, and the tests
+ * (which assert byte-identical snapshots+events) run under one engine. Do NOT
+ * advertise cross-browser replay parity without a golden-run test across
+ * engines; if that ever becomes a product need, replace sim-time trig with
+ * deterministic fixed-point approximations / baked lookups first.
  */
 import type { Pet } from "../types/pet";
 import type { ArenaRole, ArenaSlot } from "./pet-arena-sim";
@@ -988,31 +998,44 @@ function petTick(st: WfState, p: WfPet) {
             if (foes >= 2 && allies === 0) foePet = null;
         }
     }
-    if (foePet || p.ult >= 100) tryUltimate(st, p);
+    // ONE MAJOR ACTION PER TICK: honor tryUltimate's result — an ult ENDS the
+    // pet's combat this tick. It used to fire AND still fall through to a role
+    // ability + element signature + basic (a hidden quad-action).
+    if ((foePet || p.ult >= 100) && tryUltimate(st, p)) return;
+    // P0.5: a sage HEALS a wounded ally whether or not an enemy is near — the
+    // heal was gated behind having an enemy target, so a sage escorting a hurt
+    // ally couldn't actually heal until a foe wandered in. It's the sage's major
+    // action for the tick.
+    if (p.role === "sage" && p.abilityCd <= 0) {
+        let ally: WfPet | null = null, worst = 0.82;
+        for (const q of st.pets) {
+            if (q.team !== p.team || q === p || q.state === "respawning") continue;
+            const frac = q.hp / q.maxHp;
+            if (frac < worst && Math.hypot(q.x - p.x, q.y - p.y) < 6) { worst = frac; ally = q; }
+        }
+        if (ally) {
+            const amount = Math.round(ally.maxHp * 0.14);
+            ally.hp = Math.min(ally.maxHp, ally.hp + amount);
+            st.events.push({ t: st.t, type: "heal", targetId: ally.id, actorId: p.id, amount });
+            p.abilityCd = ABILITY_CD;
+            return;
+        }
+    }
 
     // Priority micro-targets near the pet — enemy pet > warden (when called) >
     // mini (when called) > mob > structure in reach > walk the call.
     if (foePet) {
         const d = Math.hypot(foePet.x - p.x, foePet.y - p.y);
-        // Role abilities.
+        // Role abilities — each is a MAJOR action that ENDS the pet's tick (one
+        // major action per tick). Sage heal is handled earlier, outside the enemy
+        // gate. Stacking mark/shield + element + basic in one tick was a hidden
+        // multi-action and made bursts look duplicated on the broadcast.
         if (p.abilityCd <= 0) {
-            if (p.role === "sage") {
-                let ally: WfPet | null = null, worst = 0.82;
-                for (const q of st.pets) {
-                    if (q.team !== p.team || q.state === "respawning") continue;
-                    const frac = q.hp / q.maxHp;
-                    if (frac < worst && Math.hypot(q.x - p.x, q.y - p.y) < 6) { worst = frac; ally = q; }
-                }
-                if (ally) {
-                    const amount = Math.round(ally.maxHp * 0.14);
-                    ally.hp = Math.min(ally.maxHp, ally.hp + amount);
-                    st.events.push({ t: st.t, type: "heal", targetId: ally.id, actorId: p.id, amount });
-                    p.abilityCd = ABILITY_CD;
-                }
-            } else if (p.role === "defender" && p.hp / p.maxHp < 0.75) {
+            if (p.role === "defender" && p.hp / p.maxHp < 0.75) {
                 p.shieldHp = Math.round(p.maxHp * 0.16);
                 p.abilityCd = ABILITY_CD;
                 st.events.push({ t: st.t, type: "ability", petId: p.id, kind: "shield", x: quant(p.x), y: quant(p.y) });
+                return;
             } else if (p.role === "assassin" && d > 1.8 && d < 5) {
                 const steps = WARFRONT_TPS * 0.4;
                 p.dashLeft = steps; p.dashDx = (foePet.x - p.x) / steps; p.dashDy = (foePet.y - p.y) / steps;
@@ -1023,12 +1046,15 @@ function petTick(st: WfState, p: WfPet) {
                 foePet.markLeft = WARFRONT_TPS * 5;
                 p.abilityCd = ABILITY_CD;
                 st.events.push({ t: st.t, type: "ability", petId: p.id, kind: "mark", x: quant(foePet.x), y: quant(foePet.y), targetId: foePet.id });
+                return;
             }
         }
-        // ELEMENT SIGNATURE — the pet's main-game element as a warfront MOVE.
+        // ELEMENT SIGNATURE — the pet's main-game element as a warfront MOVE;
+        // also a major action that ends the tick.
         if (p.elemCd <= 0 && d <= 6) {
             p.elemCd = WARFRONT_TPS * 12;
             castElement(st, p, foePet);
+            return;
         }
         if (d <= Math.max(p.atkRange, MELEE_REACH)) {
             p.faceX = (foePet.x - p.x) / (d || 1); p.faceY = (foePet.y - p.y) / (d || 1);
@@ -1689,7 +1715,10 @@ function mobsTick(st: WfState) {
     st.waveTimer--;
     if (st.waveTimer <= 0) {
         st.waveTimer = WAVE_EVERY;
-        for (const team of ["blue", "red"] as const) {
+        // Waves always land on an even tick, so a fixed blue,red spawn order gave
+        // blue a systematic first-mover lane edge — alternate it per wave.
+        const waveTeams: readonly Team[] = (Math.floor(st.t / WAVE_EVERY) & 1) === 0 ? ["blue", "red"] : ["red", "blue"];
+        for (const team of waveTeams) {
             let alive = st.mobs.filter((m) => m.side === team).length;
             for (const lane of ["n", "m", "s"] as const) {
                 if (alive >= MINION_CAP) break;   // was checked against a STALE count → up to 2 over cap
@@ -1956,10 +1985,20 @@ function tick(st: WfState) {
             if (!foeNear && core.sinceHit > WARFRONT_TPS * 5 && st.t <= WARFRONT_TPS * WF_PHASE_SUDDEN) core.hp = Math.min(CORE_HP, core.hp + CORE_REGEN);
         }
     }
-    for (const p of st.pets) petTick(st, p);
+    // Alternate which team decides first each tick. In a reactive AI, acting
+    // SECOND (choosing after the enemy's moves are already applied) is an edge —
+    // blue-first EVERY tick handed red a measured ~18-point win advantage on
+    // mirror matches. Swapping the order each tick removes the systematic
+    // first/second-mover bias without restructuring petTick. Deterministic.
+    const firstBlue = st.t % 2 === 0;
+    const petOrder = firstBlue
+        ? [...st.pets.filter((p) => p.team === "blue"), ...st.pets.filter((p) => p.team === "red")]
+        : [...st.pets.filter((p) => p.team === "red"), ...st.pets.filter((p) => p.team === "blue")];
+    for (const p of petOrder) petTick(st, p);
     separation(st);
     mobSeparation(st);
-    for (const team of ["blue", "red"] as const) { statueTick(st, team, 0); statueTick(st, team, 1); guardianTick(st, team, 0); guardianTick(st, team, 1); }
+    const structOrder: readonly Team[] = firstBlue ? ["blue", "red"] : ["red", "blue"];
+    for (const team of structOrder) { statueTick(st, team, 0); statueTick(st, team, 1); guardianTick(st, team, 0); guardianTick(st, team, 1); }
     bossTick(st);
     for (const m of st.minis) miniTick(st, m);
     mobsTick(st);

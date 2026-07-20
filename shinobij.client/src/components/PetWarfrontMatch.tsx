@@ -536,7 +536,7 @@ function WfSetDressing({ theme }: { theme: WfTheme }) {
 
 // ── One pet fighter (GLB driven from the warfront snapshot stream) ───────────
 function WfFighter3D({ result, clock, id, pet, config }: {
-    result: WarfrontResult; clock: WfClockRef; id: string; pet: Pet; config: PetCombatModelConfig;
+    result: WarfrontResult; clock: WfClockRef; id: string; pet: Pet; config: PetCombatModelConfig | null;
 }) {
     const root = useRef<THREE.Group>(null);
     const body = useRef<THREE.Group>(null);
@@ -564,8 +564,12 @@ function WfFighter3D({ result, clock, id, pet, config }: {
     const faceSm = useRef<[number, number]>([id.startsWith("blue") ? 1 : -1, 0]);
     const travel = useRef<[number, number]>([1, 0]);
     const team: Team = id.startsWith("blue") ? "blue" : "red";
-    const h = arenaModelHeight(config.targetHeight) * 1.15;   // the Warfront field is huge — pets read a touch bigger
-    const s = h / Math.max(0.001, config.targetHeight);
+    // A pet with no approved GLB (a custom/unapproved pet) still renders — a
+    // team-tinted capsule placeholder, NEVER null/invisible. Everything below
+    // (nameplate, HP, level, statuses, death/respawn) is model-independent.
+    const targetH = config ? config.targetHeight : 1.6;
+    const h = arenaModelHeight(targetH) * 1.15;   // the Warfront field is huge — pets read a touch bigger
+    const s = config ? h / Math.max(0.001, targetH) : 1;
     const tint = useMemo(() => tintOf(pet.element), [pet.element]);
     const role = useMemo(() => result.snapshots[0]?.actors.find((a) => a.id === id)?.role ?? "tracker", [result, id]);
 
@@ -660,16 +664,24 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         <group>
             <group ref={root}>
                 <group ref={body}>
-                    <Suspense fallback={(
+                    {config ? (
+                        <Suspense fallback={(
+                            <mesh position={[0, h * 0.5, 0]}>
+                                <capsuleGeometry args={[h * 0.24, h * 0.5, 4, 10]} />
+                                <meshStandardMaterial color={tint} emissive={tint} emissiveIntensity={0.4} transparent opacity={0.9} />
+                            </mesh>
+                        )}>
+                            <group scale={s}>
+                                <PetModel3D config={config} frame={modelFrame} element={pet.element} />
+                            </group>
+                        </Suspense>
+                    ) : (
+                        // No approved model — a visible team-tinted placeholder.
                         <mesh position={[0, h * 0.5, 0]}>
-                            <capsuleGeometry args={[h * 0.24, h * 0.5, 4, 10]} />
-                            <meshStandardMaterial color={tint} emissive={tint} emissiveIntensity={0.4} transparent opacity={0.9} />
+                            <capsuleGeometry args={[h * 0.26, h * 0.52, 6, 12]} />
+                            <meshStandardMaterial color={tint} emissive={tint} emissiveIntensity={0.35} />
                         </mesh>
-                    )}>
-                        <group scale={s}>
-                            <PetModel3D config={config} frame={modelFrame} element={pet.element} />
-                        </group>
-                    </Suspense>
+                    )}
                     {/* Shield bubble — the defender/Aegis shields finally READ. */}
                     <mesh ref={shieldRef} visible={false} position={[0, h * 0.55, 0]} renderOrder={3}>
                         <sphereGeometry args={[h * 0.72, 18, 14]} />
@@ -2379,10 +2391,11 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
                     />
                     <WfFloor theme={theme} />
                     <WfSetDressing theme={theme} />
-                    {roster.map((r) => {
-                        const config = configs.get(r.id);
-                        return config ? <WfFighter3D key={r.id} result={result} clock={clock} id={r.id} pet={r.pet} config={config} /> : null;
-                    })}
+                    {roster.map((r) => (
+                        // Always render — a pet without an approved GLB falls back
+                        // to a visible placeholder inside WfFighter3D (never null).
+                        <WfFighter3D key={r.id} result={result} clock={clock} id={r.id} pet={r.pet} config={configs.get(r.id) ?? null} />
+                    ))}
                     <WfMobPool result={result} clock={clock} glow={spec.breachGlow} />
                     {(["blue", "red"] as const).map((team) => [0, 1].map((gi) => (
                         <WfGuardian key={`${team}g${gi}`} result={result} clock={clock} team={team} idx={gi} />

@@ -78,8 +78,11 @@ test("hollow-spawn waves flow until the Gate Warden dies, then stop", () => {
 
 test("coins flow from trickle and bounties, and the warden pays a ton", () => {
     const r = runWarfrontMatch(squad("A", 400), squad("B"), 5);
-    const last = r.snapshots[r.snapshots.length - 1];
-    assert.ok(last.coins.blue > 150, "blue should accumulate coins");
+    // Coins FLOW (trickle/farm/bounties). Check the PEAK, not the end balance —
+    // a fast-winning team spends its coins on buys and correctly ends near zero,
+    // which the old end-balance check mistook for "no coins earned".
+    const peakBlueCoins = Math.max(...r.snapshots.map((s) => s.coins.blue));
+    assert.ok(peakBlueCoins > 150, "blue should accumulate coins");
     const mobKills = r.events.filter((e) => e.type === "mobkill");
     assert.ok(mobKills.length > 0, "farming happens");
     const wardenKill = r.events.find((e) => e.type === "wardenkill");
