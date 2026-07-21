@@ -2,10 +2,10 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     COMBAT_MISSIONS, FIELD_MISSIONS, ACADEMY_TRIAL,
-    combatMissionByKey, fieldMissionById, huntMissionById, HUNT_MISSION_IDS,
+    combatMissionByKey, fieldMissionById, huntMissionById, huntMissionByAiProfileId, HUNT_MISSION_IDS,
     missionRewardBonusPct, boostAmount,
     hasDailyMissionSlot, dailyMissionsCompleted, markMissionCompletedFields,
-    hasDailyHuntSlot, dailyHuntsCompleted, markHuntCompletedFields,
+    hasDailyHuntSlot, dailyHuntsCompleted, dailyHuntCap, markHuntCompletedFields,
     applyCurrencyRewardFields, grantTerritoryScrollsToInventory, grantItemsToInventory,
     DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, FIELD_MISSION_SCROLLS, TERRITORY_CONTROL_SCROLL_ID,
 } from './_mission-catalog.js';
@@ -79,6 +79,11 @@ describe('mission catalog matches the client reward tables', () => {
         // claimed against the hunt cap).
         assert.ok(huntMissionById('hunt-wild-boar'), 'hunt resolves');
         assert.equal(huntMissionById('fetch-d-supply-trail'), undefined, 'fetch is not a hunt');
+        // huntMissionByAiProfileId (hunt-kill producer): resolve a hunt by its beast AI.
+        assert.equal(huntMissionByAiProfileId('hunt-ai-wild-boar')?.id, 'hunt-wild-boar');
+        assert.equal(huntMissionByAiProfileId('hunt-ai-frost-wolf')?.id, 'hunt-frost-wolf');
+        assert.equal(huntMissionByAiProfileId('builtin-ai-frost-sealer'), undefined, 'a combat-mission AI is not a hunt beast');
+        assert.equal(huntMissionByAiProfileId(''), undefined);
         assert.equal(huntMissionById('nope'), undefined, 'unknown is not a hunt');
     });
 
@@ -150,6 +155,19 @@ describe('hunt daily-cap accounting matches character-progress.ts (hunt pool)', 
         assert.ok(!hasDailyHuntSlot({ lastHuntReset: '2026-06-13', dailyHuntsCompleted: 20 }, '2026-06-13'));
         // Mission counter does NOT consume hunt slots (separate pools).
         assert.ok(hasDailyHuntSlot({ lastDailyReset: '2026-06-13', dailyMissionsCompleted: 20 }, '2026-06-13'));
+    });
+
+    it('dailyHuntCap adds +1 per Hunter Rank (20 base → 25 at Warden), clamped to 0..5', () => {
+        assert.equal(dailyHuntCap({}), 20);                       // no rank
+        assert.equal(dailyHuntCap({ hunterRank: 0 }), 20);
+        assert.equal(dailyHuntCap({ hunterRank: 3 }), 23);
+        assert.equal(dailyHuntCap({ hunterRank: 5 }), 25);        // Chakra Beast Warden
+        assert.equal(dailyHuntCap({ hunterRank: 99 }), 25);       // clamped to the 5-rank ladder
+        assert.equal(dailyHuntCap({ hunterRank: -3 }), 20);       // clamped up
+        // A rank-5 hunter gets 5 extra slots past the base cap.
+        assert.ok(hasDailyHuntSlot({ lastHuntReset: '2026-06-13', dailyHuntsCompleted: 24, hunterRank: 5 }, '2026-06-13'));
+        assert.ok(!hasDailyHuntSlot({ lastHuntReset: '2026-06-13', dailyHuntsCompleted: 25, hunterRank: 5 }, '2026-06-13'));
+        assert.ok(!hasDailyHuntSlot({ lastHuntReset: '2026-06-13', dailyHuntsCompleted: 20, hunterRank: 0 }, '2026-06-13'));
     });
 
     it('markHuntCompletedFields bumps the hunt counter + clan/lifetime totals, stamps day/month', () => {

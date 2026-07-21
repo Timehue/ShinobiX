@@ -41,6 +41,15 @@ import { formatItemBonus, presentItem } from "../lib/item-presentation";
 import { settleInventorySale } from "../lib/shop-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 
+// Rarity-tiered ryo sell value for cost:0 hunt drop materials. MUST match the
+// server table in api/inventory/_sale.ts (HUNT_MATERIAL_SELL_RYO).
+const HUNT_MATERIAL_SELL_RYO: Record<string, number> = {
+    "hunt-torn-hide": 12, "hunt-wild-feather": 12, "hunt-small-fang": 12, "hunt-cracked-horn": 12,
+    "hunt-beast-meat": 15, "hunt-frost-pelt": 40, "hunt-shadow-claw": 40, "hunt-wolf-fang": 55,
+    "hunt-ash-scale": 80, "hunt-ember-scale": 180, "hunt-shadow-pelt": 220,
+    "hunt-ancient-beast-core": 450, "hunt-titan-bone": 450, "hunt-legendary-material": 600,
+};
+
 export function Inventory({
     character,
     updateCharacter,
@@ -382,7 +391,10 @@ export function Inventory({
     }
 
     function sellValueForItem(item: GameItem) {
-        return Math.floor(Math.max(0, item.cost) / 2);
+        // Hunt drop materials are cost:0 (un-buyable) but sell for a rarity-tiered
+        // ryo value. MUST match the server table in api/inventory/_sale.ts.
+        if ((item.cost ?? 0) <= 0 && item.id in HUNT_MATERIAL_SELL_RYO) return HUNT_MATERIAL_SELL_RYO[item.id];
+        return Math.floor(Math.max(0, (item.cost ?? 0)) / 2);
     }
 
     async function sellSelectedItem(count = 1) {

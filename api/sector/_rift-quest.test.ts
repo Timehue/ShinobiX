@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
     RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS,
     isRiftQuestId, riftQuestRyo, riftBossKilled, riftTargetSector,
+    parseRiftQuestSeal,
 } from './_rift-quest.js';
 
 type ClientChoice = { text: string; conclusion?: string; accept?: boolean; descend?: boolean };
@@ -52,6 +53,27 @@ test('riftTargetSector is deterministic, wilderness-ranged, and skips villages',
 test('the daily cap + cooldown are sane', () => {
     assert.ok(Number.isInteger(RIFT_DAILY_CAP) && RIFT_DAILY_CAP > 0 && RIFT_DAILY_CAP <= 10);
     assert.ok(RIFT_COOLDOWN_MS > 0 && RIFT_COOLDOWN_MS <= 24 * 60 * 60 * 1000);
+});
+
+test('parseRiftQuestSeal round-trips a valid durable seal', () => {
+    const seal = { id: 'rift-hollow-stalker', targetSector: 22, baseline: 7, at: 1_700_000_000_000 };
+    assert.deepEqual(parseRiftQuestSeal(seal), seal);
+    // `at` defaults to 0 when absent (older KV writes)
+    assert.deepEqual(
+        parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 22, baseline: 7 }),
+        { id: 'rift-hollow-stalker', targetSector: 22, baseline: 7, at: 0 },
+    );
+});
+
+test('parseRiftQuestSeal rejects malformed / unknown seals', () => {
+    assert.equal(parseRiftQuestSeal(null), null);
+    assert.equal(parseRiftQuestSeal('x'), null);
+    assert.equal(parseRiftQuestSeal([]), null);
+    assert.equal(parseRiftQuestSeal({ id: 'not-a-rift', targetSector: 5, baseline: 1 }), null);
+    assert.equal(parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 0, baseline: 1 }), null);   // sector < 1
+    assert.equal(parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 61, baseline: 1 }), null);  // sector > 60
+    assert.equal(parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 5, baseline: NaN }), null);
+    assert.equal(parseRiftQuestSeal({ id: 'rift-hollow-stalker', targetSector: 5, baseline: 1, at: -1 }), null);
 });
 
 test('client rifts and the server catalog agree exactly', async () => {

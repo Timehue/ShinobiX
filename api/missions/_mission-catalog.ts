@@ -133,6 +133,14 @@ export function huntMissionById(id: string): FieldMissionDef | undefined {
     return HUNT_MISSION_IDS.has(id) ? fieldMissionById(id) : undefined;
 }
 
+// The built-in hunt whose beast AI matches the given profile id. Used by the
+// hunt-kill producer (report-ai-fight): the ai-fight token seals the opponentId,
+// so a validated win against a hunt's beast stamps that hunt's kill receipt.
+export function huntMissionByAiProfileId(aiProfileId: string): FieldMissionDef | undefined {
+    if (!aiProfileId) return undefined;
+    return FIELD_MISSIONS.find((m) => HUNT_MISSION_IDS.has(m.id) && m.aiProfileId === aiProfileId);
+}
+
 // ── Reward bonus % — mirror of Logbook/Missions:
 //     getMissionRewardBonus(char) + getActiveAuraSphereBonuses(char).missionRewardPercent
 //   getMissionRewardBonus = villageUpgradeBonus(missionHall) = level × 0.5
@@ -183,8 +191,15 @@ export function dailyHuntsCompleted(char: CatalogChar, todayKey: string): number
     return char.lastHuntReset === todayKey ? Number(char.dailyHuntsCompleted ?? 0) : 0;
 }
 
+// Hunter Rank QoL perk: base cap + 1 hunt/day per rank (20 → 25 at Warden).
+// hunterRank is a server-trusted entitlement (the save sanitizer re-injects it),
+// so this cap can't be inflated by a tampered client. Clamped to the 0..5 ladder.
+export function dailyHuntCap(char: CatalogChar): number {
+    return DAILY_HUNT_LIMIT + Math.max(0, Math.min(5, Math.floor(Number((char as { hunterRank?: unknown }).hunterRank ?? 0))));
+}
+
 export function hasDailyHuntSlot(char: CatalogChar, todayKey: string): boolean {
-    return dailyHuntsCompleted(char, todayKey) < DAILY_HUNT_LIMIT;
+    return dailyHuntsCompleted(char, todayKey) < dailyHuntCap(char);
 }
 
 // Mirror of character-progress.markHuntCompleted — caller spreads these onto the

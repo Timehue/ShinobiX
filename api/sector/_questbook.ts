@@ -170,6 +170,42 @@ export function questBookEntry(id: string): QuestBookEntry | null {
     return isQuestBookId(id) ? QUEST_BOOK[id] : null;
 }
 
+/** The sealed epic state — persisted BOTH in KV (`questbook:<player>`, 14d TTL)
+ *  and durably on the save record (`activeQuestbookSeal`) so an in-flight epic
+ *  survives the KV TTL and the cPanel→Postgres cutover (the KV namespace was not
+ *  carried). Mirrors WandererQuestSeal / RiftQuestSeal. */
+export interface QuestbookSeal {
+    id: string;
+    stage: number;
+    baseline: number;
+    at?: number;
+    deadline?: number;
+    choices?: Record<string, string>;
+}
+
+/** Validate a persisted epic seal from either store; returns null if malformed. */
+export function parseQuestbookSeal(raw: unknown): QuestbookSeal | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const value = raw as Record<string, unknown>;
+    const id = typeof value.id === 'string' ? value.id : '';
+    const stage = Math.floor(Number(value.stage));
+    const baseline = Number(value.baseline);
+    if (!isQuestBookId(id) || !Number.isFinite(baseline) || !Number.isInteger(stage) || stage < 0) return null;
+    const seal: QuestbookSeal = { id, stage, baseline };
+    const at = Number(value.at);
+    if (Number.isSafeInteger(at) && at >= 0) seal.at = at;
+    const deadline = Number(value.deadline);
+    if (Number.isFinite(deadline) && deadline > 0) seal.deadline = deadline;
+    if (value.choices && typeof value.choices === 'object' && !Array.isArray(value.choices)) {
+        const choices: Record<string, string> = {};
+        for (const [k, v] of Object.entries(value.choices as Record<string, unknown>)) {
+            if (typeof v === 'string') choices[k] = v;
+        }
+        seal.choices = choices;
+    }
+    return seal;
+}
+
 /** The stage at index `stage`, or null if out of range. */
 export function questStage(id: string, stage: number): QuestStage | null {
     const entry = questBookEntry(id);

@@ -51,6 +51,7 @@ export const ACHIEVEMENT_TITLES: readonly string[] = [
     'Polyelementalist',     // secret-elements-3
     'Weekly Reaper',        // secret-weekly-bosses-5
     'War Veteran',          // secret-war-vet-50
+    'Chakra Beast Warden',  // secret-hunter-5 (max Hunter Rank)
 ];
 
 /** Village-story liberator titles (keyed by lowercased village name) —
