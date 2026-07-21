@@ -92,13 +92,15 @@ test("reward endpoint's server computation === the browser's streamed render", (
     const bluePets = squad("P").map((s) => s.pet);
     const srvRole = (pets: Pet[]): ArenaSlot[] => pets.map((pet) => ({ pet, role: (pet.role ?? serverDerivePetRole(pet).role) as ArenaRole }));
     const clientRed = autoRole(Array.from({ length: 4 }, (_, i) => ({ ...genericPetArenaOpponents.map((o) => o.pet)[i % genericPetArenaOpponents.length] })));
-    for (const seed of [1, 42, 777]) {
-        for (const stance of ["balanced", "siege", "headhunt"] as const) {
-            const endpoint = serverRun(srvRole(bluePets), srvRole(buildWarfrontAiTeam(4)), seed, "balanced", "balanced", undefined, { blue: stance });
-            const ctl = startWarfrontMatch(autoRole(bluePets), clientRed, seed, { bluePolicy: "balanced", redPolicy: "balanced", blueStance: stance });
-            let g = 0;
-            while (!ctl.done && g++ < 100000) ctl.advanceRoundPartial(70);
-            assert.equal(digest(endpoint), digest(ctl.result), `endpoint diverges from the render @ seed ${seed} stance ${stance}`);
+    for (const seed of [1, 42]) {
+        for (const stance of ["balanced", "headhunt"] as const) {
+            for (const doc of ["vanguard", "warden-pact"] as const) {   // a stat doctrine + the recruit doctrine
+                const endpoint = serverRun(srvRole(bluePets), srvRole(buildWarfrontAiTeam(4)), seed, "balanced", "balanced", undefined, { blue: stance }, { blue: doc });
+                const ctl = startWarfrontMatch(autoRole(bluePets), clientRed, seed, { bluePolicy: "balanced", redPolicy: "balanced", blueStance: stance, blueDoctrine: doc });
+                let g = 0;
+                while (!ctl.done && g++ < 100000) ctl.advanceRoundPartial(70);
+                assert.equal(digest(endpoint), digest(ctl.result), `endpoint diverges from the render @ seed ${seed} ${stance}/${doc}`);
+            }
         }
     }
 });

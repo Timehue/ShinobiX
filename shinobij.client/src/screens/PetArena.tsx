@@ -30,7 +30,7 @@ import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import { wfThemeForVillage } from "../lib/pet-warfront-map";
-import { WF_STANCES, type WfBuyPolicy, type WfStance } from "../lib/pet-warfront-sim";
+import { WF_STANCES, WF_DOCTRINES, type WfBuyPolicy, type WfStance, type WfDoctrine } from "../lib/pet-warfront-sim";
 import tacticalArenaHero from "../assets/coliseum/tactical-arena-hero.webp";
 import petDuelHero from "../assets/coliseum/pet-duel-hero.webp";
 import duelFire from "../assets/coliseum/duel-fire.webp";
@@ -215,6 +215,17 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         setWfStancePref(s);
         try { localStorage.setItem("wfStance.v1", s); } catch { /* storage disabled — ignore */ }
     };
+    // Team DOCTRINE — a second pre-match strategic axis (a team-wide boon).
+    const [wfDoctrinePref, setWfDoctrinePref] = useState<WfDoctrine>(() => {
+        try {
+            const v = localStorage.getItem("wfDoctrine.v1");
+            return v === "vanguard" || v === "bulwark" || v === "zealot" || v === "warden-pact" ? v : "vanguard";
+        } catch { return "vanguard"; }
+    });
+    const setWfDoctrine = (d: WfDoctrine) => {
+        setWfDoctrinePref(d);
+        try { localStorage.setItem("wfDoctrine.v1", d); } catch { /* storage disabled — ignore */ }
+    };
     const [tacticalPicks, setTacticalPicks] = useState<string[]>(() => pickArenaTeam(character.pets, 4).map((p) => p.id));
     const [arenaChallengeName, setArenaChallengeName] = useState("");
     const [arenaChallengeMsg, setArenaChallengeMsg] = useState("");
@@ -336,7 +347,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 const r = await fetch("/api/pet/warfront-start", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ playerName: character.name, playerPetIds: bluePets.map((p) => p.id), seed, stance: wfStancePref, buyPolicy, reportKey }),
+                    body: JSON.stringify({ playerName: character.name, playerPetIds: bluePets.map((p) => p.id), seed, stance: wfStancePref, doctrine: wfDoctrinePref, buyPolicy, reportKey }),
                 });
                 if (!r.ok) return null;
                 const data = await r.json().catch(() => null) as { token?: unknown } | null;
@@ -1545,6 +1556,18 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                         </div>
 
                                         <div>
+                                            <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>🎖 Team doctrine</label>
+                                            <div className="pet-arena-mode-toggle" style={{ maxWidth: 620, marginTop: 6, flexWrap: "wrap" }}>
+                                                {WF_DOCTRINES.map((d) => (
+                                                    <button key={d.id} type="button" title={d.desc} className={wfDoctrinePref === d.id ? "active" : ""} onClick={() => setWfDoctrine(d.id)}>
+                                                        {d.icon} {d.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="hint" style={{ margin: "4px 0 0" }}>A team-wide boon baked in at kickoff — a second strategic axis to your formation.</p>
+                                        </div>
+
+                                        <div>
                                             <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Your team ({tacticalPicks.length}/{tacticalSize}) — tap to add / remove</label>
                                             <div style={{ marginTop: 6 }}>
                                                 {available.length < 1
@@ -1609,6 +1632,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         theme={wfThemeForVillage(character.village)}
                         autoBuy={arenaMatch.vsAi ? (wfAutoPref === "off" ? "balanced" : wfAutoPref) : "balanced"}
                         stance={wfStancePref}
+                        doctrine={wfDoctrinePref}
                         allowReseed={arenaMatch.vsAi}
                         onResult={(result) => reportTacticalArenaWin(arenaMatch, result.winner ?? "draw")}
                         onExit={() => setArenaMatch(null)}

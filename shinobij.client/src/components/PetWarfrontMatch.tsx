@@ -20,7 +20,7 @@ import type { Pet } from "../types/pet";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import {
     startWarfrontMatch, wfVerdictScore, WARFRONT_TPS, WF_MAX_SECONDS, WF_POWERUPS, WF_STACK_CAP, WF_STANCES,
-    type WarfrontChoice, type WarfrontResult, type WfBuyPolicy, type WfSnapshot, type WfStance,
+    type WarfrontChoice, type WarfrontResult, type WfBuyPolicy, type WfSnapshot, type WfStance, type WfDoctrine,
 } from "../lib/pet-warfront-sim";
 import {
     WF_MASK, WF_COLS, WF_ROWS, WF_X, WF_Y, WF_BUSHES, WF_CELL_X, WF_CELL_Y, WF_LAIR, WF_LANES, WF_MINI_NAMES, WF_PADS, WF_SPAWNS, WF_THEMES,
@@ -2097,6 +2097,7 @@ export type PetWarfrontMatchProps = {
     /** Opening formation/strategy — the player's pre-match pick. Adjustable at
      * every War Council when the council is interactive. */
     stance?: WfStance;
+    doctrine?: WfDoctrine;
     /** Enables the 🎲 New-match button (vs-AI / harness). Leave off for shared
      * co-op/PvP replays, where both clients must stay on the agreed seed. */
     allowReseed?: boolean;
@@ -2104,7 +2105,7 @@ export type PetWarfrontMatchProps = {
     onResult?: (result: WarfrontResult) => void;
 };
 
-export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy = "off", stance = "balanced", allowReseed = false, onExit, onResult }: PetWarfrontMatchProps) {
+export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy = "off", stance = "balanced", doctrine = "none", allowReseed = false, onExit, onResult }: PetWarfrontMatchProps) {
     const quality = useMemo(() => petVisualQuality(), []);
     // Restart machinery: bumping `run` rebuilds the sim from scratch (same seed
     // → identical match); `seedBump` rolls a fresh deterministic seed.
@@ -2124,7 +2125,7 @@ export function PetWarfrontMatch({ blue, red, seed, theme = "central", autoBuy =
     // The interactive chunked sim: round 1 (0→30 s) is computed at mount so the
     // stage always has snapshots; later rounds advance at each boundary.
     const ctl = useMemo(() => {
-        const c = startWarfrontMatch(blue, red, effectiveSeed, { bluePolicy: autoBuy, redPolicy: "balanced", theme, blueStance: stance });
+        const c = startWarfrontMatch(blue, red, effectiveSeed, { bluePolicy: autoBuy, redPolicy: "balanced", theme, blueStance: stance, blueDoctrine: doctrine });
         c.advanceRoundPartial(WARFRONT_TPS * 8);   // seed ~8s of runway; the pump streams the rest
         return c;
         // eslint-disable-next-line react-hooks/exhaustive-deps -- `run` intentionally forces a fresh sim (Restart)
