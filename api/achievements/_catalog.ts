@@ -46,6 +46,7 @@ export const ACHIEVEMENT_TITLES: Readonly<Record<string, string>> = {
     'tower-25': 'Tower Survivor', 'spire-5': 'Spire Ascendant', 'spire-10': 'Spire Conqueror', 'spire-15': 'Spire Vanquisher',
     'spire-20': 'Spire Immortal', 'pet-100': 'Beast Tamer', 'clan-founder': 'Clan Founder', 'secret-bestiary-200': 'Encyclopedia',
     'secret-elements-3': 'Polyelementalist', 'secret-war-vet-50': 'War Veteran', 'secret-weekly-bosses-5': 'Weekly Reaper',
+    'secret-hunter-5': 'Chakra Beast Warden',
 };
 
 export function achievementTitlesForIds(ids: Iterable<string>): string[] {

@@ -84,7 +84,24 @@ export async function completeRiftRun(
     log: (msg: string) => void,
 ): Promise<void> {
     const resp = await completeRift(playerName, riftId);
-    if (!resp.ok) return;
+    if (!resp.ok) {
+        // The old silent `return` ate a full boss-clear whenever the seal had
+        // lapsed (7d TTL) or was lost in the cutover, and left activeRiftQuest set
+        // — which blocks nextRift() forever. Now surface every outcome, and when the
+        // server self-heals a stranded rift (reason "none") clear the local mirror
+        // too so the roaming giver can offer a fresh rift.
+        if (resp.reason === "none") {
+            apply((prev) => prev ? ({ ...prev, activeRiftQuest: null }) : prev);
+            log("The rift's energy had already faded — this quest is cleared. A new rift can appear.");
+        } else if (resp.reason === "incomplete") {
+            log("The rift boss wasn't registered as defeated. Defeat the boss, then return.");
+        } else if (resp.reason === "daily-cap") {
+            log("You've claimed all your rift rewards for today. Come back tomorrow.");
+        } else if (resp.reason === "offline") {
+            log("Couldn't reach the server to seal the rift. Try again in a moment.");
+        }
+        return;
+    }
     apply((prev) => prev ? ({
         ...prev,
         ryo: (prev.ryo ?? 0) + (resp.ryo ?? 0),

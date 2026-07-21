@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyClaimedMissionState } from './claim-mission.js';
+import { applyClaimedMissionState, clearStalePendingCombatClaim } from './claim-mission.js';
 
 test('applyClaimedMissionState clears claimed field missions from accepted ids and progress', () => {
     const record = {
@@ -47,4 +47,33 @@ test('applyClaimedMissionState leaves combat claims alone', () => {
     };
 
     assert.equal(applyClaimedMissionState(record, 'combat', 'combat-d-rank-bandit'), record);
+});
+
+test('clearStalePendingCombatClaim drops the stale key and reports cleared', () => {
+    const char = { name: 'Dopey', pendingCombatMissionClaims: ['combat-b-escort', 'combat-c-patrol'] };
+
+    const result = clearStalePendingCombatClaim(char, 'combat-b-escort');
+
+    assert.equal(result.cleared, true);
+    assert.deepEqual(result.char.pendingCombatMissionClaims, ['combat-c-patrol']);
+    // input is not mutated
+    assert.deepEqual(char.pendingCombatMissionClaims, ['combat-b-escort', 'combat-c-patrol']);
+});
+
+test('clearStalePendingCombatClaim is a no-op (same ref) when the key is absent', () => {
+    const char = { pendingCombatMissionClaims: ['combat-c-patrol'] };
+
+    const result = clearStalePendingCombatClaim(char, 'combat-b-escort');
+
+    assert.equal(result.cleared, false);
+    assert.equal(result.char, char);
+});
+
+test('clearStalePendingCombatClaim tolerates a missing/invalid pending list', () => {
+    const char = { name: 'Dopey' };
+
+    const result = clearStalePendingCombatClaim(char, 'combat-b-escort');
+
+    assert.equal(result.cleared, false);
+    assert.equal(result.char, char);
 });

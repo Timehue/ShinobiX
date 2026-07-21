@@ -54,6 +54,31 @@ export function isRiftQuestId(id: string): boolean {
     return Object.prototype.hasOwnProperty.call(RIFT_QUESTS, id);
 }
 
+/** The sealed rift baseline — persisted BOTH in KV (`rift-quest:<player>`, 7d TTL)
+ *  and durably on the save record (`activeRiftQuestSeal`) so an in-flight rift
+ *  survives TTL expiry and the cPanel→Postgres cutover (the KV namespace was not
+ *  migrated). Mirrors WandererQuestSeal / parseWandererQuestSeal. */
+export interface RiftQuestSeal {
+    id: string;
+    targetSector: number;
+    baseline: number;
+    at: number;
+}
+
+/** Validate a persisted rift seal from either store; returns null if malformed. */
+export function parseRiftQuestSeal(raw: unknown): RiftQuestSeal | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const value = raw as Record<string, unknown>;
+    const id = typeof value.id === 'string' ? value.id : '';
+    const targetSector = Math.floor(Number(value.targetSector));
+    const baseline = Number(value.baseline);
+    const at = Number(value.at ?? 0);
+    if (!isRiftQuestId(id) || !Number.isFinite(baseline)
+        || !Number.isInteger(targetSector) || targetSector < 1 || targetSector > 60
+        || !Number.isSafeInteger(at) || at < 0) return null;
+    return { id, targetSector, baseline, at };
+}
+
 /** ryo for clearing a rift — the wanderer-quest band (level + effort scaled). */
 export function riftQuestRyo(level: number, weight: number): number {
     return clamp(weight, 1, 20) * (20 + clamp(level, 1, 100) * 3);
