@@ -19,7 +19,10 @@ import { BattleTabBar } from "../components/BattleTabBar";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { isImageAvatar } from "../lib/avatar";
 import { petCardImage, petStripVariant } from "../lib/pet-battle-anim";
+import { getAllJutsus } from "../App";
+import { getAllItems } from "../lib/items";
 import type { Pet } from "../types/pet";
+import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 
 // The board token is a CIRCULAR orb (same treatment as the player/enemy), so the
 // pet's PORTRAIT is the right art. petCardImage reaches for the un-clipped
@@ -89,6 +92,9 @@ export function MissionArenaFight({
     runId,
     initialSession,
     missionName,
+    savedBloodlines,
+    creatorJutsus,
+    creatorItems,
     settleFn,
     onExit,
 }: {
@@ -98,6 +104,11 @@ export function MissionArenaFight({
     initialSession: TowerSession;
     /** Mission label (e.g. "C-Rank Patrol") shown on the result banner. */
     missionName?: string;
+    /** The player's own jutsu catalog — the SEALED session's jutsu carry combat
+     *  fields but NO art, so card thumbnails resolve from here by id. */
+    savedBloodlines?: SavedBloodline[];
+    creatorJutsus?: Jutsu[];
+    creatorItems?: GameItem[];
     /** Queue the server-authoritative claim on a win (Missions.settleAuthoritativeMission). */
     settleFn: (runId: string, playerName: string) => Promise<unknown>;
     onExit: () => void;
@@ -301,8 +312,27 @@ export function MissionArenaFight({
     const companionImage = companionPet ? petOrbPortrait(companionPet, sharedImages ?? {}) : "";
     const companionRoundsLeft = Number(companion?.character?.companionRoundsLeft ?? 0);
 
-    const jutsuArt = (j: JutsuLike) => (typeof j.image === "string" && j.image) || sharedImages?.[`jutsu:${j.id}`] || "";
-    const itemArt = (it: ItemLike) => (typeof it.image === "string" && it.image) || sharedImages?.[`item:${it.id}`] || "";
+    // The sealed session strips jutsu art (combat fields only), so card thumbnails
+    // come from the player's OWN catalog by id — the same source the Arena's cards
+    // use. Inline/shared art stays as a fallback.
+    const jutsuArtById = (() => {
+        const map: Record<string, string> = {};
+        for (const j of getAllJutsus(savedBloodlines ?? [], creatorJutsus ?? [], character)) {
+            if (j?.id && typeof j.image === "string" && j.image) map[j.id] = j.image;
+        }
+        return map;
+    })();
+    const jutsuArt = (j: JutsuLike) => jutsuArtById[String(j.id ?? "")] || (typeof j.image === "string" && j.image) || sharedImages?.[`jutsu:${j.id}`] || "";
+    // Same story as jutsu: the sealed pvpItems carry combat fields, not art, so
+    // weapon/consumable thumbnails resolve from the player's own item catalog by id.
+    const itemArtById = (() => {
+        const map: Record<string, string> = {};
+        for (const it of getAllItems(creatorItems ?? [])) {
+            if (it?.id && typeof it.image === "string" && it.image) map[it.id] = it.image;
+        }
+        return map;
+    })();
+    const itemArt = (it: ItemLike) => itemArtById[String(it.id ?? "")] || (typeof it.image === "string" && it.image) || sharedImages?.[`item:${it.id}`] || "";
 
     const done = session.status === "done";
     const won = done && session.winner === "squad";

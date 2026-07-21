@@ -33,7 +33,11 @@ import { emissaryQuestById, emissaryByQuestId } from "../lib/legacy-emissaries";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { sectorPhrase } from "../lib/hollow-rifts";
 import { MissionArenaFight } from "./MissionArenaFight";
-import type { TowerSession } from "../lib/towers-api";
+import type { TowerSession, TowerHostLoadout } from "../lib/towers-api";
+import { getAllItems } from "../lib/items";
+import { getBloodlineMultiplier } from "../lib/combat-math";
+import { getPvpItemLoadout, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus } from "../lib/equipment-stats";
+import type { GameItem, SavedBloodline, Jutsu } from "../types/combat";
 
 // Inline glyph that prefixes a tab/heading/button label — seated on the text baseline.
 const MH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -52,6 +56,9 @@ export function Missions({
     onBack,
     onMissionBattleStart,
     sharedImages,
+    creatorItems,
+    savedBloodlines,
+    creatorJutsus,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
@@ -66,6 +73,10 @@ export function Missions({
     onBack: () => void;
     onMissionBattleStart?: () => void;
     sharedImages?: Record<string, string>;
+    /** Needed to build the sealed fight's hostLoadout + resolve jutsu card art. */
+    creatorItems?: GameItem[];
+    savedBloodlines?: SavedBloodline[];
+    creatorJutsus?: Jutsu[];
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const [authoritativeFight, setAuthoritativeFight] = useState<{ mission: CombatMission; runId: string; session: TowerSession } | null>(null);
@@ -88,10 +99,29 @@ export function Missions({
             if (startingCombat) return;
             setStartingCombat(true);
             try {
+                // The equipment-derived passives (armor, bloodline mult, item
+                // damage/absorb/reflect/lifesteal/shield) are NOT persisted on the
+                // save — they're computed here and sealed by the server, exactly as
+                // Battle Towers / Anbu do. Without this the sealed fighter clamps to
+                // no-bonus defaults and the player fights without their armor or
+                // bloodline multiplier. (Weapons/consumables the server re-resolves
+                // from the save's own equipment map, so they're already correct.)
+                const items = getAllItems(creatorItems ?? []);
+                const hostLoadout: TowerHostLoadout = {
+                    pvpItems: getPvpItemLoadout(character, items),
+                    bloodlineMult: getBloodlineMultiplier(character, savedBloodlines ?? []),
+                    armorFactor: getCharacterArmorFactor(character, items),
+                    armorRawDR: getCharacterArmorRawDR(character, items),
+                    itemDamagePct: getEquippedItemBonus(character, items, "damagePercent"),
+                    itemAbsorbPct: getEquippedItemBonus(character, items, "absorbPercent"),
+                    itemReflectPct: getEquippedItemBonus(character, items, "reflectPercent"),
+                    itemLifeStealPct: getEquippedItemBonus(character, items, "lifeStealPercent"),
+                    itemShield: getEquippedItemBonus(character, items, "shield"),
+                };
                 const response = await fetch("/api/missions/combat-start", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ playerName: character.name, missionId: mission.key }),
+                    body: JSON.stringify({ playerName: character.name, missionId: mission.key, hostLoadout }),
                 });
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok || !data?.runId || !data?.session) {
@@ -136,6 +166,9 @@ export function Missions({
                 runId={authoritativeFight.runId}
                 initialSession={authoritativeFight.session}
                 missionName={authoritativeFight.mission.name}
+                savedBloodlines={savedBloodlines}
+                creatorJutsus={creatorJutsus}
+                creatorItems={creatorItems}
                 settleFn={settleAuthoritativeMission}
                 onExit={() => setAuthoritativeFight(null)}
             />
