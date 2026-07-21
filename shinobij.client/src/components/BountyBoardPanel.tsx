@@ -40,7 +40,9 @@ export function BountyBoardPanel({
         if ((character.ryo ?? 0) < bountyAmount) return alert("You don't have enough ryo.");
         const res = await placeBounty(character.name, target, bountyAmount);
         if (!res.ok) return alert(res.error || "Could not place the bounty.");
-        updateCharacter({ ...character, ryo: (character.ryo ?? 0) - bountyAmount });
+        // Adopt the server-committed balance (escrow is server-authoritative) —
+        // never client-math the debit. See api/pvp/bounty.ts (returns balances).
+        updateCharacter({ ...character, ryo: res.balances?.ryo ?? character.ryo });
         if (res.bounties) setBounties(res.bounties);
         setBountyTarget("");
         alert(`Bounty placed: ${bountyAmount.toLocaleString()} ryo on ${target}'s head.`);
