@@ -8206,7 +8206,7 @@ export default function App() {
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}
                         setPvpSeedSession={setPvpSeedSession}
-                        setPendingPetBattleOpponent={setPendingPetBattleOpponent}
+                        setPendingPetBattleOpponent={setPendingPetBattleOpponent} onAcceptPetChallenge={(c) => void acceptPetChallengeGlobal(c)}
                         onRecordBattle={recordBattle}
                     />
                 )}
