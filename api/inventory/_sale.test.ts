@@ -40,6 +40,30 @@ test('sale rejects missing ownership, unsellable items, invalid balances, and re
     assert.equal(applyInventorySale(character({ ryo: -1, inventory: ['sale-item'] }), item(), 'backpack', 1, undefined, 'inventorysale006', 100).ok, false);
 });
 
+test('hunt drop materials (cost:0) sell for their rarity-tiered ryo value', () => {
+    // common Beast Meat = 15 ryo each
+    const sold = applyInventorySale(
+        character({ ryo: 0, inventory: ['hunt-beast-meat', 'hunt-beast-meat'] }),
+        item({ id: 'hunt-beast-meat', slot: 'item', rarity: 'common', cost: 0 }),
+        'backpack', 2, undefined, 'huntsale001', 100,
+    );
+    assert.equal(sold.ok, true);
+    if (sold.ok) assert.equal(sold.character.ryo, 30);
+    // legendary Legendary Material = 600 ryo each
+    const leg = applyInventorySale(
+        character({ ryo: 0, inventory: ['hunt-legendary-material'] }),
+        item({ id: 'hunt-legendary-material', slot: 'item', rarity: 'legendary', cost: 0 }),
+        'backpack', 1, undefined, 'huntsale002', 100,
+    );
+    assert.equal(leg.ok, true);
+    if (leg.ok) assert.equal(leg.character.ryo, 600);
+    // a NON-hunt cost:0 item stays unsellable (materials didn't make everything sellable)
+    assert.equal(
+        applyInventorySale(character({ inventory: ['misc'] }), item({ id: 'misc', slot: 'item', cost: 0 }), 'backpack', 1, undefined, 'huntsale003', 100).ok,
+        false,
+    );
+});
+
 test('sale route and inventory screen use authenticated locked settlement', () => {
     const route = readFileSync(join(process.cwd(), 'api', 'inventory', 'sell.ts'), 'utf8');
     const helper = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'shop-settlement.ts'), 'utf8');
