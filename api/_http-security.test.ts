@@ -38,7 +38,7 @@ describe('_http-security', () => {
 
     it('CSP includes the asset and realtime surfaces used by the app', () => {
         const csp = contentSecurityPolicy();
-        assert.match(csp, /script-src 'self'/);
+        assert.match(csp, /script-src 'self' 'wasm-unsafe-eval'/);
         assert.match(csp, /style-src 'self' 'unsafe-inline'/);
         assert.match(csp, /img-src 'self' data: blob: https:/);
         assert.match(csp, /media-src 'self' data: blob: https:/);
