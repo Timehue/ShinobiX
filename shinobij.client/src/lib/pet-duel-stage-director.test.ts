@@ -43,6 +43,10 @@ test("stage director preserves combat truth while replacing leader/follower moti
     let longestTrain = 0;
     let plantedRun = 0;
     let longestPlant = 0;
+    let largestStep = 0;
+    let largestNonBurstStep = 0;
+    let largestStepLabel = "";
+    let largestNonBurstLabel = "";
     const distances: number[] = [];
     for (let tick = 1; tick < directed.snapshots.length; tick++) {
         const previous = directed.snapshots[tick - 1].actors;
@@ -55,6 +59,12 @@ test("stage director preserves combat truth while replacing leader/follower moti
         const bv = { x: b.x - pb.x, y: b.y - pb.y };
         const as = Math.hypot(av.x, av.y);
         const bs = Math.hypot(bv.x, bv.y);
+        if (as > largestStep) { largestStep = as; largestStepLabel = `${a.id} ${pa.state}->${a.state} at ${tick}`; }
+        if (bs > largestStep) { largestStep = bs; largestStepLabel = `${b.id} ${pb.state}->${b.state} at ${tick}`; }
+        const aBurst = a.state === "dash" || a.state === "dodge" || a.state === "strike" || a.state === "stagger";
+        const bBurst = b.state === "dash" || b.state === "dodge" || b.state === "strike" || b.state === "stagger";
+        if (!aBurst && as > largestNonBurstStep) { largestNonBurstStep = as; largestNonBurstLabel = `${a.id} ${pa.state}->${a.state} at ${tick}`; }
+        if (!bBurst && bs > largestNonBurstStep) { largestNonBurstStep = bs; largestNonBurstLabel = `${b.id} ${pb.state}->${b.state} at ${tick}`; }
         const separation = Math.hypot(b.x - a.x, b.y - a.y);
         distances.push(separation);
         if (as > 0.01 || bs > 0.01) activeTicks++;
@@ -73,9 +83,19 @@ test("stage director preserves combat truth while replacing leader/follower moti
     assert.ok(simultaneousTicks / Math.max(1, activeTicks) < 0.42, "one fighter should usually own the movement beat");
     assert.ok(longestTrain < DUEL_TPS * 0.65, `leader/follower train lasted ${longestTrain} ticks`);
     assert.ok(longestPlant >= DUEL_TPS * 0.28, `no readable planted guard beat (${longestPlant} ticks)`);
+    assert.ok(largestStep < 0.72, `stage motion snapped ${largestStep.toFixed(3)} arena units in one tick (${largestStepLabel})`);
+    assert.ok(largestNonBurstStep < 0.72, `non-burst motion snapped ${largestNonBurstStep.toFixed(3)} arena units in one tick (${largestNonBurstLabel})`);
     assert.ok(directed.snapshots.some((snapshot) => snapshot.actors.some((actor) => actor.state === "dodge")), "the performance should contain a readable evade");
     assert.ok(directed.snapshots.some((snapshot) => snapshot.actors.some((actor) => actor.state === "strike")), "the performance should contain committed strikes");
     assert.ok(directed.snapshots.some((snapshot) => snapshot.actors.some((actor) => actor.state === "recover")), "contact should hold a recovery pose before repositioning");
+    const setupCasts = directed.events.filter((event) => event.type === "cast" && (event.kind === "buff" || event.kind === "haste" || event.kind === "heal" || event.kind === "barrier"));
+    assert.ok(setupCasts.length > 0, "fixture should exercise a disengaging setup cast");
+    for (const cast of setupCasts) {
+        const snapshot = directed.snapshots[Math.min(directed.snapshots.length - 1, cast.t)];
+        const caster = snapshot.actors.find((actor) => actor.id === cast.actorId)!;
+        const foe = snapshot.actors.find((actor) => actor.team !== caster.team && actor.hp > 0)!;
+        assert.ok(Math.hypot(caster.x - foe.x, caster.y - foe.y) >= 5.5, `${cast.move ?? cast.kind} should resolve from a visible distance break`);
+    }
     let dodgeRun = 0, longestDodge = 0;
     for (const snapshot of directed.snapshots) {
         dodgeRun = snapshot.actors.some((actor) => actor.state === "dodge") ? dodgeRun + 1 : 0;

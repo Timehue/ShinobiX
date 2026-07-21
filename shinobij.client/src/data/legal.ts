@@ -5,7 +5,8 @@ export type LegalPageSlug =
     | "purchases-and-refunds"
     | "cookies"
     | "copyright"
-    | "privacy-request";
+    | "privacy-request"
+    | "notices";
 
 export const LEGAL_PAGE_LINKS: ReadonlyArray<{ slug: LegalPageSlug; label: string }> = [
     { slug: "terms", label: "Terms" },
@@ -15,6 +16,7 @@ export const LEGAL_PAGE_LINKS: ReadonlyArray<{ slug: LegalPageSlug; label: strin
     { slug: "cookies", label: "Cookies" },
     { slug: "copyright", label: "Copyright" },
     { slug: "privacy-request", label: "Privacy Request" },
+    { slug: "notices", label: "Notices" },
 ];
 
 const LEGAL_PAGE_SLUGS = new Set<LegalPageSlug>(LEGAL_PAGE_LINKS.map((link) => link.slug));

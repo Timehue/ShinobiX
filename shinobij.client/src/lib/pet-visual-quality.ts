@@ -22,9 +22,13 @@ export const PET_VISUAL_QUALITY_PRESETS: Readonly<Record<PetVisualQuality, PetVi
         distortion: false,
     }),
     medium: Object.freeze({
-        id: "medium", dpr: [1, 1.35] as [number, number], modelShadows: true, outline: true,
-        textureAnisotropy: 6, ambientParticles: 28, identityParticles: 7,
-        setPieceParticles: 34, dynamicPetLight: true, translucentLayers: 2,
+        // Medium is the shipped/default battle preset. Keep the anime outline and
+        // inexpensive authored contact blobs, but reserve fill-rate for the action
+        // itself: realtime shadow passes, transient point lights and a 1.35 DPR
+        // ceiling pushed the default Coliseum toward 30 fps during overlap.
+        id: "medium", dpr: [1, 1.16] as [number, number], modelShadows: false, outline: true,
+        textureAnisotropy: 6, ambientParticles: 20, identityParticles: 5,
+        setPieceParticles: 28, dynamicPetLight: false, translucentLayers: 2,
         distortion: false,
     }),
     high: Object.freeze({
