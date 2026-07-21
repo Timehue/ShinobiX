@@ -148,6 +148,30 @@ const snapAt = (result: WarfrontResult, clock: WfClockRef): WfSnapshot => {
     return snaps[Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)))];
 };
 
+// The sim ticks at 30Hz but the playback clock advances a FRACTION of a tick per
+// rendered frame (t += delta * rate * TPS). snapAt() floors to the current tick —
+// correct for discrete state (hp, alive, statuses), but any actor that positions
+// itself off snapAt() then jumps at 30Hz while the smooth 60/144Hz display begs to
+// glide. lerpFrameAt() hands back the two bracketing snapshots + the blend so
+// movement can be interpolated the way the hero pets already are — the whole field
+// glides instead of only the four featured pets.
+interface WfLerpFrame { s0: WfSnapshot; s1: WfSnapshot; f: number }
+const lerpFrameAt = (result: WarfrontResult, clock: WfClockRef): WfLerpFrame => {
+    const snaps = result.snapshots;
+    const tf = Math.max(0, Math.min(snaps.length - 1, clock.current.t));
+    const i0 = Math.floor(tf);
+    const i1 = Math.min(snaps.length - 1, i0 + 1);
+    return { s0: snaps[i0], s1: snaps[i1], f: tf - i0 };
+};
+
+// Frame-rate-INDEPENDENT exponential smoothing. `base` is the per-frame lerp
+// factor authored against 60fps; this rescales it by the real frame time so the
+// SAME visual damping holds at 30/60/144Hz. A fixed `x += (t-x)*k` slide-lags on
+// a frame-dropping phone and snaps tight on a 144Hz monitor — this doesn't. The
+// exponent is capped so a giant delta (tab refocus) can't overshoot.
+const approach = (cur: number, target: number, base: number, delta: number): number =>
+    cur + (target - cur) * (1 - Math.pow(1 - base, Math.min(4, delta * 60)));
+
 // ── Floor + set dressing ─────────────────────────────────────────────────────
 function WfFloor({ theme }: { theme: WfTheme }) {
     const spec = WF_THEMES[theme];
@@ -587,11 +611,14 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         const px = lerp(a0.x, a1.x, ff), pz = lerp(a0.y, a1.y, ff);
         const justBack = prevDown.current && !down;
         if (smX.current === null || smZ.current === null || teleport || down || justBack) { smX.current = px; smZ.current = pz; }
-        else { smX.current += (px - smX.current) * 0.38; smZ.current += (pz - smZ.current) * 0.38; }
+        else { smX.current = approach(smX.current, px, 0.38, delta); smZ.current = approach(smZ.current, pz, 0.38, delta); }
         const dx = smX.current - lastPos.current[0], dz = smZ.current - lastPos.current[1];
         const spd = (down || justBack) ? 0 : Math.hypot(dx, dz);
         lastPos.current = [smX.current, smZ.current];
-        const moving = !down && (wasMoving.current ? spd > 0.005 : spd > 0.014);
+        // Gait gate in units/SECOND (spd is per-frame distance) so run/idle doesn't
+        // flicker on high-refresh displays where each frame covers less ground.
+        const ups = spd / Math.max(1e-3, delta);
+        const moving = !down && (wasMoving.current ? ups > 0.3 : ups > 0.85);
         wasMoving.current = moving;
         prevDown.current = down;
         g.position.set(smX.current, 0, smZ.current);
@@ -607,8 +634,8 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         let fx = a0.faceX, fz = a0.faceY;
         if (moving && spd > 1e-5) { fx = dx / spd; fz = dz / spd; }
         else if (Math.hypot(fx, fz) < 0.1) { fx = faceSm.current[0]; fz = faceSm.current[1]; }
-        faceSm.current[0] = lerp(faceSm.current[0], fx, 0.35);
-        faceSm.current[1] = lerp(faceSm.current[1], fz, 0.35);
+        faceSm.current[0] = approach(faceSm.current[0], fx, 0.35, delta);
+        faceSm.current[1] = approach(faceSm.current[1], fz, 0.35, delta);
         const flen = Math.hypot(faceSm.current[0], faceSm.current[1]) || 1;
         if (moving && spd > 1e-5) travel.current = [dx / spd, dz / spd];
 
@@ -620,7 +647,7 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         const mf = modelFrame.current;
         mf.motion = arenaModelMotion(a0.state === "respawning" ? "respawning" : a0.state === "dash" ? "dash" : a0.state === "attack" ? "attack" : "idle", moving, striking);
         mf.moving = moving;
-        smSpd.current = lerp(smSpd.current, spd / Math.max(1e-3, delta), 0.3);
+        smSpd.current = approach(smSpd.current, spd / Math.max(1e-3, delta), 0.3, delta);
         mf.speed = Math.min(6, smSpd.current);   // real units/second — the rigs gallop at >= 2.65
         mf.moveX = travel.current[0];
         mf.moveZ = travel.current[1];
@@ -654,9 +681,9 @@ function WfFighter3D({ result, clock, id, pet, config }: {
         if (levelRef.current) levelRef.current.textContent = a0.wlevel > 1 ? `★${a0.wlevel}` : "";
         if (body.current) {
             const grow = 1 + (a0.wlevel - 1) * 0.08;   // Unite-style: levels physically GROW the pet
-            body.current.scale.x += (grow - body.current.scale.x) * 0.1;
-            body.current.scale.y += (grow - body.current.scale.y) * 0.1;
-            body.current.scale.z += (grow - body.current.scale.z) * 0.1;
+            body.current.scale.x = approach(body.current.scale.x, grow, 0.1, delta);
+            body.current.scale.y = approach(body.current.scale.y, grow, 0.1, delta);
+            body.current.scale.z = approach(body.current.scale.z, grow, 0.1, delta);
         }
     });
 
@@ -730,29 +757,41 @@ function WfMinionSlot({ result, clock, index, config }: { result: WarfrontResult
     const group = useRef<THREE.Group>(null);
     const frame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
     const prev = useRef<[number, number]>([0, 0]);
+    const smX = useRef(0), smZ = useRef(0);
+    const boundId = useRef(-1);
     const [side, setSide] = useState<"blue" | "red">("blue");
     const scale = 0.55 / Math.max(0.001, config.targetHeight);
-    useFrame((_state, delta) => {
+    useFrame((state, delta) => {
         const g = group.current;
         if (!g) return;
-        const minions = snapAt(result, clock).mobs.filter((m) => m.side !== "hollow");
-        const m = minions[index];
-        if (!m) { g.visible = false; return; }
+        const { s0, s1, f: bf } = lerpFrameAt(result, clock);
+        const m1 = s1.mobs.filter((m) => m.side !== "hollow")[index];
+        if (!m1) { g.visible = false; boundId.current = -1; return; }
         g.visible = true;
-        if (m.side !== side && (m.side === "blue" || m.side === "red")) setSide(m.side);
-        const [px, pz] = prev.current;
-        const dx = m.x - px, dz = m.y - pz;
+        if (m1.side !== side && (m1.side === "blue" || m1.side === "red")) setSide(m1.side);
+        const m0 = s0.mobs.find((q) => q.id === m1.id);
+        const jump = !!m0 && ((m1.x - m0.x) ** 2 + (m1.y - m0.y) ** 2 > 9);
+        const tx = m0 && !jump ? lerp(m0.x, m1.x, bf) : m1.x;
+        const tz = m0 && !jump ? lerp(m0.y, m1.y, bf) : m1.y;
+        const fresh = boundId.current !== m1.id;
+        boundId.current = m1.id;
+        if (fresh) { smX.current = tx; smZ.current = tz; prev.current = [tx, tz]; }
+        else { smX.current = approach(smX.current, tx, 0.4, delta); smZ.current = approach(smZ.current, tz, 0.4, delta); }
+        const dx = smX.current - prev.current[0], dz = smZ.current - prev.current[1];
         const spd = Math.hypot(dx, dz);
-        prev.current = [m.x, m.y];
-        g.position.set(m.x, 0, m.y);
-        g.scale.setScalar(m.elite ? 1.3 : 1);   // Gate's Wrath elites LOOM
+        prev.current = [smX.current, smZ.current];
+        const ups = spd / Math.max(1e-3, delta);
+        const moving = !fresh && ups > 0.35;
+        g.scale.setScalar(m1.elite ? 1.3 : 1);   // Gate's Wrath elites LOOM
         const f = frame.current;
-        const moving = spd > 1e-4;
-        f.motion = moving ? "run" : "idle";
+        const striking = !moving && ((state.clock.elapsedTime + index * 0.29) % 0.8) < 0.19;
+        f.motion = moving ? "run" : striking ? "strike" : "idle";
         f.moving = moving;
-        f.speed = Math.min(6, spd / Math.max(1e-3, delta));
+        f.speed = Math.min(6, ups);
         if (moving && spd > 1e-6) { f.moveX = dx / spd; f.moveZ = dz / spd; f.faceX = dx / spd; f.faceZ = dz / spd; }
-        f.desperate = m.hp / Math.max(1, m.maxHp) < 0.35;
+        const lunge = striking ? 0.15 : 0;
+        g.position.set(smX.current + f.faceX * lunge, 0, smZ.current + f.faceZ * lunge);
+        f.desperate = m1.hp / Math.max(1, m1.maxHp) < 0.35;
     });
     // Perf valve: the first 12 minion slots get the full rigged hound; overflow
     // slots render as light spirit-wisps (30+ skinned rigs is asking for jank).
@@ -792,24 +831,43 @@ function WfMobSlot({ result, clock, index, config, scale, glow }: {
     const group = useRef<THREE.Group>(null);
     const frame = useRef<PetModelFrame>({ ...DEFAULT_PET_MODEL_FRAME });
     const prev = useRef<[number, number]>([0, 0]);
-    useFrame((_state, delta) => {
+    const smX = useRef(0), smZ = useRef(0);
+    const boundId = useRef(-1);
+    useFrame((state, delta) => {
         const g = group.current;
         if (!g) return;
-        const m = snapAt(result, clock).mobs.filter((q) => q.side === "hollow")[index];
-        if (!m) { g.visible = false; return; }
+        const { s0, s1, f: bf } = lerpFrameAt(result, clock);
+        // Hollow raiders are push-ordered by id, so filter()[index] is the index-th
+        // oldest living raider — a STABLE slot. Bind that raider's id, interpolate
+        // between the two ticks, and SNAP (don't slide across the map) whenever the
+        // slot is reused for a different id or a raider respawns.
+        const m1 = s1.mobs.filter((q) => q.side === "hollow")[index];
+        if (!m1) { g.visible = false; boundId.current = -1; return; }
         g.visible = true;
-        const [px, pz] = prev.current;
-        const dx = m.x - px, dz = m.y - pz;
+        const m0 = s0.mobs.find((q) => q.id === m1.id);
+        const jump = !!m0 && ((m1.x - m0.x) ** 2 + (m1.y - m0.y) ** 2 > 9);
+        const tx = m0 && !jump ? lerp(m0.x, m1.x, bf) : m1.x;
+        const tz = m0 && !jump ? lerp(m0.y, m1.y, bf) : m1.y;
+        const fresh = boundId.current !== m1.id;
+        boundId.current = m1.id;
+        if (fresh) { smX.current = tx; smZ.current = tz; prev.current = [tx, tz]; }
+        else { smX.current = approach(smX.current, tx, 0.4, delta); smZ.current = approach(smZ.current, tz, 0.4, delta); }
+        const dx = smX.current - prev.current[0], dz = smZ.current - prev.current[1];
         const spd = Math.hypot(dx, dz);
-        prev.current = [m.x, m.y];
-        g.position.set(m.x, 0, m.y);
+        prev.current = [smX.current, smZ.current];
+        const ups = spd / Math.max(1e-3, delta);   // units/second (frame-rate-independent gait)
+        const moving = !fresh && ups > 0.35;
         const f = frame.current;
-        const moving = spd > 1e-4;
-        f.motion = moving ? "run" : "idle";
+        // A stopped-but-alive raider is fighting a wall or a pet, not loitering —
+        // jab on a per-slot-phased cadence so a mob crowd never stands frozen.
+        const striking = !moving && ((state.clock.elapsedTime + index * 0.37) % 0.85) < 0.2;
+        f.motion = moving ? "run" : striking ? "strike" : "idle";
         f.moving = moving;
-        f.speed = Math.min(6, spd / Math.max(1e-3, delta));   // real units/second for the clip picker
+        f.speed = Math.min(6, ups);
         if (moving && spd > 1e-6) { f.moveX = dx / spd; f.moveZ = dz / spd; f.faceX = dx / spd; f.faceZ = dz / spd; }
-        f.desperate = m.hp / Math.max(1, m.maxHp) < 0.35;
+        const lunge = striking ? 0.16 : 0;   // small forward lunge on the jab — rig-independent
+        g.position.set(smX.current + f.faceX * lunge, 0, smZ.current + f.faceZ * lunge);
+        f.desperate = m1.hp / Math.max(1, m1.maxHp) < 0.35;
     });
     return (
         <group ref={group} visible={false}>
@@ -1006,26 +1064,35 @@ function WfWarden({ result, clock }: { result: WarfrontResult; clock: WfClockRef
     const hpFill = useRef<HTMLDivElement>(null);
     const lastXY = useRef<[number, number]>([0, 0]);
     const body = useRef<THREE.Group>(null);
+    const smX = useRef(0), smZ = useRef(0);
+    const inited = useRef(false);
     const H = 3.4;
-    useFrame((state) => {
-        const w = snapAt(result, clock).warden;
+    useFrame((state, delta) => {
+        const { s0, s1, f: bf } = lerpFrameAt(result, clock);
+        const w = s1.warden;         // discrete state (alive/winding/faceX)
+        const w0 = s0.warden;
         const now = state.clock.elapsedTime;
+        const jump = (w.x - w0.x) ** 2 + (w.y - w0.y) ** 2 > 9;
+        const tx = jump ? w.x : lerp(w0.x, w.x, bf), tz = jump ? w.y : lerp(w0.y, w.y, bf);
+        if (!inited.current || !w.alive || jump) { smX.current = tx; smZ.current = tz; inited.current = true; }
+        else { smX.current = approach(smX.current, tx, 0.4, delta); smZ.current = approach(smZ.current, tz, 0.4, delta); }
         if (root.current) {
             root.current.visible = w.alive;
-            const moving = Math.hypot(w.x - lastXY.current[0], w.y - lastXY.current[1]) > 0.004;
-            lastXY.current = [w.x, w.y];
+            const ups = Math.hypot(smX.current - lastXY.current[0], smZ.current - lastXY.current[1]) / Math.max(1e-3, delta);
+            const moving = ups > 0.25;
+            lastXY.current = [smX.current, smZ.current];
             const bob = moving && w.alive ? Math.abs(Math.sin(now * 6)) * 0.12 : 0;
-            root.current.position.set(w.x, bob, w.y);
+            root.current.position.set(smX.current, bob, smZ.current);
             if (body.current) {
                 // Face the quarry; REAR UP through the slam wind-up; breathe always.
                 const targetYaw = w.faceX < 0 ? Math.PI : 0;
-                body.current.rotation.y += (targetYaw - body.current.rotation.y) * 0.15;
+                body.current.rotation.y = approach(body.current.rotation.y, targetYaw, 0.15, delta);
                 const breathe = 1 + Math.sin(now * 1.7) * 0.022;
                 const rear = (w.winding ? 1.13 : 1) * breathe;
-                body.current.scale.y += (rear - body.current.scale.y) * 0.2;
-                body.current.scale.x += (2 - breathe - body.current.scale.x) * 0.2;
-                body.current.scale.z += (2 - breathe - body.current.scale.z) * 0.2;
-                body.current.rotation.x += ((w.winding ? -0.12 : 0) - body.current.rotation.x) * 0.2;
+                body.current.scale.y = approach(body.current.scale.y, rear, 0.2, delta);
+                body.current.scale.x = approach(body.current.scale.x, 2 - breathe, 0.2, delta);
+                body.current.scale.z = approach(body.current.scale.z, 2 - breathe, 0.2, delta);
+                body.current.rotation.x = approach(body.current.rotation.x, w.winding ? -0.12 : 0, 0.2, delta);
             }
         }
         if (hpWrap.current) hpWrap.current.style.opacity = w.alive ? "1" : "0";
@@ -1075,26 +1142,40 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
     const prevPos = useRef<[number, number]>([0, 0]);
     const H = 2.1;
     const scale = config ? H / Math.max(0.001, config.targetHeight) : 1;
+    const smX = useRef(0), smZ = useRef(0);
+    const wasAlive = useRef(false);
     const [aliveUi, setAliveUi] = useState(false);
-    useFrame((_state, delta) => {
-        const m = snapAt(result, clock).minis[idx];
+    useFrame((state, delta) => {
+        const { s0, s1, f: bf } = lerpFrameAt(result, clock);
+        const m = s1.minis[idx];
+        const m0 = s0.minis[idx];
         if (!m) return;
         if (m.alive !== aliveUi) setAliveUi(m.alive);   // unmount the rig while the camp is empty
-        if (root.current) {
-            root.current.visible = m.alive;
-            root.current.position.set(m.x, 0, m.y);
-        }
-        const [ppx, ppz] = prevPos.current;
-        const dx = m.x - ppx, dz = m.y - ppz;
+        const jump = !!m0 && ((m.x - m0.x) ** 2 + (m.y - m0.y) ** 2 > 9);
+        const tx = m0 && !jump ? lerp(m0.x, m.x, bf) : m.x;
+        const tz = m0 && !jump ? lerp(m0.y, m.y, bf) : m.y;
+        const fresh = m.alive && !wasAlive.current;   // just (re)spawned → snap onto its pad
+        wasAlive.current = m.alive;
+        if (fresh || !m.alive) { smX.current = tx; smZ.current = tz; prevPos.current = [tx, tz]; }
+        else { smX.current = approach(smX.current, tx, 0.4, delta); smZ.current = approach(smZ.current, tz, 0.4, delta); }
+        const dx = smX.current - prevPos.current[0], dz = smZ.current - prevPos.current[1];
         const spd = Math.hypot(dx, dz);
-        prevPos.current = [m.x, m.y];
+        prevPos.current = [smX.current, smZ.current];
+        const ups = spd / Math.max(1e-3, delta);
+        const moving = m.alive && !fresh && ups > 0.35;
         const f = frameRef.current;
-        const moving = m.alive && spd > 1e-4;
-        f.motion = moving ? "run" : "idle";
+        // A planted camp boss trading blows should look like it — jab when idle.
+        const striking = m.alive && !moving && ((state.clock.elapsedTime + idx * 0.41) % 0.95) < 0.22;
+        f.motion = moving ? "run" : striking ? "strike" : "idle";
         f.moving = moving;
-        f.speed = Math.min(6, spd / Math.max(1e-3, delta));
+        f.speed = Math.min(6, ups);
         if (moving && spd > 1e-6) { f.moveX = dx / spd; f.moveZ = dz / spd; f.faceX = dx / spd; f.faceZ = dz / spd; }
         else { f.faceX = m.faceX; f.faceZ = 0.001; f.moveX = m.faceX; f.moveZ = 0.001; }
+        const lunge = striking ? 0.2 : 0;
+        if (root.current) {
+            root.current.visible = m.alive;
+            root.current.position.set(smX.current + f.faceX * lunge, 0, smZ.current + f.faceZ * lunge);
+        }
         f.desperate = m.alive && m.hp / Math.max(1, m.maxHp) < 0.4;
         if (hpWrap.current) hpWrap.current.style.opacity = m.alive ? "1" : "0";
         if (hpFill.current) { hpFill.current.style.width = `${Math.max(0, Math.min(100, (m.hp / m.maxHp) * 100))}%`; hpFill.current.style.background = m.ally ? TEAM_COLOR[m.ally] : "#c084fc"; }
@@ -1310,15 +1391,15 @@ function WfCameraRig({ result, clock, shake, camViewRef, camCtlRef, storyRef, mo
     focusPetRef: MutableRefObject<string | null>;
 }) {
     const sm = useRef({ fx: 0, fz: 0, d: 18, init: true });
-    useFrame((state) => {
+    useFrame((state, delta) => {
         const s = sm.current;
         const ctl = camCtlRef.current;
         if (ctl.mode === "free") {
             // Player-driven spectator cam — glide toward the requested view.
             const k = s.init ? 1 : 0.22;
-            s.fx += (ctl.fx - s.fx) * k;
-            s.fz += (ctl.fz - s.fz) * k;
-            s.d += (ctl.dist - s.d) * k;
+            s.fx = approach(s.fx, ctl.fx, k, delta);
+            s.fz = approach(s.fz, ctl.fz, k, delta);
+            s.d = approach(s.d, ctl.dist, k, delta);
         } else {
             // A FEATURED PET (clicked mini-screen) owns the main camera
             // outright; otherwise mode-aware focus — broadcast chases the
@@ -1376,9 +1457,9 @@ function WfCameraRig({ result, clock, shake, camViewRef, camCtlRef, storyRef, mo
             if (!s.init && Math.hypot(fx2 - s.fx, fz2 - s.fz) > 16) {
                 s.fx = fx2; s.fz = fz2; s.d = targetD;
             } else {
-                s.fx += (fx2 - s.fx) * k;
-                s.fz += (fz2 - s.fz) * k;
-                s.d += (targetD - s.d) * k;
+                s.fx = approach(s.fx, fx2, k, delta);
+                s.fz = approach(s.fz, fz2, k, delta);
+                s.d = approach(s.d, targetD, k, delta);
             }
             ctl.fx = s.fx; ctl.fz = s.fz; ctl.dist = s.d;   // free-cam starts from here
         }
@@ -1496,7 +1577,7 @@ function WfMultiCam({ result, clock, petIds, tileW, tileH, margin, gap, statusRe
         for (const q of r.quads) { q.geometry.dispose(); (q.material as THREE.Material).dispose(); }
         rig.current = null;
     }, []);
-    useFrame((state) => {
+    useFrame((state, delta) => {
         const { gl, scene, camera, size } = state;
         // Shadow maps refresh at 30 Hz — invisible for a fixed sun, and it
         // halves the priciest fixed cost of the frame.
@@ -1547,7 +1628,7 @@ function WfMultiCam({ result, clock, petIds, tileW, tileH, margin, gap, statusRe
                 const s = sm.current[i];
                 const jump = Math.hypot(a.x - s.x, a.y - s.z) > 5;
                 if (s.init || jump) { s.x = a.x; s.z = a.y; s.init = false; }
-                else { s.x += (a.x - s.x) * 0.5; s.z += (a.y - s.z) * 0.5; }
+                else { s.x = approach(s.x, a.x, 0.5, delta); s.z = approach(s.z, a.y, 0.5, delta); }
                 // Same terrain-clearing drone framing as the old chase cam.
                 cam.position.set(s.x, 6.8, s.z + 4.6);
                 cam.lookAt(s.x, 0.6, s.z);
@@ -1629,6 +1710,7 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
     onEnd: () => void;
 }) {
     const lastTick = useRef(-1);
+    const evCursor = useRef(0);   // forward-only index into result.events (tick-sorted)
     const ended = useRef(false);
     // Announcer memory: first blood fired, each pet's current kill spree, and
     // which structures already raised their under-siege alarm.
@@ -1640,7 +1722,7 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
         const cur = Math.floor(clockRef.current.t);
         // Rewind (replay) resets ALL director-local memory — including `ended`,
         // which otherwise stayed true and stopped onEnd() from firing on replay.
-        if (cur < lastTick.current) { lastTick.current = -1; firstBlood.current = false; sprees.current.clear(); siegeWarned.current.clear(); ended.current = false; }
+        if (cur < lastTick.current) { lastTick.current = -1; evCursor.current = 0; firstBlood.current = false; sprees.current.clear(); siegeWarned.current.clear(); ended.current = false; }
         // The director orders a camera cut to a story beat; higher priority (or
         // an expired story) always wins the slot.
         const cut = (t: number, x: number, z: number, span: number, prio: number, secs: number) => {
@@ -1649,8 +1731,15 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
         };
         if (cur > lastTick.current) {
             const snaps = result.snapshots;
-            for (const e of result.events) {
-                if (e.t <= lastTick.current || e.t > cur) continue;
+            // Forward-only cursor: events are tick-sorted, so resume where the last
+            // advance stopped instead of rescanning the whole (ever-growing) list
+            // every tick — O(events) across the match, not O(events × ticks).
+            const events = result.events;
+            let ei = evCursor.current;
+            for (; ei < events.length; ei++) {
+                const e = events[ei];
+                if (e.t <= lastTick.current) continue;   // defensive; cursor is normally already past these
+                if (e.t > cur) break;                     // sorted → nothing more belongs to this advance
                 const snap = snaps[Math.min(snaps.length - 1, e.t)];
                 const actorPos = (id: string) => snap.actors.find((a) => a.id === id);
                 if (e.type === "hit") {
@@ -1896,6 +1985,7 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                     pushFeed(`${spec?.icon ?? "▲"} ${nameOf(e.petId)} gains ${spec?.label ?? e.kind}`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
                 }
             }
+            evCursor.current = ei;
             lastTick.current = cur;
         }
         if (!ended.current && result.winner !== null && clockRef.current.t >= result.snapshots.length - 1) {
@@ -2033,6 +2123,12 @@ function WfHudWriter({ result, clock, timerRef, coinBlueRef, coinRedRef, scoreBl
     stanceBlueRef: MutableRefObject<HTMLSpanElement | null>;
     stanceRedRef: MutableRefObject<HTMLSpanElement | null>;
 }) {
+    // Running kill tally advanced by a forward cursor — the old code recounted
+    // from event zero EVERY frame (O(events) × 60fps, growing all match). Now it
+    // consumes only newly-passed events; a rewind resets both.
+    const evCursor = useRef(0);
+    const kills = useRef<[number, number]>([0, 0]);
+    const lastT = useRef(-1);
     useFrame(() => {
         const snap = snapAt(result, clock);
         if (timerRef.current) {
@@ -2045,11 +2141,16 @@ function WfHudWriter({ result, clock, timerRef, coinBlueRef, coinRedRef, scoreBl
         // SCORE = the actual win condition (wfVerdictScore: enemy statues +
         // core broken; the same formula the timer verdict rules on).
         const score = wfVerdictScore(snap);
-        let kb = 0, kr = 0;
-        for (const e of result.events) {   // events are tick-sorted — early exit
-            if (e.t > snap.t) break;
-            if (e.type === "kill") { if (e.team === "blue") kb++; else kr++; }
+        if (snap.t < lastT.current) { evCursor.current = 0; kills.current[0] = 0; kills.current[1] = 0; }   // rewound
+        lastT.current = snap.t;
+        const events = result.events;
+        let ei = evCursor.current;
+        for (; ei < events.length && events[ei].t <= snap.t; ei++) {
+            const e = events[ei];
+            if (e.type === "kill") kills.current[e.team === "blue" ? 0 : 1]++;
         }
+        evCursor.current = ei;
+        const kb = kills.current[0], kr = kills.current[1];
         if (scoreBlueRef.current) scoreBlueRef.current.textContent = String(score.blue);
         if (scoreRedRef.current) scoreRedRef.current.textContent = String(score.red);
         if (killBlueRef.current) killBlueRef.current.textContent = String(kb);
