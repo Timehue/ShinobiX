@@ -5,6 +5,10 @@ import { runWarfrontMatch as clientRun, startWarfrontMatch } from "../shinobij.c
 import type { WfBuyPolicy, WfStance } from "../shinobij.client/src/lib/pet-warfront-sim";
 import type { Pet } from "../shinobij.client/src/types/pet";
 import type { ArenaRole, ArenaSlot } from "../shinobij.client/src/lib/pet-arena-sim";
+import { buildWarfrontAiTeam } from "../api/pet/_warfront-ai";
+import { genericPetArenaOpponents } from "../shinobij.client/src/data/pet-arena-opponents";
+import { derivePetRole } from "../shinobij.client/src/lib/pet-roles";
+import { derivePetRole as serverDerivePetRole } from "../api/_pet-sim/pet-roles";
 
 /*
  * Hollow Warfront server-parity. api/_pet-sim/pet-warfront-sim.ts is a GENERATED
@@ -69,6 +73,49 @@ function streamedRender(blue: ArenaSlot[], red: ArenaSlot[], seed: number, polic
     while (!ctl.done && guard++ < 100000) ctl.advanceRoundPartial(70);   // ~renderer chunk size
     return ctl.result;
 }
+// The vs-AI RED team the reward endpoint re-sims must be the SAME team the
+// client fought. The client (PetArena "Start vs AI") cycles genericPetArenaOpponents
+// to the player's count; the server rebuilds it from SERVER_ARENA_PETS + elements
+// (buildWarfrontAiTeam). This proves the two produce byte-identical matches, so
+// the reward can never diverge from what the player saw. Roles are assigned the
+// client's way (pet.role ?? derivePetRole) on both sides.
+function autoRole(pets: Pet[]): ArenaSlot[] {
+    return pets.map((pet) => ({ pet, role: (pet.role ?? derivePetRole(pet).role) as ArenaRole }));
+}
+
+// THE FULL SEAMLESS PROOF: exactly what api/pet/warfront-start.ts computes (server
+// runWarfrontMatch + server buildWarfrontAiTeam + server derivePetRole) must equal
+// exactly what the browser renders (streamed startWarfrontMatch + the real client
+// AI roster + client derivePetRole). Byte-identical → the reward can never disagree
+// with what the player watched, on any engine.
+test("reward endpoint's server computation === the browser's streamed render", () => {
+    const bluePets = squad("P").map((s) => s.pet);
+    const srvRole = (pets: Pet[]): ArenaSlot[] => pets.map((pet) => ({ pet, role: (pet.role ?? serverDerivePetRole(pet).role) as ArenaRole }));
+    const clientRed = autoRole(Array.from({ length: 4 }, (_, i) => ({ ...genericPetArenaOpponents.map((o) => o.pet)[i % genericPetArenaOpponents.length] })));
+    for (const seed of [1, 42, 777]) {
+        for (const stance of ["balanced", "siege", "headhunt"] as const) {
+            const endpoint = serverRun(srvRole(bluePets), srvRole(buildWarfrontAiTeam(4)), seed, "balanced", "balanced", undefined, { blue: stance });
+            const ctl = startWarfrontMatch(autoRole(bluePets), clientRed, seed, { bluePolicy: "balanced", redPolicy: "balanced", blueStance: stance });
+            let g = 0;
+            while (!ctl.done && g++ < 100000) ctl.advanceRoundPartial(70);
+            assert.equal(digest(endpoint), digest(ctl.result), `endpoint diverges from the render @ seed ${seed} stance ${stance}`);
+        }
+    }
+});
+test("server-resolved vs-AI red team reproduces the client roster's match byte-for-byte", () => {
+    const blue = squad("P");
+    const count = 4;
+    const clientRed = autoRole(Array.from({ length: count }, (_, i) => ({ ...genericPetArenaOpponents.map((o) => o.pet)[i % genericPetArenaOpponents.length] })));
+    const serverRed = autoRole(buildWarfrontAiTeam(count));
+    for (const seed of [1, 7, 42, 999]) {
+        assert.equal(
+            digest(clientRun(blue, clientRed, seed)),
+            digest(clientRun(blue, serverRed, seed)),
+            `server AI roster diverges from the client roster @ seed ${seed} — the reward would mismatch the fight`,
+        );
+    }
+});
+
 test("streamed render path === full-auto server path (autobuy, all policies + stances)", () => {
     for (const seed of [3, 29, 404]) {
         for (const policy of ["balanced", "offense", "defense"] as const) {

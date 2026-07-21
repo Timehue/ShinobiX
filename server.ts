@@ -252,6 +252,7 @@ import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
 // Pet
 import petBattleStartHandler from './api/pet/battle-start.js';
 import petBattleResultHandler from './api/pet/battle-result.js';
+import petWarfrontStartHandler from './api/pet/warfront-start.js';
 import petRankedStartHandler from './api/pet/ranked-start.js';
 import petEvolveHandler from './api/pet/evolve.js';
 import applyElementalCoreHandler from './api/weapon/apply-elemental-core.js';
@@ -1224,6 +1225,7 @@ route('/pvp/pet-ranked-queue', pvpPetRankedQueueHandler);
 // ─── Pet battle result ─────────────────────────────────────────────────────────
 route('/pet/battle-start',  petBattleStartHandler);
 route('/pet/battle-result', petBattleResultHandler);
+route('/pet/warfront-start', petWarfrontStartHandler);
 route('/pet/ranked-start',  petRankedStartHandler);
 route('/pet/evolve',        petEvolveHandler);
 route('/weapon/apply-elemental-core', applyElementalCoreHandler);
