@@ -2000,6 +2000,17 @@ export function WorldMap({
         return villagePageImage(villageName);
     }
 
+    // Bespoke painted top-down MAP for a village's Outer Territory page. The generic
+    // `virtualSector` (outskirts + 4) is chosen for explore/battle logic and can land
+    // in a wholly DIFFERENT biome's sector art — e.g. Stormveil's outskirts 31 + 4 =
+    // sector 35, a carnival cactus-flat (a circus) instead of its harbor. Villages
+    // with a hand-made in-region territory board override the IMAGE here; gameplay
+    // (virtualSector) is untouched. Assets: scripts/gen-village-outskirts.mjs.
+    function villageOuterTerritoryMapUrl(villageName: string): string | undefined {
+        if (villageName === "Stormveil Village") return "/sector-map/stormveil-outskirts.webp";
+        return undefined;
+    }
+
     function enterLandmark(location: typeof locations[number]) {
         setCurrentBiome(location.biome);
         setCurrentWeather(weatherForBiome(location.biome));
@@ -3815,7 +3826,9 @@ export function WorldMap({
         // the lone sector view still stacking the old over-scaled vista + scattered
         // ground props + foreground foliage band, which read as a cluttered mess
         // instead of a clean backdrop. Opt-out (sectorMap.v1=off) falls back to it.
-        const sectorMapSrc = isSectorMapEnabled() ? sectorMapUrl(biome, virtualSector) : undefined;
+        const sectorMapSrc = isSectorMapEnabled()
+            ? (villageOuterTerritoryMapUrl(loc.name) ?? sectorMapUrl(biome, virtualSector))
+            : undefined;
         const sectorMapMode = !!sectorMapSrc;
         return (
             <div className="map-instance">
