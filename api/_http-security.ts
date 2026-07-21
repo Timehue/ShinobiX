@@ -36,7 +36,12 @@ export function contentSecurityPolicy(env: NodeJS.ProcessEnv = process.env): str
         "object-src 'none'",
         "frame-ancestors 'none'",
         "form-action 'self'",
-        "script-src 'self'",
+        // 'wasm-unsafe-eval' lets three.js/@react-three-drei compile the meshopt +
+        // Draco WASM decoders it configures for GLB models. Without it the browser
+        // throws "WebAssembly.instantiate() … 'unsafe-eval' is not an allowed source"
+        // and any compressed pet model fails to decode. It permits ONLY WebAssembly
+        // compilation — NOT JS eval() (that would need the far broader 'unsafe-eval').
+        "script-src 'self' 'wasm-unsafe-eval'",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
         "media-src 'self' data: blob: https:",
