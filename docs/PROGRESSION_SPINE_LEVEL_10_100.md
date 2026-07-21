@@ -10,8 +10,8 @@ This uses existing systems and does not claim the endgame is balanced.
 | 30 | Chunin milestone; step into stronger missions and profession growth | Clan/PvP become more relevant | Do not imply war participation is required |
 | 39 | XP is held for the Chunin Exam; Logbook points to the exam requirements | Join or found a clan; PvP optional | Low-population solo clan creation remains valid |
 | 50 | Jonin milestone; prioritize A-rank missions, Jonin story, Towers, and profession mastery | Clan/village competition | Hollow Gate remains desktop-first; wars are staffed |
-| 60–69 | Continue Towers, profession mastery, story, and A/S-rank preparation | Ranked PvP and clan goals | Weekly Boss contribution stays disabled until server-authoritative |
-| 70–79 | S-rank missions and high-value story only where server settlement is safe | Clan Boss after certification | Client-trusted C/B/A/S mission payouts remain gated |
+| 60–69 | Continue Towers, profession mastery, story, and A/S-rank preparation | Ranked PvP and clan goals | Weekly Boss contribution is server-authoritative (sealed session settlement) and enabled |
+| 70–79 | S-rank missions and high-value story only where server settlement is safe | Clan Boss after certification | C/B/A/S payouts settle server-side via a completed-session token; only the legacy client-trust flag stays unset |
 | 80–99 | Hollow Gate, Legacy, Towers, mastery, and veteran story goals | Special Jonin/Kage-related competition | Creator rewards and broad war seasons remain gated/staffed |
 | 100 | Pursue Legacy completion, Tower records, profession mastery, clan/village leadership, and Kage-related story/competitive objectives | Seasonal ranked/war events | Level 100 is a long-term beta goal, not proof of full balance |
 
