@@ -57,7 +57,7 @@ import { petCombatModel, type PetCombatModelProfile } from "../lib/pet-3d-models
 import { PetArena3DStage } from "./PetArena3DStage";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import { directPetDuelPresentation } from "../lib/pet-duel-stage-director";
-import { boundedBurstStep, duelAttackDashBeats, duelHeroCutEligible, duelHeroCutEventIndexes, duelMoveOutcome, precedingNamedMove } from "../lib/pet-duel-presentation";
+import { PARTY_SPOTLIGHT_COOLDOWN_SECONDS, appendCapped, boundedBurstStep, duelAttackDashBeats, duelHeroCutEligible, duelHeroCutEventIndexes, duelMoveOutcome, precedingNamedMove, selectDuelSpotlightEvent } from "../lib/pet-duel-presentation";
 import { petVisualQuality, type PetVisualQuality, type PetVisualQualityConfig } from "../lib/pet-visual-quality";
 import { PetRenderStatsProbe } from "./PetRenderStatsProbe";
 import { petHeroMoveAt, petHeroMoveStyle, petHeroMoveWindows, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
@@ -3145,6 +3145,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const lastMoveCall = useRef(0);                  // wall-time of the last move-name callout (debounce)
     const heroCutActors = useRef<Set<string>>(new Set()); // every showcase fighter earns one marquee reveal
     const lastElementChain = useRef(-999);           // elemental payoff banner throttle
+    const partyMode = (duel.snapshots[0]?.actors.length ?? 0) > 2;
+    const spotlightUntil = useRef(0);                // one global 2v2 spectacle lane; local combat continues underneath
     // All arena-scale techniques share one presentation lane. Raw simulator
     // events can legitimately overlap (counter-ultimate, buff during pressure),
     // but launching their long-lived VFX independently produces an unreadable
@@ -3257,8 +3259,17 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         advanceClock(maxT, dt);
         const cur = Math.floor(clock.current.t);
         if (cur > lastTick.current) {
+            const crossedEvents = duel.events.filter((event) => event.t > lastTick.current && event.t <= cur);
+            const spotlightCandidate = partyMode ? selectDuelSpotlightEvent(crossedEvents) : null;
+            const spotlightEvent = spotlightCandidate
+                && (spotlightCandidate.type === "ko" || now >= spotlightUntil.current)
+                ? spotlightCandidate
+                : null;
+            if (spotlightEvent) spotlightUntil.current = now + PARTY_SPOTLIGHT_COOLDOWN_SECONDS;
             for (const cue of attackDashBeats) {
                 if (cue.startTick <= lastTick.current || cue.startTick > cur) continue;
+                const dashOwnsSpotlight = !partyMode || (spotlightEvent?.actorId === cue.actorId && spotlightEvent.t === cue.startTick);
+                if (!dashOwnsSpotlight) continue;
                 const launchSnap = snaps[Math.min(maxT, cue.startTick)];
                 const contactSnap = snaps[Math.min(maxT, cue.resolveTick)];
                 const attacker = findActor(launchSnap, cue.actorId);
@@ -3351,8 +3362,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                 shotDollyHold.current = Math.max(shotDollyHold.current, 0.56);
                 shake.current = Math.max(shake.current, 0.26);
             }
-            for (const e of duel.events) {
-                if (e.t <= lastTick.current || e.t > cur) continue;
+            for (const e of crossedEvents) {
+                const spotlight = !partyMode || e === spotlightEvent;
                 const snapAt = snaps[Math.min(maxT, e.t)];
                 if (e.type === "hit" && e.dmg && e.targetId) {
                     const a = findActor(snapAt, e.targetId);
@@ -3386,7 +3397,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         const authoredDashContact = attackDashBeats.some((cue) => cue.outcome === "hit" && cue.resolveTick === e.t && cue.actorId === e.actorId && cue.targetId === e.targetId);
                         let setPieceOwnsContact = false;
                         let setPieceContactDelayMs = 0;
-                        if (attacker && e.move && (followsUltimate || arenaScaleMove(e.move))) {
+                        if (spotlight && attacker && e.move && (followsUltimate || arenaScaleMove(e.move))) {
                             const setPieceKind = duelSetPieceKind(e.element, e.move);
                             const timing = duelSetPieceTiming(setPieceKind);
                             spawnSetPiece({ actorId: attacker.id, targetId: a.id, fromX: attacker.x, fromZ: attacker.y, toX: a.x, toZ: a.y, element: e.element, move: e.move });
@@ -3394,13 +3405,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             setPieceOwnsContact = true;
                             setPieceContactDelayMs = timing.contactDelayMs;
                         }
-                        const longFormOwnsContact = setPieceOwnsContact || authoredDashContact || majorVfxBusy();
+                        const longFormOwnsContact = spotlight && (setPieceOwnsContact || authoredDashContact || majorVfxBusy());
                         const heading = attacker ? Math.atan2(a.x - attacker.x, a.y - attacker.y) : (e.actorId.startsWith("enemy") ? -Math.PI / 2 : Math.PI / 2);
                         // Named techniques deserve a larger elemental silhouette even
                         // when their balance damage is modest. This keeps presentation
                         // weight independent from tuning and prevents special moves
                         // looking like recolored basic attacks.
-                        const cinematicBurst = impactHeavy || !!e.move;
+                        const cinematicBurst = spotlight && (impactHeavy || !!e.move);
                         // Contact is followed by a persistent world-space residue.
                         // This supplies the missing payoff after the projectile or
                         // dash disappears: scorched flame tongues, water ripples,
@@ -3418,9 +3429,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         // a burst, shockwave, sprite, and residue on that same frame was
                         // the main source of the choppy "three VFX in a row" rhythm.
                         if (!longFormOwnsContact) {
-                            if (fxKey) spawnFx({ x: a.x, z: a.y, key: fxKey, scale: impactHeavy ? 2.9 : 1.9, dur: impactHeavy ? 540 : 400 });
-                            else spawnElementBurst({ x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: cinematicBurst || heroStyle !== "generic", heading, style: heroStyle });
-                            if (e.crit) {
+                            if (fxKey) spawnFx({ x: a.x, z: a.y, key: fxKey, scale: spotlight ? (impactHeavy ? 2.9 : 1.9) : 1.25, dur: spotlight && impactHeavy ? 540 : 360 });
+                            else spawnElementBurst({ x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: spotlight && (cinematicBurst || heroStyle !== "generic"), heading, style: heroStyle });
+                            if (spotlight && e.crit) {
                                 const aftermath = { x: a.x, z: a.y, element: e.element, move: e.move, color: col, big: cinematicBurst };
                                 scheduleDirectorCue(() => spawnAftermath(aftermath), 180);
                             }
@@ -3428,7 +3439,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         // Weapon TRAIL — the swing itself, at the ATTACKER, per archetype
                         // (pierce stab / slash sweep / slam overhead chop / drain rake).
                         // Melee only — a ranged projectile has no melee swing.
-                        if (!e.ranged && !longFormOwnsContact) {
+                        if (spotlight && !e.ranged && !longFormOwnsContact) {
                             const att = findActor(snapAt, e.actorId);
                             if (att) spawnTrail({
                                 x: att.x,
@@ -3447,6 +3458,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             // duel simply never called it.
                             playPetSfx(e.crit ? "crit" : "hit");
                             spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
+                            if (!spotlight) return;
                             hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0) + (dashCombo ? 0.075 : 0));
                             shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0) + (dashCombo ? 1.15 : 0));
                             if (impactHeavy || e.move) {
@@ -3462,18 +3474,20 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         // heavy contacts. Basic hits already have a swing trail and
                         // elemental contact volume; a third effect on every hit made
                         // the action stutter visually even when frame time was stable.
-                        if (!longFormOwnsContact && impactHeavy) spawnShock({ x: a.x, z: a.y, color: col, big: true });
+                        if (spotlight && !longFormOwnsContact && impactHeavy) spawnShock({ x: a.x, z: a.y, color: col, big: true });
                         // Dramatic SAVOR — slow the moment so the swing reads; deeper on a
                         // signature, then a crit/heavy slam, then any named ability, then a basic.
                         const isSig = !!e.signature, isAbility = !!e.move;
-                        if (isSig) savor(0.48, 0.22);
-                        else if (e.crit || heavyKind) savor(0.72, 0.12);
-                        else if (authoredDashContact || dashCombo) savor(0.62, 0.22);
-                        else if (isAbility || heavy) savor(0.98, 0.04);
+                        if (spotlight) {
+                            if (isSig) savor(0.48, 0.22);
+                            else if (e.crit || heavyKind) savor(0.72, 0.12);
+                            else if (authoredDashContact || dashCombo) savor(0.62, 0.22);
+                            else if (isAbility || heavy) savor(0.98, 0.04);
+                        }
                         // Camera ZOOM-PUNCH — every meaningful blow pushes in; abilities/crits/signatures harder.
-                        zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : dashCombo ? 2.5 : (isAbility || heavy) ? 1.45 : 0.42);
+                        if (spotlight) zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : dashCombo ? 2.5 : (isAbility || heavy) ? 1.45 : 0.42);
                         // Camera CUT to whoever got hit — the impact reads on the defender.
-                        if (impactHeavy || isAbility) {
+                        if (spotlight && (impactHeavy || isAbility)) {
                             const cp = duelFieldToFloor(a.x, a.y);
                             const ap = attacker ? duelFieldToFloor(attacker.x, attacker.y) : cp;
                             const pairX = (ap.wx + cp.wx) * 0.5;
@@ -3531,22 +3545,24 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         // A pet's HERO move (its signature, else its strongest jutsu) triggers the
                         // anime freeze-frame CUT-IN (throttled so it stays special); other named
                         // abilities show the smaller banner. (Signatures also cut in via 'ultimate'.)
-                        if (e.move && !isSig && now - lastMoveCall.current > 0.4) {
+                        if (spotlight && e.move && !isSig && now - lastMoveCall.current > 0.4) {
                             lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack");
                         }
                         // Combo counter — consecutive hits inside a 1.1s window.
-                        comboN.current = now < comboT.current ? comboN.current + 1 : 1;
-                        comboT.current = now + 1.1;
-                        if (comboN.current >= 2) onCombo(comboN.current);
-                        if (e.combo && now - lastElementChain.current > 2.2) {
+                        if (spotlight) {
+                            comboN.current = now < comboT.current ? comboN.current + 1 : 1;
+                            comboT.current = now + 1.1;
+                            if (comboN.current >= 2) onCombo(comboN.current);
+                        }
+                        if (spotlight && e.combo && now - lastElementChain.current > 2.2) {
                             lastElementChain.current = now;
                             onMoveCallout(e.combo, e.actorId.startsWith("enemy") ? "enemy" : "player", "combo");
                             onFlash(col, 0.22);
                         }
-                        if (e.crit) onCallout("CRITICAL!");
-                        if (e.crit) duelFovKick.current = Math.max(duelFovKick.current, 2);   // small lens snap on crit
+                        if (spotlight && e.crit) onCallout("CRITICAL!");
+                        if (spotlight && e.crit) duelFovKick.current = Math.max(duelFovKick.current, 2);   // small lens snap on crit
                         if (e.crit) spawnScorch({ x: a.x, z: a.y });   // a crit leaves a scorch on the floor
-                        if (e.crit) camPosBias.current[1] = -0.9;   // dip to a low hero angle on a crit (R4), eases back
+                        if (spotlight && e.crit) camPosBias.current[1] = -0.9;   // dip to a low hero angle on a crit (R4), eases back
                     }
                 } else if (e.type === "heal" && e.dmg && e.targetId) {
                     const a = findActor(snapAt, e.targetId);
@@ -3565,7 +3581,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         playPetSfx("shield");
                         if (!majorVfxBusy()) {
                             spawnSupport({ x: a.x, z: a.y, color: elementColor(elementById[e.targetId]).glow, kind: "shield", actorId: a.id });
-                            onFlash("#bfe3ff", 0.14);
+                            if (spotlight) onFlash("#bfe3ff", 0.14);
                         }
                     }
                 } else if (e.type === "buff" && e.actorId) {
@@ -3574,7 +3590,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     // an attack had landed on the pet rather than a self-buff.
                     const c = findActor(snapAt, e.actorId);
                     if (c) playPetSfx("buff");
-                    if (c && !majorVfxBusy()) {
+                    if (c && !majorVfxBusy() && spotlight) {
                         const el = elementById[e.actorId];
                         // Use the saturated elemental body colour as the aura's
                         // authored ink. Feeding the pale highlight colour into a
@@ -3596,6 +3612,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         zoomKick.current = Math.max(zoomKick.current, 0.92);
                         savor(1.04, 0.02);
                         onFlash(color, 0.09);
+                    } else if (c && !majorVfxBusy()) {
+                        spawnImpact({ x: c.x, z: c.y, color: elementColor(elementById[e.actorId]).base, big: false, mode: "tell" });
                     }
                 } else if (e.type === "windup" && e.actorId) {
                     // Element TELL — a charge ring at the attacker a beat before the blow,
@@ -3605,9 +3623,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     if (c) {
                         const heavyTell = e.kind !== "buff" && e.kind !== "heal" && e.kind !== "shield" && e.kind !== "barrier" && e.kind !== "absorb" && e.kind !== "haste";
                         const opensDashRoute = attackDashBeats.some((cue) => cue.startTick === e.t && cue.actorId === e.actorId && cue.move === e.move);
-                        spawnImpact({ x: c.x, z: c.y, color: elementColor(elementById[e.actorId]).glow, big: heavyTell, mode: "tell" });
-                        if (heavyTell) { savor(0.9, 0.04); }
-                        if (heavyTell && !opensDashRoute) {
+                        spawnImpact({ x: c.x, z: c.y, color: elementColor(elementById[e.actorId]).glow, big: spotlight && heavyTell, mode: "tell" });
+                        if (spotlight && heavyTell) { savor(0.9, 0.04); }
+                        if (spotlight && heavyTell && !opensDashRoute) {
                             const p = duelFieldToFloor(c.x, c.y);
                             camAim.current = [p.wx * 0.66, 1.45, CAM_LOOK[2] + p.wz * 0.42];
                             camAimHold.current = Math.max(camAimHold.current, 0.4);
@@ -3620,7 +3638,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                             camBiasHold.current = Math.max(camBiasHold.current, 0.34);
                             shotDolly.current = Math.max(shotDolly.current, 1.05);
                             shotDollyHold.current = Math.max(shotDollyHold.current, 0.32);
-                        } else if (heavyTell && opensDashRoute) {
+                        } else if (spotlight && heavyTell && opensDashRoute) {
                             // Do not overwrite the dash director's wide lane with
                             // the ordinary windup close-up on the same tick. That
                             // close -> wide -> close camera reversal was making
@@ -3650,29 +3668,33 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         const missX = lerp(attacker.x, target.x, 0.86);
                         const missZ = lerp(attacker.y, target.y, 0.86);
                         spawnImpact({ x: missX, z: missZ, color: elementColor(elementById[e.actorId]).base, big: false, mode: "dodge" });
-                        const ap = duelFieldToFloor(attacker.x, attacker.y);
-                        const tp = duelFieldToFloor(target.x, target.y);
-                        camAim.current = [(ap.wx + tp.wx) * 0.46, 1.36, CAM_LOOK[2] + (ap.wz + tp.wz) * 0.22];
-                        camAimHold.current = Math.max(camAimHold.current, 0.42);
-                        // A miss is about the empty lane between two silhouettes.
-                        // Clear any inherited impact close-up and reveal both the
-                        // projectile path and the defender's landing point.
-                        zoomKick.current = Math.min(zoomKick.current, 0.25);
-                        camDollyBias.current = 0;
-                        camPosBias.current = [0, 0.35, 1.35];
-                        camBiasHold.current = Math.max(camBiasHold.current, 0.44);
-                        shotDolly.current = -1.85;
-                        shotDollyHold.current = Math.max(shotDollyHold.current, 0.42);
+                        if (spotlight) {
+                            const ap = duelFieldToFloor(attacker.x, attacker.y);
+                            const tp = duelFieldToFloor(target.x, target.y);
+                            camAim.current = [(ap.wx + tp.wx) * 0.46, 1.36, CAM_LOOK[2] + (ap.wz + tp.wz) * 0.22];
+                            camAimHold.current = Math.max(camAimHold.current, 0.42);
+                            // A miss is about the empty lane between two silhouettes.
+                            // Clear any inherited impact close-up and reveal both the
+                            // projectile path and the defender's landing point.
+                            zoomKick.current = Math.min(zoomKick.current, 0.25);
+                            camDollyBias.current = 0;
+                            camPosBias.current = [0, 0.35, 1.35];
+                            camBiasHold.current = Math.max(camBiasHold.current, 0.44);
+                            shotDolly.current = -1.85;
+                            shotDollyHold.current = Math.max(shotDollyHold.current, 0.42);
+                        }
                     }
-                    if (namedOpener?.move && now - lastMoveCall.current > 0.35) {
+                    if (spotlight && namedOpener?.move && now - lastMoveCall.current > 0.35) {
                         lastMoveCall.current = now;
                         onMoveCallout(namedOpener.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "attack");
                     }
                     // The motion and empty contact lane should sell the evade.
                     // Keep the text as a restrained tactical caption instead of a
                     // full-screen verdict that hides the actual body performance.
-                    onMoveCallout(evaded ? "Clean Evade" : "Attack Missed", target?.id.startsWith("enemy") ? "enemy" : "player", "maneuver");
-                    savor(0.9, 0.06);
+                    if (spotlight) {
+                        onMoveCallout(evaded ? "Clean Evade" : "Attack Missed", target?.id.startsWith("enemy") ? "enemy" : "player", "maneuver");
+                        savor(0.9, 0.06);
+                    }
                 } else if (e.type === "dodge" && e.actorId) {
                     // The model performs the vertical hop; short world-space speed
                     // accents make the evade readable without a floor UI reticle.
@@ -3682,17 +3704,19 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         spawnDust({ x: d.x, z: d.y });   // foot-dust as the evader lands
                         const evadeColor = elementColor(elementById[e.actorId]).base;
                         spawnImpact({ x: d.x, z: d.y, color: evadeColor, big: false, mode: "dodge" });
-                        const dp = duelFieldToFloor(d.x, d.y);
-                        const opponent = snapAt.actors.find((candidate) => candidate.hp > 0 && candidate.team !== d.team);
-                        const op = opponent ? duelFieldToFloor(opponent.x, opponent.y) : dp;
-                        camAim.current = [(dp.wx + op.wx) * 0.46, 1.32, CAM_LOOK[2] + (dp.wz + op.wz) * 0.24];
-                        camAimHold.current = Math.max(camAimHold.current, 0.34);
-                        zoomKick.current = Math.min(zoomKick.current, 0.2);
-                        camDollyBias.current = 0;
-                        camPosBias.current = [0, 0.5, 1.55];
-                        camBiasHold.current = Math.max(camBiasHold.current, 0.3);
-                        shotDolly.current = -2.05; // reveal the launch, empty lane, and landing
-                        shotDollyHold.current = Math.max(shotDollyHold.current, 0.34);
+                        if (spotlight) {
+                            const dp = duelFieldToFloor(d.x, d.y);
+                            const opponent = snapAt.actors.find((candidate) => candidate.hp > 0 && candidate.team !== d.team);
+                            const op = opponent ? duelFieldToFloor(opponent.x, opponent.y) : dp;
+                            camAim.current = [(dp.wx + op.wx) * 0.46, 1.32, CAM_LOOK[2] + (dp.wz + op.wz) * 0.24];
+                            camAimHold.current = Math.max(camAimHold.current, 0.34);
+                            zoomKick.current = Math.min(zoomKick.current, 0.2);
+                            camDollyBias.current = 0;
+                            camPosBias.current = [0, 0.5, 1.55];
+                            camBiasHold.current = Math.max(camBiasHold.current, 0.3);
+                            shotDolly.current = -2.05; // reveal the launch, empty lane, and landing
+                            shotDollyHold.current = Math.max(shotDollyHold.current, 0.34);
+                        }
                         // The authored dodge state already contains a lateral hop.
                         // Driving another wall-clock route over it made the body pop
                         // out and back, so the real snapshot path now owns the pet.
@@ -3703,7 +3727,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const runner = findActor(snapAt, e.actorId);
                     if (runner) {
                         const style = petHeroMoveStyle({ petName: nameById[e.actorId], move: e.move, kind: e.kind, profile: profileById[e.actorId] });
-                        if (style !== "generic") {
+                        if (spotlight && style !== "generic") {
                             const arrivalTick = Math.min(maxT, e.t + Math.round(DUEL_TPS * 0.52));
                             const arrival = findActor(snaps[arrivalTick], e.actorId);
                             if (arrival && Math.hypot(arrival.x - runner.x, arrival.y - runner.y) > 0.35) {
@@ -3726,17 +3750,19 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         // A normal range shift is locomotion, not an attack. The old
                         // presentation spawned a second dash for every maneuver and
                         // overlapped the real pre-hit cue, creating purposeless pops.
-                        zoomKick.current = Math.max(zoomKick.current, 0.35);
+                        if (spotlight) zoomKick.current = Math.max(zoomKick.current, 0.35);
                         // Range changes must be seen in a wide composition. Holding
                         // the previous close-up during a breakaway made purposeful
                         // movement read as a pet simply wandering off-screen.
-                        shotDolly.current = -1.35;
-                        shotDollyHold.current = Math.max(shotDollyHold.current, 0.3);
-                        camAimHold.current = 0;
-                        camBiasHold.current = 0;
-                        shake.current = Math.max(shake.current, 0.72);
+                        if (spotlight) {
+                            shotDolly.current = -1.35;
+                            shotDollyHold.current = Math.max(shotDollyHold.current, 0.3);
+                            camAimHold.current = 0;
+                            camBiasHold.current = 0;
+                            shake.current = Math.max(shake.current, 0.72);
+                        }
                     }
-                    if (now - lastMoveCall.current > 0.4) {
+                    if (spotlight && now - lastMoveCall.current > 0.4) {
                         lastMoveCall.current = now;
                         onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player", "maneuver");
                     }
@@ -3755,14 +3781,14 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const eventIndex = duel.events.indexOf(e);
                     const moveOutcome = duelMoveOutcome(duel.events, eventIndex);
                     const plannedHeroCut = heroCutEventByActor[e.actorId] === eventIndex;
-                    const ultimateGetsCutIn = plannedHeroCut || duelHeroCutEligible({
+                    const ultimateGetsCutIn = spotlight && (plannedHeroCut || duelHeroCutEligible({
                         actorId: e.actorId,
                         eventType: e.type,
                         move: e.move,
                         heroMove: heroMoveById[e.actorId],
                         outcomeKind: moveOutcome.kind,
                         shownActors: heroCutActors.current,
-                    });
+                    }));
                     if (c && !foldedUltimateCast) {
                         if (supportCast && !majorLaneWasBusy) {
                             // Buff/haste own the dedicated golden 3D power column in
@@ -3776,8 +3802,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         } else if (!majorLaneWasBusy) {
                             const castKey = e.type === "ultimate" ? "" : moveFxKey(e.kind);
                             if (castKey) spawnFx({ x: c.x, z: c.y, key: castKey, scale: 1.5, dur: 320 });
-                            else spawnImpact({ x: c.x, z: c.y, color: elementColor(el).base, big: e.type === "ultimate", mode: "tell" });
-                            if (e.type === "ultimate") {
+                            else spawnImpact({ x: c.x, z: c.y, color: elementColor(el).base, big: spotlight && e.type === "ultimate", mode: "tell" });
+                            if (spotlight && e.type === "ultimate") {
                                 spawnPowerUp({ x: c.x, z: c.y, color: elementColor(el).base, actorId: e.actorId, style: castHeroStyle });
                             }
                         }
@@ -3807,13 +3833,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                                 shotDollyHold.current = Math.max(shotDollyHold.current, 0.58);
                             }
                             onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
-                        } else if (!majorLaneWasBusy) {
+                        } else if (spotlight && !majorLaneWasBusy) {
                             // A quick REPEAT unleash — lighter beat, no cut-in / heavy shake.
                             shake.current = Math.max(shake.current, 0.6);
                             onFlash(elementColor(el).glow, 0.18);
                             savor(0.72, 0.08);
                         }
-                    } else if (e.type === "cast" && e.move && !foldedUltimateCast && now - lastMoveCall.current > 0.4) {
+                    } else if (spotlight && e.type === "cast" && e.move && !foldedUltimateCast && now - lastMoveCall.current > 0.4) {
                         const heroC = heroMoveById[e.actorId];
                         if (plannedHeroCut || duelHeroCutEligible({ actorId: e.actorId, eventType: e.type, move: e.move, heroMove: heroC, outcomeKind: moveOutcome.kind, shownActors: heroCutActors.current })) {
                             // A ranged / support HERO move → the anime cut-in freeze-frame.
@@ -3850,21 +3876,27 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         const standing = survivor ? duelFieldToFloor(survivor.x, survivor.y) : fallen;
                         const pairX = (fallen.wx + standing.wx) * 0.5;
                         const pairZ = (fallen.wz + standing.wz) * 0.5;
-                        camAim.current = [pairX * 0.62, 1.08, CAM_LOOK[2] + pairZ * 0.46];
-                        camAimHold.current = Math.max(camAimHold.current, 1.15);
+                        if (spotlight) {
+                            camAim.current = [pairX * 0.62, 1.08, CAM_LOOK[2] + pairZ * 0.46];
+                            camAimHold.current = Math.max(camAimHold.current, 1.15);
+                        }
                     }
-                    shake.current = Math.max(shake.current, 3.0);
-                    hitStop.current = Math.max(hitStop.current, 0.34);
-                    savor(0.44, 0.62);
-                    koPull.current = 3.4;
-                    duelFovKick.current = Math.max(duelFovKick.current, 3.5);   // stronger lens snap on the finish
-                    shotDolly.current = -2.2;
-                    shotDollyHold.current = Math.max(shotDollyHold.current, 0.82);
-                    camPosBias.current[1] = 2.4;
+                    if (spotlight) {
+                        shake.current = Math.max(shake.current, 3.0);
+                        hitStop.current = Math.max(hitStop.current, 0.34);
+                        savor(0.44, 0.62);
+                        koPull.current = 3.4;
+                        duelFovKick.current = Math.max(duelFovKick.current, 3.5);   // stronger lens snap on the finish
+                        shotDolly.current = -2.2;
+                        shotDollyHold.current = Math.max(shotDollyHold.current, 0.82);
+                        camPosBias.current[1] = 2.4;
+                    }
                     playPetSfx("ko");
-                    onFlash("#fff7e6", 0.5);
-                    onCallout("FINISH!");
-                    if (dead) onAnnounce(`${nameById[dead.id] ?? "A fighter"} is eliminated!`, "ko");
+                    if (spotlight) {
+                        onFlash("#fff7e6", 0.5);
+                        onCallout("FINISH!");
+                        if (dead) onAnnounce(`${nameById[dead.id] ?? "A fighter"} is eliminated!`, "ko");
+                    }
                 } else if (e.type === "stagger" && e.actorId) {
                     // A recoil puff where a fighter got knocked out of its wind-up.
                     const c = findActor(snapAt, e.actorId);
@@ -3874,7 +3906,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         // Let the white contact frame land, then reveal the knockback
                         // and recovery pose. The small delay is presentation-only and
                         // matches the reference's impact flash -> reaction cut.
-                        window.setTimeout(() => {
+                        if (spotlight) window.setTimeout(() => {
                             camAim.current = [reaction.wx * 0.58, 1.25, CAM_LOOK[2] + reaction.wz * 0.42];
                             camAimHold.current = Math.max(camAimHold.current, 0.34);
                             camPosBias.current = [reaction.wx < 0 ? 1.15 : -1.15, 0.2, 0.85];
@@ -6838,6 +6870,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (enemyReservePet) r.push({ id: "enemy-1", pet: enemyReservePet, mirror: true });
         return r;
     }, [playerPet, enemyPet, playerReservePet, enemyReservePet]);
+    const partyDuel = roster.length > 2;
     const freeRoam3d = useMemo(() => roster.every((fighter) => petCombatModel(fighter.pet) !== null), [roster]);
     const debugAi = useMemo(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debugAI") === "1", []);
     // 3D coliseum scene textures (curved wall + lit floor) — same as the round
@@ -6918,7 +6951,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const spawnNumber = (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setNumbers((arr) => [...arr.slice(-3), { id, text: n.text, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 1.05, fp.wz], crit: n.crit, heal: n.heal }]);
+        setNumbers((arr) => appendCapped(arr, { id, text: n.text, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 1.05, fp.wz], crit: n.crit, heal: n.heal }, 4));
         window.setTimeout(() => setNumbers((arr) => arr.filter((x) => x.id !== id)), 850);
     };
     const spawnImpact = (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => {
@@ -6929,12 +6962,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (freeRoam3d && mode === "impact") return;
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setImpacts((arr) => [...arr.slice(-2), { id, pos: [fp.wx, mode === "impact" ? FX_Y : FLOOR_Y + 0.035, fp.wz], color: n.color, big: n.big, mode }]);
+        setImpacts((arr) => appendCapped(arr, { id, pos: [fp.wx, mode === "impact" ? FX_Y : FLOOR_Y + 0.035, fp.wz], color: n.color, big: n.big, mode }, partyDuel ? 3 : 4));
     };
     const spawnElementBurst = (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean; heading?: number; style?: PetHeroMoveStyle }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setElementBursts((arr) => [...arr.slice(-1), { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element, n.move), color: n.color, big: n.big, heading: n.heading ?? 0, style: n.style ?? "generic" }]);
+        setElementBursts((arr) => appendCapped(arr, { id, pos: [fp.wx, FX_Y, fp.wz], kind: duelElementBurstKind(n.element, n.move), color: n.color, big: n.big, heading: n.heading ?? 0, style: n.style ?? "generic" }, partyDuel ? 2 : 3));
     };
     const spawnAftermath = (n: { x: number; z: number; element?: string | null; move?: string; color: string; big: boolean }) => {
         const id = seqRef.current++;
@@ -6944,7 +6977,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const spawnSupport = (n: { x: number; z: number; color: string; kind: DuelSupportKind; actorId?: string }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setSupportFx((arr) => [...arr.slice(-1), { id, pos: [fp.wx, FLOOR_Y + 0.035, fp.wz], color: n.color, kind: n.kind, actorId: n.actorId }]);
+        setSupportFx((arr) => appendCapped(arr, { id, pos: [fp.wx, FLOOR_Y + 0.035, fp.wz], color: n.color, kind: n.kind, actorId: n.actorId }, 2));
     };
     // Element-distinct ability VFX — an explicit fx-folder `key` (the tactical-arena
     // assets: kaboom/explosion/vortex/spark/bighit) when given, else the plain
@@ -6958,18 +6991,18 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (!frames) return;
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setFxList((arr) => [...arr, { id, frames, pos: [fp.wx, FX_Y, fp.wz], scale: n.scale * 1.1, dur: n.dur }]);
+        setFxList((arr) => appendCapped(arr, { id, frames, pos: [fp.wx, FX_Y, fp.wz], scale: n.scale * 1.1, dur: n.dur }, partyDuel ? 3 : 4));
     };
     // Ground shockwave rings on the floor at the impact point.
     const spawnShock = (n: { x: number; z: number; color: string; big: boolean }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setShocks((arr) => [...arr.slice(-1), { id, pos: [fp.wx, 0, fp.wz], color: n.color, big: n.big }]);
+        setShocks((arr) => appendCapped(arr, { id, pos: [fp.wx, 0, fp.wz], color: n.color, big: n.big }, 2));
     };
     const spawnDust = (n: { x: number; z: number }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setDusts((arr) => [...arr.slice(-4), { id, at: [fp.wx, FLOOR_Y + 0.02, fp.wz] as Vec3 }]);
+        setDusts((arr) => appendCapped(arr, { id, at: [fp.wx, FLOOR_Y + 0.02, fp.wz] as Vec3 }, partyDuel ? 5 : 6));
     };
     const spawnScorch = (n: { x: number; z: number; big?: boolean }) => {
         const id = seqRef.current++;
@@ -6977,18 +7010,18 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         // Flat on the 3D floor with the renderer's own decal convention (rotate to XZ,
         // just above FLOOR_Y, no depth write); keep only the last 8 so a long fight
         // does not tile the whole arena.
-        setScorches((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y + 0.025, fp.wz] as Vec3, w: n.big ? 2.3 : 1.55 }].slice(-8));
+        setScorches((arr) => appendCapped(arr, { id, pos: [fp.wx, FLOOR_Y + 0.025, fp.wz] as Vec3, w: n.big ? 2.3 : 1.55 }, 8));
     };
     const spawnPowerUp = (n: { x: number; z: number; color: string; actorId?: string; style?: PetHeroMoveStyle }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setPowerUps((arr) => [...arr.slice(-1), { id, pos: [fp.wx, FLOOR_Y, fp.wz], color: n.color, actorId: n.actorId, style: n.style ?? "generic" }]);
+        setPowerUps((arr) => appendCapped(arr, { id, pos: [fp.wx, FLOOR_Y, fp.wz], color: n.color, actorId: n.actorId, style: n.style ?? "generic" }, 2));
     };
     // Swept melee weapon trail at the ATTACKER (mid-body), per choreography archetype.
     const spawnTrail = (n: { x: number; z: number; toward: number; kind: MoveChoreoKind; color: string; weight: DuelAttackWeight; style: PetHeroMoveStyle }) => {
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
-        setTrails((arr) => [...arr.slice(-1), { id, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 0.42, fp.wz], toward: n.toward, kind: n.kind, color: n.color, weight: n.weight, style: n.style }]);
+        setTrails((arr) => appendCapped(arr, { id, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 0.42, fp.wz], toward: n.toward, kind: n.kind, color: n.color, weight: n.weight, style: n.style }, 2));
     };
     const spawnDash = (n: { actorId?: string; fromX: number; fromZ: number; toX: number; toZ: number; impactX?: number; impactZ?: number; color: string; element?: string | null; move?: string; style?: PetHeroMoveStyle; impact: boolean; startTick?: number; contactTick?: number }) => {
         const id = seqRef.current++;
@@ -7028,7 +7061,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         };
         // At most one authored route can own a fighter. Overlapping cues were
         // the direct cause of the dash popping between two paths.
-        setDashFx((arr) => [...arr.filter((existing) => !n.actorId || existing.actorId !== n.actorId), cue]);
+        setDashFx((arr) => appendCapped(arr.filter((existing) => !n.actorId || existing.actorId !== n.actorId), cue, 2));
     };
     const spawnPressure = (n: { fromX: number; fromZ: number; toX: number; toZ: number; leftColor: string; rightColor: string; leftElement?: string | null; rightElement?: string | null }) => {
         const id = seqRef.current++;
@@ -7084,7 +7117,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const triggerCutIn = (actorId: string, move: string) => {
         const r = roster.find((x) => x.id === actorId); if (!r) return;
         const id = seqRef.current++;
-        setCutInQueue((queue) => [...queue, { id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move") }]);
+        setCutInQueue((queue) => appendCapped(queue, { id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move") }, partyDuel ? 2 : 1));
     };
     const advanceClock = (maxT: number, delta: number) => {
         // Before the fight plays, advance the still size-up / power-gather clock.
