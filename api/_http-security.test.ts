@@ -25,7 +25,7 @@ describe('_http-security', () => {
         assert.equal(headers['Referrer-Policy'], 'strict-origin-when-cross-origin');
         assert.match(headers['Permissions-Policy'], /camera=\(\)/);
         assert.match(headers['Content-Security-Policy'], /default-src 'self'/);
-        assert.match(headers['Content-Security-Policy'], /connect-src 'self' https: wss: ws: https:\/\/example\.supabase\.co wss:\/\/realtime\.example\.com/);
+        assert.match(headers['Content-Security-Policy'], /connect-src 'self' https: wss: ws: blob: https:\/\/example\.supabase\.co wss:\/\/realtime\.example\.com/);
     });
 
     it('server keeps malformed JSON safe and sends generic production 500 bodies', () => {
@@ -42,7 +42,7 @@ describe('_http-security', () => {
         assert.match(csp, /style-src 'self' 'unsafe-inline'/);
         assert.match(csp, /img-src 'self' data: blob: https:/);
         assert.match(csp, /media-src 'self' data: blob: https:/);
-        assert.match(csp, /connect-src 'self' https: wss: ws:/);
+        assert.match(csp, /connect-src 'self' https: wss: ws: blob:/);
         assert.match(csp, /worker-src 'self' blob:/);
     });
 });

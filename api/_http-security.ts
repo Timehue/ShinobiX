@@ -41,7 +41,14 @@ export function contentSecurityPolicy(env: NodeJS.ProcessEnv = process.env): str
         "img-src 'self' data: blob: https:",
         "media-src 'self' data: blob: https:",
         "font-src 'self' data:",
-        `connect-src 'self' https: wss: ws:${extraConnect.length ? ` ${extraConnect.join(' ')}` : ''}`,
+        // `blob:` is required by three.js's GLTFLoader: it extracts embedded GLB
+        // textures to same-origin blob: URLs and fetches them via ImageBitmapLoader
+        // (governed by connect-src, not img-src). Without it, every pet-model texture
+        // is "Refused to connect", cascading to WebGLRenderer context-loss — the crash
+        // that broke the Hollow Warfront / 3D pet stages in prod. Blob URLs are
+        // app-created and same-origin, so this adds negligible surface (connect-src
+        // already allows the far broader https:/wss:).
+        `connect-src 'self' https: wss: ws: blob:${extraConnect.length ? ` ${extraConnect.join(' ')}` : ''}`,
         "worker-src 'self' blob:",
     ];
     return directives.join('; ');
