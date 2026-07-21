@@ -23,6 +23,33 @@ describe('_mission-progress-receipt', () => {
         assert.equal(cleanMissionProgressEventKind('bogus'), '');
     });
 
+    it('server producer flow: N-1 tracks + a kill build a claimable hunt receipt', () => {
+        // Mirrors the live producer: record-progress self-authorizes each hunt-track
+        // (server-travel), then report-ai-fight stamps the sealed-opponent hunt-kill.
+        const exploreTarget = 4;
+        const mission = { exploreCount: exploreTarget, raidCount: 0 };
+        const expected = { playerName: 'Rill', missionId: 'hunt-frost-wolf', missionType: 'hunt' as const, mission };
+        let receipt: MissionProgressReceipt | null = null;
+        for (let i = 0; i < exploreTarget - 1; i += 1) {
+            receipt = applyMissionProgressEvent(receipt, {
+                playerName: 'Rill', missionId: 'hunt-frost-wolf', missionType: 'hunt', kind: 'hunt-track',
+                exploreTarget, raidTarget: 0, evidenceId: `track-${i}-aaaaaaaaaaaaaaaa`,
+            });
+        }
+        // Tracking caps at target-1, so it's not claimable until the kill lands.
+        assert.equal(receipt!.exploreCount, exploreTarget - 1);
+        assert.equal(reasonOf(validateMissionProgressReceipt(receipt, expected)), 'incomplete-progress-receipt');
+        // The kill: sealed-opponent win via report-ai-fight.
+        receipt = applyMissionProgressEvent(receipt, {
+            playerName: 'Rill', missionId: 'hunt-frost-wolf', missionType: 'hunt', kind: 'hunt-kill',
+            exploreTarget, raidTarget: 0, evidenceId: 'huntkill_frostwolftoken12345678',
+        });
+        assert.equal(receipt.huntKill, true);
+        assert.equal(receipt.exploreCount, exploreTarget);
+        assert.equal(receipt.evidenceIds.length, exploreTarget);
+        assert.equal(validateMissionProgressReceipt(receipt, expected).ok, true, 'now claimable');
+    });
+
     it('increments field progress only to the sealed requirements', () => {
         let receipt: MissionProgressReceipt | null = null;
         for (let i = 0; i < 5; i += 1) {
