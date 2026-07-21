@@ -8,6 +8,7 @@ import { aiFightReward, AI_FIGHT_DAILY_COUNT_TTL_SECONDS, AI_FIGHT_HARD_CAP_PER_
 import { legacyEnabled, bumpLegacyStats, type LegacyStatDeltas } from '../_legacy-track.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { gainXp } from '../_xp-engine.js';
+import { withKvLock } from '../_lock.js';
 import {
     aiFightTokenKey,
     cleanAiFightToken,
@@ -15,6 +16,14 @@ import {
     type AiFightToken,
 } from './_ai-fight-token.js';
 import { applyAiFightSecondaryRewards } from './_ai-fight-secondary.js';
+import { huntMissionByAiProfileId } from './_mission-catalog.js';
+import {
+    applyMissionProgressEvent,
+    cleanMissionProgressReceipt,
+    missionProgressReceiptKey,
+} from './_mission-progress-receipt.js';
+
+const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
 // P0.2b — server-authoritative daily SOFT-CAP for AI-fight XP/ryo.
 //
@@ -64,6 +73,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, xp: 0, ryo: 0, capped: false, dailyCount: null, reason: 'missing-ai-fight-token' });
         }
         const tokenKey = aiFightTokenKey(playerName, aiFightToken);
+        // Peek the token's sealed opponentId BEFORE the reward mutation consumes it —
+        // the hunt-kill producer below matches it against an accepted hunt's beast AI.
+        const sealedOpponentId = await kv.get<AiFightToken>(tokenKey)
+            .then((t) => (typeof t?.opponentId === 'string' ? t.opponentId : ''))
+            .catch(() => '');
         const result = await mutatePlayerSave(playerName, async ({ character }) => {
             const redeemed = Array.isArray(character.redeemedAiFightRewards)
                 ? (character.redeemedAiFightRewards as unknown[]).filter((entry): entry is { token: string; xp: number; ryo: number; capped: boolean; dailyCount: number } =>
@@ -119,6 +133,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Tracking must never 500 a reward response whose daily counter
                 // already advanced (verification finding).
                 console.error('[report-ai-fight] legacy tracking failed:', legacyErr);
+            }
+        }
+        // ── Hunt-kill producer ───────────────────────────────────────────────
+        // A validated win against a hunt's beast (opponentId sealed at fight start)
+        // stamps that accepted hunt's kill onto its progress receipt so claim-mission
+        // can pay the Hunter contract. Gated on the hunt being ACCEPTED and its
+        // tracking already done (applyMissionProgressEvent only flips huntKill once
+        // exploreCount has reached target-1). Best-effort + idempotent (the sealed
+        // token id dedups), and never fails the already-applied reward.
+        if (!reward.replayed && sealedOpponentId) {
+            const hunt = huntMissionByAiProfileId(sealedOpponentId);
+            const rc = result.character as Record<string, unknown> | undefined;
+            const acceptedIds = Array.isArray(rc?.acceptedMissionIds) ? (rc!.acceptedMissionIds as unknown[]).map(String) : [];
+            if (hunt && acceptedIds.includes(hunt.id)) {
+                try {
+                    const receiptKey = missionProgressReceiptKey(playerName, hunt.id);
+                    await withKvLock(receiptKey, async () => {
+                        const existing = cleanMissionProgressReceipt(await kv.get(receiptKey));
+                        const next = applyMissionProgressEvent(existing, {
+                            playerName, missionId: hunt.id, missionType: 'hunt', kind: 'hunt-kill',
+                            exploreTarget: Math.floor(Number(hunt.exploreCount ?? 0)), raidTarget: 0,
+                            evidenceId: `huntkill_${aiFightToken}`.slice(0, 96),
+                        });
+                        await kv.set(receiptKey, next, { ex: HUNT_RECEIPT_TTL_SECONDS });
+                    }, { failClosed: true });
+                } catch (e) {
+                    console.error('[report-ai-fight hunt-kill]', e);
+                }
             }
         }
         return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, character: result.character, _saveVersion: result._saveVersion });

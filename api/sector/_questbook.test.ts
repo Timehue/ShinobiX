@@ -14,6 +14,7 @@ import {
     bandMatches,
     questBookRyo,
     aggregateChoiceEffects,
+    parseQuestbookSeal,
 } from "./_questbook.js";
 
 const VALID_METRICS = new Set(["totalAiKills", "totalPetWins", "cardClashWins", "totalTilesExplored"]);
@@ -133,5 +134,30 @@ describe("questBookRyo", () => {
         assert.ok(questBookRyo(40, 9) > questBookRyo(40, 7), "scales with weight");
         assert.ok(questBookRyo(100, 20) <= 12000, "capped sane");
         assert.equal(questBookRyo(0, 8), questBookRyo(1, 8), "clamps junk level");
+    });
+});
+
+describe("parseQuestbookSeal", () => {
+    it("round-trips a valid durable seal, keeping optional fields", () => {
+        const seal = { id: "qb-bell", stage: 2, baseline: 5, at: 1_700_000_000_000, deadline: 1_700_000_600_000, choices: { curse: "raw" } };
+        assert.deepEqual(parseQuestbookSeal(seal), seal);
+        // minimal seal: optional fields omitted
+        assert.deepEqual(parseQuestbookSeal({ id: "qb-bell", stage: 0, baseline: 0 }), { id: "qb-bell", stage: 0, baseline: 0 });
+    });
+    it("drops junk optional fields but keeps the core", () => {
+        const parsed = parseQuestbookSeal({ id: "qb-bell", stage: 1, baseline: 3, at: -1, deadline: 0, choices: { good: "x", bad: 7 } });
+        assert.equal(parsed?.id, "qb-bell");
+        assert.equal(parsed?.at, undefined);        // negative at dropped
+        assert.equal(parsed?.deadline, undefined);  // non-positive deadline dropped
+        assert.deepEqual(parsed?.choices, { good: "x" }); // non-string choice value dropped
+    });
+    it("rejects malformed / unknown / proto-polluting seals", () => {
+        assert.equal(parseQuestbookSeal(null), null);
+        assert.equal(parseQuestbookSeal("x"), null);
+        assert.equal(parseQuestbookSeal([]), null);
+        assert.equal(parseQuestbookSeal({ id: "nope", stage: 0, baseline: 0 }), null);
+        assert.equal(parseQuestbookSeal({ id: "__proto__", stage: 0, baseline: 0 }), null);
+        assert.equal(parseQuestbookSeal({ id: "qb-bell", stage: -1, baseline: 0 }), null);
+        assert.equal(parseQuestbookSeal({ id: "qb-bell", stage: 0, baseline: NaN }), null);
     });
 });

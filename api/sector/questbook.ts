@@ -17,6 +17,8 @@ import {
     bandMatches,
     questBookRyo,
     aggregateChoiceEffects,
+    parseQuestbookSeal,
+    type QuestbookSeal,
 } from './_questbook.js';
 
 /*
@@ -41,7 +43,7 @@ const questKeyFor = (player: string) => `questbook:${player}`;
 const doneKeyFor = (player: string, questId: string) => `questbook:done:${player}:${questId}`;
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
-type Sealed = { id: string; stage: number; baseline: number; at?: number; deadline?: number; choices?: Record<string, string> };
+type Sealed = QuestbookSeal;
 
 /** Seal a stage as it becomes active — re-baseline its counter + (re)arm its timer. */
 function sealStage(id: string, stageIdx: number, char: Record<string, unknown>, choices: Record<string, string>, now: number): Sealed {
@@ -72,7 +74,38 @@ function mirrorOf(sealed: Sealed) {
 async function persist(player: string, saveKey: string, rec: Record<string, unknown>, char: Record<string, unknown>, sealed: Sealed) {
     await kv.set(questKeyFor(player), sealed, { ex: QUESTBOOK_TTL_SECONDS });
     const updated = { ...char, activeQuestbook: mirrorOf(sealed) };
-    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+    // Durable seal on the save record (server-owned; SERVER_LEDGER_TOPLEVEL_FIELDS)
+    // so an in-flight epic survives the KV TTL and the Postgres cutover.
+    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeQuestbookSeal: sealed, character: updated }), rec));
+}
+
+type LoadedSeal =
+    | { ok: true; rec: Record<string, unknown>; char: Record<string, unknown>; sealed: Sealed; durable: boolean }
+    | { ok: false; result: { status: number; body: unknown } };
+
+/**
+ * Read the save + resolve the epic seal DURABLE-FIRST (the save-resident copy,
+ * then the KV fallback). If neither exists the display mirror is stranded — the
+ * seal expired (14d TTL) or was lost in the cutover — so self-heal: clear the
+ * mirror + durable seal and surface `none` + the cleared character, mirroring
+ * wanderer-quest / rift-quest. Callers use the returned rec/char/sealed directly.
+ */
+async function loadSealed(player: string, saveKey: string): Promise<LoadedSeal> {
+    const rec = await kv.get<Record<string, unknown>>(saveKey);
+    const char = (rec?.character ?? null) as Record<string, unknown> | null;
+    if (!rec || !char) return { ok: false, result: { status: 404, body: { error: 'Your save was not found.' } } };
+    const durableSeal = parseQuestbookSeal(rec.activeQuestbookSeal);
+    const sealed = durableSeal ?? parseQuestbookSeal(await kv.get(questKeyFor(player)));
+    if (!sealed) {
+        await kv.del(questKeyFor(player)).catch(() => undefined);
+        if (char.activeQuestbook || rec.activeQuestbookSeal !== undefined) {
+            const updated = { ...char, activeQuestbook: null };
+            await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated }), rec));
+            return { ok: false, result: { status: 200, body: { ok: false, reason: 'none', activeQuestbook: null, character: updated } } };
+        }
+        return { ok: false, result: { status: 200, body: { ok: false, reason: 'none' } } };
+    }
+    return { ok: true, rec, char, sealed, durable: !!durableSeal };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -103,14 +136,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const entry = QUEST_BOOK[questId];
 
             const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const existing = await kv.get<Sealed>(questKey);
-                if (existing) return { status: 200, body: { ok: false, reason: 'busy' } };
-                const cooling = await kv.get(doneKeyFor(playerName, questId));
-                if (cooling) return { status: 200, body: { ok: false, reason: 'cooldown' } };
-
                 const rec = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+                // Busy if a seal exists in EITHER store — the durable one still marks an
+                // active epic after the KV seal's 14d TTL lapses (or a migration).
+                if (parseQuestbookSeal(rec.activeQuestbookSeal) ?? parseQuestbookSeal(await kv.get(questKey))) {
+                    return { status: 200, body: { ok: false, reason: 'busy' } };
+                }
+                const cooling = await kv.get(doneKeyFor(playerName, questId));
+                if (cooling) return { status: 200, body: { ok: false, reason: 'cooldown' } };
                 if (!bandMatches(entry, num(char.level) || 1)) return { status: 200, body: { ok: false, reason: 'band' } };
 
                 const sealed = sealStage(questId, 0, char, {}, Date.now());
@@ -124,20 +159,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ── ADVANCE ──────────────────────────────────────────────────────────
         if (action === 'advance') {
             const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const sealed = await kv.get<Sealed>(questKey);
-                if (!sealed || !isQuestBookId(sealed.id)) {
-                    await kv.del(questKey).catch(() => undefined);
-                    return { status: 200, body: { ok: false, reason: 'none' } };
-                }
+                const loaded = await loadSealed(playerName, saveKey);
+                if (!loaded.ok) return loaded.result;
+                const { rec, char, sealed } = loaded;
                 const entry = QUEST_BOOK[sealed.id];
                 const finalIdx = finalStageIndex(entry);
                 const stageIdx = Math.max(0, Math.min(finalIdx, Math.floor(num(sealed.stage))));
                 const stage = entry.stages[stageIdx];
                 const choices = sealed.choices ?? {};
-
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
                 const now = Date.now();
                 // Timer: lazily arm a missing deadline (migrates in-flight epics); else
                 // enforce expiry → reset to the timer's reset stage.
@@ -179,21 +208,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'choose') {
             const optionKey = typeof body.optionKey === 'string' ? body.optionKey : '';
             const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const sealed = await kv.get<Sealed>(questKey);
-                if (!sealed || !isQuestBookId(sealed.id)) {
-                    await kv.del(questKey).catch(() => undefined);
-                    return { status: 200, body: { ok: false, reason: 'none' } };
-                }
+                const loaded = await loadSealed(playerName, saveKey);
+                if (!loaded.ok) return loaded.result;
+                const { rec, char, sealed } = loaded;
                 const entry = QUEST_BOOK[sealed.id];
                 const finalIdx = finalStageIndex(entry);
                 const stageIdx = Math.max(0, Math.min(finalIdx, Math.floor(num(sealed.stage))));
                 const stage = entry.stages[stageIdx];
                 if (!stageIsChoice(stage)) return { status: 200, body: { ok: false, reason: 'no-choice' } };
                 if (!choiceOption(stage, optionKey)) return { status: 200, body: { ok: false, reason: 'bad-option' } };
-
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
                 const now = Date.now();
                 const choices = { ...(sealed.choices ?? {}), [stage.key]: optionKey };
@@ -212,11 +235,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ── CLAIM ────────────────────────────────────────────────────────────
         if (action === 'claim') {
             const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const sealed = await kv.get<Sealed>(questKey);
-                if (!sealed || !isQuestBookId(sealed.id)) {
-                    await kv.del(questKey).catch(() => undefined);
-                    return { status: 200, body: { ok: false, reason: 'none' } };
-                }
+                const loaded = await loadSealed(playerName, saveKey);
+                if (!loaded.ok) return loaded.result;
+                const { rec, char, sealed } = loaded;
                 const entry = QUEST_BOOK[sealed.id];
                 const finalIdx = finalStageIndex(entry);
                 if (Math.floor(num(sealed.stage)) < finalIdx) {
@@ -224,10 +245,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const stage = entry.stages[finalIdx];
                 const choices = sealed.choices ?? {};
-
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
                 const receiptId = `${sealed.id}:${Number(sealed.at ?? 0)}`;
                 const receipts = Array.isArray(char.redeemedQuestbookRuns) ? char.redeemedQuestbookRuns as Array<Record<string, unknown>> : [];
@@ -272,7 +289,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const updated: Record<string, unknown> = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null, redeemedQuestbookRuns: [...receipts.slice(-49), receipt] };
                 // The capstone ends the rivalry for good (its whole point).
                 if (entry.clearsRivalry) updated.wandererNemesis = null;
-                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated }), rec));
                 await kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
                 await kv.del(questKey).catch(() => undefined);
                 return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry } };
@@ -289,7 +306,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (rec && char) {
                     const updated = { ...char, activeQuestbook: null };
-                    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated }), rec));
                 }
                 return { status: 200, body: { ok: true } };
             }, { failClosed: true });
