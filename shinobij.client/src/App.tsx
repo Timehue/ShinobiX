@@ -7343,7 +7343,7 @@ export default function App() {
                 {character && screen !== "start" && !hideBattleChrome && (
                     <Suspense fallback={null}>
                     <ScreenTopChrome
-                        character={character} screen={screen}
+                        character={character}
                         onBack={canGoBack ? goBack : undefined}
                     />
                     </Suspense>
@@ -8206,7 +8206,7 @@ export default function App() {
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}
                         setPvpSeedSession={setPvpSeedSession}
-                        setPendingPetBattleOpponent={setPendingPetBattleOpponent}
+                        setPendingPetBattleOpponent={setPendingPetBattleOpponent} onAcceptPetChallenge={(c) => void acceptPetChallengeGlobal(c)}
                         onRecordBattle={recordBattle}
                     />
                 )}

@@ -49,7 +49,7 @@ function makeShardGeometry(): THREE.ExtrudeGeometry {
     return geometry;
 }
 
-function makeTaperedTailGeometry(points: readonly THREE.Vector3[], baseRadius: number): THREE.BufferGeometry {
+function makeTaperedTailGeometry(points: readonly THREE.Vector3[], baseRadius: number, taperPower = 1): THREE.BufferGeometry {
     const curve = new THREE.CatmullRomCurve3([...points], false, "catmullrom", 0.6);
     const rings = 17;
     const radial = 10;
@@ -64,7 +64,8 @@ function makeTaperedTailGeometry(points: readonly THREE.Vector3[], baseRadius: n
         if (side.lengthSq() < 0.001) side.set(1, 0, 0);
         side.normalize();
         const normal = new THREE.Vector3().crossVectors(side, tangent).normalize();
-        const radius = baseRadius * (1 - t * 0.97) * (0.92 + Math.sin(t * Math.PI) * 0.08);
+        const taper = 0.03 + Math.pow(1 - t, taperPower) * 0.97;
+        const radius = baseRadius * taper * (0.92 + Math.sin(t * Math.PI) * 0.08);
         for (let j = 0; j < radial; j += 1) {
             const a = (j / radial) * Math.PI * 2;
             positions.push(
@@ -205,8 +206,15 @@ function AquaSpiritIdentity({ config, frame, quality }: {
     quality: PetVisualQualityConfig;
 }) {
     const h = config.targetHeight;
+    // The rebuilt rare Selkie owns complete seal anatomy, including its rear
+    // flippers and tail. The legacy procedural tail was designed to complete the
+    // old upright blob mesh; on the new body it reads as a second giant cyan sail.
+    const isRareSelkie = config.visualId === "starter-water-r";
+    const needsProceduralTail = !isRareSelkie;
     const ribbon = useRef<THREE.Mesh>(null);
     const bodyTail = useRef<THREE.Group>(null);
+    const selkieRear = useRef<THREE.Group>(null);
+    const selkieFlippers = useRef<Array<THREE.Group | null>>([]);
     const ribbonMat = useRef<THREE.MeshToonMaterial>(null);
     const droplets = useRef<THREE.Points>(null);
     const dropletMat = useRef<THREE.PointsMaterial>(null);
@@ -222,6 +230,49 @@ function AquaSpiritIdentity({ config, frame, quality }: {
         new THREE.Vector3(-h * 0.25, h * 0.23, -h * 0.25),
         new THREE.Vector3(-h * 0.42, h * 0.31, -h * 0.42),
     ], h * 0.155), [h]);
+    const selkieTorsoGeometry = useMemo(() => {
+        const torso = makeTaperedTailGeometry([
+            new THREE.Vector3(0, h * 0.25, -h * 0.12),
+            new THREE.Vector3(0, h * 0.22, -h * 0.34),
+            new THREE.Vector3(0, h * 0.16, -h * 0.57),
+            new THREE.Vector3(0, h * 0.1, -h * 0.79),
+        ], h * 0.245, 0.62);
+        const position = torso.getAttribute("position");
+        const colors: number[] = [];
+        // The reconstruction's atlas reads as a cool pearl-blue in arena light.
+        // Keep the entire anatomy extension in that same coat family; the former
+        // cyan rear gradient made the tail look like a separate VFX prop.
+        const coat = new THREE.Color("#849b9e");
+        const water = new THREE.Color("#849b9e");
+        const mixed = new THREE.Color();
+        for (let i = 0; i < position.count; i += 1) {
+            const rearward = -position.getZ(i) / h;
+            // Keep the generated white coat through the overlap. The old early
+            // transition exposed a cyan triangle immediately behind the source
+            // mesh and made the rear look grafted on rather than anatomical.
+            const blend = THREE.MathUtils.smoothstep(rearward, 0.52, 0.92);
+            mixed.copy(coat).lerp(water, blend);
+            colors.push(mixed.r, mixed.g, mixed.b);
+        }
+        torso.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+        return torso;
+    }, [h]);
+    const selkieHaunchGeometry = useMemo(() => {
+        const haunch = new THREE.SphereGeometry(1, 24, 16);
+        const position = haunch.getAttribute("position");
+        const colors: number[] = [];
+        const coat = new THREE.Color("#849b9e");
+        const water = new THREE.Color("#849b9e");
+        const mixed = new THREE.Color();
+        for (let i = 0; i < position.count; i += 1) {
+            const rearward = THREE.MathUtils.clamp((-position.getZ(i) + 1) * 0.5, 0, 1);
+            const blend = THREE.MathUtils.smoothstep(rearward, 0.42, 0.94);
+            mixed.copy(coat).lerp(water, blend);
+            colors.push(mixed.r, mixed.g, mixed.b);
+        }
+        haunch.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+        return haunch;
+    }, []);
     const dropletPositions = useMemo(() => {
         const values = new Float32Array(quality.identityParticles * 3);
         for (let i = 0; i < quality.identityParticles; i += 1) {
@@ -232,31 +283,98 @@ function AquaSpiritIdentity({ config, frame, quality }: {
         }
         return values;
     }, [h, quality.identityParticles]);
-    useEffect(() => () => { geometry.dispose(); bodyTailGeometry.dispose(); }, [geometry, bodyTailGeometry]);
+    useEffect(() => () => {
+        geometry.dispose();
+        bodyTailGeometry.dispose();
+        selkieTorsoGeometry.dispose();
+        selkieHaunchGeometry.dispose();
+    }, [geometry, bodyTailGeometry, selkieTorsoGeometry, selkieHaunchGeometry]);
     useFrame((state, delta) => {
         const f = frame.current;
         const speed = Math.min(1, f.speed / 4.5);
         if (bodyTail.current) bodyTail.current.rotation.y = Math.sin(state.clock.elapsedTime * 2.7) * (0.025 + speed * 0.055);
+        if (selkieRear.current) selkieRear.current.rotation.set(0, 0, 0);
+        selkieFlippers.current.forEach((flipper, index) => {
+            if (!flipper) return;
+            const side = index === 0 ? -1 : 1;
+            const stroke = Math.sin(state.clock.elapsedTime * 3.4 + index * Math.PI) * (0.025 + speed * 0.1);
+            flipper.rotation.y = side * 1.02 + stroke;
+            flipper.rotation.z = side * 0.12 + (f.motion === "strike" ? side * 0.07 : f.motion === "stagger" ? -side * 0.055 : 0);
+        });
         if (ribbon.current) {
             ribbon.current.rotation.z = Math.sin(state.clock.elapsedTime * 3.2) * (0.025 + speed * 0.055);
             ribbon.current.scale.y = THREE.MathUtils.lerp(ribbon.current.scale.y, f.motion === "dead" ? 0.01 : 0.82 + speed * 0.35, Math.min(1, delta * 6));
         }
-        if (ribbonMat.current) ribbonMat.current.opacity = f.motion === "dead" ? 0 : quality.id === "low" ? 0.12 : 0.2 + speed * 0.16 + (f.casting ? 0.14 : 0);
+        if (ribbonMat.current) {
+            const activeWake = f.moving || f.motion === "dash" || f.casting;
+            ribbonMat.current.opacity = f.motion === "dead" || !activeWake
+                ? 0
+                : quality.id === "low" ? 0.08 : 0.1 + speed * 0.14 + (f.casting ? 0.12 : 0);
+        }
         if (droplets.current) droplets.current.rotation.y += delta * (0.16 + speed * 0.28);
         if (dropletMat.current) dropletMat.current.opacity = f.motion === "dead" ? 0 : 0.18 + speed * 0.22 + (f.casting ? 0.22 : 0);
     });
     return (
         <group>
-            <group ref={bodyTail}>
-                {quality.outline && (
-                    <mesh geometry={bodyTailGeometry} scale={1.025}>
-                        <meshBasicMaterial color="#071b2b" side={THREE.BackSide} toneMapped={false} />
+            {needsProceduralTail && (
+                <group ref={bodyTail}>
+                    {quality.outline && (
+                        <mesh geometry={bodyTailGeometry} scale={1.025}>
+                            <meshBasicMaterial color="#071b2b" side={THREE.BackSide} toneMapped={false} />
+                        </mesh>
+                    )}
+                    <mesh geometry={bodyTailGeometry} castShadow={quality.modelShadows} receiveShadow={quality.modelShadows}>
+                        <meshToonMaterial color="#29b8c9" emissive="#11758c" emissiveIntensity={0.13} />
                     </mesh>
-                )}
-                <mesh geometry={bodyTailGeometry} castShadow={quality.modelShadows} receiveShadow={quality.modelShadows}>
-                    <meshToonMaterial color="#29b8c9" emissive="#11758c" emissiveIntensity={0.13} />
-                </mesh>
-            </group>
+                </group>
+            )}
+            {isRareSelkie && (
+                <group ref={selkieRear}>
+                    {/* Solid, low rear anatomy for the rare Selkie. These overlap
+                        the reconstruction's trimmed tail seam and stay close to
+                        the floor, so every angle reads as hind flippers—not a
+                        floating VFX ribbon or a second body. */}
+                    {quality.outline && (
+                        <mesh geometry={selkieTorsoGeometry} scale={[1.035, 0.82, 1.035]}>
+                            <meshBasicMaterial color="#071b2b" side={THREE.BackSide} toneMapped={false} />
+                        </mesh>
+                    )}
+                    <mesh geometry={selkieTorsoGeometry} scale={[1, 0.79, 1]} castShadow={quality.modelShadows} receiveShadow={quality.modelShadows}>
+                        <meshToonMaterial vertexColors />
+                    </mesh>
+                    {/* A compact coat-coloured haunch overlaps the reconstruction's
+                        flat rear cut and the procedural taper. It rounds the back
+                        line without recreating the oversized snowball from the
+                        rejected first pass. */}
+                    {quality.outline && (
+                        <mesh geometry={selkieHaunchGeometry} position={[0, h * 0.23, -h * 0.18]} scale={[h * 0.252, h * 0.252, h * 0.39]}>
+                            <meshBasicMaterial color="#071b2b" side={THREE.BackSide} toneMapped={false} />
+                        </mesh>
+                    )}
+                    <mesh geometry={selkieHaunchGeometry} position={[0, h * 0.23, -h * 0.18]} scale={[h * 0.242, h * 0.242, h * 0.375]} castShadow={quality.modelShadows} receiveShadow={quality.modelShadows}>
+                        <meshToonMaterial vertexColors />
+                    </mesh>
+                    {([-1, 1] as const).map((side) => (
+                        <group
+                            key={`selkie-tail-lobe-${side}`}
+                            ref={(group) => { selkieFlippers.current[side < 0 ? 0 : 1] = group; }}
+                            position={[side * h * 0.13, h * 0.075, -h * 0.79]}
+                            rotation={[0.03, side * 1.02, side * 0.12]}
+                        >
+                            {quality.outline && (
+                                <mesh scale={[h * 0.108, h * 0.057, h * 0.235]}>
+                                    <sphereGeometry args={[1, 18, 10]} />
+                                    <meshBasicMaterial color="#071b2b" side={THREE.BackSide} toneMapped={false} />
+                                </mesh>
+                            )}
+                            <mesh scale={[h * 0.098, h * 0.049, h * 0.222]} castShadow={quality.modelShadows} receiveShadow={quality.modelShadows}>
+                                <sphereGeometry args={[1, 18, 10]} />
+                                <meshToonMaterial color="#849b9e" />
+                            </mesh>
+                        </group>
+                    ))}
+                </group>
+            )}
             {quality.translucentLayers > 0 && (
                 <mesh ref={ribbon} geometry={geometry}>
                     <meshToonMaterial ref={ribbonMat} color="#63dcf2" emissive="#159fc8" emissiveIntensity={0.16} transparent opacity={0.2} depthWrite={false} />
@@ -408,15 +526,109 @@ function EarthGuardianIdentity({ config, frame, quality }: {
     );
 }
 
-export function PetIdentityEffects3D({ config, frame, quality }: {
+/** Every avian uses a real aerial combat phrase rather than the quadruped dash
+ * shorthand. The skinned `gallop_jump` clip supplies the wing beat; these restrained
+ * toon air-rings and feather wakes sell lift, speed and the dive line without hiding
+ * the authored bird model behind a generic gust billboard. */
+function AvianDiveAccent({ config, frame, quality, elementColor }: {
     config: PetCombatModelConfig;
     frame: MutableRefObject<PetModelFrame>;
     quality: PetVisualQualityConfig;
+    elementColor: string;
 }) {
-    if (config.visualId.startsWith("starter-fire")) return <EmberNinjaIdentity config={config} frame={frame} quality={quality} />;
-    if (config.visualId.startsWith("starter-water")) return <AquaSpiritIdentity config={config} frame={frame} quality={quality} />;
-    if (config.visualId.startsWith("starter-wind")) return <WindRaptorIdentity config={config} frame={frame} quality={quality} />;
-    if (config.visualId.startsWith("starter-lightning")) return <LightningHoundIdentity config={config} frame={frame} quality={quality} />;
-    if (config.visualId.startsWith("starter-earth")) return <EarthGuardianIdentity config={config} frame={frame} quality={quality} />;
-    return null;
+    const h = config.targetHeight;
+    const root = useRef<THREE.Group>(null);
+    const ringMaterials = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const featherMaterials = useRef<Array<THREE.MeshToonMaterial | null>>([]);
+    const dashStarted = useRef(-999);
+    const wasDiving = useRef(false);
+    const featherCount = quality.id === "low" ? 3 : quality.id === "medium" ? 5 : 7;
+    const bodyColor = useMemo(() => new THREE.Color(elementColor).lerp(new THREE.Color("#eaffff"), 0.5).getStyle(), [elementColor]);
+
+    useFrame((state) => {
+        const diving = frame.current.motion === "dash";
+        if (diving && !wasDiving.current) dashStarted.current = state.clock.elapsedTime;
+        wasDiving.current = diving;
+        const p = THREE.MathUtils.clamp((state.clock.elapsedTime - dashStarted.current) / 0.58, 0, 1);
+        const envelope = diving ? Math.sin(Math.PI * Math.min(1, p * 0.92)) : 0;
+        if (root.current) {
+            root.current.visible = envelope > 0.005;
+            root.current.position.z = -h * (0.22 + p * 0.25);
+            root.current.rotation.z = Math.sin(p * Math.PI * 2) * 0.055;
+            root.current.scale.setScalar(0.78 + p * 0.5);
+        }
+        ringMaterials.current.forEach((material, index) => {
+            if (material) material.opacity = envelope * (0.5 - index * 0.11);
+        });
+        featherMaterials.current.forEach((material, index) => {
+            if (material) material.opacity = envelope * (0.68 - index / featherCount * 0.24);
+        });
+    });
+
+    return (
+        <group ref={root} position={[0, h * 0.5, -h * 0.24]} visible={false}>
+            {[0, 1, 2].slice(0, quality.translucentLayers + 1).map((index) => (
+                <mesh key={`avian-dive-ring-${index}`} position={[0, index * h * 0.035, -index * h * 0.14]} rotation={[0, 0, index * 0.42]} scale={0.82 + index * 0.27}>
+                    <torusGeometry args={[h * 0.22, h * (0.018 - index * 0.0025), 6, 28]} />
+                    <meshToonMaterial
+                        ref={(material) => { ringMaterials.current[index] = material; }}
+                        color={index === 0 ? "#f4ffff" : bodyColor}
+                        emissive={elementColor}
+                        emissiveIntensity={0.12}
+                        transparent
+                        opacity={0}
+                        depthWrite={false}
+                    />
+                </mesh>
+            ))}
+            {Array.from({ length: featherCount }, (_, index) => {
+                const side = index % 2 === 0 ? -1 : 1;
+                const lane = Math.floor(index / 2);
+                return (
+                    <mesh
+                        key={`avian-dive-feather-${index}`}
+                        position={[side * h * (0.16 + lane * 0.045), (index % 3 - 1) * h * 0.065, -h * (0.12 + lane * 0.105)]}
+                        rotation={[Math.PI / 2, side * 0.2, side * (0.48 + lane * 0.07)]}
+                        scale={[h * 0.038, h * (0.12 + lane * 0.018), h * 0.025]}
+                    >
+                        <coneGeometry args={[1, 2.4, 5]} />
+                        <meshToonMaterial
+                            ref={(material) => { featherMaterials.current[index] = material; }}
+                            color={index % 3 === 0 ? "#ffffff" : bodyColor}
+                            emissive={elementColor}
+                            emissiveIntensity={0.09}
+                            transparent
+                            opacity={0}
+                            depthWrite={false}
+                        />
+                    </mesh>
+                );
+            })}
+        </group>
+    );
+}
+
+export function PetIdentityEffects3D({ config, frame, quality, elementColor = "#b9f6ff" }: {
+    config: PetCombatModelConfig;
+    frame: MutableRefObject<PetModelFrame>;
+    quality: PetVisualQualityConfig;
+    elementColor?: string;
+}) {
+    const identity = config.visualId.startsWith("starter-fire")
+        ? <EmberNinjaIdentity config={config} frame={frame} quality={quality} />
+        : config.visualId.startsWith("starter-water")
+            ? <AquaSpiritIdentity config={config} frame={frame} quality={quality} />
+            : config.visualId.startsWith("starter-wind")
+                ? <WindRaptorIdentity config={config} frame={frame} quality={quality} />
+                : config.visualId.startsWith("starter-lightning")
+                    ? <LightningHoundIdentity config={config} frame={frame} quality={quality} />
+                    : config.visualId.startsWith("starter-earth")
+                        ? <EarthGuardianIdentity config={config} frame={frame} quality={quality} />
+                        : null;
+    return (
+        <>
+            {identity}
+            {config.profile === "avian" && <AvianDiveAccent config={config} frame={frame} quality={quality} elementColor={elementColor} />}
+        </>
+    );
 }

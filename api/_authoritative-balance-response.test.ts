@@ -55,11 +55,13 @@ describe('authoritative balance response migration', () => {
     it('PvP bounty escrow and payout return committed ryo balances', () => {
         const api = read('api/pvp/bounty.ts');
         const app = read('shinobij.client/src/App.tsx');
-        const hall = read('shinobij.client/src/screens/HallOfLegends.tsx');
+        // Bounty placement now lives in the Battle Arena "Bounty Board" tab
+        // (BountyBoardPanel); the Hall of Legends duplicate was retired.
+        const panel = read('shinobij.client/src/components/BountyBoardPanel.tsx');
         assert.match(api, /balances:\s*\{\s*ryo:\s*debit\.balance\s*\}/);
         assert.match(api, /balances:\s*\{\s*ryo:\s*credit\.balance\s*\}/);
         assert.match(app, /ryo:\s*b\.balances\.ryo/);
-        assert.match(hall, /ryo:\s*res\.balances\?\.ryo\s*\?\?\s*prev\.ryo/);
+        assert.match(panel, /ryo:\s*res\.balances\?\.ryo\s*\?\?\s*character\.ryo/);
         assert.doesNotMatch(app, /ryo:\s*\(c\.ryo\s*\?\?\s*0\)\s*\+\s*b\.amount/);
     });
 

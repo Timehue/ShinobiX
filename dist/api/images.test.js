@@ -146,6 +146,27 @@ const images_js_1 = require("./images.js");
         }
     });
 });
+(0, node_test_1.describe)('isPlayerClaimableImageId — first-writer-wins scope', () => {
+    const uuid = 'b2e291f6-5b58-4bf3-a037-a983f716b121';
+    (0, node_test_1.it)('includes the player-created carve-out ids (named gear, custom bloodline/jutsu, pet art)', () => {
+        for (const id of [
+            `bloodline:${uuid}`, `jutsu:${uuid}`,
+            'item:named-weapon-abc123', 'item:named-armor-xyz789',
+            'pet:p1', 'petbody:p1', 'petsheet:p1', 'petlayers:p1:mid',
+        ]) {
+            node_assert_1.strict.equal((0, images_js_1.isPlayerClaimableImageId)(id), true, id);
+        }
+    });
+    (0, node_test_1.it)('excludes admin catalog ids, avatars, misc, and malformed ids', () => {
+        for (const id of [
+            'bloodline:starter-bloodline-ashen-eyes', 'jutsu:fireball',
+            'item:wooden-katana', 'avatar:rill', 'card:tile-1',
+            'whatever:foo', 'noColon',
+        ]) {
+            node_assert_1.strict.equal((0, images_js_1.isPlayerClaimableImageId)(id), false, id);
+        }
+    });
+});
 (0, node_test_1.describe)('categoryFromId — leader category (#16)', () => {
     (0, node_test_1.it)('routes leader:* to its own category instead of misc', () => {
         node_assert_1.strict.equal((0, images_js_1.categoryFromId)('leader:konoha:kage'), 'leader');

@@ -96,8 +96,17 @@ async function handler(req, res) {
                         // rank chip never showed for offline authors.
                         if (typeof char.rankTitle === 'string')
                             derivedRank = char.rankTitle;
-                        if (typeof char.customTitle === 'string')
-                            derivedCustomTitle = char.customTitle;
+                        // Mirror the presence-layer defense (presence-input.ts):
+                        // the tavern chip shows customTitle to every reader, so
+                        // blank any authority-impersonation title ("Admin"/"Kage"/
+                        // "System"/…). The save-time reserved-term gate is
+                        // flag-gated (legacyEnabled), so a title planted while it
+                        // was off must not ride into chat as a fake staff badge.
+                        if (typeof char.customTitle === 'string' && char.customTitle) {
+                            const cleanedTitle = (0, _text_moderation_js_1.sanitizeUserText)(char.customTitle, _text_moderation_js_1.TEXT_LIMITS.customTitle);
+                            if (cleanedTitle && !(0, _text_moderation_js_1.hasReservedTitleTerm)(cleanedTitle))
+                                derivedCustomTitle = cleanedTitle;
+                        }
                         // Paid title cosmetics ride along (save-sanitizer
                         // allowlisted, same trust as customTitle itself).
                         if (typeof char.customTitleStyle === 'string' && char.customTitleStyle)
