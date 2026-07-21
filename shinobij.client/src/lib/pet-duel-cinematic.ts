@@ -81,6 +81,7 @@ const COST_DODGE = 20;
 const CRIT_CHANCE = 0.12;
 const DMG_SCALE = 1.5;
 const TARGET_LOCK_TICKS = Math.round(DUEL_TPS * 1.4);
+const PARTY_TARGET_LOCK_TICKS = Math.round(DUEL_TPS * 6);
 const BASIC_REACH = 1.2;                     // melee contact distance (basic attack)
 // Creature bodies are substantially wider than a hit point. Keep their simulation
 // centres far enough apart that a melee contact reads as a collision, not two meshes
@@ -88,10 +89,13 @@ const BASIC_REACH = 1.2;                     // melee contact distance (basic at
 const MIN_SEP = BASIC_REACH * 2.0;
 const MELEE_RANGE = 1.6;
 const SUPPORT_CAST_CLEARANCE = 6.2;
-// Every exchange must create enough screen-space to read as a NEW engagement.
-// This is deliberately spectacle-first: even a planted brawler has to break the
-// pocket, run a new lane, and earn its next collision.
-const MIN_REPOSITION_RANGE = 5.8;
+// Full reset beats create screen-space for a new engagement, but are intentionally
+// periodic rather than mandatory after every attack.
+const DUEL_REPOSITION_RANGE = 4.6;
+const PARTY_REPOSITION_RANGE = 4.1;
+const PARTY_ALLY_SEPARATION = 4.4;
+const DUEL_ROUTE_CADENCE = 3;
+const PARTY_ROUTE_CADENCE = 2;
 // Ranged range is DELIBERATELY WIDE so kiters hold a gap the camera can SEE — the
 // renderer squishes field→world ~0.44×, so a 4-unit gap reads as sprites touching;
 // an ~8-unit kite gap renders as a real, readable separation (≈1.5 sprite-widths).
@@ -161,7 +165,6 @@ const ROUTE_ANCHORS: readonly (readonly [number, number])[] = [
     [-10.8, -4.9], [-10.4, 4.9], [-5.4, 6.0], [2.8, 6.0],
     [10.5, 4.8], [10.8, -4.8], [5.5, -5.9], [-3.8, -5.9],
 ];
-const ROUTE_MIN_TRAVEL = 6.4;
 // BARRIER EARTH WALLS — temporary solid obstacles a barrier cast raises between the two
 // fighters. Blocks movement AND line-of-sight (hasLineOfSight samples walkableAt), so
 // neither can attack through it for a beat — they buff/heal or path around. Module-level
@@ -170,11 +173,13 @@ let SIM_WALLS: { x: number; y: number; r: number; expiry: number; ownerId: strin
 // Stall-breaker state (reset per simulate() run, like SIM_WALLS → deterministic, no carry-over).
 let _stallPressure = 0;    // 0 in every fight where damage lands; ramps only in a true no-damage stand-off
 let _forcedEngage = false; // latched once a stand-off is confirmed → a decisive brawl to the finish
+let _partyMode = false;
 // One team owns neutral pressure at a time. The other team may still read a
 // telegraph, dodge, and punish recovery, but it does not mirror the attacker's
 // locomotion. This turns a continuous mutual chase into authored-looking beats:
 // pressure → evade/impact → exit → counter-pressure.
 let _cinematicInitiativeTeam: "player" | "enemy" = "player";
+let _laneInitiativeTeam: ["player" | "enemy", "player" | "enemy"] = ["player", "enemy"];
 const WALL_TICKS = Math.round(DUEL_TPS * 0.85);   // how long a wall BLOCKS (short → a beat, not a big defensive advantage)
 const WALL_PENALTY_TICKS = Math.round(DUEL_TPS * 3.0);   // caster's damage halved this long after raising a wall (the wall's cost)
 const cellBlockedByWall = (c: number, r: number): boolean => {
@@ -389,6 +394,7 @@ type RouteIntent = "cover" | "flank" | "retreat" | "cross";
 interface Fighter {
     id: string; team: "player" | "enemy"; slot: number; pet: Pet; element?: string | null;
     x: number; y: number; vx: number; vy: number; faceX: number; faceY: number;
+    homeY: number;                              // stable 2v2 lane centre; unused by 1v1
     hp: number; maxHp: number; reviveLeft: number;
     atk: number; def: number; spd: number;
     maxSpeed: number; maxForce: number;
@@ -415,6 +421,8 @@ interface Fighter {
     spacingOffset: number;
     routeX: number; routeY: number; routeActive: boolean; // independent post-exchange arena destination
     routeIntent: RouteIntent;                 // why this lane was chosen; drives cover-side vs flank-side routing
+    exchangesSinceRoute: number;              // full-floor resets are punctuation, not every attack
+    supportResetDone: boolean;                 // one showcase exit per fighter; later support beats stay compact
     postDodgeSupport: boolean;                // dodge -> retreat lane -> planted self-buff chain
     supportCastLocked: boolean;               // one setup cast must be converted into a landed offensive exchange before another
     commit: number;                         // anti-stall: rises while in-band with a ready move but not firing
@@ -531,6 +539,7 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
     return {
         id: `${team}-${slot}`, team, slot, pet: gp, element: gp.element,
         x, y, vx: 0, vy: 0, faceX: team === "player" ? 1 : -1, faceY: 0,
+        homeY: y,
         hp: maxHp, maxHp, reviveLeft: reviveOnce ? 1 : 0,
         atk: Math.max(0, (gp.attack || 0) * atkMult), def: Math.max(0, gp.defense || 0), spd: speed,
         maxSpeed: moveSpeed, maxForce: moveSpeed * 0.34 * style.turnMult,   // agile vs lumbering
@@ -547,6 +556,8 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         maneuverLeft: 0, maneuverTotal: 0, maneuverGoalX: x, maneuverGoalY: y, guardLeft: 0,
         spacingBeat: team === "player" ? 0 : 2, spacingOffset: 0,
         routeX: x, routeY: y, routeActive: false, routeIntent: "cross", postDodgeSupport: false,
+        exchangesSinceRoute: 0,
+        supportResetDone: false,
         supportCastLocked: false,
         commit: 0, targetId: null, targetLockLeft: 0,
         aiState: "hold position", desiredRange: 0, aiPlan: "size up", aiReason: "opening evaluation",
@@ -566,6 +577,18 @@ function pickTarget(f: Fighter, fighters: Fighter[]): Fighter | null {
     if (f.statuses.tauntById) {
         const t = fighters.find((g) => g.id === f.statuses.tauntById && g.hp > 0);
         if (t) { f.targetId = t.id; f.targetLockLeft = TARGET_LOCK_TICKS; return t; }
+    }
+    // 2v2 reads best as two stable lanes, not four solo brains repeatedly choosing
+    // whichever transient recover/stagger score happens to be lowest this tick.
+    // Hold the opposite slot until it is eliminated; only then collapse into the
+    // remaining lane. Taunts above remain the explicit authored override.
+    if (_partyMode) {
+        const laneTarget = fighters.find((g) => g.team !== f.team && g.slot === f.slot && g.hp > 0);
+        if (laneTarget) {
+            f.targetId = laneTarget.id;
+            f.targetLockLeft = PARTY_TARGET_LOCK_TICKS;
+            return laneTarget;
+        }
     }
     const locked = f.targetId ? fighters.find((g) => g.id === f.targetId && g.team !== f.team && g.hp > 0) : null;
     if (locked && f.targetLockLeft > 0) return locked;
@@ -740,6 +763,10 @@ function castSupport(f: Fighter, ab: Ability, fighters: Fighter[], t: number, ev
             // COST: the caster's own damage is halved for a beat, so the defensive wall isn't
             // a free win (this is what keeps barrier pets from dominating — a real tradeoff).
             f.statuses.wallPenaltyLeft = WALL_PENALTY_TICKS;
+            // A barrier is the defensive answer for this beat. Do not let its
+            // caster stack an immediate perfect evade as soon as the wall drops;
+            // the shield can absorb the readable counter and combat resumes.
+            f.dodgeCd = Math.max(f.dodgeCd, WALL_TICKS + Math.round(DUEL_TPS * 0.45));
             let foe: Fighter | null = null, bd = Infinity;
             for (const g of fighters) { if (g.team === f.team || g.hp <= 0) continue; const dd = (g.x - f.x) * (g.x - f.x) + (g.y - f.y) * (g.y - f.y); if (dd < bd) { bd = dd; foe = g; } }
             if (foe) {
@@ -776,13 +803,20 @@ function routeTravelSq(f: Fighter, goal: readonly [number, number]): number {
     const dx = goal[0] - f.x, dy = goal[1] - f.y;
     return dx * dx + dy * dy;
 }
+const routeMinTravel = () => _partyMode ? 3.8 : 4.6;
+const minRepositionRange = () => _partyMode ? PARTY_REPOSITION_RANGE : DUEL_REPOSITION_RANGE;
+function belongsToPartyLane(f: Fighter, goal: readonly [number, number]): boolean {
+    return !_partyMode || Math.sign(goal[1] || f.homeY) === Math.sign(f.homeY);
+}
 function outerArenaDestination(f: Fighter, e: Fighter | null, retreat: boolean): [number, number] {
     const lead = f.team === "player" ? 0 : 4;
-    let fallback = snapPos(-f.x * 0.9, -f.y * 0.9);
+    let fallback = snapPos(-f.x * 0.72, _partyMode ? f.homeY : -f.y * 0.72);
     let fallbackScore = -1e9;
+    const minTravel = routeMinTravel();
     for (let attempt = 0; attempt < ROUTE_ANCHORS.length; attempt++) {
         const idx = (f.spacingBeat + lead + f.slot * 2 + attempt) % ROUTE_ANCHORS.length;
         const raw = ROUTE_ANCHORS[idx];
+        if (!belongsToPartyLane(f, raw)) continue;
         const candidate = snapPos(raw[0], raw[1]);
         const travelSq = routeTravelSq(f, candidate);
         const enemySq = e ? (candidate[0] - e.x) * (candidate[0] - e.x) + (candidate[1] - e.y) * (candidate[1] - e.y) : 0;
@@ -790,7 +824,7 @@ function outerArenaDestination(f: Fighter, e: Fighter | null, retreat: boolean):
         if (score > fallbackScore) { fallback = candidate; fallbackScore = score; }
         // Crosses rotate through several valid long lanes instead of always choosing
         // the mathematically farthest corner. Retreats still take the safest corner.
-        if (!retreat && travelSq >= ROUTE_MIN_TRAVEL * ROUTE_MIN_TRAVEL) return candidate;
+        if (!retreat && travelSq >= minTravel * minTravel) return candidate;
     }
     return fallback;
 }
@@ -820,7 +854,8 @@ function coverArenaDestination(f: Fighter, e: Fighter, flank: boolean): [number,
         const candidate = snapPos(rawX, rawY);
         const travelSq = routeTravelSq(f, candidate);
         const enemySq = (candidate[0] - e.x) * (candidate[0] - e.x) + (candidate[1] - e.y) * (candidate[1] - e.y);
-        const tooShort = travelSq < ROUTE_MIN_TRAVEL * ROUTE_MIN_TRAVEL ? 80 : 0;
+        const minTravel = routeMinTravel();
+        const tooShort = travelSq < minTravel * minTravel ? 80 : 0;
         const score = flank ? travelSq * 0.7 - enemySq * 0.08 - tooShort - attempt : enemySq * 0.55 + travelSq * 0.3 - tooShort - attempt;
         if (score > bestScore) { best = candidate; bestScore = score; }
     }
@@ -840,7 +875,8 @@ function assignArenaDestination(f: Fighter, e: Fighter | null) {
     else if (intent === "cover") chosen = coverArenaDestination(f, e, false);
     else if (intent === "flank") chosen = coverArenaDestination(f, e, true);
     else chosen = outerArenaDestination(f, e, intent === "retreat");
-    if (routeTravelSq(f, chosen) < ROUTE_MIN_TRAVEL * ROUTE_MIN_TRAVEL) chosen = outerArenaDestination(f, e, intent === "retreat");
+    const minTravel = routeMinTravel();
+    if (routeTravelSq(f, chosen) < minTravel * minTravel) chosen = outerArenaDestination(f, e, intent === "retreat");
 
     f.spacingBeat = nextBeat;
     f.routeIntent = intent;
@@ -1138,6 +1174,10 @@ function steer(f: Fighter, e: Fighter, fighters: Fighter[], rStar: number, route
     const cl = Math.sqrt(f.x * f.x + f.y * f.y);
     const edge = Math.max(Math.abs(f.x) / ARENA_X, Math.abs(f.y) / ARENA_Y);
     if (cl > 1e-3 && edge > 0.84) writeMap(_interest, -f.x / cl, -f.y / cl, EDGE_RETURN_BIAS * clamp((edge - 0.84) / 0.16, 0, 1), false);
+    if (_partyMode) {
+        const laneDelta = f.homeY - f.y;
+        if (Math.abs(laneDelta) > 1.1) writeMap(_interest, 0, Math.sign(laneDelta), 0.38 * clamp(Math.abs(laneDelta) / 4.5, 0.25, 1), false);
+    }
     // DANGER — enemy threat bubble, telegraph, walls, personal space.
     const reach = e.state === "windup" ? 3.0 : 1.8;
     const prox = clamp(1 - (d - reach) / Math.max(1e-3, reach), 0, 1);
@@ -1154,11 +1194,14 @@ function steer(f: Fighter, e: Fighter, fighters: Fighter[], rStar: number, route
     if (!walkableAt(f.x - probe, f.y)) writeMap(_danger, -1, 0, DANGER_WALL, false);
     if (!walkableAt(f.x, f.y + probe)) writeMap(_danger, 0, 1, DANGER_WALL, false);
     if (!walkableAt(f.x, f.y - probe)) writeMap(_danger, 0, -1, DANGER_WALL, false);
-    // Ally separation (2v2) — don't stack on a teammate.
+    // Ally separation (2v2) — preserve two readable lanes. The former 2-unit
+    // bubble was smaller than the rendered creature bodies, so teammates could be
+    // numerically separated while still appearing as one tangled silhouette.
     for (const g of fighters) {
         if (g === f || g.team !== f.team || g.hp <= 0) continue;
         const gx = g.x - f.x, gy = g.y - f.y, gd = Math.sqrt(gx * gx + gy * gy);
-        if (gd < 2.0 && gd > 1e-3) writeMap(_danger, gx / gd, gy / gd, 0.5 * (1 - gd / 2.0), false);
+        const allyRadius = _partyMode ? PARTY_ALLY_SEPARATION : 2.0;
+        if (gd < allyRadius && gd > 1e-3) writeMap(_danger, gx / gd, gy / gd, 0.78 * (1 - gd / allyRadius), false);
     }
     blur(_interest); blur(_danger);
     // Arbitrate: mask to the lowest-danger slots, pick max interest; continuity
@@ -1418,7 +1461,9 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // not a leash partner: it plants, tracks the pressure pet, and waits for a
     // telegraph/recovery opening. Active dodges above and punish windows below
     // still break the hold, so this remains an autobattle rather than a turn lock.
-    const ownsBeat = f.team === _cinematicInitiativeTeam || _forcedEngage;
+    const ownsBeat = (_partyMode
+        ? f.team === _laneInitiativeTeam[Math.min(1, f.slot)]
+        : f.team === _cinematicInitiativeTeam) || _forcedEngage;
     const counterWindow = e.state === "recover" || e.state === "stagger" || e.state === "strike";
     const finishingExit = f.reposLeft > 0 && f.routeActive;
     if (!ownsBeat && !counterWindow && !finishingExit) {
@@ -1496,7 +1541,7 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     const mobilityIdx = readyMobility(f);
     if (holdRepos && !f.reposManeuverUsed && mobilityIdx >= 0 && f.routeActive
         && f.statuses.rootLeft <= 0) {
-        setIntent(f, hpFrac < f.style.retreatHp ? "retreat" : "reposition", Math.max(rStar, MIN_REPOSITION_RANGE), `use ${f.abilities[mobilityIdx].name} to change lanes`, hpFrac < f.style.retreatHp ? "low health disengage" : "post-attack spacing reset");
+        setIntent(f, hpFrac < f.style.retreatHp ? "retreat" : "reposition", Math.max(rStar, minRepositionRange()), `use ${f.abilities[mobilityIdx].name} to change lanes`, hpFrac < f.style.retreatHp ? "low health disengage" : "post-attack spacing reset");
         beginManeuver(f, e, mobilityIdx, t, events);
         return;
     }
@@ -1527,7 +1572,9 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // Only one side owns the ingress burst for an exchange. It dashes to an
     // offset firing pocket (never into the opponent's body); the other side may
     // hold, dodge, or answer after the shared pressure role flips next beat.
-    const pressureTeam: Fighter["team"] = _cinematicInitiativeTeam;
+    const pressureTeam: Fighter["team"] = _partyMode
+        ? _laneInitiativeTeam[Math.min(1, f.slot)]
+        : _cinematicInitiativeTeam;
     if (!holdRepos && mobilityIdx >= 0 && f.team === pressureTeam && f.commit >= Math.round(DUEL_TPS * 0.55)
         && d > rStar + BAND_H + 1.8 && f.statuses.rootLeft <= 0 && e.state !== "windup") {
         setIntent(f, "flank", rStar, `burst to an offset ${useRanged ? "firing" : "attack"} lane`, "owns this exchange's ingress");
@@ -1547,7 +1594,7 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         }
     }
     if ((enemyOpen || killShot) && !useRanged && d > moveRange) rStar = Math.min(rStar, moveRange * 0.9);   // press the opening / go for the kill
-    if (holdRepos) rStar = Math.max(rStar + f.style.reposBack + f.spacingOffset, MIN_REPOSITION_RANGE);
+    if (holdRepos) rStar = Math.max(rStar + f.style.reposBack + f.spacingOffset, minRepositionRange());
     else rStar = Math.max(MELEE_RANGE * 0.82, rStar + f.spacingOffset * (useRanged ? 0.34 : 0.16));
     // STALL BREAKER: collapse R* toward melee so a no-damage kiter stand-off is forced to close
     // and trade (the stronger stats then win). p=0 in normal fights → no effect.
@@ -1837,15 +1884,41 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
         case "recover": if (--f.stateLeft <= 0) {
             f.state = "idle";
             const target = pickTarget(f, fighters);
-            if (target) _cinematicInitiativeTeam = target.team;
+            if (target) {
+                if (_partyMode) _laneInitiativeTeam[Math.min(1, f.slot)] = target.team;
+                else _cinematicInitiativeTeam = target.team;
+            }
             // The completed action hands pressure to the opponent while this pet
-            // exits to a new stage mark. If the rival is already disengaging from
-            // a dodge, do not launch a second route in parallel.
+            // briefly plants. A full cross-arena exit is punctuation: every third
+            // 1v1 exchange, every second 2v2 lane exchange, after a signature or
+            // support setup, or when genuinely wounded. Routing after every basic hit made the match
+            // mostly running and turned 2v2 into four unrelated travel lines.
+            f.exchangesSinceRoute++;
+            const justUsed = f.pendingIdx >= 0 ? f.abilities[f.pendingIdx] : null;
+            const wounded = f.hp / f.maxHp < f.style.retreatHp;
+            const cadence = _partyMode ? PARTY_ROUTE_CADENCE : DUEL_ROUTE_CADENCE;
+            // The wall itself creates the route change for the opponent; sending
+            // its caster across the floor too only doubles the dead air.
+            const supportSetup = justUsed?.cls === "support"
+                && justUsed.kind !== "barrier" && !f.supportResetDone;
+            const fullReset = !!justUsed?.signature || supportSetup
+                || wounded || f.exchangesSinceRoute >= cadence;
+            // If the rival is already disengaging from a dodge/reset, do not launch
+            // a second route in parallel.
             if (target?.routeActive && target.reposLeft > 0) {
                 f.routeActive = false; f.reposLeft = 0;
                 f.vx = 0; f.vy = 0;
-                f.guardLeft = Math.round(DUEL_TPS * 0.18);
-            } else beginReposition(f, Math.round(DUEL_TPS * f.style.reposDur), target);
+                f.guardLeft = Math.round(DUEL_TPS * 0.2);
+            } else if (fullReset) {
+                if (justUsed?.cls === "support") f.supportResetDone = true;
+                f.exchangesSinceRoute = 0;
+                beginReposition(f, Math.round(DUEL_TPS * f.style.reposDur), target);
+            } else {
+                f.routeActive = false; f.reposLeft = 0;
+                f.spacingOffset = 0;
+                f.vx = 0; f.vy = 0;
+                f.guardLeft = Math.round(DUEL_TPS * 0.22);
+            }
         } break;
         case "stagger": if (--f.stateLeft <= 0) {
             f.state = "idle";
@@ -1877,7 +1950,9 @@ function separateAll(fighters: Fighter[]) {
         // Keep an idle face-off wide enough that two full 3D silhouettes never read
         // as body-blocking each other. Committed casts and dodges still own closer
         // combat pockets before their next reset.
-        const separation = calmFaceoff ? MIN_SEP + 1.0 : MIN_SEP;
+        const separation = _partyMode && a.team === b.team
+            ? PARTY_ALLY_SEPARATION
+            : calmFaceoff ? MIN_SEP + 1.0 : MIN_SEP;
         if (d >= separation) continue;
         const push = (separation - d) / 2;
         if (d > 1e-6) { const ux = dx / d, uy = dy / d; const [ax, ay] = snapPos(a.x - ux * push, a.y - uy * push); a.x = ax; a.y = ay; const [bx, by] = snapPos(b.x + ux * push, b.y + uy * push); b.x = bx; b.y = by; }
@@ -1938,7 +2013,12 @@ function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean, d
     let winner: "player" | "enemy" | null = null;
     SIM_WALLS = [];   // reset barrier walls per run → deterministic (no carry-over between fights)
     _stallPressure = 0; _forcedEngage = false;
+    _partyMode = fighters.length > 2;
     _cinematicInitiativeTeam = (seed & 1) === 0 ? "player" : "enemy";
+    _laneInitiativeTeam = [
+        _cinematicInitiativeTeam,
+        _cinematicInitiativeTeam === "player" ? "enemy" : "player",
+    ];
     let lastDmgTick = 0, prevTotalHp = 0;
     for (const f of fighters) prevTotalHp += Math.max(0, f.hp);
     for (const f of fighters) { const [sx, sy] = snapPos(f.x, f.y); f.x = sx; f.y = sy; }

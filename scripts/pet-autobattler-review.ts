@@ -26,13 +26,39 @@ function pet(id: string, element: Element, role: PetRole = "tracker", subRole: P
 function summarize(name: string, mode: "1v1" | "2v2", duel: DuelResult) {
     const snapshots = duel.snapshots;
     let distanceMin = Infinity, distanceMax = 0, crowded = 0;
+    let allyPairTicks = 0, allyClumpTicks = 0;
+    let targetedActorTicks = 0, offLaneTargetTicks = 0;
+    let livingActorTicks = 0, routeTicks = 0, holdTicks = 0;
     for (const snap of snapshots) {
-        const player = snap.actors.find((actor) => actor.team === "player" && actor.hp > 0);
-        const enemy = snap.actors.find((actor) => actor.team === "enemy" && actor.hp > 0);
-        if (!player || !enemy) continue;
-        const distance = Math.hypot(player.x - enemy.x, player.y - enemy.y);
-        distanceMin = Math.min(distanceMin, distance); distanceMax = Math.max(distanceMax, distance);
-        if (distance < 2.5) crowded++;
+        const living = snap.actors.filter((actor) => actor.hp > 0);
+        const players = living.filter((actor) => actor.team === "player");
+        const enemies = living.filter((actor) => actor.team === "enemy");
+        let nearestOpposed = Infinity;
+        for (const player of players) for (const enemy of enemies) {
+            nearestOpposed = Math.min(nearestOpposed, Math.hypot(player.x - enemy.x, player.y - enemy.y));
+        }
+        if (nearestOpposed < Infinity) {
+            distanceMin = Math.min(distanceMin, nearestOpposed);
+            distanceMax = Math.max(distanceMax, nearestOpposed);
+            if (nearestOpposed < 2.5) crowded++;
+        }
+        for (const side of ["player", "enemy"] as const) {
+            const allies = living.filter((actor) => actor.team === side);
+            if (allies.length < 2) continue;
+            allyPairTicks++;
+            if (Math.hypot(allies[0].x - allies[1].x, allies[0].y - allies[1].y) < 4) allyClumpTicks++;
+        }
+        for (const actor of living) {
+            livingActorTicks++;
+            if (actor.ai?.state === "reposition") routeTicks++;
+            if (actor.ai?.state === "hold position") holdTicks++;
+            const targetId = actor.ai?.targetId;
+            if (!targetId || mode !== "2v2") continue;
+            const laneRival = living.find((candidate) => candidate.team !== actor.team && candidate.slot === actor.slot);
+            if (!laneRival) continue;
+            targetedActorTicks++;
+            if (targetId !== laneRival.id) offLaneTargetTicks++;
+        }
     }
     const states = new Set(snapshots.flatMap((snap) => snap.actors.map((actor) => actor.ai?.state).filter(Boolean)));
     const targetSwitches = snapshots[0]?.actors.reduce((total, actor) => {
@@ -44,6 +70,15 @@ function summarize(name: string, mode: "1v1" | "2v2", duel: DuelResult) {
         }
         return total + changes;
     }, 0) ?? 0;
+    let peakEventsPerSecond = 0;
+    for (let left = 0, right = 0; right < duel.events.length; right++) {
+        while (duel.events[right].t - duel.events[left].t >= DUEL_TPS) left++;
+        peakEventsPerSecond = Math.max(peakEventsPerSecond, right - left + 1);
+    }
+    const simultaneousEvents = Math.max(0, ...Object.values(duel.events.reduce<Record<number, number>>((counts, current) => {
+        counts[current.t] = (counts[current.t] ?? 0) + 1;
+        return counts;
+    }, {})));
     return {
         name, mode, result: duel.result, seconds: +(duel.ticks / DUEL_TPS).toFixed(1),
         ko: duel.events.filter((event) => event.type === "ko").length,
@@ -54,6 +89,12 @@ function summarize(name: string, mode: "1v1" | "2v2", duel: DuelResult) {
         elementalChains: duel.events.filter((event) => event.combo).length,
         rangeSpan: distanceMin < Infinity ? +(distanceMax - distanceMin).toFixed(1) : 0,
         crowdedPct: +((crowded / Math.max(1, snapshots.length)) * 100).toFixed(1),
+        allyClumpPct: +((allyClumpTicks / Math.max(1, allyPairTicks)) * 100).toFixed(1),
+        offLaneTargetPct: +((offLaneTargetTicks / Math.max(1, targetedActorTicks)) * 100).toFixed(1),
+        routePct: +((routeTicks / Math.max(1, livingActorTicks)) * 100).toFixed(1),
+        holdPct: +((holdTicks / Math.max(1, livingActorTicks)) * 100).toFixed(1),
+        peakEventsPerSecond,
+        simultaneousEvents,
         aiStates: states.size, targetSwitches,
     };
 }
@@ -100,6 +141,11 @@ const warnings = rows.flatMap((row) => [
     ...(row.crowdedPct > 20 ? [`${row.name}: crowded ${row.crowdedPct}% of snapshots`] : []),
     ...(row.rangeSpan < 3.5 ? [`${row.name}: narrow range span ${row.rangeSpan}`] : []),
     ...(row.aiStates < 4 ? [`${row.name}: only ${row.aiStates} AI states observed`] : []),
+    ...(row.mode === "2v2" && row.allyClumpPct > 18 ? [`${row.name}: allies clumped for ${row.allyClumpPct}% of paired snapshots`] : []),
+    ...(row.mode === "2v2" && row.offLaneTargetPct > 3 ? [`${row.name}: off-lane targeting for ${row.offLaneTargetPct}% of committed snapshots`] : []),
+    ...(row.mode === "2v2" && row.targetSwitches > 4 ? [`${row.name}: ${row.targetSwitches} target changes obscured the lane matchups`] : []),
+    ...(row.routePct > 38 ? [`${row.name}: full-floor routing occupied ${row.routePct}% of living actor time`] : []),
+    ...(row.peakEventsPerSecond > (row.mode === "2v2" ? 14 : 9) ? [`${row.name}: ${row.peakEventsPerSecond} raw events landed inside one second`] : []),
 ]);
 console.log("\nReview warnings:");
 console.log(warnings.length ? warnings.map((warning) => `- ${warning}`).join("\n") : "- none");

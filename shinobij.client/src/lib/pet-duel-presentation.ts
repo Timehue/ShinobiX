@@ -2,6 +2,50 @@ import { DUEL_TPS, type DuelEvent } from "./pet-duel-sim";
 
 export type DuelPlanarPoint = readonly [number, number];
 
+/** Minimum wall-clock gap between full-screen presentation beats in a party duel. */
+export const PARTY_SPOTLIGHT_COOLDOWN_SECONDS = 0.38;
+
+/** Rank simultaneous combat events so a 2v2 frame has one clear visual subject. */
+export function duelSpectaclePriority(event: DuelEvent): number {
+    if (event.type === "ko") return 1_000;
+    if (event.type === "ultimate") return 900;
+    if (event.type === "hit") {
+        if (event.signature) return 800;
+        if (event.crit) return 700;
+        if (event.kind === "crush" || event.kind === "push") return 600;
+        if (event.move) return 500;
+        return 50;
+    }
+    if (event.type === "heal" || event.type === "shield" || event.type === "buff") return 350;
+    if (event.type === "cast") return 300;
+    if (event.type === "windup") return 200;
+    if (event.type === "dodge" || event.type === "maneuver" || event.type === "whiff") return 100;
+    return 0;
+}
+
+/**
+ * Pick a single authored spectacle beat from events crossed by one render frame.
+ * Minor contacts and locomotion stay local; they do not compete for the camera.
+ */
+export function selectDuelSpotlightEvent(events: readonly DuelEvent[]): DuelEvent | null {
+    let best: DuelEvent | null = null;
+    let bestPriority = 199;
+    for (const event of events) {
+        const priority = duelSpectaclePriority(event);
+        if (priority > bestPriority) {
+            best = event;
+            bestPriority = priority;
+        }
+    }
+    return best;
+}
+
+/** Append an item while retaining only the newest bounded presentation entries. */
+export function appendCapped<T>(items: readonly T[], item: T, limit: number): T[] {
+    if (limit <= 0) return [];
+    return [...items.slice(Math.max(0, items.length - limit + 1)), item];
+}
+
 /**
  * Advance a rendered burst without allowing a slow frame to consume the whole
  * route. This is presentation-only: the deterministic replay remains the target,

@@ -320,9 +320,33 @@ test("2v2 target decisions use commitment windows instead of switching every tic
                     lastLiveSwitch = snapshot.t;
                 }
             }
+            if (target) {
+                const actorSlot = Number(actorId.split("-").at(-1));
+                const laneRival = snapshot.actors.find((candidate) => candidate.team !== actor.team
+                    && Number(candidate.id.split("-").at(-1)) === actorSlot);
+                if (laneRival && laneRival.hp > 0) {
+                    assert.equal(target, laneRival.id, `${actorId} should finish its readable lane matchup before rotating`);
+                }
+            }
             previous = target;
         }
     }
+    let allyPairTicks = 0, clumpedTicks = 0, livingActorTicks = 0, routeTicks = 0;
+    for (const snapshot of duel.snapshots) {
+        const living = snapshot.actors.filter((actor) => actor.hp > 0);
+        for (const actor of living) {
+            livingActorTicks++;
+            if (actor.ai?.state === "reposition") routeTicks++;
+        }
+        for (const side of ["player", "enemy"] as const) {
+            const allies = living.filter((actor) => actor.team === side);
+            if (allies.length < 2) continue;
+            allyPairTicks++;
+            if (Math.hypot(allies[0].x - allies[1].x, allies[0].y - allies[1].y) < 4) clumpedTicks++;
+        }
+    }
+    assert.ok(clumpedTicks / Math.max(1, allyPairTicks) < 0.1, `allies shared one unreadable pocket for ${clumpedTicks}/${allyPairTicks} paired ticks`);
+    assert.ok(routeTicks / Math.max(1, livingActorTicks) < 0.3, `party pets spent ${routeTicks}/${livingActorTicks} living actor-ticks on full routes`);
 });
 
 test("a knocked-out pet never re-enters the fight", () => {
