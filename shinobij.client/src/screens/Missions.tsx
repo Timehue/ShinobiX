@@ -32,7 +32,7 @@ import { WANDERER_QUEST_CATALOG, questMetricForId } from "../lib/wanderers";
 import { emissaryQuestById, emissaryByQuestId } from "../lib/legacy-emissaries";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { sectorPhrase } from "../lib/hollow-rifts";
-import { BattleTowerFight } from "./BattleTowerFight";
+import { MissionArenaFight } from "./MissionArenaFight";
 import type { TowerSession } from "../lib/towers-api";
 
 // Inline glyph that prefixes a tab/heading/button label — seated on the text baseline.
@@ -51,6 +51,7 @@ export function Missions({
     setScreen,
     onBack,
     onMissionBattleStart,
+    sharedImages,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
@@ -64,6 +65,7 @@ export function Missions({
     setScreen: (screen: Screen) => void;
     onBack: () => void;
     onMissionBattleStart?: () => void;
+    sharedImages?: Record<string, string>;
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const [authoritativeFight, setAuthoritativeFight] = useState<{ mission: CombatMission; runId: string; session: TowerSession } | null>(null);
@@ -128,10 +130,12 @@ export function Missions({
 
     if (authoritativeFight) {
         return (
-            <BattleTowerFight
+            <MissionArenaFight
                 character={character}
+                sharedImages={sharedImages}
                 runId={authoritativeFight.runId}
                 initialSession={authoritativeFight.session}
+                missionName={authoritativeFight.mission.name}
                 settleFn={settleAuthoritativeMission}
                 onExit={() => setAuthoritativeFight(null)}
             />
