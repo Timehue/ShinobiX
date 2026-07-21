@@ -176,6 +176,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // Tactical Arena game mode — a full-screen 2v2/4v4 deathmatch + capture-scroll
     // match (separate from the 1v1/2v2 battle). Teams are built + frozen on launch.
     const [arenaMatch, setArenaMatch] = useState<{ blue: ArenaSlot[]; red: ArenaSlot[]; seed: number; vsAi: boolean } | null>(null);
+    // Server-authoritative Warfront reward token (minted at vs-AI launch, redeemed on win).
+    const warfrontRewardToken = useRef<Promise<string | null> | null>(null);
     // Co-op (play the Tactical Arena 4v4 with friends) — opens the lobby overlay.
     const [showCoop, setShowCoop] = useState(false);
     // Top-level view switch. "battle" is the classic cinematic 1v1/2v2 duel;
@@ -313,25 +315,58 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         void loadPetColiseum().catch(() => undefined);
         const n = Math.max(1, Math.min(blue.length, red.length));
         setArenaView("tactical");
+        // vs-AI is server-authoritative — mint the reward token now (the server
+        // re-runs this exact match); the 5s countdown gives it time to resolve.
+        if (vsAi) mintWarfrontToken(seed, blue.slice(0, n));
         setArenaCountdown({ secs: 5, match: { blue: autoRoleTeam(blue, n), red: autoRoleTeam(red, n), seed, vsAi } });
     }
 
-    // Tactical Arena reward (vs-AI only): pay the same server-auth pet-arena ryo as
-    // the 1v1/2v2 PvE battles. The player's team is `blue` on the vs-AI launch, so a
-    // blue win = a player win. Sealed by seed (`${seed}:tactical`) so a refresh-replay
-    // can't double-claim. PvP tactical matches pay nothing on purpose: the player
-    // isn't always "blue" there, and rewarding both sides invites collusion farming.
-    function reportTacticalArenaWin(m: { red: ArenaSlot[]; seed: number; vsAi: boolean }, winner: "blue" | "red" | "draw") {
-        if (!m.vsAi || winner !== "blue") return;
-        const oppLevel = Math.max(1, Math.round(m.red.reduce((sum, sl) => sum + (sl.pet.level ?? 1), 0) / Math.max(1, m.red.length)));
-        void (async () => {
+    // Hollow Warfront vs-AI is SERVER-AUTHORITATIVE. At launch we mint a token via
+    // /api/pet/warfront-start: the server RE-RUNS the exact deterministic match and
+    // seals the winner + reward level. Same inputs → same result on any browser
+    // (the sim is cross-engine deterministic; scripts/warfront-parity.test.ts proves
+    // server re-sim === the streamed render), so a win on screen always redeems.
+    function mintWarfrontToken(seed: number, bluePets: Pet[]) {
+        const reportKey = `${seed}:tactical`;
+        // Lock the buy to a deterministic policy (never interactive "off") so the
+        // server can reproduce the match — the player still picks offense/defense/balanced.
+        const buyPolicy = wfAutoPref === "off" ? "balanced" : wfAutoPref;
+        warfrontRewardToken.current = (async () => {
             try {
-                await fetch("/api/pet/battle-result", {
+                const r = await fetch("/api/pet/warfront-start", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ playerName: character.name, outcome: "win", opponentLevel: oppLevel, reportKey: `${m.seed}:tactical` }),
+                    body: JSON.stringify({ playerName: character.name, playerPetIds: bluePets.map((p) => p.id), seed, stance: wfStancePref, buyPolicy, reportKey }),
                 });
-            } catch { /* ignore — honest wins just won't pay if the report drops */ }
+                if (!r.ok) return null;
+                const data = await r.json().catch(() => null) as { token?: unknown } | null;
+                return typeof data?.token === "string" ? data.token : null;
+            } catch { return null; }
+        })();
+    }
+
+    // Tactical Arena reward (vs-AI only): redeem the sealed Warfront token. The
+    // player is `blue`, so a blue win = a player win; battle-result pays from the
+    // token's SEALED outcome + opponent level, never the client's claim. Sealed by
+    // seed (`${seed}:tactical`) so a refresh-replay can't double-claim. PvP tactical
+    // matches pay nothing on purpose (the player isn't always "blue"; rewarding both
+    // sides invites collusion farming).
+    function reportTacticalArenaWin(m: { red: ArenaSlot[]; seed: number; vsAi: boolean }, winner: "blue" | "red" | "draw") {
+        if (!m.vsAi || winner !== "blue") return;
+        void (async () => {
+            try {
+                const battleToken = await (warfrontRewardToken.current ?? Promise.resolve(null));
+                if (!battleToken) return;   // no server token → no payout (server authority is required)
+                const r = await fetch("/api/pet/battle-result", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ playerName: character.name, outcome: "win", reportKey: `${m.seed}:tactical`, battleToken }),
+                });
+                if (r.ok) {
+                    const data = await r.json().catch(() => null) as { character?: Character } | null;
+                    if (data?.character) updateCharacter(data.character);
+                }
+            } catch { /* honest wins just won't pay if the report drops */ }
         })();
     }
 
@@ -1572,7 +1607,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     <PetWarfrontMatch
                         blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed}
                         theme={wfThemeForVillage(character.village)}
-                        autoBuy={arenaMatch.vsAi ? wfAutoPref : "balanced"}
+                        autoBuy={arenaMatch.vsAi ? (wfAutoPref === "off" ? "balanced" : wfAutoPref) : "balanced"}
                         stance={wfStancePref}
                         allowReseed={arenaMatch.vsAi}
                         onResult={(result) => reportTacticalArenaWin(arenaMatch, result.winner ?? "draw")}
