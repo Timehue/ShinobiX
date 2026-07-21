@@ -104,6 +104,13 @@ const MOB_CHASE = 4.0;
 // counter-picks deterministically from the scoreboard + the opponent's stance.
 // Each stance changes VISIBLE field behavior, not hidden numbers only.
 export type WfStance = "balanced" | "siege" | "jungle" | "headhunt" | "turtle";
+export type WfDoctrine = "none" | "vanguard" | "bulwark" | "zealot" | "warden-pact";
+export const WF_DOCTRINES: ReadonlyArray<{ id: WfDoctrine; icon: string; label: string; desc: string }> = [
+    { id: "vanguard", icon: "\u2694", label: "Vanguard", desc: "+10% attack \u2014 win every trade" },
+    { id: "bulwark", icon: "\ud83d\udee1", label: "Bulwark", desc: "+12% HP \u2014 outlast and last-stand harder" },
+    { id: "zealot", icon: "\ud83d\udca8", label: "Zealot", desc: "+10% speed \u2014 rotate, gank, escape" },
+    { id: "warden-pact", icon: "\ud83e\udd1d", label: "Warden\u2019s Pact", desc: "recruited camp bosses fight 50% longer" },
+];
 export const WF_STANCES: ReadonlyArray<{ id: WfStance; icon: string; label: string; desc: string }> = [
     { id: "balanced", icon: "⚖️", label: "Balanced War", desc: "Standard lanes — take what the map gives." },
     { id: "siege", icon: "🏰", label: "Siege March", desc: "March with the waves and break structures; fight only at the gates." },
@@ -430,6 +437,7 @@ interface WfState {
     atkBuff: Record<Team, number>;
     wardenDmg: Record<Team, number>;   // damage attribution — detects a STEAL
     stance: Record<Team, WfStance>;
+    doctrine: Record<Team, WfDoctrine>;
     eliteWaveOwed: Record<Team, boolean>;   // Rift Devourer trophy — next wave marches elite
     calls: Record<Team, { squad: WfCall | null; groups: [WfCall, WfCall, WfCall]; until: number; rally?: { x: number; y: number }; committed?: boolean; rallySince?: number }>;
     winner: Team | "draw" | null;
@@ -475,6 +483,7 @@ function initState(blue: ArenaSlot[], red: ArenaSlot[], seed: number): WfState {
         atkBuff: { blue: 0, red: 0 },
         wardenDmg: { blue: 0, red: 0 },
         stance: { blue: "balanced", red: "balanced" },
+        doctrine: { blue: "none", red: "none" },
         eliteWaveOwed: { blue: false, red: false },
         calls: {
             blue: { squad: null, groups: [{ goal: "farm", x: -20, y: -17 }, { goal: "farm", x: -15, y: 0 }, { goal: "farm", x: -20, y: 17 }], until: 0 },
@@ -1205,7 +1214,7 @@ function petTick(st: WfState, p: WfPet) {
                     }
                     if (m.hp <= 0 && m.alive) {
                         // RECRUITED, not despawned — it fights for the slayer's team.
-                        m.alive = true; m.hp = MINI_HP; m.ally = p.team; m.allyLeft = RECRUIT_TICKS; m.attackCd = 0; m.sigWind = 0; m.sigActive = 0;
+                        m.alive = true; m.hp = MINI_HP; m.ally = p.team; m.allyLeft = st.doctrine[p.team] === "warden-pact" ? Math.round(RECRUIT_TICKS * 1.5) : RECRUIT_TICKS; m.attackCd = 0; m.sigWind = 0; m.sigActive = 0;
                         st.coins[p.team] += WF_COIN_MINI;
                         p.coinsEarned += WF_COIN_MINI;
                         grantXp(st, p, 180);
@@ -2224,11 +2233,23 @@ export interface WarfrontMatchCtl {
     advanceRoundPartial(maxTicks: number, blueChoices?: WarfrontChoice[], blueStance?: WfStance): boolean;
 }
 
+// A team's DOCTRINE is a pre-match boon baked into every pet at kickoff (a
+// second strategic axis to the stance). Deterministic, sealed into the
+// reward re-sim like the stance. Warden\u2019s Pact is checked at recruit time.
+function applyDoctrine(pt: WfPet, doc: WfDoctrine) {
+    // Modest, roughly-equal boons so the pick is about STYLE, not raw power —
+    // attack compounds hardest in this sim, so Vanguard's mult is the smallest.
+    if (doc === "vanguard") { pt.atk *= 1.04; pt.baseAtk *= 1.04; }
+    else if (doc === "bulwark") { const wounded = pt.maxHp - pt.hp; pt.maxHp *= 1.09; pt.baseMaxHp *= 1.09; pt.hp = Math.max(1, pt.maxHp - wounded); }
+    else if (doc === "zealot") { pt.moveSpeed *= 1.06; pt.baseSpeed *= 1.06; }
+}
+
 export function startWarfrontMatch(
     blue: ArenaSlot[], red: ArenaSlot[], seed: number,
     opts?: {
         bluePolicy?: WfBuyPolicy; redPolicy?: WfBuyPolicy; theme?: string;
         blueStance?: WfStance; redStance?: WfStance;
+        blueDoctrine?: WfDoctrine; redDoctrine?: WfDoctrine;
         /** false = stances stay fixed all match (balance-matrix runs). */
         adaptStances?: boolean;
     },
@@ -2242,6 +2263,9 @@ export function startWarfrontMatch(
     st.stance.blue = opts?.blueStance ?? "balanced";
     st.events.push({ t: 0, type: "stance", team: "blue", stance: st.stance.blue, answer: false });
     st.stance.red = opts?.redStance ?? (adapt ? aiStance(st, "red") : "balanced");
+    st.doctrine.blue = opts?.blueDoctrine ?? "none";
+    st.doctrine.red = opts?.redDoctrine ?? "none";
+    for (const pt of st.pets) applyDoctrine(pt, st.doctrine[pt.team]);
     st.events.push({ t: 0, type: "stance", team: "red", stance: st.stance.red, answer: true });
     const result: WarfrontResult = { winner: null, ticks: 0, snapshots: st.snapshots, events: st.events, theme: opts?.theme, coins: st.coins };
     st.snapshots.push(snapshot(st));
@@ -2323,10 +2347,12 @@ export function runWarfrontMatch(
     blue: ArenaSlot[], red: ArenaSlot[], seed: number,
     bluePolicy: WfBuyPolicy = "balanced", redPolicy: WfBuyPolicy = "balanced", theme?: string,
     stances?: { blue?: WfStance; red?: WfStance; adapt?: boolean },
+    doctrines?: { blue?: WfDoctrine; red?: WfDoctrine },
 ): WarfrontResult {
     const ctl = startWarfrontMatch(blue, red, seed, {
         bluePolicy, redPolicy, theme,
         blueStance: stances?.blue, redStance: stances?.red, adaptStances: stances?.adapt,
+        blueDoctrine: doctrines?.blue, redDoctrine: doctrines?.red,
     });
     let guard = 0;
     while (!ctl.done && guard++ < Math.ceil(MAX_TICKS / ROUND_TICKS) + 2) ctl.advanceRound();

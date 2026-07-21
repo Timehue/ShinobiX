@@ -30,6 +30,7 @@ import type { Pet } from '../_pet-sim/pet-types.js';
 const TOKEN_TTL_SECONDS = 15 * 60;
 type WfBuyPolicy = 'balanced' | 'offense' | 'defense';
 type WfStance = 'balanced' | 'siege' | 'jungle' | 'headhunt' | 'turtle';
+type WfDoctrine = 'none' | 'vanguard' | 'bulwark' | 'zealot' | 'warden-pact';
 type ArenaRole = 'defender' | 'tracker' | 'assassin' | 'sage';
 interface ArenaSlot { pet: Pet; role: ArenaRole }
 
@@ -51,6 +52,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const seed = Number.isSafeInteger(Number(body.seed)) ? Number(body.seed) : 0;
         const stanceRaw = String(body.stance ?? 'balanced');
         const stance: WfStance = (['balanced', 'siege', 'jungle', 'headhunt', 'turtle'].includes(stanceRaw) ? stanceRaw : 'balanced') as WfStance;
+        const doctrineRaw = String(body.doctrine ?? 'none');
+        const doctrine: WfDoctrine = (['vanguard', 'bulwark', 'zealot', 'warden-pact'].includes(doctrineRaw) ? doctrineRaw : 'none') as WfDoctrine;
         // "off" (interactive) is clamped to a deterministic policy — the reward path
         // must be reproducible; the player still gets offense/defense/balanced.
         const policyRaw = String(body.buyPolicy ?? 'balanced');
@@ -79,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const redPets = buildWarfrontAiTeam(bluePets.length);
 
         // Re-run the exact rendered match and read the authoritative winner.
-        const result = runWarfrontMatch(autoRole(bluePets), autoRole(redPets), seed, buyPolicy, 'balanced', undefined, { blue: stance });
+        const result = runWarfrontMatch(autoRole(bluePets), autoRole(redPets), seed, buyPolicy, 'balanced', undefined, { blue: stance }, { blue: doctrine });
         const authoritativeOutcome: 'win' | 'loss' | 'draw' = result.winner === 'blue' ? 'win' : result.winner === 'red' ? 'loss' : 'draw';
 
         // Reward magnitude sealed from the AI actually fought (avg level).
