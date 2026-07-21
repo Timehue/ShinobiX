@@ -16,7 +16,12 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // story bosses (story migration slice) together landed 7 KB past the old
 // ceiling (measured 6,107,103 B). All startup gates below are untouched and
 // pass with headroom (initial graph 1.43 MB raw / 367 KB gzip).
-const TOTAL_JS_CSS_FAIL_BYTES = 6_200_000;
+// 2026-07-20: 6.20 → 6.60 MB. The Hollow Warfront mode (deterministic MOBA sim
+// + 3D broadcast renderer, PetWarfrontMatch) and the Tactical Arena TRUE-3D
+// stage (PetArena3DStage) landed ~278 KB of LAZY 3D/gameplay chunks (CI measured
+// budgeted 6,385,827 B). All startup gates below are UNTOUCHED and still pass —
+// the new code is off the entry path (initial graph 1.43 MB raw / 367 KB gzip).
+const TOTAL_JS_CSS_FAIL_BYTES = 6_600_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
