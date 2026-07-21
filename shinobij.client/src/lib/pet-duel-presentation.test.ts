@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { DuelEvent } from "./pet-duel-sim";
-import { boundedBurstStep, duelAttackDashBeats, duelHeroCutEligible, duelHeroCutEventIndexes, duelMoveOutcome, precedingNamedMove } from "./pet-duel-presentation";
+import { appendCapped, boundedBurstStep, duelAttackDashBeats, duelHeroCutEligible, duelHeroCutEventIndexes, duelMoveOutcome, precedingNamedMove, selectDuelSpotlightEvent } from "./pet-duel-presentation";
 
 const event = (value: Partial<DuelEvent> & Pick<DuelEvent, "t" | "type" | "actorId">): DuelEvent => ({
     side: value.actorId.startsWith("enemy") ? "enemy" : "player",
@@ -113,4 +113,33 @@ test("a moving melee whiff keeps its authored dash route while a stationary whif
 
     const stationarySnapshots = movingSnapshots.map((snapshot) => ({ actors: snapshot.actors.map((actor) => actor.id === "player-0" ? { ...actor, x: 0 } : actor) }));
     assert.deepEqual(duelAttackDashBeats(movingEvents, stationarySnapshots), []);
+});
+
+test("party presentation spotlights the strongest simultaneous combat beat", () => {
+    const events = [
+        event({ t: 40, type: "windup", actorId: "player-0", move: "Eclipse Fang" }),
+        event({ t: 40, type: "hit", actorId: "enemy-1", targetId: "player-1", move: "Thunder Break", crit: true, dmg: 90 }),
+        event({ t: 40, type: "ultimate", actorId: "player-1", move: "Tidal Crash" }),
+    ];
+    assert.equal(selectDuelSpotlightEvent(events), events[2]);
+});
+
+test("equal-priority spotlight events resolve deterministically to the first event", () => {
+    const events = [
+        event({ t: 50, type: "cast", actorId: "player-0", move: "Eclipse Fang" }),
+        event({ t: 50, type: "cast", actorId: "enemy-0", move: "Riptide Fang" }),
+    ];
+    assert.equal(selectDuelSpotlightEvent(events), events[0]);
+});
+
+test("minor hits and maneuvers remain local instead of taking the party spotlight", () => {
+    assert.equal(selectDuelSpotlightEvent([
+        event({ t: 60, type: "hit", actorId: "player-0", targetId: "enemy-0", dmg: 12 }),
+        event({ t: 60, type: "maneuver", actorId: "enemy-1", move: "Sidestep" }),
+    ]), null);
+});
+
+test("capped presentation lists evict their oldest entry", () => {
+    assert.deepEqual(appendCapped([1, 2, 3], 4, 3), [2, 3, 4]);
+    assert.deepEqual(appendCapped([1], 2, 0), []);
 });
