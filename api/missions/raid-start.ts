@@ -65,17 +65,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only start your own raids.' });
         }
 
-        // Player must be a Vanguard to mint a raid token — non-vanguards
-        // can do raids but get no vanguard mission progress, so token
-        // minting is pointless. Skipping here is cheaper than letting
-        // report-raid noop later.
+        // Every profession mints a token. Vanguards spend it on raid-mission
+        // progress; everyone else spends it on built-in fetch-* mission
+        // raidCount, which report-raid credits from the same proof. The token
+        // grants nothing on its own — report-raid decides what it is worth — so
+        // minting for non-vanguards opens no reward path a vanguard did not
+        // already have. (This used to hard-return for non-vanguards, which left
+        // fetch raids with no server witness and made all five fetch missions
+        // permanently unclaimable.)
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = record?.character as Record<string, unknown> | undefined;
-        if (char?.profession !== 'vanguard') {
-            // Return 200 (not an error — non-vanguards calling this is a
-            // client-side mistake, not a security event).
-            return res.status(200).json({ ok: true, vanguard: false });
-        }
+        const vanguard = char?.profession === 'vanguard';
 
         // Daily mint cap. Separate counter from the report-raid daily cap
         // because the two endpoints can fire independently (a mint without
@@ -90,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (startedToday > MAX_RAID_STARTS_PER_DAY) {
             return res.status(200).json({
                 ok: true,
-                vanguard: true,
+                vanguard,
                 reason: 'daily-mint-cap',
                 token: null,
             });
@@ -107,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             sector: sector || undefined,
         }, { ex: RAID_TOKEN_TTL_SECONDS });
 
-        return res.status(200).json({ ok: true, vanguard: true, token: tokenId });
+        return res.status(200).json({ ok: true, vanguard, token: tokenId });
     } catch (err) {
         console.error('[missions/raid-start]', err);
         return res.status(500).json({ error: 'Internal server error.' });
