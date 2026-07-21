@@ -23,6 +23,13 @@ import {
 } from '../_release-flags.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
 import {
+    APEX_REWARD,
+    apexClaimableWeeks,
+    apexClaimedThisWeek,
+    apexKillReceiptKey,
+    canTakeApex,
+} from './_apex-contract.js';
+import {
     combatMissionByKey,
     fieldMissionById,
     huntMissionById,
@@ -178,7 +185,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const missionType = String(body.missionType ?? '');
         const missionId = String(body.missionId ?? '').slice(0, 80);
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (missionType !== 'combat' && missionType !== 'field' && missionType !== 'hunt' && missionType !== 'academy-trial' && missionType !== 'academy-checklist') {
+        if (missionType !== 'combat' && missionType !== 'field' && missionType !== 'hunt' && missionType !== 'apex' && missionType !== 'academy-trial' && missionType !== 'academy-checklist') {
             return res.status(400).json({ error: 'Invalid mission type.' });
         }
 
@@ -219,6 +226,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let academyTrialClaimed = false;
             let academyChecklistClaimed = false;
             let progressReceiptKeyToClear: string | null = null;
+            // Apex Contract: which ISO week this claim settles, and the kill
+            // receipt to burn once the payout lands.
+            let apexWeekToStamp = '';
+            let apexReceiptKeyToClear: string | null = null;
             // Hunter Rank yield perk (server-authoritative — hunterRank is a sanitizer-
             // protected entitlement): +5% hunt xp/ryo per rank (0→+25% at Warden).
             // Progression speed only, never combat power. Applied to hunts alone.
@@ -306,6 +317,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 items = def.itemRewards ?? [];
                 completion = 'hunt';
                 huntRankBonusPct = Math.max(0, Math.min(5, Math.floor(Number(char.hunterRank ?? 0)))) * 5;
+            } else if (missionType === 'apex') {
+                // Apex Contract — the Hunter Rank 5 capstone. Its own WEEKLY slot;
+                // deliberately does NOT touch the daily hunt pool, so the weekly
+                // cap is the only limiter and the payout math stays legible.
+                if (!canTakeApex(char)) return { applied: false, reason: 'not-yet-unlocked' };
+                // Settle the newest unclaimed kill among {this week, last week}.
+                // The grace week exists so a Sunday-night kill isn't voided at
+                // 00:01 Monday when the beast rotates — see _apex-contract.ts.
+                const now = new Date();
+                let settledWeek = '';
+                for (const week of apexClaimableWeeks(now)) {
+                    if (apexClaimedThisWeek(char, week)) continue;
+                    const receipt = await kv.get(apexKillReceiptKey(playerName, week)).catch(() => null);
+                    if (receipt) { settledWeek = week; break; }
+                }
+                if (!settledWeek) return { applied: false, reason: 'missing-hunt-kill-receipt' };
+                baseXp = APEX_REWARD.xp; baseRyo = APEX_REWARD.ryo; baseStamina = APEX_REWARD.stamina;
+                currencyBase = { fateShards: APEX_REWARD.fateShards };
+                scrolls = HUNT_MISSION_SCROLLS;
+                completion = 'total';
+                apexWeekToStamp = settledWeek;
+                apexReceiptKeyToClear = apexKillReceiptKey(playerName, settledWeek);
             } else if (missionType === 'academy-trial') {
                 // academy-trial — one-time, off the daily cap.
                 if (char.academyTrialClaimed) return { applied: false, reason: 'already-claimed' };
@@ -379,6 +412,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (academyTrialClaimed) next = { ...next, academyTrialClaimed: true };
             if (academyChecklistClaimed) next = { ...next, academyChecklistClaimed: true };
+            // Stamp the week this Apex settled. Written INSIDE the same character
+            // write as the payout, so the purse and the once-per-week lock land
+            // atomically — a crash between them can't pay twice.
+            if (apexWeekToStamp) next = { ...next, apexWeekClaimed: apexWeekToStamp };
             if (missionType === 'field' || missionType === 'hunt') {
                 next = { ...next, claimedServerMissions: [...claimedServerMissions, missionReceipt] };
             }
@@ -390,6 +427,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(saveKey, mergePreservingImages(updated, record));
             if (progressReceiptKeyToClear) {
                 await kv.del(progressReceiptKeyToClear).catch(() => 0);
+            }
+            // Burn the Apex kill receipt. apexWeekClaimed above is the real lock
+            // (it is server-owned and survives), so a failed delete here cannot
+            // pay twice — this just stops a spent receipt lingering for its TTL.
+            if (apexReceiptKeyToClear) {
+                await kv.del(apexReceiptKeyToClear).catch(() => 0);
             }
 
             return {

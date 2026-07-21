@@ -22,6 +22,13 @@ import {
     cleanMissionProgressReceipt,
     missionProgressReceiptKey,
 } from './_mission-progress-receipt.js';
+import {
+    APEX_RECEIPT_TTL_SECONDS,
+    apexKillReceiptKey,
+    canTakeApex,
+    isApexBeastForWeek,
+    isoWeekKey,
+} from './_apex-contract.js';
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
@@ -161,6 +168,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 } catch (e) {
                     console.error('[report-ai-fight hunt-kill]', e);
                 }
+            }
+        }
+        // ── Apex-kill producer ───────────────────────────────────────────────
+        // Same shape as the hunt-kill producer above, but keyed on the ISO week
+        // rather than an accepted contract: an Apex is always "accepted" for a
+        // max-rank hunter. Only THIS week's rostered beast counts, so a stale
+        // client cannot re-report an older Apex to farm the purse. The claim
+        // still gates on rank/level and stamps apexWeekClaimed, so this receipt
+        // alone can never pay twice. Best-effort — never fails a paid reward.
+        if (!reward.replayed && sealedOpponentId.startsWith('apex-ai-')) {
+            try {
+                const rc = result.character as Record<string, unknown> | undefined;
+                const weekKey = isoWeekKey(new Date());
+                if (canTakeApex(rc) && isApexBeastForWeek(sealedOpponentId, weekKey)) {
+                    await kv.set(apexKillReceiptKey(playerName, weekKey), { playerName, weekKey, apexAiId: sealedOpponentId, at: Date.now() }, { ex: APEX_RECEIPT_TTL_SECONDS });
+                }
+            } catch (e) {
+                console.error('[report-ai-fight apex-kill]', e);
             }
         }
         return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, character: result.character, _saveVersion: result._saveVersion });

@@ -145,6 +145,10 @@ import { SageWhisper } from "../components/SageWhisper";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { SageOfferModal } from "../components/SageOfferModal";
 import { huntReadyForFight, huntRequiredTracks, huntTrailSector } from "../lib/hunt-trail";
+import { HUNT_PACK_STAGES, HUNT_PACK_ROUTED_QUALITY, HUNT_PACK_SURVIVED_QUALITY, applyHuntOpening, huntOpeningFor, huntPackMember, huntSignFor, rollHuntAmbush, type HuntChoice } from "../lib/hunt-encounter";
+import { bumpHuntQuality, readHuntQuality } from "../lib/hunt-run-state";
+import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
+import { beastPortrait } from "../data/hunter-art";
 import { SECTOR_SCENE_SECTORS, SECTOR_FLOOR_SECTORS, SECTOR_SCENE_DEPTH_SECTORS } from "../data/sector-art-manifest";
 import { SECTOR_ART_AMBIENCE } from "../data/sector-ambience";
 import { shrineForSector } from "../../../shared/shrines";
@@ -273,6 +277,8 @@ function interiorTileFromKey(key: string): number {
 
 type ActiveHuntTrail = { mission: CreatorMission; sector: number; progress: number; requiredTracks: number };
 type HuntToast = { id: number; kicker: string; text: string };
+/** The open hunt encounter card: which trail, which beast, and what it's showing. */
+type HuntEncounterState = { trail: ActiveHuntTrail; ai: CreatorAi; sector: number; view: HuntEncounterView };
 
 export function WorldMap({
     setCurrentBiome,
@@ -394,6 +400,7 @@ export function WorldMap({
     const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
     const [huntToast, setHuntToast] = useState<HuntToast | null>(null);
     const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
+    const [huntEncounter, setHuntEncounter] = useState<HuntEncounterState | null>(null);
     const activeHuntTrails = useMemo<ActiveHuntTrail[]>(() => (
         builtinHuntMissions
             .filter((mission) => acceptedMissionIds.includes(mission.id) && Boolean(mission.aiProfileId))
@@ -1011,7 +1018,7 @@ export function WorldMap({
         ai.image = WANDERER_BOSS_PORTRAIT;
         return ai;
     }
-    function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush" | "questboss" | "patrol" | "bountyHunter", stage: number, sector: number, extra: Record<string, unknown> = {}) {
+    function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush" | "questboss" | "patrol" | "bountyHunter" | "huntPack", stage: number, sector: number, extra: Record<string, unknown> = {}) {
         const b = biomeForSector(sector);
         registerWandererAi(ai);
         setCurrentSector(sector);
@@ -1205,7 +1212,7 @@ export function WorldMap({
         updateCharacter(prev => prev ? ({ ...prev, robberStreak: 0 }) : prev);
         setTimeout(() => alert("You overwhelmed the bandits and felled their warlord! The roads are yours again."), 40);
     }
-    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number; storyReckoningId?: string }) {
+    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number; storyReckoningId?: string; missionId?: string }) {
         // Prefer the authoritative outcome the Arena stamped on the record; fall back to
         // the totalAiKills delta only for legacy records written before the stamp existed.
         const won = p.result ? p.result === "win" : (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
@@ -1276,6 +1283,35 @@ export function WorldMap({
             }
             return;
         }
+        if (p.mode === "huntPack") {
+            // The beast's pack, sprung by a risky tracking decision. Waves carry HP
+            // like the bandit gauntlet. Surviving the whole pack corners the target;
+            // being routed alerts it. Either way the CONTRACT is untouched — the
+            // trail is not advanced here, so the player still has to track and kill
+            // the real beast, and the server's evidence accounting stays intact.
+            const missionId = p.missionId ?? "";
+            if (!won) {
+                if (missionId) bumpHuntQuality(missionId, HUNT_PACK_ROUTED_QUALITY);
+                setTimeout(() => alert("The pack drives you off the trail. Your target heard every second of it."), 40);
+                return;
+            }
+            const nextStage = (p.stage ?? 0) + 1;
+            const mission = builtinHuntMissions.find((m) => m.id === missionId);
+            const beast = mission ? playableAis.find((a) => a.id === mission.aiProfileId) : undefined;
+            if (nextStage < HUNT_PACK_STAGES && mission && beast) {
+                // Catch your breath between waves — same 1/3 max-HP restore the
+                // bandit ambush uses, so attrition can't make this a death spiral.
+                const maxHp = character.maxHp ?? 0;
+                updateCharacter({ ...character, hp: Math.min(maxHp, (character.hp ?? 0) + Math.floor(maxHp / 3)) });
+                launchHuntPackStage(mission, beast, nextStage, p.sector);
+                return;
+            }
+            // Pack cleared (or its contract vanished mid-chain — abandoned, claimed,
+            // or a wiped save; credit the win rather than stranding the player).
+            if (missionId) bumpHuntQuality(missionId, HUNT_PACK_SURVIVED_QUALITY);
+            setTimeout(() => alert("The last of the pack goes down. Your target is alone now — and it knows it."), 40);
+            return;
+        }
         if (p.mode === "questboss") {
             // A Quest Book boss stage. On a win the foe-kill counter ticked, so ask
             // the server to advance the epic (it re-checks the sealed baseline). On a
@@ -1296,7 +1332,7 @@ export function WorldMap({
         let raw: string | null;
         try { raw = localStorage.getItem(WANDERER_PENDING_KEY); if (raw) localStorage.removeItem(WANDERER_PENDING_KEY); } catch { return; }
         if (!raw) return;
-        let p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; at: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number; storyReckoningId?: string };
+        let p: { mode: string; stage: number; sector: number; baselineKills: number; result?: WandererFightResult; at: number; name?: string; level?: number; nemesis?: boolean; hostile?: boolean; hunterId?: string; hunterName?: string; bountyAmount?: number; storyReckoningId?: string; missionId?: string };
         try { p = JSON.parse(raw); } catch { return; }
         if (!p || Date.now() - (p.at || 0) > 30 * 60 * 1000) return;
         resolveWandererFight(p);
@@ -2392,53 +2428,138 @@ export function WorldMap({
             return;
         }
 
-        const requiredTracks = activeTrail.requiredTracks;
-        const currentProgress = activeTrail.progress;
-        const nextProgress = Math.min(requiredTracks, currentProgress + 1);
-
-        if (!huntReadyForFight(activeHuntMission, currentProgress)) {
-            recordMissionProgress?.(activeHuntMission.id, "hunt-track");
-            // Advance the sealed track counter. The kill still has to happen in Arena.
-            setMissionProgress((current) => ({
-                ...current,
-                [activeHuntMission.id]: Math.max(nextProgress, current[activeHuntMission.id] ?? 0),
-            }));
-            const nextSector = huntTrailSector(activeHuntMission, nextProgress, character.name);
-            const finalTrackFound = huntReadyForFight(activeHuntMission, nextProgress);
-            setHuntToast({
-                id: Date.now(),
-                kicker: finalTrackFound ? "The trail closes" : "Fresh tracks",
-                text: finalTrackFound
-                    ? `${huntAi.name} circles back toward ${sectorRegionName(nextSector)}, Sector ${nextSector}. Follow the trail there to force the fight.`
-                    : `The sign cuts toward ${sectorRegionName(nextSector)}, Sector ${nextSector}. Trail ${nextProgress}/${Math.max(1, requiredTracks - 1)}.`,
+        // Both branches now open the encounter card instead of acting immediately.
+        // Tracking used to advance a counter and silently teleport the player, and
+        // the final track cut straight to the Arena behind a toast — no read, no
+        // reason, and the beast's portrait never left the contract board.
+        if (!huntReadyForFight(activeHuntMission, activeTrail.progress)) {
+            setHuntEncounter({
+                trail: activeTrail,
+                ai: huntAi,
+                sector,
+                view: { kind: "track", sign: huntSignFor(activeHuntMission, activeTrail.progress, character.name) },
             });
-            if (nextSector !== sector) {
-                beginSectorTravel(nextSector, () => {
-                    const nextBiome = biomeForSector(nextSector);
-                    setCurrentBiome(nextBiome);
-                    setCurrentWeather(weatherForSector(nextSector, nextBiome));
-                    setCurrentSector(nextSector);
-                    setSelectedSector(nextSector);
-                });
-            }
             return;
         }
+        setHuntEncounter({
+            trail: activeTrail,
+            ai: huntAi,
+            sector,
+            view: { kind: "confront", opening: huntOpeningFor(readHuntQuality(activeHuntMission.id), huntAi.name) },
+        });
+    }
+
+    /**
+     * Commit one tracking decision. Quality moves first (it is what the choice
+     * BOUGHT, and it must stick even when the pack then springs), then the ambush
+     * roll, then the trail advance.
+     */
+    function resolveHuntChoice(encounter: HuntEncounterState, choice: HuntChoice) {
+        const { trail, ai, sector } = encounter;
+        const mission = trail.mission;
+        setHuntEncounter(null);
+
+        if (choice.outcome.quality !== 0) bumpHuntQuality(mission.id, choice.outcome.quality);
+
+        if (rollHuntAmbush(choice.outcome.ambushChance)) {
+            setHuntToast({
+                id: Date.now(),
+                kicker: "The pack breaks first",
+                text: `You are not the hunter here. ${HUNT_PACK_STAGES} of them come out of the scrub at once.`,
+            });
+            launchHuntPackStage(mission, ai, 0, sector);
+            return;
+        }
+
+        if (!choice.outcome.advances) {
+            setHuntToast({
+                id: Date.now(),
+                kicker: "Trail lost",
+                text: `You back out clean. ${ai.name} is still out there, and the sign has gone cold here.`,
+            });
+            return;
+        }
+
+        advanceHuntTrail(trail, ai, sector);
+    }
+
+    /** Advance one track: server ping, local counter, toast, and the travel leg. */
+    function advanceHuntTrail(trail: ActiveHuntTrail, ai: CreatorAi, sector: number) {
+        const mission = trail.mission;
+        const requiredTracks = trail.requiredTracks;
+        const nextProgress = Math.min(requiredTracks, trail.progress + 1);
+
+        recordMissionProgress?.(mission.id, "hunt-track");
+        // Advance the sealed track counter. The kill still has to happen in Arena.
+        setMissionProgress((current) => ({
+            ...current,
+            [mission.id]: Math.max(nextProgress, current[mission.id] ?? 0),
+        }));
+        const nextSector = huntTrailSector(mission, nextProgress, character.name);
+        const finalTrackFound = huntReadyForFight(mission, nextProgress);
+        setHuntToast({
+            id: Date.now(),
+            kicker: finalTrackFound ? "The trail closes" : "Fresh tracks",
+            text: finalTrackFound
+                ? `${ai.name} circles back toward ${sectorRegionName(nextSector)}, Sector ${nextSector}. Follow the trail there to force the fight.`
+                : `The sign cuts toward ${sectorRegionName(nextSector)}, Sector ${nextSector}. Trail ${nextProgress}/${Math.max(1, requiredTracks - 1)}.`,
+        });
+        if (nextSector !== sector) {
+            beginSectorTravel(nextSector, () => {
+                const nextBiome = biomeForSector(nextSector);
+                setCurrentBiome(nextBiome);
+                setCurrentWeather(weatherForSector(nextSector, nextBiome));
+                setCurrentSector(nextSector);
+                setSelectedSector(nextSector);
+            });
+        }
+    }
+
+    /** The contract target itself, opened according to the Hunt Quality earned. */
+    function launchHuntBeastFight(encounter: HuntEncounterState) {
+        // No sector plumbing needed — huntSector() already moved the player here
+        // before it opened the card.
+        const { trail, ai } = encounter;
+        const mission = trail.mission;
+        setHuntEncounter(null);
+
+        // Springing the fight also pings hunt-track. The server needs
+        // exploreCount-many evidence ids to allow the claim and the client only
+        // ever sent exactly that many (target-1 tracks + 1 kill) — zero slack, so
+        // ONE dropped POST left the contract permanently unclaimable with no way
+        // to re-track. This spare ping is free: applyMissionProgressEvent caps
+        // hunt-track's exploreCount at target-1, so only a real kill can complete
+        // the receipt. Re-clicking after a loss tops the evidence up again.
+        recordMissionProgress?.(mission.id, "hunt-track");
 
         // Do not complete progress here; onHuntBeastDefeated does that only after
         // Arena reports a real win. Losing leaves the trail hot for a rematch.
         setMissionProgress((current) => ({
             ...current,
-            [activeHuntMission.id]: Math.max(requiredTracks - 1, current[activeHuntMission.id] ?? 0),
+            [mission.id]: Math.max(trail.requiredTracks - 1, current[mission.id] ?? 0),
         }));
 
-        setHuntToast({
-            id: Date.now(),
-            kicker: "Fight sprung",
-            text: `${huntAi.name} breaks cover in Sector ${sector}.`,
-        });
-        setPendingAiProfileId(huntAi.id);
+        // applyHuntOpening PRESERVES the ai id, which report-ai-fight matches
+        // against the accepted hunt to stamp the kill receipt. Registering the
+        // clone puts it ahead of the catalog original in the Arena's lookup.
+        registerWandererAi(applyHuntOpening(ai, readHuntQuality(mission.id)));
+        setPendingAiProfileId(ai.id);
         setRaidBattleKind("raidAi");
         setScreen("arena");
+    }
+
+    /**
+     * One wave of the beast's pack. Reuses the wanderer ambush chain (HP carries
+     * across waves) via a `huntPack` mode. Pack members carry derived ids, never
+     * the contract beast's — a mook must not be able to stamp the kill receipt.
+     */
+    function launchHuntPackStage(mission: CreatorMission, beast: CreatorAi, stage: number, sector: number) {
+        const member = huntPackMember(mission, beast.name, stage);
+        // Scaled to the player like the bandit gauntlet, and softer than the
+        // contract target — these are outriders, not the beast on the poster.
+        const pack = makeBuiltinAi(member.id, member.name, beast.icon, Math.max(1, character.level + stage), beast.village, [], 0, undefined, "bruiser");
+        pack.image = beast.image || beastPortrait(beast.id);
+        launchWandererArenaFight(pack, "huntPack", stage, sector, { missionId: mission.id });
     }
     function restInSector(sector: number) {
         const staminaReward = 10 + (sector % 10);
@@ -2838,6 +2959,28 @@ export function WorldMap({
             </div>
         );
     }
+
+    // Built once and mounted in BOTH render branches (sector detail above, world
+    // overview below) — they are mutually exclusive early returns, so this can
+    // never double-mount. The card portals to <body>, so where it sits in the
+    // tree doesn't affect layout.
+    const huntEncounterCard = huntEncounter && (
+        <HuntEncounterCard
+            view={huntEncounter.view}
+            beastName={huntEncounter.ai.name}
+            beastRank={huntEncounter.trail.mission.rank}
+            portrait={huntEncounter.ai.image || beastPortrait(huntEncounter.ai.id)}
+            icon={huntEncounter.ai.icon}
+            sector={huntEncounter.sector}
+            regionName={sectorRegionName(huntEncounter.sector)}
+            trailStep={Math.min(huntEncounter.trail.progress + 1, Math.max(1, huntEncounter.trail.requiredTracks - 1))}
+            trailTotal={Math.max(1, huntEncounter.trail.requiredTracks - 1)}
+            description={huntEncounter.trail.mission.description}
+            onChoose={(choice) => resolveHuntChoice(huntEncounter, choice)}
+            onEngage={() => launchHuntBeastFight(huntEncounter)}
+            onClose={() => setHuntEncounter(null)}
+        />
+    );
 
     if (selectedSector) {
         const biome = biomeForSector(selectedSector);
@@ -3259,6 +3402,7 @@ export function WorldMap({
                                     onClose={() => setTravelToast(null)}
                                 />
                             )}
+                            {huntEncounterCard}
                             {whisper && (
                                 <SageWhisper
                                     text={whisper.text}
@@ -4425,6 +4569,7 @@ export function WorldMap({
                     onClose={() => setTravelToast(null)}
                 />
             )}
+            {huntEncounterCard}
             {whisper && (
                 <SageWhisper
                     text={whisper.text}
