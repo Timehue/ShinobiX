@@ -45,6 +45,10 @@ describe('player session tokens', () => {
     });
 
     beforeEach(() => {
+        // Reset the secret every test so a prior test that mutates it (and could
+        // fail before restoring) can never leak the wrong secret forward. Keeps
+        // the suite deterministic regardless of test order or a mid-test throw.
+        process.env.SESSION_SECRET = 'test-secret-do-not-use-in-prod';
         epochs.clear();
         missingAccounts.clear();
     });
@@ -90,7 +94,13 @@ describe('player session tokens', () => {
         assert.equal(await verifyPlayerToken(epochParts.join('.')), null);
 
         const signatureParts = token.split('.');
-        signatureParts[4] = `${signatureParts[4].slice(0, -2)}AA`;
+        // Flip the final character to one guaranteed to differ, so the tamper is
+        // never accidentally a no-op. Overwriting the last chars with a fixed
+        // 'AA' left the signature unchanged whenever the real HMAC already ended
+        // in 'AA' (~1/1000 of runs — base64url's final char is a restricted set),
+        // and that collision, not any env race, is what made this test flaky.
+        const realSig = signatureParts[4];
+        signatureParts[4] = realSig.slice(0, -1) + (realSig.endsWith('A') ? 'B' : 'A');
         assert.equal(await verifyPlayerToken(signatureParts.join('.')), null);
     });
 
@@ -112,14 +122,14 @@ describe('player session tokens', () => {
         const token = issuePlayerToken('alice')!;
         process.env.SESSION_SECRET = 'a-completely-different-secret';
         assert.equal(await verifyPlayerToken(token), null);
-        process.env.SESSION_SECRET = 'test-secret-do-not-use-in-prod';
+        // beforeEach restores the canonical secret for the next test.
     });
 
     it('disables token issue and verification without SESSION_SECRET', async () => {
         delete process.env.SESSION_SECRET;
         assert.equal(issuePlayerToken('alice'), null);
         assert.equal(await verifyPlayerToken('v1.YWxpY2U.9999999999999.sig'), null);
-        process.env.SESSION_SECRET = 'test-secret-do-not-use-in-prod';
+        // beforeEach restores the canonical secret for the next test.
     });
 
     it('revokes an old token immediately when the account epoch rotates', async () => {
