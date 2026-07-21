@@ -7,6 +7,7 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { consumeSingleUseToken } from '../_single-use-token.js';
 import { reportMissionEvent, type CompletedMissionInfo } from './_progress.js';
+import { creditFieldRaidProgress } from './_field-raid-progress.js';
 import type { PvpSession } from '../pvp/session.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 
@@ -34,9 +35,15 @@ function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
 }
 
-// Vanguard raid-mission progress reporter. Fires once per completed village
-// raid — counts the same whether the defender was a human guard or an AI
-// fill-in.
+// Raid reporter. Fires once per completed village raid — counts the same
+// whether the defender was a human guard or an AI fill-in. One validated raid
+// credits TWO systems from this single invocation:
+//   • Vanguard raid-mission progress (vanguards only, below the profession gate)
+//   • built-in fetch-* mission raidCount (all professions, via
+//     creditFieldRaidProgress — see _field-raid-progress.ts)
+// Both share the one proof consumed here, which is why the field-raid credit
+// lives in this handler rather than in a second endpoint that would have to
+// consume the same single-use token again.
 //
 // PvP-flavored raids (human defender) pass `battleId`. The server cross-
 // validates that battleId against the actual PvpSession KV record (same
@@ -159,8 +166,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = record?.character as Record<string, unknown> | undefined;
+
+        // ── field-raid producer (ALL professions) ─────────────────────────
+        // The proof above (consumed raid token / validated PvpSession win) is
+        // the only server witness a built-in fetch-* mission's raidCount ever
+        // gets — record-progress refuses combat kinds by design. Credit it here,
+        // in the same invocation that consumed the proof, so one raid stamps
+        // both the fetch receipt and the Vanguard progress below without any
+        // second endpoint competing for (and double-consuming) the token.
+        //
+        // Runs BEFORE the vanguard gate: fetch missions are open to every
+        // profession, and a non-vanguard's raid is proven by the same token.
+        const fetchMissionsCredited = await creditFieldRaidProgress({
+            playerName,
+            character: char,
+            proofId: battleId ?? raidToken ?? '',
+        });
+
         if (char?.profession !== 'vanguard') {
-            return res.status(200).json({ ok: true, vanguard: false, _saveVersion: Number(record?._saveVersion ?? 0) });
+            return res.status(200).json({ ok: true, vanguard: false, fetchMissionsCredited, _saveVersion: Number(record?._saveVersion ?? 0) });
         }
 
         // Idempotency: NX-reserve the raidId so a retry (or a double-fire
@@ -211,6 +235,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 missionsCompleted: [],
                 bonusRyo: 0,
                 bonusSeals: 0,
+                fetchMissionsCredited,
                 _saveVersion: Number(record?._saveVersion ?? 0),
             });
         }
@@ -269,6 +294,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             missionsCompleted,
             bonusRyo,
             bonusSeals,
+            fetchMissionsCredited,
             _saveVersion: Number(finalRecord?._saveVersion ?? 0),
         });
     } catch (err) {
