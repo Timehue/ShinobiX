@@ -1,1 +1,0 @@
-import{t as e}from"./stormveil-village-BZRRe5l6.js";var t=`/assets/castle-BQjLe-QJ.webp`,n=`/assets/house1-D6cz5Vr4.webp`,r=`/assets/moonshadow-B4PbsrH-.webp`;function i(i){return i===`Stormveil Village`?e:i===`Ashen Leaf Village`?n:i===`Frostfang Village`?t:i===`Moonshadow Village`?r:e}export{t as i,r as n,n as r,i as t};

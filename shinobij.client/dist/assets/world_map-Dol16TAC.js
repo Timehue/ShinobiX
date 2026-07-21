@@ -1,1 +1,0 @@
-var e=`/assets/world_map-D2PrSxdW.webp`;export{e as t};

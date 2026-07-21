@@ -1,1 +1,0 @@
-var e=`/assets/stormveil-village-6UP_vwah.webp`;export{e as t};
