@@ -6,6 +6,7 @@ import {
     GiCrossedSwords, GiTrophy, GiLadder, GiEyeball, GiBoxingGlove, GiPawPrint,
     GiColiseum, GiLaurelsTrophy, GiSkullCrossedBones, GiFirstAidKit, GiScrollUnfurled,
     GiVillage, GiNextButton, GiFireSpellCast, GiTargeted, GiHealthPotion, GiBriefcase, GiShield,
+    GiRollingDices, GiTwoCoins,
 } from "react-icons/gi";
 // Inline style for a glyph that prefixes button/heading text — seats it on the baseline.
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -24,6 +25,7 @@ import { SparCoach } from "../components/SparCoach";
 import { BattleActionBlock } from "../components/BattleActionBlock";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { BountyBoardPanel } from "../components/BountyBoardPanel";
 import { BattleTabBar } from "../components/BattleTabBar";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { interpolateFlavor } from "../lib/battle-log-format";
@@ -39,7 +41,6 @@ import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPve
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, capWoundStacks, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, masteryDamageFrac, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
-import { petRankedChallengeEnabled } from "../lib/pet-coliseum-flag";
 import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
 import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
@@ -134,6 +135,7 @@ export function Arena({
     setPvpBattleContext,
     setPvpSeedSession,
     setPendingPetBattleOpponent,
+    onAcceptPetChallenge,
     onBattleActiveChange,
     directCombat = false,
     onReturnFromCombat,
@@ -181,6 +183,10 @@ export function Arena({
     setPvpBattleContext?: (context: SharedPvpBattleContext | null) => void;
     setPvpSeedSession?: (session: PvpSessionState | null) => void;
     setPendingPetBattleOpponent?: (opponent: PetArenaOpponent | null) => void;
+    // Accept an incoming casual pet-spar (clanWarPet) challenge via App's canonical
+    // handler (acceptPetChallengeGlobal): validates pets, notifies the challenger,
+    // seeds the shared 1v1 pet battle, and routes both players into the Pet Coliseum.
+    onAcceptPetChallenge?: (challenge: DuelChallenge) => void;
     // Reports "an arena fight is in progress" up to App so the global nav lock
     // can block travelling out of any arena fight (AI, ranked, endless, story,
     // human). Fires false on resolve/unmount.
@@ -533,7 +539,9 @@ export function Arena({
 
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
-    const [activeArenaTab, setActiveArenaTab] = useState<"clanWar" | "tournaments" | "ranked" | "spectate" | "spar" | "petBattles">("ranked");
+    const [activeArenaTab, setActiveArenaTab] = useState<"clanWar" | "tournaments" | "ranked" | "spectate" | "petBattles">("ranked");
+    // Battle Arena hub (village casual-spar hub) sub-tabs: sparring/challenges vs the bounty board.
+    const [battleArenaTab, setBattleArenaTab] = useState<"spar" | "bounty">("spar");
     const [opponentCharacter, setOpponentCharacter] = useState<Character | null>(null);
     const [rankedBattleActive, setRankedBattleActive] = useState(false);
     const [rankedQueueActive, setRankedQueueActive] = useState(false);
@@ -1313,10 +1321,14 @@ export function Arena({
         startPrefight(hp, `AI battle started against a Level ${aiLevel} AI Ninja. Weather: ${weatherEffects[currentWeather].name}.`);
     }
 
-    async function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0) {
+    async function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0, party = false) {
         const isPetMode = mode === "clanWarPet" || mode === "rankedPet";
         if (isPetMode && !character.pets.length) {
             alert("You need a pet before sending a pet battle challenge.");
+            return;
+        }
+        if (party && character.pets.filter((p) => !isPetOnExpedition(p)).length < 2) {
+            alert("A 2v2 pet battle needs two pets not away on an expedition.");
             return;
         }
         const knownPetTarget = isPetMode ? playerRoster.find((player) => player.name.toLowerCase() === opponent.name.toLowerCase()) : undefined;
@@ -1332,6 +1344,18 @@ export function Arena({
         let petRankedToken: string | undefined;
         const challengePet = isPetMode ? (character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet))) : undefined;
         const petBattleSeed = isPetMode ? Date.now() + Math.floor(Math.random() * 100000) : undefined;
+        // 2v2 party: field my two best available (not-on-expedition) pets, lead
+        // first. The responder auto-picks their own best two on accept
+        // (acceptPetChallengeGlobal); if either side can't field two, the accept
+        // path cleanly downgrades to a 1v1.
+        const partyPetIds: [string, string] | null = (party && isPetMode && challengePet)
+            ? (() => {
+                const reserve = character.pets
+                    .filter((p) => !isPetOnExpedition(p) && p.id !== challengePet.id)
+                    .sort((a, b) => (b.level ?? 0) - (a.level ?? 0))[0];
+                return reserve ? [challengePet.id, reserve.id] : null;
+            })()
+            : null;
         if (mode === "rankedPet") {
             try {
                 const tokRes = await fetch("/api/pet/ranked-start", {
@@ -1358,6 +1382,7 @@ export function Arena({
             createdAt: Date.now(),
             mode,
             clanWarPoints,
+            ...(partyPetIds ? { petParty: true, challengerPetIds: partyPetIds } : {}),
         };
         try {
             const res = await fetch('/api/player/challenge', {
@@ -1383,7 +1408,7 @@ export function Arena({
                 ...duelChallenges.filter((c) => !(c.fromName === character.name && !c.accepted && !c.declined && !c.battleId)),
                 challenge,
             ]);
-            alert(`${mode === "ranked" ? "Ranked challenge" : mode === "rankedPet" ? "Ranked pet challenge" : mode === "clanWarPet" ? "Pet challenge" : "Challenge"} sent to ${opponent.name}.`);
+            alert(`${mode === "ranked" ? "Ranked challenge" : mode === "rankedPet" ? "Ranked pet challenge" : mode === "clanWarPet" ? (partyPetIds ? "2v2 pet challenge" : "Pet challenge") : "Challenge"} sent to ${opponent.name}.`);
         } catch {
             alert(`${opponent.name} is not reachable live right now. Challenge was not sent.`);
         }
@@ -5087,43 +5112,118 @@ export function Arena({
         const matchRemaining = arenaTournament ? Math.max(0, arenaTournament.matchDeadline - Date.now()) : 0;
         const isAdminTournamentManager = isAdminAccountName(character.name);
         if (lobbyMode === "battleArena") {
+            const incomingSpars = incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack);
+            const incomingPetSpars = incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints);
+            // Pet-battle modes gate on how many pets you can actually field (not on
+            // expedition): 1v1 needs 1 (everyone starts with a pet), 2v2 needs 2.
+            const availablePetCount = character.pets.filter((p) => !isPetOnExpedition(p)).length;
             return (
                 <div className="card arena-lobby">
                     <BackToVillageButton onClick={() => setScreen("village")} />
-                    <h2>Battle Arena</h2>
-                    <p>Train against AI fighters or send casual spar requests to other players.</p>
+                    <h2><GiCrossedSwords style={ARENA_ICON} />Battle Arena</h2>
+                    <p>Your hub for casual sparring — combat, pets, and cards — plus the bounty board.</p>
 
-                    <section className="summary-box">
-                        <h3>Fight AI</h3>
-                        <p className="hint">Pick an AI level and start a practice battle. This stays separate from ranked, clan war, and tournament play.</p>
-                        <label>AI Level</label>
-                        <input
-                            type="number"
-                            min={1}
-                            max={MAX_LEVEL}
-                            value={aiLevel}
-                            onChange={(e) => setAiLevel(Math.max(1, Math.min(MAX_LEVEL, Number(e.target.value))))}
-                        />
-                        <button onClick={beginAiBattle}>Start AI Battle</button>
-                    </section>
+                    <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
+                        <button className={battleArenaTab === "spar" ? "active" : ""} onClick={() => setBattleArenaTab("spar")}><GiBoxingGlove style={ARENA_ICON} />Spar &amp; Challenges</button>
+                        <button className={battleArenaTab === "bounty" ? "active" : ""} onClick={() => setBattleArenaTab("bounty")}><GiTwoCoins style={ARENA_ICON} />Bounty Board</button>
+                    </div>
 
-                    <section className="summary-box">
-                        <h3><GiPawPrint style={ARENA_ICON} />Incoming Pet Challenges</h3>
-                        {incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).length === 0
-                            ? <p className="hint">No incoming pet challenges.</p>
-                            : incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).map((challenge) => (
-                                <div className="summary-box" key={challenge.id}>
-                                    <strong>{challenge.fromName}</strong> wants a pet battle!
-                                    <div className="menu">
-                                        <button onClick={() => {
-                                            setScreen("petArena");
-                                        }}><GiColiseum style={ARENA_ICON} />Go to Pet Coliseum</button>
-                                        <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
+                    {battleArenaTab === "spar" && (
+                        <>
+                            {/* ── Combat Spar: vs AI ─────────────────────────────── */}
+                            <section className="summary-box">
+                                <h3><GiCrossedSwords style={ARENA_ICON} />Combat Spar — Fight AI</h3>
+                                <p className="hint">Pick an AI level (1–{MAX_LEVEL}) and start a practice battle. This stays separate from ranked, clan war, and tournament play.</p>
+                                <label>AI Level</label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={MAX_LEVEL}
+                                    value={aiLevel}
+                                    onChange={(e) => setAiLevel(Math.max(1, Math.min(MAX_LEVEL, Number(e.target.value))))}
+                                />
+                                <button onClick={beginAiBattle}>Start AI Battle</button>
+                            </section>
+
+                            {/* ── Challenge a player: combat spar OR 1v1 pet battle ── */}
+                            <section className="summary-box">
+                                <h3><GiBoxingGlove style={ARENA_ICON} />Challenge a Player</h3>
+                                <p className="hint">Search a player, then send a casual combat spar or a 1v1 pet battle. They get a pop-up to Accept or Decline.</p>
+                                <label>Search Player Name</label>
+                                <input value={sparSearch} onChange={(e) => setSparSearch(e.target.value)} placeholder="Type a player name to challenge..." />
+                                {sparSearch.trim() && (
+                                    <div className="jutsu-list">
+                                        {sparOpponents.length === 0 ? (
+                                            <>
+                                                <p className="hint">No roster match. Send a spar challenge directly.</p>
+                                                <button onClick={() => {
+                                                    const name = sparSearch.trim();
+                                                    if (!name || name === character.name) return;
+                                                    const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                                    challengePlayer(stub);
+                                                }}>Send Spar Challenge to "{sparSearch.trim()}"</button>
+                                            </>
+                                        ) : sparOpponents.map((player) => (
+                                            <div className="summary-box" key={`spar-${player.name}`}>
+                                                <strong>{player.name}</strong>
+                                                <p>Level {player.level} | {player.village} | {player.specialty}</p>
+                                                <div className="menu">
+                                                    <button onClick={() => challengePlayer(player)}><GiBoxingGlove aria-hidden="true" /> Spar Challenge</button>
+                                                    <button onClick={() => challengePlayer(player, "clanWarPet", 0)}><GiPawPrint aria-hidden="true" /> Pet Battle (1v1)</button>
+                                                    <button
+                                                        disabled={availablePetCount < 2}
+                                                        title={availablePetCount < 2 ? "Raise a second pet (not on an expedition) to unlock 2v2" : undefined}
+                                                        onClick={() => challengePlayer(player, "clanWarPet", 0, true)}
+                                                    ><GiPawPrint aria-hidden="true" /> Pet Battle (2v2)</button>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                </div>
-                            ))}
-                    </section>
+                                )}
+                            </section>
 
+                            <section className="summary-box">
+                                <h3>Incoming Spar Requests</h3>
+                                {incomingSpars.length === 0 ? <p className="hint">No incoming spar requests.</p> : incomingSpars.map((challenge) => (
+                                    <div className="summary-box" key={challenge.id}>
+                                        <strong>{challenge.fromName}</strong>
+                                        <p>Casual spar request to {challenge.toName}</p>
+                                        <div className="menu">
+                                            <button onClick={() => acceptChallenge(challenge)}>Accept Spar</button>
+                                            <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </section>
+
+                            {/* ── Pet Spar ───────────────────────────────────────── */}
+                            <section className="summary-box">
+                                <h3><GiPawPrint style={ARENA_ICON} />Pet Spar</h3>
+                                <p className="hint">Head to the Casual Pet Coliseum for a friendly pet duel against AI or a challenged player — no ladder rating on the line.</p>
+                                <button onClick={() => setScreen("petArena")}><GiColiseum style={ARENA_ICON} />Open Casual Pet Coliseum</button>
+                                {incomingPetSpars.map((challenge) => (
+                                    <div className="summary-box" key={challenge.id}>
+                                        <strong>{challenge.fromName}</strong> wants a pet battle!
+                                        <div className="menu">
+                                            <button onClick={() => onAcceptPetChallenge?.(challenge)}><GiColiseum style={ARENA_ICON} />Accept Pet Battle</button>
+                                            <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </section>
+
+                            {/* ── Card Battle Spar ───────────────────────────────── */}
+                            <section className="summary-box">
+                                <h3><GiRollingDices style={ARENA_ICON} />Card Battle Spar</h3>
+                                <p className="hint">Play Shinobi Card Clash casually — against the AI or a live free-play opponent — over at the Card Hall.</p>
+                                <button onClick={() => setScreen("shinobiTiles")}><GiRollingDices style={ARENA_ICON} />Open Card Hall</button>
+                            </section>
+                        </>
+                    )}
+
+                    {battleArenaTab === "bounty" && (
+                        <BountyBoardPanel character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} />
+                    )}
                 </div>
             );
         }
@@ -5140,7 +5240,6 @@ export function Arena({
                     <button className={activeArenaTab === "tournaments" ? "active" : ""} onClick={() => setActiveArenaTab("tournaments")}><GiTrophy style={ARENA_ICON} />Tournaments</button>
                     <button className={activeArenaTab === "ranked" ? "active" : ""} onClick={() => setActiveArenaTab("ranked")}><GiLadder style={ARENA_ICON} />Ranked</button>
                     <button className={activeArenaTab === "spectate" ? "active" : ""} onClick={() => setActiveArenaTab("spectate")}><GiEyeball style={ARENA_ICON} />Spectate</button>
-                    <button className={activeArenaTab === "spar" ? "active" : ""} onClick={() => setActiveArenaTab("spar")}><GiBoxingGlove style={ARENA_ICON} />Spar / AI Battle</button>
                     <button className={activeArenaTab === "petBattles" ? "active" : ""} onClick={() => setActiveArenaTab("petBattles")}><GiPawPrint style={ARENA_ICON} />Pet Battles</button>
                 </div>
 
@@ -5282,72 +5381,10 @@ export function Arena({
                     </section>
                 )}
 
-                {activeArenaTab === "spar" && (
-                    <>
-                        <section className="summary-box">
-                            <h3>Fight AI</h3>
-                            <p className="hint">Pick an AI level (1–{MAX_LEVEL}) and start a practice battle. This stays separate from ranked, clan war, and tournament play.</p>
-                            <label>AI Level</label>
-                            <input
-                                type="number"
-                                min={1}
-                                max={MAX_LEVEL}
-                                value={aiLevel}
-                                onChange={(e) => setAiLevel(Math.max(1, Math.min(MAX_LEVEL, Number(e.target.value))))}
-                            />
-                            <button onClick={beginAiBattle}>Start AI Battle</button>
-                        </section>
-
-                        <section className="summary-box">
-                            <h3>Spar Requests</h3>
-                            <label>Search Player Name</label>
-                            <input value={sparSearch} onChange={(e) => setSparSearch(e.target.value)} placeholder="Type a player name to challenge..." />
-                            {sparSearch.trim() && (
-                                <div className="jutsu-list">
-                                    {sparOpponents.length === 0 ? (
-                                        <>
-                                            <p className="hint">No roster match. Send a challenge directly.</p>
-                                            <button onClick={() => {
-                                                const name = sparSearch.trim();
-                                                if (!name || name === character.name) return;
-                                                const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                                challengePlayer(stub);
-                                            }}>Send Spar Challenge to "{sparSearch.trim()}"</button>
-                                        </>
-                                    ) : sparOpponents.map((player) => (
-                                        <div className="summary-box" key={`spar-${player.name}`}>
-                                            <strong>{player.name}</strong>
-                                            <p>Level {player.level} | {player.village} | {player.specialty}</p>
-                                            <div className="menu">
-                                                <button onClick={() => challengePlayer(player)}>Send Spar Challenge</button>
-                                                {petRankedChallengeEnabled() && <button onClick={() => challengePlayer(player, "rankedPet")}><GiCrossedSwords aria-hidden="true" /> Ranked Pet Duel</button>}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </section>
-
-                        <section className="summary-box">
-                            <h3>Incoming Spar Requests</h3>
-                            {incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack).length === 0 ? <p className="hint">No incoming spar requests.</p> : incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack).map((challenge) => (
-                                <div className="summary-box" key={challenge.id}>
-                                    <strong>{challenge.fromName}</strong>
-                                    <p>Casual spar request to {challenge.toName}</p>
-                                    <div className="menu">
-                                        <button onClick={() => acceptChallenge(challenge)}>Accept Spar</button>
-                                        <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </section>
-                    </>
-                )}
-
                 {activeArenaTab === "petBattles" && (
                     <section className="summary-box">
                         <h3><GiPawPrint style={ARENA_ICON} />Pet Battles</h3>
-                        <p className="hint">Compete on the global pet ranked ladders — climb by beating the rival ranked above you — or jump into the casual pet arena.</p>
+                        <p className="hint">Compete on the global pet ranked ladders — climb by beating the rival ranked above you. Casual pet sparring lives in the Village Battle Arena.</p>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, margin: "12px 0" }}>
                             {[
                                 { mode: "coliseum" as const, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Coliseum", sub: "1v1 ranked ladder" },
@@ -5365,7 +5402,6 @@ export function Arena({
                                 </button>
                             ))}
                         </div>
-                        <button onClick={() => setScreen("petArena")}><GiColiseum style={ARENA_ICON} />Open Casual Pet Coliseum</button>
                     </section>
                 )}
             </div>
