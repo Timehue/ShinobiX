@@ -103,9 +103,18 @@ const wfSim = read("lib/pet-warfront-sim.ts")
     .replace(/from "\.\/pet-warfront-map"/g, 'from "./pet-warfront-map.js"');
 write("pet-warfront-sim.ts", "lib/pet-warfront-sim.ts", wfSim);
 
+// 8. pet-roles.ts → pet-roles.ts. The Warfront reward endpoint needs
+//    derivePetRole to assign the IDENTICAL roles the client did (roles feed the
+//    sim outcome). Types-only imports — inline JutsuElement, redirect Pet.
+const roles = read("lib/pet-roles.ts")
+    .replace(/import type \{ JutsuElement \} from "\.\.\/types\/core";/,
+        'type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";')
+    .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"');
+write("pet-roles.ts", "lib/pet-roles.ts", roles);
+
 // Sanity: no client-only import paths may survive into the server copy.
-const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"'];
-for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts"]) {
+const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../constants/game', '"./core"', '../lib/pet-roles', './pet-arena-walkmask"', './pet-duel-sim"', './pet-arena-sim', './pet-warfront-map"', './pet-warfront-mask-baked"', '../types/core'];
+for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
 }
