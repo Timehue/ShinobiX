@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import "../styles/battle-skin.css";
 import type { Biome, Screen, WeatherType } from "../types/core";
@@ -80,6 +80,56 @@ function useWaypointPos(targetPos: number, width: number, height: number): numbe
     return displayPos;
 }
 
+// Grid constants — exact match to arena. Module scope so the geometry helpers
+// below can be defined ONCE for the module instead of being re-created on every
+// render of the battle screen.
+const gridWidth = 12;
+const gridHeight = 10;
+const HEX_W = 72;
+const HEX_H = 42;
+const X_STEP = HEX_W * 0.75;
+const Y_STEP = HEX_H * 0.92;
+const ORB = 52;
+const GRID_LAYER_W = (gridWidth - 1) * X_STEP + HEX_W;
+const GRID_LAYER_H = (gridHeight - 1) * Y_STEP + HEX_H * 1.5;
+
+// Grid helpers — exact match to arena. Pure functions of a tile index, hoisted to
+// module scope so they have STABLE identity across renders; a per-render
+// redefinition defeats any memo or child component that closes over them.
+function pvpXY(pos: number) { return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) }; }
+function pvpPosFromXY(x: number, y: number): number {
+    if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) return -1;
+    return y * gridWidth + x;
+}
+function pvpAxial(pos: number) { const { x, y } = pvpXY(pos); return { q: x, r: y - ((x - (x & 1)) / 2) }; }
+function pvpDist(a: number, b: number): number {
+    const A = pvpAxial(a); const B = pvpAxial(b);
+    return (Math.abs(A.q - B.q) + Math.abs(A.q + A.r - B.q - B.r) + Math.abs(A.r - B.r)) / 2;
+}
+function pvpHexNeighbors(pos: number): number[] {
+    const { x, y } = pvpXY(pos);
+    const even = x % 2 === 0;
+    const deltas = even
+        ? [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]]
+        : [[1,1],[1,0],[0,-1],[-1,0],[-1,1],[0,1]];
+    return deltas.map(([dx, dy]) => pvpPosFromXY(x + dx!, y + dy!)).filter(n => n >= 0);
+}
+function pvpTileCenter(pos: number) {
+    const { x, y } = pvpXY(pos);
+    return {
+        x: x * X_STEP + HEX_W / 2,
+        y: y * Y_STEP + (x % 2 === 1 ? HEX_H / 2 : 0) + HEX_H / 2,
+    };
+}
+
+// Idle chat/spectator polls re-fetch an identical payload every few seconds.
+// Returning the PREVIOUS array when nothing changed lets React bail out of the
+// re-render entirely (same reference), so an idle battle stops re-rendering the
+// board. Deep-compares via JSON, so a genuine update is never dropped.
+function sameListJson(a: unknown[], b: unknown[]): boolean {
+    return a.length === b.length && JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function PvpBattleScreen({
     character,
     battleId,
@@ -124,16 +174,8 @@ export function PvpBattleScreen({
     onExit?: (target: Screen) => void;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
-    // Grid constants — exact match to arena
-    const gridWidth = 12;
-    const gridHeight = 10;
-    const HEX_W = 72;
-    const HEX_H = 42;
-    const X_STEP = HEX_W * 0.75;
-    const Y_STEP = HEX_H * 0.92;
-    const ORB = 52;
-    const GRID_LAYER_W = (gridWidth - 1) * X_STEP + HEX_W;
-    const GRID_LAYER_H = (gridHeight - 1) * Y_STEP + HEX_H * 1.5;
+    // Grid constants (gridWidth/gridHeight/HEX_*/X_STEP/Y_STEP/ORB/GRID_LAYER_*)
+    // are defined once at module scope above — in scope here.
 
     // Lazy initializer covers the case where the parent already has the
     // seed in state at mount time (e.g. accept-challenge flow that awaits
@@ -212,32 +254,8 @@ export function PvpBattleScreen({
     const lastVfxSeqRef = useRef<number | undefined>(undefined);
     const hasObservedVfxSessionRef = useRef(false);
 
-    // Grid helpers — exact match to arena
-    function pvpXY(pos: number) { return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) }; }
-    function pvpPosFromXY(x: number, y: number): number {
-        if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) return -1;
-        return y * gridWidth + x;
-    }
-    function pvpAxial(pos: number) { const { x, y } = pvpXY(pos); return { q: x, r: y - ((x - (x & 1)) / 2) }; }
-    function pvpDist(a: number, b: number): number {
-        const A = pvpAxial(a); const B = pvpAxial(b);
-        return (Math.abs(A.q - B.q) + Math.abs(A.q + A.r - B.q - B.r) + Math.abs(A.r - B.r)) / 2;
-    }
-    function pvpHexNeighbors(pos: number): number[] {
-        const { x, y } = pvpXY(pos);
-        const even = x % 2 === 0;
-        const deltas = even
-            ? [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]]
-            : [[1,1],[1,0],[0,-1],[-1,0],[-1,1],[0,1]];
-        return deltas.map(([dx, dy]) => pvpPosFromXY(x + dx!, y + dy!)).filter(n => n >= 0);
-    }
-    function pvpTileCenter(pos: number) {
-        const { x, y } = pvpXY(pos);
-        return {
-            x: x * X_STEP + HEX_W / 2,
-            y: y * Y_STEP + (x % 2 === 1 ? HEX_H / 2 : 0) + HEX_H / 2,
-        };
-    }
+    // Grid helpers (pvpXY / pvpPosFromXY / pvpAxial / pvpDist / pvpHexNeighbors /
+    // pvpTileCenter) are defined once at module scope above — in scope here.
 
     // Board scale, zoom, and the battlefield callback-ref are now provided by
     // the shared useBoardScale hook destructured above.
@@ -764,7 +782,7 @@ export function PvpBattleScreen({
             if (document.visibilityState === "hidden") return;
             fetch(`/api/pvp/chat?id=${encodeURIComponent(battleId)}`)
                 .then(r => r.json())
-                .then(msgs => { if (active && Array.isArray(msgs)) setBattleChatMessages(msgs); })
+                .then(msgs => { if (active && Array.isArray(msgs)) setBattleChatMessages(prev => sameListJson(prev, msgs) ? prev : msgs); })
                 .catch(() => {});
         };
         poll();
@@ -813,7 +831,7 @@ export function PvpBattleScreen({
             if (document.visibilityState === "hidden") return;
             fetch(`/api/pvp/spectate?id=${encodeURIComponent(battleId)}`)
                 .then(r => r.json())
-                .then(specs => { if (active && Array.isArray(specs)) setSpectatorList(specs); })
+                .then(specs => { if (active && Array.isArray(specs)) setSpectatorList(prev => sameListJson(prev, specs) ? prev : specs); })
                 .catch(() => {});
         };
         poll();
@@ -852,6 +870,89 @@ export function PvpBattleScreen({
     // keep hook order stable. -1 while the session is still loading.
     const p1AnimPos = useWaypointPos(session ? session.p1.pos : -1, gridWidth, gridHeight);
     const p2AnimPos = useWaypointPos(session ? session.p2.pos : -1, gridWidth, gridHeight);
+
+    // Battle-log grouping — hoisted ABOVE the `if (!session) return` guard (same
+    // reason as the useWaypointPos hooks above): React hook order must be identical
+    // every render, so these useMemo calls can't sit after the early return. They
+    // fall back to an empty log when session is null (the log never renders then).
+    // Grouping each round ONCE — instead of re-running groupBattleLogActions for
+    // every round on every render — keeps BattleActionBlock's memo() effective: a
+    // 3s chat poll / 5s spectator poll no longer regroups the whole log or hands it
+    // fresh object identities. Collapse state (logRoundOverrides) is applied later
+    // in render, so it is intentionally NOT a dep. exhaustive-deps is off file-wide
+    // (line 1); deps hand-verified. boardMeName/boardOppName equal me.name/opp.name
+    // whenever session is non-null (the only time the log renders).
+    const boardMeName = session ? (role === "p1" ? session.p1.name : session.p2.name) : "";
+    const boardOppName = session ? (role === "p1" ? session.p2.name : session.p1.name) : "";
+    const pvpLogRounds = useMemo(() => {
+        const groups: { round: number; entries: string[] }[] = [];
+        let current: { round: number; entries: string[] } | null = null;
+        for (const line of (session?.log ?? [])) {
+            const m = line.match(/^--- Round (\d+) ---$/);
+            if (m) {
+                current = { round: parseInt(m[1]!), entries: [] };
+                groups.push(current);
+            } else {
+                if (!current) { current = { round: 1, entries: [] }; groups.push(current); }
+                current.entries.push(line);
+            }
+        }
+        return groups;
+    }, [session?.log]);
+    const pvpGroupedLog = useMemo(() => {
+        let actOffset = 0;
+        return pvpLogRounds.map(group => {
+            const grouped = groupBattleLogActions(group.entries, boardMeName, boardOppName, actOffset);
+            actOffset = grouped.nextActionNumber;
+            return { round: group.round, count: group.entries.length, actions: grouped.actions };
+        });
+    }, [pvpLogRounds, boardMeName, boardOppName]);
+
+    // ── Targeting-overlay tiles — hoisted above the guard for the same reason as
+    //    the log memos (hooks can't follow the early return). Keyed on
+    //    pendingJutsuDirect: it's the armed jutsu, ALWAYS set together with
+    //    pendingJutsuId (armPendingPvpJutsu / clearPendingPvpJutsu), and a jutsu's
+    //    targeting props (range/method/target/tags) are static per sealed session,
+    //    so it is equivalent to the below-guard pendingJutsu for targeting.
+    //    boardMyPos/boardOppPos equal the below-guard myPos/oppPos when session is
+    //    non-null (the only time the board renders). The pure predicates here are
+    //    the single definitions (also used below the guard). exhaustive-deps is off
+    //    file-wide (line 1); render-stable grid helpers are omitted — hand-verified.
+    const pvpIsMoveJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu?.tags?.some(tag => tagMatchesName(tag.name, "Move")));
+    const pvpIsGroundTargetJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu && (jutsu.target === "EMPTY_GROUND" || pvpIsMoveJutsu(jutsu)));
+    // Self-target = not a ground/Move jutsu AND (declares SELF or touches no
+    // opponent). Mirrors api/pvp/move.ts (selfTarget / affectsOpponent).
+    const pvpIsSelfTargetJutsu = (jutsu: Jutsu | null | undefined) =>
+        Boolean(jutsu) && !pvpIsGroundTargetJutsu(jutsu) && (jutsu!.target === "SELF" || !pvpAffectsOpponent(jutsu!));
+    const boardMyPos = session ? (role === "p1" ? session.p1.pos : session.p2.pos) : -1;
+    const boardOppPos = session ? (role === "p1" ? session.p2.pos : session.p1.pos) : -1;
+    const jutsuRange = pendingJutsuDirect ? Math.max(1, Number(pendingJutsuDirect.range) || 1) : 0;
+    const allTiles = useMemo(() => Array.from({ length: gridWidth * gridHeight }, (_, i) => i), [gridWidth, gridHeight]);
+    const moveAdjacentTiles = useMemo(() => new Set(selectedActionId === "move" ? pvpHexNeighbors(boardMyPos).filter(t => t !== boardOppPos) : []), [selectedActionId, boardMyPos, boardOppPos]);
+    // Range glow + opponent click-target are for jutsu that reach the enemy. A
+    // self/buff jutsu only ever targets the caster's own tile (selfTargetTile
+    // below), so exclude it here — otherwise the enemy hex would light up and a
+    // click on the enemy would fire a self-buff at the wrong tile.
+    const jutsuRangeTiles = useMemo(() => new Set(pendingJutsuDirect && !pvpIsSelfTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, jutsuRange, allTiles]);
+    const groundJutsuTiles = useMemo(() => new Set(pvpIsGroundTargetJutsu(pendingJutsuDirect) ? allTiles.filter(t => t !== boardMyPos && t !== boardOppPos && pvpDist(boardMyPos, t) <= jutsuRange) : []), [pendingJutsuDirect, boardMyPos, boardOppPos, jutsuRange, allTiles]);
+    // Hover-reactive by design: only THIS Set recomputes as the cursor moves over a
+    // ground target's range; the rest of the board stays memoized.
+    const groundJutsuAffectedTiles = useMemo(() => {
+        if (pendingJutsuDirect && pvpIsGroundTargetJutsu(pendingJutsuDirect) && hoveredPvpTile !== null && groundJutsuTiles.has(hoveredPvpTile)) {
+            const impact = jutsuImpactPreviewTiles(pendingJutsuDirect.method, hoveredPvpTile, allTiles, pvpDist, pvpHexNeighbors);
+            // A pure movement jutsu has no damage area; its hovered destination is
+            // still the impact/landing marker and must stand out from reachable range.
+            if (impact.size === 0) impact.add(hoveredPvpTile);
+            return impact;
+        }
+        return new Set<number>();
+    }, [pendingJutsuDirect, hoveredPvpTile, groundJutsuTiles, allTiles]);
+    // Opponent-targeted area methods (especially AOE_BURST) — show their impact
+    // area whenever the enemy is in range.
+    const opponentJutsuAffectedTiles = useMemo(() => pendingJutsuDirect && !pvpIsGroundTargetJutsu(pendingJutsuDirect) && !pvpIsSelfTargetJutsu(pendingJutsuDirect) && jutsuRangeTiles.has(boardOppPos)
+        ? jutsuImpactPreviewTiles(pendingJutsuDirect.method, boardOppPos, allTiles, pvpDist, pvpHexNeighbors, true)
+        : new Set<number>(),
+        [pendingJutsuDirect, boardOppPos, jutsuRangeTiles, allTiles]);
 
     if (!session) return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
@@ -939,15 +1040,8 @@ export function PvpBattleScreen({
     const latestPendingJutsu = sessionEquippedJutsu.find(j => j.id === pendingJutsuId) ?? null;
     const pendingJutsu = latestPendingJutsu ?? pendingJutsuDirect;
     const inspectedJutsu = sessionEquippedJutsu.find(j => j.id === inspectedJutsuId) ?? null;
-    const pvpIsMoveJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu?.tags?.some(tag => tagMatchesName(tag.name, "Move")));
-    const pvpIsGroundTargetJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu && (jutsu.target === "EMPTY_GROUND" || pvpIsMoveJutsu(jutsu)));
-    // A jutsu is self-targeted (cast on the caster) when it isn't a ground/Move
-    // jutsu AND it either declares SELF or touches no opponent (no damage + no
-    // opponent-affecting tag). Mirrors the server's targeting gate in
-    // api/pvp/move.ts (selfTarget / affectsOpponent) so a click on the caster's
-    // own tile resolves to exactly what the server applies.
-    const pvpIsSelfTargetJutsu = (jutsu: Jutsu | null | undefined) =>
-        Boolean(jutsu) && !pvpIsGroundTargetJutsu(jutsu) && (jutsu!.target === "SELF" || !pvpAffectsOpponent(jutsu!));
+    // pvpIsMoveJutsu / pvpIsGroundTargetJutsu / pvpIsSelfTargetJutsu are defined
+    // once above the `if (!session)` guard (targeting-overlay block) and in scope here.
     const pvpGroundEffectClass = (jutsu: Jutsu | null | undefined, tileUse: "target" | "affected") => {
         if (!jutsu) return "";
         const tagNames = new Set((jutsu.tags ?? []).map(tag => normalizeTagName(tag.name)));
@@ -974,40 +1068,8 @@ export function PvpBattleScreen({
         return " ground-effect-force" + nova;
     };
 
-    const allTiles = Array.from({ length: gridWidth * gridHeight }, (_, i) => i);
-    const moveAdjacentTiles = new Set(selectedActionId === "move" ? pvpHexNeighbors(myPos).filter(t => t !== oppPos) : []);
-    const jutsuRange = pendingJutsu ? Math.max(1, Number(pendingJutsu.range) || 1) : 0;
-    // Range glow + opponent click-target are for jutsu that reach the enemy. A
-    // self/buff jutsu only ever targets the caster's own tile (selfTargetTile
-    // below), so exclude it here — otherwise the enemy hex would light up and a
-    // click on the enemy would fire a self-buff at the wrong tile.
-    const jutsuRangeTiles = new Set(pendingJutsu && !pvpIsSelfTargetJutsu(pendingJutsu) ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= jutsuRange) : []);
-    const groundJutsuTiles = new Set(pvpIsGroundTargetJutsu(pendingJutsu) ? allTiles.filter(t => t !== myPos && t !== oppPos && pvpDist(myPos, t) <= jutsuRange) : []);
-    let groundJutsuAffectedTiles = new Set<number>();
-    if (pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu) && hoveredPvpTile !== null && groundJutsuTiles.has(hoveredPvpTile)) {
-        groundJutsuAffectedTiles = jutsuImpactPreviewTiles(
-            pendingJutsu.method,
-            hoveredPvpTile,
-            allTiles,
-            pvpDist,
-            pvpHexNeighbors,
-        );
-        // A pure movement jutsu has no damage area; its hovered destination is
-        // still the impact/landing marker and must stand out from reachable range.
-        if (groundJutsuAffectedTiles.size === 0) groundJutsuAffectedTiles.add(hoveredPvpTile);
-    }
-    // Opponent-targeted area methods (especially AOE_BURST) previously had no
-    // footprint at all. Show their impact area whenever the enemy is in range.
-    const opponentJutsuAffectedTiles = pendingJutsu && !pvpIsGroundTargetJutsu(pendingJutsu) && !pvpIsSelfTargetJutsu(pendingJutsu) && jutsuRangeTiles.has(oppPos)
-        ? jutsuImpactPreviewTiles(
-            pendingJutsu.method,
-            oppPos,
-            allTiles,
-            pvpDist,
-            pvpHexNeighbors,
-            true,
-        )
-        : new Set<number>();
+    // allTiles / jutsuRange / the range + AOE Sets are memoized once above the
+    // `if (!session)` guard (targeting-overlay block) and in scope here.
     // Self/buff jutsu: the affected area is the caster's own tile. When such a
     // jutsu is armed we light up that tile as the click target so every jutsu
     // uses the same arm-then-click-target flow (self / opponent / ground).
@@ -1066,21 +1128,8 @@ export function PvpBattleScreen({
         return minActionCost(costs);
     }
 
-    const pvpLogRounds = (() => {
-        const groups: { round: number; entries: string[] }[] = [];
-        let current: { round: number; entries: string[] } | null = null;
-        for (const line of session.log) {
-            const m = line.match(/^--- Round (\d+) ---$/);
-            if (m) {
-                current = { round: parseInt(m[1]!), entries: [] };
-                groups.push(current);
-            } else {
-                if (!current) { current = { round: 1, entries: [] }; groups.push(current); }
-                current.entries.push(line);
-            }
-        }
-        return groups;
-    })();
+    // pvpLogRounds / pvpGroupedLog are memoized ABOVE the `if (!session)` guard
+    // (hook-order stability) — see the block just below the useWaypointPos hooks.
 
     async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem, opts?: { auto?: boolean; allowWhenNotMyTurn?: boolean }) {
         if (submitting || done) return;
@@ -1571,8 +1620,11 @@ export function PvpBattleScreen({
                                                 key={i}
                                                 className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${(isGroundAffected || isActiveGroundEffect) ? " ground-affected-tile" : ""}${isGroundTarget ? " ground-target-tile" : ""}${groundEffectClass}${isPendingTarget ? " jutsu-target-tile" : ""}${isSelfTarget ? " jutsu-self-target-tile" : ""}`}
                                                 style={{ left: `${tx}px`, top: `${ty}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
-                                                onMouseEnter={() => setHoveredPvpTile(i)}
-                                                onMouseLeave={() => setHoveredPvpTile(null)}
+                                                // Only a ground-target jutsu consumes hoveredPvpTile (impact
+                                                // preview). Skip the setState otherwise so dragging the cursor
+                                                // across the board doesn't re-render the screen per tile.
+                                                onMouseEnter={() => { if (pvpIsGroundTargetJutsu(pendingJutsu)) setHoveredPvpTile(i); }}
+                                                onMouseLeave={() => { if (hoveredPvpTile !== null) setHoveredPvpTile(null); }}
                                                 onClick={() => handleTileClick(i)}
                                             />
                                         );
@@ -1903,16 +1955,11 @@ export function PvpBattleScreen({
                         </div>
                         {session.log.length === 0 ? (
                             <p>No entries yet.</p>
-                        ) : pvpLogRounds.length > 0 ? (() => {
-                            // Group each round's raw server lines into owner-attributed
-                            // action blocks (chip = who acted, colored by side) so the
-                            // log reads "who did what" at a glance. Cast numbering runs
-                            // continuously across rounds via the carried offset.
-                            let actOffset = 0;
-                            const maxLogRound = pvpLogRounds[pvpLogRounds.length - 1]?.round ?? 0;
-                            return pvpLogRounds.map(group => {
-                                const grouped = groupBattleLogActions(group.entries, me.name, opp.name, actOffset);
-                                actOffset = grouped.nextActionNumber;
+                        ) : pvpGroupedLog.length > 0 ? (() => {
+                            // Rounds are pre-grouped in pvpGroupedLog (memoized). Here we
+                            // only apply per-round collapse state and render.
+                            const maxLogRound = pvpGroupedLog[pvpGroupedLog.length - 1]?.round ?? 0;
+                            return pvpGroupedLog.map(group => {
                                 const roundOpen = logRoundOverrides[group.round] ?? (group.round >= maxLogRound - 1);
                                 return (
                                     <section className={`timeline-round${roundOpen ? " open" : " collapsed"}`} key={group.round}>
@@ -1920,9 +1967,9 @@ export function PvpBattleScreen({
                                             onClick={() => setLogRoundOverrides((prev) => ({ ...prev, [group.round]: !roundOpen }))}>
                                             <span className="timeline-round-chevron" aria-hidden="true">▾</span>
                                             <span>Round {group.round}</span>
-                                            <span className="timeline-round-count">{group.entries.length}</span>
+                                            <span className="timeline-round-count">{group.count}</span>
                                         </button>
-                                        {roundOpen && grouped.actions.map((a, i) => (
+                                        {roundOpen && group.actions.map((a, i) => (
                                             <BattleActionBlock key={i} action={a} selfName={me.name} oppName={opp.name} />
                                         ))}
                                     </section>
