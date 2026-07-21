@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import './styles/late-normalize.css' // loaded last so cross-cutting chrome (close/back btns) wins the cascade
@@ -12,7 +12,14 @@ import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { StorageNotice } from './components/StorageNotice.tsx'
 import { legalPageForPath } from './data/legal.ts'
-import { LegalPage } from './screens/LegalPage.tsx'
+
+// LegalPage carries all the policy prose (every /terms, /privacy, … document),
+// so it is lazy-loaded: keeping it off the entry chunk holds the entry-JS and
+// initial-graph size budgets (a static import here regressed both). Only a
+// visitor actually on a legal URL fetches it. legalPageForPath stays eager — it
+// is a tiny slug lookup with no heavy dependencies.
+// eslint-disable-next-line react-refresh/only-export-components -- entry module, not a fast-refresh boundary
+const LegalPage = lazy(() => import('./screens/LegalPage.tsx').then((m) => ({ default: m.LegalPage })))
 
 initSentry()
 applyLiteFxClass()
@@ -30,7 +37,9 @@ const legalSlug = (() => {
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
         {legalSlug ? (
-            <LegalPage slug={legalSlug} />
+            <Suspense fallback={null}>
+                <LegalPage slug={legalSlug} />
+            </Suspense>
         ) : (
             <>
                 <ErrorBoundary>
