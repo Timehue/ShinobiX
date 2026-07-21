@@ -79,6 +79,7 @@ const MINI_CD = Math.round(WARFRONT_TPS * 1.2);
 const MINI_AGGRO = 4.5;   // a WIDE neutral aggro so passers-by get pulled into a camp fight
 const MINI_FIRST_SPAWN = WARFRONT_TPS * WF_PHASE_SKIRMISH;   // camps unlock with the Skirmish phase
 const MINI_RESPAWN = WARFRONT_TPS * 75;
+const RECRUIT_TICKS = WARFRONT_TPS * 50;   // a recruited camp boss fights for you ~50 s
 const MINI_BUFF_TICKS = WARFRONT_TPS * 25;
 const MINI_BUFF_ATK = 1.08;
 
@@ -133,6 +134,9 @@ const STANCE_CFG: Record<WfStance, StanceCfg> = {
 export const WF_COIN_TRICKLE = 4;             // per team per second
 export const WF_COIN_MOB = 25;
 export const WF_COIN_PET_KILL = 175;
+const SHUTDOWN_PER_STREAK = 40;   // extra coins per streak level on a fed enemy's head
+const SHUTDOWN_CAP = 6;
+const COMEBACK_MULT = 1.35;       // the team BEHIND on gates earns more per kill (rubber-band)
 export const WF_COIN_STATUE = 200;
 export const WF_COIN_MINI = 350;
 export const WF_COIN_WARDEN = 1200;           // "a ton"
@@ -291,7 +295,7 @@ interface WfPet {
     ultCd: number;   // internal cooldown after each cast — ults stay MOMENTS
     elemCd: number;  // element-signature cooldown (every pet's main-game element is a MOVE)
     slowLeft: number; rootLeft: number;   // crowd control from element signatures
-    assists: number; focusCd: number;
+    assists: number; focusCd: number; streak: number;   // kill streak → shutdown bounty
     hitLog: Array<{ id: string; t: number }>;   // recent damagers — assists + focus-fire
     stacks: Record<WfPowerupKind, number>; coinsEarned: number;
     xp: number; wlevel: number; ult: number; kills: number; dmgDealt: number;
@@ -308,7 +312,7 @@ export const WF_COIN_GUARD = 250;
 interface WfCore { x: number; y: number; hp: number; alive: boolean; sinceHit: number }
 interface WfMob { id: number; side: Team | "hollow"; elite: boolean; lane: WfLaneId; x: number; y: number; hp: number; maxHp: number; toward: Team; route: Array<[number, number]>; wpIdx: number; attackCd: number; chaseId: string | null }
 interface WfBoss { alive: boolean; dead: boolean; hp: number; x: number; y: number; faceX: number; swipeCd: number; slamIn: number; windUp: number; targetId: string | null; shockDone: boolean; calmTicks: number }
-interface WfMini { padIdx: number; alive: boolean; hp: number; spawnIn: number; x: number; y: number; homeX: number; homeY: number; faceX: number; attackCd: number; sigCd: number; sigWind: number; sigActive: number }
+interface WfMini { padIdx: number; alive: boolean; hp: number; spawnIn: number; x: number; y: number; homeX: number; homeY: number; faceX: number; attackCd: number; sigCd: number; sigWind: number; sigActive: number; ally: Team | null; allyLeft: number }
 
 // ── Snapshots + events (the renderer contract) ───────────────────────────────
 export interface WfActorSnap {
@@ -325,7 +329,7 @@ export interface WfSnapshot {
     guardians: Record<Team, Array<{ x: number; y: number; hp: number; maxHp: number; alive: boolean; faceX: number }>>;
     wardenBuff: { team: Team | null; secs: number };
     warden: { alive: boolean; dead: boolean; hp: number; maxHp: number; x: number; y: number; faceX: number; winding: boolean };
-    minis: Array<{ padIdx: number; alive: boolean; hp: number; maxHp: number; spawnSecs: number; x: number; y: number; faceX: number }>;
+    minis: Array<{ padIdx: number; alive: boolean; hp: number; maxHp: number; spawnSecs: number; x: number; y: number; faceX: number; ally: Team | null }>;
     structures: Record<Team, WfStructSnap>;
     coins: Record<Team, number>;
     atkBuff: Record<Team, number>;   // lesser-warden buff seconds remaining
@@ -335,6 +339,7 @@ export type WfEvent =
     | { t: number; type: "hit"; targetId: string; actorId: string; dmg: number; crit: boolean; element?: string | null }
     | { t: number; type: "heal"; targetId: string; actorId: string; amount: number }
     | { t: number; type: "kill"; targetId: string; actorId: string; team: Team }
+    | { t: number; type: "shutdown"; targetId: string; actorId: string; bounty: number; streak: number }
     | { t: number; type: "mobhit"; x: number; y: number; targetId: string }
     | { t: number; type: "mobstrike"; x: number; y: number; el: string }
     | { t: number; type: "ability"; petId: string; kind: "shield" | "dash" | "mark"; x: number; y: number; targetId?: string }
@@ -401,7 +406,7 @@ function makePet(slot: ArenaSlot, team: Team, i: number): WfPet {
         path: null, pathIdx: 0, navGoal: -1, stuckTicks: 0, lastX: sx, lastY: sy, wantD: 0,
         duelId: null, duelTicks: 0, duelFoeHp: 0, duelTruce: 0,
         huntPrey: null, huntX: 0, huntY: 0, huntTicks: 0, huntCd: 0,
-        elemCd: WARFRONT_TPS * 10, slowLeft: 0, rootLeft: 0, assists: 0, focusCd: 0, hitLog: [],
+        elemCd: WARFRONT_TPS * 10, slowLeft: 0, rootLeft: 0, assists: 0, focusCd: 0, streak: 0, hitLog: [],
         stacks: { strike: 0, guard: 0, vitality: 0, swift: 0, mend: 0 }, coinsEarned: 0,
         xp: 0, wlevel: 1, ult: 0, ultCd: 0, kills: 0, dmgDealt: 0,
         shieldHp: 0, markLeft: 0,
@@ -415,6 +420,7 @@ interface WfState {
     statues: Record<Team, [WfStatue, WfStatue]>;
     guardians: Record<Team, WfGuardian[]>;
     wardenBuff: { team: Team | null; left: number };
+    rally: Record<Team, number>;   // LAST STAND ticks while a team's Ward Seal is exposed
     cores: Record<Team, WfCore>;
     boss: WfBoss;
     minis: WfMini[];
@@ -455,13 +461,14 @@ function initState(blue: ArenaSlot[], red: ArenaSlot[], seed: number): WfState {
             red: WF_GUARD_POSTS.red.map(([gx, gy]) => ({ x: gx, y: gy, hp: GUARD_HP, maxHp: GUARD_HP, alive: true, attackCd: 0, faceX: -1, shotCount: 0 })),
         },
         wardenBuff: { team: null, left: 0 },
+        rally: { blue: 0, red: 0 },
         cores: {
             blue: { x: WF_CORE.blue[0], y: WF_CORE.blue[1], hp: CORE_HP, alive: true, sinceHit: 9999 },
             red: { x: WF_CORE.red[0], y: WF_CORE.red[1], hp: CORE_HP, alive: true, sinceHit: 9999 },
         },
         boss: { alive: true, dead: false, hp: WARDEN_HP, x: WF_LAIR.x, y: WF_LAIR.y, faceX: 1, swipeCd: 0, slamIn: WARDEN_SLAM_EVERY, windUp: 0, targetId: null, shockDone: false, calmTicks: 0 },
         minis: WF_PADS.map((pad, i) => ({
-            padIdx: i, alive: false, hp: MINI_HP, spawnIn: MINI_FIRST_SPAWN, x: pad[0], y: pad[1], homeX: pad[0], homeY: pad[1], faceX: i < 2 ? 1 : -1, attackCd: 0, sigCd: WARFRONT_TPS * 5, sigWind: 0, sigActive: 0,
+            padIdx: i, alive: false, hp: MINI_HP, spawnIn: MINI_FIRST_SPAWN, x: pad[0], y: pad[1], homeX: pad[0], homeY: pad[1], faceX: i < 2 ? 1 : -1, attackCd: 0, sigCd: WARFRONT_TPS * 5, sigWind: 0, sigActive: 0, ally: null, allyLeft: 0,
         })) as unknown as WfState["minis"],
         mobs: [], mobSeq: 0, mobTimer: WARFRONT_TPS * 10, mobFlip: false, waveTimer: WARFRONT_TPS * 8,
         coins: { blue: 150, red: 150 }, coinFrac: 0,
@@ -479,10 +486,18 @@ function initState(blue: ArenaSlot[], red: ArenaSlot[], seed: number): WfState {
 }
 
 // ── Damage ───────────────────────────────────────────────────────────────────
+// How many of a team's own Guardian Totems have fallen (0-2). A team is
+// BEHIND when more of ITS gates are down than the enemy's — the comeback
+// rubber-band pays that team extra so a lead is never a foregone conclusion.
+function gatesLost(st: WfState, team: Team): number {
+    return (st.statues[team][0].alive ? 0 : 1) + (st.statues[team][1].alive ? 0 : 1);
+}
+
 function petDamage(st: WfState, src: WfPet, tgt: WfPet, raw: number, crit: boolean) {
     let dmg = raw * (crit ? 1.8 : 1) * elementMult(src.element, tgt.element) * (tgt.markLeft > 0 ? 1.2 : 1);
     if (st.atkBuff[src.team] > 0) dmg *= MINI_BUFF_ATK;
     if (st.wardenBuff.team === src.team && st.wardenBuff.left > 0) dmg *= 1.15;   // Gate's Wrath
+    if (st.rally[src.team] > 0) dmg *= 1.2;   // LAST STAND — a Seal-exposed team hits back harder
     dmg *= 100 / (100 + tgt.def);
     // IRON TURTLE identity: a harder shell on home ground.
     if (st.stance[tgt.team] === "turtle" && (tgt.team === "blue" ? tgt.x < 0 : tgt.x > 0)) dmg *= 0.85;
@@ -506,10 +521,20 @@ function petDamage(st: WfState, src: WfPet, tgt: WfPet, raw: number, crit: boole
     if (tgt.hp <= 0 && tgt.state !== "respawning") {
         tgt.state = "respawning";
         tgt.respawnLeft = RESPAWN_BASE + Math.floor(st.t / (WARFRONT_TPS * 60)) * RESPAWN_PER_MIN;
-        st.coins[src.team] += WF_COIN_PET_KILL;
-        src.coinsEarned += WF_COIN_PET_KILL;
-        grantXp(st, src, 150);
+        // SHUTDOWN BOUNTY: a fed enemy (high streak) pays out big when killed,
+        // so the trailing team can cash in on the snowballing carry. COMEBACK
+        // RUBBER-BAND: the team behind on gates earns more per kill.
+        const shutdown = Math.min(tgt.streak, SHUTDOWN_CAP) * SHUTDOWN_PER_STREAK;
+        const behind = gatesLost(st, src.team) > gatesLost(st, other(src.team));
+        const cm = behind ? COMEBACK_MULT : 1;
+        const bounty = Math.round((WF_COIN_PET_KILL + shutdown) * cm);
+        st.coins[src.team] += bounty;
+        src.coinsEarned += bounty;
+        grantXp(st, src, Math.round(150 * cm));
         src.kills++;
+        src.streak++;
+        if (tgt.streak >= 3) st.events.push({ t: st.t, type: "shutdown", targetId: tgt.id, actorId: src.id, bounty, streak: tgt.streak });
+        tgt.streak = 0;
         // Assists: every teammate who drew blood in the last 5 s shares credit.
         for (const h of tgt.hitLog) {
             if (h.id === src.id || h.t < st.t - WARFRONT_TPS * 5) continue;
@@ -899,7 +924,7 @@ function petTick(st: WfState, p: WfPet) {
         p.respawnLeft--;
         if (p.respawnLeft <= 0) {
             const [sx, sy] = WF_SPAWNS[p.team][p.slot % 4];
-            p.x = sx; p.y = sy; p.hp = p.maxHp; p.state = "idle"; p.path = null; p.navGoal = -1; p.shieldHp = 0; p.markLeft = 0;
+            p.x = sx; p.y = sy; p.hp = p.maxHp; p.state = "idle"; p.path = null; p.navGoal = -1; p.shieldHp = 0; p.markLeft = 0; p.streak = 0;
         }
         return;
     }
@@ -1179,7 +1204,8 @@ function petTick(st: WfState, p: WfPet) {
                         }
                     }
                     if (m.hp <= 0 && m.alive) {
-                        m.alive = false; m.spawnIn = MINI_RESPAWN;
+                        // RECRUITED, not despawned — it fights for the slayer's team.
+                        m.alive = true; m.hp = MINI_HP; m.ally = p.team; m.allyLeft = RECRUIT_TICKS; m.attackCd = 0; m.sigWind = 0; m.sigActive = 0;
                         st.coins[p.team] += WF_COIN_MINI;
                         p.coinsEarned += WF_COIN_MINI;
                         grantXp(st, p, 180);
@@ -1277,7 +1303,7 @@ function petTick(st: WfState, p: WfPet) {
                         st.coins[p.team] += WF_COIN_STATUE;
                         p.coinsEarned += WF_COIN_STATUE;
                         st.events.push({ t: st.t, type: "statuedown", team: foe, statue: i, by: p.team });
-                        if (!st.statues[foe][0].alive && !st.statues[foe][1].alive) st.events.push({ t: st.t, type: "coreexposed", team: foe });
+                        if (!st.statues[foe][0].alive && !st.statues[foe][1].alive) { st.rally[foe] = WARFRONT_TPS * 45; st.events.push({ t: st.t, type: "coreexposed", team: foe }); }
                     }
                 }
                 return;
@@ -1564,6 +1590,16 @@ function bossTick(st: WfState) {
     }
 }
 
+// A recruited boss marches faster than it prowls — it's ON the offensive.
+function miniAllyStep(st: WfState, m: WfMini, tx: number, ty: number) {
+    const dx = tx - m.x, dy = ty - m.y, d = hyp2(dx, dy);
+    if (d < 0.05) return;
+    const step = Math.min(1.5 / WARFRONT_TPS, d);
+    const nx = m.x + (dx / d) * step, ny = m.y + (dy / d) * step;
+    const [cc, cr] = cellOf(nx, ny);
+    if (wfCellWalkable(cc, cr)) { m.x = nx; m.y = ny; m.faceX = dx >= 0 ? 1 : -1; }
+}
+
 function miniStrike(st: WfState, m: WfMini, q: WfPet, mult: number) {
     let dmg = Math.round(MINI_DMG * mult * (100 / (100 + q.def)));
     if (q.shieldHp > 0) { const soak = Math.min(q.shieldHp, dmg); q.shieldHp -= soak; dmg -= soak; }
@@ -1589,6 +1625,38 @@ function miniTick(st: WfState, m: WfMini) {
             const [hx2, hy2] = cellCenter(wc2, wr2);
             m.x = hx2; m.y = hy2; m.homeX = hx2; m.homeY = hy2;
             st.events.push({ t: st.t, type: "minispawn", padIdx: m.padIdx });
+        }
+        return;
+    }
+    // RECRUITED: a slain camp boss fights for its slayer's team — a roaming ally
+    // that hunts enemy pets and escorts the push, then leaves when its timer runs
+    // out. This is the comeback swing: invade the jungle, take the boss, flip a
+    // fight. (Deterministic; no structure damage — its value is winning fights.)
+    if (m.ally) {
+        m.allyLeft--;
+        if (m.allyLeft <= 0) { m.alive = false; m.ally = null; m.spawnIn = MINI_RESPAWN; return; }
+        m.hp = Math.min(MINI_HP, m.hp + 0.4);   // slow sustain so it lasts the tour
+        if (m.attackCd > 0) m.attackCd--;
+        const foeT = other(m.ally);
+        let tgt: WfPet | null = null, td = 10;
+        for (const q of st.pets) {
+            if (q.team !== foeT || q.state === "respawning") continue;
+            const d = hyp2(q.x - m.x, q.y - m.y);
+            if (d < td) { td = d; tgt = q; }
+        }
+        if (tgt) {
+            m.faceX = tgt.x >= m.x ? 1 : -1;
+            if (td <= 1.9) { if (m.attackCd <= 0) { m.attackCd = MINI_CD; miniStrike(st, m, tgt, 1.3); } }
+            else miniAllyStep(st, m, tgt.x, tgt.y);
+        } else {
+            // No enemy near → escort the ally team's most-forward pet.
+            let esc: WfPet | null = null, ed = Infinity;
+            for (const a of st.pets) {
+                if (a.team !== m.ally || a.state === "respawning") continue;
+                const dc = hyp2(a.x - st.cores[foeT].x, a.y - st.cores[foeT].y);
+                if (dc < ed) { ed = dc; esc = a; }
+            }
+            if (esc) miniAllyStep(st, m, esc.x, esc.y);
         }
         return;
     }
@@ -1854,7 +1922,7 @@ function mobsTick(st: WfState) {
                     if (s.hp <= 0) {
                         s.alive = false;
                         st.events.push({ t: st.t, type: "statuedown", team: m.toward, statue: i, by: other(m.toward) });
-                        if (!destStatues[0].alive && !destStatues[1].alive) st.events.push({ t: st.t, type: "coreexposed", team: m.toward });
+                        if (!destStatues[0].alive && !destStatues[1].alive) { st.rally[m.toward] = WARFRONT_TPS * 45; st.events.push({ t: st.t, type: "coreexposed", team: m.toward }); }
                     }
                 }
                 struckStructure = true;
@@ -1951,7 +2019,7 @@ function snapshot(st: WfState): WfSnapshot {
         })),
         mobs: st.mobs.map((m) => ({ id: m.id, side: m.side, elite: m.elite, x: quant(m.x), y: quant(m.y), hp: Math.round(m.hp), maxHp: Math.round(m.maxHp), toward: m.toward })),
         warden: { alive: st.boss.alive, dead: st.boss.dead, hp: Math.max(0, Math.round(st.boss.hp)), maxHp: WARDEN_HP, x: quant(st.boss.x), y: quant(st.boss.y), faceX: st.boss.faceX, winding: st.boss.windUp > 0 },
-        minis: st.minis.map((m) => ({ padIdx: m.padIdx, alive: m.alive, hp: Math.max(0, Math.round(m.hp)), maxHp: MINI_HP, spawnSecs: m.alive ? 0 : Math.ceil(m.spawnIn / WARFRONT_TPS), x: quant(m.x), y: quant(m.y), faceX: m.faceX })),
+        minis: st.minis.map((m) => ({ padIdx: m.padIdx, alive: m.alive, hp: Math.max(0, Math.round(m.hp)), maxHp: MINI_HP, spawnSecs: m.alive ? 0 : Math.ceil(m.spawnIn / WARFRONT_TPS), x: quant(m.x), y: quant(m.y), faceX: m.faceX, ally: m.ally })),
         structures: {
             blue: {
                 statues: st.statues.blue.map((s) => ({ x: s.x, y: s.y, hp: Math.max(0, Math.round(s.hp)), maxHp: STATUE_HP, alive: s.alive })),
@@ -1985,6 +2053,8 @@ function tick(st: WfState) {
     if (st.atkBuff.blue > 0) st.atkBuff.blue--;
     if (st.atkBuff.red > 0) st.atkBuff.red--;
     if (st.wardenBuff.left > 0) st.wardenBuff.left--;
+    if (st.rally.blue > 0) st.rally.blue--;
+    if (st.rally.red > 0) st.rally.red--;
     if (st.t === WARFRONT_TPS * WF_PHASE_SKIRMISH) st.events.push({ t: st.t, type: "phase", name: "SKIRMISH" });
     if (st.t === WARFRONT_TPS * WF_PHASE_WAR) st.events.push({ t: st.t, type: "phase", name: "WAR" });
     if (st.t === WARFRONT_TPS * WF_PHASE_SUDDEN) st.events.push({ t: st.t, type: "phase", name: "SUDDEN DEATH" });
@@ -2118,7 +2188,7 @@ function aiStance(st: WfState, team: Team): WfStance {
     const myPts = downed(foe), foePts = downed(team);
     let myK = 0, foeK = 0;
     for (const q of st.pets) { if (q.team === team) myK += q.kills; else foeK += q.kills; }
-    if (foePts > myPts) return "siege";        // behind on the win condition — race it
+    if (foePts > myPts) return st.minis.some((m) => m.alive && !m.ally) ? "jungle" : "siege";   // behind → invade the jungle to recruit a comeback boss, else race
     if (foeK - myK >= 3) return "turtle";      // bleeding kills — stop feeding
     if (myK - foeK >= 3) return "headhunt";    // winning fights — press the blade
     // Note the cycle passes through JUNGLE (vs a turtle you take the whole

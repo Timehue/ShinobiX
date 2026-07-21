@@ -1061,6 +1061,8 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
     const root = useRef<THREE.Group>(null);
     const hpWrap = useRef<HTMLDivElement>(null);
     const hpFill = useRef<HTMLDivElement>(null);
+    const allyRing = useRef<THREE.Mesh>(null);
+    const allyMat = useRef<THREE.MeshBasicMaterial>(null);
     // Each camp keeps a distinct LEGENDARY body with an element recolor:
     // Ancient Golem/Earth, Crystal Behemoth/Water, Void Stalker/Shadow, Rift Devourer/Fire.
     const CAMP_BOSS: ReadonlyArray<{ id: string; el: string }> = [
@@ -1095,7 +1097,9 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
         else { f.faceX = m.faceX; f.faceZ = 0.001; f.moveX = m.faceX; f.moveZ = 0.001; }
         f.desperate = m.alive && m.hp / Math.max(1, m.maxHp) < 0.4;
         if (hpWrap.current) hpWrap.current.style.opacity = m.alive ? "1" : "0";
-        if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, (m.hp / m.maxHp) * 100))}%`;
+        if (hpFill.current) { hpFill.current.style.width = `${Math.max(0, Math.min(100, (m.hp / m.maxHp) * 100))}%`; hpFill.current.style.background = m.ally ? TEAM_COLOR[m.ally] : "#c084fc"; }
+        // Recruited → a team-colored ground ring marks it as fighting for a side.
+        if (allyRing.current) { allyRing.current.visible = m.alive && !!m.ally; if (m.ally && allyMat.current) allyMat.current.color.set(TEAM_COLOR[m.ally]); }
     });
     if (!config) return null;
     return (
@@ -1118,6 +1122,10 @@ function WfMini({ result, clock, idx, name, glow }: { result: WarfrontResult; cl
                     </div>
                 </div>
             </Html>
+            <mesh ref={allyRing} visible={false} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]} renderOrder={-1}>
+                <ringGeometry args={[1.15, 1.6, 28]} />
+                <meshBasicMaterial ref={allyMat} transparent opacity={0.5} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </mesh>
         </group>
     );
 }
@@ -1744,8 +1752,14 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                     }
                     clockRef.current.slow = Math.max(clockRef.current.slow, 0.25);
                 } else if (e.type === "coreexposed") {
-                    pushBanner(`🔮 ${e.team === "blue" ? "BLUE" : "RED"} WARD SEAL EXPOSED!`, e.team === "blue" ? "#60a5fa" : "#f87171");
-                    pushFeed(`🔮 ${e.team === "blue" ? "Blue" : "Red"}'s Ward Seal lies bare`, "#fde047");
+                    pushBanner(`🛡 ${e.team === "blue" ? "BLUE" : "RED"} SEAL EXPOSED — LAST STAND!`, e.team === "blue" ? "#60a5fa" : "#f87171", true);
+                    pushFeed(`🛡 ${e.team === "blue" ? "Blue" : "Red"}'s Ward Seal lies bare — a desperate LAST STAND (they hit +20% for 45s)`, "#fde047");
+                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.22)" : "rgba(239,68,68,0.22)");
+                } else if (e.type === "shutdown") {
+                    pushBanner(`🎯 SHUTDOWN — ${nameOf(e.actorId)} cashes in! +${e.bounty}🪙`, "#fbbf24", true);
+                    pushFeed(`🎯 ${nameOf(e.actorId)} SHUTS DOWN ${nameOf(e.targetId)}'s ${e.streak}-streak for a ${e.bounty}🪙 bounty`, "#fbbf24");
+                    const av = actorPos(e.targetId);
+                    if (av) spawnFloater(av.x, av.y, `+${e.bounty}🪙`, "#fde047", true);
                 } else if (e.type === "coredown") {
                     const core = snap.structures[e.team].core;
                     pushBanner(`${e.by === "blue" ? "BLUE" : "RED"} SHATTERS THE WARD SEAL!`, e.by === "blue" ? "#60a5fa" : "#f87171", true);
@@ -1759,8 +1773,10 @@ function WfDirector({ result, clockRef, nameOf, pushFeed, pushBanner, triggerFla
                     pushFeed(`👹 The ${WF_MINI_NAMES[e.padIdx] ?? "Lesser Warden"} has awakened at its shrine`, "#d8b4fe");
                 } else if (e.type === "minikill") {
                     const boss = WF_MINI_NAMES[e.padIdx] ?? "Lesser Warden";
-                    pushBanner(`👹 ${boss.toUpperCase()} SLAIN`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
-                    pushFeed(`👹 ${e.team === "blue" ? "Blue" : "Red"} slays the ${boss} (+${350} 🪙 + its boon)`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    pushBanner(`🤝 ${boss.toUpperCase()} RECRUITED — fights for ${e.team === "blue" ? "BLUE" : "RED"}!`, e.team === "blue" ? "#93c5fd" : "#fca5a5", true);
+                    pushFeed(`🤝 ${e.team === "blue" ? "Blue" : "Red"} recruits the ${boss} to its side for the fight (+${350} 🪙 + boon)`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    const mm = snap.minis.find((z) => z.padIdx === e.padIdx);
+                    if (mm) { spawnFx(mm.x, mm.y, "power", null, 2.2, 520); cut(e.t, mm.x, mm.y, 13, 3, 2); }
                 } else if (e.type === "wardenwindup") {
                     spawnFx(e.x, e.y, "shadow", null, 2.2, 420);
                     shakeRef.current = Math.max(shakeRef.current, 0.4);
