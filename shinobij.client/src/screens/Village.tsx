@@ -57,10 +57,7 @@ export function Village({ character, setScreen }: { character: Character; setScr
                         <span className="stormveil-map-icon-frame">
                             <img className="stormveil-map-icon" src={facilityThumb(characterVillage, location.id)} alt="" draggable={false} />
                         </span>
-                        <span className="stormveil-map-copy">
-                            <span>{location.eyebrow}</span>
-                            <strong>{location.name}</strong>
-                        </span>
+                        <strong className="stormveil-map-label">{location.name}</strong>
                     </button>
                 ))}
             </div>
