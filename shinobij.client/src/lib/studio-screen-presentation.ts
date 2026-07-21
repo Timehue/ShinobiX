@@ -18,63 +18,47 @@ export type StudioScreenFamily =
 export type StudioScreenPresentation = {
   family: StudioScreenFamily;
   artwork: string;
-  eyebrow: string;
-  description: string;
   facility?: FacilityPresentation;
 };
 
 const archive = {
   family: "archive",
   artwork: archiveArmory,
-  eyebrow: "Shinobi records",
-  description: "Review your intelligence, equipment, progress, and standing.",
 } as const;
 
 const civic = {
   family: "civic",
   artwork: civicDistrict,
-  eyebrow: "Village services",
-  description: "Manage resources, recovery, trade, and local connections.",
 } as const;
 
 const clan = {
   family: "clan",
   artwork: FACILITY_PRESENTATION["clan-hall"].hero,
-  eyebrow: "Clan command",
-  description: "Coordinate your alliance, shared progress, and rewards.",
 } as const;
 
 const combat = {
   family: "combat",
   artwork: combatCitadel,
-  eyebrow: "Combat operations",
-  description: "Prepare your loadout, training, and next tactical engagement.",
 } as const;
 
 const companion = {
   family: "companion",
   artwork: companionSanctuary,
-  eyebrow: "Companion command",
-  description: "Develop your roster, mastery, and battle readiness.",
 } as const;
 
 const frontier = {
   family: "frontier",
   artwork: frontierOutpost,
-  eyebrow: "Frontier operations",
-  description: "Assess the field, active threats, and expedition objectives.",
 } as const;
 
 const town = {
   family: "town",
   artwork: FACILITY_PRESENTATION["town-hall"].hero,
-  eyebrow: "Village command",
-  description: "Direct village growth, defenses, and shared resources.",
 } as const;
 
 function atFacility(base: StudioScreenPresentation, facilityId: FacilityId): StudioScreenPresentation {
   const facility = FACILITY_PRESENTATION[facilityId];
-  return { ...base, artwork: facility.hero, eyebrow: facility.eyebrow, facility };
+  return { ...base, artwork: facility.hero, facility };
 }
 
 export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation> = {
